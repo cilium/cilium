@@ -180,7 +180,7 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target);
+	ret = snat_v4_rev_nat(ctx, &target, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -288,7 +288,7 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target);
+	ret = snat_v4_rev_nat(ctx, &target, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -395,7 +395,7 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target);
+	ret = snat_v4_rev_nat(ctx, &target, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -491,7 +491,7 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target);
+	ret = snat_v4_rev_nat(ctx, &target, NULL);
 	assert(ret == 0);
 
 	/* nothing really change with udp/tcp */

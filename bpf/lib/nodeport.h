@@ -99,7 +99,8 @@ static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple
 }
 
 static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
-						  const union v6addr *addr)
+						  const union v6addr *addr,
+						  __s8 *ext_err)
 {
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -110,7 +111,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	ipv6_addr_copy(&target.addr, addr);
 
 	ret = snat_v6_needed(ctx, addr) ?
-	      snat_v6_nat(ctx, &target) : CTX_ACT_OK;
+	      snat_v6_nat(ctx, &target, ext_err) : CTX_ACT_OK;
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 	return ret;
@@ -626,6 +627,7 @@ int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
 	bool dsr = false;
 	int ret, l4_off;
 	__be16 port = 0;
+	__s8 ext_err = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -659,7 +661,7 @@ create_ct:
 		ct_state_new.dsr = 1;
 		ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 		ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false, false, NULL);
+				 CT_EGRESS, &ct_state_new, false, false, &ext_err);
 		if (!IS_ERR(ret))
 			ret = snat_v6_create_dsr(&tuple, &addr, port);
 
@@ -683,7 +685,7 @@ create_ct:
 	ret = DROP_MISSED_TAIL_CALL;
 
 drop_err:
-	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
 }
 #endif /* ENABLE_DSR */
 
@@ -764,7 +766,8 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	};
 	int ret;
 
-	ret = snat_v6_rev_nat(ctx, &target);
+	/* ext_err is NULL because errors don't survive the tailcall anyway. */
+	ret = snat_v6_rev_nat(ctx, &target, NULL);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
 		 * expensive in terms of instructions (since we don't have BPF to
@@ -844,7 +847,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		verdict = ret;
 	}
 #endif
-	ret = snat_v6_nat(ctx, &target);
+	ret = snat_v6_nat(ctx, &target, &ext_err);
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
@@ -893,7 +896,8 @@ drop_err:
 
 /* See nodeport_lb4(). */
 static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
-					__u32 src_identity)
+					__u32 src_identity,
+					__s8 *ext_err)
 {
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple = {};
@@ -944,7 +948,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 #endif
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
 				&key, &tuple, svc, &ct_state_new,
-				skip_l3_xlate);
+				skip_l3_xlate, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -1013,7 +1017,7 @@ redo:
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false, false, NULL);
+					 CT_EGRESS, &ct_state_new, false, false, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 			break;
@@ -1242,10 +1246,10 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	};
 	__u32 src_id = 0;
 
-	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace);
+	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
-					      METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 	/* We don't want to enforce host policies a second time if we jump back to
 	 * bpf_host's handle_ipv6.
 	 */
@@ -1269,6 +1273,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	enum trace_point obs_point;
 	int ret;
+	__s8 ext_err = 0;
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	union v6addr addr = { .p1 = 0 };
 
@@ -1280,9 +1285,10 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv6(ctx, &addr);
+	ret = nodeport_snat_fwd_ipv6(ctx, &addr, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, TRACE_REASON_UNKNOWN, 0);
 
@@ -1354,7 +1360,8 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 }
 
 static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
-						  __u32 cluster_id __maybe_unused)
+						  __u32 cluster_id __maybe_unused,
+						  __s8 *ext_err)
 {
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -1370,7 +1377,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 	snat_needed = snat_v4_prepare_state(ctx, &target);
 	if (snat_needed)
-		ret = snat_v4_nat(ctx, &target);
+		ret = snat_v4_nat(ctx, &target, ext_err);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -1861,6 +1868,7 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 	int ret, l4_off;
 	__be32 addr = 0;
 	__be16 port = 0;
+	__s8 ext_err = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -1906,7 +1914,7 @@ create_ct:
 		ct_state_new.dsr = 1;
 		ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 		ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false, false, NULL);
+				 CT_EGRESS, &ct_state_new, false, false, &ext_err);
 		if (!IS_ERR(ret))
 			ret = snat_v4_create_dsr(&tuple, addr, port);
 
@@ -1940,7 +1948,7 @@ create_ct:
 	ret = DROP_MISSED_TAIL_CALL;
 
 drop_err:
-	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
 }
 #endif /* ENABLE_DSR */
 
@@ -1960,7 +1968,8 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	};
 	int ret;
 
-	ret = snat_v4_rev_nat(ctx, &target);
+	/* ext_err is NULL because errors don't survive the tailcall anyway. */
+	ret = snat_v4_rev_nat(ctx, &target, NULL);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
 		 * expensive in terms of instructions (since we don't have BPF to
@@ -2050,7 +2059,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		verdict = ret;
 	}
 #endif
-	ret = snat_v4_nat(ctx, &target);
+	ret = snat_v4_nat(ctx, &target, &ext_err);
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
@@ -2085,7 +2094,8 @@ drop_err:
  * iii) reply from remote backend EP.
  */
 static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
-					__u32 src_identity)
+					__u32 src_identity,
+					__s8 *ext_err)
 {
 	bool backend_local, l4_ports, has_l4_header;
 	struct ipv4_ct_tuple tuple = {};
@@ -2147,7 +2157,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		} else {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&key, &tuple, svc, &ct_state_new,
-					has_l4_header, skip_l3_xlate, &cluster_id);
+					has_l4_header, skip_l3_xlate, &cluster_id,
+					ext_err);
 		}
 		if (IS_ERR(ret))
 			return ret;
@@ -2251,7 +2262,7 @@ redo:
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, false, false, NULL);
+					 CT_EGRESS, &ct_state_new, false, false, ext_err);
 			if (IS_ERR(ret))
 				return ret;
 			break;
@@ -2464,10 +2475,10 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	};
 	__u32 src_id = 0;
 
-	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace);
+	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
-					      METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 	/* We don't want to enforce host policies a second time if we jump back to
 	 * bpf_host's handle_ipv6.
 	 */
@@ -2491,6 +2502,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	enum trace_point obs_point;
 	int ret;
+	__s8 ext_err = 0;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
@@ -2500,9 +2512,10 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id);
+	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, TRACE_REASON_UNKNOWN, 0);
 

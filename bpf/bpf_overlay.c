@@ -45,7 +45,8 @@
 
 #ifdef ENABLE_IPV6
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
-				       __u32 *identity)
+				       __u32 *identity,
+				       __s8 *ext_err __maybe_unused)
 {
 	int ret, l3_off = ETH_HLEN, hdrlen;
 	struct remote_endpoint_info *info;
@@ -60,7 +61,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb6(ctx, *identity);
+		ret = nodeport_lb6(ctx, *identity, ext_err);
 		if (ret < 0)
 			return ret;
 	}
@@ -179,11 +180,12 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_OVERLAY)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_identity = 0;
-	int ret = handle_ipv6(ctx, &src_identity);
+	__s8 ext_err = 0;
+	int ret = handle_ipv6(ctx, &src_identity, &ext_err);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_identity, ret,
-					      CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_identity, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
@@ -211,7 +213,9 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iph
 }
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx, __u32 *src_identity)
+static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
+							__u32 *src_identity,
+							__s8 *ext_err)
 {
 	int ret;
 	struct iphdr *ip4;
@@ -231,7 +235,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx, 
 
 	*src_identity = identity;
 
-	ret = snat_v4_rev_nat(ctx, &target);
+	ret = snat_v4_rev_nat(ctx, &target, ext_err);
 	if (ret != NAT_PUNT_TO_STACK && ret != DROP_NAT_NO_MAPPING) {
 		if (IS_ERR(ret))
 			return ret;
@@ -272,16 +276,19 @@ int tail_handle_inter_cluster_revsnat(struct __ctx_buff *ctx)
 {
 	int ret;
 	__u32 src_identity;
+	__s8 ext_err = 0;
 
-	ret = handle_inter_cluster_revsnat(ctx, &src_identity);
+	ret = handle_inter_cluster_revsnat(ctx, &src_identity, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_identity, ret,
-					      CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_identity, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 #endif
 
-static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
+static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
+				       __u32 *identity,
+				       __s8 *ext_err __maybe_unused)
 {
 	struct remote_endpoint_info *info;
 	void *data_end, *data;
@@ -305,7 +312,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		int ret = nodeport_lb4(ctx, *identity);
+		int ret = nodeport_lb4(ctx, *identity, ext_err);
 
 		if (ret < 0)
 			return ret;
@@ -431,11 +438,12 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_OVERLAY)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 src_identity = 0;
-	int ret = handle_ipv4(ctx, &src_identity);
+	__s8 ext_err = 0;
+	int ret = handle_ipv4(ctx, &src_identity, &ext_err);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_identity, ret,
-					      CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_identity, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 
