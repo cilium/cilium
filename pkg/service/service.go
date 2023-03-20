@@ -84,9 +84,10 @@ type envoyCache interface {
 }
 
 type svcInfo struct {
-	hash          string
-	frontend      lb.L3n4AddrID
-	backends      []*lb.Backend
+	hash     string
+	frontend lb.L3n4AddrID
+	backends []*lb.Backend
+	// Hashed `backends`; pointing to the same objects.
 	backendByHash map[string]*lb.Backend
 
 	svcType                   lb.SVCType
@@ -239,7 +240,9 @@ type Service struct {
 	svcByID   map[lb.ID]*svcInfo
 
 	backendRefCount counter.StringCounter
-	backendByHash   map[string]*lb.Backend
+	// only used to keep track of the existing hash->ID mapping,
+	// not for loadbalancing decisions.
+	backendByHash map[string]*lb.Backend
 
 	healthServer  healthServer
 	monitorNotify monitorNotify
@@ -1642,7 +1645,6 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 			} else {
 				backends[i].ID = s.backendByHash[hash].ID
 			}
-			svc.backendByHash[hash] = backends[i]
 		} else {
 			backends[i].ID = b.ID
 			// Backend state can either be updated via kubernetes events,
@@ -1672,6 +1674,7 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 				backends[i].State = b.State
 			}
 		}
+		svc.backendByHash[hash] = backends[i]
 	}
 
 	for hash, backend := range svc.backendByHash {
