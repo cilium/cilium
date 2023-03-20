@@ -76,6 +76,7 @@ func PodToPodWithEndpoints(opts ...Option) check.Scenario {
 		sourceLabels:      options.sourceLabels,
 		destinationLabels: options.destinationLabels,
 		method:            options.method,
+		path:              options.path,
 	}
 }
 
@@ -84,6 +85,7 @@ type podToPodWithEndpoints struct {
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
 	method            string
+	path              string
 }
 
 func (s *podToPodWithEndpoints) Name() string {
@@ -123,7 +125,12 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 	}
 
 	// Manually construct an HTTP endpoint for each API endpoint.
-	for _, path := range []string{"public", "private"} {
+	paths := []string{"public", "private"}
+	if s.path != "" { // Override default paths if one is set
+		paths = []string{s.path}
+	}
+
+	for _, path := range paths {
 		epName := fmt.Sprintf("%s-%s", name, path)
 		url := fmt.Sprintf("%s/%s", baseURL, path)
 		ep := check.HTTPEndpointWithLabels(epName, url, echo.Labels())
