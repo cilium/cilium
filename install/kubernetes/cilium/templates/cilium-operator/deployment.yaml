@@ -239,6 +239,7 @@ spec:
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
