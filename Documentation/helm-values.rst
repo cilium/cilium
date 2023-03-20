@@ -56,6 +56,18 @@
      - SPIRE socket path where the SPIRE delegated api agent is listening
      - string
      - ``"/run/spire/sockets/admin.sock"``
+   * - auth.mTLS.spireAgentSocketPath
+     - SPIRE agent socket path where the SPIRE agent is listening
+     - string
+     - ``"/run/spire/sockets/agent/agent.sock"``
+   * - auth.mTLS.spireServerAddress
+     - SPIRE server endpoint This endpoint will be automatically injected later once embedded SPIRE installation is done.
+     - string
+     - ``"spire-server.spire.svc.cluster.local:8081"``
+   * - auth.mTLS.spireServerConnectionTimeout
+     - SPIRE server connection timeout
+     - string
+     - ``"10s"``
    * - autoDirectNodeRoutes
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool

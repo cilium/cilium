@@ -2641,6 +2641,13 @@ auth:
   mTLS:
     # -- Enable mtls-spiffe authentication method in CiliumNetworkPolicy
     enabled: false
+    # -- SPIRE server endpoint
+    # This endpoint will be automatically injected later once embedded SPIRE installation is done.
+    spireServerAddress: spire-server.spire.svc.cluster.local:8081
+    # -- SPIRE server connection timeout
+    spireServerConnectionTimeout: 10s
+    # -- SPIRE agent socket path where the SPIRE agent is listening
+    spireAgentSocketPath: /run/spire/sockets/agent/agent.sock
     # -- SPIRE socket path where the SPIRE delegated api agent is listening
     spireAdminSocketPath: /run/spire/sockets/admin.sock
     # -- SPIFFE trust domain to use for fetching certificates
