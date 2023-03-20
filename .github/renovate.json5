@@ -227,6 +227,8 @@
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_version=\"(?<currentValue>.*)\"",
         // The digestVersion in this regex is required for Renovate to be able
         // to match the digest to the pinned version. It will not work without it.
+        // Note that for GitHub release artifact digests, you likely want to use
+        // github-release-attachments as the datasource here.
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) digestVersion=(?<currentValue>.*)\\s+.+_sha256.*=\"(?<currentDigest>.*)\""
       ]
     },
