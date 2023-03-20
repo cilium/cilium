@@ -1506,6 +1506,71 @@ func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 1)
 }
 
+func (m *ManagerTestSuite) TestUpdateBackendsStateWithBackendSharedAcrossServices(c *C) {
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	be := append(backends1, backends4...)
+	backends := make([]*lb.Backend, 0, len(be))
+	for _, b := range be {
+		backends = append(backends, b.DeepCopy())
+	}
+	backends[0].State = lb.BackendStateActive
+	backends[1].State = lb.BackendStateActive
+	backends[2].State = lb.BackendStateMaintenance
+	hash0 := backends[0].L3n4Addr.Hash()
+	hash1 := backends[1].L3n4Addr.Hash()
+	hash2 := backends[2].L3n4Addr.Hash()
+
+	p := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends,
+		Type:                      lb.SVCTypeNodePort,
+		ExtTrafficPolicy:          lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:          lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 100,
+		Name: lb.ServiceName{
+			Name:      "svc1",
+			Namespace: "ns1",
+		},
+	}
+	r := &lb.SVC{
+		Frontend:                  frontend2,
+		Backends:                  backends,
+		Type:                      lb.SVCTypeNodePort,
+		ExtTrafficPolicy:          lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:          lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 100,
+		Name: lb.ServiceName{
+			Name:      "svc2",
+			Namespace: "ns1",
+		},
+	}
+	svcHash2 := r.Frontend.Hash()
+
+	_, _, err := m.svc.UpsertService(p)
+	c.Assert(err, IsNil)
+	_, _, err = m.svc.UpsertService(r)
+	c.Assert(err, IsNil)
+	_, id1, err := m.svc.UpsertService(r)
+
+	// Assert expected backend states after consecutive upsert service calls that share the backends.
+	c.Assert(err, IsNil)
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 3)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
+	c.Assert(m.svc.backendByHash[hash0].State, Equals, lb.BackendStateActive)
+	c.Assert(m.svc.backendByHash[hash1].State, Equals, lb.BackendStateActive)
+	c.Assert(m.svc.backendByHash[hash2].State, Equals, lb.BackendStateMaintenance)
+
+	backends[1].State = lb.BackendStateMaintenance
+	err = m.svc.UpdateBackendsState(backends)
+
+	c.Assert(err, IsNil)
+	c.Assert(m.svc.backendByHash[hash1].State, Equals, lb.BackendStateMaintenance)
+	c.Assert(m.svc.svcByHash[svcHash2].backends[1].State, Equals, lb.BackendStateMaintenance)
+	c.Assert(m.svc.svcByHash[svcHash2].backendByHash[hash1].State, Equals, lb.BackendStateMaintenance)
+}
+
 func Test_filterServiceBackends(t *testing.T) {
 	t.Run("filter by port number", func(t *testing.T) {
 		svc := &svcInfo{
