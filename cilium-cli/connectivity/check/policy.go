@@ -182,6 +182,14 @@ var (
 		ExitCode:       ExitCurlHTTPError,
 	}
 
+	// ResultCurlHTTPError expects a failed command, but no dropped flow or DNS proxy.
+	ResultCurlHTTPError = Result{
+		L7Proxy:        true,
+		Drop:           false,
+		DropReasonFunc: defaultDropReason,
+		ExitCode:       ExitCurlHTTPError,
+	}
+
 	// ResultDrop expects a dropped flow and a failed command.
 	ResultDrop = Result{
 		Drop:           true,
