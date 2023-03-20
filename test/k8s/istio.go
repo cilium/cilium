@@ -19,7 +19,9 @@ import (
 // Documentation/gettingstarted/istio.rst.
 // The 5.4 CI job is intended to catch BPF complexity regressions and as such
 // doesn't need to execute this test suite.
-var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentIstioTest", func() {
+// QUARANTINED: The test is consistently failing since on Kernel 4.19 pipelines
+// for K8s 1.17 - 1.24 with the following issue: https://github.com/cilium/cilium/issues/24475
+var _ = SkipDescribeIf(func() bool { return helpers.RunsOn54Kernel() || helpers.SkipQuarantined() }, "K8sAgentIstioTest", func() {
 
 	var (
 		// istioSystemNamespace is the default namespace into which Istio is
