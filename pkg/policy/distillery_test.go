@@ -1379,6 +1379,60 @@ var (
 			mapKeyL4Port8080ProtoSCTPWorldIPEgress: struct{}{},
 		},
 	}
+
+	allIPv4         = api.CIDR("0.0.0.0/0")
+	allIPv4Identity = identity.NumericIdentity(16330)
+	lblAllIPv4      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, allIPv4))
+	one3Z8          = api.CIDR("1.0.0.0/8")
+	one3Z8Identity  = identity.NumericIdentity(16331)
+	lblOne3Z8       = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one3Z8))
+	one0Z32         = api.CIDR("1.1.1.1/32")
+	one0Z32Identity = identity.NumericIdentity(16332)
+	lblOne0Z32      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one0Z32))
+
+	ruleAllowEgressDenyCIDRSet = api.NewRule().WithEgressRules([]api.EgressRule{{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDR: api.CIDRSlice{allIPv4},
+		},
+	}}).WithEgressDenyRules([]api.EgressDenyRule{{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDRSet: api.CIDRRuleSlice{
+				api.CIDRRule{
+					Cidr:        one3Z8,
+					ExceptCIDRs: []api.CIDR{one0Z32},
+				},
+			},
+		},
+	}}).WithEndpointSelector(api.WildcardEndpointSelector)
+	// these are the cidrs that will be computed from
+	// the above cidrset
+	computedCIDRS = []string{
+		"1.128.0.0/9",
+		"1.64.0.0/10",
+		"1.32.0.0/11",
+		"1.16.0.0/12",
+		"1.8.0.0/13",
+		"1.4.0.0/14",
+		"1.2.0.0/15",
+		"1.0.0.0/16",
+		"1.1.128.0/17",
+		"1.1.64.0/18",
+		"1.1.32.0/19",
+		"1.1.16.0/20",
+		"1.1.8.0/21",
+		"1.1.4.0/22",
+		"1.1.2.0/23",
+		"1.1.0.0/24",
+		"1.1.1.128/25",
+		"1.1.1.64/26",
+		"1.1.1.32/27",
+		"1.1.1.16/28",
+		"1.1.1.8/29",
+		"1.1.1.4/30",
+		"1.1.1.2/31",
+		"1.1.1.0/32",
+	}
+	startingIdentity = 16340
 )
 
 func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
@@ -1390,11 +1444,30 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 
 	identityCache := cache.IdentityCache{
-		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
-		worldIPIdentity:                       lblWorldIP,                  // "192.0.2.3/32"
-		worldSubnetIdentity:                   lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
+		identity.NumericIdentity(identityFoo): labelsFoo,                      // 100 (0x64): ["foo","red"]
+		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(), // 2 (0x2): ["reserved:world"]
+		worldIPIdentity:                       lblWorldIP,                     // 16324 (0x3fc4): ["192.0.2.3/32"]
+		worldSubnetIdentity:                   lblWorldSubnet.LabelArray(),    // 16325 (0x3fc5): ["192.0.2.0/24"]
+		allIPv4Identity:                       lblAllIPv4,                     // 16330 (0x3fca): ["0.0.0.0/0"]
+		one3Z8Identity:                        lblOne3Z8,                      // 16331 (0x3fcb): ["1.0.0.0/8"]
+		one0Z32Identity:                       lblOne0Z32,                     // 16332 (0x3fcc): ["1.1.1.1/32"]
 	}
+	computedMapStateForAllowCeption := MapState{}
+	// populate the identityCache with the computed CIDRs for the allow-ception test
+	for i, cidr := range computedCIDRS {
+		identityCache[identity.NumericIdentity(startingIdentity+i)] = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, cidr))
+		computedMapStateForAllowCeption[Key{
+			Identity:         uint32(startingIdentity + i),
+			TrafficDirection: 1,
+		}] = mapEntryDeny
+
+	}
+	computedMapStateForAllowCeption[Key{
+		Identity:         allIPv4Identity.Uint32(),
+		TrafficDirection: 1,
+	}] = mapEntryAllow
+	computedMapStateForAllowCeption[mapKeyL3SubnetEgress] = mapEntryAllow
+
 	selectorCache := testNewSelectorCache(identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
@@ -1432,9 +1505,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3L4Port8080ProtoUDPWorldSNEgress:   mapEntryDeny,
 			mapKeyL3L4Port8080ProtoSCTPWorldSNIngress: mapEntryDeny,
 			mapKeyL3L4Port8080ProtoSCTPWorldSNEgress:  mapEntryDeny,
-		}},
-		{"broad_allow_is_a_portproto_subset_of_a_specific_deny", api.Rules{ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, MapState{
-
+		}}, {"broad_allow_is_a_portproto_subset_of_a_specific_deny", api.Rules{ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, MapState{
 			mapKeyL3L4Port8080ProtoTCPWorldSNIngress:  mapEntryAllow,
 			mapKeyL3L4Port8080ProtoTCPWorldSNEgress:   mapEntryAllow,
 			mapKeyL3L4Port8080ProtoUDPWorldSNIngress:  mapEntryAllow,
@@ -1450,7 +1521,8 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL4Port8080ProtoUDPWorldIPEgress:   mapEntryDeny,
 			mapKeyL4Port8080ProtoSCTPWorldIPIngress: mapEntryDeny,
 			mapKeyL4Port8080ProtoSCTPWorldIPEgress:  mapEntryDeny,
-		}},
+		}}, {"broad_allow_less_broad_deny_lesser_allow_(allow-ception)", api.Rules{ruleAllowEgressDenyCIDRSet},
+			computedMapStateForAllowCeption},
 	}
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
