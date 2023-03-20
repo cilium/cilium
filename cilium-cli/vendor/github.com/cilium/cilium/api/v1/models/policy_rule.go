@@ -27,6 +27,9 @@ type PolicyRule struct {
 
 	// The policy rule as json
 	Rule string `json:"rule,omitempty"`
+
+	// The policy rule labels identifying the policy rules this rule derives from, mapped by selector
+	RulesBySelector map[string][][]string `json:"rules-by-selector,omitempty"`
 }
 
 // Validate validates this policy rule

@@ -537,6 +537,18 @@ const (
 	// CNIChainingMode configures which CNI plugin Cilium is chained with.
 	CNIChainingMode = "cni-chaining-mode"
 
+	// AuthMapEntriesMin defines the minimum auth map limit.
+	AuthMapEntriesMin = 1 << 8
+
+	// AuthMapEntriesMax defines the maximum auth map limit.
+	AuthMapEntriesMax = 1 << 24
+
+	// AuthMapEntriesDefault defines the default auth map limit.
+	AuthMapEntriesDefault = 1 << 19
+
+	// AuthMapEntriesName configures max entries for BPF auth map.
+	AuthMapEntriesName = "bpf-auth-map-max"
+
 	// CTMapEntriesGlobalTCPDefault is the default maximum number of entries
 	// in the TCP CT table.
 	CTMapEntriesGlobalTCPDefault = 2 << 18 // 512Ki
@@ -981,7 +993,7 @@ const (
 	// EndpointStatusPolicy enables CiliumEndpoint.Status.Policy
 	EndpointStatusPolicy = "policy"
 
-	// EndpointStatusHealth enables CilliumEndpoint.Status.Health
+	// EndpointStatusHealth enables CiliumEndpoint.Status.Health
 	EndpointStatusHealth = "health"
 
 	// EndpointStatusControllers enables CiliumEndpoint.Status.Controllers
@@ -1470,6 +1482,9 @@ type DaemonConfig struct {
 	// allowed in the BPF neigh table
 	NeighMapEntriesGlobal int
 
+	// AuthMapEntries is the maximum number of entries in the auth map.
+	AuthMapEntries int
+
 	// PolicyMapEntries is the maximum number of peer identities that an
 	// endpoint may allow traffic to exchange traffic with.
 	PolicyMapEntries int
@@ -1621,7 +1636,13 @@ type DaemonConfig struct {
 
 	// NodeEncryptionOptOutLabels contains the label selectors for nodes opting out of
 	// node-to-node encryption
-	NodeEncryptionOptOutLabels k8sLabels.Selector
+	// This field ignored when marshalling to JSON in DaemonConfig.StoreInFile,
+	// because a k8sLabels.Selector cannot be unmarshalled from JSON. The
+	// string is stored in NodeEncryptionOptOutLabelsString instead.
+	NodeEncryptionOptOutLabels k8sLabels.Selector `json:"-"`
+	// NodeEncryptionOptOutLabelsString is the string is used to construct
+	// the label selector in the above field.
+	NodeEncryptionOptOutLabelsString string
 
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
@@ -3235,7 +3256,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		parseBPFMapEventConfigs(c.bpfMapEventConfigs, m)
 	}
 
-	if sel, err := k8sLabels.Parse(vp.GetString(NodeEncryptionOptOutLabels)); err != nil {
+	c.NodeEncryptionOptOutLabelsString = vp.GetString(NodeEncryptionOptOutLabels)
+	if sel, err := k8sLabels.Parse(c.NodeEncryptionOptOutLabelsString); err != nil {
 		log.Fatalf("unable to parse label selector %s: %s", NodeEncryptionOptOutLabels, err)
 	} else {
 		c.NodeEncryptionOptOutLabels = sel
@@ -3475,6 +3497,13 @@ func (c *DaemonConfig) populateNodePortRange(vp *viper.Viper) error {
 }
 
 func (c *DaemonConfig) checkMapSizeLimits() error {
+	if c.AuthMapEntries < AuthMapEntriesMin {
+		return fmt.Errorf("specified AuthMap max entries %d must exceed minimum %d", c.AuthMapEntries, AuthMapEntriesMin)
+	}
+	if c.AuthMapEntries > AuthMapEntriesMax {
+		return fmt.Errorf("specified AuthMap max entries %d must not exceed maximum %d", c.AuthMapEntries, AuthMapEntriesMax)
+	}
+
 	if c.CTMapEntriesGlobalTCP < LimitTableMin || c.CTMapEntriesGlobalAny < LimitTableMin {
 		return fmt.Errorf("specified CT tables values %d/%d must exceed minimum %d",
 			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, LimitTableMin)
@@ -3600,6 +3629,7 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	// BPF map size options
 	// Any map size explicitly set via option will override the dynamic
 	// sizing.
+	c.AuthMapEntries = vp.GetInt(AuthMapEntriesName)
 	c.CTMapEntriesGlobalTCP = vp.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = vp.GetInt(CTMapEntriesGlobalAnyName)
 	c.NATMapEntriesGlobal = vp.GetInt(NATMapEntriesGlobalName)
