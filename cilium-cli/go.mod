@@ -12,7 +12,7 @@ replace (
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/charts v0.0.0-20230317115736-698d4fe8918c
-	github.com/cilium/cilium v1.14.0-snapshot.0.0.20230314084352-a8dde6ccd651
+	github.com/cilium/cilium v1.14.0-snapshot.0.0.20230320204036-914de5793c1b
 	github.com/cilium/hubble v0.11.1
 	github.com/cilium/proxy v0.0.0-20230224085913-505865fff55a
 	github.com/cilium/workerpool v1.2.0
@@ -23,7 +23,7 @@ require (
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.6-0.20200504143853-81378bbcd8a1
-	golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0
+	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0
 	golang.org/x/mod v0.9.0
 	google.golang.org/grpc v1.53.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -241,7 +241,7 @@ require (
 	golang.org/x/tools v0.7.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4 // indirect
-	google.golang.org/protobuf v1.29.0 // indirect
+	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.28 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
