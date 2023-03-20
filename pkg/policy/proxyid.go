@@ -18,7 +18,7 @@ func ProxyID(endpointID uint16, ingress bool, protocol string, port uint16) stri
 	if ingress {
 		direction = "ingress"
 	}
-	return fmt.Sprintf("%d:%s:%s:%d", endpointID, direction, protocol, port)
+	return strconv.FormatUint(uint64(endpointID), 10) + ":" + direction + ":" + protocol + ":" + strconv.FormatUint(uint64(port), 10)
 }
 
 // ProxyIDFromKey returns a unique string to identify a proxy mapping.
