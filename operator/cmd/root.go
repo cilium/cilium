@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	"github.com/cilium/cilium/operator/api"
+	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/identitygc"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -112,7 +113,7 @@ var (
 			client.RegisterCRDsCell,
 			k8s.SharedResourcesCell,
 			lbipam.Cell,
-
+			auth.Cell,
 			legacyCell,
 
 			// When running in kvstore mode, the start hook of the identity GC
