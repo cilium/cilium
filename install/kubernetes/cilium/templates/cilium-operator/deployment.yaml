@@ -208,6 +208,11 @@ spec:
           mountPath: {{ .Values.kubeConfigPath }}
           readOnly: true
         {{- end }}
+        {{- if .Values.auth.mTLS.enabled }}
+        - name: spire-agent-socket
+          mountPath: {{ dir .Values.auth.mTLS.spireAgentSocketPath }}
+          readOnly: true
+        {{- end }}
         {{- range .Values.operator.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -315,6 +320,12 @@ spec:
       - name: bgp-config-path
         configMap:
           name: bgp-config
+      {{- end }}
+      {{- if .Values.auth.mTLS.enabled }}
+      - name: spire-agent-socket
+        hostPath:
+          path: {{ dir .Values.auth.mTLS.spireAgentSocketPath }}
+          type: DirectoryOrCreate
       {{- end }}
       {{- with .Values.operator.extraVolumes }}
       {{- toYaml . | nindent 6 }}

@@ -961,6 +961,10 @@ sourceContext
 spiffe
 spiffeTrustDomain
 spireAdminSocketPath
+spireAgentSocketPath
+spireServerAddress
+spireServerConnectionTimeout
+spireServerSocketPath
 src
 srv
 ssl
