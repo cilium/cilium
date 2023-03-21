@@ -301,8 +301,8 @@ struct {
 static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id,
 						__s8 *ext_err)
 {
-	struct ct_state ct_state_on_stack __maybe_unused, *ct_state, ct_state_new = {};
-	struct ipv6_ct_tuple tuple_on_stack __maybe_unused, *tuple;
+	struct ct_state *ct_state, ct_state_new = {};
+	struct ipv6_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
 #endif
@@ -367,15 +367,8 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
 
-#if HAVE_DIRECT_ACCESS_TO_MAP_VALUES
 	tuple = (struct ipv6_ct_tuple *)&ct_buffer->tuple;
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
-#else
-	memcpy(&tuple_on_stack, &ct_buffer->tuple, sizeof(tuple_on_stack));
-	tuple = &tuple_on_stack;
-	memcpy(&ct_state_on_stack, &ct_buffer->ct_state, sizeof(ct_state_on_stack));
-	ct_state = &ct_state_on_stack;
-#endif /* HAVE_DIRECT_ACCESS_TO_MAP_VALUES */
 	trace.monitor = ct_buffer->monitor;
 	ret = ct_buffer->ret;
 	ct_status = (enum ct_status)ret;
@@ -757,8 +750,8 @@ struct {
 static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id,
 						__s8 *ext_err)
 {
-	struct ct_state ct_state_on_stack __maybe_unused, *ct_state, ct_state_new = {};
-	struct ipv4_ct_tuple tuple_on_stack __maybe_unused, *tuple;
+	struct ct_state *ct_state, ct_state_new = {};
+	struct ipv4_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
 #endif
@@ -819,15 +812,8 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
 
-#if HAVE_DIRECT_ACCESS_TO_MAP_VALUES
 	tuple = (struct ipv4_ct_tuple *)&ct_buffer->tuple;
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
-#else
-	memcpy(&tuple_on_stack, &ct_buffer->tuple, sizeof(tuple_on_stack));
-	tuple = &tuple_on_stack;
-	memcpy(&ct_state_on_stack, &ct_buffer->ct_state, sizeof(ct_state_on_stack));
-	ct_state = &ct_state_on_stack;
-#endif /* HAVE_DIRECT_ACCESS_TO_MAP_VALUES */
 	trace.monitor = ct_buffer->monitor;
 	ret = ct_buffer->ret;
 	ct_status = (enum ct_status)ret;
@@ -1334,8 +1320,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	    enum ct_status *ct_status, struct ipv6_ct_tuple *tuple_out,
 	    __s8 *ext_err, __u16 *proxy_port, bool from_host __maybe_unused)
 {
-	struct ct_state ct_state_on_stack __maybe_unused, *ct_state, ct_state_new = {};
-	struct ipv6_ct_tuple tuple_on_stack __maybe_unused, *tuple;
+	struct ct_state *ct_state, ct_state_new = {};
+	struct ipv6_ct_tuple *tuple;
 	int ret, verdict = CTX_ACT_OK, hdrlen, zero = 0;
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
@@ -1366,15 +1352,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
 
-#if HAVE_DIRECT_ACCESS_TO_MAP_VALUES
 	tuple = (struct ipv6_ct_tuple *)&ct_buffer->tuple;
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
-#else
-	memcpy(&tuple_on_stack, &ct_buffer->tuple, sizeof(tuple_on_stack));
-	tuple = &tuple_on_stack;
-	memcpy(&ct_state_on_stack, &ct_buffer->ct_state, sizeof(ct_state_on_stack));
-	ct_state = &ct_state_on_stack;
-#endif /* HAVE_DIRECT_ACCESS_TO_MAP_VALUES */
 	monitor = ct_buffer->monitor;
 	ret = ct_buffer->ret;
 	*ct_status = (enum ct_status)ret;
@@ -1641,8 +1620,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	    struct ipv4_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
 	    bool from_host __maybe_unused)
 {
-	struct ct_state ct_state_on_stack __maybe_unused, *ct_state, ct_state_new = {};
-	struct ipv4_ct_tuple tuple_on_stack __maybe_unused, *tuple;
+	struct ct_state *ct_state, ct_state_new = {};
+	struct ipv4_ct_tuple *tuple;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	bool skip_ingress_proxy = false;
@@ -1681,15 +1660,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
 
-#if HAVE_DIRECT_ACCESS_TO_MAP_VALUES
 	tuple = (struct ipv4_ct_tuple *)&ct_buffer->tuple;
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
-#else
-	memcpy(&tuple_on_stack, &ct_buffer->tuple, sizeof(tuple_on_stack));
-	tuple = &tuple_on_stack;
-	memcpy(&ct_state_on_stack, &ct_buffer->ct_state, sizeof(ct_state_on_stack));
-	ct_state = &ct_state_on_stack;
-#endif /* HAVE_DIRECT_ACCESS_TO_MAP_VALUES */
 	monitor = ct_buffer->monitor;
 	ret = ct_buffer->ret;
 	*ct_status = (enum ct_status)ret;

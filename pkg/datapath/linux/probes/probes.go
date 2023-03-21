@@ -523,16 +523,10 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
 		"HAVE_SOCKET_LOOKUP": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnSkLookupTcp}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnSkLookupUdp}],
-		"HAVE_CGROUP_ID": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
-		// Before upstream commit d71962f3e627 (4.18), map helpers were not
-		// allowed to access map values directly. So for those older kernels,
-		// we need to copy the data to the stack first.
-		// We don't have a probe for that, but the bpf_fib_lookup helper was
-		// introduced in the same release.
-		"HAVE_DIRECT_ACCESS_TO_MAP_VALUES": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnFibLookup}],
-		"HAVE_LARGE_INSN_LIMIT":            probes.Misc.HaveLargeInsnLimit,
-		"HAVE_SET_RETVAL":                  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
-		"HAVE_FIB_NEIGH":                   probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
+		"HAVE_CGROUP_ID":        probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
+		"HAVE_LARGE_INSN_LIMIT": probes.Misc.HaveLargeInsnLimit,
+		"HAVE_SET_RETVAL":       probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+		"HAVE_FIB_NEIGH":        probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
 		// Check if kernel has d1c362e1dd68 ("bpf: Always return target ifindex
 		// in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
 		// as the new redirect helpers.
