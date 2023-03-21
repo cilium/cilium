@@ -10,10 +10,12 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -399,6 +401,22 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	}()
 
 	revision, stateDirComplete, err = e.regenerateBPF(ctx)
+
+	// Write full verifier log to the endpoint directory.
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		p := path.Join(tmpDir, "verifier.log")
+		f, err := os.Create(p)
+		if err != nil {
+			return fmt.Errorf("creating endpoint verifier log file: %w", err)
+		}
+		if _, err := fmt.Fprintf(f, "%+v\n", ve); err != nil {
+			return fmt.Errorf("writing verifier log to endpoint directory: %w", err)
+		}
+		e.getLogger().WithFields(logrus.Fields{logfields.Path: p}).
+			Info("Wrote verifier log to endpoint directory")
+	}
+
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
 		if !errors.Is(err, context.Canceled) {
