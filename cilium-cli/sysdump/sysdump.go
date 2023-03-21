@@ -1051,6 +1051,21 @@ func (c *Collector) Run() error {
 				return fmt.Errorf("could not find running Cilium Pod")
 			},
 		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting Tetragon tracing policies",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListTetragonTracingPolicies(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
+				}
+				if err := c.WriteYAML(tetragonTracingPolicy, v); err != nil {
+					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
+				}
+				return nil
+			},
+		},
 	}
 	for _, selector := range c.Options.ExtraLabelSelectors {
 		tasks = append(tasks, Task{

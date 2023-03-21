@@ -18,6 +18,7 @@ import (
 	"github.com/blang/semver/v4"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	tetragonv1alpha1 "github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -194,6 +195,15 @@ func TestKVStoreTask(t *testing.T) {
 	data, err := io.ReadAll(fd)
 	assert.NoError(err)
 	assert.Equal([]byte("{}"), data)
+}
+
+func TestListTetragonTracingPolicies(t *testing.T) {
+	assert := assert.New(t)
+	client := &fakeClient{}
+
+	tracingPolicies, err := client.ListTetragonTracingPolicies(context.Background(), metav1.ListOptions{})
+	assert.NoError(err)
+	assert.GreaterOrEqual(len(tracingPolicies.Items), 0)
 }
 
 type execRequest struct {
@@ -375,6 +385,33 @@ func (c *fakeClient) ListServices(ctx context.Context, namespace string, options
 
 func (c *fakeClient) ListUnstructured(ctx context.Context, gvr schema.GroupVersionResource, namespace *string, o metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	panic("implement me")
+}
+
+func (c *fakeClient) ListTetragonTracingPolicies(ctx context.Context, options metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyList, error) {
+	tetragonTracingPolicy := tetragonv1alpha1.TracingPolicyList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "List",
+			APIVersion: "v1",
+		},
+		ListMeta: metav1.ListMeta{},
+		Items: []tetragonv1alpha1.TracingPolicy{{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "TracingPolicy",
+				APIVersion: "v1alpha",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "testPolicy1",
+			},
+			Spec: tetragonv1alpha1.TracingPolicySpec{
+				KProbes:     []tetragonv1alpha1.KProbeSpec{},
+				Tracepoints: []tetragonv1alpha1.TracepointSpec{},
+				Loader:      true,
+			},
+		},
+		},
+	}
+
+	return &tetragonTracingPolicy, nil
 }
 
 func (c *fakeClient) CreateEphemeralContainer(ctx context.Context, pod *corev1.Pod, container *corev1.EphemeralContainer) (*corev1.Pod, error) {
