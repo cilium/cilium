@@ -44,25 +44,30 @@ import (
 	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
+	tetragonv1alpha1 "github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1"
+	tetragonClientset "github.com/cilium/tetragon/pkg/k8s/client/clientset/versioned"
+
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 type Client struct {
-	Clientset        kubernetes.Interface
-	DynamicClientset dynamic.Interface
-	CiliumClientset  ciliumClientset.Interface
-	Config           *rest.Config
-	RawConfig        clientcmdapi.Config
-	restClientGetter genericclioptions.RESTClientGetter
-	contextName      string
+	Clientset         kubernetes.Interface
+	DynamicClientset  dynamic.Interface
+	CiliumClientset   ciliumClientset.Interface
+	TetragonClientset tetragonClientset.Interface
+	Config            *rest.Config
+	RawConfig         clientcmdapi.Config
+	restClientGetter  genericclioptions.RESTClientGetter
+	contextName       string
 }
 
 func NewClient(contextName, kubeconfig string) (*Client, error) {
 	// Register the Cilium types in the default scheme.
 	_ = ciliumv2.AddToScheme(scheme.Scheme)
 	_ = ciliumv2alpha1.AddToScheme(scheme.Scheme)
+	_ = tetragonv1alpha1.AddToScheme(scheme.Scheme)
 
 	restClientGetter := genericclioptions.ConfigFlags{
 		Context:    &contextName,
@@ -85,6 +90,11 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 		return nil, err
 	}
 
+	tetragonClientset, err := tetragonClientset.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -100,13 +110,14 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 	}
 
 	return &Client{
-		CiliumClientset:  ciliumClientset,
-		Clientset:        clientset,
-		Config:           config,
-		DynamicClientset: dynamicClientset,
-		RawConfig:        rawConfig,
-		restClientGetter: &restClientGetter,
-		contextName:      contextName,
+		CiliumClientset:   ciliumClientset,
+		TetragonClientset: tetragonClientset,
+		Clientset:         clientset,
+		Config:            config,
+		DynamicClientset:  dynamicClientset,
+		RawConfig:         rawConfig,
+		restClientGetter:  &restClientGetter,
+		contextName:       contextName,
 	}, nil
 }
 
@@ -1025,4 +1036,10 @@ func (c *Client) CreateEphemeralContainer(ctx context.Context, pod *corev1.Pod, 
 	return c.Clientset.CoreV1().Pods(pod.Namespace).Patch(
 		ctx, pod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}, "ephemeralcontainers",
 	)
+}
+
+// Tetragon Specific commands
+
+func (c *Client) ListTetragonTracingPolicies(ctx context.Context, opts metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyList, error) {
+	return c.TetragonClientset.CiliumV1alpha1().TracingPolicies().List(ctx, opts)
 }

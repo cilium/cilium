@@ -163,6 +163,13 @@ github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
+# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230317132224-9cb020fd8773
+## explicit; go 1.18
+github.com/cilium/tetragon/pkg/k8s/apis/cilium.io
+github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1
+github.com/cilium/tetragon/pkg/k8s/client/clientset/versioned
+github.com/cilium/tetragon/pkg/k8s/client/clientset/versioned/scheme
+github.com/cilium/tetragon/pkg/k8s/client/clientset/versioned/typed/cilium.io/v1alpha1
 # github.com/cilium/workerpool v1.2.0
 ## explicit; go 1.15
 github.com/cilium/workerpool
@@ -352,8 +359,8 @@ github.com/evanphx/json-patch
 # github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d
 ## explicit
 github.com/exponent-io/jsonpath
-# github.com/fatih/color v1.13.0
-## explicit; go 1.13
+# github.com/fatih/color v1.14.1
+## explicit; go 1.17
 github.com/fatih/color
 # github.com/fsnotify/fsnotify v1.6.0
 ## explicit; go 1.16
