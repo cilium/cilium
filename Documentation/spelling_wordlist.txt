@@ -131,6 +131,7 @@ Shutdowner
 Socionext
 Solarflare
 Spectre
+Splunk
 Starovoitov
 Stormtroopers
 Suchakra
@@ -352,6 +353,7 @@ dependant
 dereference
 deserialization
 destinationContext
+detections
 dev
 devel
 dialTimeout
@@ -536,6 +538,7 @@ idleConnectionGracePeriod
 ie
 ifindex
 imagePullSecrets
+impactful
 incrementing
 indices
 ingressController
@@ -701,6 +704,7 @@ minAvailable
 minTtl
 minikube
 misconfigures
+mitigations
 mlx
 modularity
 modularizing
@@ -850,6 +854,7 @@ rbac
 rc
 rcW
 reStructuredText
+reachability
 readCniConf
 readinessProbe
 readthedocs
@@ -1037,6 +1042,7 @@ udp
 ui
 uid
 uint
+unaudited
 unencrypted
 unexported
 unicast
