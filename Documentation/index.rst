@@ -91,6 +91,7 @@ get started and experiment with Cilium.
    security/network/index
    security/policy/index
    security/tutorial-toc
+   security/threat-model
 
 .. toctree::
    :maxdepth: 2
