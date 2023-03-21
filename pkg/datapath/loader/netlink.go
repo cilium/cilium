@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -127,11 +128,12 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	}
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
-		//TODO: Write this to a file in endpoint directory instead.
-		l.Debugf("Got verifier error: %+v", ve)
+		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
+			return nil, fmt.Errorf("writing verifier log to stderr: %w", err)
+		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error loading eBPF collection into the kernel: %w", err)
+		return nil, fmt.Errorf("loading eBPF collection into the kernel: %w", err)
 	}
 	defer coll.Close()
 
