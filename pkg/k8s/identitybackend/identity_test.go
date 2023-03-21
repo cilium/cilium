@@ -186,10 +186,9 @@ func TestGetIdentity(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, client := k8sClient.NewFakeClientset()
 			backend, err := NewCRDBackend(CRDBackendConfiguration{
-				NodeName: "some-node",
-				Store:    nil,
-				Client:   client,
-				KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
+				Store:   nil,
+				Client:  client,
+				KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
 			})
 			ctx := context.Background()
 			stopChan := make(chan struct{}, 1)

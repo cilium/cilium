@@ -184,10 +184,9 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 				log.Warnf("Ignoring provided identityStore")
 			}
 			backend, err = identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
-				NodeName: owner.GetNodeSuffix(),
-				Store:    nil,
-				Client:   client,
-				KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
+				Store:   nil,
+				Client:  client,
+				KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize Kubernetes CRD backend for identity allocation")
