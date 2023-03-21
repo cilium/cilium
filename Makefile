@@ -57,27 +57,29 @@ TEST_UNITTEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/datapath.Datapat
 
 define generate_k8s_api
 	cd "./vendor/k8s.io/code-generator" && \
-	GO111MODULE=off bash ./generate-groups.sh $(1) \
+	bash ./generate-groups.sh $(1) \
 	    $(2) \
 	    $(3) \
 	    $(4) \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+	    -o $(5)
 endef
 
 define generate_deepequal
 	go run github.com/cilium/deepequal-gen \
 	--input-dirs $(1) \
 	-O zz_generated.deepequal \
-	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+	--output-base $(2)
 endef
 
 define generate_k8s_api_all
-	$(call generate_k8s_api,all,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2))
-	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
+	$(call generate_k8s_api,all,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2),$(3))
+	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))",$(3))
 endef
 
 define generate_k8s_api_deepcopy_deepequal
-	$(call generate_k8s_api,deepcopy,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2))
+	$(call generate_k8s_api,deepcopy,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2),$(3))
 	@# Explanation for the 'subst' below:
 	@#   $(subst ",,$(subst :,/,$(pkg))) - replace all ':' with '/' and replace
 	@#    all '"' with '' from $pkg
@@ -85,12 +87,12 @@ define generate_k8s_api_deepcopy_deepequal
 	@#    "$pkg", with the characters replaced, create a new string with the
 	@#    prefix $(1)
 	@#   Finally replace all spaces with commas from the generated strings.
-	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
+	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))",$(3))
 endef
 
 define generate_k8s_api_deepcopy_deepequal_client
-	$(call generate_k8s_api,deepcopy$(comma)client,github.com/cilium/cilium/pkg/k8s/slim/k8s/$(1),$(2),$(3))
-	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(3),$(2)/$(subst ",,$(subst :,/,$(pkg)))))")
+	$(call generate_k8s_api,deepcopy$(comma)client,github.com/cilium/cilium/pkg/k8s/slim/k8s/$(1),$(2),$(3),$(4))
+	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(3),$(2)/$(subst ",,$(subst :,/,$(pkg)))))",$(4))
 endef
 
 define generate_k8s_protobuf
@@ -109,7 +111,8 @@ define generate_k8s_protobuf
 		--proto-import="$(PWD)/vendor" \
 		--proto-import="$(PWD)/tools/protobuf" \
 		--packages=$(1) \
-		--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+		--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+		--output-base=$(2)
 endef
 
 build: check-sources $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
@@ -320,6 +323,8 @@ generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observ
 generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
 	$(ASSERT_CILIUM_MODULE)
 
+	$(eval TMPDIR := $(shell mktemp -d))
+
 	$(call generate_k8s_protobuf,$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1$(comma)$\
@@ -328,20 +333,25 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1)
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1,"$(TMPDIR)")
+
 	$(call generate_k8s_api_deepcopy_deepequal_client,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/api,"$\
 	discovery:v1beta1\
 	discovery:v1\
 	networking:v1\
-	core:v1")
+	core:v1","$(TMPDIR)")
+
 	$(call generate_k8s_api_deepcopy_deepequal_client,apiextensions-client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
-	apiextensions:v1")
+	apiextensions:v1","$(TMPDIR)")
+
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
 	util:intstr\
 	meta:v1\
-	meta:v1beta1")
+	meta:v1beta1","$(TMPDIR)")
+
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s,"$\
-	apis:labels")
+	apis:labels","$(TMPDIR)")
+
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg,"$\
 	aws:types\
 	azure:types\
@@ -370,19 +380,24 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	maps:vtep\
 	node:types\
 	policy:api\
-	service:store")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/policy,"api:kafka")
-	$(call generate_k8s_api_all,github.com/cilium/cilium/pkg/k8s/apis,"cilium.io:v2 cilium.io:v2alpha1")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/aws,"eni:types")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/alibabacloud,"eni:types")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/api,"v1:models")
+	service:store","$(TMPDIR)")
+
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/policy,"api:kafka","$(TMPDIR)")
+	$(call generate_k8s_api_all,github.com/cilium/cilium/pkg/k8s/apis,"cilium.io:v2 cilium.io:v2alpha1","$(TMPDIR)")
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/aws,"eni:types","$(TMPDIR)")
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/alibabacloud,"eni:types","$(TMPDIR)")
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/api,"v1:models","$(TMPDIR)")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium,"$\
 	pkg:bpf\
 	pkg:k8s\
 	pkg:labels\
 	pkg:loadbalancer\
 	pkg:tuple\
-	pkg:recorder")
+	pkg:recorder","$(TMPDIR)")
+
+	cp -r "$(TMPDIR)/github.com/cilium/cilium/api" ./
+	cp -r "$(TMPDIR)/github.com/cilium/cilium/pkg" ./
+	rm -rf "$(TMPDIR)"
 
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
 	./contrib/scripts/check-preflight-clusterrole.sh
