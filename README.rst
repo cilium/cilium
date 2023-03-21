@@ -187,7 +187,7 @@ tooling to provide:
   and application and security visibility based on flow logs.
 
 .. _Hubble: https://github.com/cilium/hubble/
-.. _`Layer 7 Policy`: http://docs.cilium.io/en/stable/policy/#layer-7
+.. _`Layer 7 Policy`: https://docs.cilium.io/en/stable/security/policy/language/#layer-7-examples
 
 .. end-functionality-overview
 
