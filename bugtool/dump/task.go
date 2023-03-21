@@ -33,6 +33,13 @@ type Task interface {
 	Validate(context.Context) error
 }
 
+var (
+	_ Task = &Exec{}
+	_ Task = &Dir{}
+	_ Task = &Request{}
+	_ Task = &File{}
+)
+
 // ScheduleFunc schedules another function for execution.
 type ScheduleFunc func(string, func(context.Context) error) error
 
