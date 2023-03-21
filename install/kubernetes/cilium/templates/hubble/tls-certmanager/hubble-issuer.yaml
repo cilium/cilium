@@ -1,14 +1,27 @@
 {{- if and (or .Values.agent .Values.hubble.relay.enabled .Values.hubble.ui.enabled) .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "certmanager") (not .Values.hubble.tls.auto.certManagerIssuerRef) }}
-{{- $_ := include "hubble-generate-certs.helm.setup-ca" . -}}
 ---
-apiVersion: v1
-kind: Secret
+apiVersion: cert-manager.io/v1
+kind: Issuer
 metadata:
-  name: hubble-ca-secret
+  name: hubble-ca-issuer
   namespace: {{ .Release.Namespace }}
-data:
-  ca.crt: {{ .ca.Cert | b64enc }}
-  ca.key: {{ .ca.Key  | b64enc }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: hubble-ca
+  namespace: {{ .Release.Namespace }}
+spec:
+  commonName: Cilium CA
+  duration: {{ printf "%dh0m0s" (mul .Values.hubble.tls.auto.issuerCertValidityDuration 24) }}
+  isCA: true
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: hubble-ca-issuer
+  secretName: hubble-ca-secret
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
