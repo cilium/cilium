@@ -218,7 +218,7 @@
 /.gitattributes @cilium/tophat
 /.github/ @cilium/contributing
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
-/.github/workflows/conformance-datapath.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
+/.github/workflows/*datapath*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/tophat
 /.golangci.yaml @cilium/ci-structure
 /.mailmap @cilium/tophat
