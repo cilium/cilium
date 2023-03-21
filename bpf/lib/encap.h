@@ -8,7 +8,6 @@
 #include "dbg.h"
 #include "trace.h"
 #include "l3.h"
-#include "lib/wireguard.h"
 
 #ifdef HAVE_ENCAP
 #ifdef ENABLE_IPSEC
@@ -144,29 +143,10 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 				 const struct trace_ctx *trace)
 {
 	int ifindex;
-	int ret = 0;
 
-#ifdef ENABLE_WIREGUARD
-	/* Redirect the packet to the WireGuard tunnel device for encryption
-	 * if needed.
-	 *
-	 * A packet which previously was a subject to VXLAN/Geneve
-	 * encapsulation (e.g., pod2pod) is going to be encapsulated only once,
-	 * i.e., by the WireGuard tunnel netdev. This is so just to be
-	 * compatible with < the v1.13 behavior in which the pod2pod bypassed
-	 * VXLAN/Geneve encapsulation when the WG feature was on.
-	 */
-	ret = wg_maybe_redirect_to_encrypt(ctx);
-	if (ret == CTX_ACT_REDIRECT)
-		return ret;
-	else if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, seclabel, ret, CTX_ACT_DROP,
-					      METRIC_EGRESS);
-#endif /* ENABLE_WIREGUARD */
-
-	ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid,
-				  vni, trace->reason, trace->monitor,
-				  &ifindex);
+	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid,
+				      vni, trace->reason, trace->monitor,
+				      &ifindex);
 	if (ret != CTX_ACT_REDIRECT)
 		return ret;
 
