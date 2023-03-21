@@ -76,6 +76,7 @@ func CiliumAgentAPICLICommands() []string {
 		"cilium policy selectors",
 		"cilium node list",
 		"cilium lrp list",
+		"cilium cgroups list",
 	} {
 		commands = append(commands, cmd+" -o json")
 	}
