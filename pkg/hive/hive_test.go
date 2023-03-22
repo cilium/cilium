@@ -85,6 +85,10 @@ type SomeObject struct {
 	X int
 }
 
+type OtherObject struct {
+	Y int
+}
+
 func TestProvideInvoke(t *testing.T) {
 	invoked := false
 
@@ -102,6 +106,22 @@ func TestProvideInvoke(t *testing.T) {
 	assert.NoError(t, err, "expected Run to succeed")
 
 	assert.True(t, invoked, "expected invoke to be called, but it was not")
+}
+
+func TestGroup(t *testing.T) {
+	sum := 0
+
+	testCell := cell.Group(
+		cell.Provide(func() *SomeObject { return &SomeObject{10} }),
+		cell.Provide(func() *OtherObject { return &OtherObject{5} }),
+	)
+	err := hive.New(
+		testCell,
+		cell.Invoke(func(a *SomeObject, b *OtherObject) { sum = a.X + b.Y }),
+		shutdownOnStartCell,
+	).Run()
+	assert.NoError(t, err, "expected Run to succeed")
+	assert.Equal(t, 15, sum)
 }
 
 func TestProvidePrivate(t *testing.T) {
