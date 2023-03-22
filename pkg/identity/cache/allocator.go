@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 var (
@@ -78,6 +79,9 @@ type IdentityAllocatorOwner interface {
 // identities based of sets of labels, and caching information about identities
 // locally.
 type IdentityAllocator interface {
+	// Identity changes are observable.
+	stream.Observable[IdentityChange]
+
 	// WaitForInitialGlobalIdentities waits for the initial set of global
 	// security identities to have been received.
 	WaitForInitialGlobalIdentities(context.Context) error
@@ -474,5 +478,45 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, back
 func (m *CachingIdentityAllocator) RemoveRemoteIdentities(name string) {
 	if m.IdentityAllocator != nil {
 		m.IdentityAllocator.RemoveRemoteKVStore(name)
+	}
+}
+
+type IdentityChangeKind string
+
+const (
+	IdentityChangeSync   IdentityChangeKind = IdentityChangeKind(allocator.AllocatorChangeSync)
+	IdentityChangeUpsert IdentityChangeKind = IdentityChangeKind(allocator.AllocatorChangeUpsert)
+	IdentityChangeDelete IdentityChangeKind = IdentityChangeKind(allocator.AllocatorChangeDelete)
+)
+
+type IdentityChange struct {
+	Kind   IdentityChangeKind
+	ID     identity.NumericIdentity
+	Labels map[string]string
+}
+
+// Observe the identity changes. Conforms to stream.Observable.
+// Replays the current state of the cache when subscribing.
+func (m *CachingIdentityAllocator) Observe(ctx context.Context, next func(IdentityChange), complete func(error)) {
+	if m.IdentityAllocator != nil {
+		// Observe the underlying allocator for changes and map the events to
+		// identities.
+		m.IdentityAllocator.Observe(
+			ctx,
+			func(change allocator.AllocatorChange) {
+				var labels map[string]string = nil
+				if change.Key != nil {
+					labels = change.Key.GetAsMap()
+				}
+				next(IdentityChange{
+					Kind:   IdentityChangeKind(change.Kind),
+					ID:     identity.NumericIdentity(change.ID),
+					Labels: labels,
+				})
+			},
+			complete,
+		)
+	} else {
+		go complete(nil)
 	}
 }
