@@ -125,17 +125,25 @@ func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource
 	m.m[prefix].logConflicts(log.WithField(logfields.CIDR, prefix))
 }
 
-// GetMetadataLabelsByIP returns the associated labels with an IP. The caller must
-// not modifying the returned object as it's a live reference to the underlying
-// map.
+// GetMetadataLabelsByIP returns the associated labels with an IP.
 func (ipc *IPCache) GetMetadataLabelsByIP(addr netip.Addr) labels.Labels {
 	prefix := netip.PrefixFrom(addr, addr.BitLen())
-	ipc.metadata.RLock()
-	defer ipc.metadata.RUnlock()
-	if info := ipc.metadata.getLocked(prefix); info != nil {
+	if info := ipc.GetMetadataByPrefix(prefix); info != nil {
 		return info.ToLabels()
 	}
 	return nil
+}
+
+// GetMetadataByPrefix returns full metadata for a given IP as a copy.
+func (ipc *IPCache) GetMetadataByPrefix(prefix netip.Prefix) prefixInfo {
+	ipc.metadata.RLock()
+	defer ipc.metadata.RUnlock()
+	m := ipc.metadata.getLocked(prefix)
+	n := make(prefixInfo, len(m))
+	for k, v := range m {
+		n[k] = v.DeepCopy()
+	}
+	return n
 }
 
 func (m *metadata) getLocked(prefix netip.Prefix) prefixInfo {
