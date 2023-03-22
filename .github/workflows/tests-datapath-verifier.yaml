@@ -202,8 +202,6 @@ jobs:
         with:
           provision: 'false'
           cmd: |
-            # workaround to use correct ip binary. TODO: this should be fixed in the complexity-test image.
-            rm /usr/bin/ip
             cd /host/
             make -C bpf/ clean V=0
             make -C tools/maptool/
