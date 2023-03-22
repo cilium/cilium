@@ -1074,6 +1074,13 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
   same port). A few example configurations
   for the ``partial`` option are provided below.
 
+.. note::
+
+    Switching from the ``strict`` to ``disabled`` mode, or vice versa can break
+    existing connections to services in a cluster. The same goes for enabling, or
+    disabling ``socketLB``. It is recommended to drain all the workloads before
+    performing such configuration changes.
+
   The following Helm setup below would be equivalent to ``kubeProxyReplacement=strict``
   in a kube-proxy-free environment:
 
