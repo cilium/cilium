@@ -13,7 +13,7 @@ import (
 )
 
 func Test_sortedByResourceIDsAndSource(t *testing.T) {
-	pi := make(prefixInfo, 1)
+	pi := make(PrefixInfo, 1)
 	pi["a-restored-uid"] = &resourceInfo{
 		source: source.Restored,
 	}
