@@ -5,15 +5,21 @@ package verifier_test
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/rlimit"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/bpf"
 )
 
 var (
@@ -53,8 +59,16 @@ func getDatapathConfigFile(t *testing.T, ciKernelVersion, bpfProgram string) str
 	return filepath.Join(*ciliumBasePath, "bpf", "complexity-tests", ciKernelVersion, fmt.Sprintf("%s.txt", bpfProgram))
 }
 
+// This test tries to compile BPF programs with a set of options that maximize
+// size & complexity (as defined in bpf/complexity-tests). Programs are then
+// loaded into the kernel to detect complexity & other verifier-related
+// regressions.
 func TestVerifier(t *testing.T) {
 	flag.Parse()
+
+	if err := rlimit.RemoveMemlock(); err != nil {
+		t.Fatal(err)
+	}
 
 	if ciliumBasePath == nil || *ciliumBasePath == "" {
 		t.Skip("Please set -cilium-base-path to run verifier tests")
@@ -71,57 +85,48 @@ func TestVerifier(t *testing.T) {
 	}
 	t.Logf("CI kernel version: %s (%s)", kernelVersion, source)
 
-	const (
-		HookTC     = "TC"
-		HookCgroup = "CG"
-		HookXDP    = "XDP"
-	)
-
 	for _, bpfProgram := range []struct {
 		name      string
-		hook      string
 		macroName string
 	}{
 		{
 			name:      "bpf_lxc",
-			hook:      HookTC,
 			macroName: "MAX_LXC_OPTIONS",
 		},
 		{
 			name:      "bpf_host",
-			hook:      HookTC,
 			macroName: "MAX_HOST_OPTIONS",
 		},
 		{
 			name:      "bpf_xdp",
-			hook:      HookXDP,
 			macroName: "MAX_XDP_OPTIONS",
 		},
 		{
 			name:      "bpf_overlay",
-			hook:      HookTC,
 			macroName: "MAX_OVERLAY_OPTIONS",
 		},
+		{
+			name:      "bpf_sock",
+			macroName: "MAX_LB_OPTIONS",
+		},
 	} {
-		t.Run(bpfProgram.name, func(t *testing.T) {
-			file, err := os.Open(getDatapathConfigFile(t, kernelVersion, bpfProgram.name))
-			if err != nil {
-				t.Fatalf("Unable to open list of datapath configurations for %s: %v", bpfProgram.name, err)
-			}
-			defer file.Close()
+		file, err := os.Open(getDatapathConfigFile(t, kernelVersion, bpfProgram.name))
+		if err != nil {
+			t.Fatalf("Unable to open list of datapath configurations for %s: %v", bpfProgram.name, err)
+		}
+		defer file.Close()
 
-			scanner := bufio.NewScanner(file)
-			for scanner.Scan() {
-				datapathConfig := scanner.Text()
+		scanner := bufio.NewScanner(file)
+		for i := 1; scanner.Scan(); i++ {
+			datapathConfig := scanner.Text()
 
-				t.Logf("Cleaning %s build files", bpfProgram.name)
+			t.Run(fmt.Sprintf("%s_%d", bpfProgram.name, i), func(t *testing.T) {
 				cmd := exec.Command("make", "-C", "bpf/", "clean")
 				cmd.Dir = *ciliumBasePath
 				if err := cmd.Run(); err != nil {
 					t.Fatalf("Failed to clean bpf objects: %v", err)
 				}
 
-				t.Logf("Building %s object file", bpfProgram.name)
 				cmd = exec.Command("make", "-C", "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
 				cmd.Dir = *ciliumBasePath
 				cmd.Env = append(cmd.Env,
@@ -132,23 +137,40 @@ func TestVerifier(t *testing.T) {
 					t.Fatalf("Failed to compile %s bpf objects: %v", bpfProgram.name, err)
 				}
 
-				t.Logf("Running the verifier test script with %s", bpfProgram.name)
-				cmd = exec.Command("./test/bpf/verifier-test.sh")
-				cmd.Dir = *ciliumBasePath
-				cmd.Env = append(cmd.Env,
-					"TC_PROGS=",
-					"XDP_PROGS=",
-					"CG_PROGS=",
-					fmt.Sprintf("%s_PROGS=%s", bpfProgram.hook, bpfProgram.name),
-				)
-				if out, err := cmd.CombinedOutput(); err != nil {
-					t.Errorf("Failed to load BPF program %s: %v\ndatapath configuration: %s\ncommand output: %s", bpfProgram.name, err, datapathConfig, out)
+				spec, err := bpf.LoadCollectionSpec(path.Join(*ciliumBasePath, "bpf", fmt.Sprintf("%s.o", bpfProgram.name)))
+				if err != nil {
+					t.Fatal(err)
 				}
-			}
+
+				// Strip all pinning flags so we don't need to specify a pin path
+				// and all maps are guaranteed to be created by the ELF.
+				for _, m := range spec.Maps {
+					m.Pinning = 0
+				}
+
+				coll, err := bpf.LoadCollection(spec, ebpf.CollectionOptions{
+					// Enable verifier logs for successful loads as well.
+					Programs: ebpf.ProgramOptions{LogLevel: ebpf.LogLevelBranch},
+				})
+				var ve *ebpf.VerifierError
+				if errors.As(err, &ve) {
+					t.Fatalf("Verifier error: %+v\n\nDatapath build config: %s", ve, datapathConfig)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				// Print verifier stats, e.g. 'processed 12248 insns (limit 1000000) ...'.
+				for n, p := range coll.Programs {
+					t.Logf("%s: %s", n, p.VerifierLog)
+				}
+
+				coll.Close()
+			})
 
 			if err = scanner.Err(); err != nil {
-				t.Fatalf("Error while reading list of datapath configuration for %s: %v", bpfProgram.name, err)
+				t.Fatalf("Error while reading list of datapath configurations for %s: %v", bpfProgram.name, err)
 			}
-		})
+		}
 	}
 }

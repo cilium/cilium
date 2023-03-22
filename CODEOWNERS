@@ -481,8 +481,6 @@ jenkinsfiles @cilium/ci-structure
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
 # Datapath tests
 /test/bpf/ @cilium/sig-datapath
-/test/bpf/check-complexity.sh @cilium/loader
-/test/bpf/verifier-test.sh @cilium/loader
 /test/bpf_tests/ @cilium/sig-datapath
 /test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/chaos.go @cilium/sig-datapath @cilium/ci-structure
