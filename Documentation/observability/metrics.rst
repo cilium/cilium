@@ -628,6 +628,26 @@ Exported Metrics
 
 Hubble metrics are exported under the ``hubble_`` Prometheus namespace.
 
+lost events
+~~~~~~~~~~~
+
+This metric, unlike other ones, is not directly tied to network flows. It's enabled if any of the other metrics is enabled.
+
+================================ ======================================== ========== ==================================================
+Name                             Labels                                   Default    Description
+================================ ======================================== ========== ==================================================
+``lost_events_total``            ``source``                               Enabled    Number of lost events
+================================ ======================================== ========== ==================================================
+
+Labels
+""""""
+
+``source`` identifies the source of lost events, one of:
+- ``perf_event_ring_buffer``
+- ``observer_events_queue``
+- ``hubble_ring_buffer``
+
+
 ``dns``
 ~~~~~~~
 
