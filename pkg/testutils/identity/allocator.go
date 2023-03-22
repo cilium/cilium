@@ -186,3 +186,7 @@ func (f *MockIdentityAllocator) ReleaseCIDRIdentitiesByID(ctx context.Context, i
 func (f *MockIdentityAllocator) GetIdentityCache() cache.IdentityCache {
 	return f.IdentityCache
 }
+
+func (f *MockIdentityAllocator) Observe(ctx context.Context, next func(cache.IdentityChange), complete func(error)) {
+	go complete(nil)
+}
