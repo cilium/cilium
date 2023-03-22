@@ -544,6 +544,17 @@ ct_recreate6:
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+	/* If the destination is the local host and per-endpoint routes are
+	 * enabled, jump to the bpf_host program to enforce ingress host policies.
+	 */
+	if (*dst_id == HOST_ID) {
+		ctx_store_meta(ctx, CB_FROM_HOST, 0);
+		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
+		return DROP_MISSED_TAIL_CALL;
+	}
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+
 	/* See handle_ipv4_from_lxc() re hairpin_flow */
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
 		struct endpoint_info *ep;
@@ -571,17 +582,6 @@ ct_recreate6:
 						   METRIC_EGRESS, from_l7lb, hairpin_flow);
 		}
 	}
-
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
-	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, jump to the bpf_host program to enforce ingress host policies.
-	 */
-	if (*dst_id == HOST_ID) {
-		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
-		return DROP_MISSED_TAIL_CALL;
-	}
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef TUNNEL_MODE
@@ -1003,6 +1003,17 @@ ct_recreate4:
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+	/* If the destination is the local host and per-endpoint routes are
+	 * enabled, jump to the bpf_host program to enforce ingress host policies.
+	 */
+	if (*dst_id == HOST_ID) {
+		ctx_store_meta(ctx, CB_FROM_HOST, 0);
+		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
+		return DROP_MISSED_TAIL_CALL;
+	}
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+
 	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
 	 * disabled. Otherwise, the packet will be dropped by the kernel if
 	 * it is going to be routed via an interface it came from after it has
@@ -1036,17 +1047,6 @@ ct_recreate4:
 						   false, 0);
 		}
 	}
-
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
-	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, jump to the bpf_host program to enforce ingress host policies.
-	 */
-	if (*dst_id == HOST_ID) {
-		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
-		return DROP_MISSED_TAIL_CALL;
-	}
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 #ifdef ENABLE_EGRESS_GATEWAY
 	{
