@@ -107,7 +107,7 @@ combine_ports(__u16 dport, __u16 sport)
  * ingress. Will modify 'tuple'!						\
  */										\
 static __always_inline int							\
-NAME(struct __ctx_buff *ctx, CT_TUPLE_TYPE * ct_tuple, __be16 proxy_port)	\
+NAME(struct __ctx_buff *ctx, CT_TUPLE_TYPE * ct_tuple, __be16 proxy_port, void *tproxy_addr)	\
 {										\
 	struct bpf_sock_tuple *tuple = (struct bpf_sock_tuple *)ct_tuple;	\
 	__u8 nexthdr = ct_tuple->nexthdr;					\
@@ -133,11 +133,20 @@ NAME(struct __ctx_buff *ctx, CT_TUPLE_TYPE * ct_tuple, __be16 proxy_port)	\
 	if (result == CTX_ACT_OK)						\
 		goto out;							\
 										\
-	/* if there's no established connection, locate the tproxy socket */	\
-	tuple->SK_FIELD.dport = proxy_port;					\
-	tuple->SK_FIELD.sport = 0;						\
-	memset(&tuple->SK_FIELD.daddr, 0, sizeof(tuple->SK_FIELD.daddr));	\
+	/* if there's no established connection, locate the tproxy socket on the tproxy_addr IP */ \
+	tuple->SK_FIELD.dport = proxy_port;	 \
+	tuple->SK_FIELD.sport = 0;	\
+	memcpy(&tuple->SK_FIELD.daddr, tproxy_addr, sizeof(tuple->SK_FIELD.daddr)); \
 	memset(&tuple->SK_FIELD.saddr, 0, sizeof(tuple->SK_FIELD.saddr));	\
+	cilium_dbg3(ctx, DBG_LOOKUP_CODE,					\
+		    tuple->SK_FIELD.SADDR_DBG, tuple->SK_FIELD.DADDR_DBG,	\
+		    combine_ports(tuple->SK_FIELD.dport, tuple->SK_FIELD.sport));	\
+	result = assign_socket(ctx, tuple, len, nexthdr, false);		\
+	if (result == CTX_ACT_OK)						\
+		goto out;	\
+										\
+	/* if there's no tproxy socket on tproxy_addr look for one bound to all interfaces */ \
+	memset(&tuple->SK_FIELD.daddr, 0, sizeof(tuple->SK_FIELD.daddr));	\
 	cilium_dbg3(ctx, DBG_LOOKUP_CODE,					\
 		    tuple->SK_FIELD.SADDR_DBG, tuple->SK_FIELD.DADDR_DBG,	\
 		    combine_ports(tuple->SK_FIELD.dport, tuple->SK_FIELD.sport));	\
@@ -206,12 +215,20 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 #ifdef ENABLE_TPROXY
 	if (proxy_port && !from_host) {
 #ifdef ENABLE_IPV4
-		if (ipv4)
-			result = ctx_redirect_to_proxy_ingress4(ctx, tuple, proxy_port);
+		if (ipv4) {
+			__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
+
+			result =
+			ctx_redirect_to_proxy_ingress4(ctx, tuple, proxy_port, &ipv4_localhost);
+		}
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
-		if (!ipv4)
-			result = ctx_redirect_to_proxy_ingress6(ctx, tuple, proxy_port);
+		if (!ipv4) {
+			union v6addr ipv6_localhost = { .addr[15] = 1,};
+
+			result =
+			ctx_redirect_to_proxy_ingress6(ctx, tuple, proxy_port, &ipv6_localhost);
+		}
 #endif /* ENABLE_IPV6 */
 	}
 #endif /* ENABLE_TPROXY */
@@ -283,6 +300,12 @@ ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
 	int ret = CTX_ACT_OK;
 #if defined(ENABLE_TPROXY)
 	__u16 proto;
+#ifdef ENABLE_IPV4
+	__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
+#endif
+#ifdef ENABLE_IPV6
+	union v6addr ipv6_localhost = { .addr[15] = 1,};
+#endif
 
 	/**
 	 * For reply traffic to egress proxy for a local endpoint, we skip the
@@ -307,7 +330,7 @@ ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
 		ret = extract_tuple6(ctx, &tuple);
 		if (ret < 0)
 			return ret;
-		ret = ctx_redirect_to_proxy_ingress6(ctx, &tuple, proxy_port);
+		ret = ctx_redirect_to_proxy_ingress6(ctx, &tuple, proxy_port, &ipv6_localhost);
 		break;
 	}
 #endif /* ENABLE_IPV6 */
@@ -318,7 +341,8 @@ ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
 		ret = extract_tuple4(ctx, &tuple);
 		if (ret < 0)
 			return ret;
-		ret = ctx_redirect_to_proxy_ingress4(ctx, &tuple, proxy_port);
+
+		ret = ctx_redirect_to_proxy_ingress4(ctx, &tuple, proxy_port, &ipv4_localhost);
 		break;
 	}
 #endif /* ENABLE_IPV4 */

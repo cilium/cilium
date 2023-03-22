@@ -66,7 +66,7 @@ func (f *FakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfigura
 	return nil
 }
 
-func (f *FakeDatapath) InstallProxyRules(context.Context, uint16, bool, string) error {
+func (f *FakeDatapath) InstallProxyRules(context.Context, uint16, bool, bool, string) error {
 	return nil
 }
 

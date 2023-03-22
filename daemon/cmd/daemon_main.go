@@ -1820,6 +1820,12 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		}
 	}
 
+	// Process queued deletion requests
+	bootstrapStats.deleteQueue.Start()
+	unlockDeleteDir := d.processQueuedDeletes()
+	bootstrapStats.deleteQueue.End(true)
+
+	// Start up the local api socket
 	bootstrapStats.initAPI.Start()
 	srv := server.NewServer(d.instantiateAPI())
 	srv.EnabledListeners = []string{"unix"}
@@ -1829,6 +1835,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	cleaner.cleanupFuncs.Add(func() { srv.Shutdown() })
 
 	srv.ConfigureAPI()
+	unlockDeleteDir() // can't unlock this until the api socket is written
 	bootstrapStats.initAPI.End(true)
 
 	err := d.SendNotification(monitorAPI.StartMessage(time.Now()))

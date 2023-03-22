@@ -582,8 +582,9 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			logfields.K8sNamespace:       operatorOption.Config.CiliumK8sNamespace,
 			"label-selector":             operatorOption.Config.CiliumPodLabels,
 			"remove-cilium-node-taints":  operatorOption.Config.RemoveCiliumNodeTaints,
+			"set-cilium-node-taints":     operatorOption.Config.SetCiliumNodeTaints,
 			"set-cilium-is-up-condition": operatorOption.Config.SetCiliumIsUpCondition,
-		}).Info("Removing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
+		}).Info("Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
 
 		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done())
 	}

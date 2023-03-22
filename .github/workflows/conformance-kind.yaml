@@ -24,7 +24,7 @@ env:
   kind_version: v0.17.0
   kind_config: .github/kind-config.yaml
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.1
+  cilium_cli_version: v0.13.2
 
 jobs:
   installation-and-connectivity:
@@ -64,6 +64,8 @@ jobs:
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set cni.chainingMode=portmap \
+            --helm-set loadBalancer.l7.backend=envoy \
+            --helm-set tls.secretsBackend=k8s \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \

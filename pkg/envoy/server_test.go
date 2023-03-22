@@ -4,8 +4,12 @@
 package envoy
 
 import (
+	"reflect"
+	"testing"
+
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	. "gopkg.in/check.v1"
@@ -898,4 +902,152 @@ func (s *ServerSuite) TestGetNetworkPolicyTLSIngress(c *C) {
 		ConntrackMapName:       "global",
 	}
 	c.Assert(obtained, checker.ExportedEquals, expected)
+}
+
+func Test_getPublicListenerAddress(t *testing.T) {
+	type args struct {
+		port uint16
+		ipv4 bool
+		ipv6 bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want *envoy_config_core.Address
+	}{
+		{
+			name: "IPv4 only",
+			args: args{
+				port: 80,
+				ipv4: true,
+				ipv6: false,
+			},
+			want: &envoy_config_core.Address{
+				Address: &envoy_config_core.Address_SocketAddress{
+					SocketAddress: &envoy_config_core.SocketAddress{
+						Protocol:      envoy_config_core.SocketAddress_TCP,
+						Address:       "0.0.0.0",
+						PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(80)},
+					},
+				},
+			},
+		},
+		{
+			name: "IPv6 only",
+			args: args{
+				port: 80,
+				ipv4: false,
+				ipv6: true,
+			},
+			want: &envoy_config_core.Address{
+				Address: &envoy_config_core.Address_SocketAddress{
+					SocketAddress: &envoy_config_core.SocketAddress{
+						Protocol:      envoy_config_core.SocketAddress_TCP,
+						Address:       "::",
+						PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(80)},
+					},
+				},
+			},
+		},
+		{
+			name: "IPv4 and IPv6",
+			args: args{
+				port: 80,
+				ipv4: true,
+				ipv6: true,
+			},
+			want: &envoy_config_core.Address{
+				Address: &envoy_config_core.Address_SocketAddress{
+					SocketAddress: &envoy_config_core.SocketAddress{
+						Protocol:      envoy_config_core.SocketAddress_TCP,
+						Address:       "::",
+						PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(80)},
+						Ipv4Compat:    true,
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getPublicListenerAddress(tt.args.port, tt.args.ipv4, tt.args.ipv6); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getPublicListenerAddress() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalListenerAddresses(t *testing.T) {
+	v4Local := &envoy_config_core.Address_SocketAddress{
+		SocketAddress: &envoy_config_core.SocketAddress{
+			Protocol:      envoy_config_core.SocketAddress_TCP,
+			Address:       "127.0.0.1",
+			PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(80)},
+		},
+	}
+
+	v6Local := &envoy_config_core.Address_SocketAddress{
+		SocketAddress: &envoy_config_core.SocketAddress{
+			Protocol:      envoy_config_core.SocketAddress_TCP,
+			Address:       "::1",
+			PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(80)},
+		},
+	}
+	type args struct {
+		port uint16
+		ipv4 bool
+		ipv6 bool
+	}
+	tests := []struct {
+		name           string
+		args           args
+		want           *envoy_config_core.Address
+		wantAdditional []*envoy_config_listener.AdditionalAddress
+	}{
+		{
+			name: "IPv4 only",
+			args: args{
+				port: 80,
+				ipv4: true,
+				ipv6: false,
+			},
+			want: &envoy_config_core.Address{
+				Address: v4Local,
+			},
+		},
+		{
+			name: "IPv6 only",
+			args: args{
+				port: 80,
+				ipv4: false,
+				ipv6: true,
+			},
+			want: &envoy_config_core.Address{
+				Address: v6Local,
+			},
+		},
+		{
+			name: "IPv4 and IPv6",
+			args: args{
+				port: 80,
+				ipv4: true,
+				ipv6: true,
+			},
+			want: &envoy_config_core.Address{
+				Address: v4Local,
+			},
+			wantAdditional: []*envoy_config_listener.AdditionalAddress{{Address: &envoy_config_core.Address{Address: v6Local}}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotAdditional := getLocalListenerAddresses(tt.args.port, tt.args.ipv4, tt.args.ipv6)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getLocalListenerAddresses() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(gotAdditional, tt.wantAdditional) {
+				t.Errorf("getLocalListenerAddresses() got1 = %v, want %v", gotAdditional, tt.wantAdditional)
+			}
+		})
+	}
 }

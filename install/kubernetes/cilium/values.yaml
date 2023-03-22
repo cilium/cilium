@@ -472,7 +472,7 @@ cni:
   # if you're removing Cilium from the cluster. Disable this to prevent the CNI
   # configuration file from being removed during agent upgrade, which can cause
   # nodes to go unmanageable.
-  uninstall: true
+  uninstall: false
 
   # -- Configure chaining on top of other CNI plugins. Possible values:
   #  - none
@@ -2084,6 +2084,11 @@ operator:
   # -- Remove Cilium node taint from Kubernetes nodes that have a healthy Cilium
   # pod running.
   removeNodeTaints: true
+
+  # -- Taint nodes where Cilium is scheduled but not running. This prevents pods
+  # from being scheduled to nodes where Cilium is not the default CNI provider.
+  # @default -- same as removeNodeTaints
+  setNodeTaints: ~
 
   # -- Set Node condition NetworkUnavailable to 'false' with the reason
   # 'CiliumIsUp' for nodes that have a healthy Cilium pod.

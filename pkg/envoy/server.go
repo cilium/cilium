@@ -466,7 +466,7 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string
 	return chain
 }
 
-func getListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.Address {
+func getPublicListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.Address {
 	listenerAddr := "0.0.0.0"
 	if ipv6 {
 		listenerAddr = "::"
@@ -481,6 +481,44 @@ func getListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.Address
 			},
 		},
 	}
+}
+
+func getLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core.Address, []*envoy_config_listener.AdditionalAddress) {
+	addresses := []*envoy_config_core.Address_SocketAddress{}
+
+	if ipv4 {
+		addresses = append(addresses, &envoy_config_core.Address_SocketAddress{
+			SocketAddress: &envoy_config_core.SocketAddress{
+				Protocol:      envoy_config_core.SocketAddress_TCP,
+				Address:       "127.0.0.1",
+				PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
+			},
+		})
+	}
+
+	if ipv6 {
+		addresses = append(addresses, &envoy_config_core.Address_SocketAddress{
+			SocketAddress: &envoy_config_core.SocketAddress{
+				Protocol:      envoy_config_core.SocketAddress_TCP,
+				Address:       "::1",
+				PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
+			},
+		})
+	}
+
+	var additionalAddress []*envoy_config_listener.AdditionalAddress
+
+	if len(addresses) > 1 {
+		additionalAddress = append(additionalAddress, &envoy_config_listener.AdditionalAddress{
+			Address: &envoy_config_core.Address{
+				Address: addresses[1],
+			},
+		})
+	}
+
+	return &envoy_config_core.Address{
+		Address: addresses[0],
+	}, additionalAddress
 }
 
 // AddMetricsListener adds a prometheus metrics listener to Envoy.
@@ -527,7 +565,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 
 		listenerConf := &envoy_config_listener.Listener{
 			Name:    metricsListenerName,
-			Address: getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
+			Address: getPublicListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
 			FilterChains: []*envoy_config_listener.FilterChain{{
 				Filters: []*envoy_config_listener.Filter{{
 					Name: "envoy.filters.network.http_connection_manager",
@@ -754,10 +792,12 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		tlsClusterName = ingressTLSClusterName
 	}
 
+	addr, additionalAddr := getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 	listenerConf := &envoy_config_listener.Listener{
-		Name:        name,
-		Address:     getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
-		Transparent: &wrapperspb.BoolValue{Value: true},
+		Name:                name,
+		Address:             addr,
+		AdditionalAddresses: additionalAddr,
+		Transparent:         &wrapperspb.BoolValue{Value: true},
 		SocketOptions: []*envoy_config_core.SocketOption{
 			getListenerSocketMarkOption(isIngress),
 		},

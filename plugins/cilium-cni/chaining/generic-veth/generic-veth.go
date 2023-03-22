@@ -16,9 +16,11 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/client"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
+	"github.com/cilium/cilium/plugins/cilium-cni/lib"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -28,7 +30,7 @@ func (f *GenericVethChainer) ImplementsAdd() bool {
 	return true
 }
 
-func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginContext) (res *cniTypesVer.Result, err error) {
+func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginContext, cli *client.Client) (res *cniTypesVer.Result, err error) {
 	err = cniVersion.ParsePrevResult(&pluginCtx.NetConf.NetConf)
 	if err != nil {
 		err = fmt.Errorf("unable to understand network config: %s", err)
@@ -171,7 +173,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		},
 	}
 
-	err = pluginCtx.Client.EndpointCreate(ep)
+	err = cli.EndpointCreate(ep)
 	if err != nil {
 		pluginCtx.Logger.WithError(err).WithFields(logrus.Fields{
 			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
@@ -191,19 +193,19 @@ func (f *GenericVethChainer) ImplementsDelete() bool {
 	return true
 }
 
-func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext) (err error) {
+func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext, delClient *lib.DeletionFallbackClient) (err error) {
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, pluginCtx.Args.ContainerID)
-	if err := pluginCtx.Client.EndpointDelete(id); err != nil {
+	if err := delClient.EndpointDelete(id); err != nil {
 		pluginCtx.Logger.WithError(err).Warning("Errors encountered while deleting endpoint")
 	}
 	return nil
 }
 
-func (f *GenericVethChainer) Check(ctx context.Context, pluginCtx chainingapi.PluginContext) error {
+func (f *GenericVethChainer) Check(ctx context.Context, pluginCtx chainingapi.PluginContext, cli *client.Client) error {
 	// Just confirm that the endpoint is healthy
 	eID := fmt.Sprintf("container-id:%s", pluginCtx.Args.ContainerID)
 	pluginCtx.Logger.Debugf("Asking agent for healthz for %s", eID)
-	epHealth, err := pluginCtx.Client.EndpointHealthGet(eID)
+	epHealth, err := cli.EndpointHealthGet(eID)
 	if err != nil {
 		return cniTypes.NewError(types.CniErrHealthzGet, "HealthzFailed",
 			fmt.Sprintf("failed to retrieve container health: %s", err))
