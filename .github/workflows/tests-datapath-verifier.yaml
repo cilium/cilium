@@ -168,8 +168,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TODO: add '4.19-main' once verifier issues are resolved on that version.
         include:
+          - kernel: '4.19-main'
+            ci-kernel: '419'
           - kernel: '5.4-main'
             ci-kernel: '54'
           - kernel: '5.15-main'
