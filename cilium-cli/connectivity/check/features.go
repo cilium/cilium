@@ -59,6 +59,8 @@ const (
 
 	FeatureCNP Feature = "cilium-network-policy"
 	FeatureKNP Feature = "k8s-network-policy"
+
+	FeatureAuthMTLSSpiffe Feature = "auth-mtls-spiffe"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -197,6 +199,10 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 
 	result[FeatureEndpointRoutes] = FeatureStatus{
 		Enabled: cm.Data["enable-endpoint-routes"] == "true",
+	}
+
+	result[FeatureAuthMTLSSpiffe] = FeatureStatus{
+		Enabled: cm.Data["mesh-auth-mtls-enabled"] == "true",
 	}
 
 	return nil
