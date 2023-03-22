@@ -111,7 +111,7 @@ jobs:
     needs: check_changes
     name: Set commit status
     outputs:
-      sha: ${{ steaps.vars.outputs.sha }}
+      sha: ${{ steps.vars.outputs.sha }}
     steps:
       - name: Set up job variables
         id: vars
