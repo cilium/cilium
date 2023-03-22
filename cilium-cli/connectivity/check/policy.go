@@ -202,6 +202,10 @@ func defaultDenyReason(flow *flowpb.Flow) bool {
 	return flow.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENIED
 }
 
+func authRequiredDropReason(flow *flowpb.Flow) bool {
+	return flow.GetDropReasonDesc() == flowpb.DropReason_AUTH_REQUIRED
+}
+
 var (
 	// ResultNone expects a successful command, don't match any packets.
 	ResultNone = Result{
@@ -246,6 +250,12 @@ var (
 		Drop:           true,
 		ExitCode:       ExitAnyError,
 		DropReasonFunc: defaultDropReason,
+	}
+
+	// ResultDropAuthRequired expects a dropped flow with auth required as reason.
+	ResultDropAuthRequired = Result{
+		Drop:           true,
+		DropReasonFunc: authRequiredDropReason,
 	}
 
 	// ResultAnyReasonEgressDrop expects a dropped flow at Egress and a failed command.
