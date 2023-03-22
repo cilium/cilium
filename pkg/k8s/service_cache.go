@@ -611,6 +611,9 @@ func (s *ServiceCache) MergeExternalServiceDelete(service *serviceStore.ClusterS
 		scopedLog.Debug("Deleting external endpoints")
 
 		delete(externalEndpoints.endpoints, service.Cluster)
+		if len(externalEndpoints.endpoints) == 0 {
+			delete(s.externalEndpoints, id)
+		}
 
 		svc, ok := s.services[id]
 
@@ -628,6 +631,7 @@ func (s *ServiceCache) MergeExternalServiceDelete(service *serviceStore.ClusterS
 			}
 
 			if !serviceReady {
+				delete(s.services, id)
 				event.Action = DeleteService
 			}
 
@@ -673,6 +677,9 @@ func (s *ServiceCache) MergeClusterServiceDelete(service *serviceStore.ClusterSe
 	if ok {
 		scopedLog.Debug("Deleting cluster endpoints")
 		delete(externalEndpoints.endpoints, service.Cluster)
+		if len(externalEndpoints.endpoints) == 0 {
+			delete(s.externalEndpoints, id)
+		}
 	}
 
 	svc, ok := s.services[id]
