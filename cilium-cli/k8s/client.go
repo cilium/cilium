@@ -643,6 +643,10 @@ func (c *Client) ListCiliumEndpoints(ctx context.Context, namespace string, opti
 	return c.CiliumClientset.CiliumV2().CiliumEndpoints(namespace).List(ctx, options)
 }
 
+func (c *Client) ListCiliumEndpointSlices(ctx context.Context, options metav1.ListOptions) (*ciliumv2alpha1.CiliumEndpointSliceList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumEndpointSlices().List(ctx, options)
+}
+
 func (c *Client) ListCiliumEnvoyConfigs(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEnvoyConfigList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumEnvoyConfigs(namespace).List(ctx, options)
 }
