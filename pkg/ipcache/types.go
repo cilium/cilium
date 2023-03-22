@@ -22,6 +22,9 @@ import (
 // independently based on the ResourceID of the origin of that information, and
 // provides convenient accessors to consistently merge the stored information
 // to generate ipcache output based on a range of inputs.
+//
+// Note that when making a copy of this object, resourceInfo is pointer which
+// means it needs to be deep-copied via (*resourceInfo).DeepCopy().
 type prefixInfo map[ipcachetypes.ResourceID]*resourceInfo
 
 // IdentityOverride can be used to override the identity of a given prefix.
@@ -111,6 +114,16 @@ func (m *resourceInfo) isValid() bool {
 		return true
 	}
 	return false
+}
+
+func (m *resourceInfo) DeepCopy() *resourceInfo {
+	n := new(resourceInfo)
+	n.labels = labels.NewFrom(m.labels)
+	n.source = m.source
+	n.identityOverride = m.identityOverride
+	n.tunnelPeer = m.tunnelPeer
+	n.encryptKey = m.encryptKey
+	return n
 }
 
 func (s prefixInfo) isValid() bool {
