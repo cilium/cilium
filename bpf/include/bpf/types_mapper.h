@@ -33,4 +33,6 @@ typedef __u64 __aligned_u64;
 typedef __u64 __net_cookie;
 typedef __u64 __sock_cookie;
 
+#define UINT8_MAX 0xffff
+
 #endif /* __BPF_TYPES_MAPPER__ */
