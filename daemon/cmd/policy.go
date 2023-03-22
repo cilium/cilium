@@ -42,6 +42,7 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/stream"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
@@ -81,9 +82,11 @@ type policyOut struct {
 	IdentityAllocator      CachingIdentityAllocator
 	CacheIdentityAllocator cache.IdentityAllocator
 	RemoteIdentityWatcher  clustermesh.RemoteIdentityWatcher
-	Repository             *policy.Repository
-	Updater                *policy.Updater
-	IPCache                *ipcache.IPCache
+	IdentityObservable     stream.Observable[cache.IdentityChange]
+
+	Repository *policy.Repository
+	Updater    *policy.Updater
+	IPCache    *ipcache.IPCache
 }
 
 // newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache.
@@ -145,6 +148,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		IdentityAllocator:      idAlloc,
 		CacheIdentityAllocator: idAlloc,
 		RemoteIdentityWatcher:  idAlloc,
+		IdentityObservable:     idAlloc,
 		Repository:             iao.policy,
 		Updater:                policyUpdater,
 		IPCache:                ipc,
