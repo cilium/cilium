@@ -133,6 +133,12 @@ var (
 
 	//go:embed manifests/echo-ingress-icmp-deny.yaml
 	echoIngressICMPDenyPolicyYAML string
+
+	//go:embed manifests/echo-ingress-auth-fail.yaml
+	echoIngressAuthFailPolicyYAML string
+
+	//go:embed manifests/echo-ingress-mtls.yaml
+	echoIngressMTLSPolicyYAML string
 )
 
 var (
@@ -803,6 +809,27 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			}
 			return check.ResultCurlHTTPError, check.ResultNone // if the header is not set the request will get a 401
 		})
+
+	// Test mTLS auth with always-fail
+	ct.NewTest("echo-ingress-auth-always-fail").WithCiliumPolicy(echoIngressAuthFailPolicyYAML).
+		// this test is only useful when auth is supported in the Cilium version and it is enabled
+		// currently this is tested my mtls-spiffe as that is the only functional auth method
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureAuthMTLSSpiffe)).
+		WithScenarios(
+			tests.PodToPod(),
+			tests.PodToPodWithEndpoints(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			return check.ResultDropCurlTimeout, check.ResultDropAuthRequired
+		})
+
+	// Test mTLS auth with SPIFFE
+	ct.NewTest("echo-ingress-auth-mtls-spiffe").WithCiliumPolicy(echoIngressMTLSPolicyYAML).
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureAuthMTLSSpiffe)).
+		WithScenarios(
+			tests.PodToPod(),
+			tests.PodToPodWithEndpoints(),
+		)
 
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
 	ct.NewTest("dns-only").WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).
