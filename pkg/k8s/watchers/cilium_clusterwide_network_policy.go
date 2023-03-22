@@ -4,96 +4,50 @@
 package watchers
 
 import (
-	"time"
+	"context"
+	"sync/atomic"
 
-	"k8s.io/client-go/tools/cache"
-
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 )
 
-func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient client.Clientset) {
+func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ctx context.Context, cs client.Clientset) {
+	var hasSynced atomic.Bool
 	apiGroup := k8sAPIGroupCiliumClusterwideNetworkPolicyV2
-	_, ciliumV2ClusterwidePolicyController := informer.NewInformer(
-		utils.ListerWatcherFromTyped[*cilium_v2.CiliumClusterwideNetworkPolicyList](
-			ciliumNPClient.CiliumV2().CiliumClusterwideNetworkPolicies()),
-		&cilium_v2.CiliumClusterwideNetworkPolicy{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				initialRecvTime := time.Now()
-				var valid, equal bool
-				defer func() {
-					k.K8sEventReceived(apiGroup, resources.MetricCCNP, resources.MetricCreate, valid, equal)
-				}()
-				if cnp := k8s.ObjToSlimCNP(obj); cnp != nil {
-					valid = true
-					if cnp.RequiresDerivative() {
-						return
-					}
+	metricLabel := resources.MetricCCNP
+	go func() {
+		cache := make(map[resource.Key]*types.SlimCNP)
 
-					// We need to deepcopy this structure because we are writing
-					// fields.
-					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
-					cnpCpy := cnp.DeepCopy()
+		for event := range k.sharedResources.CiliumClusterwideNetworkPolicies.Events(ctx) {
+			if event.Kind == resource.Sync {
+				hasSynced.Store(true)
+				event.Done(nil)
+				continue
+			}
 
-					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpCpy, initialRecvTime)
-					k.K8sEventProcessed(resources.MetricCCNP, resources.MetricCreate, err == nil)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				initialRecvTime := time.Now()
-				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, resources.MetricCCNP, resources.MetricUpdate, valid, equal) }()
-				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
-					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
-						valid = true
-						if oldCNP.DeepEqual(newCNP) {
-							equal = true
-							return
-						}
+			slimCNP := &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta:   event.Object.TypeMeta,
+					ObjectMeta: event.Object.ObjectMeta,
+					Spec:       event.Object.Spec,
+					Specs:      event.Object.Specs,
+				},
+			}
 
-						if newCNP.RequiresDerivative() {
-							return
-						}
+			var err error
+			switch event.Kind {
+			case resource.Upsert:
+				err = k.onUpsertCNP(slimCNP, cache, event.Key, cs, apiGroup, metricLabel)
+			case resource.Delete:
+				err = k.onDeleteCNP(slimCNP, cache, event.Key, apiGroup, metricLabel)
+			}
+			event.Done(err)
+		}
+	}()
 
-						// We need to deepcopy this structure because we are writing
-						// fields.
-						// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
-						oldCNPCpy := oldCNP.DeepCopy()
-						newCNPCpy := newCNP.DeepCopy()
-
-						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, oldCNPCpy, newCNPCpy, initialRecvTime)
-						k.K8sEventProcessed(resources.MetricCCNP, resources.MetricUpdate, err == nil)
-					}
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, resources.MetricCCNP, resources.MetricDelete, valid, equal) }()
-				cnp := k8s.ObjToSlimCNP(obj)
-				if cnp == nil {
-					return
-				}
-				valid = true
-				err := k.deleteCiliumNetworkPolicyV2(cnp)
-				k.K8sEventProcessed(resources.MetricCCNP, resources.MetricDelete, err == nil)
-			},
-		},
-		k8s.ConvertToCCNP,
-	)
-
-	k.blockWaitGroupToSyncResources(
-		k.stop,
-		nil,
-		ciliumV2ClusterwidePolicyController.HasSynced,
-		apiGroup,
-	)
-
-	go ciliumV2ClusterwidePolicyController.Run(k.stop)
+	k.blockWaitGroupToSyncResources(ctx.Done(), nil, hasSynced.Load, apiGroup)
 	k.k8sAPIGroups.AddAPI(apiGroup)
 }
