@@ -267,7 +267,9 @@ Weekly Developer meeting
 ------------------------
 * The developer community is hanging out on zoom on a weekly basis to chat.
   Everybody is welcome.
-* Weekly, Wednesday, 8:00 am PT, 11:00 am ET, 5:00 pm CEST
+* Weekly, Wednesday,
+  5:00 pm `Europe/Zurich time <https://time.is/Canton_of_Zurich>`__ (CET/CEST),
+  usually equivalent to 8:00 am PT, or 11:00 am ET.
 * `Join zoom <https://zoom.us/j/596609673>`_
 
 eBPF & Cilium Office Hours livestream
