@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	tetragonv1alpha1 "github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1"
@@ -206,6 +207,24 @@ func TestListTetragonTracingPolicies(t *testing.T) {
 	assert.GreaterOrEqual(len(tracingPolicies.Items), 0)
 }
 
+func TestListCiliumEndpointSlices(t *testing.T) {
+	assert := assert.New(t)
+	client := &fakeClient{}
+
+	endpointSlices, err := client.ListCiliumEndpointSlices(context.Background(), metav1.ListOptions{})
+	assert.NoError(err)
+	assert.GreaterOrEqual(len(endpointSlices.Items), 0)
+}
+
+func TestListCiliumExternalWorkloads(t *testing.T) {
+	assert := assert.New(t)
+	client := &fakeClient{}
+
+	externalWorkloads, err := client.ListCiliumExternalWorkloads(context.Background(), metav1.ListOptions{})
+	assert.NoError(err)
+	assert.GreaterOrEqual(len(externalWorkloads.Items), 0)
+}
+
 type execRequest struct {
 	namespace string
 	pod       string
@@ -337,6 +356,68 @@ func (c *fakeClient) ListCiliumEgressGatewayPolicies(ctx context.Context, opts m
 
 func (c *fakeClient) ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error) {
 	panic("implement me")
+}
+
+func (c *fakeClient) ListCiliumEndpointSlices(ctx context.Context, options metav1.ListOptions) (*ciliumv2alpha1.CiliumEndpointSliceList, error) {
+	ciliumEndpointSliceList := ciliumv2alpha1.CiliumEndpointSliceList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "List",
+			APIVersion: "v1",
+		},
+		ListMeta: metav1.ListMeta{},
+		Items: []ciliumv2alpha1.CiliumEndpointSlice{{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "CiliumEndpointSlice",
+				APIVersion: "v2alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "testEndpointSlice1",
+			},
+			Endpoints: []ciliumv2alpha1.CoreCiliumEndpoint{{
+				Name:       "EndpointSlice1",
+				IdentityID: 1,
+				Networking: &ciliumv2.EndpointNetworking{
+					Addressing: ciliumv2.AddressPairList{{
+						IPV4: "10.0.0.1",
+					},
+						{
+							IPV4: "10.0.0.2",
+						},
+					},
+				},
+				Encryption: ciliumv2.EncryptionSpec{},
+				NamedPorts: models.NamedPorts{},
+			},
+			},
+		},
+		},
+	}
+	return &ciliumEndpointSliceList, nil
+}
+
+func (c *fakeClient) ListCiliumExternalWorkloads(ctx context.Context, options metav1.ListOptions) (*ciliumv2.CiliumExternalWorkloadList, error) {
+	ciliumExternalWorkloadList := ciliumv2.CiliumExternalWorkloadList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "List",
+			APIVersion: "v1",
+		},
+		ListMeta: metav1.ListMeta{},
+		Items: []ciliumv2.CiliumExternalWorkload{{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "CiliumEndpointSlice",
+				APIVersion: "v2alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "testEndpointSlice1",
+			},
+			Spec: ciliumv2.CiliumExternalWorkloadSpec{
+				IPv4AllocCIDR: "10.100.0.0/24",
+				IPv6AllocCIDR: "FD00::/64",
+			},
+		},
+		},
+	}
+	return &ciliumExternalWorkloadList, nil
 }
 
 func (c *fakeClient) ListCiliumLocalRedirectPolicies(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error) {
