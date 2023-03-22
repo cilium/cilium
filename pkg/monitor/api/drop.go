@@ -87,6 +87,7 @@ var errors = map[uint8]string{
 	189: "Authentication required",
 	190: "No conntrack map found",
 	191: "No nat map found",
+	192: "Invalid ClusterID",
 }
 
 func extendedReason(reason uint8, extError int8) string {
