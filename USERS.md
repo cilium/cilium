@@ -114,6 +114,11 @@ Users (Alphabetically)
       U: Networking and network policy
       L: https://www.civo.com/kubernetes
 
+    * N: ClickHouse
+      D: ClickHouse uses Cilium as CNI for AWS Kubernetes environments
+      U: CiliumNetworkPolicy, Hubble, ClusterMesh
+      L: https://clickhouse.com
+
     * N: Cognite
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
       Q: @Robert Collins
