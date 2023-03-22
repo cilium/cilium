@@ -959,6 +959,7 @@ here.
 | AUTH_REQUIRED | 189 |  |
 | CT_NO_MAP_FOUND | 190 |  |
 | SNAT_NO_MAP_FOUND | 191 |  |
+| INVALID_CLUSTER_ID | 192 |  |
 
 
 
