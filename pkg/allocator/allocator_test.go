@@ -6,6 +6,7 @@ package allocator
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 const (
@@ -347,6 +349,65 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 
 func (s *AllocatorSuite) TestAllocateCached(c *C) {
 	testAllocator(c, idpool.ID(256), randomTestName(), "a") // enable use of local cache
+}
+
+func (s *AllocatorSuite) TestObserveIdentityChanges(c *C) {
+	backend := newDummyBackend()
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(idpool.ID(1)), WithMax(idpool.ID(256)), WithoutGC())
+	c.Assert(err, IsNil)
+	c.Assert(allocator, Not(IsNil))
+
+	numAllocations := 10
+
+	// Allocate few ids
+	for i := 0; i < numAllocations; i++ {
+		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
+		id, new, firstUse, err := allocator.Allocate(context.Background(), key)
+		c.Assert(err, IsNil)
+		c.Assert(id, Not(Equals), 0)
+		c.Assert(new, Equals, true)
+		c.Assert(firstUse, Equals, true)
+
+		// refcnt must be 1
+		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(1))
+	}
+
+	// Subscribe to the changes. This should replay the current state.
+	ctx, cancel := context.WithCancel(context.Background())
+	changes := stream.ToChannel[IdentityChange](ctx, make(chan error, 1), allocator)
+	for i := 0; i < numAllocations; i++ {
+		change := <-changes
+		// Since these are replayed in hash map traversal order, just validate that
+		// the fields are set.
+		c.Assert(strings.HasPrefix(change.Key.String(), "key0"), Equals, true)
+		c.Assert(change.ID, Not(Equals), 0)
+		c.Assert(change.Kind, Equals, IdentityChangeUpsert)
+	}
+
+	// After replay we should see a sync event.
+	change := <-changes
+	c.Assert(change.Kind, Equals, IdentityChangeSync)
+
+	// Simulate changes to the allocations via the backend
+	go func() {
+		backend.(*dummyBackend).handler.OnAdd(idpool.ID(123), TestAllocatorKey("remote"))
+		backend.(*dummyBackend).handler.OnDelete(idpool.ID(123), TestAllocatorKey("remote"))
+	}()
+
+	// Check that we observe the allocation and the deletions.
+	change = <-changes
+	c.Assert(change.Kind, Equals, IdentityChangeUpsert)
+	c.Assert(change.Key, Equals, TestAllocatorKey("remote"))
+
+	change = <-changes
+	c.Assert(change.Kind, Equals, IdentityChangeDelete)
+	c.Assert(change.Key, Equals, TestAllocatorKey("remote"))
+
+	// Cancel the subscription and verify it completes.
+	cancel()
+	_, notClosed := <-changes
+	c.Assert(notClosed, Equals, false)
+
 }
 
 // The following tests are currently disabled as they are not 100% reliable in

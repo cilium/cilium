@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 // backendOpTimeout is the time allowed for operations sent to backends in
@@ -56,15 +57,21 @@ type cache struct {
 	// watcher is started with the conditions marked as done when the
 	// watcher has exited
 	stopWatchWg sync.WaitGroup
+
+	changeSrc         stream.Observable[IdentityChange]
+	emitChange        func(IdentityChange)
+	completeChangeSrc func(error)
 }
 
 func newCache(a *Allocator) cache {
-	return cache{
+	c := cache{
 		allocator: a,
 		cache:     idMap{},
 		keyCache:  keyMap{},
 		stopChan:  make(chan struct{}),
 	}
+	c.changeSrc, c.emitChange, c.completeChangeSrc = stream.Multicast[IdentityChange]()
+	return c
 }
 
 type waitChan chan struct{}
@@ -120,6 +127,10 @@ func (c *cache) OnAdd(id idpool.ID, key AllocatorKey) {
 	}
 	c.allocator.idPool.Remove(id)
 
+	c.emitChange(IdentityChange{Kind: IdentityChangeUpsert, ID: id, Key: key})
+
+	// TODO: Remove sendEvent in favour of the observable. Might need
+	// to support modify? Or just Upsert?
 	c.sendEvent(kvstore.EventTypeCreate, id, key)
 }
 
@@ -135,6 +146,8 @@ func (c *cache) OnModify(id idpool.ID, key AllocatorKey) {
 	if key != nil {
 		c.nextKeyCache[c.allocator.encodeKey(key)] = id
 	}
+
+	c.emitChange(IdentityChange{Kind: IdentityChangeUpsert, ID: id, Key: key})
 
 	c.sendEvent(kvstore.EventTypeModify, id, key)
 }
@@ -162,6 +175,8 @@ func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
 
 	delete(c.nextCache, id)
 	a.idPool.Insert(id)
+
+	c.emitChange(IdentityChange{Kind: IdentityChangeDelete, ID: id, Key: key})
 
 	c.sendEvent(kvstore.EventTypeDelete, id, key)
 }
@@ -234,4 +249,42 @@ func (c *cache) numEntries() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return len(c.nextCache)
+}
+
+type IdentityChangeKind string
+
+const (
+	IdentityChangeSync   IdentityChangeKind = "sync"
+	IdentityChangeUpsert IdentityChangeKind = "upsert"
+	IdentityChangeDelete IdentityChangeKind = "delete"
+)
+
+type IdentityChange struct {
+	Kind IdentityChangeKind
+	ID   idpool.ID
+	Key  AllocatorKey
+}
+
+// Observe the identity changes. Conforms to stream.Observable.
+// Replays the current state of the cache when subscribing.
+func (c *cache) Observe(ctx context.Context, next func(IdentityChange), complete func(error)) {
+	go func() {
+		c.mutex.RLock()
+
+		// Replay the current state
+		for id, key := range c.cache {
+			next(IdentityChange{Kind: IdentityChangeUpsert, ID: id, Key: key})
+		}
+
+		// Emit a sync event to inform the subscriber that it has received a consistent
+		// initial state.
+		next(IdentityChange{Kind: IdentityChangeSync})
+
+		// And subscribe to new events. Since we held the read-lock there were won't be any
+		// missed or duplicate events.
+		c.changeSrc.Observe(ctx, next, complete)
+
+		c.mutex.RUnlock()
+	}()
+
 }

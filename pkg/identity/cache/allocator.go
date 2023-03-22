@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 var (
@@ -76,6 +77,9 @@ type IdentityAllocatorOwner interface {
 // identities based of sets of labels, and caching information about identities
 // locally.
 type IdentityAllocator interface {
+	// Identity changes are observable.
+	stream.Observable[allocator.IdentityChange]
+
 	// WaitForInitialGlobalIdentities waits for the initial set of global
 	// security identities to have been received.
 	WaitForInitialGlobalIdentities(context.Context) error

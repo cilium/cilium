@@ -924,3 +924,9 @@ func (rc *RemoteCache) NumEntries() int {
 func (rc *RemoteCache) Close() {
 	rc.cache.allocator.Delete()
 }
+
+// Observe the identity changes. Conforms to stream.Observable.
+// Replays the current state of the cache when subscribing.
+func (a *Allocator) Observe(ctx context.Context, next func(IdentityChange), complete func(error)) {
+	a.mainCache.Observe(ctx, next, complete)
+}
