@@ -309,7 +309,7 @@ func (d *Daemon) syncHostIPs() error {
 
 func (d *Daemon) sourceByIP(ip net.IP, defaultSrc source.Source) source.Source {
 	if addr, ok := ippkg.AddrFromIP(ip); ok {
-		lbls := d.ipcache.GetIDMetadataByIP(addr)
+		lbls := d.ipcache.GetMetadataLabelsByIP(addr)
 		if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
 			return source.KubeAPIServer
 		}
