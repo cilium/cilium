@@ -1,0 +1,39 @@
+name: CloudCustodian cleanup
+on:
+  workflow_dispatch:
+  schedule:
+    # Run every 6 hours
+    - cron: "0 */6 * * *"
+
+jobs:
+
+  aws-cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+
+      - name: Install C7N
+        uses: gscho/setup-cloud-custodian@2056ff350e2eb7a9e38c4977028f741edc59fd2c # v1.2.1
+        with:
+          include-c7n-org: true
+
+      - name: Custodian validation
+        run: custodian validate c7n/aws-policy.yaml
+
+      - name: Custodian run
+        env:
+          AWS_DEFAULT_REGION: eu-west-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          echo "${{ secrets.AWS_ACCOUNTS }}" > accounts.yaml
+          c7n-org run -c accounts.yaml -u c7n/aws-policy.yaml -r all -s c7n_aws_out
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: c7n_aws_out
+          path: c7n_aws_out
+          retention-days: 3

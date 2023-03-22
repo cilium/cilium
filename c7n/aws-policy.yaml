@@ -1,0 +1,12 @@
+policies:
+  - name: aws-notify-eks
+    description: |
+      Find stale EKS clusters.
+      Scope: AWS account.
+    resource: aws.eks
+    filters:
+      - type: value
+        key: tag:createdAt
+        value_type: age
+        op: gt
+        value: 0.25
