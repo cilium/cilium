@@ -15,13 +15,29 @@
  * limitations under the License.
  */
 
+// Package xdsresource implements the xDS data model layer.
+//
+// Provides resource-type specific functionality to unmarshal xDS protos into
+// internal data structures that contain only fields gRPC is interested in.
+// These internal data structures are passed to components in the xDS stack
+// (resolver/balancers/server) that have expressed interest in receiving
+// updates to specific resources.
 package xdsresource
 
 import (
-	"google.golang.org/grpc/internal/grpclog"
+	"google.golang.org/grpc/xds/internal"
 	"google.golang.org/grpc/xds/internal/xdsclient/bootstrap"
+	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource/version"
 	"google.golang.org/protobuf/types/known/anypb"
 )
+
+func init() {
+	internal.ResourceTypeMapForTesting = make(map[string]interface{})
+	internal.ResourceTypeMapForTesting[version.V3ListenerURL] = listenerType
+	internal.ResourceTypeMapForTesting[version.V3RouteConfigURL] = routeConfigType
+	internal.ResourceTypeMapForTesting[version.V3ClusterURL] = clusterType
+	internal.ResourceTypeMapForTesting[version.V3EndpointsURL] = endpointsType
+}
 
 // Producer contains a single method to discover resource configuration from a
 // remote management server using xDS APIs.
@@ -115,8 +131,6 @@ type DecodeOptions struct {
 	// BootstrapConfig contains the bootstrap configuration passed to the
 	// top-level xdsClient. This contains useful data for resource validation.
 	BootstrapConfig *bootstrap.Config
-	// Logger is to be used for emitting logs during the Decode operation.
-	Logger *grpclog.PrefixLogger
 }
 
 // DecodeResult is the result of a decode operation.

@@ -19,6 +19,7 @@ package xdsresource
 
 import (
 	"google.golang.org/grpc/internal/pretty"
+	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource/version"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -31,7 +32,7 @@ var (
 	// Singleton instantiation of the resource type implementation.
 	clusterType = clusterResourceType{
 		resourceTypeState: resourceTypeState{
-			typeURL:                    "type.googleapis.com/envoy.config.cluster.v3.Cluster",
+			typeURL:                    version.V3ClusterURL,
 			typeEnum:                   ClusterResource,
 			allResourcesRequiredInSotW: true,
 		},
@@ -49,7 +50,7 @@ type clusterResourceType struct {
 // Decode deserializes and validates an xDS resource serialized inside the
 // provided `Any` proto, as received from the xDS management server.
 func (clusterResourceType) Decode(opts *DecodeOptions, resource *anypb.Any) (*DecodeResult, error) {
-	name, cluster, err := unmarshalClusterResource(resource, opts.Logger)
+	name, cluster, err := unmarshalClusterResource(resource)
 	switch {
 	case name == "":
 		// Name is unset only when protobuf deserialization fails.
