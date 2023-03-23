@@ -188,7 +188,6 @@ jobs:
         uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
         with:
           test-name: datapath-bpf-complexity
-          image: 'complexity-test'
           image-version: ${{ matrix.kernel }}
           host-mount: ./
           cpu: 4
@@ -202,12 +201,15 @@ jobs:
         with:
           provision: 'false'
           cmd: |
-            # workaround to use correct ip binary. TODO: this should be fixed in the complexity-test image.
-            rm /usr/bin/ip
             cd /host/
             make -C bpf/ clean V=0
             make -C tools/maptool/
-            go test -v -parallel=1 ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
+            go test -c ./test/verifier
+            docker run -t --privileged \
+              -v /sys/fs/bpf:/sys/fs/bpf \
+              -v "\$PWD:/cilium" \
+              quay.io/cilium/test-verifier:2ecf56b4ea57576e9d92d34407898e5d14e80aa3@sha256:62396cedb4f15477f0084d7dfc92de55ac9ab8531021b7ac5f56220c35f2cb64 \
+              /cilium/verifier.test -test.v -test.parallel=1 -cilium-base-path /cilium -ci-kernel-version ${{ matrix.ci-kernel }}
 
       - name: Fetch artifacts
         if: ${{ !success() }}
