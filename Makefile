@@ -513,8 +513,8 @@ kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Ciliu
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
 		--version=
 	@echo "  Enabling clustermesh"
-	cilium clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image localhost:5000/cilium/clustermesh-apiserver:local
-	cilium clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image localhost:5000/cilium/clustermesh-apiserver:local
+	cilium clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
+	cilium clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
 	cilium clustermesh status --context kind-clustermesh1 --wait
 	cilium clustermesh status --context kind-clustermesh2 --wait
 	cilium clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
@@ -531,8 +531,6 @@ kind-ready:
 $(eval $(call KIND_ENV,kind-build-image-agent))
 kind-build-image-agent: ## Build cilium-dev docker image
 	$(QUIET)$(MAKE) dev-docker-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DEPLOY image to kind ($(LOCAL_AGENT_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_AGENT_IMAGE)
 
 $(eval $(call KIND_ENV,kind-image-agent))
 kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
@@ -541,8 +539,6 @@ kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker i
 $(eval $(call KIND_ENV,kind-build-image-operator))
 kind-build-image-operator: ## Build cilium-operator-dev docker image
 	$(QUIET)$(MAKE) dev-docker-operator-generic-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DEPLOY image to kind ($(LOCAL_OPERATOR_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE)
 
 $(eval $(call KIND_ENV,kind-image-operator))
 kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operator-dev docker image and import it into kind.
@@ -551,8 +547,6 @@ kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operat
 $(eval $(call KIND_ENV,kind-build-clustermesh-apiserver))
 kind-build-clustermesh-apiserver: ## Build cilium-clustermesh-apiserver docker image
 	$(QUIET)$(MAKE) docker-clustermesh-apiserver-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DEPLOY image to kind ($(LOCAL_CLUSTERMESH_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_CLUSTERMESH_IMAGE)
 
 .PHONY: kind-image
 kind-image: ## Build cilium and operator images and import them into kind.
@@ -602,7 +596,7 @@ kind-debug-agent: ## Create a local kind development environment with cilium-age
 		|| $(MAKE) kind
 	$(MAKE) kind-image-agent-debug
 	# Not debugging cilium-operator here; any image is good enough.
-	$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE) \
+	kind load docker-image $(LOCAL_OPERATOR_IMAGE) \
 		|| $(MAKE) kind-image-operator
 	$(MAKE) kind-check-cilium 2>/dev/null \
 		|| $(MAKE) kind-install-cilium
