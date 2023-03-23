@@ -285,6 +285,10 @@ func (d *Daemon) init() error {
 			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 
+		if err := linuxdatapath.NodeEnsureLocalIPRule(); err != nil {
+			return fmt.Errorf("failed to ensure local IP rules: %w", err)
+		}
+
 		if option.Config.SockopsEnable {
 			eppolicymap.CreateEPPolicyMap()
 			if err := sockops.SockmapEnable(); err != nil {
