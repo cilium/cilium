@@ -26,7 +26,7 @@ require (
 	github.com/spf13/pflag v1.0.6-0.20200504143853-81378bbcd8a1
 	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0
 	golang.org/x/mod v0.9.0
-	google.golang.org/grpc v1.53.0
+	google.golang.org/grpc v1.54.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	helm.sh/helm/v3 v3.11.2
 	k8s.io/api v0.26.2

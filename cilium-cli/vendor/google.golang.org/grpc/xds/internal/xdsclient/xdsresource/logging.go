@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2021 gRPC authors.
+ * Copyright 2023 gRPC authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,24 +13,16 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package testutils
+package xdsresource
 
 import (
-	"fmt"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/grpc/grpclog"
+	internalgrpclog "google.golang.org/grpc/internal/grpclog"
 )
 
-// MarshalAny is a convenience function to marshal protobuf messages into any
-// protos. It will panic if the marshaling fails.
-func MarshalAny(m proto.Message) *anypb.Any {
-	a, err := ptypes.MarshalAny(m)
-	if err != nil {
-		panic(fmt.Sprintf("ptypes.MarshalAny(%+v) failed: %v", m, err))
-	}
-	return a
-}
+const prefix = "[xds-resource] "
+
+var logger = internalgrpclog.NewPrefixLogger(grpclog.Component("xds"), prefix)
