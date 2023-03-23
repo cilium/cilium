@@ -10,56 +10,57 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
-// exportPodCIDRReconciler is a ConfigReconcilerFunc which reconciles the
-// advertisement of the private Kubernetes PodCIDR block.
-func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
-	if newc == nil {
-		return fmt.Errorf("attempted pod cidr export reconciliation with nil CiliumBGPPeeringPolicy")
-	}
-	if cstate == nil {
-		return fmt.Errorf("attempted pod cidr export reconciliation with nil ControlPlaneState")
-	}
-	if sc == nil {
-		return fmt.Errorf("attempted pod cidr export reconciliation with nil ServerWithConfig")
-	}
+type advertisementsReconcilerParams struct {
+	ctx       context.Context
+	name      string
+	component string
+	enabled   bool
+
+	sc   *ServerWithConfig
+	newc *v2alpha1api.CiliumBGPVirtualRouter
+
+	currentAdvertisements []Advertisement
+	toAdvertise           []*net.IPNet
+}
+
+// exportAdvertisementsReconciler reconciles the state of the BGP advertisements
+// with the provided toAdvertise list of IPNets and returns a list of the
+// advertisements currently being announced.
+func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]Advertisement, error) {
 	var (
 		l = log.WithFields(
 			logrus.Fields{
-				"component": "gobgp.exportPodCIDRReconciler",
+				"component": params.component,
 			},
 		)
-		// holds pod cidr advertisements which must be advertised
+		// holds advertisements which must be advertised
 		toAdvertise []Advertisement
-		// holds pod cidr advertisements which must remain in place
+		// holds advertisements which must remain in place
 		toKeep []Advertisement
-		// holds pod cidr advertisements which must be removed
+		// holds advertisements which must be removed
 		toWithdraw []Advertisement
-		// a concat of toKeep + the result of advertising toAdvertise.
-		// stashed onto sc.PodCIDRAnnouncements field for book keeping.
+		// the result of advertising toAdvertise.
 		newAdverts []Advertisement
 	)
 
-	l.Debugf("Begin reconciling pod CIDR advertisements for virtual router with local ASN %v", newc.LocalASN)
+	l.Debugf("Begin reconciling %s advertisements for virtual router with local ASN %v", params.name, params.newc.LocalASN)
 
-	// if we are flipping ExportPodCIDR off, withdraw any previously advertised
-	// pod cidrs and early return nil.
-	if !newc.ExportPodCIDR {
-		l.Debugf("ExportPodCIDR disabled for virtual router with local ASN %v", newc.LocalASN)
+	// if advertisement is turned off withdraw any previously advertised
+	// cidrs and early return nil.
+	if !params.enabled {
+		l.Debugf("%s advertisements disabled for virtual router with local ASN %v", params.name, params.newc.LocalASN)
 
-		for _, advrt := range sc.PodCIDRAnnouncements {
-			l.Debugf("Withdrawing pod CIDR advertisement %v for local ASN %v", advrt.Net.String(), newc.LocalASN)
-			if err := sc.WithdrawPath(ctx, advrt); err != nil {
-				return err
+		for _, advrt := range params.currentAdvertisements {
+			l.Debugf("Withdrawing %s advertisement %v for local ASN %v", params.name, advrt.Net.String(), params.newc.LocalASN)
+			if err := params.sc.WithdrawPath(params.ctx, advrt); err != nil {
+				return nil, err
 			}
 		}
 
-		// reslice map to dump old pod cidr state.
-		sc.PodCIDRAnnouncements = sc.PodCIDRAnnouncements[:0]
-		return nil
+		return nil, nil
 	}
 
 	// an aset member which book keeps which universe it exists in
@@ -71,16 +72,13 @@ func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *Serve
 
 	aset := map[string]*member{}
 
-	// populate the pod cidr advrts that must be present, universe a
-	for _, cidr := range cstate.PodCIDRs {
+	// populate the advrts that must be present, universe a
+	for _, ipNet := range params.toAdvertise {
 		var (
 			m  *member
 			ok bool
 		)
-		_, ipNet, err := net.ParseCIDR(cidr)
-		if err != nil {
-			return fmt.Errorf("failed to parse pod cidr %s: %w", cidr, err)
-		}
+
 		key := ipNet.String()
 		if m, ok = aset[key]; !ok {
 			aset[key] = &member{
@@ -94,8 +92,8 @@ func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *Serve
 		m.a = true
 	}
 
-	// populate the pod cidr advrts that are current advertised
-	for _, advrt := range sc.PodCIDRAnnouncements {
+	// populate the advrts that are current advertised
+	for _, advrt := range params.currentAdvertisements {
 		var (
 			m  *member
 			ok bool
@@ -112,18 +110,18 @@ func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *Serve
 	}
 
 	for _, m := range aset {
-		// present in configred pod cidrs (set a) but not in advertised pod cidrs
+		// present in configured cidrs (set a) but not in advertised cidrs
 		// (set b)
 		if m.a && !m.b {
 			toAdvertise = append(toAdvertise, *m.advrt)
 		}
-		// present in advertised pod cidrs (set b) but no in configured pod cidrs
+		// present in advertised cidrs (set b) but no in configured cidrs
 		// (set b)
 		if m.b && !m.a {
 			toWithdraw = append(toWithdraw, *m.advrt)
 		}
 		// present in both configured (set a) and advertised (set b) add this to
-		// podcidrs to leave advertised.
+		// cidrs to leave advertised.
 		if m.b && m.a {
 			toKeep = append(toKeep, *m.advrt)
 		}
@@ -131,29 +129,28 @@ func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *Serve
 
 	if len(toAdvertise) == 0 && len(toWithdraw) == 0 {
 		l.Debugf("No reconciliation necessary")
-		return nil
+		return append([]Advertisement{}, params.currentAdvertisements...), nil
 	}
 
 	// create new adverts
 	for _, advrt := range toAdvertise {
-		l.Debugf("Advertising pod CIDR %v for policy with local ASN: %v", advrt.Net.String(), newc.LocalASN)
-		advrt, err := sc.AdvertisePath(ctx, advrt.Net)
+		l.Debugf("Advertising %s %v for policy with local ASN: %v", params.name, advrt.Net.String(), params.newc.LocalASN)
+		advrt, err := params.sc.AdvertisePath(params.ctx, advrt.Net)
 		if err != nil {
-			return fmt.Errorf("failed to advertise pod cidr prefix %v: %w", advrt.Net, err)
+			return nil, fmt.Errorf("failed to advertise %s prefix %v: %w", params.name, advrt.Net, err)
 		}
 		newAdverts = append(newAdverts, advrt)
 	}
 
 	// withdraw uneeded adverts
 	for _, advrt := range toWithdraw {
-		l.Debugf("Withdrawing pod CIDR %v for policy with local ASN: %v", advrt.Net, newc.LocalASN)
-		if err := sc.WithdrawPath(ctx, advrt); err != nil {
-			return err
+		l.Debugf("Withdrawing %s %v for policy with local ASN: %v", params.name, advrt.Net, params.newc.LocalASN)
+		if err := params.sc.WithdrawPath(params.ctx, advrt); err != nil {
+			return nil, err
 		}
 	}
 
-	// concat our toKeep and newAdverts slices to store the latest reconciliation
-	sc.PodCIDRAnnouncements = append(toKeep, newAdverts...)
-
-	return nil
+	// concat our toKeep and newAdverts slices to store the latest
+	// reconciliation and return it
+	return append(toKeep, newAdverts...), nil
 }
