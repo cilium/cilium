@@ -920,7 +920,6 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target)
 	} l4hdr;
 	__u64 off;
 	int ret;
-	__u8 nexthdr;
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
@@ -928,7 +927,6 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target)
 		return DROP_INVALID;
 
 	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &tuple);
-	nexthdr = tuple.nexthdr;
 
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
@@ -1025,7 +1023,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target)
 					return ret;
 
 				/* Switch back to the outer header. */
-				tuple.nexthdr = nexthdr;
+				tuple.nexthdr = IPPROTO_ICMP;
 				goto rewrite_ingress;
 			}
 			default:
@@ -1670,7 +1668,6 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 		__be16 dport;
 	} l4hdr;
 	__u32 off;
-	__u8 nexthdr;
 
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
 
@@ -1683,7 +1680,6 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 		return hdrlen;
 
 	snat_v6_init_tuple(ip6, NAT_DIR_INGRESS, &tuple);
-	nexthdr = tuple.nexthdr;
 
 	off = ((void *)ip6 - data) + hdrlen;
 	switch (tuple.nexthdr) {
@@ -1789,7 +1785,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 				return ret;
 
 			/* Switch back to the outer header. */
-			tuple.nexthdr = nexthdr;
+			tuple.nexthdr = IPPROTO_ICMPV6;
 			goto rewrite_ingress;
 		}
 		default:
