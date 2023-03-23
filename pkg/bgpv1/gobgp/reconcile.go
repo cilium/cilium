@@ -327,6 +327,51 @@ func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, m *BGPRouterMan
 	return exportPodCIDRReconciler(ctx, m, sc, newc, cstate)
 }
 
+// exportPodCIDRReconciler is a ConfigReconcilerFunc which reconciles the
+// advertisement of the private Kubernetes PodCIDR block.
+func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+	if newc == nil {
+		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil CiliumBGPPeeringPolicy")
+	}
+	if sc == nil {
+		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil ServerWithConfig")
+	}
+	if cstate == nil {
+		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil ControlPlaneState")
+	}
+
+	toAdvertise := []*net.IPNet{}
+	for _, cidr := range cstate.PodCIDRs {
+		_, ipNet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return fmt.Errorf("failed to parse cidr %s: %w", cidr, err)
+		}
+		toAdvertise = append(toAdvertise, ipNet)
+	}
+
+	advertisements, err := exportAdvertisementsReconciler(&advertisementsReconcilerParams{
+		ctx:       ctx,
+		name:      "pod CIDR",
+		component: "gobgp.exportPodCIDRReconciler",
+		enabled:   newc.ExportPodCIDR,
+
+		sc:   sc,
+		newc: newc,
+
+		currentAdvertisements: sc.PodCIDRAnnouncements,
+		toAdvertise:           toAdvertise,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Update the server config's list of current advertisements only if the
+	// reconciliation logic didn't return any error
+	sc.PodCIDRAnnouncements = advertisements
+	return nil
+}
+
 type lbServiceReconcilerOut struct {
 	cell.Out
 
