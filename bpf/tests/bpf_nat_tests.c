@@ -53,7 +53,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr)
 	memcpy(dst, &l3, sizeof(struct iphdr));
 	dst += sizeof(struct iphdr);
 
-	struct icmphdr icmphdr = {
+	struct icmphdr icmphdr __align_stack_8 = {
 		.type           = ICMP_DEST_UNREACH,
 		.code           = ICMP_FRAG_NEEDED,
 		.un = {
@@ -111,7 +111,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr)
 	}
 		break;
 	case IPPROTO_ICMP: {
-		struct icmphdr inner_l4 = {
+		struct icmphdr inner_l4 __align_stack_8 = {
 			.type = ICMP_ECHO,
 			.un = {
 				.echo = {
@@ -428,7 +428,7 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 	int in_l3_off;
 	int in_l4_off;
 	struct iphdr in_ip4;
-	struct icmphdr in_l4hdr;
+	struct icmphdr in_l4hdr __align_stack_8;
 
 	in_l3_off = l4_off + sizeof(icmphdr);
 	if (ctx_load_bytes(ctx, in_l3_off, &in_ip4,
