@@ -30,8 +30,6 @@ import (
 	v3tlspb "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/internal/envconfig"
-	"google.golang.org/grpc/internal/grpclog"
-	"google.golang.org/grpc/internal/pretty"
 	"google.golang.org/grpc/internal/xds/matcher"
 	"google.golang.org/grpc/xds/internal/xdsclient/xdsresource/version"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -41,7 +39,7 @@ import (
 // to this value by the management server.
 const transportSocketName = "envoy.transport_sockets.tls"
 
-func unmarshalClusterResource(r *anypb.Any, logger *grpclog.PrefixLogger) (string, ClusterUpdate, error) {
+func unmarshalClusterResource(r *anypb.Any) (string, ClusterUpdate, error) {
 	r, err := unwrapResource(r)
 	if err != nil {
 		return "", ClusterUpdate{}, fmt.Errorf("failed to unwrap resource: %v", err)
@@ -55,7 +53,6 @@ func unmarshalClusterResource(r *anypb.Any, logger *grpclog.PrefixLogger) (strin
 	if err := proto.Unmarshal(r.GetValue(), cluster); err != nil {
 		return "", ClusterUpdate{}, fmt.Errorf("failed to unmarshal resource: %v", err)
 	}
-	logger.Infof("Resource with name: %v, type: %T, contains: %v", cluster.GetName(), cluster, pretty.ToJSON(cluster))
 	cu, err := validateClusterAndConstructClusterUpdate(cluster)
 	if err != nil {
 		return cluster.GetName(), ClusterUpdate{}, err
@@ -179,6 +176,9 @@ func validateClusterAndConstructClusterUpdate(cluster *v3clusterpb.Cluster) (Clu
 		clusters := &v3aggregateclusterpb.ClusterConfig{}
 		if err := proto.Unmarshal(cluster.GetClusterType().GetTypedConfig().GetValue(), clusters); err != nil {
 			return ClusterUpdate{}, fmt.Errorf("failed to unmarshal resource: %v", err)
+		}
+		if len(clusters.Clusters) == 0 {
+			return ClusterUpdate{}, fmt.Errorf("xds: aggregate cluster has empty clusters field in response: %+v", cluster)
 		}
 		ret.ClusterType = ClusterTypeAggregate
 		ret.PrioritizedClusterNames = clusters.Clusters
