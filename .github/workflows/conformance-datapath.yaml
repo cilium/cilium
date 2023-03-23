@@ -57,7 +57,7 @@ concurrency:
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'issue_comment' && (
         github.event.comment.body == '/ci-datapath' ||
-        github.event.comment.body == '/test'
+        contains(github.event.comment.body, '/test') 
       ) && github.event.issue.number) ||
       (github.event_name == 'pull_request' && github.event.pull_request.number)
     }}
@@ -72,7 +72,8 @@ jobs:
     if: |
       (github.event_name == 'issue_comment' && (
         github.event.comment.body == '/ci-datapath' ||
-        github.event.comment.body == '/test'
+        github.event.comment.body == '/test' ||
+        github.event.comment.body == '/test-backport-1.13'
       )) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
@@ -112,7 +113,8 @@ jobs:
     if: |
       (github.event_name == 'issue_comment' && (
         github.event.comment.body == '/ci-datapath' ||
-        (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
+        ((github.event.comment.body == '/test' || 
+          github.event.comment.body == '/test-backport-1.13') && needs.check_changes.outputs.tested == 'true')
       )) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
