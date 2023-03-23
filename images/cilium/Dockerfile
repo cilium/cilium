@@ -39,6 +39,7 @@ ARG LOCKDEBUG
 ARG RACE
 ARG V
 ARG LIBNETWORK_PLUGIN
+ARG CCACHE
 
 #
 # Please do not add any dependency updates before the 'make install' here,
@@ -54,7 +55,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=
     # fine to run this with same architecture as BUILDARCH since the output of
     # bash_completion is the same for both architectures.
     make GOARCH=${BUILDARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} PKG_BUILD=1 V=${V} LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
-    DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} install-bash-completion licenses-all && \
+    CCACHE=${CCACHE} DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} install-bash-completion licenses-all && \
     mv LICENSE.all /tmp/install/${TARGETOS}/${TARGETARCH}/LICENSE.all
 
 COPY images/cilium/init-container.sh \

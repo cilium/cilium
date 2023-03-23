@@ -30,6 +30,10 @@ BPF_ASM := $(patsubst %.o,%.s,$(BPF))
 CLANG ?= clang
 LLC   ?= llc
 
+ifeq ($(CCACHE),1)
+  CLANG := ccache $(CLANG)
+endif
+
 HOST_CC    ?= gcc
 HOST_STRIP ?= strip
 
