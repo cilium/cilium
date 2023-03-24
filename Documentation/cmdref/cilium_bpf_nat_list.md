@@ -5,7 +5,7 @@
 List all NAT mapping entries
 
 ```
-cilium bpf nat list [flags]
+cilium bpf nat list [cluster <cluster id>] [flags]
 ```
 
 ### Options
