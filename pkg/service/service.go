@@ -1555,21 +1555,28 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 	for i, backend := range backends {
 		hash := backend.L3n4Addr.Hash()
 		backendSet[hash] = struct{}{}
-
 		if b, found := svc.backendByHash[hash]; !found {
-			if s.backendRefCount.Add(hash) {
+			globalBackend, existsGlobally := s.backendByHash[hash]
+			// Backend entries in bpf maps might not be deleted, cross-check hash with global backend
+			// map before acquiring new ID.
+			if s.backendRefCount.Add(hash) && !existsGlobally {
 				id, err := AcquireBackendID(backend.L3n4Addr)
 				if err != nil {
-					return nil, nil, nil, fmt.Errorf("Unable to acquire backend ID for %q: %s",
+					return nil, nil, nil, fmt.Errorf("unable to acquire backend ID for %q: %s",
 						backend.L3n4Addr, err)
 				}
 				backends[i].ID = id
-				backends[i].Weight = backend.Weight
 				newBackends = append(newBackends, backends[i])
 				// TODO make backendByHash by value not by ref
 				s.backendByHash[hash] = backends[i]
 			} else {
-				backends[i].ID = s.backendByHash[hash].ID
+				// Make sure the global backend ID is still held for this L3n4Addr
+				err := RestoreBackendID(backend.L3n4Addr, globalBackend.ID)
+				if err != nil {
+					return nil, nil, nil, fmt.Errorf("unable to re-acquire backend ID for %q: %s",
+						backend.L3n4Addr, err)
+				}
+				backends[i].ID = globalBackend.ID
 			}
 			svc.backendByHash[hash] = backends[i]
 		} else {
