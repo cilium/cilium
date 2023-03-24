@@ -26,12 +26,12 @@ const (
 	// system state such as Kubernetes.
 	KVStore Source = "kvstore"
 
-	// Kubernetes is the source used for state derived from Kubernetes
-	Kubernetes Source = "k8s"
-
 	// CustomResource is the source used for state derived from Kubernetes
 	// custom resources
 	CustomResource Source = "custom-resource"
+
+	// Kubernetes is the source used for state derived from Kubernetes
+	Kubernetes Source = "k8s"
 
 	// LocalAPI is the source used for state derived from the API served
 	// locally on the node.
