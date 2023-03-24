@@ -213,6 +213,10 @@ type Map struct {
 	// define maps to the macro used in the datapath portion for the map
 	// name, for example 'CT_MAP4'.
 	define string
+
+	// This field indicates which cluster this ctmap is. Zero for global
+	// maps and non-zero for per-cluster maps.
+	clusterID uint32
 }
 
 // GCFilter contains the necessary fields to filter the CT maps.
