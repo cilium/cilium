@@ -127,8 +127,17 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 	}
 
 	// Set initial size of verifier log buffer.
+	//
+	// Up until kernel 5.1, the maximum log size is (2^24)-1. In 5.2, this was
+	// increased to (2^30)-1 by 7a9f5c65abcc ("bpf: increase verifier log limit").
+	//
+	// The default value of (2^22)-1 was chosen to be large enough to fit the log
+	// of most Cilium programs, while falling just within the 5.1 maximum size in
+	// one of the steps of the multiplication loop below. Without the -1, it would
+	// overshoot the cap to 2^24, making e.g. verifier tests unable to load the
+	// program if the previous size (2^22) was too small to fit the log.
 	if opts.Programs.LogSize == 0 {
-		opts.Programs.LogSize = 4_194_304
+		opts.Programs.LogSize = 4_194_303
 	}
 
 	attempt := 1
