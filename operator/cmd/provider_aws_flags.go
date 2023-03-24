@@ -45,7 +45,7 @@ func init() {
 		"Interval for garbage collection of unattached ENIs. Set to 0 to disable")
 	option.BindEnv(Vp, operatorOption.ENIGarbageCollectionInterval)
 
-	flags.Bool(operatorOption.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
+	flags.Bool(operatorOption.UpdateEC2AdapterLimitViaAPI, true, "Use the EC2 API to update the instance type to adapter limits")
 	option.BindEnv(Vp, operatorOption.UpdateEC2AdapterLimitViaAPI)
 
 	flags.Bool(operatorOption.AWSUsePrimaryAddress, false, "Allows for using primary address of the ENI for allocations on the node")

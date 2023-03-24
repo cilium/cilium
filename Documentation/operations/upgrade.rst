@@ -314,6 +314,16 @@ Annotations:
   DNS server is expired.
 * Cilium now writes its CNI configuration file to ``05-cilium.conflist`` in
   all cases, rather than the previous default of ``05-cilium.conf``.
+* The default value of ``--update-ec2-adapter-limit-via-api`` has changed from
+  ``false`` to ``true``. This means that the Cilium Operator will fetch the
+  most up-to-date EC2 adapter limits from the AWS API. This now requires
+  updated IAM permissions for Cilium to have ``ec2:DescribeInstances``. In EKS,
+  nodes usually have ``AmazonEKSWorkerNodePolicy`` which includes this
+  permission, so it should work in most cases. If your nodes don't have this
+  policy, then consider adding it to your IAM permissions. Explicitly configure
+  ``--update-ec2-adapter-limit-via-api`` to ``false`` if you want to avoid this
+  additional IAM permission. Beware that if your EC2 instance type that Cilium
+  is running on is not known to Cilium, it may cause a crash.
 
 Removed Options
 ~~~~~~~~~~~~~~~
