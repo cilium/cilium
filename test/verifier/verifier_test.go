@@ -21,17 +21,19 @@ var (
 	ciKernelVersion = flag.String("ci-kernel-version", "", "CI kernel version to assume for verifier tests (supported values: 419, 54, 510, netnext)")
 )
 
-func getCIKernelVersion(t *testing.T) string {
+func getCIKernelVersion(t *testing.T) (string, string) {
 	t.Helper()
 
 	var uts unix.Utsname
 	if err := unix.Uname(&uts); err != nil {
 		t.Fatalf("uname: %v", err)
 	}
-
 	release := unix.ByteSliceToString(uts.Release[:])
+	t.Logf("Running kernel version: %s", release)
 
-	t.Logf("Detected running kernel version %s", release)
+	if ciKernelVersion != nil && *ciKernelVersion != "" {
+		return *ciKernelVersion, "cli"
+	}
 
 	var ciKernel string
 	switch {
@@ -44,9 +46,10 @@ func getCIKernelVersion(t *testing.T) string {
 	case strings.HasPrefix(release, "bpf-next"):
 		ciKernel = "netnext"
 	default:
-		t.Fatalf("kernel version %s not supported by verifier complexity tests", release)
+		t.Fatalf("detected kernel version %s not supported by verifier complexity tests, specify using -ci-kernel-version", release)
 	}
-	return ciKernel
+
+	return ciKernel, "detected"
 }
 
 func getDatapathConfigFile(t *testing.T, ciKernelVersion, bpfProgram string) string {
@@ -63,14 +66,7 @@ func TestVerifier(t *testing.T) {
 	}
 	t.Logf("Cilium checkout base path: %s", *ciliumBasePath)
 
-	var kernelVersion, source string
-	if ciKernelVersion != nil && *ciKernelVersion != "" {
-		kernelVersion = *ciKernelVersion
-		source = "cli"
-	} else {
-		kernelVersion = getCIKernelVersion(t)
-		source = "detected"
-	}
+	kernelVersion, source := getCIKernelVersion(t)
 	t.Logf("CI kernel version: %s (%s)", kernelVersion, source)
 
 	const (
