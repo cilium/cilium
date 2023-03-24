@@ -107,11 +107,11 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.26.0
-	k8s.io/apiextensions-apiserver v0.26.0
-	k8s.io/apimachinery v0.26.0
-	k8s.io/client-go v0.26.0
-	k8s.io/code-generator v0.26.0
+	k8s.io/api v0.27.0-rc.0
+	k8s.io/apiextensions-apiserver v0.27.0-rc.0
+	k8s.io/apimachinery v0.27.0-rc.0
+	k8s.io/client-go v0.27.0-rc.0
+	k8s.io/code-generator v0.27.0-rc.0
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
