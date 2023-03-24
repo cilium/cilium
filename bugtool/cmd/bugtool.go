@@ -73,9 +73,6 @@ func (bugtool *Bugtool) runTool(ctx context.Context, config *options.Config, roo
 
 	// Generate generates config then exists.
 	if config.Generate || config.DryRun {
-		if config.DryRun {
-			log.Info("[Deprecated] use --generate instead")
-		}
 		log.Info("Generating bugtool config file")
 		fd, err := os.Create(config.ConfigFile)
 		if err != nil {

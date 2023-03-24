@@ -52,7 +52,6 @@ func CreateDump(conf *options.Config) dump.Task {
 
 	// Handle deprecated topic specific flags.
 	if conf.EnvoyDump {
-		log.Info("[Deprecated] Use --topics=envoy instead")
 		conf.Topics = append(conf.Topics, "envoy")
 	}
 

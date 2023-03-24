@@ -41,7 +41,6 @@ type Config struct {
 	Wait               bool          `mapstructure:"wait"`
 	WaitTimeout        time.Duration `mapstructure:"wait-timeout"`
 
-	// Deprecated flags:
 	DryRun bool `mapstructure:"dry-run"` // Deprecated.
 }
 
@@ -62,8 +61,10 @@ func (bugtoolConf *Config) Flags(flags *pflag.FlagSet) {
 	flags.StringVarP(&bugtoolConf.DumpPath, "tmp", "t", DefaultDumpPath, "Path to store extracted files. Use '-' to send to stdout.")
 
 	flags.BoolVar(&bugtoolConf.GetPProf, "get-pprof", false, "When set, only gets the pprof traces from the cilium-agent binary")
+	flags.MarkDeprecated("get-pprof", "Use --topics=pprof instead")
 	flags.IntVar(&bugtoolConf.PprofDebug, "pprof-debug", 1, "Debug pprof args")
 	flags.BoolVar(&bugtoolConf.EnvoyDump, "envoy-dump", false, "When set, dump envoy configuration from unix socket")
+	flags.MarkDeprecated("envoy-dump", "Use --topics=envoy instead")
 	flags.IntVar(&bugtoolConf.PprofPort,
 		"pprof-port", ciliumOptions.PprofPortAgent,
 		fmt.Sprintf(
@@ -73,7 +74,8 @@ func (bugtoolConf *Config) Flags(flags *pflag.FlagSet) {
 	)
 	flags.IntVar(&bugtoolConf.PProfTraceSeconds, "pprof-trace-seconds", 180, "Amount of seconds used for pprof CPU traces")
 	flags.BoolVar(&bugtoolConf.Generate, "generate", false, "Create configuration file of all commands that would have been executed")
-	flags.BoolVar(&bugtoolConf.DryRun, "dry-run", false, "[DEPRECATED: use \"--generate\" instead] Create configuration file of all commands that would have been executed")
+	flags.BoolVar(&bugtoolConf.DryRun, "dry-run", false, "Create configuration file of all commands that would have been executed")
+	flags.MarkDeprecated("dry-run", "use --generate instead")
 	flags.DurationVarP(&bugtoolConf.ExecTimeout, "exec-timeout", "", 30*time.Second, "The default timeout for any cmd execution in seconds")
 	flags.StringVarP(&bugtoolConf.ConfigFile, "config", "", "", "Configuration to decide what should be run")
 	flags.IntVar(&bugtoolConf.ParallelWorkers, "parallel-workers", runtime.NumCPU(), "Maximum number of parallel worker tasks, use 0 for number of CPUs")

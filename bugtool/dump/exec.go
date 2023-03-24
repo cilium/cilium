@@ -22,7 +22,7 @@ type Exec struct {
 	base `mapstructure:",squash"`
 	Ext  string
 
-	Cmd                string
+	Cmd                string `json:"cmd"`
 	HashEncryptionKeys bool
 	Args               []string
 }
