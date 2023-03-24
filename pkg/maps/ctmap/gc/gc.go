@@ -166,6 +166,18 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter *ctm
 
 	if e == nil {
 		maps = ctmap.GlobalMaps(ipv4, ipv6)
+
+		// We treat per-cluster CT Maps as global map. When we don't enable
+		// cluster-aware addressing, ctmap.PerClusterCTMaps is nil (this is
+		// the default).
+		if ctmap.PerClusterCTMaps != nil {
+			perClusterMaps, err := ctmap.PerClusterCTMaps.GetAllClusterCTMaps()
+			if err != nil {
+				log.Error("Failed to get per-cluster CT maps. Continue without them.")
+			} else {
+				maps = append(maps, perClusterMaps...)
+			}
+		}
 	} else {
 		maps = ctmap.LocalMaps(e, ipv4, ipv6)
 	}

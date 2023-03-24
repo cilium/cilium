@@ -343,12 +343,28 @@ func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
 func doGC6(m *Map, filter *GCFilter) gcStats {
-	ctMap := mapInfo[m.mapType]
-	if ctMap.natMapLock != nil {
-		ctMap.natMapLock.Lock()
-		defer ctMap.natMapLock.Unlock()
+	var natMap *nat.Map
+
+	if m.clusterID == 0 {
+		// global map handling
+		ctMap := mapInfo[m.mapType]
+		if ctMap.natMapLock != nil {
+			ctMap.natMapLock.Lock()
+			defer ctMap.natMapLock.Unlock()
+		}
+		natMap = ctMap.natMap
+	} else {
+		// per-cluster map handling
+		if nat.PerClusterNATMaps != nil {
+			natm, err := nat.PerClusterNATMaps.GetClusterNATMap(m.clusterID, false)
+			if err != nil {
+				log.WithError(err).Error("Unable to get per-cluster NAT map")
+			} else {
+				natMap = natm
+			}
+		}
 	}
-	natMap := ctMap.natMap
+
 	stats := statStartGc(m)
 	defer stats.finish()
 
@@ -428,12 +444,28 @@ func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
 func doGC4(m *Map, filter *GCFilter) gcStats {
-	ctMap := mapInfo[m.mapType]
-	if ctMap.natMapLock != nil {
-		ctMap.natMapLock.Lock()
-		defer ctMap.natMapLock.Unlock()
+	var natMap *nat.Map
+
+	if m.clusterID == 0 {
+		// global map handling
+		ctMap := mapInfo[m.mapType]
+		if ctMap.natMapLock != nil {
+			ctMap.natMapLock.Lock()
+			defer ctMap.natMapLock.Unlock()
+		}
+		natMap = ctMap.natMap
+	} else {
+		// per-cluster map handling
+		if nat.PerClusterNATMaps != nil {
+			natm, err := nat.PerClusterNATMaps.GetClusterNATMap(m.clusterID, true)
+			if err != nil {
+				log.WithError(err).Error("Unable to get per-cluster NAT map")
+			} else {
+				natMap = natm
+			}
+		}
 	}
-	natMap := ctMap.natMap
+
 	stats := statStartGc(m)
 	defer stats.finish()
 
