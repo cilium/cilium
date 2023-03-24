@@ -786,17 +786,15 @@ func testSessionAffinity(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, fromOu
 	}
 }
 
-func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, ipsec bool) {
+func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	var (
 		data    v1.Service
 		httpURL string
 		tftpURL string
 
-		// Service backends on both nodes
 		localNodePortSvcIPv4 = "test-nodeport-local"
 		localNodePortSvcIPv6 = "test-nodeport-local-ipv6"
 
-		// Service backend only on k8s2 node
 		localNodePortK8s2SvcIpv4 = "test-nodeport-local-k8s2"
 		localNodePortK8s2SvcIpv6 = "test-nodeport-local-k8s2-ipv6"
 	)
@@ -857,17 +855,13 @@ func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl, ni *helpers.NodesI
 			testCurlFromOutside(kubectl, ni, tftpURL, count, true)
 		}
 
+		// Local requests should be load-balanced on kube-proxy 1.15+.
+		// See kubernetes/kubernetes#77523 for the PR which introduced this
+		// behavior on the iptables-backend for kube-proxy.
 		httpURL = getHTTPLink(node.node1IP, data.Spec.Ports[0].NodePort)
 		tftpURL = getTFTPLink(node.node1IP, data.Spec.Ports[1].NodePort)
-
-		// Until https://github.com/cilium/cilium/issues/23481 has been fixed
-		if !ipsec {
-			// Local requests should be load-balanced on kube-proxy 1.15+.
-			// See kubernetes/kubernetes#77523 for the PR which introduced this
-			// behavior on the iptables-backend for kube-proxy.
-			testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.K8s1NodeName)
-			testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.K8s1NodeName)
-		}
+		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.K8s1NodeName)
+		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.K8s1NodeName)
 		// In-cluster connectivity from k8s2 to k8s1 IP will still work with
 		// SocketLB (regardless of if we are running with or
 		// without kube-proxy) since we'll hit the wildcard rule in bpf_sock
