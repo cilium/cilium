@@ -94,7 +94,7 @@ func CreateDump(conf *options.Config) dump.Task {
 		case "state":
 			runFiles := dump.NewFile("/run/cilium/state")
 			if conf.ExcludeObjectFiles {
-				runFiles = runFiles.WithExcludeObjFiles(defaults.StateDir + "/[0-9]*/*.o")
+				runFiles = runFiles.WithExclude(defaults.StateDir + "/[0-9]*/*.o")
 			}
 			ts = append(ts, dump.NewDir("state", dump.Tasks{runFiles}))
 

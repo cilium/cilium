@@ -32,7 +32,7 @@ func TestFile(t *testing.T) {
 		return fn(context.Background())
 	}
 	f := NewFile(d)
-	f = f.WithExcludeObjFiles("001/sub[0-9]/*.o")
+	f = f.WithExclude("001/sub[0-9]/*.o")
 	dir := t.TempDir()
 	c := NewContext(dir, sfn)
 	f.Run(context.Background(), c)

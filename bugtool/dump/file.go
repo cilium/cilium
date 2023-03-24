@@ -16,9 +16,9 @@ import (
 
 // File implements a Task that will copy a file into a dump.
 type File struct {
-	base               `mapstructure:",squash"`
-	Src                string
-	ExcludeObjectFiles string `mapstructure:"exclude_object_files"`
+	base    `mapstructure:",squash"`
+	Src     string `mapstructure:"src"`
+	Exclude string `mapstructure:"exclude_object_files"`
 }
 
 func (f *File) Validate(ctx context.Context) error {
@@ -38,9 +38,9 @@ func NewFile(Src string) *File {
 	}
 }
 
-func (f *File) WithExcludeObjFiles(pattern string) *File {
+func (f *File) WithExclude(pattern string) *File {
 	nf := *f
-	nf.ExcludeObjectFiles = pattern
+	nf.Exclude = pattern
 	return &nf
 }
 
@@ -54,9 +54,9 @@ func (f *File) Run(ctx context.Context, runtime Context) error {
 			return fmt.Errorf("failed to copy %q: %w, %s", runtime.Dir(), err, out)
 		}
 
-		if f.ExcludeObjectFiles != "" {
-			log.Debugf("%s excluding object files: %q", f.Identifier(), f.ExcludeObjectFiles)
-			removeObjectFiles(runtime.Dir(), f.ExcludeObjectFiles)
+		if f.Exclude != "" {
+			log.Debugf("%s excluding object files: %q", f.Identifier(), f.Exclude)
+			removeObjectFiles(runtime.Dir(), f.Exclude)
 		}
 		return nil
 	})
