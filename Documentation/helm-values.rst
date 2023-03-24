@@ -735,7 +735,7 @@
    * - eni.updateEC2AdapterLimitViaAPI
      - Update ENI Adapter limits from the EC2 API
      - bool
-     - ``false``
+     - ``true``
    * - etcd.clusterDomain
      - Cluster domain for cilium-etcd-operator.
      - string
