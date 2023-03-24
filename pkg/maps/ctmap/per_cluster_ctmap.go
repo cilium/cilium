@@ -35,6 +35,8 @@ type PerClusterCTMapper interface {
 	UpdateClusterCTMaps(clusterID uint32) error
 	// Delete all per-cluster CT maps for cluster with clusterID.
 	DeleteClusterCTMaps(clusterID uint32) error
+	// Get all per-cluster CT maps for cluster with clusterID.
+	GetClusterCTMaps(clusterID uint32) []*Map
 	// Get all per-cluster CT maps
 	GetAllClusterCTMaps() ([]*Map, error)
 	// Cleanup all per-cluster CT maps
@@ -221,6 +223,51 @@ func (gm *perClusterCTMaps) DeleteClusterCTMaps(clusterID uint32) error {
 	return nil
 }
 
+func (gm *perClusterCTMaps) GetClusterCTMaps(clusterID uint32) []*Map {
+	var err error
+	ret := []*Map{}
+
+	gm.RLock()
+	defer gm.RUnlock()
+
+	defer func() {
+		if err != nil {
+			for _, im := range ret {
+				im.Unpin()
+				im.Close()
+			}
+		}
+	}()
+
+	if gm.ipv4 {
+		if im, err := gm.tcp4.getClusterMap(clusterID); err != nil || im == nil {
+			return []*Map{}
+		} else {
+			ret = append(ret, im)
+		}
+		if im, err := gm.any4.getClusterMap(clusterID); err != nil || im == nil {
+			return []*Map{}
+		} else {
+			ret = append(ret, im)
+		}
+	}
+
+	if gm.ipv6 {
+		if im, err := gm.tcp6.getClusterMap(clusterID); err != nil || im == nil {
+			return []*Map{}
+		} else {
+			ret = append(ret, im)
+		}
+		if im, err := gm.any6.getClusterMap(clusterID); err != nil || im == nil {
+			return []*Map{}
+		} else {
+			ret = append(ret, im)
+		}
+	}
+
+	return ret
+}
+
 func (gm *perClusterCTMaps) GetAllClusterCTMaps() ([]*Map, error) {
 	var err error
 	ret := []*Map{}
@@ -347,6 +394,37 @@ func (gm *dummyPerClusterCTMaps) DeleteClusterCTMaps(clusterID uint32) error {
 	return nil
 }
 
+func (gm *dummyPerClusterCTMaps) GetClusterCTMaps(clusterID uint32) []*Map {
+	ims := []*Map{}
+
+	if err := cmtypes.ValidateClusterID(clusterID); err != nil {
+		return []*Map{}
+	}
+
+	gm.Lock()
+	defer gm.Unlock()
+
+	if gm.ipv4 {
+		if _, ok := gm.tcp4[clusterID]; ok {
+			ims = append(ims, &Map{})
+		}
+		if _, ok := gm.any4[clusterID]; ok {
+			ims = append(ims, &Map{})
+		}
+	}
+
+	if gm.ipv6 {
+		if _, ok := gm.tcp6[clusterID]; ok {
+			ims = append(ims, &Map{})
+		}
+		if _, ok := gm.any6[clusterID]; ok {
+			ims = append(ims, &Map{})
+		}
+	}
+
+	return ims
+}
+
 func (gm *dummyPerClusterCTMaps) GetAllClusterCTMaps() ([]*Map, error) {
 	ims := []*Map{}
 
@@ -432,8 +510,11 @@ func newPerClusterCTMap(name string, m mapType) (*PerClusterCTMap, error) {
 	}, nil
 }
 
-func (om *PerClusterCTMap) newInnerMap(mapName string, m mapType) *Map {
-	return newMap(mapName, m)
+func (om *PerClusterCTMap) newInnerMap(clusterID uint32, m mapType) *Map {
+	name := om.getInnerMapName(clusterID)
+	im := newMap(name, m)
+	im.clusterID = clusterID
+	return im
 }
 
 func (om *PerClusterCTMap) getInnerMapName(clusterID uint32) string {
@@ -445,7 +526,7 @@ func (om *PerClusterCTMap) updateClusterCTMap(clusterID uint32) error {
 		return fmt.Errorf("invalid clusterID %d, clusterID should be 1 - %d", clusterID, cmtypes.ClusterIDMax)
 	}
 
-	im := om.newInnerMap(om.getInnerMapName(clusterID), om.m)
+	im := om.newInnerMap(clusterID, om.m)
 
 	_, err := im.OpenOrCreate()
 	if err != nil {
@@ -472,7 +553,7 @@ func (om *PerClusterCTMap) deleteClusterCTMap(clusterID uint32) error {
 		return fmt.Errorf("invalid clusterID %d, clusterID should be 1 - %d", clusterID, cmtypes.ClusterIDMax)
 	}
 
-	im := om.newInnerMap(om.getInnerMapName(clusterID), om.m)
+	im := om.newInnerMap(clusterID, om.m)
 
 	if _, err := im.OpenOrCreate(); err != nil {
 		return err
@@ -497,7 +578,7 @@ func (om *PerClusterCTMap) getClusterMap(clusterID uint32) (*Map, error) {
 		return nil, fmt.Errorf("invalid clusterID %d, clusterID should be 1 - %d", clusterID, cmtypes.ClusterIDMax)
 	}
 
-	im := om.newInnerMap(om.getInnerMapName(clusterID), om.m)
+	im := om.newInnerMap(clusterID, om.m)
 
 	if err := im.Open(); err != nil {
 		if pathErr, ok := err.(*os.PathError); ok && errors.Is(pathErr.Err, unix.ENOENT) {
