@@ -2141,6 +2141,10 @@
      - Configure termination grace period for cilium-agent DaemonSet.
      - int
      - ``1``
+   * - agentPrestop
+     - Agent preStop.
+     - object
+     - ``{"exec":{"command":["/cni-uninstall.sh"]}}``
    * - tls
      - Configure TLS configuration in the agent.
      - object

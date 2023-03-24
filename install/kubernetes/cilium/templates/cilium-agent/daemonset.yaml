@@ -227,10 +227,7 @@ spec:
               - |
                 {{- tpl (.Files.Get "files/agent/poststart-eni.bash") . | nindent 20 }}
                 {{- end }}
-          preStop:
-            exec:
-              command:
-              - /cni-uninstall.sh
+          preStop: {{ toYaml .Values.agentPreStop | nindent 12 }}
         {{- end }}
         {{- with .Values.resources }}
         resources:

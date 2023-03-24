@@ -104,6 +104,12 @@ terminationGracePeriodSeconds: 1
 # -- Install the cilium agent resources.
 agent: true
 
+# -- Agent preStop.
+agentPreStop:
+  exec:
+    command:
+    - /cni-uninstall.sh
+
 # -- Agent container name.
 name: cilium
 
