@@ -1472,7 +1472,6 @@ func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
 	c.Assert(created, Equals, false)
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 3)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
-	c.Assert(m.svc.backendByHash[hash].State, Equals, lb.BackendStateMaintenance)
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 1)
 
 	// Delete backends with weight 0

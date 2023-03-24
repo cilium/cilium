@@ -1664,9 +1664,6 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 			case backends[i].Weight != b.Weight:
 				// Update the cached weight as weight has changed
 				b.Weight = backends[i].Weight
-				// Update but do not persist the state as backend might be set as active
-				// only temporarily for specific service
-				b.State = backends[i].State
 			default:
 				// Set the backend state to the saved state.
 				backends[i].State = b.State
