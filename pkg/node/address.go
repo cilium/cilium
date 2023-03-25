@@ -22,8 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const preferPublicIP bool = true
@@ -268,7 +268,7 @@ func GetIPv6AllocRange() *cidr.CIDR {
 // - NodeExternalIP
 // - other IP address type
 func SetIPv4(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.SetNodeInternalIP(ip)
 	})
 }
@@ -298,7 +298,7 @@ func GetCiliumEndpointNodeIP() string {
 // Cilium-managed network (this means within the node for direct routing mode and on the overlay
 // for tunnel mode).
 func SetInternalIPv4Router(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.SetCiliumInternalIP(ip)
 	})
 }
@@ -314,7 +314,7 @@ func GetInternalIPv4Router() net.IP {
 // SetK8sExternalIPv4 sets the external IPv4 node address. It must be a public IP that is routable
 // on the network as well as the internet.
 func SetK8sExternalIPv4(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.SetNodeExternalIP(ip)
 	})
 }
@@ -349,7 +349,7 @@ func GetHostMasqueradeIPv4() net.IP {
 // SetIPv4AllocRange sets the IPv4 address pool to use when allocating
 // addresses for local endpoints
 func SetIPv4AllocRange(net *cidr.CIDR) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.IPv4AllocCIDR = net
 	})
 }
@@ -408,7 +408,7 @@ func GetMasqIPv4AddrsWithDevices() map[string]net.IP {
 
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
 func SetIPv6NodeRange(net *cidr.CIDR) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.IPv6AllocCIDR = net
 	})
 }
@@ -566,7 +566,7 @@ func ValidatePostInit() error {
 
 // SetIPv6 sets the IPv6 address of the node
 func SetIPv6(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.SetNodeInternalIP(ip)
 	})
 }
@@ -593,7 +593,7 @@ func GetIPv6Router() net.IP {
 // SetIPv6Router sets the IPv6 address of the router address, e.g. address
 // of cilium_host device.
 func SetIPv6Router(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.SetCiliumInternalIP(ip)
 	})
 }
@@ -607,7 +607,7 @@ func GetK8sExternalIPv6() net.IP {
 // SetK8sExternalIPv6 sets the external IPv6 node address. It must be a public IP that is routable
 // on the network as well as the internet.
 func SetK8sExternalIPv6(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.SetNodeExternalIP(ip)
 	})
 }
@@ -729,7 +729,7 @@ func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
 // SetIPsecKeyIdentity sets the IPsec key identity an opaque value used to
 // identity encryption keys used on the node.
 func SetIPsecKeyIdentity(id uint8) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.EncryptionKey = id
 	})
 }
@@ -746,7 +746,7 @@ func GetK8sNodeIP() net.IP {
 }
 
 func SetWireguardPubKey(key string) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.WireguardPubKey = key
 	})
 }
@@ -755,9 +755,19 @@ func GetWireguardPubKey() string {
 	return localNode.Get().WireguardPubKey
 }
 
+func GetOptOutNodeEncryption() bool {
+	return localNode.Get().OptOutNodeEncryption
+}
+
+func SetOptOutNodeEncryption(b bool) {
+	localNode.Update(func(node *LocalNode) {
+		node.OptOutNodeEncryption = b
+	})
+}
+
 // SetEndpointHealthIPv4 sets the IPv4 cilium-health endpoint address.
 func SetEndpointHealthIPv4(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.IPv4HealthIP = ip
 	})
 }
@@ -769,7 +779,7 @@ func GetEndpointHealthIPv4() net.IP {
 
 // SetEndpointHealthIPv6 sets the IPv6 cilium-health endpoint address.
 func SetEndpointHealthIPv6(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.IPv6HealthIP = ip
 	})
 }
@@ -781,7 +791,7 @@ func GetEndpointHealthIPv6() net.IP {
 
 // SetIngressIPv4 sets the local IPv4 source address for Cilium Ingress.
 func SetIngressIPv4(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.IPv4IngressIP = ip
 	})
 }
@@ -793,7 +803,7 @@ func GetIngressIPv4() net.IP {
 
 // SetIngressIPv6 sets the local IPv6 source address for Cilium Ingress.
 func SetIngressIPv6(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.IPv6IngressIP = ip
 	})
 }
@@ -801,6 +811,22 @@ func SetIngressIPv6(ip net.IP) {
 // GetIngressIPv6 returns the local IPv6 source address for Cilium Ingress.
 func GetIngressIPv6() net.IP {
 	return localNode.Get().IPv6IngressIP
+}
+
+// GetEncryptKeyIndex returns the encryption key value for the local node.
+// With IPSec encryption, this is equivalent to GetIPsecKeyIdentity().
+// With WireGuard encryption, this function returns a non-zero static value
+// if the local node has WireGuard enabled.
+func GetEncryptKeyIndex() uint8 {
+	switch {
+	case option.Config.EnableIPSec:
+		return GetIPsecKeyIdentity()
+	case option.Config.EnableWireguard:
+		if len(GetWireguardPubKey()) > 0 {
+			return wgTypes.StaticEncryptKey
+		}
+	}
+	return 0
 }
 
 func copyStringToNetIPMap(in map[string]net.IP) map[string]net.IP {

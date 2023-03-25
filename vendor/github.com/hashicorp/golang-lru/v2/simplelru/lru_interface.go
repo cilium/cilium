@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 // Package simplelru provides simple LRU implementation based on build-in container/list.
 package simplelru
 

@@ -46,6 +46,43 @@ var defaultBackend = slim_networkingv1.Ingress{
 	},
 }
 
+var defaultBackendLegacy = slim_networkingv1.Ingress{
+	ObjectMeta: slim_metav1.ObjectMeta{
+		Name:        "load-balancing",
+		Namespace:   "random-namespace",
+		Annotations: map[string]string{"kubernetes.io/ingress.class": "cilium"},
+	},
+	Spec: slim_networkingv1.IngressSpec{
+		DefaultBackend: &slim_networkingv1.IngressBackend{
+			Service: &slim_networkingv1.IngressServiceBackend{
+				Name: "default-backend",
+				Port: slim_networkingv1.ServiceBackendPort{
+					Number: 8080,
+				},
+			},
+		},
+	},
+}
+
+var defaultBackendLegacyOverride = slim_networkingv1.Ingress{
+	ObjectMeta: slim_metav1.ObjectMeta{
+		Name:        "load-balancing",
+		Namespace:   "random-namespace",
+		Annotations: map[string]string{"kubernetes.io/ingress.class": "cilium"},
+	},
+	Spec: slim_networkingv1.IngressSpec{
+		IngressClassName: stringp("contour"),
+		DefaultBackend: &slim_networkingv1.IngressBackend{
+			Service: &slim_networkingv1.IngressServiceBackend{
+				Name: "default-backend",
+				Port: slim_networkingv1.ServiceBackendPort{
+					Number: 8080,
+				},
+			},
+		},
+	},
+}
+
 var defaultBackendListeners = []model.HTTPListener{
 	{
 		Sources: []model.FullyQualifiedResource{
@@ -862,7 +899,340 @@ var complexIngressListeners = []model.HTTPListener{
 	},
 }
 
+// complexNodePortIngress is same as complexIngress but with NodePort service
+var complexNodePortIngress = slim_networkingv1.Ingress{
+	ObjectMeta: slim_metav1.ObjectMeta{
+		Name:      "dummy-ingress",
+		Namespace: "dummy-namespace",
+		Annotations: map[string]string{
+			"ingress.cilium.io/service-type":       "NodePort",
+			"ingress.cilium.io/insecure-node-port": "30000",
+			"ingress.cilium.io/secure-node-port":   "30001",
+		},
+		UID: "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+	},
+	Spec: slim_networkingv1.IngressSpec{
+		IngressClassName: stringp("cilium"),
+		DefaultBackend: &slim_networkingv1.IngressBackend{
+			Service: &slim_networkingv1.IngressServiceBackend{
+				Name: "default-backend",
+				Port: slim_networkingv1.ServiceBackendPort{
+					Number: 8080,
+				},
+			},
+		},
+		TLS: []slim_networkingv1.IngressTLS{
+			{
+				Hosts:      []string{"very-secure.server.com"},
+				SecretName: "tls-very-secure-server-com",
+			},
+			{
+				Hosts: []string{
+					"another-very-secure.server.com",
+					"not-in-use.another-very-secure.server.com",
+				},
+				SecretName: "tls-another-very-secure-server-com",
+			},
+		},
+		Rules: []slim_networkingv1.IngressRule{
+			{
+				IngressRuleValue: slim_networkingv1.IngressRuleValue{
+					HTTP: &slim_networkingv1.HTTPIngressRuleValue{
+						Paths: []slim_networkingv1.HTTPIngressPath{
+							{
+								Path: "/dummy-path",
+								Backend: slim_networkingv1.IngressBackend{
+									Service: &slim_networkingv1.IngressServiceBackend{
+										Name: "dummy-backend",
+										Port: slim_networkingv1.ServiceBackendPort{
+											Number: 8080,
+										},
+									},
+								},
+								PathType: &exactPathType,
+							},
+							{
+								Path: "/another-dummy-path",
+								Backend: slim_networkingv1.IngressBackend{
+									Service: &slim_networkingv1.IngressServiceBackend{
+										Name: "another-dummy-backend",
+										Port: slim_networkingv1.ServiceBackendPort{
+											Number: 8081,
+										},
+									},
+								},
+								PathType: &prefixPathType,
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var complexNodePortIngressListeners = []model.HTTPListener{
+	{
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "dummy-ingress",
+				Namespace: "dummy-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+				UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "default-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Exact: "/dummy-path",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/another-dummy-path",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "another-dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8081,
+						},
+					},
+				},
+			},
+		},
+		Service: &model.Service{
+			Type:             "NodePort",
+			InsecureNodePort: uint32p(30000),
+			SecureNodePort:   uint32p(30001),
+		},
+	},
+	{
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "dummy-ingress",
+				Namespace: "dummy-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+				UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+			},
+		},
+		Port:     443,
+		Hostname: "another-very-secure.server.com",
+		TLS: []model.TLSSecret{
+			{
+				Name:      "tls-another-very-secure-server-com",
+				Namespace: "dummy-namespace",
+			},
+		},
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "default-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Exact: "/dummy-path",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/another-dummy-path",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "another-dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8081,
+						},
+					},
+				},
+			},
+		},
+		Service: &model.Service{
+			Type:             "NodePort",
+			InsecureNodePort: uint32p(30000),
+			SecureNodePort:   uint32p(30001),
+		},
+	},
+	{
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "dummy-ingress",
+				Namespace: "dummy-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+				UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+			},
+		},
+		Port:     443,
+		Hostname: "not-in-use.another-very-secure.server.com",
+		TLS: []model.TLSSecret{
+			{
+				Name:      "tls-another-very-secure-server-com",
+				Namespace: "dummy-namespace",
+			},
+		},
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "default-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Exact: "/dummy-path",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/another-dummy-path",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "another-dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8081,
+						},
+					},
+				},
+			},
+		},
+		Service: &model.Service{
+			Type:             "NodePort",
+			InsecureNodePort: uint32p(30000),
+			SecureNodePort:   uint32p(30001),
+		},
+	},
+	{
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "dummy-ingress",
+				Namespace: "dummy-namespace",
+				Version:   "v1",
+				Kind:      "Ingress",
+				UID:       "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+			},
+		},
+		Port:     443,
+		Hostname: "very-secure.server.com",
+		TLS: []model.TLSSecret{
+			{
+				Name:      "tls-very-secure-server-com",
+				Namespace: "dummy-namespace",
+			},
+		},
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "default-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Exact: "/dummy-path",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/another-dummy-path",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "another-dummy-backend",
+						Namespace: "dummy-namespace",
+						Port: &model.BackendPort{
+							Port: 8081,
+						},
+					},
+				},
+			},
+		},
+		Service: &model.Service{
+			Type:             "NodePort",
+			InsecureNodePort: uint32p(30000),
+			SecureNodePort:   uint32p(30001),
+		},
+	},
+}
+
 func stringp(in string) *string {
+	return &in
+}
+
+func uint32p(in uint32) *uint32 {
 	return &in
 }
 
@@ -878,6 +1248,14 @@ func TestIngress(t *testing.T) {
 			ingress: defaultBackend,
 			want:    defaultBackendListeners,
 		},
+		"conformance default backend (legacy annotation) test": {
+			ingress: defaultBackendLegacy,
+			want:    defaultBackendListeners,
+		},
+		"conformance default backend (legacy + new) test": {
+			ingress: defaultBackendLegacyOverride,
+			want:    defaultBackendListeners,
+		},
 		"conformance host rules test": {
 			ingress: hostRules,
 			want:    hostRulesListeners,
@@ -889,6 +1267,10 @@ func TestIngress(t *testing.T) {
 		"cilium test ingress": {
 			ingress: complexIngress,
 			want:    complexIngressListeners,
+		},
+		"cilium test ingress with NodePort": {
+			ingress: complexNodePortIngress,
+			want:    complexNodePortIngressListeners,
 		},
 	}
 

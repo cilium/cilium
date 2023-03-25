@@ -51,6 +51,17 @@ func httpBackendNotFoundRouteCondition(hr *gatewayv1beta1.HTTPRoute, msg string)
 	}
 }
 
+func httpNoMatchingListenerPortCondition(hr *gatewayv1beta1.HTTPRoute, msg string) metav1.Condition {
+	return metav1.Condition{
+		Type:               string(gatewayv1beta1.RouteConditionAccepted),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(gatewayv1beta1.RouteReasonNoMatchingParent),
+		Message:            msg,
+		ObservedGeneration: hr.GetGeneration(),
+		LastTransitionTime: metav1.NewTime(time.Now()),
+	}
+}
+
 func httpNoMatchingListenerHostnameRouteCondition(hr *gatewayv1beta1.HTTPRoute, msg string) metav1.Condition {
 	return metav1.Condition{
 		Type:               string(gatewayv1beta1.RouteConditionAccepted),

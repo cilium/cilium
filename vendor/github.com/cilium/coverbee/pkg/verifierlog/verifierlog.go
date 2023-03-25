@@ -37,6 +37,8 @@ func MergedPerInstruction(log string) []VerifierState {
 	var curState VerifierState
 
 	mergeCurState := func(state VerifierState) {
+		curState.Unknown = false
+
 		for _, reg := range state.Registers {
 			found := false
 			for i, curReg := range curState.Registers {
@@ -68,11 +70,17 @@ func MergedPerInstruction(log string) []VerifierState {
 
 	applyCurState := func(instNum int) {
 		if instNum >= len(states) {
-			states = append(states, make([]VerifierState, 1+instNum-len(states))...)
+			newStates := make([]VerifierState, 1+instNum-len(states))
+			for i := range newStates {
+				newStates[i].Unknown = true
+			}
+			states = append(states, newStates...)
 		}
 
 		// Apply current state to `states`
 		for _, curReg := range curState.Registers {
+			states[instNum].Unknown = false
+
 			found := false
 			for i, reg := range states[instNum].Registers {
 				if reg.Register == curReg.Register {
@@ -410,34 +418,34 @@ func parseVerifierState(line string) (*VerifierState, error) {
 		var value string
 
 		line = line[equal+1:]
-		if len(line) == 0 {
-			break
-		}
+		// If there are chars left after '=' find the end of the current value.
+		// If not, the current key may not have a value (R1=) which is also valid.
+		if len(line) > 1 {
+			bktDepth := 0
+			i := 0
+			for {
+				i++
+				if i >= len(line) {
+					value = line
+					line = line[i:]
+					break
+				}
 
-		bktDepth := 0
-		i := 0
-		for {
-			i++
-			if i >= len(line) {
-				value = line
-				line = line[i:]
-				break
-			}
+				if line[i] == '(' {
+					bktDepth++
+					continue
+				}
 
-			if line[i] == '(' {
-				bktDepth++
-				continue
-			}
+				if line[i] == ')' {
+					bktDepth--
+					continue
+				}
 
-			if line[i] == ')' {
-				bktDepth--
-				continue
-			}
-
-			if line[i] == ' ' && bktDepth == 0 {
-				value = line[:i]
-				line = line[i+1:]
-				break
+				if line[i] == ' ' && bktDepth == 0 {
+					value = line[:i]
+					line = line[i+1:]
+					break
+				}
 			}
 		}
 
@@ -470,6 +478,8 @@ type VerifierState struct {
 	FrameNumber int
 	Registers   []RegisterState
 	Stack       []StackState
+	// If true, the struct was initialized as filler, but no actual state info is known
+	Unknown bool
 }
 
 func parseRegisterState(key, value string) (*RegisterState, error) {
@@ -509,7 +519,12 @@ func parseRegisterState(key, value string) (*RegisterState, error) {
 }
 
 func (is *VerifierState) String() string {
+	if is.Unknown {
+		return "unknown"
+	}
+
 	var sb strings.Builder
+
 	if is.FrameNumber != 0 {
 		fmt.Fprintf(&sb, "frame%d: ", is.FrameNumber)
 	}
@@ -1490,10 +1505,11 @@ func parseFunctionCall(firstLine string, scan *bufio.Scanner) VerifierStatement 
 // FunctionCall indicates the verifier is following a bpf-to-bpf function call.
 // For example:
 // caller:
-//   frame1: R6=pkt(id=0,off=54,r=74,imm=0) R7=pkt(id=0,off=0,r=74,imm=0) R8_w=pkt(id=0,off=74,r=74,imm=0) R9=invP6
-//   R10=fp0 fp-8=pkt_end fp-16=mmmmmmmm
-//  callee:
-//   frame2: R1_w=pkt(id=0,off=54,r=74,imm=0) R2_w=invP(id=0) R10=fp0
+//
+//	 frame1: R6=pkt(id=0,off=54,r=74,imm=0) R7=pkt(id=0,off=0,r=74,imm=0) R8_w=pkt(id=0,off=74,r=74,imm=0) R9=invP6
+//	 R10=fp0 fp-8=pkt_end fp-16=mmmmmmmm
+//	callee:
+//	 frame2: R1_w=pkt(id=0,off=54,r=74,imm=0) R2_w=invP(id=0) R10=fp0
 type FunctionCall struct {
 	CallerState *VerifierState
 	CalleeState *VerifierState
@@ -1550,10 +1566,13 @@ func parseReturnFunctionCall(firstLine string, scan *bufio.Scanner) VerifierStat
 // ReturnFunctionCall indicates the verifier is evaluating returning from a function call.
 // Example:
 // returning from callee:
-//  frame2: R0=map_value(id=0,off=0,ks=1,vs=16,imm=0) R1_w=invP(id=0) R6=invP(id=31) R10=fp0 fp-8=m???????
+//
+//	frame2: R0=map_value(id=0,off=0,ks=1,vs=16,imm=0) R1_w=invP(id=0) R6=invP(id=31) R10=fp0 fp-8=m???????
+//
 // to caller at 156:
-//   frame1: R0=map_value(id=0,off=0,ks=1,vs=16,imm=0) R6=pkt(id=0,off=54,r=54,imm=0) R7=pkt(id=0,off=0,r=54,imm=0)
-//   R8=invP14 R9=invP(id=30,umax_value=255,var_off=(0x0; 0xff)) R10=fp0 fp-8=pkt_end fp-16=mmmmmmmm
+//
+//	frame1: R0=map_value(id=0,off=0,ks=1,vs=16,imm=0) R6=pkt(id=0,off=54,r=54,imm=0) R7=pkt(id=0,off=0,r=54,imm=0)
+//	R8=invP14 R9=invP(id=30,umax_value=255,var_off=(0x0; 0xff)) R10=fp0 fp-8=pkt_end fp-16=mmmmmmmm
 type ReturnFunctionCall struct {
 	CallerState *VerifierState
 	CallSite    int

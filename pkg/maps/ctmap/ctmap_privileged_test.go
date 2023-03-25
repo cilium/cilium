@@ -355,7 +355,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(buf), Equals, 0)
 
-	// Test DSR
+	// Test DSR (old, tracked by bpf_lxc)
 	//
 	// Create the following entries and check that SNAT entries are NOT GC-ed
 	// (as we have the CT entry which they belong to):
@@ -372,6 +372,81 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 				DestPort:   0xd204,
 				NextHeader: u8proto.TCP,
 				Flags:      tuple.TUPLE_F_IN,
+			},
+		},
+	}
+	ctVal = &CtEntry{
+		TxPackets: 1,
+		TxBytes:   216,
+		Lifetime:  37459,
+	}
+	err = bpf.UpdateElement(ctMapTCP.Map.GetFd(), ctMapTCP.Map.Name(), unsafe.Pointer(ctKey),
+		unsafe.Pointer(ctVal), 0)
+	c.Assert(err, IsNil)
+
+	natKey = &nat.NatKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				SourceAddr: types.IPv4{10, 20, 30, 40},
+				DestAddr:   types.IPv4{10, 0, 2, 10},
+				SourcePort: 0xd204,
+				DestPort:   0x50c3,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_OUT,
+			},
+		},
+	}
+	natVal = &nat.NatEntry4{
+		Created: 37400,
+		Addr:    types.IPv4{10, 0, 2, 20},
+		Port:    0x409c,
+	}
+	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
+		unsafe.Pointer(natVal), 0)
+	c.Assert(err, IsNil)
+
+	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
+	c.Assert(stats.IngressAlive, Equals, uint32(0))
+	c.Assert(stats.IngressDeleted, Equals, uint32(0))
+	c.Assert(stats.EgressAlive, Equals, uint32(1))
+	c.Assert(stats.EgressDeleted, Equals, uint32(0))
+	// Check that the entry hasn't been removed
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 1)
+
+	// Now remove the CT entry which should remove the NAT entry
+	err = bpf.DeleteElement(ctMapTCP.Map.GetFd(), unsafe.Pointer(ctKey))
+	c.Assert(err, IsNil)
+	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
+	c.Assert(stats.IngressAlive, Equals, uint32(0))
+	c.Assert(stats.IngressDeleted, Equals, uint32(0))
+	c.Assert(stats.EgressAlive, Equals, uint32(0))
+	c.Assert(stats.EgressDeleted, Equals, uint32(1))
+	// Check that the orphan NAT entry has been removed
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 0)
+
+	// Test DSR (new, tracked by nodeport.h)
+	//
+	// Create the following entries and check that SNAT entries are NOT GC-ed
+	// (as we have the CT entry which they belong to):
+	//
+	//     CT:	TCP OUT  10.0.2.10:50000  -> 10.20.30.40:1234
+	//     NAT:	TCP OUT 10.20.30.40:1234 -> 10.0.2.10:50000 XLATE_SRC 10.0.2.20:40000
+
+	ctKey = &CtKey4Global{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				DestAddr:   types.IPv4{10, 0, 2, 10},
+				SourceAddr: types.IPv4{10, 20, 30, 40},
+				SourcePort: 0x50c3,
+				DestPort:   0xd204,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_OUT,
 			},
 		},
 	}

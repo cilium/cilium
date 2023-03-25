@@ -120,7 +120,7 @@ the state of applying FQDN policy in multiple layers of the daemon:
           {
             "toFQDNs": [
               {
-                "matchName": "api.twitter.com"
+                "matchName": "api.github.com"
               }
             ]
           },
@@ -170,12 +170,11 @@ the state of applying FQDN policy in multiple layers of the daemon:
           },
           {
             "key": "io.cilium.k8s.policy.uid",
-            "value": "fc9d6022-2ffa-4f72-b59e-b9067c3cfecf",
+            "value": "f213c6b2-c87b-449c-a66c-e19a288062ba",
             "source": "k8s"
           }
         ]
       }
-
 
 #. After making a DNS request, the FQDN to IP mapping should be available via
    ``cilium fqdn cache list``:
@@ -183,15 +182,16 @@ the state of applying FQDN policy in multiple layers of the daemon:
    .. code-block:: shell-session
 
       # cilium fqdn cache list
-      Endpoint   FQDN                TTL      ExpirationTime             IPs
-      2761       help.twitter.com.   604800   2019-07-16T17:57:38.179Z   104.244.42.67,104.244.42.195,104.244.42.3,104.244.42.131
-      2761       api.twitter.com.    604800   2019-07-16T18:11:38.627Z   104.244.42.194,104.244.42.130,104.244.42.66,104.244.42.2
+      Endpoint   Source   FQDN                  TTL    ExpirationTime             IPs
+      725        lookup   api.github.com.       3600   2023-02-10T18:16:05.842Z   140.82.121.6
+      725        lookup   support.github.com.   3600   2023-02-10T18:16:09.371Z   185.199.111.133,185.199.109.133,185.199.110.133,185.199.108.133
+
 
 #. If the traffic is allowed, then these IPs should have corresponding local identities via
    ``cilium identity list | grep <IP>``:
 
    .. code-block:: shell-session
 
-      # cilium identity list | grep -A 1 104.244.42.194
-      16777220   cidr:104.244.42.194/32
-                 reserved:world
+      # cilium identity list | grep -A 1 140.82.121.6
+      16777230   cidr:140.82.121.6/32
+           reserved:world

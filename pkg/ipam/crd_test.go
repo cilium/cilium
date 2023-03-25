@@ -65,7 +65,6 @@ func (t *testConfigurationCRD) IPv6Enabled() bool                        { retur
 func (t *testConfigurationCRD) HealthCheckingEnabled() bool              { return true }
 func (t *testConfigurationCRD) UnreachableRoutesEnabled() bool           { return false }
 func (t *testConfigurationCRD) IPAMMode() string                         { return ipamOption.IPAMCRD }
-func (t *testConfigurationCRD) BlacklistConflictingRoutesEnabled() bool  { return false }
 func (t *testConfigurationCRD) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {}
 func (t *testConfigurationCRD) GetIPv4NativeRoutingCIDR() *cidr.CIDR     { return nil }
 func (t *testConfigurationCRD) IPv4NativeRoutingCIDR() *cidr.CIDR        { return nil }
@@ -107,7 +106,7 @@ func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
 	// Allocate the first 3 IPs
 	for i := 1; i <= 3; i++ {
 		epipv4 := netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))
-		_, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), fmt.Sprintf("test%d", i))
+		_, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), fmt.Sprintf("test%d", i), PoolDefault)
 		c.Assert(err, IsNil)
 	}
 
@@ -115,7 +114,7 @@ func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
 	cn.Status.IPAM.ReleaseIPs["1.1.1.4"] = ipamOption.IPAMMarkForRelease
 	// Attempts to allocate 1.1.1.4 should fail, since it's already marked for release
 	epipv4 := netip.MustParseAddr("1.1.1.4")
-	_, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), "test")
+	_, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), "test", PoolDefault)
 	c.Assert(err, NotNil)
 	// Call agent's CRD update function. status for 1.1.1.4 should change from marked for release to ready for release
 	sharedNodeStore.updateLocalNodeResource(cn)

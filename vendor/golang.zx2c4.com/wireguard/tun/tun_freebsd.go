@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package tun
@@ -143,7 +143,7 @@ func tunName(fd uintptr) (string, error) {
 
 // Destroy a named system interface
 func tunDestroy(name string) error {
-	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 		return nil, fmt.Errorf("interface %s already exists", name)
 	}
 
-	tunFile, err := os.OpenFile("/dev/tun", unix.O_RDWR, 0)
+	tunFile, err := os.OpenFile("/dev/tun", unix.O_RDWR|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	// Disable link-local v6, not just because WireGuard doesn't do that anyway, but
 	// also because there are serious races with attaching and detaching LLv6 addresses
 	// in relation to interface lifetime within the FreeBSD kernel.
-	confd6, err := unix.Socket(unix.AF_INET6, unix.SOCK_DGRAM, 0)
+	confd6, err := unix.Socket(unix.AF_INET6, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
 		tunFile.Close()
 		tunDestroy(assignedName)
@@ -238,7 +238,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	}
 
 	if name != "" {
-		confd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+		confd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC, 0)
 		if err != nil {
 			tunFile.Close()
 			tunDestroy(assignedName)
@@ -295,7 +295,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 		return nil, err
 	}
 
-	tun.routeSocket, err = unix.Socket(unix.AF_ROUTE, unix.SOCK_RAW, unix.AF_UNSPEC)
+	tun.routeSocket, err = unix.Socket(unix.AF_ROUTE, unix.SOCK_RAW|unix.SOCK_CLOEXEC, unix.AF_UNSPEC)
 	if err != nil {
 		tun.tunFile.Close()
 		return nil, err
@@ -329,49 +329,50 @@ func (tun *NativeTun) File() *os.File {
 	return tun.tunFile
 }
 
-func (tun *NativeTun) Events() chan Event {
+func (tun *NativeTun) Events() <-chan Event {
 	return tun.events
 }
 
-func (tun *NativeTun) Read(buff []byte, offset int) (int, error) {
+func (tun *NativeTun) Read(bufs [][]byte, sizes []int, offset int) (int, error) {
 	select {
 	case err := <-tun.errors:
 		return 0, err
 	default:
-		buff := buff[offset-4:]
-		n, err := tun.tunFile.Read(buff[:])
+		buf := bufs[0][offset-4:]
+		n, err := tun.tunFile.Read(buf[:])
 		if n < 4 {
 			return 0, err
 		}
-		return n - 4, err
+		sizes[0] = n - 4
+		return 1, err
 	}
 }
 
-func (tun *NativeTun) Write(buf []byte, offset int) (int, error) {
+func (tun *NativeTun) Write(bufs [][]byte, offset int) (int, error) {
 	if offset < 4 {
 		return 0, io.ErrShortBuffer
 	}
-	buf = buf[offset-4:]
-	if len(buf) < 5 {
-		return 0, io.ErrShortBuffer
+	for i, buf := range bufs {
+		buf = buf[offset-4:]
+		if len(buf) < 5 {
+			return i, io.ErrShortBuffer
+		}
+		buf[0] = 0x00
+		buf[1] = 0x00
+		buf[2] = 0x00
+		switch buf[4] >> 4 {
+		case 4:
+			buf[3] = unix.AF_INET
+		case 6:
+			buf[3] = unix.AF_INET6
+		default:
+			return i, unix.EAFNOSUPPORT
+		}
+		if _, err := tun.tunFile.Write(buf); err != nil {
+			return i, err
+		}
 	}
-	buf[0] = 0x00
-	buf[1] = 0x00
-	buf[2] = 0x00
-	switch buf[4] >> 4 {
-	case 4:
-		buf[3] = unix.AF_INET
-	case 6:
-		buf[3] = unix.AF_INET6
-	default:
-		return 0, unix.EAFNOSUPPORT
-	}
-	return tun.tunFile.Write(buf)
-}
-
-func (tun *NativeTun) Flush() error {
-	// TODO: can flushing be implemented by buffering and using sendmmsg?
-	return nil
+	return len(bufs), nil
 }
 
 func (tun *NativeTun) Close() error {
@@ -397,7 +398,7 @@ func (tun *NativeTun) Close() error {
 }
 
 func (tun *NativeTun) setMTU(n int) error {
-	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
 		return err
 	}
@@ -414,7 +415,7 @@ func (tun *NativeTun) setMTU(n int) error {
 }
 
 func (tun *NativeTun) MTU() (int, error) {
-	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -427,4 +428,8 @@ func (tun *NativeTun) MTU() (int, error) {
 		return 0, fmt.Errorf("failed to get MTU on %s: %w", tun.name, errno)
 	}
 	return int(*(*int32)(unsafe.Pointer(&ifr.MTU))), nil
+}
+
+func (tun *NativeTun) BatchSize() int {
+	return 1
 }

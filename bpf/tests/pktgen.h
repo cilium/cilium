@@ -18,21 +18,26 @@
 #include <linux/tcp.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
- *  without having to come up with custom addresses.
+ * without having to come up with custom addresses.
+ *
+ * These are declared as volatile const to make them end up in .rodata. Cilium
+ * inlines global data from .data into bytecode as immediate values for compat
+ * with kernels before 5.2 that lack read-only map support. This test suite
+ * doesn't make the same assumptions, so disable the static data inliner by
+ * putting variables in another section.
  */
-
-#define mac_one   {0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xEF}
-#define mac_two   {0x13, 0x37, 0x13, 0x37, 0x13, 0x37}
-#define mac_three {0x31, 0x41, 0x59, 0x26, 0x35, 0x89}
-#define mac_four  {0x0D, 0x1D, 0x22, 0x59, 0xA9, 0xC2}
-#define mac_five  {0x15, 0x21, 0x39, 0x45, 0x4D, 0x5D}
-#define mac_six   {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E}
+static volatile const __u8 mac_one[] =   {0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xEF};
+static volatile const __u8 mac_two[] =   {0x13, 0x37, 0x13, 0x37, 0x13, 0x37};
+static volatile const __u8 mac_three[] = {0x31, 0x41, 0x59, 0x26, 0x35, 0x89};
+static volatile const __u8 mac_four[] =  {0x0D, 0x1D, 0x22, 0x59, 0xA9, 0xC2};
+static volatile const __u8 mac_five[] =  {0x15, 0x21, 0x39, 0x45, 0x4D, 0x5D};
+static volatile const __u8 mac_six[] =   {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E};
 
 /* A collection of pre-defined IP addresses, so tests can reuse them without
  *  having to come up with custom ips.
  */
 
-#define IPV4(a, b, c, d) (((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
+#define IPV4(a, b, c, d) __bpf_htonl(((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
 
 /* IPv4 addresses for hosts, external to the cluster */
 #define v4_ext_one	IPV4(110, 0, 11, 1)
@@ -53,6 +58,14 @@
 #define v4_pod_one	IPV4(192, 168, 0, 1)
 #define v4_pod_two	IPV4(192, 168, 0, 2)
 #define v4_pod_three	IPV4(192, 168, 0, 3)
+
+/* IPv6 addresses for pods in the cluster */
+static volatile const __u8 v6_pod_one[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 1};
+static volatile const __u8 v6_pod_two[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 2};
+static volatile const __u8 v6_pod_three[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 3};
 
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22334)
@@ -177,21 +190,25 @@ void ethhdr__set_macs(struct ethhdr *l2, unsigned char *src, unsigned char *dst)
 /* Push an empty IPv4 header onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
-struct iphdr *pktgen__push_iphdr(struct pktgen *builder)
+struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 {
+	__u32 length = sizeof(struct iphdr) + option_bytes;
 	struct __ctx_buff *ctx = builder->ctx;
 	struct iphdr *layer;
 	int layer_idx;
 
+	if (option_bytes > MAX_IPOPTLEN)
+		return 0;
+
 	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct iphdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct iphdr) > ctx_data_end(ctx))
+	ctx_adjust_troom(ctx, builder->cur_off + length - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + length > ctx_data_end(ctx))
 		return 0;
 
 	/* Check that any value within the struct will not exceed a u16 which
 	 * is the max allowed offset within a packet from ctx->data.
 	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct iphdr))
+	if (builder->cur_off >= MAX_PACKET_OFF - length)
 		return 0;
 
 	layer = ctx_data(ctx) + builder->cur_off;
@@ -202,27 +219,88 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder)
 
 	builder->layers[layer_idx] = PKT_LAYER_IPV4;
 	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += sizeof(struct iphdr);
+	builder->cur_off += length;
 
 	return layer;
 }
 
-/* Push a IPv4 header with sane defaults onto the packet */
+/* helper to set the source and destination ipv6 address at the same time */
+static __always_inline
+void ipv6hdr__set_addrs(struct ipv6hdr *l3, __u8 *src, __u8 *dst)
+{
+	memcpy((__u8 *)&l3->saddr, src, 16);
+	memcpy((__u8 *)&l3->daddr, dst, 16);
+}
+
 static __always_inline
 __attribute__((warn_unused_result))
-struct iphdr *pktgen__push_default_iphdr(struct pktgen *builder)
+struct ipv6hdr *pktgen__push_ipv6hdr(struct pktgen *builder)
 {
-	struct iphdr *hdr = pktgen__push_iphdr(builder);
+	struct __ctx_buff *ctx = builder->ctx;
+	struct ipv6hdr *layer;
+	int layer_idx;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ipv6hdr) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct ipv6hdr) > ctx_data_end(ctx))
+		return 0;
+
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
+		return 0;
+
+	layer = ctx_data(ctx) + builder->cur_off;
+	layer_idx = pktgen__free_layer(builder);
+
+	if (layer_idx < 0)
+		return 0;
+
+	builder->layers[layer_idx] = PKT_LAYER_IPV6;
+	builder->layer_offsets[layer_idx] = builder->cur_off;
+	builder->cur_off += sizeof(struct ipv6hdr);
+
+	return layer;
+}
+
+/* Push a IPv4 header with sane defaults and options onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct iphdr *pktgen__push_default_iphdr_with_options(struct pktgen *builder,
+						      __u8 option_words)
+{
+	struct iphdr *hdr = pktgen__push_iphdr(builder, option_words * 4);
 
 	if (!hdr)
 		return 0;
 
 	hdr->version = 4;
-	/* No options by default */
-	hdr->ihl = 5;
+	hdr->ihl = 5 + option_words;
 	hdr->ttl = 64;
 	/* No fragmentation by default */
 	hdr->frag_off = 0;
+
+	return hdr;
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct iphdr *pktgen__push_default_iphdr(struct pktgen *builder)
+{
+	return pktgen__push_default_iphdr_with_options(builder, 0);
+}
+
+/* Push an IPv6 header with sane defaults onto the packet */
+struct ipv6hdr *pktgen__push_default_ipv6hdr(struct pktgen *builder)
+{
+	struct ipv6hdr *hdr = pktgen__push_ipv6hdr(builder);
+
+	if (!hdr)
+		return 0;
+
+	hdr->version = 6;
+	hdr->hop_limit = 255;
 
 	return hdr;
 }

@@ -14,7 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/datapath"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -52,7 +52,7 @@ var _ = Suite(&EndpointManagerSuite{})
 
 func (s *EndpointManagerSuite) SetUpSuite(c *C) {
 	idAllocator := testidentity.NewMockIdentityAllocator(nil)
-	s.repo = policy.NewPolicyRepository(idAllocator, nil, nil)
+	s.repo = policy.NewPolicyRepository(idAllocator, nil, nil, nil)
 }
 
 func (s *EndpointManagerSuite) GetPolicyRepository() *policy.Repository {

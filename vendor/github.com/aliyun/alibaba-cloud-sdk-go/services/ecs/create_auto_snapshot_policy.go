@@ -76,6 +76,7 @@ type CreateAutoSnapshotPolicyRequest struct {
 	TimePoints                   string                         `position:"Query" name:"timePoints"`
 	RepeatWeekdays               string                         `position:"Query" name:"repeatWeekdays"`
 	ResourceGroupId              string                         `position:"Query" name:"ResourceGroupId"`
+	StorageLocationArn           string                         `position:"Query" name:"StorageLocationArn"`
 	Tag                          *[]CreateAutoSnapshotPolicyTag `position:"Query" name:"Tag"  type:"Repeated"`
 	EnableCrossRegionCopy        requests.Boolean               `position:"Query" name:"EnableCrossRegionCopy"`
 	ResourceOwnerAccount         string                         `position:"Query" name:"ResourceOwnerAccount"`

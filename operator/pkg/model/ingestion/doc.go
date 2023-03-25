@@ -5,3 +5,10 @@
 // Kubernetes resources into Listener types for storage
 // in the model.
 package ingestion
+
+import (
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ingestion")

@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -34,33 +33,14 @@ var (
 		},
 	}
 
-	dotGraphCmd = &cobra.Command{
-		Use:   "dot-graph",
-		Short: "Output the internal dependencies of cilium-agent in graphviz dot format",
-		Run: func(cmd *cobra.Command, args []string) {
-			agentHive.PrintDotGraph()
-		},
-	}
-
-	objectsCmd = &cobra.Command{
-		Use:   "objects",
-		Short: "Print the objects, constructors and lifecycle hooks",
-		Run: func(cmd *cobra.Command, args []string) {
-			// Silence log messages from calling invokes and constructors.
-			logging.SetLogLevel(logrus.WarnLevel)
-			agentHive.PrintObjects()
-		},
-	}
-
 	agentHive = hive.New(Agent)
 )
 
 func init() {
 	setupSleepBeforeFatal()
-	registerBootstrapMetrics()
 
 	Vp = agentHive.Viper()
-	agentHive.RegisterFlags(RootCmd.PersistentFlags())
+	agentHive.RegisterFlags(RootCmd.Flags())
 
 	cobra.OnInitialize(
 		option.InitConfig(RootCmd, "cilium-agent", "cilium", Vp),
@@ -92,8 +72,7 @@ func runApp(cmd *cobra.Command, args []string) {
 func Execute() error {
 	RootCmd.AddCommand(
 		cmdrefCmd,
-		dotGraphCmd,
-		objectsCmd,
+		agentHive.Command(),
 	)
 
 	return RootCmd.Execute()

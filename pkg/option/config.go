@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -91,10 +92,6 @@ const (
 
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
-
-	// CertsDirectory is the root directory used to find out certificates used
-	// in L7 HTTPs policy enforcement.
-	CertsDirectory = "certificates-directory"
 
 	// CGroupRoot is the path to Cgroup2 filesystem
 	CGroupRoot = "cgroup-root"
@@ -422,15 +419,6 @@ const (
 	// Version prints the version information
 	Version = "version"
 
-	// PProf enables serving the pprof debugging API
-	PProf = "pprof"
-
-	// PProfAddress is the port that the pprof listens on
-	PProfAddress = "pprof-address"
-
-	// PProfPort is the port that the pprof listens on
-	PProfPort = "pprof-port"
-
 	// EnableXDPPrefilter enables XDP-based prefiltering
 	EnableXDPPrefilter = "enable-xdp-prefilter"
 
@@ -549,6 +537,18 @@ const (
 	// CNIChainingMode configures which CNI plugin Cilium is chained with.
 	CNIChainingMode = "cni-chaining-mode"
 
+	// AuthMapEntriesMin defines the minimum auth map limit.
+	AuthMapEntriesMin = 1 << 8
+
+	// AuthMapEntriesMax defines the maximum auth map limit.
+	AuthMapEntriesMax = 1 << 24
+
+	// AuthMapEntriesDefault defines the default auth map limit.
+	AuthMapEntriesDefault = 1 << 19
+
+	// AuthMapEntriesName configures max entries for BPF auth map.
+	AuthMapEntriesName = "bpf-auth-map-max"
+
 	// CTMapEntriesGlobalTCPDefault is the default maximum number of entries
 	// in the TCP CT table.
 	CTMapEntriesGlobalTCPDefault = 2 << 18 // 512Ki
@@ -634,6 +634,10 @@ const (
 	// SockRevNatEntriesName configures max entries for BPF sock reverse nat
 	// entries.
 	SockRevNatEntriesName = "bpf-sock-rev-map-max"
+
+	// EgressGatewayPolicyMapEntriesName configures max entries for egress gateway's policy
+	// map.
+	EgressGatewayPolicyMapEntriesName = "egress-gateway-policy-map-max"
 
 	// LogSystemLoadConfigName is the name of the option to enable system
 	// load loggging
@@ -737,6 +741,9 @@ const (
 
 	// EnableWireguardUserspaceFallback is the name of the option that enables the fallback to wireguard userspace mode
 	EnableWireguardUserspaceFallback = "enable-wireguard-userspace-fallback"
+
+	// NodeEncryptionOptOutLabels is the name of the option for the node-to-node encryption opt-out labels
+	NodeEncryptionOptOutLabels = "node-encryption-opt-out-labels"
 
 	// KVstoreLeaseTTL is the time-to-live for lease in kvstore.
 	KVstoreLeaseTTL = "kvstore-lease-ttl"
@@ -986,7 +993,7 @@ const (
 	// EndpointStatusPolicy enables CiliumEndpoint.Status.Policy
 	EndpointStatusPolicy = "policy"
 
-	// EndpointStatusHealth enables CilliumEndpoint.Status.Health
+	// EndpointStatusHealth enables CiliumEndpoint.Status.Health
 	EndpointStatusHealth = "health"
 
 	// EndpointStatusControllers enables CiliumEndpoint.Status.Controllers
@@ -1122,6 +1129,13 @@ const (
 	// EnableStaleCiliumEndpointCleanup sets whether Cilium should perform cleanup of
 	// stale CiliumEndpoints during init.
 	EnableStaleCiliumEndpointCleanup = "enable-stale-cilium-endpoint-cleanup"
+
+	// IPAMCiliumnodeUpdateRate is the maximum rate at which the CiliumNode custom
+	// resource is updated.
+	IPAMCiliumNodeUpdateRate = "ipam-cilium-node-update-rate"
+
+	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
+	EnableK8sNetworkPolicy = "enable-k8s-networkpolicy"
 )
 
 // Default string arguments
@@ -1261,6 +1275,12 @@ const (
 
 	// KubeProxyReplacement healthz server bind address
 	KubeProxyReplacementHealthzBindAddr = "kube-proxy-replacement-healthz-bind-address"
+
+	// PprofAddressAgent is the default value for pprof in the agent
+	PprofAddressAgent = "localhost"
+
+	// PprofPortAgent is the default value for pprof in the agent
+	PprofPortAgent = 6060
 )
 
 // GetTunnelModes returns the list of all tunnel modes
@@ -1462,6 +1482,9 @@ type DaemonConfig struct {
 	// allowed in the BPF neigh table
 	NeighMapEntriesGlobal int
 
+	// AuthMapEntries is the maximum number of entries in the auth map.
+	AuthMapEntries int
+
 	// PolicyMapEntries is the maximum number of peer identities that an
 	// endpoint may allow traffic to exchange traffic with.
 	PolicyMapEntries int
@@ -1469,6 +1492,10 @@ type DaemonConfig struct {
 	// SockRevNatEntries is the maximum number of sock rev nat mappings
 	// allowed in the BPF rev nat table
 	SockRevNatEntries int
+
+	// EgressGatewayPolicyMapEntries is the maximum number of entries
+	// allowed in the BPF egress gateway policy map.
+	EgressGatewayPolicyMapEntries int
 
 	// DisableCiliumEndpointCRD disables the use of CiliumEndpoint CRD
 	DisableCiliumEndpointCRD bool
@@ -1607,6 +1634,16 @@ type DaemonConfig struct {
 	// EnableWireguardUserspaceFallback enables the fallback to the userspace implementation
 	EnableWireguardUserspaceFallback bool
 
+	// NodeEncryptionOptOutLabels contains the label selectors for nodes opting out of
+	// node-to-node encryption
+	// This field ignored when marshalling to JSON in DaemonConfig.StoreInFile,
+	// because a k8sLabels.Selector cannot be unmarshalled from JSON. The
+	// string is stored in NodeEncryptionOptOutLabelsString instead.
+	NodeEncryptionOptOutLabels k8sLabels.Selector `json:"-"`
+	// NodeEncryptionOptOutLabelsString is the string is used to construct
+	// the label selector in the above field.
+	NodeEncryptionOptOutLabelsString string
+
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
 
@@ -1671,9 +1708,6 @@ type DaemonConfig struct {
 	SocketPath                 string
 	TracePayloadlen            int
 	Version                    string
-	PProf                      bool
-	PProfAddress               string
-	PProfPort                  int
 	PrometheusServeAddr        string
 	ToFQDNsMinTTL              int
 
@@ -1813,10 +1847,6 @@ type DaemonConfig struct {
 	// in the case where a cluster might be under high load for endpoint-related
 	// events, specifically those which cause many regenerations.
 	EndpointQueueSize int
-
-	// EndpointGCInterval is interval to attempt garbage collection of
-	// endpoints that are no longer alive and healthy.
-	EndpointGCInterval time.Duration
 
 	// ConntrackGCInterval is the connection tracking garbage collection
 	// interval
@@ -2050,10 +2080,6 @@ type DaemonConfig struct {
 	// This is requires if identiy resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities bool
-
-	// CertsDirectory is the root directory to be used by cilium to find
-	// certificates locally.
-	CertDirectory string
 
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity bool
@@ -2299,6 +2325,13 @@ type DaemonConfig struct {
 	// This will attempt to remove local CiliumEndpoints that are not managed by Cilium
 	// following Endpoint restoration.
 	EnableStaleCiliumEndpointCleanup bool
+
+	// IPAMCiliumNodeUpdateRate is the maximum rate at which the CiliumNode custom
+	// resource is updated.
+	IPAMCiliumNodeUpdateRate time.Duration
+
+	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
+	EnableK8sNetworkPolicy bool
 }
 
 var (
@@ -2345,9 +2378,10 @@ var (
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
 
-		ExternalClusterIP:     defaults.ExternalClusterIP,
-		EnableVTEP:            defaults.EnableVTEP,
-		EnableBGPControlPlane: defaults.EnableBGPControlPlane,
+		ExternalClusterIP:      defaults.ExternalClusterIP,
+		EnableVTEP:             defaults.EnableVTEP,
+		EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
+		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
 	}
 )
 
@@ -2448,6 +2482,15 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }
 
+// TunnelDevice returns cilium_{vxlan,geneve} depending on the config or "" if disabled.
+func (c *DaemonConfig) TunnelDevice() string {
+	if c.TunnelingEnabled() {
+		return fmt.Sprintf("cilium_%s", c.Tunnel)
+	} else {
+		return ""
+	}
+}
+
 // TunnelExists returns true if some traffic may go through a tunnel, including
 // if the primary mode is native routing. For example, in the egress gateway,
 // we may send such traffic to a gateway node via a tunnel.
@@ -2458,7 +2501,7 @@ func (c *DaemonConfig) TunnelExists() bool {
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
-	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager
+	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager || c.EnableWireguard
 }
 
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
@@ -2587,6 +2630,11 @@ func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
 	}
 }
 
+// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy, false otherwise.
+func (c *DaemonConfig) K8sNetworkPolicyEnabled() bool {
+	return c.EnableK8sNetworkPolicy
+}
+
 // K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
 func (c *DaemonConfig) K8sIngressControllerEnabled() bool {
 	return c.EnableIngressController
@@ -2603,7 +2651,7 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 	// BPF NodePort and BPF Host Routing are using the direct routing device now.
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
-	return (c.EnableNodePort || BPFHostRoutingEnabled) && !c.TunnelingEnabled()
+	return (c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard) && !c.TunnelingEnabled()
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -2833,7 +2881,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableL2NeighDiscovery = vp.GetBool(EnableL2NeighDiscovery)
 	c.AutoCreateCiliumNodeResource = vp.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFRoot = vp.GetString(BPFRoot)
-	c.CertDirectory = vp.GetString(CertsDirectory)
 	c.CGroupRoot = vp.GetString(CGroupRoot)
 	c.ClusterID = vp.GetUint32(ClusterIDName)
 	c.ClusterName = vp.GetString(ClusterName)
@@ -2944,6 +2991,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPMasqAgent = vp.GetBool(EnableIPMasqAgent)
 	c.EnableIPv4EgressGateway = vp.GetBool(EnableIPv4EgressGateway)
 	c.InstallEgressGatewayRoutes = vp.GetBool(InstallEgressGatewayRoutes)
+	c.EgressGatewayPolicyMapEntries = vp.GetInt(EgressGatewayPolicyMapEntriesName)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
@@ -2958,9 +3006,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = vp.GetInt(MonitorQueueSizeName)
 	c.MTU = vp.GetInt(MTUName)
-	c.PProf = vp.GetBool(PProf)
-	c.PProfAddress = vp.GetString(PProfAddress)
-	c.PProfPort = vp.GetInt(PProfPort)
 	c.PreAllocateMaps = vp.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = vp.GetBool(PrependIptablesChainsName)
 	c.ProcFs = vp.GetString(ProcFs)
@@ -3013,6 +3058,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.DeriveMasqIPAddrFromDevice = vp.GetString(DeriveMasqIPAddrFromDevice)
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
 	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR
+	c.IPAMCiliumNodeUpdateRate = vp.GetDuration(IPAMCiliumNodeUpdateRate)
 
 	c.populateLoadBalancerSettings(vp)
 	c.populateDevices(vp)
@@ -3210,6 +3256,13 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		parseBPFMapEventConfigs(c.bpfMapEventConfigs, m)
 	}
 
+	c.NodeEncryptionOptOutLabelsString = vp.GetString(NodeEncryptionOptOutLabels)
+	if sel, err := k8sLabels.Parse(c.NodeEncryptionOptOutLabelsString); err != nil {
+		log.Fatalf("unable to parse label selector %s: %s", NodeEncryptionOptOutLabels, err)
+	} else {
+		c.NodeEncryptionOptOutLabels = sel
+	}
+
 	for _, option := range vp.GetStringSlice(EndpointStatus) {
 		c.EndpointStatus[option] = struct{}{}
 	}
@@ -3317,7 +3370,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.MaxControllerInterval = vp.GetInt(MaxCtrlIntervalName)
 	c.PolicyQueueSize = sanitizeIntParam(vp, PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(vp, EndpointQueueSize, defaults.EndpointQueueSize)
-	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.DisableCNPStatusUpdates = vp.GetBool(DisableCNPStatusUpdates)
 	c.EnableICMPRules = vp.GetBool(EnableICMPRules)
 	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)
@@ -3346,6 +3398,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		}
 	}
 	c.EnvoySecretNamespaces = nsList
+
+	// To support K8s NetworkPolicy
+	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
 }
 
 func (c *DaemonConfig) additionalMetrics() []string {
@@ -3442,6 +3497,13 @@ func (c *DaemonConfig) populateNodePortRange(vp *viper.Viper) error {
 }
 
 func (c *DaemonConfig) checkMapSizeLimits() error {
+	if c.AuthMapEntries < AuthMapEntriesMin {
+		return fmt.Errorf("specified AuthMap max entries %d must exceed minimum %d", c.AuthMapEntries, AuthMapEntriesMin)
+	}
+	if c.AuthMapEntries > AuthMapEntriesMax {
+		return fmt.Errorf("specified AuthMap max entries %d must not exceed maximum %d", c.AuthMapEntries, AuthMapEntriesMax)
+	}
+
 	if c.CTMapEntriesGlobalTCP < LimitTableMin || c.CTMapEntriesGlobalAny < LimitTableMin {
 		return fmt.Errorf("specified CT tables values %d/%d must exceed minimum %d",
 			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, LimitTableMin)
@@ -3567,6 +3629,7 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	// BPF map size options
 	// Any map size explicitly set via option will override the dynamic
 	// sizing.
+	c.AuthMapEntries = vp.GetInt(AuthMapEntriesName)
 	c.CTMapEntriesGlobalTCP = vp.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = vp.GetInt(CTMapEntriesGlobalAnyName)
 	c.NATMapEntriesGlobal = vp.GetInt(NATMapEntriesGlobalName)
@@ -4008,7 +4071,7 @@ func EndpointStatusValuesMap() (values map[string]struct{}) {
 // place.
 func MightAutoDetectDevices() bool {
 	devices := Config.GetDevices()
-	return (Config.EnableHostFirewall && len(devices) == 0) ||
+	return ((Config.EnableHostFirewall || Config.EnableWireguard) && len(devices) == 0) ||
 		(Config.KubeProxyReplacement != KubeProxyReplacementDisabled &&
 			(len(devices) == 0 || Config.DirectRoutingDevice == ""))
 }

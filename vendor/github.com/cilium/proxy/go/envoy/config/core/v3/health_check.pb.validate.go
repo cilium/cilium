@@ -39,6 +39,121 @@ var (
 	_ = v3.CodecClientType(0)
 )
 
+// Validate checks the field values on HealthStatusSet with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *HealthStatusSet) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HealthStatusSet with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HealthStatusSetMultiError, or nil if none found.
+func (m *HealthStatusSet) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HealthStatusSet) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetStatuses() {
+		_, _ = idx, item
+
+		if _, ok := HealthStatus_name[int32(item)]; !ok {
+			err := HealthStatusSetValidationError{
+				field:  fmt.Sprintf("Statuses[%v]", idx),
+				reason: "value must be one of the defined enum values",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return HealthStatusSetMultiError(errors)
+	}
+	return nil
+}
+
+// HealthStatusSetMultiError is an error wrapping multiple validation errors
+// returned by HealthStatusSet.ValidateAll() if the designated constraints
+// aren't met.
+type HealthStatusSetMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HealthStatusSetMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HealthStatusSetMultiError) AllErrors() []error { return m }
+
+// HealthStatusSetValidationError is the validation error returned by
+// HealthStatusSet.Validate if the designated constraints aren't met.
+type HealthStatusSetValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e HealthStatusSetValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e HealthStatusSetValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e HealthStatusSetValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e HealthStatusSetValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e HealthStatusSetValidationError) ErrorName() string { return "HealthStatusSetValidationError" }
+
+// Error satisfies the builtin error interface
+func (e HealthStatusSetValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHealthStatusSet.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = HealthStatusSetValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = HealthStatusSetValidationError{}
+
 // Validate checks the field values on HealthCheck with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -1011,33 +1126,53 @@ func (m *HealthCheck_HttpHealthCheck) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetReceive()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, HealthCheck_HttpHealthCheckValidationError{
-					field:  "Receive",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
+	for idx, item := range m.GetReceive() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HealthCheck_HttpHealthCheckValidationError{
+						field:  fmt.Sprintf("Receive[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HealthCheck_HttpHealthCheckValidationError{
+						field:  fmt.Sprintf("Receive[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
 			}
-		case interface{ Validate() error }:
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
-				errors = append(errors, HealthCheck_HttpHealthCheckValidationError{
-					field:  "Receive",
+				return HealthCheck_HttpHealthCheckValidationError{
+					field:  fmt.Sprintf("Receive[%v]", idx),
 					reason: "embedded message failed validation",
 					cause:  err,
-				})
+				}
 			}
 		}
-	} else if v, ok := interface{}(m.GetReceive()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HealthCheck_HttpHealthCheckValidationError{
-				field:  "Receive",
-				reason: "embedded message failed validation",
-				cause:  err,
+
+	}
+
+	if wrapper := m.GetResponseBufferSize(); wrapper != nil {
+
+		if wrapper.GetValue() < 0 {
+			err := HealthCheck_HttpHealthCheckValidationError{
+				field:  "ResponseBufferSize",
+				reason: "value must be greater than or equal to 0",
 			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
 		}
+
 	}
 
 	if len(m.GetRequestHeadersToAdd()) > 1000 {
@@ -1209,6 +1344,28 @@ func (m *HealthCheck_HttpHealthCheck) validate(all bool) error {
 		}
 	}
 
+	if _, ok := _HealthCheck_HttpHealthCheck_Method_NotInLookup[m.GetMethod()]; ok {
+		err := HealthCheck_HttpHealthCheckValidationError{
+			field:  "Method",
+			reason: "value must not be in list [6]",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if _, ok := RequestMethod_name[int32(m.GetMethod())]; !ok {
+		err := HealthCheck_HttpHealthCheckValidationError{
+			field:  "Method",
+			reason: "value must be one of the defined enum values",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if len(errors) > 0 {
 		return HealthCheck_HttpHealthCheckMultiError(errors)
 	}
@@ -1294,6 +1451,10 @@ var _HealthCheck_HttpHealthCheck_Host_Pattern = regexp.MustCompile("^[^\x00\n\r]
 var _HealthCheck_HttpHealthCheck_Path_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
 
 var _HealthCheck_HttpHealthCheck_RequestHeadersToRemove_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
+
+var _HealthCheck_HttpHealthCheck_Method_NotInLookup = map[RequestMethod]struct{}{
+	6: {},
+}
 
 // Validate checks the field values on HealthCheck_TcpHealthCheck with the
 // rules defined in the proto definition for this message. If any rules are
@@ -1596,6 +1757,51 @@ func (m *HealthCheck_GrpcHealthCheck) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
+	}
+
+	if len(m.GetInitialMetadata()) > 1000 {
+		err := HealthCheck_GrpcHealthCheckValidationError{
+			field:  "InitialMetadata",
+			reason: "value must contain no more than 1000 item(s)",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	for idx, item := range m.GetInitialMetadata() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HealthCheck_GrpcHealthCheckValidationError{
+						field:  fmt.Sprintf("InitialMetadata[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HealthCheck_GrpcHealthCheckValidationError{
+						field:  fmt.Sprintf("InitialMetadata[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HealthCheck_GrpcHealthCheckValidationError{
+					field:  fmt.Sprintf("InitialMetadata[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	}
 
 	if len(errors) > 0 {

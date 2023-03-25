@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/daemon/cmd"
-	"github.com/cilium/cilium/pkg/datapath"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"

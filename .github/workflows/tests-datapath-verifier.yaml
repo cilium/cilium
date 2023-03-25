@@ -1,0 +1,275 @@
+name: Datapath BPF Complexity (ci-verifier)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  issue_comment:
+    types:
+      - created
+  # Run every 6 hours
+  schedule:
+    - cron:  '0 5/6 * * *'
+  ### FOR TESTING PURPOSES
+  # This workflow runs in the context of `master`, and ignores changes to
+  # workflow files in PRs. For testing changes to this workflow from a PR:
+  # - Make sure the PR uses a branch from the base repository (requires write
+  #   privileges). It will not work with a branch from a fork (missing secrets).
+  # - Uncomment the `pull_request` event below, commit separately with a `DO
+  #   NOT MERGE` message, and push to the PR. As long as the commit is present,
+  #   any push to the PR will trigger this workflow.
+  # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
+  #   will disappear from the PR checks: please provide a direct link to the
+  #   successful workflow run (can be found from Actions tab) in a comment.
+  #
+  # pull_request: {}
+  ###
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # So that Sibz/github-status-action can write into the status API
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - issue_comment: PR number
+  #   - pull_request: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing:
+  # - schedule: {name} schedule {SHA}
+  # - issue_comment: {name} issue_comment {PR number}
+  # - pull_request: {name} pull_request {PR number}
+  #
+  # Note: for `issue_comment` triggers, we additionally need to filter out based
+  # on comment content, otherwise any comment will interrupt workflow runs.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-verifier' ||
+        github.event.comment.body == '/test'
+      ) && github.event.issue.number) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number)
+    }}
+  cancel-in-progress: true
+
+env:
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-verifier' ||
+        github.event.comment.body == '/test'
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      # Because we run on issue comments, we need to checkout the code for
+      # paths-filter to work.
+      - name: Checkout code
+        if: ${{ github.event.issue.pull_request }}
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        with:
+          persist-credentials: false
+      - name: Retrieve pull request's base and head
+        if: ${{ github.event.issue.pull_request }}
+        id: pr
+        run: |
+          curl ${{ github.event.issue.pull_request.url }} > pr.json
+          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
+          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
+      - name: Check code changes
+        if: ${{ github.event.issue.pull_request }}
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        id: tested-tree
+        with:
+          base: ${{ steps.pr.outputs.base }}
+          ref: ${{ steps.pr.outputs.head }}
+          filters: |
+            src:
+              - 'bpf/**'
+              - 'test/verifier/**'
+
+  setup-report:
+    runs-on: ubuntu-latest
+    needs: check_changes
+    name: Set commit status
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+          else
+            SHA=${{ github.sha }}
+          fi
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Set commit status to pending
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Datapath BPF Complexity test in progress...
+          state: pending
+          target_url: ${{ env.check_url }}
+
+  skip-test-run:
+    # If the modified files are not relevant for this test then we can skip
+    # this test and mark it as successful.
+    if: github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'false'
+    runs-on: ubuntu-latest
+    needs: setup-report
+    steps:
+    - name: Set commit status to success
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ needs.setup-report.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Datapath BPF Complexity tests skipped
+        state: success
+        target_url: ${{ env.check_url }}
+
+  setup-and-test:
+    runs-on: ubuntu-latest-4cores-16gb
+    needs: setup-report
+    name: Setup & Test
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-verifier' ||
+        (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO: add '4.19-main' once verifier issues are resolved on that version.
+        include:
+          - kernel: '5.4-main'
+            ci-kernel: '54'
+          - kernel: '5.15-main'
+            ci-kernel: '54'
+          - kernel: 'bpf-next-main'
+            ci-kernel: 'netnext'
+    timeout-minutes: 60
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        with:
+          ref: ${{ needs.setup-report.outputs.sha }}
+          persist-credentials: false
+
+      - name: Provision LVH VMs
+        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        with:
+          test-name: datapath-bpf-complexity
+          image-version: ${{ matrix.kernel }}
+          host-mount: ./
+          cpu: 4
+          dns-resolver: '1.1.1.1'
+          install-dependencies: 'true'
+          cmd: |
+            git config --global --add safe.directory /host
+
+      - name: Run verifier tests
+        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+            make -C bpf/ clean V=0
+            make -C tools/maptool/
+            go test -c ./test/verifier
+            docker run -t --privileged \
+              -v /sys/fs/bpf:/sys/fs/bpf \
+              -v "\$PWD:/cilium" \
+              quay.io/cilium/test-verifier:2ecf56b4ea57576e9d92d34407898e5d14e80aa3@sha256:62396cedb4f15477f0084d7dfc92de55ac9ab8531021b7ac5f56220c35f2cb64 \
+              /cilium/verifier.test -test.v -test.parallel=1 -cilium-base-path /cilium -ci-kernel-version ${{ matrix.ci-kernel }}
+
+      - name: Fetch artifacts
+        if: ${{ !success() }}
+        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            mkdir datapath-verifier
+            cp bpf/*.o datapath-verifier
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: datapath-verifier
+          path: datapath-verifier
+          retention-days: 5
+
+  report-success:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to success
+    if: ${{ success() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.setup-report.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Datapath BPF Complexity tests successful
+          state: success
+          target_url: ${{ env.check_url }}
+
+  report-failure:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to failure
+    if: ${{ failure() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.setup-report.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Datapath BPF Complexity tests failed
+          state: failure
+          target_url: ${{ env.check_url }}
+
+  report-cancelled:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to cancelled
+    if: ${{ cancelled() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.setup-report.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Datapath BPF Complexity tests cancelled
+          state: error
+          target_url: ${{ env.check_url }}

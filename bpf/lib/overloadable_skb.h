@@ -4,6 +4,7 @@
 #ifndef __LIB_OVERLOADABLE_SKB_H_
 #define __LIB_OVERLOADABLE_SKB_H_
 
+#include "lib/common.h"
 #include "linux/ip.h"
 
 static __always_inline __maybe_unused void
@@ -36,12 +37,6 @@ get_epid(const struct __sk_buff *ctx)
 	return ctx->mark >> 16;
 }
 
-static __always_inline __maybe_unused void
-set_encrypt_dip(struct __sk_buff *ctx, __u32 ip_endpoint)
-{
-	ctx->cb[CB_ENCRYPT_DST] = ip_endpoint;
-}
-
 /**
  * set_identity_mark - pushes 24 bit identity into ctx mark value.
  */
@@ -59,29 +54,41 @@ set_identity_meta(struct __sk_buff *ctx, __u32 identity)
 }
 
 /**
- * set_encrypt_key - pushes 8 bit key and encryption marker into ctx mark value.
+ * set_encrypt_key - pushes 8 bit key, 16 bit node ID, and encryption marker into ctx mark value.
  */
 static __always_inline __maybe_unused void
-set_encrypt_key_mark(struct __sk_buff *ctx, __u8 key)
+set_encrypt_key_mark(struct __sk_buff *ctx, __u8 key, __u32 node_id)
 {
-	ctx->mark = or_encrypt_key(key);
+	ctx->mark = or_encrypt_key(key) | node_id << 16;
 }
 
 static __always_inline __maybe_unused void
-set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key)
+set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key, __u32 node_id)
 {
-	ctx->cb[CB_ENCRYPT_MAGIC] = or_encrypt_key(key);
+	ctx->cb[CB_ENCRYPT_MAGIC] = or_encrypt_key(key) | node_id << 16;
 }
 
 /**
- * set_encrypt_mark - sets the encryption mark to make skb to match ip rule
- * used to steer packet into Wireguard tunnel device (cilium_wg0) in order to
- * encrypt it.
+ * set_cluster_id_mark - sets the cluster_id mark.
  */
 static __always_inline __maybe_unused void
-set_encrypt_mark(struct __sk_buff *ctx)
+ctx_set_cluster_id_mark(struct __sk_buff *ctx, __u32 cluster_id)
 {
-	ctx->mark |= MARK_MAGIC_ENCRYPT;
+	ctx->mark |= cluster_id | MARK_MAGIC_CLUSTER_ID;
+}
+
+static __always_inline __maybe_unused __u32
+ctx_get_cluster_id_mark(struct __sk_buff *ctx)
+{
+	__u32 ret = 0;
+
+	if ((ctx->mark & MARK_MAGIC_CLUSTER_ID) != MARK_MAGIC_CLUSTER_ID)
+		return ret;
+
+	ret = ctx->mark & MARK_MAGIC_CLUSTER_ID_MASK;
+	ctx->mark &= ~(__u32)(MARK_MAGIC_CLUSTER_ID | MARK_MAGIC_CLUSTER_ID_MASK);
+
+	return ret;
 }
 
 static __always_inline __maybe_unused int
@@ -91,6 +98,12 @@ redirect_self(const struct __sk_buff *ctx)
 	 * hosts' veth device such that we end up on ingress in the peer.
 	 */
 	return ctx_redirect(ctx, ctx->ifindex, 0);
+}
+
+static __always_inline __maybe_unused bool
+neigh_resolver_available(void)
+{
+	return is_defined(HAVE_FIB_NEIGH);
 }
 
 static __always_inline __maybe_unused void
@@ -171,7 +184,7 @@ static __always_inline void ctx_snat_done_set(struct __sk_buff *ctx)
 	ctx->mark |= MARK_MAGIC_SNAT_DONE;
 }
 
-static __always_inline bool ctx_snat_done(struct __sk_buff *ctx)
+static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
 {
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_SNAT_DONE;
 }
@@ -180,7 +193,7 @@ static __always_inline bool ctx_snat_done(struct __sk_buff *ctx)
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
 		   __u32 dstid __maybe_unused, __u32 vni __maybe_unused,
-		   __u32 *ifindex)
+		   int *ifindex)
 {
 	struct bpf_tunnel_key key = {};
 	int ret;

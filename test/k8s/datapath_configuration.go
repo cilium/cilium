@@ -4,7 +4,6 @@
 package k8sTest
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"regexp"
@@ -143,22 +142,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("Encapsulation", func() {
-		validateBPFTunnelMap := func() {
-			By("Checking that BPF tunnels are in place")
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
-			status := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, "cilium bpf tunnel list | wc -l")
-
-			// ipv4+ipv6: 2 entries for each remote node + 1 header row
-			numEntries := (kubectl.GetNumCiliumNodes()-1)*2 + 1
-			if value := helpers.HelmOverride("ipv6.enabled"); value == "false" {
-				// ipv4 only: 1 entry for each remote node + 1 header row
-				numEntries = (kubectl.GetNumCiliumNodes() - 1) + 1
-			}
-
-			Expect(status.IntOutput()).Should(Equal(numEntries), "Did not find expected number of entries in BPF tunnel map")
-		}
-
 		enableVXLANTunneling := func(options map[string]string) {
 			options["tunnel"] = "vxlan"
 			if helpers.RunsOnGKE() {
@@ -168,55 +151,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 		}
 
-		SkipItIf(func() bool {
-			// IPsec + encapsulation requires Linux 4.19.
-			// We also can't disable KPR on GKE at the moment (cf. #16597).
-			return helpers.RunsWithoutKubeProxy() || helpers.DoesNotRunOn419OrLaterKernel() || helpers.RunsOnGKE() || helpers.RunsOnAKS()
-		}, "Check connectivity with transparent encryption and VXLAN encapsulation", func() {
-			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
-			options := map[string]string{
-				"kubeProxyReplacement": "disabled",
-				"encryption.enabled":   "true",
-			}
-			enableVXLANTunneling(options)
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
-			validateBPFTunnelMap()
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
-		}, 600)
-
-		It("Check connectivity with VXLAN encapsulation", func() {
-			options := map[string]string{}
-			enableVXLANTunneling(options)
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
-			validateBPFTunnelMap()
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		}, 600)
-
-		// Geneve is currently not supported on GKE
-		SkipItIf(helpers.RunsOnGKE, "Check connectivity with Geneve encapsulation", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel": "geneve",
-			}, DeployCiliumOptionsAndDNS)
-			validateBPFTunnelMap()
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-
-		It("Check vxlan connectivity with per-endpoint routes", func() {
-			options := map[string]string{
-				"endpointRoutes.enabled": "true",
-			}
-			enableVXLANTunneling(options)
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-
-			if helpers.RunsOn419OrLaterKernel() {
-				By("Test BPF masquerade")
-				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
-					Should(BeTrue(), "Connectivity test to http://google.com failed")
-			}
-		})
-
-		SkipItIf(helpers.SkipQuarantined, "Check iptables masquerading with random-fully", func() {
+		It("Check iptables masquerading with random-fully", func() {
 			options := map[string]string{
 				"bpf.masquerade":       "false",
 				"enableIPv6Masquerade": "true",
@@ -233,7 +168,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 				Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
 		})
 
-		SkipItIf(helpers.SkipQuarantined, "Check iptables masquerading without random-fully", func() {
+		// TODO(brb) Enable IPv6 masq in ci-datapath, and then drop this test case
+		It("Check iptables masquerading without random-fully", func() {
 			options := map[string]string{
 				"bpf.masquerade":       "false",
 				"enableIPv6Masquerade": "true",
@@ -247,61 +183,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				Should(BeTrue(), "IPv4 connectivity test to http://google.com failed")
 			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, true)).
 				Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
-		})
-	})
-
-	// DirectRouting without AutoDirectNodeRoutes not supported outside of GKE.
-	SkipContextIf(helpers.DoesNotRunOnGKE, "DirectRouting", func() {
-		It("Check connectivity with direct routing", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "disabled",
-				"k8s.requireIPv4PodCIDR": "true",
-				"endpointRoutes.enabled": "false",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-
-		It("Check connectivity with direct routing and endpointRoutes", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "disabled",
-				"k8s.requireIPv4PodCIDR": "true",
-				"endpointRoutes.enabled": "true",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-	})
-
-	Context("AutoDirectNodeRoutes", func() {
-		BeforeEach(func() {
-			SkipIfIntegration(helpers.CIIntegrationGKE)
-			SkipIfIntegration(helpers.CIIntegrationAKS)
-		})
-
-		It("Check connectivity with automatic direct nodes routes", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":               "disabled",
-				"autoDirectNodeRoutes": "true",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			if helpers.RunsOn419OrLaterKernel() {
-				By("Test BPF masquerade")
-				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
-					Should(BeTrue(), "Connectivity test to http://google.com failed")
-			}
-		})
-
-		It("Check direct connectivity with per endpoint routes", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "disabled",
-				"autoDirectNodeRoutes":   "true",
-				"endpointRoutes.enabled": "true",
-				"ipv6.enabled":           "false",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 	})
 
@@ -453,141 +334,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	SkipContextIf(helpers.DoesNotRunOnNetNextKernel, "Wireguard encryption", func() {
-		testWireguard := func(interNodeDev string) {
-			randomNamespace := deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
-			deploymentManager.WaitUntilReady()
-
-			k8s1NodeName, k8s1IP := kubectl.GetNodeInfo(helpers.K8s1)
-			k8s2NodeName, k8s2IP := kubectl.GetNodeInfo(helpers.K8s2)
-
-			// Fetch srcPod (testDSClient@k8s1)
-			srcPod, srcPodJSON := fetchPodsWithOffset(kubectl, randomNamespace, "client", "zgroup=testDSClient", k8s2IP, true, 0)
-			srcPodIP, err := srcPodJSON.Filter("{.status.podIP}")
-			ExpectWithOffset(1, err).Should(BeNil(), "Failure to retrieve pod IP %s", srcPod)
-			srcHost, err := srcPodJSON.Filter("{.status.hostIP}")
-			ExpectWithOffset(1, err).Should(BeNil(), "Failure to retrieve host of pod %s", srcPod)
-			// Sanity check
-			ExpectWithOffset(1, srcHost.String()).Should(Equal(k8s1IP))
-			// Fetch srcPod IPv6
-			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-			ExpectWithOffset(1, err).Should(BeNil(), "Unable to fetch cilium pod on k8s1")
-			endpointIPs := kubectl.CiliumEndpointIPv6(ciliumPodK8s1, "-l k8s:zgroup=testDSClient")
-			// Sanity check
-			ExpectWithOffset(1, len(endpointIPs)).Should(Equal(1), "BUG: more than one DS client on %s", ciliumPodK8s1)
-			var srcPodIPv6 string
-			for _, ip := range endpointIPs {
-				srcPodIPv6 = ip
-				break
-			}
-
-			// Fetch dstPod (testDS@k8s2)
-			dstPod, dstPodJSON := fetchPodsWithOffset(kubectl, randomNamespace, "server", "zgroup=testDS", k8s1IP, true, 0)
-			dstPodIP, err := dstPodJSON.Filter("{.status.podIP}")
-			ExpectWithOffset(1, err).Should(BeNil(), "Failure to retrieve IP of pod %s", dstPod)
-			dstHost, err := dstPodJSON.Filter("{.status.hostIP}")
-			ExpectWithOffset(1, err).Should(BeNil(), "Failure to retrieve host of pod %s", dstPod)
-			// Sanity check
-			ExpectWithOffset(1, dstHost.String()).Should(Equal(k8s2IP))
-			// Fetch dstPod IPv6
-			ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
-			ExpectWithOffset(1, err).Should(BeNil(), "Unable to fetch cilium pod on k8s2")
-			endpointIPs = kubectl.CiliumEndpointIPv6(ciliumPodK8s2, "-l k8s:zgroup=testDS")
-			// Sanity check
-			ExpectWithOffset(1, len(endpointIPs)).Should(Equal(1), "BUG: more than one DS server on %s", ciliumPodK8s2)
-			var dstPodIPv6 string
-			for _, ip := range endpointIPs {
-				dstPodIPv6 = ip
-				break
-			}
-
-			// Due to IPCache update delays, it can take up to a few seconds
-			// before both nodes have added the new pod IPs to their allowedIPs
-			// list, which can cause flakes in CI. Therefore wait for the
-			// IPs to be present on both nodes before performing the test
-			waitForAllowedIP := func(ciliumPod, ip string) {
-				jsonpath := fmt.Sprintf(`{.encryption.wireguard.interfaces[*].peers[*].allowed-ips[?(@=='%s')]}`, ip)
-				ciliumCmd := fmt.Sprintf(`cilium debuginfo --output jsonpath="%s"`, jsonpath)
-				expected := fmt.Sprintf("jsonpath=%s", ip)
-				err := kubectl.CiliumExecUntilMatch(ciliumPod, ciliumCmd, expected)
-				Expect(err).To(BeNil(), "ip %q not in allowedIPs of pod %q", ip, ciliumPod)
-			}
-
-			waitForAllowedIP(ciliumPodK8s1, fmt.Sprintf("%s/32", dstPodIP))
-			waitForAllowedIP(ciliumPodK8s1, fmt.Sprintf("%s/128", dstPodIPv6))
-
-			waitForAllowedIP(ciliumPodK8s2, fmt.Sprintf("%s/32", srcPodIP))
-			waitForAllowedIP(ciliumPodK8s2, fmt.Sprintf("%s/128", srcPodIPv6))
-
-			checkNoLeak := func(srcPod, srcIP, dstIP string) {
-				cmd := fmt.Sprintf("tcpdump -i %s --immediate-mode -n 'host %s and host %s' -c 1", interNodeDev, srcIP, dstIP)
-				res1, cancel1, err := kubectl.ExecInHostNetNSInBackground(context.TODO(), k8s1NodeName, cmd)
-				ExpectWithOffset(2, err).Should(BeNil(), "Cannot exec tcpdump in bg")
-				res2, cancel2, err := kubectl.ExecInHostNetNSInBackground(context.TODO(), k8s2NodeName, cmd)
-				ExpectWithOffset(2, err).Should(BeNil(), "Cannot exec tcpdump in bg")
-
-				// HTTP connectivity test (pod2pod)
-				kubectl.ExecPodCmd(randomNamespace, srcPod,
-					helpers.CurlFail("http://%s/", net.JoinHostPort(dstIP, "80"))).ExpectSuccess("Failed to curl dst pod")
-
-				// Check that no unencrypted pod2pod traffic was captured on the direct routing device
-				cancel1()
-				cancel2()
-				ExpectWithOffset(2, res1.CombineOutput().String()).Should(Not(ContainSubstring("1 packet captured")))
-				ExpectWithOffset(2, res2.CombineOutput().String()).Should(Not(ContainSubstring("1 packet captured")))
-			}
-
-			checkNoLeak(srcPod, srcPodIP.String(), dstPodIP.String())
-			checkNoLeak(srcPod, srcPodIPv6, dstPodIPv6)
-
-			// Check that the src pod can reach the remote host
-			kubectl.ExecPodCmd(randomNamespace, srcPod, helpers.Ping(k8s2IP)).
-				ExpectSuccess("Failed to ping k8s2 host from src pod")
-
-			// Check that the remote host can reach the dst pod
-			kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName,
-				helpers.CurlFail("http://%s:80/", dstPodIP)).ExpectSuccess("Failed to curl dst pod from k8s1")
-		}
-
-		It("Pod2pod is encrypted in direct-routing mode", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":               "disabled",
-				"autoDirectNodeRoutes": "true",
-				"encryption.enabled":   "true",
-				"encryption.type":      "wireguard",
-				"l7Proxy":              "false",
-			}, DeployCiliumOptionsAndDNS)
-
-			privateIface, err := kubectl.GetPrivateIface(helpers.K8s1)
-			Expect(err).Should(BeNil(), "Cannot determine private iface")
-			testWireguard(privateIface)
-		})
-
-		It("Pod2pod is encrypted in tunneling mode", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":             "vxlan",
-				"encryption.enabled": "true",
-				"encryption.type":    "wireguard",
-				"l7Proxy":            "false",
-			}, DeployCiliumOptionsAndDNS)
-
-			testWireguard("cilium_vxlan")
-		})
-
-		It("Pod2pod is encrypted in tunneling mode with per-endpoint routes", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "vxlan",
-				"endpointRoutes.enabled": "true",
-				"encryption.enabled":     "true",
-				"encryption.type":        "wireguard",
-				"l7Proxy":                "false",
-			}, DeployCiliumOptionsAndDNS)
-
-			testWireguard("cilium_vxlan")
-		})
-
-	})
-
 	SkipContextIf(func() bool {
 		return helpers.RunsOnGKE() || helpers.RunsWithoutKubeProxy() || helpers.RunsOnAKS()
 	}, "Transparent encryption DirectRouting", func() {
@@ -600,24 +346,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}, helpers.MidCommandTimeout, time.Second).ShouldNot(BeEmpty(),
 				"Unable to determine private iface")
 		})
-
-		It("Check connectivity with transparent encryption and direct routing", func() {
-			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                     "disabled",
-				"autoDirectNodeRoutes":       "true",
-				"encryption.enabled":         "true",
-				"encryption.ipsec.interface": privateIface,
-				"devices":                    "",
-				"hostFirewall.enabled":       "false",
-				"kubeProxyReplacement":       "disabled",
-			}, DeployCiliumOptionsAndDNS)
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Check connectivity with transparent encryption and direct routing with bpf_host", func() {
-			privateIface, err := kubectl.GetPrivateIface(helpers.K8s1)
-			Expect(err).Should(BeNil(), "Unable to determine the private interface")
 			defaultIface, err := kubectl.GetDefaultIface(false)
 			Expect(err).Should(BeNil(), "Unable to determine the default interface")
 			devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
@@ -751,7 +480,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("Iptables", func() {
 		SkipItIf(func() bool {
-			return helpers.IsIntegration(helpers.CIIntegrationGKE) || helpers.DoesNotRunWithKubeProxyReplacement()
+			return helpers.IsIntegration(helpers.CIIntegrationGKE) || helpers.DoesNotRunWithKubeProxyReplacement() || helpers.SkipQuarantined()
 		}, "Skip conntrack for pod traffic", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"tunnel":                          "disabled",

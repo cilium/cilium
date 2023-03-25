@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,8 +33,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance"
+	"sigs.k8s.io/gateway-api/conformance/utils/config"
 )
 
 // Applier prepares manifests depending on the available options and applies
@@ -48,26 +48,32 @@ type Applier struct {
 	// For example, given two Gateways, each with 2 listeners, there should be
 	// four ValidUniqueListenerPorts.
 	// If empty or nil, ports are not modified.
-	ValidUniqueListenerPorts []v1alpha2.PortNumber
+	ValidUniqueListenerPorts []v1beta1.PortNumber
+
+	// GatewayClass will be used as the spec.gatewayClassName when applying Gateway resources
+	GatewayClass string
+
+	// ControllerName will be used as the spec.controllerName when applying GatewayClass resources
+	ControllerName string
 }
 
 // prepareGateway adjusts both listener ports and the gatewayClassName. It
 // returns an index pointing to the next valid listener port.
-func prepareGateway(t *testing.T, uObj *unstructured.Unstructured, gatewayClassName string, validListenerPorts []v1alpha2.PortNumber, portIndex int) int {
-	err := unstructured.SetNestedField(uObj.Object, gatewayClassName, "spec", "gatewayClassName")
+func (a Applier) prepareGateway(t *testing.T, uObj *unstructured.Unstructured, portIndex int) int {
+	err := unstructured.SetNestedField(uObj.Object, a.GatewayClass, "spec", "gatewayClassName")
 	require.NoErrorf(t, err, "error setting `spec.gatewayClassName` on %s Gateway resource", uObj.GetName())
 
-	if len(validListenerPorts) > 0 {
+	if len(a.ValidUniqueListenerPorts) > 0 {
 		listeners, _, err := unstructured.NestedSlice(uObj.Object, "spec", "listeners")
 		require.NoErrorf(t, err, "error getting `spec.listeners` on %s Gateway resource", uObj.GetName())
 
 		for i, uListener := range listeners {
-			require.Less(t, portIndex, len(validListenerPorts), "not enough unassigned valid ports for `spec.listeners[%d]` on %s Gateway resource", i, uObj.GetName())
+			require.Less(t, portIndex, len(a.ValidUniqueListenerPorts), "not enough unassigned valid ports for `spec.listeners[%d]` on %s Gateway resource", i, uObj.GetName())
 
 			listener, ok := uListener.(map[string]interface{})
 			require.Truef(t, ok, "unexpected type at `spec.listeners[%d]` on %s Gateway resource", i, uObj.GetName())
 
-			nextPort := validListenerPorts[portIndex]
+			nextPort := a.ValidUniqueListenerPorts[portIndex]
 			err = unstructured.SetNestedField(listener, int64(nextPort), "port")
 			require.NoErrorf(t, err, "error setting `spec.listeners[%d].port` on %s Gateway resource", i, uObj.GetName())
 
@@ -80,6 +86,12 @@ func prepareGateway(t *testing.T, uObj *unstructured.Unstructured, gatewayClassN
 	}
 
 	return portIndex
+}
+
+// prepareGatewayClass adjust the spec.controllerName on the resource
+func (a Applier) prepareGatewayClass(t *testing.T, uObj *unstructured.Unstructured) {
+	err := unstructured.SetNestedField(uObj.Object, a.ControllerName, "spec", "controllerName")
+	require.NoErrorf(t, err, "error setting `spec.controllerName` on %s GatewayClass resource", uObj.GetName())
 }
 
 // prepareNamespace adjusts the Namespace labels.
@@ -104,7 +116,7 @@ func prepareNamespace(t *testing.T, uObj *unstructured.Unstructured, namespaceLa
 
 // prepareResources uses the options from an Applier to tweak resources given by
 // a set of manifests.
-func (a Applier) prepareResources(t *testing.T, decoder *yaml.YAMLOrJSONDecoder, gcName string) ([]unstructured.Unstructured, error) {
+func (a Applier) prepareResources(t *testing.T, decoder *yaml.YAMLOrJSONDecoder) ([]unstructured.Unstructured, error) {
 	var resources []unstructured.Unstructured
 
 	// portIndex is incremented for each listener we see. For a manifest file
@@ -123,8 +135,11 @@ func (a Applier) prepareResources(t *testing.T, decoder *yaml.YAMLOrJSONDecoder,
 			continue
 		}
 
+		if uObj.GetKind() == "GatewayClass" {
+			a.prepareGatewayClass(t, &uObj)
+		}
 		if uObj.GetKind() == "Gateway" {
-			portIndex = prepareGateway(t, &uObj, gcName, a.ValidUniqueListenerPorts, portIndex)
+			portIndex = a.prepareGateway(t, &uObj, portIndex)
 		}
 
 		if uObj.GetKind() == "Namespace" && uObj.GetObjectKind().GroupVersionKind().Group == "" {
@@ -137,11 +152,11 @@ func (a Applier) prepareResources(t *testing.T, decoder *yaml.YAMLOrJSONDecoder,
 	return resources, nil
 }
 
-func (a Applier) MustApplyObjectsWithCleanup(t *testing.T, c client.Client, resources []client.Object, cleanup bool) {
+func (a Applier) MustApplyObjectsWithCleanup(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, resources []client.Object, cleanup bool) {
 	for _, resource := range resources {
 		resource := resource
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), timeoutConfig.CreateTimeout)
 		defer cancel()
 
 		t.Logf("Creating %s %s", resource.GetName(), resource.GetObjectKind().GroupVersionKind().Kind)
@@ -155,7 +170,7 @@ func (a Applier) MustApplyObjectsWithCleanup(t *testing.T, c client.Client, reso
 
 		if cleanup {
 			t.Cleanup(func() {
-				ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+				ctx, cancel = context.WithTimeout(context.Background(), timeoutConfig.DeleteTimeout)
 				defer cancel()
 				t.Logf("Deleting %s %s", resource.GetName(), resource.GetObjectKind().GroupVersionKind().Kind)
 				err = c.Delete(ctx, resource)
@@ -168,13 +183,13 @@ func (a Applier) MustApplyObjectsWithCleanup(t *testing.T, c client.Client, reso
 // MustApplyWithCleanup creates or updates Kubernetes resources defined with the
 // provided YAML file and registers a cleanup function for resources it created.
 // Note that this does not remove resources that already existed in the cluster.
-func (a Applier) MustApplyWithCleanup(t *testing.T, c client.Client, location string, gcName string, cleanup bool) {
-	data, err := getContentsFromPathOrURL(location)
+func (a Applier) MustApplyWithCleanup(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, location string, cleanup bool) {
+	data, err := getContentsFromPathOrURL(location, timeoutConfig)
 	require.NoError(t, err)
 
 	decoder := yaml.NewYAMLOrJSONDecoder(data, 4096)
 
-	resources, err := a.prepareResources(t, decoder, gcName)
+	resources, err := a.prepareResources(t, decoder)
 	if err != nil {
 		t.Logf("manifest: %s", data.String())
 		require.NoErrorf(t, err, "error parsing manifest")
@@ -183,7 +198,7 @@ func (a Applier) MustApplyWithCleanup(t *testing.T, c client.Client, location st
 	for i := range resources {
 		uObj := &resources[i]
 
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), timeoutConfig.CreateTimeout)
 		defer cancel()
 
 		namespacedName := types.NamespacedName{Namespace: uObj.GetNamespace(), Name: uObj.GetName()}
@@ -199,7 +214,7 @@ func (a Applier) MustApplyWithCleanup(t *testing.T, c client.Client, location st
 
 			if cleanup {
 				t.Cleanup(func() {
-					ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+					ctx, cancel = context.WithTimeout(context.Background(), timeoutConfig.DeleteTimeout)
 					defer cancel()
 					t.Logf("Deleting %s %s", uObj.GetName(), uObj.GetKind())
 					err = c.Delete(ctx, uObj)
@@ -215,7 +230,7 @@ func (a Applier) MustApplyWithCleanup(t *testing.T, c client.Client, location st
 
 		if cleanup {
 			t.Cleanup(func() {
-				ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+				ctx, cancel = context.WithTimeout(context.Background(), timeoutConfig.DeleteTimeout)
 				defer cancel()
 				t.Logf("Deleting %s %s", uObj.GetName(), uObj.GetKind())
 				err = c.Delete(ctx, uObj)
@@ -228,11 +243,11 @@ func (a Applier) MustApplyWithCleanup(t *testing.T, c client.Client, location st
 
 // getContentsFromPathOrURL takes a string that can either be a local file
 // path or an https:// URL to YAML manifests and provides the contents.
-func getContentsFromPathOrURL(location string) (*bytes.Buffer, error) {
+func getContentsFromPathOrURL(location string, timeoutConfig config.TimeoutConfig) (*bytes.Buffer, error) {
 	if strings.HasPrefix(location, "http://") {
 		return nil, fmt.Errorf("data can't be retrieved from %s: http is not supported, use https", location)
 	} else if strings.HasPrefix(location, "https://") {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		ctx, cancel := context.WithTimeout(context.Background(), timeoutConfig.ManifestFetchTimeout)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, location, nil)

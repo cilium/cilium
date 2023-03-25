@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -68,6 +69,17 @@ func BootTimeWithContext(ctx context.Context) (uint64, error) {
 
 	filename := HostProc(statFile)
 	lines, err := ReadLines(filename)
+	if os.IsPermission(err) {
+		var info syscall.Sysinfo_t
+		err := syscall.Sysinfo(&info)
+		if err != nil {
+			return 0, err
+		}
+
+		currentTime := time.Now().UnixNano() / int64(time.Second)
+		t := currentTime - int64(info.Uptime)
+		return uint64(t), nil
+	}
 	if err != nil {
 		return 0, err
 	}
@@ -245,6 +257,11 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 			system = "rkt" // Is it true?
 			role = "host"
 		}
+	}
+
+	if PathExists(HostRoot(".dockerenv")) {
+		system = "docker"
+		role = "guest"
 	}
 
 	// before returning for the first time, cache the system and role

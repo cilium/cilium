@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -62,10 +63,42 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 			UID:        types.UID(m.HTTP[0].Sources[0].UID),
 		},
 	}
-	return cec, getService(m.HTTP[0].Sources[0]), getEndpoints(m.HTTP[0].Sources[0]), err
+	return cec, getService(m.HTTP[0].Sources[0], m.HTTP[0].Service), getEndpoints(m.HTTP[0].Sources[0]), err
 }
 
-func getService(resource model.FullyQualifiedResource) *corev1.Service {
+func getService(resource model.FullyQualifiedResource, service *model.Service) *corev1.Service {
+	serviceType := corev1.ServiceTypeLoadBalancer
+	ports := []corev1.ServicePort{
+		{
+			Name:     "http",
+			Protocol: "TCP",
+			Port:     80,
+		},
+		{
+			Name:     "https",
+			Protocol: "TCP",
+			Port:     443,
+		},
+	}
+
+	if service != nil {
+		switch service.Type {
+		case string(corev1.ServiceTypeNodePort):
+			serviceType = corev1.ServiceTypeNodePort
+			if service.InsecureNodePort != nil {
+				ports[0].NodePort = int32(*service.InsecureNodePort)
+			}
+			if service.SecureNodePort != nil {
+				ports[1].NodePort = int32(*service.SecureNodePort)
+			}
+		case string(corev1.ServiceTypeLoadBalancer):
+			// Do nothing as the port number is allocated by the cloud provider.
+		default:
+			log.WithField(logfields.ServiceType, service.Type).
+				Warn("only LoadBalancer and NodePort are supported. Defaulting to LoadBalancer")
+		}
+	}
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name),
@@ -81,19 +114,8 @@ func getService(resource model.FullyQualifiedResource) *corev1.Service {
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
-			Ports: []corev1.ServicePort{
-				{
-					Name:     "http",
-					Protocol: "TCP",
-					Port:     80,
-				},
-				{
-					Name:     "https",
-					Protocol: "TCP",
-					Port:     443,
-				},
-			},
+			Type:  serviceType,
+			Ports: ports,
 		},
 	}
 }

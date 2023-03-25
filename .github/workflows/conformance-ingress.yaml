@@ -1,4 +1,4 @@
-name: ConformanceIngress (Dedicated LB)
+name: ConformanceIngress
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -21,17 +21,41 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.12
-  minikube_version: 1.28.0
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.13.1
+  kind_version: v0.17.0
+  kind_config: .github/kind-config.yaml
+  metallb_version: 0.12.1
   timeout: 5m
 
 jobs:
   ingress-conformance-test:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: Without XDP
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
+        - name: With XDP
+          bpf-lb-acceleration: native
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
+        - name: With Shared LB
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: shared
+          default-ingress-controller: false
+        - name: With Default Ingress Controller
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: true
+
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -56,32 +80,38 @@ jobs:
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=securityContext.privileged=true \
+            --helm-set kubeProxyReplacement=strict \
+            --helm-set=ingressController.enabled=true \
+            --helm-set=ingressController.loadbalancerMode=${{ matrix.loadbalancer-mode }} \
+            --helm-set=ingressController.default=${{ matrix.default-ingress-controller }} \
+            --helm-set=extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }} \
+            --rollback=false \
+            --version="
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+
       - name: Checkout
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
 
-      - name: Create minikube cluster with multiple nodes
-        uses: medyagh/setup-minikube@ab221dee176f8eabd8deddf849b5bf1d6244a6e8
+      - name: Create kind cluster
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
         with:
-          minikube-version: ${{ env.minikube_version }}
-          network-plugin: cni
-          cni: false
-          wait: false
-          start-args: --nodes 3 --docker-opt "default-ulimit=nofile=102400:102400"
-
-      # Start minikube tunnel
-      - name: Setup minikube
-        run: |
-          docker pull ${{ env.ECHO_SERVER_IMAGE }}
-          minikube image load ${{ env.ECHO_SERVER_IMAGE }}
-          minikube tunnel &
-        env:
-          ECHO_SERVER_IMAGE: k8s.gcr.io/ingressconformance/echoserver:v0.0.1@sha256:9b34b17f391f87fb2155f01da2f2f90b7a4a5c1110ed84cb5379faa4f570dc52
+          version: ${{ env.kind_version }}
+          config: ${{ env.kind_config }}
 
       - name: Checkout ingress-controller-conformance
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           repository: kubernetes-sigs/ingress-controller-conformance
           path: ingress-controller-conformance
@@ -104,48 +134,96 @@ jobs:
 
       - name: Install Cilium
         run: |
-          helm upgrade -i cilium ./install/kubernetes/cilium \
-            --wait \
-            --namespace kube-system \
-            --set kubeProxyReplacement=strict \
-            --set nodeinit.enabled=true \
-            --set ipam.mode=kubernetes \
-            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-            --set image.tag=${{ steps.vars.outputs.sha }} \
-            --set image.pullPolicy=IfNotPresent \
-            --set image.useDigest=false \
-            --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --set operator.image.suffix=-ci \
-            --set operator.image.tag=${{ steps.vars.outputs.sha }} \
-            --set operator.image.pullPolicy=IfNotPresent \
-            --set operator.image.useDigest=false \
-            --set securityContext.privileged=true \
-            --set ingressController.enabled=true \
-            --set ingressController.loadbalancerMode=dedicated
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+      - name: Install metallb for LB service
+        timeout-minutes: 10
+        run: |
+          KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
+          METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
+          METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
+          METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
+          
+          cat << EOF > metallb_values.yaml
+          configInline:
+            address-pools:
+            - name: default
+              protocol: layer2
+              addresses:
+              - ${METALLB_IP_RANGE}
+          psp:
+            create: false
+          EOF
+          
+          helm install --namespace metallb-system \
+            --create-namespace \
+            --repo https://metallb.github.io/metallb metallb metallb \
+            --version ${{ env.metallb_version }} \
+            --values metallb_values.yaml \
+            --wait
 
-          # To make sure that cilium envoy CRs are available
-          kubectl wait --for condition=Established crd/ciliumenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
-          kubectl wait --for condition=Established crd/ciliumclusterwideenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
+      # Remove this step once https://github.com/cilium/cilium-cli/pull/1432 is merged.
+      - name: Create Ingress Endpoint
+        if: ${{ matrix.loadbalancer-mode == 'shared' }}
+        timeout-minutes: 5
+        run: |
+          cat << EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Endpoints
+          metadata:
+            name: cilium-ingress
+            namespace: kube-system
+          subsets:
+          - addresses:
+            - ip: "192.192.192.192"
+            ports:
+            - port: 9999
+          EOF
 
-      # Run the quick sanity check
-      - name: Run Sanity check
+      - name: Create sample workload
         timeout-minutes: 5
         run: |
           kubectl apply -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+          if [ ${{ matrix.default-ingress-controller }} = "true" ]; then
+            # remove ingressClassName line from basic-ingress.yaml
+            sed -i '/ingressClassName/d' examples/kubernetes/servicemesh/basic-ingress.yaml
+            kubectl apply -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
+            kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+          fi
+
           kubectl apply -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
           kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 
+      - name: Run Sanity check (external)
+        timeout-minutes: 5
+        run: |
           lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"
           curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"/details/1
+
+      - name: Run Sanity check (internal to NodePort)
+        timeout-minutes: 5
+        run: |
+          if [ ${{ matrix.loadbalancer-mode }} = "dedicated" ]; then
+            node_port=$(kubectl get svc cilium-ingress-basic-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
+          else
+            node_port=$(kubectl get -n kube-system svc cilium-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
+          fi
+          docker exec -i chart-testing-control-plane curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1 
+
+      - name: Cleanup Sanity check
+        timeout-minutes: 5
+        run: |
+          # Clean up after sanity check to avoid any conflicts with the conformance test
+          kubectl delete -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
+          kubectl delete -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+          kubectl wait ingress basic-ingress --for=delete
 
       - name: Run Ingress conformance test
         timeout-minutes: 30
         run: |
           cd ingress-controller-conformance
-          ./ingress-controller-conformance -ingress-class cilium -wait-time-for-ingress-status 10s -wait-time-for-ready 30s
+          ./ingress-controller-conformance -ingress-class cilium -wait-time-for-ingress-status 10s -wait-time-for-ready 60s
 
       - name: Post-test information gathering
         if: ${{ !success() }}
@@ -157,7 +235,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip

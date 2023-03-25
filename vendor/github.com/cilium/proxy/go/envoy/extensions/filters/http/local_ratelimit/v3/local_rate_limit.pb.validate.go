@@ -17,6 +17,8 @@ import (
 	"unicode/utf8"
 
 	"google.golang.org/protobuf/types/known/anypb"
+
+	v3 "github.com/cilium/proxy/go/envoy/extensions/common/ratelimit/v3"
 )
 
 // ensure the imports are used
@@ -33,6 +35,10 @@ var (
 	_ = (*mail.Address)(nil)
 	_ = anypb.Any{}
 	_ = sort.Sort
+
+	_ = v3.XRateLimitHeadersRFCVersion(0)
+
+	_ = v3.VhRateLimitsOptions(0)
 )
 
 // Validate checks the field values on LocalRateLimit with the rules defined in
@@ -320,6 +326,28 @@ func (m *LocalRateLimit) validate(all bool) error {
 	}
 
 	// no validation rules for LocalRateLimitPerDownstreamConnection
+
+	if _, ok := v3.XRateLimitHeadersRFCVersion_name[int32(m.GetEnableXRatelimitHeaders())]; !ok {
+		err := LocalRateLimitValidationError{
+			field:  "EnableXRatelimitHeaders",
+			reason: "value must be one of the defined enum values",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if _, ok := v3.VhRateLimitsOptions_name[int32(m.GetVhRateLimits())]; !ok {
+		err := LocalRateLimitValidationError{
+			field:  "VhRateLimits",
+			reason: "value must be one of the defined enum values",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
 		return LocalRateLimitMultiError(errors)

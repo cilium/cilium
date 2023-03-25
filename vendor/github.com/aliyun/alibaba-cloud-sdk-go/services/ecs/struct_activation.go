@@ -27,4 +27,5 @@ type Activation struct {
 	CreationTime      string `json:"CreationTime" xml:"CreationTime"`
 	Description       string `json:"Description" xml:"Description"`
 	IpAddressRange    string `json:"IpAddressRange" xml:"IpAddressRange"`
+	Tags              []Tag  `json:"Tags" xml:"Tags"`
 }

@@ -38,7 +38,7 @@ func GetPolicyLabelsv1(np *slim_networkingv1.NetworkPolicy) labels.LabelArray {
 		return nil
 	}
 
-	policyName := np.Annotations[annotation.Name]
+	policyName, _ := annotation.Get(np, annotation.PolicyName, annotation.PolicyNameAlias)
 	policyUID := np.UID
 
 	if policyName == "" {

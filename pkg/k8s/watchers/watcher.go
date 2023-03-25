@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -180,7 +180,7 @@ type envoyConfigManager interface {
 	DeleteEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
 
 	// envoy.PortAllocator
-	AllocateProxyPort(name string, ingress bool) (uint16, error)
+	AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error)
 	AckProxyPort(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }
@@ -432,10 +432,6 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 		// with the right service -> backend (k8s endpoints) translation.
 		K8sAPIGroupServiceV1Core,
 
-		// We need all network policies in place before restoring to
-		// make sure we are enforcing the correct policies for each
-		// endpoint before restarting.
-		k8sAPIGroupNetworkingV1Core,
 		// Namespaces can contain labels which are essential for
 		// endpoints being restored to have the right identity.
 		k8sAPIGroupNamespaceV1Core,
@@ -445,6 +441,14 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 		// We need to know the node labels to populate the host
 		// endpoint labels.
 		k8sAPIGroupNodeV1Core,
+	}
+
+	if k.cfg.K8sNetworkPolicyEnabled() {
+		// When the flag is set,
+		// We need all network policies in place before restoring to
+		// make sure we are enforcing the correct policies for each
+		// endpoint before restarting.
+		k8sGroups = append(k8sGroups, k8sAPIGroupNetworkingV1Core)
 	}
 
 	if k.cfg.K8sIngressControllerEnabled() || k.cfg.K8sGatewayAPIEnabled() {
@@ -520,6 +524,7 @@ type WatcherConfiguration interface {
 	utils.ServiceConfiguration
 	utils.IngressConfiguration
 	utils.GatewayAPIConfiguration
+	utils.PolicyConfiguration
 }
 
 // enableK8sWatchers starts watchers for given resources.

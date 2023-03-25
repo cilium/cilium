@@ -47,5 +47,17 @@
 			"logOutput": "rpc",
 			"substitutePath": [{"from": "${workspaceFolder}", "to": "/go/src/github.com/cilium/cilium"}],
 		},
-    ]
+		{
+			"name": "Attach to Cilium Operator",
+			"type": "go",
+			"request": "attach",
+			"mode": "remote",
+			"port":23511,
+			"host":"127.0.0.1",
+			"showLog": true,
+			"trace": "log",
+			"logOutput": "rpc",
+			"substitutePath": [{"from": "${workspaceFolder}", "to": "/go/src/github.com/cilium/cilium"}],
+		}
+	]
 }

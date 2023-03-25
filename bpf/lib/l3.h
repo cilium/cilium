@@ -56,30 +56,12 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 }
 
 #ifndef SKIP_POLICY_MAP
-#ifdef ENABLE_IPV6
-/* Performs IPv6 L2/L3 handling and delivers the packet to the destination pod
- * on the same node, either via the stack or via a redirect call.
- * Depending on the configuration, it may also enforce ingress policies for the
- * destination pod via a tail call.
- */
-static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
-					       __u32 seclabel,
-					       const struct endpoint_info *ep,
-					       __u8 direction,
-					       bool from_host __maybe_unused,
-					       bool hairpin_flow __maybe_unused)
+static __always_inline int
+l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
+		  const struct endpoint_info *ep, __u8 direction __maybe_unused,
+		  bool from_host __maybe_unused, bool hairpin_flow __maybe_unused,
+		  bool from_tunnel __maybe_unused, __u32 cluster_id __maybe_unused)
 {
-	mac_t router_mac = ep->node_mac;
-	mac_t lxc_mac = ep->mac;
-	int ret;
-
-	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
-
-	/* This will invalidate the size check */
-	ret = ipv6_l3(ctx, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, direction);
-	if (ret != CTX_ACT_OK)
-		return ret;
-
 #ifdef LOCAL_DELIVERY_METRICS
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
@@ -122,10 +104,39 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
 	ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);
+	ctx_store_meta(ctx, CB_FROM_TUNNEL, from_tunnel ? 1 : 0);
+	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, cluster_id);
 
 	tail_call_dynamic(ctx, &POLICY_CALL_MAP, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
 #endif
+}
+
+#ifdef ENABLE_IPV6
+/* Performs IPv6 L2/L3 handling and delivers the packet to the destination pod
+ * on the same node, either via the stack or via a redirect call.
+ * Depending on the configuration, it may also enforce ingress policies for the
+ * destination pod via a tail call.
+ */
+static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
+					       __u32 seclabel,
+					       const struct endpoint_info *ep,
+					       __u8 direction, bool from_host,
+					       bool hairpin_flow)
+{
+	mac_t router_mac = ep->node_mac;
+	mac_t lxc_mac = ep->mac;
+	int ret;
+
+	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
+
+	/* This will invalidate the size check */
+	ret = ipv6_l3(ctx, l3_off, (__u8 *)&router_mac, (__u8 *)&lxc_mac, direction);
+	if (ret != CTX_ACT_OK)
+		return ret;
+
+	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, hairpin_flow,
+				 false, 0);
 }
 #endif /* ENABLE_IPV6 */
 
@@ -137,9 +148,9 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel, struct iphdr *ip4,
 					       const struct endpoint_info *ep,
-					       __u8 direction __maybe_unused,
-					       bool from_host __maybe_unused,
-					       bool hairpin_flow __maybe_unused)
+					       __u8 direction, bool from_host,
+					       bool hairpin_flow, bool from_tunnel,
+					       __u32 cluster_id)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -151,52 +162,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-#ifdef LOCAL_DELIVERY_METRICS
-	/*
-	 * Special LXC case for updating egress forwarding metrics.
-	 * Note that the packet could still be dropped but it would show up
-	 * as an ingress drop counter in metrics.
-	 */
-	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
-#endif
-
-#ifndef DISABLE_LOOPBACK_LB
-	/* Skip ingress policy enforcement for hairpin traffic.	As the hairpin
-	 * traffic is destined to a local pod (more specifically, the same pod the
-	 * traffic originated from, we skip the tail call for ingress policy
-	 * enforcement, and directly redirect it to the endpoint).
-	 */
-	if (unlikely(hairpin_flow))
-		return redirect_ep(ctx, ep->ifindex, from_host);
-#endif /* DISABLE_LOOPBACK_LB */
-
-#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
-	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
-	ctx->mark |= MARK_MAGIC_IDENTITY;
-	set_identity_mark(ctx, seclabel);
-
-# if defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
-	/* In tunneling mode, we execute this code to send the packet from
-	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
-	 * redirect() because that would bypass conntrack and the reverse DNAT.
-	 * Thus, we send packets to the stack, but since they have the wrong
-	 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
-	 * will drop them.
-	 */
-	ctx_change_type(ctx, PACKET_HOST);
-	return CTX_ACT_OK;
-# else
-	return redirect_ep(ctx, ep->ifindex, from_host);
-# endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
-#else
-	/* Jumps to destination pod's BPF program to enforce ingress policies. */
-	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
-	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
-	ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);
-
-	tail_call_dynamic(ctx, &POLICY_CALL_MAP, ep->lxc_id);
-	return DROP_MISSED_TAIL_CALL;
-#endif
+	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, hairpin_flow,
+				 from_tunnel, cluster_id);
 }
 #endif /* SKIP_POLICY_MAP */
 

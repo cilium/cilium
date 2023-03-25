@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 // Package replay implements an efficient anti-replay algorithm as specified in RFC 6479.
@@ -34,7 +34,7 @@ func (f *Filter) Reset() {
 
 // ValidateCounter checks if the counter should be accepted.
 // Overlimit counters (>= limit) are always rejected.
-func (f *Filter) ValidateCounter(counter uint64, limit uint64) bool {
+func (f *Filter) ValidateCounter(counter, limit uint64) bool {
 	if counter >= limit {
 		return false
 	}

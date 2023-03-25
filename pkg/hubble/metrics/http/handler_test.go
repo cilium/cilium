@@ -198,3 +198,23 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 	`
 	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).duration, strings.NewReader(durationExpected)))
 }
+
+func Test_httpHandler_ListMetricVec(t *testing.T) {
+	plugin := httpPlugin{}
+	handler := plugin.NewHandler()
+	require.NoError(t, handler.Init(prometheus.NewRegistry(), nil))
+	assert.Len(t, handler.ListMetricVec(), 3, "expecting 3 metrics, requests, responses and duration")
+	for _, vec := range handler.ListMetricVec() {
+		require.NotNil(t, vec, "ListMetricVec should not nil metrics vectors")
+	}
+}
+
+func Test_httpV2Handler_ListMetricVec(t *testing.T) {
+	plugin := httpV2Plugin{}
+	handler := plugin.NewHandler()
+	require.NoError(t, handler.Init(prometheus.NewRegistry(), nil))
+	assert.Len(t, handler.ListMetricVec(), 2, "expecting 2 metrics, requests and duration")
+	for _, vec := range handler.ListMetricVec() {
+		require.NotNil(t, vec, "ListMetricVec should not nil metrics vectors")
+	}
+}

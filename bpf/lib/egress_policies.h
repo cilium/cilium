@@ -38,6 +38,12 @@ bool egress_gw_request_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint)
 	if (!egress_gw_policy)
 		return false;
 
+	/* If the gateway IP is 0.0.0.0 it means this is an excluded CIDR, so
+	 * skip redirection
+	 */
+	if (!egress_gw_policy->gateway_ip)
+		return false;
+
 	/* If the gateway node is the local node, then just let the
 	 * packet go through, as it will be SNATed later on by
 	 * handle_nat_fwd().
@@ -59,6 +65,12 @@ bool egress_gw_snat_needed(struct iphdr *ip4, __be32 *snat_addr)
 	if (!egress_gw_policy)
 		return false;
 
+	/* If the gateway IP is 0.0.0.0 it means this is an excluded CIDR, so
+	 * skip SNAT
+	 */
+	if (!egress_gw_policy->gateway_ip)
+		return false;
+
 	*snat_addr = egress_gw_policy->egress_ip;
 	return true;
 }
@@ -73,6 +85,12 @@ bool egress_gw_reply_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint,
 	/* Find a matching policy by looking up the reverse address tuple: */
 	egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
 	if (!egress_policy)
+		return false;
+
+	/* If the gateway IP is 0.0.0.0 it means this is an excluded CIDR, so
+	 * skip reply redirect
+	 */
+	if (!egress_policy->gateway_ip)
 		return false;
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
@@ -198,15 +216,6 @@ is_srv6_packet(const struct ipv6hdr *ip6)
 }
 
 # ifndef SKIP_SRV6_HANDLING
-static __always_inline __u64 ctx_adjust_hroom_flags(void)
-{
-#ifdef HAVE_CSUM_LEVEL
-	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
-#else
-	return 0;
-#endif
-}
-
 static __always_inline int
 srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 		   __u8 nexthdr, union v6addr *saddr, struct in6_addr *sid)

@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [1.16.0] - 2022-12-13
+## [1.16.1] - 2023-01-10
+### Fixed
+- A panic when `DryRun` was used with `Decorate`.
+
+[1.16.1]: https://github.com/uber-go/dig/compare/v1.16.0...v1.16.1
+
+## [1.16.0] - 2023-01-03
 ### Added
 - Add `RecoverFromPanics` option, which provides panic-recovery mechanism for Container.
 - Add `Error` interface which enables distinguishing errors from Dig using standard `errors`
@@ -12,7 +18,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 Thanks to @mie998 for their contribution(s) to this release.
 
-[1.l6.0]: https://github.com/uber-go/dig/compare/v1.15.0...v1.16.0
+[1.16.0]: https://github.com/uber-go/dig/compare/v1.15.0...v1.16.0
 
 ## [1.15.0] - 2022-08-02
 ### Added

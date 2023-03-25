@@ -15,4 +15,5 @@ Internals
    ../contributing/development/codeoverview
    hubble
    cilium_operator
+   hooks
    security-identities

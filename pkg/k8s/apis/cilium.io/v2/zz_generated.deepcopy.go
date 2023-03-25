@@ -226,6 +226,11 @@ func (in *CiliumEgressGatewayPolicySpec) DeepCopyInto(out *CiliumEgressGatewayPo
 		*out = make([]IPv4CIDR, len(*in))
 		copy(*out, *in)
 	}
+	if in.ExcludedCIDRs != nil {
+		in, out := &in.ExcludedCIDRs, &out.ExcludedCIDRs
+		*out = make([]IPv4CIDR, len(*in))
+		copy(*out, *in)
+	}
 	if in.EgressGateway != nil {
 		in, out := &in.EgressGateway, &out.EgressGateway
 		*out = new(EgressGateway)

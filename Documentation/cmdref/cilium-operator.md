@@ -79,13 +79,15 @@ cilium-operator [flags]
       --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
       --nodes-gc-interval duration                GC interval for CiliumNodes (default 5m0s)
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
-      --operator-pprof                            Enable pprof debugging endpoint
-      --operator-pprof-port int                   Port that the pprof listens on (default 6061)
+      --operator-pprof                            Enable serving pprof debugging API
+      --operator-pprof-address string             Address that pprof listens on (default "localhost")
+      --operator-pprof-port uint16                Port that pprof listens on (default 6061)
       --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":9963")
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)
       --pod-restart-selector string               cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted (default "k8s-app=kube-dns")
       --remove-cilium-node-taints                 Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
       --set-cilium-is-up-condition                Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
+      --set-cilium-node-taints                    Set node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes if Cilium is scheduled but not up and running
       --skip-cnp-status-startup-clean             If set to true, the operator will not clean up CNP node status updates at startup
       --skip-crd-creation                         When true, Kubernetes Custom Resource Definitions will not be created
       --subnet-ids-filter strings                 Subnets IDs (separated by commas)
@@ -100,5 +102,6 @@ cilium-operator [flags]
 ### SEE ALSO
 
 * [cilium-operator completion](cilium-operator_completion.md)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator hive](cilium-operator_hive.md)	 - Inspect the hive
 * [cilium-operator metrics](cilium-operator_metrics.md)	 - Access metric status of the operator
 

@@ -27,4 +27,5 @@ type EcGrantRelationModel struct {
 	InstanceRouterId string `json:"InstanceRouterId" xml:"InstanceRouterId"`
 	VbrRegionNo      string `json:"VbrRegionNo" xml:"VbrRegionNo"`
 	GmtCreate        string `json:"GmtCreate" xml:"GmtCreate"`
+	GrantType        string `json:"GrantType" xml:"GrantType"`
 }

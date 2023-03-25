@@ -13,13 +13,13 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
-	"github.com/cilium/cilium/pkg/allocator"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -93,28 +93,21 @@ func (h *getIdentityEndpoints) Handle(params GetIdentityEndpointsParams) middlew
 // in unit tests.
 type CachingIdentityAllocator interface {
 	cache.IdentityAllocator
+	clustermesh.RemoteIdentityWatcher
 
 	InitIdentityAllocator(versioned.Interface, k8sCache.Store) <-chan struct{}
-	WatchRemoteIdentities(kvstore.BackendOperations) (*allocator.RemoteCache, error)
 	Close()
 }
 
 type cachingIdentityAllocator struct {
 	*cache.CachingIdentityAllocator
-	d *Daemon
-}
-
-func NewCachingIdentityAllocator(d *Daemon) cachingIdentityAllocator {
-	return cachingIdentityAllocator{
-		CachingIdentityAllocator: cache.NewCachingIdentityAllocator(d),
-		d:                        d,
-	}
+	ipcache *ipcache.IPCache
 }
 
 func (c cachingIdentityAllocator) AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
-	return c.d.ipcache.AllocateCIDRsForIPs(ips, newlyAllocatedIdentities)
+	return c.ipcache.AllocateCIDRsForIPs(ips, newlyAllocatedIdentities)
 }
 
 func (c cachingIdentityAllocator) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
-	c.d.ipcache.ReleaseCIDRIdentitiesByID(ctx, identities)
+	c.ipcache.ReleaseCIDRIdentitiesByID(ctx, identities)
 }

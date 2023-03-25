@@ -158,7 +158,7 @@ func GenTestServicePairs() (slim_corev1.Service, v1.Service, metallbspr.Service,
 				Ingress: []v1.LoadBalancerIngress{
 					{
 						IP:    IP,
-						Ports: []v1.PortStatus{},
+						Ports: nil,
 					},
 				},
 			},

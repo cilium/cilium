@@ -48,6 +48,14 @@ func (h *kafkaHandler) Status() string {
 	return h.context.Status()
 }
 
+func (h *kafkaHandler) Context() *api.ContextOptions {
+	return h.context
+}
+
+func (h *kafkaHandler) ListMetricVec() []*prometheus.MetricVec {
+	return []*prometheus.MetricVec{h.requests.MetricVec, h.duration.MetricVec}
+}
+
 func (h *kafkaHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	l7 := flow.GetL7()
 	if l7 == nil {

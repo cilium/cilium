@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -44,7 +45,9 @@ const (
 	ep1IP = "10.0.0.1"
 	ep2IP = "10.0.0.2"
 
-	destCIDR = "1.1.1.0/24"
+	destCIDR      = "1.1.1.0/24"
+	excludedCIDR1 = "1.1.1.22/32"
+	excludedCIDR2 = "1.1.1.240/30"
 
 	egressIP1   = "192.168.101.1"
 	egressCIDR1 = "192.168.101.1/24"
@@ -93,14 +96,6 @@ type parsedEgressRule struct {
 	gatewayIP net.IP
 }
 
-type k8sCacheSyncedCheckerMock struct {
-	synced bool
-}
-
-func (k *k8sCacheSyncedCheckerMock) K8sCacheIsSynced() bool {
-	return k.synced
-}
-
 // Hook up gocheck into the "go test" runner.
 type EgressGatewayTestSuite struct{}
 
@@ -120,7 +115,7 @@ func (k *EgressGatewayTestSuite) SetUpSuite(c *C) {
 	option.Config.EnableIPv4EgressGateway = true
 	option.Config.InstallEgressGatewayRoutes = true
 
-	egressmap.InitEgressMaps()
+	egressmap.InitEgressMaps(egressmap.MaxPolicyEntries)
 
 	nodeTypes.SetName(node1)
 }
@@ -132,13 +127,13 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	defer cleanupPolicies()
 
-	k8sCacheSyncedChecker := &k8sCacheSyncedCheckerMock{}
+	cacheStatus := make(k8s.CacheStatus)
 
-	egressGatewayManager := NewEgressGatewayManager(k8sCacheSyncedChecker, identityAllocator)
+	egressGatewayManager := NewEgressGatewayManager(cacheStatus, identityAllocator, option.Config.InstallEgressGatewayRoutes)
 	c.Assert(egressGatewayManager, NotNil)
 	assertIPRules(c, []ipRule{})
 
-	k8sCacheSyncedChecker.synced = true
+	close(cacheStatus)
 
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
 	egressGatewayManager.OnUpdateNode(node1)
@@ -147,7 +142,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	egressGatewayManager.OnUpdateNode(node2)
 
 	// Create a new policy
-	policy1 := newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, nodeGroup1Selector, testInterface1)
+	policy1 := newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertEgressRules(c, []egressRule{})
@@ -183,7 +178,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	// Create a new policy
-	policy2 := newEgressPolicyConfigWithNodeSelector("policy-2", ep2Labels, destCIDR, nodeGroup2Selector, testInterface1)
+	policy2 := newEgressPolicyConfigWithNodeSelector("policy-2", ep2Labels, destCIDR, []string{}, nodeGroup2Selector, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy2)
 
 	assertEgressRules(c, []egressRule{
@@ -201,6 +196,136 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 		{ep1IP, destCIDR, egressIP1, node1IP},
 		{ep2IP, destCIDR, zeroIP4, node2IP},
 	})
+	assertIPRules(c, []ipRule{
+		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
+	})
+
+	// Test if disabling the --install-egress-gateway-routes agent option
+	// will result in stale IP routes/rules getting removed
+	egressGatewayManager.installRoutes = false
+	egressGatewayManager.reconcile(eventNone)
+
+	assertIPRules(c, []ipRule{})
+
+	// Enabling it back should result in the routes/rules being in place
+	// again
+	egressGatewayManager.installRoutes = true
+	egressGatewayManager.reconcile(eventNone)
+
+	assertIPRules(c, []ipRule{
+		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
+	})
+
+	// Test excluded CIDRs by adding one to policy-1
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR1}, nodeGroup1Selector, testInterface1)
+	egressGatewayManager.OnAddEgressPolicy(policy1)
+
+	assertEgressRules(c, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, excludedCIDR1, egressIP1, zeroIP4},
+		{ep2IP, destCIDR, zeroIP4, node2IP},
+	})
+
+	// When an excluded CIDRs is specified, the manager will install
+	// multiple IP rules, one for each of the CIDRs we obtain by subtracting
+	// the excluded CIDR (1.1.1.1/22) from the destination CIDR (1.1.1.0/24):
+	//
+	// $ netcalc sub 1.1.1.0/24 1.1.1.22/32
+	// 1.1.1.0/28
+	// 1.1.1.16/30
+	// 1.1.1.20/31
+	// 1.1.1.23/32
+	// 1.1.1.24/29
+	// 1.1.1.32/27
+	// 1.1.1.64/26
+	// 1.1.1.128/25
+	assertIPRules(c, []ipRule{
+		{ep1IP, "1.1.1.128/25", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.64/26", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.32/27", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.0/28", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.24/29", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.16/30", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.20/31", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.23/32", egressCIDR1, testInterface1Idx},
+	})
+
+	// Add a second excluded CIDR to policy-1
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR1, excludedCIDR2}, nodeGroup1Selector, testInterface1)
+	egressGatewayManager.OnAddEgressPolicy(policy1)
+
+	assertEgressRules(c, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, excludedCIDR1, egressIP1, zeroIP4},
+		{ep1IP, excludedCIDR2, egressIP1, zeroIP4},
+		{ep2IP, destCIDR, zeroIP4, node2IP},
+	})
+
+	// $ for net in $(netcalc sub 1.1.1.0/24 1.1.1.22/32); do
+	//    netcalc sub $net 1.1.1.240/30
+	// done
+	// 1.1.1.0/28
+	// 1.1.1.16/30
+	// 1.1.1.20/31
+	// 1.1.1.23/32
+	// 1.1.1.24/29
+	// 1.1.1.32/27
+	// 1.1.1.64/26
+	// 1.1.1.128/26
+	// 1.1.1.192/27
+	// 1.1.1.224/28
+	// 1.1.1.244/30
+	// 1.1.1.248/29
+	assertIPRules(c, []ipRule{
+		{ep1IP, "1.1.1.0/28", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.16/30", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.20/31", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.23/32", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.24/29", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.32/27", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.64/26", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.128/26", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.192/27", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.224/28", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.244/30", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.248/29", egressCIDR1, testInterface1Idx},
+	})
+
+	// Remove the first excluded CIDR from policy-1
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR2}, nodeGroup1Selector, testInterface1)
+	egressGatewayManager.OnAddEgressPolicy(policy1)
+
+	assertEgressRules(c, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, excludedCIDR2, egressIP1, zeroIP4},
+		{ep2IP, destCIDR, zeroIP4, node2IP},
+	})
+
+	// $ netcalc sub 1.1.1.0/24 1.1.1.240/30
+	// 1.1.1.0/25
+	// 1.1.1.128/26
+	// 1.1.1.192/27
+	// 1.1.1.224/28
+	// 1.1.1.244/30
+	// 1.1.1.248/29
+	assertIPRules(c, []ipRule{
+		{ep1IP, "1.1.1.0/25", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.128/26", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.192/27", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.224/28", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.244/30", egressCIDR1, testInterface1Idx},
+		{ep1IP, "1.1.1.248/29", egressCIDR1, testInterface1Idx},
+	})
+
+	// Remove the second excluded CIDR
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface1)
+	egressGatewayManager.OnAddEgressPolicy(policy1)
+
+	assertEgressRules(c, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep2IP, destCIDR, zeroIP4, node2IP},
+	})
+
 	assertIPRules(c, []ipRule{
 		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
 	})
@@ -271,8 +396,14 @@ func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) nodeTypes.
 	}
 }
 
-func newEgressPolicyConfigWithNodeSelector(policyName string, labels map[string]string, destinationCIDR string, selector *v1.LabelSelector, iface string) PolicyConfig {
-	_, destCIDR, _ := net.ParseCIDR(destinationCIDR)
+func newEgressPolicyConfigWithNodeSelector(policyName string, labels map[string]string, destinationCIDR string, excludedCIDRs []string, selector *v1.LabelSelector, iface string) PolicyConfig {
+	_, parsedDestinationCIDR, _ := net.ParseCIDR(destinationCIDR)
+
+	parsedExcludedCIDRs := []*net.IPNet{}
+	for _, excludedCIDR := range excludedCIDRs {
+		_, parsedExcludedCIDR, _ := net.ParseCIDR(excludedCIDR)
+		parsedExcludedCIDRs = append(parsedExcludedCIDRs, parsedExcludedCIDR)
+	}
 
 	return PolicyConfig{
 		id: types.NamespacedName{
@@ -285,7 +416,8 @@ func newEgressPolicyConfigWithNodeSelector(policyName string, labels map[string]
 				},
 			},
 		},
-		dstCIDRs: []*net.IPNet{destCIDR},
+		dstCIDRs:      []*net.IPNet{parsedDestinationCIDR},
+		excludedCIDRs: parsedExcludedCIDRs,
 		policyGwConfig: &policyGatewayConfig{
 			nodeSelector: api.NewESFromK8sLabelSelector("", selector),
 			iface:        iface,

@@ -15,8 +15,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -32,6 +32,7 @@ var ignoredELFPrefixes = []string{
 	"IPV6_NODEPORT",              // Global
 	"ROUTER_IP",                  // Global
 	"SNAT_IPV6_EXTERNAL",         // Global
+	"cilium_auth_map",            // Global
 	"cilium_call_policy",         // Global
 	"cilium_egresscall_policy",   // Global
 	"cilium_capture",             // Global
@@ -44,6 +45,7 @@ var ignoredELFPrefixes = []string{
 	"cilium_lxc",                 // Global
 	"cilium_metrics",             // Global
 	"cilium_nodeport_neigh",      // All nodeport neigh maps
+	"cilium_node_map",            // Global
 	"cilium_policy",              // All policy maps
 	"cilium_proxy",               // Global
 	"cilium_signals",             // Global
@@ -234,7 +236,7 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 			Err:  err,
 		}
 	}
-
+	defer f.Close()
 	if err = o.ConfigWriter.WriteEndpointConfig(f, cfg); err != nil {
 		return &os.PathError{
 			Op:   "failed to write template header",

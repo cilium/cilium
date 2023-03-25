@@ -116,6 +116,12 @@ func NewFQDNCapability(a *bgp.CapFQDN) *api.FqdnCapability {
 	}
 }
 
+func NewSoftwareVersionCapability(a *bgp.CapSoftwareVersion) *api.SoftwareVersionCapability {
+	return &api.SoftwareVersionCapability{
+		SoftwareVersion: a.SoftwareVersion,
+	}
+}
+
 func NewUnknownCapability(a *bgp.CapUnknown) *api.UnknownCapability {
 	return &api.UnknownCapability{
 		Code:  uint32(a.CapCode),
@@ -148,6 +154,8 @@ func MarshalCapability(value bgp.ParameterCapabilityInterface) (*apb.Any, error)
 		m = NewRouteRefreshCiscoCapability(n)
 	case *bgp.CapFQDN:
 		m = NewFQDNCapability(n)
+	case *bgp.CapSoftwareVersion:
+		m = NewSoftwareVersionCapability(n)
 	case *bgp.CapUnknown:
 		m = NewUnknownCapability(n)
 	default:
@@ -237,6 +245,8 @@ func unmarshalCapability(a *apb.Any) (bgp.ParameterCapabilityInterface, error) {
 		return bgp.NewCapRouteRefreshCisco(), nil
 	case *api.FqdnCapability:
 		return bgp.NewCapFQDN(a.HostName, a.DomainName), nil
+	case *api.SoftwareVersionCapability:
+		return bgp.NewCapSoftwareVersion(a.SoftwareVersion), nil
 	case *api.UnknownCapability:
 		return bgp.NewCapUnknown(bgp.BGPCapabilityCode(a.Code), a.Value), nil
 	}

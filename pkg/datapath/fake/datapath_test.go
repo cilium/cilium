@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/datapath"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 

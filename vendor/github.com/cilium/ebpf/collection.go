@@ -151,6 +151,10 @@ func (cs *CollectionSpec) RewriteConstants(consts map[string]interface{}) error 
 				continue
 			}
 
+			if _, ok := v.Type.(*btf.Var); !ok {
+				return fmt.Errorf("section %s: unexpected type %T for variable %s", name, v.Type, vname)
+			}
+
 			if replaced[vname] {
 				return fmt.Errorf("section %s: duplicate variable %s", name, vname)
 			}
@@ -405,7 +409,7 @@ func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collec
 			return nil, fmt.Errorf("replacement map %s not found in CollectionSpec", name)
 		}
 
-		if err := spec.checkCompatibility(m); err != nil {
+		if err := spec.Compatible(m); err != nil {
 			return nil, fmt.Errorf("using replacement map %s: %w", spec.Name, err)
 		}
 	}
@@ -436,10 +440,6 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 	mapSpec := cl.coll.Maps[mapName]
 	if mapSpec == nil {
 		return nil, fmt.Errorf("missing map %s", mapName)
-	}
-
-	if mapSpec.BTF != nil && cl.coll.Types != mapSpec.BTF {
-		return nil, fmt.Errorf("map %s: BTF doesn't match collection", mapName)
 	}
 
 	if replaceMap, ok := cl.opts.MapReplacements[mapName]; ok {

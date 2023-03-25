@@ -5,6 +5,7 @@ package types
 
 import (
 	"context"
+	"net"
 	"strings"
 	"sync"
 
@@ -54,4 +55,9 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 	str.WriteRune('/')
 	str.WriteString(name)
 	return ResourceID(str.String())
+}
+
+// NodeHandler is responsible for the management of node identities.
+type NodeHandler interface {
+	AllocateNodeID(net.IP) uint16
 }

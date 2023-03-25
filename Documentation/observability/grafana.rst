@@ -74,7 +74,8 @@ Deploy Cilium via Helm as follows to enable all metrics:
       --set prometheus.enabled=true \\
       --set operator.prometheus.enabled=true \\
       --set hubble.enabled=true \\
-      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+      --set hubble.metrics.enableOpenMetrics=true \\
+      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
 
 .. note::
 
@@ -100,9 +101,9 @@ Expose the port on your local machine
 
 .. code-block:: shell-session
 
-    kubectl -n cilium-monitoring port-forward service/prometheus --address 0.0.0.0 --address :: 9962:9962
+    kubectl -n cilium-monitoring port-forward service/prometheus --address 0.0.0.0 --address :: 9090:9090
 
-Access it via your browser: http://localhost:9962
+Access it via your browser: http://localhost:9090
 
 Examples
 ========

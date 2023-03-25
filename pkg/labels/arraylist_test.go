@@ -162,3 +162,93 @@ func (s *LabelsSuite) TestLabelArrayListSort(c *C) {
 	}
 	c.Assert(list2.Sort(), checker.DeepEquals, expected2)
 }
+
+func (s *LabelsSuite) TestLabelArrayListMergeSorted(c *C) {
+	list1 := LabelArrayList{
+		{
+			NewLabel("env", "devel", LabelSourceAny),
+			NewLabel("user", "bob", LabelSourceContainer),
+		},
+		{
+			NewLabel("foo", "bar", LabelSourceAny),
+		},
+	}
+	list2 := LabelArrayList{
+		{
+			NewLabel("env", "devel", LabelSourceAny),
+			NewLabel("user", "bob", LabelSourceContainer),
+		},
+		{
+			NewLabel("foo", "bar", LabelSourceAny),
+		},
+	}
+	list3 := LabelArrayList{
+		{
+			NewLabel("foo", "bar", LabelSourceAny),
+		},
+		{
+			NewLabel("env", "devel", LabelSourceAny),
+			NewLabel("user", "bob", LabelSourceContainer),
+		},
+	}
+	list4 := LabelArrayList{
+		{
+			NewLabel("env", "devel", LabelSourceAny),
+			NewLabel("user", "bob", LabelSourceContainer),
+		},
+	}
+	list5 := LabelArrayList(nil)
+	list6 := LabelArrayList{}
+	list7 := LabelArrayList{
+		{
+			NewLabel("env", "prod", LabelSourceAny),
+			NewLabel("user", "alice", LabelSourceContainer),
+		},
+	}
+
+	expected1 := LabelArrayList{
+		{
+			NewLabel("env", "devel", LabelSourceAny),
+			NewLabel("user", "bob", LabelSourceContainer),
+		},
+		{
+			NewLabel("foo", "bar", LabelSourceAny),
+		},
+	}
+
+	cases := []struct {
+		name     string
+		a, b     LabelArrayList
+		expected LabelArrayList
+	}{
+		{name: "same list", a: list1, b: list1, expected: expected1},
+		{name: "equal lists", a: list1, b: list2, expected: expected1},
+		{name: "unsorted equal lists", a: list1, b: list3, expected: expected1},
+		{name: "list b contained in list a", a: list1, b: list4, expected: expected1},
+		{name: "list a contained in list b", a: list4, b: list1, expected: expected1},
+		{name: "nil label arrays", a: list1, b: list5, expected: list1},
+		{name: "empty label array lists", a: list1, b: list6, expected: list1},
+		{name: "two different lists", a: list1, b: list7, expected: LabelArrayList{
+			{
+				NewLabel("env", "devel", LabelSourceAny),
+				NewLabel("user", "bob", LabelSourceContainer),
+			},
+			{
+				NewLabel("env", "prod", LabelSourceAny),
+				NewLabel("user", "alice", LabelSourceContainer),
+			},
+			{
+				NewLabel("foo", "bar", LabelSourceAny),
+			},
+		}},
+	}
+
+	for _, tc := range cases {
+		// Copy to avoid polluting lists for the next cases.
+		a := tc.a.DeepCopy()
+		b := tc.b.DeepCopy()
+		a.Merge(b...)
+		c.Assert(a, checker.DeepEquals, tc.expected, Commentf(tc.name))
+		c.Assert(a, checker.DeepEquals, a.Sort(), Commentf(tc.name+" returned unsorted result"))
+	}
+}

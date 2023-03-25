@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -55,8 +54,8 @@ type Configuration struct {
 	SynchronizationInterval time.Duration
 
 	// SharedKeyDeleteDelay is the delay before a shared key delete is
-	// handled. This parameter is optional
-	SharedKeyDeleteDelay *time.Duration
+	// handled. This parameter is optional, and defaults to 0 if unset.
+	SharedKeyDeleteDelay time.Duration
 
 	// KeyCreator is called to allocate a Key instance when a new shared
 	// key is discovered. This parameter is required.
@@ -85,10 +84,6 @@ func (c *Configuration) validate() error {
 
 	if c.SynchronizationInterval == 0 {
 		c.SynchronizationInterval = option.Config.KVstorePeriodicSync
-	}
-
-	if c.SharedKeyDeleteDelay == nil {
-		c.SharedKeyDeleteDelay = func() *time.Duration { a := defaults.NodeDeleteDelay; return &a }()
 	}
 
 	if c.Backend == nil {
@@ -416,16 +411,12 @@ func (s *SharedStore) deleteSharedKey(name string) {
 
 	if ok {
 		go func() {
-			var timeWindow time.Duration
-			if s.conf.SharedKeyDeleteDelay != nil {
-				timeWindow = *s.conf.SharedKeyDeleteDelay
-				time.Sleep(timeWindow)
-			}
+			time.Sleep(s.conf.SharedKeyDeleteDelay)
 			s.mutex.RLock()
 			_, ok := s.sharedKeys[name]
 			s.mutex.RUnlock()
 			if ok {
-				s.getLogger().WithFields(logrus.Fields{"key": name, "timeWindow": timeWindow}).
+				s.getLogger().WithFields(logrus.Fields{"key": name, "timeWindow": s.conf.SharedKeyDeleteDelay}).
 					Warning("Received delete event for key which re-appeared within delay time window")
 				return
 			}

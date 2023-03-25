@@ -572,9 +572,10 @@ func GC(m *Map, filter *GCFilter) int {
 //  4. By DSR on a backend node to SNAT responses with service IP+port before
 //     sending to a client.
 //
-// In the case of 1-3, we always create a CT_EGRESS CT entry. This allows the
-// CT GC to remove corresponding SNAT entries. In the case of 4, will create
-// CT_INGRESS CT entry. See the unit test TestOrphanNatGC for more examples.
+// In all 4 cases we create a CT_EGRESS CT entry. This allows the
+// CT GC to remove corresponding SNAT entries. In the case of 4, old connections
+// might instead be using a CT_INGRESS CT entry.
+// See the unit test TestOrphanNatGC for more examples.
 func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
@@ -618,9 +619,12 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		} else if natKey.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT {
 			ingressCTKey := ingressCTKeyFromEgressNatKey(natKey)
 			egressCTKey := egressCTKeyFromEgressNatKey(natKey)
+			dsrCTKey := dsrCTKeyFromEgressNatKey(natKey)
 
-			if !ctEntryExist(ctMap, ingressCTKey) && !ctEntryExist(ctMap, egressCTKey) {
-				// No ingress and egress CT entries were found, delete the orphan egress NAT entry
+			if !ctEntryExist(ctMap, ingressCTKey) &&
+				!ctEntryExist(ctMap, egressCTKey) &&
+				!ctEntryExist(ctMap, dsrCTKey) {
+				// No relevant CT entries were found, delete the orphan egress NAT entry
 				if deleted, _ := natMap.Delete(natKey); deleted {
 					stats.EgressDeleted += 1
 				}
@@ -780,7 +784,7 @@ var cachedGCInterval time.Duration
 
 // GetInterval returns the interval adjusted based on the deletion ratio of the
 // last run
-func GetInterval(mapType bpf.MapType, maxDeleteRatio float64) (interval time.Duration) {
+func GetInterval(maxDeleteRatio float64) (interval time.Duration) {
 	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
 		interval = val
 		return
@@ -790,10 +794,10 @@ func GetInterval(mapType bpf.MapType, maxDeleteRatio float64) (interval time.Dur
 		interval = defaults.ConntrackGCStartingInterval
 	}
 
-	return calculateInterval(mapType, interval, maxDeleteRatio)
+	return calculateInterval(interval, maxDeleteRatio)
 }
 
-func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
+func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
 	interval = prevInterval
 
 	if maxDeleteRatio == 0.0 {
@@ -818,16 +822,8 @@ func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDelet
 		// as a new node may not be seeing workloads yet and thus the
 		// scan will return a low deletion ratio at first.
 		interval = time.Duration(float64(interval) * 1.5).Round(time.Second)
-
-		switch mapType {
-		case bpf.MapTypeLRUHash:
-			if interval > defaults.ConntrackGCMaxLRUInterval {
-				interval = defaults.ConntrackGCMaxLRUInterval
-			}
-		default:
-			if interval > defaults.ConntrackGCMaxInterval {
-				interval = defaults.ConntrackGCMaxInterval
-			}
+		if interval > defaults.ConntrackGCMaxLRUInterval {
+			interval = defaults.ConntrackGCMaxLRUInterval
 		}
 	}
 

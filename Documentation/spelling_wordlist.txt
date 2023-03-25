@@ -23,7 +23,9 @@ Cavium
 Cheng
 Chewbacca
 Chun
+Clientset
 Cloudflare
+Codespaces
 ConnectX
 Corefile
 CronJob
@@ -125,6 +127,7 @@ SRv
 Sharma
 Shirokov
 Shortnames
+Shutdowner
 Socionext
 Solarflare
 Spectre
@@ -184,7 +187,10 @@ artii
 asm
 assignees
 au
+auth
 authenticator
+authMapMax
+authMapMin
 autoDirectNodeRoutes
 autoMount
 autoProtectPortRange
@@ -207,6 +213,7 @@ backports
 balancer
 balancers
 bandwidthManager
+baseUrl
 battlestation
 bbr
 bcc
@@ -252,6 +259,7 @@ certgen
 certmanager
 certsVolume
 cgroup
+cgroups
 chainingMode
 changelog
 cheatsheet
@@ -259,12 +267,15 @@ ci
 cidr
 cidrs
 ciliumAgent
+ciliumNodeUpdateRate
+ciliumnode
 classful
 classid
 cleanBpfState
 cleanCiliumState
 cleanState
 cli
+clientsets
 clockProbe
 cls
 clusterDomain
@@ -372,6 +383,7 @@ eBPF
 eXpress
 ebpf
 ec
+effectful
 egressGateway
 egressMasqueradeInterfaces
 egressing
@@ -416,6 +428,7 @@ extern
 externalAPILimitBurstSize
 externalAPILimitQPS
 externalIPs
+externalTrafficPolicy
 externalWorkloads
 extraArgs
 extraConfig
@@ -471,6 +484,7 @@ golang
 golangci
 golangci-lint
 gops
+goroutines
 grafana
 graphviz
 grep
@@ -536,11 +550,12 @@ inlines
 inlining
 inodes
 insecureNodePort
-installIptablesRules
 installNoConntrackIptablesRules
 installRoutes
 instanceTagsFilter
+instantiation
 integrations
+internalTrafficPolicy
 internet
 intervalSeconds
 intra
@@ -636,6 +651,7 @@ llc
 llvm
 loadBalancer
 loadBalancerClass
+loadBalancerIP
 loadbalancer
 loadbalancerIP
 loadbalancerMode
@@ -687,12 +703,15 @@ minTtl
 minikube
 misconfigures
 mlx
+modularity
+modularizing
 monitorAggregation
 monitorFlags
 monitorInterval
 mountCgroup
 mountPath
 mov
+mtls
 mul
 multi
 multicore
@@ -737,6 +756,7 @@ nodePort
 nodeSelector
 nodeX
 nodegroup
+nodeid
 nodeinit
 nodeport
 nonMasqueradeCIDRs
@@ -776,6 +796,7 @@ podAnnotations
 podCIDR
 podDisruptionBudget
 podLabels
+podSecurityContext
 podcasts
 policyAuditMode
 policyEnforcementMode
@@ -869,9 +890,11 @@ routable
 rst
 rsync
 runPath
+runnable
 runtime
 runtimes
 sEventHandover
+sNetworkPolicy
 sNode
 sNodes
 sService
@@ -903,6 +926,7 @@ serviceMonitor
 servicePort
 sessionAffinity
 setNodeNetworkStatus
+setNodeTaints
 setrlimit
 setupinterface
 setupiptables
@@ -926,6 +950,9 @@ sockops
 sortBufferDrainTimeout
 sortBufferLenMax
 sourceContext
+spiffe
+spiffeTrustDomain
+spireAdminSocketPath
 src
 srv
 ssl
@@ -1013,6 +1040,7 @@ ui
 uid
 uint
 unencrypted
+unexported
 unicast
 uninline
 uninstall
@@ -1052,6 +1080,7 @@ virtIO
 virtio
 virtualbox
 virtualization
+virtualized
 vlan
 vlanBypass
 vmlinux

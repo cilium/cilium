@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 	"sync"
 	"time"
@@ -80,6 +79,9 @@ type endpointManager struct {
 	// endpoints for removal on one run of the controller, then in the
 	// subsequent controller run will remove the endpoints.
 	markedEndpoints []uint16
+
+	// controllers associated with the endpoint manager.
+	controllers *controller.Manager
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -101,6 +103,7 @@ func New(epSynchronizer EndpointResourceSynchronizer) *endpointManager {
 		mcastManager:                 mcastmanager.New(option.Config.IPv6MCastDevice),
 		EndpointResourceSynchronizer: epSynchronizer,
 		subscribers:                  make(map[Subscriber]struct{}),
+		controllers:                  controller.NewManager(),
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
 
@@ -111,7 +114,7 @@ func New(epSynchronizer EndpointResourceSynchronizer) *endpointManager {
 // endpoints that match the specified EndpointCheckerFunc.
 func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHealth EndpointCheckerFunc, interval time.Duration) *endpointManager {
 	mgr.checkHealth = checkHealth
-	controller.NewManager().UpdateController("endpoint-gc",
+	mgr.controllers.UpdateController("endpoint-gc",
 		controller.ControllerParams{
 			DoFunc:      mgr.markAndSweep,
 			RunInterval: interval,
@@ -312,13 +315,13 @@ func (mgr *endpointManager) LookupIPv6(ipv6 string) *endpoint.Endpoint {
 }
 
 // LookupIP looks up endpoint by IP address
-func (mgr *endpointManager) LookupIP(ip net.IP) (ep *endpoint.Endpoint) {
-	addr := ip.String()
+func (mgr *endpointManager) LookupIP(ip netip.Addr) (ep *endpoint.Endpoint) {
+	ipStr := ip.String()
 	mgr.mutex.RLock()
-	if ip.To4() != nil {
-		ep = mgr.lookupIPv4(addr)
+	if ip.Is4() {
+		ep = mgr.lookupIPv4(ipStr)
 	} else {
-		ep = mgr.lookupIPv6(addr)
+		ep = mgr.lookupIPv6(ipStr)
 	}
 	mgr.mutex.RUnlock()
 	return ep

@@ -1,33 +1,18 @@
 # Maintainers
 
 See [Governance](Documentation/community/governance/commit_access.rst) for
-governance, commit, and vote guidelines as well as maintainer responsibilities.
+governance, commit, and vote guidelines as well as committer responsibilities.
 Everybody listed is a committer as per governance definition.
 
-All committers and maintainers have identical voting rights. Maintainers have
-additional administrative and janitorial responsibilities.
-
-Regardless of maintainer or committer status, any code contribution is subject
-to code review requirements as per [CODEOWNERS](CODEOWNERS) and PRs get merged
-by the "janitor role" which is rotated between all committers.
-
-## Cilium Maintainers
-
- * [André Martins] (Isovalent)
- * [Joe Stringer] (Isovalent)
-
-## Hubble Maintainers
-
- * [Glib Smaga] (Isovalent)
- * [Sebastian Wicki] (Isovalent)
-
-## Cilium & Hubble Committers
+## Cilium Committers
 
  * [Aditi Ghag] (Isovalent)
  * [Alexandre Perrin] (Isovalent)
+ * [André Martins] (Isovalent)
  * [Beatriz Martínez] (Isovalent)
  * [Bill Mulligan] (Isovalent)
  * [Bruno M. Custódio] (Isovalent)
+ * [Casey Callendrello] (Isovalent)
  * [Chance Zibolski] (Isovalent)
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
@@ -35,18 +20,20 @@ by the "janitor role" which is rotated between all committers.
  * [Deepesh Pathak]
  * [Eloy Coto] (Red Hat)
  * [Gilberto Bertin] (Isovalent)
+ * [Glib Smaga] (Isovalent)
  * [Hemanth Malla] (Datadog)
  * [Ian Vernon]
- * [Ilya Dmitrichenko] (Docker)
  * [Jarno Rajahalme] (Isovalent)
+ * [Joe Stringer] (Isovalent)
  * [John Fastabend] (Isovalent)
+ * [Julian Wiedmann] (Isovalent)
  * [Kornilios Kourtis] (Isovalent)
  * [Laurent Bernaille] (Datadog)
  * [Liz Rice] (Isovalent)
  * [Louis DeLosSantos] (Isovalent)
  * [Maciej Kwiek] (Isovalent)
  * [Martynas Pumputis] (Isovalent)
- * [Michal Rostecki] (SUSE)
+ * [Michal Rostecki] (Deepfence)
  * [Michi Mutsuzaki] (Isovalent)
  * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
@@ -54,22 +41,25 @@ by the "janitor role" which is rotated between all committers.
  * [Nirmoy Das] (AMD)
  * [Paul Chaignon] (Isovalent)
  * [Quentin Monnet] (Isovalent)
- * [Ray Bejjani]
  * [Robin Hahling] (Isovalent)
+ * [Sebastian Wicki] (Isovalent)
  * [Tam Mach] (Isovalent)
  * [Thomas Graf] (Isovalent)
  * [Timo Beckers] (Isovalent)
  * [Tobias Klauser] (Isovalent)
  * [Tom Hadlaw] (Isovalent)
- * [Tom Payne] (Isovalent)
  * [Vlad Ungureanu] (Palantir)
  * [Weilong Cui] (Google)
  * [Yongkun Gui] (Google)
- * [Zang Li] (Google)
 
 ## Cilium & Hubble Emeritus Committers
 
 We would like to acknowledge previous committers and their huge contributions to our collective success:
+
+ * [Ilya Dmitrichenko] (Docker)
+ * [Ray Bejjani]
+ * [Tom Payne]
+ * [Zang Li] (Google)
 
 
 Please see the AUTHORS file for the full list of contributors to the Cilium
@@ -81,6 +71,7 @@ project.
 [Beatriz Martínez]: https://github.com/b3a-dev
 [Bill Mulligan]: https://github.com/xmulligan
 [Bruno M. Custódio]: https://github.com/bmcustodio
+[Casey Callendrello]: https://github.com/squeed
 [Chance Zibolski]: https://github.com/chancez
 [Chris Tarazi]: https://github.com/christarazi
 [Daniel Borkmann]: https://github.com/borkmann
@@ -95,6 +86,7 @@ project.
 [Jarno Rajahalme]: https://github.com/jrajahalme
 [Joe Stringer]: https://github.com/joestringer
 [John Fastabend]: https://github.com/jrfastab
+[Julian Wiedmann]: https://github.com/julianwiedmann
 [Kornilios Kourtis]: https://github.com/kkourt
 [Laurent Bernaille]: https://github.com/lbernail
 [Liz Rice]: https://github.com/lizrice

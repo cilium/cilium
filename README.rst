@@ -5,18 +5,18 @@
       <img src="https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo-dark.png" width="350" alt="Cilium Logo">
    </picture>
 
-|cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl| |fossa|
+|cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl| |fossa| |codespaces|
 
 Cilium is a networking, observability, and security solution with an eBPF-based
-dataplane. It provides a simple flat Layer 3 network with the ability to span 
-multiple clusters in either a native routing or overlay mode. It is L7-protocol 
-aware and can enforce network policies on L3-L7 using an identity based security 
+dataplane. It provides a simple flat Layer 3 network with the ability to span
+multiple clusters in either a native routing or overlay mode. It is L7-protocol
+aware and can enforce network policies on L3-L7 using an identity based security
 model that is decoupled from network addressing.
 
-Cilium implements distributed load balancing for traffic between pods and to 
-external services, and is able to fully replace kube-proxy, using efficient 
-hash tables in eBPF allowing for almost unlimited scale. It also supports 
-advanced functionality like integrated ingress and egress gateway, bandwidth 
+Cilium implements distributed load balancing for traffic between pods and to
+external services, and is able to fully replace kube-proxy, using efficient
+hash tables in eBPF allowing for almost unlimited scale. It also supports
+advanced functionality like integrated ingress and egress gateway, bandwidth
 management and service mesh, and provides deep network and security visibility and monitoring.
 
 A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
@@ -41,13 +41,43 @@ For upgrades to new major releases please consult the `Cilium Upgrade Guide
 Listed below are the actively maintained release branches along with their latest
 minor release, corresponding image pull tags and their release notes:
 
-+---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2022-12-16 | ``quay.io/cilium/cilium:v1.12.5``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.5>`__  | `General Announcement <https://isovalent.com/blog/post/cilium-release-112>`__  |
-+---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2022-12-16 | ``quay.io/cilium/cilium:v1.11.12`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.12>`__ | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
-+---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2022-12-16 | ``quay.io/cilium/cilium:v1.10.18`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.18>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
-+---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
++---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
+| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.13.1``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.1>`__  |
++---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
+| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.12.8``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.8>`__  |
++---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.11.15`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.15>`__ |
++---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
+
+Software Bill of Materials
+--------------------------
+
+Starting with Cilium version 1.13.0, all images include a Software Bill of
+Materials (SBOM). The SBOM is generated in `SPDX`_ format. More information
+on this is available on `Cilium SBOM`_.
+
+.. _`SPDX`: https://spdx.dev/
+.. _`Cilium SBOM`: https://docs.cilium.io/en/latest/configuration/sbom/
+
+Development
+===========
+
+For development and testing purpose, the Cilium community publishes snapshots,
+early release candidates (RC) and CI container images build from the `master
+branch <https://github.com/cilium/cilium/commits/master>`_. These images are
+not for use in production.
+
+For testing upgrades to new development releases please consult the latest
+development build of the `Cilium Upgrade Guide <https://docs.cilium.io/en/latest/operations/upgrade/>`_.
+
+Listed below are branches for testing along with their snapshots or RC releases,
+corresponding image pull tags and their release notes where applicable:
+
++--------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
+| `master <https://github.com/cilium/cilium/commits/master>`__             | daily      | ``quay.io/cilium/cilium-ci:latest``          | N/A                                                                                   |
++--------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
+| `v1.14.0-snapshot.0 <https://github.com/cilium/cilium/commits/master>`__ | 2023-03-01 | ``quay.io/cilium/cilium:v1.14.0-snapshot.0`` | `Snapshot Notes <https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.0>`__ |
++--------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
 
 Functionality Overview
 ======================
@@ -177,7 +207,7 @@ tooling to provide:
   and application and security visibility based on flow logs.
 
 .. _Hubble: https://github.com/cilium/hubble/
-.. _`Layer 7 Policy`: http://docs.cilium.io/en/stable/policy/#layer-7
+.. _`Layer 7 Policy`: https://docs.cilium.io/en/stable/security/policy/language/#layer-7-examples
 
 .. end-functionality-overview
 
@@ -257,7 +287,9 @@ Weekly Developer meeting
 ------------------------
 * The developer community is hanging out on zoom on a weekly basis to chat.
   Everybody is welcome.
-* Weekly, Wednesday, 8:00 am PT, 11:00 am ET, 5:00 pm CEST
+* Weekly, Wednesday,
+  5:00 pm `Europe/Zurich time <https://time.is/Canton_of_Zurich>`__ (CET/CEST),
+  usually equivalent to 8:00 am PT, or 11:00 am ET.
 * `Join zoom <https://zoom.us/j/596609673>`_
 
 eBPF & Cilium Office Hours livestream
@@ -292,14 +324,14 @@ The BPF code templates are dual-licensed under the
 and the `2-Clause BSD License <bsd-license_>`__
 (you can use the terms of either license, at your option).
 
-.. _`Why Cilium?`: http://docs.cilium.io/en/stable/intro/#why-cilium
-.. _`Getting Started`: http://docs.cilium.io/en/stable/gettingstarted/
-.. _`Architecture and Concepts`: http://docs.cilium.io/en/stable/concepts/
-.. _`Installing Cilium`: http://docs.cilium.io/en/stable/gettingstarted/#installation
+.. _`Why Cilium?`: https://docs.cilium.io/en/stable/overview/intro
+.. _`Getting Started`: https://docs.cilium.io/en/stable/#getting-started
+.. _`Architecture and Concepts`: https://docs.cilium.io/en/stable/overview/component-overview/
+.. _`Installing Cilium`: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/
 .. _`Frequently Asked Questions`: https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Akind%2Fquestion+
-.. _Contributing: http://docs.cilium.io/en/stable/contributing/development/
-.. _Prerequisites: http://docs.cilium.io/en/stable/operations/system_requirements
-.. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/stable/bpf/
+.. _Contributing: https://docs.cilium.io/en/stable/contributing/development/
+.. _Prerequisites: https://docs.cilium.io/en/stable/operations/system_requirements/
+.. _`BPF and XDP Reference Guide`: https://docs.cilium.io/en/stable/bpf/
 .. _`eBPF`: https://ebpf.io
 .. _`eBPF.io`: https://ebpf.io
 
@@ -313,7 +345,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 
 .. |rtd| image:: https://readthedocs.org/projects/docs/badge/?version=latest
     :alt: Read the Docs
-    :target: http://docs.cilium.io/
+    :target: https://docs.cilium.io/
 
 .. |apache| image:: https://img.shields.io/badge/license-Apache-blue.svg
     :alt: Apache licensed
@@ -346,3 +378,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. |fossa| image:: https://app.fossa.com/api/projects/custom%2B162%2Fgit%40github.com%3Acilium%2Fcilium.git.svg?type=shield
     :alt: FOSSA Status
     :target: https://app.fossa.com/projects/custom%2B162%2Fgit%40github.com%3Acilium%2Fcilium.git?ref=badge_shield
+
+.. |codespaces| image:: https://github.com/codespaces/badge.svg
+    :alt: Github Codespaces
+    :target: https://github.com/codespaces/new?hide_repo_select=true&ref=master&repo=48109239&machine=standardLinux32gb&location=WestEurope

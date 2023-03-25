@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	enitypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -87,7 +87,7 @@ func (in *InterfaceDB) fetchFromK8s(name string) (*v2.CiliumNode, error) {
 	return in.Clientset.CiliumV2().CiliumNodes().Get(
 		context.TODO(),
 		nodetypes.GetName(),
-		v1.GetOptions{},
+		metav1.GetOptions{},
 	)
 }
 

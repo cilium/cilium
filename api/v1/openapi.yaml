@@ -426,6 +426,7 @@ paths:
       parameters:
       - "$ref": "#/parameters/ipam-family"
       - "$ref": "#/parameters/ipam-owner"
+      - "$ref": "#/parameters/ipam-pool"
       - "$ref": "#/parameters/ipam-expiration"
       responses:
         '201':
@@ -445,6 +446,7 @@ paths:
       parameters:
       - "$ref": "#/parameters/ipam-ip"
       - "$ref": "#/parameters/ipam-owner"
+      - "$ref": "#/parameters/ipam-pool"
       responses:
         '200':
           description: Success
@@ -468,6 +470,7 @@ paths:
       - ipam
       parameters:
       - "$ref": "#/parameters/ipam-release-arg"
+      - "$ref": "#/parameters/ipam-pool"
       responses:
         '200':
           description: Success
@@ -556,18 +559,6 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
-  "/policy/resolve":
-    get:
-      summary: Resolve policy for an identity context
-      tags:
-      - policy
-      parameters:
-      - "$ref": "#/parameters/trace-selector"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/PolicyTraceResult"
   "/policy/selectors":
     get:
       summary: See what selectors match which identities
@@ -807,6 +798,21 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+  "/cgroup-dump-metadata":
+    get:
+      summary: Retrieve cgroup metadata for all pods
+      tags:
+      - daemon
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/CgroupDumpMetadata"
+        '500':
+          description: CgroupDumpMetadata get failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
   "/map":
     get:
       summary: List all open maps
@@ -973,6 +979,21 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: No IP cache entries with provided parameters found
+  "/node/ids":
+    get:
+      summary: List information about known node IDs
+      description: |
+        Retrieves a list of node IDs allocated by the agent and their
+        associated node IP addresses.
+      tags:
+      - daemon
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/NodeID"
 parameters:
   endpoint-id:
     name: id
@@ -1095,6 +1116,10 @@ parameters:
     name: owner
     in: query
     type: string
+  ipam-pool:
+    name: pool
+    in: query
+    type: string
   ipam-expiration:
     name: expiration
     in: header
@@ -1129,7 +1154,6 @@ parameters:
     required: false
     in: query
     type: string
-
 
 definitions:
   Endpoint:
@@ -1444,6 +1468,15 @@ definitions:
           type: array
           items:
             type: string
+      rules-by-selector:
+        description: The policy rule labels identifying the policy rules this rule derives from, mapped by selector
+        type: object
+        additionalProperties:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
   L4Policy:
     description: |-
       L4 endpoint policy
@@ -1552,6 +1585,39 @@ definitions:
           wireguard:
             description: Status of the Wireguard agent
             "$ref": "#/definitions/WireguardStatus"
+  CgroupDumpMetadata:
+    description: cgroup full metadata
+    type: object
+    properties:
+      pod-metadatas:
+        type: array
+        items:
+          "$ref": "#/definitions/CgroupPodMetadata"
+  CgroupPodMetadata:
+    description: cgroup pod metadata
+    type: object
+    properties:
+      name:
+        type: string
+      namespace:
+        type: string
+      containers:
+        type: array
+        items:
+          "$ref": "#/definitions/CgroupContainerMetadata"
+      ips:
+        type: array
+        items:
+          type: string
+  CgroupContainerMetadata:
+    description: cgroup container metadata
+    type: object
+    properties:
+      cgroup-id:
+        type: integer
+        format: uint64
+      cgroup-path:
+        type: string
   IPAMResponse:
     description: IPAM configuration of an endpoint
     type: object
@@ -3228,6 +3294,21 @@ definitions:
       source:
         description: The reason this FQDN IP association exists. Either a DNS lookup or an ongoing connection to an IP that was created by a DNS lookup.
         type: string
+  NodeID:
+    description: Node ID with associated node IP addresses
+    type: object
+    required:
+      - id
+      - ips
+    properties:
+      id:
+        description: ID allocated by the agent for the node
+        type: integer
+      ips:
+        description: IP addresses of the node associated with the ID in the agent
+        type: array
+        items:
+            type: string
   IPListEntry:
     description: IP entry with metadata
     type: object

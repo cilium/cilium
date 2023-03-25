@@ -411,6 +411,13 @@ func NewSelectLabelArrayFromModel(base []string) LabelArray {
 	return lbls.Sort()
 }
 
+// NewFrom creates a new Labels from the given labels by creating a copy.
+func NewFrom(l Labels) Labels {
+	nl := NewLabelsFromModel(nil)
+	nl.MergeLabels(l)
+	return nl
+}
+
 // GetModel returns model with all the values of the labels.
 func (l Labels) GetModel() []string {
 	res := make([]string, 0, len(l))

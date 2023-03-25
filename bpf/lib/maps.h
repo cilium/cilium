@@ -87,6 +87,18 @@ struct {
 } POLICY_MAP __section_maps_btf;
 #endif
 
+#ifdef AUTH_MAP
+/* Global auth map for enforcing authentication policy */
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct auth_key);
+	__type(value, struct auth_info);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, AUTH_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} AUTH_MAP __section_maps_btf;
+#endif
+
 #ifndef SKIP_CALLS_MAP
 /* Private per EP map for internal tail calls */
 struct bpf_elf_map __section_maps CALLS_MAP = {
@@ -103,8 +115,8 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct endpoint_key);
-	__type(value, struct endpoint_key);
+	__type(key, struct tunnel_key);
+	__type(value, struct tunnel_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, TUNNEL_ENDPOINT_MAP_SIZE);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
@@ -133,38 +145,6 @@ struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
 #define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
 #endif /* ENABLE_CUSTOM_CALLS && CUSTOM_CALLS_MAP */
 
-#ifdef HAVE_LPM_TRIE_MAP_TYPE
-#define LPM_MAP_TYPE BPF_MAP_TYPE_LPM_TRIE
-#else
-#define LPM_MAP_TYPE BPF_MAP_TYPE_HASH
-#endif
-
-#ifndef HAVE_LPM_TRIE_MAP_TYPE
-/* Define a function with the following NAME which iterates through PREFIXES
- * (a list of integers ordered from high to low representing prefix length),
- * performing a lookup in MAP using LOOKUP_FN to find a provided IP of type
- * IPTYPE.
- */
-#define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)		\
-static __always_inline int __##NAME(IPTYPE addr)			\
-{									\
-	int prefixes[] = { PREFIXES };					\
-	const int size = ARRAY_SIZE(prefixes);				\
-	int i;								\
-									\
-_Pragma("unroll")							\
-	for (i = 0; i < size; i++)					\
-		if (LOOKUP_FN(&MAP, addr, prefixes[i]))			\
-			return 1;					\
-									\
-	return 0;							\
-}
-#endif /* HAVE_LPM_TRIE_MAP_TYPE */
-
-#ifndef SKIP_UNDEF_LPM_LOOKUP_FN
-#undef LPM_LOOKUP_FN
-#endif
-
 struct ipcache_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__u16 pad1;
@@ -183,7 +163,7 @@ struct ipcache_key {
 
 /* Global IP -> Identity map for applying egress label-based policy */
 struct {
-	__uint(type, LPM_MAP_TYPE);
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct ipcache_key);
 	__type(value, struct remote_endpoint_info);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
@@ -199,9 +179,33 @@ struct {
 	__uint(max_entries, 1);
 } ENCRYPT_MAP __section_maps_btf;
 
+struct node_key {
+	__u16 pad1;
+	__u8 pad2;
+	__u8 family;
+	union {
+		struct {
+			__u32 ip4;
+			__u32 pad4;
+			__u32 pad5;
+			__u32 pad6;
+		};
+		union v6addr    ip6;
+	};
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct node_key);
+	__type(value, __u16);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, NODE_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} NODE_MAP __section_maps_btf;
+
 #ifdef ENABLE_EGRESS_GATEWAY
 struct {
-	__uint(type, LPM_MAP_TYPE);
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct egress_gw_policy_key);
 	__type(value, struct egress_gw_policy_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);

@@ -8,6 +8,7 @@ import (
 
 	check "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/auth"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -79,7 +80,6 @@ func CheckStructAlignments(path string) error {
 		"endpoint_key": {
 			reflect.TypeOf(bpf.EndpointKey{}),
 			reflect.TypeOf(eppolicymap.EndpointKey{}),
-			reflect.TypeOf(tunnel.TunnelEndpoint{}),
 		},
 		"lb4_affinity_key":       {reflect.TypeOf(lbmap.Affinity4Key{})},
 		"lb6_affinity_key":       {reflect.TypeOf(lbmap.Affinity6Key{})},
@@ -95,8 +95,12 @@ func CheckStructAlignments(path string) error {
 		"srv6_vrf_key6":          {reflect.TypeOf(srv6map.VRFKey6{})},
 		"srv6_policy_key4":       {reflect.TypeOf(srv6map.PolicyKey4{})},
 		"srv6_policy_key6":       {reflect.TypeOf(srv6map.PolicyKey6{})},
+		"tunnel_key":             {reflect.TypeOf(tunnel.TunnelKey{})},
+		"tunnel_value":           {reflect.TypeOf(tunnel.TunnelValue{})},
 		"vtep_key":               {reflect.TypeOf(vtep.Key{})},
 		"vtep_value":             {reflect.TypeOf(vtep.VtepEndpointInfo{})},
+		"auth_key":               {reflect.TypeOf(auth.AuthKey{})},
+		"auth_info":              {reflect.TypeOf(auth.AuthInfo{})},
 	}
 	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
 		return err

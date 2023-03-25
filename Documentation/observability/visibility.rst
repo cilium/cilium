@@ -35,7 +35,7 @@ command line, e.g.:
 
 .. code-block:: shell-session
 
-    kubectl annotate pod foo -n bar io.cilium.proxy-visibility="<Egress/53/UDP/DNS>,<Egress/80/TCP/HTTP>"
+    kubectl annotate pod foo -n bar policy.cilium.io/proxy-visibility="<Egress/53/UDP/DNS>,<Egress/80/TCP/HTTP>"
 
 Cilium will pick up that pods have received these annotations, and will
 transparently redirect traffic to the proxy such that the output of
@@ -55,7 +55,7 @@ endpoint of that pod, for example:
     NAME                       ENDPOINT ID   IDENTITY ID   INGRESS ENFORCEMENT   EGRESS ENFORCEMENT   VISIBILITY POLICY   ENDPOINT STATE   IPV4           IPV6
     coredns-7d7f5b7685-wvzwb   1959          104           false                 false                                    ready            10.16.75.193   f00d::a10:0:0:2c77
     $
-    $ kubectl annotate pod -n kube-system coredns-7d7f5b7685-wvzwb io.cilium.proxy-visibility="<Egress/53/UDP/DNS>,<Egress/80/TCP/HTTP>" --overwrite
+    $ kubectl annotate pod -n kube-system coredns-7d7f5b7685-wvzwb policy.cilium.io/proxy-visibility="<Egress/53/UDP/DNS>,<Egress/80/TCP/HTTP>" --overwrite
     pod/coredns-7d7f5b7685-wvzwb annotated
     $
     $ kubectl get cep -n kube-system
@@ -84,7 +84,7 @@ annotation cannot be implemented:
 
 .. code-block:: shell-session
 
-    $ kubectl annotate pod -n kube-system coredns-7d7f5b7685-wvzwb io.cilium.proxy-visibility="<Ingress/53/UDP/DNS>,<Egress/80/TCP/HTTP>"
+    $ kubectl annotate pod -n kube-system coredns-7d7f5b7685-wvzwb policy.cilium.io/proxy-visibility="<Ingress/53/UDP/DNS>,<Egress/80/TCP/HTTP>"
     pod/coredns-7d7f5b7685-wvzwb annotated
     $
     $ kubectl get cep -n kube-system

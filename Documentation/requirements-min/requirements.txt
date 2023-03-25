@@ -1,4 +1,4 @@
-Sphinx==5.1.1
+sphinx==5.3.0
 sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
@@ -8,15 +8,14 @@ git+https://github.com/cilium/sphinx_rtd_theme.git@v1.0#egg=sphinx-rtd-theme-cil
 semver==2.13.0
 
 # Sphinx extensions
-myst-parser==0.18.0
-# Fork openapi until it uses something newer than unmaintained m2r
-# (See git logs for details)
-git+https://github.com/cilium/openapi.git@mdinclude#egg=sphinxcontrib-openapi
+myst-parser==0.18.1
 sphinx-tabs==3.4.0
 sphinx-version-warning==1.1.2
-sphinxcontrib-spelling==7.7.0
+sphinxcontrib-googleanalytics==0.4
+sphinxcontrib-openapi==0.8.1
+sphinxcontrib-spelling==8.0.0
 sphinxcontrib-websupport==1.2.4
 
 # Linters
 rstcheck==6.1.1
-yamllint==1.27.1
+yamllint==1.29.0

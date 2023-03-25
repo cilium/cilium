@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/netip"
@@ -45,7 +46,7 @@ func getCiliumVersionString(epCHeaderFilePath string) ([]byte, error) {
 	defer f.Close()
 	for {
 		b, err := br.ReadBytes('\n')
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return []byte{}, nil
 		}
 		if err != nil {

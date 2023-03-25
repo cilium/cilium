@@ -24,4 +24,5 @@ type VpnAttachment struct {
 	TransitRouterId        string `json:"TransitRouterId" xml:"TransitRouterId"`
 	TransitRouterName      string `json:"TransitRouterName" xml:"TransitRouterName"`
 	CrossAccountAuthorized bool   `json:"CrossAccountAuthorized" xml:"CrossAccountAuthorized"`
+	Tags                   []Tag  `json:"Tags" xml:"Tags"`
 }

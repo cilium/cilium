@@ -10,6 +10,11 @@
 BGP (beta)
 **********
 
+.. warning::
+  This feature will only receive security updates and bug fixes. It is recommended
+  to use the :ref:`BGP Control Plane <bgp_control_plane>` feature instead whenever
+  possible. More details are available at :gh-issue:`22246`.
+
 BGP provides a way to advertise routes using traditional networking protocols
 to allow Cilium-managed services to be accessible outside the cluster.
 

@@ -42,8 +42,10 @@ point the pod is ready.
     service/deathstar    ClusterIP   10.96.110.8   <none>        80/TCP    107s
     service/kubernetes   ClusterIP   10.96.0.1     <none>        443/TCP   3m53s
 
-Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
-``cilium`` tool inside the Cilium pod to list them:
+Each pod will be represented in Cilium as an :ref:`endpoint` in the local cilium agent. 
+We can invoke the ``cilium`` tool inside the Cilium pod to list them (in a single-node installation
+``kubectl -n kube-system exec ds/cilium -- cilium endpoint list`` lists them all, but in a 
+multi-node installation, only the ones running on the same node will be listed):
 
 .. code-block:: shell-session
 
@@ -51,7 +53,7 @@ Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
     NAME           READY   STATUS    RESTARTS   AGE
     cilium-5ngzd   1/1     Running   0          3m19s
 
-    $ kubectl -n kube-system exec cilium-1c2cz -- cilium endpoint list
+    $ kubectl -n kube-system exec cilium-5ngzd -- cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6   IPv4         STATUS
                ENFORCEMENT        ENFORCEMENT
     232        Disabled           Disabled          16530      k8s:class=deathstar                                      10.0.0.147   ready

@@ -55,17 +55,25 @@ Additionally, the enablement of the egress gateway feature requires that both
 BPF masquerading and the kube-proxy replacement are enabled, which may not be
 possible in all environments (due to, e.g., incompatible kernel versions).
 
-Compatibility with other features
-=================================
+Delay for enforcement of egress policies on new pods
+----------------------------------------------------
 
-L7 policies
------------
+When new pods are started, there is a delay before egress gateway policies are
+applied for those pods. That means traffic from those pods may leave the
+cluster with a source IP address (pod IP or node IP) that doesn't match the
+egress gateway IP. That egressing traffic will also not be redirected through
+the gateway node.
+
+Incompatibility with other features
+-----------------------------------
 
 Egress gateway is currently partially incompatible with L7 policies.
 Specifically, when an egress gateway policy and an L7 policy both select the same
 endpoint, traffic from that endpoint will not go through egress gateway, even if
 the policy allows it. Full support will be added in an upcoming release once
 :gh-issue:`19642` is resolved.
+
+Egress gateway is not supported for IPv6 traffic.
 
 Enable egress gateway
 =====================
@@ -104,12 +112,16 @@ Rollout both the agent pods and the operator pods to make the changes effective:
 Compatibility with cloud environments
 -------------------------------------
 
+EKS's ENI mode
+~~~~~~~~~~~~~~
+
 Based on the specific configuration of the cloud provider and network interfaces
-it is possible that traffic leaves a node from the wrong interface.
+it is possible that traffic leaves a node from the wrong interface. This happens in 
+particular on EKS in ENI mode.
 
 To work around this issue, Cilium can be instructed to install the necessary IP
 rules and routes to route traffic through the appropriate network-facing
-interface as follow:
+interface as follows:
 
 .. tabs::
     .. group-tab:: Helm
@@ -204,6 +216,20 @@ One or more IPv4 destination CIDRs can be specified with ``destinationCIDRs``:
     Any IP belonging to these ranges which is also an internal cluster IP (e.g.
     pods, nodes, Kubernetes API server) will be excluded from the egress gateway
     SNAT logic.
+
+It's possible to specify exceptions to the ``destinationCIDRs`` list with
+``excludedCIDRs``:
+
+.. code-block:: yaml
+
+    destinationCIDRs:
+    - "a.b.0.0/16"
+    excludedCIDRs:
+    - "a.b.c.0/24"
+
+In this case traffic destined to the ``a.b.0.0/16`` CIDR, except for the
+``a.b.c.0/24`` destination, will go through egress gateway and leave the cluster
+with the designated egress IP.
 
 Selecting and configuring the gateway node
 ------------------------------------------
@@ -427,3 +453,28 @@ selected Egress IP rather than the one of the node where the pod is running:
     $ tail /var/log/nginx/access.log
     [...]
     192.168.60.100 - - [04/Apr/2021:22:06:57 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.52.1"
+
+Troubleshooting
+---------------
+
+To troubleshoot a policy that is not behaving as expected, you can view the
+egress configuration in a cilium agent (the configuration is propagated to all agents,
+so it shouldn't matter which one you pick). 
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system exec ds/cilium -- cilium bpf egress list
+    Defaulted container "cilium-agent" out of: cilium-agent, config (init), mount-cgroup (init), apply-sysctl-overwrites (init), mount-bpf-fs (init), wait-for-node-init (init), clean-cilium-state (init)
+    Source IP    Destination CIDR    Egress IP   Gateway IP
+    192.168.2.23 192.168.60.13/32    0.0.0.0     192.168.60.12
+
+The Source IP address matches the IP address of each pod that matches the
+policy's ``podSelector``. The Gateway IP address matches the (internal) IP address
+of the egress node that matches the policy's ``nodeSelector``. The Egress IP is
+0.0.0.0 on all agents except for the one running on the egress gateway node,
+where you should see the Egress IP address being used for this traffic (which
+will be the ``egressIP`` from the policy, if specified).  
+
+If the egress list shown does not contain entries as expected to match your
+policy, check that the pod(s) and egress node are labeled correctly to match
+the policy selectors.

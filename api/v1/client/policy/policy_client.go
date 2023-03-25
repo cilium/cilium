@@ -53,8 +53,6 @@ type ClientService interface {
 
 	GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error)
 
-	GetPolicyResolve(params *GetPolicyResolveParams, opts ...ClientOption) (*GetPolicyResolveOK, error)
-
 	GetPolicySelectors(params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error)
 
 	PutPolicy(params *PutPolicyParams, opts ...ClientOption) (*PutPolicyOK, error)
@@ -465,44 +463,6 @@ func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetP
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetPolicy: API contract not enforced by server. Client expected to get an error, but got: %T", result)
-	panic(msg)
-}
-
-/*
-GetPolicyResolve resolves policy for an identity context
-*/
-func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams, opts ...ClientOption) (*GetPolicyResolveOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewGetPolicyResolveParams()
-	}
-	op := &runtime.ClientOperation{
-		ID:                 "GetPolicyResolve",
-		Method:             "GET",
-		PathPattern:        "/policy/resolve",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &GetPolicyResolveReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	}
-	for _, opt := range opts {
-		opt(op)
-	}
-
-	result, err := a.transport.Submit(op)
-	if err != nil {
-		return nil, err
-	}
-	success, ok := result.(*GetPolicyResolveOK)
-	if ok {
-		return success, nil
-	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for GetPolicyResolve: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

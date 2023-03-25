@@ -71,13 +71,20 @@ func (client *Client) DescribeCustomerGatewaysWithCallback(request *DescribeCust
 // DescribeCustomerGatewaysRequest is the request struct for api DescribeCustomerGateways
 type DescribeCustomerGatewaysRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	CustomerGatewayId    string           `position:"Query" name:"CustomerGatewayId"`
-	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
-	PageSize             requests.Integer `position:"Query" name:"PageSize"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	ResourceOwnerId      requests.Integer               `position:"Query" name:"ResourceOwnerId"`
+	CustomerGatewayId    string                         `position:"Query" name:"CustomerGatewayId"`
+	PageNumber           requests.Integer               `position:"Query" name:"PageNumber"`
+	PageSize             requests.Integer               `position:"Query" name:"PageSize"`
+	Tag                  *[]DescribeCustomerGatewaysTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount string                         `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                         `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer               `position:"Query" name:"OwnerId"`
+}
+
+// DescribeCustomerGatewaysTag is a repeated param struct in DescribeCustomerGatewaysRequest
+type DescribeCustomerGatewaysTag struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // DescribeCustomerGatewaysResponse is the response struct for api DescribeCustomerGateways

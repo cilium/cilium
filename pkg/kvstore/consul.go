@@ -14,7 +14,7 @@ import (
 
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
@@ -43,9 +43,9 @@ type consulModule struct {
 }
 
 var (
-	//consulDummyAddress can be overwritten from test invokers using ldflags
+	// consulDummyAddress can be overwritten from test invokers using ldflags
 	consulDummyAddress = "https://127.0.0.1:8501"
-	//consulDummyConfigFile can be overwritten from test invokers using ldflags
+	// consulDummyConfigFile can be overwritten from test invokers using ldflags
 	consulDummyConfigFile = "/tmp/cilium-consul-certs/cilium-consul.yaml"
 
 	module = newConsulModule()
@@ -726,7 +726,7 @@ func (c *consulClient) listPrefix(ctx context.Context, prefix string) (KeyValueP
 }
 
 // Close closes the consul session
-func (c *consulClient) Close() {
+func (c *consulClient) Close(ctx context.Context) {
 	close(c.statusCheckErrors)
 	if c.controllers != nil {
 		c.controllers.RemoveAll()

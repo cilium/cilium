@@ -73,12 +73,14 @@ type RenewReservedInstancesRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string           `position:"Query" name:"ClientToken"`
+	AutoRenewPeriod      requests.Integer `position:"Query" name:"AutoRenewPeriod"`
 	Period               requests.Integer `position:"Query" name:"Period"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	PeriodUnit           string           `position:"Query" name:"PeriodUnit"`
 	ReservedInstanceId   *[]string        `position:"Query" name:"ReservedInstanceId"  type:"Repeated"`
+	AutoRenew            requests.Boolean `position:"Query" name:"AutoRenew"`
 }
 
 // RenewReservedInstancesResponse is the response struct for api RenewReservedInstances

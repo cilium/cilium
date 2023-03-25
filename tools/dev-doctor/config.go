@@ -4,4 +4,4 @@
 package main
 
 // minGoVersionStr is the minimum Go version. It is updated by make update-go-version.
-const minGoVersionStr = "1.19"
+const minGoVersionStr = "1.20"

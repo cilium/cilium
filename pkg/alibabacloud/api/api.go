@@ -21,25 +21,18 @@ import (
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 const (
 	VPCID = "VPCID"
-
-	MaxListByTagSize = 20
-
-	// MaxResults is the number of entities on each page,
-	// it ranges from 1 to 50, the default value is 30.
-	MaxResults = 30
 )
 
 var maxAttachRetries = wait.Backoff{
-	Duration: 4 * time.Second,
+	Duration: 2500 * time.Millisecond,
 	Factor:   1,
 	Jitter:   0.1,
-	Steps:    4,
+	Steps:    6,
 	Cap:      0,
 }
 
@@ -73,7 +66,7 @@ func NewClient(vpcClient *vpc.Client, client *ecs.Client, metrics MetricsAPI, ra
 func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
 	instances := ipamTypes.NewInstanceMap()
 
-	networkInterfaceSets, err := c.describeNetworkInterfaces(ctx, subnets)
+	networkInterfaceSets, err := c.describeNetworkInterfaces(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +87,6 @@ func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetwork
 // GetVSwitches returns all ecs vSwitches as a subnetMap
 func (c *Client) GetVSwitches(ctx context.Context) (ipamTypes.SubnetMap, error) {
 	var result ipamTypes.SubnetMap
-	vsws := []string{}
 	for i := 1; ; {
 		req := vpc.CreateDescribeVSwitchesRequest()
 		req.PageNumber = requests.NewInteger(i)
@@ -125,43 +117,14 @@ func (c *Client) GetVSwitches(ctx context.Context) (ipamTypes.SubnetMap, error) 
 				AvailableAddresses: int(v.AvailableIpAddressCount),
 				Tags:               map[string]string{},
 			}
-			vsws = append(vsws, v.VSwitchId)
+			for _, tag := range v.Tags.Tag {
+				result[v.VSwitchId].Tags[tag.Key] = tag.Value
+			}
 		}
 		if resp.TotalCount < resp.PageNumber*resp.PageSize {
 			break
 		}
 		i++
-	}
-
-	for i := 0; i <= (len(vsws)-1)/MaxListByTagSize; i++ {
-		var ids []string
-
-		tail := math.IntMin((i+1)*MaxListByTagSize, len(vsws))
-		ids = vsws[i*MaxListByTagSize : tail]
-
-		req := vpc.CreateListTagResourcesRequest()
-		req.ResourceType = "VSWITCH"
-		req.ResourceId = &ids
-		req.MaxResults = requests.NewInteger(MaxResults)
-		c.limiter.Limit(ctx, "ListTagResources")
-		for {
-			resp, err := c.vpcClient.ListTagResources(req)
-			if err != nil {
-				return nil, err
-			}
-			for _, tagRes := range resp.TagResources.TagResource {
-				subnet, ok := result[tagRes.ResourceId]
-				if !ok {
-					continue
-				}
-				subnet.Tags[tagRes.TagKey] = tagRes.TagValue
-			}
-			if resp.NextToken == "" {
-				break
-			} else {
-				req.NextToken = resp.NextToken
-			}
-		}
 	}
 
 	return result, nil
@@ -396,31 +359,25 @@ func (c *Client) UnassignPrivateIPAddresses(ctx context.Context, eniID string, a
 	return err
 }
 
-func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamTypes.SubnetMap) ([]ecs.NetworkInterfaceSet, error) {
+func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ecs.NetworkInterfaceSet, error) {
 	var result []ecs.NetworkInterfaceSet
+	req := ecs.CreateDescribeNetworkInterfacesRequest()
+	req.MaxResults = requests.NewInteger(500)
 
-	for _, subnet := range subnets {
-		for i := 1; ; {
-			req := ecs.CreateDescribeNetworkInterfacesRequest()
-			req.PageNumber = requests.NewInteger(i)
-			req.PageSize = requests.NewInteger(50)
-			req.VSwitchId = subnet.ID
-			c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
-			resp, err := c.ecsClient.DescribeNetworkInterfaces(req)
-			if err != nil {
-				return nil, err
-			}
-			if len(resp.NetworkInterfaceSets.NetworkInterfaceSet) == 0 {
-				break
-			}
+	for {
+		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		resp, err := c.ecsClient.DescribeNetworkInterfaces(req)
+		if err != nil {
+			return nil, err
+		}
 
-			for _, v := range resp.NetworkInterfaceSets.NetworkInterfaceSet {
-				result = append(result, v)
-			}
-			if resp.TotalCount < resp.PageNumber*resp.PageSize {
-				break
-			}
-			i++
+		for _, v := range resp.NetworkInterfaceSets.NetworkInterfaceSet {
+			result = append(result, v)
+		}
+		if resp.NextToken == "" {
+			break
+		} else {
+			req.NextToken = resp.NextToken
 		}
 	}
 

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 // Package conn implements WireGuard's network connections.
@@ -9,16 +9,23 @@ package conn
 import (
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"reflect"
 	"runtime"
 	"strings"
 )
 
-// A ReceiveFunc receives a single inbound packet from the network.
-// It writes the data into b. n is the length of the packet.
-// ep is the remote endpoint.
-type ReceiveFunc func(b []byte) (n int, ep Endpoint, err error)
+const (
+	IdealBatchSize = 128 // maximum number of packets handled per read and write
+)
+
+// A ReceiveFunc receives at least one packet from the network and writes them
+// into packets. On a successful read it returns the number of elements of
+// sizes, packets, and endpoints that should be evaluated. Some elements of
+// sizes may be zero, and callers should ignore them. Callers must pass a sizes
+// and eps slice with a length greater than or equal to the length of packets.
+// These lengths must not exceed the length of the associated Bind.BatchSize().
+type ReceiveFunc func(packets [][]byte, sizes []int, eps []Endpoint) (n int, err error)
 
 // A Bind listens on a port for both IPv6 and IPv4 UDP traffic.
 //
@@ -38,11 +45,16 @@ type Bind interface {
 	// This mark is passed to the kernel as the socket option SO_MARK.
 	SetMark(mark uint32) error
 
-	// Send writes a packet b to address ep.
-	Send(b []byte, ep Endpoint) error
+	// Send writes one or more packets in bufs to address ep. The length of
+	// bufs must not exceed BatchSize().
+	Send(bufs [][]byte, ep Endpoint) error
 
 	// ParseEndpoint creates a new endpoint from a string.
 	ParseEndpoint(s string) (Endpoint, error)
+
+	// BatchSize is the number of buffers expected to be passed to
+	// the ReceiveFuncs, and the maximum expected to be passed to SendBatch.
+	BatchSize() int
 }
 
 // BindSocketToInterface is implemented by Bind objects that support being
@@ -68,8 +80,8 @@ type Endpoint interface {
 	SrcToString() string // returns the local source address (ip:port)
 	DstToString() string // returns the destination address (ip:port)
 	DstToBytes() []byte  // used for mac2 cookie calculations
-	DstIP() net.IP
-	SrcIP() net.IP
+	DstIP() netip.Addr
+	SrcIP() netip.Addr
 }
 
 var (
@@ -118,34 +130,4 @@ func (fn ReceiveFunc) PrettyName() string {
 		return "v6"
 	}
 	return name
-}
-
-func parseEndpoint(s string) (*net.UDPAddr, error) {
-	// ensure that the host is an IP address
-
-	host, _, err := net.SplitHostPort(s)
-	if err != nil {
-		return nil, err
-	}
-	if i := strings.LastIndexByte(host, '%'); i > 0 && strings.IndexByte(host, ':') >= 0 {
-		// Remove the scope, if any. ResolveUDPAddr below will use it, but here we're just
-		// trying to make sure with a small sanity test that this is a real IP address and
-		// not something that's likely to incur DNS lookups.
-		host = host[:i]
-	}
-	if ip := net.ParseIP(host); ip == nil {
-		return nil, errors.New("Failed to parse IP address: " + host)
-	}
-
-	// parse address and port
-
-	addr, err := net.ResolveUDPAddr("udp", s)
-	if err != nil {
-		return nil, err
-	}
-	ip4 := addr.IP.To4()
-	if ip4 != nil {
-		addr.IP = ip4
-	}
-	return addr, err
 }

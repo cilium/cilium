@@ -163,7 +163,7 @@ func (checker *cmpExportedChecker) Check(params []interface{}, _ []string) (resu
 // deeply equal, then the second return value includes a json representation of
 // the difference between the parameters.
 func ExportedEqual(params ...interface{}) (bool, string) {
-	return Equals.Check(params, cmpParams)
+	return ExportedEquals.Check(params, cmpParams)
 }
 
 func DeepIgnoreUnexported(vs ...interface{}) cmp.Option {
@@ -238,6 +238,10 @@ var (
 // second parameter and the value provided as the first parameter. It returns
 // true if the value matches the expression, otherwise it returns false.
 func (checker *matchesChecker) Check(params []interface{}, _ []string) (result bool, error string) {
+	if len(params) < 2 {
+		return false, "Parameter missing"
+	}
+
 	valueStr, ok := params[0].(string)
 	if !ok {
 		return false, "Value must be a string"
@@ -271,6 +275,10 @@ var HasKey check.Checker = &hasKeyChecker{
 }
 
 func (checker *hasKeyChecker) Check(params []interface{}, names []string) (result bool, error string) {
+	if len(params) != 2 || len(names) != 2 {
+		return false, "params and names must be of length 2"
+	}
+
 	m := reflect.ValueOf(params[0])
 	mType := m.Type()
 	key := reflect.ValueOf(params[1])

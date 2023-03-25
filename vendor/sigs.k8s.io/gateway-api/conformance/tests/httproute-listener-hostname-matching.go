@@ -39,17 +39,17 @@ var HTTPRouteListenerHostnameMatching = suite.ConformanceTest{
 
 		// This test creates an additional Gateway in the gateway-conformance-infra
 		// namespace so we have to wait for it to be ready.
-		kubernetes.NamespacesMustBeReady(t, suite.Client, []string{ns}, 300)
+		kubernetes.NamespacesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, []string{ns})
 
 		gwNN := types.NamespacedName{Name: "httproute-listener-hostname-matching", Namespace: ns}
 
-		_ = kubernetes.GatewayAndHTTPRoutesMustBeReady(t, suite.Client, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-1"),
+		_ = kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-1"),
 			types.NamespacedName{Namespace: ns, Name: "backend-v1"},
 		)
-		_ = kubernetes.GatewayAndHTTPRoutesMustBeReady(t, suite.Client, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-2"),
+		_ = kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-2"),
 			types.NamespacedName{Namespace: ns, Name: "backend-v2"},
 		)
-		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeReady(t, suite.Client, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-3", "listener-4"),
+		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-3", "listener-4"),
 			types.NamespacedName{Namespace: ns, Name: "backend-v3"},
 		)
 
@@ -78,20 +78,20 @@ var HTTPRouteListenerHostnameMatching = suite.ConformanceTest{
 			Backend:   "infra-backend-v3",
 			Namespace: ns,
 		}, {
-			Request:    http.Request{Host: "foo.com", Path: "/"},
-			StatusCode: 404,
+			Request:  http.Request{Host: "foo.com", Path: "/"},
+			Response: http.Response{StatusCode: 404},
 		}, {
-			Request:    http.Request{Host: "no.matching.host", Path: "/"},
-			StatusCode: 404,
+			Request:  http.Request{Host: "no.matching.host", Path: "/"},
+			Response: http.Response{StatusCode: 404},
 		}}
 
 		for i := range testCases {
 			// Declare tc here to avoid loop variable
 			// reuse issues across parallel tests.
 			tc := testCases[i]
-			t.Run(testName(tc, i), func(t *testing.T) {
+			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
-				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, gwAddr, tc)
+				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, tc)
 			})
 		}
 	},

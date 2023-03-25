@@ -75,6 +75,7 @@ type CreateIpv6GatewayRequest struct {
 	ClientToken          string           `position:"Query" name:"ClientToken"`
 	Description          string           `position:"Query" name:"Description"`
 	Spec                 string           `position:"Query" name:"Spec"`
+	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
@@ -85,8 +86,9 @@ type CreateIpv6GatewayRequest struct {
 // CreateIpv6GatewayResponse is the response struct for api CreateIpv6Gateway
 type CreateIpv6GatewayResponse struct {
 	*responses.BaseResponse
-	Ipv6GatewayId string `json:"Ipv6GatewayId" xml:"Ipv6GatewayId"`
-	RequestId     string `json:"RequestId" xml:"RequestId"`
+	Ipv6GatewayId   string `json:"Ipv6GatewayId" xml:"Ipv6GatewayId"`
+	ResourceGroupId string `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	RequestId       string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateIpv6GatewayRequest creates a request to invoke CreateIpv6Gateway API

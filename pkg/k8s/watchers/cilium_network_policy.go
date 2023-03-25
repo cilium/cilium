@@ -106,6 +106,8 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(cs client.Clientset) {
 					cnpCpy := cnp.DeepCopy()
 
 					err := k.addCiliumNetworkPolicyV2(cs, cnpCpy, initialRecvTime)
+					reportCNPChangeMetrics(err)
+
 					k.K8sEventProcessed(resources.MetricCNP, resources.MetricCreate, err == nil)
 				}
 			},
@@ -132,6 +134,8 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(cs client.Clientset) {
 						newCNPCpy := newCNP.DeepCopy()
 
 						err := k.updateCiliumNetworkPolicyV2(cs, oldCNPCpy, newCNPCpy, initialRecvTime)
+						reportCNPChangeMetrics(err)
+
 						k.K8sEventProcessed(resources.MetricCNP, resources.MetricUpdate, err == nil)
 					}
 				}
@@ -145,6 +149,8 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(cs client.Clientset) {
 				}
 				valid = true
 				err := k.deleteCiliumNetworkPolicyV2(cnp)
+				reportCNPChangeMetrics(err)
+
 				k.K8sEventProcessed(resources.MetricCNP, resources.MetricDelete, err == nil)
 			},
 		},
@@ -182,7 +188,7 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 	}
 
 	if policyImportErr != nil {
-		metrics.PolicyImportErrorsTotal.Inc()
+		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
 		scopedLog.WithError(policyImportErr).Warn("Unable to add CiliumNetworkPolicy")
 	} else {
 		scopedLog.Info("Imported CiliumNetworkPolicy")
@@ -251,12 +257,12 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 		// update to the new policy will be skipped.
 		switch {
 		case ns != "" && !errors.Is(err, cilium_v2.ErrEmptyCNP):
-			metrics.PolicyImportErrorsTotal.Inc()
+			metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
 			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 				Warn("Error parsing old CiliumNetworkPolicy rule")
 			return err
 		case ns == "" && !errors.Is(err, cilium_v2.ErrEmptyCCNP):
-			metrics.PolicyImportErrorsTotal.Inc()
+			metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
 			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 				Warn("Error parsing old CiliumClusterwideNetworkPolicy rule")
 			return err
@@ -265,7 +271,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 
 	_, err = newRuleCpy.Parse()
 	if err != nil {
-		metrics.PolicyImportErrorsTotal.Inc()
+		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
 		return err
@@ -342,4 +348,14 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient c
 			},
 		})
 
+}
+
+// reportCNPChangeMetrics generates metrics for changes (Add, Update, Delete) to
+// Cilium Network Policies depending on the operation's success.
+func reportCNPChangeMetrics(err error) {
+	if err != nil {
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+	} else {
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+	}
 }

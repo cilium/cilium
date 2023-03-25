@@ -17,6 +17,8 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pprof")
 
 // Enable runs an HTTP server to serve the pprof API
+//
+// Deprecated: use pprof.Cell() instead.
 func Enable(host string, port int) {
 	var apiAddress = net.JoinHostPort(host, strconv.Itoa(port))
 	go func() {

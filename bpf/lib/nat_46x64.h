@@ -346,7 +346,7 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
 	if (ctx_store_bytes(ctx, nh_off, &v4, sizeof(v4), 0) < 0 ||
 	    ctx_store_bytes(ctx, nh_off - 2, &protocol, 2, 0) < 0)
 		return DROP_WRITE_ERROR;
-	if (l3_csum_replace(ctx, nh_off + csum_off, 0, csum, 0) < 0)
+	if (ipv4_csum_update_by_diff(ctx, nh_off, csum) < 0)
 		return DROP_CSUM_L3;
 	if (v6.nexthdr == IPPROTO_ICMPV6) {
 		__be32 csum1 = 0;

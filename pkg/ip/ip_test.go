@@ -94,147 +94,147 @@ func createIPRange(first string, last string) *netWithRange {
 
 func (s *IPTestSuite) TestRemoveRedundant(c *C) {
 	CIDRs := []*net.IPNet{
-		createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.112.0.0", 13, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 12, ipv4BitLen),
+		createIPNet("10.112.0.0", 13, ipv4BitLen),
 	}
 	expectedCIDRs := []*net.IPNet{
-		createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.112.0.0", 13, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 12, ipv4BitLen),
+		createIPNet("10.112.0.0", 13, ipv4BitLen),
 	}
 	nonRedundantCIDRs := removeRedundantCIDRs(CIDRs)
 	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
 
 	CIDRs = []*net.IPNet{
-		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
-		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, ipv4BitLen),
+		createIPNet("10.112.0.0", 12, ipv4BitLen),
 	}
 	expectedCIDRs = []*net.IPNet{
-		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+		createIPNet("10.96.0.0", 11, ipv4BitLen),
 	}
 	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
 	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
 
 	CIDRs = []*net.IPNet{
-		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+		createIPNet("10.112.0.0", 12, ipv4BitLen),
+		createIPNet("10.96.0.0", 11, ipv4BitLen),
 	}
 	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
 	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
 
 	CIDRs = []*net.IPNet{
-		createIPNet("10.120.0.0", 13, int(ipv4BitLen)),
-		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
-		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
-		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+		createIPNet("10.120.0.0", 13, ipv4BitLen),
+		createIPNet("10.93.0.4", 30, ipv4BitLen),
+		createIPNet("10.112.0.0", 12, ipv4BitLen),
+		createIPNet("10.62.0.33", 32, ipv4BitLen),
+		createIPNet("10.96.0.0", 11, ipv4BitLen),
 	}
 	expectedCIDRs = []*net.IPNet{
-		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
-		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
-		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+		createIPNet("10.93.0.4", 30, ipv4BitLen),
+		createIPNet("10.62.0.33", 32, ipv4BitLen),
+		createIPNet("10.96.0.0", 11, ipv4BitLen),
 	}
 	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
 	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
 
 	CIDRs = []*net.IPNet{
-		createIPNet("10.120.0.0", 13, int(ipv4BitLen)),
-		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
-		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
-		createIPNet("10.112.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
-		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+		createIPNet("10.120.0.0", 13, ipv4BitLen),
+		createIPNet("10.93.0.4", 30, ipv4BitLen),
+		createIPNet("10.93.0.4", 30, ipv4BitLen),
+		createIPNet("10.112.0.0", 12, ipv4BitLen),
+		createIPNet("10.62.0.33", 32, ipv4BitLen),
+		createIPNet("10.96.0.0", 11, ipv4BitLen),
 	}
 	expectedCIDRs = []*net.IPNet{
-		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
-		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
-		createIPNet("10.96.0.0", 11, int(ipv4BitLen)),
+		createIPNet("10.93.0.4", 30, ipv4BitLen),
+		createIPNet("10.62.0.33", 32, ipv4BitLen),
+		createIPNet("10.96.0.0", 11, ipv4BitLen),
 	}
 	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
 	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, c)
 }
 
 func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
-	allowCIDRs := []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
-	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.112.0.0", 13, int(ipv4BitLen)),
+	allowCIDRs := []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
+	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 12, ipv4BitLen),
+		createIPNet("10.112.0.0", 13, ipv4BitLen),
 	}
-	expectedCIDRs := []*net.IPNet{createIPNet("10.128.0.0", 9, int(ipv4BitLen)),
-		createIPNet("10.0.0.0", 10, int(ipv4BitLen)),
-		createIPNet("10.64.0.0", 11, int(ipv4BitLen)),
-		createIPNet("10.120.0.0", 13, int(ipv4BitLen))}
+	expectedCIDRs := []*net.IPNet{createIPNet("10.128.0.0", 9, ipv4BitLen),
+		createIPNet("10.0.0.0", 10, ipv4BitLen),
+		createIPNet("10.64.0.0", 11, ipv4BitLen),
+		createIPNet("10.120.0.0", 13, ipv4BitLen)}
 	allowedCIDRs := RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 	// Removing superset removes the allowed CIDR
-	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 12, int(ipv4BitLen))}
-	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
+	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 12, ipv4BitLen)}
+	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
 	expectedCIDRs = []*net.IPNet{}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
-	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
-	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.112.0.0", 13, int(ipv4BitLen)),
-		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
-		createIPNet("10.93.0.4", 30, int(ipv4BitLen)),
-		createIPNet("10.63.0.5", 13, int(ipv4BitLen)),
+	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
+	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 12, ipv4BitLen),
+		createIPNet("10.112.0.0", 13, ipv4BitLen),
+		createIPNet("10.62.0.33", 32, ipv4BitLen),
+		createIPNet("10.93.0.4", 30, ipv4BitLen),
+		createIPNet("10.63.0.5", 13, ipv4BitLen),
 	}
-	expectedCIDRs = []*net.IPNet{createIPNet("10.128.0.0", 9, int(ipv4BitLen)),
-		createIPNet("10.0.0.0", 11, int(ipv4BitLen)),
-		createIPNet("10.32.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.48.0.0", 13, int(ipv4BitLen)),
-		createIPNet("10.120.0.0", 13, int(ipv4BitLen)),
-		createIPNet("10.64.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.80.0.0", 13, int(ipv4BitLen)),
-		createIPNet("10.88.0.0", 14, int(ipv4BitLen)),
-		createIPNet("10.94.0.0", 15, int(ipv4BitLen)),
-		createIPNet("10.92.0.0", 16, int(ipv4BitLen)),
-		createIPNet("10.93.128.0", 17, int(ipv4BitLen)),
-		createIPNet("10.93.64.0", 18, int(ipv4BitLen)),
-		createIPNet("10.93.32.0", 19, int(ipv4BitLen)),
-		createIPNet("10.93.16.0", 20, int(ipv4BitLen)),
-		createIPNet("10.93.8.0", 21, int(ipv4BitLen)),
-		createIPNet("10.93.4.0", 22, int(ipv4BitLen)),
-		createIPNet("10.93.2.0", 23, int(ipv4BitLen)),
-		createIPNet("10.93.1.0", 24, int(ipv4BitLen)),
-		createIPNet("10.93.0.128", 25, int(ipv4BitLen)),
-		createIPNet("10.93.0.64", 26, int(ipv4BitLen)),
-		createIPNet("10.93.0.32", 27, int(ipv4BitLen)),
-		createIPNet("10.93.0.16", 28, int(ipv4BitLen)),
-		createIPNet("10.93.0.8", 29, int(ipv4BitLen)),
-		createIPNet("10.93.0.0", 30, int(ipv4BitLen)),
+	expectedCIDRs = []*net.IPNet{createIPNet("10.128.0.0", 9, ipv4BitLen),
+		createIPNet("10.0.0.0", 11, ipv4BitLen),
+		createIPNet("10.32.0.0", 12, ipv4BitLen),
+		createIPNet("10.48.0.0", 13, ipv4BitLen),
+		createIPNet("10.120.0.0", 13, ipv4BitLen),
+		createIPNet("10.64.0.0", 12, ipv4BitLen),
+		createIPNet("10.80.0.0", 13, ipv4BitLen),
+		createIPNet("10.88.0.0", 14, ipv4BitLen),
+		createIPNet("10.94.0.0", 15, ipv4BitLen),
+		createIPNet("10.92.0.0", 16, ipv4BitLen),
+		createIPNet("10.93.128.0", 17, ipv4BitLen),
+		createIPNet("10.93.64.0", 18, ipv4BitLen),
+		createIPNet("10.93.32.0", 19, ipv4BitLen),
+		createIPNet("10.93.16.0", 20, ipv4BitLen),
+		createIPNet("10.93.8.0", 21, ipv4BitLen),
+		createIPNet("10.93.4.0", 22, ipv4BitLen),
+		createIPNet("10.93.2.0", 23, ipv4BitLen),
+		createIPNet("10.93.1.0", 24, ipv4BitLen),
+		createIPNet("10.93.0.128", 25, ipv4BitLen),
+		createIPNet("10.93.0.64", 26, ipv4BitLen),
+		createIPNet("10.93.0.32", 27, ipv4BitLen),
+		createIPNet("10.93.0.16", 28, ipv4BitLen),
+		createIPNet("10.93.0.8", 29, ipv4BitLen),
+		createIPNet("10.93.0.0", 30, ipv4BitLen),
 	}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 	// Cannot remove CIDRs that are of a different address family.
-	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
-	removeCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b::", 66, int(ipv6BitLen))}
+	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
+	removeCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b::", 66, ipv6BitLen)}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, c)
 
-	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
-	removeCIDRs = []*net.IPNet{createIPNet("a000::", 8, int(ipv6BitLen))}
+	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
+	removeCIDRs = []*net.IPNet{createIPNet("a000::", 8, ipv6BitLen)}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, c)
 
-	allowCIDRs = []*net.IPNet{createIPNet("a000::", 8, int(ipv6BitLen))}
-	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
+	allowCIDRs = []*net.IPNet{createIPNet("a000::", 8, ipv6BitLen)}
+	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, c)
 
 	//IPv6 tests
-	allowCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:ff00::", 64, int(ipv6BitLen))}
-	removeCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b::", 66, int(ipv6BitLen))}
+	allowCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:ff00::", 64, ipv6BitLen)}
+	removeCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b::", 66, ipv6BitLen)}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	expectedCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, int(ipv6BitLen)),
-		createIPNet("fd44:7089:ff32:712b:4000::", 66, int(ipv6BitLen))}
+	expectedCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, ipv6BitLen),
+		createIPNet("fd44:7089:ff32:712b:4000::", 66, ipv6BitLen)}
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 }
 
 func (s *IPTestSuite) TestRemoveSameCIDR(c *C) {
-	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, int(ipv4BitLen))}
+	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, ipv4BitLen)}
 
 	allowedCIDRs := RemoveCIDRs(allowCIDRs, allowCIDRs)
 	c.Assert(allowedCIDRs, HasLen, 0)
@@ -242,22 +242,22 @@ func (s *IPTestSuite) TestRemoveSameCIDR(c *C) {
 
 func (s *IPTestSuite) TestRemoveCIDRsEdgeCases(c *C) {
 	// Remote some /32s
-	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 30, int(ipv4BitLen))}
-	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, int(ipv4BitLen)), createIPNet("10.96.0.1", 32, int(ipv4BitLen))}
-	expectedCIDRs := []*net.IPNet{createIPNet("10.96.0.2", 31, int(ipv4BitLen))}
+	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 30, ipv4BitLen)}
+	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, ipv4BitLen), createIPNet("10.96.0.1", 32, ipv4BitLen)}
+	expectedCIDRs := []*net.IPNet{createIPNet("10.96.0.2", 31, ipv4BitLen)}
 	allowedCIDRs := RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 	// Remove some subnets
-	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 22, int(ipv4BitLen))}
-	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, int(ipv4BitLen)), createIPNet("10.96.1.0", 24, int(ipv4BitLen))}
-	expectedCIDRs = []*net.IPNet{createIPNet("10.96.2.0", 23, int(ipv4BitLen))}
+	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 22, ipv4BitLen)}
+	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, ipv4BitLen), createIPNet("10.96.1.0", 24, ipv4BitLen)}
+	expectedCIDRs = []*net.IPNet{createIPNet("10.96.2.0", 23, ipv4BitLen)}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
 
 	// Remove all subnets
-	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 23, int(ipv4BitLen))}
-	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, int(ipv4BitLen)), createIPNet("10.96.1.0", 24, int(ipv4BitLen))}
+	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 23, ipv4BitLen)}
+	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, ipv4BitLen), createIPNet("10.96.1.0", 24, ipv4BitLen)}
 	expectedCIDRs = []*net.IPNet{}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, c)
@@ -282,7 +282,7 @@ func (s *IPTestSuite) TestByteFunctions(c *C) {
 
 func (s *IPTestSuite) TestIPNetToRange(c *C) {
 
-	testRange := ipNetToRange(*createIPNet("192.0.128.0", 24, int(ipv4BitLen)))
+	testRange := ipNetToRange(*createIPNet("192.0.128.0", 24, ipv4BitLen))
 	var expectedFirst, expectedLast []byte
 	expectedFirst = append(expectedFirst, v4Mappedv6Prefix...)
 	expectedFirst = append(expectedFirst, []byte{192, 0, 128, 0}...)
@@ -296,11 +296,11 @@ func (s *IPTestSuite) TestIPNetToRange(c *C) {
 	s.checkRangesEqual(&expectedRange, &testRange, c)
 
 	// Check that all bits are masked correctly.
-	testRange = ipNetToRange(*createIPNet("192.0.128.255", 24, int(ipv4BitLen)))
+	testRange = ipNetToRange(*createIPNet("192.0.128.255", 24, ipv4BitLen))
 	s.checkRangesEqual(&expectedRange, &testRange, c)
 
-	testRange = ipNetToRange(*createIPNet("fd44:7089:ff32:712b:ff00::", 64, int(ipv6BitLen)))
-	testRange = ipNetToRange(*createIPNet("::ffff:0", 128, int(ipv6BitLen)))
+	testRange = ipNetToRange(*createIPNet("fd44:7089:ff32:712b:ff00::", 64, ipv6BitLen))
+	testRange = ipNetToRange(*createIPNet("::ffff:0", 128, ipv6BitLen))
 
 }
 
@@ -317,10 +317,10 @@ func (s *IPTestSuite) TestNetsByRange(c *C) {
 	ranges := []*netWithRange{}
 
 	// Check sorting by last IP first
-	cidrs := []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen)),
-		createIPNet("10.0.0.0", 10, int(ipv4BitLen)),
-		createIPNet("10.64.0.0", 11, int(ipv4BitLen)),
-		createIPNet("10.112.0.0", 12, int(ipv4BitLen))}
+	cidrs := []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen),
+		createIPNet("10.0.0.0", 10, ipv4BitLen),
+		createIPNet("10.64.0.0", 11, ipv4BitLen),
+		createIPNet("10.112.0.0", 12, ipv4BitLen)}
 
 	for _, network := range cidrs {
 		newNetToRange := ipNetToRange(*network)
@@ -354,85 +354,85 @@ func (s *IPTestSuite) TestNetsByRange(c *C) {
 
 func (s *IPTestSuite) TestCoalesceCIDRs(c *C) {
 
-	cidrs := []*net.IPNet{createIPNet("192.0.128.0", 24, int(ipv4BitLen)),
-		createIPNet("192.0.129.0", 24, int(ipv4BitLen))}
-	expected := []*net.IPNet{createIPNet("192.0.128.0", 23, int(ipv4BitLen))}
+	cidrs := []*net.IPNet{createIPNet("192.0.128.0", 24, ipv4BitLen),
+		createIPNet("192.0.129.0", 24, ipv4BitLen)}
+	expected := []*net.IPNet{createIPNet("192.0.128.0", 23, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs := CoalesceCIDRs(cidrs)
 	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
-	cidrs = []*net.IPNet{createIPNet("192.0.129.0", 24, int(ipv4BitLen)),
-		createIPNet("192.0.130.0", 24, int(ipv4BitLen))}
-	expected = []*net.IPNet{createIPNet("192.0.129.0", 24, int(ipv4BitLen)),
-		createIPNet("192.0.130.0", 24, int(ipv4BitLen))}
+	cidrs = []*net.IPNet{createIPNet("192.0.129.0", 24, ipv4BitLen),
+		createIPNet("192.0.130.0", 24, ipv4BitLen)}
+	expected = []*net.IPNet{createIPNet("192.0.129.0", 24, ipv4BitLen),
+		createIPNet("192.0.130.0", 24, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
 	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
-	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 30, int(ipv4BitLen)),
-		createIPNet("192.0.2.116", 31, int(ipv4BitLen)),
-		createIPNet("192.0.2.118", 31, int(ipv4BitLen))}
-	expected = []*net.IPNet{createIPNet("192.0.2.112", 29, int(ipv4BitLen))}
+	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 30, ipv4BitLen),
+		createIPNet("192.0.2.116", 31, ipv4BitLen),
+		createIPNet("192.0.2.118", 31, ipv4BitLen)}
+	expected = []*net.IPNet{createIPNet("192.0.2.112", 29, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
 	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
-	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 30, int(ipv4BitLen)),
-		createIPNet("192.0.2.116", 32, int(ipv4BitLen)),
-		createIPNet("192.0.2.118", 31, int(ipv4BitLen))}
-	expected = []*net.IPNet{createIPNet("192.0.2.112", 30, int(ipv4BitLen)),
-		createIPNet("192.0.2.116", 32, int(ipv4BitLen)),
-		createIPNet("192.0.2.118", 31, int(ipv4BitLen))}
+	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 30, ipv4BitLen),
+		createIPNet("192.0.2.116", 32, ipv4BitLen),
+		createIPNet("192.0.2.118", 31, ipv4BitLen)}
+	expected = []*net.IPNet{createIPNet("192.0.2.112", 30, ipv4BitLen),
+		createIPNet("192.0.2.116", 32, ipv4BitLen),
+		createIPNet("192.0.2.118", 31, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
 	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
-	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 31, int(ipv4BitLen)),
-		createIPNet("192.0.2.116", 31, int(ipv4BitLen)),
-		createIPNet("192.0.2.118", 31, int(ipv4BitLen))}
-	expected = []*net.IPNet{createIPNet("192.0.2.112", 31, int(ipv4BitLen)),
-		createIPNet("192.0.2.116", 30, int(ipv4BitLen))}
+	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 31, ipv4BitLen),
+		createIPNet("192.0.2.116", 31, ipv4BitLen),
+		createIPNet("192.0.2.118", 31, ipv4BitLen)}
+	expected = []*net.IPNet{createIPNet("192.0.2.112", 31, ipv4BitLen),
+		createIPNet("192.0.2.116", 30, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
 	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
-	cidrs = []*net.IPNet{createIPNet("192.0.1.254", 31, int(ipv4BitLen)),
-		createIPNet("192.0.2.0", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.16", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.32", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.48", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.64", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.80", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.96", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.112", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.128", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.144", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.160", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.176", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.192", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.208", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.224", 28, int(ipv4BitLen)),
-		createIPNet("192.0.2.240", 28, int(ipv4BitLen)),
-		createIPNet("192.0.3.0", 28, int(ipv4BitLen)),
+	cidrs = []*net.IPNet{createIPNet("192.0.1.254", 31, ipv4BitLen),
+		createIPNet("192.0.2.0", 28, ipv4BitLen),
+		createIPNet("192.0.2.16", 28, ipv4BitLen),
+		createIPNet("192.0.2.32", 28, ipv4BitLen),
+		createIPNet("192.0.2.48", 28, ipv4BitLen),
+		createIPNet("192.0.2.64", 28, ipv4BitLen),
+		createIPNet("192.0.2.80", 28, ipv4BitLen),
+		createIPNet("192.0.2.96", 28, ipv4BitLen),
+		createIPNet("192.0.2.112", 28, ipv4BitLen),
+		createIPNet("192.0.2.128", 28, ipv4BitLen),
+		createIPNet("192.0.2.144", 28, ipv4BitLen),
+		createIPNet("192.0.2.160", 28, ipv4BitLen),
+		createIPNet("192.0.2.176", 28, ipv4BitLen),
+		createIPNet("192.0.2.192", 28, ipv4BitLen),
+		createIPNet("192.0.2.208", 28, ipv4BitLen),
+		createIPNet("192.0.2.224", 28, ipv4BitLen),
+		createIPNet("192.0.2.240", 28, ipv4BitLen),
+		createIPNet("192.0.3.0", 28, ipv4BitLen),
 	}
 
-	expected = []*net.IPNet{createIPNet("192.0.1.254", 31, int(ipv4BitLen)),
-		createIPNet("192.0.2.0", 24, int(ipv4BitLen)),
-		createIPNet("192.0.3.0", 28, int(ipv4BitLen))}
+	expected = []*net.IPNet{createIPNet("192.0.1.254", 31, ipv4BitLen),
+		createIPNet("192.0.2.0", 24, ipv4BitLen),
+		createIPNet("192.0.3.0", 28, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
 	c.Assert(len(mergedV6CIDRs), Equals, 0)
 	s.testIPNetsEqual(mergedV4CIDRs, expected, c)
 
-	cidrs = []*net.IPNet{createIPNet("::", 0, int(ipv6BitLen)),
-		createIPNet("fe80::1", 128, int(ipv6BitLen))}
-	expected = []*net.IPNet{createIPNet("::", 0, int(ipv6BitLen))}
+	cidrs = []*net.IPNet{createIPNet("::", 0, ipv6BitLen),
+		createIPNet("fe80::1", 128, ipv6BitLen)}
+	expected = []*net.IPNet{createIPNet("::", 0, ipv6BitLen)}
 	_, mergedV6CIDRs = CoalesceCIDRs(cidrs)
 	s.testIPNetsEqual(mergedV6CIDRs, expected, c)
 
 	// assert cidr_merge(['::/0', '::192.0.2.0/124', 'ff00::101']) == [IPNetwork('::/0')]
-	cidrs = []*net.IPNet{createIPNet("::", 0, int(ipv6BitLen)),
-		createIPNet("::192.0.2.0", 124, int(ipv6BitLen)),
-		createIPNet("ff00::101", 128, int(ipv6BitLen))}
+	cidrs = []*net.IPNet{createIPNet("::", 0, ipv6BitLen),
+		createIPNet("::192.0.2.0", 124, ipv6BitLen),
+		createIPNet("ff00::101", 128, ipv6BitLen)}
 	_, mergedV6CIDRs = CoalesceCIDRs(cidrs)
 	s.testIPNetsEqual(mergedV6CIDRs, expected, c)
 }
@@ -440,68 +440,68 @@ func (s *IPTestSuite) TestCoalesceCIDRs(c *C) {
 func (s *IPTestSuite) TestRangeToCIDRs(c *C) {
 	// IPv4 worst case.
 	ipNets := rangeToCIDRs(net.ParseIP("0.0.0.1"), net.ParseIP("255.255.255.254"))
-	expected := []*net.IPNet{createIPNet("0.0.0.1", 32, int(ipv4BitLen)),
-		createIPNet("0.0.0.2", 31, int(ipv4BitLen)),
-		createIPNet("0.0.0.4", 30, int(ipv4BitLen)),
-		createIPNet("0.0.0.8", 29, int(ipv4BitLen)),
-		createIPNet("0.0.0.16", 28, int(ipv4BitLen)),
-		createIPNet("0.0.0.32", 27, int(ipv4BitLen)),
-		createIPNet("0.0.0.64", 26, int(ipv4BitLen)),
-		createIPNet("0.0.0.128", 25, int(ipv4BitLen)),
-		createIPNet("0.0.1.0", 24, int(ipv4BitLen)),
-		createIPNet("0.0.2.0", 23, int(ipv4BitLen)),
-		createIPNet("0.0.4.0", 22, int(ipv4BitLen)),
-		createIPNet("0.0.8.0", 21, int(ipv4BitLen)),
-		createIPNet("0.0.16.0", 20, int(ipv4BitLen)),
-		createIPNet("0.0.32.0", 19, int(ipv4BitLen)),
-		createIPNet("0.0.64.0", 18, int(ipv4BitLen)),
-		createIPNet("0.0.128.0", 17, int(ipv4BitLen)),
-		createIPNet("0.1.0.0", 16, int(ipv4BitLen)),
-		createIPNet("0.2.0.0", 15, int(ipv4BitLen)),
-		createIPNet("0.4.0.0", 14, int(ipv4BitLen)),
-		createIPNet("0.8.0.0", 13, int(ipv4BitLen)),
-		createIPNet("0.16.0.0", 12, int(ipv4BitLen)),
-		createIPNet("0.32.0.0", 11, int(ipv4BitLen)),
-		createIPNet("0.64.0.0", 10, int(ipv4BitLen)),
-		createIPNet("0.128.0.0", 9, int(ipv4BitLen)),
-		createIPNet("1.0.0.0", 8, int(ipv4BitLen)),
-		createIPNet("2.0.0.0", 7, int(ipv4BitLen)),
-		createIPNet("4.0.0.0", 6, int(ipv4BitLen)),
-		createIPNet("8.0.0.0", 5, int(ipv4BitLen)),
-		createIPNet("16.0.0.0", 4, int(ipv4BitLen)),
-		createIPNet("32.0.0.0", 3, int(ipv4BitLen)),
-		createIPNet("64.0.0.0", 2, int(ipv4BitLen)),
-		createIPNet("128.0.0.0", 2, int(ipv4BitLen)),
-		createIPNet("192.0.0.0", 3, int(ipv4BitLen)),
-		createIPNet("224.0.0.0", 4, int(ipv4BitLen)),
-		createIPNet("240.0.0.0", 5, int(ipv4BitLen)),
-		createIPNet("248.0.0.0", 6, int(ipv4BitLen)),
-		createIPNet("252.0.0.0", 7, int(ipv4BitLen)),
-		createIPNet("254.0.0.0", 8, int(ipv4BitLen)),
-		createIPNet("255.0.0.0", 9, int(ipv4BitLen)),
-		createIPNet("255.128.0.0", 10, int(ipv4BitLen)),
-		createIPNet("255.192.0.0", 11, int(ipv4BitLen)),
-		createIPNet("255.224.0.0", 12, int(ipv4BitLen)),
-		createIPNet("255.240.0.0", 13, int(ipv4BitLen)),
-		createIPNet("255.248.0.0", 14, int(ipv4BitLen)),
-		createIPNet("255.252.0.0", 15, int(ipv4BitLen)),
-		createIPNet("255.254.0.0", 16, int(ipv4BitLen)),
-		createIPNet("255.255.0.0", 17, int(ipv4BitLen)),
-		createIPNet("255.255.128.0", 18, int(ipv4BitLen)),
-		createIPNet("255.255.192.0", 19, int(ipv4BitLen)),
-		createIPNet("255.255.224.0", 20, int(ipv4BitLen)),
-		createIPNet("255.255.240.0", 21, int(ipv4BitLen)),
-		createIPNet("255.255.249.0", 22, int(ipv4BitLen)),
-		createIPNet("255.255.252.0", 23, int(ipv4BitLen)),
-		createIPNet("255.255.254.0", 24, int(ipv4BitLen)),
-		createIPNet("255.255.255.0", 25, int(ipv4BitLen)),
-		createIPNet("255.255.255.128", 26, int(ipv4BitLen)),
-		createIPNet("255.255.255.192", 27, int(ipv4BitLen)),
-		createIPNet("255.255.255.224", 28, int(ipv4BitLen)),
-		createIPNet("255.255.255.240", 29, int(ipv4BitLen)),
-		createIPNet("255.255.255.248", 30, int(ipv4BitLen)),
-		createIPNet("255.255.255.252", 31, int(ipv4BitLen)),
-		createIPNet("255.255.255.254", 32, int(ipv4BitLen)),
+	expected := []*net.IPNet{createIPNet("0.0.0.1", 32, ipv4BitLen),
+		createIPNet("0.0.0.2", 31, ipv4BitLen),
+		createIPNet("0.0.0.4", 30, ipv4BitLen),
+		createIPNet("0.0.0.8", 29, ipv4BitLen),
+		createIPNet("0.0.0.16", 28, ipv4BitLen),
+		createIPNet("0.0.0.32", 27, ipv4BitLen),
+		createIPNet("0.0.0.64", 26, ipv4BitLen),
+		createIPNet("0.0.0.128", 25, ipv4BitLen),
+		createIPNet("0.0.1.0", 24, ipv4BitLen),
+		createIPNet("0.0.2.0", 23, ipv4BitLen),
+		createIPNet("0.0.4.0", 22, ipv4BitLen),
+		createIPNet("0.0.8.0", 21, ipv4BitLen),
+		createIPNet("0.0.16.0", 20, ipv4BitLen),
+		createIPNet("0.0.32.0", 19, ipv4BitLen),
+		createIPNet("0.0.64.0", 18, ipv4BitLen),
+		createIPNet("0.0.128.0", 17, ipv4BitLen),
+		createIPNet("0.1.0.0", 16, ipv4BitLen),
+		createIPNet("0.2.0.0", 15, ipv4BitLen),
+		createIPNet("0.4.0.0", 14, ipv4BitLen),
+		createIPNet("0.8.0.0", 13, ipv4BitLen),
+		createIPNet("0.16.0.0", 12, ipv4BitLen),
+		createIPNet("0.32.0.0", 11, ipv4BitLen),
+		createIPNet("0.64.0.0", 10, ipv4BitLen),
+		createIPNet("0.128.0.0", 9, ipv4BitLen),
+		createIPNet("1.0.0.0", 8, ipv4BitLen),
+		createIPNet("2.0.0.0", 7, ipv4BitLen),
+		createIPNet("4.0.0.0", 6, ipv4BitLen),
+		createIPNet("8.0.0.0", 5, ipv4BitLen),
+		createIPNet("16.0.0.0", 4, ipv4BitLen),
+		createIPNet("32.0.0.0", 3, ipv4BitLen),
+		createIPNet("64.0.0.0", 2, ipv4BitLen),
+		createIPNet("128.0.0.0", 2, ipv4BitLen),
+		createIPNet("192.0.0.0", 3, ipv4BitLen),
+		createIPNet("224.0.0.0", 4, ipv4BitLen),
+		createIPNet("240.0.0.0", 5, ipv4BitLen),
+		createIPNet("248.0.0.0", 6, ipv4BitLen),
+		createIPNet("252.0.0.0", 7, ipv4BitLen),
+		createIPNet("254.0.0.0", 8, ipv4BitLen),
+		createIPNet("255.0.0.0", 9, ipv4BitLen),
+		createIPNet("255.128.0.0", 10, ipv4BitLen),
+		createIPNet("255.192.0.0", 11, ipv4BitLen),
+		createIPNet("255.224.0.0", 12, ipv4BitLen),
+		createIPNet("255.240.0.0", 13, ipv4BitLen),
+		createIPNet("255.248.0.0", 14, ipv4BitLen),
+		createIPNet("255.252.0.0", 15, ipv4BitLen),
+		createIPNet("255.254.0.0", 16, ipv4BitLen),
+		createIPNet("255.255.0.0", 17, ipv4BitLen),
+		createIPNet("255.255.128.0", 18, ipv4BitLen),
+		createIPNet("255.255.192.0", 19, ipv4BitLen),
+		createIPNet("255.255.224.0", 20, ipv4BitLen),
+		createIPNet("255.255.240.0", 21, ipv4BitLen),
+		createIPNet("255.255.249.0", 22, ipv4BitLen),
+		createIPNet("255.255.252.0", 23, ipv4BitLen),
+		createIPNet("255.255.254.0", 24, ipv4BitLen),
+		createIPNet("255.255.255.0", 25, ipv4BitLen),
+		createIPNet("255.255.255.128", 26, ipv4BitLen),
+		createIPNet("255.255.255.192", 27, ipv4BitLen),
+		createIPNet("255.255.255.224", 28, ipv4BitLen),
+		createIPNet("255.255.255.240", 29, ipv4BitLen),
+		createIPNet("255.255.255.248", 30, ipv4BitLen),
+		createIPNet("255.255.255.252", 31, ipv4BitLen),
+		createIPNet("255.255.255.254", 32, ipv4BitLen),
 	}
 
 	// Sort both so we can compare easily
@@ -555,14 +555,14 @@ func (s *IPTestSuite) TestNextIP(c *C) {
 	expectedNext = ip
 	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
-	ip = net.IP([]byte{0xa, 0, 0, 0})
+	ip = []byte{0xa, 0, 0, 0}
 	nextIP = GetNextIP(ip)
-	expectedNext = net.IP([]byte{0xa, 0, 0, 1})
+	expectedNext = []byte{0xa, 0, 0, 1}
 	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
-	ip = net.IP([]byte{0xff, 0xff, 0xff, 0xff})
+	ip = []byte{0xff, 0xff, 0xff, 0xff}
 	nextIP = GetNextIP(ip)
-	expectedNext = net.IP([]byte{0xff, 0xff, 0xff, 0xff})
+	expectedNext = []byte{0xff, 0xff, 0xff, 0xff}
 	c.Assert(nextIP, checker.DeepEquals, expectedNext)
 
 	ip = net.ParseIP("10.0.0.0")
@@ -588,137 +588,137 @@ func (s *IPTestSuite) TestNextIP(c *C) {
 
 func (s *IPTestSuite) TestCreateSpanningCIDR(c *C) {
 	netRange := createIPRange("10.0.0.0", "10.255.255.255")
-	expectedSpanningCIDR := createIPNet("10.0.0.0", 8, int(ipv4BitLen))
+	expectedSpanningCIDR := createIPNet("10.0.0.0", 8, ipv4BitLen)
 	spanningCIDR := createSpanningCIDR(*netRange)
 	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, c)
 
 	netRange = createIPRange("10.0.0.0", "10.255.255.254")
-	expectedSpanningCIDR = createIPNet("10.0.0.0", 8, int(ipv4BitLen))
+	expectedSpanningCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
 	spanningCIDR = createSpanningCIDR(*netRange)
 	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, c)
 
 	netRange = createIPRange("10.0.0.1", "10.0.0.1")
-	expectedSpanningCIDR = createIPNet("10.0.0.1", 32, int(ipv4BitLen))
+	expectedSpanningCIDR = createIPNet("10.0.0.1", 32, ipv4BitLen)
 	spanningCIDR = createSpanningCIDR(*netRange)
 	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, c)
 
 	netRange = createIPRange("10.0.0.1", "10.0.0.2")
-	expectedSpanningCIDR = createIPNet("10.0.0.0", 30, int(ipv4BitLen))
+	expectedSpanningCIDR = createIPNet("10.0.0.0", 30, ipv4BitLen)
 	spanningCIDR = createSpanningCIDR(*netRange)
 	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, c)
 
 	netRange = createIPRange("9.0.0.0", "10.0.0.0")
-	expectedSpanningCIDR = createIPNet("8.0.0.0", 6, int(ipv4BitLen))
+	expectedSpanningCIDR = createIPNet("8.0.0.0", 6, ipv4BitLen)
 	spanningCIDR = createSpanningCIDR(*netRange)
 	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, c)
 
 	netRange = createIPRange("FD44:7089:FF32:712B:FF00:0000:0000:0000", "FD44:7089:FF32:712B:FFFF:FFFF:FFFF:FFFF")
-	expectedSpanningCIDR = createIPNet("fd44:7089:ff32:712b:ff00::", 72, int(ipv6BitLen))
+	expectedSpanningCIDR = createIPNet("fd44:7089:ff32:712b:ff00::", 72, ipv6BitLen)
 	spanningCIDR = createSpanningCIDR(*netRange)
 	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, c)
 
 }
 
 func (s *IPTestSuite) TestPartitionCIDR(c *C) {
-	targetCIDR := createIPNet("10.0.0.0", 8, int(ipv4BitLen))
-	excludeCIDR := createIPNet("10.255.255.255", 32, int(ipv4BitLen))
-	left, exclude, right := partitionCIDR(*targetCIDR, *excludeCIDR)
+	targetCIDR := createIPNet("10.0.0.0", 8, ipv4BitLen)
+	excludeCIDR := createIPNet("10.255.255.255", 32, ipv4BitLen)
+	left, exclude, right := PartitionCIDR(*targetCIDR, *excludeCIDR)
 	// Exclude should just contain exclude CIDR
 	s.testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, c)
 	// Nothing should be in right list.
 	c.Assert(len(right), Equals, 0)
-	expectedLeft := []*net.IPNet{createIPNet("10.0.0.0", 9, int(ipv4BitLen)),
-		createIPNet("10.128.0.0", 10, int(ipv4BitLen)),
-		createIPNet("10.192.0.0", 11, int(ipv4BitLen)),
-		createIPNet("10.224.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.240.0.0", 13, int(ipv4BitLen)),
-		createIPNet("10.248.0.0", 14, int(ipv4BitLen)),
-		createIPNet("10.252.0.0", 15, int(ipv4BitLen)),
-		createIPNet("10.254.0.0", 16, int(ipv4BitLen)),
-		createIPNet("10.255.0.0", 17, int(ipv4BitLen)),
-		createIPNet("10.255.128.0", 18, int(ipv4BitLen)),
-		createIPNet("10.255.192.0", 19, int(ipv4BitLen)),
-		createIPNet("10.255.224.0", 20, int(ipv4BitLen)),
-		createIPNet("10.255.240.0", 21, int(ipv4BitLen)),
-		createIPNet("10.255.248.0", 22, int(ipv4BitLen)),
-		createIPNet("10.255.252.0", 23, int(ipv4BitLen)),
-		createIPNet("10.255.254.0", 24, int(ipv4BitLen)),
-		createIPNet("10.255.255.0", 25, int(ipv4BitLen)),
-		createIPNet("10.255.255.128", 26, int(ipv4BitLen)),
-		createIPNet("10.255.255.192", 27, int(ipv4BitLen)),
-		createIPNet("10.255.255.224", 28, int(ipv4BitLen)),
-		createIPNet("10.255.255.240", 29, int(ipv4BitLen)),
-		createIPNet("10.255.255.248", 30, int(ipv4BitLen)),
-		createIPNet("10.255.255.252", 31, int(ipv4BitLen)),
-		createIPNet("10.255.255.254", 32, int(ipv4BitLen)),
+	expectedLeft := []*net.IPNet{createIPNet("10.0.0.0", 9, ipv4BitLen),
+		createIPNet("10.128.0.0", 10, ipv4BitLen),
+		createIPNet("10.192.0.0", 11, ipv4BitLen),
+		createIPNet("10.224.0.0", 12, ipv4BitLen),
+		createIPNet("10.240.0.0", 13, ipv4BitLen),
+		createIPNet("10.248.0.0", 14, ipv4BitLen),
+		createIPNet("10.252.0.0", 15, ipv4BitLen),
+		createIPNet("10.254.0.0", 16, ipv4BitLen),
+		createIPNet("10.255.0.0", 17, ipv4BitLen),
+		createIPNet("10.255.128.0", 18, ipv4BitLen),
+		createIPNet("10.255.192.0", 19, ipv4BitLen),
+		createIPNet("10.255.224.0", 20, ipv4BitLen),
+		createIPNet("10.255.240.0", 21, ipv4BitLen),
+		createIPNet("10.255.248.0", 22, ipv4BitLen),
+		createIPNet("10.255.252.0", 23, ipv4BitLen),
+		createIPNet("10.255.254.0", 24, ipv4BitLen),
+		createIPNet("10.255.255.0", 25, ipv4BitLen),
+		createIPNet("10.255.255.128", 26, ipv4BitLen),
+		createIPNet("10.255.255.192", 27, ipv4BitLen),
+		createIPNet("10.255.255.224", 28, ipv4BitLen),
+		createIPNet("10.255.255.240", 29, ipv4BitLen),
+		createIPNet("10.255.255.248", 30, ipv4BitLen),
+		createIPNet("10.255.255.252", 31, ipv4BitLen),
+		createIPNet("10.255.255.254", 32, ipv4BitLen),
 	}
 	s.testIPNetsEqual(expectedLeft, left, c)
 
-	targetCIDR = createIPNet("10.0.0.0", 8, int(ipv4BitLen))
-	excludeCIDR = createIPNet("10.0.0.0", 32, int(ipv4BitLen))
-	left, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	targetCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
+	excludeCIDR = createIPNet("10.0.0.0", 32, ipv4BitLen)
+	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 	// Exclude should just contain exclude CIDR
 	s.testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, c)
 	// Nothing should be in left list.
 	c.Assert(len(left), Equals, 0)
-	expectedRight := []*net.IPNet{createIPNet("10.128.0.0", 9, int(ipv4BitLen)),
-		createIPNet("10.64.0.0", 10, int(ipv4BitLen)),
-		createIPNet("10.32.0.0", 11, int(ipv4BitLen)),
-		createIPNet("10.16.0.0", 12, int(ipv4BitLen)),
-		createIPNet("10.8.0.0", 13, int(ipv4BitLen)),
-		createIPNet("10.4.0.0", 14, int(ipv4BitLen)),
-		createIPNet("10.2.0.0", 15, int(ipv4BitLen)),
-		createIPNet("10.1.0.0", 16, int(ipv4BitLen)),
-		createIPNet("10.0.128.0", 17, int(ipv4BitLen)),
-		createIPNet("10.0.64.0", 18, int(ipv4BitLen)),
-		createIPNet("10.0.32.0", 19, int(ipv4BitLen)),
-		createIPNet("10.0.16.0", 20, int(ipv4BitLen)),
-		createIPNet("10.0.8.0", 21, int(ipv4BitLen)),
-		createIPNet("10.0.4.0", 22, int(ipv4BitLen)),
-		createIPNet("10.0.2.0", 23, int(ipv4BitLen)),
-		createIPNet("10.0.1.0", 24, int(ipv4BitLen)),
-		createIPNet("10.0.0.128", 25, int(ipv4BitLen)),
-		createIPNet("10.0.0.64", 26, int(ipv4BitLen)),
-		createIPNet("10.0.0.32", 27, int(ipv4BitLen)),
-		createIPNet("10.0.0.16", 28, int(ipv4BitLen)),
-		createIPNet("10.0.0.8", 29, int(ipv4BitLen)),
-		createIPNet("10.0.0.4", 30, int(ipv4BitLen)),
-		createIPNet("10.0.0.2", 31, int(ipv4BitLen)),
-		createIPNet("10.0.0.1", 32, int(ipv4BitLen)),
+	expectedRight := []*net.IPNet{createIPNet("10.128.0.0", 9, ipv4BitLen),
+		createIPNet("10.64.0.0", 10, ipv4BitLen),
+		createIPNet("10.32.0.0", 11, ipv4BitLen),
+		createIPNet("10.16.0.0", 12, ipv4BitLen),
+		createIPNet("10.8.0.0", 13, ipv4BitLen),
+		createIPNet("10.4.0.0", 14, ipv4BitLen),
+		createIPNet("10.2.0.0", 15, ipv4BitLen),
+		createIPNet("10.1.0.0", 16, ipv4BitLen),
+		createIPNet("10.0.128.0", 17, ipv4BitLen),
+		createIPNet("10.0.64.0", 18, ipv4BitLen),
+		createIPNet("10.0.32.0", 19, ipv4BitLen),
+		createIPNet("10.0.16.0", 20, ipv4BitLen),
+		createIPNet("10.0.8.0", 21, ipv4BitLen),
+		createIPNet("10.0.4.0", 22, ipv4BitLen),
+		createIPNet("10.0.2.0", 23, ipv4BitLen),
+		createIPNet("10.0.1.0", 24, ipv4BitLen),
+		createIPNet("10.0.0.128", 25, ipv4BitLen),
+		createIPNet("10.0.0.64", 26, ipv4BitLen),
+		createIPNet("10.0.0.32", 27, ipv4BitLen),
+		createIPNet("10.0.0.16", 28, ipv4BitLen),
+		createIPNet("10.0.0.8", 29, ipv4BitLen),
+		createIPNet("10.0.0.4", 30, ipv4BitLen),
+		createIPNet("10.0.0.2", 31, ipv4BitLen),
+		createIPNet("10.0.0.1", 32, ipv4BitLen),
 	}
 	s.testIPNetsEqual(expectedRight, right, c)
 
 	// exclude is not in target CIDR and is to left.
-	targetCIDR = createIPNet("10.0.0.0", 8, int(ipv4BitLen))
-	excludeCIDR = createIPNet("9.0.0.255", 32, int(ipv4BitLen))
-	left, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	targetCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
+	excludeCIDR = createIPNet("9.0.0.255", 32, ipv4BitLen)
+	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 	c.Assert(len(left), Equals, 0)
 	c.Assert(len(exclude), Equals, 0)
 	s.testIPNetsEqual([]*net.IPNet{targetCIDR}, right, c)
 
 	// exclude is not in target CIDR and is to right.
-	targetCIDR = createIPNet("10.255.255.254", 32, int(ipv4BitLen))
-	excludeCIDR = createIPNet("10.255.255.255", 32, int(ipv4BitLen))
-	left, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	targetCIDR = createIPNet("10.255.255.254", 32, ipv4BitLen)
+	excludeCIDR = createIPNet("10.255.255.255", 32, ipv4BitLen)
+	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 	c.Assert(len(right), Equals, 0)
 	c.Assert(len(exclude), Equals, 0)
 	s.testIPNetsEqual([]*net.IPNet{targetCIDR}, left, c)
 
 	// exclude CIDR larger than target CIDR
-	targetCIDR = createIPNet("10.96.0.0", 12, int(ipv4BitLen))
-	excludeCIDR = createIPNet("10.0.0.0", 8, int(ipv4BitLen))
-	left, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	targetCIDR = createIPNet("10.96.0.0", 12, ipv4BitLen)
+	excludeCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
+	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 	c.Assert(len(left), Equals, 0)
 	c.Assert(len(right), Equals, 0)
 	s.testIPNetsEqual([]*net.IPNet{targetCIDR}, exclude, c)
 
-	targetCIDR = createIPNet("fd44:7089:ff32:712b:ff00::", 64, int(ipv6BitLen))
-	excludeCIDR = createIPNet("fd44:7089:ff32:712b::", 66, int(ipv6BitLen))
+	targetCIDR = createIPNet("fd44:7089:ff32:712b:ff00::", 64, ipv6BitLen)
+	excludeCIDR = createIPNet("fd44:7089:ff32:712b::", 66, ipv6BitLen)
 
-	_, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	_, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 
-	expectedCIDRs := []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, int(ipv6BitLen)),
-		createIPNet("fd44:7089:ff32:712b:4000::", 66, int(ipv6BitLen))}
+	expectedCIDRs := []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, ipv6BitLen),
+		createIPNet("fd44:7089:ff32:712b:4000::", 66, ipv6BitLen)}
 	s.testIPNetsEqual(expectedCIDRs, right, c)
 	s.testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, c)
 }

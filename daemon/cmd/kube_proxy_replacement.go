@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/node"
@@ -34,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/sysctl"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // initKubeProxyReplacementOptions will grok the global config and determine
@@ -61,12 +61,6 @@ func initKubeProxyReplacementOptions() error {
 		disableNodePort()
 		option.Config.EnableSocketLB = false
 		option.Config.EnableSocketLBTracing = false
-
-		if option.Config.EnableSessionAffinity {
-			if err := disableSessionAffinityIfNeeded(); err != nil {
-				return err
-			}
-		}
 
 		return nil
 	}
@@ -321,10 +315,6 @@ func probeKubeProxyReplacementOptions() error {
 		option.Config.EnableSocketLBTracing = false
 	}
 
-	if err := disableSessionAffinityIfNeeded(); err != nil {
-		return err
-	}
-
 	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
 		if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
 			probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
@@ -413,7 +403,7 @@ func probeCgroupSupportUDP(ipv4 bool) error {
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
 func finishKubeProxyReplacementInit() error {
-	if !option.Config.EnableNodePort {
+	if !(option.Config.EnableNodePort || option.Config.EnableWireguard) {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
 		return nil
@@ -431,6 +421,17 @@ func finishKubeProxyReplacementInit() error {
 	// +-------------------------------------------------------+
 	// | After this point, BPF NodePort should not be disabled |
 	// +-------------------------------------------------------+
+
+	// When WG & encrypt-node are on, a NodePort BPF to-be forwarded request
+	// to a remote node running a selected service endpoint must be encrypted.
+	// To make the NodePort's rev-{S,D}NAT translations to happen for a reply
+	// from the remote node, we need to attach bpf_host to the Cilium's WG
+	// netdev (otherwise, the WG netdev after decrypting the reply will pass
+	// it to the stack which drops the packet).
+	if option.Config.EnableNodePort &&
+		option.Config.EnableWireguard && option.Config.EncryptNode {
+		option.Config.AppendDevice(wgTypes.IfaceName)
+	}
 
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
@@ -450,10 +451,6 @@ func finishKubeProxyReplacementInit() error {
 		// All cases below still need to be implemented ...
 		case option.Config.EnableEndpointRoutes:
 			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
-		case !mac.HaveMACAddrs(option.Config.GetDevices()):
-			msg = "BPF host routing is currently not supported with devices without L2 addr."
-		case option.Config.EnableWireguard:
-			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
 		default:
 			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
 				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
@@ -686,14 +683,5 @@ func checkNodePortAndEphemeralPortRanges() error {
 			nodePortRangeStr, err)
 	}
 
-	return nil
-}
-
-func disableSessionAffinityIfNeeded() error {
-	if option.Config.EnableSessionAffinity {
-		if !option.Config.DryMode && probes.HaveMapType(ebpf.LRUHash) != nil {
-			return fmt.Errorf("SessionAffinity feature requires BPF LRU maps")
-		}
-	}
 	return nil
 }

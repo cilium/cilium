@@ -57,16 +57,6 @@ func ciliumDelService(kubectl *helpers.Kubectl, id int64) {
 	}
 }
 
-func ciliumHasServiceIP(kubectl *helpers.Kubectl, pod, vip string) bool {
-	service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
-	vip4 := fmt.Sprintf(" %s:", vip)
-	if strings.Contains(service.Stdout(), vip4) {
-		return true
-	}
-	vip6 := fmt.Sprintf(" [%s]:", vip)
-	return strings.Contains(service.Stdout(), vip6)
-}
-
 var newlineRegexp = regexp.MustCompile(`\n[ \t\n]*`)
 
 func trimNewlines(script string) string {
@@ -213,7 +203,7 @@ func testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl *helpers.Kubectl, url s
 func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, url string, count int, checkSourceIP bool, fromPort int) {
 	var cmd string
 
-	By("Making %d HTTP requests from outside cluster to %q", count, url)
+	By("Making %d HTTP requests from outside cluster (using port %d) to %q", count, fromPort, url)
 	for i := 1; i <= count; i++ {
 		if fromPort == 0 {
 			cmd = helpers.CurlFail(url)
@@ -796,15 +786,17 @@ func testSessionAffinity(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, fromOu
 	}
 }
 
-func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
+func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, ipsec bool) {
 	var (
 		data    v1.Service
 		httpURL string
 		tftpURL string
 
+		// Service backends on both nodes
 		localNodePortSvcIPv4 = "test-nodeport-local"
 		localNodePortSvcIPv6 = "test-nodeport-local-ipv6"
 
+		// Service backend only on k8s2 node
 		localNodePortK8s2SvcIpv4 = "test-nodeport-local-k8s2"
 		localNodePortK8s2SvcIpv6 = "test-nodeport-local-k8s2-ipv6"
 	)
@@ -865,13 +857,17 @@ func testExternalTrafficPolicyLocal(kubectl *helpers.Kubectl, ni *helpers.NodesI
 			testCurlFromOutside(kubectl, ni, tftpURL, count, true)
 		}
 
-		// Local requests should be load-balanced on kube-proxy 1.15+.
-		// See kubernetes/kubernetes#77523 for the PR which introduced this
-		// behavior on the iptables-backend for kube-proxy.
 		httpURL = getHTTPLink(node.node1IP, data.Spec.Ports[0].NodePort)
 		tftpURL = getTFTPLink(node.node1IP, data.Spec.Ports[1].NodePort)
-		testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.K8s1NodeName)
-		testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.K8s1NodeName)
+
+		// Until https://github.com/cilium/cilium/issues/23481 has been fixed
+		if !ipsec {
+			// Local requests should be load-balanced on kube-proxy 1.15+.
+			// See kubernetes/kubernetes#77523 for the PR which introduced this
+			// behavior on the iptables-backend for kube-proxy.
+			testCurlFromPodInHostNetNS(kubectl, httpURL, count, 0, ni.K8s1NodeName)
+			testCurlFromPodInHostNetNS(kubectl, tftpURL, count, 0, ni.K8s1NodeName)
+		}
 		// In-cluster connectivity from k8s2 to k8s1 IP will still work with
 		// SocketLB (regardless of if we are running with or
 		// without kube-proxy) since we'll hit the wildcard rule in bpf_sock
@@ -1002,7 +998,7 @@ func testMaglev(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	}
 }
 
-func testDSR(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, sourcePortForCTGCtest int) {
+func testDSR(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, k8s1IP string, k8s2SvcName string, sourcePortForCTGCtest int) {
 	var data v1.Service
 	err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
@@ -1015,13 +1011,13 @@ func testDSR(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, sourcePortForCTGCt
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
 	// "test-nodeport-k8s2" because we want to trigger SNAT with a single request:
 	// client -> k8s1 -> endpoint @ k8s2.
-	err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2").Unmarshal(&data)
+	err = kubectl.Get(helpers.DefaultNamespace, k8s2SvcName).Unmarshal(&data)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
-	url = getHTTPLink(ni.K8s1IP, data.Spec.Ports[0].NodePort)
+	url = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 
 	testCurlFromOutsideWithLocalPort(kubectl, ni, url, 1, true, sourcePortForCTGCtest)
 	res := kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
-	ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
+	ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "NAT entry was not found")
 	// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
 	_ = kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 	res = kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))

@@ -72,3 +72,7 @@ struct srv6_vrf_key6 _49;
 struct srv6_policy_key4 _50;
 struct srv6_policy_key6 _51;
 struct trace_sock_notify _52;
+struct tunnel_key _53;
+struct tunnel_value _54;
+struct auth_key _55;
+struct auth_info _56;

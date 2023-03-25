@@ -13,7 +13,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -26,6 +25,7 @@ import (
 	"golang.org/x/time/rate"
 	"sigs.k8s.io/yaml"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/contexthelpers"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -51,6 +51,9 @@ const (
 	EtcdRateLimitOption = "etcd.qps"
 
 	minRequiredVersionStr = ">=3.1.0"
+
+	etcdSessionRenewNamePrefix     = "kvstore-etcd-session-renew"
+	etcdLockSessionRenewNamePrefix = "kvstore-etcd-lock-session-renew"
 )
 
 var (
@@ -66,13 +69,12 @@ type etcdModule struct {
 	config *client.Config
 }
 
-var (
-	// versionCheckTimeout is the time we wait trying to verify the version
-	// of an etcd endpoint. The timeout can be encountered on network
-	// connectivity problems.
-	// This field needs to be accessed with the atomic library.
-	versionCheckTimeout = int64(30 * time.Second)
+// versionCheckTimeout is the time we wait trying to verify the version
+// of an etcd endpoint. The timeout can be encountered on network
+// connectivity problems.
+const versionCheckTimeout = 30 * time.Second
 
+var (
 	// statusCheckTimeout is the timeout when performing status checks with
 	// all etcd endpoints
 	statusCheckTimeout = 10 * time.Second
@@ -579,7 +581,7 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 
 	e.getLogger().WithField(fieldSession, newSession).Debug("Renewing etcd session")
 
-	if err := e.checkMinVersion(ctx); err != nil {
+	if err := e.checkMinVersion(ctx, versionCheckTimeout); err != nil {
 		return err
 	}
 
@@ -667,6 +669,8 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		shuffleEndpoints(config.Endpoints)
 	}
 
+	// Set client context so that client can be cancelled from outside
+	config.Context = ctx
 	// Set DialTimeout to 0, otherwise the creation of a new client will
 	// block until DialTimeout is reached or a connection to the server
 	// is made.
@@ -754,7 +758,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 
 		ec.getLogger().Info("Initial etcd session established")
 
-		if err := ec.checkMinVersion(ctx); err != nil {
+		if err := ec.checkMinVersion(ctx, versionCheckTimeout); err != nil {
 			handleSessionError(fmt.Errorf("unable to validate etcd version: %s", err))
 		}
 	}()
@@ -781,13 +785,15 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 				ec.lastHeartbeat = time.Now()
 				ec.RWMutex.Unlock()
 				log.Debug("Received update notification of heartbeat")
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
 
 	go ec.statusChecker()
 
-	ec.controllers.UpdateController("kvstore-etcd-session-renew",
+	ec.controllers.UpdateController(makeSessionName(etcdSessionRenewNamePrefix, opts),
 		controller.ControllerParams{
 			// Stop controller function when etcd client is terminating
 			Context: ec.client.Ctx(),
@@ -798,7 +804,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		},
 	)
 
-	ec.controllers.UpdateController("kvstore-etcd-lock-session-renew",
+	ec.controllers.UpdateController(makeSessionName(etcdLockSessionRenewNamePrefix, opts),
 		controller.ControllerParams{
 			// Stop controller function when etcd client is terminating
 			Context: ec.client.Ctx(),
@@ -810,6 +816,15 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	)
 
 	return ec, nil
+}
+
+// makeSessionName builds up a session/locksession controller name
+// clusterName is expected to be empty for main kvstore connection
+func makeSessionName(sessionPrefix string, opts *ExtraOptions) string {
+	if opts != nil && opts.ClusterName != "" {
+		return fmt.Sprintf("%s-%s", sessionPrefix, opts.ClusterName)
+	}
+	return sessionPrefix
 }
 
 func getEPVersion(ctx context.Context, c client.Maintenance, etcdEP string, timeout time.Duration) (semver.Version, error) {
@@ -836,12 +851,11 @@ func (e *etcdClient) sessionError() (err error) {
 // checkMinVersion checks the minimal version running on etcd cluster.  This
 // function should be run whenever the etcd client is connected for the first
 // time and whenever the session is renewed.
-func (e *etcdClient) checkMinVersion(ctx context.Context) error {
+func (e *etcdClient) checkMinVersion(ctx context.Context, timeout time.Duration) error {
 	eps := e.client.Endpoints()
 
 	for _, ep := range eps {
-		vcTimeout := atomic.LoadInt64(&versionCheckTimeout)
-		v, err := getEPVersion(ctx, e.client.Maintenance, ep, time.Duration(vcTimeout))
+		v, err := getEPVersion(ctx, e.client.Maintenance, ep, timeout)
 		if err != nil {
 			e.getLogger().WithError(Hint(err)).WithField(fieldEtcdEndpoint, ep).
 				Warn("Unable to verify version of etcd endpoint")
@@ -919,6 +933,19 @@ func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
+	defer func() {
+		close(w.Events)
+		w.stopWait.Done()
+
+		// The watch might be aborted by closing
+		// the context instead of calling
+		// w.Stop() from outside. In that case
+		// we make sure to close everything and
+		// as this uses sync.Once it can be
+		// run multiple times (if that's the case).
+		w.Stop()
+	}()
+
 	scopedLog := e.getLogger().WithFields(logrus.Fields{
 		fieldWatcher: w,
 		fieldPrefix:  w.Prefix,
@@ -929,6 +956,19 @@ func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 		// The context ended or the etcd client was closed
 		// before connectivity was achieved
 		return
+	}
+
+	// errLimiter is used to rate limit the retry of the first Get request in case an error
+	// has occurred, to prevent overloading the etcd server due to the more aggressive
+	// default rate limiter.
+	errLimiter := backoff.Exponential{
+		Name: "etcd-list-before-watch-error",
+		Min:  50 * time.Millisecond,
+		Max:  1 * time.Minute,
+	}
+
+	if e.extraOptions != nil {
+		errLimiter.NodeManager = backoff.NewNodeManager(e.extraOptions.ClusterSizeDependantInterval)
 	}
 
 reList:
@@ -946,8 +986,10 @@ reList:
 			client.WithSerializable())
 		if err != nil {
 			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
+			errLimiter.Wait(ctx)
 			continue
 		}
+		errLimiter.Reset()
 
 		nextRev := res.Header.Revision + 1
 		scopedLog.Debugf("List response from etcd len=%d: %+v", res.Count, res)
@@ -960,7 +1002,7 @@ reList:
 				}
 
 				localCache.MarkInUse(key.Key)
-				scopedLog.Debugf("Emitting list result as %v event for %s=%v", t, key.Key, key.Value)
+				scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
 
 				queueStart := spanstat.Start()
 				w.Events <- KeyValueEvent{
@@ -1002,7 +1044,7 @@ reList:
 		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
 
 		e.limiter.Wait(ctx)
-		etcdWatch := e.client.Watch(ctx, w.Prefix,
+		etcdWatch := e.client.Watch(client.WithRequireLeader(ctx), w.Prefix,
 			client.WithPrefix(), client.WithRev(nextRev))
 		for {
 			select {
@@ -1011,10 +1053,7 @@ reList:
 			case <-ctx.Done():
 				return
 			case <-w.stopWatch:
-				close(w.Events)
-				w.stopWait.Done()
 				return
-
 			case r, ok := <-etcdWatch:
 				if !ok {
 					time.Sleep(50 * time.Millisecond)
@@ -1061,7 +1100,7 @@ reList:
 						localCache.MarkInUse(ev.Kv.Key)
 					}
 
-					scopedLog.Debugf("Emitting %v event for %s=%v", event.Typ, event.Key, event.Value)
+					scopedLog.Debugf("Emitting %s event for %s=%s", event.Typ, event.Key, event.Value)
 
 					queueStart := spanstat.Start()
 					w.Events <- event
@@ -1633,9 +1672,9 @@ func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValueP
 }
 
 // Close closes the etcd session
-func (e *etcdClient) Close() {
+func (e *etcdClient) Close(ctx context.Context) {
 	close(e.stopStatusChecker)
-	sessionErr := e.waitForInitialSession(context.Background())
+	sessionErr := e.waitForInitialSession(ctx)
 	if e.controllers != nil {
 		e.controllers.RemoveAll()
 	}

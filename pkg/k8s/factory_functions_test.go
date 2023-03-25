@@ -8,7 +8,6 @@ import (
 
 	. "gopkg.in/check.v1"
 	core_v1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -889,7 +888,7 @@ func (s *K8sSuite) Test_EqualV1Service(c *C) {
 				o2: &slim_corev1.Service{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"io.cilium/shared-service": "true",
+							"service.cilium.io/shared": "true",
 						},
 					},
 				},
@@ -966,14 +965,14 @@ func (s *K8sSuite) Test_ConvertToK8sV1ServicePorts(c *C) {
 	tests := []struct {
 		name string
 		args args
-		want []v1.ServicePort
+		want []core_v1.ServicePort
 	}{
 		{
 			name: "empty",
 			args: args{
 				ports: []slim_corev1.ServicePort{},
 			},
-			want: []v1.ServicePort{},
+			want: []core_v1.ServicePort{},
 		},
 		{
 			name: "non-empty",
@@ -985,7 +984,7 @@ func (s *K8sSuite) Test_ConvertToK8sV1ServicePorts(c *C) {
 					},
 				},
 			},
-			want: []v1.ServicePort{
+			want: []core_v1.ServicePort{
 				{
 					Name: "foo",
 					Port: int32(1),
@@ -1007,14 +1006,14 @@ func (s *K8sSuite) Test_ConvertToK8sV1SessionAffinityConfig(c *C) {
 	tests := []struct {
 		name string
 		args args
-		want *v1.SessionAffinityConfig
+		want *core_v1.SessionAffinityConfig
 	}{
 		{
 			name: "empty",
 			args: args{
 				cfg: &slim_corev1.SessionAffinityConfig{},
 			},
-			want: &v1.SessionAffinityConfig{},
+			want: &core_v1.SessionAffinityConfig{},
 		},
 		{
 			name: "non-empty",
@@ -1025,8 +1024,8 @@ func (s *K8sSuite) Test_ConvertToK8sV1SessionAffinityConfig(c *C) {
 					},
 				},
 			},
-			want: &v1.SessionAffinityConfig{
-				ClientIP: &v1.ClientIPConfig{
+			want: &core_v1.SessionAffinityConfig{
+				ClientIP: &core_v1.ClientIPConfig{
 					TimeoutSeconds: &ts,
 				},
 			},
@@ -1045,14 +1044,14 @@ func (s *K8sSuite) Test_ConvertToK8sV1LoadBalancerIngress(c *C) {
 	tests := []struct {
 		name string
 		args args
-		want []v1.LoadBalancerIngress
+		want []core_v1.LoadBalancerIngress
 	}{
 		{
 			name: "empty",
 			args: args{
 				ings: []slim_corev1.LoadBalancerIngress{},
 			},
-			want: []v1.LoadBalancerIngress{},
+			want: []core_v1.LoadBalancerIngress{},
 		},
 		{
 			name: "non-empty",
@@ -1063,10 +1062,10 @@ func (s *K8sSuite) Test_ConvertToK8sV1LoadBalancerIngress(c *C) {
 					},
 				},
 			},
-			want: []v1.LoadBalancerIngress{
+			want: []core_v1.LoadBalancerIngress{
 				{
 					IP:    "1.1.1.1",
-					Ports: []v1.PortStatus{},
+					Ports: nil,
 				},
 			},
 		},

@@ -35,6 +35,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&Ingress{},
 		&IngressList{},
+		&IngressClass{},
+		&IngressClassList{},
 		&NetworkPolicy{},
 		&NetworkPolicyList{},
 	)

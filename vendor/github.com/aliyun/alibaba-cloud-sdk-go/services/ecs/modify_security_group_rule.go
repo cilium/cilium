@@ -92,6 +92,7 @@ type ModifySecurityGroupRuleRequest struct {
 	Priority                string           `position:"Query" name:"Priority"`
 	DestCidrIp              string           `position:"Query" name:"DestCidrIp"`
 	SourceGroupId           string           `position:"Query" name:"SourceGroupId"`
+	SecurityGroupRuleId     string           `position:"Query" name:"SecurityGroupRuleId"`
 }
 
 // ModifySecurityGroupRuleResponse is the response struct for api ModifySecurityGroupRule

@@ -55,8 +55,8 @@ struct {
 int build_packet(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	__u8 src[ETH_ALEN] = mac_one;
-	__u8 dst[ETH_ALEN] = mac_two;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
 	struct ethhdr *l2;
 	struct iphdr *l3;
 	struct tcphdr *l4;
@@ -71,7 +71,7 @@ int build_packet(struct __ctx_buff *ctx)
 	if (!l2)
 		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, src, dst);
+	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
 
 	/* Push IPv4 header */
 	l3 = pktgen__push_default_iphdr(&builder);
@@ -223,8 +223,8 @@ int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *l2;
-	__u8 src[ETH_ALEN] = mac_one;
-	__u8 dst[ETH_ALEN] = mac_two;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
 	struct iphdr *l3;
 	struct tcphdr *l4;
 	void *data;
@@ -238,7 +238,7 @@ int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 	if (!l2)
 		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, src, dst);
+	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
 
 	/* Push IPv4 header */
 	l3 = pktgen__push_default_iphdr(&builder);
@@ -368,7 +368,7 @@ int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "tc_drop_no_backend")
-int tc_drop_no_backend_check(struct __ctx_buff *ctx)
+int tc_drop_no_backend_check(const struct __ctx_buff *ctx)
 {
 	__u32 expected_status = TC_ACT_SHOT;
 	__u32 *status_code;

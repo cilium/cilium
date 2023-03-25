@@ -1003,6 +1003,21 @@ func ProgLoad(attr *ProgLoadAttr) (*FD, error) {
 	return NewFD(int(fd))
 }
 
+type ProgQueryAttr struct {
+	TargetFd    uint32
+	AttachType  AttachType
+	QueryFlags  uint32
+	AttachFlags uint32
+	ProgIds     Pointer
+	ProgCount   uint32
+	_           [4]byte
+}
+
+func ProgQuery(attr *ProgQueryAttr) error {
+	_, err := BPF(BPF_PROG_QUERY, unsafe.Pointer(attr), unsafe.Sizeof(*attr))
+	return err
+}
+
 type ProgRunAttr struct {
 	ProgFd      uint32
 	Retval      uint32

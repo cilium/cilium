@@ -58,6 +58,7 @@ type LaunchTemplateData struct {
 	Ipv6AddressCount               int                                               `json:"Ipv6AddressCount" xml:"Ipv6AddressCount"`
 	SystemDiskProvisionedIops      int64                                             `json:"SystemDisk.ProvisionedIops" xml:"SystemDisk.ProvisionedIops"`
 	SystemDiskBurstingEnabled      bool                                              `json:"SystemDisk.BurstingEnabled" xml:"SystemDisk.BurstingEnabled"`
+	SystemDiskEncrypted            string                                            `json:"SystemDisk.Encrypted" xml:"SystemDisk.Encrypted"`
 	SecurityGroupIds               SecurityGroupIdsInDescribeLaunchTemplateVersions  `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	DataDisks                      DataDisks                                         `json:"DataDisks" xml:"DataDisks"`
 	NetworkInterfaces              NetworkInterfacesInDescribeLaunchTemplateVersions `json:"NetworkInterfaces" xml:"NetworkInterfaces"`

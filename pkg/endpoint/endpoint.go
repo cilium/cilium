@@ -15,8 +15,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
-	"unsafe"
 
 	"github.com/sirupsen/logrus"
 
@@ -280,13 +280,13 @@ type Endpoint struct {
 	// This must only be accessed with atomic.LoadPointer/StorePointer.
 	// 'mutex' must be Lock()ed to synchronize stores. No lock needs to be held
 	// when loading this pointer.
-	logger unsafe.Pointer
+	logger atomic.Pointer[logrus.Entry]
 
 	// policyLogger is a logrus object with fields set to report an endpoints information.
 	// This must only be accessed with atomic LoadPointer/StorePointer.
 	// 'mutex' must be Lock()ed to synchronize stores. No lock needs to be held
 	// when loading this pointer.
-	policyLogger unsafe.Pointer
+	policyLogger atomic.Pointer[logrus.Entry]
 
 	// controllers is the list of async controllers syncing the endpoint to
 	// other resources
@@ -1601,18 +1601,20 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 				e.SetPod(pod)
 				e.SetK8sMetadata(cp)
 				e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
-					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
+					po, _, _, _, _, err := resolveMetadata(ns, podName)
 					if err != nil {
 						return "", err
 					}
-					return annotations[annotation.NoTrack], nil
+					value, _ := annotation.Get(po, annotation.NoTrack, annotation.NoTrackAlias)
+					return value, nil
 				})
 				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
+					po, _, _, _, _, err := resolveMetadata(ns, podName)
 					if err != nil {
 						return "", err
 					}
-					return annotations[annotation.ProxyVisibility], nil
+					value, _ := annotation.Get(po, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
+					return value, nil
 				})
 				e.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
 					_, _, _, _, annotations, err := resolveMetadata(ns, podName)

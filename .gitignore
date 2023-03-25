@@ -70,6 +70,9 @@ test/cilium-[0-9a-f]*.yaml
 test/*tmp
 test/cilium-istioctl
 
+# Updates E2E Test
+old-charts/
+
 # generated test files
 test/k8s/manifests/cnp-second-namespaces.yaml
 test/cilium.conf.ginkgo
@@ -112,3 +115,6 @@ images/*/Dockerfile.dockerignore
 
 # Clangd cache for indexed bpf code
 bpf/.cache
+
+# Include dummy bpf object necessary for XDP_TX
+!test/l4lb/bpf_xdp_veth_host.o

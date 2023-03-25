@@ -61,6 +61,26 @@ func ObjToV1Ingress(obj interface{}) *slim_networkingv1.Ingress {
 	return nil
 }
 
+func ObjToV1IngressClass(obj interface{}) *slim_networkingv1.IngressClass {
+	ic, ok := obj.(*slim_networkingv1.IngressClass)
+	if ok {
+		return ic
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		ic, ok := deletedObj.Obj.(*slim_networkingv1.IngressClass)
+		if ok {
+			return ic
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v1 IngressClass")
+	return nil
+}
+
 func ObjToV1Services(obj interface{}) *slim_corev1.Service {
 	svc, ok := obj.(*slim_corev1.Service)
 	if ok {
@@ -383,7 +403,7 @@ func ConvertToK8sV1LoadBalancerIngress(slimLBIngs []slim_corev1.LoadBalancerIngr
 
 	lbIngs := make([]v1.LoadBalancerIngress, 0, len(slimLBIngs))
 	for _, lbIng := range slimLBIngs {
-		ports := make([]v1.PortStatus, 0, len(lbIng.Ports))
+		var ports []v1.PortStatus
 		for _, port := range lbIng.Ports {
 			ports = append(ports, v1.PortStatus{
 				Port:     port.Port,
@@ -539,8 +559,6 @@ func ConvertToK8sService(obj interface{}) interface{} {
 // *types.SlimCNP, also without the Status field of the given CNP, in its Obj.
 // If the given obj can't be cast into either *cilium_v2.CiliumClusterwideNetworkPolicy
 // nor cache.DeletedFinalStateUnknown, the original obj is returned.
-// WARNING calling this function will set *all* fields of the given CNP as
-// empty.
 func ConvertToCCNP(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumClusterwideNetworkPolicy:
@@ -552,7 +570,6 @@ func ConvertToCCNP(obj interface{}) interface{} {
 				Specs:      concreteObj.Specs,
 			},
 		}
-		*concreteObj = cilium_v2.CiliumClusterwideNetworkPolicy{}
 		return ccnp
 
 	case cache.DeletedFinalStateUnknown:
@@ -572,7 +589,6 @@ func ConvertToCCNP(obj interface{}) interface{} {
 			Key: concreteObj.Key,
 			Obj: slimCNP,
 		}
-		*ccnp = cilium_v2.CiliumClusterwideNetworkPolicy{}
 		return dfsu
 
 	default:
@@ -586,8 +602,6 @@ func ConvertToCCNP(obj interface{}) interface{} {
 // *types.SlimCNP, also without the Status field of the given CNP, in its Obj.
 // If the given obj can't be cast into either *cilium_v2.CiliumNetworkPolicy
 // nor cache.DeletedFinalStateUnknown, the original obj is returned.
-// WARNING calling this function will set *all* fields of the given CNP as
-// empty.
 func ConvertToCNP(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumNetworkPolicy:
@@ -599,7 +613,6 @@ func ConvertToCNP(obj interface{}) interface{} {
 				Specs:      concreteObj.Specs,
 			},
 		}
-		*concreteObj = cilium_v2.CiliumNetworkPolicy{}
 		return cnp
 	case cache.DeletedFinalStateUnknown:
 		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumNetworkPolicy)
@@ -617,7 +630,6 @@ func ConvertToCNP(obj interface{}) interface{} {
 				},
 			},
 		}
-		*cnp = cilium_v2.CiliumNetworkPolicy{}
 		return dfsu
 	default:
 		return obj
@@ -672,8 +684,6 @@ func convertToTaints(v1Taints []v1.Taint) []slim_corev1.Taint {
 // a cache.DeletedFinalStateUnknown with a *types.Node in its Obj.
 // If the given obj can't be cast into either *v1.Node
 // nor cache.DeletedFinalStateUnknown, the original obj is returned.
-// WARNING calling this function will set *all* fields of the given Node as
-// empty.
 func ConvertToNode(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *v1.Node:
@@ -699,7 +709,6 @@ func ConvertToNode(obj interface{}) interface{} {
 				Addresses: convertToAddress(concreteObj.Status.Addresses),
 			},
 		}
-		*concreteObj = v1.Node{}
 		return p
 	case cache.DeletedFinalStateUnknown:
 		node, ok := concreteObj.Obj.(*v1.Node)
@@ -731,7 +740,6 @@ func ConvertToNode(obj interface{}) interface{} {
 				},
 			},
 		}
-		*node = v1.Node{}
 		return dfsu
 	default:
 		return obj

@@ -71,23 +71,30 @@ func (client *Client) CreateVpnGatewayWithCallback(request *CreateVpnGatewayRequ
 // CreateVpnGatewayRequest is the request struct for api CreateVpnGateway
 type CreateVpnGatewayRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	EnableIpsec          requests.Boolean `position:"Query" name:"EnableIpsec"`
-	NetworkType          string           `position:"Query" name:"NetworkType"`
-	InstanceChargeType   string           `position:"Query" name:"InstanceChargeType"`
-	Period               requests.Integer `position:"Query" name:"Period"`
-	AutoPay              requests.Boolean `position:"Query" name:"AutoPay"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	Bandwidth            requests.Integer `position:"Query" name:"Bandwidth"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	VpnType              string           `position:"Query" name:"VpnType"`
-	VSwitchId            string           `position:"Query" name:"VSwitchId"`
-	EnableSsl            requests.Boolean `position:"Query" name:"EnableSsl"`
-	SslConnections       requests.Integer `position:"Query" name:"SslConnections"`
-	VpcId                string           `position:"Query" name:"VpcId"`
-	Name                 string           `position:"Query" name:"Name"`
+	ResourceOwnerId      requests.Integer        `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string                  `position:"Query" name:"ClientToken"`
+	EnableIpsec          requests.Boolean        `position:"Query" name:"EnableIpsec"`
+	NetworkType          string                  `position:"Query" name:"NetworkType"`
+	InstanceChargeType   string                  `position:"Query" name:"InstanceChargeType"`
+	Period               requests.Integer        `position:"Query" name:"Period"`
+	AutoPay              requests.Boolean        `position:"Query" name:"AutoPay"`
+	ResourceOwnerAccount string                  `position:"Query" name:"ResourceOwnerAccount"`
+	Bandwidth            requests.Integer        `position:"Query" name:"Bandwidth"`
+	OwnerAccount         string                  `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer        `position:"Query" name:"OwnerId"`
+	VpnType              string                  `position:"Query" name:"VpnType"`
+	Tags                 *[]CreateVpnGatewayTags `position:"Query" name:"Tags"  type:"Repeated"`
+	VSwitchId            string                  `position:"Query" name:"VSwitchId"`
+	EnableSsl            requests.Boolean        `position:"Query" name:"EnableSsl"`
+	SslConnections       requests.Integer        `position:"Query" name:"SslConnections"`
+	VpcId                string                  `position:"Query" name:"VpcId"`
+	Name                 string                  `position:"Query" name:"Name"`
+}
+
+// CreateVpnGatewayTags is a repeated param struct in CreateVpnGatewayRequest
+type CreateVpnGatewayTags struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // CreateVpnGatewayResponse is the response struct for api CreateVpnGateway

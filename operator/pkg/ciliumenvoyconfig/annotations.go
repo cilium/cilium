@@ -16,9 +16,8 @@ import (
 )
 
 const (
-	servicePrefixAnnotation = annotation.Prefix + ".service"
-	lbEnabledAnnotation     = servicePrefixAnnotation + "/lb-l7"
-	lbModeAnnotation        = servicePrefixAnnotation + "/lb-l7-algorithm"
+	lbEnabledAnnotation = annotation.ServicePrefix + "/lb-l7"
+	lbModeAnnotation    = annotation.ServicePrefix + "/lb-l7-algorithm"
 )
 
 type clusterMutator func(*envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster

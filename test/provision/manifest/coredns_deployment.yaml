@@ -33,7 +33,7 @@ spec:
       - args:
         - -conf
         - /etc/coredns/Corefile
-        image: k8s.gcr.io/coredns/coredns:v1.8.3
+        image: registry.k8s.io/coredns/coredns:v1.8.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 5

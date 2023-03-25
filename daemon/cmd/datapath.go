@@ -10,19 +10,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -30,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/auth"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -41,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
@@ -123,10 +123,26 @@ func clearCiliumVeths() error {
 	for _, v := range leftVeths {
 		peerIndex := v.Attrs().ParentIndex
 		parentVeth, found := leftVeths[peerIndex]
-		if found && peerIndex != 0 && strings.HasPrefix(parentVeth.Attrs().Name, "lxc") {
+
+		// In addition to name matching, double check whether the parent of the
+		// parent is the interface itself, to avoid removing the interface in
+		// case we hit an index clash, and the actual parent of the interface is
+		// in a different network namespace. Notably, this can happen in the
+		// context of Kind nodes, as eth0 is a veth interface itself; if an
+		// lxcxxxxxx interface ends up having the same ifindex of the eth0 parent
+		// (which is actually located in the root network namespace), we would
+		// otherwise end up deleting the eth0 interface, with the obvious
+		// ill-fated consequences.
+		if found && peerIndex != 0 && strings.HasPrefix(parentVeth.Attrs().Name, "lxc") &&
+			parentVeth.Attrs().ParentIndex == v.Attrs().Index {
+			scopedlog := log.WithFields(logrus.Fields{
+				logfields.Device: v.Attrs().Name,
+			})
+
+			scopedlog.Debug("Deleting stale veth device")
 			err := netlink.LinkDel(v)
 			if err != nil {
-				log.WithError(err).Warningf("Unable to delete stale veth device %s", v.Attrs().Name)
+				scopedlog.WithError(err).Warning("Unable to delete stale veth device")
 			}
 		}
 	}
@@ -334,6 +350,14 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
+	if err := nodemap.NodeMap().OpenOrCreate(); err != nil {
+		return err
+	}
+
+	if err := auth.InitAuthMap(option.Config.AuthMapEntries); err != nil {
+		return err
+	}
+
 	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {
 		return err
 	}
@@ -345,7 +369,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.EnableIPv4EgressGateway {
-		if err := egressmap.InitEgressMaps(); err != nil {
+		if err := egressmap.InitEgressMaps(option.Config.EgressGatewayPolicyMapEntries); err != nil {
 			return err
 		}
 	}
@@ -360,10 +384,8 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	createSockRevNatMaps := option.Config.EnableSocketLB &&
-		probes.HaveMapType(ebpf.LRUHash) == nil
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
-		createSockRevNatMaps, option.Config.RestoreState); err != nil {
+		option.Config.EnableSocketLB, option.Config.RestoreState); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 

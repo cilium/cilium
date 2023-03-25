@@ -13,7 +13,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
@@ -51,10 +53,10 @@ func NewTunnelMap(mapName string) *Map {
 	return &Map{Map: bpf.NewMap(
 		mapName,
 		bpf.MapTypeHash,
-		&TunnelEndpoint{},
-		int(unsafe.Sizeof(TunnelEndpoint{})),
-		&TunnelEndpoint{},
-		int(unsafe.Sizeof(TunnelEndpoint{})),
+		&TunnelKey{},
+		int(unsafe.Sizeof(TunnelKey{})),
+		&TunnelValue{},
+		int(unsafe.Sizeof(TunnelValue{})),
 		MaxEntries,
 		0, 0,
 		bpf.ConvertKeyValue,
@@ -64,48 +66,123 @@ func NewTunnelMap(mapName string) *Map {
 }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type TunnelEndpoint struct {
-	bpf.EndpointKey
+type TunnelIP struct {
+	// represents both IPv6 and IPv4 (in the lowest four bytes)
+	IP     types.IPv6 `align:"$union0"`
+	Family uint8      `align:"family"`
 }
 
-func newTunnelEndpoint(ip net.IP, clusterID uint32) (*TunnelEndpoint, error) {
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type TunnelKey struct {
+	TunnelIP
+	ClusterID uint8  `align:"cluster_id"`
+	Pad       uint16 `align:"pad"`
+}
+
+// GetKeyPtr returns the unsafe pointer to the BPF key
+func (k *TunnelKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// String provides a string representation of the TunnelKey.
+func (k TunnelKey) String() string {
+	if ip := k.toIP(); ip != nil {
+		addrCluster := cmtypes.AddrClusterFrom(
+			ippkg.MustAddrFromIP(ip),
+			uint32(k.ClusterID),
+		)
+		return addrCluster.String()
+	}
+	return "nil"
+}
+
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+type TunnelValue struct {
+	TunnelIP
+	Key    uint8  `align:"key"`
+	NodeID uint16 `align:"node_id"`
+}
+
+// GetValuePtr returns the unsafe pointer to the BPF key for users that
+// use TunnelValue as a value in bpf maps
+func (k *TunnelValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// String provides a string representation of the TunnelValue.
+func (k TunnelValue) String() string {
+	if ip := k.toIP(); ip != nil {
+		return ip.String() + ":" + fmt.Sprintf("%d %d", k.Key, k.NodeID)
+	}
+	return "nil"
+}
+
+// ToIP converts the TunnelIP into a net.IP structure.
+func (v TunnelIP) toIP() net.IP {
+	switch v.Family {
+	case bpf.EndpointKeyIPv4:
+		return v.IP[:4]
+	case bpf.EndpointKeyIPv6:
+		return v.IP[:]
+	}
+	return nil
+}
+
+func newTunnelKey(ip net.IP, clusterID uint32) (*TunnelKey, error) {
 	if clusterID > cmtypes.ClusterIDMax {
 		return nil, fmt.Errorf("ClusterID %d is too large. ClusterID > %d is not supported in TunnelMap", clusterID, cmtypes.ClusterIDMax)
 	}
-	return &TunnelEndpoint{
-		EndpointKey: bpf.NewEndpointKey(ip, uint8(clusterID)),
-	}, nil
+
+	result := TunnelKey{}
+	result.TunnelIP = newTunnelIP(ip)
+	result.ClusterID = uint8(clusterID)
+	return &result, nil
 }
 
-func (v TunnelEndpoint) NewValue() bpf.MapValue { return &TunnelEndpoint{} }
+func (v TunnelKey) NewValue() bpf.MapValue { return &TunnelValue{} }
+
+func newTunnelValue(ip net.IP, key uint8, nodeID uint16) *TunnelValue {
+	result := TunnelValue{}
+	result.TunnelIP = newTunnelIP(ip)
+	result.Key = key
+	result.NodeID = nodeID
+	return &result
+}
+
+func newTunnelIP(ip net.IP) TunnelIP {
+	result := TunnelIP{}
+	if ip4 := ip.To4(); ip4 != nil {
+		result.Family = bpf.EndpointKeyIPv4
+		copy(result.IP[:], ip4)
+	} else {
+		result.Family = bpf.EndpointKeyIPv6
+		copy(result.IP[:], ip)
+	}
+	return result
+}
+
+func (v TunnelValue) NewValue() bpf.MapValue { return &TunnelValue{} }
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
-func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix cmtypes.AddrCluster, endpoint net.IP) error {
-	key, err := newTunnelEndpoint(prefix.AsNetIP(), prefix.ClusterID())
+func (m *Map) SetTunnelEndpoint(encryptKey uint8, nodeID uint16, prefix cmtypes.AddrCluster, endpoint net.IP) error {
+	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID())
 	if err != nil {
 		return err
 	}
 
-	val, err := newTunnelEndpoint(endpoint, 0)
-	if err != nil {
-		return err
-	}
+	val := newTunnelValue(endpoint, encryptKey, nodeID)
 
-	val.EndpointKey.Key = encryptKey
 	log.WithFields(logrus.Fields{
 		fieldPrefix:   prefix,
 		fieldEndpoint: endpoint,
 		fieldKey:      encryptKey,
+		fieldNodeID:   nodeID,
 	}).Debug("Updating tunnel map entry")
 
 	return m.Update(key, val)
 }
 
-// GetTunnelEndpoint removes a prefix => tunnel-endpoint mapping
+// GetTunnelEndpoint retrieves a prefix => tunnel-endpoint mapping
 func (m *Map) GetTunnelEndpoint(prefix cmtypes.AddrCluster) (net.IP, error) {
-	key, err := newTunnelEndpoint(prefix.AsNetIP(), prefix.ClusterID())
+	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID())
 	if err != nil {
 		return net.IP{}, err
 	}
@@ -115,12 +192,12 @@ func (m *Map) GetTunnelEndpoint(prefix cmtypes.AddrCluster) (net.IP, error) {
 		return net.IP{}, err
 	}
 
-	return val.(*TunnelEndpoint).ToIP(), nil
+	return val.(*TunnelValue).toIP(), nil
 }
 
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping
 func (m *Map) DeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
-	key, err := newTunnelEndpoint(prefix.AsNetIP(), prefix.ClusterID())
+	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID())
 	if err != nil {
 		return err
 	}
@@ -131,7 +208,7 @@ func (m *Map) DeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
 // SilentDeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping.
 // If the prefix is not found no error is returned.
 func (m *Map) SilentDeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
-	key, err := newTunnelEndpoint(prefix.AsNetIP(), prefix.ClusterID())
+	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID())
 	if err != nil {
 		return err
 	}

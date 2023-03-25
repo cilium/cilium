@@ -32,9 +32,6 @@ respective gRPC APIs. This capability is usually referred to as multi-node.
 Hubble Relay's main goal is to offer a rich API that can be safely exposed and
 consumed by the Hubble UI and CLI.
 
-.. note:: This guide does not cover Hubble in standalone mode, which is
-          deprecated with the release of Cilium v1.8.
-
 Hubble Architecture
 ===================
 
@@ -46,8 +43,8 @@ Hubble server
 
 The Hubble server component implements two gRPC services. The **Observer
 service** which may optionally be exposed via a TCP socket in addition to a
-local Unix domain socket and the  **Peer service**, which is served on both
-as well as a Kubernetes Service.
+local Unix domain socket and the **Peer service**, which is served on both
+as well as being exposed as a Kubernetes Service when enabled via TCP.
 
 The Observer service
 ^^^^^^^^^^^^^^^^^^^^
@@ -59,7 +56,7 @@ other information related to the running instance(s)), ``GetFlows`` is far more
 sophisticated and the more important one.
 
 Using ``GetFlows``, callers get a stream of payloads. Request parameters allow
-callers to specify filters in the form of blacklists and whitelists to allow
+callers to specify filters in the form of allow lists and deny lists to allow
 for fine-grained filtering of data.
 
 In order to answer ``GetFlows`` requests, Hubble stores monitoring events from
@@ -68,6 +65,11 @@ events are obtained by registering a new listener on Cilium monitor. The
 ring buffer is capable of storing a configurable amount of events in memory.
 Events are continuously consumed, overriding older ones once the ring buffer is
 full.
+
+Additionally, the Observer service also provides the ``GetAgentEvents`` and
+``GetDebugEvents`` RPC endpoints to expose data about the Cilium agent events
+and Cilium datapath debug events, respectively. Both are similar to ``GetFlows``
+except they do not implement filtering capabilities.
 
 .. image:: ./../images/hubble_getflows.png
 
@@ -92,12 +94,11 @@ The Peer service
 The Peer service sends information about Hubble peers in the cluster in a
 stream. When the ``Notify`` method is called, it reports information about all
 the peers in the cluster and subsequently sends information about peers that
-are updated, added or removed from the cluster. Thus, it allows the caller to
+are updated, added, or removed from the cluster. Thus, it allows the caller to
 keep track of all Hubble instances and query their respective gRPC services.
 
-This service is typically only exposed on a local Unix domain socket and a
-Kubernetes Service and is primarily used by Hubble Relay in order to have
-a cluster-wide view of all Hubble instances.
+This service is exposed as a Kubernetes Service and is primarily used by Hubble
+Relay in order to have a cluster-wide view of all Hubble instances.
 
 The Peer service obtains peer change notifications by subscribing to Cilium's
 node manager. To this end, it internally defines a handler that implements
@@ -115,7 +116,7 @@ from across the entire cluster (or even multiple clusters in a ClusterMesh
 scenario).
 
 Hubble Relay was first introduced as a technology preview with the release of
-Cilium v1.8. It is declared stable with the release of Cilium v1.9.
+Cilium v1.8 and was declared stable with the release of Cilium v1.9.
 
 Hubble Relay implements the Observer service for multi-node. To that end, it
 maintains a persistent connection with every Hubble peer in a cluster with a

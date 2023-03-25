@@ -465,8 +465,8 @@ func failIfContainsBadLogMsg(logs, label string, blacklist map[string][]string) 
 					}
 				}
 				if !ok {
-					count, _ := uniqueFailures[fail]
-					uniqueFailures[fail] = count + 1
+					count, _ := uniqueFailures[msg]
+					uniqueFailures[msg] = count + 1
 				}
 			}
 		}
@@ -578,7 +578,7 @@ func DoesNotRunOnEKS() bool {
 // kube-proxy replacement. Note that kube-proxy may still be running
 // alongside Cilium.
 func RunsWithKubeProxyReplacement() bool {
-	return RunsOnGKE() || RunsOn419OrLaterKernel()
+	return RunsOnGKE() || RunsOn54OrLaterKernel()
 }
 
 // DoesNotRunWithKubeProxyReplacement is the complement function of
@@ -710,11 +710,6 @@ func GetLatestImageVersion() string {
 // SkipQuarantined returns whether test under quarantine should be skipped
 func SkipQuarantined() bool {
 	return !config.CiliumTestConfig.RunQuarantined
-}
-
-// SkipGKEQuarantined returns whether test under quarantine on GKE should be skipped
-func SkipGKEQuarantined() bool {
-	return SkipQuarantined() && IsIntegration(CIIntegrationGKE)
 }
 
 // SkipRaceDetectorEnabled returns whether tests failing with race detector

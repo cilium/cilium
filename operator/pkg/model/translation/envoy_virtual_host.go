@@ -12,7 +12,6 @@ import (
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -90,12 +89,17 @@ func (s SortableRoute) Less(i, j int) bool {
 	queryMatch2 := len(s[j].Match.GetQueryParameters())
 	if queryMatch1 > queryMatch2 {
 		return true
+	} else if queryMatch1 < queryMatch2 {
+		return false
 	}
 
 	// Make sure the longest header match always comes first
 	headerMatch1 := len(s[i].Match.GetHeaders())
 	headerMatch2 := len(s[j].Match.GetHeaders())
-	return headerMatch1 > headerMatch2
+	if headerMatch1 > headerMatch2 {
+		return true
+	}
+	return false
 }
 
 func (s SortableRoute) Swap(i, j int) {
@@ -115,23 +119,18 @@ func NewVirtualHostWithDefaults(hostnames []string, httpsRedirect bool, hostName
 
 // NewVirtualHost creates a new VirtualHost with the given host and routes.
 func NewVirtualHost(hostnames []string, httpsRedirect bool, hostNameSuffixMatch bool, httpRoutes []model.HTTPRoute, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
-	matchBackendMap := make(map[string][]model.HTTPRoute)
-	for _, r := range httpRoutes {
-		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
-	}
-
 	var routes SortableRoute
 	if httpsRedirect {
-		routes = envoyHTTPSRoutes(matchBackendMap, hostnames, hostNameSuffixMatch)
+		routes = envoyHTTPSRoutes(httpRoutes, hostnames, hostNameSuffixMatch)
 	} else {
-		routes = envoyHTTPRoutes(matchBackendMap, hostnames, hostNameSuffixMatch)
+		routes = envoyHTTPRoutes(httpRoutes, hostnames, hostNameSuffixMatch)
 	}
 
 	// This is to make sure that the Exact match is always having higher priority.
 	// Each route entry in the virtual host is checked, in order. If there is a
 	// match, the route is used and no further route checks are made.
 	// Related docs https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/route_matching
-	sort.Sort(routes)
+	sort.Stable(routes)
 
 	var domains []string
 	for _, host := range hostnames {
@@ -159,9 +158,19 @@ func NewVirtualHost(hostnames []string, httpsRedirect bool, hostNameSuffixMatch 
 	return res, nil
 }
 
-func envoyHTTPSRoutes(matchBackendMap map[string][]model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) []*envoy_config_route_v3.Route {
+func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) []*envoy_config_route_v3.Route {
+	matchBackendMap := make(map[string][]model.HTTPRoute)
+	for _, r := range httpRoutes {
+		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
+	}
+
 	routes := make([]*envoy_config_route_v3.Route, 0, len(matchBackendMap))
-	for _, hRoutes := range matchBackendMap {
+	for _, r := range httpRoutes {
+		hRoutes, exists := matchBackendMap[r.GetMatchKey()]
+		// if not exists, it means this route is already added to the routes
+		if !exists {
+			continue
+		}
 		rRedirect := &envoy_config_route_v3.Route_Redirect{
 			Redirect: &envoy_config_route_v3.RedirectAction{
 				SchemeRewriteSpecifier: &envoy_config_route_v3.RedirectAction_HttpsRedirect{
@@ -179,56 +188,31 @@ func envoyHTTPSRoutes(matchBackendMap map[string][]model.HTTPRoute, hostnames []
 			Action: rRedirect,
 		}
 		routes = append(routes, &route)
+		delete(matchBackendMap, r.GetMatchKey())
 	}
 	return routes
 }
 
-func envoyHTTPRoutes(matchBackendMap map[string][]model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) []*envoy_config_route_v3.Route {
+func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) []*envoy_config_route_v3.Route {
+	matchBackendMap := make(map[string][]model.HTTPRoute)
+	for _, r := range httpRoutes {
+		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
+	}
+
 	routes := make([]*envoy_config_route_v3.Route, 0, len(matchBackendMap))
-	for _, hRoutes := range matchBackendMap {
+	for _, r := range httpRoutes {
+		hRoutes, exists := matchBackendMap[r.GetMatchKey()]
+		if !exists {
+			continue
+		}
 		var backends []model.Backend
 		for _, r := range hRoutes {
 			backends = append(backends, r.Backends...)
 		}
 
-		if len(backends) == 0 {
+		if len(backends) == 0 && hRoutes[0].RequestRedirect == nil {
 			routes = append(routes, envoyHTTPRouteNoBackend(hRoutes[0], hostnames, hostNameSuffixMatch))
 			continue
-		}
-
-		var routeAction *envoy_config_route_v3.Route_Route
-		if len(backends) == 1 {
-			routeAction = &envoy_config_route_v3.Route_Route{
-				Route: &envoy_config_route_v3.RouteAction{
-					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-						Cluster: fmt.Sprintf("%s/%s:%s", backends[0].Namespace, backends[0].Name, backends[0].Port.GetPort()),
-					},
-				},
-			}
-		} else {
-			weightedClusters := make([]*envoy_config_route_v3.WeightedCluster_ClusterWeight, 0, len(routes))
-			totalWeight := int32(0)
-			for _, be := range backends {
-				var weight int32 = 1
-				if be.Weight != nil {
-					weight = *be.Weight
-				}
-				totalWeight += weight
-				weightedClusters = append(weightedClusters, &envoy_config_route_v3.WeightedCluster_ClusterWeight{
-					Name:   fmt.Sprintf("%s/%s:%s", be.Namespace, be.Name, be.Port.GetPort()),
-					Weight: wrapperspb.UInt32(uint32(weight)),
-				})
-			}
-			routeAction = &envoy_config_route_v3.Route_Route{
-				Route: &envoy_config_route_v3.RouteAction{
-					ClusterSpecifier: &envoy_config_route_v3.RouteAction_WeightedClusters{
-						WeightedClusters: &envoy_config_route_v3.WeightedCluster{
-							Clusters:    weightedClusters,
-							TotalWeight: wrapperspb.UInt32(uint32(totalWeight)),
-						},
-					},
-				},
-			}
 		}
 
 		route := envoy_config_route_v3.Route{
@@ -238,13 +222,98 @@ func envoyHTTPRoutes(matchBackendMap map[string][]model.HTTPRoute, hostnames []s
 				hRoutes[0].HeadersMatch,
 				hRoutes[0].QueryParamsMatch,
 				hRoutes[0].Method),
-			Action:                 routeAction,
-			RequestHeadersToAdd:    getRequestHeadersToAdd(hRoutes[0]),
-			RequestHeadersToRemove: getRequestHeadersToRemove(hRoutes[0]),
+			RequestHeadersToAdd:     getHeadersToAdd(hRoutes[0].RequestHeaderFilter),
+			RequestHeadersToRemove:  getHeadersToRemove(hRoutes[0].RequestHeaderFilter),
+			ResponseHeadersToAdd:    getHeadersToAdd(hRoutes[0].ResponseHeaderModifier),
+			ResponseHeadersToRemove: getHeadersToRemove(hRoutes[0].ResponseHeaderModifier),
+		}
+
+		if hRoutes[0].RequestRedirect != nil {
+			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect)
+		} else {
+			route.Action = getRouteAction(backends)
 		}
 		routes = append(routes, &route)
+		delete(matchBackendMap, r.GetMatchKey())
 	}
 	return routes
+}
+
+func getRouteAction(backends []model.Backend) *envoy_config_route_v3.Route_Route {
+	var routeAction *envoy_config_route_v3.Route_Route
+	if len(backends) == 1 {
+		return &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{
+				ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+					Cluster: fmt.Sprintf("%s/%s:%s", backends[0].Namespace, backends[0].Name, backends[0].Port.GetPort()),
+				},
+			},
+		}
+	}
+
+	weightedClusters := make([]*envoy_config_route_v3.WeightedCluster_ClusterWeight, 0, len(backends))
+	totalWeight := int32(0)
+	for _, be := range backends {
+		var weight int32 = 1
+		if be.Weight != nil {
+			weight = *be.Weight
+		}
+		totalWeight += weight
+		weightedClusters = append(weightedClusters, &envoy_config_route_v3.WeightedCluster_ClusterWeight{
+			Name:   fmt.Sprintf("%s/%s:%s", be.Namespace, be.Name, be.Port.GetPort()),
+			Weight: wrapperspb.UInt32(uint32(weight)),
+		})
+	}
+	routeAction = &envoy_config_route_v3.Route_Route{
+		Route: &envoy_config_route_v3.RouteAction{
+			ClusterSpecifier: &envoy_config_route_v3.RouteAction_WeightedClusters{
+				WeightedClusters: &envoy_config_route_v3.WeightedCluster{
+					Clusters:    weightedClusters,
+					TotalWeight: wrapperspb.UInt32(uint32(totalWeight)),
+				},
+			},
+		},
+	}
+	return routeAction
+}
+
+func getRouteRedirect(redirect *model.HTTPRequestRedirectFilter) *envoy_config_route_v3.Route_Redirect {
+	redirectAction := &envoy_config_route_v3.RedirectAction{}
+
+	if redirect.Scheme != nil {
+		redirectAction.SchemeRewriteSpecifier = &envoy_config_route_v3.RedirectAction_SchemeRedirect{
+			SchemeRedirect: *redirect.Scheme,
+		}
+	}
+
+	if redirect.Hostname != nil {
+		redirectAction.HostRedirect = *redirect.Hostname
+	}
+
+	if redirect.Port != nil {
+		redirectAction.PortRedirect = uint32(*redirect.Port)
+	}
+
+	if redirect.StatusCode != nil {
+		redirectAction.ResponseCode = toRedirectResponseCode(*redirect.StatusCode)
+	}
+
+	if redirect.Path != nil {
+		if len(redirect.Path.Prefix) != 0 {
+			redirectAction.PathRewriteSpecifier = &envoy_config_route_v3.RedirectAction_PrefixRewrite{
+				PrefixRewrite: redirect.Path.Prefix,
+			}
+		}
+		if len(redirect.Path.Exact) != 0 {
+			redirectAction.PathRewriteSpecifier = &envoy_config_route_v3.RedirectAction_PathRedirect{
+				PathRedirect: redirect.Path.Exact,
+			}
+		}
+	}
+
+	return &envoy_config_route_v3.Route_Redirect{
+		Redirect: redirectAction,
+	}
 }
 
 func envoyHTTPRouteNoBackend(route model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) *envoy_config_route_v3.Route {
@@ -288,8 +357,7 @@ func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-					Regex:      getMatchingPrefixRegex(pathMatch.Prefix),
+					Regex: getMatchingPrefixRegex(pathMatch.Prefix),
 				},
 			},
 			Headers:         headerMatchers,
@@ -300,8 +368,7 @@ func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-					Regex:      pathMatch.Regex,
+					Regex: pathMatch.Regex,
 				},
 			},
 			Headers:         headerMatchers,
@@ -344,8 +411,7 @@ func getHeaderMatchers(hostnames []string, hostNameSuffixMatch bool, headers []m
 						StringMatch: &envoy_type_matcher_v3.StringMatcher{
 							MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
 								SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-									EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-									Regex:      getMatchingHeaderRegex(host),
+									Regex: getMatchingHeaderRegex(host),
 								},
 							},
 						},
@@ -426,8 +492,7 @@ func getEnvoyStringMatcher(s model.StringMatch) *envoy_type_matcher_v3.StringMat
 		return &envoy_type_matcher_v3.StringMatcher{
 			MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
 				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-					Regex:      s.Regex,
+					Regex: s.Regex,
 				},
 			},
 		}
@@ -435,40 +500,57 @@ func getEnvoyStringMatcher(s model.StringMatch) *envoy_type_matcher_v3.StringMat
 	return nil
 }
 
-func getRequestHeadersToAdd(route model.HTTPRoute) []*envoy_config_core_v3.HeaderValueOption {
-	if route.RequestHeaderFilter == nil {
+func getHeadersToAdd(filter *model.HTTPHeaderFilter) []*envoy_config_core_v3.HeaderValueOption {
+	if filter == nil {
 		return nil
 	}
 	result := make(
 		[]*envoy_config_core_v3.HeaderValueOption,
 		0,
-		len(route.RequestHeaderFilter.HeadersToAdd)+len(route.RequestHeaderFilter.HeadersToSet),
+		len(filter.HeadersToAdd)+len(filter.HeadersToSet),
 	)
-	for _, h := range route.RequestHeaderFilter.HeadersToAdd {
+	for _, h := range filter.HeadersToAdd {
 		result = append(result, &envoy_config_core_v3.HeaderValueOption{
 			Header: &envoy_config_core_v3.HeaderValue{
 				Key:   h.Name,
 				Value: h.Value,
 			},
-			Append: &wrappers.BoolValue{Value: true},
+			AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 		})
 	}
 
-	for _, h := range route.RequestHeaderFilter.HeadersToSet {
+	for _, h := range filter.HeadersToSet {
 		result = append(result, &envoy_config_core_v3.HeaderValueOption{
 			Header: &envoy_config_core_v3.HeaderValue{
 				Key:   h.Name,
 				Value: h.Value,
 			},
-			Append: &wrappers.BoolValue{Value: false},
+			AppendAction: envoy_config_core_v3.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 		})
 	}
 	return result
 }
 
-func getRequestHeadersToRemove(route model.HTTPRoute) []string {
-	if route.RequestHeaderFilter == nil {
+func getHeadersToRemove(filter *model.HTTPHeaderFilter) []string {
+	if filter == nil {
 		return nil
 	}
-	return route.RequestHeaderFilter.HeadersToRemove
+	return filter.HeadersToRemove
+}
+
+func toRedirectResponseCode(statusCode int) envoy_config_route_v3.RedirectAction_RedirectResponseCode {
+	switch statusCode {
+	case 301:
+		return envoy_config_route_v3.RedirectAction_MOVED_PERMANENTLY
+	case 302:
+		return envoy_config_route_v3.RedirectAction_FOUND
+	case 303:
+		return envoy_config_route_v3.RedirectAction_SEE_OTHER
+	case 307:
+		return envoy_config_route_v3.RedirectAction_TEMPORARY_REDIRECT
+	case 308:
+		return envoy_config_route_v3.RedirectAction_PERMANENT_REDIRECT
+	default:
+		return envoy_config_route_v3.RedirectAction_MOVED_PERMANENTLY
+	}
 }

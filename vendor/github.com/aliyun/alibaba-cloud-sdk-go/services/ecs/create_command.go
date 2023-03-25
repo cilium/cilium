@@ -71,18 +71,33 @@ func (client *Client) CreateCommandWithCallback(request *CreateCommandRequest, c
 // CreateCommandRequest is the request struct for api CreateCommand
 type CreateCommandRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	WorkingDir           string           `position:"Query" name:"WorkingDir"`
-	Description          string           `position:"Query" name:"Description"`
-	Type                 string           `position:"Query" name:"Type"`
-	CommandContent       string           `position:"Query" name:"CommandContent"`
-	Timeout              requests.Integer `position:"Query" name:"Timeout"`
-	ContentEncoding      string           `position:"Query" name:"ContentEncoding"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	Name                 string           `position:"Query" name:"Name"`
-	EnableParameter      requests.Boolean `position:"Query" name:"EnableParameter"`
+	ResourceOwnerId      requests.Integer          `position:"Query" name:"ResourceOwnerId"`
+	SystemTag            *[]CreateCommandSystemTag `position:"Query" name:"SystemTag"  type:"Repeated"`
+	WorkingDir           string                    `position:"Query" name:"WorkingDir"`
+	Description          string                    `position:"Query" name:"Description"`
+	Type                 string                    `position:"Query" name:"Type"`
+	CommandContent       string                    `position:"Query" name:"CommandContent"`
+	Timeout              requests.Integer          `position:"Query" name:"Timeout"`
+	ContentEncoding      string                    `position:"Query" name:"ContentEncoding"`
+	Tag                  *[]CreateCommandTag       `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount string                    `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                    `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer          `position:"Query" name:"OwnerId"`
+	Name                 string                    `position:"Query" name:"Name"`
+	EnableParameter      requests.Boolean          `position:"Query" name:"EnableParameter"`
+}
+
+// CreateCommandSystemTag is a repeated param struct in CreateCommandRequest
+type CreateCommandSystemTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
+	Scope string `name:"Scope"`
+}
+
+// CreateCommandTag is a repeated param struct in CreateCommandRequest
+type CreateCommandTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateCommandResponse is the response struct for api CreateCommand

@@ -29,7 +29,7 @@ const (
 	PeerHasProtocolVersion     PeerFlag = 1 << 4
 	PeerReplaceAllowedIPs      PeerFlag = 1 << 5
 	PeerRemove                 PeerFlag = 1 << 6
-	PeerUpdateOnly                 PeerFlag = 1 << 7
+	PeerUpdateOnly             PeerFlag = 1 << 7
 )
 
 type Peer struct {

@@ -201,9 +201,12 @@ data:
   skip-crd-creation: "true"
 {{- end }}
 
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
+  enable-envoy-config: "true"
+{{- end }}
+
 {{- if .Values.ingressController.enabled }}
   enable-ingress-controller: "true"
-  enable-envoy-config: "true"
   enforce-ingress-https: {{ .Values.ingressController.enforceHttps | quote }}
   enable-ingress-secrets-sync: {{ .Values.ingressController.secretsNamespace.sync | quote }}
   ingress-secrets-namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
@@ -214,7 +217,6 @@ data:
 
 {{- if .Values.gatewayAPI.enabled }}
   enable-gateway-api: "true"
-  enable-envoy-config: "true"
   enable-gateway-api-secrets-sync: {{ .Values.gatewayAPI.secretsNamespace.sync | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
 {{- end }}
@@ -222,7 +224,6 @@ data:
 {{- if hasKey .Values "loadBalancer" }}
 {{- if eq .Values.loadBalancer.l7.backend "envoy" }}
   loadbalancer-l7: "envoy"
-  enable-envoy-config: "true"
   loadbalancer-l7-ports: {{ .Values.loadBalancer.l7.ports | join " " | quote }}
   loadbalancer-l7-algorithm: {{ .Values.loadBalancer.l7.algorithm | quote }}
 {{- end }}
@@ -311,6 +312,10 @@ data:
   enable-host-legacy-routing: "true"
 {{- end }}
 
+{{- if .Values.bpf.authMapMax }}
+  # bpf-auth-map-max specifies the maximum number of entries in the auth map
+  bpf-auth-map-max: {{ .Values.bpf.authMapMax | quote }}
+{{- end }}
 {{- if or $bpfCtTcpMax $bpfCtAnyMax }}
   # bpf-ct-global-*-max specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
@@ -513,20 +518,18 @@ data:
     {{- else if .Values.encryption.interface }}
   encrypt-interface: {{ .Values.encryption.interface }}
     {{- end }}
-
-    {{- if .Values.encryption.nodeEncryption }}
-  encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
-    {{- end }}
   {{- else if eq .Values.encryption.type "wireguard" }}
   enable-wireguard: {{ .Values.encryption.enabled | quote }}
     {{- if .Values.encryption.wireguard.userspaceFallback }}
   enable-wireguard-userspace-fallback: {{ .Values.encryption.wireguard.userspaceFallback | quote }}
     {{- end }}
   {{- end }}
+  {{- if .Values.encryption.nodeEncryption }}
+  encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
+  {{- end }}
 {{- end }}
 
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
-  install-iptables-rules: {{ .Values.installIptablesRules | quote }}
 {{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne .Values.cni.chainingMode "none") }}
   install-no-conntrack-iptables-rules: "false"
 {{- else }}
@@ -701,11 +704,17 @@ data:
 {{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
 {{- end }}
+{{- if and .Values.k8sNetworkPolicy .Values.k8sNetworkPolicy.enabled }}
+  enable-k8s-networkpolicy: {{ .Values.k8sNetworkPolicy.enabled | quote }}
+{{- end }}
 {{- if .Values.cni.configMap }}
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
   write-cni-conf-when-ready: {{ .Values.cni.hostConfDirMountPath }}/05-cilium.conflist
 {{- else if .Values.cni.readCniConf }}
   read-cni-conf: {{ .Values.cni.readCniConf }}
+{{- end }}
+{{- if .Values.cni.uninstall }}
+  cni-uninstall: {{ .Values.cni.uninstall | quote }}
 {{- end }}
 {{- if .Values.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.kubeConfigPath | quote }}
@@ -793,6 +802,10 @@ data:
   ipam: {{ $ipam | quote }}
 {{- end }}
 
+{{- if .Values.ipam.ciliumNodeUpdateRate }}
+  ipam-cilium-node-update-rate: {{ include "validateDuration" .Values.ipam.ciliumNodeUpdateRate | quote }}
+{{- end }}
+
 {{- if or (eq $ipam "cluster-pool") (eq $ipam "cluster-pool-v2beta") }}
 {{- if .Values.ipv4.enabled }}
   {{- if .Values.ipam.operator.clusterPoolIPv4PodCIDRList }}
@@ -820,9 +833,10 @@ data:
 {{- end }}
 
 {{- if .Values.enableCnpStatusUpdates }}
-  disable-cnp-status-updates: {{ (not .Values.enableCnpStatusUpdates) | quote }}
+  disable-cnp-status-updates: "false"
 {{- else if (eq $defaultEnableCnpStatusUpdates "false") }}
   disable-cnp-status-updates: "true"
+  cnp-node-status-gc-interval: "0s"
 {{- end }}
 
 {{- if .Values.egressGateway.enabled }}
@@ -830,6 +844,9 @@ data:
 {{- end }}
 {{- if .Values.egressGateway.installRoutes }}
   install-egress-gateway-routes: "true"
+{{- end }}
+{{- if .Values.egressGateway.maxPolicyEntries }}
+  egress-gateway-policy-map-max: {{ .Values.egressGateway.maxPolicyEntries }}
 {{- end }}
 
 {{- if hasKey .Values "vtep" }}
@@ -930,8 +947,17 @@ data:
   annotate-k8s-node: "true"
 {{- end }}
 
+{{- if and .Values.operator.setNodeTaints (not .Values.operator.removeNodeTaints) -}}
+  {{ fail "Cannot have operator.setNodeTaintsMaxNodes and not operator.removeNodeTaints = false" }}
+{{- end -}}
 {{- if .Values.operator.removeNodeTaints }}
   remove-cilium-node-taints: "true"
+{{- end }}
+{{- /* set node taints if setNodeTaints is explicitly enabled or removeNodeTaints is set */ -}}
+{{- if or .Values.operator.setNodeTaints
+          ( and (kindIs "invalid" .Values.operator.setNodeTaints)
+                .Values.operator.removeNodeTaints ) }}
+  set-cilium-node-taints: "true"
 {{- end }}
 {{- if .Values.operator.setNodeNetworkStatus }}
   set-cilium-is-up-condition: "true"
@@ -981,6 +1007,12 @@ data:
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}
 
+{{- end }}
+
+{{- if .Values.auth.mTLS.enabled }}
+  mesh-auth-mtls-listener-port: {{ .Values.auth.mTLS.port | quote }}
+  mesh-auth-spire-admin-socket: {{ .Values.auth.mTLS.spireAdminSocketPath }}
+  mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spiffeTrustDomain }}
 {{- end }}
 
 ---

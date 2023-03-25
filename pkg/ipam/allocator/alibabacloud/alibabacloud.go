@@ -63,6 +63,17 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Send API requests to "vpc" network endpoints instead of the default "public" network
+	// endpoints, so the ECS instance hosting cilium-operator doesn't require public network access
+	// to reach alibabacloud API.
+	// vpc endpoints are spliced to the format: <product>-<network>.<region_id>.aliyuncs.com
+	// e.g. ecs-vpc.cn-shanghai.aliyuncs.com
+	// ref https://github.com/aliyun/alibaba-cloud-sdk-go/blob/master/docs/11-Endpoint-EN.md
+	vpcClient.Network = "vpc"
+	ecsClient.Network = "vpc"
+
+	vpcClient.GetConfig().WithScheme("HTTPS")
+	ecsClient.GetConfig().WithScheme("HTTPS")
 
 	a.client = openapi.NewClient(vpcClient, ecsClient, aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
 		operatorOption.Config.IPAMAPIBurst, map[string]string{openapi.VPCID: vpcID})

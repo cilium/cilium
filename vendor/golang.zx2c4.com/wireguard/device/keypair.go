@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package device
@@ -10,7 +10,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unsafe"
 
 	"golang.zx2c4.com/wireguard/replay"
 )
@@ -23,7 +22,7 @@ import (
  */
 
 type Keypair struct {
-	sendNonce    uint64 // accessed atomically
+	sendNonce    atomic.Uint64
 	send         cipher.AEAD
 	receive      cipher.AEAD
 	replayFilter replay.Filter
@@ -37,15 +36,7 @@ type Keypairs struct {
 	sync.RWMutex
 	current  *Keypair
 	previous *Keypair
-	next     *Keypair
-}
-
-func (kp *Keypairs) storeNext(next *Keypair) {
-	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&kp.next)), (unsafe.Pointer)(next))
-}
-
-func (kp *Keypairs) loadNext() *Keypair {
-	return (*Keypair)(atomic.LoadPointer((*unsafe.Pointer)((unsafe.Pointer)(&kp.next))))
+	next     atomic.Pointer[Keypair]
 }
 
 func (kp *Keypairs) Current() *Keypair {

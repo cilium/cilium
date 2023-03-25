@@ -31,12 +31,10 @@ const (
 	serviceAffinityNone   = ""
 	serviceAffinityLocal  = "local"
 	serviceAffinityRemote = "remote"
-
-	annotationTopologyAwareHints = "service.kubernetes.io/topology-aware-hints"
 )
 
 func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
-	if value, ok := svc.ObjectMeta.Annotations[annotation.GlobalService]; ok {
+	if value, ok := annotation.Get(svc, annotation.GlobalService, annotation.GlobalServiceAlias); ok {
 		return strings.ToLower(value) == "true"
 	}
 
@@ -44,22 +42,34 @@ func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
 }
 
 func getAnnotationShared(svc *slim_corev1.Service) bool {
-	if value, ok := svc.ObjectMeta.Annotations[annotation.SharedService]; ok {
+	// The SharedService annotation is ignored if the service is not declared as global.
+	if !getAnnotationIncludeExternal(svc) {
+		return false
+	}
+
+	if value, ok := annotation.Get(svc, annotation.SharedService, annotation.SharedServiceAlias); ok {
 		return strings.ToLower(value) == "true"
 	}
 
-	return getAnnotationIncludeExternal(svc)
+	// A global service is marked as shared by default.
+	return true
 }
 
 func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
-	if value, ok := svc.ObjectMeta.Annotations[annotation.ServiceAffinity]; ok {
+	// The ServiceAffinity annotation is ignored if the service is not declared as global.
+	if !getAnnotationIncludeExternal(svc) {
+		return serviceAffinityNone
+	}
+
+	if value, ok := annotation.Get(svc, annotation.ServiceAffinity, annotation.ServiceAffinityAlias); ok {
 		return strings.ToLower(value)
 	}
+
 	return serviceAffinityNone
 }
 
 func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
-	if value, ok := svc.ObjectMeta.Annotations[annotationTopologyAwareHints]; ok {
+	if value, ok := svc.ObjectMeta.Annotations[v1.AnnotationTopologyAwareHints]; ok {
 		return strings.ToLower(value) == "auto"
 	}
 
@@ -372,17 +382,17 @@ type Service struct {
 	TopologyAware bool
 }
 
-// DeepEqual returns true if both the receiver and 'o' are deeply equal.
+// DeepEqual returns true if s and other are deeply equal.
 func (s *Service) DeepEqual(other *Service) bool {
 	if s == nil {
 		return other == nil
 	}
 
-	if !ip.UnsortedIPListsAreEqual(s.FrontendIPs, other.FrontendIPs) {
+	if !s.deepEqual(other) {
 		return false
 	}
 
-	if s.Shared != other.Shared || s.IncludeExternal != other.IncludeExternal || s.ServiceAffinity != other.ServiceAffinity {
+	if !ip.UnsortedIPListsAreEqual(s.FrontendIPs, other.FrontendIPs) {
 		return false
 	}
 
@@ -426,7 +436,7 @@ func (s *Service) DeepEqual(other *Service) bool {
 		}
 	}
 
-	return s.deepEqual(other)
+	return true
 }
 
 // String returns the string representation of a service resource
@@ -703,7 +713,10 @@ func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry) func(ctx context.C
 					log.Debug("Service not found in the service IP getter")
 				}
 			} else {
-				log.WithFields(logrus.Fields{"url-host": u.Host, "url": s}).Debug("Unable to parse etcd service URL into a service ID")
+				log.WithFields(logrus.Fields{
+					"url-host": u.Host,
+					"url":      s,
+				}).Debug("Unable to parse etcd service URL into a service ID")
 			}
 			log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
 		} else {

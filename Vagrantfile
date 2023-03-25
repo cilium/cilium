@@ -201,6 +201,7 @@ Vagrant.configure(2) do |config|
     master_vm_name = "#{$vm_base_name}1#{$build_id_name}#{$vm_kernel}"
     config.vm.define master_vm_name, primary: true do |cm|
         node_ip = "#{$master_ip}"
+        node_ipv6 = "#{$master_ipv6}"
         cm.vm.network "forwarded_port", guest: 6443, host: 7443, auto_correct: true
         cm.vm.network "forwarded_port", guest: 9081, host: 9081, auto_correct: true
         # 2345 is the default delv server port
@@ -241,7 +242,7 @@ Vagrant.configure(2) do |config|
                cm.vm.provision "k8s-install-master-part-1",
                    type: "shell",
                    run: "always",
-                   env: {"node_ip" => node_ip},
+                   env: {"node_ip" => node_ip, "node_ipv6" => node_ipv6},
                    privileged: true,
                    path: k8sinstall
            end
@@ -255,7 +256,7 @@ Vagrant.configure(2) do |config|
                cm.vm.provision "k8s-install-master-part-2",
                    type: "shell",
                    run: "always",
-                   env: {"node_ip" => node_ip},
+                   env: {"node_ip" => node_ip, "node_ipv6" => node_ipv6},
                    privileged: true,
                    path: k8sinstall
            end
@@ -268,16 +269,16 @@ Vagrant.configure(2) do |config|
         node_hostname = "#{$vm_base_name}#{n+2}"
         config.vm.define node_vm_name do |node|
             node_ip = $workers_ipv4_addrs[n]
+            node_ipv6 = $workers_ipv6_addrs[n]
             node.vm.network "private_network", ip: "#{node_ip}",
                 virtualbox__intnet: "cilium-test-#{$build_id}"
             nfs_ipv4_addr = $workers_ipv4_addrs_nfs[n]
-            ipv6_addr = $workers_ipv6_addrs[n]
             node.vm.network "private_network", ip: "#{nfs_ipv4_addr}", bridge: "enp0s9"
             # Add IPv6 address this way or we get hit by a virtualbox bug
             node.vm.provision "ipv6-config",
                 type: "shell",
                 run: "always",
-                inline: "ip -6 a a #{ipv6_addr}/16 dev enp0s9"
+                inline: "ip -6 a a #{node_ipv6}/16 dev enp0s9"
 
             # Interface for the IPv6 NAT Service. The IP address doesn't matter
             # as it won't be used. We use an IPv4 address as newer versions of
@@ -294,7 +295,7 @@ Vagrant.configure(2) do |config|
                 inline: "ip -6 r a default via fd17:625c:f037:2::1 dev enp0s10 || true"
 
             if ENV["IPV6_EXT"] then
-                node_ip = "#{ipv6_addr}"
+                node_ip = "#{node_ipv6}"
             end
             node.vm.hostname = "#{node_hostname}"
             if ENV['CILIUM_TEMP'] then
@@ -303,7 +304,7 @@ Vagrant.configure(2) do |config|
                     node.vm.provision "k8s-install-node-part-1",
                         type: "shell",
                         run: "always",
-                        env: {"node_ip" => node_ip},
+                        env: {"node_ip" => node_ip, "node_ipv6" => node_ipv6},
                         privileged: true,
                         path: k8sinstall
                 end
@@ -314,7 +315,7 @@ Vagrant.configure(2) do |config|
                     node.vm.provision "k8s-install-node-part-2",
                         type: "shell",
                         run: "always",
-                        env: {"node_ip" => node_ip},
+                        env: {"node_ip" => node_ip, "node_ipv6" => node_ipv6},
                         privileged: true,
                         path: k8sinstall
                 end

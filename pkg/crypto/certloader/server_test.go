@@ -81,7 +81,6 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 	assert.Nil(t, err)
 
 	// the files don't exists, expect the config to not be ready yet.
-	var s *WatchedServerConfig
 	select {
 	case <-ch:
 		t.Fatal("FutureWatchedServerConfig should not be ready without the TLS files")
@@ -91,11 +90,7 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 	setup(t, hubble, relay)
 
 	// the files exists now, expect the watcher to become ready.
-	select {
-	case s = <-ch:
-	case <-time.After(testReloadDelay):
-		t.Fatal("FutureWatchedServerConfig should be ready one the TLS files exists")
-	}
+	s := <-ch
 	s.Stop()
 }
 
@@ -153,8 +148,20 @@ func TestWatchedServerConfigRotation(t *testing.T) {
 	assert.NotNil(t, s)
 	defer s.Stop()
 
+	prevKeypairGeneration, prevCaCertPoolGeneration := s.generations()
 	rotate(t, hubble, relay)
-	<-time.After(testReloadDelay)
+
+	// wait until both keypair and caCertPool have been reloaded
+	ticker := time.NewTicker(testReloadDelay)
+	defer ticker.Stop()
+	for range ticker.C {
+		keypairGeneration, caCertPoolGeneration := s.generations()
+		keypairUpdated := keypairGeneration > prevKeypairGeneration
+		caCertPoolUpdated := caCertPoolGeneration > prevCaCertPoolGeneration
+		if keypairUpdated && caCertPoolUpdated {
+			break
+		}
+	}
 
 	generator := s.ServerConfig(&tls.Config{
 		MinVersion: tls.VersionTLS13,

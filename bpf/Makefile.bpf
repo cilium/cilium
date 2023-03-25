@@ -14,9 +14,7 @@ CLANG_FLAGS += -Wdeclaration-after-statement
 CLANG_FLAGS += -Wimplicit-int-conversion -Wenum-conversion
 LLC_FLAGS := -march=bpf
 # Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
-ifeq ("$(KERNEL)","49")
-LLC_FLAGS += -mcpu=v1
-else ifeq ("$(KERNEL)","netnext")
+ifeq ("$(KERNEL)","netnext")
 LLC_FLAGS += -mcpu=v3
 else
 LLC_FLAGS += -mcpu=v2
@@ -61,7 +59,7 @@ force:
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} $(LLC_FLAGS) -filetype=asm -o $@ $(patsubst %.s,%.ll,$@)
 
-CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:2f0f4f512e795d5668ea4e7ef0ba85abc75eb225@sha256:f307bf0315954e8b8c31edc1864d949bf211b0c6522346359317d757b5a6cea0
+CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:a8f73eced11c29d8c5003ba75071fb9ff91251e4@sha256:9fba31c924b0e675ee45dada3788ded045cd63c979fae3cddcb08636ed2e00da
 ifneq ($(CHECKPATCH_DEBUG),)
   # Run script with "bash -x"
   CHECKPATCH_IMAGE_AND_ENTRY := \

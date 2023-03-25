@@ -22,6 +22,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging"
@@ -179,17 +180,17 @@ func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName st
 	}
 
 	// We allow overriding individual key-value pairs by annotating the Node object
-	// with io.cilium.config/K=V
+	// with config.cilium.io/K=V
 	out := map[string]string{}
 
 	read := func(in map[string]string) {
 		for k, v := range in {
-			if strings.HasPrefix(k, "io.cilium.config/") {
+			if strings.HasPrefix(k, annotation.ConfigPrefix) {
 				s := strings.SplitN(k, "/", 2)
 				if len(s) != 2 {
 					log.WithFields(logrus.Fields{
 						logfields.ConfigAnnotation: k,
-					}).Errorf("Node annotation format invalid: should be of the format io.cilium.config/<KEY>")
+					}).Errorf("Node annotation format invalid: should be of the format %s/<KEY>", annotation.ConfigPrefix)
 					continue
 				}
 				key := s[1]

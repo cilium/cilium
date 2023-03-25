@@ -232,14 +232,11 @@ func StartEnvoy(stateDir, logPath string, baseID uint64) *Envoy {
 			go func() {
 				if err := cmd.Wait(); err != nil {
 					log.WithError(err).Warn("Envoy: Proxy crashed")
+					// Avoid busy loop & hogging CPU resources by waiting before restarting envoy.
+					time.Sleep(100 * time.Millisecond)
 				}
 				close(crashCh)
 			}()
-
-			// start again after a short wait. If Cilium exits this should be enough
-			// time to not start Envoy again in that case.
-			log.Info("Envoy: Sleeping for 100ms before restarting proxy")
-			time.Sleep(100 * time.Millisecond)
 
 			select {
 			case <-crashCh:

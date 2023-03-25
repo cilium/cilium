@@ -176,7 +176,7 @@ func (c *Client) Run(connected func()) (err error) {
 		// Receive next policy configuration. This will block until the
 		// server has a new version to send, which may take a long time.
 		resp, err := stream.Recv()
-		if err == io.EOF || errors.Is(err, io.ErrUnexpectedEOF) {
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			logrus.Debugf("NPDS: Client %s stream on %s closed.", c.nodeId, c.path)
 			break
 		}

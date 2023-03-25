@@ -75,6 +75,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		ServiceDeleteServiceIDHandler: service.DeleteServiceIDHandlerFunc(func(params service.DeleteServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation service.DeleteServiceID has not yet been implemented")
 		}),
+		DaemonGetCgroupDumpMetadataHandler: daemon.GetCgroupDumpMetadataHandlerFunc(func(params daemon.GetCgroupDumpMetadataParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.GetCgroupDumpMetadata has not yet been implemented")
+		}),
 		DaemonGetClusterNodesHandler: daemon.GetClusterNodesHandlerFunc(func(params daemon.GetClusterNodesParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetClusterNodes has not yet been implemented")
 		}),
@@ -141,11 +144,11 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		MetricsGetMetricsHandler: metrics.GetMetricsHandlerFunc(func(params metrics.GetMetricsParams) middleware.Responder {
 			return middleware.NotImplemented("operation metrics.GetMetrics has not yet been implemented")
 		}),
+		DaemonGetNodeIdsHandler: daemon.GetNodeIdsHandlerFunc(func(params daemon.GetNodeIdsParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.GetNodeIds has not yet been implemented")
+		}),
 		PolicyGetPolicyHandler: policy.GetPolicyHandlerFunc(func(params policy.GetPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.GetPolicy has not yet been implemented")
-		}),
-		PolicyGetPolicyResolveHandler: policy.GetPolicyResolveHandlerFunc(func(params policy.GetPolicyResolveParams) middleware.Responder {
-			return middleware.NotImplemented("operation policy.GetPolicyResolve has not yet been implemented")
 		}),
 		PolicyGetPolicySelectorsHandler: policy.GetPolicySelectorsHandlerFunc(func(params policy.GetPolicySelectorsParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.GetPolicySelectors has not yet been implemented")
@@ -251,6 +254,8 @@ type CiliumAPIAPI struct {
 	RecorderDeleteRecorderIDHandler recorder.DeleteRecorderIDHandler
 	// ServiceDeleteServiceIDHandler sets the operation handler for the delete service ID operation
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
+	// DaemonGetCgroupDumpMetadataHandler sets the operation handler for the get cgroup dump metadata operation
+	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
 	// DaemonGetClusterNodesHandler sets the operation handler for the get cluster nodes operation
 	DaemonGetClusterNodesHandler daemon.GetClusterNodesHandler
 	// DaemonGetConfigHandler sets the operation handler for the get config operation
@@ -295,10 +300,10 @@ type CiliumAPIAPI struct {
 	DaemonGetMapNameEventsHandler daemon.GetMapNameEventsHandler
 	// MetricsGetMetricsHandler sets the operation handler for the get metrics operation
 	MetricsGetMetricsHandler metrics.GetMetricsHandler
+	// DaemonGetNodeIdsHandler sets the operation handler for the get node ids operation
+	DaemonGetNodeIdsHandler daemon.GetNodeIdsHandler
 	// PolicyGetPolicyHandler sets the operation handler for the get policy operation
 	PolicyGetPolicyHandler policy.GetPolicyHandler
-	// PolicyGetPolicyResolveHandler sets the operation handler for the get policy resolve operation
-	PolicyGetPolicyResolveHandler policy.GetPolicyResolveHandler
 	// PolicyGetPolicySelectorsHandler sets the operation handler for the get policy selectors operation
 	PolicyGetPolicySelectorsHandler policy.GetPolicySelectorsHandler
 	// PrefilterGetPrefilterHandler sets the operation handler for the get prefilter operation
@@ -433,6 +438,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	if o.ServiceDeleteServiceIDHandler == nil {
 		unregistered = append(unregistered, "service.DeleteServiceIDHandler")
 	}
+	if o.DaemonGetCgroupDumpMetadataHandler == nil {
+		unregistered = append(unregistered, "daemon.GetCgroupDumpMetadataHandler")
+	}
 	if o.DaemonGetClusterNodesHandler == nil {
 		unregistered = append(unregistered, "daemon.GetClusterNodesHandler")
 	}
@@ -499,11 +507,11 @@ func (o *CiliumAPIAPI) Validate() error {
 	if o.MetricsGetMetricsHandler == nil {
 		unregistered = append(unregistered, "metrics.GetMetricsHandler")
 	}
+	if o.DaemonGetNodeIdsHandler == nil {
+		unregistered = append(unregistered, "daemon.GetNodeIdsHandler")
+	}
 	if o.PolicyGetPolicyHandler == nil {
 		unregistered = append(unregistered, "policy.GetPolicyHandler")
-	}
-	if o.PolicyGetPolicyResolveHandler == nil {
-		unregistered = append(unregistered, "policy.GetPolicyResolveHandler")
 	}
 	if o.PolicyGetPolicySelectorsHandler == nil {
 		unregistered = append(unregistered, "policy.GetPolicySelectorsHandler")
@@ -678,6 +686,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
+	o.handlers["GET"]["/cgroup-dump-metadata"] = daemon.NewGetCgroupDumpMetadata(o.context, o.DaemonGetCgroupDumpMetadataHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
 	o.handlers["GET"]["/cluster/nodes"] = daemon.NewGetClusterNodes(o.context, o.DaemonGetClusterNodesHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
@@ -766,11 +778,11 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
-	o.handlers["GET"]["/policy"] = policy.NewGetPolicy(o.context, o.PolicyGetPolicyHandler)
+	o.handlers["GET"]["/node/ids"] = daemon.NewGetNodeIds(o.context, o.DaemonGetNodeIdsHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
-	o.handlers["GET"]["/policy/resolve"] = policy.NewGetPolicyResolve(o.context, o.PolicyGetPolicyResolveHandler)
+	o.handlers["GET"]["/policy"] = policy.NewGetPolicy(o.context, o.PolicyGetPolicyHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}

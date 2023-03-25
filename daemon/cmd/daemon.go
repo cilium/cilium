@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -31,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
-	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
@@ -40,6 +41,7 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/egressgateway"
@@ -156,7 +158,8 @@ type Daemon struct {
 	datapath datapath.Datapath
 
 	// nodeDiscovery defines the node discovery logic of the agent
-	nodeDiscovery *nodediscovery.NodeDiscovery
+	nodeDiscovery  *nodediscovery.NodeDiscovery
+	nodeLocalStore node.LocalNodeStore
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
@@ -177,10 +180,6 @@ type Daemon struct {
 
 	linkCache      *link.LinkCache
 	hubbleObserver *observer.LocalObserverServer
-
-	// k8sCachesSynced is closed when all essential Kubernetes caches have
-	// been fully synchronized
-	k8sCachesSynced <-chan struct{}
 
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
@@ -282,6 +281,14 @@ func (d *Daemon) init() error {
 			return fmt.Errorf("failed while creating node config header file: %w", err)
 		}
 
+		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
+			return fmt.Errorf("failed while reinitializing datapath: %w", err)
+		}
+
+		if err := linuxdatapath.NodeEnsureLocalIPRule(); err != nil {
+			return fmt.Errorf("failed to ensure local IP rules: %w", err)
+		}
+
 		if option.Config.SockopsEnable {
 			eppolicymap.CreateEPPolicyMap()
 			if err := sockops.SockmapEnable(); err != nil {
@@ -291,10 +298,6 @@ func (d *Daemon) init() error {
 			} else {
 				sockmap.SockmapCreate()
 			}
-		}
-
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 	}
 
@@ -407,6 +410,15 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	wgAgent *wg.Agent,
 	clientset k8sClient.Clientset,
 	sharedResources k8s.SharedResources,
+	certManager certificatemanager.CertificateManager,
+	secretManager certificatemanager.SecretManager,
+	nodeLocalStore node.LocalNodeStore,
+	authManager auth.Manager,
+	cacheStatus k8s.CacheStatus,
+	ipc *ipcache.IPCache,
+	identityAllocator CachingIdentityAllocator,
+	pr *policy.Repository,
+	policyUpdater *policy.Updater,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -547,9 +559,17 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		datapath:          dp,
 		deviceManager:     devMngr,
 		nodeDiscovery:     nd,
+		nodeLocalStore:    nodeLocalStore,
 		endpointCreations: newEndpointCreationManager(clientset),
 		apiLimiterSet:     apiLimiterSet,
 		controllers:       controller.NewManager(),
+		// **NOTE** The global identity allocator is not yet initialized here; that
+		// happens below via InitIdentityAllocator(). Only the local identity
+		// allocator is initialized here.
+		identityAllocator: identityAllocator,
+		ipcache:           ipc,
+		policy:            pr,
+		policyUpdater:     policyUpdater,
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -593,25 +613,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		ipcachemap.IPCacheMap().Close()
 	}
 
-	// Propagate identity allocator down to packages which themselves do not
-	// have types to which we can add an allocator member.
-	//
-	// **NOTE** The global identity allocator is not yet initialized here; that
-	// happens below vie InitIdentityAllocator(). Only the local identity allocator
-	// is initialized here.
-	//
-	// TODO: convert these package level variables to types for easier unit
-	// testing in the future.
-	d.identityAllocator = NewCachingIdentityAllocator(&d)
-	if err := d.initPolicy(epMgr); err != nil {
+	if err := d.initPolicy(authManager); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
-	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
-		Context:           ctx,
-		IdentityAllocator: d.identityAllocator,
-		PolicyHandler:     d.policy.GetSelectorCache(),
-		DatapathHandler:   epMgr,
-	})
+
 	// Preallocate IDs for old CIDRs. This must be done before any Identity allocations are
 	// possible so that the old IDs are still available. That is why we do this ASAP after the
 	// new (userspace) ipcache is created above.
@@ -639,7 +644,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 			}
 		}
 	}
-	nodeMngr.SetIPCache(d.ipcache)
 
 	proxy.Allocator = d.identityAllocator
 
@@ -667,6 +671,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
+		log.WithField("url", "https://github.com/cilium/cilium/issues/22246").
+			Warn("You are using the legacy BGP feature, which will only receive security updates and bugfixes. " +
+				"It is recommended to migrate to the BGP Control Plane feature if possible, which has better support.")
+
 		d.bgpSpeaker, err = speaker.New(ctx, clientset, speaker.Opts{
 			LoadBalancerIP: option.Config.BGPAnnounceLBIP,
 			PodCIDR:        option.Config.BGPAnnouncePodCIDR,
@@ -680,7 +688,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	d.cgroupManager = manager.NewCgroupManager()
 
 	if option.Config.EnableIPv4EgressGateway {
-		d.egressGatewayManager = egressgateway.NewEgressGatewayManager(&d, d.identityAllocator)
+		d.egressGatewayManager = egressgateway.NewEgressGatewayManager(cacheStatus, d.identityAllocator, option.Config.InstallEgressGatewayRoutes)
 	}
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
@@ -701,8 +709,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		sharedResources,
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
-
-	d.ipcache.RegisterK8sSyncedChecker(&d)
 
 	d.k8sWatcher.RegisterNodeSubscriber(d.endpointManager)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
@@ -775,6 +781,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	if len(restoredIngressIPs) > 0 {
 		log.WithField(logfields.Ingress, restoredIngressIPs).Info("Restored ingress IPs")
 	}
+
+	// Now that BPF maps are opened, we can restore node IDs to the node
+	// manager.
+	d.datapath.Node().RestoreNodeIDs()
 
 	// Read the service IDs of existing services from the BPF map and
 	// reserve them. This must be done *before* connecting to the
@@ -1065,15 +1075,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	if clientset.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 
-		// Initialize d.k8sCachesSynced before any k8s watchers are alive, as they may
-		// access it to check the status of k8s initialization
-		cachesSynced := make(chan struct{})
-		d.k8sCachesSynced = cachesSynced
-
 		// Launch the K8s watchers in parallel as we continue to process other
 		// daemon options.
-		d.k8sWatcher.InitK8sSubsystem(d.ctx, cachesSynced)
+		d.k8sWatcher.InitK8sSubsystem(d.ctx, cacheStatus)
 		bootstrapStats.k8sInit.End(true)
+	} else {
+		close(cacheStatus)
 	}
 
 	bootstrapStats.cleanup.Start()
@@ -1173,17 +1180,15 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 			logfields.V6CiliumHostIP: node.GetIPv6Router(),
 		}).Info("Annotating k8s node")
 
-		err := k8s.AnnotateNode(
+		_, err := k8s.AnnotateNode(
 			clientset,
 			nodeTypes.GetName(),
-			encryptKeyID,
-			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
-			node.GetEndpointHealthIPv4(), node.GetEndpointHealthIPv6(),
-			node.GetIngressIPv4(), node.GetIngressIPv6(),
-			node.GetInternalIPv4Router(), node.GetIPv6Router())
+			d.nodeLocalStore.Get().Node,
+			encryptKeyID)
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
+
 		bootstrapStats.k8sInit.End(true)
 	} else if !option.Config.AnnotateK8sNode {
 		log.Debug("Annotate k8s node is disabled.")
@@ -1376,16 +1381,9 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 
 // Close shuts down a daemon
 func (d *Daemon) Close() {
-	if err := d.ipcache.Shutdown(); err != nil {
-		log.WithError(err).Debug("Failure during ipcache shutdown")
-	}
-	if d.policyUpdater != nil {
-		d.policyUpdater.Shutdown()
-	}
 	if d.datapathRegenTrigger != nil {
 		d.datapathRegenTrigger.Shutdown()
 	}
-	d.identityAllocator.Close()
 	identitymanager.RemoveAll()
 	d.cgroupManager.Close()
 }
@@ -1464,37 +1462,4 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 		return nil
 	}
 	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
-}
-
-// GetNodeSuffix returns the suffix to be appended to kvstore keys of this
-// agent
-func (d *Daemon) GetNodeSuffix() string {
-	var ip net.IP
-
-	switch {
-	case option.Config.EnableIPv4:
-		ip = node.GetIPv4()
-	case option.Config.EnableIPv6:
-		ip = node.GetIPv6()
-	}
-
-	if ip == nil {
-		log.Fatal("Node IP not available yet")
-	}
-
-	return ip.String()
-}
-
-// K8sCacheIsSynced returns true if the agent has fully synced its k8s cache
-// with the API server
-func (d *Daemon) K8sCacheIsSynced() bool {
-	if !d.clientset.IsEnabled() {
-		return true
-	}
-	select {
-	case <-d.k8sCachesSynced:
-		return true
-	default:
-		return false
-	}
 }

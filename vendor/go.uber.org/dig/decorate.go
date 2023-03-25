@@ -128,7 +128,7 @@ func (n *decoratorNode) Call(s containerStore) (err error) {
 		}
 	}
 
-	results := reflect.ValueOf(n.dcor).Call(args)
+	results := s.invoker()(reflect.ValueOf(n.dcor), args)
 	if err := n.results.ExtractList(n.s, true /* decorated */, results); err != nil {
 		return err
 	}

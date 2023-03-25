@@ -4,6 +4,7 @@
 package translation
 
 import (
+	httpRouterv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -23,7 +24,12 @@ func NewHTTPConnectionManager(name, routeName string, mutationFunc ...HttpConnec
 			Rds: &httpConnectionManagerv3.Rds{RouteConfigName: routeName},
 		},
 		HttpFilters: []*httpConnectionManagerv3.HttpFilter{
-			{Name: "envoy.filters.http.router"},
+			{
+				Name: "envoy.filters.http.router",
+				ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&httpRouterv3.Router{}),
+				},
+			},
 		},
 		UpgradeConfigs: []*httpConnectionManagerv3.HttpConnectionManager_UpgradeConfig{
 			{UpgradeType: "websocket"},

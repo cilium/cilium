@@ -4,12 +4,14 @@
 package clustermesh
 
 import (
+	"crypto/sha256"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 )
 
 // clusterLifecycle is the interface to implement in order to receive cluster
@@ -19,10 +21,13 @@ type clusterLifecycle interface {
 	remove(clusterName string)
 }
 
+type fhash [sha256.Size]byte
+
 type configDirectoryWatcher struct {
 	watcher   *fsnotify.Watcher
 	lifecycle clusterLifecycle
 	path      string
+	tracked   map[string]fhash
 	stop      chan struct{}
 }
 
@@ -40,40 +45,83 @@ func createConfigDirectoryWatcher(path string, lifecycle clusterLifecycle) (*con
 	return &configDirectoryWatcher{
 		watcher:   watcher,
 		path:      path,
+		tracked:   map[string]fhash{},
 		lifecycle: lifecycle,
 		stop:      make(chan struct{}),
 	}, nil
 }
 
-func isEtcdConfigFile(path string) bool {
+// isEtcdConfigFile returns whether the given path looks like a configuration
+// file, and in that case it returns the corresponding hash to detect modifications.
+func isEtcdConfigFile(path string) (bool, fhash) {
+	if info, err := os.Stat(path); err != nil || info.IsDir() {
+		return false, fhash{}
+	}
+
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return false
+		return false, fhash{}
 	}
 
 	// search for the "endpoints:" string
-	return strings.Contains(string(b), "endpoints:")
+	if strings.Contains(string(b), "endpoints:") {
+		return true, sha256.Sum256(b)
+	}
+
+	return false, fhash{}
 }
 
-func (cdw *configDirectoryWatcher) handleAddedFile(name, absolutePath string) {
-	// A typical directory will look like this:
-	// lrwxrwxrwx. 1 root root 12 Jul 21 16:32 test5 -> ..data/test5
-	// lrwxrwxrwx. 1 root root 12 Jul 21 16:32 test7 -> ..data/test7
-	//
-	// Ignore all backing files and only read the symlinks
-	if strings.HasPrefix(name, "..") {
+func (cdw *configDirectoryWatcher) handle(abspath string) {
+	filename := path.Base(abspath)
+	isConfig, newHash := isEtcdConfigFile(abspath)
+
+	if !isConfig {
+		// If the corresponding cluster was tracked, then trigger the remove
+		// event, since the configuration file is no longer present/readable
+		if _, tracked := cdw.tracked[filename]; tracked {
+			log.WithFields(logrus.Fields{
+				fieldClusterName: filename,
+				fieldConfig:      abspath,
+			}).Debug("Removed cluster configuration")
+
+			// The remove operation returns an error if the file does no longer exists.
+			_ = cdw.watcher.Remove(abspath)
+			delete(cdw.tracked, filename)
+			cdw.lifecycle.remove(filename)
+		}
+
 		return
 	}
 
-	if !isEtcdConfigFile(absolutePath) {
+	if !slices.Contains(cdw.watcher.WatchList(), abspath) {
+		// Start watching explicitly the file. This allows to receive a notification
+		// when the underlying file gets updated, if path points to a symbolic link.
+		// This is required to correctly detect file modifications when the folder
+		// is mounted from a Kubernetes ConfigMap/Secret.
+		if err := cdw.watcher.Add(abspath); err != nil {
+			log.WithError(err).WithField(fieldConfig, abspath).
+				Warning("Failed adding explicit path watch for config")
+		}
+	}
+
+	oldHash, tracked := cdw.tracked[filename]
+
+	// Do not emit spurious notifications if the config file did not change.
+	if tracked && oldHash == newHash {
 		return
 	}
 
-	cdw.lifecycle.add(name, absolutePath)
+	log.WithFields(logrus.Fields{
+		fieldClusterName: filename,
+		fieldConfig:      abspath,
+	}).Debug("Added or updated cluster configuration")
+
+	cdw.tracked[filename] = newHash
+	cdw.lifecycle.add(filename, abspath)
 }
 
 func (cdw *configDirectoryWatcher) watch() error {
-	log.WithField(fieldConfig, cdw.path).Debug("Starting config directory watcher")
+	log.WithField(fieldConfigDir, cdw.path).Debug("Starting config directory watcher")
 
 	files, err := os.ReadDir(cdw.path)
 	if err != nil {
@@ -86,38 +134,35 @@ func (cdw *configDirectoryWatcher) watch() error {
 		}
 
 		absolutePath := path.Join(cdw.path, f.Name())
-		cdw.handleAddedFile(f.Name(), absolutePath)
+		cdw.handle(absolutePath)
 	}
 
-	go func() {
-		for {
-			select {
-			case event := <-cdw.watcher.Events:
-				name := filepath.Base(event.Name)
-				log.WithField(fieldClusterName, name).Debugf("Received fsnotify event: %+v", event)
-				switch {
-				case event.Has(fsnotify.Create),
-					event.Has(fsnotify.Write),
-					event.Has(fsnotify.Chmod):
-					cdw.handleAddedFile(name, event.Name)
-				case event.Has(fsnotify.Remove),
-					event.Has(fsnotify.Rename):
-					cdw.lifecycle.remove(name)
-				}
-
-			case err := <-cdw.watcher.Errors:
-				log.WithError(err).WithField("path", cdw.path).Warning("error encountered while watching directory with fsnotify")
-
-			case <-cdw.stop:
-				return
-			}
-		}
-	}()
-
+	go cdw.loop()
 	return nil
 }
 
+func (cdw *configDirectoryWatcher) loop() {
+	for {
+		select {
+		case event := <-cdw.watcher.Events:
+			log.WithFields(logrus.Fields{
+				fieldConfigDir: cdw.path,
+				fieldEvent:     event,
+			}).Debug("Received fsnotify event")
+			cdw.handle(event.Name)
+
+		case err := <-cdw.watcher.Errors:
+			log.WithError(err).WithField(fieldConfigDir, cdw.path).
+				Warning("Error encountered while watching directory with fsnotify")
+
+		case <-cdw.stop:
+			return
+		}
+	}
+}
+
 func (cdw *configDirectoryWatcher) close() {
+	log.WithField(fieldConfigDir, cdw.path).Debug("Stopping config directory watcher")
 	close(cdw.stop)
 	cdw.watcher.Close()
 }

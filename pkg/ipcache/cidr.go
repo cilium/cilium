@@ -5,7 +5,6 @@ package ipcache
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/netip"
 	"strings"
@@ -56,15 +55,15 @@ func (ipc *IPCache) AllocateCIDRs(
 	ipc.Lock()
 	allocatedIdentities := make(map[netip.Prefix]*identity.Identity, len(prefixes))
 	for i, prefix := range prefixes {
-		lbls := cidr.GetCIDRLabels(prefix)
-		lbls.MergeLabels(ipc.metadata.getLocked(prefix).ToLabels())
+		info := ipc.metadata.getLocked(prefix)
+
 		oldNID := identity.InvalidIdentity
 		if oldNIDs != nil && len(oldNIDs) > i {
 			oldNID = oldNIDs[i]
 		}
-		id, isNew, err := ipc.allocate(allocateCtx, prefix, lbls, oldNID)
+		id, isNew, err := ipc.resolveIdentity(allocateCtx, prefix, info, oldNID)
 		if err != nil {
-			ipc.IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
+			ipc.IdentityAllocator.ReleaseSlice(context.Background(), usedIdentities)
 			ipc.Unlock()
 			ipc.metadata.RUnlock()
 			return nil, err
@@ -163,33 +162,6 @@ func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[netip
 			Source: source.Generated,
 		})
 	}
-}
-
-// allocate will allocate a new identity for the given prefix based on the
-// given set of labels. This function performs both global and local (CIDR)
-// identity allocation and the set of labels determine which identity
-// allocation type is to occur.
-//
-// If the identity is a CIDR identity, then its corresponding Identity will
-// have its CIDR labels set correctly.
-//
-// A possible previously used numeric identity for these labels can be passed
-// in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
-// previous numeric identity exists.
-//
-// It is up to the caller to provide the full set of labels for identity
-// allocation.
-func (ipc *IPCache) allocate(ctx context.Context, prefix netip.Prefix, lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
-	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, oldNID)
-	if err != nil {
-		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
-	}
-
-	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) {
-		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
-	}
-
-	return id, isNew, err
 }
 
 func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, prefixes []netip.Prefix) {

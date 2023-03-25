@@ -103,13 +103,13 @@ func newPrintServices(p printServicesParams) (*PrintServices, error) {
 	ps := &PrintServices{
 		pods:     p.Pods,
 		services: p.Services,
-		wp:       workerpool.New(1),
 	}
 	p.Lifecycle.Append(ps)
 	return ps, nil
 }
 
 func (ps *PrintServices) Start(startCtx hive.HookContext) error {
+	ps.wp = workerpool.New(1)
 	ps.wp.Submit("processLoop", ps.processLoop)
 
 	// Using the start context, do a blocking dump of all

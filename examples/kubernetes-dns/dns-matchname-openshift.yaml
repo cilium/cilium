@@ -9,7 +9,7 @@ spec:
       class: mediabot
   egress:
   - toFQDNs:
-    - matchName: "api.twitter.com"  
+    - matchName: "api.github.com"  
   - toEndpoints:
     - matchLabels:
         "k8s:io.kubernetes.pod.namespace": openshift-dns

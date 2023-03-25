@@ -71,17 +71,25 @@ func (client *Client) ListPublicIpAddressPoolsWithCallback(request *ListPublicIp
 // ListPublicIpAddressPoolsRequest is the request struct for api ListPublicIpAddressPools
 type ListPublicIpAddressPoolsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId        requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Isp                    string           `position:"Query" name:"Isp"`
-	NextToken              string           `position:"Query" name:"NextToken"`
-	DryRun                 requests.Boolean `position:"Query" name:"DryRun"`
-	PublicIpAddressPoolIds *[]string        `position:"Query" name:"PublicIpAddressPoolIds"  type:"Repeated"`
-	ResourceOwnerAccount   string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount           string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                requests.Integer `position:"Query" name:"OwnerId"`
-	Name                   string           `position:"Query" name:"Name"`
-	MaxResults             requests.Integer `position:"Query" name:"MaxResults"`
-	Status                 string           `position:"Query" name:"Status"`
+	ResourceOwnerId        requests.Integer                `position:"Query" name:"ResourceOwnerId"`
+	Isp                    string                          `position:"Query" name:"Isp"`
+	ResourceGroupId        string                          `position:"Query" name:"ResourceGroupId"`
+	NextToken              string                          `position:"Query" name:"NextToken"`
+	DryRun                 requests.Boolean                `position:"Query" name:"DryRun"`
+	PublicIpAddressPoolIds *[]string                       `position:"Query" name:"PublicIpAddressPoolIds"  type:"Repeated"`
+	ResourceOwnerAccount   string                          `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount           string                          `position:"Query" name:"OwnerAccount"`
+	OwnerId                requests.Integer                `position:"Query" name:"OwnerId"`
+	Tags                   *[]ListPublicIpAddressPoolsTags `position:"Query" name:"Tags"  type:"Repeated"`
+	Name                   string                          `position:"Query" name:"Name"`
+	MaxResults             requests.Integer                `position:"Query" name:"MaxResults"`
+	Status                 string                          `position:"Query" name:"Status"`
+}
+
+// ListPublicIpAddressPoolsTags is a repeated param struct in ListPublicIpAddressPoolsRequest
+type ListPublicIpAddressPoolsTags struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // ListPublicIpAddressPoolsResponse is the response struct for api ListPublicIpAddressPools

@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -85,9 +87,11 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 		return errors.ErrEventSkipped
 	}
 
-	dstIP := sock.IP()
+	// Ignore invalid IPs - getters will handle invalid values.
+	// IPs can be empty for Ethernet-only packets.
+	dstIP, _ := ippkg.AddrFromIP(sock.IP())
 	dstPort := sock.DstPort
-	srcIP := epIP
+	srcIP, _ := ippkg.AddrFromIP(epIP)
 	srcPort := uint16(0) // source port is not known for TraceSock events
 
 	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, 0)
@@ -155,12 +159,12 @@ func (p *Parser) decodeEndpointIP(cgroupId uint64, ipVersion flowpb.IPVersion) (
 	return nil, false
 }
 
-func decodeL3(srcIP, dstIP net.IP, ipVersion flowpb.IPVersion) *flowpb.IP {
+func decodeL3(srcIP, dstIP netip.Addr, ipVersion flowpb.IPVersion) *flowpb.IP {
 	var srcIPStr, dstIPStr string
-	if srcIP != nil {
+	if srcIP.IsValid() {
 		srcIPStr = srcIP.String()
 	}
-	if dstIP != nil {
+	if dstIP.IsValid() {
 		dstIPStr = dstIP.String()
 	}
 
@@ -196,7 +200,7 @@ func decodeL4(proto uint8, srcPort, dstPort uint16) *flowpb.Layer4 {
 	return nil
 }
 
-func (p *Parser) resolveNames(epID uint32, ip net.IP) (names []string) {
+func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
 	if p.dnsGetter != nil {
 		return p.dnsGetter.GetNamesOf(epID, ip)
 	}
@@ -204,7 +208,7 @@ func (p *Parser) resolveNames(epID uint32, ip net.IP) (names []string) {
 	return nil
 }
 
-func (p *Parser) decodeService(ip net.IP, port uint16) *flowpb.Service {
+func (p *Parser) decodeService(ip netip.Addr, port uint16) *flowpb.Service {
 	if p.serviceGetter != nil {
 		return p.serviceGetter.GetServiceByAddr(ip, port)
 	}

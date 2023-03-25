@@ -34,8 +34,8 @@
 
 #include <bpf_xdp.c>
 
-__u8 client_mac[ETH_ALEN] = mac_one;
-__u8 lb_mac[ETH_ALEN] = mac_two;
+static volatile const __u8 *client_mac = mac_one;
+static volatile const __u8 *lb_mac = mac_two;
 
 #define FROM_XDP	0
 
@@ -71,7 +71,7 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 	if (!l2)
 		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, client_mac, lb_mac);
+	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
 
 	/* Push IPv4 header */
 	l3 = pktgen__push_default_iphdr(&builder);
@@ -202,9 +202,9 @@ int nodeport_nat_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert((*meta & XFER_PKT_NO_SVC) == XFER_PKT_NO_SVC);
 
-	if (memcmp(l2->h_source, client_mac, sizeof(client_mac)) != 0)
+	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
 		test_fatal("src MAC is not the client MAC")
-	if (memcmp(l2->h_dest, lb_mac, sizeof(lb_mac)) != 0)
+	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the LB MAC")
 
 	if (l3->saddr != LB_IP)

@@ -72,6 +72,9 @@ func (client *Client) AssignIpv6AddressesWithCallback(request *AssignIpv6Address
 type AssignIpv6AddressesRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string           `position:"Query" name:"ClientToken"`
+	Ipv6Prefix           *[]string        `position:"Query" name:"Ipv6Prefix"  type:"Repeated"`
+	Ipv6PrefixCount      requests.Integer `position:"Query" name:"Ipv6PrefixCount"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	Ipv6AddressCount     requests.Integer `position:"Query" name:"Ipv6AddressCount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
@@ -83,9 +86,10 @@ type AssignIpv6AddressesRequest struct {
 // AssignIpv6AddressesResponse is the response struct for api AssignIpv6Addresses
 type AssignIpv6AddressesResponse struct {
 	*responses.BaseResponse
-	RequestId          string                        `json:"RequestId" xml:"RequestId"`
-	NetworkInterfaceId string                        `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
-	Ipv6Sets           Ipv6SetsInAssignIpv6Addresses `json:"Ipv6Sets" xml:"Ipv6Sets"`
+	RequestId          string                              `json:"RequestId" xml:"RequestId"`
+	NetworkInterfaceId string                              `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
+	Ipv6Sets           Ipv6SetsInAssignIpv6Addresses       `json:"Ipv6Sets" xml:"Ipv6Sets"`
+	Ipv6PrefixSets     Ipv6PrefixSetsInAssignIpv6Addresses `json:"Ipv6PrefixSets" xml:"Ipv6PrefixSets"`
 }
 
 // CreateAssignIpv6AddressesRequest creates a request to invoke AssignIpv6Addresses API

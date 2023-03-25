@@ -36,10 +36,10 @@ func Test_gatewayStatusScheduledCondition(t *testing.T) {
 				msg:       "Scheduled Gateway",
 			},
 			want: metav1.Condition{
-				Type:               "Scheduled",
+				Type:               "Accepted",
 				Status:             "True",
 				ObservedGeneration: 100,
-				Reason:             "Scheduled",
+				Reason:             "Accepted",
 				Message:            "Scheduled Gateway",
 			},
 		},
@@ -55,7 +55,7 @@ func Test_gatewayStatusScheduledCondition(t *testing.T) {
 				msg:       "Invalid Gateway",
 			},
 			want: metav1.Condition{
-				Type:               "Scheduled",
+				Type:               "Accepted",
 				Status:             "False",
 				ObservedGeneration: 100,
 				Reason:             "NoResources",
@@ -65,8 +65,8 @@ func Test_gatewayStatusScheduledCondition(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := gatewayStatusScheduledCondition(tt.args.gw, tt.args.scheduled, tt.args.msg)
-			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "gatewayStatusScheduledCondition() = %v, want %v", got, tt.want)
+			got := gatewayStatusAcceptedCondition(tt.args.gw, tt.args.scheduled, tt.args.msg)
+			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "gatewayStatusAcceptedCondition() = %v, want %v", got, tt.want)
 		})
 	}
 }
@@ -124,12 +124,12 @@ func Test_gatewayStatusReadyCondition(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := gatewayStatusReadyCondition(tt.args.gw, tt.args.ready, tt.args.msg)
-			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "gatewayStatusScheduledCondition() = %v, want %v", got, tt.want)
+			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "gatewayStatusAcceptedCondition() = %v, want %v", got, tt.want)
 		})
 	}
 }
 
-func Test_gatewayListenerReadyCondition(t *testing.T) {
+func Test_gatewayListenerProgrammedCondition(t *testing.T) {
 	type args struct {
 		gw    *gatewayv1beta1.Gateway
 		ready bool
@@ -152,10 +152,10 @@ func Test_gatewayListenerReadyCondition(t *testing.T) {
 				msg:   "Listener Ready",
 			},
 			want: metav1.Condition{
-				Type:               "Ready",
+				Type:               "Programmed",
 				Status:             "True",
 				ObservedGeneration: 100,
-				Reason:             "Ready",
+				Reason:             "Programmed",
 				Message:            "Listener Ready",
 			},
 		},
@@ -171,7 +171,7 @@ func Test_gatewayListenerReadyCondition(t *testing.T) {
 				msg:   "Listener Pending",
 			},
 			want: metav1.Condition{
-				Type:               "Ready",
+				Type:               "Programmed",
 				Status:             "False",
 				ObservedGeneration: 100,
 				Reason:             "Pending",
@@ -181,8 +181,8 @@ func Test_gatewayListenerReadyCondition(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := gatewayListenerReadyCondition(tt.args.gw, tt.args.ready, tt.args.msg)
-			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "gatewayStatusScheduledCondition() = %v, want %v", got, tt.want)
+			got := gatewayListenerProgrammedCondition(tt.args.gw, tt.args.ready, tt.args.msg)
+			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "gatewayStatusAcceptedCondition() = %v, want %v", got, tt.want)
 		})
 	}
 }

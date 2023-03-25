@@ -18,6 +18,8 @@ data:
     peer-service: unix://{{ .Values.hubble.socketPath }}
     {{- end }}
     listen-address: {{ .Values.hubble.relay.listenHost }}:{{ .Values.hubble.relay.listenPort }}
+    gops: {{ .Values.hubble.relay.gops.enabled }}
+    gops-port: {{ .Values.hubble.relay.gops.port | quote }}
     {{- if .Values.hubble.relay.pprof.enabled }}
     pprof: {{ .Values.hubble.relay.pprof.enabled | quote }}
     pprof-address: {{ .Values.hubble.relay.pprof.address | quote }}

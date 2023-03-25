@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	"github.com/cilium/cilium/operator/api"
+	"github.com/cilium/cilium/operator/identitygc"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
@@ -49,7 +50,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/rand"
-	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -68,18 +68,6 @@ var (
 	// Use a Go context so we can tell the leaderelection code when we
 	// want to step down
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
-
-	// identityRateLimiter is a rate limiter to rate limit the number of
-	// identities being GCed by the operator. See the documentation of
-	// rate.Limiter to understand its difference than 'x/time/rate.Limiter'.
-	//
-	// With our rate.Limiter implementation Cilium will be able to handle bursts
-	// of identities being garbage collected with the help of the functionality
-	// provided by the 'policy-trigger-interval' in the cilium-agent. With the
-	// policy-trigger even if we receive N identity changes over the interval
-	// set, Cilium will only need to process all of them at once instead of
-	// processing each one individually.
-	identityRateLimiter *rate.Limiter
 
 	operatorAddr string
 
@@ -101,10 +89,28 @@ var (
 			return option.Config
 		}),
 
+		cell.Provide(func() *operatorOption.OperatorConfig {
+			return operatorOption.Config
+		}),
+
+		cell.Provide(func(
+			daemonCfg *option.DaemonConfig,
+			operatorCfg *operatorOption.OperatorConfig,
+		) identitygc.SharedConfig {
+			return identitygc.SharedConfig{
+				IdentityAllocationMode: daemonCfg.IdentityAllocationMode,
+				EnableMetrics:          operatorCfg.EnableMetrics,
+				ClusterName:            daemonCfg.LocalClusterName(),
+				K8sNamespace:           daemonCfg.CiliumNamespaceName(),
+				ClusterID:              daemonCfg.LocalClusterID(),
+			}
+		}),
+
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
 			k8s.SharedResourcesCell,
 			lbipam.Cell,
+			identitygc.Cell,
 
 			legacyCell,
 		),
@@ -143,6 +149,19 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 
 func newOperatorHive() *hive.Hive {
 	h := hive.New(
+		pprof.Cell,
+		cell.ProvidePrivate(func(cfg operatorPprofConfig) pprof.Config {
+			return pprof.Config{
+				Pprof:        cfg.OperatorPprof,
+				PprofAddress: cfg.OperatorPprofAddress,
+				PprofPort:    cfg.OperatorPprofPort,
+			}
+		}),
+		cell.Config(operatorPprofConfig{
+			OperatorPprofAddress: operatorOption.PprofAddressOperator,
+			OperatorPprofPort:    operatorOption.PprofPortOperator,
+		}),
+
 		gops.Cell(defaults.GopsPortOperator),
 		k8sClient.Cell,
 		OperatorCell,
@@ -158,6 +177,7 @@ func newOperatorHive() *hive.Hive {
 
 func init() {
 	rootCmd.AddCommand(MetricsCmd)
+	rootCmd.AddCommand(operatorHive.Command())
 
 	rootCmd.Run = func(cobraCmd *cobra.Command, args []string) {
 		cmdRefDir := operatorHive.Viper().GetString(option.CMDRef)
@@ -261,10 +281,6 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 		operatorMetrics.Register()
 	}
 
-	if operatorOption.Config.PProf {
-		pprof.Enable(operatorOption.Config.PProfAddress, operatorOption.Config.PProfPort)
-	}
-
 	if clientset.IsEnabled() {
 		capabilities := k8sversion.Capabilities()
 		if !capabilities.MinimalVersionMet {
@@ -310,16 +326,18 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 		ns = metav1.NamespaceDefault
 	}
 
-	leResourceLock := &resourcelock.LeaseLock{
-		LeaseMeta: metav1.ObjectMeta{
-			Name:      leaderElectionResourceLockName,
-			Namespace: ns,
-		},
-		Client: clientset.CoordinationV1(),
-		LockConfig: resourcelock.ResourceLockConfig{
+	leResourceLock, err := resourcelock.NewFromKubeconfig(
+		resourcelock.LeasesResourceLock,
+		ns,
+		leaderElectionResourceLockName,
+		resourcelock.ResourceLockConfig{
 			// Identity name of the lock holder
 			Identity: operatorID,
 		},
+		clientset.RestConfig(),
+		operatorOption.Config.LeaderElectionRenewDeadline)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to create resource lock for leader election")
 	}
 
 	// Start the leader election for running cilium-operators
@@ -564,8 +582,9 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			logfields.K8sNamespace:       operatorOption.Config.CiliumK8sNamespace,
 			"label-selector":             operatorOption.Config.CiliumPodLabels,
 			"remove-cilium-node-taints":  operatorOption.Config.RemoveCiliumNodeTaints,
+			"set-cilium-node-taints":     operatorOption.Config.SetCiliumNodeTaints,
 			"set-cilium-is-up-condition": operatorOption.Config.SetCiliumIsUpCondition,
-		}).Info("Removing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
+		}).Info("Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
 
 		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done())
 	}
@@ -620,33 +639,12 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		nodeManager.Resync(legacy.ctx, time.Time{})
 	}
 
-	if operatorOption.Config.IdentityGCInterval != 0 {
-		identityRateLimiter = rate.NewLimiter(
-			operatorOption.Config.IdentityGCRateInterval,
-			operatorOption.Config.IdentityGCRateLimit,
-		)
-		legacy.wg.Add(1)
-		go func() {
-			defer legacy.wg.Done()
-			<-legacy.ctx.Done()
-			identityRateLimiter.Stop()
-		}()
-	}
-
-	switch option.Config.IdentityAllocationMode {
-	case option.IdentityAllocationModeCRD:
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
 		if !legacy.clientset.IsEnabled() {
 			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
 		}
-
-		startManagingK8sIdentities(legacy.ctx, &legacy.wg, legacy.clientset)
-
-		if operatorOption.Config.IdentityGCInterval != 0 {
-			go startCRDIdentityGC(legacy.ctx, &legacy.wg, legacy.clientset)
-		}
-	case option.IdentityAllocationModeKVstore:
-		if operatorOption.Config.IdentityGCInterval != 0 {
-			startKvstoreIdentityGC()
+		if operatorOption.Config.EndpointGCInterval == 0 {
+			log.Fatal("Cilium Identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
 		}
 	}
 

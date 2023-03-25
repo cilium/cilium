@@ -108,8 +108,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		return 0, "", nil
 	}
 
-	bestSubnet := n.manager.FindOneVSwitch(resource.Spec.AlibabaCloud.VPCID, resource.Spec.AlibabaCloud.AvailabilityZone,
-		toAllocate, resource.Spec.AlibabaCloud.VSwitchTags)
+	bestSubnet := n.manager.FindOneVSwitch(resource.Spec.AlibabaCloud, toAllocate)
 	if bestSubnet == nil {
 		return 0,
 			unableToFindSubnet,

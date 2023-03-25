@@ -71,15 +71,23 @@ func (client *Client) DescribeSendFileResultsWithCallback(request *DescribeSendF
 // DescribeSendFileResultsRequest is the request struct for api DescribeSendFileResults
 type DescribeSendFileResultsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
-	PageSize             requests.Integer `position:"Query" name:"PageSize"`
-	InvokeId             string           `position:"Query" name:"InvokeId"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceId           string           `position:"Query" name:"InstanceId"`
-	Name                 string           `position:"Query" name:"Name"`
+	ResourceOwnerId      requests.Integer              `position:"Query" name:"ResourceOwnerId"`
+	PageNumber           requests.Integer              `position:"Query" name:"PageNumber"`
+	ResourceGroupId      string                        `position:"Query" name:"ResourceGroupId"`
+	PageSize             requests.Integer              `position:"Query" name:"PageSize"`
+	Tag                  *[]DescribeSendFileResultsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	InvokeId             string                        `position:"Query" name:"InvokeId"`
+	ResourceOwnerAccount string                        `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                        `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer              `position:"Query" name:"OwnerId"`
+	InstanceId           string                        `position:"Query" name:"InstanceId"`
+	Name                 string                        `position:"Query" name:"Name"`
+}
+
+// DescribeSendFileResultsTag is a repeated param struct in DescribeSendFileResultsRequest
+type DescribeSendFileResultsTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeSendFileResultsResponse is the response struct for api DescribeSendFileResults

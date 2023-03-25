@@ -11,9 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
+
 	. "gopkg.in/check.v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -169,8 +171,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 		k8sReSyncController *controller.Manager
 		k8sReSync           *trigger.Trigger
 		canAllocateNodes    bool
-		v4ClusterCIDRs      []CIDRAllocator
-		v6ClusterCIDRs      []CIDRAllocator
+		v4ClusterCIDRs      []cidralloc.CIDRAllocator
+		v6ClusterCIDRs      []cidralloc.CIDRAllocator
 		nodes               map[string]*nodeCIDRs
 		ciliumNodesToK8s    map[string]*ciliumNodeK8sOp
 	}
@@ -192,7 +194,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				atomic.StoreInt32(&reSyncCalls, 0)
 				return &fields{
 					canAllocateNodes: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
 								return mustNewCIDRs("10.10.0.0/24")[0], nil
@@ -220,7 +222,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -238,7 +240,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -251,7 +253,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				atomic.StoreInt32(&reSyncCalls, 0)
 				return &fields{
 					canAllocateNodes: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
 								return nil, fmt.Errorf("Allocator full!")
@@ -275,7 +277,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Status: v2.NodeStatus{
@@ -293,7 +295,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -305,7 +307,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			testSetup: func() *fields {
 				return &fields{
 					canAllocateNodes: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{},
 					},
 					nodes: map[string]*nodeCIDRs{
@@ -324,7 +326,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 					Spec: v2.NodeSpec{
@@ -366,7 +368,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -384,7 +386,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -397,7 +399,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				atomic.StoreInt32(&reSyncCalls, 0)
 				return &fields{
 					canAllocateNodes: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnIsFull: func() bool {
 								return true
@@ -430,7 +432,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -448,7 +450,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -485,8 +487,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 		k8sReSyncController *controller.Manager
 		k8sReSync           *trigger.Trigger
 		canAllocateNodes    bool
-		v4ClusterCIDRs      []CIDRAllocator
-		v6ClusterCIDRs      []CIDRAllocator
+		v4ClusterCIDRs      []cidralloc.CIDRAllocator
+		v6ClusterCIDRs      []cidralloc.CIDRAllocator
 		nodes               map[string]*nodeCIDRs
 		ciliumNodesToK8s    map[string]*ciliumNodeK8sOp
 	}
@@ -507,7 +509,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 				atomic.StoreInt32(&reSyncCalls, 0)
 				return &fields{
 					canAllocateNodes: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnRelease: func(cidr *net.IPNet) error {
 								c.Assert(cidr, checker.DeepEquals, mustNewCIDRs("10.10.0.0/24")[0])
@@ -543,7 +545,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -564,7 +566,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -640,8 +642,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 		k8sReSyncController *controller.Manager
 		k8sReSync           *trigger.Trigger
 		canAllocateNodes    bool
-		v4ClusterCIDRs      []CIDRAllocator
-		v6ClusterCIDRs      []CIDRAllocator
+		v4ClusterCIDRs      []cidralloc.CIDRAllocator
+		v6ClusterCIDRs      []cidralloc.CIDRAllocator
 		nodes               map[string]*nodeCIDRs
 		ciliumNodesToK8s    map[string]*ciliumNodeK8sOp
 	}
@@ -662,7 +664,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			testSetup: func() *fields {
 				return &fields{
 					canAllocateNodes: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
 								return mustNewCIDRs("10.10.0.0/24")[0], nil
@@ -688,7 +690,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name:            "node-1",
 								ResourceVersion: "1",
 							},
@@ -706,7 +708,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:            "node-1",
 						ResourceVersion: "1",
 					},
@@ -719,7 +721,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			testSetup: func() *fields {
 				return &fields{
 					canAllocateNodes: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
 								return nil, fmt.Errorf("Allocator full!")
@@ -741,7 +743,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name:            "node-1",
 								ResourceVersion: "1",
 							},
@@ -759,7 +761,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:            "node-1",
 						ResourceVersion: "1",
 					},
@@ -772,7 +774,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			testSetup: func() *fields {
 				return &fields{
 					canAllocateNodes: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
 								return nil, fmt.Errorf("Allocator full!")
@@ -798,7 +800,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:            "node-1",
 						ResourceVersion: "1",
 					},
@@ -838,7 +840,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name:            "node-1",
 								ResourceVersion: "1",
 							},
@@ -856,7 +858,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:            "node-1",
 						ResourceVersion: "1",
 					},
@@ -897,8 +899,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 
 	type fields struct {
 		canAllocatePodCIDRs bool
-		v4ClusterCIDRs      []CIDRAllocator
-		v6ClusterCIDRs      []CIDRAllocator
+		v4ClusterCIDRs      []cidralloc.CIDRAllocator
+		v6ClusterCIDRs      []cidralloc.CIDRAllocator
 		newNodeCIDRs        *nodeCIDRs
 		nodes               map[string]*nodeCIDRs
 	}
@@ -921,8 +923,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 			testSetup: func() *fields {
 				return &fields{
 					canAllocatePodCIDRs: true,
-					v4ClusterCIDRs:      []CIDRAllocator{&mockCIDRAllocator{}},
-					v6ClusterCIDRs:      []CIDRAllocator{&mockCIDRAllocator{}},
+					v4ClusterCIDRs:      []cidralloc.CIDRAllocator{&mockCIDRAllocator{}},
+					v6ClusterCIDRs:      []cidralloc.CIDRAllocator{&mockCIDRAllocator{}},
 					nodes: map[string]*nodeCIDRs{
 						"node-1": {
 							v4PodCIDRs: mustNewCIDRs("10.10.0.0/24"),
@@ -959,7 +961,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 				onIsAllocatedCallsv4, onIsAllocatedCallsv6 = 0, 0
 				return &fields{
 					canAllocatePodCIDRs: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnOccupy: func(cidr *net.IPNet) error {
 								onOccupyCallsv4++
@@ -980,7 +982,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 							},
 						},
 					},
-					v6ClusterCIDRs: []CIDRAllocator{
+					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnOccupy: func(cidr *net.IPNet) error {
 								onOccupyCallsv6++
@@ -1039,7 +1041,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 				onIsAllocatedCallsv4, onIsAllocatedCallsv6 = 0, 0
 				return &fields{
 					canAllocatePodCIDRs: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
 								onIsAllocatedCallsv4++
@@ -1065,7 +1067,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 							},
 						},
 					},
-					v6ClusterCIDRs: []CIDRAllocator{
+					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnInRange: func(cidr *net.IPNet) bool {
 								c.Assert(cidr, checker.DeepEquals, mustNewCIDRs("fd00::/80")[0])
@@ -1102,10 +1104,10 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 			testSetup: func() *fields {
 				return &fields{
 					canAllocatePodCIDRs: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{},
 					},
-					v6ClusterCIDRs: []CIDRAllocator{
+					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{},
 					},
 					nodes: map[string]*nodeCIDRs{
@@ -1168,10 +1170,10 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 				onAllocateNextv6 = 0
 				return &fields{
 					canAllocatePodCIDRs: true,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{},
 					},
-					v6ClusterCIDRs: []CIDRAllocator{
+					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnIsFull: func() bool {
 								return false
@@ -1238,8 +1240,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 	)
 
 	type fields struct {
-		v4ClusterCIDRs []CIDRAllocator
-		v6ClusterCIDRs []CIDRAllocator
+		v4ClusterCIDRs []cidralloc.CIDRAllocator
+		v6ClusterCIDRs []cidralloc.CIDRAllocator
 		nodes          map[string]*nodeCIDRs
 	}
 	type args struct {
@@ -1259,8 +1261,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 			name: "test-1 - should not allocate anything because the node had previously allocated CIDRs",
 			testSetup: func() *fields {
 				return &fields{
-					v4ClusterCIDRs: []CIDRAllocator{},
-					v6ClusterCIDRs: []CIDRAllocator{},
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{},
+					v6ClusterCIDRs: []cidralloc.CIDRAllocator{},
 					nodes: map[string]*nodeCIDRs{
 						"node-1": {
 							v4PodCIDRs: mustNewCIDRs("10.10.0.0/24"),
@@ -1292,7 +1294,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 			testSetup: func() *fields {
 				allocateNextCallsv4, allocateNextCallsv6 = 0, 0
 				return &fields{
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
 								allocateNextCallsv4++
@@ -1307,7 +1309,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 							},
 						},
 					},
-					v6ClusterCIDRs: []CIDRAllocator{
+					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
 								allocateNextCallsv6++
@@ -1351,7 +1353,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 				allocateNextCallsv4 = 0
 				releaseCallsv4 = 0
 				return &fields{
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
 								allocateNextCallsv4++
@@ -1371,7 +1373,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 							},
 						},
 					},
-					v6ClusterCIDRs: []CIDRAllocator{
+					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnIsFull: func() bool {
 								return true
@@ -1400,7 +1402,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNext(c *C) {
 			name: "test-4 - no allocators!",
 			testSetup: func() *fields {
 				return &fields{
-					v4ClusterCIDRs: []CIDRAllocator{},
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{},
 					nodes:          map[string]*nodeCIDRs{},
 				}
 			},
@@ -1438,8 +1440,8 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_releaseIPNets(c *C) {
 	var onReleaseCalls int
 
 	type fields struct {
-		v4ClusterCIDRs []CIDRAllocator
-		v6ClusterCIDRs []CIDRAllocator
+		v4ClusterCIDRs []cidralloc.CIDRAllocator
+		v6ClusterCIDRs []cidralloc.CIDRAllocator
 		nodes          map[string]*nodeCIDRs
 	}
 	type args struct {
@@ -1469,7 +1471,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_releaseIPNets(c *C) {
 			name: "test-2",
 			testSetup: func() *fields {
 				onReleaseCalls = 0
-				cidrSet := []CIDRAllocator{
+				cidrSet := []cidralloc.CIDRAllocator{
 					&mockCIDRAllocator{
 						OnRelease: func(cidr *net.IPNet) error {
 							onReleaseCalls++
@@ -1504,7 +1506,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_releaseIPNets(c *C) {
 			name: "test-3",
 			testSetup: func() *fields {
 				onReleaseCalls = 0
-				cidrSet := []CIDRAllocator{
+				cidrSet := []cidralloc.CIDRAllocator{
 					&mockCIDRAllocator{
 						OnRelease: func(cidr *net.IPNet) error {
 							onReleaseCalls++
@@ -1669,7 +1671,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					OnCreate: func(n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
 						calls[k8sOpCreate]++
 						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1686,7 +1688,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1719,7 +1721,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					OnCreate: func(n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
 						calls[k8sOpCreate]++
 						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1731,15 +1733,15 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 							},
 						})
 						return nil, &k8sErrors.StatusError{
-							ErrStatus: v1.Status{
-								Reason: v1.StatusReasonAlreadyExists,
+							ErrStatus: metav1.Status{
+								Reason: metav1.StatusReasonAlreadyExists,
 							}}
 					},
 					OnGet: func(nodeName string) (node *v2.CiliumNode, err error) {
 						calls[k8sOpGet]++
 						c.Assert(nodeName, Equals, "node-1")
 						return &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1755,7 +1757,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1778,7 +1780,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 				c.Assert(args.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1808,7 +1810,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					OnCreate: func(n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
 						calls[k8sOpCreate]++
 						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1820,23 +1822,23 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 							},
 						})
 						return nil, &k8sErrors.StatusError{
-							ErrStatus: v1.Status{
-								Reason: v1.StatusReasonAlreadyExists,
+							ErrStatus: metav1.Status{
+								Reason: metav1.StatusReasonAlreadyExists,
 							}}
 					},
 					OnGet: func(nodeName string) (node *v2.CiliumNode, err error) {
 						calls[k8sOpGet]++
 						c.Assert(nodeName, Equals, "node-1")
 						return nil, &k8sErrors.StatusError{
-							ErrStatus: v1.Status{
-								Reason: v1.StatusReasonNotFound,
+							ErrStatus: metav1.Status{
+								Reason: metav1.StatusReasonNotFound,
 							}}
 					},
 				},
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1859,7 +1861,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 				c.Assert(args.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1887,7 +1889,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					OnUpdate: func(_, n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
 						calls[k8sOpUpdate]++
 						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1899,15 +1901,15 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 							},
 						})
 						return nil, &k8sErrors.StatusError{
-							ErrStatus: v1.Status{
-								Reason: v1.StatusReasonNotFound,
+							ErrStatus: metav1.Status{
+								Reason: metav1.StatusReasonNotFound,
 							}}
 					},
 				},
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1940,7 +1942,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					OnUpdateStatus: func(_, n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
 						calls[k8sOpUpdateStatus]++
 						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1957,7 +1959,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -2054,7 +2056,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 func (s *PodCIDRSuite) TestNewNodesPodCIDRManager(c *C) {
 	name := "node-1"
 	ciliumNode := &v2.CiliumNode{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 	}

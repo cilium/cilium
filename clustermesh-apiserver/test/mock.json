@@ -11,5 +11,5 @@
 {"kind": "CiliumIdentity", "metadata": {"name": "1111"}, "security-labels": {"name": "id1"}}
 {"kind": "CiliumIdentity", "metadata": {"name": "2222"}, "security-labels": {"name": "id2"}}
 {"kind": "CiliumIdentity", "metadata": {"name": "3333"}, "security-labels": {"name": "id3"}}
-{"kind": "Service", "metadata": {"name": "foo", "namespace": "default", "annotations": {"io.cilium/global-service": "true"}}, "spec": {"clusterIP": "20.10.10.10", "ports": [{"name": "https", "port": 443, "protocol": "TCP", "targetPort": 443}], "type": "ClusterIP"}}
+{"kind": "Service", "metadata": {"name": "foo", "namespace": "default", "annotations": {"service.cilium.io/global": "true"}}, "spec": {"clusterIP": "20.10.10.10", "ports": [{"name": "https", "port": 443, "protocol": "TCP", "targetPort": 443}], "type": "ClusterIP"}}
 {"kind": "Endpoints", "metadata": {"name": "foo", "namespace": "default"}, "subsets": [{"addresses": [{"ip": "34.90.138.138"}], "ports": [{"name": "https", "port": 443, "protocol": "TCP"}]}]}

@@ -408,6 +408,12 @@ func FuncMetadata(ins *asm.Instruction) *Func {
 	return fn
 }
 
+// WithFuncMetadata adds a btf.Func to the Metadata of asm.Instruction.
+func WithFuncMetadata(ins asm.Instruction, fn *Func) asm.Instruction {
+	ins.Metadata.Set(funcInfoMeta{}, fn)
+	return ins
+}
+
 func (f *Func) Format(fs fmt.State, verb rune) {
 	formatType(fs, verb, f, f.Linkage, "proto=", f.Type)
 }
@@ -487,6 +493,7 @@ func (ds *Datasec) copy() Type {
 //
 // It is not a valid Type.
 type VarSecinfo struct {
+	// Var or Func.
 	Type   Type
 	Offset uint32
 	Size   uint32
@@ -738,10 +745,10 @@ func inflateRawTypes(rawTypes []rawType, baseTypes types, rawStrings *stringTabl
 	}
 
 	var fixups []fixupDef
-	fixup := func(id TypeID, typ *Type) {
+	fixup := func(id TypeID, typ *Type) bool {
 		if id < TypeID(len(baseTypes)) {
 			*typ = baseTypes[id]
-			return
+			return true
 		}
 
 		idx := id
@@ -751,26 +758,29 @@ func inflateRawTypes(rawTypes []rawType, baseTypes types, rawStrings *stringTabl
 		if idx < TypeID(len(types)) {
 			// We've already inflated this type, fix it up immediately.
 			*typ = types[idx]
-			return
+			return true
 		}
 		fixups = append(fixups, fixupDef{id, typ})
+		return false
 	}
 
 	type assertion struct {
+		id   TypeID
 		typ  *Type
 		want reflect.Type
 	}
 
 	var assertions []assertion
-	assert := func(typ *Type, want reflect.Type) error {
-		if *typ != nil {
-			// The type has already been fixed up, check the type immediately.
-			if reflect.TypeOf(*typ) != want {
-				return fmt.Errorf("expected %s, got %T", want, *typ)
-			}
+	fixupAndAssert := func(id TypeID, typ *Type, want reflect.Type) error {
+		if !fixup(id, typ) {
+			assertions = append(assertions, assertion{id, typ, want})
 			return nil
 		}
-		assertions = append(assertions, assertion{typ, want})
+
+		// The type has already been fixed up, check the type immediately.
+		if reflect.TypeOf(*typ) != want {
+			return fmt.Errorf("type ID %d: expected %s, got %T", id, want, *typ)
+		}
 		return nil
 	}
 
@@ -928,8 +938,7 @@ func inflateRawTypes(rawTypes []rawType, baseTypes types, rawStrings *stringTabl
 
 		case kindFunc:
 			fn := &Func{name, nil, raw.Linkage()}
-			fixup(raw.Type(), &fn.Type)
-			if err := assert(&fn.Type, reflect.TypeOf((*FuncProto)(nil))); err != nil {
+			if err := fixupAndAssert(raw.Type(), &fn.Type, reflect.TypeOf((*FuncProto)(nil))); err != nil {
 				return nil, err
 			}
 			typ = fn
@@ -971,9 +980,6 @@ func inflateRawTypes(rawTypes []rawType, baseTypes types, rawStrings *stringTabl
 			}
 			for i := range vars {
 				fixup(btfVars[i].Type, &vars[i].Type)
-				if err := assert(&vars[i].Type, reflect.TypeOf((*Var)(nil))); err != nil {
-					return nil, err
-				}
 			}
 			typ = &Datasec{name, raw.Size(), vars}
 
@@ -1044,7 +1050,7 @@ func inflateRawTypes(rawTypes []rawType, baseTypes types, rawStrings *stringTabl
 
 	for _, assertion := range assertions {
 		if reflect.TypeOf(*assertion.typ) != assertion.want {
-			return nil, fmt.Errorf("expected %s, got %T", assertion.want, *assertion.typ)
+			return nil, fmt.Errorf("type ID %d: expected %s, got %T", assertion.id, assertion.want, *assertion.typ)
 		}
 	}
 

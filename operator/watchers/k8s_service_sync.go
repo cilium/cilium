@@ -39,19 +39,19 @@ var (
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})
 	kvs               *store.SharedStore
-	sharedOnly        bool
 )
 
 func k8sEventMetric(scope, action string) {
 	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action)
 }
 
-func k8sServiceHandler(clusterName string) {
+func k8sServiceHandler(clusterName string, shared bool, clusterID uint32) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
 
 		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
 		svc.Cluster = clusterName
+		svc.ClusterID = clusterID
 
 		log.WithFields(logrus.Fields{
 			logfields.K8sSvcName:   event.ID.Name,
@@ -62,7 +62,7 @@ func k8sServiceHandler(clusterName string) {
 			"shared":               event.Service.Shared,
 		}).Debug("Kubernetes service definition changed")
 
-		if sharedOnly && !event.Service.Shared {
+		if shared && !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
 			kvs.DeleteLocalKey(context.TODO(), &svc)
 			return
@@ -91,6 +91,9 @@ type ServiceSyncConfiguration interface {
 	// LocalClusterName must return the local cluster name
 	LocalClusterName() string
 
+	// LocalClusterID must return the local cluster id
+	LocalClusterID() uint32
+
 	utils.ServiceConfiguration
 }
 
@@ -100,7 +103,6 @@ type ServiceSyncConfiguration interface {
 // VM support we need to sync all the services.
 func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], shared bool, cfg ServiceSyncConfiguration) {
 	log.Info("Starting to synchronize k8s services to kvstore")
-	sharedOnly = shared
 
 	serviceOptsModifier, err := utils.GetServiceListOptionsModifier(cfg)
 	if err != nil {
@@ -113,7 +115,6 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 		store, err := store.JoinSharedStore(store.Configuration{
 			Prefix:                  serviceStore.ServiceStorePrefix,
 			SynchronizationInterval: 5 * time.Minute,
-			SharedKeyDeleteDelay:    func() *time.Duration { a := time.Duration(0); return &a }(),
 			KeyCreator: func() store.Key {
 				return &serviceStore.ClusterService{}
 			},
@@ -190,7 +191,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 
 		<-readyChan
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(cfg.LocalClusterName())
+		k8sServiceHandler(cfg.LocalClusterName(), shared, cfg.LocalClusterID())
 	}()
 }
 

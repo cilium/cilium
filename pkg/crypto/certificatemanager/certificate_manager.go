@@ -9,37 +9,65 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cilium/cilium/pkg/hive/cell"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/policy/api"
+
+	"github.com/spf13/pflag"
 )
 
-const (
-	caDefaultName      = "ca.crt"
-	publicDefaultName  = "tls.crt"
-	privateDefaultName = "tls.key"
+var Cell = cell.Module(
+	"certificate-manager",
+	"Provides TLS certificates and secrets",
+
+	cell.Provide(NewManager),
+
+	cell.Config(defaultManagerConfig),
 )
 
-type k8sClient interface {
-	GetSecrets(ctx context.Context, ns, name string) (map[string][]byte, error)
+type CertificateManager interface {
+	GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, err error)
+}
+
+type SecretManager interface {
+	GetSecrets(ctx context.Context, secret *api.Secret, ns string) (string, map[string][]byte, error)
+	GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error)
+}
+
+var defaultManagerConfig = managerConfig{
+	CertificatesDirectory: "/var/run/cilium/certs",
+}
+
+type managerConfig struct {
+	// CertificatesDirectory is the root directory to be used by cilium to find
+	// certificates locally.
+	CertificatesDirectory string
+}
+
+func (mc managerConfig) Flags(flags *pflag.FlagSet) {
+	flags.String("certificates-directory", mc.CertificatesDirectory, "Root directory to find certificates specified in L7 TLS policy enforcement")
 }
 
 // Manager will manage the way certificates are retrieved based in the given
 // k8sClient and rootPath.
-type Manager struct {
+type manager struct {
 	rootPath  string
-	k8sClient k8sClient
+	k8sClient k8sClient.Clientset
 }
 
 // NewManager returns a new manager.
-func NewManager(certsRootPath string, k8sClient k8sClient) *Manager {
-	return &Manager{
-		rootPath:  certsRootPath,
-		k8sClient: k8sClient,
+func NewManager(cfg managerConfig, clientset k8sClient.Clientset) (CertificateManager, SecretManager) {
+	m := &manager{
+		rootPath:  cfg.CertificatesDirectory,
+		k8sClient: clientset,
 	}
+
+	return m, m
 }
 
 // GetSecrets returns either local or k8s secrets, giving precedence for local secrets if configured.
 // The 'ns' parameter is used as the secret namespace if 'secret.Namespace' is an empty string.
-func (m *Manager) GetSecrets(ctx context.Context, secret *api.Secret, ns string) (string, map[string][]byte, error) {
+func (m *manager) GetSecrets(ctx context.Context, secret *api.Secret, ns string) (string, map[string][]byte, error) {
 	if secret == nil {
 		return "", nil, fmt.Errorf("Secret must not be nil")
 	}
@@ -78,9 +106,15 @@ func (m *Manager) GetSecrets(ctx context.Context, secret *api.Secret, ns string)
 	return nsName, secrets, err
 }
 
+const (
+	caDefaultName      = "ca.crt"
+	publicDefaultName  = "tls.crt"
+	privateDefaultName = "tls.key"
+)
+
 // GetTLSContext returns a new ca, public and private certificates found based
 // in the given api.TLSContext.
-func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, err error) {
+func (m *manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, err error) {
 	name, secrets, err := m.GetSecrets(ctx, tlsCtx.Secret, ns)
 	if err != nil {
 		return "", "", "", err
@@ -127,7 +161,7 @@ func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns 
 }
 
 // GetSecretString returns a secret string stored in a k8s secret
-func (m *Manager) GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error) {
+func (m *manager) GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error) {
 	name, secrets, err := m.GetSecrets(ctx, secret, ns)
 	if err != nil {
 		return "", err

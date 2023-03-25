@@ -1,5 +1,5 @@
 ## Auto-generated from requirements-min/requirements.txt with "make update-requirements"
-Sphinx==5.1.1
+sphinx==5.3.0
 sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
@@ -7,57 +7,66 @@ sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@3bd
 # We use semver to parse Cilium's version in the config file
 semver==2.13.0
 # Sphinx extensions
-myst-parser==0.18.0
-# Fork openapi until it uses something newer than unmaintained m2r
-# (See git logs for details)
-sphinxcontrib-openapi @ git+https://github.com/cilium/openapi.git@a1d4fca2e7c3ae3cca69593baade1ebc297a12ff
+myst-parser==0.18.1
 sphinx-tabs==3.4.0
 sphinx-version-warning==1.1.2
-sphinxcontrib-spelling==7.6.0
+sphinxcontrib-googleanalytics==0.4
+sphinxcontrib-openapi==0.8.1
+sphinxcontrib-spelling==8.0.0
 sphinxcontrib-websupport==1.2.4
 # Linters
-rstcheck==3.3.1
-yamllint==1.27.1
+rstcheck==6.1.1
+yamllint==1.29.0
 ## The following requirements were added by pip freeze:
-alabaster==0.7.12
-attrs==22.1.0
-Babel==2.10.3
+alabaster==0.7.13
+attrs==22.2.0
+Babel==2.12.1
 certifi==2022.12.7
-charset-normalizer==2.1.1
-colorama==0.4.5
-deepmerge==1.0.1
+charset-normalizer==3.0.1
+click==8.1.3
+colorama==0.4.6
+commonmark==0.9.1
+deepmerge==1.1.0
 docutils==0.17.1
-idna==3.3
+idna==3.4
 imagesize==1.4.1
+importlib-metadata==4.13.0
+importlib-resources==5.12.0
 Jinja2==3.0.3
-jsonschema==4.14.0
+jsonschema==4.17.3
 livereload==2.6.3
-markdown-it-py==2.1.0
-MarkupSafe==2.1.1
-mdit-py-plugins==0.3.0
+markdown-it-py==2.2.0
+MarkupSafe==2.1.2
+mdit-py-plugins==0.3.4
 mdurl==0.1.2
-mistune==2.0.4
-packaging==21.3
-pathspec==0.9.0
+mistune==2.0.5
+packaging==23.0
+pathspec==0.11.0
 picobox==2.2.0
+pkgutil-resolve-name==1.3.10
+pydantic==1.10.5
 pyenchant==3.2.2
-Pygments==2.13.0
-pyparsing==3.0.9
-pyrsistent==0.18.1
-pytz==2022.2.1
+Pygments==2.14.0
+pyrsistent==0.19.3
+pytz==2022.7.1
 PyYAML==6.0
-requests==2.28.1
+requests==2.28.2
+rich==12.6.0
+rstcheck-core==1.0.3
+shellingham==1.5.0.post1
 six==1.16.0
 snowballstemmer==2.2.0
-sphinx_mdinclude==0.5.1
+sphinx-mdinclude==0.5.3
 sphinxcontrib-applehelp==1.0.2
 sphinxcontrib-devhelp==1.0.2
-sphinxcontrib-googleanalytics==0.3
 sphinxcontrib-htmlhelp==2.0.0
-sphinxcontrib-httpdomain==1.8.0
+sphinxcontrib-httpdomain==1.8.1
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.3
 sphinxcontrib-serializinghtml==1.1.5
 tornado==6.2
-typing_extensions==4.3.0
-urllib3==1.26.11
+typer==0.7.0
+types-docutils==0.19.1.6
+typing-extensions==4.5.0
+urllib3==1.26.14
+zipp==3.15.0

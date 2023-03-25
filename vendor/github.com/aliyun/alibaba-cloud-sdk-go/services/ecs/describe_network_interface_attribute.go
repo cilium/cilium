@@ -116,6 +116,8 @@ type DescribeNetworkInterfaceAttributeResponse struct {
 	SlaveInterfaceSpecification SlaveInterfaceSpecification                         `json:"SlaveInterfaceSpecification" xml:"SlaveInterfaceSpecification"`
 	PrivateIpSets               PrivateIpSetsInDescribeNetworkInterfaceAttribute    `json:"PrivateIpSets" xml:"PrivateIpSets"`
 	Ipv6Sets                    Ipv6SetsInDescribeNetworkInterfaceAttribute         `json:"Ipv6Sets" xml:"Ipv6Sets"`
+	Ipv4PrefixSets              Ipv4PrefixSetsInDescribeNetworkInterfaceAttribute   `json:"Ipv4PrefixSets" xml:"Ipv4PrefixSets"`
+	Ipv6PrefixSets              Ipv6PrefixSetsInDescribeNetworkInterfaceAttribute   `json:"Ipv6PrefixSets" xml:"Ipv6PrefixSets"`
 	Tags                        TagsInDescribeNetworkInterfaceAttribute             `json:"Tags" xml:"Tags"`
 }
 

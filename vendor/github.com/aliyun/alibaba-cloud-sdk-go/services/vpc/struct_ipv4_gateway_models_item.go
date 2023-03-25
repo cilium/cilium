@@ -25,4 +25,6 @@ type Ipv4GatewayModelsItem struct {
 	GmtCreate               string `json:"GmtCreate" xml:"GmtCreate"`
 	Ipv4GatewayRouteTableId string `json:"Ipv4GatewayRouteTableId" xml:"Ipv4GatewayRouteTableId"`
 	Ipv4GatewayName         string `json:"Ipv4GatewayName" xml:"Ipv4GatewayName"`
+	ResourceGroupId         string `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	Tags                    []Tag  `json:"Tags" xml:"Tags"`
 }

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"gopkg.in/check.v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -28,19 +29,24 @@ func (s *K8sSuite) TestGetAnnotationIncludeExternal(c *check.C) {
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/global-service": "True"},
+		Annotations: map[string]string{"service.cilium.io/global": "True"},
 	}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, true)
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/global-service": "false"},
+		Annotations: map[string]string{"service.cilium.io/global": "false"},
 	}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/global-service": ""},
+		Annotations: map[string]string{"service.cilium.io/global": ""},
 	}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
+
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
+		Annotations: map[string]string{"io.cilium/global-service": "True"},
+	}}
+	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, true)
 }
 
 func (s *K8sSuite) TestGetAnnotationShared(c *check.C) {
@@ -49,31 +55,51 @@ func (s *K8sSuite) TestGetAnnotationShared(c *check.C) {
 	}}
 	c.Assert(getAnnotationShared(svc), check.Equals, false)
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/global-service": "true"},
+		Annotations: map[string]string{"service.cilium.io/global": "true"},
 	}}
 	c.Assert(getAnnotationShared(svc), check.Equals, true)
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/shared-service": "True"},
+		Annotations: map[string]string{"service.cilium.io/shared": "true"},
+	}}
+	c.Assert(getAnnotationShared(svc), check.Equals, false)
+
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
+		Annotations: map[string]string{"service.cilium.io/global": "true", "service.cilium.io/shared": "True"},
 	}}
 	c.Assert(getAnnotationShared(svc), check.Equals, true)
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/global-service": "true", "io.cilium/shared-service": "false"},
+		Annotations: map[string]string{"service.cilium.io/global": "true", "service.cilium.io/shared": "false"},
+	}}
+	c.Assert(getAnnotationShared(svc), check.Equals, false)
+
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
+		Annotations: map[string]string{"service.cilium.io/global": "true", "io.cilium/shared-service": "false"},
 	}}
 	c.Assert(getAnnotationShared(svc), check.Equals, false)
 }
 
 func (s *K8sSuite) TestGetAnnotationServiceAffinity(c *check.C) {
 	svc := &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/service-affinity": "local"},
+		Annotations: map[string]string{"service.cilium.io/global": "true", "service.cilium.io/affinity": "local"},
 	}}
 	c.Assert(getAnnotationServiceAffinity(svc), check.Equals, serviceAffinityLocal)
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/service-affinity": "remote"},
+		Annotations: map[string]string{"service.cilium.io/global": "true", "service.cilium.io/affinity": "remote"},
 	}}
 	c.Assert(getAnnotationServiceAffinity(svc), check.Equals, serviceAffinityRemote)
+
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
+		Annotations: map[string]string{"service.cilium.io/global": "true", "io.cilium/service-affinity": "local"},
+	}}
+	c.Assert(getAnnotationServiceAffinity(svc), check.Equals, serviceAffinityLocal)
+
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
+		Annotations: map[string]string{"service.cilium.io/affinity": "remote"},
+	}}
+	c.Assert(getAnnotationServiceAffinity(svc), check.Equals, serviceAffinityNone)
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{},
@@ -176,7 +202,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		option.Config.EnableNodePort = oldNodePort
 	}()
 	objMeta.Annotations = map[string]string{
-		annotationTopologyAwareHints: "auto",
+		corev1.AnnotationTopologyAwareHints: "auto",
 	}
 	k8sSvc = &slim_corev1.Service{
 		ObjectMeta: objMeta,

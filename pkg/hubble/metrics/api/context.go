@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/utils/strings/slices"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
@@ -27,11 +28,13 @@ const (
 	ContextIdentity
 	// ContextNamespace uses the namespace name for identification purposes
 	ContextNamespace
-	// ContextPod uses the pod name for identification purposes
+	// ContextPod uses the namespace and pod name for identification purposes in the form of namespace/pod-name.
 	ContextPod
 	// ContextPodShort uses a short version of the pod name. It should
-	// typically map to the deployment/replicaset name
+	// typically map to the deployment/replicaset name. Deprecated.
 	ContextPodShort
+	// ContextPodName uses the pod name for identification purposes
+	ContextPodName
 	// ContextDNS uses the DNS name for identification purposes
 	ContextDNS
 	// ContextIP uses the IP address for identification purposes
@@ -48,11 +51,15 @@ const (
 
 // ContextOptionsHelp is the help text for context options
 const ContextOptionsHelp = `
- sourceContext          ::= identifier , { "|", identifier }
- destinationContext     ::= identifier , { "|", identifier }
- labels                 ::= label , { ",", label }
- identifier             ::= identity | namespace | pod | pod-short | dns | ip | reserved-identity | workload-name | app
- label                  ::= source_ip | source_pod | source_namespace | source_workload | source_app | destination_ip | destination_pod | destination_namespace | destination_workload | destination_app | traffic_direction
+ sourceContext             ::= identifier , { "|", identifier }
+ destinationContext        ::= identifier , { "|", identifier }
+ sourceEgressContext       ::= identifier , { "|", identifier }
+ sourceIngressContext      ::= identifier , { "|", identifier }
+ destinationEgressContext  ::= identifier , { "|", identifier }
+ destinationIngressContext ::= identifier , { "|", identifier }
+ labels                    ::= label , { ",", label }
+ identifier             ::= identity | namespace | pod | pod-short | pod-name | dns | ip | reserved-identity | workload-name | app
+ label                     ::= source_ip | source_pod | source_namespace | source_workload | source_app | destination_ip | destination_pod | destination_namespace | destination_workload | destination_app | traffic_direction
 `
 
 var (
@@ -126,10 +133,23 @@ func (cs ContextIdentifierList) String() string {
 // ContextOptions is the set of options to define whether and how to include
 // sending and/or receiving context information
 type ContextOptions struct {
-	// Destination is the destination context to include in metrics
+	// Destination is the destination context to include in metrics for both egress and ingress traffic
 	Destination ContextIdentifierList
-	// Source is the source context to include in metrics
+	// Destination is the destination context to include in metrics for egress traffic (overrides Destination)
+	DestinationEgress ContextIdentifierList
+	// Destination is the destination context to include in metrics for ingress traffic (overrides Destination)
+	DestinationIngress ContextIdentifierList
+
+	allDestinationCtx ContextIdentifierList
+
+	// Source is the source context to include in metrics for both egress and ingress traffic
 	Source ContextIdentifierList
+	// Source is the source context to include in metrics for egress traffic (overrides Source)
+	SourceEgress ContextIdentifierList
+	// Source is the source context to include in metrics for ingress traffic (overrides Source)
+	SourceIngress ContextIdentifierList
+
+	allSourceCtx ContextIdentifierList
 
 	// Labels is the full set of labels that have been allowlisted when using the
 	// ContextLabels ContextIdentifier.
@@ -146,6 +166,8 @@ func parseContextIdentifier(s string) (ContextIdentifier, error) {
 		return ContextPod, nil
 	case "pod-short":
 		return ContextPodShort, nil
+	case "pod-name":
+		return ContextPodName, nil
 	case "dns":
 		return ContextDNS, nil
 	case "ip":
@@ -193,11 +215,37 @@ func ParseContextOptions(options Options) (*ContextOptions, error) {
 		switch strings.ToLower(key) {
 		case "destinationcontext":
 			o.Destination, err = parseContext(value)
+			o.allDestinationCtx = append(o.allDestinationCtx, o.Destination...)
+			if err != nil {
+				return nil, err
+			}
+		case "destinationegresscontext":
+			o.DestinationEgress, err = parseContext(value)
+			o.allDestinationCtx = append(o.allDestinationCtx, o.DestinationEgress...)
+			if err != nil {
+				return nil, err
+			}
+		case "destinationingresscontext":
+			o.DestinationIngress, err = parseContext(value)
+			o.allDestinationCtx = append(o.allDestinationCtx, o.DestinationIngress...)
 			if err != nil {
 				return nil, err
 			}
 		case "sourcecontext":
 			o.Source, err = parseContext(value)
+			o.allSourceCtx = append(o.allSourceCtx, o.Source...)
+			if err != nil {
+				return nil, err
+			}
+		case "sourceegresscontext":
+			o.SourceEgress, err = parseContext(value)
+			o.allSourceCtx = append(o.allSourceCtx, o.SourceEgress...)
+			if err != nil {
+				return nil, err
+			}
+		case "sourceingresscontext":
+			o.SourceIngress, err = parseContext(value)
+			o.allSourceCtx = append(o.allSourceCtx, o.SourceIngress...)
 			if err != nil {
 				return nil, err
 			}
@@ -357,7 +405,14 @@ func (o *ContextOptions) getLabelValues(invert bool, flow *pb.Flow) (labels []st
 	}
 
 	var sourceLabel string
-	for _, contextID := range o.Source {
+	var sourceContextIdentifiers = o.Source
+	if o.SourceIngress != nil && flow.GetTrafficDirection() == pb.TrafficDirection_INGRESS {
+		sourceContextIdentifiers = o.SourceIngress
+	} else if o.SourceEgress != nil && flow.GetTrafficDirection() == pb.TrafficDirection_EGRESS {
+		sourceContextIdentifiers = o.SourceEgress
+	}
+
+	for _, contextID := range sourceContextIdentifiers {
 		sourceLabel = getContextIDLabelValue(contextID, flow, true)
 		// always use first non-empty context
 		if sourceLabel != "" {
@@ -366,7 +421,13 @@ func (o *ContextOptions) getLabelValues(invert bool, flow *pb.Flow) (labels []st
 	}
 
 	var destinationLabel string
-	for _, contextID := range o.Destination {
+	var destinationContextIdentifiers = o.Destination
+	if o.DestinationIngress != nil && flow.GetTrafficDirection() == pb.TrafficDirection_INGRESS {
+		destinationContextIdentifiers = o.DestinationIngress
+	} else if o.DestinationEgress != nil && flow.GetTrafficDirection() == pb.TrafficDirection_EGRESS {
+		destinationContextIdentifiers = o.DestinationEgress
+	}
+	for _, contextID := range destinationContextIdentifiers {
 		destinationLabel = getContextIDLabelValue(contextID, flow, false)
 		// always use first non-empty context
 		if destinationLabel != "" {
@@ -409,6 +470,8 @@ func getContextIDLabelValue(contextID ContextIdentifier, flow *pb.Flow, source b
 		if ep.GetNamespace() != "" {
 			labelValue = ep.GetNamespace() + "/" + labelValue
 		}
+	case ContextPodName:
+		labelValue = ep.GetPodName()
 	case ContextDNS:
 		if source {
 			labelValue = strings.Join(flow.GetSourceNames(), ",")
@@ -477,4 +540,34 @@ func (o *ContextOptions) Status() string {
 	sort.Strings(status)
 
 	return strings.Join(status, ",")
+}
+
+func (o *ContextOptions) DeleteMetricsAssociatedWithPod(name string, namespace string, vec *prometheus.MetricVec) {
+	for _, contextID := range o.allSourceCtx {
+		if contextID == ContextPod {
+			vec.DeletePartialMatch(prometheus.Labels{
+				"source": namespace + "/" + name,
+			})
+		}
+	}
+	for _, contextID := range o.allDestinationCtx {
+		if contextID == ContextPod {
+			vec.DeletePartialMatch(prometheus.Labels{
+				"destination": namespace + "/" + name,
+			})
+		}
+	}
+
+	if o.Labels.HasLabel("source_pod") && o.Labels.HasLabel("source_namespace") {
+		vec.DeletePartialMatch(prometheus.Labels{
+			"source_namespace": namespace,
+			"source_pod":       name,
+		})
+	}
+	if o.Labels.HasLabel("destination_pod") && o.Labels.HasLabel("destination_namespace") {
+		vec.DeletePartialMatch(prometheus.Labels{
+			"destination_namespace": namespace,
+			"destination_pod":       name,
+		})
+	}
 }

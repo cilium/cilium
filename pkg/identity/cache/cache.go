@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/key"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -54,7 +55,7 @@ func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if val != nil {
-				if gi, ok := val.(GlobalIdentity); ok {
+				if gi, ok := val.(*key.GlobalIdentity); ok {
 					cache[identity.NumericIdentity(id)] = gi.LabelArray
 				} else {
 					log.Warningf("Ignoring unknown identity type '%s': %+v",
@@ -81,7 +82,7 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 
 	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
-			if gi, ok := val.(GlobalIdentity); ok {
+			if gi, ok := val.(*key.GlobalIdentity); ok {
 				identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.LabelArray)
 				identities = append(identities, identitymodel.CreateModel(identity))
 			}
@@ -110,7 +111,7 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) 
 	id := identity.NumericIdentity(event.ID)
 	// Only create events have the key
 	if event.Typ == kvstore.EventTypeCreate {
-		if gi, ok := event.Key.(GlobalIdentity); ok {
+		if gi, ok := event.Key.(*key.GlobalIdentity); ok {
 			// Un-delete the added ID if previously
 			// 'deleted' so that collected events can be
 			// processed in any order.
@@ -219,7 +220,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 	}
 
 	lblArray := lbls.LabelArray()
-	id, err := m.IdentityAllocator.GetIncludeRemoteCaches(ctx, GlobalIdentity{lblArray})
+	id, err := m.IdentityAllocator.GetIncludeRemoteCaches(ctx, &key.GlobalIdentity{LabelArray: lblArray})
 	if err != nil {
 		return nil
 	}
@@ -262,7 +263,7 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id id
 		return nil
 	}
 
-	if gi, ok := allocatorKey.(GlobalIdentity); ok {
+	if gi, ok := allocatorKey.(*key.GlobalIdentity); ok {
 		return identity.NewIdentityFromLabelArray(id, gi.LabelArray)
 	}
 

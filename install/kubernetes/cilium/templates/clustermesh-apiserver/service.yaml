@@ -24,4 +24,10 @@ spec:
   {{- if and (eq "LoadBalancer" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.loadBalancerIP }}
   loadBalancerIP: {{ .Values.clustermesh.apiserver.service.loadBalancerIP }}
   {{- end }}
+  {{- if .Values.clustermesh.apiserver.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.clustermesh.apiserver.service.externalTrafficPolicy }}
+  {{- end }}
+  {{- if .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
+  internalTrafficPolicy: {{ .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
+  {{- end }}
 {{- end }}

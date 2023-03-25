@@ -6,6 +6,7 @@ package common
 //  - linux (amd64, arm)
 //  - freebsd (amd64)
 //  - windows (amd64)
+
 import (
 	"bufio"
 	"bytes"
@@ -364,14 +365,8 @@ func HostDev(combineWith ...string) string {
 	return GetEnv("HOST_DEV", "/dev", combineWith...)
 }
 
-// MockEnv set environment variable and return revert function.
-// MockEnv should be used testing only.
-func MockEnv(key string, value string) func() {
-	original := os.Getenv(key)
-	os.Setenv(key, value)
-	return func() {
-		os.Setenv(key, original)
-	}
+func HostRoot(combineWith ...string) string {
+	return GetEnv("HOST_ROOT", "/", combineWith...)
 }
 
 // getSysctrlEnv sets LC_ALL=C in a list of env vars for use when running

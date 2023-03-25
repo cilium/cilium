@@ -210,8 +210,6 @@ clean-container: ## Perform `make clean` for each component required in cilium-a
 
 clean: ## Perform overall cleanup for Cilium.
 	-$(QUIET) for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i clean; done
-	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb clean
-	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm clean
 
 veryclean: ## Perform complete cleanup for container engine images(including build cache).
 	-$(QUIET) $(CONTAINER_ENGINE) image prune -af
@@ -242,12 +240,6 @@ install-bash-completion: ## Install bash completion for all components required 
 # Touch the file only if needed
 GIT_VERSION: force
 	@if [ "$(GIT_VERSION)" != "`cat 2>/dev/null GIT_VERSION`" ] ; then echo "$(GIT_VERSION)" >GIT_VERSION; fi
-
-build-deb: ## Build deb package of cilium.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb
-
-build-rpm: ## Build rpm package of cilium.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm
 
 -include Makefile.docker
 
@@ -326,12 +318,7 @@ generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observ
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
 generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
-	@if [ -z "$(GOPATH)" ] || [ ! -d "$(GOPATH)/src/github.com/cilium/cilium" ] || \
-		[ "$(PWD)" != "$(GOPATH)/src/github.com/cilium/cilium" ]; then \
-		echo "Set \$$GOPATH to a directory containing the Cilium repository at \$$GOPATH/src/github.com/cilium/cilium."; \
-		echo "The current working directory must be the repository root for code generation to work correctly."; \
-		exit 1; \
-	fi
+	$(ASSERT_CILIUM_MODULE)
 
 	$(call generate_k8s_protobuf,$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1$(comma)$\
@@ -362,6 +349,7 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	alibabacloud:types\
 	k8s:types\
 	k8s:utils\
+	maps:auth\
 	maps:ctmap\
 	maps:encrypt\
 	maps:eppolicymap\
@@ -416,7 +404,6 @@ release: ## Perform a Git release for Cilium.
 	$(info Checking if tag $(VERSION) is created '$(TAG_VERSION)' $(BRANCH))
 
 	@if [ "$(TAG_VERSION)" -eq "0" ];then { echo Git tag v$(VERSION) is already created; exit 1; } fi
-	$(MAKE) -C ./contrib/packaging/deb release
 	git commit -m "Version $(VERSION)"
 	git tag v$(VERSION)
 	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
@@ -470,11 +457,24 @@ kind: ## Create a kind cluster for Cilium development.
 kind-down: ## Destroy a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind-down.sh
 
-.PHONY: kind-ready
-kind-ready:
-	@$(ECHO_CHECK) kind is ready...
-	@kind get clusters 2>&1 | grep "No kind clusters found." \
-		&& exit 1 || exit 0
+.PHONY: kind-clustermesh
+kind-clustermesh: ## Create two kind clusters for clustermesh development.
+	@echo " If you have problems with too many open file, check https://kind.sigs.k8s.io/docs/user/known-issues/#pod-errors-due-to-too-many-open-files"
+	$(QUIET) CLUSTER_NAME=clustermesh1 IPFAMILY=ipv4 PODSUBNET=10.1.0.0/16 SERVICESUBNET=172.20.1.0/24 ./contrib/scripts/kind.sh
+	$(QUIET) CLUSTER_NAME=clustermesh2 AGENTPORTPREFIX=236 OPERATORPORTPREFIX=237 IPFAMILY=ipv4 PODSUBNET=10.2.0.0/16 SERVICESUBNET=172.20.2.0/24 ./contrib/scripts/kind.sh
+
+.PHONY: kind-clustermesh-down
+kind-clustermesh-down: ## Destroy kind clusters for clustermesh development.
+	kind delete clusters clustermesh1
+	kind delete clusters clustermesh2
+
+.PHONY: kind-clustermesh-ready
+kind-clustermesh-ready: ## Check if both kind clustermesh clusters exist
+	@$(ECHO_CHECK) clustermesh kind is ready...
+	@kind get clusters 2>&1 | grep "clustermesh1" \
+		&& exit 0 || exit 1
+	@kind get clusters 2>&1 | grep "clustermesh2" \
+		&& exit 0 || exit 1
 
 # Template for kind environment for a target. Parameters are:
 # $(1) Makefile target name
@@ -483,21 +483,76 @@ define KIND_ENV
 $(1): export DOCKER_REGISTRY=localhost:5000
 $(1): export LOCAL_AGENT_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/cilium-dev:$$(LOCAL_IMAGE_TAG)
 $(1): export LOCAL_OPERATOR_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/operator-generic:$$(LOCAL_IMAGE_TAG)
+$(1): export LOCAL_CLUSTERMESH_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/clustermesh-apiserver:$$(LOCAL_IMAGE_TAG)
 endef
 
-$(eval $(call KIND_ENV,kind-image-agent))
-kind-image-agent: kind-ready ## Build cilium-dev docker image and import it into kind.
+$(eval $(call KIND_ENV,kind-clustermesh-images))
+kind-clustermesh-images: kind-clustermesh-ready kind-build-clustermesh-apiserver kind-build-image-agent kind-build-image-operator ## Builds images and imports them into clustermesh clusters
+	$(QUIET)kind load docker-image $(LOCAL_CLUSTERMESH_IMAGE) --name clustermesh1
+	$(QUIET)kind load docker-image $(LOCAL_CLUSTERMESH_IMAGE) --name clustermesh2
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) --name clustermesh1
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) --name clustermesh2
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh1
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh2
+
+.PHONY: kind-install-cilium-clustermesh
+kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
+	@echo "  INSTALL cilium on clustermesh1 cluster"
+	kubectl config use kind-clustermesh1
+	-cilium uninstall >/dev/null
+	cilium install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
+		--version=
+	@echo "  INSTALL cilium on clustermesh2 cluster"
+	kubectl config use kind-clustermesh2
+	-cilium uninstall >/dev/null
+	cilium install \
+		--inherit-ca kind-clustermesh1 \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
+		--version=
+	@echo "  Enabling clustermesh"
+	cilium clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image localhost:5000/cilium/clustermesh-apiserver:local
+	cilium clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image localhost:5000/cilium/clustermesh-apiserver:local
+	cilium clustermesh status --context kind-clustermesh1 --wait
+	cilium clustermesh status --context kind-clustermesh2 --wait
+	cilium clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
+	cilium clustermesh status --context kind-clustermesh1 --wait
+	cilium clustermesh status --context kind-clustermesh2 --wait
+
+
+.PHONY: kind-ready
+kind-ready:
+	@$(ECHO_CHECK) kind is ready...
+	@kind get clusters 2>&1 | grep "No kind clusters found." \
+		&& exit 1 || exit 0
+
+$(eval $(call KIND_ENV,kind-build-image-agent))
+kind-build-image-agent: ## Build cilium-dev docker image
 	$(QUIET)$(MAKE) dev-docker-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to kind ($(LOCAL_AGENT_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_AGENT_IMAGE)
+
+$(eval $(call KIND_ENV,kind-image-agent))
+kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
 	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
 
-$(eval $(call KIND_ENV,kind-image-operator))
-kind-image-operator: kind-ready ## Build cilium-operator-dev docker image and import it into kind.
-	$(QUIET)$(MAKE) dev-docker-operator-generic-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+$(eval $(call KIND_ENV,kind-build-image-operator))
+kind-build-image-operator: ## Build cilium-operator-dev docker image
+	$(QUIET)$(MAKE) dev-docker-operator-generic-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to kind ($(LOCAL_OPERATOR_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE)
+
+$(eval $(call KIND_ENV,kind-image-operator))
+kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operator-dev docker image and import it into kind.
 	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE)
+
+$(eval $(call KIND_ENV,kind-build-clustermesh-apiserver))
+kind-build-clustermesh-apiserver: ## Build cilium-clustermesh-apiserver docker image
+	$(QUIET)$(MAKE) docker-clustermesh-apiserver-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	@echo "  DEPLOY image to kind ($(LOCAL_CLUSTERMESH_IMAGE))"
+	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_CLUSTERMESH_IMAGE)
 
 .PHONY: kind-image
 kind-image: ## Build cilium and operator images and import them into kind.
@@ -538,6 +593,9 @@ endef
 # kind-image-agent-debug
 $(eval $(call DEBUG_KIND_TEMPLATE,-agent))
 
+# kind-image-operator-debug
+$(eval $(call DEBUG_KIND_TEMPLATE,-operator))
+
 $(eval $(call KIND_ENV,kind-debug-agent))
 kind-debug-agent: ## Create a local kind development environment with cilium-agent attached to a debugger.
 	$(QUIET)$(MAKE) kind-ready 2>/dev/null \
@@ -551,6 +609,19 @@ kind-debug-agent: ## Create a local kind development environment with cilium-age
 	@echo "Attach delve to localhost on these ports to continue:"
 	@echo " - 23401: cilium-agent (kind-control-plane)"
 	@echo " - 23411: cilium-agent (kind-worker)"
+
+$(eval $(call KIND_ENV,kind-debug))
+kind-debug: ## Create a local kind development environment with cilium-agent & cilium-operator attached to a debugger.
+	$(QUIET)$(MAKE) kind-ready 2>/dev/null \
+		|| $(MAKE) kind
+	$(MAKE) kind-image-agent-debug
+	$(MAKE) kind-image-operator-debug
+	$(MAKE) kind-check-cilium 2>/dev/null \
+		|| $(MAKE) kind-install-cilium
+	@echo "Attach delve to localhost on these ports to continue:"
+	@echo " - 23401: cilium-agent    (kind-control-plane)"
+	@echo " - 23411: cilium-agent    (kind-worker)"
+	@echo " - 23511: cilium-operator (kind-worker)"
 
 precheck: check-go-version logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")

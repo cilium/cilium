@@ -1,7 +1,10 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package lru
 
 import (
-	"fmt"
+	"errors"
 	"sync"
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
@@ -32,7 +35,7 @@ type TwoQueueCache[K comparable, V any] struct {
 
 	recent      simplelru.LRUCache[K, V]
 	frequent    simplelru.LRUCache[K, V]
-	recentEvict simplelru.LRUCache[K, V]
+	recentEvict simplelru.LRUCache[K, struct{}]
 	lock        sync.RWMutex
 }
 
@@ -46,13 +49,13 @@ func New2Q[K comparable, V any](size int) (*TwoQueueCache[K, V], error) {
 // parameter values.
 func New2QParams[K comparable, V any](size int, recentRatio, ghostRatio float64) (*TwoQueueCache[K, V], error) {
 	if size <= 0 {
-		return nil, fmt.Errorf("invalid size")
+		return nil, errors.New("invalid size")
 	}
 	if recentRatio < 0.0 || recentRatio > 1.0 {
-		return nil, fmt.Errorf("invalid recent ratio")
+		return nil, errors.New("invalid recent ratio")
 	}
 	if ghostRatio < 0.0 || ghostRatio > 1.0 {
-		return nil, fmt.Errorf("invalid ghost ratio")
+		return nil, errors.New("invalid ghost ratio")
 	}
 
 	// Determine the sub-sizes
@@ -68,7 +71,7 @@ func New2QParams[K comparable, V any](size int, recentRatio, ghostRatio float64)
 	if err != nil {
 		return nil, err
 	}
-	recentEvict, err := simplelru.NewLRU[K, V](evictSize, nil)
+	recentEvict, err := simplelru.NewLRU[K, struct{}](evictSize, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -153,8 +156,7 @@ func (c *TwoQueueCache[K, V]) ensureSpace(recentEvict bool) {
 	// the target, evict from there
 	if recentLen > 0 && (recentLen > c.recentSize || (recentLen == c.recentSize && !recentEvict)) {
 		k, _, _ := c.recent.RemoveOldest()
-		var empty V
-		c.recentEvict.Add(k, empty)
+		c.recentEvict.Add(k, struct{}{})
 		return
 	}
 

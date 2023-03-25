@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"syscall"
 	"unsafe"
 
 	"github.com/cilium/coverbee/pkg/verifierlog"
@@ -18,11 +17,51 @@ import (
 	"golang.org/x/tools/cover"
 )
 
-// InstrumentAndLoadCollection adds instrumentation instructions to all programs contained within the given collection.
-// This "instrumentation" is nothing more than incrementing a 16-bit number within a map value, at an index unique
-// to the location within the program(Block ID/index). After updating the program, it is loaded into the kernel, the
-// loaded collection and a list of program blocks is returned. The index of the returned program blocks matches the
-// index of blocks in the coverage map.
+// InstrumentAndLoadCollection will instrument the given collection spec and proceed to load it using the provided
+// options. Please refer to `InstrumentCollection` for more information about the instrumentation process.
+func InstrumentAndLoadCollection(
+	coll *ebpf.CollectionSpec,
+	opts ebpf.CollectionOptions,
+	logWriter io.Writer,
+) (*ebpf.Collection, []*BasicBlock, error) {
+	blockList, err := InstrumentCollection(coll, logWriter)
+	if err != nil {
+		return nil, nil, fmt.Errorf("InstrumentCollection: %w", err)
+	}
+
+	if logWriter != nil {
+		// Verbose
+		opts.Programs.LogLevel = 2
+	}
+
+	loadedColl, err := ebpf.NewCollectionWithOptions(coll, opts)
+
+	if logWriter != nil {
+		fmt.Fprintln(logWriter, "=== Instrumented verifier logs ===")
+		if loadedColl != nil {
+			for name, prog := range loadedColl.Programs {
+				fmt.Fprintln(logWriter, "---", name, "---")
+				fmt.Fprintln(logWriter, prog.VerifierLog)
+			}
+		}
+		if err != nil {
+			var vErr *ebpf.VerifierError
+			if errors.As(err, &vErr) {
+				fmt.Fprintf(logWriter, "%+v\n", vErr)
+			}
+		}
+	}
+
+	return loadedColl, blockList, err
+}
+
+// InstrumentCollection adds instrumentation instructions to all programs contained within the given collection.
+// This "instrumentation" consists of an additional map with a single key and a value which is an array of 16-bit
+// counters. Each index of the array corresponds to the basic block index. The instrumentation code will increment
+// the counter just before the basic block is executed.
+//
+// The given spec is modified with this instrumentation. The whole process is logged to the `logWriter` and a list of
+// all the basic blocks are returned and can later be matched to the counters in the map.
 //
 // Steps of the function:
 //  1. Load the original programs and collect the verbose verifier log
@@ -36,11 +75,7 @@ import (
 //  6. Move symbols of the original code to the instrumented code so jumps and functions calls first pass by the
 //     instrumentation.
 //  7. Load all modified program into the kernel.
-func InstrumentAndLoadCollection(
-	coll *ebpf.CollectionSpec,
-	opts ebpf.CollectionOptions,
-	logWriter io.Writer,
-) (*ebpf.Collection, []*BasicBlock, error) {
+func InstrumentCollection(coll *ebpf.CollectionSpec, logWriter io.Writer) ([]*BasicBlock, error) {
 	if logWriter != nil {
 		fmt.Fprintln(logWriter, "=== Original program ===")
 		for name, prog := range coll.Programs {
@@ -51,10 +86,12 @@ func InstrumentAndLoadCollection(
 
 	// Clone the spec so we can load and unload without side effects
 	clone := coll.Copy()
-	clonedOpts := opts
-
-	clonedOpts.Programs.LogLevel = 2
-	clonedOpts.Programs.LogSize = 1 << 20
+	clonedOpts := ebpf.CollectionOptions{
+		Programs: ebpf.ProgramOptions{
+			LogLevel: ebpf.LogLevelInstruction,
+			LogSize:  1 << 20,
+		},
+	}
 
 	const maxAttempts = 5
 	var (
@@ -64,15 +101,17 @@ func InstrumentAndLoadCollection(
 	for i := 0; i < maxAttempts; i++ {
 		cloneColl, err = ebpf.NewCollectionWithOptions(clone, clonedOpts)
 		if err != nil {
-			const ENOSPC = syscall.Errno(0x1c)
-			if errors.Is(err, ENOSPC) {
-				// Increse size by the power of four, so going: 1, 4, 16, 64, 256
+			var verifierErr *ebpf.VerifierError
+			if errors.As(err, &verifierErr) && verifierErr.Truncated {
+				// Increase size by the power of four, so going: 1, 4, 16, 64, 256
 				clonedOpts.Programs.LogSize = clonedOpts.Programs.LogSize << 2
 				continue
 			}
 
-			return nil, nil, fmt.Errorf("load program: %w", err)
+			return nil, fmt.Errorf("load program: %w", err)
 		}
+
+		break
 	}
 
 	if logWriter != nil {
@@ -157,14 +196,14 @@ func InstrumentAndLoadCollection(
 			// stack so we can access it while in the current stack frame.
 			if subProgFuncs[blockSym] || name == blockSym {
 				// 1. Get registers used by function
-				var progFunc *btf.Func
-				if err = coll.Programs[name].BTF.TypeByName(blockSym, &progFunc); err != nil {
-					return nil, nil, fmt.Errorf("can't find Func for '%s' in '%s': %w", blockSym, name, err)
+				progFunc := btf.FuncMetadata(&block.Block[0])
+				if progFunc == nil {
+					return nil, fmt.Errorf("can't find Func for '%s' in '%s': %w", blockSym, name, err)
 				}
 
 				funcProto, ok := progFunc.Type.(*btf.FuncProto)
 				if !ok {
-					return nil, nil, fmt.Errorf("Func type for '%s' in '%s' is not a FuncProto", blockSym, name)
+					return nil, fmt.Errorf("Func type for '%s' in '%s' is not a FuncProto", blockSym, name)
 				}
 
 				regCnt := len(funcProto.Params)
@@ -235,8 +274,20 @@ func InstrumentAndLoadCollection(
 
 			// Index which registers are sometimes used and which are never used
 			var usedRegs [11]bool
-			for _, reg := range mergedStates[instn].Registers {
-				usedRegs[reg.Register] = true
+
+			// It is possible that the number of merged states is lower than the instruction count if
+			// the end of a program is dynamically dead code. (the verifier didn't reach it but it also doesn't error)
+			if instn < len(mergedStates) && !mergedStates[instn].Unknown {
+				// Index which registers are sometimes used and which are never used
+				for _, reg := range mergedStates[instn].Registers {
+					usedRegs[reg.Register] = true
+				}
+			} else {
+				// Mark all registers as in use, that is the worst case assumption, but it should work even
+				// without verifier log.
+				for i := range usedRegs {
+					usedRegs[i] = true
+				}
 			}
 
 			var (
@@ -309,32 +360,17 @@ func InstrumentAndLoadCollection(
 				)
 			}
 
-			// Move the symbol from head of the original code to the instrumented block so jumps and function calls
+			// Move the metadata from head of the original code to the instrumented block so jumps and function calls
 			// enter at the instrumented code first.
-			newProgram = append(newProgram, instr[0].WithSymbol(block.Block[0].Symbol()))
+			newProgram = append(newProgram, instr[0].WithMetadata(block.Block[0].Metadata))
 			newProgram = append(newProgram, instr[1:]...)
 
-			// Loop over all instruction in the original code block
-			for i, inst := range block.Block {
-				// Remove the symbol from the first instruction, it has been moved to the instrumented code
-				if i == 0 {
-					inst = inst.WithSymbol("")
-				}
+			// Remove the symbol and function metadata from the original start of the basic block since the symbol
+			// was moved to the instrumented code for any jump targets along with the BTF function info.
+			newProgram = append(newProgram, btf.WithFuncMetadata(block.Block[0].WithSymbol(""), nil))
+			newProgram = append(newProgram, block.Block[1:]...)
 
-				// Record the names of sub programs.
-				if inst.IsFunctionCall() {
-					subProgFuncs[inst.Reference()] = true
-				}
-
-				// Add original instructions to the new program
-				newProgram = append(newProgram, inst)
-
-				if inst.OpCode.IsDWordLoad() {
-					instn++
-				}
-
-				instn++
-			}
+			instn += int(block.Block.Size()) / asm.InstructionSize
 
 			blockID++
 		}
@@ -345,9 +381,6 @@ func InstrumentAndLoadCollection(
 		}
 
 		coll.Programs[name].Instructions = newProgram
-
-		// TODO fix BTF
-		coll.Programs[name].BTF = nil
 	}
 
 	cloneColl.Close()
@@ -358,29 +391,10 @@ func InstrumentAndLoadCollection(
 		KeySize:    4,
 		MaxEntries: 1,
 		ValueSize:  uint32(2 * (blockID + 1)),
-		// Value: &btf.Datasec{},
-		// TODO BTF
 	}
 	coll.Maps["coverbee_covermap"] = &coverMap
 
-	if logWriter != nil {
-		// Verbose
-		opts.Programs.LogLevel = 2
-	}
-
-	loadedColl, err := ebpf.NewCollectionWithOptions(coll, opts)
-
-	if logWriter != nil {
-		fmt.Fprintln(logWriter, "=== Instrumented verifier logs ===")
-		if loadedColl != nil {
-			for name, prog := range loadedColl.Programs {
-				fmt.Fprintln(logWriter, "---", name, "---")
-				fmt.Fprintln(logWriter, prog.VerifierLog)
-			}
-		}
-	}
-
-	return loadedColl, blockList, err
+	return blockList, nil
 }
 
 // ProgramBlocks takes a list of instructions and converts it into a a CFG(Control Flow Graph).

@@ -6,9 +6,10 @@ package wguser
 import (
 	"net"
 	"strings"
+	"time"
 
 	"golang.org/x/sys/windows"
-	"golang.zx2c4.com/wireguard/ipc/winpipe"
+	"golang.zx2c4.com/wireguard/ipc/namedpipe"
 )
 
 // Expected prefixes when dealing with named pipes.
@@ -24,10 +25,9 @@ func dial(device string) (net.Conn, error) {
 		return nil, err
 	}
 
-	pipeCfg := &winpipe.DialConfig{
+	return (&namedpipe.DialConfig{
 		ExpectedOwner: localSystem,
-	}
-	return winpipe.Dial(device, nil, pipeCfg)
+	}).DialTimeout(device, time.Duration(0))
 }
 
 // find is the default implementation of Client.find.

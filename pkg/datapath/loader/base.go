@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
@@ -28,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -62,6 +61,8 @@ const (
 	initArgEndpointRoutes
 	initArgProxyRule
 	initTCFilterPriority
+	initDefaultRTProto
+	initLocalRulePriority
 	initArgMax
 )
 
@@ -113,7 +114,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	return fw.Flush()
 }
 
-func addENIRules(sysSettings []sysctl.Setting, nodeAddressing types.NodeAddressing) ([]sysctl.Setting, error) {
+func addENIRules(sysSettings []sysctl.Setting, nodeAddressing datapath.NodeAddressing) ([]sysctl.Setting, error) {
 	// AWS ENI mode requires symmetric routing, see
 	// iptables.addCiliumENIRules().
 	// The default AWS daemonset installs the following rules that are used
@@ -150,6 +151,7 @@ func addENIRules(sysSettings []sysctl.Setting, nodeAddressing types.NodeAddressi
 		Mark:     linux_defaults.MarkMultinodeNodeport,
 		Mask:     linux_defaults.MaskMultinodeNodeport,
 		Table:    route.MainTable,
+		Protocol: linux_defaults.RTProto,
 	}); err != nil {
 		return nil, fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
 	}
@@ -240,7 +242,6 @@ func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	var (
 		args []string
-		ret  error
 	)
 
 	args = make([]string, initArgMax)
@@ -272,8 +273,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
-			scopedLog.WithError(ret).Warn("Unable to init prefilter")
-			return ret
+			scopedLog.WithError(err).Warn("Unable to init prefilter")
+			return err
 		}
 
 		if err := writePreFilterHeader(preFilter, "./"); err != nil {
@@ -405,6 +406,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	args[initTCFilterPriority] = strconv.Itoa(int(option.Config.TCFilterPriority))
+	args[initDefaultRTProto] = strconv.Itoa(linux_defaults.RTProto)
+	args[initLocalRulePriority] = strconv.Itoa(linux_defaults.RulePriorityLocalLookup)
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.

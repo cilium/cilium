@@ -83,8 +83,8 @@ main() {
     git fetch -q $REMOTE
     if [ "$branch" = "master" ]; then
         git checkout -b pr/prepare-$version $REMOTE/$branch
-        if echo "$version" | grep -q 'rc'; then
-            old_version="$(git tag -l "$VERSION_GLOB" | grep -v 'snapshot' | sort -V | tail -n 1)"
+        if version_is_prerelease "$version"; then
+            old_version="$(git tag -l "$VERSION_GLOB" | grep -v 'rc\|snapshot' | sort -V | tail -n 1)"
         else
             old_version="$(git tag -l "$VERSION_GLOB" | sort -V | tail -n 1)"
         fi
@@ -107,6 +107,10 @@ main() {
     fi
 
     target_branch=$(echo "$version" | sed "$BRANCH_REGEX")
+    if ! git ls-remote --exit-code --heads $REMOTE $target_branch; then
+        target_branch=$(echo "$old_version" | sed "$BRANCH_REGEX")
+        old_branch="$target_branch"
+    fi
     $DIR/../../Documentation/check-crd-compat-table.sh "$target_branch" --update
     if [ "${old_branch}" != "" ]; then
       $DIR/prep-changelog.sh "$old_version" "$version" "$old_branch"

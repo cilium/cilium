@@ -20,6 +20,7 @@ type Attachment struct {
 	Device                    string                    `json:"Device" xml:"Device"`
 	InstanceId                string                    `json:"InstanceId" xml:"InstanceId"`
 	DeviceIndex               int                       `json:"DeviceIndex" xml:"DeviceIndex"`
+	NetworkCardIndex          int                       `json:"NetworkCardIndex" xml:"NetworkCardIndex"`
 	TrunkNetworkInterfaceId   string                    `json:"TrunkNetworkInterfaceId" xml:"TrunkNetworkInterfaceId"`
 	AttachedTime              string                    `json:"AttachedTime" xml:"AttachedTime"`
 	MemberNetworkInterfaceIds MemberNetworkInterfaceIds `json:"MemberNetworkInterfaceIds" xml:"MemberNetworkInterfaceIds"`

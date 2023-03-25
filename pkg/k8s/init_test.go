@@ -67,19 +67,12 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	node1Slim := ConvertToNode(node1.DeepCopy()).(*slim_corev1.Node)
 	node1Cilium := ParseNode(node1Slim, source.Unspec)
-
+	node1Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 	useNodeCIDR(node1Cilium)
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 	// IPv6 Node range is not checked because it shouldn't be changed.
 
-	err := AnnotateNode(fakeK8sClient, "node1",
-		0,
-		node.GetIPv4AllocRange(),
-		node.GetIPv6AllocRange(),
-		nil, nil,
-		nil, nil,
-		net.ParseIP("10.254.0.1"),
-		net.ParseIP(""))
+	_, err := AnnotateNode(fakeK8sClient, "node1", *node1Cilium, 0)
 
 	c.Assert(err, IsNil)
 
@@ -131,6 +124,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	node2Slim := ConvertToNode(node2.DeepCopy()).(*slim_corev1.Node)
 	node2Cilium := ParseNode(node2Slim, source.Unspec)
+	node2Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 	useNodeCIDR(node2Cilium)
 
 	// We use the node's annotation for the IPv4 and the PodCIDR for the
@@ -138,15 +132,42 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")
 	c.Assert(node.GetIPv6AllocRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
 
-	err = AnnotateNode(fakeK8sClient, "node2",
-		0,
-		node.GetIPv4AllocRange(),
-		node.GetIPv6AllocRange(),
-		nil, nil,
-		nil, nil,
-		net.ParseIP("10.254.0.1"),
-		net.ParseIP(""))
+	_, err = AnnotateNode(fakeK8sClient, "node2", *node2Cilium, 0)
 
+	c.Assert(err, IsNil)
+
+	select {
+	case <-patchChan:
+	case <-time.Tick(10 * time.Second):
+		c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
+		c.FailNow()
+	}
+}
+
+func (s *K8sSuite) TestRemovalOfNodeAnnotations(c *C) {
+	node1 := v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node1",
+			Annotations: map[string]string{
+				annotation.V4CIDRName: "10.254.0.0/16",
+			},
+		},
+	}
+
+	patchChan := make(chan bool, 1)
+	fakeK8sClient := &fake.Clientset{}
+	fakeK8sClient.AddReactor("patch", "nodes",
+		func(action testing.Action) (bool, runtime.Object, error) {
+			n1copy := node1.DeepCopy()
+			delete(n1copy.Annotations, annotation.V4CIDRName)
+			patchWanted := []byte("[{\"op\":\"remove\",\"path\":\"/metadata/annotations/network.cilium.io~1ipv4-pod-cidr\",\"value\":null}]")
+			patchReceived := action.(testing.PatchAction).GetPatch()
+			c.Assert(string(patchReceived), checker.DeepEquals, string(patchWanted))
+			patchChan <- true
+			return true, n1copy, nil
+		})
+
+	err := RemoveNodeAnnotations(fakeK8sClient, "node1", map[string]string{annotation.V4CIDRName: "10.254.0.0/16"})
 	c.Assert(err, IsNil)
 
 	select {

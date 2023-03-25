@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -27,12 +28,22 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
+	log      = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
+	zeroIPv4 = net.ParseIP("0.0.0.0")
 )
 
-type k8sCacheSyncedChecker interface {
-	K8sCacheIsSynced() bool
-}
+type eventType int
+
+const (
+	eventNone = iota
+	eventK8sSyncDone
+	eventAddPolicy
+	eventDeletePolicy
+	eventUpdateNode
+	eventDeleteNode
+	eventUpdateEndpoint
+	eventDeleteEndpoint
+)
 
 // The egressgateway manager stores the internal data tracking the node, policy,
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
@@ -40,9 +51,9 @@ type k8sCacheSyncedChecker interface {
 type Manager struct {
 	lock.Mutex
 
-	// k8sCacheSyncedChecker is used to check if the agent has synced its
+	// cacheStatus is used to check if the agent has synced its
 	// cache with the k8s API server
-	k8sCacheSyncedChecker k8sCacheSyncedChecker
+	cacheStatus k8s.CacheStatus
 
 	// nodeDataStore stores node name to node mapping
 	nodeDataStore map[string]nodeTypes.Node
@@ -53,21 +64,32 @@ type Manager struct {
 	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
 
+	// policyConfigsBySourceIP stores slices of policy configs indexed by
+	// the policies' source/endpoint IPs
+	policyConfigsBySourceIP map[string][]*PolicyConfig
+
 	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
 
 	// identityAllocator is used to fetch identity labels for endpoint updates
 	identityAllocator identityCache.IdentityAllocator
+
+	// installRoutes indicates if the manager should install additional IP
+	// routes/rules to steer egress gateway traffic to the correct interface
+	// with the egress IP assigned to
+	installRoutes bool
 }
 
 // NewEgressGatewayManager returns a new Egress Gateway Manager.
-func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker, identityAlocator identityCache.IdentityAllocator) *Manager {
+func NewEgressGatewayManager(cacheStatus k8s.CacheStatus, identityAlocator identityCache.IdentityAllocator, installRoutes bool) *Manager {
 	manager := &Manager{
-		k8sCacheSyncedChecker: k8sCacheSyncedChecker,
-		nodeDataStore:         make(map[string]nodeTypes.Node),
-		policyConfigs:         make(map[policyID]*PolicyConfig),
-		epDataStore:           make(map[endpointID]*endpointMetadata),
-		identityAllocator:     identityAlocator,
+		cacheStatus:             cacheStatus,
+		nodeDataStore:           make(map[string]nodeTypes.Node),
+		policyConfigs:           make(map[policyID]*PolicyConfig),
+		policyConfigsBySourceIP: make(map[string][]*PolicyConfig),
+		epDataStore:             make(map[endpointID]*endpointMetadata),
+		identityAllocator:       identityAlocator,
+		installRoutes:           installRoutes,
 	}
 
 	manager.runReconciliationAfterK8sSync()
@@ -96,7 +118,7 @@ func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Label
 func (manager *Manager) runReconciliationAfterK8sSync() {
 	go func() {
 		for {
-			if manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
+			if manager.cacheStatus.Synchronized() {
 				break
 			}
 
@@ -104,7 +126,7 @@ func (manager *Manager) runReconciliationAfterK8sSync() {
 		}
 
 		manager.Lock()
-		manager.reconcile()
+		manager.reconcile(eventK8sSyncDone)
 		manager.Unlock()
 	}()
 }
@@ -125,9 +147,11 @@ func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
 		logger.Debug("Updated CiliumEgressGatewayPolicy")
 	}
 
+	config.updateMatchedEndpointIDs(manager.epDataStore)
+
 	manager.policyConfigs[config.id] = &config
 
-	manager.reconcile()
+	manager.reconcile(eventAddPolicy)
 }
 
 // OnDeleteEgressPolicy deletes the internal state associated with the given
@@ -147,7 +171,7 @@ func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 
 	delete(manager.policyConfigs, configID)
 
-	manager.reconcile()
+	manager.reconcile(eventDeletePolicy)
 }
 
 // OnUpdateEndpoint is the event handler for endpoint additions and updates.
@@ -184,7 +208,7 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 
 	manager.epDataStore[epData.id] = epData
 
-	manager.reconcile()
+	manager.reconcile(eventUpdateEndpoint)
 }
 
 // OnDeleteEndpoint is the event handler for endpoint deletions.
@@ -199,7 +223,7 @@ func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 
 	delete(manager.epDataStore, id)
 
-	manager.reconcile()
+	manager.reconcile(eventDeleteEndpoint)
 }
 
 // OnUpdateNode is the event handler for node additions and updates.
@@ -207,7 +231,7 @@ func (manager *Manager) OnUpdateNode(node nodeTypes.Node) {
 	manager.Lock()
 	defer manager.Unlock()
 	manager.nodeDataStore[node.Name] = node
-	manager.onChangeNodeLocked()
+	manager.onChangeNodeLocked(eventUpdateNode)
 }
 
 // OnDeleteNode is the event handler for node deletions.
@@ -215,10 +239,10 @@ func (manager *Manager) OnDeleteNode(node nodeTypes.Node) {
 	manager.Lock()
 	defer manager.Unlock()
 	delete(manager.nodeDataStore, node.Name)
-	manager.onChangeNodeLocked()
+	manager.onChangeNodeLocked(eventDeleteNode)
 }
 
-func (manager *Manager) onChangeNodeLocked() {
+func (manager *Manager) onChangeNodeLocked(e eventType) {
 	manager.nodes = []nodeTypes.Node{}
 	for _, n := range manager.nodeDataStore {
 		manager.nodes = append(manager.nodes, n)
@@ -226,7 +250,111 @@ func (manager *Manager) onChangeNodeLocked() {
 	sort.Slice(manager.nodes, func(i, j int) bool {
 		return manager.nodes[i].Name < manager.nodes[j].Name
 	})
-	manager.reconcile()
+	manager.reconcile(e)
+}
+
+func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
+	for _, policy := range manager.policyConfigs {
+		policy.updateMatchedEndpointIDs(manager.epDataStore)
+	}
+}
+
+func (manager *Manager) updatePoliciesBySourceIP() {
+	manager.policyConfigsBySourceIP = make(map[string][]*PolicyConfig)
+
+	for _, policy := range manager.policyConfigs {
+		for _, ep := range policy.matchedEndpoints {
+			for _, epIP := range ep.ips {
+				ip := epIP.String()
+				manager.policyConfigsBySourceIP[ip] = append(manager.policyConfigsBySourceIP[ip], policy)
+			}
+		}
+	}
+}
+
+// policyMatches returns true if there exists at least one policy matching the
+// given parameters.
+//
+// This method takes:
+//   - a source IP: this is an optimization that allows to iterate only through
+//     policies that reference an endpoint with the given source IP
+//   - a callback function f: this function is invoked for each policy and for
+//     each combination of the policy's endpoints and destination/excludedCIDRs.
+//
+// The callback f takes as arguments:
+// - the given endpoint
+// - the destination CIDR
+// - a boolean value indicating if the CIDR belongs to the excluded ones
+// - the gatewayConfig of the  policy
+//
+// This method returns true whenever the f callback matches one of the endpoint
+// and CIDR tuples (i.e. whenever one callback invocation returns true)
+func (manager *Manager) policyMatches(sourceIP net.IP, f func(net.IP, *net.IPNet, bool, *gatewayConfig) bool) bool {
+	for _, policy := range manager.policyConfigsBySourceIP[sourceIP.String()] {
+		for _, ep := range policy.matchedEndpoints {
+			for _, endpointIP := range ep.ips {
+				if !endpointIP.Equal(sourceIP) {
+					continue
+				}
+
+				isExcludedCIDR := false
+				for _, dstCIDR := range policy.dstCIDRs {
+					if f(endpointIP, dstCIDR, isExcludedCIDR, &policy.gatewayConfig) {
+						return true
+					}
+				}
+
+				isExcludedCIDR = true
+				for _, excludedCIDR := range policy.excludedCIDRs {
+					if f(endpointIP, excludedCIDR, isExcludedCIDR, &policy.gatewayConfig) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// policyMatchesMinusExcludedCIDRs returns true if there exists at least one
+// policy matching the given parameters.
+//
+// This method takes:
+//   - a source IP: this is an optimization that allows to iterate only through
+//     policies that reference an endpoint with the given source IP
+//   - a callback function f: this function is invoked for each policy and for
+//     each combination of the policy's endpoints and computed destinations (i.e.
+//     the effective destination CIDR space, defined as the diff between the
+//     destination and the excluded CIDRs).
+//
+// The callback f takes as arguments:
+// - the given endpoint
+// - the destination CIDR
+// - the gatewayConfig of the  policy
+//
+// This method returns true whenever the f callback matches one of the endpoint
+// and CIDR tuples (i.e. whenever one callback invocation returns true)
+func (manager *Manager) policyMatchesMinusExcludedCIDRs(sourceIP net.IP, f func(net.IP, *net.IPNet, *gatewayConfig) bool) bool {
+	for _, policy := range manager.policyConfigsBySourceIP[sourceIP.String()] {
+		cidrs := policy.destinationMinusExcludedCIDRs()
+
+		for _, ep := range policy.matchedEndpoints {
+			for _, endpointIP := range ep.ips {
+				if !endpointIP.Equal(sourceIP) {
+					continue
+				}
+
+				for _, cidr := range cidrs {
+					if f(endpointIP, cidr, &policy.gatewayConfig) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 func (manager *Manager) regenerateGatewayConfigs() {
@@ -236,6 +364,10 @@ func (manager *Manager) regenerateGatewayConfigs() {
 }
 
 func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bool) {
+	if !manager.installRoutes {
+		return false
+	}
+
 	addIPRulesAndRoutesForConfig := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
 		if !gwc.localNodeConfiguredAsGateway {
 			return
@@ -267,7 +399,7 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 	}
 
 	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndDestination(manager.epDataStore, addIPRulesAndRoutesForConfig)
+		policyConfig.forEachEndpointAndDestination(addIPRulesAndRoutesForConfig)
 	}
 
 	return
@@ -286,14 +418,22 @@ func (manager *Manager) removeUnusedIpRulesAndRoutes() {
 nextIpRule:
 	for _, ipRule := range ipRules {
 		matchFunc := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) bool {
-			return gwc.localNodeConfiguredAsGateway &&
-				ipRule.Src.IP.Equal(endpointIP) && ipRule.Dst.String() == dstCIDR.String()
+			if !manager.installRoutes {
+				return false
+			}
+
+			if !gwc.localNodeConfiguredAsGateway {
+				return false
+			}
+
+			// no need to check also ipRule.Src.IP.Equal(endpointIP) as we are iterating
+			// over the slice of policies returned by the
+			// policyConfigsBySourceIP[ipRule.Src.IP.String()] map
+			return ipRule.Dst.String() == dstCIDR.String()
 		}
 
-		for _, policyConfig := range manager.policyConfigs {
-			if policyConfig.matches(manager.epDataStore, matchFunc) {
-				continue nextIpRule
-			}
+		if manager.policyMatchesMinusExcludedCIDRs(ipRule.Src.IP, matchFunc) {
+			continue nextIpRule
 		}
 
 		deleteIpRule(ipRule)
@@ -302,11 +442,10 @@ nextIpRule:
 	// Build a list of all the network interfaces that are being actively used by egress gateway
 	activeEgressGwIfaceIndexes := map[int]struct{}{}
 	for _, policyConfig := range manager.policyConfigs {
-		for _, endpoint := range manager.epDataStore {
-			if policyConfig.selectsEndpoint(endpoint) {
-				if policyConfig.gatewayConfig.localNodeConfiguredAsGateway {
-					activeEgressGwIfaceIndexes[policyConfig.gatewayConfig.ifaceIndex] = struct{}{}
-				}
+		// check if the policy selects at least one endpoint
+		if len(policyConfig.matchedEndpoints) != 0 {
+			if policyConfig.gatewayConfig.localNodeConfiguredAsGateway {
+				activeEgressGwIfaceIndexes[policyConfig.gatewayConfig.ifaceIndex] = struct{}{}
 			}
 		}
 	}
@@ -336,11 +475,16 @@ func (manager *Manager) addMissingEgressRules() {
 			egressPolicies[*key] = *val
 		})
 
-	addEgressRule := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
+	addEgressRule := func(endpointIP net.IP, dstCIDR *net.IPNet, excludedCIDR bool, gwc *gatewayConfig) {
 		policyKey := egressmap.NewEgressPolicyKey4(endpointIP, dstCIDR.IP, dstCIDR.Mask)
 		policyVal, policyPresent := egressPolicies[policyKey]
 
-		if policyPresent && policyVal.Match(gwc.egressIP.IP, gwc.gatewayIP) {
+		gatewayIP := gwc.gatewayIP
+		if excludedCIDR {
+			gatewayIP = zeroIPv4
+		}
+
+		if policyPresent && policyVal.Match(gwc.egressIP.IP, gatewayIP) {
 			return
 		}
 
@@ -348,10 +492,10 @@ func (manager *Manager) addMissingEgressRules() {
 			logfields.SourceIP:        endpointIP,
 			logfields.DestinationCIDR: dstCIDR.String(),
 			logfields.EgressIP:        gwc.egressIP.IP,
-			logfields.GatewayIP:       gwc.gatewayIP,
+			logfields.GatewayIP:       gatewayIP,
 		})
 
-		if err := egressmap.EgressPolicyMap.Update(endpointIP, *dstCIDR, gwc.egressIP.IP, gwc.gatewayIP); err != nil {
+		if err := egressmap.EgressPolicyMap.Update(endpointIP, *dstCIDR, gwc.egressIP.IP, gatewayIP); err != nil {
 			logger.WithError(err).Error("Error applying egress gateway policy")
 		} else {
 			logger.Debug("Egress gateway policy applied")
@@ -359,7 +503,7 @@ func (manager *Manager) addMissingEgressRules() {
 	}
 
 	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndDestination(manager.epDataStore, addEgressRule)
+		policyConfig.forEachEndpointAndCIDR(addEgressRule)
 	}
 }
 
@@ -374,14 +518,17 @@ func (manager *Manager) removeUnusedEgressRules() {
 
 nextPolicyKey:
 	for policyKey, policyVal := range egressPolicies {
-		matchPolicy := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) bool {
-			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP.IP, gwc.gatewayIP)
+		matchPolicy := func(endpointIP net.IP, dstCIDR *net.IPNet, excludedCIDR bool, gwc *gatewayConfig) bool {
+			gatewayIP := gwc.gatewayIP
+			if excludedCIDR {
+				gatewayIP = zeroIPv4
+			}
+
+			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP.IP, gatewayIP)
 		}
 
-		for _, policyConfig := range manager.policyConfigs {
-			if policyConfig.matches(manager.epDataStore, matchPolicy) {
-				continue nextPolicyKey
-			}
+		if manager.policyMatches(policyKey.SourceIP.IP(), matchPolicy) {
+			continue nextPolicyKey
 		}
 
 		logger := log.WithFields(logrus.Fields{
@@ -404,20 +551,33 @@ nextPolicyKey:
 //
 // Whenever it encounters an error, it will just log it and move to the next
 // item, in order to reconcile as many states as possible.
-func (manager *Manager) reconcile() {
-	if !manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
+func (manager *Manager) reconcile(e eventType) {
+	if !manager.cacheStatus.Synchronized() {
 		return
+	}
+
+	switch e {
+	case eventUpdateEndpoint, eventDeleteEndpoint:
+		manager.updatePoliciesMatchedEndpointIDs()
+		manager.updatePoliciesBySourceIP()
+	case eventAddPolicy, eventDeletePolicy:
+		manager.updatePoliciesBySourceIP()
+
+	// on eventK8sSyncDone we need to update all caches unconditionally as
+	// we don't know which k8s events/resources were received during the
+	// initial k8s sync
+	case eventK8sSyncDone:
+		manager.updatePoliciesMatchedEndpointIDs()
+		manager.updatePoliciesBySourceIP()
 	}
 
 	manager.regenerateGatewayConfigs()
 
-	if option.Config.InstallEgressGatewayRoutes {
-		shouldRetry := manager.addMissingIpRulesAndRoutes(false)
-		manager.removeUnusedIpRulesAndRoutes()
+	shouldRetry := manager.addMissingIpRulesAndRoutes(false)
+	manager.removeUnusedIpRulesAndRoutes()
 
-		if shouldRetry {
-			manager.addMissingIpRulesAndRoutes(true)
-		}
+	if shouldRetry {
+		manager.addMissingIpRulesAndRoutes(true)
 	}
 
 	// The order of the next 2 function calls matters, as by first adding missing policies and

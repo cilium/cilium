@@ -6,19 +6,33 @@ package annotations
 import (
 	"strconv"
 
-	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
-
 	"github.com/cilium/cilium/pkg/annotation"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 )
 
 const (
-	LBModeAnnotation = annotation.Prefix + ".ingress" + "/loadbalancer-mode"
+	LBModeAnnotation           = annotation.IngressPrefix + "/loadbalancer-mode"
+	ServiceTypeAnnotation      = annotation.IngressPrefix + "/service-type"
+	InsecureNodePortAnnotation = annotation.IngressPrefix + "/insecure-node-port"
+	SecureNodePortAnnotation   = annotation.IngressPrefix + "/secure-node-port"
 
-	TCPKeepAliveEnabledAnnotation          = annotation.Prefix + "/tcp-keep-alive"
-	TCPKeepAliveIdleAnnotation             = annotation.Prefix + "/tcp-keep-alive-idle"
-	TCPKeepAliveProbeIntervalAnnotation    = annotation.Prefix + "/tcp-keep-alive-probe-interval"
-	TCPKeepAliveProbeMaxFailuresAnnotation = annotation.Prefix + "/tcp-keep-alive-probe-max-failures"
-	WebsocketEnabledAnnotation             = annotation.Prefix + "/websocket"
+	TCPKeepAliveEnabledAnnotation          = annotation.IngressPrefix + "/tcp-keep-alive"
+	TCPKeepAliveIdleAnnotation             = annotation.IngressPrefix + "/tcp-keep-alive-idle"
+	TCPKeepAliveProbeIntervalAnnotation    = annotation.IngressPrefix + "/tcp-keep-alive-probe-interval"
+	TCPKeepAliveProbeMaxFailuresAnnotation = annotation.IngressPrefix + "/tcp-keep-alive-probe-max-failures"
+	WebsocketEnabledAnnotation             = annotation.IngressPrefix + "/websocket"
+
+	LBModeAnnotationAlias           = annotation.Prefix + ".ingress" + "/loadbalancer-mode"
+	ServiceTypeAnnotationAlias      = annotation.Prefix + ".ingress" + "/service-type"
+	InsecureNodePortAnnotationAlias = annotation.Prefix + ".ingress" + "/insecure-node-port"
+	SecureNodePortAnnotationAlias   = annotation.Prefix + ".ingress" + "/secure-node-port"
+
+	TCPKeepAliveEnabledAnnotationAlias          = annotation.Prefix + "/tcp-keep-alive"
+	TCPKeepAliveIdleAnnotationAlias             = annotation.Prefix + "/tcp-keep-alive-idle"
+	TCPKeepAliveProbeIntervalAnnotationAlias    = annotation.Prefix + "/tcp-keep-alive-probe-interval"
+	TCPKeepAliveProbeMaxFailuresAnnotationAlias = annotation.Prefix + "/tcp-keep-alive-probe-max-failures"
+	WebsocketEnabledAnnotationAlias             = annotation.Prefix + "/websocket"
 )
 
 const (
@@ -32,12 +46,51 @@ const (
 
 // GetAnnotationIngressLoadbalancerMode returns the loadbalancer mode for the ingress if possible.
 func GetAnnotationIngressLoadbalancerMode(ingress *slim_networkingv1.Ingress) string {
-	return ingress.GetAnnotations()[LBModeAnnotation]
+	value, _ := annotation.Get(ingress, LBModeAnnotation, LBModeAnnotationAlias)
+	return value
+}
+
+// GetAnnotationServiceType returns the service type for the ingress if possible.
+// Defaults to LoadBalancer
+func GetAnnotationServiceType(ingress *slim_networkingv1.Ingress) string {
+	val, exists := annotation.Get(ingress, ServiceTypeAnnotation, ServiceTypeAnnotationAlias)
+	if !exists {
+		return string(slim_corev1.ServiceTypeLoadBalancer)
+	}
+	return val
+}
+
+// GetAnnotationSecureNodePort returns the secure node port for the ingress if possible.
+func GetAnnotationSecureNodePort(ingress *slim_networkingv1.Ingress) (*uint32, error) {
+	val, exists := annotation.Get(ingress, SecureNodePortAnnotation, SecureNodePortAnnotationAlias)
+	if !exists {
+		return nil, nil
+	}
+	intVal, err := strconv.ParseInt(val, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	res := uint32(intVal)
+	return &res, nil
+}
+
+// GetAnnotationInsecureNodePort returns the insecure node port for the ingress if possible.
+func GetAnnotationInsecureNodePort(ingress *slim_networkingv1.Ingress) (*uint32, error) {
+	val, exists := annotation.Get(ingress, InsecureNodePortAnnotation, InsecureNodePortAnnotationAlias)
+	if !exists {
+		return nil, nil
+	}
+	intVal, err := strconv.ParseInt(val, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	res := uint32(intVal)
+	return &res, nil
 }
 
 // GetAnnotationTCPKeepAliveEnabled returns 1 if enabled (default), 0 if disabled
 func GetAnnotationTCPKeepAliveEnabled(ingress *slim_networkingv1.Ingress) int64 {
-	val, exists := ingress.GetAnnotations()[TCPKeepAliveEnabledAnnotation]
+	val, exists := annotation.Get(ingress, TCPKeepAliveEnabledAnnotation, TCPKeepAliveEnabledAnnotationAlias)
 	if !exists {
 		return defaultTCPKeepAliveEnabled
 	}
@@ -52,7 +105,7 @@ func GetAnnotationTCPKeepAliveEnabled(ingress *slim_networkingv1.Ingress) int64 
 // Related references:
 //   - https://man7.org/linux/man-pages/man7/tcp.7.html
 func GetAnnotationTCPKeepAliveIdle(ingress *slim_networkingv1.Ingress) int64 {
-	val, exists := ingress.GetAnnotations()[TCPKeepAliveIdleAnnotation]
+	val, exists := annotation.Get(ingress, TCPKeepAliveIdleAnnotation, TCPKeepAliveIdleAnnotationAlias)
 	if !exists {
 		return defaultTCPKeepAliveInitialIdle
 	}
@@ -68,7 +121,7 @@ func GetAnnotationTCPKeepAliveIdle(ingress *slim_networkingv1.Ingress) int64 {
 // Related references:
 //   - https://man7.org/linux/man-pages/man7/tcp.7.html
 func GetAnnotationTCPKeepAliveProbeInterval(ingress *slim_networkingv1.Ingress) int64 {
-	val, exists := ingress.GetAnnotations()[TCPKeepAliveProbeIntervalAnnotation]
+	val, exists := annotation.Get(ingress, TCPKeepAliveProbeIntervalAnnotation, TCPKeepAliveProbeIntervalAnnotationAlias)
 	if !exists {
 		return defaultTCPKeepAliveProbeInterval
 	}
@@ -84,7 +137,7 @@ func GetAnnotationTCPKeepAliveProbeInterval(ingress *slim_networkingv1.Ingress) 
 // Related references:
 //   - https://man7.org/linux/man-pages/man7/tcp.7.html
 func GetAnnotationTCPKeepAliveProbeMaxFailures(ingress *slim_networkingv1.Ingress) int64 {
-	val, exists := ingress.GetAnnotations()[TCPKeepAliveProbeMaxFailuresAnnotation]
+	val, exists := annotation.Get(ingress, TCPKeepAliveProbeMaxFailuresAnnotation, TCPKeepAliveProbeMaxFailuresAnnotationAlias)
 	if !exists {
 		return defaultTCPKeepAliveMaxProbeCount
 	}
@@ -97,7 +150,7 @@ func GetAnnotationTCPKeepAliveProbeMaxFailures(ingress *slim_networkingv1.Ingres
 
 // GetAnnotationWebsocketEnabled returns 1 if enabled (default), 0 if disabled
 func GetAnnotationWebsocketEnabled(ingress *slim_networkingv1.Ingress) int64 {
-	val, exists := ingress.GetAnnotations()[WebsocketEnabledAnnotation]
+	val, exists := annotation.Get(ingress, WebsocketEnabledAnnotation, WebsocketEnabledAnnotationAlias)
 	if !exists {
 		return defaultWebsocketEnabled
 	}

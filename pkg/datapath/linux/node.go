@@ -22,12 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/counter"
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/idpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -41,9 +41,7 @@ import (
 const (
 	wildcardIPv4 = "0.0.0.0"
 	wildcardIPv6 = "0::0"
-)
 
-const (
 	neighFileName = "neigh-link.json"
 )
 
@@ -56,7 +54,7 @@ type linuxNodeHandler struct {
 	mutex                lock.Mutex
 	isInitialized        bool
 	nodeConfig           datapath.LocalNodeConfiguration
-	nodeAddressing       types.NodeAddressing
+	nodeAddressing       datapath.NodeAddressing
 	datapathConfig       DatapathConfiguration
 	nodes                map[nodeTypes.Identity]*nodeTypes.Node
 	enableNeighDiscovery bool
@@ -70,12 +68,17 @@ type linuxNodeHandler struct {
 	neighLastPingByNextHop map[string]time.Time      // key = string(net.IP)
 	wgAgent                datapath.WireguardAgent
 
+	// Pool of available IDs for nodes.
+	nodeIDs idpool.IDPool
+	// Node-scoped unique IDs for the nodes.
+	nodeIDsByIPs map[string]uint16
+
 	ipsecMetricCollector prometheus.Collector
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
-func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing types.NodeAddressing, wgAgent datapath.WireguardAgent) datapath.NodeHandler {
+func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, wgAgent datapath.WireguardAgent) datapath.NodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
@@ -86,6 +89,8 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing types.N
 		neighByNextHop:         map[string]*netlink.Neigh{},
 		neighLastPingByNextHop: map[string]time.Time{},
 		wgAgent:                wgAgent,
+		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
+		nodeIDsByIPs:           map[string]uint16{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 	}
 }
@@ -94,7 +99,8 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing types.N
 // with encapsulation mode enabled. The CIDR and IP of both the old and new
 // node are provided as context. The caller expects the tunnel mapping in the
 // datapath to be updated.
-func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP net.IP, firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8) {
+func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP net.IP,
+	firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8, nodeID uint16) {
 	if !encapEnabled {
 		// When the protocol family is disabled, the initial node addition will
 		// trigger a deletion to clean up leftover entries. The deletion happens
@@ -112,7 +118,7 @@ func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP ne
 			"allocCIDR":      newCIDR,
 		}).Debug("Updating tunnel map entry")
 
-		if err := tunnel.TunnelMap().SetTunnelEndpoint(newEncryptKey, newCIDR.AddrCluster(), newIP); err != nil {
+		if err := tunnel.TunnelMap().SetTunnelEndpoint(newEncryptKey, nodeID, newCIDR.AddrCluster(), newIP); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"allocCIDR": newCIDR,
 			}).Error("bpf: Unable to update in tunnel endpoint map")
@@ -185,8 +191,9 @@ func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.R
 	var routes []netlink.Route
 
 	routeSpec = &netlink.Route{
-		Dst: CIDR.IPNet,
-		Gw:  nodeIP,
+		Dst:      CIDR.IPNet,
+		Gw:       nodeIP,
+		Protocol: linux_defaults.RTProto,
 	}
 
 	routes, err = netlink.RouteGet(nodeIP)
@@ -308,8 +315,9 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) {
 	}
 
 	filter := &netlink.Route{
-		Dst: CIDR.IPNet,
-		Gw:  nodeIP,
+		Dst:      CIDR.IPNet,
+		Gw:       nodeIP,
+		Protocol: linux_defaults.RTProto,
 	}
 
 	routes, err := netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW)
@@ -377,6 +385,7 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 		Prefix:   *prefix.IPNet,
 		MTU:      mtu,
 		Priority: option.Config.RouteMetric,
+		Proto:    linux_defaults.RTProto,
 	}, nil
 }
 
@@ -485,98 +494,24 @@ func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8) {
 	}
 }
 
-// getDefaultEncryptionInterface() is needed to find the interface used when
-// populating neighbor table and doing arpRequest. For most configurations
-// there is only a single interface so choosing [0] works by choosing the only
-// interface. However EKS, uses multiple interfaces, but fortunately for us
-// in EKS any interface would work so pick the [0] index here as well.
-func getDefaultEncryptionInterface() string {
-	iface := ""
-	if len(option.Config.EncryptInterface) > 0 {
-		iface = option.Config.EncryptInterface[0]
-	}
-	return iface
-}
-
-func getLinkLocalIp(family int) (*net.IPNet, error) {
-	iface := getDefaultEncryptionInterface()
-	link, err := netlink.LinkByName(iface)
-	if err != nil {
-		return nil, err
-	}
-	addr, err := netlink.AddrList(link, family)
-	if err != nil {
-		return nil, err
-	}
-	return addr[0].IPNet, nil
-}
-
-func getV4LinkLocalIp() (*net.IPNet, error) {
-	return getLinkLocalIp(netlink.FAMILY_V4)
-}
-
-func getV6LinkLocalIp() (*net.IPNet, error) {
-	return getLinkLocalIp(netlink.FAMILY_V6)
-}
-
 func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
-	var spi uint8
-	var err error
-	zeroMark := false
-
 	n.replaceHostRules()
 
-	// In endpoint routes mode we use the stack to route packets after
-	// the packet is decrypted so set skb->mark to zero from XFRM stack
-	// to avoid confusion in netfilters and conntract that may be using
-	// the mark fields. This uses XFRM_OUTPUT_MARK added in 4.14 kernels.
-	if option.Config.EnableEndpointRoutes {
-		zeroMark = true
-	}
-
 	for _, cidr := range v4CIDR {
-		wildcardIP := net.ParseIP(wildcardIPv4)
-		ipsecIPv4Wildcard := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
-
 		if !option.Config.EnableEndpointRoutes {
 			n.replaceNodeIPSecInRoute(cidr)
 		}
-
 		n.replaceNodeIPSecOutRoute(cidr)
-		spi, err = ipsec.UpsertIPsecEndpoint(ipsecIPv4Wildcard, cidr, wildcardIP, cidr.IP, ipsec.IPSecDirOut, zeroMark)
-		upsertIPsecLog(err, "CNI Out IPv4", ipsecIPv4Wildcard, cidr, spi)
-
 		if n.nodeConfig.EncryptNode {
 			n.replaceNodeExternalIPSecOutRoute(cidr)
-		} else {
-			linkAddr, err := getV4LinkLocalIp()
-			if err != nil {
-				upsertIPsecLog(err, "getV4LinkLocalIP failed", ipsecIPv4Wildcard, cidr, spi)
-			}
-			spi, err := ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv4Wildcard, linkAddr.IP, wildcardIP, ipsec.IPSecDirIn, zeroMark)
-			upsertIPsecLog(err, "CNI In IPv4", cidr, ipsecIPv4Wildcard, spi)
 		}
 	}
 
 	for _, cidr := range v6CIDR {
-		wildcardIP := net.ParseIP(wildcardIPv6)
-		ipsecIPv6Wildcard := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 0)}
-
 		n.replaceNodeIPSecInRoute(cidr)
-
 		n.replaceNodeIPSecOutRoute(cidr)
-		spi, err := ipsec.UpsertIPsecEndpoint(ipsecIPv6Wildcard, cidr, wildcardIP, cidr.IP, ipsec.IPSecDirOut, zeroMark)
-		upsertIPsecLog(err, "CNI Out IPv6", cidr, ipsecIPv6Wildcard, spi)
-
 		if n.nodeConfig.EncryptNode {
 			n.replaceNodeExternalIPSecOutRoute(cidr)
-		} else {
-			linkAddr, err := getV6LinkLocalIp()
-			if err != nil {
-				upsertIPsecLog(err, "getV6LinkLocalIP failed", ipsecIPv6Wildcard, cidr, spi)
-			}
-			spi, err := ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv6Wildcard, linkAddr.IP, wildcardIP, ipsec.IPSecDirIn, zeroMark)
-			upsertIPsecLog(err, "CNI In IPv6", cidr, ipsecIPv6Wildcard, spi)
 		}
 	}
 }
@@ -595,13 +530,13 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 			wildcardIP := net.ParseIP(wildcardIPv4)
 			ipsecIPv4Wildcard := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
 			n.replaceNodeIPSecInRoute(ipsecLocal)
-			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv4Wildcard, internalIPv4, wildcardIP, ipsec.IPSecDirIn, false)
+			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv4Wildcard, internalIPv4, wildcardIP, 0, ipsec.IPSecDirIn, false)
 			upsertIPsecLog(err, "EncryptNode local IPv4", ipsecLocal, ipsecIPv4Wildcard, spi)
 		} else {
 			if remoteIPv4 := newNode.GetNodeIP(false); remoteIPv4 != nil {
 				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv4, remoteIPv4, ipsec.IPSecDirOutNode, false)
+				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv4, remoteIPv4, 0, ipsec.IPSecDirOutNode, false)
 				upsertIPsecLog(err, "EncryptNode IPv4", ipsecLocal, ipsecRemote, spi)
 			}
 			remoteIPv4 := newNode.GetCiliumInternalIP(false)
@@ -613,7 +548,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemoteRoute)
 				if remoteIPv4T := newNode.GetNodeIP(false); remoteIPv4T != nil {
-					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv4, remoteIPv4T, ipsec.IPSecDirOutNode)
+					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv4, remoteIPv4T, 0, ipsec.IPSecDirOutNode)
 				}
 				upsertIPsecLog(err, "EncryptNode Cilium IPv4", ipsecWildcard, ipsecRemote, spi)
 			}
@@ -628,13 +563,13 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 			wildcardIP := net.ParseIP(wildcardIPv6)
 			ipsecIPv6Wildcard := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 0)}
 			n.replaceNodeIPSecInRoute(ipsecLocal)
-			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv6Wildcard, internalIPv6, wildcardIP, ipsec.IPSecDirIn, false)
+			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv6Wildcard, internalIPv6, wildcardIP, 0, ipsec.IPSecDirIn, false)
 			upsertIPsecLog(err, "EncryptNode local IPv6", ipsecLocal, ipsecIPv6Wildcard, spi)
 		} else {
 			if remoteIPv6 := newNode.GetNodeIP(true); remoteIPv6 != nil {
 				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: exactMask}
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv6, remoteIPv6, ipsec.IPSecDirOut, false)
+				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv6, remoteIPv6, 0, ipsec.IPSecDirOut, false)
 				upsertIPsecLog(err, "EncryptNode IPv6", ipsecLocal, ipsecRemote, spi)
 			}
 			remoteIPv6 := newNode.GetCiliumInternalIP(true)
@@ -646,7 +581,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemoteRoute)
 				if remoteIPv6T := newNode.GetNodeIP(true); remoteIPv6T != nil {
-					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv6, remoteIPv6T, ipsec.IPSecDirOutNode)
+					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv6, remoteIPv6T, 0, ipsec.IPSecDirOutNode)
 				}
 				upsertIPsecLog(err, "EncryptNode Cilium IPv6", ipsecWildcard, ipsecRemote, spi)
 			}
@@ -1002,6 +937,12 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 		n.replaceHostRules()
 	}
 
+	// In endpoint routes mode we use the stack to route packets after
+	// the packet is decrypted so set skb->mark to zero from XFRM stack
+	// to avoid confusion in netfilters and conntrack that may be using
+	// the mark fields. This uses XFRM_OUTPUT_MARK added in 4.14 kernels.
+	zeroMark := option.Config.EnableEndpointRoutes
+
 	if n.nodeConfig.EnableIPv4 && newNode.IPv4AllocCIDR != nil {
 		new4Net := newNode.IPv4AllocCIDR.IPNet
 		wildcardIP := net.ParseIP(wildcardIPv4)
@@ -1009,19 +950,46 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new4Net)
+
 			if localIP := newNode.GetCiliumInternalIP(false); localIP != nil {
-				localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
-				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, ipsec.IPSecDirIn, false)
-				upsertIPsecLog(err, "local IPv4", localCIDR, wildcardCIDR, spi)
+				if n.subnetEncryption() {
+					for _, cidr := range n.nodeConfig.IPv4PodSubnets {
+						/* Insert wildcard policy rules for traffic skipping back through host */
+						if err = ipsec.IpSecReplacePolicyFwd(cidr, localIP); err != nil {
+							log.WithError(err).Warning("egress unable to replace policy fwd:")
+						}
+
+						spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, wildcardIP, 0, ipsec.IPSecDirIn, zeroMark)
+						upsertIPsecLog(err, "in IPv4", wildcardCIDR, cidr, spi)
+					}
+				} else {
+					localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
+					spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, 0, ipsec.IPSecDirIn, false)
+					upsertIPsecLog(err, "in IPv4", localCIDR, wildcardCIDR, spi)
+				}
 			}
 		} else {
 			if remoteIP := newNode.GetCiliumInternalIP(false); remoteIP != nil {
 				localIP := n.nodeAddressing.IPv4().Router()
-				localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
-				remoteCIDR := newNode.IPv4AllocCIDR.IPNet
-				n.replaceNodeIPSecOutRoute(new4Net)
-				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, ipsec.IPSecDirOut, false)
-				upsertIPsecLog(err, "IPv4", localCIDR, remoteCIDR, spi)
+				remoteNodeID := n.allocateIDForNode(newNode)
+
+				if n.subnetEncryption() {
+					for _, cidr := range n.nodeConfig.IPv4PodSubnets {
+						spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, zeroMark)
+						upsertIPsecLog(err, "out IPv4", wildcardCIDR, cidr, spi)
+					}
+				} else {
+					localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
+					remoteCIDR := newNode.IPv4AllocCIDR.IPNet
+					n.replaceNodeIPSecOutRoute(new4Net)
+					spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
+					upsertIPsecLog(err, "out IPv4", localCIDR, remoteCIDR, spi)
+
+					/* Insert wildcard policy rules for traffic skipping back through host */
+					if err = ipsec.IpSecReplacePolicyFwd(remoteCIDR, remoteIP); err != nil {
+						log.WithError(err).Warning("egress unable to replace policy fwd:")
+					}
+				}
 			}
 		}
 	}
@@ -1029,23 +997,39 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 	if n.nodeConfig.EnableIPv6 && newNode.IPv6AllocCIDR != nil {
 		new6Net := newNode.IPv6AllocCIDR.IPNet
 		wildcardIP := net.ParseIP(wildcardIPv6)
-		wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 0)}
+		wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 128)}
 
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new6Net)
 			if localIP := newNode.GetCiliumInternalIP(true); localIP != nil {
-				localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
-				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, ipsec.IPSecDirIn, false)
-				upsertIPsecLog(err, "local IPv6", localCIDR, wildcardCIDR, spi)
+				if n.subnetEncryption() {
+					for _, cidr := range n.nodeConfig.IPv6PodSubnets {
+						spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, wildcardIP, 0, ipsec.IPSecDirIn, zeroMark)
+						upsertIPsecLog(err, "in IPv6", wildcardCIDR, cidr, spi)
+					}
+				} else {
+					localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
+					spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, 0, ipsec.IPSecDirIn, false)
+					upsertIPsecLog(err, "in IPv6", localCIDR, wildcardCIDR, spi)
+				}
 			}
 		} else {
 			if remoteIP := newNode.GetCiliumInternalIP(true); remoteIP != nil {
 				localIP := n.nodeAddressing.IPv6().Router()
-				localCIDR := &net.IPNet{IP: localIP, Mask: net.CIDRMask(0, 0)}
-				remoteCIDR := newNode.IPv6AllocCIDR.IPNet
-				n.replaceNodeIPSecOutRoute(new6Net)
-				spi, err := ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, ipsec.IPSecDirOut, false)
-				upsertIPsecLog(err, "IPv6", localCIDR, remoteCIDR, spi)
+				remoteNodeID := n.allocateIDForNode(newNode)
+
+				if n.subnetEncryption() {
+					for _, cidr := range n.nodeConfig.IPv6PodSubnets {
+						spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, zeroMark)
+						upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi)
+					}
+				} else {
+					localCIDR := &net.IPNet{IP: localIP, Mask: net.CIDRMask(0, 0)}
+					remoteCIDR := newNode.IPv6AllocCIDR.IPNet
+					n.replaceNodeIPSecOutRoute(new6Net)
+					spi, err := ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
+					upsertIPsecLog(err, "out IPv6", localCIDR, remoteCIDR, spi)
+				}
 			}
 		}
 	}
@@ -1079,7 +1063,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldKey = oldNode.EncryptionKey
 	}
 
-	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() && !n.nodeConfig.EncryptNode {
+	if n.nodeConfig.EnableIPSec && !n.nodeConfig.EncryptNode {
 		n.enableIPsec(newNode)
 		newKey = newNode.EncryptionKey
 	}
@@ -1145,12 +1129,14 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			newPrefixCluster6 = cmtypes.PrefixClusterFromCIDR(newNode.IPv6AllocCIDR, 0)
 		}
 
+		nodeID := n.allocateIDForNode(newNode)
+
 		// Update the tunnel mapping of the node. In case the
 		// node has changed its CIDR range, a new entry in the
 		// map is created and the old entry is removed.
-		updateTunnelMapping(oldPrefixCluster4, newPrefixCluster4, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey)
+		updateTunnelMapping(oldPrefixCluster4, newPrefixCluster4, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey, nodeID)
 		// Not a typo, the IPv4 host IP is used to build the IPv6 overlay
-		updateTunnelMapping(oldPrefixCluster6, newPrefixCluster6, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
+		updateTunnelMapping(oldPrefixCluster6, newPrefixCluster6, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey, nodeID)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
 			n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode)
@@ -1224,9 +1210,7 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	}
 
 	if n.nodeConfig.EnableIPSec {
-		if oldNode.IsLocal() || !n.subnetEncryption() {
-			n.deleteIPsec(oldNode)
-		}
+		n.deleteIPsec(oldNode)
 	}
 
 	if option.Config.EnableWireguard {
@@ -1235,10 +1219,12 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 		}
 	}
 
+	n.deallocateIDForNode(oldNode)
+
 	return nil
 }
 
-func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing types.NodeAddressingFamily, addressFamilyEnabled bool) {
+func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAddressingFamily, addressFamilyEnabled bool) {
 	allocCIDR := addressing.AllocationCIDR()
 	if addressFamilyEnabled {
 		n.updateNodeRoute(allocCIDR, addressFamilyEnabled, false)
@@ -1252,6 +1238,7 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 		Priority: 1,
 		Mask:     linux_defaults.RouteMarkMask,
 		Table:    linux_defaults.RouteTableIPSec,
+		Protocol: linux_defaults.RTProto,
 	}
 
 	if n.nodeConfig.EnableIPv4 {
@@ -1290,6 +1277,7 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 		Priority: 1,
 		Mask:     linux_defaults.RouteMarkMask,
 		Table:    linux_defaults.RouteTableIPSec,
+		Protocol: linux_defaults.RTProto,
 	}
 
 	rule.Mark = linux_defaults.RouteMarkDecrypt
@@ -1332,14 +1320,14 @@ func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 	if option.Config.Tunnel == option.TunnelDisabled {
 		device = option.Config.EncryptInterface[0]
 	} else {
-		device = linux_defaults.TunnelDeviceName
+		device = option.Config.TunnelDevice()
 	}
 	return route.Route{
 		Nexthop: nil,
 		Device:  device,
 		Prefix:  *ip,
 		Table:   linux_defaults.RouteTableIPSec,
-		Proto:   linux_defaults.RouteProtocolIPSec,
+		Proto:   linux_defaults.RTProto,
 		Type:    route.RTN_LOCAL,
 	}
 }
@@ -1351,6 +1339,7 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 		Prefix:  *ip,
 		Table:   linux_defaults.RouteTableIPSec,
 		MTU:     n.nodeConfig.MtuConfig.GetRoutePostEncryptMTU(),
+		Proto:   linux_defaults.RTProto,
 	}
 }
 
@@ -1893,4 +1882,91 @@ func NodeDeviceNameWithDefaultRoute() (string, error) {
 		return "", err
 	}
 	return link.Attrs().Name, nil
+}
+
+func deleteOldLocalRule(rule route.Rule, family int) error {
+	var familyStr string
+
+	// sanity check, nothing to do if the rule is the same
+	if linux_defaults.RTProto == unix.RTPROT_UNSPEC {
+		return nil
+	}
+
+	if family == netlink.FAMILY_V4 {
+		familyStr = "IPv4"
+	} else {
+		familyStr = "IPv6"
+	}
+
+	localRules, err := route.ListRules(family, &rule)
+	if err != nil {
+		return fmt.Errorf("could not list local %s rules: %w", familyStr, err)
+	}
+
+	// we need to check for the old rule and make sure it's before the new one
+	oldPos := -1
+	found := false
+	for pos, rule := range localRules {
+		// mark the first unspec rule that matches
+		if oldPos == -1 && rule.Protocol == unix.RTPROT_UNSPEC {
+			oldPos = pos
+		}
+
+		if rule.Protocol == linux_defaults.RTProto {
+			// mark it as found only if it's before the new one
+			if oldPos != -1 {
+				found = true
+			}
+			break
+		}
+	}
+
+	if found == true {
+		err := route.DeleteRule(rule)
+		if err != nil {
+			return fmt.Errorf("could not delete old %s local rule: %w", familyStr, err)
+		}
+		log.WithFields(logrus.Fields{"family": familyStr}).Info("Deleting old local lookup rule")
+	}
+
+	return nil
+}
+
+// NodeEnsureLocalIPRule checks if Cilium local lookup rule (usually 100)
+// was installed and has proper protocol
+func NodeEnsureLocalIPRule() error {
+	// we have the Cilium local lookup rule only if the proxy rule is present
+	if !option.Config.InstallIptRules || !option.Config.EnableL7Proxy {
+		return nil
+	}
+
+	localRule := route.Rule{Priority: linux_defaults.RulePriorityLocalLookup, Table: unix.RT_TABLE_LOCAL, Mark: -1, Mask: -1, Protocol: linux_defaults.RTProto}
+	oldRule := localRule
+	oldRule.Protocol = unix.RTPROT_UNSPEC
+
+	if option.Config.EnableIPv4 {
+		err := route.ReplaceRule(localRule)
+		if err != nil {
+			return fmt.Errorf("could not replace IPv4 local rule: %w", err)
+		}
+
+		err = deleteOldLocalRule(oldRule, netlink.FAMILY_V4)
+		if err != nil {
+			return err
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		err := route.ReplaceRuleIPv6(localRule)
+		if err != nil {
+			return fmt.Errorf("could not replace IPv6 local rule: %w", err)
+		}
+
+		err = deleteOldLocalRule(oldRule, netlink.FAMILY_V6)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

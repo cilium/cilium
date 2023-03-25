@@ -17,7 +17,7 @@ get_identity(struct xdp_md *ctx __maybe_unused)
 
 static __always_inline __maybe_unused void
 set_encrypt_dip(struct xdp_md *ctx __maybe_unused,
-		__u32 ip_endpoint __maybe_unused)
+		__be32 ip_endpoint __maybe_unused)
 {
 }
 
@@ -33,19 +33,47 @@ set_identity_meta(struct xdp_md *ctx __maybe_unused,
 }
 
 static __always_inline __maybe_unused void
-set_encrypt_key_mark(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused)
+set_encrypt_key_mark(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused,
+		     __u32 node_id __maybe_unused)
 {
 }
 
 static __always_inline __maybe_unused void
-set_encrypt_key_meta(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused)
+set_encrypt_key_meta(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused,
+		     __u32 node_id __maybe_unused)
 {
+}
+
+static __always_inline __maybe_unused void
+ctx_set_cluster_id_mark(struct xdp_md *ctx __maybe_unused, __u32 cluster_id __maybe_unused)
+{
+}
+
+static __always_inline __maybe_unused __u32
+ctx_get_cluster_id_mark(struct __sk_buff *ctx __maybe_unused)
+{
+	return 0;
 }
 
 static __always_inline __maybe_unused int
 redirect_self(struct xdp_md *ctx __maybe_unused)
 {
 	return XDP_TX;
+}
+
+static __always_inline __maybe_unused int
+redirect_neigh(int ifindex __maybe_unused,
+	       struct bpf_redir_neigh *params __maybe_unused,
+	       int plen __maybe_unused,
+	       __u32 flags __maybe_unused)
+{
+	return XDP_DROP;
+}
+
+static __always_inline __maybe_unused bool
+neigh_resolver_available(void)
+{
+	return false;
 }
 
 #define RECIRC_MARKER	5 /* tail call recirculation */
@@ -150,7 +178,7 @@ ctx_set_encap_info(struct xdp_md *ctx __maybe_unused,
 		   __u32 node_id __maybe_unused,
 		   __u32 seclabel __maybe_unused,
 		   __u32 dstid __maybe_unused,
-		   __u32 vni __maybe_unused, __u32 *ifindex __maybe_unused)
+		   __u32 vni __maybe_unused, int *ifindex __maybe_unused)
 {
 	ctx_store_meta(ctx, CB_ENCAP_NODEID, bpf_ntohl(node_id));
 	ctx_store_meta(ctx, CB_ENCAP_SECLABEL, seclabel);

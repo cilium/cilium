@@ -98,7 +98,7 @@ spec:
       labels:
         k8s-app: node-local-dns
       annotations:
-        io.cilium.no-track-port: "53"
+        policy.cilium.io/no-track-port: "53"
         prometheus.io/port: "9253"
         prometheus.io/scrape: "true"
     spec:
@@ -114,7 +114,7 @@ spec:
         operator: "Exists"
       containers:
       - name: node-cache
-        image: k8s.gcr.io/dns/k8s-dns-node-cache:1.15.16
+        image: registry.k8s.io/dns/k8s-dns-node-cache:1.15.16
         resources:
           requests:
             cpu: 25m

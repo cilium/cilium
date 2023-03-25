@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -291,9 +292,9 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	// Check annotation updates.
 	oldAnno := oldK8sPod.ObjectMeta.Annotations
 	newAnno := newK8sPod.ObjectMeta.Annotations
-	annoChangedProxy := !k8s.AnnotationsEqual([]string{annotation.ProxyVisibility}, oldAnno, newAnno)
+	annoChangedProxy := !k8s.AnnotationsEqual([]string{annotation.ProxyVisibility, annotation.ProxyVisibilityAlias}, oldAnno, newAnno)
 	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno)
-	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack}, oldAnno, newAnno)
+	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack, annotation.NoTrackAlias}, oldAnno, newAnno)
 	annotationsChanged := annoChangedProxy || annoChangedBandwidth || annoChangedNoTrack
 
 	// Check label updates too.
@@ -357,7 +358,8 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 				if err != nil {
 					return "", nil
 				}
-				return p.ObjectMeta.Annotations[annotation.ProxyVisibility], nil
+				value, _ := annotation.Get(p, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
+				return value, nil
 			})
 		}
 		if annoChangedBandwidth {
@@ -375,7 +377,8 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 				if err != nil {
 					return "", nil
 				}
-				return p.ObjectMeta.Annotations[annotation.NoTrack], nil
+				value, _ := annotation.Get(p, annotation.NoTrack, annotation.NoTrackAlias)
+				return value, nil
 			})
 		}
 		realizePodAnnotationUpdate(podEP)
@@ -471,6 +474,8 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 	if option.Config.EnableLocalRedirectPolicy {
 		k.redirectPolicyManager.OnDeletePod(pod)
 	}
+	hubblemetrics.ProcessPodDeletion(pod)
+
 	k.cgroupManager.OnDeletePod(pod)
 
 	skipped, err := k.deletePodHostData(pod)

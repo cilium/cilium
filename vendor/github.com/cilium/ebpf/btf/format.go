@@ -293,7 +293,11 @@ func (gf *GoFormatter) writeDatasecLit(ds *Datasec, depth int) error {
 
 	prevOffset := uint32(0)
 	for i, vsi := range ds.Vars {
-		v := vsi.Type.(*Var)
+		v, ok := vsi.Type.(*Var)
+		if !ok {
+			return fmt.Errorf("can't format %s as part of data section", vsi.Type)
+		}
+
 		if v.Linkage != GlobalVar {
 			// Ignore static, extern, etc. for now.
 			continue

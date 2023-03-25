@@ -25,11 +25,11 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
       - name: Check code changes
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
           # For `push` events, compare against the `ref` base branch
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -63,42 +63,52 @@ jobs:
     name: coccicheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+      - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
-      - uses: docker://cilium/coccicheck:2.3@sha256:56c7445e3d0cc37de49750f5dfd154786082c4be6bc17683c231c0445862233a
+      - uses: docker://cilium/coccicheck:2.4@sha256:24abe3fbb8e829fa41a68a3b76cb4df84fd5a87a7d1d6254c1c1fe5effb5bd1b
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
 
+  set_clang_dir:
+    name: Set clang directory
+    runs-on: ubuntu-latest
+    outputs:
+      clang_dir: ${{ steps.set_dir.outputs.clang_dir }}
+    steps:
+    - name: Set directory
+      id: set_dir
+      run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
   # Runs only if code under bpf/ is changed.
   build_all:
-    needs: check_changes
+    needs: [check_changes, set_clang_dir]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' }}
     name: build datapath
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: 1.19.5
+          go-version: 1.20.1
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@58c146cc91c5b9e778e71775dfe9bf1442ad9a12
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
-          path: $HOME/.clang
+          path: ${{ needs.set_clang_dir.outputs.clang_dir }}
           key: llvm-10.0
       - name: Install LLVM and Clang prerequisites
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libtinfo5
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@8852e4d5c58653ed05135c0a5d949d9c2febcb00
+        uses: KyleMayes/install-llvm-action@ef175530927af66c61e4e8da4fea4e15de63f780 # v1.7.0
         with:
           version: "10.0"
-          directory: $HOME/.clang
+          directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -109,42 +119,45 @@ jobs:
           make --quiet -C bpf build_all || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
 
   bpf_tests:
-    needs: check_changes
+    needs: [check_changes, set_clang_dir]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.bpf-tests-runner == 'true' }}
     name: BPF unit/integration Tests
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: 1.19.5
+          go-version: 1.20.1
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@58c146cc91c5b9e778e71775dfe9bf1442ad9a12
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
-          path: $HOME/.clang
+          path: ${{ needs.set_clang_dir.outputs.clang_dir }}
           key: llvm-10.0
       - name: Install LLVM and Clang prerequisites
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libtinfo5
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@8852e4d5c58653ed05135c0a5d949d9c2febcb00
+        uses: KyleMayes/install-llvm-action@ef175530927af66c61e4e8da4fea4e15de63f780 # v1.7.0
         with:
           version: "10.0"
-          directory: $HOME/.clang
+          directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Run BPF tests
+      - name: Run BPF tests with code coverage reporting
+        env:
+          # Disable coverage report for these test cases since they are hitting
+          # https://github.com/cilium/coverbee/issues/7
+          NOCOVER_PATTERN: "inter_cluster_snat_clusterip.*|session_affinity_test.o|tc_egressgw_redirect.o|tc_egressgw_snat.o|tc_nodeport_lb4_dsr_backend.o|tc_nodeport_lb4_dsr_lb.o|tc_nodeport_lb4_nat_backend.o|tc_nodeport_lb4_nat_lb.o|xdp_nodeport_lb4_dsr_lb.o|xdp_nodeport_lb4_nat_backend.o|xdp_nodeport_lb4_nat_lb.o|xdp_nodeport_lb4_test.o|bpf_nat_tests.o"
         run: |
-          # TODO: re-enable coverage reporting, see https://github.com/cilium/cilium/issues/22088
-          make -C test run_bpf_tests || (echo "Run 'make -C test run_bpf_tests' locally to investigate failures"; exit 1)
+          make -C test run_bpf_tests COVER=1 NOCOVER="$NOCOVER_PATTERN" || (echo "Run 'make -C test run_bpf_tests COVER=1 NOCOVER=\"$NOCOVER_PATTERN\"' locally to investigate failures"; exit 1)
       - name: Archive code coverage results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: bpf-code-coverage-report
           path: bpf-coverage.html

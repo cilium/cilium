@@ -17,6 +17,71 @@ import (
 
 var ClocksPerSec = float64(100)
 
+var armModelToModelName = map[uint64]string{
+	0x810: "ARM810",
+	0x920: "ARM920",
+	0x922: "ARM922",
+	0x926: "ARM926",
+	0x940: "ARM940",
+	0x946: "ARM946",
+	0x966: "ARM966",
+	0xa20: "ARM1020",
+	0xa22: "ARM1022",
+	0xa26: "ARM1026",
+	0xb02: "ARM11 MPCore",
+	0xb36: "ARM1136",
+	0xb56: "ARM1156",
+	0xb76: "ARM1176",
+	0xc05: "Cortex-A5",
+	0xc07: "Cortex-A7",
+	0xc08: "Cortex-A8",
+	0xc09: "Cortex-A9",
+	0xc0d: "Cortex-A17",
+	0xc0f: "Cortex-A15",
+	0xc0e: "Cortex-A17",
+	0xc14: "Cortex-R4",
+	0xc15: "Cortex-R5",
+	0xc17: "Cortex-R7",
+	0xc18: "Cortex-R8",
+	0xc20: "Cortex-M0",
+	0xc21: "Cortex-M1",
+	0xc23: "Cortex-M3",
+	0xc24: "Cortex-M4",
+	0xc27: "Cortex-M7",
+	0xc60: "Cortex-M0+",
+	0xd01: "Cortex-A32",
+	0xd02: "Cortex-A34",
+	0xd03: "Cortex-A53",
+	0xd04: "Cortex-A35",
+	0xd05: "Cortex-A55",
+	0xd06: "Cortex-A65",
+	0xd07: "Cortex-A57",
+	0xd08: "Cortex-A72",
+	0xd09: "Cortex-A73",
+	0xd0a: "Cortex-A75",
+	0xd0b: "Cortex-A76",
+	0xd0c: "Neoverse-N1",
+	0xd0d: "Cortex-A77",
+	0xd0e: "Cortex-A76AE",
+	0xd13: "Cortex-R52",
+	0xd20: "Cortex-M23",
+	0xd21: "Cortex-M33",
+	0xd40: "Neoverse-V1",
+	0xd41: "Cortex-A78",
+	0xd42: "Cortex-A78AE",
+	0xd43: "Cortex-A65AE",
+	0xd44: "Cortex-X1",
+	0xd46: "Cortex-A510",
+	0xd47: "Cortex-A710",
+	0xd48: "Cortex-X2",
+	0xd49: "Neoverse-N2",
+	0xd4a: "Neoverse-E1",
+	0xd4b: "Cortex-A78C",
+	0xd4c: "Cortex-X1C",
+	0xd4d: "Cortex-A715",
+	0xd4e: "Cortex-X3",
+}
+
 func init() {
 	clkTck, err := sysconf.Sysconf(sysconf.SC_CLK_TCK)
 	// ignore errors
@@ -125,7 +190,7 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 		switch key {
 		case "Processor":
 			processorName = value
-		case "processor":
+		case "processor", "cpu number":
 			if c.CPU >= 0 {
 				finishCPUInfo(&c)
 				ret = append(ret, c)
@@ -138,6 +203,9 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 			c.CPU = int32(t)
 		case "vendorId", "vendor_id":
 			c.VendorID = value
+			if strings.Contains(value, "S390") {
+				processorName = "S390"
+			}
 		case "CPU implementer":
 			if v, err := strconv.ParseUint(value, 0, 8); err == nil {
 				switch v {
@@ -177,7 +245,18 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 			c.Family = value
 		case "model", "CPU part":
 			c.Model = value
-		case "model name", "cpu":
+			// if CPU is arm based, model name is found via model number. refer to: arch/arm64/kernel/cpuinfo.c
+			if c.VendorID == "ARM" {
+				if v, err := strconv.ParseUint(c.Model, 0, 16); err == nil {
+					modelName, exist := armModelToModelName[v]
+					if exist {
+						c.ModelName = modelName
+					} else {
+						c.ModelName = "Undefined"
+					}
+				}
+			}
+		case "Model Name", "model name", "cpu":
 			c.ModelName = value
 			if strings.Contains(value, "POWER8") ||
 				strings.Contains(value, "POWER7") {
@@ -197,7 +276,7 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 				return ret, err
 			}
 			c.Stepping = int32(t)
-		case "cpu MHz", "clock":
+		case "cpu MHz", "clock", "cpu MHz dynamic":
 			// treat this as the fallback value, thus we ignore error
 			if t, err := strconv.ParseFloat(strings.Replace(value, "MHz", "", 1), 64); err == nil {
 				c.Mhz = t

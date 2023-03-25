@@ -166,7 +166,6 @@ var (
 		"ipv4NativeRoutingCIDR":               NativeRoutingCIDR(),
 		"enableIPv4Masquerade":                "false",
 		"install-no-conntrack-iptables-rules": "false",
-		"installIptablesRules":                "true",
 		"l7Proxy":                             "false",
 		"hubble.enabled":                      "false",
 		"kubeProxyReplacement":                "strict",
@@ -1973,7 +1972,7 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 					ginkgoext.By("Checking service %s plumbing in cilium pod %s: %s", fullName, ciliumPod, err)
 				}
 				return err == nil
-			}, &TimeoutConfig{Timeout: 5 * time.Second, Ticker: 1 * time.Second})
+			}, &TimeoutConfig{Timeout: 10 * time.Second, Ticker: 1 * time.Second})
 			if err != nil {
 				return err
 			} else if timeoutErr != nil {
@@ -2474,7 +2473,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			opts["k8sServicePort"] = "6443"
 		}
 
-		if RunsOn419OrLaterKernel() {
+		if RunsOn54OrLaterKernel() {
 			opts["bpf.masquerade"] = "true"
 			opts["enableIPv6Masquerade"] = "false"
 		}
@@ -2484,19 +2483,17 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
-	if RunsOn419OrLaterKernel() {
+	if RunsOn54OrLaterKernel() {
 		// To enable SA for both cases when KPR is enabled and disabled
 		addIfNotOverwritten(options, "sessionAffinity", "true")
 	}
 
 	// Disable unsupported features that will just generated unnecessary
 	// warnings otherwise.
-	if DoesNotRunOn419OrLaterKernel() {
+	if DoesNotRunOnNetNextKernel() {
 		addIfNotOverwritten(options, "kubeProxyReplacement", "disabled")
 		addIfNotOverwritten(options, "bpf.masquerade", "false")
 		addIfNotOverwritten(options, "sessionAffinity", "false")
-	}
-	if DoesNotRunOnNetNextKernel() {
 		addIfNotOverwritten(options, "bandwidthManager.enabled", "false")
 	}
 
@@ -3604,8 +3601,8 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 
 		// Get bugtool output. Since bugtool output is dumped in the pod's filesystem,
 		// copy it over with `kubectl cp`.
-		bugtoolCmd := fmt.Sprintf("%s exec -n %s %s -- %s",
-			KubectlCmd, namespace, pod, CiliumBugtool)
+		bugtoolCmd := fmt.Sprintf("%s exec -n %s %s -- %s %s",
+			KubectlCmd, namespace, pod, CiliumBugtool, CiliumBugtoolArgs)
 		res := kub.ExecContext(ctx, bugtoolCmd, ExecOptions{SkipLog: true})
 		if !res.WasSuccessful() {
 			logger.Errorf("%s failed: %s", bugtoolCmd, res.CombineOutput().String())
@@ -3726,6 +3723,7 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 	reportCmds = map[string]string{
 		"journalctl -D /var/log/journal --no-pager -au kubelet":        "kubelet.log",
 		"journalctl -D /var/log/journal --no-pager -au kube-apiserver": "kube-apiserver.log",
+		"journalctl -D /var/log/journal --no-pager -au containerd":     "containerd.log",
 		"top -n 1 -b": "top.log",
 		"ps aux":      "ps.log",
 	}
@@ -4272,7 +4270,7 @@ func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds m
 		wg.Add(1)
 		go func(cmd, logfile string) {
 			defer wg.Done()
-			res := kub.ExecContext(ctx, cmd)
+			res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
 
 			if !res.WasSuccessful() {
 				log.WithError(res.GetErr("reportMapHost")).Errorf("command %s failed", cmd)
@@ -4348,7 +4346,7 @@ func (kub *Kubectl) WaitForIPCacheEntry(node, ipAddr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
-func (kub *Kubectl) WaitForEgressPolicyEntry(node, ipAddr string) error {
+func (kub *Kubectl) WaitForEgressPolicyEntries(node string, expectedCount int) error {
 	ciliumPod, err := kub.GetCiliumPodOnNode(node)
 	if err != nil {
 		return err
@@ -4357,12 +4355,32 @@ func (kub *Kubectl) WaitForEgressPolicyEntry(node, ipAddr string) error {
 	body := func() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 		defer cancel()
-		cmd := fmt.Sprintf(`cilium bpf egress list | grep -q %s`, ipAddr)
-		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
+		cmd := fmt.Sprintf(`cilium bpf egress list | tail -n +2 | wc -l`)
+		out := kub.CiliumExecContext(ctx, ciliumPod, cmd)
+		if !out.WasSuccessful() {
+			kub.Logger().
+				WithFields(logrus.Fields{"cmd": cmd}).
+				WithError(out.GetError()).
+				Warning("Failed to list bpf egress policy map")
+
+			return false
+		}
+
+		count, err := strconv.Atoi(strings.TrimSpace(out.Stdout()))
+		if err != nil {
+			kub.Logger().
+				WithFields(logrus.Fields{"cmd": cmd}).
+				WithError(err).
+				Warning("Failed to parse command output")
+
+			return false
+		}
+
+		return count == expectedCount
 	}
 
 	return WithTimeout(body,
-		fmt.Sprintf("egress policy entry for %s was not found in time", ipAddr),
+		fmt.Sprintf("could not ensure egress policy entries count is equal to %d", expectedCount),
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 

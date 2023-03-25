@@ -90,7 +90,7 @@ type DummySelectorCacheUser struct{}
 
 func testNewPolicyRepository() *policy.Repository {
 	idAllocator := testidentity.NewMockIdentityAllocator(nil)
-	repo := policy.NewPolicyRepository(idAllocator, nil, nil)
+	repo := policy.NewPolicyRepository(idAllocator, nil, nil, nil)
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return repo
 }
@@ -173,13 +173,13 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 			L7Parser:            policy.ParserTypeNone,
 			PerSelectorPolicies: policy.L7DataMap{cachedEPSelector: nil},
 			Ingress:             true,
-			DerivedFromRules: []labels.LabelArray{
-				labels.ParseLabelArray(
+			RuleOrigin: map[policy.CachedSelector]labels.LabelArrayList{
+				cachedEPSelector: {labels.ParseLabelArray(
 					"k8s:"+k8sConst.PolicyLabelName,
 					"k8s:"+k8sConst.PolicyLabelUID,
 					"k8s:"+k8sConst.PolicyLabelNamespace+"=default",
 					"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
-				),
+				)},
 			},
 		},
 	})
@@ -502,13 +502,8 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 			L7Parser:            policy.ParserTypeNone,
 			PerSelectorPolicies: policy.L7DataMap{cachedEPSelector: nil},
 			Ingress:             false,
-			DerivedFromRules: []labels.LabelArray{
-				labels.ParseLabelArray(
-					"k8s:"+k8sConst.PolicyLabelName,
-					"k8s:"+k8sConst.PolicyLabelUID,
-					"k8s:"+k8sConst.PolicyLabelNamespace+"=default",
-					"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
-				),
+			RuleOrigin: map[policy.CachedSelector]labels.LabelArrayList{
+				cachedEPSelector: {rules[0].Labels},
 			},
 		},
 	})
@@ -1809,7 +1804,7 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 			np: &slim_networkingv1.NetworkPolicy{
 				ObjectMeta: slim_metav1.ObjectMeta{
 					Annotations: map[string]string{
-						annotation.Name: "foo",
+						annotation.PolicyName: "foo",
 					},
 				},
 			},

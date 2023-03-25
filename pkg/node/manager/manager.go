@@ -16,8 +16,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -168,14 +169,14 @@ func (m *manager) Iter(f func(nh datapath.NodeHandler)) {
 }
 
 // New returns a new node manager
-func New(name string, c Configuration) (*manager, error) {
+func New(name string, c Configuration, ipCache IPCache) (*manager, error) {
 	m := &manager{
 		name:              name,
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		conf:              c,
 		controllerManager: controller.NewManager(),
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
-		workerpool:        workerpool.New(numBackgroundWorkers),
+		ipcache:           ipCache,
 	}
 
 	m.metricEventsReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -207,19 +208,17 @@ func New(name string, c Configuration) (*manager, error) {
 	return m, nil
 }
 
-// SetIPCache sets the ipcache field in the Manager.
-func (m *manager) SetIPCache(ipc IPCache) {
-	m.ipcache = ipc
-}
-
 func (m *manager) Start(hive.HookContext) error {
+	m.workerpool = workerpool.New(numBackgroundWorkers)
 	return m.workerpool.Submit("backgroundSync", m.backgroundSync)
 }
 
 // Stop shuts down a node manager
 func (m *manager) Stop(hive.HookContext) error {
-	if err := m.workerpool.Close(); err != nil {
-		return err
+	if m.workerpool != nil {
+		if err := m.workerpool.Close(); err != nil {
+			return err
+		}
 	}
 
 	m.mutex.Lock()
@@ -387,8 +386,11 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		// to encrypt something we know does not have an encryption policy installed
 		// in the datapath. By setting key=0 and tunnelIP this will result in traffic
 		// being sent unencrypted over overlay device.
-		if !m.conf.NodeEncryptionEnabled() &&
-			(address.Type == addressing.NodeExternalIP || address.Type == addressing.NodeInternalIP) {
+		if (!m.conf.NodeEncryptionEnabled() &&
+			(address.Type == addressing.NodeExternalIP || address.Type == addressing.NodeInternalIP)) ||
+			// Also ignore any remote node's key if the local node opted to not perform
+			// node-to-node encryption
+			node.GetOptOutNodeEncryption() {
 			key = 0
 		}
 

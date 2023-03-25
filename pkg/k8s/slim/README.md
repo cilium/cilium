@@ -49,6 +49,7 @@ curl "${url}/staging/src/k8s.io/apimachinery/pkg/apis/meta/v1beta1/types.go" > p
 curl "${url}/staging/src/k8s.io/api/networking/v1/doc.go" > pkg/k8s/slim/k8s/api/networking/v1/doc.go
 curl "${url}/staging/src/k8s.io/api/networking/v1/register.go" > pkg/k8s/slim/k8s/api/networking/v1/register.go
 curl "${url}/staging/src/k8s.io/api/networking/v1/types.go" > pkg/k8s/slim/k8s/api/networking/v1/types.go
+curl "${url}/staging/src/k8s.io/api/networking/v1/well_known_annotations.go" > pkg/k8s/slim/k8s/api/networking/v1/well_known_annotations.go
 
 curl "${url}/staging/src/k8s.io/apimachinery/pkg/selection/operator.go" > pkg/k8s/slim/k8s/apis/selection/operator.go
 
