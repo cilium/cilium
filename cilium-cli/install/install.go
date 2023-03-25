@@ -14,7 +14,9 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/spf13/pflag"
+	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
+	"helm.sh/helm/v3/pkg/getter"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -607,11 +609,16 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 	switch k.flavor.Kind {
 	case k8s.KindGKE:
-		if k.params.IPv4NativeRoutingCIDR == "" {
+		// Get Helm values to check if ipv4NativeRoutingCIDR value is specified via a Helm flag.
+		helmValues, err := k.params.HelmOpts.MergeValues(getter.All(cli.New()))
+		if err != nil {
+			return err
+		}
+		if k.params.IPv4NativeRoutingCIDR == "" && helmValues["ipv4NativeRoutingCIDR"] == nil {
 			cidr, err := k.gkeNativeRoutingCIDR(ctx, k.client.ContextName())
 			if err != nil {
 				k.Log("❌ Unable to auto-detect GKE native routing CIDR. Is \"gcloud\" installed?")
-				k.Log("ℹ️  You can set the native routing CIDR manually with --ipv4-native-routing-cidr")
+				k.Log("ℹ️  You can set the native routing CIDR manually with --helm-set ipv4NativeRoutingCIDR=x.x.x.x/x")
 				return err
 			}
 			k.params.IPv4NativeRoutingCIDR = cidr
