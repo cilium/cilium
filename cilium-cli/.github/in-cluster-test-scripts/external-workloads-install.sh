@@ -4,15 +4,16 @@ set -x
 set -e
 
 # Install Cilium in cluster
+# We can't get rid of --cluster-name until we fix https://github.com/cilium/cilium-cli/issues/1347.
 cilium install \
   --version "${CILIUM_VERSION}" \
   --cluster-name "${CLUSTER_NAME}" \
-  --config monitor-aggregation=none \
-  --config tunnel=vxlan \
-  --kube-proxy-replacement=strict \
+  --helm-set bpf.monitorAggregation=none \
+  --helm-set=extraConfig.tunnel=vxlan \
+  --helm-set kubeProxyReplacement=strict \
   --helm-set loadBalancer.l7.backend=envoy \
   --helm-set tls.secretsBackend=k8s \
-  --ipv4-native-routing-cidr="${CLUSTER_CIDR}"
+  --helm-set ipv4NativeRoutingCIDR="${CLUSTER_CIDR}"
 
 # Enable Relay
 cilium hubble enable

@@ -4,15 +4,16 @@ set -x
 set -e
 
 # Install Cilium
+# We can't get rid of --cluster-name until we fix https://github.com/cilium/cilium-cli/issues/1347.
 cilium install \
   --version "${CILIUM_VERSION}" \
   --cluster-name "${CLUSTER_NAME}" \
   --wait=false \
-  --config monitor-aggregation=none \
+  --helm-set bpf.monitorAggregation=none \
   --datapath-mode=tunnel \
   --helm-set loadBalancer.l7.backend=envoy \
   --helm-set tls.secretsBackend=k8s \
-  --ipam cluster-pool
+  --helm-set ipam.mode=cluster-pool
 
 # Enable Relay
 cilium hubble enable
