@@ -997,16 +997,6 @@ hubble:
       # If not specified, a CA issuer will be created.
       certManagerIssuerRef: {}
 
-    # -- Deprecated in favor of tls.ca. To be removed in 1.13.
-    # base64 encoded PEM values for the Hubble CA certificate and private key.
-    ca:
-      # -- Deprecated in favor of tls.ca.cert. To be removed in 1.13.
-      cert: ""
-      # -- Deprecated in favor of tls.ca.key. To be removed in 1.13.
-      # The CA private key (optional). If it is provided, then it will be
-      # used by hubble.tls.auto.method=cronJob to generate all other certificates.
-      # Otherwise, a ephemeral CA is generated if hubble.tls.auto.enabled=true.
-      key: ""
     # -- base64 encoded PEM values for the Hubble server certificate and private key
     server:
       cert: ""
