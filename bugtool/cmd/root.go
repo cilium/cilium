@@ -22,8 +22,11 @@ import (
 	"github.com/cilium/workerpool"
 	"github.com/spf13/cobra"
 
+	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // BugtoolRootCmd is the top level command for the bugtool.
@@ -87,10 +90,10 @@ func init() {
 	BugtoolRootCmd.Flags().BoolVar(&envoyDump, "envoy-dump", true, "When set, dump envoy configuration from unix socket")
 	BugtoolRootCmd.Flags().BoolVar(&envoyMetrics, "envoy-metrics", true, "When set, dump envoy prometheus metrics from unix socket")
 	BugtoolRootCmd.Flags().IntVar(&pprofPort,
-		"pprof-port", defaults.PprofPortAgent,
+		"pprof-port", option.PprofPortAgent,
 		fmt.Sprintf(
 			"Pprof port to connect to. Known Cilium component ports are agent:%d, operator:%d, apiserver:%d",
-			defaults.PprofPortAgent, defaults.PprofPortOperator, defaults.PprofPortAPIServer,
+			option.PprofPortAgent, operatorOption.PprofPortOperator, apiserverOption.PprofPortAPIServer,
 		),
 	)
 	BugtoolRootCmd.Flags().IntVar(&traceSeconds, "pprof-trace-seconds", 180, "Amount of seconds used for pprof CPU traces")

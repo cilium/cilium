@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 	"sync"
 	"time"
@@ -316,13 +315,13 @@ func (mgr *endpointManager) LookupIPv6(ipv6 string) *endpoint.Endpoint {
 }
 
 // LookupIP looks up endpoint by IP address
-func (mgr *endpointManager) LookupIP(ip net.IP) (ep *endpoint.Endpoint) {
-	addr := ip.String()
+func (mgr *endpointManager) LookupIP(ip netip.Addr) (ep *endpoint.Endpoint) {
+	ipStr := ip.String()
 	mgr.mutex.RLock()
-	if ip.To4() != nil {
-		ep = mgr.lookupIPv4(addr)
+	if ip.Is4() {
+		ep = mgr.lookupIPv4(ipStr)
 	} else {
-		ep = mgr.lookupIPv6(addr)
+		ep = mgr.lookupIPv6(ipStr)
 	}
 	mgr.mutex.RUnlock()
 	return ep

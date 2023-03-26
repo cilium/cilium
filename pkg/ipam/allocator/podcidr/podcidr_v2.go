@@ -8,6 +8,8 @@ import (
 	"net"
 	"sort"
 
+	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
+
 	"github.com/sirupsen/logrus"
 	"go.uber.org/multierr"
 
@@ -67,7 +69,7 @@ type nodeAction struct {
 }
 
 func (a *nodeAction) performNodeAction(
-	allocators []CIDRAllocator,
+	allocators []cidralloc.CIDRAllocator,
 	allocType allocatorType,
 	allocatedCIDRs []*net.IPNet,
 ) (result []*net.IPNet, changed bool, errs error) {

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 // Package lru provides three different LRU caches of varying sophistication.
 //
 // Cache is a simple LRU cache. It is based on the

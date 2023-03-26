@@ -846,6 +846,9 @@ func init() {
             "$ref": "#/parameters/ipam-owner"
           },
           {
+            "$ref": "#/parameters/ipam-pool"
+          },
+          {
             "$ref": "#/parameters/ipam-expiration"
           }
         ],
@@ -878,6 +881,9 @@ func init() {
           },
           {
             "$ref": "#/parameters/ipam-owner"
+          },
+          {
+            "$ref": "#/parameters/ipam-pool"
           }
         ],
         "responses": {
@@ -913,6 +919,9 @@ func init() {
         "parameters": [
           {
             "$ref": "#/parameters/ipam-release-arg"
+          },
+          {
+            "$ref": "#/parameters/ipam-pool"
           }
         ],
         "responses": {
@@ -3651,6 +3660,19 @@ func init() {
         "rule": {
           "description": "The policy rule as json",
           "type": "string"
+        },
+        "rules-by-selector": {
+          "description": "The policy rule labels identifying the policy rules this rule derives from, mapped by selector",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
@@ -4444,6 +4466,11 @@ func init() {
     "ipam-owner": {
       "type": "string",
       "name": "owner",
+      "in": "query"
+    },
+    "ipam-pool": {
+      "type": "string",
+      "name": "pool",
       "in": "query"
     },
     "ipam-release-arg": {
@@ -5484,6 +5511,11 @@ func init() {
             "in": "query"
           },
           {
+            "type": "string",
+            "name": "pool",
+            "in": "query"
+          },
+          {
             "type": "boolean",
             "name": "expiration",
             "in": "header"
@@ -5524,6 +5556,11 @@ func init() {
             "type": "string",
             "name": "owner",
             "in": "query"
+          },
+          {
+            "type": "string",
+            "name": "pool",
+            "in": "query"
           }
         ],
         "responses": {
@@ -5563,6 +5600,11 @@ func init() {
             "name": "ip",
             "in": "path",
             "required": true
+          },
+          {
+            "type": "string",
+            "name": "pool",
+            "in": "query"
           }
         ],
         "responses": {
@@ -8813,6 +8855,19 @@ func init() {
         "rule": {
           "description": "The policy rule as json",
           "type": "string"
+        },
+        "rules-by-selector": {
+          "description": "The policy rule labels identifying the policy rules this rule derives from, mapped by selector",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
@@ -9670,6 +9725,11 @@ func init() {
     "ipam-owner": {
       "type": "string",
       "name": "owner",
+      "in": "query"
+    },
+    "ipam-pool": {
+      "type": "string",
+      "name": "pool",
       "in": "query"
     },
     "ipam-release-arg": {

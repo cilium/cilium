@@ -50,10 +50,9 @@ func NewCRDBackend(c CRDBackendConfiguration) (allocator.Backend, error) {
 }
 
 type CRDBackendConfiguration struct {
-	NodeName string
-	Store    cache.Indexer
-	Client   clientset.Interface
-	KeyFunc  func(map[string]string) allocator.AllocatorKey
+	Store   cache.Indexer
+	Client  clientset.Interface
+	KeyFunc func(map[string]string) allocator.AllocatorKey
 }
 
 type crdBackend struct {

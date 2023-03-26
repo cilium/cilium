@@ -37,6 +37,22 @@
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
      - ``false``
+   * - auth.mTLS.enabled
+     - Enable mtls-spiffe authentication method in CiliumNetworkPolicy
+     - bool
+     - ``false``
+   * - auth.mTLS.port
+     - port on the agent which is used to mTLS handshakes on
+     - int
+     - ``4250``
+   * - auth.mTLS.spiffeTrustDomain
+     - SPIFFE trust domain to use for fetching certificates
+     - string
+     - ``"spiffe.cilium.io"``
+   * - auth.mTLS.spireAdminSocketPath
+     - SPIRE socket path where the SPIRE delegated api agent is listening
+     - string
+     - ``"/run/spire/sockets/admin.sock"``
    * - autoDirectNodeRoutes
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
@@ -81,6 +97,14 @@
      - Enables the BGP control plane.
      - bool
      - ``false``
+   * - bpf.authMapMax
+     - Configure the maximum number of entries in auth map.
+     - int
+     - ``524288``
+   * - bpf.autoMount.enabled
+     - Enable automatic mount of BPF filesystem When ``autoMount`` is enabled, the BPF filesystem is mounted at ``bpf.root`` path on the underlying host and inside the cilium agent pod. If users disable ``autoMount``\ , it's expected that users have mounted bpffs filesystem at the specified ``bpf.root`` volume, and then the volume will be mounted inside the cilium agent pod at the same path.
+     - bool
+     - ``true``
    * - bpf.clockProbe
      - Enable BPF clock source probing for more efficient tick retrieval.
      - bool
@@ -297,6 +321,14 @@
      - Annotations for the clustermesh-apiserver For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal" For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
      - object
      - ``{}``
+   * - clustermesh.apiserver.service.externalTrafficPolicy
+     - The externalTrafficPolicy of service used for apiserver access.
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.service.internalTrafficPolicy
+     - The internalTrafficPolicy of service used for apiserver access.
+     - string
+     - ``nil``
    * - clustermesh.apiserver.service.nodePort
      - Optional port to use as the node port for apiserver access.
      - int
@@ -432,17 +464,17 @@
    * - cni.uninstall
      - Remove the CNI configuration and binary files on agent shutdown. Enable this if you're removing Cilium from the cluster. Disable this to prevent the CNI configuration file from being removed during agent upgrade, which can cause nodes to go unmanageable.
      - bool
-     - ``true``
+     - ``false``
    * - conntrackGCInterval
      - Configure how frequently garbage collection should occur for the datapath connection tracking table.
      - string
      - ``"0s"``
    * - containerRuntime
-     - Configure container runtime specific integration.
+     - Configure container runtime specific integration. Deprecated in favor of bpf.autoMount.enabled. To be removed in 1.15.
      - object
      - ``{"integration":"none"}``
    * - containerRuntime.integration
-     - Enables specific integrations for container runtimes. Supported values: - containerd - crio - docker - none - auto (automatically detect the container runtime)
+     - Enables specific integrations for container runtimes. Supported values: - crio - none
      - string
      - ``"none"``
    * - crdWaitTimeout
@@ -473,6 +505,10 @@
      - Configure where Cilium runtime state should be stored.
      - string
      - ``"/var/run/cilium"``
+   * - dashboards
+     - Grafana dashboards for cilium-agent grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
+     - object
+     - ``{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null}``
    * - debug.enabled
      - Enable debug logging
      - bool
@@ -510,9 +546,9 @@
      - int
      - ``10000``
    * - dnsProxy.minTtl
-     - The minimum time, in seconds, to use DNS data for toFQDNs policies.
+     - The minimum time, in seconds, to use DNS data for toFQDNs policies. If the upstream DNS server returns a DNS record with a shorter TTL, Cilium overwrites the TTL with this value. Setting this value to zero means that Cilium will honor the TTLs returned by the upstream DNS server.
      - int
-     - ``3600``
+     - ``0``
    * - dnsProxy.preCache
      - DNS cache data at this path is preloaded on agent startup.
      - string
@@ -865,6 +901,10 @@
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
      - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}}``
+   * - hubble.metrics.dashboards
+     - Grafana dashboards for hubble grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
+     - object
+     - ``{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null}``
    * - hubble.metrics.enableOpenMetrics
      - Enables exporting hubble metrics in OpenMetrics format.
      - bool
@@ -1188,7 +1228,7 @@
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
-     - ``{"digest":"sha256:cc5e2730b3be6f117b22176e25875f2308834ced7c3aa34fb598aa87a2c0a6a4","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.10.0","useDigest":true}``
+     - ``{"digest":"sha256:14c04d11f78da5c363f88592abae8d2ecee3cbe009f443ef11df6ac5f692d839","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.11.0","useDigest":true}``
    * - hubble.ui.backend.resources
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
@@ -1197,6 +1237,10 @@
      - Hubble-ui backend security context.
      - object
      - ``{}``
+   * - hubble.ui.baseUrl
+     - Defines base url prefix for all hubble-ui http requests. It needs to be changed in case if ingress for hubble-ui is configured under some sub-path. Trailing ``/`` is required for custom path, ex. ``/service-map/``
+     - string
+     - ``"/"``
    * - hubble.ui.enabled
      - Whether to enable the Hubble UI.
      - bool
@@ -1216,7 +1260,7 @@
    * - hubble.ui.frontend.image
      - Hubble-ui frontend image.
      - object
-     - ``{"digest":"sha256:118ad2fcfd07fabcae4dde35ec88d33564c9ca7abe520aa45b1eb13ba36c6e0a","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.10.0","useDigest":true}``
+     - ``{"digest":"sha256:bcb369c47cada2d4257d63d3749f7f87c91dde32e010b223597306de95d1ecc8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.11.0","useDigest":true}``
    * - hubble.ui.frontend.resources
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -1232,7 +1276,7 @@
    * - hubble.ui.ingress
      - hubble-ui ingress configuration.
      - object
-     - ``{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"tls":[]}``
+     - ``{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]}``
    * - hubble.ui.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -1653,6 +1697,10 @@
      - Affinity for cilium-operator
      - object
      - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"io.cilium/app":"operator"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - operator.dashboards
+     - Grafana dashboards for cilium-operator grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
+     - object
+     - ``{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null}``
    * - operator.dnsPolicy
      - DNS policy for Cilium operator pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
      - string
@@ -1797,6 +1845,10 @@
      - Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod.
      - bool
      - ``true``
+   * - operator.setNodeTaints
+     - Taint nodes where Cilium is scheduled but not running. This prevents pods from being scheduled to nodes where Cilium is not the default CNI provider.
+     - string
+     - same as removeNodeTaints
    * - operator.skipCNPStatusStartupClean
      - Skip CNP node status clean up at operator startup.
      - bool

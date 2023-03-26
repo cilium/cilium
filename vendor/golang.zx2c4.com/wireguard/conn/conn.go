@@ -15,10 +15,17 @@ import (
 	"strings"
 )
 
-// A ReceiveFunc receives a single inbound packet from the network.
-// It writes the data into b. n is the length of the packet.
-// ep is the remote endpoint.
-type ReceiveFunc func(b []byte) (n int, ep Endpoint, err error)
+const (
+	IdealBatchSize = 128 // maximum number of packets handled per read and write
+)
+
+// A ReceiveFunc receives at least one packet from the network and writes them
+// into packets. On a successful read it returns the number of elements of
+// sizes, packets, and endpoints that should be evaluated. Some elements of
+// sizes may be zero, and callers should ignore them. Callers must pass a sizes
+// and eps slice with a length greater than or equal to the length of packets.
+// These lengths must not exceed the length of the associated Bind.BatchSize().
+type ReceiveFunc func(packets [][]byte, sizes []int, eps []Endpoint) (n int, err error)
 
 // A Bind listens on a port for both IPv6 and IPv4 UDP traffic.
 //
@@ -38,11 +45,16 @@ type Bind interface {
 	// This mark is passed to the kernel as the socket option SO_MARK.
 	SetMark(mark uint32) error
 
-	// Send writes a packet b to address ep.
-	Send(b []byte, ep Endpoint) error
+	// Send writes one or more packets in bufs to address ep. The length of
+	// bufs must not exceed BatchSize().
+	Send(bufs [][]byte, ep Endpoint) error
 
 	// ParseEndpoint creates a new endpoint from a string.
 	ParseEndpoint(s string) (Endpoint, error)
+
+	// BatchSize is the number of buffers expected to be passed to
+	// the ReceiveFuncs, and the maximum expected to be passed to SendBatch.
+	BatchSize() int
 }
 
 // BindSocketToInterface is implemented by Bind objects that support being

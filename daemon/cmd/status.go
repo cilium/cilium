@@ -19,8 +19,8 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -315,6 +315,10 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 	return &models.BPFMapStatus{
 		DynamicSizeRatio: option.Config.BPFMapsDynamicSizeRatio,
 		Maps: []*models.BPFMapProperties{
+			{
+				Name: "Auth",
+				Size: int64(option.Config.AuthMapEntries),
+			},
 			{
 				Name: "Non-TCP connection tracking",
 				Size: int64(option.Config.CTMapEntriesGlobalAny),

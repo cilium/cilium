@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -180,7 +180,7 @@ type envoyConfigManager interface {
 	DeleteEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
 
 	// envoy.PortAllocator
-	AllocateProxyPort(name string, ingress bool) (uint16, error)
+	AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error)
 	AckProxyPort(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }

@@ -122,14 +122,12 @@ func TestVerifier(t *testing.T) {
 				}
 
 				t.Logf("Building %s object file", bpfProgram.name)
-				cmd = exec.Command("make", "-C", "bpf",
-					fmt.Sprintf("%s.o", bpfProgram.name),
-					fmt.Sprintf("KERNEL=%s %s=%q",
-						kernelVersion,
-						bpfProgram.macroName,
-						datapathConfig),
-				)
+				cmd = exec.Command("make", "-C", "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
 				cmd.Dir = *ciliumBasePath
+				cmd.Env = append(cmd.Env,
+					fmt.Sprintf("%s=%s", bpfProgram.macroName, datapathConfig),
+					fmt.Sprintf("KERNEL=%s", kernelVersion),
+				)
 				if err := cmd.Run(); err != nil {
 					t.Fatalf("Failed to compile %s bpf objects: %v", bpfProgram.name, err)
 				}

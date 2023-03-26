@@ -9,6 +9,10 @@ if ! have_kind; then
     echo "  https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
 fi
 
+if [ "${1:-}" != "--keep-registry" ]; then
+    docker kill kind-registry && \
+        docker rm kind-registry
+fi
+
 kind delete clusters kind && \
-docker kill kind-registry && \
-docker rm kind-registry
+    docker network rm kind-cilium

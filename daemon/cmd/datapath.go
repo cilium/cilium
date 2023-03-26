@@ -10,19 +10,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -30,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/auth"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -355,6 +354,10 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
+	if err := auth.InitAuthMap(option.Config.AuthMapEntries); err != nil {
+		return err
+	}
+
 	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {
 		return err
 	}
@@ -381,10 +384,8 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	createSockRevNatMaps := option.Config.EnableSocketLB &&
-		probes.HaveMapType(ebpf.LRUHash) == nil
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
-		createSockRevNatMaps, option.Config.RestoreState); err != nil {
+		option.Config.EnableSocketLB, option.Config.RestoreState); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 

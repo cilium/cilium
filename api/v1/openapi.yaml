@@ -426,6 +426,7 @@ paths:
       parameters:
       - "$ref": "#/parameters/ipam-family"
       - "$ref": "#/parameters/ipam-owner"
+      - "$ref": "#/parameters/ipam-pool"
       - "$ref": "#/parameters/ipam-expiration"
       responses:
         '201':
@@ -445,6 +446,7 @@ paths:
       parameters:
       - "$ref": "#/parameters/ipam-ip"
       - "$ref": "#/parameters/ipam-owner"
+      - "$ref": "#/parameters/ipam-pool"
       responses:
         '200':
           description: Success
@@ -468,6 +470,7 @@ paths:
       - ipam
       parameters:
       - "$ref": "#/parameters/ipam-release-arg"
+      - "$ref": "#/parameters/ipam-pool"
       responses:
         '200':
           description: Success
@@ -1113,6 +1116,10 @@ parameters:
     name: owner
     in: query
     type: string
+  ipam-pool:
+    name: pool
+    in: query
+    type: string
   ipam-expiration:
     name: expiration
     in: header
@@ -1147,7 +1154,6 @@ parameters:
     required: false
     in: query
     type: string
-
 
 definitions:
   Endpoint:
@@ -1462,6 +1468,15 @@ definitions:
           type: array
           items:
             type: string
+      rules-by-selector:
+        description: The policy rule labels identifying the policy rules this rule derives from, mapped by selector
+        type: object
+        additionalProperties:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
   L4Policy:
     description: |-
       L4 endpoint policy

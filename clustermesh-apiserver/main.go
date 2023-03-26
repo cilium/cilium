@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
+	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -110,6 +111,12 @@ var (
 
 func init() {
 	rootHive = hive.New(
+		pprof.Cell,
+		cell.Config(pprof.Config{
+			PprofAddress: apiserverOption.PprofAddressAPIServer,
+			PprofPort:    apiserverOption.PprofPortAPIServer,
+		}),
+
 		gops.Cell(defaults.GopsPortApiserver),
 		k8sClient.Cell,
 		k8s.SharedResourcesCell,
@@ -243,15 +250,6 @@ func runApiserver() error {
 
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enable support of Kubernetes EndpointSlice")
 	option.BindEnv(vp, option.K8sEnableEndpointSlice)
-
-	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
-	option.BindEnv(vp, option.PProf)
-
-	flags.String(option.PProfAddress, defaults.PprofAddressAPIServer, "Address that pprof listens on")
-	option.BindEnv(vp, option.PProfAddress)
-
-	flags.Int(option.PProfPort, defaults.PprofPortAPIServer, "Port that pprof listens on")
-	option.BindEnv(vp, option.PProfPort)
 
 	vp.BindPFlags(flags)
 
@@ -626,10 +624,6 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 			<-timer.After(kvstore.HeartbeatWriteInterval)
 		}
 	}()
-
-	if option.Config.PProf {
-		pprof.Enable(option.Config.PProfAddress, option.Config.PProfPort)
-	}
 
 	log.Info("Initialization complete")
 }

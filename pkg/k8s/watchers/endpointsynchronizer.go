@@ -79,6 +79,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 		lastMdl  *cilium_v2.EndpointStatus
 		localCEP *cilium_v2.CiliumEndpoint // the local copy of the CEP object. Reused.
 		needInit = true                    // needInit indicates that we may need to create the CEP
+		firstTry = true                    // Try to get CEP from k8s cache
 	)
 
 	// NOTE: The controller functions do NOT hold the endpoint locks
@@ -140,7 +141,14 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					}
 
 					scopedLog.Debug("Getting CEP during an initialization")
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Get(ctx, podName, meta_v1.GetOptions{})
+					if firstTry {
+						// First we try getting CEP from the API server cache, as it's cheaper.
+						// If it fails we get it from etcd to be sure to have fresh data.
+						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Get(ctx, podName, meta_v1.GetOptions{ResourceVersion: "0"})
+						firstTry = false
+					} else {
+						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Get(ctx, podName, meta_v1.GetOptions{})
+					}
 					// It's only an error if it exists but something else happened
 					switch {
 					case err == nil:

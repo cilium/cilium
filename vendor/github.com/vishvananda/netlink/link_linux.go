@@ -993,7 +993,7 @@ func (h *Handle) LinkSetGROMaxSize(link Link, maxSize int) error {
 	b := make([]byte, 4)
 	native.PutUint32(b, uint32(maxSize))
 
-	data := nl.NewRtAttr(nl.IFLA_GRO_MAX_SIZE, b)
+	data := nl.NewRtAttr(unix.IFLA_GRO_MAX_SIZE, b)
 	req.AddData(data)
 
 	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
@@ -1456,7 +1456,7 @@ func (h *Handle) linkModify(link Link, flags int) error {
 	}
 
 	if base.GROMaxSize > 0 {
-		groAttr := nl.NewRtAttr(nl.IFLA_GRO_MAX_SIZE, nl.Uint32Attr(base.GROMaxSize))
+		groAttr := nl.NewRtAttr(unix.IFLA_GRO_MAX_SIZE, nl.Uint32Attr(base.GROMaxSize))
 		req.AddData(groAttr)
 	}
 
@@ -2000,7 +2000,7 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 			base.GSOMaxSize = native.Uint32(attr.Value[0:4])
 		case unix.IFLA_GSO_MAX_SEGS:
 			base.GSOMaxSegs = native.Uint32(attr.Value[0:4])
-		case nl.IFLA_GRO_MAX_SIZE:
+		case unix.IFLA_GRO_MAX_SIZE:
 			base.GROMaxSize = native.Uint32(attr.Value[0:4])
 		case unix.IFLA_VFINFO_LIST:
 			data, err := nl.ParseRouteAttr(attr.Value)
@@ -2714,7 +2714,7 @@ func addGretapAttrs(gretap *Gretap, linkInfo *nl.RtAttr) {
 
 	if gretap.FlowBased {
 		// In flow based mode, no other attributes need to be configured
-		data.AddRtAttr(nl.IFLA_GRE_COLLECT_METADATA, boolAttr(gretap.FlowBased))
+		data.AddRtAttr(nl.IFLA_GRE_COLLECT_METADATA, []byte{})
 		return
 	}
 
@@ -2797,6 +2797,12 @@ func parseGretapData(link Link, data []syscall.NetlinkRouteAttr) {
 func addGretunAttrs(gre *Gretun, linkInfo *nl.RtAttr) {
 	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
 
+	if gre.FlowBased {
+		// In flow based mode, no other attributes need to be configured
+		data.AddRtAttr(nl.IFLA_GRE_COLLECT_METADATA, []byte{})
+		return
+	}
+
 	if ip := gre.Local; ip != nil {
 		if ip.To4() != nil {
 			ip = ip.To4()
@@ -2867,6 +2873,8 @@ func parseGretunData(link Link, data []syscall.NetlinkRouteAttr) {
 			gre.EncapSport = ntohs(datum.Value[0:2])
 		case nl.IFLA_GRE_ENCAP_DPORT:
 			gre.EncapDport = ntohs(datum.Value[0:2])
+		case nl.IFLA_GRE_COLLECT_METADATA:
+			gre.FlowBased = true
 		}
 	}
 }

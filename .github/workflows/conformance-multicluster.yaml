@@ -70,7 +70,7 @@ env:
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.0
+  cilium_cli_version: v0.13.1
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
@@ -92,7 +92,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -128,7 +128,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -192,7 +192,7 @@ jobs:
 
       # Checkout source code to install Cilium using local Helm chart.
       - name: Checkout code
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -342,8 +342,8 @@ jobs:
             --collect-sysdump-on-failure \
             --test '!/pod-to-.*-nodeport' \
             --test '!no-policies/pod-to-service' \
-            --test '!/pod-to-cidr' \
-            --external-target google.com
+            --external-target google.com \
+            --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4
         # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
         # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
         # is fixed.
@@ -368,8 +368,8 @@ jobs:
             --collect-sysdump-on-failure \
             --test '!/pod-to-.*-nodeport' \
             --test '!no-policies/pod-to-service' \
-            --test '!/pod-to-cidr' \
-            --external-target google.com
+            --external-target google.com \
+            --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4
         # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
         # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
         # is fixed.

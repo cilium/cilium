@@ -617,56 +617,7 @@ the multi-device XDP acceleration.
 NodePort acceleration can be used with either direct routing (``tunnel=disabled``)
 or tunnel mode. Direct routing is recommended to achieve optimal performance.
 
-A list of drivers supporting native XDP can be found in the table below. The
-corresponding network driver name of an interface can be determined as follows:
-
-.. code-block:: shell-session
-
-    # ethtool -i eth0
-    driver: nfp
-    [...]
-
-+-------------------+------------+-------------+
-| Vendor            | Driver     | XDP Support |
-+===================+============+=============+
-| Amazon            | ena        | >= 5.6      |
-+-------------------+------------+-------------+
-| Broadcom          | bnxt_en    | >= 4.11     |
-+-------------------+------------+-------------+
-| Cavium            | thunderx   | >= 4.12     |
-+-------------------+------------+-------------+
-| Freescale         | dpaa2      | >= 5.0      |
-+-------------------+------------+-------------+
-| Intel             | ixgbe      | >= 4.12     |
-|                   +------------+-------------+
-|                   | ixgbevf    | >= 4.17     |
-|                   +------------+-------------+
-|                   | i40e       | >= 4.13     |
-|                   +------------+-------------+
-|                   | ice        | >= 5.5      |
-+-------------------+------------+-------------+
-| Marvell           | mvneta     | >= 5.5      |
-+-------------------+------------+-------------+
-| Mellanox          | mlx4       | >= 4.8      |
-|                   +------------+-------------+
-|                   | mlx5       | >= 4.9      |
-+-------------------+------------+-------------+
-| Microsoft         | hv_netvsc  | >= 5.6      |
-+-------------------+------------+-------------+
-| Netronome         | nfp        | >= 4.10     |
-+-------------------+------------+-------------+
-| Others            | virtio_net | >= 4.10     |
-|                   +------------+-------------+
-|                   | tun/tap    | >= 4.14     |
-+-------------------+------------+-------------+
-| Qlogic            | qede       | >= 4.10     |
-+-------------------+------------+-------------+
-| Socionext         | netsec     | >= 5.3      |
-+-------------------+------------+-------------+
-| Solarflare        | sfc        | >= 5.5      |
-+-------------------+------------+-------------+
-| Texas Instruments | cpsw       | >= 5.3      |
-+-------------------+------------+-------------+
+A list of drivers supporting XDP can be found in :ref:`the documentation for XDP<xdp_drivers>`.
 
 The current Cilium kube-proxy XDP acceleration mode can also be introspected through
 the ``cilium status`` CLI command. If it has been enabled successfully, ``Native``
@@ -1094,11 +1045,15 @@ issue.
 
 This section elaborates on the various ``kubeProxyReplacement`` options:
 
-- ``kubeProxyReplacement=strict``: This option expects a kube-proxy-free
-  Kubernetes setup where Cilium is expected to fully replace all kube-proxy
-  functionality. Once the Cilium agent is up and running, it takes care of handling
-  Kubernetes services of type ClusterIP, NodePort, LoadBalancer, services with externalIPs
-  as well as HostPort. If the underlying kernel version requirements are not met
+- ``kubeProxyReplacement=strict``: When using this option, it's highly recommended
+  to run a kube-proxy-free Kubernetes setup where Cilium is expected to fully replace
+  all kube-proxy functionality. However, if it's not possible to remove kube-proxy for
+  specific reasons (e.g. Kubernetes distribution limitations), it's also acceptable to
+  leave it deployed in the background. Just be aware of the potential side effects on
+  existing nodes as mentioned above when running kube-proxy in co-existence. Once the
+  Cilium agent is up and running, it takes care of handling Kubernetes services of type
+  ClusterIP, NodePort, LoadBalancer, services with externalIPs as well as HostPort.
+  If the underlying kernel version requirements are not met
   (see :ref:`kubeproxy-free` note), then the Cilium agent will bail out on start-up
   with an error message.
 
@@ -1200,6 +1155,11 @@ gracefully. The endpoint state is fully removed when the agent receives
 a Kubernetes delete event for the endpoint. The `Kubernetes
 pod termination <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination>`_
 documentation contains more background on the behavior and configuration using ``terminationGracePeriodSeconds``.
+There are some special cases, like zero disruption during rolling updates, that require to be able to send traffic
+to Terminating Pods that are still Serving traffic during the Terminating period, the Kubernetes blog
+`Advancements in Kubernetes Traffic Engineering
+<https://kubernetes.io/blog/2022/12/30/advancements-in-kubernetes-traffic-engineering/#traffic-loss-from-load-balancers-during-rolling-updates>`_
+explains it in detail.
 
 .. admonition:: Video
   :class: attention

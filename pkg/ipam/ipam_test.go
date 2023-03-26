@@ -56,17 +56,17 @@ func (s *IPAMSuite) TestLock(c *C) {
 	ipv6 = ipv6.Next()
 
 	// Forcefully release possible allocated IPs
-	err := ipam.IPv4Allocator.Release(ipv4.AsSlice())
+	err := ipam.IPv4Allocator.Release(ipv4.AsSlice(), PoolDefault)
 	c.Assert(err, IsNil)
-	err = ipam.IPv6Allocator.Release(ipv6.AsSlice())
+	err = ipam.IPv6Allocator.Release(ipv6.AsSlice(), PoolDefault)
 	c.Assert(err, IsNil)
 
 	// Let's allocate the IP first so we can see the tests failing
-	result, err := ipam.IPv4Allocator.Allocate(ipv4.AsSlice(), "test")
+	result, err := ipam.IPv4Allocator.Allocate(ipv4.AsSlice(), "test", PoolDefault)
 	c.Assert(err, IsNil)
 	c.Assert(result.IP, checker.DeepEquals, net.IP(ipv4.AsSlice()))
 
-	err = ipam.IPv4Allocator.Release(ipv4.AsSlice())
+	err = ipam.IPv4Allocator.Release(ipv4.AsSlice(), PoolDefault)
 	c.Assert(err, IsNil)
 }
 
@@ -77,22 +77,22 @@ func (s *IPAMSuite) TestExcludeIP(c *C) {
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	ipv4 = ipv4.Next()
 
-	ipam.ExcludeIP(ipv4.AsSlice(), "test-foo")
-	err := ipam.AllocateIP(ipv4.AsSlice(), "test-bar")
+	ipam.ExcludeIP(ipv4.AsSlice(), "test-foo", PoolDefault)
+	err := ipam.AllocateIP(ipv4.AsSlice(), "test-bar", PoolDefault)
 	c.Assert(err, Not(IsNil))
 	c.Assert(err, ErrorMatches, ".* owned by test-foo")
-	err = ipam.ReleaseIP(ipv4.AsSlice())
+	err = ipam.ReleaseIP(ipv4.AsSlice(), PoolDefault)
 	c.Assert(err, IsNil)
 
 	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
 	ipv6 = ipv6.Next()
 
-	ipam.ExcludeIP(ipv6.AsSlice(), "test-foo")
-	err = ipam.AllocateIP(ipv6.AsSlice(), "test-bar")
+	ipam.ExcludeIP(ipv6.AsSlice(), "test-foo", PoolDefault)
+	err = ipam.AllocateIP(ipv6.AsSlice(), "test-bar", PoolDefault)
 	c.Assert(err, Not(IsNil))
 	c.Assert(err, ErrorMatches, ".* owned by test-foo")
-	ipam.ReleaseIP(ipv6.AsSlice())
-	err = ipam.ReleaseIP(ipv4.AsSlice())
+	ipam.ReleaseIP(ipv6.AsSlice(), PoolDefault)
+	err = ipam.ReleaseIP(ipv4.AsSlice(), PoolDefault)
 	c.Assert(err, IsNil)
 }
 
@@ -107,21 +107,21 @@ func (s *IPAMSuite) TestOwnerRelease(c *C) {
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	ipv4 = ipv4.Next()
-	err := ipam.AllocateIP(ipv4.AsSlice(), "default/test")
+	err := ipam.AllocateIP(ipv4.AsSlice(), "default/test", PoolDefault)
 	c.Assert(err, IsNil)
 
 	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
 	ipv6 = ipv6.Next()
-	err = ipam.AllocateIP(ipv6.AsSlice(), "default/test")
+	err = ipam.AllocateIP(ipv6.AsSlice(), "default/test", PoolDefault)
 	c.Assert(err, IsNil)
 
 	// unknown owner, must fail
-	err = ipam.ReleaseIPString("default/test2")
+	err = ipam.ReleaseIPString("default/test2", PoolDefault)
 	c.Assert(err, Not(IsNil))
 	// 1st release by correct owner, must succeed
-	err = ipam.ReleaseIPString("default/test")
+	err = ipam.ReleaseIPString("default/test", PoolDefault)
 	c.Assert(err, IsNil)
 	// 2nd release by owner, must now fail
-	err = ipam.ReleaseIPString("default/test")
+	err = ipam.ReleaseIPString("default/test", PoolDefault)
 	c.Assert(err, Not(IsNil))
 }

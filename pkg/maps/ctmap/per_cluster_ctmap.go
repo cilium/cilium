@@ -176,7 +176,7 @@ func (gm *perClusterCTMaps) UpdateClusterCTMaps(clusterID uint32) error {
 		}
 	}
 
-	if gm.ipv4 {
+	if gm.ipv6 {
 		if err := gm.tcp6.updateClusterCTMap(clusterID); err != nil {
 			return err
 		}

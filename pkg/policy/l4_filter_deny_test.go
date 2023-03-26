@@ -85,8 +85,8 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress:    true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}}
 
 	c.Assert(l4IngressDenyPolicy, checker.DeepEquals, expected)
@@ -200,8 +200,11 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -266,8 +269,11 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state = traceState{}
@@ -335,8 +341,11 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedDenyAllL7(c *
 			cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
 			cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA: {nil},
+			cachedSelectorC: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -413,8 +422,11 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 			wildcardCachedSelector: nil,
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -481,8 +493,11 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 			wildcardCachedSelector: nil,
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state = traceState{}
@@ -564,8 +579,11 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -642,8 +660,11 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state = traceState{}

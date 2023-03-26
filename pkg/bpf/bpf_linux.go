@@ -14,7 +14,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"syscall"
 	"unsafe"
 
@@ -25,8 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
-	"github.com/cilium/cilium/pkg/version"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // CreateMap creates a Map of type mapType, with key size keySize, a value size of
@@ -49,49 +46,30 @@ func CreateMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID u
 }
 
 func createMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID uint32, fullPath string) (int, syscall.Errno) {
-	kernelVersionCheckOnce.Do(func() {
-		if k, err := version.GetKernelVersion(); err == nil {
-			hasMapNameSupport = isMinVersion(k)
-		}
-	})
-
 	var (
 		uba     unsafe.Pointer
 		ubaSize uintptr
 	)
 
-	if hasMapNameSupport {
-		var name [16]byte
-		if p := path.Base(fullPath); len(p) > 15 {
-			copy(name[:], p[:15]) // save last element for '\0'
-		} else {
-			copy(name[:], p)
-		}
-		u := ubaMapName{
-			ubaCommon: ubaCommon{
-				mapType:    uint32(mapType),
-				keySize:    keySize,
-				valueSize:  valueSize,
-				maxEntries: maxEntries,
-				mapFlags:   flags,
-				innerID:    innerID,
-			},
-			mapName: name,
-		}
-		uba = unsafe.Pointer(&u)
-		ubaSize = unsafe.Sizeof(u)
+	var name [16]byte
+	if p := path.Base(fullPath); len(p) > 15 {
+		copy(name[:], p[:15]) // save last element for '\0'
 	} else {
-		u := ubaCommon{
+		copy(name[:], p)
+	}
+	u := ubaMapName{
+		ubaCommon: ubaCommon{
 			mapType:    uint32(mapType),
 			keySize:    keySize,
 			valueSize:  valueSize,
 			maxEntries: maxEntries,
 			mapFlags:   flags,
 			innerID:    innerID,
-		}
-		uba = unsafe.Pointer(&u)
-		ubaSize = unsafe.Sizeof(u)
+		},
+		mapName: name,
 	}
+	uba = unsafe.Pointer(&u)
+	ubaSize = unsafe.Sizeof(u)
 
 	var duration *spanstat.SpanStat
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
@@ -129,13 +107,6 @@ type ubaMapName struct {
 	numaNode uint32
 	mapName  [16]byte
 }
-
-var (
-	kernelVersionCheckOnce sync.Once
-	hasMapNameSupport      bool
-
-	isMinVersion = versioncheck.MustCompile(">=4.15.0")
-)
 
 // This struct must be in sync with union bpf_attr's anonymous struct used by
 // BPF_MAP_*_ELEM commands

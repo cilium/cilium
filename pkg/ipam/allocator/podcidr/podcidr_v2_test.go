@@ -6,6 +6,8 @@ package podcidr
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
+
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -16,8 +18,8 @@ import (
 
 func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 	type fields struct {
-		v4ClusterCIDRs      []CIDRAllocator
-		v6ClusterCIDRs      []CIDRAllocator
+		v4ClusterCIDRs      []cidralloc.CIDRAllocator
+		v6ClusterCIDRs      []cidralloc.CIDRAllocator
 		nodes               map[string]*nodeCIDRs
 		canAllocatePodCIDRs bool
 		nodesToAllocate     map[string]*v2.CiliumNode
@@ -40,7 +42,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 			name: "test occupy, release, and allocate v4",
 			testSetup: func() *fields {
 				return &fields{
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnIsFull: func() bool {
 								return false
@@ -128,7 +130,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 			name: "test allocate v4 and occupy v6 from status",
 			testSetup: func() *fields {
 				return &fields{
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnIsFull: func() bool {
 								return false
@@ -138,7 +140,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 							},
 						},
 					},
-					v6ClusterCIDRs: []CIDRAllocator{
+					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnOccupy: func(_ *net.IPNet) error {
 								return nil
@@ -213,7 +215,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 			testSetup: func() *fields {
 				return &fields{
 					canAllocatePodCIDRs: false,
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnOccupy: func(_ *net.IPNet) error {
 								return nil
@@ -300,7 +302,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 			name: "test allocate and occupy v4 errors, but allocate and occupy v6 succeeds",
 			testSetup: func() *fields {
 				return &fields{
-					v4ClusterCIDRs: []CIDRAllocator{
+					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnIsFull: func() bool {
 								return true
@@ -313,7 +315,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateNodeV2(c *C) {
 							},
 						},
 					},
-					v6ClusterCIDRs: []CIDRAllocator{
+					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
 							OnIsFull: func() bool {
 								return false

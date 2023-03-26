@@ -477,30 +477,30 @@ func (r *MUPType1SessionTransformedRoute) DecodeFromBytes(data []byte, afi uint1
 	}
 	prefixLength := int(data[p])
 	p += 1
+	addrLen := 0
 	switch afi {
 	case AFI_IP:
 		if prefixLength > 32 {
 			return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Prefix length: %d", prefixLength))
 		}
-		addr, ok := netip.AddrFromSlice(data[p : p+4])
-		if !ok {
-			return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Prefix: %x", data[p:p+4]))
-		}
-		r.Prefix = netip.PrefixFrom(addr, prefixLength)
-		p += 4
+		addrLen = 4
 	case AFI_IP6:
 		if prefixLength > 128 {
 			return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Prefix length: %d", prefixLength))
 		}
-		addr, ok := netip.AddrFromSlice(data[p : p+16])
-		if !ok {
-			return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Prefix: %x", data[p:p+16]))
-		}
-		r.Prefix = netip.PrefixFrom(addr, prefixLength)
-		p += 16
+		addrLen = 16
 	default:
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid AFI: %d", afi))
 	}
+	byteLen := (prefixLength + 7) / 8
+	b := make([]byte, addrLen)
+	copy(b[0:byteLen], data[p:p+byteLen])
+	addr, ok := netip.AddrFromSlice(b)
+	if !ok {
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Prefix: %x", b))
+	}
+	r.Prefix = netip.PrefixFrom(addr, prefixLength)
+	p += byteLen
 	r.TEID = binary.BigEndian.Uint32(data[p : p+4])
 	if r.TEID == 0 {
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid TEID: %d", r.TEID))
@@ -534,7 +534,8 @@ func (r *MUPType1SessionTransformedRoute) Serialize() ([]byte, error) {
 		buf = make([]byte, 8)
 	}
 	buf = append(buf, byte(r.Prefix.Bits()))
-	buf = append(buf, r.Prefix.Addr().AsSlice()...)
+	byteLen := (r.Prefix.Bits() + 7) / 8
+	buf = append(buf, r.Prefix.Addr().AsSlice()[:byteLen]...)
 	t := make([]byte, 4)
 	binary.BigEndian.PutUint32(t, r.TEID)
 	buf = append(buf, t...)
@@ -552,9 +553,9 @@ func (r *MUPType1SessionTransformedRoute) AFI() uint16 {
 }
 
 func (r *MUPType1SessionTransformedRoute) Len() int {
-	// RD(8) + PrefixLength(1) + Prefix(4 or 16)
+	// RD(8) + PrefixLength(1) + Prefix(variable)
 	// + TEID(4) + QFI(1) + EndpointAddressLength(1) + EndpointAddress(4 or 16)
-	return 15 + r.Prefix.Addr().BitLen()/8 + int(r.EndpointAddressLength/8)
+	return 15 + (r.Prefix.Bits()+7)/8 + int(r.EndpointAddressLength/8)
 }
 
 func (r *MUPType1SessionTransformedRoute) String() string {

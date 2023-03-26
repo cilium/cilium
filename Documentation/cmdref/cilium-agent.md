@@ -25,6 +25,7 @@ cilium-agent [flags]
       --bgp-announce-lb-ip                                      Announces service IPs of type LoadBalancer via BGP
       --bgp-announce-pod-cidr                                   Announces the node's pod CIDR via BGP
       --bgp-config-path string                                  Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
+      --bpf-auth-map-max int                                    Maximum number of entries in auth map (default 524288)
       --bpf-ct-global-any-max int                               Maximum number of entries in non-TCP CT table (default 262144)
       --bpf-ct-global-tcp-max int                               Maximum number of entries in TCP CT table (default 524288)
       --bpf-ct-timeout-regular-any duration                     Timeout for entries in non-TCP CT table (default 1m0s)
@@ -227,6 +228,10 @@ cilium-agent [flags]
       --log-driver strings                                      Logging endpoints to use for example syslog
       --log-opt map                                             Log driver options for cilium-agent, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}
       --log-system-load                                         Enable periodic logging of system load
+      --mesh-auth-monitor-queue-size int                        Queue size for the auth monitor (default 1024)
+      --mesh-auth-mtls-listener-port int                        Port on which the Cilium Agent will perfom mTLS handshakes between other Agents
+      --mesh-auth-spiffe-trust-domain string                    The trust domain for the SPIFFE identity. (default "spiffe.cilium.io")
+      --mesh-auth-spire-admin-socket string                     The path for the SPIRE admin agent Unix socket.
       --metrics strings                                         Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --monitor-aggregation string                              Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-aggregation-flags strings                       TCP flags that trigger monitor reports when monitor aggregation is enabled (default [syn,fin,rst])
@@ -240,7 +245,7 @@ cilium-agent [flags]
       --policy-queue-size int                                   Size of queues for policy-related events (default 100)
       --pprof                                                   Enable serving pprof debugging API
       --pprof-address string                                    Address that pprof listens on (default "localhost")
-      --pprof-port int                                          Port that pprof listens on (default 6060)
+      --pprof-port uint16                                       Port that pprof listens on (default 6060)
       --preallocate-bpf-maps                                    Enable BPF map pre-allocation (default true)
       --prepend-iptables-chains                                 Prepend custom iptables chains instead of appending (default true)
       --procfs string                                           Root's proc filesystem path (default "/proc")
@@ -262,7 +267,7 @@ cilium-agent [flags]
       --tofqdns-endpoint-max-ip-per-hostname int                Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)
       --tofqdns-idle-connection-grace-period duration           Time during which idle but previously active connections with expired DNS lookups are still considered alive (default 0s)
       --tofqdns-max-deferred-connection-deletes int             Maximum number of IPs to retain for expired DNS lookups with still-active connections (default 10000)
-      --tofqdns-min-ttl int                                     The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600 )
+      --tofqdns-min-ttl int                                     The minimum time, in seconds, to use DNS data for toFQDNs policies
       --tofqdns-pre-cache string                                DNS cache data at this path is preloaded on agent startup
       --tofqdns-proxy-port int                                  Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
       --tofqdns-proxy-response-max-delay duration               The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 100ms)

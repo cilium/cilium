@@ -43,6 +43,10 @@ type PostIpamIPParams struct {
 	  In: query
 	*/
 	Owner *string
+	/*
+	  In: query
+	*/
+	Pool *string
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -63,6 +67,11 @@ func (o *PostIpamIPParams) BindRequest(r *http.Request, route *middleware.Matche
 
 	qOwner, qhkOwner, _ := qs.GetOK("owner")
 	if err := o.bindOwner(qOwner, qhkOwner, route.Formats); err != nil {
+		res = append(res, err)
+	}
+
+	qPool, qhkPool, _ := qs.GetOK("pool")
+	if err := o.bindPool(qPool, qhkPool, route.Formats); err != nil {
 		res = append(res, err)
 	}
 	if len(res) > 0 {
@@ -99,6 +108,24 @@ func (o *PostIpamIPParams) bindOwner(rawData []string, hasKey bool, formats strf
 		return nil
 	}
 	o.Owner = &raw
+
+	return nil
+}
+
+// bindPool binds and validates parameter Pool from query.
+func (o *PostIpamIPParams) bindPool(rawData []string, hasKey bool, formats strfmt.Registry) error {
+	var raw string
+	if len(rawData) > 0 {
+		raw = rawData[len(rawData)-1]
+	}
+
+	// Required: false
+	// AllowEmptyValue: false
+
+	if raw == "" { // empty values pass all other validations
+		return nil
+	}
+	o.Pool = &raw
 
 	return nil
 }

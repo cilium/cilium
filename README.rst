@@ -42,11 +42,11 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-02-15 | ``quay.io/cilium/cilium:v1.13.0``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.0>`__  |
+| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.13.1``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.1>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-02-13 | ``quay.io/cilium/cilium:v1.12.7``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.7>`__  |
+| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.12.8``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.8>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-02-13 | ``quay.io/cilium/cilium:v1.11.14`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.14>`__ |
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.11.15`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.15>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 
 Software Bill of Materials
@@ -58,6 +58,26 @@ on this is available on `Cilium SBOM`_.
 
 .. _`SPDX`: https://spdx.dev/
 .. _`Cilium SBOM`: https://docs.cilium.io/en/latest/configuration/sbom/
+
+Development
+===========
+
+For development and testing purpose, the Cilium community publishes snapshots,
+early release candidates (RC) and CI container images build from the `master
+branch <https://github.com/cilium/cilium/commits/master>`_. These images are
+not for use in production.
+
+For testing upgrades to new development releases please consult the latest
+development build of the `Cilium Upgrade Guide <https://docs.cilium.io/en/latest/operations/upgrade/>`_.
+
+Listed below are branches for testing along with their snapshots or RC releases,
+corresponding image pull tags and their release notes where applicable:
+
++--------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
+| `master <https://github.com/cilium/cilium/commits/master>`__             | daily      | ``quay.io/cilium/cilium-ci:latest``          | N/A                                                                                   |
++--------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
+| `v1.14.0-snapshot.0 <https://github.com/cilium/cilium/commits/master>`__ | 2023-03-01 | ``quay.io/cilium/cilium:v1.14.0-snapshot.0`` | `Snapshot Notes <https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.0>`__ |
++--------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
 
 Functionality Overview
 ======================
@@ -187,7 +207,7 @@ tooling to provide:
   and application and security visibility based on flow logs.
 
 .. _Hubble: https://github.com/cilium/hubble/
-.. _`Layer 7 Policy`: http://docs.cilium.io/en/stable/policy/#layer-7
+.. _`Layer 7 Policy`: https://docs.cilium.io/en/stable/security/policy/language/#layer-7-examples
 
 .. end-functionality-overview
 
@@ -267,7 +287,9 @@ Weekly Developer meeting
 ------------------------
 * The developer community is hanging out on zoom on a weekly basis to chat.
   Everybody is welcome.
-* Weekly, Wednesday, 8:00 am PT, 11:00 am ET, 5:00 pm CEST
+* Weekly, Wednesday,
+  5:00 pm `Europe/Zurich time <https://time.is/Canton_of_Zurich>`__ (CET/CEST),
+  usually equivalent to 8:00 am PT, or 11:00 am ET.
 * `Join zoom <https://zoom.us/j/596609673>`_
 
 eBPF & Cilium Office Hours livestream

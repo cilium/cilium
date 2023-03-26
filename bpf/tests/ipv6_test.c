@@ -7,13 +7,6 @@
 
 #include "node_config.h"
 
-/* SKIP_UNDEF_LPM_LOOKUP_FN is used to control if the LPM_LOOKUP_FN macro in
- * lib/maps.h should be defined or not.
- *
- * As lib/common.h includes in turn lib/maps.h, define SKIP_UNDEF_LPM_LOOKUP_FN
- * here since unit tests require the LPM_LOOKUP_FN macro to be defined.
- */
-#define SKIP_UNDEF_LPM_LOOKUP_FN
 #include "lib/common.h"
 #include "lib/ipv6.h"
 #include "lib/maps.h"

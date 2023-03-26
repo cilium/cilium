@@ -211,7 +211,7 @@ items:
     uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
   spec:
     containers:
-    - image: docker.io/cilium/json-mock:1.2
+    - image: quay.io/cilium/json-mock:v1.3.3@sha256:f26044a2b8085fcaa8146b6b8bb73556134d7ec3d5782c6a04a058c945924ca0
       imagePullPolicy: IfNotPresent
       name: echo-container
       ports:
@@ -293,8 +293,8 @@ items:
       type: PodScheduled
     containerStatuses:
     - containerID: containerd://9fe24338688e8c3e12e4ae626afe44567585648743a6c7fcf28cace496ee8f6b
-      image: docker.io/cilium/json-mock:1.2
-      imageID: docker.io/cilium/json-mock@sha256:941e03da57551dd4a71f351b35650c152a1192ac1df717e43ee58b5aa2b8e241
+      image: quay.io/cilium/json-mock:v1.3.3@sha256:f26044a2b8085fcaa8146b6b8bb73556134d7ec3d5782c6a04a058c945924ca0
+      imageID: quay.io/cilium/json-mock@sha256:f26044a2b8085fcaa8146b6b8bb73556134d7ec3d5782c6a04a058c945924ca0
       lastState: {}
       name: echo-container
       ready: true

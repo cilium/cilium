@@ -10,7 +10,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
-	"github.com/cilium/cilium/pkg/datapath"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"

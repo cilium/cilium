@@ -17,6 +17,7 @@ code. Configuration options will be added on request if demand arises.
 ======================== ================ =============== =====================================================
 Map Name                 Scope            Default Limit   Scale Implications
 ======================== ================ =============== =====================================================
+Auth                     node             512k            Max 512k authenticated relations per node
 Connection Tracking      node or endpoint 1M TCP/256k UDP Max 1M concurrent TCP connections, max 256k expected UDP answers
 NAT                      node             512k            Max 512k NAT entries
 Neighbor Table           node             512k            Max 512k neighbor entries
@@ -35,7 +36,7 @@ Egress Policy            endpoint         16k             Max 16k endpoints acro
 
 For some BPF maps, the upper capacity limit can be overridden using command
 line options for ``cilium-agent``. A given capacity can be set using
-``--bpf-ct-global-tcp-max``, ``--bpf-ct-global-any-max``,
+``--bpf-auth-map-max``, ``--bpf-ct-global-tcp-max``, ``--bpf-ct-global-any-max``,
 ``--bpf-nat-global-max``, ``--bpf-neigh-global-max``, ``--bpf-policy-map-max``,
 ``--bpf-fragments-map-max`` and ``--bpf-lb-map-max``.
 

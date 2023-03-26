@@ -114,6 +114,11 @@ Users (Alphabetically)
       U: Networking and network policy
       L: https://www.civo.com/kubernetes
 
+    * N: ClickHouse
+      D: ClickHouse uses Cilium as CNI for AWS Kubernetes environments
+      U: CiliumNetworkPolicy, Hubble, ClusterMesh
+      L: https://clickhouse.com
+
     * N: Cognite
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
       Q: @Robert Collins
@@ -134,6 +139,12 @@ Users (Alphabetically)
       U: Networking, NetworkPolicy, Services
       L: https://github.com/slzcc/crane
       Q: @slzcc
+
+    * N: Daimler Truck AG 
+      D: The CSG RuntimeDepartment of DaimlerTruck is maintaining an AKS k8s cluster as a shared resource for DevOps crews and is using Cilium as the default CNI (BYOCNI).
+      U: Networking, NetworkPolicy and Monitoring
+      L: https://daimlertruck.com
+      Q: @brandshaide
 
     * N: DaoCloud - spiderpool & merbridge
       D: spiderpool is using Cilium as their main CNI plugin for overlay and merbridge is using  Cilium eBPF library to speed up your Service Mesh
@@ -369,6 +380,12 @@ Users (Alphabetically)
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
       Q: ungureanuvladvictor
+    
+    * N: Palark GmbH
+      D: Palark uses Cilium for networking in its Kubernetes platform provided to numerous customers as a part of its DevOps as a Service offering.
+      U: CNI, Networking, Network policy, Security, Hubble UI
+      L: https://blog.palark.com/why-cilium-for-kubernetes-networking/
+      Q: @shurup
 
     * N: Plaid Inc
       D: Plaid is using Cilium as their CNI plugin in self-hosted Kubernetes on AWS.

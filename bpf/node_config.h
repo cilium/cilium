@@ -16,6 +16,8 @@
  */
 #include "lib/utils.h"
 
+#define CLUSTER_ID 0
+
 #ifndef NODE_MAC
 DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
 #define NODE_MAC fetch_mac(NODE_MAC)
@@ -85,6 +87,9 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
 #define PER_CLUSTER_SNAT_MAPPING_IPV4 test_cilium_per_cluster_snat_v4_external
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+#define IPV4_INTER_CLUSTER_SNAT 0xfffff50a
+#endif
 #define SNAT_MAPPING_IPV4_SIZE 524288
 #define NODEPORT_NEIGH4_SIZE 524288
 #endif /* ENABLE_NODEPORT */
@@ -117,6 +122,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define METRICS_MAP test_cilium_metrics
 #define POLICY_CALL_MAP test_cilium_policy
 #define SOCK_OPS_MAP test_sock_ops_map
+#define AUTH_MAP test_cilium_auth
 #define IPCACHE_MAP test_cilium_ipcache
 #define NODE_MAP test_cilium_node_map
 #define ENCRYPT_MAP test_cilium_encrypt_state
@@ -154,6 +160,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES	65536
 #define CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES	65536
 #define POLICY_MAP_SIZE 16384
+#define AUTH_MAP_SIZE 512000
 #define IPCACHE_MAP_SIZE 512000
 #define NODE_MAP_SIZE 16384
 #define EGRESS_POLICY_MAP_SIZE 16384
@@ -238,20 +245,6 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #ifdef ENABLE_VTEP
 # define VTEP_MASK 0xffffff
 #endif
-
-/* It appears that we can support around the below number of prefixes in an
- * unrolled loop for LPM CIDR handling in older kernels along with the rest of
- * the logic in the datapath, hence the defines below. This number was arrived
- * to by adjusting the number of prefixes and running:
- *
- *    $ make -C bpf && sudo test/bpf/verifier-test.sh
- *
- *  If you're from a future where all supported kernels include LPM map type,
- *  consider deprecating the hash-based CIDR lookup and removing the below.
- */
-#define IPCACHE4_PREFIXES 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, \
-4, 3, 2, 1
-#define IPCACHE6_PREFIXES 4, 3, 2, 1
 
 #define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \
 case 116: \

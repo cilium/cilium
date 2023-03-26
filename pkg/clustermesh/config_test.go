@@ -7,20 +7,24 @@ package clustermesh
 
 import (
 	"context"
+	"crypto/sha256"
 	"os"
 	"path"
 	"time"
 
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/testutils"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
-func createFile(c *C, name string) {
-	err := os.WriteFile(name, []byte("endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n"), 0644)
+const (
+	content1 = "endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n"
+	content2 = "endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2380\n"
+)
+
+func writeFile(c *C, name, content string) {
+	err := os.WriteFile(name, []byte(content), 0644)
 	c.Assert(err, IsNil)
 }
 
@@ -43,6 +47,19 @@ func expectChange(c *C, cm *ClusterMesh, name string) {
 	}
 }
 
+func expectNoChange(c *C, cm *ClusterMesh, name string) {
+	cm.mutex.RLock()
+	cluster := cm.clusters[name]
+	cm.mutex.RUnlock()
+	c.Assert(cluster, Not(IsNil))
+
+	select {
+	case <-cluster.changed:
+		c.Fatal("unexpected changed event detected")
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 func expectNotExist(c *C, cm *ClusterMesh, name string) {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
@@ -55,20 +72,32 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 		skipKvstoreConnection = false
 	}()
 
-	dir, err := os.MkdirTemp("", "multicluster")
+	baseDir, err := os.MkdirTemp("", "multicluster")
 	c.Assert(err, IsNil)
-	defer os.RemoveAll(dir)
+	defer os.RemoveAll(baseDir)
 
-	file1 := path.Join(dir, "cluster1")
-	file2 := path.Join(dir, "cluster2")
-	file3 := path.Join(dir, "cluster3")
+	dataDir := path.Join(baseDir, "..data")
+	dataDirTmp := path.Join(baseDir, "..data_tmp")
+	dataDir1 := path.Join(baseDir, "..data-1")
+	dataDir2 := path.Join(baseDir, "..data-2")
+	dataDir3 := path.Join(baseDir, "..data-3")
 
-	createFile(c, file1)
-	createFile(c, file2)
+	c.Assert(os.Symlink(dataDir1, dataDir), IsNil)
+	c.Assert(os.Mkdir(dataDir1, 0755), IsNil)
+	c.Assert(os.Mkdir(dataDir2, 0755), IsNil)
+	c.Assert(os.Mkdir(dataDir3, 0755), IsNil)
 
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
-	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-mgr.InitIdentityAllocator(nil, nil)
+	file1 := path.Join(baseDir, "cluster1")
+	file2 := path.Join(baseDir, "cluster2")
+	file3 := path.Join(baseDir, "cluster3")
+
+	writeFile(c, file1, content1)
+	writeFile(c, path.Join(dataDir1, "cluster2"), content1)
+	writeFile(c, path.Join(dataDir2, "cluster2"), content2)
+	writeFile(c, path.Join(dataDir3, "cluster2"), content1)
+
+	// Create an indirect link, as in case of Kubernetes COnfigMaps/Secret mounted inside pods.
+	c.Assert(os.Symlink(path.Join(dataDir, "cluster2"), file2), IsNil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -77,11 +106,10 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	})
 	defer ipc.Shutdown()
 	cm, err := NewClusterMesh(Configuration{
-		Name:                  "test1",
-		ConfigDirectory:       dir,
-		NodeKeyCreator:        testNodeCreator,
-		RemoteIdentityWatcher: mgr,
-		IPCache:               ipc,
+		Name:            "test1",
+		ConfigDirectory: baseDir,
+		NodeKeyCreator:  testNodeCreator,
+		IPCache:         ipc,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
@@ -107,7 +135,7 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 		return len(cm.clusters) == 1
 	}, time.Second), IsNil)
 
-	createFile(c, file3)
+	writeFile(c, file3, content1)
 
 	// wait for cluster3 to appear
 	c.Assert(testutils.WaitUntil(func() bool {
@@ -133,12 +161,21 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	expectNotExist(c, cm, "cluster3")
 
 	// touch file
-	err = os.Chtimes(file1, time.Now(), time.Now())
-	c.Assert(err, IsNil)
+	c.Assert(os.Chtimes(file1, time.Now(), time.Now()), IsNil)
+	expectNoChange(c, cm, "cluster1")
 
-	// give time for events to be processed
-	time.Sleep(100 * time.Millisecond)
-	expectChange(c, cm, "cluster1")
+	// update file content changing the symlink target, adopting
+	// the same approach of the kubelet on ConfigMap/Secret update
+	c.Assert(os.Symlink(dataDir2, dataDirTmp), IsNil)
+	c.Assert(os.Rename(dataDirTmp, dataDir), IsNil)
+	c.Assert(os.RemoveAll(dataDir1), IsNil)
+	expectChange(c, cm, "cluster2")
+
+	// update file content once more
+	c.Assert(os.Symlink(dataDir3, dataDirTmp), IsNil)
+	c.Assert(os.Rename(dataDirTmp, dataDir), IsNil)
+	c.Assert(os.RemoveAll(dataDir2), IsNil)
+	expectChange(c, cm, "cluster2")
 
 	err = os.RemoveAll(file1)
 	c.Assert(err, IsNil)
@@ -155,6 +192,10 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	expectNotExist(c, cm, "cluster2")
 	expectNotExist(c, cm, "cluster3")
 
+	// Ensure that per-config watches are removed properly
+	wl := cm.configWatcher.watcher.WatchList()
+	c.Assert(wl, HasLen, 1)
+	c.Assert(wl[0], Equals, baseDir)
 }
 
 func (s *ClusterMeshTestSuite) TestIsEtcdConfigFile(c *C) {
@@ -163,12 +204,23 @@ func (s *ClusterMeshTestSuite) TestIsEtcdConfigFile(c *C) {
 	defer os.RemoveAll(dir)
 
 	validPath := path.Join(dir, "valid")
-	err = os.WriteFile(validPath, []byte("endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n"), 0644)
+	content := []byte("endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n")
+	err = os.WriteFile(validPath, content, 0644)
 	c.Assert(err, IsNil)
-	c.Assert(isEtcdConfigFile(validPath), Equals, true)
+
+	isConfig, hash := isEtcdConfigFile(validPath)
+	c.Assert(isConfig, Equals, true)
+	c.Assert(hash, Equals, fhash(sha256.Sum256(content)))
 
 	invalidPath := path.Join(dir, "valid")
 	err = os.WriteFile(invalidPath, []byte("sf324kj234lkjsdvl\nwl34kj23l4k\nendpoints"), 0644)
 	c.Assert(err, IsNil)
-	c.Assert(isEtcdConfigFile(invalidPath), Equals, false)
+
+	isConfig, hash = isEtcdConfigFile(validPath)
+	c.Assert(isConfig, Equals, false)
+	c.Assert(hash, Equals, fhash{})
+
+	isConfig, hash = isEtcdConfigFile(dir)
+	c.Assert(isConfig, Equals, false)
+	c.Assert(hash, Equals, fhash{})
 }

@@ -496,16 +496,6 @@ func (m *Map) OpenParallel() (bool, error) {
 // deleted and reopened without any attempt to retain its previous contents.
 // If the map is marked as non-persistent, it will always be recreated.
 //
-// If the map type is MapTypeLRUHash or MapTypeLPMTrie and the kernel lacks
-// support for this map type, then the map will be opened as MapTypeHash
-// instead. Note that the BPF code that interacts with this map *MUST* be
-// structured in such a way that the map is declared as the same type based on
-// the same probe logic (eg HAVE_LRU_HASH_MAP_TYPE, HAVE_LPM_TRIE_MAP_TYPE).
-//
-// For code that uses an LPMTrie, the BPF code must also use macros to retain
-// the "longest prefix match" behaviour on top of the hash maps, for example
-// via LPM_LOOKUP_FN() (see bpf/lib/maps.h).
-//
 // Returns whether the map was deleted and recreated, or an optional error.
 func (m *Map) OpenOrCreate() (bool, error) {
 	m.lock.Lock()

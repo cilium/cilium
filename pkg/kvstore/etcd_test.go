@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -155,9 +154,9 @@ func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
 	}
 
 	// short timeout for tests
-	atomic.StoreInt64(&versionCheckTimeout, int64(time.Second))
+	timeout := time.Second
 
-	c.Assert(client.checkMinVersion(context.TODO()), IsNil)
+	c.Assert(client.checkMinVersion(context.TODO(), timeout), IsNil)
 
 	// One endpoint has a bad version and should fail
 	cfg.Endpoints = []string{"http://127.0.0.1:4003", "http://127.0.0.1:4004", "http://127.0.0.1:4005"}
@@ -168,7 +167,7 @@ func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
 		client: cli,
 	}
 
-	c.Assert(client.checkMinVersion(context.TODO()), Not(IsNil))
+	c.Assert(client.checkMinVersion(context.TODO(), timeout), Not(IsNil))
 }
 
 type EtcdHelpersSuite struct{}

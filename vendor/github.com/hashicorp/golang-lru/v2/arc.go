@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package lru
 
 import (
@@ -18,11 +21,11 @@ type ARCCache[K comparable, V any] struct {
 	size int // Size is the total capacity of the cache
 	p    int // P is the dynamic preference towards T1 or T2
 
-	t1 simplelru.LRUCache[K, V] // T1 is the LRU for recently accessed items
-	b1 simplelru.LRUCache[K, V] // B1 is the LRU for evictions from t1
+	t1 simplelru.LRUCache[K, V]        // T1 is the LRU for recently accessed items
+	b1 simplelru.LRUCache[K, struct{}] // B1 is the LRU for evictions from t1
 
-	t2 simplelru.LRUCache[K, V] // T2 is the LRU for frequently accessed items
-	b2 simplelru.LRUCache[K, V] // B2 is the LRU for evictions from t2
+	t2 simplelru.LRUCache[K, V]        // T2 is the LRU for frequently accessed items
+	b2 simplelru.LRUCache[K, struct{}] // B2 is the LRU for evictions from t2
 
 	lock sync.RWMutex
 }
@@ -30,11 +33,11 @@ type ARCCache[K comparable, V any] struct {
 // NewARC creates an ARC of the given size
 func NewARC[K comparable, V any](size int) (*ARCCache[K, V], error) {
 	// Create the sub LRUs
-	b1, err := simplelru.NewLRU[K, V](size, nil)
+	b1, err := simplelru.NewLRU[K, struct{}](size, nil)
 	if err != nil {
 		return nil, err
 	}
-	b2, err := simplelru.NewLRU[K, V](size, nil)
+	b2, err := simplelru.NewLRU[K, struct{}](size, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -182,14 +185,12 @@ func (c *ARCCache[K, V]) replace(b2ContainsKey bool) {
 	if t1Len > 0 && (t1Len > c.p || (t1Len == c.p && b2ContainsKey)) {
 		k, _, ok := c.t1.RemoveOldest()
 		if ok {
-			var empty V
-			c.b1.Add(k, empty)
+			c.b1.Add(k, struct{}{})
 		}
 	} else {
 		k, _, ok := c.t2.RemoveOldest()
 		if ok {
-			var empty V
-			c.b2.Add(k, empty)
+			c.b2.Add(k, struct{}{})
 		}
 	}
 }

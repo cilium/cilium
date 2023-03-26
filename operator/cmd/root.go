@@ -149,6 +149,19 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 
 func newOperatorHive() *hive.Hive {
 	h := hive.New(
+		pprof.Cell,
+		cell.ProvidePrivate(func(cfg operatorPprofConfig) pprof.Config {
+			return pprof.Config{
+				Pprof:        cfg.OperatorPprof,
+				PprofAddress: cfg.OperatorPprofAddress,
+				PprofPort:    cfg.OperatorPprofPort,
+			}
+		}),
+		cell.Config(operatorPprofConfig{
+			OperatorPprofAddress: operatorOption.PprofAddressOperator,
+			OperatorPprofPort:    operatorOption.PprofPortOperator,
+		}),
+
 		gops.Cell(defaults.GopsPortOperator),
 		k8sClient.Cell,
 		OperatorCell,
@@ -268,10 +281,6 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 		operatorMetrics.Register()
 	}
 
-	if operatorOption.Config.PProf {
-		pprof.Enable(operatorOption.Config.PProfAddress, operatorOption.Config.PProfPort)
-	}
-
 	if clientset.IsEnabled() {
 		capabilities := k8sversion.Capabilities()
 		if !capabilities.MinimalVersionMet {
@@ -317,16 +326,18 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 		ns = metav1.NamespaceDefault
 	}
 
-	leResourceLock := &resourcelock.LeaseLock{
-		LeaseMeta: metav1.ObjectMeta{
-			Name:      leaderElectionResourceLockName,
-			Namespace: ns,
-		},
-		Client: clientset.CoordinationV1(),
-		LockConfig: resourcelock.ResourceLockConfig{
+	leResourceLock, err := resourcelock.NewFromKubeconfig(
+		resourcelock.LeasesResourceLock,
+		ns,
+		leaderElectionResourceLockName,
+		resourcelock.ResourceLockConfig{
 			// Identity name of the lock holder
 			Identity: operatorID,
 		},
+		clientset.RestConfig(),
+		operatorOption.Config.LeaderElectionRenewDeadline)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to create resource lock for leader election")
 	}
 
 	// Start the leader election for running cilium-operators
@@ -571,8 +582,9 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			logfields.K8sNamespace:       operatorOption.Config.CiliumK8sNamespace,
 			"label-selector":             operatorOption.Config.CiliumPodLabels,
 			"remove-cilium-node-taints":  operatorOption.Config.RemoveCiliumNodeTaints,
+			"set-cilium-node-taints":     operatorOption.Config.SetCiliumNodeTaints,
 			"set-cilium-is-up-condition": operatorOption.Config.SetCiliumIsUpCondition,
-		}).Info("Removing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
+		}).Info("Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
 
 		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done())
 	}

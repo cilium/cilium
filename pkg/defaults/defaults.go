@@ -17,21 +17,6 @@ const (
 	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
 	ClusterMeshHealthPort = 80
 
-	// PprofAddressAgent is the default value for pprof in the agent
-	PprofAddressAgent = "localhost"
-
-	// PprofAddressAPIServer is the default value for pprof in the clustermesh-apiserver
-	PprofAddressAPIServer = "localhost"
-
-	// PprofPortAgent is the default value for pprof in the agent
-	PprofPortAgent = 6060
-
-	// PprofPortAgent is the default value for pprof in the operator
-	PprofPortOperator = 6061
-
-	// PprofPortAPIServer is the default value for pprof in the clustermesh-apiserver
-	PprofPortAPIServer = 6063
-
 	// GopsPortAgent is the default value for option.GopsPort in the agent
 	GopsPortAgent = 9890
 
@@ -106,6 +91,14 @@ const (
 	// PidFilePath is the path to the pid file for the agent.
 	PidFilePath = RuntimePath + "/cilium.pid"
 
+	// DeletionQueueDir is the directory used for the CNI plugin to queue deletion requests
+	// if the agent is down
+	DeleteQueueDir = RuntimePath + "/deleteQueue"
+
+	// DeleteQueueLockfile is the file used to synchronize access of the queue directory between
+	// the agent and the CNI plugin processes
+	DeleteQueueLockfile = DeleteQueueDir + "/lockfile"
+
 	// EnableHostIPRestore controls whether the host IP should be restored
 	// from previous state automatically
 	EnableHostIPRestore = true
@@ -136,7 +129,7 @@ const (
 
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
 	// This is used in DaemonConfig.Populate
-	ToFQDNsMinTTL = 3600 // 1 hour in seconds
+	ToFQDNsMinTTL = 0
 
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
@@ -315,9 +308,6 @@ const (
 
 	// ConntrackGCMaxLRUInterval is the maximum conntrack GC interval when using LRU maps
 	ConntrackGCMaxLRUInterval = 12 * time.Hour
-
-	// ConntrackGCMaxInterval is the maximum conntrack GC interval for non-LRU maps
-	ConntrackGCMaxInterval = 30 * time.Minute
 
 	// ConntrackGCMinInterval is the minimum conntrack GC interval
 	ConntrackGCMinInterval = 10 * time.Second

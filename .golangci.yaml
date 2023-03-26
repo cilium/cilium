@@ -90,7 +90,6 @@ linters:
     - misspell
     - staticcheck
     - unused
-    - varcheck
     - goheader
     - gosec
 

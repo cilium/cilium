@@ -293,32 +293,45 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 		return ParseEndpointSliceID(ep), endpoints
 	}
 
+	log.Debugf("Processing %d endpoints for EndpointSlice %s", len(ep.Endpoints), ep.Name)
 	for _, sub := range ep.Endpoints {
-		skipEndpoint := false
 		// ready indicates that this endpoint is prepared to receive traffic,
 		// according to whatever system is managing the endpoint. A nil value
 		// indicates an unknown state. In most cases consumers should interpret this
 		// unknown state as ready.
 		// More info: vendor/k8s.io/api/discovery/v1/types.go
-		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
-			skipEndpoint = true
-			if option.Config.EnableK8sTerminatingEndpoint {
-				// Terminating indicates that the endpoint is getting terminated. A
-				// nil values indicates an unknown state. Ready is never true when
-				// an endpoint is terminating. Propagate the terminating endpoint
-				// state so that we can gracefully remove those endpoints.
-				// More details : vendor/k8s.io/api/discovery/v1/types.go
-				if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
-					skipEndpoint = false
-				}
+		isReady := sub.Conditions.Ready == nil || *sub.Conditions.Ready
+		// serving is identical to ready except that it is set regardless of the
+		// terminating state of endpoints. This condition should be set to true for
+		// a ready endpoint that is terminating. If nil, consumers should defer to
+		// the ready condition.
+		// More info: vendor/k8s.io/api/discovery/v1/types.go
+		isServing := (sub.Conditions.Serving == nil && isReady) || (sub.Conditions.Serving != nil && *sub.Conditions.Serving)
+		// Terminating indicates that the endpoint is getting terminated. A
+		// nil values indicates an unknown state. Ready is never true when
+		// an endpoint is terminating. Propagate the terminating endpoint
+		// state so that we can gracefully remove those endpoints.
+		// More info: vendor/k8s.io/api/discovery/v1/types.go
+		isTerminating := sub.Conditions.Terminating != nil && *sub.Conditions.Terminating
+
+		// if is not Ready and EnableK8sTerminatingEndpoint is set
+		// allow endpoints that are Serving and Terminating
+		if !isReady {
+			if !option.Config.EnableK8sTerminatingEndpoint {
+				log.Debugf("discarding Endpoint on EndpointSlice %s: not Ready and EnableK8sTerminatingEndpoint %v", ep.Name, option.Config.EnableK8sTerminatingEndpoint)
+				continue
+			}
+			// filter not Serving endpoints since those can not receive traffic
+			if !isServing {
+				log.Debugf("discarding Endpoint on EndpointSlice %s: not Serving and EnableK8sTerminatingEndpoint %v", ep.Name, option.Config.EnableK8sTerminatingEndpoint)
+				continue
 			}
 		}
-		if skipEndpoint {
-			continue
-		}
+
 		for _, addr := range sub.Addresses {
 			addrCluster, err := cmtypes.ParseAddrCluster(addr)
 			if err != nil {
+				log.WithError(err).Infof("Unable to parse address %s for EndpointSlices %s", addr, ep.Name)
 				continue
 			}
 
@@ -333,11 +346,12 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 						backend.NodeName = nodeName
 					}
 				}
-				if option.Config.EnableK8sTerminatingEndpoint {
-					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
-						backend.Terminating = true
-						metrics.TerminatingEndpointsEvents.Inc()
-					}
+				// If is not ready check if is serving and terminating
+				if !isReady && option.Config.EnableK8sTerminatingEndpoint &&
+					isServing && isTerminating {
+					log.Debugf("Endpoint address %s on EndpointSlice %s is Terminating", addr, ep.Name)
+					backend.Terminating = true
+					metrics.TerminatingEndpointsEvents.Inc()
 				}
 			}
 
@@ -357,6 +371,7 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 		}
 	}
 
+	log.Debugf("EndpointSlice %s has %d backends", ep.Name, len(endpoints.Backends))
 	return ParseEndpointSliceID(ep), endpoints
 }
 
@@ -414,7 +429,21 @@ func (es *EndpointSlices) GetEndpoints() *Endpoints {
 	allEps := newEndpoints()
 	for _, eps := range es.epSlices {
 		for backend, ep := range eps.Backends {
-			allEps.Backends[backend] = ep
+			// EndpointSlices may have duplicate addresses on different slices.
+			// kubectl get endpointslices -n endpointslicemirroring-4896
+			// NAME                             ADDRESSTYPE   PORTS   ENDPOINTS     AGE
+			// example-custom-endpoints-f6z84   IPv4          9090    10.244.1.49   28s
+			// example-custom-endpoints-g6r6v   IPv4          8090    10.244.1.49   28s
+			b, ok := allEps.Backends[backend]
+			if !ok {
+				allEps.Backends[backend] = ep
+			} else {
+				clone := b.DeepCopy()
+				for k, v := range ep.Ports {
+					clone.Ports[k] = v
+				}
+				allEps.Backends[backend] = clone
+			}
 		}
 	}
 	return allEps

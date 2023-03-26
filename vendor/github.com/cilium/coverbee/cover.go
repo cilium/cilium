@@ -360,16 +360,23 @@ func BlockListFilePaths(blockList [][]CoverBlock) []string {
 
 // Check for:
 // aaaaa
-//   bbbbb
+//
+//	bbbbb
+//
 // -----
-//    aaaa
+//
+//	aaaa
+//
 // bbbb
 // -----
-//   aaa
+//
+//	aaa
+//
 // bbbbbbb
 // -----
 // aaaaaaa
-//   bbb
+//
+//	bbb
 func blocksOverlap(a, b cover.ProfileBlock) bool {
 	return (blockLTE(a.StartLine, a.StartCol, b.EndLine, b.EndCol) &&
 		blockGTE(a.EndLine, a.EndCol, b.EndLine, b.EndCol)) ||

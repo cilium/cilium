@@ -34,15 +34,13 @@ import (
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -53,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -79,13 +78,10 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
-	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
-	wireguardTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -763,15 +759,6 @@ func initializeFlags() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(Vp, option.Version)
 
-	flags.Bool(option.PProf, false, "Enable serving pprof debugging API")
-	option.BindEnv(Vp, option.PProf)
-
-	flags.String(option.PProfAddress, defaults.PprofAddressAgent, "Address that pprof listens on")
-	option.BindEnv(Vp, option.PProfAddress)
-
-	flags.Int(option.PProfPort, defaults.PprofPortAgent, "Port that pprof listens on")
-	option.BindEnv(Vp, option.PProfPort)
-
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
 	option.BindEnv(Vp, option.EnableXDPPrefilter)
 
@@ -785,6 +772,9 @@ func initializeFlags() {
 	// older spec used the older variable name.
 	flags.String(option.PrometheusServeAddr, ":9962", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.PrometheusServeAddr, "PROMETHEUS_SERVE_ADDR")
+
+	flags.Int(option.AuthMapEntriesName, option.AuthMapEntriesDefault, "Maximum number of entries in auth map")
+	option.BindEnv(Vp, option.AuthMapEntriesName)
 
 	flags.Int(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPDefault, "Maximum number of entries in TCP CT table")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.CTMapEntriesGlobalTCPName, "CILIUM_GLOBAL_CT_MAX_TCP")
@@ -838,7 +828,7 @@ func initializeFlags() {
 	flags.MarkHidden(option.CMDRef)
 	option.BindEnv(Vp, option.CMDRef)
 
-	flags.Int(option.ToFQDNsMinTTL, 0, fmt.Sprintf("The minimum time, in seconds, to use DNS data for toFQDNs policies. (default %d )", defaults.ToFQDNsMinTTL))
+	flags.Int(option.ToFQDNsMinTTL, defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies")
 	option.BindEnv(Vp, option.ToFQDNsMinTTL)
 
 	flags.Int(option.ToFQDNsProxyPort, 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
@@ -1216,10 +1206,6 @@ func initEnv() {
 		}
 	}
 
-	if option.Config.PProf {
-		pprof.Enable(option.Config.PProfAddress, option.Config.PProfPort)
-	}
-
 	if option.Config.PreAllocateMaps {
 		bpf.EnableMapPreAllocation()
 	}
@@ -1393,9 +1379,6 @@ func initEnv() {
 		if !option.Config.EnableIPv6 {
 			log.Fatalf("SRv6 requires IPv6.")
 		}
-		if probes.HaveMapType(ebpf.LRUHash) != nil {
-			log.Fatalf("SRv6 requires support for BPF LRU maps (Linux 4.10 or later).")
-		}
 	}
 
 	if option.Config.EnableHostFirewall {
@@ -1449,11 +1432,6 @@ func initEnv() {
 	if option.Config.EnableIPv4FragmentsTracking {
 		if !option.Config.EnableIPv4 {
 			option.Config.EnableIPv4FragmentsTracking = false
-		} else {
-			if probes.HaveMapType(ebpf.LRUHash) != nil {
-				option.Config.EnableIPv4FragmentsTracking = false
-				log.Info("Disabled support for IPv4 fragments due to missing kernel support for BPF LRU maps")
-			}
 		}
 	}
 
@@ -1593,55 +1571,6 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
-func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
-	var wgAgent *wireguard.Agent
-	if option.Config.EnableWireguard {
-		if option.Config.EnableIPSec {
-			log.Fatalf("Wireguard (--%s) cannot be used with IPSec (--%s)",
-				option.EnableWireguard, option.EnableIPSecName)
-		}
-
-		var err error
-		privateKeyPath := filepath.Join(option.Config.StateDir, wireguardTypes.PrivKeyFilename)
-		wgAgent, err = wireguard.NewAgent(privateKeyPath)
-		if err != nil {
-			log.Fatalf("failed to initialize wireguard: %s", err)
-		}
-
-		lc.Append(hive.Hook{
-			OnStop: func(hive.HookContext) error {
-				wgAgent.Close()
-				return nil
-			},
-		})
-	} else {
-		// Delete wireguard device from previous run (if such exists)
-		link.DeleteByName(wireguardTypes.IfaceName)
-	}
-	return wgAgent
-}
-
-func newDatapath(lc hive.Lifecycle, wgAgent *wireguard.Agent) datapath.Datapath {
-	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice: defaults.HostDevice,
-		ProcFs:     option.Config.ProcFs,
-	}
-
-	iptablesManager := &iptables.IptablesManager{}
-
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
-			if err := enableIPForwarding(); err != nil {
-				log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
-			}
-
-			iptablesManager.Init()
-			return nil
-		}})
-
-	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent)
-}
-
 // daemonCell wraps the existing implementation of the cilium-agent that has
 // not yet been converted into a cell. Provides *Daemon as a Promise that is
 // resolved once daemon has been started to facilitate conversion into modules.
@@ -1650,25 +1579,31 @@ var daemonCell = cell.Module(
 	"Legacy Daemon",
 
 	cell.Provide(newDaemonPromise),
+	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
 type daemonParams struct {
 	cell.In
 
-	Lifecycle       hive.Lifecycle
-	Clientset       k8sClient.Clientset
-	Datapath        datapath.Datapath
-	WGAgent         *wg.Agent `optional:"true"`
-	LocalNodeStore  node.LocalNodeStore
-	BGPController   *bgpv1.Controller
-	Shutdowner      hive.Shutdowner
-	SharedResources k8s.SharedResources
-	NodeManager     nodeManager.NodeManager
-	EndpointManager endpointmanager.EndpointManager
-	CertManager     certificatemanager.CertificateManager
-	SecretManager   certificatemanager.SecretManager
-	AuthManager     auth.Manager
+	Lifecycle         hive.Lifecycle
+	Clientset         k8sClient.Clientset
+	Datapath          datapath.Datapath
+	WGAgent           *wireguard.Agent `optional:"true"`
+	LocalNodeStore    node.LocalNodeStore
+	BGPController     *bgpv1.Controller
+	Shutdowner        hive.Shutdowner
+	SharedResources   k8s.SharedResources
+	CacheStatus       k8s.CacheStatus
+	NodeManager       nodeManager.NodeManager
+	EndpointManager   endpointmanager.EndpointManager
+	CertManager       certificatemanager.CertificateManager
+	SecretManager     certificatemanager.SecretManager
+	AuthManager       auth.Manager
+	IdentityAllocator CachingIdentityAllocator
+	Policy            *policy.Repository
+	PolicyUpdater     *policy.Updater
+	IPCache           *ipcache.IPCache
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1701,7 +1636,13 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.CertManager,
 				params.SecretManager,
 				params.LocalNodeStore,
-				params.AuthManager)
+				params.AuthManager,
+				params.CacheStatus,
+				params.IPCache,
+				params.IdentityAllocator,
+				params.Policy,
+				params.PolicyUpdater,
+			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}
@@ -1752,7 +1693,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
 		// (Check Daemon.InitK8sSubsystem() for more info)
-		<-d.k8sCachesSynced
+		<-params.CacheStatus
 	}
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
@@ -1788,7 +1729,9 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 			<-restoreComplete
 		}
 
-		if params.Clientset.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup {
+		// Only attempt CEP cleanup if cilium endpoint CRD is not disabled, otherwise the cep/ces
+		// watchers/indexers will not be initialized.
+		if params.Clientset.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup && !option.Config.DisableCiliumEndpointCRD {
 			// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
 			// This will clear out any CiliumEndpoints that may be stale.
 			// Likely causes for this are Pods having their init container restarted or the node being restarted.
@@ -1880,6 +1823,12 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		}
 	}
 
+	// Process queued deletion requests
+	bootstrapStats.deleteQueue.Start()
+	unlockDeleteDir := d.processQueuedDeletes()
+	bootstrapStats.deleteQueue.End(true)
+
+	// Start up the local api socket
 	bootstrapStats.initAPI.Start()
 	srv := server.NewServer(d.instantiateAPI())
 	srv.EnabledListeners = []string{"unix"}
@@ -1889,6 +1838,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	cleaner.cleanupFuncs.Add(func() { srv.Shutdown() })
 
 	srv.ConfigureAPI()
+	unlockDeleteDir() // can't unlock this until the api socket is written
 	bootstrapStats.initAPI.End(true)
 
 	err := d.SendNotification(monitorAPI.StartMessage(time.Now()))

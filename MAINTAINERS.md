@@ -1,30 +1,14 @@
 # Maintainers
 
 See [Governance](Documentation/community/governance/commit_access.rst) for
-governance, commit, and vote guidelines as well as maintainer responsibilities.
+governance, commit, and vote guidelines as well as committer responsibilities.
 Everybody listed is a committer as per governance definition.
 
-All committers and maintainers have identical voting rights. Maintainers have
-additional administrative and janitorial responsibilities.
-
-Regardless of maintainer or committer status, any code contribution is subject
-to code review requirements as per [CODEOWNERS](CODEOWNERS) and PRs get merged
-by the "janitor role" which is rotated between all committers.
-
-## Cilium Maintainers
-
- * [André Martins] (Isovalent)
- * [Joe Stringer] (Isovalent)
-
-## Hubble Maintainers
-
- * [Glib Smaga] (Isovalent)
- * [Sebastian Wicki] (Isovalent)
-
-## Cilium & Hubble Committers
+## Cilium Committers
 
  * [Aditi Ghag] (Isovalent)
  * [Alexandre Perrin] (Isovalent)
+ * [André Martins] (Isovalent)
  * [Beatriz Martínez] (Isovalent)
  * [Bill Mulligan] (Isovalent)
  * [Bruno M. Custódio] (Isovalent)
@@ -36,9 +20,11 @@ by the "janitor role" which is rotated between all committers.
  * [Deepesh Pathak]
  * [Eloy Coto] (Red Hat)
  * [Gilberto Bertin] (Isovalent)
+ * [Glib Smaga] (Isovalent)
  * [Hemanth Malla] (Datadog)
  * [Ian Vernon]
  * [Jarno Rajahalme] (Isovalent)
+ * [Joe Stringer] (Isovalent)
  * [John Fastabend] (Isovalent)
  * [Julian Wiedmann] (Isovalent)
  * [Kornilios Kourtis] (Isovalent)
@@ -56,6 +42,7 @@ by the "janitor role" which is rotated between all committers.
  * [Paul Chaignon] (Isovalent)
  * [Quentin Monnet] (Isovalent)
  * [Robin Hahling] (Isovalent)
+ * [Sebastian Wicki] (Isovalent)
  * [Tam Mach] (Isovalent)
  * [Thomas Graf] (Isovalent)
  * [Timo Beckers] (Isovalent)

@@ -5,7 +5,7 @@ package endpointmanager
 
 import (
 	"context"
-	"net"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -51,7 +51,7 @@ type EndpointsLookup interface {
 	LookupIPv6(ipv6 string) *endpoint.Endpoint
 
 	// LookupIP looks up endpoint by IP address
-	LookupIP(ip net.IP) (ep *endpoint.Endpoint)
+	LookupIP(ip netip.Addr) (ep *endpoint.Endpoint)
 
 	// LookupPodName looks up endpoint by namespace + pod name, e.g. "prod/pod-0"
 	LookupPodName(name string) *endpoint.Endpoint

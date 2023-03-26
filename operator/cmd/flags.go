@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -245,12 +246,6 @@ func init() {
 	flags.String(operatorOption.OperatorAPIServeAddr, "localhost:9234", "Address to serve API requests")
 	option.BindEnv(Vp, operatorOption.OperatorAPIServeAddr)
 
-	flags.Bool(operatorOption.PProf, false, "Enable pprof debugging endpoint")
-	option.BindEnv(Vp, operatorOption.PProf)
-
-	flags.Int(operatorOption.PProfPort, defaults.PprofPortOperator, "Port that the pprof listens on")
-	option.BindEnv(Vp, operatorOption.PProfPort)
-
 	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(Vp, operatorOption.SyncK8sServices)
 
@@ -311,6 +306,9 @@ func init() {
 	flags.Bool(operatorOption.RemoveCiliumNodeTaints, true, fmt.Sprintf("Remove node taint %q from Kubernetes nodes once Cilium is up and running", option.Config.AgentNotReadyNodeTaintValue()))
 	option.BindEnv(Vp, operatorOption.RemoveCiliumNodeTaints)
 
+	flags.Bool(operatorOption.SetCiliumNodeTaints, false, fmt.Sprintf("Set node taint %q from Kubernetes nodes if Cilium is scheduled but not up and running", option.Config.AgentNotReadyNodeTaintValue()))
+	option.BindEnv(Vp, operatorOption.SetCiliumNodeTaints)
+
 	flags.Bool(operatorOption.SetCiliumIsUpCondition, true, "Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node")
 	option.BindEnv(Vp, operatorOption.SetCiliumIsUpCondition)
 
@@ -328,4 +326,32 @@ func init() {
 	option.BindEnv(Vp, option.KVstoreLeaseTTL)
 
 	Vp.BindPFlags(flags)
+}
+
+const (
+	// pprofOperator enables pprof debugging endpoint for the operator
+	pprofOperator = "operator-pprof"
+
+	// pprofAddress is the port that the pprof listens on
+	pprofAddress = "operator-pprof-address"
+
+	// pprofPort is the port that the pprof listens on
+	pprofPort = "operator-pprof-port"
+)
+
+// operatorPprofConfig holds the configuration for the operator pprof cell.
+// Differently from the agent and the clustermesh-apiserver, the operator prefixes
+// the pprof related flags with the string "operator-".
+// To reuse the same cell, we need a different config type to map the same fields
+// to the operator-specific pprof flag names.
+type operatorPprofConfig struct {
+	OperatorPprof        bool
+	OperatorPprofAddress string
+	OperatorPprofPort    uint16
+}
+
+func (def operatorPprofConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool(pprofOperator, def.OperatorPprof, "Enable serving pprof debugging API")
+	flags.String(pprofAddress, def.OperatorPprofAddress, "Address that pprof listens on")
+	flags.Uint16(pprofPort, def.OperatorPprofPort, "Port that pprof listens on")
 }

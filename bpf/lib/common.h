@@ -130,7 +130,8 @@ enum {
 #define CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD	39
 #define CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS	40
 #define CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS	41
-#define CILIUM_CALL_SIZE			42
+#define CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT	42
+#define CILIUM_CALL_SIZE			43
 
 typedef __u64 mac_t;
 
@@ -341,6 +342,18 @@ struct policy_entry {
 	__u64		bytes;
 };
 
+struct auth_key {
+	__u32       local_sec_label;
+	__u32       remote_sec_label;
+	__u16       remote_node_id;
+	__u8        auth_type;
+	__u8        pad;
+};
+
+struct auth_info {
+	__u64       expiration;
+};
+
 struct metrics_key {
 	__u8      reason;	/* 0: forwarded, >0 dropped */
 	__u8      dir:2,	/* 1: ingress 2: egress */
@@ -545,6 +558,9 @@ enum {
 #define DROP_NAT46		-187
 #define DROP_NAT64		-188
 #define DROP_POLICY_AUTH_REQUIRED	-189
+#define DROP_CT_NO_MAP_FOUND	-190
+#define DROP_SNAT_NO_MAP_FOUND	-191
+#define DROP_INVALID_CLUSTER_ID	-192
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define NAT_46X64_RECIRC	100
@@ -628,6 +644,10 @@ enum metric_dir {
  */
 #define MARK_MAGIC_HEALTH		MARK_MAGIC_DECRYPT
 
+/* Shouldn't interfere with MARK_MAGIC_TO_PROXY. Lower 8bits carries cluster_id */
+#define MARK_MAGIC_CLUSTER_ID		MARK_MAGIC_TO_PROXY
+#define MARK_MAGIC_CLUSTER_ID_MASK	0x00FF
+
 /* IPv4 option used to carry service addr and port for DSR.
  *
  * Copy = 1 (option is copied to each fragment)
@@ -706,11 +726,13 @@ enum {
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_ENCAP_SECLABEL	CB_IFINDEX	/* XDP */
+#define CB_CLUSTER_ID_EGRESS	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 #define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
 #define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
 #define CB_ENCAP_DSTID		CB_POLICY	/* XDP */
+#define	CB_CLUSTER_ID_INGRESS	CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT,
 #define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
@@ -722,6 +744,7 @@ enum {
 						 */
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
+#define	CB_FROM_TUNNEL		CB_CT_STATE	/* Alias, non-overlapping */
 };
 
 /* Magic values for CB_FROM_HOST.
@@ -838,7 +861,8 @@ struct ct_entry {
 	      dsr:1,
 	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
 	      auth_required:1,
-	      reserved:6;
+	      from_tunnel:1, /* Connection is over tunnel */
+	      reserved:5;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
 	 * that ifindex of a NodePort device is <= MAX(u16).
@@ -1026,7 +1050,8 @@ struct ct_state {
 	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
 	      auth_required:1,
-	      reserved:9;
+	      from_tunnel:1,	/* Connection is from tunnel */
+	      reserved:8;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
@@ -1080,6 +1105,15 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 # endif /* HAVE_ENCAP */
 		return ctx_redirect_peer(ctx, ifindex, 0);
 	}
+}
+
+static __always_inline __u64 ctx_adjust_hroom_flags(void)
+{
+#ifdef HAVE_CSUM_LEVEL
+	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
+#else
+	return 0;
+#endif
 }
 
 struct lpm_v4_key {

@@ -3723,6 +3723,7 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 	reportCmds = map[string]string{
 		"journalctl -D /var/log/journal --no-pager -au kubelet":        "kubelet.log",
 		"journalctl -D /var/log/journal --no-pager -au kube-apiserver": "kube-apiserver.log",
+		"journalctl -D /var/log/journal --no-pager -au containerd":     "containerd.log",
 		"top -n 1 -b": "top.log",
 		"ps aux":      "ps.log",
 	}
@@ -4269,7 +4270,7 @@ func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds m
 		wg.Add(1)
 		go func(cmd, logfile string) {
 			defer wg.Done()
-			res := kub.ExecContext(ctx, cmd)
+			res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
 
 			if !res.WasSuccessful() {
 				log.WithError(res.GetErr("reportMapHost")).Errorf("command %s failed", cmd)

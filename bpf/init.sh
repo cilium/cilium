@@ -28,6 +28,8 @@ NR_CPUS=${21}
 ENDPOINT_ROUTES=${22}
 PROXY_RULE=${23}
 FILTER_PRIO=${24}
+DEFAULT_RTPROTO=${25}
+LOCAL_RULE_PRIO=${26}
 
 ID_HOST=1
 ID_WORLD=2
@@ -74,21 +76,21 @@ function move_local_rules_af()
 		return
 	fi
 
-	# move the local table lookup rule from pref 0 to pref 100 so we can
-	# insert the cilium ip rules before the local table. It is strictly
+	# move the local table lookup rule from pref 0 to pref LOCAL_RULE_PRIO so we
+	# can insert the cilium ip rules before the local table. It is strictly
 	# required to add the new local rule before deleting the old one as
 	# otherwise local addresses will not be reachable for a short period of
 	# time.
-	$IP rule list | grep 100 | grep "lookup local" || {
-		$IP rule add from all lookup local pref 100
+	$IP rule list | grep "${LOCAL_RULE_PRIO}" | grep "lookup local" || {
+		$IP rule add from all lookup local pref ${LOCAL_RULE_PRIO} proto $DEFAULT_RTPROTO
 	}
 	$IP rule del from all lookup local pref 0 2> /dev/null || true
 
 	# check if the move of the local table move was successful and restore
 	# it otherwise
 	if [ "$($IP rule list | grep "lookup local" | wc -l)" -eq "0" ]; then
-		$IP rule add from all lookup local pref 0
-		$IP rule del from all lookup local pref 100
+		$IP rule add from all lookup local pref 0 proto $DEFAULT_RTPROTO
+		$IP rule del from all lookup local pref ${LOCAL_RULE_PRIO}
 		echo "Error: The kernel does not support moving the local table routing rule"
 		echo "Local routing rules:"
 		$IP rule list lookup local
@@ -111,13 +113,13 @@ function setup_proxy_rules()
 {
 	# Any packet from an ingress proxy uses a separate routing table that routes
 	# the packet back to the cilium host device.
-	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
+	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE proto $DEFAULT_RTPROTO"
 
 	# Any packet to an ingress or egress proxy uses a separate routing table
 	# that routes the packet to the loopback device regardless of the destination
 	# address in the packet. For this to work the ctx must have a socket set
 	# (e.g., via TPROXY).
-	to_proxy_rulespec="fwmark 0x200/0xF00 pref 9 lookup $TO_PROXY_RT_TABLE"
+	to_proxy_rulespec="fwmark 0x200/0xF00 pref 9 lookup $TO_PROXY_RT_TABLE proto $DEFAULT_RTPROTO"
 
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		if [ -n "$(ip -4 rule list)" ]; then
@@ -136,14 +138,14 @@ function setup_proxy_rules()
 		fi
 
 		# Traffic to the host proxy is local
-		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo
+		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo proto $DEFAULT_RTPROTO
 		# Traffic from ingress proxy goes to Cilium address space via the cilium host device
 		if [ "$ENDPOINT_ROUTES" = "true" ]; then
 			ip route delete table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 2>/dev/null || true
 			ip route delete table $PROXY_RT_TABLE default via $IP4_HOST 2>/dev/null || true
 		else
-			ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
-			ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
+			ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 proto $DEFAULT_RTPROTO
+			ip route replace table $PROXY_RT_TABLE default via $IP4_HOST proto $DEFAULT_RTPROTO
 		fi
 	else
 		ip -4 rule del $to_proxy_rulespec 2> /dev/null || true
@@ -169,14 +171,14 @@ function setup_proxy_rules()
 		IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
 		if [ -n "$IP6_LLADDR" ]; then
 			# Traffic to the host proxy is local
-			ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo
+			ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo proto $DEFAULT_RTPROTO
 			# Traffic from ingress proxy goes to Cilium address space via the cilium host device
 			if [ "$ENDPOINT_ROUTES" = "true" ]; then
 				ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
 				ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
 			else
-				ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
-				ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
+				ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 proto $DEFAULT_RTPROTO
+				ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 proto $DEFAULT_RTPROTO
 			fi
 		fi
 	else
@@ -537,9 +539,11 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 	done
 	$found && continue
 	for where in ingress egress; do
-		# Filters created Go bpf loader are of format 'cilium-<iface>'.
-		# iproute2 would use the filename and section, e.g. bpf_overlay.o:[from-overlay].
-		if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev\|bpf_host\|cilium"; then
+		# iproute2 uses the filename and section (bpf_overlay.o:[from-overlay]) as
+		# the filter name. Filters created by the Go bpf loader contain the bpf
+		# function and interface name, like cil_from_netdev-eth0.
+		# Only detach programs known to be attached to 'physical' network devices.
+		if tc filter show dev "$iface" "$where" | grep -qE "\b(bpf_host|cil_from_netdev|cil_to_netdev)"; then
 			echo "Removing $where TC filter from interface $iface"
 			tc filter del dev "$iface" "$where" || true
 		fi

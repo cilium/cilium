@@ -71,15 +71,23 @@ func (client *Client) ListIpv4GatewaysWithCallback(request *ListIpv4GatewaysRequ
 // ListIpv4GatewaysRequest is the request struct for api ListIpv4Gateways
 type ListIpv4GatewaysRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Ipv4GatewayName      string           `position:"Query" name:"Ipv4GatewayName"`
-	NextToken            string           `position:"Query" name:"NextToken"`
-	Ipv4GatewayId        string           `position:"Query" name:"Ipv4GatewayId"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	VpcId                string           `position:"Query" name:"VpcId"`
-	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
+	ResourceOwnerId      requests.Integer        `position:"Query" name:"ResourceOwnerId"`
+	Ipv4GatewayName      string                  `position:"Query" name:"Ipv4GatewayName"`
+	ResourceGroupId      string                  `position:"Query" name:"ResourceGroupId"`
+	NextToken            string                  `position:"Query" name:"NextToken"`
+	Ipv4GatewayId        string                  `position:"Query" name:"Ipv4GatewayId"`
+	ResourceOwnerAccount string                  `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                  `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer        `position:"Query" name:"OwnerId"`
+	Tags                 *[]ListIpv4GatewaysTags `position:"Query" name:"Tags"  type:"Repeated"`
+	VpcId                string                  `position:"Query" name:"VpcId"`
+	MaxResults           requests.Integer        `position:"Query" name:"MaxResults"`
+}
+
+// ListIpv4GatewaysTags is a repeated param struct in ListIpv4GatewaysRequest
+type ListIpv4GatewaysTags struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // ListIpv4GatewaysResponse is the response struct for api ListIpv4Gateways

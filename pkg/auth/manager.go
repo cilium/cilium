@@ -5,29 +5,64 @@ package auth
 
 import (
 	"fmt"
-	"strconv"
+	"net"
+	"time"
 
-	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type authManager struct {
-	endpointManager endpointmanager.EndpointsLookup
-	authHandlers    map[policy.AuthType]authHandler
+	ipCache               ipCache
+	authHandlers          map[policy.AuthType]authHandler
+	datapathAuthenticator datapathAuthenticator
 }
 
+// ipCache is the set of interactions the auth manager performs with the IPCache
+type ipCache interface {
+	GetHostIP(ip string) net.IP
+}
+
+// authHandler is responsible to handle authentication for a specific auth type
 type authHandler interface {
-	authenticate() error
+	authenticate(*authRequest) (*authResponse, error)
 	authType() policy.AuthType
 }
 
-func newAuthManager(epMgr endpointmanager.EndpointsLookup, authHandlers []authHandler) (*authManager, error) {
+type authRequest struct {
+	localIdentity  identity.NumericIdentity
+	remoteIdentity identity.NumericIdentity
+	remoteHostIP   net.IP
+}
+
+type authResponse struct {
+	expirationTime time.Time
+}
+
+// datapathAuthenticator is responsible to write auth information back to a BPF map
+type datapathAuthenticator interface {
+	markAuthenticated(result *authResult) error
+}
+
+// authResult contains all relevant information which are necessary to write the info back to data path after a successful authentication.
+type authResult struct {
+	dn             *monitor.DropNotify
+	ci             *monitor.ConnectionInfo
+	localIdentity  identity.NumericIdentity
+	remoteIdentity identity.NumericIdentity
+	remoteHostIP   net.IP
+	authType       policy.AuthType
+	expirationTime time.Time
+}
+
+func newAuthManager(authHandlers []authHandler, dpAuthenticator datapathAuthenticator, ipCache ipCache) (*authManager, error) {
 	ahs := map[policy.AuthType]authHandler{}
 	for _, ah := range authHandlers {
+		if ah == nil {
+			continue
+		}
 		if _, ok := ahs[ah.authType()]; ok {
 			return nil, fmt.Errorf("multiple handlers for auth type: %s", ah.authType())
 		}
@@ -35,60 +70,122 @@ func newAuthManager(epMgr endpointmanager.EndpointsLookup, authHandlers []authHa
 	}
 
 	return &authManager{
-		endpointManager: epMgr,
-		authHandlers:    ahs,
+		authHandlers:          ahs,
+		datapathAuthenticator: dpAuthenticator,
+		ipCache:               ipCache,
 	}, nil
 }
 
 func (a *authManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) {
-	// Requested authentication type is in DropNotify.ExtError field
-	authType := policy.AuthType(dn.ExtError)
-
-	// DropNotify.DstID is 0 for egress, non-zero for Ingress
-	ingress := dn.DstID != 0
-
-	srcAddr := ci.SrcIP.String() + ":" + strconv.FormatUint(uint64(ci.SrcPort), 10)
-	dstAddr := ci.DstIP.String() + ":" + strconv.FormatUint(uint64(ci.DstPort), 10)
-
-	log.Debugf("auth: Policy is requiring authentication type %s for identity %d->%d, %s %s->%s, ingress: %t",
-		authType.String(), dn.SrcLabel, dn.DstLabel, ci.Proto, srcAddr, dstAddr, ingress)
-
-	proto, err := u8proto.ParseProtocol(ci.Proto)
-	if err != nil {
-		log.WithError(err).WithField(logfields.Protocol, ci.Proto).Warning("auth: Cannot parse protocol")
+	if err := a.authRequired(dn, ci); err != nil {
+		log.WithError(err).Warning("auth: Failed to authenticate request")
 		return
 	}
+}
 
-	ep := a.endpointManager.LookupCiliumID(dn.Source)
-	if ep == nil {
-		// Maybe endpoint was deleted?
-		log.WithField(logfields.EndpointID, dn.Source).Debug("auth: Cannot find Endpoint")
-		return
-	}
+func (a *authManager) authRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) error {
+	authType := getAuthType(dn)
+	policyType := getRequestDirection(dn)
+
+	log.Debugf("auth: %s policy is requiring authentication type %s for identity %d->%d, endpoint %s->%s",
+		policyType, authType, dn.SrcLabel, dn.DstLabel, ci.SrcIP, ci.DstIP)
 
 	// Authenticate according to the requested auth type
 	h, ok := a.authHandlers[authType]
 	if !ok {
-		log.WithField(logfields.AuthType, authType.String()).Warning("auth: Unknown requested auth type")
-		return
+		return fmt.Errorf("unknown requested auth type: %s", authType)
 	}
 
-	if err := h.authenticate(); err != nil {
-		log.WithError(err).WithField(logfields.AuthType, authType.String()).Warning("auth: Failed to authenticate")
-		return
+	authReq, err := a.buildAuthRequest(dn, ci)
+	if err != nil {
+		return fmt.Errorf("failed to gather auth request information: %w", err)
 	}
 
-	/* Update CT flags as authorized. */
-	if err := ctmap.Update(ep.ConntrackName(), srcAddr, dstAddr, proto, ingress,
-		func(entry *ctmap.CtEntry) error {
-			before := entry.Flags
-			if entry.Flags&ctmap.AuthRequired != 0 {
-				entry.Flags = entry.Flags &^ ctmap.AuthRequired
-				log.Debugf("auth: Cleared auth flag, before %v after %v",
-					before&ctmap.AuthRequired, entry.Flags&ctmap.AuthRequired)
-			}
-			return nil
-		}); err != nil {
-		log.WithError(err).Warning("auth: Conntrack map update failed")
+	authResp, err := h.authenticate(authReq)
+	if err != nil {
+		return fmt.Errorf("failed to authenticate with auth type %s: %w", authType, err)
 	}
+
+	result := &authResult{
+		dn:             dn,
+		ci:             ci,
+		localIdentity:  authReq.localIdentity,
+		remoteIdentity: authReq.remoteIdentity,
+		remoteHostIP:   authReq.remoteHostIP,
+		authType:       authType,
+		expirationTime: authResp.expirationTime,
+	}
+
+	if err := a.datapathAuthenticator.markAuthenticated(result); err != nil {
+		return fmt.Errorf("failed to write auth information to BPF map: %w", err)
+	}
+
+	log.Debugf("auth: Successfully authenticated %s request for identity %s->%s, endpoint %s->%s, remote host %s",
+		getRequestDirection(dn), dn.SrcLabel, dn.DstLabel, ci.SrcIP, ci.DstIP, authReq.remoteHostIP)
+
+	return nil
+}
+
+func (a *authManager) buildAuthRequest(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) (*authRequest, error) {
+
+	var localIdentity identity.NumericIdentity
+	var remoteIdentity identity.NumericIdentity
+	var remoteHostIP net.IP
+
+	if isIngress(dn) {
+		localIdentity = dn.DstLabel
+		remoteIdentity = dn.SrcLabel
+		remoteHostIP = a.hostIPForConnIP(ci.SrcIP)
+		if remoteHostIP == nil {
+			return nil, fmt.Errorf("failed to get host IP of connection source IP %s", ci.SrcIP)
+		}
+	} else {
+		localIdentity = dn.SrcLabel
+		remoteIdentity = dn.DstLabel
+		remoteHostIP = a.hostIPForConnIP(ci.DstIP)
+		if remoteHostIP == nil {
+			return nil, fmt.Errorf("failed to get host IP of connection destination IP %s", ci.DstIP)
+		}
+	}
+
+	return &authRequest{
+		localIdentity:  localIdentity,
+		remoteIdentity: remoteIdentity,
+		remoteHostIP:   remoteHostIP,
+	}, nil
+}
+
+func (a *authManager) hostIPForConnIP(connIP net.IP) net.IP {
+	hostIP := a.ipCache.GetHostIP(connIP.String())
+	if hostIP != nil {
+		return hostIP
+	}
+
+	// Checking for Cilium's internal IP (cilium_host).
+	// This might be the case when checking ingress auth after egress L7 policies are applied and therefore traffic
+	// gets rerouted via Cilium's envoy proxy.
+	if ip.IsIPv4(connIP) {
+		return a.ipCache.GetHostIP(fmt.Sprintf("%s/32", connIP))
+	} else if ip.IsIPv6(connIP) {
+		return a.ipCache.GetHostIP(fmt.Sprintf("%s/128", connIP))
+	}
+
+	return nil
+}
+
+func isIngress(dn *monitor.DropNotify) bool {
+	// DropNotify.DstID is 0 for egress, non-zero for Ingress
+	return dn.DstID != 0
+}
+
+func getAuthType(dn *monitor.DropNotify) policy.AuthType {
+	// Requested authentication type is in DropNotify.ExtError field
+	return policy.AuthType(dn.ExtError)
+}
+
+func getRequestDirection(dn *monitor.DropNotify) string {
+	if isIngress(dn) {
+		return "ingress"
+	}
+	return "egress"
 }

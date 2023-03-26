@@ -105,7 +105,7 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 		family = client.AddressFamilyIPv6
 	}
 
-	ipam, err := driver.client.IPAMAllocate(family, "docker-ipam", false)
+	ipam, err := driver.client.IPAMAllocate(family, "docker-ipam", "", false)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Could not allocate IP address: %s", err), http.StatusBadRequest)
 		return
@@ -145,7 +145,7 @@ func (driver *driver) releaseAddress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.WithField(logfields.Request, logfields.Repr(&release)).Debug("Release Address request")
-	if err := driver.client.IPAMReleaseIP(release.Address); err != nil {
+	if err := driver.client.IPAMReleaseIP(release.Address, ""); err != nil {
 		sendError(w, fmt.Sprintf("Could not release IP address: %s", err), http.StatusBadRequest)
 		return
 	}

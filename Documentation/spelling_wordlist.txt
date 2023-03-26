@@ -187,7 +187,10 @@ artii
 asm
 assignees
 au
+auth
 authenticator
+authMapMax
+authMapMin
 autoDirectNodeRoutes
 autoMount
 autoProtectPortRange
@@ -210,6 +213,7 @@ backports
 balancer
 balancers
 bandwidthManager
+baseUrl
 battlestation
 bbr
 bcc
@@ -424,6 +428,7 @@ extern
 externalAPILimitBurstSize
 externalAPILimitQPS
 externalIPs
+externalTrafficPolicy
 externalWorkloads
 extraArgs
 extraConfig
@@ -550,6 +555,7 @@ installRoutes
 instanceTagsFilter
 instantiation
 integrations
+internalTrafficPolicy
 internet
 intervalSeconds
 intra
@@ -705,6 +711,7 @@ monitorInterval
 mountCgroup
 mountPath
 mov
+mtls
 mul
 multi
 multicore
@@ -919,6 +926,7 @@ serviceMonitor
 servicePort
 sessionAffinity
 setNodeNetworkStatus
+setNodeTaints
 setrlimit
 setupinterface
 setupiptables
@@ -942,6 +950,9 @@ sockops
 sortBufferDrainTimeout
 sortBufferLenMax
 sourceContext
+spiffe
+spiffeTrustDomain
+spireAdminSocketPath
 src
 srv
 ssl

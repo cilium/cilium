@@ -4,6 +4,7 @@
 #ifndef __LIB_OVERLOADABLE_SKB_H_
 #define __LIB_OVERLOADABLE_SKB_H_
 
+#include "lib/common.h"
 #include "linux/ip.h"
 
 static __always_inline __maybe_unused void
@@ -65,6 +66,29 @@ static __always_inline __maybe_unused void
 set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key, __u32 node_id)
 {
 	ctx->cb[CB_ENCRYPT_MAGIC] = or_encrypt_key(key) | node_id << 16;
+}
+
+/**
+ * set_cluster_id_mark - sets the cluster_id mark.
+ */
+static __always_inline __maybe_unused void
+ctx_set_cluster_id_mark(struct __sk_buff *ctx, __u32 cluster_id)
+{
+	ctx->mark |= cluster_id | MARK_MAGIC_CLUSTER_ID;
+}
+
+static __always_inline __maybe_unused __u32
+ctx_get_cluster_id_mark(struct __sk_buff *ctx)
+{
+	__u32 ret = 0;
+
+	if ((ctx->mark & MARK_MAGIC_CLUSTER_ID) != MARK_MAGIC_CLUSTER_ID)
+		return ret;
+
+	ret = ctx->mark & MARK_MAGIC_CLUSTER_ID_MASK;
+	ctx->mark &= ~(__u32)(MARK_MAGIC_CLUSTER_ID | MARK_MAGIC_CLUSTER_ID_MASK);
+
+	return ret;
 }
 
 static __always_inline __maybe_unused int
@@ -160,7 +184,7 @@ static __always_inline void ctx_snat_done_set(struct __sk_buff *ctx)
 	ctx->mark |= MARK_MAGIC_SNAT_DONE;
 }
 
-static __always_inline bool ctx_snat_done(struct __sk_buff *ctx)
+static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
 {
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_SNAT_DONE;
 }

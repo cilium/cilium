@@ -59,6 +59,14 @@ static volatile const __u8 mac_six[] =   {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E};
 #define v4_pod_two	IPV4(192, 168, 0, 2)
 #define v4_pod_three	IPV4(192, 168, 0, 3)
 
+/* IPv6 addresses for pods in the cluster */
+static volatile const __u8 v6_pod_one[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 1};
+static volatile const __u8 v6_pod_two[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 2};
+static volatile const __u8 v6_pod_three[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 3};
+
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22334)
 #define tcp_src_two	__bpf_htons(33445)
@@ -216,6 +224,46 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 	return layer;
 }
 
+/* helper to set the source and destination ipv6 address at the same time */
+static __always_inline
+void ipv6hdr__set_addrs(struct ipv6hdr *l3, __u8 *src, __u8 *dst)
+{
+	memcpy((__u8 *)&l3->saddr, src, 16);
+	memcpy((__u8 *)&l3->daddr, dst, 16);
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct ipv6hdr *pktgen__push_ipv6hdr(struct pktgen *builder)
+{
+	struct __ctx_buff *ctx = builder->ctx;
+	struct ipv6hdr *layer;
+	int layer_idx;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ipv6hdr) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct ipv6hdr) > ctx_data_end(ctx))
+		return 0;
+
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
+		return 0;
+
+	layer = ctx_data(ctx) + builder->cur_off;
+	layer_idx = pktgen__free_layer(builder);
+
+	if (layer_idx < 0)
+		return 0;
+
+	builder->layers[layer_idx] = PKT_LAYER_IPV6;
+	builder->layer_offsets[layer_idx] = builder->cur_off;
+	builder->cur_off += sizeof(struct ipv6hdr);
+
+	return layer;
+}
+
 /* Push a IPv4 header with sane defaults and options onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
@@ -241,6 +289,20 @@ __attribute__((warn_unused_result))
 struct iphdr *pktgen__push_default_iphdr(struct pktgen *builder)
 {
 	return pktgen__push_default_iphdr_with_options(builder, 0);
+}
+
+/* Push an IPv6 header with sane defaults onto the packet */
+struct ipv6hdr *pktgen__push_default_ipv6hdr(struct pktgen *builder)
+{
+	struct ipv6hdr *hdr = pktgen__push_ipv6hdr(builder);
+
+	if (!hdr)
+		return 0;
+
+	hdr->version = 6;
+	hdr->hop_limit = 255;
+
+	return hdr;
 }
 
 /* Push an empty TCP header onto the packet */

@@ -29,5 +29,7 @@ type TrafficMirrorSession struct {
 	VirtualNetworkId                   int      `json:"VirtualNetworkId" xml:"VirtualNetworkId"`
 	TrafficMirrorFilterId              string   `json:"TrafficMirrorFilterId" xml:"TrafficMirrorFilterId"`
 	TrafficMirrorSessionName           string   `json:"TrafficMirrorSessionName" xml:"TrafficMirrorSessionName"`
+	ResourceGroupId                    string   `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	TrafficMirrorSourceIds             []string `json:"TrafficMirrorSourceIds" xml:"TrafficMirrorSourceIds"`
+	Tags                               []Tag    `json:"Tags" xml:"Tags"`
 }

@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/node"
@@ -62,12 +61,6 @@ func initKubeProxyReplacementOptions() error {
 		disableNodePort()
 		option.Config.EnableSocketLB = false
 		option.Config.EnableSocketLBTracing = false
-
-		if option.Config.EnableSessionAffinity {
-			if err := disableSessionAffinityIfNeeded(); err != nil {
-				return err
-			}
-		}
 
 		return nil
 	}
@@ -322,10 +315,6 @@ func probeKubeProxyReplacementOptions() error {
 		option.Config.EnableSocketLBTracing = false
 	}
 
-	if err := disableSessionAffinityIfNeeded(); err != nil {
-		return err
-	}
-
 	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
 		if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
 			probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
@@ -462,10 +451,6 @@ func finishKubeProxyReplacementInit() error {
 		// All cases below still need to be implemented ...
 		case option.Config.EnableEndpointRoutes:
 			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
-		case !mac.HaveMACAddrs(option.Config.GetDevices()):
-			msg = "BPF host routing is currently not supported with devices without L2 addr."
-		case option.Config.EnableWireguard:
-			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
 		default:
 			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
 				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
@@ -698,14 +683,5 @@ func checkNodePortAndEphemeralPortRanges() error {
 			nodePortRangeStr, err)
 	}
 
-	return nil
-}
-
-func disableSessionAffinityIfNeeded() error {
-	if option.Config.EnableSessionAffinity {
-		if !option.Config.DryMode && probes.HaveMapType(ebpf.LRUHash) != nil {
-			return fmt.Errorf("SessionAffinity feature requires BPF LRU maps")
-		}
-	}
 	return nil
 }

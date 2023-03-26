@@ -44,6 +44,9 @@ node. The mechanism works as follows:
 3. From this point on, pods will start being scheduled and running on the node,
    having their networking managed by Cilium.
 
+4. If Cilium is temporarily removed from the node, the Operator will re-apply
+   the taint (but only with NoSchedule).
+
 By default, the taint key is ``node.cilium.io/agent-not-ready``, but in some
 scenarios (such as when Cluster Autoscaler is being used but its flags cannot be
 configured) this key may need to be tweaked. This can be done using the

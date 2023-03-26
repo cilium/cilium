@@ -6,9 +6,13 @@ package auth
 import (
 	"fmt"
 
+	"github.com/spf13/pflag"
+
 	"github.com/cilium/cilium/pkg/auth/monitor"
-	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/auth/spire"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
 )
 
@@ -21,19 +25,38 @@ var Cell = cell.Module(
 	"auth-manager",
 	"Authenticates requests as demanded by policy",
 
+	spire.Cell,
+
 	// The manager is the main entry point which gets registered to the agent monitor and receives auth requests.
 	cell.Provide(newManager),
 	cell.ProvidePrivate(
 		// Null auth handler provides support for auth type "null" - which always succeeds.
 		newNullAuthHandler,
+		// CT map authenticator provides support to write authentication information into the eBPF conntrack map
+		newCtMapAuthenticator,
+		// MTLS auth handler provides support for auth type "mtls-*" - which performs mTLS authentication.
+		newMTLSAuthHandler,
 	),
+	cell.Config(config{MeshAuthMonitorQueueSize: 1024}),
+	cell.Config(MTLSConfig{}),
 )
+
+type config struct {
+	MeshAuthMonitorQueueSize int
+}
+
+func (r config) Flags(flags *pflag.FlagSet) {
+	flags.Int("mesh-auth-monitor-queue-size", r.MeshAuthMonitorQueueSize, "Queue size for the auth monitor")
+}
 
 type authManagerParams struct {
 	cell.In
 
-	EndpointManager endpointmanager.EndpointManager
-	AuthHandlers    []authHandler `group:"authHandlers"`
+	Lifecycle             hive.Lifecycle
+	Config                config
+	IPCache               *ipcache.IPCache
+	AuthHandlers          []authHandler `group:"authHandlers"`
+	DatapathAuthenticator datapathAuthenticator
 }
 
 type Manager interface {
@@ -41,12 +64,19 @@ type Manager interface {
 }
 
 func newManager(params authManagerParams) (Manager, error) {
-	manager, err := newAuthManager(params.EndpointManager, params.AuthHandlers)
+	mgr, err := newAuthManager(params.AuthHandlers, params.DatapathAuthenticator, params.IPCache)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
-	return monitor.New(manager), nil
+	dropMonitor := monitor.New(mgr, params.Config.MeshAuthMonitorQueueSize)
+
+	params.Lifecycle.Append(hive.Hook{
+		OnStart: dropMonitor.OnStart,
+		OnStop:  dropMonitor.OnStop,
+	})
+
+	return dropMonitor, nil
 }
 
 type authHandlerResult struct {

@@ -4,10 +4,9 @@
 package linux
 
 import (
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 )
 
@@ -24,11 +23,11 @@ type linuxDatapath struct {
 	datapath.ConfigWriter
 	datapath.IptablesManager
 	node           datapath.NodeHandler
-	nodeAddressing types.NodeAddressing
+	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
 	loader         *loader.Loader
 	wgAgent        datapath.WireguardAgent
-	lbmap          types.LBMap
+	lbmap          datapath.LBMap
 }
 
 // NewDatapath creates a new Linux datapath
@@ -54,7 +53,7 @@ func (l *linuxDatapath) Node() datapath.NodeHandler {
 
 // LocalNodeAddressing returns the node addressing implementation of the local
 // node
-func (l *linuxDatapath) LocalNodeAddressing() types.NodeAddressing {
+func (l *linuxDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 	return l.nodeAddressing
 }
 
@@ -70,6 +69,6 @@ func (l *linuxDatapath) Procfs() string {
 	return l.config.ProcFs
 }
 
-func (l *linuxDatapath) LBMap() types.LBMap {
+func (l *linuxDatapath) LBMap() datapath.LBMap {
 	return l.lbmap
 }

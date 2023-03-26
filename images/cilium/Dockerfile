@@ -1,8 +1,8 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:208aeac07369d2d1693206606c6923b52caa9ebe@sha256:8e08425e54adf7bd09f6dc92a505bc9f7e3fe32472949e8296f1dc5af4188684
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:8889705070d3144ee079b9804b77baf2e9dcb57d@sha256:50394d309e474e93ddbec5f6872ba4d53cf42a4fd73d8e6ff72176f6e6e7cbd8
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:43a07ce3ec4a5475d198b1e1ee88117e47deb5f9@sha256:3a989bb73973bdc140803ef97af9bcf953c50aead2c3447cfb49292f1bd97461
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:fe3fe058796057d2a089fac72a6a7afdf6b31435@sha256:d3f15d63ba73529963a3e9b5b2ff737f5638fc7a33819ac5380e72f2af7b4642
 
 # cilium-envoy from github.com/cilium/proxy
 #
@@ -59,6 +59,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=
 
 COPY images/cilium/init-container.sh \
      plugins/cilium-cni/cni-install.sh \
+     plugins/cilium-cni/install-plugin.sh \
      plugins/cilium-cni/cni-uninstall.sh \
        /tmp/install/${TARGETOS}/${TARGETARCH}
 

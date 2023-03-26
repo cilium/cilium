@@ -312,6 +312,10 @@ data:
   enable-host-legacy-routing: "true"
 {{- end }}
 
+{{- if .Values.bpf.authMapMax }}
+  # bpf-auth-map-max specifies the maximum number of entries in the auth map
+  bpf-auth-map-max: {{ .Values.bpf.authMapMax | quote }}
+{{- end }}
 {{- if or $bpfCtTcpMax $bpfCtAnyMax }}
   # bpf-ct-global-*-max specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
@@ -829,9 +833,10 @@ data:
 {{- end }}
 
 {{- if .Values.enableCnpStatusUpdates }}
-  disable-cnp-status-updates: {{ (not .Values.enableCnpStatusUpdates) | quote }}
+  disable-cnp-status-updates: "false"
 {{- else if (eq $defaultEnableCnpStatusUpdates "false") }}
   disable-cnp-status-updates: "true"
+  cnp-node-status-gc-interval: "0s"
 {{- end }}
 
 {{- if .Values.egressGateway.enabled }}
@@ -942,8 +947,17 @@ data:
   annotate-k8s-node: "true"
 {{- end }}
 
+{{- if and .Values.operator.setNodeTaints (not .Values.operator.removeNodeTaints) -}}
+  {{ fail "Cannot have operator.setNodeTaintsMaxNodes and not operator.removeNodeTaints = false" }}
+{{- end -}}
 {{- if .Values.operator.removeNodeTaints }}
   remove-cilium-node-taints: "true"
+{{- end }}
+{{- /* set node taints if setNodeTaints is explicitly enabled or removeNodeTaints is set */ -}}
+{{- if or .Values.operator.setNodeTaints
+          ( and (kindIs "invalid" .Values.operator.setNodeTaints)
+                .Values.operator.removeNodeTaints ) }}
+  set-cilium-node-taints: "true"
 {{- end }}
 {{- if .Values.operator.setNodeNetworkStatus }}
   set-cilium-is-up-condition: "true"
@@ -993,6 +1007,12 @@ data:
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}
 
+{{- end }}
+
+{{- if .Values.auth.mTLS.enabled }}
+  mesh-auth-mtls-listener-port: {{ .Values.auth.mTLS.port | quote }}
+  mesh-auth-spire-admin-socket: {{ .Values.auth.mTLS.spireAdminSocketPath }}
+  mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spiffeTrustDomain }}
 {{- end }}
 
 ---

@@ -218,7 +218,7 @@
 /.gitattributes @cilium/tophat
 /.github/ @cilium/contributing
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
-/.github/workflows/conformance-datapath.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
+/.github/workflows/*datapath*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/tophat
 /.golangci.yaml @cilium/ci-structure
 /.mailmap @cilium/tophat
@@ -252,7 +252,6 @@ Makefile* @cilium/build
 /cilium-health/cmd/ @cilium/sig-agent @cilium/cli
 /clustermesh-apiserver @cilium/sig-clustermesh
 /contrib/ @cilium/contributing
-/contrib/packaging/ @cilium/build
 /contrib/vagrant/ @cilium/contributing
 /contrib/coccinelle/ @cilium/sig-datapath
 /daemon/ @cilium/sig-agent
@@ -268,7 +267,6 @@ Makefile* @cilium/build
 /daemon/cmd/prefilter.go @cilium/sig-datapath
 /daemon/cmd/proxy.go @cilium/proxy
 /daemon/cmd/state.go @cilium/endpoint
-/daemon/cmd/sysctl* @cilium/sig-datapath
 /Documentation/ @cilium/docs-structure
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
@@ -399,7 +397,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/datapath/linux/node.go @cilium/ipsec @cilium/sig-datapath
 /pkg/datapath/linux/probes/ @cilium/loader
 /pkg/datapath/linux/requirements.go @cilium/loader
-/pkg/datapath/loader.go @cilium/loader
+/pkg/datapath/types/loader.go @cilium/loader
 /pkg/datapath/loader/ @cilium/loader
 /pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/defaults @cilium/sig-agent
@@ -481,7 +479,6 @@ jenkinsfiles @cilium/ci-structure
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
-/test/runtime/lb.go @cilium/sig-lb @cilium/ci-structure
 # Datapath tests
 /test/bpf/ @cilium/sig-datapath
 /test/bpf/check-complexity.sh @cilium/loader
@@ -510,8 +507,6 @@ jenkinsfiles @cilium/ci-structure
 # BGP tests
 /test/k8s/bgp.go @cilium/sig-bgp @cilium/ci-structure
 # Misc. tests
-/test/k8s/cli.go @cilium/cli @cilium/ci-structure
-/test/k8s/health.go @cilium/sig-agent @cilium/ci-structure
 /test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure

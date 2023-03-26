@@ -27,6 +27,10 @@ var (
 // in next sync with k8s-apiserver.
 type cesTracker struct {
 	// Mutex to protect cep insert/removal in ces and removedCEPs
+	// The identityLock and backendMutex locks always need to be acquired in the
+	// same order to avoid deadlocks. First identityLock and then backendMutex,
+	// because identityLock is a higher level lock of cesManagerIdentity which
+	// contains cesTrackers with backendMutex locks within it.
 	backendMutex lock.RWMutex
 	// The desired state of ces object
 	ces *cilium_v2.CiliumEndpointSlice
@@ -97,6 +101,10 @@ type cesManagerFcfs struct {
 type cesManagerIdentity struct {
 	cesMgr
 	// Mutex to protect cep insert/removal in ces and removedCEPs
+	// The identityLock and backendMutex locks always need to be acquired in the
+	// same order to avoid deadlocks. First identityLock and then backendMutex,
+	// because identityLock is a higher level lock of cesManagerIdentity which
+	// contains cesTrackers with backendMutex locks within it.
 	identityLock lock.RWMutex
 	// CEP identity to cesTracker map
 	identityToCES map[int64][]*cesTracker
@@ -635,6 +643,12 @@ func (c *cesManagerIdentity) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint,
 // isDeepCopy flag is set to false.
 func (c *cesManagerIdentity) updateCESInCache(srcCES *cilium_v2.CiliumEndpointSlice, isDeepCopy bool) {
 	if ces, ok := c.desiredCESs.getCESTracker(srcCES.GetName()); ok {
+		// The identityLock and backendMutex locks always need to be acquired in the
+		// same order to avoid deadlocks. First identityLock and then backendMutex,
+		// because identityLock is a higher level lock of cesManagerIdentity which
+		// contains cesTrackers with backendMutex locks within it.
+		c.identityLock.Lock()
+		defer c.identityLock.Unlock()
 		ces.backendMutex.Lock()
 		defer ces.backendMutex.Unlock()
 		if !isDeepCopy {
@@ -645,10 +659,8 @@ func (c *cesManagerIdentity) updateCESInCache(srcCES *cilium_v2.CiliumEndpointSl
 			for _, cep := range ces.ces.Endpoints {
 				// Update the identityToCES and cesToIdentity maps respectively.
 				if !exist {
-					c.identityLock.Lock()
 					c.identityToCES[cep.IdentityID] = append(c.identityToCES[cep.IdentityID], ces)
 					c.cesToIdentity[srcCES.GetName()] = cep.IdentityID
-					c.identityLock.Unlock()
 					exist = true
 				}
 				// Update the desiredCESs, to reflect all CEPs are packed in a CES
@@ -668,11 +680,8 @@ func (c *cesMgr) insertCESInWorkQueue(ces *cesTracker, baseDelay time.Duration) 
 	if ces.cesInsertedAt.IsZero() {
 		ces.cesInsertedAt = time.Now()
 	}
-	if baseDelay == DefaultCESSyncTime {
-		c.queue.Add(ces.ces.GetName())
-	} else {
-		c.queue.AddAfter(ces.ces.GetName(), baseDelay)
-	}
+
+	c.queue.AddAfter(ces.ces.GetName(), baseDelay)
 }
 
 // Return the CES queue delay in seconds and reset cesInsert time.

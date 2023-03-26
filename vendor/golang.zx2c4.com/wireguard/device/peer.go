@@ -45,9 +45,9 @@ type Peer struct {
 	}
 
 	queue struct {
-		staged   chan *QueueOutboundElement // staged packets before a handshake is available
-		outbound *autodrainingOutboundQueue // sequential ordering of udp transmission
-		inbound  *autodrainingInboundQueue  // sequential ordering of tun writing
+		staged   chan *[]*QueueOutboundElement // staged packets before a handshake is available
+		outbound *autodrainingOutboundQueue    // sequential ordering of udp transmission
+		inbound  *autodrainingInboundQueue     // sequential ordering of tun writing
 	}
 
 	cookieGenerator             CookieGenerator
@@ -81,7 +81,7 @@ func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 	peer.device = device
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
-	peer.queue.staged = make(chan *QueueOutboundElement, QueueStagedSize)
+	peer.queue.staged = make(chan *[]*QueueOutboundElement, QueueStagedSize)
 
 	// map public key
 	_, ok := device.peers.keyMap[pk]
@@ -108,7 +108,7 @@ func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 	return peer, nil
 }
 
-func (peer *Peer) SendBuffer(buffer []byte) error {
+func (peer *Peer) SendBuffers(buffers [][]byte) error {
 	peer.device.net.RLock()
 	defer peer.device.net.RUnlock()
 
@@ -123,9 +123,13 @@ func (peer *Peer) SendBuffer(buffer []byte) error {
 		return errors.New("no known endpoint for peer")
 	}
 
-	err := peer.device.net.bind.Send(buffer, peer.endpoint)
+	err := peer.device.net.bind.Send(buffers, peer.endpoint)
 	if err == nil {
-		peer.txBytes.Add(uint64(len(buffer)))
+		var totalLen uint64
+		for _, b := range buffers {
+			totalLen += uint64(len(b))
+		}
+		peer.txBytes.Add(totalLen)
 	}
 	return err
 }
@@ -187,8 +191,12 @@ func (peer *Peer) Start() {
 
 	device.flushInboundQueue(peer.queue.inbound)
 	device.flushOutboundQueue(peer.queue.outbound)
-	go peer.RoutineSequentialSender()
-	go peer.RoutineSequentialReceiver()
+
+	// Use the device batch size, not the bind batch size, as the device size is
+	// the size of the batch pools.
+	batchSize := peer.device.BatchSize()
+	go peer.RoutineSequentialSender(batchSize)
+	go peer.RoutineSequentialReceiver(batchSize)
 
 	peer.isRunning.Store(true)
 }

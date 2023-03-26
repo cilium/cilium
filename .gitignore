@@ -115,3 +115,6 @@ images/*/Dockerfile.dockerignore
 
 # Clangd cache for indexed bpf code
 bpf/.cache
+
+# Include dummy bpf object necessary for XDP_TX
+!test/l4lb/bpf_xdp_veth_host.o

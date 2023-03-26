@@ -35,6 +35,7 @@
 #include "lib/drop.h"
 #include "lib/identity.h"
 #include "lib/nodeport.h"
+#include "lib/clustermesh.h"
 
 #ifdef ENABLE_VTEP
 #include "lib/arp.h"
@@ -191,6 +192,98 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
+static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
+{
+#ifdef HOST_IFINDEX
+	if (1) {
+		union macaddr host_mac = HOST_IFINDEX_MAC;
+		union macaddr router_mac = NODE_MAC;
+		int ret;
+
+		ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
+			      (__u8 *)&host_mac.addr, ip4);
+		if (ret != CTX_ACT_OK)
+			return ret;
+
+		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		return ctx_redirect(ctx, HOST_IFINDEX, 0);
+	}
+#else
+	return CTX_ACT_OK;
+#endif
+}
+
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx, __u32 *src_identity)
+{
+	int ret;
+	struct iphdr *ip4;
+	__u32 cluster_id = 0;
+	void *data_end, *data;
+	struct endpoint_info *ep;
+	__u32 identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 cluster_id_from_identity =
+		extract_cluster_id_from_identity(identity);
+	const struct ipv4_nat_target target = {
+	       .min_port = NODEPORT_PORT_MIN_NAT,
+	       .max_port = NODEPORT_PORT_MAX_NAT,
+	       .cluster_id = cluster_id_from_identity,
+	};
+
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
+
+	*src_identity = identity;
+
+	ret = snat_v4_rev_nat(ctx, &target);
+	if (ret != NAT_PUNT_TO_STACK && ret != DROP_NAT_NO_MAPPING) {
+		if (IS_ERR(ret))
+			return ret;
+
+		/*
+		 * RevSNAT succeeded. Identify the remote host using
+		 * cluster_id in the rest of the datapath logic.
+		 */
+		cluster_id = cluster_id_from_identity;
+	}
+
+	/* Theoretically, we only need to revalidate data after we
+	 * perform revSNAT. However, we observed the mysterious
+	 * verifier error in the kernel 4.19 that when we only do
+	 * revalidate after the revSNAT, verifier detects an error
+	 * for the subsequent read for ip4 pointer. To avoid that,
+	 * we always revalidate data here.
+	 */
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	ep = lookup_ip4_endpoint(ip4);
+	if (ep) {
+		/* We don't support inter-cluster SNAT from host */
+		if (ep->flags & ENDPOINT_F_HOST)
+			return ipv4_host_delivery(ctx, ip4);
+
+		return ipv4_local_delivery(ctx, ETH_HLEN, identity, ip4, ep,
+					   METRIC_INGRESS, false, false, true,
+					   cluster_id);
+	}
+
+	return DROP_UNROUTABLE;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT)
+int tail_handle_inter_cluster_revsnat(struct __ctx_buff *ctx)
+{
+	int ret;
+	__u32 src_identity;
+
+	ret = handle_inter_cluster_revsnat(ctx, &src_identity);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, src_identity, ret,
+					      CTX_ACT_DROP, METRIC_INGRESS);
+	return ret;
+}
+#endif
+
 static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 {
 	struct remote_endpoint_info *info;
@@ -258,6 +351,26 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 skip_vtep:
 #endif
 
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+		{
+			__u32 cluster_id_from_identity =
+				extract_cluster_id_from_identity(*identity);
+
+			/* When we see inter-cluster communication and if
+			 * the destination is IPV4_INTER_CLUSTER_SNAT, try
+			 * to perform revSNAT. We tailcall from here since
+			 * we saw the complexity issue when we added this
+			 * logic in-line.
+			 */
+			if (cluster_id_from_identity != 0 &&
+			    cluster_id_from_identity != CLUSTER_ID &&
+			    ip4->daddr == IPV4_INTER_CLUSTER_SNAT) {
+				ctx_store_meta(ctx, CB_SRC_LABEL, *identity);
+				ep_tail_call(ctx, CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT);
+				return DROP_MISSED_TAIL_CALL;
+			}
+		}
+#endif
 		/* See comment at equivalent code in handle_ipv6() */
 		if (info && identity_is_remote_node(*identity))
 			*identity = info->sec_label;
@@ -306,30 +419,15 @@ not_esp:
 			goto to_host;
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, ip4, ep,
-					   METRIC_INGRESS, false, false);
+					   METRIC_INGRESS, false, false, true,
+					   0);
 	}
 
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
 to_host:
-#ifdef HOST_IFINDEX
-	if (1) {
-		union macaddr host_mac = HOST_IFINDEX_MAC;
-		union macaddr router_mac = NODE_MAC;
-		int ret;
-
-		ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
-			      (__u8 *)&host_mac.addr, ip4);
-		if (ret != CTX_ACT_OK)
-			return ret;
-
-		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
-		return ctx_redirect(ctx, HOST_IFINDEX, 0);
-	}
-#else
-	return CTX_ACT_OK;
-#endif
+	return ipv4_host_delivery(ctx, ip4);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_OVERLAY)
@@ -531,6 +629,7 @@ __section("to-overlay")
 int cil_to_overlay(struct __ctx_buff *ctx)
 {
 	int ret;
+	__u32 cluster_id __maybe_unused = 0;
 
 	ret = encap_remap_v6_host_address(ctx, true);
 	if (unlikely(ret < 0))
@@ -557,7 +656,15 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 		ret = CTX_ACT_OK;
 		goto out;
 	}
-	ret = handle_nat_fwd(ctx);
+
+	/* This must be after above ctx_snat_done, since the MARK_MAGIC_CLUSTER_ID
+	 * is a super set of the MARK_MAGIC_SNAT_DONE. They will never be used together,
+	 * but SNAT check should always take presedence.
+	 */
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+	cluster_id = ctx_get_cluster_id_mark(ctx);
+#endif
+	ret = handle_nat_fwd(ctx, cluster_id);
 #endif
 out:
 	if (IS_ERR(ret))

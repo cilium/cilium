@@ -59,7 +59,8 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 static __always_inline int
 l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 		  const struct endpoint_info *ep, __u8 direction __maybe_unused,
-		  bool from_host __maybe_unused, bool hairpin_flow __maybe_unused)
+		  bool from_host __maybe_unused, bool hairpin_flow __maybe_unused,
+		  bool from_tunnel __maybe_unused, __u32 cluster_id __maybe_unused)
 {
 #ifdef LOCAL_DELIVERY_METRICS
 	/*
@@ -103,6 +104,8 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
 	ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);
+	ctx_store_meta(ctx, CB_FROM_TUNNEL, from_tunnel ? 1 : 0);
+	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, cluster_id);
 
 	tail_call_dynamic(ctx, &POLICY_CALL_MAP, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
@@ -132,7 +135,8 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, hairpin_flow);
+	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, hairpin_flow,
+				 false, 0);
 }
 #endif /* ENABLE_IPV6 */
 
@@ -145,7 +149,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       __u32 seclabel, struct iphdr *ip4,
 					       const struct endpoint_info *ep,
 					       __u8 direction, bool from_host,
-					       bool hairpin_flow)
+					       bool hairpin_flow, bool from_tunnel,
+					       __u32 cluster_id)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -157,7 +162,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, hairpin_flow);
+	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, hairpin_flow,
+				 from_tunnel, cluster_id);
 }
 #endif /* SKIP_POLICY_MAP */
 

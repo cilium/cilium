@@ -15,8 +15,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -32,6 +32,7 @@ var ignoredELFPrefixes = []string{
 	"IPV6_NODEPORT",              // Global
 	"ROUTER_IP",                  // Global
 	"SNAT_IPV6_EXTERNAL",         // Global
+	"cilium_auth_map",            // Global
 	"cilium_call_policy",         // Global
 	"cilium_egresscall_policy",   // Global
 	"cilium_capture",             // Global
