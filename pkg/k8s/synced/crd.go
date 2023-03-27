@@ -68,7 +68,10 @@ func agentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v2alpha1.BGPPName))
 	}
 
-	result = append(result, CRDResourceName(v2alpha1.LBIPPoolName))
+	result = append(result,
+		CRDResourceName(v2alpha1.LBIPPoolName),
+		CRDResourceName(v2alpha1.L2AnnouncementName),
+	)
 
 	return result
 }

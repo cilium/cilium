@@ -1772,6 +1772,14 @@
      - Override the agent's default neighbor resolution refresh period.
      - string
      - ``"30s"``
+   * - l2announcements
+     - Configure L2 announcements
+     - object
+     - ``{"enabled":false}``
+   * - l2announcements.enabled
+     - Enable L2 announcements
+     - bool
+     - ``false``
    * - l7Proxy
      - Enable Layer 7 network policy.
      - bool

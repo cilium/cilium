@@ -927,6 +927,20 @@ data:
   enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
 {{- end }}
 
+{{- if .Values.l2announcements.enabled }}
+  # Enable L2 announcements
+  enable-l2-announcements: {{ .Values.l2announcements.enabled | quote }}
+  {{- if .Values.l2announcements.leaseDuration }}
+  l2-announcements-lease-duration: {{ .Values.l2announcements.leaseDuration | quote }}
+  {{- end}}
+  {{- if .Values.l2announcements.leaseRenewDeadline }}
+  l2-announcements-renew-deadline: {{ .Values.l2announcements.leaseRenewDeadline | quote }}
+  {{- end}}
+  {{- if .Values.l2announcements.leaseRetryPeriod }}
+  l2-announcements-retry-period: {{ .Values.l2announcements.leaseRetryPeriod | quote }}
+  {{- end}}
+{{- end}}
+
 {{- if and .Values.bgp.enabled (and (not .Values.bgp.announce.loadbalancerIP) (not .Values.bgp.announce.podCIDR)) }}
   {{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
 {{- end }}

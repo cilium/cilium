@@ -378,6 +378,11 @@ struct auth_info {
  */
 enum {
 	RUNTIME_CONFIG_UTIME_OFFSET = 0, /* Index to Unix time offset in 512 ns units */
+	RUNTIME_CONFIG_USED_ENTRIES = 1, /* */
+	/* Last monotonic time, periodically set by the agent to
+	 * tell the datapath its still updating maps
+	 */
+	RUNTIME_CONFIG_AGENT_LIVENESS = 2,
 };
 
 struct metrics_key {

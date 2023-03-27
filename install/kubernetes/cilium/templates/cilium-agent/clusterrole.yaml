@@ -46,6 +46,18 @@ rules:
   # To annotate the k8s node with Cilium's metadata
   - patch
 {{- end }}
+{{- if .Values.l2announcements.enabled }}
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - update
+  - list
+  - delete
+{{- end }}
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -82,6 +94,7 @@ rules:
   - ciliumnodes
   - ciliumnodeconfigs
   - ciliumcidrgroups
+  - ciliuml2announcementpolicies
   verbs:
   - list
   - watch
@@ -122,6 +135,7 @@ rules:
   - ciliumclusterwidenetworkpolicies/status
   - ciliumendpoints/status
   - ciliumendpoints
+  - ciliuml2announcementpolicies/status
   verbs:
   - patch
 {{- end }}

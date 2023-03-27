@@ -207,6 +207,24 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } NODE_MAP __section_maps_btf;
 
+struct l2_responder_v4_key {
+	__u32 ip4;
+	__u32 ifindex;
+};
+
+struct l2_responder_v4_stats {
+	__u64 responses_sent;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct l2_responder_v4_key);
+	__type(value, struct l2_responder_v4_stats);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, L2_RESPONSER_MAP4_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} L2_RESPONDER_MAP4 __section_maps_btf;
+
 #ifdef ENABLE_EGRESS_GATEWAY
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);

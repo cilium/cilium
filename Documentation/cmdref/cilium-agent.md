@@ -13,6 +13,7 @@ cilium-agent [flags]
 ```
       --agent-health-port int                                   TCP port for agent health status API (default 9879)
       --agent-labels strings                                    Additional labels to identify this agent
+      --agent-liveness-update-interval duration                 Interval at which the agent updates liveness time for the datapath (default 1s)
       --agent-not-ready-taint-key string                        Key of the taint indicating that Cilium is not ready on the node (default "node.cilium.io/agent-not-ready")
       --allocator-list-timeout duration                         Timeout for listing allocator state before exiting (default 3m0s)
       --allow-icmp-frag-needed                                  Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU. (default true)
@@ -124,6 +125,7 @@ cilium-agent [flags]
       --enable-k8s-endpoint-slice                               Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                               Enable k8s event handover to kvstore for improved scalability
       --enable-k8s-terminating-endpoint                         Enable auto-detect of terminating endpoint condition (default true)
+      --enable-l2-announcements                                 Enable L2 announcements
       --enable-l2-neigh-discovery                               Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec (default true)
       --enable-l7-proxy                                         Enable L7 proxy for L7 policy enforcement (default true)
       --enable-local-node-route                                 Enable installation of the route which points the allocation prefix of the local node (default true)
@@ -229,6 +231,9 @@ cilium-agent [flags]
       --kvstore-max-consecutive-quorum-errors int               Max acceptable kvstore consecutive quorum errors before the agent assumes permanent failure (default 2)
       --kvstore-opt map                                         Key-value store options e.g. etcd.address=127.0.0.1:4001
       --kvstore-periodic-sync duration                          Periodic KVstore synchronization interval (default 5m0s)
+      --l2-announcements-lease-duration duration                Duration of inactivity after which a new leader is selected (default 15s)
+      --l2-announcements-renew-deadline duration                Interval at which the leader renews a lease (default 5s)
+      --l2-announcements-retry-period duration                  Timeout after a renew failure, before the next retry (default 2s)
       --label-prefix-file string                                Valid label prefixes file path
       --labels strings                                          List of label prefixes used to determine identity of an endpoint
       --lib-dir string                                          Directory path to store runtime build environment (default "/var/lib/cilium")

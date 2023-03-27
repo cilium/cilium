@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 )
 
 // Cell contains all cells which are providing BPF Maps.
@@ -23,4 +24,7 @@ var Cell = cell.Module(
 
 	// Provides access to egressgateway specific maps.
 	egressmap.Cell,
+
+	// Provides access to the L2 responder map.
+	l2respondermap.Cell,
 )

@@ -60,6 +60,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -210,6 +211,8 @@ type Daemon struct {
 
 	// just used to tie together some status reporting
 	cniConfigManager cni.CNIConfigManager
+
+	l2announcer *l2announcer.L2Announcer
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -530,6 +533,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		policyUpdater:        params.PolicyUpdater,
 		egressGatewayManager: params.EgressGatewayManager,
 		cniConfigManager:     params.CNIConfigManager,
+		l2announcer:          params.L2Announcer,
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -920,7 +924,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	if _, err := d.deviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
+	devices, err := d.deviceManager.Detect(params.Clientset.IsEnabled())
+	if err != nil {
 		if option.Config.AreDevicesRequired() {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
@@ -928,6 +933,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 		disableNodePort()
 	}
+
+	if d.l2announcer != nil {
+		d.l2announcer.DevicesChanged(devices)
+	}
+
 	if err := finishKubeProxyReplacementInit(); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
@@ -1302,6 +1312,10 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 		if err := node.InitBPFMasqueradeAddrs(devices); err != nil {
 			log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)
 		}
+	}
+
+	if d.l2announcer != nil {
+		d.l2announcer.DevicesChanged(devices)
 	}
 
 	if option.Config.EnableNodePort {

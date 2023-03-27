@@ -39,6 +39,7 @@ var (
 			ciliumNetworkPolicy,
 			ciliumClusterwideNetworkPolicy,
 			ciliumCIDRGroup,
+			l2AnnouncementPolicyResource,
 		),
 	)
 )
@@ -54,6 +55,7 @@ type SharedResources struct {
 	CiliumNetworkPolicies            resource.Resource[*cilium_api_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy]
 	CIDRGroups                       resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
+	L2AnnouncementPolicy             resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 }
 
 func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
@@ -149,4 +151,14 @@ func ciliumCIDRGroup(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[
 	}
 	lw := utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumCIDRGroupList](cs.CiliumV2alpha1().CiliumCIDRGroups())
 	return resource.New[*cilium_api_v2alpha1.CiliumCIDRGroup](lc, lw), nil
+}
+
+func l2AnnouncementPolicyResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicyList](
+		cs.CiliumV2alpha1().CiliumL2AnnouncementPolicies(),
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy](lc, lw), nil
 }
