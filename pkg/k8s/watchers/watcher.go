@@ -408,21 +408,22 @@ type watcherInfo struct {
 }
 
 var ciliumResourceToGroupMapping = map[string]watcherInfo{
-	synced.CRDResourceName(v2.CNPName):            {start, k8sAPIGroupCiliumNetworkPolicyV2},
-	synced.CRDResourceName(v2.CCNPName):           {start, k8sAPIGroupCiliumClusterwideNetworkPolicyV2},
-	synced.CRDResourceName(v2.CEPName):            {start, k8sAPIGroupCiliumEndpointV2}, // ipcache
-	synced.CRDResourceName(v2.CNName):             {start, k8sAPIGroupCiliumNodeV2},
-	synced.CRDResourceName(v2.CIDName):            {skip, ""}, // Handled in pkg/k8s/identitybackend/
-	synced.CRDResourceName(v2.CLRPName):           {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
-	synced.CRDResourceName(v2.CEWName):            {skip, ""}, // Handled in clustermesh-apiserver/
-	synced.CRDResourceName(v2.CEGPName):           {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
-	synced.CRDResourceName(v2alpha1.CESName):      {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
-	synced.CRDResourceName(v2.CCECName):           {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
-	synced.CRDResourceName(v2.CECName):            {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
-	synced.CRDResourceName(v2alpha1.BGPPName):     {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.LBIPPoolName): {skip, ""}, // Handled in LB IPAM
-	synced.CRDResourceName(v2alpha1.CNCName):      {skip, ""}, // Handled by init directly
-	synced.CRDResourceName(v2alpha1.CCGName):      {start, k8sAPIGroupCiliumCIDRGroupV2Alpha1},
+	synced.CRDResourceName(v2.CNPName):                  {start, k8sAPIGroupCiliumNetworkPolicyV2},
+	synced.CRDResourceName(v2.CCNPName):                 {start, k8sAPIGroupCiliumClusterwideNetworkPolicyV2},
+	synced.CRDResourceName(v2.CEPName):                  {start, k8sAPIGroupCiliumEndpointV2}, // ipcache
+	synced.CRDResourceName(v2.CNName):                   {start, k8sAPIGroupCiliumNodeV2},
+	synced.CRDResourceName(v2.CIDName):                  {skip, ""}, // Handled in pkg/k8s/identitybackend/
+	synced.CRDResourceName(v2.CLRPName):                 {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
+	synced.CRDResourceName(v2.CEWName):                  {skip, ""}, // Handled in clustermesh-apiserver/
+	synced.CRDResourceName(v2.CEGPName):                 {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
+	synced.CRDResourceName(v2alpha1.CESName):            {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
+	synced.CRDResourceName(v2.CCECName):                 {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
+	synced.CRDResourceName(v2.CECName):                  {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
+	synced.CRDResourceName(v2alpha1.BGPPName):           {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.LBIPPoolName):       {skip, ""}, // Handled in LB IPAM
+	synced.CRDResourceName(v2alpha1.CNCName):            {skip, ""}, // Handled by init directly
+	synced.CRDResourceName(v2alpha1.CCGName):            {start, k8sAPIGroupCiliumCIDRGroupV2Alpha1},
+	synced.CRDResourceName(v2alpha1.L2AnnouncementName): {skip, ""}, // Handled by L2 announcement directly
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups

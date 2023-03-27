@@ -14,6 +14,7 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/in.h>
+#include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/tcp.h>
 
@@ -110,6 +111,19 @@ struct sctphdr {
 	__be32 vtag;
 	__le32 checksum;
 };
+
+/* Define Ethernet variant ARP header */
+struct arphdreth {
+	__be16		ar_hrd;		  /* format of hardware address	*/
+	__be16		ar_pro;		  /* format of protocol address	*/
+	unsigned char	ar_hln;		  /* length of hardware address	*/
+	unsigned char	ar_pln;		  /* length of protocol address	*/
+	__be16		ar_op;		  /* ARP opcode (command)	*/
+	unsigned char	ar_sha[ETH_ALEN]; /* source ethernet address	*/
+	__be32		ar_sip;		  /* source IPv4 address	*/
+	unsigned char	ar_tha[ETH_ALEN]; /* target ethernet address 	*/
+	__be32		ar_tip;		  /* target IPv4 address	*/
+} __packed;
 
 enum pkt_layer {
 	PKT_LAYER_NONE,
@@ -401,6 +415,43 @@ struct ipv6hdr *pktgen__push_default_ipv6hdr(struct pktgen *builder)
 	hdr->hop_limit = IPV6_DEFAULT_HOPLIMIT;
 
 	return hdr;
+}
+
+/* Push an empty ARP header onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct arphdreth *pktgen__push_arphdr_ethernet(struct pktgen *builder)
+{
+	struct __ctx_buff *ctx = builder->ctx;
+	struct arphdreth *layer;
+	int layer_idx;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct arphdreth) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct arphdreth) > ctx_data_end(ctx))
+		return 0;
+
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct arphdreth))
+		return 0;
+
+	layer = ctx_data(ctx) + builder->cur_off;
+	layer_idx = pktgen__free_layer(builder);
+
+	if (layer_idx < 0)
+		return 0;
+
+	builder->layers[layer_idx] = PKT_LAYER_ARP;
+	builder->layer_offsets[layer_idx] = builder->cur_off;
+	builder->cur_off += sizeof(struct arphdreth);
+
+	layer->ar_hrd = bpf_htons(ARPHRD_ETHER);
+	layer->ar_hln = ETH_ALEN;
+	layer->ar_pln = 4; /* Size of an IPv4 address */
+
+	return layer;
 }
 
 /* Push an empty TCP header onto the packet */

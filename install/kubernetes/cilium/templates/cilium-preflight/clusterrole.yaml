@@ -82,6 +82,7 @@ rules:
   - ciliumnodes
   - ciliumnodeconfigs
   - ciliumcidrgroups
+  - ciliuml2announcementpolicies
   verbs:
   - list
   - watch

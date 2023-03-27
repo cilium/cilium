@@ -89,6 +89,9 @@ endif
 ifdef RUN
     BPF_TEST_FLAGS += -run $(RUN)
 endif
+ifdef DUMPCTX
+    BPF_TEST_FLAGS += -dump-ctx
+endif
 
 run_bpf_tests:
 	$(QUIET)$(MAKE) -C ../bpf/tests all

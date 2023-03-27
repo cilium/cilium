@@ -7,6 +7,8 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
+
+	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 )
 
 // Cell contains all cells which are providing BPF Maps.
@@ -19,4 +21,6 @@ var Cell = cell.Module(
 
 	// ConfigMap stores runtime configuration state for the Cilium datapath.
 	configmap.Cell,
+
+	l2respondermap.Cell,
 )

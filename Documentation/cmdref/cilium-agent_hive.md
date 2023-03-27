@@ -11,6 +11,7 @@ cilium-agent hive [flags]
 ### Options
 
 ```
+      --agent-liveness-update-interval duration          Interval at which the agent updates liveness time for the datapath (default 1s)
       --certificates-directory string                    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cni-chaining-mode string                         Enable CNI chaining with the specified plugin (default "none")
       --cni-exclusive                                    Whether to remove other CNI configurations

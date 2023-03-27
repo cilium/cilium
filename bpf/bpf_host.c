@@ -984,6 +984,48 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
 #endif /* TUNNEL_MODE */
 #endif /* ENABLE_IPSEC */
 
+#ifdef ENABLE_L2_ANNOUNCEMENTS
+static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx) {
+	union macaddr mac = NODE_MAC;
+	union macaddr smac;
+	__be32 sip;
+	__be32 tip;
+	struct l2_responder_v4_key key;
+	struct l2_responder_v4_stats *stats;
+	int ret;
+	__u32 index = RUNTIME_CONFIG_AGENT_LIVENESS;
+	__u64 *time;
+
+	time = map_lookup_elem(&CONFIG_MAP, &index);
+	if (!time)
+		return CTX_ACT_OK;
+	
+	/* If the agent is not active for X seconds, we can't trust the contents
+	 * of the responder map anymore. So stop responding, assuming other nodes
+	 * will take over for a node without an active agent.
+	 */
+	if (ktime_get_ns() - (*time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
+		return CTX_ACT_OK; 
+
+	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
+		return CTX_ACT_OK;
+
+	key.ip4 = tip;
+	key.ifindex = ctx->ingress_ifindex;
+	stats = map_lookup_elem(&L2_RESPONDER_MAP4, &key);
+	if (!stats) {
+		return CTX_ACT_OK;
+	}
+
+	ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+
+	if (ret == CTX_ACT_REDIRECT)
+		__sync_fetch_and_add(&stats->responses_sent, 1);
+
+	return ret;
+};
+#endif
+
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 {
@@ -1039,9 +1081,13 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	bpf_clear_meta(ctx);
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
+# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER || defined ENABLE_L2_ANNOUNCEMENTS
 	case bpf_htons(ETH_P_ARP):
-		ret = CTX_ACT_OK;
+		#ifdef ENABLE_L2_ANNOUNCEMENTS
+			ret = handle_l2_announcement(ctx);
+		#else
+			ret = CTX_ACT_OK;
+		#endif
 		break;
 # endif
 #ifdef ENABLE_IPV6
@@ -1219,6 +1265,7 @@ handle_srv6(struct __ctx_buff *ctx)
  * managed by Cilium (e.g., eth0). This program is only attached when:
  * - the host firewall is enabled, or
  * - BPF NodePort is enabled, or
+ * - L2 announcements, or
  * - WireGuard's host-to-host encryption and BPF NodePort are enabled
  */
 __section("from-netdev")

@@ -748,6 +748,18 @@ const (
 	// EnableWireguard is the name of the option to enable wireguard
 	EnableWireguard = "enable-wireguard"
 
+	// EnableL2Announcements is the name of the option to enable l2 announcements
+	EnableL2Announcements = "enable-l2-announcements"
+
+	// L2AnnouncerLeaseDuration, if a lease has not been renewed for X amount of time, a new leader can be chosen.
+	L2AnnouncerLeaseDuration = "l2-announcements-lease-duration"
+
+	// L2AnnouncerRenewDeadline, the leader will renew the lease every X amount of time.
+	L2AnnouncerRenewDeadline = "l2-announcements-renew-deadline"
+
+	// L2AnnouncerRetryPeriod, on renew failure, retry after X amount of time.
+	L2AnnouncerRetryPeriod = "l2-announcements-retry-period"
+
 	// EnableWireguardUserspaceFallback is the name of the option that enables the fallback to wireguard userspace mode
 	EnableWireguardUserspaceFallback = "enable-wireguard-userspace-fallback"
 
@@ -1654,6 +1666,16 @@ type DaemonConfig struct {
 	// EnableWireguardUserspaceFallback enables the fallback to the userspace implementation
 	EnableWireguardUserspaceFallback bool
 
+	// EnableL2Announcements enables L2 announcement of service IPs
+	EnableL2Announcements bool
+
+	// L2AnnouncerLeaseDuration, if a lease has not been renewed for X amount of time, a new leader can be chosen.
+	L2AnnouncerLeaseDuration time.Duration
+	// L2AnnouncerRenewDeadline, the leader will renew the lease every X amount of time.
+	L2AnnouncerRenewDeadline time.Duration
+	// L2AnnouncerRetryPeriod, on renew failure, retry after X amount of time.
+	L2AnnouncerRetryPeriod time.Duration
+
 	// NodeEncryptionOptOutLabels contains the label selectors for nodes opting out of
 	// node-to-node encryption
 	// This field ignored when marshalling to JSON in DaemonConfig.StoreInFile,
@@ -2506,7 +2528,7 @@ func (c *DaemonConfig) TunnelExists() bool {
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
-	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager || c.EnableWireguard
+	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager || c.EnableWireguard || c.EnableL2Announcements
 }
 
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
@@ -2912,6 +2934,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPv6MCastDevice = vp.GetString(IPv6MCastDevice)
 	c.EnableIPSec = vp.GetBool(EnableIPSecName)
 	c.EnableWireguard = vp.GetBool(EnableWireguard)
+	c.EnableL2Announcements = vp.GetBool(EnableL2Announcements)
+	c.L2AnnouncerLeaseDuration = vp.GetDuration(L2AnnouncerLeaseDuration)
+	c.L2AnnouncerRenewDeadline = vp.GetDuration(L2AnnouncerRenewDeadline)
+	c.L2AnnouncerRetryPeriod = vp.GetDuration(L2AnnouncerRetryPeriod)
 	c.EnableWireguardUserspaceFallback = vp.GetBool(EnableWireguardUserspaceFallback)
 	c.EnableWellKnownIdentities = vp.GetBool(EnableWellKnownIdentities)
 	c.EnableXDPPrefilter = vp.GetBool(EnableXDPPrefilter)

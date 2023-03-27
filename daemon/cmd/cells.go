@@ -16,12 +16,15 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 var (
@@ -58,6 +61,11 @@ var (
 
 		// Provide option.Config via hive so cells can depend on the agent config.
 		cell.Provide(func() *option.DaemonConfig { return option.Config }),
+
+		statedb.Cell,
+
+		// Provides a global job registry which cells can use to spawn job groups.
+		job.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
@@ -105,5 +113,9 @@ var (
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
+
+		// L2announcer resolves l2announcement policies, services, node labels and devices into a list of IPs+netdevs
+		// which need to be announced on the local network.
+		l2announcer.Cell,
 	)
 )
