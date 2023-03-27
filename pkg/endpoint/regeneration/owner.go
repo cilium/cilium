@@ -35,6 +35,7 @@ type Owner interface {
 
 	// GetDNSRules creates a fresh copy of DNS rules that can be used when
 	// endpoint is restored on a restart.
+	// No endpoint lock must be held while calling this function.
 	GetDNSRules(epID uint16) restore.DNSRules
 
 	// RemoveRestoredDNSRules removes any restored DNS rules for

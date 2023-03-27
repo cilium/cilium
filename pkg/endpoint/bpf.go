@@ -156,12 +156,10 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	}
 	defer f.Cleanup()
 
-	// Update DNSRules if any. This is needed because DNSRules also encode allowed destination IPs
-	// and those can change anytime we have identity updates in the cluster. If there are no
-	// DNSRules (== nil) we don't need to update here, as in that case there are no allowed
-	// destinations either.
 	if e.DNSRules != nil {
-		e.OnDNSPolicyUpdateLocked(e.owner.GetDNSRules(e.ID))
+		// Note: e.DNSRules is updated by syncEndpointHeaderFile and regenerateBPF
+		// before they call into writeHeaderfile, because GetDNSRules must not be
+		// called with the endpoint lock held.
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.Path: headerPath,
 			"DNSRules":     e.DNSRules,
@@ -612,7 +610,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	headerfileChanged, err = e.runPreCompilationSteps(regenContext)
 	// The following DNS rules code was previously inside the critical section
 	// above (runPreCompilationSteps()), but this caused a deadlock with the
-	// ipcache. It's not necessary to run this code within the  critical
+	// ipcache. It's not necessary to run this code within the critical
 	// section as the only use for the DNS rules is for restoring them upon the
 	// Agent restart.
 	rules := e.owner.GetDNSRules(uint16(e.ID))
