@@ -227,9 +227,6 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 		effectiveLimits := n.getEffectiveIPLimits(&e, limits.IPv4)
 		availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
-		if pkgOption.Config.EnableIPv6 {
-
-		}
 		IPv6effectiveLimits := n.getEffectiveIPv6IPLimits(&e, limits.IPv6)
 		IPv6availableOnENI := math.IntMax(IPv6effectiveLimits-len(e.IPv6Addresses), 0)
 		if pkgOption.Config.EnableIPv6 && availableOnENI <= 0 && IPv6availableOnENI <= 0 {
