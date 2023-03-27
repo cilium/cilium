@@ -127,9 +127,9 @@ Generating CRD YAML
 To simply generate the CRDs and copy them into the correct location you
 must perform two tasks:
 
-* Update the ``Makefile`` to copy your generated CRD from a ``tmp`` directory to 
-  the correct location in Cilium repository. Edit the following 
-  `location <https://github.com/cilium/cilium/blob/89ca3eddf3dae9ac5fc6c343a2cd26cf3aa405fa/Makefile#L303-L311>`__
+* Update the ``Makefile`` to edit the ``CRDS_CILIUM_V2`` or
+  ``CRDS_CILIUM_V2ALPHA1`` variable (depending on the version of your new CRD)
+  to contain the plural name of your new CRD.
 * Run ``make manifests``
 
 This will generate your Golang structs into CRD manifests and copy them
