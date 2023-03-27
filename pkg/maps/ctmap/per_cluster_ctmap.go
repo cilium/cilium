@@ -224,7 +224,11 @@ func (gm *perClusterCTMaps) DeleteClusterCTMaps(clusterID uint32) error {
 }
 
 func (gm *perClusterCTMaps) GetClusterCTMaps(clusterID uint32) []*Map {
-	var err error
+	var (
+		err error
+		im  *Map
+	)
+
 	ret := []*Map{}
 
 	gm.RLock()
@@ -240,12 +244,12 @@ func (gm *perClusterCTMaps) GetClusterCTMaps(clusterID uint32) []*Map {
 	}()
 
 	if gm.ipv4 {
-		if im, err := gm.tcp4.getClusterMap(clusterID); err != nil || im == nil {
+		if im, err = gm.tcp4.getClusterMap(clusterID); err != nil || im == nil {
 			return []*Map{}
 		} else {
 			ret = append(ret, im)
 		}
-		if im, err := gm.any4.getClusterMap(clusterID); err != nil || im == nil {
+		if im, err = gm.any4.getClusterMap(clusterID); err != nil || im == nil {
 			return []*Map{}
 		} else {
 			ret = append(ret, im)
@@ -253,12 +257,12 @@ func (gm *perClusterCTMaps) GetClusterCTMaps(clusterID uint32) []*Map {
 	}
 
 	if gm.ipv6 {
-		if im, err := gm.tcp6.getClusterMap(clusterID); err != nil || im == nil {
+		if im, err = gm.tcp6.getClusterMap(clusterID); err != nil || im == nil {
 			return []*Map{}
 		} else {
 			ret = append(ret, im)
 		}
-		if im, err := gm.any6.getClusterMap(clusterID); err != nil || im == nil {
+		if im, err = gm.any6.getClusterMap(clusterID); err != nil || im == nil {
 			return []*Map{}
 		} else {
 			ret = append(ret, im)
