@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
@@ -150,12 +151,10 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	}
 	defer f.Cleanup()
 
-	// Update DNSRules if any. This is needed because DNSRules also encode allowed destination IPs
-	// and those can change anytime we have identity updates in the cluster. If there are no
-	// DNSRules (== nil) we don't need to update here, as in that case there are no allowed
-	// destinations either.
 	if e.DNSRules != nil {
-		e.OnDNSPolicyUpdateLocked(e.owner.GetDNSRules(e.ID))
+		// Note: e.DNSRules is updated by syncEndpointHeaderFile and regenerateBPF
+		// before they call into writeHeaderfile, because GetDNSRules must not be
+		// called with endpoint.mutex held.
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.Path: headerPath,
 			"DNSRules":     e.DNSRules,
@@ -585,18 +584,11 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
 	defer datapathRegenCtxt.completionCancel()
 
-	headerfileChanged, err = e.runPreCompilationSteps(regenContext)
 	// The following DNS rules code was previously inside the critical section
-	// above (runPreCompilationSteps()), but this caused a deadlock with the
-	// ipcache. It's not necessary to run this code within the  critical
-	// section as the only use for the DNS rules is for restoring them upon the
-	// Agent restart.
-	rules := e.owner.GetDNSRules(uint16(e.ID))
-	if err := e.lockAlive(); err != nil {
-		return 0, compilationExecuted, err
-	}
-	e.OnDNSPolicyUpdateLocked(rules)
-	e.unlock()
+	// below (runPreCompilationSteps()), but this caused a deadlock with the
+	// IPCache. Therefore, we obtain the DNSRules outside the critical section.
+	rules := e.owner.GetDNSRules(e.ID)
+	headerfileChanged, err = e.runPreCompilationSteps(regenContext, rules)
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.
@@ -739,7 +731,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 // The endpoint mutex must not be held.
 //
 // Returns whether the headerfile changed and/or an error.
-func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (headerfileChanged bool, preCompilationError error) {
+func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rules restore.DNSRules) (headerfileChanged bool, preCompilationError error) {
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
@@ -776,6 +768,12 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 	} else {
 		close(datapathRegenCtxt.ctCleaned)
 	}
+
+	// We cannot obtain the rules while e.mutex is held, because obtaining
+	// fresh DNSRules requires the IPCache lock (which must not be taken while
+	// holding e.mutex to avoid deadlocks). Therefore, rules are obtained
+	// before the call to runPreCompilationSteps.
+	e.OnDNSPolicyUpdateLocked(rules)
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if option.Config.DryMode {
