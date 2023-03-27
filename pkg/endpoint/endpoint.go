@@ -2104,11 +2104,22 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	e.buildMutex.Lock()
 	defer e.buildMutex.Unlock()
 
+	// The following GetDNSRules call will acquire a read-lock on the IPCache.
+	// Because IPCache itself will potentially acquire endpoint locks in its
+	// critical section, we must _not_ hold endpoint.mutex while calling
+	// GetDNSRules, to avoid a deadlock between IPCache and the endpoint. It is
+	// okay to hold endpoint.buildMutex, however.
+	rules := e.owner.GetDNSRules(e.ID)
+
 	if err := e.lockAlive(); err != nil {
 		// endpoint was removed in the meanwhile, return
 		return
 	}
 	defer e.unlock()
+
+	// Update DNSRules if any. This is needed because DNSRules also encode allowed destination IPs
+	// and those can change anytime we have identity updates in the cluster.
+	e.OnDNSPolicyUpdateLocked(rules)
 
 	if err := e.writeHeaderfile(e.StateDirectoryPath()); err != nil {
 		e.getLogger().WithFields(logrus.Fields{
