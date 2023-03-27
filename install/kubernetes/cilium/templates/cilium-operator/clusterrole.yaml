@@ -195,6 +195,7 @@ rules:
   - ciliumnetworkpolicies.cilium.io
   - ciliumnodes.cilium.io
   - ciliumnodeconfigs.cilium.io
+  - ciliumcidrgroups.cilium.io
 - apiGroups:
   - cilium.io
   resources:
