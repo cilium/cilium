@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/math"
+	pkgOption "github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -226,9 +227,14 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 		effectiveLimits := n.getEffectiveIPLimits(&e, limits.IPv4)
 		availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
+		if pkgOption.Config.EnableIPv6 {
+
+		}
 		IPv6effectiveLimits := n.getEffectiveIPv6IPLimits(&e, limits.IPv6)
 		IPv6availableOnENI := math.IntMax(IPv6effectiveLimits-len(e.IPv6Addresses), 0)
-		if availableOnENI <= 0 && IPv6availableOnENI <= 0 {
+		if pkgOption.Config.EnableIPv6 && availableOnENI <= 0 && IPv6availableOnENI <= 0 {
+			continue
+		} else if pkgOption.Config.EnableIPv6 == false && availableOnENI <= 0 {
 			continue
 		} else {
 			a.InterfaceCandidates++
@@ -243,20 +249,23 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 		if subnet := n.manager.GetSubnet(e.Subnet.ID); subnet != nil {
 			if subnet.AvailableAddresses > 0 && a.InterfaceID == "" {
 				scopedLog.WithFields(logrus.Fields{
-					"subnetID":           e.Subnet.ID,
-					"availableAddresses": subnet.AvailableAddresses,
+					"subnetID":               e.Subnet.ID,
+					"availableAddresses":     subnet.AvailableAddresses,
+					"AvailableIPv6Addresses": subnet.AvailableIPv6Addresses,
 				}).Debug("Subnet has IPs available")
 
 				a.InterfaceID = key
 				a.PoolID = ipamTypes.PoolID(subnet.ID)
 				a.AvailableForAllocation = math.IntMin(subnet.AvailableAddresses, availableOnENI)
 
-				bigIPv6availableOnENI := big.NewInt(int64(IPv6availableOnENI))
-				cmpResult := subnet.AvailableIPv6Addresses.Cmp(bigIPv6availableOnENI)
-				if cmpResult == -1 {
-					a.AvailableIPv6ForAllocation = bigIPv6availableOnENI
-				} else {
-					a.AvailableIPv6ForAllocation = subnet.AvailableIPv6Addresses
+				if pkgOption.Config.EnableIPv6 {
+					bigIPv6availableOnENI := big.NewInt(int64(IPv6availableOnENI))
+					cmpResult := subnet.AvailableIPv6Addresses.Cmp(bigIPv6availableOnENI)
+					if cmpResult == -1 {
+						a.AvailableIPv6ForAllocation = bigIPv6availableOnENI
+					} else {
+						a.AvailableIPv6ForAllocation = subnet.AvailableIPv6Addresses
+					}
 				}
 			}
 		}
@@ -572,13 +581,26 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 
 			effectiveLimits := n.getEffectiveIPLimits(e, limits.IPv4)
 			availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
-			if availableOnENI > 0 {
+
+			effectiveIPv6Limits := n.getEffectiveIPLimits(e, limits.IPv6)
+			availableIPv6OnENI := math.IntMax(effectiveIPv6Limits-len(e.IPv6Addresses), 0)
+
+			if pkgOption.Config.EnableIPv6 == false && availableOnENI > 0 {
+				remainAvailableENIsCount++
+			} else if pkgOption.Config.EnableIPv6 && (availableOnENI > 0 || availableIPv6OnENI > 0) {
 				remainAvailableENIsCount++
 			}
 
 			for _, ip := range e.Addresses {
 				available[ip] = ipamTypes.AllocationIP{Resource: e.ID}
 			}
+
+			if pkgOption.Config.EnableIPv6 {
+				for _, ip := range e.IPv6Addresses {
+					available[ip] = ipamTypes.AllocationIP{Resource: e.ID}
+				}
+			}
+
 			return nil
 		})
 	enis := len(n.enis)

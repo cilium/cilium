@@ -25,6 +25,7 @@ import (
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	pkgOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -372,9 +373,11 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		}
 	}
 
-	for _, ip := range iface.Ipv6Addresses {
-		if ip.Ipv6Address != nil {
-			eni.IPv6Addresses = append(eni.IPv6Addresses, aws.ToString(ip.Ipv6Address))
+	if pkgOption.Config.EnableIPv6 {
+		for _, ip := range iface.Ipv6Addresses {
+			if ip.Ipv6Address != nil {
+				eni.IPv6Addresses = append(eni.IPv6Addresses, aws.ToString(ip.Ipv6Address))
+			}
 		}
 	}
 
@@ -515,16 +518,19 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 			continue
 		}
 
-		// There is no AvailableIpAddressCount parameter for IPv6 provided by AWS
-		// So just calculate the IPv6 address count instead
-		// According: https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_AwsEc2SubnetDetails.html
 		availableIPv6AddressCount := big.NewInt(0)
-		for _, IPv6CidrBlock := range s.Ipv6CidrBlockAssociationSet {
-			IPv6Cidr, err := cidr.ParseCIDR(aws.ToString(IPv6CidrBlock.Ipv6CidrBlock))
-			if err != nil {
-				continue
+
+		if pkgOption.Config.EnableIPv6 {
+			// There is no AvailableIpAddressCount parameter for IPv6 provided by AWS
+			// So just calculate the IPv6 address count instead
+			// According: https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_AwsEc2SubnetDetails.html
+			for _, IPv6CidrBlock := range s.Ipv6CidrBlockAssociationSet {
+				IPv6Cidr, err := cidr.ParseCIDR(aws.ToString(IPv6CidrBlock.Ipv6CidrBlock))
+				if err != nil {
+					continue
+				}
+				availableIPv6AddressCount = availableIPv6AddressCount.And(availableIPv6AddressCount, ipPkg.CountIPsInCIDR(IPv6Cidr.IPNet))
 			}
-			availableIPv6AddressCount = availableIPv6AddressCount.And(availableIPv6AddressCount, ipPkg.CountIPsInCIDR(IPv6Cidr.IPNet))
 		}
 
 		subnet := &ipamTypes.Subnet{
