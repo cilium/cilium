@@ -556,7 +556,8 @@ ct_recreate6:
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	/* See handle_ipv4_from_lxc() re hairpin_flow */
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
+	if (is_defined(ENABLE_ROUTING) || hairpin_flow ||
+	    is_defined(ENABLE_HOST_ROUTING)) {
 		struct endpoint_info *ep;
 
 		/* Lookup IPv6 address, this will return a match if:
@@ -567,15 +568,17 @@ ct_recreate6:
 		 */
 		ep = lookup_ip6_endpoint(ip6);
 		if (ep) {
-#ifdef ENABLE_ROUTING
+#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_F_HOST) {
-#ifdef HOST_IFINDEX
-				goto to_host;
-#else
-				return DROP_HOST_UNREACHABLE;
-#endif
+				if (is_defined(ENABLE_ROUTING)) {
+# ifdef HOST_IFINDEX
+					goto to_host;
+# endif
+					return DROP_HOST_UNREACHABLE;
+				}
+				goto pass_to_stack;
 			}
-#endif /* ENABLE_ROUTING */
+#endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL, ep,
@@ -629,8 +632,10 @@ ct_recreate6:
 
 	goto pass_to_stack;
 
-#ifdef ENABLE_ROUTING
+#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 to_host:
+#endif
+#ifdef ENABLE_ROUTING
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_id == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
 				  HOST_IFINDEX, trace.reason, trace.monitor);
@@ -1015,11 +1020,19 @@ ct_recreate4:
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
-	 * disabled. Otherwise, the packet will be dropped by the kernel if
-	 * it is going to be routed via an interface it came from after it has
-	 * been passed to the stack.
+	 * disabled (for example, with per-endpoint routes). Otherwise, the
+	 * packet will be dropped by the kernel if the packet will be routed to
+	 * the interface it came from after the packet has been passed to the
+	 * stack.
+	 *
+	 * If ENABLE_ROUTING is disabled, but the fast redirect is enabled, we
+	 * do lookup the local endpoint here to check whether we must pass the
+	 * packet up the stack for the host itself. We also want to run through
+	 * the ipv4_local_delivery() function to enforce ingress policies for
+	 * that endpoint.
 	 */
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
+	if (is_defined(ENABLE_ROUTING) || hairpin_flow ||
+	    is_defined(ENABLE_HOST_ROUTING)) {
 		struct endpoint_info *ep;
 
 		/* Lookup IPv4 address, this will return a match if:
@@ -1031,15 +1044,17 @@ ct_recreate4:
 		 */
 		ep = lookup_ip4_endpoint(ip4);
 		if (ep) {
-#ifdef ENABLE_ROUTING
+#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_F_HOST) {
-#ifdef HOST_IFINDEX
-				goto to_host;
-#else
-				return DROP_HOST_UNREACHABLE;
-#endif
+				if (is_defined(ENABLE_ROUTING)) {
+# ifdef HOST_IFINDEX
+					goto to_host;
+# endif
+					return DROP_HOST_UNREACHABLE;
+				}
+				goto pass_to_stack;
 			}
-#endif /* ENABLE_ROUTING */
+#endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL, ip4,
@@ -1167,8 +1182,10 @@ skip_vtep:
 
 	goto pass_to_stack;
 
-#ifdef ENABLE_ROUTING
+#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 to_host:
+#endif
+#ifdef ENABLE_ROUTING
 	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_id == HOST_ID) {
 		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL, HOST_ID, 0,
 				  HOST_IFINDEX, trace.reason, trace.monitor);
