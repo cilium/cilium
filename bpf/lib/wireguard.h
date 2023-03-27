@@ -92,6 +92,15 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		goto out;
 #endif /* ENABLE_NODE_ENCRYPTION */
 
+	/* We don't want to encrypt any traffic that originates from outside
+	 * the cluster.
+	 * Without this check, that may happen for the egress gateway, when
+	 * reply traffic arrives from the cluster-external server and goes to
+	 * the client pod.
+	 */
+	if (!src || !identity_is_cluster(src->sec_label))
+		goto out;
+
 	/* Redirect to the WireGuard tunnel device if the encryption is
 	 * required.
 	 */
