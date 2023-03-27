@@ -701,14 +701,14 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 				logfields.IPv6:         ep.GetIPv6Address(),
 				logfields.EndpointID:   ep.ID,
 				logfields.K8sPodName:   ep.GetK8sPodName(),
-				logfields.K8sNamespace: ep.GetK8sPodName(),
+				logfields.K8sNamespace: ep.GetK8sNamespace(),
 			}).Info(msg)
 		default:
 			log.WithFields(logrus.Fields{
 				logfields.ContainerID:  containerID,
 				logfields.EndpointID:   ep.ID,
 				logfields.K8sPodName:   ep.GetK8sPodName(),
-				logfields.K8sNamespace: ep.GetK8sPodName(),
+				logfields.K8sNamespace: ep.GetK8sNamespace(),
 			}).Info(msg)
 		}
 		return d.deleteEndpoint(ep), nil
