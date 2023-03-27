@@ -19,6 +19,10 @@ func (c *FakeCiliumV2alpha1) CiliumBGPPeeringPolicies() v2alpha1.CiliumBGPPeerin
 	return &FakeCiliumBGPPeeringPolicies{c}
 }
 
+func (c *FakeCiliumV2alpha1) CiliumCIDRGroups() v2alpha1.CiliumCIDRGroupInterface {
+	return &FakeCiliumCIDRGroups{c}
+}
+
 func (c *FakeCiliumV2alpha1) CiliumEndpointSlices() v2alpha1.CiliumEndpointSliceInterface {
 	return &FakeCiliumEndpointSlices{c}
 }

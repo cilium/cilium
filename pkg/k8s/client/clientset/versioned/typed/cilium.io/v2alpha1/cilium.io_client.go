@@ -16,6 +16,7 @@ import (
 type CiliumV2alpha1Interface interface {
 	RESTClient() rest.Interface
 	CiliumBGPPeeringPoliciesGetter
+	CiliumCIDRGroupsGetter
 	CiliumEndpointSlicesGetter
 	CiliumLoadBalancerIPPoolsGetter
 	CiliumNodeConfigsGetter
@@ -28,6 +29,10 @@ type CiliumV2alpha1Client struct {
 
 func (c *CiliumV2alpha1Client) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInterface {
 	return newCiliumBGPPeeringPolicies(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumCIDRGroups() CiliumCIDRGroupInterface {
+	return newCiliumCIDRGroups(c)
 }
 
 func (c *CiliumV2alpha1Client) CiliumEndpointSlices() CiliumEndpointSliceInterface {

@@ -64,6 +64,11 @@ const (
 	CNCPluralName     = "ciliumnodeconfigs"
 	CNCKindDefinition = "CiliumNodeConfig"
 	CNCName           = CNCPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumCIDRGroup (CCG)
+	CCGPluralName     = "ciliumcidrgroups"
+	CCGKindDefinition = "CiliumCIDRGroup"
+	CCGName           = CCGPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -115,6 +120,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumLoadBalancerIPPoolList{},
 		&CiliumNodeConfig{},
 		&CiliumNodeConfigList{},
+		&CiliumCIDRGroup{},
+		&CiliumCIDRGroupList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

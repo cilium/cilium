@@ -124,3 +124,9 @@ annotations:
       description: |
         CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
         nodes indicated by a label selector.
+    - kind: CiliumCIDRGroup
+      version: v2alpha1
+      name: ciliumcidrgroups.cilium.io
+      displayName: Cilium CIDR Group
+      description: |
+        CiliumCIDRGroup is is a list of CIDRs that can be referenced as a single entity from CiliumNetworkPolicies.
