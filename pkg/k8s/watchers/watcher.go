@@ -540,6 +540,8 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		return fmt.Errorf("error creating service list option modifier: %w", err)
 	}
 
+	// CNP and CCNP resources are handled together.
+	var cnpOnce sync.Once
 	for _, r := range resourceNames {
 		switch r {
 		// Core Cilium
@@ -570,10 +572,8 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			// only watch secrets in specific namespaces
 			k.tlsSecretInit(k.clientset.Slim(), option.Config.EnvoySecretNamespaces, swgSecret)
 		// Custom resource definitions
-		case k8sAPIGroupCiliumNetworkPolicyV2:
-			k.ciliumNetworkPoliciesInit(ctx, k.clientset)
-		case k8sAPIGroupCiliumClusterwideNetworkPolicyV2:
-			k.ciliumClusterwideNetworkPoliciesInit(ctx, k.clientset)
+		case k8sAPIGroupCiliumNetworkPolicyV2, k8sAPIGroupCiliumClusterwideNetworkPolicyV2:
+			cnpOnce.Do(func() { k.ciliumNetworkPoliciesInit(ctx, k.clientset) })
 		case k8sAPIGroupCiliumEndpointV2:
 			k.initCiliumEndpointOrSlices(k.clientset, asyncControllers)
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
