@@ -21,12 +21,20 @@ func newCmdHubble() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newCmdHubbleEnable(),
-		newCmdHubbleDisable(),
 		newCmdPortForwardCommand(),
 		newCmdUI(),
 	)
-
+	if os.Getenv("CILIUM_CLI_MODE") == "helm" {
+		cmd.AddCommand(
+			newCmdHubbleEnableWithHelm(),
+			newCmdHubbleDisableWithHelm(),
+		)
+	} else {
+		cmd.AddCommand(
+			newCmdHubbleEnable(),
+			newCmdHubbleDisable(),
+		)
+	}
 	return cmd
 }
 
@@ -53,7 +61,7 @@ func newCmdHubbleEnable() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&params.Relay, "relay", true, "Deploy Hubble Relay")
+	addCommonHubbleEnableFlags(cmd, &params)
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.RelayImage, "relay-image", "", "Image path to use for Relay")
 	// It can be deprecated since we have a helm option for it
@@ -61,7 +69,6 @@ func newCmdHubbleEnable() *cobra.Command {
 	// It can be deprecated since there is not a helm option for it and
 	cmd.Flags().StringVar(&params.RelayServiceType, "relay-service-type", "ClusterIP", "Type of Kubernetes service to expose Hubble Relay")
 	cmd.Flags().MarkDeprecated("relay-service-type", "value is no longer used for relay-service")
-	cmd.Flags().BoolVar(&params.UI, "ui", false, "Enable Hubble UI")
 
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.UIImage, "ui-image", "", "Image path to use for UI")
@@ -176,6 +183,57 @@ func newCmdUI() *cobra.Command {
 
 	cmd.Flags().IntVar(&params.UIPortForward, "port-forward", 12000, "Local port to use for the port forward")
 	cmd.Flags().BoolVar(&params.UIOpenBrowser, "open-browser", true, "When --open-browser=false is supplied, cilium Hubble UI will not open the browser")
+
+	return cmd
+}
+
+// addCommonUninstallFlags adds uninstall command flags that are shared between classic and helm mode.
+func addCommonHubbleEnableFlags(cmd *cobra.Command, params *hubble.Parameters) {
+	cmd.Flags().BoolVar(&params.Relay, "relay", true, "Deploy Hubble Relay")
+	cmd.Flags().BoolVar(&params.UI, "ui", false, "Enable Hubble UI")
+}
+
+func newCmdHubbleEnableWithHelm() *cobra.Command {
+	var params = hubble.Parameters{
+		Writer: os.Stdout,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "enable",
+		Short: "Enable Hubble observability using Helm",
+		Long:  ``,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+			ctx := context.Background()
+			if err := hubble.EnableWithHelm(ctx, k8sClient, params); err != nil {
+				fatalf("Unable to enable Hubble: %s", err)
+			}
+			return nil
+		},
+	}
+
+	addCommonHubbleEnableFlags(cmd, &params)
+	return cmd
+}
+
+func newCmdHubbleDisableWithHelm() *cobra.Command {
+	var params = hubble.Parameters{
+		Writer: os.Stdout,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "disable",
+		Short: "Disable Hubble observability using Helm",
+		Long:  ``,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+			ctx := context.Background()
+			if err := hubble.DisableWithHelm(ctx, k8sClient, params); err != nil {
+				fatalf("Unable to disable Hubble:  %s", err)
+			}
+			return nil
+		},
+	}
 
 	return cmd
 }
