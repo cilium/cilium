@@ -118,6 +118,12 @@ func (t *transaction) Commit() error {
 	changedTables := map[string]struct{}{}
 	for _, change := range t.txn.Changes() {
 		changedTables[change.Table] = struct{}{}
+
+		// Verify that a copy of the original object is being
+		// inserted rather than mutated in-place.
+		if change.Before == change.After {
+			panic("statedb: The original object is being modified without being copied first!")
+		}
 	}
 	t.db.revision = t.revision
 	t.txn.Commit()
