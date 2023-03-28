@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -161,7 +162,7 @@ func (c *CiliumEndpointSliceController) Run(ces cache.Indexer, stopCh <-chan str
 	c.ciliumEndpointStore = ces
 
 	// On operator warm boot, remove stale CEP entries present in CES
-	c.removeStaleCEPEntries()
+	c.removeStaleAndDuplicatedCEPEntries()
 
 	log.WithFields(logrus.Fields{
 		logfields.CESSliceMode: c.slicingMode,
@@ -182,24 +183,67 @@ func (c *CiliumEndpointSliceController) Run(ces cache.Indexer, stopCh <-chan str
 // Upon warm boot[restart], Iterate over all CEPs which we got from the api-server
 // and compare it with CEPs packed inside CES.
 // If there are any stale CEPs present in CESs, remove them from their CES.
-func (c *CiliumEndpointSliceController) removeStaleCEPEntries() {
-	log.Info("Remove stale CEP entries in CES")
+// If there are any duplicated CEPs present in CESs, remove all but one trying
+// to keep the CEP with matching identity if it's present.
+func (c *CiliumEndpointSliceController) removeStaleAndDuplicatedCEPEntries() {
+	log.Info("Remove stale and duplicated CEP entries in CES")
+
+	type cepMapping struct {
+		identity int64
+		cesName  string
+	}
+
+	cepsMapping := make(map[string][]cepMapping)
 
 	// Get all CEPs from local datastore
-	staleCEPs := c.Manager.getAllCEPNames()
+	// Map CEP Names to list of whole structure + CES Name
+	for _, ces := range c.Manager.getAllCESs() {
+		for _, cep := range ces.getAllCEPs() {
+			cepName := ces.getCEPNameFromCCEP(&cep)
+			cepsMapping[cepName] = append(cepsMapping[cepName], cepMapping{identity: cep.IdentityID, cesName: ces.getCESName()})
+		}
+	}
 
-	// Remove stale CEP entries present in CES
-	for _, cepName := range staleCEPs {
+	for cepName, mappings := range cepsMapping {
+		storeCep, exists, err := c.ciliumEndpointStore.GetByKey(cepName)
 		// Ignore error from below api, this is added to avoid accidental cep rmeoval from cache
-		if _, exists, err := c.ciliumEndpointStore.GetByKey(cepName); err == nil && exists || err != nil {
+		if err != nil {
 			continue
 		}
-		log.WithFields(logrus.Fields{
-			logfields.CEPName: cepName,
-		}).Debug("Removing stale CEP entry.")
-		c.Manager.RemoveCEPFromCache(cepName, DefaultCESSyncTime)
+		if !exists {
+			// Remove stale CEP entries present in CES
+			for _, mapping := range mappings {
+				log.WithFields(logrus.Fields{
+					logfields.CEPName: cepName,
+				}).Debug("Removing stale CEP entry.")
+				c.Manager.removeCEPFromCES(cepName, mapping.cesName, DefaultCESSyncTime, 0, false)
+			}
+		} else if len(mappings) > 1 {
+			// Remove duplicated CEP entries present in CES
+			found := false
+			cep := storeCep.(*cilium_api_v2.CiliumEndpoint)
+			// Skip first element for now
+			for _, mapping := range mappings[1:] {
+				if !found && mapping.identity == cep.Status.Identity.ID {
+					// Don't remove the first element for which identity matches
+					found = true
+					// All others elements will be removed so update mapping to make sure
+					// it points to the element that was kept
+					c.Manager.updateCEPToCESMapping(cepName, mapping.cesName)
+					continue
+				}
+				c.Manager.removeCEPFromCES(cepName, mapping.cesName, DefaultCESSyncTime, mapping.identity, true)
+			}
+			if found {
+				// Remove first element if element with matching identity was found
+				c.Manager.removeCEPFromCES(cepName, mappings[0].cesName, DefaultCESSyncTime, mappings[0].identity, true)
+			} else {
+				// All others elements were removed so update mapping to make sure
+				// it points to the only element left
+				c.Manager.updateCEPToCESMapping(cepName, mappings[0].cesName)
+			}
+		}
 	}
-	return
 }
 
 // Sync all CESs from cesStore to manager cache.

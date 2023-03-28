@@ -48,7 +48,9 @@ type cesTracker struct {
 type operations interface {
 	// External APIs to Insert/Remove CEP in local dataStore
 	InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) string
+	updateCEPToCESMapping(cepName string, cesName string)
 	RemoveCEPFromCache(cepName string, baseDelay time.Duration)
+	removeCEPFromCES(cepName string, cesName string, baseDelay time.Duration, identity int64, checkIdentity bool)
 	// Supporting APIs to Insert/Remove CEP in local dataStore and effectively
 	// manages CES's.
 	getCESFromCache(cesName string) (*cilium_v2.CiliumEndpointSlice, error)
@@ -64,9 +66,16 @@ type operations interface {
 	getTotalCEPCount() int
 	getCEPCountInCES(cesName string) int
 	getCESCount() int
+	getAllCESs() []cesOperations
 	getAllCEPNames() []string
 	getCESMetricCountersAndClear(cesName string) (cepInsert int64, cepRemove int64)
 	getCESQueueDelayInSeconds(cesName string) (diff float64)
+}
+
+type cesOperations interface {
+	getAllCEPs() []cilium_v2.CoreCiliumEndpoint
+	getCESName() string
+	getCEPNameFromCCEP(cep *cilium_v2.CoreCiliumEndpoint) string
 }
 
 // cesMgr is used to batch CEP into a CES, based on FirstComeFirstServe. If a new CEP
@@ -333,11 +342,15 @@ func (c *cesMgr) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) 
 	}()
 
 	// Cache CEP name with newly allocated CES.
-	c.desiredCESs.insertCEP(GetCEPNameFromCCEP(cep, ns), cesName)
+	c.updateCEPToCESMapping(GetCEPNameFromCCEP(cep, ns), cesName)
 
 	// Queue the CEP in CES
 	c.addCEPtoCES(cep, cb)
 	return cesName
+}
+
+func (c *cesMgr) updateCEPToCESMapping(cepName string, cesName string) {
+	c.desiredCESs.insertCEP(cepName, cesName)
 }
 
 // RemoveCEPFromCache is used to remove the CEP from local cache, this may result in
@@ -350,36 +363,7 @@ func (c *cesMgr) RemoveCEPFromCache(cepName string, baseDelay time.Duration) {
 	// Check in local cache, if a given cep is already batched in one of the ces.
 	// and if exists, delete cep from ces.
 	if cesName, exists := c.desiredCESs.getCESName(cepName); exists {
-		var ces *cesTracker
-		if ces, exists = c.desiredCESs.getCESTracker(cesName); !exists {
-			log.WithFields(logrus.Fields{
-				logfields.CESName: cesName,
-				logfields.CEPName: cepName,
-			}).Info("Attempted to remove non-existent CES, skipping.")
-			return
-		}
-
-		ces.backendMutex.Lock()
-		defer ces.backendMutex.Unlock()
-		for i, ep := range ces.ces.Endpoints {
-			if GetCEPNameFromCCEP(&ep, ces.ces.Namespace) == cepName {
-				// Insert deleted CoreCEP in removedCEPs
-				ces.removedCEPs[GetCEPNameFromCCEP(&ep, ces.ces.Namespace)] = struct{}{}
-				ces.ces.Endpoints =
-					append(ces.ces.Endpoints[:i],
-						ces.ces.Endpoints[i+1:]...)
-				break
-			}
-		}
-		log.WithFields(logrus.Fields{
-			logfields.CESName:  cesName,
-			logfields.CEPName:  cepName,
-			logfields.CEPCount: len(ces.ces.Endpoints),
-		}).Debug("Removed CEP from CES")
-
-		// Increment the cepRemove counter
-		ces.cepRemoved += 1
-		c.insertCESInWorkQueue(ces, baseDelay)
+		c.removeCEPFromCES(cepName, cesName, baseDelay, 0, false)
 	} else {
 		log.WithFields(logrus.Fields{
 			logfields.CESName: cesName,
@@ -388,6 +372,40 @@ func (c *cesMgr) RemoveCEPFromCache(cepName string, baseDelay time.Duration) {
 	}
 
 	return
+}
+
+func (c *cesMgr) removeCEPFromCES(cepName string, cesName string, baseDelay time.Duration, identity int64, checkIdentity bool) {
+	var ces *cesTracker
+	var exists bool
+	if ces, exists = c.desiredCESs.getCESTracker(cesName); !exists {
+		log.WithFields(logrus.Fields{
+			logfields.CESName: cesName,
+			logfields.CEPName: cepName,
+		}).Info("Attempted to remove non-existent CES, skipping.")
+		return
+	}
+
+	ces.backendMutex.Lock()
+	defer ces.backendMutex.Unlock()
+	for i, ep := range ces.ces.Endpoints {
+		if GetCEPNameFromCCEP(&ep, ces.ces.Namespace) == cepName && (!checkIdentity || ep.IdentityID == identity) {
+			// Insert deleted CoreCEP in removedCEPs
+			ces.removedCEPs[GetCEPNameFromCCEP(&ep, ces.ces.Namespace)] = struct{}{}
+			ces.ces.Endpoints =
+				append(ces.ces.Endpoints[:i],
+					ces.ces.Endpoints[i+1:]...)
+			break
+		}
+	}
+	log.WithFields(logrus.Fields{
+		logfields.CESName:  cesName,
+		logfields.CEPName:  cepName,
+		logfields.CEPCount: len(ces.ces.Endpoints),
+	}).Debug("Removed CEP from CES")
+
+	// Increment the cepRemove counter
+	ces.cepRemoved += 1
+	c.insertCESInWorkQueue(ces, baseDelay)
 }
 
 // getLargestAvailableCESForNamespace returns the largest CES from cache for the
@@ -441,7 +459,28 @@ func (c *cesMgr) getCEPCountInCES(cesName string) (cnt int) {
 
 // Returns the total count of CESs in local cache
 func (c *cesMgr) getCESCount() int {
-	return (c.desiredCESs.getCESCount())
+	return c.desiredCESs.getCESCount()
+}
+
+func (c *cesMgr) getAllCESs() []cesOperations {
+	allCESs := c.desiredCESs.getAllCESs()
+	cess := make([]cesOperations, len(allCESs))
+	for i, ces := range allCESs {
+		cess[i] = ces
+	}
+	return cess
+}
+
+func (ces *cesTracker) getAllCEPs() []cilium_v2.CoreCiliumEndpoint {
+	return ces.ces.Endpoints
+}
+
+func (ces *cesTracker) getCESName() string {
+	return ces.ces.Name
+}
+
+func (ces *cesTracker) getCEPNameFromCCEP(cep *cilium_v2.CoreCiliumEndpoint) string {
+	return GetCEPNameFromCCEP(cep, ces.ces.Namespace)
 }
 
 // Returns the list of cep names
