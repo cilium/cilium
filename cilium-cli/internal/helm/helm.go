@@ -403,7 +403,7 @@ func ListVersions() ([]string, error) {
 }
 
 // ResolveHelmChartVersion resolves Helm chart version based on --version and --chart-directory flags.
-func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag string) (semver2.Version, error) {
+func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag string) (semver2.Version, *chart.Chart, error) {
 	if chartDirectoryFlag == "" {
 		// If --chart-directory flag is not specified, use the version specified with --version flag.
 		return resolveChartVersion(versionFlag)
@@ -412,29 +412,29 @@ func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag string) (semver2.Ve
 	// Get the chart version from the local Helm chart specified with --chart-directory flag.
 	localChart, err := newChartFromDirectory(chartDirectoryFlag)
 	if err != nil {
-		return semver2.Version{}, fmt.Errorf("failed to load Helm chart directory %s: %s", chartDirectoryFlag, err)
+		return semver2.Version{}, nil, fmt.Errorf("failed to load Helm chart directory %s: %s", chartDirectoryFlag, err)
 	}
-	return versioncheck.MustVersion(localChart.Metadata.Version), nil
+	return versioncheck.MustVersion(localChart.Metadata.Version), localChart, nil
 }
 
-func resolveChartVersion(versionFlag string) (semver2.Version, error) {
+func resolveChartVersion(versionFlag string) (semver2.Version, *chart.Chart, error) {
 	version, err := utils.ParseCiliumVersion(versionFlag)
 	if err != nil {
-		return semver2.Version{}, err
+		return semver2.Version{}, nil, err
 	}
 
-	_, err = newChartFromEmbeddedFile(version)
+	helmChart, err := newChartFromEmbeddedFile(version)
 	if err == nil {
-		return version, nil
+		return version, helmChart, nil
 	}
 
 	if !errors.Is(err, fs.ErrNotExist) {
-		return semver2.Version{}, err
+		return semver2.Version{}, nil, err
 	}
 
-	_, err = newChartFromRemoteWithCache(version)
+	helmChart, err = newChartFromRemoteWithCache(version)
 	if err != nil {
-		return semver2.Version{}, err
+		return semver2.Version{}, nil, err
 	}
-	return version, nil
+	return version, helmChart, nil
 }
