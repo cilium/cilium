@@ -22,7 +22,13 @@ jobs:
   installation-and-connectivity:
     runs-on: ubuntu-22.04
     timeout-minutes: 40
+    strategy:
+      matrix:
+        mode: ["classic", "helm"]
     steps:
+      - name: Set mode
+        run: |
+          echo "CILIUM_CLI_MODE=${{ matrix.mode }}" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
 
@@ -65,8 +71,18 @@ jobs:
             --helm-set tls.secretsBackend=k8s
 
       - name: Enable Relay
+        if: ${{ matrix.mode == 'classic' }}
         run: |
           cilium hubble enable --ui
+
+      # TODO: Implement 'cilium hubble enable' command
+      - name: Enable Relay
+        if: ${{ matrix.mode == 'helm' }}
+        run: |
+          helm repo add cilium https://helm.cilium.io
+          helm upgrade -n kube-system cilium cilium/cilium --version ${{ env.cilium_version }} --set hubble.relay.enabled=true --set hubble.ui.enabled=true --reuse-values
+          helm get values -n kube-system cilium
+          cilium status --wait
 
       - name: Relay Port Forward
         run: |
@@ -86,15 +102,36 @@ jobs:
           cilium uninstall --wait
 
       - name: Install Cilium with IPsec Encryption
+        if: ${{ matrix.mode == 'classic' }}
         run: |
           cilium install \
           --version=${{ env.cilium_version}} \
           --encryption=ipsec \
           --helm-set kubeProxyReplacement=disabled
 
+      - name: Install Cilium with IPsec Encryption
+        if: ${{ matrix.mode == 'helm' }}
+        run: |
+          kubectl create -n kube-system secret generic cilium-ipsec-keys \
+            --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+          cilium install \
+          --version=${{ env.cilium_version}} \
+          --helm-set encryption.enabled=true \
+          --helm-set encryption.type=ipsec \
+          --helm-set kubeProxyReplacement=disabled
+
       - name: Enable Relay
+        if: ${{ matrix.mode == 'classic' }}
         run: |
           cilium hubble enable
+
+      # TODO: Implement 'cilium hubble enable' command
+      - name: Enable Relay
+        if: ${{ matrix.mode == 'helm' }}
+        run: |
+          helm upgrade -n kube-system cilium cilium/cilium --version ${{ env.cilium_version }} --set hubble.relay.enabled=true --set hubble.ui.enabled=true --reuse-values
+          helm get values -n kube-system cilium
+          cilium status --wait
 
       - name: Relay Port Forward
         run: |

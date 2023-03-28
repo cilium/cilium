@@ -14,6 +14,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/spf13/pflag"
+	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
@@ -25,6 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -602,7 +604,7 @@ func (k *K8sInstaller) listVersions() error {
 	return err
 }
 
-func (k *K8sInstaller) Install(ctx context.Context) error {
+func (k *K8sInstaller) preinstall(ctx context.Context) error {
 	// If --list-versions flag is specified, print available versions and return.
 	if k.params.ListVersions {
 		return k.listVersions()
@@ -636,7 +638,13 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 			}
 		}
 	}
+	return nil
+}
 
+func (k *K8sInstaller) Install(ctx context.Context) error {
+	if err := k.preinstall(ctx); err != nil {
+		return err
+	}
 	err := k.generateManifests(ctx)
 	if err != nil {
 		return err
@@ -968,4 +976,29 @@ func (k *K8sInstaller) RollbackInstallation(ctx context.Context) {
 	for _, r := range k.rollbackSteps {
 		r(ctx)
 	}
+}
+
+func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient genericclioptions.RESTClientGetter) error {
+	if err := k.preinstall(ctx); err != nil {
+		return err
+	}
+	vals, err := k.getHelmValues()
+	if err != nil {
+		return err
+	}
+	actionConfig := action.Configuration{}
+	// Use the default Helm driver (Kubernetes secret).
+	helmDriver := ""
+	// TODO(michi) Make the logger configurable
+	logger := func(format string, v ...interface{}) {}
+	if err := actionConfig.Init(k8sClient, k.params.Namespace, helmDriver, logger); err != nil {
+		return err
+	}
+	helmClient := action.NewInstall(&actionConfig)
+	helmClient.ReleaseName = defaults.HelmReleaseName
+	helmClient.Namespace = k.params.Namespace
+	helmClient.Wait = k.params.Wait
+	helmClient.Timeout = k.params.WaitDuration
+	_, err = helmClient.RunWithContext(ctx, k.chart, vals)
+	return err
 }

@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/cilium/workerpool"
+	"helm.sh/helm/v3/pkg/action"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/cilium/cilium-cli/clustermesh"
 	"github.com/cilium/cilium-cli/defaults"
@@ -45,6 +47,21 @@ func NewK8sUninstaller(client k8sInstallerImplementation, p UninstallParameters)
 
 func (k *K8sUninstaller) Log(format string, a ...interface{}) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
+}
+
+func (k *K8sUninstaller) UninstallWithHelm(k8sClient genericclioptions.RESTClientGetter) error {
+	actionConfig := action.Configuration{}
+	// Use the default Helm driver (Kubernetes secret).
+	helmDriver := ""
+	// TODO(michi) Make the logger configurable
+	logger := func(format string, v ...interface{}) {}
+	if err := actionConfig.Init(k8sClient, k.params.Namespace, helmDriver, logger); err != nil {
+		return err
+	}
+	helmClient := action.NewUninstall(&actionConfig)
+	helmClient.Wait = k.params.Wait
+	_, err := helmClient.Run(defaults.HelmReleaseName)
+	return err
 }
 
 func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
