@@ -62,6 +62,7 @@ func runTest(t *testing.T, p testParams) {
 	db := p.DB
 	fooId1, fooId2 := NewUUID(), NewUUID()
 
+	// Helper function to assert that the two "foo" objects exist.
 	assertGet := func(tx ReadTransaction) {
 		foos := p.Foos.Reader(tx)
 
@@ -105,6 +106,7 @@ func runTest(t *testing.T, p testParams) {
 		assertGet(tx)
 		tx.Commit()
 	}
+
 	// Check that it's been committed.
 	assertGet(db.ReadTxn())
 
@@ -139,15 +141,41 @@ func runTest(t *testing.T, p testParams) {
 		t.Errorf("expected Invalidated() channel to be closed!")
 	}
 
+	// Check that modifications to existing objects also result in notification.
+	it, err = p.Foos.Reader(db.ReadTxn()).Get(All)
+	assert.NoError(t, err)
+	ch = it.Invalidated()
+	select {
+	case <-ch:
+		t.Errorf("expected Invalidated() channel to block!")
+	default:
+	}
+
+	tx3 := db.WriteTxn()
+	foo2, err := p.Foos.Reader(tx3).First(ByUUID(fooId2))
+	assert.NoError(t, err)
+	assert.NotNil(t, foo2)
+	foo2 = foo2.DeepCopy()
+	foo2.Num = 222
+	err = p.Foos.Writer(tx3).Insert(foo2)
+	assert.NoError(t, err)
+	tx3.Commit()
+
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Errorf("expected Invalidated() channel to be closed!")
+	}
+
 	it, err = p.Foos.Reader(db.ReadTxn()).Get(All)
 	assert.NoError(t, err)
 	assert.Equal(t, Length[*Foo](it), 3)
 
 	// Aborting doesn't change anything.
-	tx3 := db.WriteTxn()
-	err = p.Foos.Writer(tx3).Insert(&Foo{UUID: NewUUID(), Num: 3})
+	tx4 := db.WriteTxn()
+	err = p.Foos.Writer(tx4).Insert(&Foo{UUID: NewUUID(), Num: 3})
 	assert.NoError(t, err)
-	tx3.Abort()
+	tx4.Abort()
 
 	it, err = p.Foos.Reader(db.ReadTxn()).Get(All)
 	assert.NoError(t, err)
@@ -165,7 +193,7 @@ func runTest(t *testing.T, p testParams) {
 	foos, ok := result[fooTableSchema.Name]
 	assert.True(t, ok, "There should be a 'foos' table")
 	assert.Len(t, foos, 3)
-	assert.True(t, foos[0].Num > 0 && foos[0].Num <= 3)
+	assert.True(t, foos[0].Num > 0)
 	assert.True(t, len(foos[0].UUID) > 0)
 }
 
