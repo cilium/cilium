@@ -178,8 +178,8 @@ github.com/cilium/coverbee/pkg/verifierlog
 github.com/cilium/customvet
 github.com/cilium/customvet/analysis/ioreadall
 github.com/cilium/customvet/analysis/timeafter
-# github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
-## explicit; go 1.14
+# github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2
+## explicit; go 1.20
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/generators
 # github.com/cilium/ebpf v0.10.0
@@ -1610,7 +1610,7 @@ k8s.io/code-generator/third_party/forked/golang/reflect
 ## explicit; go 1.19
 k8s.io/component-base/config
 k8s.io/component-base/config/v1alpha1
-# k8s.io/gengo v0.0.0-20220902162205-c0856e24416d
+# k8s.io/gengo v0.0.0-20230306165830-ab3349d207d4
 ## explicit; go 1.13
 k8s.io/gengo/args
 k8s.io/gengo/examples/deepcopy-gen/generators

@@ -927,18 +927,8 @@ func (in *EndpointStatus) DeepEqual(other *EndpointStatus) bool {
 	}
 	if ((in.NamedPorts != nil) && (other.NamedPorts != nil)) || ((in.NamedPorts == nil) != (other.NamedPorts == nil)) {
 		in, other := &in.NamedPorts, &other.NamedPorts
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
-					return false
-				}
-			}
 		}
 	}
 
