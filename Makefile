@@ -55,51 +55,6 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddres
 
 TEST_UNITTEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
-define generate_k8s_api
-	cd "./vendor/k8s.io/code-generator" && \
-	bash ./generate-groups.sh $(1) \
-	    $(2) \
-	    $(3) \
-	    $(4) \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
-	    --output-base $(5)
-endef
-
-define generate_deepequal
-	go run github.com/cilium/deepequal-gen \
-	--input-dirs $(subst $(newline),$(comma),$(1)) \
-	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
-	--output-file-base zz_generated.deepequal \
-	--output-base $(2)
-endef
-
-define generate_deepcopy
-	go run k8s.io/code-generator/cmd/deepcopy-gen \
-	--input-dirs $(subst $(newline),$(comma),$(1)) \
-	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
-	--output-file-base zz_generated.deepcopy \
-	--output-base $(2)
-endef
-
-define generate_k8s_protobuf
-	go install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo && \
-	go install golang.org/x/tools/cmd/goimports && \
-	go run k8s.io/code-generator/cmd/go-to-protobuf \
-		--apimachinery-packages='-k8s.io/apimachinery/pkg/util/intstr,$\
-                                -k8s.io/apimachinery/pkg/api/resource,$\
-                                -k8s.io/apimachinery/pkg/runtime/schema,$\
-                                -k8s.io/apimachinery/pkg/runtime,$\
-                                -k8s.io/apimachinery/pkg/apis/meta/v1,$\
-                                -k8s.io/apimachinery/pkg/apis/meta/v1beta1'\
-		--drop-embedded-fields="github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1.TypeMeta" \
-		--proto-import="$(PWD)" \
-		--proto-import="$(PWD)/vendor" \
-		--proto-import="$(PWD)/tools/protobuf" \
-		--packages=$(subst $(newline),$(comma),$(1)) \
-		--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
-		--output-base=$(2)
-endef
-
 build: check-sources $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
 
 build-container: check-sources ## Builds components required for cilium-agent container.
@@ -304,6 +259,51 @@ generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator 
 
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
+
+define generate_k8s_api
+	$(QUIET) cd "./vendor/k8s.io/code-generator" && \
+	bash ./generate-groups.sh $(1) \
+	    $(2) \
+	    $(3) \
+	    $(4) \
+	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+	    --output-base $(5)
+endef
+
+define generate_deepequal
+	go run github.com/cilium/deepequal-gen \
+	--input-dirs $(subst $(newline),$(comma),$(1)) \
+	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+	--output-file-base zz_generated.deepequal \
+	--output-base $(2)
+endef
+
+define generate_deepcopy
+	go run k8s.io/code-generator/cmd/deepcopy-gen \
+	--input-dirs $(subst $(newline),$(comma),$(1)) \
+	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+	--output-file-base zz_generated.deepcopy \
+	--output-base $(2)
+endef
+
+define generate_k8s_protobuf
+	go install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo && \
+	go install golang.org/x/tools/cmd/goimports && \
+	go run k8s.io/code-generator/cmd/go-to-protobuf \
+		--apimachinery-packages='-k8s.io/apimachinery/pkg/util/intstr,$\
+                                -k8s.io/apimachinery/pkg/api/resource,$\
+                                -k8s.io/apimachinery/pkg/runtime/schema,$\
+                                -k8s.io/apimachinery/pkg/runtime,$\
+                                -k8s.io/apimachinery/pkg/apis/meta/v1,$\
+                                -k8s.io/apimachinery/pkg/apis/meta/v1beta1'\
+		--drop-embedded-fields="github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1.TypeMeta" \
+		--proto-import="$(PWD)" \
+		--proto-import="$(PWD)/vendor" \
+		--proto-import="$(PWD)/tools/protobuf" \
+		--packages=$(subst $(newline),$(comma),$(1)) \
+		--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+		--output-base=$(2)
+endef
 
 define DEEP_PACKAGES
 github.com/cilium/cilium/pkg/aws/types
