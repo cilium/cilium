@@ -36,6 +36,8 @@ var Cell = cell.Module(
 		newCtMapAuthenticator,
 		// MTLS auth handler provides support for auth type "mtls-*" - which performs mTLS authentication.
 		newMTLSAuthHandler,
+		// Always fail auth handler provides support for auth type "always-fail" - which always fails.
+		newAlwaysFailAuthHandler,
 	),
 	cell.Config(config{MeshAuthMonitorQueueSize: 1024}),
 	cell.Config(MTLSConfig{}),
