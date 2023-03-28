@@ -162,7 +162,8 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 	switch k.params.Encryption {
 	case encryptionDisabled,
 		encryptionIPsec,
-		encryptionWireguard:
+		encryptionWireguard,
+		encryptionUnspecified:
 		// nothing to do for valid values
 	default:
 		k.Log("❌ Invalid encryption mode: %q", k.params.Encryption)
