@@ -6,6 +6,7 @@ package statedb
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 
 	memdb "github.com/hashicorp/go-memdb"
 
@@ -46,22 +47,41 @@ type stateDB struct {
 
 var _ DB = &stateDB{}
 
-// ToJSON marshals the whole database into a JSON string.
-func (db *stateDB) ToJSON() ([]byte, error) {
+// WriteJSON marshals out the whole database as JSON into the given writer.
+func (db *stateDB) WriteJSON(w io.Writer) error {
 	tx := db.memDB.Txn(false)
-	out := map[string][]any{}
+	if _, err := w.Write([]byte("{\n")); err != nil {
+		return err
+	}
 	for table := range db.memDB.DBSchema().Tables {
 		iter, err := tx.Get(table, "id")
 		if err != nil {
-			panic(err)
+			return err
 		}
-		objs := []any{}
-		for obj := iter.Next(); obj != nil; obj = iter.Next() {
-			objs = append(objs, obj)
+		if _, err := w.Write([]byte("\"" + table + "\": [\n")); err != nil {
+			return err
 		}
-		out[table] = objs
+		obj := iter.Next()
+		for obj != nil {
+			bs, err := json.Marshal(obj)
+			if err != nil {
+				return err
+			}
+			if _, err := w.Write(bs); err != nil {
+				return err
+			}
+			obj = iter.Next()
+			if obj != nil {
+				if _, err := w.Write([]byte(",")); err != nil {
+					return err
+				}
+			}
+		}
+		if _, err := w.Write([]byte("]}\n")); err != nil {
+			return err
+		}
 	}
-	return json.Marshal(out)
+	return nil
 }
 
 // WriteTxn constructs a new WriteTransaction

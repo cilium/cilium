@@ -4,8 +4,10 @@
 package statedb
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -151,15 +153,74 @@ func runTest(t *testing.T, p testParams) {
 	assert.NoError(t, err)
 	assert.Equal(t, Length[*Foo](it), 3)
 
-	// Validate that ToJSON does something useful. In the sketchy way.
-	out, err := db.ToJSON()
-	assert.NoError(t, err, "ToJSON should succeed")
+	// Validate that WriteJSON does something useful.
+	buf := new(bytes.Buffer)
+	err = db.WriteJSON(buf)
+	assert.NoError(t, err, "WriteJSON should succeed")
+	out := buf.Bytes()
 
 	var result map[string][]Foo
-	json.Unmarshal(out, &result)
+	err = json.Unmarshal(out, &result)
+	assert.NoError(t, err, "WriteJSON output should be valid JSON")
 	foos, ok := result[fooTableSchema.Name]
 	assert.True(t, ok, "There should be a 'foos' table")
 	assert.Len(t, foos, 3)
 	assert.True(t, foos[0].Num > 0 && foos[0].Num <= 3)
 	assert.True(t, len(foos[0].UUID) > 0)
+}
+
+// Benchmark how many insertions per second can be performed on a table with UUID primary
+// key. On a 3.4Ghz i5 laptop I'm seeing 2719 ns/op, e.g. ~350k per second.
+func BenchmarkDB_Insert_UUID(b *testing.B) {
+	var (
+		db   DB
+		foos Table[*Foo]
+	)
+	hive := hive.New(
+		Cell,
+		NewTableCell[*Foo](fooTableSchema),
+		cell.Invoke(func(db_ DB, foos_ Table[*Foo]) { db = db_; foos = foos_ }),
+	)
+	hive.Start(context.TODO())
+	defer hive.Stop(context.TODO())
+
+	b.ResetTimer()
+	tx := db.WriteTxn()
+	w := foos.Writer(tx)
+	for i := uint64(0); i < uint64(b.N); i++ {
+		uuid := fmt.Sprintf("00000000-0000-0000-0000-%012x", i)
+		err := w.Insert(&Foo{UUID: uuid, Num: i})
+		if err != nil {
+			b.Fatalf("Insert error: %s", err)
+		}
+	}
+	tx.Commit()
+}
+
+// Benchmark how many one insertion write transactions per second can be performed.
+// On a 3.4Ghz i5 laptop I'm seeing 9256 ns/op, e.g. ~100k per second.
+func BenchmarkDB_WriteTxn(b *testing.B) {
+	var (
+		db   DB
+		foos Table[*Foo]
+	)
+	hive := hive.New(
+		Cell,
+		NewTableCell[*Foo](fooTableSchema),
+		cell.Invoke(func(db_ DB, foos_ Table[*Foo]) { db = db_; foos = foos_ }),
+	)
+	hive.Start(context.TODO())
+	defer hive.Stop(context.TODO())
+
+	b.ResetTimer()
+	for i := uint64(0); i < uint64(b.N); i++ {
+		uuid := fmt.Sprintf("00000000-0000-0000-0000-%012x", i)
+		tx := db.WriteTxn()
+		w := foos.Writer(tx)
+		err := w.Insert(&Foo{UUID: uuid, Num: i})
+		if err != nil {
+			b.Fatalf("Insert error: %s", err)
+		}
+		tx.Commit()
+	}
 }

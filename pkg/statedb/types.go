@@ -4,6 +4,8 @@
 package statedb
 
 import (
+	"io"
+
 	memdb "github.com/hashicorp/go-memdb"
 
 	"github.com/cilium/cilium/pkg/stream"
@@ -20,8 +22,8 @@ type DB interface {
 	// (throttled) triggers to schedule reconciling work.
 	stream.Observable[Event]
 
-	// ToJSON marshals the whole state into JSON
-	ToJSON() ([]byte, error)
+	// WriteJSON marshals out the whole database as JSON into the given writer.
+	WriteJSON(io.Writer) error
 
 	// ReadTxn constructs a new read transaction that can be used to read tables.
 	// Reads occur against a snapshot of the database at the time of the call and
