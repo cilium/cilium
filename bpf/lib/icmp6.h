@@ -168,8 +168,9 @@ static __always_inline int icmp6_send_echo_reply(struct __ctx_buff *ctx,
  *
  * Send an ICMPv6 nadv reply in return to an ICMPv6 ndisc.
  */
-static __always_inline int send_icmp6_ndisc_adv(struct __ctx_buff *ctx,
-						int nh_off, union macaddr *mac, bool to_router)
+static __always_inline int
+send_icmp6_ndisc_adv(struct __ctx_buff *ctx, int nh_off,
+		     const union macaddr *mac, bool to_router)
 {
 	struct icmp6hdr icmp6hdr __align_stack_8 = {}, icmp6hdr_old __align_stack_8;
 	__u8 opts[8], opts_old[8];
