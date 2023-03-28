@@ -67,6 +67,7 @@ const (
 	k8sAPIGroupNetworkingV1Core                 = "networking.k8s.io/v1::NetworkPolicy"
 	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
+	k8sAPIGroupCiliumCIDRGroupV2Alpha1          = "cilium/v2alpha1::CiliumCIDRGroup"
 	k8sAPIGroupCiliumNodeV2                     = "cilium/v2::CiliumNode"
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
@@ -421,7 +422,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.BGPPName):     {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.LBIPPoolName): {skip, ""}, // Handled in LB IPAM
 	synced.CRDResourceName(v2alpha1.CNCName):      {skip, ""}, // Handled by init directly
-	synced.CRDResourceName(v2alpha1.CCGName):      {skip, ""},
+	synced.CRDResourceName(v2alpha1.CCGName):      {start, k8sAPIGroupCiliumCIDRGroupV2Alpha1},
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
@@ -540,7 +541,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		return fmt.Errorf("error creating service list option modifier: %w", err)
 	}
 
-	// CNP and CCNP resources are handled together.
+	// CNP, CCNP, and CCG resources are handled together.
 	var cnpOnce sync.Once
 	for _, r := range resourceNames {
 		switch r {
@@ -572,7 +573,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			// only watch secrets in specific namespaces
 			k.tlsSecretInit(k.clientset.Slim(), option.Config.EnvoySecretNamespaces, swgSecret)
 		// Custom resource definitions
-		case k8sAPIGroupCiliumNetworkPolicyV2, k8sAPIGroupCiliumClusterwideNetworkPolicyV2:
+		case k8sAPIGroupCiliumNetworkPolicyV2, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, k8sAPIGroupCiliumCIDRGroupV2Alpha1:
 			cnpOnce.Do(func() { k.ciliumNetworkPoliciesInit(ctx, k.clientset) })
 		case k8sAPIGroupCiliumEndpointV2:
 			k.initCiliumEndpointOrSlices(k.clientset, asyncControllers)
