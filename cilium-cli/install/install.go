@@ -14,6 +14,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/spf13/pflag"
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
@@ -58,9 +59,10 @@ const (
 )
 
 const (
-	encryptionDisabled  = "disabled"
-	encryptionIPsec     = "ipsec"
-	encryptionWireguard = "wireguard"
+	encryptionUnspecified = ""
+	encryptionDisabled    = "disabled"
+	encryptionIPsec       = "ipsec"
+	encryptionWireguard   = "wireguard"
 )
 
 const (
@@ -272,6 +274,7 @@ type K8sInstaller struct {
 	manifests      map[string]string
 	helmYAMLValues string
 	chartVersion   semver.Version
+	chart          *chart.Chart
 }
 
 type AzureParameters struct {
@@ -430,7 +433,7 @@ func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInsta
 	}
 
 	cm := certs.NewCertManager(client, certs.Parameters{Namespace: p.Namespace})
-	chartVersion, err := helm.ResolveHelmChartVersion(p.Version, p.HelmChartDirectory)
+	chartVersion, helmChart, err := helm.ResolveHelmChartVersion(p.Version, p.HelmChartDirectory)
 	if err != nil {
 		return nil, err
 	}
@@ -440,6 +443,7 @@ func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInsta
 		params:       p,
 		certManager:  cm,
 		chartVersion: chartVersion,
+		chart:        helmChart,
 	}, nil
 }
 
