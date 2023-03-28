@@ -81,6 +81,32 @@ func TestHiveBadConfig(t *testing.T) {
 	assert.ErrorContains(t, err, "has unset fields: Bar", "expected 'unset fields' error")
 }
 
+func TestHiveConfigOverride(t *testing.T) {
+	var cfg Config
+	h := hive.New(
+		cell.Config(Config{}),
+		cell.Invoke(func(c Config) {
+			cfg = c
+		}),
+	)
+	hive.AddConfigOverride(
+		h,
+		func(cfg *Config) {
+			cfg.Foo = "override"
+		})
+
+	// Set "foo" flag via Viper. This should be ignored.
+	h.Viper().Set("foo", "viper")
+
+	err := h.Start(context.TODO())
+	assert.NoError(t, err, "expected Start to succeed")
+
+	err = h.Stop(context.TODO())
+	assert.NoError(t, err, "expected Stop to succeed")
+
+	assert.Equal(t, cfg.Foo, "override", "Config.Foo not set correctly")
+}
+
 type SomeObject struct {
 	X int
 }
