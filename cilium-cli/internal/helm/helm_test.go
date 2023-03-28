@@ -51,7 +51,7 @@ func TestResolveHelmChartVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ResolveHelmChartVersion(tt.args.versionFlag, tt.args.chartDirectoryFlag)
+			got, _, err := ResolveHelmChartVersion(tt.args.versionFlag, tt.args.chartDirectoryFlag)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ResolveHelmChartVersion() error = %v, wantErr %v", err, tt.wantErr)
 				return
