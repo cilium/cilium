@@ -301,72 +301,52 @@ jobs:
           cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Create custom IPsec secret
-        if: ${{ false }}
         run: |
           kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
-        # disable this step until the issue https://github.com/cilium/cilium/issues/22808 resolves
 
       - name: Install Cilium with encryption
-        if: ${{ false }}
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
             --encryption=ipsec
-        # disable this step until the issue https://github.com/cilium/cilium/issues/22808 resolves
 
       - name: Enable Relay
-        if: ${{ false }}
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
-        # disable this step until the issue https://github.com/cilium/cilium/issues/22808 resolves
 
       - name: Port forward Relay
-        if: ${{ false }}
         run: |
           cilium hubble port-forward&
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
-        # disable this step until the issue https://github.com/cilium/cilium/issues/22808 resolves
 
       - name: Run connectivity test
-        if: ${{ false }}
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --test "!pod-to.*node" --force-deploy
-        # disable this step until the issue https://github.com/cilium/cilium/issues/22808 resolves
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
 
       - name: Clean up Cilium
-        if: ${{ false }}
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
           cilium uninstall --chart-directory=install/kubernetes/cilium --wait
-        # disable this step until the issue https://github.com/cilium/cilium/issues/22808 resolves
 
       - name: Install Cilium with encryption and tunnel datapath
-        if: ${{ false }}
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
             --encryption=ipsec \
             --datapath-mode=tunnel
-        # disable this step until the issue https://github.com/cilium/cilium/issues/22808 resolves
 
       - name: Enable Relay
-        if: ${{ false }}
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
-        # disable this step until the issue https://github.com/cilium/cilium/issues/22808 resolves
 
       - name: Port forward Relay
-        if: ${{ false }}
         run: |
           cilium hubble port-forward&
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
-        # disable this step until the issue https://github.com/cilium/cilium/issues/22808 resolves
 
       - name: Run connectivity test
-        if: ${{ false }}
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --test "!pod-to.*node" --force-deploy
-        # disable this step until the issue https://github.com/cilium/cilium/issues/22808 resolves
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
 
       - name: Post-test information gathering
         if: ${{ !success() }}
