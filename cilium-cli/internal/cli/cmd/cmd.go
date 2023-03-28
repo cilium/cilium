@@ -74,13 +74,23 @@ cilium connectivity test`,
 		newCmdConnectivity(),
 		newCmdContext(),
 		newCmdHubble(),
-		newCmdInstall(),
 		newCmdStatus(),
 		newCmdSysdump(),
-		newCmdUninstall(),
 		newCmdUpgrade(),
 		newCmdVersion(),
 	)
+	if os.Getenv("CILIUM_CLI_MODE") == "helm" {
+		cmd.AddCommand(
+			newCmdInstallWithHelm(),
+			newCmdUninstallWithHelm(),
+		)
+	} else {
+		cmd.AddCommand(
+			newCmdInstall(),
+			newCmdUninstall(),
+		)
+	}
+
 	cmd.SetOut(os.Stdout)
 	cmd.SetErr(os.Stderr)
 

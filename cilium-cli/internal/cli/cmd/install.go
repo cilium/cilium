@@ -61,12 +61,8 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 		},
 	}
 
-	// It can be deprecated since we have a helm option for it
-	cmd.Flags().StringVar(&params.ClusterName, "cluster-name", "", "Name of the cluster")
-	cmd.Flags().MarkDeprecated("cluster-name", "This can now be overridden via `helm-set` (Helm value: `cluster.name`).")
+	addCommonInstallFlags(cmd, &params)
 	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
-	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
-	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use { tunnel | aws-eni | gke | azure | aks-byocni } (default: autodetected).")
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.IPAM, "ipam", "", "IP Address Management (IPAM) mode")
 	cmd.Flags().MarkDeprecated("ipam", "IPAM mode is autodetected depending on `datapath-mode`. If needed, this can now be overridden via `helm-set` (Helm value: `ipam.mode`).")
@@ -80,8 +76,6 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.KubeProxyReplacement, "kube-proxy-replacement", "disabled", "Enable/disable kube-proxy replacement { disabled | partial | strict }")
 	cmd.Flags().MarkDeprecated("kube-proxy-replacement", "This can now be overridden via `helm-set` (Helm value: `kubeProxyReplacement`).")
-	cmd.Flags().BoolVar(&params.Wait, "wait", true, "Wait for status to report success (no errors)")
-	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
 	cmd.Flags().BoolVar(&params.RestartUnmanagedPods, "restart-unmanaged-pods", true, "Restart pods which are not being managed by Cilium")
 	cmd.Flags().StringVar(&params.Encryption, "encryption", "disabled", "Enable encryption of all workloads traffic { disabled | ipsec | wireguard }")
 	// It can be deprecated since we have a helm option for it
@@ -112,17 +106,11 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().StringVar(&params.Azure.ClientSecret, "azure-client-secret", "", "Client secret of Azure Service Principal to use for installing Cilium (will create one if none provided)")
 	cmd.Flags().StringVar(&params.K8sVersion, "k8s-version", "", "Kubernetes server version in case auto-detection fails")
 
-	cmd.Flags().StringVar(&params.HelmChartDirectory, "chart-directory", "", "Helm chart directory")
-	cmd.Flags().StringSliceVar(&params.HelmOpts.ValueFiles, "helm-values", []string{}, "Specify helm values in a YAML file or a URL (can specify multiple)")
-	cmd.Flags().StringArrayVar(&params.HelmOpts.Values, "helm-set", []string{}, "Set helm values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
-	cmd.Flags().StringArrayVar(&params.HelmOpts.StringValues, "helm-set-string", []string{}, "Set helm STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
-	cmd.Flags().StringArrayVar(&params.HelmOpts.FileValues, "helm-set-file", []string{}, "Set helm values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)")
 	cmd.Flags().StringVar(&params.HelmGenValuesFile, "helm-auto-gen-values", "", "Write an auto-generated helm values into this file")
 	cmd.Flags().StringVar(&params.HelmValuesSecretName, "helm-values-secret-name", defaults.HelmValuesSecretName, "Secret name to store the auto-generated helm values file. The namespace is the same as where Cilium will be installed")
 	cmd.Flags().StringSliceVar(&params.APIVersions, "api-versions", []string{}, "Kubernetes API versions to use for helm's Capabilities.APIVersions in case discovery fails")
 	cmd.Flags().StringVar(&params.ImageSuffix, "image-suffix", "", "Set all generated images with this suffix")
 	cmd.Flags().StringVar(&params.ImageTag, "image-tag", "", "Set all images with this tag")
-	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
 	cmd.Flags().StringSliceVar(&params.NodesWithoutCilium, "nodes-without-cilium", []string{}, "List of node names on which Cilium will not be installed")
 
 	for flagName := range install.FlagsToHelmOpts {
@@ -183,11 +171,10 @@ func newCmdUninstall() *cobra.Command {
 		},
 	}
 
+	addCommonUninstallFlags(cmd, &params)
 	cmd.Flags().StringVar(&params.HelmChartDirectory, "chart-directory", "", "Helm chart directory")
 	cmd.Flags().StringVar(&params.HelmValuesSecretName, "helm-values-secret-name", defaults.HelmValuesSecretName, "Secret name to store the auto-generated helm values file. The namespace is the same as where Cilium will be installed")
 	cmd.Flags().BoolVar(&params.RedactHelmCertKeys, "redact-helm-certificate-keys", true, "Do not print in the terminal any certificate keys generated by helm. (Certificates will always be stored unredacted in the secret defined by 'helm-values-secret-name')")
-	cmd.Flags().StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to uninstall Cilium tests from")
-	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for uninstallation to have completed")
 	cmd.Flags().IntVar(&params.WorkerCount, "worker-count", runtime.NumCPU(), "Number of workers to use for parallel operations")
 
 	return cmd
@@ -231,5 +218,97 @@ cilium upgrade --version %s
 	cmd.Flags().StringVar(&params.RelayImage, "hubble-relay-image", "", "Image path to use for Hubble Relay")
 	cmd.Flags().StringVar(&params.ClusterMeshAPIImage, "clustermesh-apiserver-image", "", "Image path to use for cluster mesh API server")
 
+	return cmd
+}
+
+// addCommonInstallFlags adds install command flags that are shared between classic and helm mode.
+func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
+	// We can't get rid of --cluster-name until we fix https://github.com/cilium/cilium-cli/issues/1347.
+	cmd.Flags().StringVar(&params.ClusterName, "cluster-name", "", "Name of the cluster")
+	cmd.Flags().MarkDeprecated("cluster-name", "This can now be overridden via `helm-set` (Helm value: `cluster.name`).")
+	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
+	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use { tunnel | aws-eni | gke | azure | aks-byocni } (default: autodetected).")
+	cmd.Flags().StringVar(&params.HelmChartDirectory, "chart-directory", "", "Helm chart directory")
+	cmd.Flags().StringSliceVar(&params.HelmOpts.ValueFiles, "helm-values", []string{}, "Specify helm values in a YAML file or a URL (can specify multiple)")
+	cmd.Flags().StringArrayVar(&params.HelmOpts.Values, "helm-set", []string{}, "Set helm values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+	cmd.Flags().StringArrayVar(&params.HelmOpts.StringValues, "helm-set-string", []string{}, "Set helm STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+	cmd.Flags().StringArrayVar(&params.HelmOpts.FileValues, "helm-set-file", []string{}, "Set helm values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)")
+	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
+	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for helm install to finish")
+	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
+
+}
+
+// addCommonUninstallFlags adds uninstall command flags that are shared between classic and helm mode.
+func addCommonUninstallFlags(cmd *cobra.Command, params *install.UninstallParameters) {
+	cmd.Flags().StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to uninstall Cilium tests from")
+	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for uninstallation to have completed")
+}
+
+func newCmdInstallWithHelm() *cobra.Command {
+	var params = install.Parameters{Writer: os.Stdout}
+
+	cmd := &cobra.Command{
+		Use:   "install",
+		Short: "Install Cilium in a Kubernetes cluster using Helm",
+		Long: `Install Cilium in a Kubernetes cluster using Helm
+
+Examples:
+# Install Cilium in current Kubernetes context with default parameters
+cilium install
+
+# Install Cilium into Kubernetes context "kind-cluster1" and also set cluster
+# name and ID to prepare for multi-cluster capabilities.
+cilium install --context kind-cluster1 --helm-set cluster.id=1 --helm-set cluster.name=cluster1
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+			installer, err := install.NewK8sInstaller(k8sClient, params)
+			if err != nil {
+				return err
+			}
+			cmd.SilenceUsage = true
+			if err := installer.InstallWithHelm(context.Background(), k8sClient.RESTClientGetter); err != nil {
+				fatalf("Unable to install Cilium: %s", err)
+			}
+			return nil
+		},
+	}
+
+	addCommonInstallFlags(cmd, &params)
+	return cmd
+}
+
+func newCmdUninstallWithHelm() *cobra.Command {
+	var params = install.UninstallParameters{Writer: os.Stdout}
+
+	cmd := &cobra.Command{
+		Use:   "uninstall",
+		Short: "Uninstall Cilium using Helm",
+		Long:  ``,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+			ctx := context.Background()
+
+			cc, err := check.NewConnectivityTest(k8sClient, check.Parameters{
+				CiliumNamespace: namespace,
+				TestNamespace:   params.TestNamespace,
+				FlowValidation:  check.FlowValidationModeDisabled,
+				Writer:          os.Stdout,
+			}, Version)
+			if err != nil {
+				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s", err)
+			} else {
+				cc.UninstallResources(ctx, params.Wait)
+			}
+			uninstaller := install.NewK8sUninstaller(k8sClient, params)
+			if err := uninstaller.UninstallWithHelm(k8sClient.RESTClientGetter); err != nil {
+				fatalf("Unable to uninstall Cilium:  %s", err)
+			}
+			return nil
+		},
+	}
+
+	addCommonUninstallFlags(cmd, &params)
 	return cmd
 }
