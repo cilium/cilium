@@ -71,17 +71,8 @@ jobs:
             --helm-set tls.secretsBackend=k8s
 
       - name: Enable Relay
-        if: ${{ matrix.mode == 'classic' }}
         run: |
           cilium hubble enable --ui
-
-      # TODO: Implement 'cilium hubble enable' command
-      - name: Enable Relay
-        if: ${{ matrix.mode == 'helm' }}
-        run: |
-          helm repo add cilium https://helm.cilium.io
-          helm upgrade -n kube-system cilium cilium/cilium --version ${{ env.cilium_version }} --set hubble.relay.enabled=true --set hubble.ui.enabled=true --reuse-values
-          helm get values -n kube-system cilium
           cilium status --wait
 
       - name: Relay Port Forward
@@ -121,16 +112,8 @@ jobs:
           --helm-set kubeProxyReplacement=disabled
 
       - name: Enable Relay
-        if: ${{ matrix.mode == 'classic' }}
         run: |
           cilium hubble enable
-
-      # TODO: Implement 'cilium hubble enable' command
-      - name: Enable Relay
-        if: ${{ matrix.mode == 'helm' }}
-        run: |
-          helm upgrade -n kube-system cilium cilium/cilium --version ${{ env.cilium_version }} --set hubble.relay.enabled=true --set hubble.ui.enabled=true --reuse-values
-          helm get values -n kube-system cilium
           cilium status --wait
 
       - name: Relay Port Forward
