@@ -69,6 +69,12 @@ jobs:
       - uses: docker://cilium/coccicheck:2.4@sha256:24abe3fbb8e829fa41a68a3b76cb4df84fd5a87a7d1d6254c1c1fe5effb5bd1b
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
+        # Note: Setting COCCINELLE_HOME can be removed, here and in the
+        # messages in the .cocci files, next time we upgrade coccinelle.
+        # The issue was fixed, after v1.1.1 that we're using, in
+        # https://gitlab.inria.fr/coccinelle/coccinelle/-/commit/540888ff426e.
+        env:
+          COCCINELLE_HOME: /usr/local/lib/coccinelle
 
   set_clang_dir:
     name: Set clang directory
