@@ -401,21 +401,21 @@ returns a cell that "provides" the parsed configuration to the application:
     // }
     // func Config[Cfg Flagger](defaultConfig Cfg) cell.Cell
 
-    type myConfig struct {
+    type MyConfig struct {
         MyOption string
     }
 
-    func (def myConfig) Flags(flags *pflag.FlagSet) {
+    func (def MyConfig) Flags(flags *pflag.FlagSet) {
         // Register the "my-option" flag. This matched against the MyOption field
         // by removing any dashes and doing case insensitive comparison.
         flags.String("my-option", def.MyOption, "My config option")
     }
 
-    var defaultMyConfig = myConfig{
+    var defaultMyConfig = MyConfig{
         MyOption: "the default value",
     }
 
-    func New(cfg myConfig) MyThing
+    func New(cfg MyConfig) MyThing
 
     var Cell = cell.Module(
         "module-with-config",
@@ -424,6 +424,39 @@ returns a cell that "provides" the parsed configuration to the application:
         cell.Config(defaultMyConfig),
         cell.Provide(New),
     )
+
+In tests the configuration can be populated in various ways:
+
+.. code-block:: go
+
+    func TestCell(t *testing.T) {
+        h := hive.New(Cell)
+
+	// Options can be set via Viper
+        h.Viper().Set("my-option", "test-value")
+
+        // Or via pflags
+        flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+        h.RegisterFlags(flags)
+        flags.Set("my-option", "test-value")
+	flags.Parse("--my-option=test-value")
+
+	// Or the preferred way with a config override:
+	h = hive.New(
+            Cell,
+        )
+        AddConfigOverride(
+            h,
+            func(cfg *MyConfig) {
+                cfg.MyOption = "test-override"
+            })
+
+	// To validate that the Cell can be instantiated and the configuration
+        // struct is well-formed without starting you can call Populate():
+        if err := h.Populate(); err != nil {
+            t.Fatalf("Failed to populate: %s", err)
+        }
+    }
 
 .. _api_lifecycle:
 

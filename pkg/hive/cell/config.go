@@ -42,8 +42,6 @@ type Flagger interface {
 	Flags(*pflag.FlagSet)
 }
 
-type AllSettings map[string]any
-
 // config is a cell for configuration. It registers the config's command-line
 // flags and provides the parsed config to the hive.
 type config[Cfg Flagger] struct {
@@ -51,7 +49,16 @@ type config[Cfg Flagger] struct {
 	flags         *pflag.FlagSet
 }
 
-func (c *config[Cfg]) provideConfig(settings AllSettings) (Cfg, error) {
+type AllSettings map[string]any
+
+type configParams[Cfg Flagger] struct {
+	dig.In
+	AllSettings AllSettings
+	Override    func(*Cfg) `optional:"true"`
+}
+
+func (c *config[Cfg]) provideConfig(p configParams[Cfg]) (Cfg, error) {
+	settings := p.AllSettings
 	target := c.defaultConfig
 	decoder, err := mapstructure.NewDecoder(decoderConfig(&target))
 	if err != nil {
@@ -76,6 +83,14 @@ func (c *config[Cfg]) provideConfig(settings AllSettings) (Cfg, error) {
 			"Hint: field 'FooBar' matches flag 'foo-bar', or use tag `mapstructure:\"flag-name\"` to match field with flag",
 			target, err)
 	}
+
+	// See if the configuration was overridden with ConfigOverride. We check the override
+	// after the decode to validate that the config struct is properly formed and all
+	// flags are registered.
+	if p.Override != nil {
+		p.Override(&target)
+	}
+
 	return target, nil
 }
 

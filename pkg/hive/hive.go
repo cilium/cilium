@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"reflect"
 	"strings"
 	"time"
 
@@ -56,6 +57,7 @@ type Hive struct {
 	lifecycle                 *DefaultLifecycle
 	populated                 bool
 	invokes                   []func() error
+	configOverrides           []any
 }
 
 // New returns a new hive that can be run, or inspected.
@@ -69,15 +71,16 @@ type Hive struct {
 // the Viper() method can be used to populate the hive's viper instance.
 func New(cells ...cell.Cell) *Hive {
 	h := &Hive{
-		container:    dig.New(),
-		envPrefix:    defaultEnvPrefix,
-		cells:        cells,
-		viper:        viper.New(),
-		startTimeout: defaultStartTimeout,
-		stopTimeout:  defaultStopTimeout,
-		flags:        pflag.NewFlagSet("", pflag.ContinueOnError),
-		lifecycle:    &DefaultLifecycle{},
-		shutdown:     make(chan error, 1),
+		container:       dig.New(),
+		envPrefix:       defaultEnvPrefix,
+		cells:           cells,
+		viper:           viper.New(),
+		startTimeout:    defaultStartTimeout,
+		stopTimeout:     defaultStopTimeout,
+		flags:           pflag.NewFlagSet("", pflag.ContinueOnError),
+		lifecycle:       &DefaultLifecycle{},
+		shutdown:        make(chan error, 1),
+		configOverrides: nil,
 	}
 
 	if err := h.provideDefaults(); err != nil {
@@ -156,6 +159,14 @@ func (h *Hive) SetEnvPrefix(prefix string) {
 	h.envPrefix = prefix
 }
 
+// AddConfigOverride appends a config override function to modify
+// a configuration after it has been parsed.
+//
+// This method is only meant to be used in tests.
+func AddConfigOverride[Cfg cell.Flagger](h *Hive, override func(*Cfg)) {
+	h.configOverrides = append(h.configOverrides, override)
+}
+
 // Run populates the cell configurations and runs the hive cells.
 // Interrupt signal or call to Shutdowner.Shutdown() will cause the hive to stop.
 func (h *Hive) Run() error {
@@ -213,6 +224,33 @@ func (h *Hive) Populate() error {
 		})
 	if err != nil {
 		return err
+	}
+
+	// Provide config overriders if any
+	for _, o := range h.configOverrides {
+		v := reflect.ValueOf(o)
+		// Check that the config override is of type func(*cfg) and
+		// 'cfg' implements Flagger.
+		t := v.Type()
+		if t.Kind() != reflect.Func || t.NumIn() != 1 {
+			return fmt.Errorf("config override has invalid type %T, expected func(*T)", o)
+		}
+		flaggerType := reflect.TypeOf((*cell.Flagger)(nil)).Elem()
+		if !t.In(0).Implements(flaggerType) {
+			return fmt.Errorf("config override function parameter (%T) does not implement Flagger", o)
+		}
+
+		// Construct the provider function: 'func() func(*cfg)'. This is
+		// picked up by the config cell and called to mutate the config
+		// after it has been parsed.
+		providerFunc := func(in []reflect.Value) []reflect.Value {
+			return []reflect.Value{v}
+		}
+		providerFuncType := reflect.FuncOf(nil, []reflect.Type{t}, false)
+		pfv := reflect.MakeFunc(providerFuncType, providerFunc)
+		if err := h.container.Provide(pfv.Interface()); err != nil {
+			return fmt.Errorf("providing config override failed: %w", err)
+		}
 	}
 
 	// Execute the invoke functions to construct the objects.
