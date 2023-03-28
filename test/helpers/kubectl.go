@@ -4668,7 +4668,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"resourcequota":      "cilium-resource-quota cilium-operator-resource-quota",
 		}
 
-		crdsToDelete = synced.AllCRDResourceNames()
+		crdsToDelete = synced.AllCiliumCRDResourceNames()
 	)
 
 	wg.Add(len(resourcesToDelete))
