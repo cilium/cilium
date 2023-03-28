@@ -9,7 +9,7 @@ cilium install \
   --version "${CILIUM_VERSION}" \
   --cluster-name "${CLUSTER_NAME}" \
   --helm-set bpf.monitorAggregation=none \
-  --ipv4-native-routing-cidr="${CLUSTER_CIDR}" \
+  --helm-set ipv4NativeRoutingCIDR="${CLUSTER_CIDR}" \
   --helm-set loadBalancer.l7.backend=envoy \
   --helm-set tls.secretsBackend=k8s
 
