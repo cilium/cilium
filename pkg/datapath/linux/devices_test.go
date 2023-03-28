@@ -561,9 +561,6 @@ func delRoutes(iface string) error {
 	}
 
 	for _, r := range routes {
-		if r.Table == unix.RT_TABLE_LOCAL {
-			continue
-		}
 		if err := netlink.RouteDel(&r); err != nil {
 			return err
 		}

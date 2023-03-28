@@ -265,11 +265,8 @@ func (dm *DeviceManager) updateDevicesFromRoutes(l3DevOK bool, routes []netlink.
 	// Collect all link indices mentioned in the route update batch
 	for _, route := range routes {
 		// Only consider devices that have global unicast routes,
-		// e.g. skip loopback, multicast and link local routes.
+		// e.g. skip loopback, multicast.
 		if route.Dst != nil && !route.Dst.IP.IsGlobalUnicast() {
-			continue
-		}
-		if route.Table == unix.RT_TABLE_LOCAL {
 			continue
 		}
 		linkInfo := linkInfos[route.LinkIndex]
