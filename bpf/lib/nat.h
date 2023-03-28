@@ -1775,7 +1775,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 				tuple.dport = identifier;
 				break;
 			default:
-				return DROP_INVALID;
+				return DROP_UNKNOWN_L4;
 			}
 			state = snat_v6_lookup(&tuple);
 			if (!state)
