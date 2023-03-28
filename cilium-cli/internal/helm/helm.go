@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
 
 	semver2 "github.com/blang/semver/v4"
@@ -29,9 +30,11 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 const ciliumChart = "https://helm.cilium.io"
@@ -437,4 +440,43 @@ func resolveChartVersion(versionFlag string) (semver2.Version, *chart.Chart, err
 		return semver2.Version{}, nil, err
 	}
 	return version, helmChart, nil
+}
+
+// UpgradeParameters contains parameters for helm upgrade operation.
+type UpgradeParameters struct {
+	// Namespace in which the Helm release is installed.
+	Namespace string
+	// Name of the Helm release to upgrade.
+	Name string
+	// Helm values to pass during upgrade.
+	Values map[string]interface{}
+	// --reset-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.
+	ResetValues bool
+	// --reuse-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.
+	ReuseValues bool
+}
+
+// UpgradeCurrentRelease upgrades the existing Helm release with given Helm values.
+func UpgradeCurrentRelease(
+	ctx context.Context,
+	k8sClient genericclioptions.RESTClientGetter,
+	params UpgradeParameters,
+) (*release.Release, error) {
+	actionConfig := action.Configuration{}
+	// Use the default Helm driver (Kubernetes secret).
+	helmDriver := ""
+	// TODO(michi) Make the logger configurable
+	logger := func(format string, v ...interface{}) {}
+	if err := actionConfig.Init(k8sClient, params.Namespace, helmDriver, logger); err != nil {
+		return nil, err
+	}
+	currentRelease, err := actionConfig.Releases.Last(params.Name)
+	if err != nil {
+		return nil, err
+	}
+	helmClient := action.NewUpgrade(&actionConfig)
+	helmClient.Namespace = params.Namespace
+	helmClient.ResetValues = params.ResetValues
+	helmClient.ReuseValues = params.ReuseValues
+	return helmClient.RunWithContext(ctx, defaults.HelmReleaseName, currentRelease.Chart, params.Values)
 }
