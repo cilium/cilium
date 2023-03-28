@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/certs"
 	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
 
 	"github.com/blang/semver/v4"
@@ -834,4 +835,45 @@ func (k *K8sHubble) NewClusterRoleBinding(crbName string) *rbacv1.ClusterRoleBin
 	var crb rbacv1.ClusterRoleBinding
 	utils.MustUnmarshalYAML([]byte(crbFile), &crb)
 	return &crb
+}
+
+func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameters) error {
+	options := values.Options{
+		Values: []string{
+			fmt.Sprintf("hubble.relay.enabled=%t", params.Relay),
+			fmt.Sprintf("hubble.ui.enabled=%t", params.UI),
+		},
+	}
+	vals, err := helm.MergeVals(options, nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	upgradeParams := helm.UpgradeParameters{
+		Namespace:   params.Namespace,
+		Name:        defaults.HelmReleaseName,
+		Values:      vals,
+		ResetValues: false,
+		ReuseValues: true,
+	}
+	_, err = helm.UpgradeCurrentRelease(ctx, k8sClient.RESTClientGetter, upgradeParams)
+	return err
+}
+
+func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameters) error {
+	options := values.Options{
+		Values: []string{"hubble.relay.enabled=false", "hubble.ui.enabled=false"},
+	}
+	vals, err := helm.MergeVals(options, nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	upgradeParams := helm.UpgradeParameters{
+		Namespace:   params.Namespace,
+		Name:        defaults.HelmReleaseName,
+		Values:      vals,
+		ResetValues: false,
+		ReuseValues: true,
+	}
+	_, err = helm.UpgradeCurrentRelease(ctx, k8sClient.RESTClientGetter, upgradeParams)
+	return err
 }
