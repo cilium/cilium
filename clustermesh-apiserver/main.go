@@ -565,7 +565,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 	}).Info("Starting clustermesh-apiserver...")
 
 	if mockFile == "" {
-		synced.SyncCRDs(startCtx, clientset, synced.AllCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
+		synced.SyncCRDs(startCtx, clientset, synced.AllCiliumCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 	}
 
 	mgr := NewVMManager(clientset)

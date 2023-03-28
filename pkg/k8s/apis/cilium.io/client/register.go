@@ -106,7 +106,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv2alpha1.LBIPPoolName): createCRD(LBIPPoolCRDName, k8sconstv2alpha1.LBIPPoolName),
 		synced.CRDResourceName(k8sconstv2alpha1.CNCName):      createCRD(CNCCRDName, k8sconstv2alpha1.CNCName),
 	}
-	for _, r := range synced.AllCRDResourceNames() {
+	for _, r := range synced.AllCiliumCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
 		if !ok {
 			log.Fatalf("Unknown resource %s. Please update pkg/k8s/apis/cilium.io/client to understand this type.", r)

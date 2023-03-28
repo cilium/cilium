@@ -258,7 +258,7 @@ client.
                    synced.CRDResourceName(k8sconstv2alpha1.CESName):  createCESCRD,
    +               synced.CRDResourceName(k8sconstv2alpha1.BGPPName): createCESCRD,
            }
-           for _, r := range synced.AllCRDResourceNames() {
+           for _, r := range synced.AllCiliumCRDResourceNames() {
                    fn, ok := resourceToCreateFnMapping[r]
    @@ -127,6 +134,12 @@ var (
     
