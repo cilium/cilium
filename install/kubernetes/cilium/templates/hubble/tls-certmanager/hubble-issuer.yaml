@@ -14,9 +14,12 @@ metadata:
   name: hubble-ca
   namespace: {{ .Release.Namespace }}
 spec:
-  commonName: Cilium CA
+  commonName: Hubble CA
   duration: {{ printf "%dh0m0s" (mul .Values.hubble.tls.auto.issuerCertValidityDuration 24) }}
   isCA: true
+  privateKey:
+    algorithm: ECDSA
+    size: 256
   issuerRef:
     group: cert-manager.io
     kind: Issuer

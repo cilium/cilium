@@ -1000,7 +1000,6 @@ hubble:
       # Only used if certManagerIssuerRef is not specified.
       issuerCertValidityDuration: 26280
 
-
     # -- Deprecated in favor of tls.ca. To be removed in 1.13.
     # base64 encoded PEM values for the Hubble CA certificate and private key.
     ca:
