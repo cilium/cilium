@@ -345,12 +345,12 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 			if validate {
 				if err := secret.Validate(); err != nil {
-					return Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%s): %s", secret.Name, err, secret.String())
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%s)", secret.Name, err)
 				}
 			}
 			resources.Secrets = append(resources.Secrets, secret)
 
-			log.Debugf("ParseResources: Parsed secret: %v", secret)
+			log.Debugf("ParseResources: Parsed secret: %s", secret.Name)
 
 		default:
 			return Resources{}, fmt.Errorf("Unsupported type: %s", typeURL)
@@ -430,7 +430,7 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	// resources to begin with.
 	// If both listeners and clusters are added then wait for clusters.
 	for _, r := range resources.Secrets {
-		log.Debugf("Envoy upsertSecret %s %v", r.Name, r)
+		log.Debugf("Envoy upsertSecret %s", r.Name)
 		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
 	}
 	for _, r := range resources.Endpoints {
