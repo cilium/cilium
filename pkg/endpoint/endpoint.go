@@ -1109,9 +1109,6 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	e.desiredPolicy.Detach()
 	e.realizedPolicy.Detach()
 
-	// Remove restored rules of cleaned endpoint
-	e.owner.RemoveRestoredDNSRules(e.ID)
-
 	if e.SecurityIdentity != nil && len(e.realizedRedirects) > 0 {
 		// Passing a new map of nil will purge all redirects
 		finalize, _ := e.removeOldRedirects(nil, proxyWaitGroup)
@@ -2203,7 +2200,16 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
 	errs = append(errs, e.leaveLocked(proxyWaitGroup, conf)...)
+	id := e.ID
+	owner := e.owner
 	e.unlock()
+
+	// Remove restored rules of cleaned endpoint. Note that this call cannot be inside the endpoint
+	// critical section, as it would violate the lock ordering requirements: The call takes the
+	// DNSProxy lock, but holding the endpoint lock while acquiring the DNSProxy lock is forbidden.
+	// The locking partial order is DNS > IPC and IPC > EP, but we'd need EP > DNS which violates
+	// the transitiviy.
+	owner.RemoveRestoredDNSRules(id)
 
 	err := e.waitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
