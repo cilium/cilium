@@ -1740,7 +1740,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 			ipv6_addr_copy(&tuple.saddr, (union v6addr *)&iphdr.daddr);
 			ipv6_addr_copy(&tuple.daddr, (union v6addr *)&iphdr.saddr);
 
-			hdrlen = ipv6_hdrlen_offset(ctx, &iphdr.nexthdr, icmpoff);
+			hdrlen = ipv6_hdrlen_offset(ctx, &tuple.nexthdr, icmpoff);
 			if (hdrlen < 0)
 				return hdrlen;
 
