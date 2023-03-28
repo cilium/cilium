@@ -88,6 +88,7 @@ spec:
                           enum:
                           - "null"
                           - mtls-spiffe
+                          - always-fail
                           type: string
                       required:
                       - type
@@ -1443,6 +1444,7 @@ spec:
                           enum:
                           - "null"
                           - mtls-spiffe
+                          - always-fail
                           type: string
                       required:
                       - type
@@ -2563,6 +2565,7 @@ spec:
                             enum:
                             - "null"
                             - mtls-spiffe
+                            - always-fail
                             type: string
                         required:
                         - type
@@ -3940,6 +3943,7 @@ spec:
                             enum:
                             - "null"
                             - mtls-spiffe
+                            - always-fail
                             type: string
                         required:
                         - type

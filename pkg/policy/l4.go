@@ -226,6 +226,8 @@ const (
 	AuthTypeNull
 	// AuthTypeMTLSSpiffe is a mTLS auth type that uses SPIFFE identities with a SPIRE server
 	AuthTypeMTLSSpiffe
+	// AuthTypeAlwaysFail is a simple auth type that always denies the request
+	AuthTypeAlwaysFail
 )
 
 // GetAuthType returns the AuthType of the L4Filter.
@@ -238,6 +240,8 @@ func (a *PerSelectorPolicy) GetAuthType() AuthType {
 		return AuthTypeNull
 	case "mtls-spiffe":
 		return AuthTypeMTLSSpiffe
+	case "always-fail":
+		return AuthTypeAlwaysFail
 	}
 	return AuthTypeNone
 }
@@ -256,6 +260,8 @@ func (a AuthType) String() string {
 		return "null"
 	case AuthTypeMTLSSpiffe:
 		return "mtls-spiffe"
+	case AuthTypeAlwaysFail:
+		return "always-fail"
 	}
 	return fmt.Sprintf("Unknown-auth-type-%d", a.Uint8())
 }
