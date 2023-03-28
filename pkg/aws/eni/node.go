@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -196,6 +197,10 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 	return n.manager.api.UnassignPrivateIpAddresses(ctx, r.InterfaceID, r.IPsToRelease)
 }
 
+func (n *Node) ReleaseIPv6IPs(ctx context.Context, r *ipam.ReleaseAction) error {
+	return n.manager.api.UnassignIPv6IpAddresses(ctx, r.InterfaceID, r.IPsToRelease)
+}
+
 // PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
 // allocated/created.
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
@@ -307,6 +312,15 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 		}).Warning("Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore")
 	}
 	return n.manager.api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.AvailableForAllocation))
+}
+
+func (n *Node) AllocateIPv6IPs(ctx context.Context, a *ipam.AllocationAction) error {
+	num, err := strconv.Atoi(a.AvailableIPv6ForAllocation.String())
+	if err != nil {
+		return err
+	}
+	// Prefix for IPv6 is not support yet
+	return n.manager.api.AssignIPv6IpAddresses(ctx, a.InterfaceID, int32(num))
 }
 
 func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec) ([]string, error) {
