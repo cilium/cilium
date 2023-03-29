@@ -23,7 +23,7 @@ import (
 // bpfCtListCmd represents the bpf_ct_list command
 var (
 	bpfCtListCmd = &cobra.Command{
-		Use:     "list ( global | endpoint ) [identifier]",
+		Use:     "list ( global | endpoint | cluster ) [identifier]",
 		Aliases: []string{"ls"},
 		Short:   "List connection tracking entries",
 		PreRun:  requireEndpointIDorGlobal,
@@ -57,6 +57,10 @@ func init() {
 }
 
 func parseArgs(args []string) (string, uint32, error) {
+	if len(args) == 0 {
+		return "", 0, fmt.Errorf("no CT map type provided")
+	}
+
 	t := args[0]
 	switch t {
 	case "global":
@@ -70,6 +74,15 @@ func parseArgs(args []string) (string, uint32, error) {
 			return "", 0, fmt.Errorf("invalid endpointID: %w", err)
 		}
 		return t, uint32(id), nil
+	case "cluster":
+		if len(args) != 2 {
+			return "", 0, fmt.Errorf("missing clusterID")
+		}
+		id, err := strconv.ParseUint(args[1], 10, 32)
+		if err != nil {
+			return "", 0, fmt.Errorf("invalid clusterID: %w", err)
+		}
+		return t, uint32(id), nil
 	default:
 		return "", 0, fmt.Errorf("unknown type %s", args[0])
 	}
@@ -81,6 +94,10 @@ func getMaps(t string, id uint32) []*ctmap.Map {
 	}
 	if t == "endpoint" {
 		return ctmap.LocalMaps(&dummyEndpoint{ID: int(id)}, true, true)
+	}
+	if t == "cluster" {
+		ctmap.InitPerClusterCTMaps(ctmap.PerClusterCTOuterMapPrefix, true, getIpv6EnableStatus())
+		return ctmap.PerClusterCTMaps.GetClusterCTMaps(id)
 	}
 	return []*ctmap.Map{}
 }
