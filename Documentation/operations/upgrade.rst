@@ -365,6 +365,12 @@ New Options
 * ``nodes-gc-interval``: This option was marked as deprecated and has no effect
   in 1.11. Cilium Node Garbage collector is added back in 1.12 (but for k8s GC instead
   of kvstore), so this flag is moved out of deprecated list.
+* This is only relevant for deployments where IPSec is enabled! In upgrades to Cilium 
+  v1.12.8, the IPSec state is not refreshed, which causes dropped connections in 
+  the cluster. As such we recommend to stay at v1.12.7. This issue can be mitigated by
+  either replacing workload nodes in the cluster (to get a fresh IPSec state) or by
+  flushing the current state by running the following command on each node:
+  ``ip xfrm state flush``.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -563,7 +569,6 @@ available during the upgrade:
   after the upgrade. If the number of events exceeds the event buffer size,
   events will be lost.
 
-
 .. _upgrade_configmap:
 
 Rebasing a ConfigMap
@@ -603,7 +608,6 @@ Export the current ConfigMap
           creationTimestamp: null
           name: cilium-config
           selfLink: /api/v1/namespaces/kube-system/configmaps/cilium-config
-
 
 In the :term:`ConfigMap` above, we can verify that Cilium is using ``debug`` with
 ``true``, it has a etcd endpoint running with `TLS <https://etcd.io/docs/latest/op-guide/security/>`_,
@@ -678,7 +682,6 @@ the :term:`ConfigMap` in the ``kube-system`` namespace of your cluster.
 As the :term:`ConfigMap` is successfully upgraded we can start upgrading Cilium
 ``DaemonSet`` and ``RBAC`` which will pick up the latest configuration from the
 :term:`ConfigMap`.
-
 
 .. _cidr_limitations:
 
@@ -758,7 +761,6 @@ Solution
 Upgrade the host Linux version to 4.11 or later. This step is beyond the scope
 of the Cilium guide.
 
-
 Migrating from kvstore-backed identities to Kubernetes CRD-backed identities
 ----------------------------------------------------------------------------
 
@@ -808,7 +810,6 @@ The cilium preflight manifest requires etcd support and can be built with:
       --set etcd.ssl=true \
       > cilium-preflight.yaml
     kubectl create -f cilium-preflight.yaml
-
 
 Example migration
 ~~~~~~~~~~~~~~~~~
