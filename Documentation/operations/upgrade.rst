@@ -309,6 +309,16 @@ Annotations:
 
 .. _1.13_upgrade_notes:
 
+1.13.1 Upgrade Notes
+--------------------
+
+* In upgrades to Cilium v1.13.1 with IPsec enabled, the IPsec state is not
+  refreshed, which causes dropped connections in the cluster. As such, we
+  recommend staying at v1.13.0. This issue can be mitigated by either
+  replacing workload nodes in the cluster (to get a fresh IPsec state) or by
+  flushing the current state by running the following command on each node:
+  ``ip xfrm state flush && ip xfrm policy flush``.
+
 1.13 Upgrade Notes
 ------------------
 * The code for the deprecated ``spec.eni.min-allocate``, ``spec.eni.pre-allocate``
