@@ -352,6 +352,12 @@ Annotations:
   the feature was automatically enabled for the ``partial`` when
   ``upgradeCompatibility`` was not set or it was set to ``>= 1.8``.
 
+* In upgrades to Cilium v1.12.8 with IPSec enabled, the IPSec state is not refreshed, which causes dropped connections in 
+  the cluster. As such, we recommend staying at v1.12.7. This issue can be mitigated by
+  either replacing workload nodes in the cluster (to get a fresh IPSec state) or by
+  flushing the current state by running the following command on each node:
+  ``ip xfrm state flush``.  
+
 New Options
 ~~~~~~~~~~~
 
