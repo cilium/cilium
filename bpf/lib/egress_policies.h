@@ -313,7 +313,7 @@ srv6_decapsulation(struct __ctx_buff *ctx)
 	}
 #endif /* ENABLE_SRV6_SRH_ENCAP */
 	case IPPROTO_IPIP:
-parse_outer_ipv4: __maybe_unused
+parse_outer_ipv4: __maybe_unused;
 		if (ctx_change_proto(ctx, new_proto, 0) < 0)
 			return DROP_WRITE_ERROR;
 		if (ctx_store_bytes(ctx, offsetof(struct ethhdr, h_proto),
@@ -327,7 +327,7 @@ parse_outer_ipv4: __maybe_unused
 		shrink += sizeof(struct iphdr);
 		break;
 	case IPPROTO_IPV6:
-parse_outer_ipv6: __maybe_unused
+parse_outer_ipv6: __maybe_unused;
 		shrink += sizeof(struct ipv6hdr);
 		break;
 	default:

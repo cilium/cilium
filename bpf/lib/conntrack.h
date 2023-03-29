@@ -260,7 +260,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 		return CT_ESTABLISHED;
 	}
 
-ct_new: __maybe_unused
+ct_new: __maybe_unused;
 	*monitor = TRACE_PAYLOAD_LEN;
 	return CT_NEW;
 }
