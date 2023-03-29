@@ -309,6 +309,16 @@ Annotations:
 
 .. _1.11_upgrade_notes:
 
+1.11.15 Upgrade Notes
+---------------------
+
+* In upgrades to Cilium v1.11.15 with IPsec enabled, the IPsec state is not
+  refreshed, which causes dropped connections in the cluster. As such, we
+  recommend staying at v1.11.14. This issue can be mitigated by either
+  replacing workload nodes in the cluster (to get a fresh IPsec state) or by
+  flushing the current state by running the following command on each node:
+  ``ip xfrm state flush && ip xfrm policy flush``.
+
 1.11.5 Upgrade Notes
 --------------------
 
@@ -339,13 +349,6 @@ Annotations:
   interruption of the connectivity between the client pods and the egress
   gateway nodes. Once the connectivity is restored, clients will need to
   reconnect.
-
-* In upgrades to Cilium v1.11.15 with IPSec enabled, the IPSec state is not refreshed, which causes dropped connections in 
-  the cluster. As such, we recommend staying at v1.11.14. This issue can be mitigated by
-  either replacing workload nodes in the cluster (to get a fresh IPSec state) or by
-  flushing the current state by running the following command on each node:
-  ``ip xfrm state flush``.
-
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
