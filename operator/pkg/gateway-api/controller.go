@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -181,6 +182,59 @@ func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Objec
 						Namespace: ns,
 						Name:      gw.GetName(),
 					})
+				}
+			}
+		}
+	}
+	return gateways
+}
+
+func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Object) []types.NamespacedName {
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.Controller:   gateway,
+		logfields.K8sNamespace: ns.GetName(),
+	})
+
+	gwList := &gatewayv1beta1.GatewayList{}
+	if err := c.List(ctx, gwList); err != nil {
+		scopedLog.WithError(err).Warn("Unable to list Gateways")
+		return nil
+	}
+
+	var gateways []types.NamespacedName
+	for _, gw := range gwList.Items {
+		for _, l := range gw.Spec.Listeners {
+			if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
+				continue
+			}
+
+			switch *l.AllowedRoutes.Namespaces.From {
+			case gatewayv1beta1.NamespacesFromAll:
+				gateways = append(gateways, client.ObjectKey{
+					Namespace: gw.GetNamespace(),
+					Name:      gw.GetName(),
+				})
+			case gatewayv1beta1.NamespacesFromSame:
+				if ns.GetName() == gw.GetNamespace() {
+					gateways = append(gateways, client.ObjectKey{
+						Namespace: gw.GetNamespace(),
+						Name:      gw.GetName(),
+					})
+				}
+			case gatewayv1beta1.NamespacesFromSelector:
+				nsList := &corev1.NamespaceList{}
+				err := c.List(ctx, nsList, client.MatchingLabels(l.AllowedRoutes.Namespaces.Selector.MatchLabels))
+				if err != nil {
+					scopedLog.WithError(err).Warn("Unable to list Namespaces")
+					return nil
+				}
+				for _, item := range nsList.Items {
+					if item.GetName() == ns.GetName() {
+						gateways = append(gateways, client.ObjectKey{
+							Namespace: gw.GetNamespace(),
+							Name:      gw.GetName(),
+						})
+					}
 				}
 			}
 		}
