@@ -112,9 +112,16 @@ var (
 			client.RegisterCRDsCell,
 			k8s.SharedResourcesCell,
 			lbipam.Cell,
-			identitygc.Cell,
 
 			legacyCell,
+
+			// When running in kvstore mode, the start hook of the identity GC
+			// cell blocks until the kvstore client has been initialized, which
+			// is performed by the legacyCell start hook. Hence, the identity GC
+			// cell is registered afterwards, to ensure the ordering of the
+			// setup operations. This is a hacky workaround until the kvstore is
+			// refactored into a proper cell.
+			identitygc.Cell,
 		),
 	)
 
