@@ -207,6 +207,14 @@
         "golang.zx2c4.com/wireguard",
       ],
       "versioning": "regex:^v0.0.0-(<patch>\\d+)-.*$",
+    },
+    {
+      "groupName": "Hubble CLI",
+      "groupSlug": "hubble-cli",
+      "matchDepNames": [
+        "cilium/hubble",
+        "quay.io/cilium/hubble"
+      ],
     }
   ],
   "kubernetes": {
