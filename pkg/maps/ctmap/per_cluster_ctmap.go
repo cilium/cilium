@@ -25,7 +25,8 @@ import (
 var PerClusterCTMaps PerClusterCTMapper
 
 const (
-	perClusterCTMapMaxEntries = cmtypes.ClusterIDMax + 1
+	perClusterCTMapMaxEntries  = cmtypes.ClusterIDMax + 1
+	PerClusterCTOuterMapPrefix = "cilium_per_cluster_ct_"
 )
 
 // An interface to interact with all per-cluster CT maps
