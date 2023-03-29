@@ -406,10 +406,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			kubectl.Exec("kubectl label nodes --all status-")
 		})
 
-		AfterEach(func() {
-			kubectl.Exec(fmt.Sprintf("%s delete --all ccnp", helpers.KubectlCmd))
-		})
-
 		SkipItIf(func() bool {
 			return !helpers.IsIntegration(helpers.CIIntegrationGKE)
 		}, "Check connectivity with IPv6 disabled", func() {
@@ -528,6 +524,10 @@ func testHostFirewall(kubectl *helpers.Kubectl) {
 	By(fmt.Sprintf("Applying policies %s", demoHostPolicies))
 	_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoHostPolicies, err))
+	defer func() {
+		_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlDelete, helpers.HelperTimeout)
+		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", demoHostPolicies, err))
+	}()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
