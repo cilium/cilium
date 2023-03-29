@@ -272,7 +272,7 @@ endef
 
 define generate_deepequal
 	$(GO) run github.com/cilium/deepequal-gen \
-	--input-dirs $(subst $(newline),$(comma),$(1)) \
+	--input-dirs $(subst $(space),$(comma),$(1)) \
 	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
 	--output-file-base zz_generated.deepequal \
 	--output-base $(2)
@@ -280,7 +280,7 @@ endef
 
 define generate_deepcopy
 	$(GO) run k8s.io/code-generator/cmd/deepcopy-gen \
-	--input-dirs $(subst $(newline),$(comma),$(1)) \
+	--input-dirs $(subst $(space),$(comma),$(1)) \
 	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
 	--output-file-base zz_generated.deepcopy \
 	--output-base $(2)
@@ -305,57 +305,6 @@ define generate_k8s_protobuf
 		--output-base=$(2)
 endef
 
-define DEEP_PACKAGES
-github.com/cilium/cilium/pkg/aws/types
-github.com/cilium/cilium/pkg/azure/types
-github.com/cilium/cilium/pkg/ipam/types
-github.com/cilium/cilium/pkg/alibabacloud/types
-github.com/cilium/cilium/pkg/maps/auth
-github.com/cilium/cilium/pkg/maps/ctmap
-github.com/cilium/cilium/pkg/maps/encrypt
-github.com/cilium/cilium/pkg/maps/eppolicymap
-github.com/cilium/cilium/pkg/maps/eventsmap
-github.com/cilium/cilium/pkg/maps/fragmap
-github.com/cilium/cilium/pkg/maps/ipcache
-github.com/cilium/cilium/pkg/maps/ipmasq
-github.com/cilium/cilium/pkg/maps/lbmap
-github.com/cilium/cilium/pkg/maps/lxcmap
-github.com/cilium/cilium/pkg/maps/metricsmap
-github.com/cilium/cilium/pkg/maps/nat
-github.com/cilium/cilium/pkg/maps/neighborsmap
-github.com/cilium/cilium/pkg/maps/policymap
-github.com/cilium/cilium/pkg/maps/signalmap
-github.com/cilium/cilium/pkg/maps/sockmap
-github.com/cilium/cilium/pkg/maps/srv6map
-github.com/cilium/cilium/pkg/maps/tunnel
-github.com/cilium/cilium/pkg/maps/vtep
-github.com/cilium/cilium/pkg/node/types
-github.com/cilium/cilium/pkg/policy/api
-github.com/cilium/cilium/pkg/policy/api/kafka
-github.com/cilium/cilium/pkg/service/store
-github.com/cilium/cilium/pkg/aws/eni/types
-github.com/cilium/cilium/pkg/alibabacloud/eni/types
-github.com/cilium/cilium/api/v1/models
-github.com/cilium/cilium/pkg/bpf
-github.com/cilium/cilium/pkg/k8s
-github.com/cilium/cilium/pkg/labels
-github.com/cilium/cilium/pkg/loadbalancer
-github.com/cilium/cilium/pkg/tuple
-github.com/cilium/cilium/pkg/recorder
-github.com/cilium/cilium/pkg/k8s/types
-github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1
-github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1
-github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1
-github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1
-github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1
-github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr
-github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1
-github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1
-github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels
-github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1
-github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2
-endef
-
 define K8S_PROTO_PACKAGES
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1
@@ -373,8 +322,13 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	$(eval TMPDIR := $(shell mktemp -d))
 
 	$(QUIET) $(call generate_k8s_protobuf,${K8S_PROTO_PACKAGES},"$(TMPDIR)")
-	$(QUIET) $(call generate_deepequal,${DEEP_PACKAGES},"$(TMPDIR)")
-	$(QUIET) $(call generate_deepcopy,${DEEP_PACKAGES},"$(TMPDIR)")
+
+	$(eval DEEPEQUAL_PACKAGES := $(shell grep "\+deepequal-gen" -l -r --include \*.go --exclude-dir 'vendor' . | xargs dirname {} | sort | uniq | grep -x -v '.' | sed 's|\.\/|github.com/cilium/cilium\/|g'))
+	$(QUIET) $(call generate_deepequal,${DEEPEQUAL_PACKAGES},"$(TMPDIR)")
+
+	$(eval DEEPCOPY_PACKAGES := $(shell grep "\+k8s:deepcopy-gen" -l -r --include \*.go --exclude-dir 'vendor' . | xargs dirname {} | sort | uniq | grep -x -v '.' | sed 's|\.\/|github.com/cilium/cilium\/|g'))
+	$(QUIET) $(call generate_deepcopy,${DEEPCOPY_PACKAGES},"$(TMPDIR)")
+
 	$(QUIET) $(call generate_k8s_api,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/client,github.com/cilium/cilium/pkg/k8s/slim/k8s/api,"discovery:v1beta1 discovery:v1 networking:v1 core:v1","$(TMPDIR)")
 	$(QUIET) $(call generate_k8s_api,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"apiextensions:v1","$(TMPDIR)")
 	$(QUIET) $(call generate_k8s_api,client$(comma)lister$(comma)informer,github.com/cilium/cilium/pkg/k8s/client,github.com/cilium/cilium/pkg/k8s/apis,"cilium.io:v2 cilium.io:v2alpha1","$(TMPDIR)")
