@@ -271,7 +271,7 @@ define generate_k8s_api
 endef
 
 define generate_deepequal
-	go run github.com/cilium/deepequal-gen \
+	$(GO) run github.com/cilium/deepequal-gen \
 	--input-dirs $(subst $(newline),$(comma),$(1)) \
 	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
 	--output-file-base zz_generated.deepequal \
@@ -279,7 +279,7 @@ define generate_deepequal
 endef
 
 define generate_deepcopy
-	go run k8s.io/code-generator/cmd/deepcopy-gen \
+	$(GO) run k8s.io/code-generator/cmd/deepcopy-gen \
 	--input-dirs $(subst $(newline),$(comma),$(1)) \
 	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
 	--output-file-base zz_generated.deepcopy \
@@ -287,9 +287,9 @@ define generate_deepcopy
 endef
 
 define generate_k8s_protobuf
-	go install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo && \
-	go install golang.org/x/tools/cmd/goimports && \
-	go run k8s.io/code-generator/cmd/go-to-protobuf \
+	$(GO) install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo && \
+	$(GO) install golang.org/x/tools/cmd/goimports && \
+	$(GO) run k8s.io/code-generator/cmd/go-to-protobuf \
 		--apimachinery-packages='-k8s.io/apimachinery/pkg/util/intstr,$\
                                 -k8s.io/apimachinery/pkg/api/resource,$\
                                 -k8s.io/apimachinery/pkg/runtime/schema,$\
