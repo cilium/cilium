@@ -419,6 +419,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	identityAllocator CachingIdentityAllocator,
 	pr *policy.Repository,
 	policyUpdater *policy.Updater,
+	egressGatewayManager *egressgateway.Manager,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -566,10 +567,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
-		identityAllocator: identityAllocator,
-		ipcache:           ipc,
-		policy:            pr,
-		policyUpdater:     policyUpdater,
+		identityAllocator:    identityAllocator,
+		ipcache:              ipc,
+		policy:               pr,
+		policyUpdater:        policyUpdater,
+		egressGatewayManager: egressGatewayManager,
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -687,8 +689,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	d.cgroupManager = manager.NewCgroupManager()
 
-	if option.Config.EnableIPv4EgressGateway {
-		d.egressGatewayManager = egressgateway.NewEgressGatewayManager(cacheStatus, d.identityAllocator, option.Config.InstallEgressGatewayRoutes)
+	var egressGatewayWatcher watchers.EgressGatewayManager
+	if d.egressGatewayManager != nil {
+		egressGatewayWatcher = d.egressGatewayManager
 	}
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
@@ -701,7 +704,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		d.datapath,
 		d.redirectPolicyManager,
 		d.bgpSpeaker,
-		d.egressGatewayManager,
+		egressGatewayWatcher,
 		d.l7Proxy,
 		option.Config,
 		d.ipcache,
@@ -1007,11 +1010,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		}
 	}
 	if option.Config.EnableIPv4EgressGateway {
-		if probes.HaveLargeInstructionLimit() != nil {
-			log.WithError(err).Error("egress gateway needs kernel 5.2 or newer")
-			return nil, nil, fmt.Errorf("egress gateway needs kernel 5.2 or newer")
-		}
-
 		// datapath code depends on remote node identities to distinguish between cluser-local and
 		// cluster-egress traffic
 		if !option.Config.EnableRemoteNodeIdentity {

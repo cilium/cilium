@@ -80,10 +80,11 @@ type policyParams struct {
 type policyOut struct {
 	cell.Out
 
-	IdentityAllocator CachingIdentityAllocator
-	Repository        *policy.Repository
-	Updater           *policy.Updater
-	IPCache           *ipcache.IPCache
+	IdentityAllocator      CachingIdentityAllocator
+	CacheIdentityAllocator cache.IdentityAllocator
+	Repository             *policy.Repository
+	Updater                *policy.Updater
+	IPCache                *ipcache.IPCache
 }
 
 // newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache.
@@ -142,10 +143,11 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	})
 
 	return policyOut{
-		IdentityAllocator: idAlloc,
-		Repository:        iao.policy,
-		Updater:           policyUpdater,
-		IPCache:           ipc,
+		IdentityAllocator:      idAlloc,
+		CacheIdentityAllocator: idAlloc,
+		Repository:             iao.policy,
+		Updater:                policyUpdater,
+		IPCache:                ipc,
 	}, nil
 }
 

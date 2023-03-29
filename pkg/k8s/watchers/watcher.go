@@ -165,7 +165,7 @@ type bgpSpeakerManager interface {
 	OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice) error
 	OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) error
 }
-type egressGatewayManager interface {
+type EgressGatewayManager interface {
 	OnAddEgressPolicy(config egressgateway.PolicyConfig)
 	OnDeleteEgressPolicy(configID types.NamespacedName)
 	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
@@ -240,7 +240,7 @@ type K8sWatcher struct {
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
-	egressGatewayManager  egressGatewayManager
+	egressGatewayManager  EgressGatewayManager
 	ipcache               ipcacheManager
 	envoyConfigManager    envoyConfigManager
 	cgroupManager         cgroupManager
@@ -290,7 +290,7 @@ func NewK8sWatcher(
 	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
-	egressGatewayManager egressGatewayManager,
+	egressGatewayManager EgressGatewayManager,
 	envoyConfigManager envoyConfigManager,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,

@@ -20,6 +20,7 @@ cilium-agent hive dot-graph [flags]
       --certificates-directory string          Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --enable-k8s-api-discovery               Enable discovery of Kubernetes API groups and resources with the discovery API
       --gops-port uint16                       Port for gops server to listen on (default 9890)
+      --install-egress-gateway-routes          Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
       --k8s-api-server string                  Kubernetes API server URL
       --k8s-client-burst int                   Burst value allowed for the K8s client
       --k8s-client-qps float32                 Queries per second limit for the K8s client
