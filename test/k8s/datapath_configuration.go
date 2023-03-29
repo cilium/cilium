@@ -964,18 +964,24 @@ func fetchPodsWithOffset(kubectl *helpers.Kubectl, namespace, name, filter, host
 	return targetPod, targetPodJSON
 }
 
-func applyL3Policy(kubectl *helpers.Kubectl, ns string) {
+func applyL3Policy(kubectl *helpers.Kubectl, ns string) (withdrawPolicy func()) {
 	demoPolicyL3 := helpers.ManifestGet(kubectl.BasePath(), "l3-policy-demo.yaml")
 	By(fmt.Sprintf("Applying policy %s", demoPolicyL3))
 	_, err := kubectl.CiliumPolicyAction(ns, demoPolicyL3, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoPolicyL3, err))
+
+	return func() {
+		_, err := kubectl.CiliumPolicyAction(ns, demoPolicyL3, helpers.KubectlDelete, helpers.HelperTimeout)
+		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", demoPolicyL3, err))
+	}
 }
 
 func testPodConnectivityAndReturnIP(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int) (bool, string) {
 	callOffset++
 
 	randomNamespace := deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
-	applyL3Policy(kubectl, randomNamespace)
+	withdrawPolicy := applyL3Policy(kubectl, randomNamespace)
+	defer withdrawPolicy()
 	deploymentManager.WaitUntilReady()
 
 	By("Checking pod connectivity between nodes")
@@ -1038,7 +1044,8 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 	}
 
 	namespace := deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
-	applyL3Policy(kubectl, namespace)
+	withdrawPolicy := applyL3Policy(kubectl, namespace)
+	defer withdrawPolicy()
 	deploymentManager.WaitUntilReady()
 
 	label := "zgroup=testDSClient"
