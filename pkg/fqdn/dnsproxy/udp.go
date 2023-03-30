@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 	"golang.org/x/sys/unix"

@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 )
 
 // mockLogRecord is a log entry similar to the one used in fqdn.go for

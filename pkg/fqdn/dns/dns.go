@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-// Based on code from github.com/miekg/dns which is:
+// Based on code from github.com/cilium/dns which is:
 //
 // Copyright 2009 The Go Authors. All rights reserved.
 // Copyright 2011 Miek Gieben. All rights reserved.
@@ -11,7 +11,7 @@ package dns
 
 import "strings"
 
-// These functions were copied and adapted from github.com/miekg/dns.
+// These functions were copied and adapted from github.com/cilium/dns.
 
 // isFQDN reports whether the domain name s is fully qualified.
 func isFQDN(s string) bool {

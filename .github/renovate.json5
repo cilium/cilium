@@ -116,7 +116,6 @@
         // want to update them automatically.
         "go.universe.tf/metallb",
         "github.com/cilium/metallb",
-        "github.com/miekg/dns",
         "github.com/cilium/dns",
         "sigs.k8s.io/controller-tools",
         "github.com/cilium/controller-tools",

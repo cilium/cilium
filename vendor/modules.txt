@@ -182,6 +182,9 @@ github.com/cilium/customvet/analysis/timeafter
 ## explicit; go 1.14
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/generators
+# github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2
+## explicit; go 1.14
+github.com/cilium/dns
 # github.com/cilium/ebpf v0.10.0
 ## explicit; go 1.18
 github.com/cilium/ebpf
@@ -655,9 +658,6 @@ github.com/mdlayher/raw
 # github.com/mdlayher/socket v0.2.3
 ## explicit; go 1.17
 github.com/mdlayher/socket
-# github.com/miekg/dns v1.1.43 => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
-## explicit; go 1.14
-github.com/miekg/dns
 # github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721
 ## explicit
 github.com/mikioh/ipaddr
@@ -1752,6 +1752,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# github.com/miekg/dns => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2
