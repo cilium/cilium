@@ -47,7 +47,6 @@ var _ = Describe("K8sUpdates", func() {
 
 		cleanupCallback = func() {}
 	)
-
 	BeforeAll(func() {
 		SkipIfIntegration(helpers.CIIntegrationAKS)
 		canRun, err := helpers.CanRunK8sVersion(helpers.CiliumStableVersion, helpers.GetCurrentK8SEnv())
@@ -88,8 +87,8 @@ var _ = Describe("K8sUpdates", func() {
 		cmd := kubectl.Exec(fmt.Sprintf("mkdir -p %s && "+
 			"cd %s && "+
 			"rm -rf * && "+
-			"wget https://github.com/cilium/cilium/archive/refs/heads/%s.zip &&"+
-			"unzip %s.zip",
+			"wget https://github.com/cilium/cilium/archive/refs/heads/%s.tar.gz && "+
+			"tar -xf %s.tar.gz",
 			versionPath,
 			versionPath,
 			helpers.CiliumStableVersion,
