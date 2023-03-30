@@ -108,6 +108,8 @@ workers() {
   done
 }
 
+echo "${kind_cmd}"
+
 # create a custom network so we can control the name of the bridge device.
 # Inspired by https://github.com/kubernetes-sigs/kind/blob/6b58c9dfcbdb1b3a0d48754d043d59ca7073589b/pkg/cluster/internal/providers/docker/network.go#L149-L161
 docker network create -d=bridge \
