@@ -113,9 +113,15 @@ func TestUsersManagement(t *testing.T) {
 	require.Equal(t, "r2", client.created["bar"])
 	require.Equal(t, "r3", client.created["qux"])
 
-	// Update the users config file, and require that changes are propagated
 	client.init()
-	require.NoError(t, os.WriteFile(cfgPath, []byte(users2), 0600))
+
+	// Update the users config file, and require that changes are propagated
+	// We first write to a different file and then rename it, to avoid the possible
+	// race condition caused by truncate + write if we detect the event sufficiently
+	// fast (i.e., we first read an empty file, and then the expected one).
+	cfgPath2 := path.Join(tmpdir, "users.yaml.2")
+	require.NoError(t, os.WriteFile(cfgPath2, []byte(users2), 0600))
+	require.NoError(t, os.Rename(cfgPath2, cfgPath))
 
 	// Wait for processing to complete
 	time.Sleep(25 * time.Millisecond)
