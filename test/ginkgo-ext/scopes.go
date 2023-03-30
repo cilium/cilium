@@ -543,12 +543,29 @@ func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, f
 // isTestFocused checks the value of FocusString and return true if the given
 // text name is focussed, returns false if the test is not focused.
 func isTestFocused(text string) bool {
-	if len(config.GinkgoConfig.FocusStrings) == 0 {
+	if len(config.GinkgoConfig.FocusStrings) == 0 && len(config.GinkgoConfig.SkipStrings) == 0 {
 		return false
 	}
 
-	focusFilter := regexp.MustCompile(config.GinkgoConfig.FocusStrings[0])
-	return focusFilter.MatchString(text)
+	var focusFilter, skipFilter *regexp.Regexp
+	if len(config.GinkgoConfig.FocusStrings) != 0 {
+		focusFilter = regexp.MustCompile(config.GinkgoConfig.FocusStrings[0])
+	}
+	if len(config.GinkgoConfig.SkipStrings) != 0 {
+		skipFilter = regexp.MustCompile(config.GinkgoConfig.SkipStrings[0])
+	}
+
+	switch {
+	case focusFilter != nil && skipFilter != nil:
+		return focusFilter.MatchString(text) && !skipFilter.MatchString(text)
+	case focusFilter != nil && skipFilter == nil:
+		return focusFilter.MatchString(text)
+	case focusFilter == nil && skipFilter != nil:
+		return !skipFilter.MatchString(text)
+	case focusFilter == nil && skipFilter == nil:
+		return false
+	}
+	return false
 }
 
 func applyAdvice(f interface{}, before, after func()) interface{} {
