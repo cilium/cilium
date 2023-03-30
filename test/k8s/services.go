@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/asaskevich/govalidator"
@@ -572,8 +573,16 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 					"hostFirewall.enabled": "true",
 				})
 
-				ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
-				_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
+				originalCCNPHostPolicy := helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
+				res := kubectl.ExecMiddle("mktemp")
+				res.ExpectSuccess()
+				ccnpHostPolicy := strings.Trim(res.Stdout(), "\n")
+				nodeIP, err := kubectl.GetNodeIPByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
+				Expect(err).Should(BeNil())
+				kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM_IP/%s/' %s > %s",
+					nodeIP, originalCCNPHostPolicy, ccnpHostPolicy)).ExpectSuccess()
+
+				_, err = kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
 					helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(),
 					"Policy %s cannot be applied", ccnpHostPolicy)
