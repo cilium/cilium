@@ -492,7 +492,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			It("connectivity is blocked after denying ingress", func() {
 				By("Running cilium monitor in the background")
-				ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
+				ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 				Expect(ciliumPod).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 
@@ -524,7 +524,7 @@ var _ = SkipDescribeIf(func() bool {
 				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
 
 				By("Running cilium monitor in the background")
-				ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
+				ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 				Expect(ciliumPod).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 
@@ -573,7 +573,7 @@ var _ = SkipDescribeIf(func() bool {
 
 				It("Connectivity to hostns is blocked after denying ingress", func() {
 					By("Running cilium monitor in the background")
-					ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
+					ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 					Expect(ciliumPod).ToNot(BeEmpty())
 					Expect(err).ToNot(HaveOccurred())
 
@@ -603,7 +603,7 @@ var _ = SkipDescribeIf(func() bool {
 					importPolicy(kubectl, testNamespace, ccnpDenyHostIngress, "default-deny-host-ingress")
 
 					By("Running cilium monitor in the background")
-					ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
+					ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 					Expect(ciliumPod).ToNot(BeEmpty())
 					Expect(err).ToNot(HaveOccurred())
 

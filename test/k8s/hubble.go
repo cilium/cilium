@@ -67,7 +67,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 			// For each pod, check that the Cilium proxy-statistics contain the new annotation
 			expectedProxyState := strings.ToLower(visibilityAnnotation)
 			for node, podName := range res.KVOutput() {
-				ciliumPod, err := kubectl.GetCiliumPodOnNode(node)
+				ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(node)
 				Expect(err).To(BeNil())
 
 				// Extract annotation from endpoint model of pod. It does not have the l4proto, so we insert it manually.
