@@ -3794,6 +3794,11 @@ func (kub *Kubectl) GetCiliumPodOnNode(label string) (string, error) {
 	return kub.getCiliumPodOnNodeByName(node)
 }
 
+// GetCiliumPodOnNodeByName returns the name of the Cilium pod that is running on node with the given name.
+func (kub *Kubectl) GetCiliumPodOnNodeByName(nodeName string) (string, error) {
+	return kub.getCiliumPodOnNodeByName(nodeName)
+}
+
 func (kub *Kubectl) validateCilium() error {
 	var g errgroup.Group
 
@@ -4780,8 +4785,8 @@ func (kub *Kubectl) CiliumOptions() map[string]string {
 
 // WaitForServiceFrontend waits until the service frontend with the given ipAddr
 // appears in "cilium bpf lb list --frontends" on the given node.
-func (kub *Kubectl) WaitForServiceFrontend(node, ipAddr string) error {
-	ciliumPod, err := kub.GetCiliumPodOnNode(node)
+func (kub *Kubectl) WaitForServiceFrontend(nodeName, ipAddr string) error {
+	ciliumPod, err := kub.GetCiliumPodOnNodeByName(nodeName)
 	if err != nil {
 		return err
 	}
