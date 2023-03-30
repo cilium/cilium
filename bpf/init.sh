@@ -500,10 +500,14 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	bpf_load "$ENCAP_DEV" "$COPTS" egress bpf_overlay.c bpf_overlay.o to-overlay "$CALLS_MAP"
 
 	cilium bpf migrate-maps -e bpf_overlay.o -r 0
+fi
 
-else
-	# Remove eventual existing encapsulation device from previous run
+# Remove stale encapsulation device from a previous run:
+if [ "${TUNNEL_MODE}" != "vxlan" ]; then
 	ip link del cilium_vxlan 2> /dev/null || true
+fi
+
+if [ "${TUNNEL_MODE}" != "geneve" ]; then
 	ip link del cilium_geneve 2> /dev/null || true
 fi
 
