@@ -4671,6 +4671,7 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"service":            "cilium-agent hubble-metrics hubble-relay hubble-peer",
 			"secret":             "hubble-relay-client-certs hubble-server-certs hubble-ca-secret cilium-ca",
 			"resourcequota":      "cilium-resource-quota cilium-operator-resource-quota",
+			"role":               "cilium-config-agent",
 		}
 
 		crdsToDelete = synced.AllCiliumCRDResourceNames()
