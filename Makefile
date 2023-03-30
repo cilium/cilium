@@ -190,6 +190,8 @@ GIT_VERSION: force
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 CRD_PATHS := "$(PWD)/pkg/k8s/apis/cilium.io/v2;\
               $(PWD)/pkg/k8s/apis/cilium.io/v2alpha1;"
+CRDS_CILIUM_PATHS := $(PWD)/pkg/k8s/apis/cilium.io/client/crds/v2\
+                     $(PWD)/pkg/k8s/apis/cilium.io/client/crds/v2alpha1
 CRDS_CILIUM_V2 := ciliumnetworkpolicies \
                   ciliumclusterwidenetworkpolicies \
                   ciliumendpoints \
@@ -208,6 +210,10 @@ manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	$(eval TMPDIR := $(shell mktemp -d))
 	$(QUIET)$(GO) run sigs.k8s.io/controller-tools/cmd/controller-gen $(CRD_OPTIONS) paths=$(CRD_PATHS) output:crd:artifacts:config="$(TMPDIR)"
 	$(QUIET)$(GO) run ./tools/crdcheck "$(TMPDIR)"
+
+	# Clean up old CRD state and start with a blank state.
+	for path in $(CRDS_CILIUM_PATHS); do rm -rf $${path} && mkdir $${path}; done
+
 	for file in $(CRDS_CILIUM_V2); do mv ${TMPDIR}/cilium.io_$${file}.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/$${file}.yaml; done
 	for file in $(CRDS_CILIUM_V2ALPHA1); do mv ${TMPDIR}/cilium.io_$${file}.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/$${file}.yaml; done
 	rm -rf $(TMPDIR)
