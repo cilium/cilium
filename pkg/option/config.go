@@ -1278,6 +1278,9 @@ const (
 
 	// PprofPortAgent is the default value for pprof in the agent
 	PprofPortAgent = 6060
+
+	// RuntimeCheckInterval tracks rutime monitor chack intervals.
+	RuntimeCheckInterval = "runtime-check-interval"
 )
 
 // GetTunnelModes returns the list of all tunnel modes
@@ -2328,6 +2331,9 @@ type DaemonConfig struct {
 
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy bool
+
+	// RuntimeCheckInterval tracks runtime monitor check interfals.
+	RuntimeCheckInterval time.Duration
 }
 
 var (
@@ -2378,6 +2384,8 @@ var (
 		EnableVTEP:             defaults.EnableVTEP,
 		EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
 		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
+
+		RuntimeCheckInterval: defaults.RuntimeCheckInterval,
 	}
 )
 

@@ -19,6 +19,7 @@ import (
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/runtime"
 )
 
 var (
@@ -47,6 +48,9 @@ var (
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.GopsPortAgent),
+
+		// Runs agent runtime monitor.
+		runtime.Cell(defaults.RuntimeCheckInterval),
 
 		// Provides Clientset, API for accessing Kubernetes objects.
 		k8sClient.Cell,

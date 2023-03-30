@@ -257,6 +257,7 @@ cilium-agent [flags]
       --read-cni-conf string                                    CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
       --restore                                                 Restores state, if possible, from previous daemon (default true)
       --route-metric int                                        Overwrite the metric used by cilium when adding routes to its 'cilium_host' device
+      --runtime-check-interval duration                         runtime check interval (default 5m0s)
       --sidecar-istio-proxy-image string                        Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --single-cluster-route                                    Use a single cluster route instead of per node routes
       --socket-path string                                      Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")

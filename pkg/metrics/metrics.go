@@ -67,6 +67,12 @@ const (
 	// SubsystemAPILimiter is the subsystem to scope metrics related to the API limiter package.
 	SubsystemAPILimiter = "api_limiter"
 
+	// SubsystemRuntime tracks agent runtime metrics.
+	SubsystemRuntime = "runtime"
+
+	// RuntimeSchedLatencyMX tracks go scheduler latency metric.
+	RuntimeSchedLatencyMX = SubsystemRuntime + "_scheduler_latency_duration_seconds"
+
 	// Namespace is used to scope metrics from cilium. It is prepended to metric
 	// names and separated with a '_'
 	Namespace = "cilium"
@@ -220,6 +226,9 @@ const (
 
 var (
 	registry = prometheus.NewPedanticRegistry()
+
+	// RuntimeSchedulerLatency tracks go scheduler latency metric.
+	RuntimeSchedulerLatency = NoOpGaugeVec
 
 	// BootstrapTimes is the durations of cilium-agent bootstrap sequence.
 	BootstrapTimes = NoOpObserverVec
@@ -533,6 +542,7 @@ var (
 )
 
 type Configuration struct {
+	RuntimeEnabled                          bool
 	BootstrapTimesEnabled                   bool
 	APIInteractionsEnabled                  bool
 	NodeConnectivityStatusEnabled           bool
@@ -676,6 +686,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemAPILimiter + "_rate_limit":                        {},
 		Namespace + "_" + SubsystemAPILimiter + "_adjustment_factor":                 {},
 		Namespace + "_" + SubsystemAPILimiter + "_processed_requests_total":          {},
+		Namespace + "_" + RuntimeSchedLatencyMX:                                      {},
 	}
 }
 
@@ -691,6 +702,16 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 		switch metricName {
 		default:
 			logrus.WithField("metric", metricName).Warning("Metric does not exist, skipping")
+
+		case Namespace + "_" + RuntimeSchedLatencyMX:
+			RuntimeSchedulerLatency = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      RuntimeSchedLatencyMX,
+				Help:      "Tracks go runtime scheduler average latency duration in seconds",
+			}, []string{"kind"})
+
+			collectors = append(collectors, RuntimeSchedulerLatency)
+			c.RuntimeEnabled = true
 
 		case Namespace + "_" + SubsystemAgent + "_bootstrap_seconds":
 			BootstrapTimes = prometheus.NewHistogramVec(prometheus.HistogramOpts{

@@ -28,6 +28,7 @@ cilium-agent hive [flags]
       --pprof                                  Enable serving pprof debugging API
       --pprof-address string                   Address that pprof listens on (default "localhost")
       --pprof-port uint16                      Port that pprof listens on (default 6060)
+      --runtime-check-interval duration        runtime check interval (default 5m0s)
 ```
 
 ### SEE ALSO

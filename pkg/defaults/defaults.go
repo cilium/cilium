@@ -523,6 +523,9 @@ const (
 
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy = true
+
+	// RuntimeCheckInterval tracks agent monitor heartbeat.
+	RuntimeCheckInterval = 5 * time.Minute
 )
 
 var (
