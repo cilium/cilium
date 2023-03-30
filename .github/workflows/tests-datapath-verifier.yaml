@@ -205,9 +205,9 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host/
-            make -C bpf/ clean V=0
             make -C tools/maptool/
-            go test -c ./test/verifier
+            # Run with cgo disabled, LVH images don't ship with gcc.
+            CGO_ENABLED=0 go test -c ./test/verifier
             docker run -t --privileged \
               -v /sys/fs/bpf:/sys/fs/bpf \
               -v "\$PWD:/cilium" \
