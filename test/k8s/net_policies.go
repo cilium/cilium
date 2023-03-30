@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -535,9 +536,17 @@ var _ = SkipDescribeIf(func() bool {
 				monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, ep.ID)
 
 				By("Importing fromCIDR+toPorts policy on ingress")
-				cnpAllowIngress := helpers.ManifestGet(kubectl.BasePath(),
-					"cnp-ingress-from-cidr-to-ports.yaml")
-				importPolicy(kubectl, testNamespace, cnpAllowIngress, "ingress-from-cidr-to-ports")
+
+				originalAssignIPYAML := helpers.ManifestGet(kubectl.BasePath(), "cnp-ingress-from-cidr-to-ports.yaml")
+				res := kubectl.ExecMiddle("mktemp")
+				res.ExpectSuccess()
+				cnpAllowIngressWithIP := strings.Trim(res.Stdout(), "\n")
+				nodeIP, err := kubectl.GetNodeIPByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
+				Expect(err).Should(BeNil())
+				kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM_IP/%s/' %s > %s",
+					nodeIP, originalAssignIPYAML, cnpAllowIngressWithIP)).ExpectSuccess()
+
+				importPolicy(kubectl, testNamespace, cnpAllowIngressWithIP, "ingress-from-cidr-to-ports")
 				count := testConnectivity(backendPodIP, true)
 				defer monitorCancel()
 
@@ -613,9 +622,16 @@ var _ = SkipDescribeIf(func() bool {
 					monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, hostEpID)
 
 					By("Importing fromCIDR+toPorts host policy on ingress")
-					ccnpAllowHostIngress := helpers.ManifestGet(kubectl.BasePath(),
-						"ccnp-host-ingress-from-cidr-to-ports.yaml")
-					importPolicy(kubectl, testNamespace, ccnpAllowHostIngress, "host-ingress-from-cidr-to-ports")
+					originalCCNPAllowHostIngress := helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-ingress-from-cidr-to-ports.yaml")
+					res := kubectl.ExecMiddle("mktemp")
+					res.ExpectSuccess()
+					ccnpAllowIngressWithIP := strings.Trim(res.Stdout(), "\n")
+					nodeIP, err := kubectl.GetNodeIPByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
+					Expect(err).Should(BeNil())
+					kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM_IP/%s/' %s > %s",
+						nodeIP, originalCCNPAllowHostIngress, ccnpAllowIngressWithIP)).ExpectSuccess()
+
+					importPolicy(kubectl, testNamespace, ccnpAllowIngressWithIP, "host-ingress-from-cidr-to-ports")
 
 					testConnectivity(backendPodIP, true)
 					count := testConnectivity(hostIPOfBackendPod, true)
