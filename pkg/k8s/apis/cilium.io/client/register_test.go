@@ -19,7 +19,6 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -36,7 +35,7 @@ func (s *CiliumV2RegisterSuite) getV1TestCRD() *apiextensionsv1.CustomResourceDe
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo-v1",
 			Labels: map[string]string{
-				k8sconst.CustomResourceDefinitionSchemaVersionKey: ciliumv2.CustomResourceDefinitionSchemaVersion,
+				k8sconst.CustomResourceDefinitionSchemaVersionKey: k8sconst.CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
@@ -59,7 +58,7 @@ func (s *CiliumV2RegisterSuite) getV1beta1TestCRD() *apiextensionsv1beta1.Custom
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo-v1beta1",
 			Labels: map[string]string{
-				k8sconst.CustomResourceDefinitionSchemaVersionKey: ciliumv2.CustomResourceDefinitionSchemaVersion,
+				k8sconst.CustomResourceDefinitionSchemaVersionKey: k8sconst.CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
