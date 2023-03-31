@@ -52,7 +52,7 @@ struct {
  *            \---------------------------/
  */
 
-int build_packet(struct __ctx_buff *ctx)
+static __always_inline int build_packet(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	volatile const __u8 *src = mac_one;
