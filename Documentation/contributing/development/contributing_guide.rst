@@ -160,7 +160,7 @@ requirements have been met:
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
    | ``release-note/misc``             | This is a not user-facing change , e.g. Refactor endpoint package, a bug fix of a non-released feature |
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
-   | ``release-note/ci``               | This is a CI feature of bug fix.                                                                       |
+   | ``release-note/ci``               | This is a CI feature or bug fix.                                                                       |
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
 
 #. Verify the release note text. If not explicitly changed, the title of the PR
@@ -451,7 +451,7 @@ times per day.
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
    | ``release-note/misc``             | This is a not user-facing change , e.g. Refactor endpoint package, a bug fix of a non-released feature |
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
-   | ``release-note/ci``               | This is a CI feature of bug fix.                                                                       |
+   | ``release-note/ci``               | This is a CI feature or bug fix.                                                                       |
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
 
 #. Check for upgrade compatibility impact and if in doubt, set the label
