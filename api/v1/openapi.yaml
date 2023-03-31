@@ -2170,6 +2170,9 @@ definitions:
             properties:
               enabled:
                 type: boolean
+          bpfSocketLBHostnsOnly:
+            description: flag bpf-lb-sock-hostns-only
+            type: boolean
   AllocationMap:
     description: |
       Map of allocated IPs
