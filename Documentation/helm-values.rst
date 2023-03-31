@@ -365,7 +365,7 @@
      - object
      - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm"}``
    * - clustermesh.apiserver.tls.auto.certManagerIssuerRef
-     - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager. If not specified, a CA issuer will be created.
+     - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
      - object
      - ``{}``
    * - clustermesh.apiserver.tls.auto.certValidityDuration
@@ -1181,7 +1181,7 @@
      - object
      - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
    * - hubble.tls.auto.certManagerIssuerRef
-     - certmanager issuer used when hubble.tls.auto.method=certmanager. If not specified, a CA issuer will be created.
+     - certmanager issuer used when hubble.tls.auto.method=certmanager.
      - object
      - ``{}``
    * - hubble.tls.auto.certValidityDuration
