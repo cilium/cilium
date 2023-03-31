@@ -962,7 +962,6 @@ hubble:
       #   kind: ClusterIssuer
       #   name: ca-issuer
       # -- certmanager issuer used when hubble.tls.auto.method=certmanager.
-      # If not specified, a CA issuer will be created.
       certManagerIssuerRef: {}
 
     # -- Deprecated in favor of tls.ca. To be removed in 1.13.
@@ -2423,7 +2422,6 @@ clustermesh:
         #   kind: ClusterIssuer
         #   name: ca-issuer
         # -- certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
-        # If not specified, a CA issuer will be created.
         certManagerIssuerRef: {}
       # -- base64 encoded PEM values for the ExternalWorkload CA certificate and private key.
       ca:
