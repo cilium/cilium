@@ -81,7 +81,7 @@ var (
 	// log is the k8s package logger object.
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
 
-	comparableCRDSchemaVersion = versioncheck.MustVersion(k8sconstv2.CustomResourceDefinitionSchemaVersion)
+	comparableCRDSchemaVersion = versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion)
 )
 
 type crdCreationFn func(clientset apiextensionsclient.Interface) error
@@ -284,7 +284,7 @@ func constructV1CRD(
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				k8sconst.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+				k8sconst.CustomResourceDefinitionSchemaVersionKey: k8sconst.CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{

@@ -221,10 +221,8 @@ scheme.
            metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 
 You should also bump the ``CustomResourceDefinitionSchemaVersion``
-variable in the correct ``{api_version}/register.go`` to instruct Cilium
-that new CRDs have been added to the system. For example, bump this line if
-adding a CRD to the ``v2`` group:
-`register.go <https://github.com/cilium/cilium/blob/ea9fd6f97b6e7b0d115067dc9f69ba461055530f/pkg/k8s/apis/cilium.io/v2/register.go#L21-L27>`__
+variable in ``register.go`` to instruct Cilium
+that new CRDs have been added to the system.
 
 Register With Client
 ~~~~~~~~~~~~~~~~~~~~
