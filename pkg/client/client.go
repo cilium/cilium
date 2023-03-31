@@ -591,6 +591,11 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			protocols = strings.Join(hs.Protocols, ", ")
 		}
 
+		socketLBCoverage := "Full"
+		if sr.KubeProxyReplacement.Features.BpfSocketLBHostnsOnly {
+			socketLBCoverage = "Hostns-only"
+		}
+
 		gracefulTerm := "Disabled"
 		if sr.KubeProxyReplacement.Features.GracefulTermination.Enabled {
 			gracefulTerm = "Enabled"
@@ -605,6 +610,8 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 		fmt.Fprintf(tab, "  Status:\t%s\n", sr.KubeProxyReplacement.Mode)
 		fmt.Fprintf(tab, "  Socket LB:\t%s\n", socketLB)
+		fmt.Fprintf(tab, "  Socket LB Coverage:\t%s\n", socketLBCoverage)
+
 		if protocols != "" {
 			fmt.Fprintf(tab, "  Socket LB Protocols:\t%s\n", protocols)
 		}
