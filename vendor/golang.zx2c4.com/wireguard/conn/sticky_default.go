@@ -1,5 +1,4 @@
-//go:build !linux
-// +build !linux
+//go:build !linux || android
 
 /* SPDX-License-Identifier: MIT
  *
@@ -24,3 +23,5 @@ func setSrcControl(control *[]byte, ep *StdNetEndpoint) {
 // srcControlSize returns the recommended buffer size for pooling sticky control
 // data.
 const srcControlSize = 0
+
+const StdNetSupportsStickySockets = false

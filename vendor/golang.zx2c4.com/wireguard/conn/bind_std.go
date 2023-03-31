@@ -29,17 +29,19 @@ var (
 // methods for sending and receiving multiple datagrams per-syscall. See the
 // proposal in https://github.com/golang/go/issues/45886#issuecomment-1218301564.
 type StdNetBind struct {
-	mu         sync.Mutex // protects following fields
-	ipv4       *net.UDPConn
-	ipv6       *net.UDPConn
-	blackhole4 bool
-	blackhole6 bool
-	ipv4PC     *ipv4.PacketConn // will be nil on non-Linux
-	ipv6PC     *ipv6.PacketConn // will be nil on non-Linux
+	mu     sync.Mutex // protects all fields except as specified
+	ipv4   *net.UDPConn
+	ipv6   *net.UDPConn
+	ipv4PC *ipv4.PacketConn // will be nil on non-Linux
+	ipv6PC *ipv6.PacketConn // will be nil on non-Linux
 
-	udpAddrPool  sync.Pool // following fields are not guarded by mu
+	// these three fields are not guarded by mu
+	udpAddrPool  sync.Pool
 	ipv4MsgsPool sync.Pool
 	ipv6MsgsPool sync.Pool
+
+	blackhole4 bool
+	blackhole6 bool
 }
 
 func NewStdNetBind() Bind {
@@ -93,7 +95,12 @@ var (
 
 func (*StdNetBind) ParseEndpoint(s string) (Endpoint, error) {
 	e, err := netip.ParseAddrPort(s)
-	return asEndpoint(e), err
+	if err != nil {
+		return nil, err
+	}
+	return &StdNetEndpoint{
+		AddrPort: e,
+	}, nil
 }
 
 func (e *StdNetEndpoint) ClearSrc() {
@@ -228,7 +235,7 @@ func (s *StdNetBind) makeReceiveIPv4(pc *ipv4.PacketConn, conn *net.UDPConn) Rec
 			msg := &(*msgs)[i]
 			sizes[i] = msg.N
 			addrPort := msg.Addr.(*net.UDPAddr).AddrPort()
-			ep := asEndpoint(addrPort)
+			ep := &StdNetEndpoint{AddrPort: addrPort} // TODO: remove allocation
 			getSrcFromControl(msg.OOB[:msg.NN], ep)
 			eps[i] = ep
 		}
@@ -238,8 +245,8 @@ func (s *StdNetBind) makeReceiveIPv4(pc *ipv4.PacketConn, conn *net.UDPConn) Rec
 
 func (s *StdNetBind) makeReceiveIPv6(pc *ipv6.PacketConn, conn *net.UDPConn) ReceiveFunc {
 	return func(bufs [][]byte, sizes []int, eps []Endpoint) (n int, err error) {
-		msgs := s.ipv4MsgsPool.Get().(*[]ipv6.Message)
-		defer s.ipv4MsgsPool.Put(msgs)
+		msgs := s.ipv6MsgsPool.Get().(*[]ipv6.Message)
+		defer s.ipv6MsgsPool.Put(msgs)
 		for i := range bufs {
 			(*msgs)[i].Buffers[0] = bufs[i]
 		}
@@ -261,7 +268,7 @@ func (s *StdNetBind) makeReceiveIPv6(pc *ipv6.PacketConn, conn *net.UDPConn) Rec
 			msg := &(*msgs)[i]
 			sizes[i] = msg.N
 			addrPort := msg.Addr.(*net.UDPAddr).AddrPort()
-			ep := asEndpoint(addrPort)
+			ep := &StdNetEndpoint{AddrPort: addrPort} // TODO: remove allocation
 			getSrcFromControl(msg.OOB[:msg.NN], ep)
 			eps[i] = ep
 		}
@@ -407,25 +414,4 @@ func (s *StdNetBind) send6(conn *net.UDPConn, pc *ipv6.PacketConn, ep Endpoint, 
 	s.udpAddrPool.Put(ua)
 	s.ipv6MsgsPool.Put(msgs)
 	return err
-}
-
-// endpointPool contains a re-usable set of mapping from netip.AddrPort to Endpoint.
-// This exists to reduce allocations: Putting a netip.AddrPort in an Endpoint allocates,
-// but Endpoints are immutable, so we can re-use them.
-var endpointPool = sync.Pool{
-	New: func() any {
-		return make(map[netip.AddrPort]*StdNetEndpoint)
-	},
-}
-
-// asEndpoint returns an Endpoint containing ap.
-func asEndpoint(ap netip.AddrPort) *StdNetEndpoint {
-	m := endpointPool.Get().(map[netip.AddrPort]*StdNetEndpoint)
-	defer endpointPool.Put(m)
-	e, ok := m[ap]
-	if !ok {
-		e = &StdNetEndpoint{AddrPort: ap}
-		m[ap] = e
-	}
-	return e
 }
