@@ -284,7 +284,7 @@ func constructV1CRD(
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+				k8sconst.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
@@ -306,7 +306,7 @@ func needsUpdateV1(clusterCRD *apiextensionsv1.CustomResourceDefinition) bool {
 		// no validation detected
 		return true
 	}
-	v, ok := clusterCRD.Labels[k8sconstv2.CustomResourceDefinitionSchemaVersionKey]
+	v, ok := clusterCRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey]
 	if !ok {
 		// no schema version detected
 		return true

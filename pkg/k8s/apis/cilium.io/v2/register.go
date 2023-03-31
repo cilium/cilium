@@ -25,9 +25,6 @@ const (
 	// Developers: Bump patch for each change in the CRD schema.
 	CustomResourceDefinitionSchemaVersion = "1.26.7"
 
-	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
-	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
-
 	// Cilium Network Policy (CNP)
 
 	// CNPSingularName is the singular name of Cilium Network Policy
