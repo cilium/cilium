@@ -241,14 +241,15 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	}
 
 	features := &models.KubeProxyReplacementFeatures{
-		NodePort:            &models.KubeProxyReplacementFeaturesNodePort{},
-		HostPort:            &models.KubeProxyReplacementFeaturesHostPort{},
-		ExternalIPs:         &models.KubeProxyReplacementFeaturesExternalIPs{},
-		SocketLB:            &models.KubeProxyReplacementFeaturesSocketLB{},
-		SocketLBTracing:     &models.KubeProxyReplacementFeaturesSocketLBTracing{},
-		SessionAffinity:     &models.KubeProxyReplacementFeaturesSessionAffinity{},
-		GracefulTermination: &models.KubeProxyReplacementFeaturesGracefulTermination{},
-		Nat46X64:            &models.KubeProxyReplacementFeaturesNat46X64{},
+		NodePort:              &models.KubeProxyReplacementFeaturesNodePort{},
+		HostPort:              &models.KubeProxyReplacementFeaturesHostPort{},
+		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
+		SocketLB:              &models.KubeProxyReplacementFeaturesSocketLB{},
+		SocketLBTracing:       &models.KubeProxyReplacementFeaturesSocketLBTracing{},
+		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
+		GracefulTermination:   &models.KubeProxyReplacementFeaturesGracefulTermination{},
+		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
+		BpfSocketLBHostnsOnly: option.Config.BPFSocketLBHostnsOnly,
 	}
 	if option.Config.EnableNodePort {
 		features.NodePort.Enabled = true
