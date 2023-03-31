@@ -320,9 +320,6 @@ type Rule struct {
 
 	// Table is the routing table to look up if the rule matches
 	Table int
-
-	// Protocol is the routing rule protocol (e.g. proto unspec/kernel)
-	Protocol uint8
 }
 
 // String returns the string representation of a Rule (adhering to the Stringer
@@ -358,8 +355,6 @@ func (r Rule) String() string {
 		str += fmt.Sprintf(" mark 0x%x mask 0x%x", r.Mark, r.Mask)
 	}
 
-	str += fmt.Sprintf(" proto %s", netlink.RouteProtocol(r.Protocol))
-
 	return str
 }
 
@@ -382,10 +377,6 @@ func lookupRule(spec Rule, family int) (bool, error) {
 		}
 
 		if spec.Mark != 0 && r.Mark != spec.Mark {
-			continue
-		}
-
-		if spec.Protocol != 0 && r.Protocol != spec.Protocol {
 			continue
 		}
 
@@ -467,7 +458,6 @@ func replaceRule(spec Rule, family int) error {
 	rule.Priority = spec.Priority
 	rule.Src = spec.From
 	rule.Dst = spec.To
-	rule.Protocol = spec.Protocol
 	return netlink.RuleAdd(rule)
 }
 
@@ -490,7 +480,6 @@ func deleteRule(spec Rule, family int) error {
 	rule.Src = spec.From
 	rule.Dst = spec.To
 	rule.Family = family
-	rule.Protocol = spec.Protocol
 	return netlink.RuleDel(rule)
 }
 
