@@ -594,7 +594,17 @@ func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
 		}
 	}
 
+	var nodeEncryptionStatus = "Disabled"
+	if option.Config.EncryptNode {
+		if node.GetOptOutNodeEncryption() {
+			nodeEncryptionStatus = "OptedOut"
+		} else {
+			nodeEncryptionStatus = "Enabled"
+		}
+	}
+
 	status := &models.WireguardStatus{
+		NodeEncryption: nodeEncryptionStatus,
 		Interfaces: []*models.WireguardInterface{{
 			Name:       dev.Name,
 			ListenPort: int64(dev.ListenPort),
