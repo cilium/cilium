@@ -1354,9 +1354,16 @@ func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
 	keys := vp.AllKeys()
 	sort.Strings(keys)
 	for _, k := range keys {
-		v := vp.GetStringSlice(k)
-		if len(v) > 0 {
-			entry.Infof("  --%s='%s'", k, strings.Join(v, ","))
+		ss := vp.GetStringSlice(k)
+		if len(ss) == 0 {
+			sm := vp.GetStringMap(k)
+			for k, v := range sm {
+				ss = append(ss, fmt.Sprintf("%s=%s", k, v))
+			}
+		}
+
+		if len(ss) > 0 {
+			entry.Infof("  --%s='%s'", k, strings.Join(ss, ","))
 		} else {
 			entry.Infof("  --%s='%s'", k, vp.GetString(k))
 		}
