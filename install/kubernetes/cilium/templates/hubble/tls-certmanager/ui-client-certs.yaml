@@ -7,7 +7,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   issuerRef:
-    {{- include "hubble-generate-certs.certmanager.issuer" . | nindent 4 }}
+    {{- toYaml .Values.hubble.tls.auto.certManagerIssuerRef | nindent 4 }}
   secretName: hubble-ui-client-certs
   commonName: "*.hubble-ui.cilium.io"
   dnsNames:
