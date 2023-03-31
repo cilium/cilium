@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -287,7 +288,7 @@ func constructV1CRD(
 			},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: k8sconstv2.CustomResourceDefinitionGroup,
+			Group: k8sconst.CustomResourceDefinitionGroup,
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Kind:       template.Spec.Names.Kind,
 				Plural:     template.Spec.Names.Plural,
