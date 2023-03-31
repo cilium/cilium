@@ -117,7 +117,6 @@ type XfrmState struct {
 	DontEncapDSCP bool
 	OSeqMayWrap   bool
 	Replay        *XfrmReplayState
-	Selector      *XfrmPolicy
 }
 
 func (sa XfrmState) String() string {
