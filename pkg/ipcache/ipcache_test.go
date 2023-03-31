@@ -549,7 +549,7 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	namedPortsChanged = IPIdentityCache.Delete(endpointIP2, source.Kubernetes)
 	c.Assert(namedPortsChanged, Equals, true)
 	npm = IPIdentityCache.GetNamedPorts()
-	c.Assert(npm, IsNil)
+	c.Assert(npm, HasLen, 0)
 }
 
 type dummyListener struct {
