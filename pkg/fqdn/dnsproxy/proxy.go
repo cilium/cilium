@@ -181,50 +181,88 @@ func (p *DNSProxy) checkRestored(endpointID uint64, destPort uint16, destIP stri
 	return false
 }
 
+// skipIPInRestorationRLocked skips IPs that are allowed but have never been used,
+// but only if at least one server has been used so far.
+// Requires the RLock to be held.
+func (p *DNSProxy) skipIPInRestorationRLocked(ip string) bool {
+	if len(p.usedServers) > 0 {
+		if _, used := p.usedServers[ip]; !used {
+			return true
+		}
+	}
+	return false
+}
+
 // GetRules creates a fresh copy of EP's DNS rules to be stored
 // for later restoration.
 func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
+	// Lock ordering note: Acquiring the IPCache read lock (as LookupIPsBySecID does) while holding
+	// the proxy lock can lead to a deadlock. Avoid this by reading the state from DNSProxy while
+	// holding the read lock, then perform the IPCache lookups.
+	// Note that IPCache state may change in between calls to LookupIPsBySecID.
 	p.RLock()
-	defer p.RUnlock()
+
+	type selRegex struct {
+		re *regexp.Regexp
+		cs policy.CachedSelector
+	}
+
+	portToSelRegex := make(map[uint16][]selRegex)
+	for port, entries := range p.allowed[uint64(endpointID)] {
+		var nidRules = make([]selRegex, 0, len(entries))
+		// Copy the entries to avoid racy map accesses after we release the lock. We don't need
+		// constant time access, hence a preallocated slice instead of another map.
+		for cs, regex := range entries {
+			nidRules = append(nidRules, selRegex{cs: cs, re: regex})
+		}
+		portToSelRegex[port] = nidRules
+	}
+
+	// We've read what we need from the proxy. The following IPCache lookups _must_ occur outside of
+	// the critical section.
+	p.RUnlock()
 
 	restored := make(restore.DNSRules)
-	for port, entries := range p.allowed[uint64(endpointID)] {
+	for port, selRegexes := range portToSelRegex {
 		var ipRules restore.IPRules
-		for cs, regex := range entries {
-			var IPs map[string]struct{}
-			if !cs.IsWildcard() {
-				IPs = make(map[string]struct{})
-				count := 0
-			Loop:
-				for _, nid := range cs.GetSelections() {
-					nidIPs := p.LookupIPsBySecID(nid)
-					for _, ip := range nidIPs {
-						// Skip IPs that are allowed but have never been used,
-						// but only if at least one server has been used so far.
-						if len(p.usedServers) > 0 {
-							if _, used := p.usedServers[ip]; !used {
-								continue
-							}
-						}
-						IPs[ip] = struct{}{}
-						count++
-						if count > p.maxIPsPerRestoredDNSRule {
-							log.WithFields(logrus.Fields{
-								logfields.EndpointID:            endpointID,
-								logfields.Port:                  port,
-								logfields.EndpointLabelSelector: cs,
-								logfields.Limit:                 p.maxIPsPerRestoredDNSRule,
-								logfields.Count:                 len(nidIPs),
-							}).Warning("Too many IPs for a DNS rule, skipping the rest")
-							break Loop
-						}
+		for _, selRegex := range selRegexes {
+			if selRegex.cs.IsWildcard() {
+				ipRules = append(ipRules, restore.IPRule{IPs: nil, Re: restore.RuleRegex{Regexp: selRegex.re}})
+				continue
+			}
+			ips := make(map[string]struct{})
+			count := 0
+			nids := selRegex.cs.GetSelections()
+		Loop:
+			for _, nid := range nids {
+				// Note: p.RLock must not be held during this call to IPCache
+				nidIPs := p.LookupIPsBySecID(nid)
+				p.RLock()
+				for _, ip := range nidIPs {
+					if p.skipIPInRestorationRLocked(ip) {
+						continue
+					}
+					ips[ip] = struct{}{}
+					count++
+					if count > p.maxIPsPerRestoredDNSRule {
+						log.WithFields(logrus.Fields{
+							logfields.EndpointID:            endpointID,
+							logfields.Port:                  port,
+							logfields.EndpointLabelSelector: selRegex.cs,
+							logfields.Limit:                 p.maxIPsPerRestoredDNSRule,
+							logfields.Count:                 len(nidIPs),
+						}).Warning("Too many IPs for a DNS rule, skipping the rest")
+						p.RUnlock()
+						break Loop
 					}
 				}
+				p.RUnlock()
 			}
-			ipRules = append(ipRules, restore.IPRule{IPs: IPs, Re: restore.RuleRegex{Regexp: regex}})
+			ipRules = append(ipRules, restore.IPRule{IPs: ips, Re: restore.RuleRegex{Regexp: selRegex.re}})
 		}
 		restored[port] = ipRules
 	}
+
 	return restored, nil
 }
 
