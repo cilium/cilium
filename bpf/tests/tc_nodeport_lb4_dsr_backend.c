@@ -277,7 +277,7 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-int build_reply(struct __ctx_buff *ctx)
+static __always_inline int build_reply(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -321,7 +321,7 @@ int build_reply(struct __ctx_buff *ctx)
 	return 0;
 }
 
-int check_reply(const struct __ctx_buff *ctx)
+static __always_inline int check_reply(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
