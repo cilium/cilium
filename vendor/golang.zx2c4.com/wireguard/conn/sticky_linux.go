@@ -1,3 +1,5 @@
+//go:build linux && !android
+
 /* SPDX-License-Identifier: MIT
  *
  * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
@@ -111,3 +113,5 @@ func setSrcControl(control *[]byte, ep *StdNetEndpoint) {
 }
 
 var srcControlSize = unix.CmsgSpace(unix.SizeofInet6Pktinfo)
+
+const StdNetSupportsStickySockets = true
