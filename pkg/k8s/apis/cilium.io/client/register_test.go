@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -35,7 +36,7 @@ func (s *CiliumV2RegisterSuite) getV1TestCRD() *apiextensionsv1.CustomResourceDe
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo-v1",
 			Labels: map[string]string{
-				ciliumv2.CustomResourceDefinitionSchemaVersionKey: ciliumv2.CustomResourceDefinitionSchemaVersion,
+				k8sconst.CustomResourceDefinitionSchemaVersionKey: ciliumv2.CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
@@ -58,7 +59,7 @@ func (s *CiliumV2RegisterSuite) getV1beta1TestCRD() *apiextensionsv1beta1.Custom
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo-v1beta1",
 			Labels: map[string]string{
-				ciliumv2.CustomResourceDefinitionSchemaVersionKey: ciliumv2.CustomResourceDefinitionSchemaVersion,
+				k8sconst.CustomResourceDefinitionSchemaVersionKey: ciliumv2.CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -200,13 +201,13 @@ func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoVersionLabel(c *C) {
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateOlderVersion(c *C) {
 	v1CRD := s.getV1TestCRD()
-	v1CRD.Labels[ciliumv2.CustomResourceDefinitionSchemaVersionKey] = "0.9"
+	v1CRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey] = "0.9"
 	c.Assert(needsUpdateV1(v1CRD), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateCorruptedVersion(c *C) {
 	v1CRD := s.getV1TestCRD()
-	v1CRD.Labels[ciliumv2.CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
+	v1CRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
 	c.Assert(needsUpdateV1(v1CRD), Equals, true)
 }
 
