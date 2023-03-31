@@ -151,7 +151,6 @@ func addENIRules(sysSettings []sysctl.Setting, nodeAddressing datapath.NodeAddre
 		Mark:     linux_defaults.MarkMultinodeNodeport,
 		Mask:     linux_defaults.MaskMultinodeNodeport,
 		Table:    route.MainTable,
-		Protocol: linux_defaults.RTProto,
 	}); err != nil {
 		return nil, fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
 	}
