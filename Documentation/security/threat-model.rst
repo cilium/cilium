@@ -742,6 +742,9 @@ production Kubernetes cluster with Cilium:
 7. Use `Tetragon`_ as a runtime security solution to rapidly detect unexpected
    behavior within your Kubernetes cluster.
 
+If you have questions, suggestions, or would like to help improve Cilium's security
+posture, reach out to security@cilium.io.
+
 .. |br| raw:: html
 
       <br>
