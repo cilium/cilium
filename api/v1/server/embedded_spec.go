@@ -4403,6 +4403,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/WireguardInterface"
           }
+        },
+        "node-encryption": {
+          "description": "Node Encryption status",
+          "type": "string"
         }
       }
     }
@@ -9662,6 +9666,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/WireguardInterface"
           }
+        },
+        "node-encryption": {
+          "description": "Node Encryption status",
+          "type": "string"
         }
       }
     }

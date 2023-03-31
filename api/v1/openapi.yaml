@@ -3392,6 +3392,9 @@ definitions:
 
       +k8s:deepcopy-gen=true
     properties:
+      node-encryption:
+        description: Node Encryption status
+        type: string
       interfaces:
         description: Wireguard interfaces managed by this Cilium instance
         type: array
