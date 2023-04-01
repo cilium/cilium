@@ -1,0 +1,15 @@
+# This policy allows packets towards {{.ExternalIP}}, but not {{.ExternalOtherIP}}.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: client-egress-to-cidr
+spec:
+  podSelector:
+    matchLabels:
+      kind: client
+  egress:
+    - to:
+        - ipBlock:
+            cidr: {{.ExternalCIDR}}
+            except:
+              - {{.ExternalOtherIP}}/32

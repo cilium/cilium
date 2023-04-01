@@ -1,0 +1,14 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: echo-ingress-from-other-client
+spec:
+  # Allow other client to contact echo
+  podSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              other: client
