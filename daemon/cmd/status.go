@@ -646,13 +646,13 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 	case d.statusResponse.Kvstore != nil && d.statusResponse.Kvstore.State != models.StatusStateOk:
-		msg := "Kvstore service is not ready"
+		msg := "Kvstore service is not ready: " + d.statusResponse.Kvstore.Msg
 		sr.Cilium = &models.Status{
 			State: d.statusResponse.Kvstore.State,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 	case d.statusResponse.ContainerRuntime != nil && d.statusResponse.ContainerRuntime.State != models.StatusStateOk:
-		msg := "Container runtime is not ready"
+		msg := "Container runtime is not ready: " + d.statusResponse.ContainerRuntime.Msg
 		if d.statusResponse.ContainerRuntime.State == models.StatusStateDisabled {
 			msg = "Container runtime is disabled"
 		}
@@ -661,13 +661,13 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 	case d.clientset.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk:
-		msg := "Kubernetes service is not ready"
+		msg := "Kubernetes service is not ready: " + d.statusResponse.Kubernetes.Msg
 		sr.Cilium = &models.Status{
 			State: d.statusResponse.Kubernetes.State,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 	case d.statusResponse.CniFile != nil && d.statusResponse.CniFile.State == models.StatusStateFailure:
-		msg := "Could not write CNI config file"
+		msg := "Could not write CNI config file: " + d.statusResponse.CniFile.Msg
 		sr.Cilium = &models.Status{
 			State: models.StatusStateFailure,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
