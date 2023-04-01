@@ -28,8 +28,14 @@ var (
 	//go:embed manifests/deny-all-egress.yaml
 	denyAllEgressPolicyYAML string
 
+	//go:embed manifests/deny-all-egress-knp.yaml
+	denyAllEgressPolicyKNPYAML string
+
 	//go:embed manifests/deny-all-ingress.yaml
 	denyAllIngressPolicyYAML string
+
+	//go:embed manifests/deny-all-ingress-knp.yaml
+	denyAllIngressPolicyKNPYAML string
 
 	//go:embed manifests/deny-all-entities.yaml
 	denyAllEntitiesPolicyYAML string
@@ -49,11 +55,17 @@ var (
 	//go:embed manifests/client-egress-to-echo.yaml
 	clientEgressToEchoPolicyYAML string
 
+	//go:embed manifests/client-egress-to-echo-knp.yaml
+	clientEgressToEchoPolicyKNPYAML string
+
 	//go:embed manifests/client-egress-to-echo-service-account.yaml
 	clientEgressToEchoServiceAccountPolicyYAML string
 
 	//go:embed manifests/client-egress-to-echo-expression.yaml
 	clientEgressToEchoExpressionPolicyYAML string
+
+	//go:embed manifests/client-egress-to-echo-expression-knp.yaml
+	clientEgressToEchoExpressionPolicyKNPYAML string
 
 	//go:embed manifests/client-egress-to-echo-deny.yaml
 	clientEgressToEchoDenyPolicyYAML string
@@ -70,11 +82,17 @@ var (
 	//go:embed manifests/client-ingress-from-client2.yaml
 	clientIngressFromClient2PolicyYAML string
 
+	//go:embed manifests/client-ingress-from-client2-knp.yaml
+	clientIngressFromClient2PolicyKNPYAML string
+
 	//go:embed manifests/client-egress-to-fqdns-one-one-one-one.yaml
 	clientEgressToFQDNsCiliumIOPolicyYAML string
 
 	//go:embed manifests/echo-ingress-from-other-client.yaml
 	echoIngressFromOtherClientPolicyYAML string
+
+	//go:embed manifests/echo-ingress-from-other-client-knp.yaml
+	echoIngressFromOtherClientPolicyKNPYAML string
 
 	//go:embed manifests/echo-ingress-from-other-client-deny.yaml
 	echoIngressFromOtherClientDenyPolicyYAML string
@@ -84,6 +102,9 @@ var (
 
 	//go:embed manifests/client-egress-to-cidr-1111.yaml
 	clientEgressToCIDR1111PolicyYAML string
+
+	//go:embed manifests/client-egress-to-cidr-1111-knp.yaml
+	clientEgressToCIDR1111PolicyKNPYAML string
 
 	//go:embed manifests/client-egress-to-cidr-1111-deny.yaml
 	clientEgressToCIDR1111DenyPolicyYAML string
@@ -131,6 +152,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// render templates, if any problems fail early
 	for key, temp := range map[string]string{
 		"clientEgressToCIDR1111PolicyYAML":        clientEgressToCIDR1111PolicyYAML,
+		"clientEgressToCIDR1111PolicyKNPYAML":     clientEgressToCIDR1111PolicyKNPYAML,
 		"clientEgressToCIDR1111DenyPolicyYAML":    clientEgressToCIDR1111DenyPolicyYAML,
 		"clientEgressL7HTTPPolicyYAML":            clientEgressL7HTTPPolicyYAML,
 		"clientEgressL7HTTPNamedPortPolicyYAML":   clientEgressL7HTTPNamedPortPolicyYAML,
@@ -248,9 +270,39 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			return check.ResultOK, check.ResultDefaultDenyIngressDrop
 		})
 
+	// Run a simple test with k8s Network Policy.
+	ct.NewTest("client-ingress-knp").WithK8SPolicy(clientIngressFromClient2PolicyKNPYAML).
+		WithScenarios(
+			tests.ClientToClient(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") {
+				return check.ResultOK, check.ResultOK
+			}
+			return check.ResultOK, check.ResultDefaultDenyIngressDrop
+		})
+
 	// This policy denies all ingresses by default
-	ct.NewTest("all-ingress-deny").
-		WithPolicy(denyAllIngressPolicyYAML).
+	ct.NewTest("all-ingress-deny").WithPolicy(denyAllIngressPolicyYAML).
+		WithScenarios(
+			// Pod to Pod fails because there is no egress policy (so egress traffic originating from a pod is allowed),
+			// but then at the destination there is ingress policy that denies the traffic.
+			tests.PodToPod(),
+			// Egress to world works because there is no egress policy (so egress traffic originating from a pod is allowed),
+			// then when replies come back, they are considered as "replies" to the outbound connection.
+			// so they are not subject to ingress policy.
+			tests.PodToCIDR(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP ||
+				a.Destination().Address(check.GetIPFamily(ct.Params().ExternalIP)) == ct.Params().ExternalIP {
+				return check.ResultOK, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
+		})
+
+	// This policy denies all ingresses by default
+	ct.NewTest("all-ingress-deny-knp").WithK8SPolicy(denyAllIngressPolicyKNPYAML).
 		WithScenarios(
 			// Pod to Pod fails because there is no egress policy (so egress traffic originating from a pod is allowed),
 			// but then at the destination there is ingress policy that denies the traffic.
@@ -269,8 +321,17 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy denies all egresses by default
-	ct.NewTest("all-egress-deny").
-		WithPolicy(denyAllEgressPolicyYAML).
+	ct.NewTest("all-egress-deny").WithPolicy(denyAllEgressPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(),
+			tests.PodToPodWithEndpoints(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
+	// This policy denies all egresses by default using KNP.
+	ct.NewTest("all-egress-deny-knp").WithK8SPolicy(denyAllEgressPolicyKNPYAML).
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToPodWithEndpoints(),
@@ -280,8 +341,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy denies all entities by default
-	ct.NewTest("all-entities-deny").
-		WithPolicy(denyAllEntitiesPolicyYAML).
+	ct.NewTest("all-entities-deny").WithPolicy(denyAllEntitiesPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToCIDR(),
@@ -291,8 +351,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy allows cluster entity
-	ct.NewTest("cluster-entity").
-		WithPolicy(allowClusterEntityPolicyYAML).
+	ct.NewTest("cluster-entity").WithPolicy(allowClusterEntityPolicyYAML).
 		WithScenarios(
 			// Only enable to local cluster for now due to the below
 			// https://github.com/cilium/cilium/blob/88c4dddede2a3b5b9a7339c1316a0dedd7229a26/pkg/policy/api/entity.go#L126
@@ -303,8 +362,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	if ct.Params().MultiCluster != "" {
-		ct.NewTest("cluster-entity-multi-cluster").
-			WithPolicy(allowClusterEntityPolicyYAML).
+		ct.NewTest("cluster-entity-multi-cluster").WithPolicy(allowClusterEntityPolicyYAML).
 			WithScenarios(
 				tests.PodToPod(tests.WithDestinationLabelsOption(map[string]string{"name": "echo-other-node"})),
 			).
@@ -314,8 +372,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	}
 
 	// This policy allows host entity
-	ct.NewTest("host-entity").
-		WithPolicy(allowHostEntityPolicyYAML).
+	ct.NewTest("host-entity").WithPolicy(allowHostEntityPolicyYAML).
 		WithScenarios(
 			tests.PodToHost(),
 		).
@@ -325,6 +382,20 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy allows ingress to echo only from client with a label 'other:client'.
 	ct.NewTest("echo-ingress").WithPolicy(echoIngressFromOtherClientPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().HasLabel("kind", "echo") && !a.Source().HasLabel("other", "client") {
+				// TCP handshake fails both in egress and ingress when
+				// L3(/L4) policy drops at either location.
+				return check.ResultDropCurlTimeout, check.ResultDropCurlTimeout
+			}
+			return check.ResultOK, check.ResultOK
+		})
+
+	// This k8s policy allows ingress to echo only from client with a label 'other:client'.
+	ct.NewTest("echo-ingress-knp").WithK8SPolicy(echoIngressFromOtherClientPolicyKNPYAML).
 		WithScenarios(
 			tests.PodToPod(),
 		).
@@ -356,22 +427,32 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToPod(),
 		)
 
+	// This policy allows port 8080 from client to echo, so this should succeed
+	ct.NewTest("client-egress-knp").WithK8SPolicy(clientEgressToEchoPolicyKNPYAML).
+		WithScenarios(
+			tests.PodToPod(),
+		)
+
 	// This policy allows port 8080 from client to echo (using label match expression, so this should succeed
 	ct.NewTest("client-egress-expression").WithPolicy(clientEgressToEchoExpressionPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(),
 		)
 
+	// This policy allows port 8080 from client to echo (using label match expression, so this should succeed
+	ct.NewTest("client-egress-expression-knp").WithK8SPolicy(clientEgressToEchoExpressionPolicyKNPYAML).
+		WithScenarios(
+			tests.PodToPod(),
+		)
+
 	// This policy allows port 8080 from client to echo (using service account)
-	ct.NewTest("client-egress-to-echo-service-account").
-		WithPolicy(clientEgressToEchoServiceAccountPolicyYAML).
+	ct.NewTest("client-egress-to-echo-service-account").WithPolicy(clientEgressToEchoServiceAccountPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"kind": "client"})),
 		)
 
 	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
-	ct.NewTest("to-entities-world").
-		WithPolicy(clientEgressToEntitiesWorldPolicyYAML).
+	ct.NewTest("to-entities-world").WithPolicy(clientEgressToEntitiesWorldPolicyYAML).
 		WithScenarios(
 			tests.PodToWorld(),
 		).
@@ -387,6 +468,21 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// exception of 1.0.0.1.
 	ct.NewTest("to-cidr-1111").
 		WithPolicy(renderedTemplates["clientEgressToCIDR1111PolicyYAML"]).
+		WithScenarios(
+			tests.PodToCIDR(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Address(check.IPFamilyV4) == ct.Params().ExternalOtherIP {
+				// Expect packets for 1.0.0.1 to be dropped.
+				return check.ResultDropCurlTimeout, check.ResultNone
+			}
+			return check.ResultOK, check.ResultNone
+		})
+
+	// This policy allows L3 traffic to 1.0.0.0/24 (including 1.1.1.1), with the
+	// exception of 1.0.0.1.
+	ct.NewTest("to-cidr-1111-knp").
+		WithK8SPolicy(renderedTemplates["clientEgressToCIDR1111PolicyKNPYAML"]).
 		WithScenarios(
 			tests.PodToCIDR(),
 		).
@@ -452,7 +548,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			return check.ResultOK, check.ResultNone
 		})
 
-	//     This policy denies port http-8080 from client to echo, but allows traffic from client2 to echo
+	// This policy denies port http-8080 from client to echo, but allows traffic from client2 to echo
 	ct.NewTest("client-ingress-to-echo-named-port-deny").
 		WithPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
 		WithPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic

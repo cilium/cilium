@@ -1,0 +1,13 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: client-ingress-from-client2
+spec:
+  podSelector:
+    matchLabels:
+      kind: client
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              other: client
