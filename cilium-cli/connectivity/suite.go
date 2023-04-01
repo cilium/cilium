@@ -244,7 +244,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		)
 
 	// Test with an allow-all-except-world (and unmanaged) policy.
-	ct.NewTest("allow-all-except-world").WithPolicy(allowAllExceptWorldPolicyYAML).
+	ct.NewTest("allow-all-except-world").WithCiliumPolicy(allowAllExceptWorldPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(),
 			tests.ClientToClient(),
@@ -259,7 +259,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		)
 
 	// This policy only allows ingress into client from client2.
-	ct.NewTest("client-ingress").WithPolicy(clientIngressFromClient2PolicyYAML).
+	ct.NewTest("client-ingress").WithCiliumPolicy(clientIngressFromClient2PolicyYAML).
 		WithScenarios(
 			tests.ClientToClient(),
 		).
@@ -283,7 +283,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy denies all ingresses by default
-	ct.NewTest("all-ingress-deny").WithPolicy(denyAllIngressPolicyYAML).
+	ct.NewTest("all-ingress-deny").WithCiliumPolicy(denyAllIngressPolicyYAML).
 		WithScenarios(
 			// Pod to Pod fails because there is no egress policy (so egress traffic originating from a pod is allowed),
 			// but then at the destination there is ingress policy that denies the traffic.
@@ -321,7 +321,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy denies all egresses by default
-	ct.NewTest("all-egress-deny").WithPolicy(denyAllEgressPolicyYAML).
+	ct.NewTest("all-egress-deny").WithCiliumPolicy(denyAllEgressPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToPodWithEndpoints(),
@@ -341,7 +341,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy denies all entities by default
-	ct.NewTest("all-entities-deny").WithPolicy(denyAllEntitiesPolicyYAML).
+	ct.NewTest("all-entities-deny").WithCiliumPolicy(denyAllEntitiesPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToCIDR(),
@@ -351,7 +351,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy allows cluster entity
-	ct.NewTest("cluster-entity").WithPolicy(allowClusterEntityPolicyYAML).
+	ct.NewTest("cluster-entity").WithCiliumPolicy(allowClusterEntityPolicyYAML).
 		WithScenarios(
 			// Only enable to local cluster for now due to the below
 			// https://github.com/cilium/cilium/blob/88c4dddede2a3b5b9a7339c1316a0dedd7229a26/pkg/policy/api/entity.go#L126
@@ -362,7 +362,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	if ct.Params().MultiCluster != "" {
-		ct.NewTest("cluster-entity-multi-cluster").WithPolicy(allowClusterEntityPolicyYAML).
+		ct.NewTest("cluster-entity-multi-cluster").WithCiliumPolicy(allowClusterEntityPolicyYAML).
 			WithScenarios(
 				tests.PodToPod(tests.WithDestinationLabelsOption(map[string]string{"name": "echo-other-node"})),
 			).
@@ -372,7 +372,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	}
 
 	// This policy allows host entity
-	ct.NewTest("host-entity").WithPolicy(allowHostEntityPolicyYAML).
+	ct.NewTest("host-entity").WithCiliumPolicy(allowHostEntityPolicyYAML).
 		WithScenarios(
 			tests.PodToHost(),
 		).
@@ -381,7 +381,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy allows ingress to echo only from client with a label 'other:client'.
-	ct.NewTest("echo-ingress").WithPolicy(echoIngressFromOtherClientPolicyYAML).
+	ct.NewTest("echo-ingress").WithCiliumPolicy(echoIngressFromOtherClientPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(),
 		).
@@ -409,7 +409,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy allowed ICMP traffic from client to another client.
-	ct.NewTest("client-ingress-icmp").WithPolicy(echoIngressICMPPolicyYAML).
+	ct.NewTest("client-ingress-icmp").WithCiliumPolicy(echoIngressICMPPolicyYAML).
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureICMPPolicy)).
 		WithScenarios(
 			tests.ClientToClient(),
@@ -422,7 +422,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy allows port 8080 from client to echo, so this should succeed
-	ct.NewTest("client-egress").WithPolicy(clientEgressToEchoPolicyYAML).
+	ct.NewTest("client-egress").WithCiliumPolicy(clientEgressToEchoPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(),
 		)
@@ -434,7 +434,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		)
 
 	// This policy allows port 8080 from client to echo (using label match expression, so this should succeed
-	ct.NewTest("client-egress-expression").WithPolicy(clientEgressToEchoExpressionPolicyYAML).
+	ct.NewTest("client-egress-expression").WithCiliumPolicy(clientEgressToEchoExpressionPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(),
 		)
@@ -446,13 +446,13 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		)
 
 	// This policy allows port 8080 from client to echo (using service account)
-	ct.NewTest("client-egress-to-echo-service-account").WithPolicy(clientEgressToEchoServiceAccountPolicyYAML).
+	ct.NewTest("client-egress-to-echo-service-account").WithCiliumPolicy(clientEgressToEchoServiceAccountPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"kind": "client"})),
 		)
 
 	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
-	ct.NewTest("to-entities-world").WithPolicy(clientEgressToEntitiesWorldPolicyYAML).
+	ct.NewTest("to-entities-world").WithCiliumPolicy(clientEgressToEntitiesWorldPolicyYAML).
 		WithScenarios(
 			tests.PodToWorld(),
 		).
@@ -467,7 +467,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// This policy allows L3 traffic to 1.0.0.0/24 (including 1.1.1.1), with the
 	// exception of 1.0.0.1.
 	ct.NewTest("to-cidr-1111").
-		WithPolicy(renderedTemplates["clientEgressToCIDR1111PolicyYAML"]).
+		WithCiliumPolicy(renderedTemplates["clientEgressToCIDR1111PolicyYAML"]).
 		WithScenarios(
 			tests.PodToCIDR(),
 		).
@@ -496,9 +496,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// Tests with deny policy
 	ct.NewTest("echo-ingress-from-other-client-deny").
-		WithPolicy(allowAllEgressPolicyYAML).                 // Allow all egress traffic
-		WithPolicy(allowAllIngressPolicyYAML).                // Allow all ingress traffic
-		WithPolicy(echoIngressFromOtherClientDenyPolicyYAML). // Deny other client contact echo
+		WithCiliumPolicy(allowAllEgressPolicyYAML).                 // Allow all egress traffic
+		WithCiliumPolicy(allowAllIngressPolicyYAML).                // Allow all ingress traffic
+		WithCiliumPolicy(echoIngressFromOtherClientDenyPolicyYAML). // Deny other client contact echo
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
 			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
@@ -514,9 +514,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy denies ICMP ingress to client only from other client
 	ct.NewTest("client-ingress-from-other-client-icmp-deny").
-		WithPolicy(allowAllEgressPolicyYAML).      // Allow all egress traffic
-		WithPolicy(allowAllIngressPolicyYAML).     // Allow all ingress traffic
-		WithPolicy(echoIngressICMPDenyPolicyYAML). // Deny ICMP traffic from client to another client
+		WithCiliumPolicy(allowAllEgressPolicyYAML).      // Allow all egress traffic
+		WithCiliumPolicy(allowAllIngressPolicyYAML).     // Allow all ingress traffic
+		WithCiliumPolicy(echoIngressICMPDenyPolicyYAML). // Deny ICMP traffic from client to another client
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureICMPPolicy)).
 		WithScenarios(
 			tests.PodToPod(),       // Client to echo traffic should be allowed
@@ -532,9 +532,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy denies port 8080 from client to echo
 	ct.NewTest("client-egress-to-echo-deny").
-		WithPolicy(allowAllEgressPolicyYAML).         // Allow all egress traffic
-		WithPolicy(allowAllIngressPolicyYAML).        // Allow all ingress traffic
-		WithPolicy(clientEgressToEchoDenyPolicyYAML). // Deny client to echo traffic via port 8080
+		WithCiliumPolicy(allowAllEgressPolicyYAML).         // Allow all egress traffic
+		WithCiliumPolicy(allowAllIngressPolicyYAML).        // Allow all ingress traffic
+		WithCiliumPolicy(clientEgressToEchoDenyPolicyYAML). // Deny client to echo traffic via port 8080
 		WithScenarios(
 			tests.ClientToClient(), // Client to client traffic should be allowed
 			tests.PodToPod(),       // Client to echo traffic should be denied
@@ -550,9 +550,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy denies port http-8080 from client to echo, but allows traffic from client2 to echo
 	ct.NewTest("client-ingress-to-echo-named-port-deny").
-		WithPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
-		WithPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
-		WithPolicy(clientEgressToEchoDenyNamedPortPolicyYAML).
+		WithCiliumPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
+		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
+		WithCiliumPolicy(clientEgressToEchoDenyNamedPortPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be denied
 			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be allowed
@@ -567,9 +567,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy denies port 8080 from client to echo (using label match expression), but allows traffic from client2
 	ct.NewTest("client-egress-to-echo-expression-deny").
-		WithPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
-		WithPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
-		WithPolicy(clientEgressToEchoExpressionDenyPolicyYAML).
+		WithCiliumPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
+		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
+		WithCiliumPolicy(clientEgressToEchoExpressionDenyPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be denied
 			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be allowed
@@ -584,9 +584,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy denies port 8080 from client to echo, but not from client2
 	ct.NewTest("client-egress-to-echo-service-account-deny").
-		WithPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
-		WithPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
-		WithPolicy(clientEgressToEchoServiceAccountDenyPolicyYAML).
+		WithCiliumPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
+		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
+		WithCiliumPolicy(clientEgressToEchoServiceAccountDenyPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client"})),  // Client to echo should be denied
 			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client2"})), // Client2 to echo should be allowed
@@ -601,8 +601,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy denies L3 traffic to 1.0.0.1/8 CIDR except 1.1.1.1/32
 	ct.NewTest("client-egress-to-cidr-deny").
-		WithPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
-		WithPolicy(renderedTemplates["clientEgressToCIDR1111DenyPolicyYAML"]).
+		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
+		WithCiliumPolicy(renderedTemplates["clientEgressToCIDR1111DenyPolicyYAML"]).
 		WithScenarios(
 			tests.PodToCIDR(), // Denies all traffic to 1.0.0.1, but allow 1.1.1.1
 		).
@@ -619,7 +619,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// This test is same as the previous one, but there is no allowed policy.
 	// The goal is to test default deny policy
 	ct.NewTest("client-egress-to-cidr-deny-default").
-		WithPolicy(renderedTemplates["clientEgressToCIDR1111DenyPolicyYAML"]).
+		WithCiliumPolicy(renderedTemplates["clientEgressToCIDR1111DenyPolicyYAML"]).
 		WithScenarios(
 			tests.PodToCIDR(), // Denies all traffic to 1.0.0.1, but allow 1.1.1.1
 		).
@@ -643,7 +643,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// Test L7 HTTP introspection using an ingress policy on echo pods.
 	ct.NewTest("echo-ingress-l7").
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
+		WithCiliumPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPodWithEndpoints(),
 		).
@@ -667,7 +667,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// Test L7 HTTP introspection using an ingress policy on echo pods.
 	ct.NewTest("echo-ingress-l7-named-port").
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithPolicy(echoIngressL7HTTPNamedPortPolicyYAML). // L7 allow policy with HTTP introspection (named port)
+		WithCiliumPolicy(echoIngressL7HTTPNamedPortPolicyYAML). // L7 allow policy with HTTP introspection (named port)
 		WithScenarios(
 			tests.PodToPodWithEndpoints(),
 		).
@@ -691,8 +691,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// Test L7 HTTP with different methods introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7-method").
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithPolicy(clientEgressOnlyDNSPolicyYAML).      // DNS resolution only
-		WithPolicy(clientEgressL7HTTPMethodPolicyYAML). // L7 allow policy with HTTP introspection (POST only)
+		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).      // DNS resolution only
+		WithCiliumPolicy(clientEgressL7HTTPMethodPolicyYAML). // L7 allow policy with HTTP introspection (POST only)
 		WithScenarios(
 			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithDestinationLabelsOption(map[string]string{"other": "echo"})),
 			tests.PodToPodWithEndpoints(tests.WithDestinationLabelsOption(map[string]string{"first": "echo"})),
@@ -717,8 +717,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// Test L7 HTTP introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7").
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithPolicy(clientEgressOnlyDNSPolicyYAML).                     // DNS resolution only
-		WithPolicy(renderedTemplates["clientEgressL7HTTPPolicyYAML"]). // L7 allow policy with HTTP introspection
+		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).                     // DNS resolution only
+		WithCiliumPolicy(renderedTemplates["clientEgressL7HTTPPolicyYAML"]). // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToWorld(),
@@ -745,8 +745,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// Test L7 HTTP named port introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7-named-port").
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithPolicy(clientEgressOnlyDNSPolicyYAML).                              // DNS resolution only
-		WithPolicy(renderedTemplates["clientEgressL7HTTPNamedPortPolicyYAML"]). // L7 allow policy with HTTP introspection (named port)
+		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).                              // DNS resolution only
+		WithCiliumPolicy(renderedTemplates["clientEgressL7HTTPNamedPortPolicyYAML"]). // L7 allow policy with HTTP introspection (named port)
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToWorld(),
@@ -777,7 +777,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureSecretBackendK8s)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
-		WithPolicy(renderedTemplates["clientEgressL7TLSPolicyYAML"]). // L7 allow policy with TLS interception
+		WithCiliumPolicy(renderedTemplates["clientEgressL7TLSPolicyYAML"]). // L7 allow policy with TLS interception
 		WithScenarios(
 			tests.PodToWorldWithTLSIntercept(),
 		).
@@ -791,7 +791,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureSecretBackendK8s)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
-		WithPolicy(renderedTemplates["clientEgressL7TLSPolicyYAML"]). // L7 allow policy with TLS interception
+		WithCiliumPolicy(renderedTemplates["clientEgressL7TLSPolicyYAML"]). // L7 allow policy with TLS interception
 		WithScenarios(
 			tests.PodToWorldWithTLSIntercept("-H", "X-Very-Secret-Token: 42"),
 		).
@@ -811,7 +811,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				"value": []byte("Bearer 123456"),
 			},
 		}).
-		WithPolicy(renderedTemplates["clientEgressL7HTTPMatchheaderSecretYAML"]). // L7 allow policy with HTTP introspection (POST only)
+		WithCiliumPolicy(renderedTemplates["clientEgressL7HTTPMatchheaderSecretYAML"]). // L7 allow policy with HTTP introspection (POST only)
 		WithScenarios(
 			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithPath("auth-header-required"), tests.WithDestinationLabelsOption(map[string]string{"other": "echo"})),
 			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithPath("auth-header-required"), tests.WithDestinationLabelsOption(map[string]string{"first": "echo"})),
@@ -825,7 +825,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
-	ct.NewTest("dns-only").WithPolicy(clientEgressOnlyDNSPolicyYAML).
+	ct.NewTest("dns-only").WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithScenarios(
 			tests.PodToPod(),   // connects to other Pods directly, no DNS
@@ -836,7 +836,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy only allows port 80 to domain-name, default one.one.one.one,. DNS proxy enabled.
-	ct.NewTest("to-fqdns").WithPolicy(renderedTemplates["clientEgressToFQDNsCiliumIOPolicyYAML"]).
+	ct.NewTest("to-fqdns").WithCiliumPolicy(renderedTemplates["clientEgressToFQDNsCiliumIOPolicyYAML"]).
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithScenarios(
 			tests.PodToWorld(),

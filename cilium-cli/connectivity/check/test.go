@@ -251,12 +251,12 @@ func (t *Test) Run(ctx context.Context) error {
 	return nil
 }
 
-// WithPolicy takes a string containing a YAML policy document and adds
+// WithCiliumPolicy takes a string containing a YAML policy document and adds
 // the polic(y)(ies) to the scope of the Test, to be applied when the test
 // starts running. When calling this method, note that the CNP enabled feature
 // // requirement is applied directly here.
-func (t *Test) WithPolicy(policy string) *Test {
-	pl, err := parsePolicyYAML(policy)
+func (t *Test) WithCiliumPolicy(policy string) *Test {
+	pl, err := parseCiliumPolicyYAML(policy)
 	if err != nil {
 		t.Fatalf("Parsing policy YAML: %s", err)
 	}
