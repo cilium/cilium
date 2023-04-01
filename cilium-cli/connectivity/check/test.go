@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium-cli/sysdump"
 
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cloudflare/cfssl/cli/genkey"
@@ -73,6 +74,9 @@ type Test struct {
 
 	// Policies active during this test.
 	cnps map[string]*ciliumv2.CiliumNetworkPolicy
+
+	// Kubernetes Network Policies active during this test.
+	knps map[string]*networkingv1.NetworkPolicy
 
 	// Secrets that have to be present during the test.
 	secrets map[string]*corev1.Secret
@@ -139,7 +143,7 @@ func (t *Test) setup(ctx context.Context) error {
 		return fmt.Errorf("applying Secrets: %w", err)
 	}
 
-	// Apply CNPs to the cluster.
+	// Apply CNPs & KNPs to the cluster.
 	if err := t.applyPolicies(ctx); err != nil {
 		t.ciliumLogs(ctx)
 		return fmt.Errorf("applying network policies: %w", err)
@@ -195,7 +199,7 @@ func (t *Test) Run(ctx context.Context) error {
 	// whether they were successful or not. Scenario.Run() might call Fatal(),
 	// in which case this function executes as normal.
 	defer func() {
-		// Run all of the Test's registered finalizers.
+		// Run all the Test's registered finalizers.
 		t.finalize()
 	}()
 
@@ -249,7 +253,8 @@ func (t *Test) Run(ctx context.Context) error {
 
 // WithPolicy takes a string containing a YAML policy document and adds
 // the polic(y)(ies) to the scope of the Test, to be applied when the test
-// starts running.
+// starts running. When calling this method, note that the CNP enabled feature
+// // requirement is applied directly here.
 func (t *Test) WithPolicy(policy string) *Test {
 	pl, err := parsePolicyYAML(policy)
 	if err != nil {
@@ -302,7 +307,70 @@ func (t *Test) WithPolicy(policy string) *Test {
 	if err := t.addCNPs(pl...); err != nil {
 		t.Fatalf("Adding CNPs to policy context: %s", err)
 	}
+
 	t.WithFeatureRequirements(RequireFeatureEnabled(FeatureCNP))
+
+	return t
+}
+
+// WithK8SPolicy takes a string containing a YAML policy document and adds
+// the polic(y)(ies) to the scope of the Test, to be applied when the test
+// starts running. When calling this method, note that the KNP enabled feature
+// requirement is applied directly here.
+func (t *Test) WithK8SPolicy(policy string) *Test {
+	pl, err := parseK8SPolicyYAML(policy)
+	if err != nil {
+		t.Fatalf("Parsing K8S policy YAML: %s", err)
+	}
+
+	// Change the default test namespace as required.
+	for i := range pl {
+		pl[i].Namespace = t.ctx.params.TestNamespace
+
+		if pl[i].Spec.Size() != 0 {
+			for _, k := range []string{
+				k8sConst.PodNamespaceLabel,
+				kubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
+				anySourceLabelPrefix + k8sConst.PodNamespaceLabel,
+			} {
+				for _, e := range pl[i].Spec.Egress {
+					for _, es := range e.To {
+						if es.PodSelector != nil {
+							if n, ok := es.PodSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+								es.PodSelector.MatchLabels[k] = t.ctx.params.TestNamespace
+							}
+						}
+						if es.NamespaceSelector != nil {
+							if n, ok := es.NamespaceSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+								es.NamespaceSelector.MatchLabels[k] = t.ctx.params.TestNamespace
+							}
+						}
+					}
+				}
+				for _, e := range pl[i].Spec.Ingress {
+					for _, es := range e.From {
+						if es.PodSelector != nil {
+							if n, ok := es.PodSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+								es.PodSelector.MatchLabels[k] = t.ctx.params.TestNamespace
+							}
+						}
+						if es.NamespaceSelector != nil {
+							if n, ok := es.NamespaceSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+								es.NamespaceSelector.MatchLabels[k] = t.ctx.params.TestNamespace
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if err := t.addKNPs(pl...); err != nil {
+		t.Fatalf("Adding K8S Network Policies to policy context: %s", err)
+	}
+
+	// It is implicit that KNP should be enabled.
+	t.WithFeatureRequirements(RequireFeatureEnabled(FeatureKNP))
 
 	return t
 }

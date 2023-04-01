@@ -14,8 +14,11 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
+	networkingv1 "k8s.io/api/networking/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
@@ -130,10 +133,58 @@ func updateOrCreateCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.Ci
 	return mod, err
 }
 
+// createOrUpdateKNP creates the KNP and updates it if it already exists.
+// NB: mod holds the information regarding the resource creation.
+func createOrUpdateKNP(ctx context.Context, client *k8s.Client, knp *networkingv1.NetworkPolicy) (bool, error) {
+	mod := false
+
+	// Creating, so a resource will definitely be modified.
+	_, err := client.CreateKubernetesNetworkPolicy(ctx, knp, metav1.CreateOptions{})
+	if err == nil {
+		// Early exit.
+		mod = true
+		return mod, nil
+	}
+
+	if !k8serrors.IsAlreadyExists(err) {
+		// A real error happened.
+		return mod, err
+	}
+
+	// Policy already exists, let's retrieve it.
+	policy, err := client.GetKubernetesNetworkPolicy(ctx, knp.Namespace, knp.Name, metav1.GetOptions{})
+	if err != nil {
+		// A real error happened.
+		return mod, fmt.Errorf("failed to retrieve k8s network policy %s: %w", knp.Name, err)
+	}
+
+	// Overload the field that should stay unchanged.
+	policy.ObjectMeta.Labels = knp.ObjectMeta.Labels
+	policy.Spec = knp.Spec
+	policy.Status = networkingv1.NetworkPolicyStatus{}
+
+	// Let's update the policy.
+	_, err = client.UpdateKubernetesNetworkPolicy(ctx, policy, metav1.UpdateOptions{})
+	if err != nil {
+		return mod, fmt.Errorf("failed to update k8s network policy %s: %w", knp.Name, err)
+	}
+
+	return mod, nil
+}
+
 // deleteCNP deletes a CiliumNetworkPolicy from the cluster.
 func deleteCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetworkPolicy) error {
 	if err := client.DeleteCiliumNetworkPolicy(ctx, cnp.Namespace, cnp.Name, metav1.DeleteOptions{}); err != nil {
 		return fmt.Errorf("%s/%s/%s policy delete failed: %w", client.ClusterName(), cnp.Namespace, cnp.Name, err)
+	}
+
+	return nil
+}
+
+// deleteKNP deletes a Kubernetes NetworkPolicy from the cluster.
+func deleteKNP(ctx context.Context, client *k8s.Client, knp *networkingv1.NetworkPolicy) error {
+	if err := client.DeleteKubernetesNetworkPolicy(ctx, knp.Namespace, knp.Name, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("%s/%s/%s policy delete failed: %w", client.ClusterName(), knp.Namespace, knp.Name, err)
 	}
 
 	return nil
@@ -380,9 +431,28 @@ func (t *Test) addCNPs(cnps ...*ciliumv2.CiliumNetworkPolicy) error {
 	return nil
 }
 
+// addKNPs adds one or more K8S NetworkPolicy resources to the Test.
+func (t *Test) addKNPs(policies ...*networkingv1.NetworkPolicy) error {
+	for _, p := range policies {
+		if p == nil {
+			return errors.New("cannot add nil K8S NetworkPolicy to test")
+		}
+		if p.Name == "" {
+			return fmt.Errorf("adding K8S NetworkPolicy with empty name to test: %v", p)
+		}
+		if _, ok := t.knps[p.Name]; ok {
+			return fmt.Errorf("K8S NetworkPolicy with name %s already in test scope", p.Name)
+		}
+
+		t.knps[p.Name] = p
+	}
+
+	return nil
+}
+
 // applyPolicies applies all the Test's registered network policies.
 func (t *Test) applyPolicies(ctx context.Context) error {
-	if len(t.cnps) == 0 {
+	if len(t.cnps) == 0 && len(t.knps) == 0 {
 		return nil
 	}
 
@@ -402,6 +472,20 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 		for _, client := range t.Context().clients.clients() {
 			t.Infof("📜 Applying CiliumNetworkPolicy '%s' to namespace '%s'..", cnp.Name, cnp.Namespace)
 			changed, err := updateOrCreateCNP(ctx, client, cnp)
+			if err != nil {
+				return fmt.Errorf("policy application failed: %w", err)
+			}
+			if changed {
+				mod = true
+			}
+		}
+	}
+
+	// Apply all given Kubernetes Network Policies.
+	for _, knp := range t.knps {
+		for _, client := range t.Context().clients.clients() {
+			t.Infof("📜 Applying KubernetesNetworkPolicy '%s' to namespace '%s'..", knp.Name, knp.Namespace)
+			changed, err := createOrUpdateKNP(ctx, client, knp)
 			if err != nil {
 				return fmt.Errorf("policy application failed: %w", err)
 			}
@@ -435,14 +519,19 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 		}
 	}
 
-	t.Debugf("📜 Successfully applied %d CiliumNetworkPolicies", len(t.cnps))
+	if len(t.cnps) > 0 {
+		t.Debugf("📜 Successfully applied %d CiliumNetworkPolicies", len(t.cnps))
+	}
+	if len(t.knps) > 0 {
+		t.Debugf("📜 Successfully applied %d K8S NetworkPolicies", len(t.knps))
+	}
 
 	return nil
 }
 
 // deletePolicies deletes a given set of network policies from the cluster.
 func (t *Test) deletePolicies(ctx context.Context) error {
-	if len(t.cnps) == 0 {
+	if len(t.cnps) == 0 && len(t.knps) == 0 {
 		return nil
 	}
 
@@ -465,12 +554,28 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 		}
 	}
 
+	// Delete all the Test's KNPs from all clients.
+	for _, knp := range t.knps {
+		t.Infof("📜 Deleting K8S NetworkPolicy '%s' from namespace '%s'..", knp.Name, knp.Namespace)
+		for _, client := range t.Context().clients.clients() {
+			if err := deleteKNP(ctx, client, knp); err != nil {
+				return fmt.Errorf("deleting K8S NetworkPolicy: %w", err)
+			}
+		}
+	}
+
 	// Wait for policies to be deleted on all Cilium nodes.
 	if err := t.waitCiliumPolicyRevisions(ctx, revs); err != nil {
 		return fmt.Errorf("timed out removing policies on Cilium agents: %w", err)
 	}
 
-	t.Debugf("📜 Successfully deleted %d CiliumNetworkPolicies", len(t.cnps))
+	if len(t.cnps) > 0 {
+		t.Debugf("📜 Successfully deleted %d CiliumNetworkPolicies", len(t.cnps))
+	}
+
+	if len(t.knps) > 0 {
+		t.Debugf("📜 Successfully deleted %d K8S NetworkPolicy", len(t.knps))
+	}
 
 	return nil
 }
@@ -514,4 +619,33 @@ func parsePolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err e
 	}
 
 	return cnps, nil
+}
+
+// parseK8SPolicyYAML decodes policy yaml into a slice of K8S NetworkPolicies.
+func parseK8SPolicyYAML(policy string) (policies []*networkingv1.NetworkPolicy, err error) {
+	if policy == "" {
+		return nil, nil
+	}
+
+	yamls := strings.Split(policy, "\n---")
+
+	for _, yaml := range yamls {
+		if strings.TrimSpace(yaml) == "" {
+			continue
+		}
+
+		obj, kind, err := serializer.NewCodecFactory(clientsetscheme.Scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("decoding policy yaml: %s\nerror: %w", yaml, err)
+		}
+
+		switch policy := obj.(type) {
+		case *networkingv1.NetworkPolicy:
+			policies = append(policies, policy)
+		default:
+			return nil, fmt.Errorf("unknown k8s policy type '%s' in: %s", kind.Kind, yaml)
+		}
+	}
+
+	return policies, nil
 }

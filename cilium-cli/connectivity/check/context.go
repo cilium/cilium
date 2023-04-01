@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -207,6 +208,7 @@ func (ct *ConnectivityTest) NewTest(name string) *Test {
 		name:      name,
 		scenarios: make(map[Scenario][]*Action),
 		cnps:      make(map[string]*ciliumv2.CiliumNetworkPolicy),
+		knps:      make(map[string]*networkingv1.NetworkPolicy),
 		verbose:   ct.verbose(),
 		logBuf:    &bytes.Buffer{}, // maintain internal buffer by default
 		warnBuf:   &bytes.Buffer{},
