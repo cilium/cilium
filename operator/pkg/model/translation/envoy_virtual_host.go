@@ -207,13 +207,13 @@ func envoyHTTPRoutes(matchBackendMap map[string][]model.HTTPRoute, hostnames []s
 			}
 		} else {
 			weightedClusters := make([]*envoy_config_route_v3.WeightedCluster_ClusterWeight, 0, len(routes))
-			totalWeight := int32(0)
+
 			for _, be := range backends {
 				var weight int32 = 1
 				if be.Weight != nil {
 					weight = *be.Weight
 				}
-				totalWeight += weight
+
 				weightedClusters = append(weightedClusters, &envoy_config_route_v3.WeightedCluster_ClusterWeight{
 					Name:   fmt.Sprintf("%s/%s:%s", be.Namespace, be.Name, be.Port.GetPort()),
 					Weight: wrapperspb.UInt32(uint32(weight)),
@@ -223,8 +223,7 @@ func envoyHTTPRoutes(matchBackendMap map[string][]model.HTTPRoute, hostnames []s
 				Route: &envoy_config_route_v3.RouteAction{
 					ClusterSpecifier: &envoy_config_route_v3.RouteAction_WeightedClusters{
 						WeightedClusters: &envoy_config_route_v3.WeightedCluster{
-							Clusters:    weightedClusters,
-							TotalWeight: wrapperspb.UInt32(uint32(totalWeight)),
+							Clusters: weightedClusters,
 						},
 					},
 				},
