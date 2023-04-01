@@ -517,6 +517,28 @@ func (c *Client) GetCRD(ctx context.Context, name string, opts metav1.GetOptions
 	return c.ExtensionClientset.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, opts)
 }
 
+// Kubernetes Network Policies specific commands
+
+func (c *Client) ListKubernetesNetworkPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*networkingv1.NetworkPolicyList, error) {
+	return c.Clientset.NetworkingV1().NetworkPolicies(namespace).List(ctx, opts)
+}
+
+func (c *Client) GetKubernetesNetworkPolicy(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*networkingv1.NetworkPolicy, error) {
+	return c.Clientset.NetworkingV1().NetworkPolicies(namespace).Get(ctx, name, opts)
+}
+
+func (c *Client) CreateKubernetesNetworkPolicy(ctx context.Context, policy *networkingv1.NetworkPolicy, opts metav1.CreateOptions) (*networkingv1.NetworkPolicy, error) {
+	return c.Clientset.NetworkingV1().NetworkPolicies(policy.Namespace).Create(ctx, policy, opts)
+}
+
+func (c *Client) UpdateKubernetesNetworkPolicy(ctx context.Context, policy *networkingv1.NetworkPolicy, opts metav1.UpdateOptions) (*networkingv1.NetworkPolicy, error) {
+	return c.Clientset.NetworkingV1().NetworkPolicies(policy.Namespace).Update(ctx, policy, opts)
+}
+
+func (c *Client) DeleteKubernetesNetworkPolicy(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.Clientset.NetworkingV1().NetworkPolicies(namespace).Delete(ctx, name, opts)
+}
+
 type Kind int
 
 const (
