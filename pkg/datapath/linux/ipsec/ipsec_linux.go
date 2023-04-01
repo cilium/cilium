@@ -149,6 +149,96 @@ func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
 	state.Reqid = keys.ReqID
 }
 
+// xfrmStateReplace attempts to add a new XFRM state only if one doesn't
+// already exist. If it doesn't but some other XFRM state conflicts, then
+// we attempt to remove the conflicting state before trying to add again.
+func xfrmStateReplace(new *netlink.XfrmState) error {
+	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("Cannot get XFRM state: %s", err)
+	}
+
+	// Check if the XFRM state already exists
+	for _, s := range states {
+		if xfrmIPEqual(s.Src, new.Src) && xfrmIPEqual(s.Dst, new.Dst) &&
+			xfrmMarkEqual(s.OutputMark, new.OutputMark) &&
+			xfrmMarkEqual(s.Mark, new.Mark) && s.Spi == new.Spi {
+			return nil
+		}
+	}
+
+	// It doesn't exist so let's attempt to add it.
+	firstAttemptErr := netlink.XfrmStateAdd(new)
+	if !os.IsExist(firstAttemptErr) {
+		return firstAttemptErr
+	}
+	log.WithFields(logrus.Fields{
+		logfields.SPI:           new.Spi,
+		logfields.SourceIP:      new.Src,
+		logfields.DestinationIP: new.Dst,
+	}).Warn("Failed to add XFRM state due to conflicting state")
+
+	// An existing state conflicts with this one. We need to remove the
+	// existing one first.
+	deletedSomething, err := xfrmDeleteConflictingState(states, new)
+	if err != nil {
+		return err
+	}
+
+	// If no conflicting state was found and deleted, there's no point in
+	// attempting to add again.
+	if !deletedSomething {
+		return firstAttemptErr
+	}
+	return netlink.XfrmStateAdd(new)
+}
+
+// Attempt to remove any XFRM state that conflicts with the state we just tried
+// to add. To find those conflicting states, we need to use the same logic that
+// the kernel used to reject our check with EEXIST. That logic is upstream in
+// __xfrm_state_lookup.
+func xfrmDeleteConflictingState(states []netlink.XfrmState, new *netlink.XfrmState) (bool, error) {
+	deletedSomething := false
+	for _, s := range states {
+		if new.Spi == s.Spi && (new.Mark == nil) == (s.Mark == nil) &&
+			(new.Mark == nil || new.Mark.Value&new.Mark.Mask&s.Mark.Mask == s.Mark.Value) &&
+			xfrmIPEqual(new.Src, s.Src) && xfrmIPEqual(new.Dst, s.Dst) {
+			err := netlink.XfrmStateDel(&s)
+			if err == nil {
+				deletedSomething = true
+				log.WithFields(logrus.Fields{
+					logfields.SPI:           s.Spi,
+					logfields.SourceIP:      s.Src,
+					logfields.DestinationIP: s.Dst,
+				}).Info("Removed a conflicting XFRM state")
+			} else {
+				return deletedSomething, fmt.Errorf("Failed to remove a conflicting XFRM state: %w", err)
+			}
+		}
+	}
+	return deletedSomething, nil
+}
+
+// This function compares two IP addresses and returns true if they are equal.
+// This is unfortunately necessary because our netlink library returns nil IPv6
+// addresses as nil IPv4 addresses and net.IP.Equal rightfully considers those
+// are different.
+func xfrmIPEqual(ip1, ip2 net.IP) bool {
+	if ip1.IsUnspecified() && ip2.IsUnspecified() {
+		return true
+	}
+	return ip1.Equal(ip2)
+}
+
+// Returns true if two XFRM marks are identical. They should be either both nil
+// or have the same mark value and mask.
+func xfrmMarkEqual(mark1, mark2 *netlink.XfrmMark) bool {
+	if (mark1 == nil) != (mark2 == nil) {
+		return false
+	}
+	return mark1 == nil || (mark1.Value == mark2.Value && mark1.Mask == mark2.Mask)
+}
+
 func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error) {
 	key := getIPSecKeys(remoteIP)
 	if key == nil {
@@ -174,7 +264,7 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error)
 		}
 	}
 
-	return key.Spi, netlink.XfrmStateAdd(state)
+	return key.Spi, xfrmStateReplace(state)
 }
 
 func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16) (uint8, error) {
@@ -191,7 +281,7 @@ func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16) (uint8, error
 		Value: linux_defaults.RouteMarkEncrypt,
 		Mask:  linux_defaults.RouteMarkMask,
 	}
-	return key.Spi, netlink.XfrmStateAdd(state)
+	return key.Spi, xfrmStateReplace(state)
 }
 
 func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, proxyMark bool, dir netlink.Dir) error {
@@ -393,9 +483,7 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 	if !outerLocal.Equal(outerRemote) {
 		if dir == IPSecDirIn || dir == IPSecDirBoth {
 			if spi, err = ipSecReplaceStateIn(outerLocal, outerRemote, outputMark); err != nil {
-				if !os.IsExist(err) {
-					return 0, fmt.Errorf("unable to replace local state: %s", err)
-				}
+				return 0, fmt.Errorf("unable to replace local state: %s", err)
 			}
 			if err = ipSecReplacePolicyIn(remote, local, outerRemote, outerLocal); err != nil {
 				if !os.IsExist(err) {
@@ -411,9 +499,7 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 
 		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
 			if spi, err = ipSecReplaceStateOut(outerLocal, outerRemote, remoteNodeID); err != nil {
-				if !os.IsExist(err) {
-					return 0, fmt.Errorf("unable to replace remote state: %s", err)
-				}
+				return 0, fmt.Errorf("unable to replace remote state: %s", err)
 			}
 
 			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, remoteNodeID, dir); err != nil {
