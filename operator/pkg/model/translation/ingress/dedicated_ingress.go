@@ -57,8 +57,8 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	// Set the owner reference to the CEC object.
 	cec.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: slim_networkingv1.SchemeGroupVersion.String(),
-			Kind:       "Ingress",
+			APIVersion: m.HTTP[0].Sources[0].Version,
+			Kind:       m.HTTP[0].Sources[0].Kind,
 			Name:       m.HTTP[0].Sources[0].Name,
 			UID:        types.UID(m.HTTP[0].Sources[0].UID),
 		},
