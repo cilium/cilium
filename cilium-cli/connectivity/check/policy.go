@@ -592,8 +592,8 @@ func (t *Test) ciliumLogs(ctx context.Context) {
 	}
 }
 
-// parsePolicyYAML decodes policy yaml into a slice of CiliumNetworkPolicies.
-func parsePolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err error) {
+// parseCiliumPolicyYAML decodes policy yaml into a slice of CiliumNetworkPolicies.
+func parseCiliumPolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err error) {
 	if policy == "" {
 		return nil, nil
 	}
