@@ -11,11 +11,13 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/versioncheck"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 )
 
@@ -56,6 +58,7 @@ const (
 	FeatureSecretBackendK8s Feature = "secret-backend-k8s"
 
 	FeatureCNP Feature = "cilium-network-policy"
+	FeatureKNP Feature = "k8s-network-policy"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -200,7 +203,9 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 }
 
 func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context, ciliumPod Pod, result FeatureSet) error {
-	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
+	namespace := ciliumPod.Pod.Namespace
+
+	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, namespace, ciliumPod.Pod.Name,
 		defaults.AgentContainerName, []string{"cat", "/var/run/cilium/state/agent-runtime-config.json"})
 	if err != nil {
 		return fmt.Errorf("failed to fetch cilium runtime config: %w", err)
@@ -226,6 +231,15 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 
 	result[FeatureEncryptionNode] = FeatureStatus{
 		Enabled: cfg.EncryptNode,
+	}
+
+	isFeatureKNPEnabled, err := ct.isFeatureKNPEnabled(namespace, cfg.EnableK8sNetworkPolicy)
+	if err != nil {
+		return fmt.Errorf("unable to determine if KNP feature is enabled: %w", err)
+	}
+
+	result[FeatureKNP] = FeatureStatus{
+		Enabled: isFeatureKNPEnabled,
 	}
 
 	return nil
@@ -372,9 +386,7 @@ func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, r
 	}
 }
 
-const (
-	ciliumNetworkPolicyCRDName = "ciliumnetworkpolicies.cilium.io"
-)
+const ciliumNetworkPolicyCRDName = "ciliumnetworkpolicies.cilium.io"
 
 func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result FeatureSet) error {
 	// CNP are deployed by default.
@@ -471,6 +483,34 @@ func (ct *ConnectivityTest) UpdateFeaturesFromNodes(ctx context.Context) error {
 
 func (ct *ConnectivityTest) ForceDisableFeature(feature Feature) {
 	ct.features[feature] = FeatureStatus{Enabled: false}
+}
+
+// isFeatureKNPEnabled checks if the Kubernetes Network Policy feature is enabled from the configuration.
+// Note that the flag appears in Cilium version 1.14, before that it was unable even thought KNPs were present.
+func (ct *ConnectivityTest) isFeatureKNPEnabled(namespace string, enableK8SNetworkPolicy bool) (bool, error) {
+	version, err := ct.client.GetRunningCiliumVersion(context.Background(), namespace)
+	if version == "" || err != nil {
+		return false, fmt.Errorf("cilium image (running): unknown. Unable to obtain cilium version, no cilium pods found in namespace %q", namespace)
+	}
+
+	ciliumVer, err := utils.ParseCiliumVersion(version)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse Cilium version %s to semver", version)
+	}
+
+	switch {
+	case enableK8SNetworkPolicy:
+		// Flag is enabled, means the flag exists.
+		return true, nil
+	case !enableK8SNetworkPolicy && versioncheck.MustCompile("<1.14.0")(ciliumVer):
+		// Flag was always disabled even KNP were activated before Cilium 1.14.
+		return true, nil
+	case !enableK8SNetworkPolicy && versioncheck.MustCompile(">=1.14.0")(ciliumVer):
+		// Flag is explicitly set to disabled after Cilium 1.14.
+		return false, nil
+	default:
+		return false, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
+	}
 }
 
 func canNodeRunCilium(node *corev1.Node) bool {
