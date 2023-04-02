@@ -153,7 +153,12 @@ func (i *defaultTranslator) getRouteConfiguration(m *model.Model) []ciliumv2.XDS
 	}
 
 	var res []ciliumv2.XDSResource
-	for port, hostNames := range portHostName {
+
+	for _, port := range []string{insecureHost, secureHost} {
+		hostNames, exists := portHostName[port]
+		if !exists {
+			continue
+		}
 		var virtualhosts []*envoy_config_route_v3.VirtualHost
 
 		redirectedHost := map[string]struct{}{}
