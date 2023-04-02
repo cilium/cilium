@@ -189,6 +189,16 @@ func Test_translator_Translate(t *testing.T) {
 			},
 			want: hostRulesListenersCiliumEnvoyConfig,
 		},
+		{
+			name: "Conformance/PathRules",
+			args: args{
+				m: &model.Model{
+					HTTP: pathRulesListeners,
+				},
+				enforceHTTPs: true,
+			},
+			want: pathRulesListenersCiliumEnvoyConfig,
+		},
 	}
 
 	for _, tt := range tests {
