@@ -180,6 +180,16 @@ func Test_translator_Translate(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			name: "Conformance/DefaultBackend",
+			args: args{
+				m: &model.Model{
+					HTTP: defaultBackendListeners,
+				},
+				enforceHTTPs: true,
+			},
+			want: defaultBackendListenersCiliumEnvoyConfig,
+		},
+		{
 			name: "Conformance/HostRules",
 			args: args{
 				m: &model.Model{
