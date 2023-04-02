@@ -216,6 +216,24 @@ func toInsecureListenerFilterChain() *envoy_config_listener.FilterChain {
 	}
 }
 
+func toHTTPListenerXDSResource() *anypb.Any {
+	return toAny(&envoy_config_listener.Listener{
+		Name: "listener",
+		FilterChains: []*envoy_config_listener.FilterChain{
+			toInsecureListenerFilterChain(),
+		},
+		ListenerFilters: []*envoy_config_listener.ListenerFilter{
+			{
+				Name: "envoy.filters.listener.tls_inspector",
+				ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+				},
+			},
+		},
+		SocketOptions: socketOptions,
+	})
+}
+
 func toBothListenersXDSResource(serverNames []string, certName string) *anypb.Any {
 	return toAny(&envoy_config_listener.Listener{
 		Name: "listener",
@@ -449,6 +467,350 @@ var hostRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			},
 			{Any: toAny(toEnvoyCluster("random-namespace", "foo-bar-com", "http"))},
 			{Any: toAny(toEnvoyCluster("random-namespace", "wildcard-foo-com", "8080"))},
+		},
+	},
+}
+
+// Conformance/PathRules test
+var pathRulesListeners = []model.HTTPListener{
+	{
+		Name: "ing-path-rules-random-namespace-exact-path-rules",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "path-rules",
+				Namespace: "random-namespace",
+				Version:   "networking.k8s.io/v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "exact-path-rules",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Exact: "/foo",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "foo-exact",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "ing-path-rules-random-namespace-mixed-path-rules",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "path-rules",
+				Namespace: "random-namespace",
+				Version:   "networking.k8s.io/v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "mixed-path-rules",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/foo",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "foo-prefix",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Exact: "/foo",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "foo-exact",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "ing-path-rules-random-namespace-prefix-path-rules",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "path-rules",
+				Namespace: "random-namespace",
+				Version:   "networking.k8s.io/v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "prefix-path-rules",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/foo",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "foo-prefix",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/aaa/bbb",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "aaa-slash-bbb-prefix",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/aaa",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "aaa-prefix",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "ing-path-rules-random-namespace-trailing-slash-path-rules",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "path-rules",
+				Namespace: "random-namespace",
+				Version:   "networking.k8s.io/v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "trailing-slash-path-rules",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/aaa/bbb/",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "aaa-slash-bbb-slash-prefix",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{
+					Exact: "/foo/",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "foo-slash-exact",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var pathRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-ingress-random-namespace-path-rules",
+		Namespace: "random-namespace",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "networking.k8s.io/v1",
+				Kind:       "Ingress",
+				Name:       "path-rules",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-ingress-path-rules",
+				Namespace: "random-namespace",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "aaa-prefix",
+				Namespace: "random-namespace",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "aaa-slash-bbb-prefix",
+				Namespace: "random-namespace",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "aaa-slash-bbb-slash-prefix",
+				Namespace: "random-namespace",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "foo-exact",
+				Namespace: "random-namespace",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "foo-prefix",
+				Namespace: "random-namespace",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "foo-slash-exact",
+				Namespace: "random-namespace",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: toHTTPListenerXDSResource()},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "exact-path-rules",
+							Domains: []string{"exact-path-rules", "exact-path-rules:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+											Path: "/foo",
+										},
+									},
+									Action: toRouteAction("random-namespace", "foo-exact", "8080"),
+								},
+							},
+						},
+						{
+							Name:    "mixed-path-rules",
+							Domains: []string{"mixed-path-rules", "mixed-path-rules:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+											Path: "/foo",
+										},
+									},
+									Action: toRouteAction("random-namespace", "foo-exact", "8080"),
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/foo(/.*)?$",
+											},
+										},
+									},
+									Action: toRouteAction("random-namespace", "foo-prefix", "8080"),
+								},
+							},
+						},
+						{
+							Name:    "prefix-path-rules",
+							Domains: []string{"prefix-path-rules", "prefix-path-rules:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/aaa/bbb(/.*)?$",
+											},
+										},
+									},
+									Action: toRouteAction("random-namespace", "aaa-slash-bbb-prefix", "8080"),
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/foo(/.*)?$",
+											},
+										},
+									},
+									Action: toRouteAction("random-namespace", "foo-prefix", "8080"),
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/aaa(/.*)?$",
+											},
+										},
+									},
+									Action: toRouteAction("random-namespace", "aaa-prefix", "8080"),
+								},
+							},
+						},
+						{
+							Name:    "trailing-slash-path-rules",
+							Domains: []string{"trailing-slash-path-rules", "trailing-slash-path-rules:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+											Path: "/foo/",
+										},
+									},
+									Action: toRouteAction("random-namespace", "foo-slash-exact", "8080"),
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/aaa/bbb(/.*)?$",
+											},
+										},
+									},
+									Action: toRouteAction("random-namespace", "aaa-slash-bbb-slash-prefix", "8080"),
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: toAny(toEnvoyCluster("random-namespace", "aaa-prefix", "8080"))},
+			{Any: toAny(toEnvoyCluster("random-namespace", "aaa-slash-bbb-prefix", "8080"))},
+			{Any: toAny(toEnvoyCluster("random-namespace", "aaa-slash-bbb-slash-prefix", "8080"))},
+			{Any: toAny(toEnvoyCluster("random-namespace", "foo-exact", "8080"))},
+			{Any: toAny(toEnvoyCluster("random-namespace", "foo-prefix", "8080"))},
+			{Any: toAny(toEnvoyCluster("random-namespace", "foo-slash-exact", "8080"))},
 		},
 	},
 }
