@@ -189,18 +189,18 @@ func getHookFuncName(hook HookInterface, start bool) (name string, hasHook bool)
 				return "", false
 			}
 			return internal.FuncNameAndLocation(hook.OnStart), true
-		} else {
-			if hook.OnStop == nil {
-				return "", false
-			}
-			return internal.FuncNameAndLocation(hook.OnStop), true
 		}
+		if hook.OnStop == nil {
+			return "", false
+		}
+		return internal.FuncNameAndLocation(hook.OnStop), true
+
 	default:
 		if start {
 			return internal.PrettyType(hook) + ".Start", true
-		} else {
-			return internal.PrettyType(hook) + ".Stop", true
 		}
+		return internal.PrettyType(hook) + ".Stop", true
+
 	}
 }
 

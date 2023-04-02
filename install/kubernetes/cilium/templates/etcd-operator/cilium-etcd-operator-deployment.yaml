@@ -54,6 +54,10 @@ spec:
       imagePullSecrets:
         {{ toYaml .Values.imagePullSecrets | indent 8 }}
 {{- end }}
+{{- with .Values.etcd.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+{{- end }}
       containers:
       - args:
 {{- with .Values.etcd.extraArgs }}
@@ -90,6 +94,10 @@ spec:
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
         name: cilium-etcd-operator
         terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.etcd.securityContext }}
+        securityContext:
+          {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
         {{- with .Values.etcd.extraVolumeMounts }}
         volumeMounts:
         {{- toYaml . | nindent 8 }}

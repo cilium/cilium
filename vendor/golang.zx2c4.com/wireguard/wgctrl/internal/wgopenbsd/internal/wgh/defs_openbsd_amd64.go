@@ -7,8 +7,6 @@
 package wgh
 
 const (
-	SIOCGIFGMEMB = 0xc028698a
-
 	SizeofIfgreq = 0x10
 )
 

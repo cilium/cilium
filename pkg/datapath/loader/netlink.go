@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -127,11 +128,12 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	}
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
-		//TODO: Write this to a file in endpoint directory instead.
-		l.Debugf("Got verifier error: %+v", ve)
+		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
+			return nil, fmt.Errorf("writing verifier log to stderr: %w", err)
+		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error loading eBPF collection into the kernel: %w", err)
+		return nil, fmt.Errorf("loading eBPF collection into the kernel: %w", err)
 	}
 	defer coll.Close()
 
@@ -143,7 +145,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	for _, prog := range progs {
 		scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
 		scopedLog.Debug("Attaching program to interface")
-		if err := attachProgram(link, coll.Programs[prog.progName], directionToParent(prog.direction), xdpModeToFlag(xdpMode)); err != nil {
+		if err := attachProgram(link, coll.Programs[prog.progName], prog.progName, directionToParent(prog.direction), xdpModeToFlag(xdpMode)); err != nil {
 			// Program replacement unsuccessful, revert bpffs migration.
 			l.Debug("Reverting bpffs map migration")
 			if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), spec, true); err != nil {
@@ -160,7 +162,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 
 // attachProgram attaches prog to link.
 // If xdpFlags is non-zero, attaches prog to XDP.
-func attachProgram(link netlink.Link, prog *ebpf.Program, qdiscParent uint32, xdpFlags uint32) error {
+func attachProgram(link netlink.Link, prog *ebpf.Program, progName string, qdiscParent uint32, xdpFlags uint32) error {
 	if prog == nil {
 		return errors.New("cannot attach a nil program")
 	}
@@ -188,7 +190,7 @@ func attachProgram(link netlink.Link, prog *ebpf.Program, qdiscParent uint32, xd
 			Priority:  option.Config.TCFilterPriority,
 		},
 		Fd:           prog.FD(),
-		Name:         fmt.Sprintf("cilium-%s", link.Attrs().Name),
+		Name:         fmt.Sprintf("%s-%s", progName, link.Attrs().Name),
 		DirectAction: true,
 	}
 

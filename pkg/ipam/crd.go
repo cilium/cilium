@@ -599,6 +599,17 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 	return nil, nil, fmt.Errorf("No more IPs available")
 }
 
+// totalPoolSize returns the total size of the allocation pool
+func (n *nodeStore) totalPoolSize(family Family) int {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	if num, ok := n.allocationPoolSize[family]; ok {
+		return num
+	}
+	return 0
+}
+
 // crdAllocator implements the CRD-backed IP allocator
 type crdAllocator struct {
 	// store is the node store backing the custom resource
@@ -735,7 +746,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 // allocate it if it is available. If the IP is unavailable or already
 // allocated, an error is returned. The custom resource will be updated to
 // reflect the newly allocated IP.
-func (a *crdAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, error) {
+func (a *crdAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -764,7 +775,7 @@ func (a *crdAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, err
 // custom resource and allocate it if it is available. If the IP is
 // unavailable or already allocated, an error is returned. The custom resource
 // will not be updated.
-func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error) {
+func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -790,7 +801,7 @@ func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*Al
 // Release will release the specified IP or return an error if the IP has not
 // been allocated before. The custom resource will be updated to reflect the
 // released IP.
-func (a *crdAllocator) Release(ip net.IP) error {
+func (a *crdAllocator) Release(ip net.IP, pool Pool) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -814,7 +825,7 @@ func (a *crdAllocator) markAllocated(ip net.IP, owner string, ipInfo ipamTypes.A
 // AllocateNext allocates the next available IP as offered by the custom
 // resource or return an error if no IP is available. The custom resource will
 // be updated to reflect the newly allocated IP.
-func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+func (a *crdAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -838,7 +849,7 @@ func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
 // AllocateNextWithoutSyncUpstream allocates the next available IP as offered
 // by the custom resource or return an error if no IP is available. The custom
 // resource will not be updated.
-func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error) {
+func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -857,15 +868,6 @@ func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string) (*Allocatio
 	return result, nil
 }
 
-// totalPoolSize returns the total size of the allocation pool
-// a.mutex must be held
-func (a *crdAllocator) totalPoolSize() int {
-	if num, ok := a.store.allocationPoolSize[a.family]; ok {
-		return num
-	}
-	return 0
-}
-
 // Dump provides a status report and lists all allocated IP addresses
 func (a *crdAllocator) Dump() (map[string]string, string) {
 	a.mutex.RLock()
@@ -876,7 +878,7 @@ func (a *crdAllocator) Dump() (map[string]string, string) {
 		allocs[ip] = ""
 	}
 
-	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.totalPoolSize())
+	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.store.totalPoolSize(a.family))
 	return allocs, status
 }
 

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"gopkg.in/check.v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -201,7 +202,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		option.Config.EnableNodePort = oldNodePort
 	}()
 	objMeta.Annotations = map[string]string{
-		annotationTopologyAwareHints: "auto",
+		corev1.AnnotationTopologyAwareHints: "auto",
 	}
 	k8sSvc = &slim_corev1.Service{
 		ObjectMeta: objMeta,

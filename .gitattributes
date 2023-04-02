@@ -1,4 +1,6 @@
 /install/kubernetes/cilium/values.yaml.tmpl linguist-language=yml
+/install/kubernetes/cilium/values.yaml linguist-generated
+/install/kubernetes/cilium/README.md linguist-generated
 *.Jenkinsfile linguist-language=Groovy
 go.sum linguist-generated
 examples/kubernetes/connectivity-check/connectivity-*.yaml linguist-generated

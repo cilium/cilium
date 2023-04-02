@@ -57,6 +57,8 @@ type Controller struct {
 func NewController(enableSecretSync bool, secretsNamespace string) (*Controller, error) {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
+		// Disable controller metrics server in favour of cilium's metrics server.
+		MetricsBindAddress: "0",
 	})
 	if err != nil {
 		return nil, err

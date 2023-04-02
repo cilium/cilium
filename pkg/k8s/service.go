@@ -31,8 +31,6 @@ const (
 	serviceAffinityNone   = ""
 	serviceAffinityLocal  = "local"
 	serviceAffinityRemote = "remote"
-
-	annotationTopologyAwareHints = "service.kubernetes.io/topology-aware-hints"
 )
 
 func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
@@ -71,7 +69,7 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 }
 
 func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
-	if value, ok := svc.ObjectMeta.Annotations[annotationTopologyAwareHints]; ok {
+	if value, ok := svc.ObjectMeta.Annotations[v1.AnnotationTopologyAwareHints]; ok {
 		return strings.ToLower(value) == "auto"
 	}
 

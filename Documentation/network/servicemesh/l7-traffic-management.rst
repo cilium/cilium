@@ -13,6 +13,14 @@ L7-Aware Traffic Management
 Cilium provides a way to control L7 traffic via CRDs (e.g. CiliumEnvoyConfig
 and CiliumClusterwideEnvoyConfig).
 
+Prerequisites
+#############
+
+* Cilium must be configured with ``kubeProxyReplacement`` as partial
+  or strict. Please refer to :ref:`kube-proxy replacement <kubeproxy-free>`
+  for more details.
+* The minimum supported Kubernetes version for Ingress is 1.19.
+
 .. include:: installation.rst
 
 Supported Envoy API Versions

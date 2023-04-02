@@ -71,14 +71,21 @@ func (client *Client) DescribeActivationsWithCallback(request *DescribeActivatio
 // DescribeActivationsRequest is the request struct for api DescribeActivations
 type DescribeActivationsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
-	PageSize             requests.Integer `position:"Query" name:"PageSize"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceName         string           `position:"Query" name:"InstanceName"`
-	ActivationId         string           `position:"Query" name:"ActivationId"`
+	ResourceOwnerId      requests.Integer          `position:"Query" name:"ResourceOwnerId"`
+	PageNumber           requests.Integer          `position:"Query" name:"PageNumber"`
+	PageSize             requests.Integer          `position:"Query" name:"PageSize"`
+	Tag                  *[]DescribeActivationsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount string                    `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                    `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer          `position:"Query" name:"OwnerId"`
+	InstanceName         string                    `position:"Query" name:"InstanceName"`
+	ActivationId         string                    `position:"Query" name:"ActivationId"`
+}
+
+// DescribeActivationsTag is a repeated param struct in DescribeActivationsRequest
+type DescribeActivationsTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeActivationsResponse is the response struct for api DescribeActivations

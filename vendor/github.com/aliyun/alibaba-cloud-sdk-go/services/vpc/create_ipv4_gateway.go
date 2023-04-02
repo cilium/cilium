@@ -75,6 +75,7 @@ type CreateIpv4GatewayRequest struct {
 	ResourceOwnerId        requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken            string           `position:"Query" name:"ClientToken"`
 	Ipv4GatewayName        string           `position:"Query" name:"Ipv4GatewayName"`
+	ResourceGroupId        string           `position:"Query" name:"ResourceGroupId"`
 	DryRun                 requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount   string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount           string           `position:"Query" name:"OwnerAccount"`
@@ -85,8 +86,9 @@ type CreateIpv4GatewayRequest struct {
 // CreateIpv4GatewayResponse is the response struct for api CreateIpv4Gateway
 type CreateIpv4GatewayResponse struct {
 	*responses.BaseResponse
-	Ipv4GatewayId string `json:"Ipv4GatewayId" xml:"Ipv4GatewayId"`
-	RequestId     string `json:"RequestId" xml:"RequestId"`
+	Ipv4GatewayId   string `json:"Ipv4GatewayId" xml:"Ipv4GatewayId"`
+	ResourceGroupId string `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	RequestId       string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateIpv4GatewayRequest creates a request to invoke CreateIpv4Gateway API

@@ -67,6 +67,7 @@ type bootstrapStatistics struct {
 	fqdn            spanstat.SpanStat
 	enableConntrack spanstat.SpanStat
 	kvstore         spanstat.SpanStat
+	deleteQueue     spanstat.SpanStat
 }
 
 func (b *bootstrapStatistics) updateMetrics() {
@@ -105,5 +106,6 @@ func (b *bootstrapStatistics) getMap() map[string]*spanstat.SpanStat {
 		"fqdn":            &b.fqdn,
 		"enableConntrack": &b.enableConntrack,
 		"kvstore":         &b.kvstore,
+		"deleteQueue":     &b.deleteQueue,
 	}
 }

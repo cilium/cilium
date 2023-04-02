@@ -94,24 +94,6 @@ static __always_inline bool identity_from_ipcache_ok(void)
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline __u32
-derive_src_id(const union v6addr *node_ip, struct ipv6hdr *ip6, __u32 *identity)
-{
-	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
-		/* Read initial 4 bytes of header and then extract flowlabel */
-		__u32 *tmp = (__u32 *) ip6;
-		*identity = bpf_ntohl(*tmp & IPV6_FLOWLABEL_MASK);
-
-		/* A remote node will map any HOST_ID source to be presented as
-		 * REMOTE_NODE_ID, therefore any attempt to signal HOST_ID as
-		 * source from a remote node can be dropped.
-		 */
-		if (*identity == HOST_ID)
-			return DROP_INVALID_IDENTITY;
-	}
-	return 0;
-}
-
 # ifdef ENABLE_HOST_FIREWALL
 static __always_inline __u32
 ipcache_lookup_srcid6(struct __ctx_buff *ctx)
@@ -143,34 +125,35 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *src;
-	int ret;
 
 	if (!revalidate_data_maybe_pull(ctx, &data, &data_end, &ip6, !from_host))
 		return DROP_INVALID;
-
-	if (!from_host) {
-		union v6addr node_ip = {};
-
-		BPF_V6(node_ip, ROUTER_IP);
-		ret = derive_src_id(&node_ip, ip6, &src_id);
-		if (IS_ERR(ret))
-			return ret;
-	}
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
 		src = (union v6addr *) &ip6->saddr;
 		info = lookup_ip6_remote_endpoint(src, 0);
-		if (info != NULL && info->sec_label)
-			srcid_from_ipcache = info->sec_label;
+		if (info) {
+			if (info->sec_label) {
+				/* When SNAT is enabled on traffic ingressing
+				 * into Cilium, all traffic from the world will
+				 * have a source IP of the host. It will only
+				 * actually be from the host if "srcid_from_proxy"
+				 * (passed into this function) reports the src as
+				 * the host. So we can ignore the ipcache if it
+				 * reports the source as HOST_ID.
+				 */
+				if (info->sec_label != HOST_ID)
+					srcid_from_ipcache = info->sec_label;
+			}
+		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   ((__u32 *) src)[3], srcid_from_ipcache);
 	}
 
 	if (from_host)
 		src_id = srcid_from_ipcache;
-	else if (src_id == WORLD_ID &&
-		 identity_from_ipcache_ok())
+	else if (identity_from_ipcache_ok())
 		src_id = srcid_from_ipcache;
 	return src_id;
 }
@@ -239,13 +222,15 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
-#ifndef ENABLE_HOST_ROUTING
-	/* See the equivalent v4 path for comments */
-	if (!from_host)
-		return CTX_ACT_OK;
-#endif /* !ENABLE_HOST_ROUTING */
-
 skip_host_firewall:
+/*
+ * Perform SRv6 Decap if incoming skb is a known SID.
+ * This must tailcall, as the decap could be for inner ipv6 or ipv4 making
+ * the remaining path potentially erroneous.
+ *
+ * Perform this before the ENABLE_HOST_ROUTING check as the decap is not dependent
+ * on this feature being enabled or not.
+ */
 #ifdef ENABLE_SRV6
 	if (!from_host) {
 		if (is_srv6_packet(ip6) && srv6_lookup_sid(&ip6->daddr)) {
@@ -257,6 +242,12 @@ skip_host_firewall:
 		}
 	}
 #endif /* ENABLE_SRV6 */
+
+#ifndef ENABLE_HOST_ROUTING
+	/* See the equivalent v4 path for comments */
+	if (!from_host)
+		return CTX_ACT_OK;
+#endif /* !ENABLE_HOST_ROUTING */
 
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
@@ -274,12 +265,24 @@ skip_host_firewall:
 	/* Lookup IPv6 address in list of local endpoints */
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep) {
+		bool l2_hdr_required __maybe_unused = true;
+
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack.
 		 */
 		if (ep->flags & ENDPOINT_F_HOST)
 			return CTX_ACT_OK;
 
+#ifdef ENABLE_HOST_ROUTING
+		/* add L2 header for L2-less interface, such as cilium_wg0 */
+		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
+		if (ret != 0)
+			return ret;
+		if (l2_hdr_required && ETH_HLEN == 0) {
+			/* l2 header is added */
+			l3_off += __ETH_HLEN;
+		}
+#endif
 		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
 					   METRIC_INGRESS, from_host, false);
 	}
@@ -290,22 +293,23 @@ skip_host_firewall:
 	if (!from_host)
 		return CTX_ACT_OK;
 
-#ifdef TUNNEL_MODE
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
+
+#ifdef TUNNEL_MODE
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		/* If IPSEC is needed recirc through ingress to use xfrm stack
 		 * and then result will routed back through bpf_netdev on egress
 		 * but with encrypt marks.
 		 */
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      info->key, secctx, info->sec_label,
+						      info->key, info->node_id,
+						      secctx, info->sec_label,
 						      &trace);
 	} else {
 		struct tunnel_key key = {};
 
 		/* IPv6 lookup key: daddr/96 */
-		dst = (union v6addr *) &ip6->daddr;
 		key.ip6.p1 = dst->p1;
 		key.ip6.p2 = dst->p2;
 		key.ip6.p3 = dst->p3;
@@ -318,23 +322,17 @@ skip_host_firewall:
 	}
 #endif
 
-	dst = (union v6addr *) &ip6->daddr;
-	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
 
 #ifdef ENABLE_IPSEC
-	if (info && info->key && info->tunnel_endpoint) {
+	if (info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key_meta(ctx, key);
-#ifdef IP_POOLS
-		set_encrypt_dip(ctx, info->tunnel_endpoint);
-#else
+		set_encrypt_key_meta(ctx, key, info->node_id);
 		set_identity_meta(ctx, secctx);
-#endif
 	}
 #endif
 	return CTX_ACT_OK;
@@ -552,14 +550,33 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep) {
+		bool l2_hdr_required __maybe_unused = true;
+		int l3_off __maybe_unused = ETH_HLEN;
+
 		/* Let through packets to the node-ip so they are processed by
 		 * the local ip stack.
 		 */
 		if (ep->flags & ENDPOINT_F_HOST)
 			return CTX_ACT_OK;
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
-					   METRIC_INGRESS, from_host, false);
+#ifdef ENABLE_HOST_ROUTING
+		/* add L2 header for L2-less interface, such as cilium_wg0 */
+		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
+		if (ret != 0)
+			return ret;
+		if (l2_hdr_required && ETH_HLEN == 0) {
+			/* l2 header is added */
+			l3_off += __ETH_HLEN;
+			if (!____revalidate_data_pull(ctx, &data, &data_end,
+						      (void **)&ip4, sizeof(*ip4),
+						      false, l3_off))
+				return DROP_INVALID;
+		}
+#endif
+
+		return ipv4_local_delivery(ctx, l3_off, secctx, ip4, ep,
+					   METRIC_INGRESS, from_host, false,
+					   false, 0);
 	}
 
 	/* Below remainder is only relevant when traffic is pushed via cilium_host.
@@ -591,11 +608,13 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 skip_vtep:
 #endif
 
-#ifdef TUNNEL_MODE
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+
+#ifdef TUNNEL_MODE
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      info->key, secctx, info->sec_label,
+						      info->key, info->node_id,
+						      secctx, info->sec_label,
 						      &trace);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
@@ -611,7 +630,6 @@ skip_vtep:
 	}
 #endif
 
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
@@ -626,15 +644,11 @@ skip_vtep:
 	}
 
 #ifdef ENABLE_IPSEC
-	if (info && info->key && info->tunnel_endpoint) {
+	if (info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key_meta(ctx, key);
-#ifdef IP_POOLS
-		set_encrypt_dip(ctx, info->tunnel_endpoint);
-#else
+		set_encrypt_key_meta(ctx, key, info->node_id);
 		set_identity_meta(ctx, secctx);
-#endif
 	}
 #endif
 	return CTX_ACT_OK;
@@ -702,73 +716,9 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 #ifdef ENABLE_IPSEC
 #ifndef TUNNEL_MODE
 static __always_inline int
-do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
+do_netdev_encrypt(struct __ctx_buff *ctx __maybe_unused,
+		  __u32 src_id __maybe_unused)
 {
-	int ret = 0;
-#ifdef IP_POOLS
-	__u32 tunnel_endpoint = 0;
-	void *data, *data_end;
-	__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
-	struct iphdr *iphdr;
-	__be32 sum;
-
-	tunnel_endpoint = ctx_load_meta(ctx, CB_ENCRYPT_DST);
-	ctx->mark = 0;
-
-	if (!revalidate_data(ctx, &data, &data_end, &iphdr)) {
-		ret = DROP_INVALID;
-		goto drop_err;
-	}
-
-	/* When IP_POOLS is enabled ip addresses are not
-	 * assigned on a per node basis so lacking node
-	 * affinity we can not use IP address to assign the
-	 * destination IP. Instead rewrite it here from cb[].
-	 */
-	sum = csum_diff(&iphdr->daddr, sizeof(__u32), &tunnel_endpoint,
-			sizeof(tunnel_endpoint), 0);
-	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
-	    &tunnel_endpoint, sizeof(tunnel_endpoint), 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
-		ret = DROP_CSUM_L3;
-		goto drop_err;
-	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &iphdr)) {
-		ret = DROP_INVALID;
-		goto drop_err;
-	}
-
-	sum = csum_diff(&iphdr->saddr, sizeof(__u32), &tunnel_source,
-			sizeof(tunnel_source), 0);
-	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
-	    &tunnel_source, sizeof(tunnel_source), 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
-		ret = DROP_CSUM_L3;
-		goto drop_err;
-	}
-drop_err:
-#endif /* IP_POOLS */
-	return ret;
-}
-
-static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
-					     __u32 src_id)
-{
-	int ret;
-
-	ret = do_netdev_encrypt_pools(ctx);
-	if (ret)
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
-
 	return CTX_ACT_OK;
 }
 
@@ -779,13 +729,39 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 		.reason = TRACE_REASON_ENCRYPTED,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
-	__u32 tunnel_endpoint = 0;
+	struct remote_endpoint_info *ep = NULL;
+	void *data, *data_end;
+	struct ipv6hdr *ip6 __maybe_unused;
+	struct iphdr *ip4 __maybe_unused;
+	__u16 proto;
 
-	tunnel_endpoint = ctx_load_meta(ctx, CB_ENCRYPT_DST);
+	if (!validate_ethertype(ctx, &proto))
+		return DROP_UNSUPPORTED_L2;
+
+	switch (proto) {
+# ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+		break;
+# endif /* ENABLE_IPV6 */
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+		ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		break;
+# endif /* ENABLE_IPV4 */
+	}
+	if (!ep)
+		return send_drop_notify_error(ctx, src_id,
+					      DROP_NO_TUNNEL_ENDPOINT,
+					      CTX_ACT_DROP, METRIC_EGRESS);
+
 	ctx->mark = 0;
-
 	bpf_clear_meta(ctx);
-	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, src_id,
+	return __encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, src_id,
 						0, NOT_VTEP_DST, &trace);
 }
 
@@ -1047,6 +1023,21 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 #endif
 
+	/* Filter allowed vlan id's and pass them back to kernel.
+	 * We will see the packet again in from-netdev@eth0.vlanXXX.
+	 */
+	if (ctx->vlan_present) {
+		__u32 vlan_id = ctx->vlan_tci & 0xfff;
+
+		if (vlan_id) {
+			if (allow_vlan(ctx->ifindex, vlan_id))
+				return CTX_ACT_OK;
+			else
+				return send_drop_notify_error(ctx, 0, DROP_VLAN_FILTERED,
+							      CTX_ACT_DROP, METRIC_INGRESS);
+		}
+	}
+
 	ctx_skip_nodeport_clear(ctx);
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
@@ -1067,20 +1058,6 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	}
 #endif
 #endif
-
-	/* Filter allowed vlan id's and pass them back to kernel.
-	 */
-	if (ctx->vlan_present) {
-		__u32 vlan_id = ctx->vlan_tci & 0xfff;
-
-		if (vlan_id) {
-			if (allow_vlan(ctx->ifindex, vlan_id))
-				return CTX_ACT_OK;
-			else
-				return send_drop_notify_error(ctx, 0, DROP_VLAN_FILTERED,
-							      CTX_ACT_DROP, METRIC_INGRESS);
-		}
-	}
 
 	return handle_netdev(ctx, false);
 }
@@ -1224,7 +1201,7 @@ out:
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
 		 */
-		ret = handle_nat_fwd(ctx);
+		ret = handle_nat_fwd(ctx, 0);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret,
 						      CTX_ACT_DROP,
@@ -1263,7 +1240,6 @@ int cil_to_host(struct __ctx_buff *ctx)
 	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
 		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
 		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
-		set_identity_mark(ctx, src_id);
 	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;

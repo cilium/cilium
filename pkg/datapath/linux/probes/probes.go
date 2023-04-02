@@ -90,7 +90,6 @@ type miscFeatures struct {
 }
 
 type FeatureProbes struct {
-	Maps           map[ebpf.MapType]bool
 	ProgramHelpers map[ProgramHelper]bool
 	Misc           miscFeatures
 }
@@ -475,17 +474,8 @@ func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
 // be added in the correct `write*Header()` function.
 func ExecuteHeaderProbes() *FeatureProbes {
 	probes := FeatureProbes{
-		Maps:           make(map[ebpf.MapType]bool),
 		ProgramHelpers: make(map[ProgramHelper]bool),
 		Misc:           miscFeatures{},
-	}
-
-	maps := []ebpf.MapType{
-		ebpf.LRUHash,
-		ebpf.LPMTrie,
-	}
-	for _, m := range maps {
-		probes.Maps[m] = (HaveMapType(m) == nil)
 	}
 
 	progHelpers := []ProgramHelper{
@@ -501,6 +491,8 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		{ebpf.CGroupSockAddr, asm.FnSkLookupUdp},
 		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
+		{ebpf.SchedCLS, asm.FnRedirectNeigh},
+		{ebpf.SchedCLS, asm.FnRedirectPeer},
 
 		// skb related probes
 		{ebpf.SchedCLS, asm.FnSkbChangeTail},
@@ -522,8 +514,6 @@ func ExecuteHeaderProbes() *FeatureProbes {
 // writeCommonHeader defines macross for bpf/include/bpf/features.h
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
-		"HAVE_LRU_HASH_MAP_TYPE": probes.Maps[ebpf.LRUHash],
-		"HAVE_LPM_TRIE_MAP_TYPE": probes.Maps[ebpf.LPMTrie],
 		"HAVE_NETNS_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnGetNetnsCookie}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie}],
 		"HAVE_SOCKET_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetSocketCookie}],
@@ -533,15 +523,14 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
 		"HAVE_SOCKET_LOOKUP": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnSkLookupTcp}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnSkLookupUdp}],
-		"HAVE_CGROUP_ID": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
-		// Before upstream commit d71962f3e627 (4.18), map helpers were not
-		// allowed to access map values directly. So for those older kernels,
-		// we need to copy the data to the stack first.
-		// We don't have a probe for that, but the bpf_fib_lookup helper was
-		// introduced in the same release.
-		"HAVE_DIRECT_ACCESS_TO_MAP_VALUES": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnFibLookup}],
-		"HAVE_LARGE_INSN_LIMIT":            probes.Misc.HaveLargeInsnLimit,
-		"HAVE_SET_RETVAL":                  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+		"HAVE_CGROUP_ID":        probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
+		"HAVE_LARGE_INSN_LIMIT": probes.Misc.HaveLargeInsnLimit,
+		"HAVE_SET_RETVAL":       probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+		"HAVE_FIB_NEIGH":        probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
+		// Check if kernel has d1c362e1dd68 ("bpf: Always return target ifindex
+		// in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
+		// as the new redirect helpers.
+		"HAVE_FIB_IFINDEX": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectPeer}],
 	}
 
 	return writeFeatureHeader(writer, features, true)

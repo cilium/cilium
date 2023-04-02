@@ -718,6 +718,8 @@ func (m *TcpProxy_TunnelingConfig) validate(all bool) error {
 
 	}
 
+	// no validation rules for PropagateResponseHeaders
+
 	if len(errors) > 0 {
 		return TcpProxy_TunnelingConfigMultiError(errors)
 	}

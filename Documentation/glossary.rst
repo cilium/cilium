@@ -52,7 +52,7 @@ with words you expected to see here.
      https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 
    NodeSelector
-     https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+     https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
 
    Volumes
      https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/

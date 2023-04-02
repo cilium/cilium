@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -16,6 +17,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/math"
+	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -215,6 +217,7 @@ func (r *Ring) OldestWrite() uint64 {
 }
 
 func getLostEvent() *v1.Event {
+	metrics.LostEvents.WithLabelValues(strings.ToLower(flowpb.LostEventSource_HUBBLE_RING_BUFFER.String())).Inc()
 	now := time.Now().UTC()
 	return &v1.Event{
 		Timestamp: &timestamppb.Timestamp{

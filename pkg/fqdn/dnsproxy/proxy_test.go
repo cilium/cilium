@@ -25,7 +25,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/datapath"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/re"
@@ -189,7 +189,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 	}, nil, wg)
 	wg.Wait()
 
-	s.repo = policy.NewPolicyRepository(nil, nil, nil)
+	s.repo = policy.NewPolicyRepository(nil, nil, nil, nil)
 	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: time.Second, SingleInflight: true}
 	s.dnsServer = setupServer(c)
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
@@ -206,7 +206,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 			return endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady), nil
 		},
 		// LookupSecIDByIP
-		func(ip net.IP) (ipcache.Identity, bool) {
+		func(ip netip.Addr) (ipcache.Identity, bool) {
 			DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
 			switch {
 			case ip.String() == DNSServerListenerAddr.IP.String():

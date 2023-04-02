@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"context"
+	"encoding/pem"
 	"fmt"
 
 	"github.com/google/go-cmp/cmp"
@@ -60,7 +61,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			scopedLog.WithError(err).Error("Unable to update Gateway status")
 		}
 	}()
-	setGatewayScheduled(gw, true, "Gateway successfully scheduled")
+
+	if err := r.setListenerStatus(ctx, gw); err != nil {
+		scopedLog.WithError(err).Error("Unable to set listener status")
+		setGatewayAccepted(gw, false, "Unable to set listener status")
+		return fail(err)
+	}
+	setGatewayAccepted(gw, true, "Gateway successfully scheduled")
 
 	// Step 2: Gather all required information for the ingestion model
 	gwc := &gatewayv1beta1.GatewayClass{}
@@ -69,10 +76,10 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			WithError(err).
 			Error("Unable to get GatewayClass")
 		if k8serrors.IsNotFound(err) {
-			setGatewayScheduled(gw, false, "GatewayClass does not exist")
+			setGatewayAccepted(gw, false, "GatewayClass does not exist")
 			return fail(err)
 		}
-		setGatewayScheduled(gw, false, "Unable to get GatewayClass")
+		setGatewayAccepted(gw, false, "Unable to get GatewayClass")
 		return fail(err)
 	}
 
@@ -108,25 +115,25 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	cec, svc, ep, err := translation.NewTranslator(r.SecretsNamespace).Translate(&model.Model{HTTP: listeners})
 	if err != nil {
 		scopedLog.WithError(err).Error("Unable to translate resources")
-		setGatewayScheduled(gw, false, "Unable to translate resources")
+		setGatewayAccepted(gw, false, "Unable to translate resources")
 		return fail(err)
 	}
 
 	if err = r.ensureService(ctx, svc); err != nil {
 		scopedLog.WithError(err).Error("Unable to create Service")
-		setGatewayScheduled(gw, false, "Unable to create Service resource")
+		setGatewayAccepted(gw, false, "Unable to create Service resource")
 		return fail(err)
 	}
 
 	if err = r.ensureEndpoints(ctx, ep); err != nil {
 		scopedLog.WithError(err).Error("Unable to ensure Endpoints")
-		setGatewayScheduled(gw, false, "Unable to ensure Endpoints resource")
+		setGatewayAccepted(gw, false, "Unable to ensure Endpoints resource")
 		return fail(err)
 	}
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
 		scopedLog.WithError(err).Error("Unable to ensure CiliumEnvoyConfig")
-		setGatewayScheduled(gw, false, "Unable to ensure CEC resource")
+		setGatewayAccepted(gw, false, "Unable to ensure CEC resource")
 		return fail(err)
 	}
 
@@ -134,12 +141,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err = r.setAddressStatus(ctx, gw); err != nil {
 		scopedLog.WithError(err).Error("Address is not ready")
 		setGatewayReady(gw, false, "Address is not ready")
-		return fail(err)
-	}
-
-	if err = r.setListenerStatus(ctx, gw); err != nil {
-		scopedLog.WithError(err).Error("Unable to set listener status")
-		setGatewayReady(gw, false, "Unable to set listener status")
 		return fail(err)
 	}
 
@@ -276,11 +277,44 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1b
 
 func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1beta1.Gateway) error {
 	for _, l := range gw.Spec.Listeners {
-		cond := gatewayListenerReadyCondition(gw, true, "Listener Ready")
+		// SupportedKinds is a required field, so we can't declare it as nil.
+		supportedKinds := []gatewayv1beta1.RouteGroupKind{}
+		invalidRouteKinds := false
+		if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) != 0 {
+			for _, k := range l.AllowedRoutes.Kinds {
+				if groupDerefOr(k.Group, gatewayv1beta1.GroupName) == gatewayv1beta1.GroupName &&
+					k.Kind == getSupportedKind(l.Protocol) {
+					supportedKinds = append(supportedKinds, k)
+				} else {
+					invalidRouteKinds = true
+				}
+			}
+		} else {
+			supportedKinds = []gatewayv1beta1.RouteGroupKind{
+				{
+					Group: GroupPtr(gatewayv1beta1.GroupName),
+					Kind:  getSupportedKind(l.Protocol),
+				},
+			}
+		}
+		var conds []metav1.Condition
+		if invalidRouteKinds {
+			conds = append(conds, gatewayListenerInvalidRouteKinds(gw, "Invalid Route Kinds"))
+		} else {
+			conds = append(conds, gatewayListenerProgrammedCondition(gw, true, "Listener Ready"))
+		}
+
 		if l.TLS != nil {
 			for _, cert := range l.TLS.CertificateRefs {
 				if !IsSecret(cert) {
-					continue
+					conds = merge(conds, metav1.Condition{
+						Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
+						Status:             metav1.ConditionFalse,
+						Reason:             string(gatewayv1beta1.ListenerReasonInvalidCertificateRef),
+						Message:            "Invalid CertificateRef",
+						LastTransitionTime: metav1.Now(),
+					})
+					break
 				}
 
 				allowed, err := isReferenceAllowed(ctx, r.Client, gw, cert)
@@ -289,32 +323,25 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 				}
 
 				if !allowed {
-					cond = metav1.Condition{
+					conds = merge(conds, metav1.Condition{
 						Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
 						Status:             metav1.ConditionFalse,
 						Reason:             string(gatewayv1beta1.ListenerReasonRefNotPermitted),
 						Message:            "CertificateRef is not permitted",
 						LastTransitionTime: metav1.Now(),
-					}
+					})
 					break
 				}
 
-				secret := &corev1.Secret{}
-				if err := r.Client.Get(ctx, client.ObjectKey{
-					Namespace: namespaceDerefOr(cert.Namespace, gw.GetNamespace()),
-					Name:      string(cert.Name),
-				}, secret); err != nil {
-					if k8serrors.IsNotFound(err) {
-						cond = metav1.Condition{
-							Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
-							Status:             metav1.ConditionFalse,
-							Reason:             string(gatewayv1beta1.ListenerReasonInvalidCertificateRef),
-							Message:            err.Error(),
-							LastTransitionTime: metav1.Now(),
-						}
-						break
-					}
-					return err
+				if err = validateTLSSecret(ctx, r.Client, namespaceDerefOr(cert.Namespace, gw.GetNamespace()), string(cert.Name)); err != nil {
+					conds = merge(conds, metav1.Condition{
+						Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
+						Status:             metav1.ConditionFalse,
+						Reason:             string(gatewayv1beta1.ListenerReasonInvalidCertificateRef),
+						Message:            "Invalid CertificateRef",
+						LastTransitionTime: metav1.Now(),
+					})
+					break
 				}
 			}
 		}
@@ -323,20 +350,16 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		for i := range gw.Status.Listeners {
 			if l.Name == gw.Status.Listeners[i].Name {
 				found = true
-				gw.Status.Listeners[i].Conditions = []metav1.Condition{cond}
+				gw.Status.Listeners[i].SupportedKinds = supportedKinds
+				gw.Status.Listeners[i].Conditions = conds
 				break
 			}
 		}
 		if !found {
 			gw.Status.Listeners = append(gw.Status.Listeners, gatewayv1beta1.ListenerStatus{
-				Name: l.Name,
-				SupportedKinds: []gatewayv1beta1.RouteGroupKind{
-					{
-						Group: GroupPtr(gatewayv1beta1.GroupName),
-						Kind:  getSupportedKind(l.Protocol),
-					},
-				},
-				Conditions: []metav1.Condition{cond},
+				Name:           l.Name,
+				SupportedKinds: supportedKinds,
+				Conditions:     conds,
 			})
 		}
 	}
@@ -369,4 +392,41 @@ func isReferenceAllowed(ctx context.Context, c client.Client, gw *gatewayv1beta1
 		}
 	}
 	return false, nil
+}
+
+func validateTLSSecret(ctx context.Context, c client.Client, namespace, name string) error {
+	secret := &corev1.Secret{}
+	if err := c.Get(ctx, client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, secret); err != nil {
+		return err
+	}
+
+	if !isValidPemFormat(secret.Data[corev1.TLSCertKey]) {
+		return fmt.Errorf("invalid certificate")
+	}
+
+	if !isValidPemFormat(secret.Data[corev1.TLSPrivateKeyKey]) {
+		return fmt.Errorf("invalid private key")
+	}
+	return nil
+}
+
+// isValidPemFormat checks if the given byte array is a valid PEM format.
+// This function is not intended to be used for validating the actual
+// content of the PEM block.
+func isValidPemFormat(b []byte) bool {
+	if len(b) == 0 {
+		return false
+	}
+
+	p, rest := pem.Decode(b)
+	if p == nil {
+		return false
+	}
+	if len(rest) == 0 {
+		return true
+	}
+	return isValidPemFormat(rest)
 }

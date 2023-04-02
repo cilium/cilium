@@ -37,6 +37,12 @@ const (
 
 	// CNPStatusCleanupBurstDefault is the default maximum burst for the CNP NodeStatus updates GC.
 	CNPStatusCleanupBurstDefault = 20
+
+	// PprofAddressOperator is the default value for pprof in the operator
+	PprofAddressOperator = "localhost"
+
+	// PprofPortOperator is the default value for pprof in the operator
+	PprofPortOperator = 6061
 )
 
 const (
@@ -46,10 +52,6 @@ const (
 	// BGPConfigPath is the file path to the BGP configuration. It is
 	// compatible with MetalLB's configuration.
 	BGPConfigPath = "bgp-config-path"
-
-	// SkipCRDCreation specifies whether the CustomResourceDefinition will be
-	// disabled for the operator
-	SkipCRDCreation = "skip-crd-creation"
 
 	// CNPNodeStatusGCInterval is the GC interval for nodes which have been
 	// removed from the cluster in CiliumNetworkPolicy and
@@ -92,15 +94,6 @@ const (
 	// OperatorPrometheusServeAddr IP:Port on which to serve prometheus
 	// metrics (pass ":Port" to bind on all interfaces, "" is off).
 	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
-
-	// PProf enabled pprof debugging endpoint
-	PProf = "operator-pprof"
-
-	// PProfAddress is the port that the pprof listens on
-	PProfAddress = "operator-pprof-address"
-
-	// PProfPort is the port that the pprof listens on
-	PProfPort = "operator-pprof-port"
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
@@ -285,6 +278,10 @@ const (
 	// should be removed in Kubernetes nodes.
 	RemoveCiliumNodeTaints = "remove-cilium-node-taints"
 
+	// SetCiliumNodeTaints is whether or not to taint nodes that do not have
+	// a running Cilium instance.
+	SetCiliumNodeTaints = "set-cilium-node-taints"
+
 	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
 	// nodes.
 	SetCiliumIsUpCondition = "set-cilium-is-up-condition"
@@ -349,15 +346,6 @@ type OperatorConfig struct {
 	OperatorAPIServeAddr        string
 	OperatorPrometheusServeAddr string
 
-	// PProf enables pprof debugging endpoint
-	PProf bool
-
-	// PProfAddress is the address that the pprof listens on
-	PProfAddress string
-
-	// PProfPort is the port that the pprof listens on
-	PProfPort int
-
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
 
@@ -385,10 +373,6 @@ type OperatorConfig struct {
 	// BGPConfigPath is the file path to the BGP configuration. It is
 	// compatible with MetalLB's configuration.
 	BGPConfigPath string
-
-	// SkipCRDCreation disables creation of the CustomResourceDefinition
-	// for the operator
-	SkipCRDCreation bool
 
 	// IPAM options
 
@@ -439,7 +423,7 @@ type OperatorConfig struct {
 	// ENIGarbageCollectionInterval defines the interval of ENI GC
 	ENIGarbageCollectionInterval time.Duration
 
-	// ParallelAllocWorkers specifies the number of parallel workers to be used in ENI mode.
+	// ParallelAllocWorkers specifies the number of parallel workers to be used for accessing cloud provider APIs .
 	ParallelAllocWorkers int64
 
 	// AWSInstanceLimitMapping allows overwriting AWS instance limits defined in
@@ -549,6 +533,10 @@ type OperatorConfig struct {
 	// should be removed in Kubernetes nodes.
 	RemoveCiliumNodeTaints bool
 
+	// SetCiliumNodeTaints is whether or not to set taints on nodes that do not
+	// have a running Cilium pod.
+	SetCiliumNodeTaints bool
+
 	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
 	// nodes.
 	SetCiliumIsUpCondition bool
@@ -585,9 +573,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.OperatorAPIServeAddr = vp.GetString(OperatorAPIServeAddr)
 	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
-	c.PProf = vp.GetBool(PProf)
-	c.PProfAddress = vp.GetString(PProfAddress)
-	c.PProfPort = vp.GetInt(PProfPort)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)
@@ -600,7 +585,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
-	c.SkipCRDCreation = vp.GetBool(SkipCRDCreation)
 	c.LoadBalancerL7 = vp.GetString(LoadBalancerL7)
 	c.LoadBalancerL7Ports = vp.GetStringSlice(LoadBalancerL7Ports)
 	c.LoadBalancerL7Algorithm = vp.GetString(LoadBalancerL7Algorithm)
@@ -613,6 +597,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EnableGatewayAPISecretsSync = vp.GetBool(EnableGatewayAPISecretsSync)
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
 	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
+	c.SetCiliumNodeTaints = vp.GetBool(SetCiliumNodeTaints)
 	c.SetCiliumIsUpCondition = vp.GetBool(SetCiliumIsUpCondition)
 	c.IngressLBAnnotationPrefixes = vp.GetStringSlice(IngressLBAnnotationPrefixes)
 	c.IngressSharedLBServiceName = vp.GetString(IngressSharedLBServiceName)
@@ -635,6 +620,12 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 		log.Infof("Auto-set %q to `true` because BGP support requires synchronizing services.",
 			SyncK8sServices)
 	}
+
+	// IPAM options
+
+	c.IPAMAPIQPSLimit = vp.GetFloat64(IPAMAPIQPSLimit)
+	c.IPAMAPIBurst = vp.GetInt(IPAMAPIBurst)
+	c.ParallelAllocWorkers = vp.GetInt64(ParallelAllocWorkers)
 
 	// AWS options
 

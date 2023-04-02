@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/option"
 
-	"github.com/google/renameio"
+	"github.com/google/renameio/v2"
 	"github.com/tidwall/sjson"
 )
 
@@ -116,12 +116,6 @@ const cniControllerName = "write-cni-file"
 // - CNI_CONF_NAME -- the filename (NOT full path) to write the CNI configuration to
 func (d *Daemon) startCNIConfWriter(opts *option.DaemonConfig, cleaner *daemonCleanup) {
 	if opts.WriteCNIConfigurationWhenReady == "" {
-		return
-	}
-
-	// We used to disable CNI generation with this environment variable
-	// It's no longer documented, but we need to still support it.
-	if os.Getenv("CILIUM_CUSTOM_CNI_CONF") == "true" {
 		return
 	}
 

@@ -28,6 +28,10 @@ cilium-operator-aws hive dot-graph [flags]
       --k8s-client-qps float32                Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration        Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string            Absolute path of the kubernetes kubeconfig file
+      --operator-pprof                        Enable serving pprof debugging API
+      --operator-pprof-address string         Address that pprof listens on (default "localhost")
+      --operator-pprof-port uint16            Port that pprof listens on (default 6061)
+      --skip-crd-creation                     When true, Kubernetes Custom Resource Definitions will not be created
 ```
 
 ### SEE ALSO

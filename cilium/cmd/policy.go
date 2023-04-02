@@ -121,10 +121,12 @@ func loadPolicyFile(path string) (api.Rules, error) {
 	if path == "-" {
 		r = bufio.NewReader(os.Stdin)
 	} else {
-		r, err = os.Open(path)
+		fr, err := os.Open(path)
 		if err != nil {
 			return nil, err
 		}
+		defer fr.Close()
+		r = fr
 	}
 	content, err = safeio.ReadAllLimit(r, safeio.MB)
 	if err != nil {

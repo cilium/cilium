@@ -19,7 +19,7 @@ Summary
 When running Cilium using the container image ``cilium/cilium``, the host
 system must meet these requirements:
 
-- `Linux kernel`_ >= 4.19.57 (or equivalent)
+- `Linux kernel`_ >= 4.19.57 or equivalent (e.g., 4.18 on RHEL8)
 
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
@@ -35,14 +35,14 @@ must be met:
 
 - :ref:`req_kvstore` etcd >= 3.1.0
 
-======================== ========================== ===================
-Requirement              Minimum Version            In cilium container
-======================== ========================== ===================
-`Linux kernel`_          >= 4.19.57                 no
-Key-Value store (etcd)   >= 3.1.0                   no
-clang+LLVM               >= 10.0                    yes
-iproute2                 >= 5.9.0 [#iproute2_foot]_ yes
-======================== ========================== ===================
+======================== ============================== ===================
+Requirement              Minimum Version                In cilium container
+======================== ============================== ===================
+`Linux kernel`_          >= 4.19.57 or >= 4.18 on RHEL8 no
+Key-Value store (etcd)   >= 3.1.0                       no
+clang+LLVM               >= 10.0                        yes
+iproute2                 >= 5.9.0 [#iproute2_foot]_     yes
+======================== ============================== ===================
 
 .. [#iproute2_foot] Requires support for eBPF templating as documented
    :ref:`below <iproute2_requirements>`.
@@ -151,8 +151,8 @@ subsystems which integrate with eBPF. Therefore, host systems are required to
 run a recent Linux kernel to run a Cilium agent. More recent kernels may
 provide additional eBPF functionality that Cilium will automatically detect and
 use on agent start. For this version of Cilium, it is recommended to use kernel
-4.19.57 or later (or equivalent). For a list of features that require newer
-kernels, see :ref:`advanced_features`.
+4.19.57 or later (or equivalent such as 4.18 on RHEL8). For a list of features
+that require newer kernels, see :ref:`advanced_features`.
 
 In order for the eBPF feature to be enabled properly, the following kernel
 configuration options must be enabled. This is typically the case with
@@ -171,6 +171,7 @@ linked, either choice is valid.
         CONFIG_CRYPTO_USER_API_HASH=y
         CONFIG_CGROUPS=y
         CONFIG_CGROUP_BPF=y
+        CONFIG_PERF_EVENTS=y
 
 
 Requirements for Iptables-based Masquerading
@@ -225,7 +226,7 @@ Requirements for IPsec
 The :ref:`encryption_ipsec` feature requires a lot of kernel configuration
 options, most of which to enable the actual encryption. Note that the
 specific options required depend on the algorithm. The list below
-corresponds to requirements for GMC-128-AES.
+corresponds to requirements for GCM-128-AES.
 
 ::
 
@@ -277,6 +278,7 @@ VXLAN Tunnel Endpoint (VTEP) Integration               >= 5.2
 Full support for :ref:`session-affinity`               >= 5.7
 BPF-based proxy redirection                            >= 5.7
 Socket-level LB bypass in pod netns                    >= 5.7
+L3 devices                                             >= 5.8
 BPF-based host routing                                 >= 5.10
 IPv6 BIG TCP support                                   >= 5.19
 ====================================================== ===============================

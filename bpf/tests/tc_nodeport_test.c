@@ -368,7 +368,7 @@ int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "tc_drop_no_backend")
-int tc_drop_no_backend_check(struct __ctx_buff *ctx)
+int tc_drop_no_backend_check(const struct __ctx_buff *ctx)
 {
 	__u32 expected_status = TC_ACT_SHOT;
 	__u32 *status_code;

@@ -77,6 +77,10 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: cilium-agent
         image: {{ include "cilium.image" .Values.image | quote }}
@@ -216,10 +220,13 @@ spec:
           postStart:
             exec:
               command:
-              - "/cni-install.sh"
-              - "--enable-debug={{ .Values.debug.enabled }}"
-              - "--cni-exclusive={{ .Values.cni.exclusive }}"
-              - "--log-file={{ .Values.cni.logFile }}"
+              - "bash"
+              - "-c"
+              - "/cni-install.sh --enable-debug={{ .Values.debug.enabled }} --cni-exclusive={{ .Values.cni.exclusive }} --log-file={{ .Values.cni.logFile }}"
+                {{- if .Values.eni.enabled }}
+              - |
+                {{- tpl (.Files.Get "files/agent/poststart-eni.bash") . | nindent 20 }}
+                {{- end }}
           preStop:
             exec:
               command:
@@ -274,6 +281,11 @@ spec:
           {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
+        {{- if .Values.auth.mTLS.enabled }}
+        - name: spire-agent-socket
+          mountPath: {{ dir .Values.auth.mTLS.spireAdminSocketPath }}
+          readOnly: false
+        {{- end }}
         {{- if not .Values.securityContext.privileged }}
         # Unprivileged containers need to mount /proc/sys/net from the host
         # to have write access
@@ -285,7 +297,7 @@ spec:
           name: host-proc-sys-kernel
         {{- end}}
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
-        {{- if not (eq .Values.containerRuntime.integration "crio") }}
+        {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
         - name: bpf-maps
           mountPath: /sys/fs/bpf
           {{- if .Values.securityContext.privileged }}
@@ -305,8 +317,6 @@ spec:
         {{- end}}
         - name: cilium-run
           mountPath: /var/run/cilium
-        - name: cni-path
-          mountPath: /host/opt/cni/bin
         - name: etc-cni-netd
           mountPath: {{ .Values.cni.hostConfDirMountPath }}
         {{- if .Values.etcd.enabled }}
@@ -528,7 +538,7 @@ spec:
               - ALL
           {{- end}}
       {{- end }}
-      {{- if not .Values.securityContext.privileged }}
+      {{- if and .Values.bpf.autoMount.enabled (not .Values.securityContext.privileged) }}
       # Mount the bpf fs if it is not mounted. We will perform this task
       # from a privileged container because the mount propagation bidirectional
       # only works from privileged containers.
@@ -545,7 +555,7 @@ spec:
         securityContext:
           privileged: true
       {{- /* CRI-O already mounts the BPF filesystem */ -}}
-      {{- if not (eq .Values.containerRuntime.integration "crio") }}
+      {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
         volumeMounts:
         - name: bpf-maps
           mountPath: /sys/fs/bpf
@@ -617,7 +627,7 @@ spec:
           {{- end}}
         volumeMounts:
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
-        {{- if not (eq .Values.containerRuntime.integration "crio") }}
+        {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
         - name: bpf-maps
           mountPath: /sys/fs/bpf
         {{- end }}
@@ -664,6 +674,30 @@ spec:
             done
         terminationMessagePolicy: FallbackToLogsOnError
       {{- end }} # wait-for-kube-proxy
+      # Install the CNI binaries in an InitContainer so we don't have a writable host mount in the agent
+      - name: install-cni-binaries
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+          - "/install-plugin.sh"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 10Mi
+        securityContext:
+          {{- if not .Values.securityContext.privileged }}
+          seLinuxOptions:
+            {{- with .Values.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          capabilities:
+            drop:
+              - ALL
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+          - name: cni-path
+            mountPath: /host/opt/cni/bin
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.cilium.name | quote }}
@@ -709,7 +743,7 @@ spec:
           path: {{ .Values.daemon.runPath }}
           type: DirectoryOrCreate
       {{- /* CRI-O already mounts the BPF filesystem */ -}}
-      {{- if not (eq .Values.containerRuntime.integration "crio") }}
+      {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
         # To keep state between restarts / upgrades for bpf maps
       - name: bpf-maps
         hostPath:
@@ -747,6 +781,12 @@ spec:
         hostPath:
           path: /run/xtables.lock
           type: FileOrCreate
+      {{- if .Values.auth.mTLS.enabled }}
+      - name: spire-agent-socket
+        hostPath:
+          path: {{ dir .Values.auth.mTLS.spireAdminSocketPath }}
+          type: DirectoryOrCreate
+      {{- end }}
       {{- if .Values.kubeConfigPath }}
       - name: kube-config
         hostPath:
@@ -781,11 +821,27 @@ spec:
       {{- end }}
         # To read the clustermesh configuration
       - name: clustermesh-secrets
-        secret:
-          secretName: cilium-clustermesh
+        projected:
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
-          optional: true
+          sources:
+          - secret:
+              name: cilium-clustermesh
+              optional: true
+              # note: items are not explicitly listed here, since the entries of this secret
+              # depend on the peers configured, and that would cause a restart of all agents
+              # at every addition/removal. Leaving the field empty makes each secret entry
+              # to be automatically projected into the volume as a file whose name is the key.
+          - secret:
+              name: clustermesh-apiserver-remote-cert
+              optional: true
+              items:
+              - key: tls.key
+                path: common-etcd-client.key
+              - key: tls.crt
+                path: common-etcd-client.crt
+              - key: ca.crt
+                path: common-etcd-client-ca.crt
       {{- if and .Values.ipMasqAgent .Values.ipMasqAgent.enabled }}
       - name: ip-masq-agent
         configMap:

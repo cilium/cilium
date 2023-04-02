@@ -4,8 +4,8 @@
 package seven
 
 import (
-	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"testing"
 	"time"
@@ -51,7 +51,7 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 	lr.DestinationEndpoint.Port = 80
 
 	dnsGetter := &testutils.FakeFQDNCache{
-		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
+		OnGetNamesOf: func(epID uint32, ip netip.Addr) (names []string) {
 			ipStr := ip.String()
 			switch {
 			case epID == uint32(fakeSourceEndpoint.ID) && ipStr == fakeDestinationEndpoint.IPv4:
@@ -63,8 +63,8 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 		},
 	}
 	IPGetter := &testutils.FakeIPGetter{
-		OnGetK8sMetadata: func(ip net.IP) *ipcache.K8sMetadata {
-			if ip.String() == fakeDestinationEndpoint.IPv4 {
+		OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
+			if ip == netip.MustParseAddr(fakeDestinationEndpoint.IPv4) {
 				return &ipcache.K8sMetadata{
 					Namespace: "default",
 					PodName:   "pod-1234",
@@ -74,8 +74,8 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
-		OnGetServiceByAddr: func(ip net.IP, port uint16) *flowpb.Service {
-			if ip.Equal(net.ParseIP(fakeDestinationEndpoint.IPv4)) && (port == fakeDestinationEndpoint.Port) {
+		OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
+			if ip == netip.MustParseAddr(fakeDestinationEndpoint.IPv4) && (port == fakeDestinationEndpoint.Port) {
 				return &flowpb.Service{
 					Name:      "service-1234",
 					Namespace: "default",
@@ -85,13 +85,13 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 		},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
 			switch {
-			case ip.Equal(net.ParseIP(fakeSourceEndpoint.IPv4)):
+			case ip == netip.MustParseAddr(fakeSourceEndpoint.IPv4):
 				return &testutils.FakeEndpointInfo{
 					ID: fakeSourceEndpoint.ID,
 				}, true
-			case ip.Equal(net.ParseIP(fakeDestinationEndpoint.IPv4)):
+			case ip == netip.MustParseAddr(fakeDestinationEndpoint.IPv4):
 				return &testutils.FakeEndpointInfo{
 					ID: fakeDestinationEndpoint.ID,
 				}, true
@@ -166,7 +166,7 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 	lr.DestinationEndpoint.Port = 56789
 
 	dnsGetter := &testutils.FakeFQDNCache{
-		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
+		OnGetNamesOf: func(epID uint32, ip netip.Addr) (names []string) {
 			ipStr := ip.String()
 			switch {
 			case epID == uint32(fakeSourceEndpoint.ID) && ipStr == fakeDestinationEndpoint.IPv4:
@@ -178,8 +178,8 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 		},
 	}
 	IPGetter := &testutils.FakeIPGetter{
-		OnGetK8sMetadata: func(ip net.IP) *ipcache.K8sMetadata {
-			if ip.String() == fakeDestinationEndpoint.IPv4 {
+		OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
+			if ip == netip.MustParseAddr(fakeDestinationEndpoint.IPv4) {
 				return &ipcache.K8sMetadata{
 					Namespace: "default",
 					PodName:   "pod-1234",
@@ -189,8 +189,8 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
-		OnGetServiceByAddr: func(ip net.IP, port uint16) *flowpb.Service {
-			if ip.Equal(net.ParseIP(fakeDestinationEndpoint.IPv4)) && (port == fakeDestinationEndpoint.Port) {
+		OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
+			if ip == netip.MustParseAddr(fakeDestinationEndpoint.IPv4) && (port == fakeDestinationEndpoint.Port) {
 				return &flowpb.Service{
 					Name:      "service-1234",
 					Namespace: "default",
@@ -200,13 +200,13 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 		},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
 			switch {
-			case ip.Equal(net.ParseIP(fakeSourceEndpoint.IPv4)):
+			case ip.String() == fakeSourceEndpoint.IPv4:
 				return &testutils.FakeEndpointInfo{
 					ID: fakeSourceEndpoint.ID,
 				}, true
-			case ip.Equal(net.ParseIP(fakeDestinationEndpoint.IPv4)):
+			case ip.String() == fakeDestinationEndpoint.IPv4:
 				return &testutils.FakeEndpointInfo{
 					ID: fakeDestinationEndpoint.ID,
 				}, true

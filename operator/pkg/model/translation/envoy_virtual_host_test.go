@@ -35,8 +35,7 @@ func TestSortableRoute(t *testing.T) {
 			Match: &envoy_config_route_v3.RouteMatch{
 				PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 					SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-						EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-						Regex:      "/prefix/match",
+						Regex: "/prefix/match",
 					},
 				},
 			},
@@ -46,8 +45,7 @@ func TestSortableRoute(t *testing.T) {
 			Match: &envoy_config_route_v3.RouteMatch{
 				PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 					SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-						EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-						Regex:      "/prefix/match/another",
+						Regex: "/prefix/match/another",
 					},
 				},
 			},
@@ -57,8 +55,7 @@ func TestSortableRoute(t *testing.T) {
 			Match: &envoy_config_route_v3.RouteMatch{
 				PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 					SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-						EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-						Regex:      "/header",
+						Regex: "/header",
 					},
 				},
 				Headers: []*envoy_config_route_v3.HeaderMatcher{
@@ -80,8 +77,7 @@ func TestSortableRoute(t *testing.T) {
 			Match: &envoy_config_route_v3.RouteMatch{
 				PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 					SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-						EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-						Regex:      "/header",
+						Regex: "/header",
 					},
 				},
 				Headers: []*envoy_config_route_v3.HeaderMatcher{

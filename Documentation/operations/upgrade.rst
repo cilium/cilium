@@ -311,16 +311,26 @@ Annotations:
 
 1.14 Upgrade Notes
 ------------------
+* The default value of ``--tofqdns-min-ttl`` has changed from 3600 seconds to
+  zero. This means Cilium DNS network policy now honors the TTLs returned from
+  the upstream DNS server by default. Explicitly configure ``--tofqdns-min-ttl``
+  if you need to preserve the previous DNS network policy behavior that lets
+  applications create new connections after the TTL specified by the upstream
+  DNS server is expired.
 
 Added Metrics
 ~~~~~~~~~~~~~
 
 * ``cilium_operator_ces_sync_total``
+* ``cilium_policy_change_total``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 
 * ``cilium_operator_ces_sync_errors_total`` is deprecated. Please use ``cilium_operator_ces_sync_total`` instead.
+* ``cilium_policy_import_errors_total`` is deprecated. Please use
+  ``cilium_policy_change_total``, which counts all policy changes (Add, Update, Delete)
+  based on outcome ("success" or "failure").
 
 Helm Options
 ~~~~~~~~~~~~
@@ -330,6 +340,7 @@ Helm Options
   ``podSecurityContext``.
 * The ``securityContext`` for Hubble Relay now defaults to drop all
   capabilities and run as non-root user.
+* The ``containerRuntime.integration`` value is being deprecated in favor of ``bpf.autoMount.enabled``.
 
 .. _earlier_upgrade_notes:
 

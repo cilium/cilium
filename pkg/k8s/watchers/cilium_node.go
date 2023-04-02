@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // RegisterCiliumNodeSubscriber allows registration of subscriber.CiliumNode implementations.
@@ -52,7 +51,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 						valid = true
 						n := nodeTypes.ParseCiliumNode(ciliumNode)
 						errs := k.CiliumNodeChain.OnAddCiliumNode(ciliumNode, swgNodes)
-						if option.Config.EnableIPv4EgressGateway {
+						if k.egressGatewayManager != nil {
 							k.egressGatewayManager.OnUpdateNode(n)
 						}
 						if n.IsLocal() {
@@ -83,7 +82,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 							}
 							n := nodeTypes.ParseCiliumNode(ciliumNode)
 							errs := k.CiliumNodeChain.OnUpdateCiliumNode(oldCN, ciliumNode, swgNodes)
-							if option.Config.EnableIPv4EgressGateway {
+							if k.egressGatewayManager != nil {
 								k.egressGatewayManager.OnUpdateNode(n)
 							}
 							if isLocal {
@@ -103,7 +102,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 					}
 					valid = true
 					n := nodeTypes.ParseCiliumNode(ciliumNode)
-					if option.Config.EnableIPv4EgressGateway {
+					if k.egressGatewayManager != nil {
 						k.egressGatewayManager.OnDeleteNode(n)
 					}
 					errs := k.CiliumNodeChain.OnDeleteCiliumNode(ciliumNode, swgNodes)
@@ -133,9 +132,17 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 		go ciliumNodeInformer.Run(isConnected)
 
 		<-kvstore.Connected()
-		close(isConnected)
-
 		log.Info("Connected to key-value store, stopping CiliumNode watcher")
+
+		// Set the ciliumNodeStore as nil so that any attempts of getting the
+		// CiliumNode are performed with a request sent to kube-apiserver
+		// directly instead of relying on an outdated version of the CiliumNode
+		// in this cache.
+		k.ciliumNodeStoreMU.Lock()
+		k.ciliumNodeStore = nil
+		k.ciliumNodeStoreMU.Unlock()
+
+		close(isConnected)
 
 		k.cancelWaitGroupToSyncResources(apiGroup)
 		k.k8sAPIGroups.RemoveAPI(apiGroup)

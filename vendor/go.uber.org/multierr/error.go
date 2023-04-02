@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 Uber Technologies, Inc.
+// Copyright (c) 2017-2023 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -147,8 +147,7 @@ import (
 	"io"
 	"strings"
 	"sync"
-
-	"go.uber.org/atomic"
+	"sync/atomic"
 )
 
 var (
@@ -196,23 +195,7 @@ type errorGroup interface {
 //
 // Callers of this function are free to modify the returned slice.
 func Errors(err error) []error {
-	if err == nil {
-		return nil
-	}
-
-	// Note that we're casting to multiError, not errorGroup. Our contract is
-	// that returned errors MAY implement errorGroup. Errors, however, only
-	// has special behavior for multierr-specific error objects.
-	//
-	// This behavior can be expanded in the future but I think it's prudent to
-	// start with as little as possible in terms of contract and possibility
-	// of misuse.
-	eg, ok := err.(*multiError)
-	if !ok {
-		return []error{err}
-	}
-
-	return append(([]error)(nil), eg.Errors()...)
+	return extractErrors(err)
 }
 
 // multiError is an error that holds one or more errors.
@@ -227,8 +210,6 @@ type multiError struct {
 	errors     []error
 }
 
-var _ errorGroup = (*multiError)(nil)
-
 // Errors returns the list of underlying errors.
 //
 // This slice MUST NOT be modified.
@@ -237,33 +218,6 @@ func (merr *multiError) Errors() []error {
 		return nil
 	}
 	return merr.errors
-}
-
-// As attempts to find the first error in the error list that matches the type
-// of the value that target points to.
-//
-// This function allows errors.As to traverse the values stored on the
-// multierr error.
-func (merr *multiError) As(target interface{}) bool {
-	for _, err := range merr.Errors() {
-		if errors.As(err, target) {
-			return true
-		}
-	}
-	return false
-}
-
-// Is attempts to match the provided error against errors in the error list.
-//
-// This function allows errors.Is to traverse the values stored on the
-// multierr error.
-func (merr *multiError) Is(target error) bool {
-	for _, err := range merr.Errors() {
-		if errors.Is(err, target) {
-			return true
-		}
-	}
-	return false
 }
 
 func (merr *multiError) Error() string {
@@ -279,6 +233,17 @@ func (merr *multiError) Error() string {
 	result := buff.String()
 	_bufferPool.Put(buff)
 	return result
+}
+
+// Every compares every error in the given err against the given target error
+// using [errors.Is], and returns true only if every comparison returned true.
+func Every(err error, target error) bool {
+	for _, e := range extractErrors(err) {
+		if !errors.Is(e, target) {
+			return false
+		}
+	}
+	return true
 }
 
 func (merr *multiError) Format(f fmt.State, c rune) {

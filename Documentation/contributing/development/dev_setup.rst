@@ -300,6 +300,12 @@ to enable NFS.
 
 .. note::
 
+   Although providing a Developer preview for macOS/arm64 (M1/M2) hosts, 
+   Oracle is not going to offer official support for ARM64 on Mac. As of VirtualBox 7.0.6
+   the developer preview is *not* working with the Cilium Vagrant Setup.
+   
+.. note::
+
    OSX file system is by default case insensitive, which can confuse
    git.  At the writing of this Cilium repo has no file names that
    would be considered referring to the same file on a case
@@ -338,6 +344,35 @@ to enable NFS.
    ``traps: Missing ENDBR`` messages in dmesg, that means you are
    affected. A workaround for now is to pass ``ibt=off`` to the kernel
    command line.
+
+.. note::
+
+   VirtualBox for Ubuntu desktop might have network issues after
+   suspending and resuming the host OS (typically by closing and
+   re-opening the laptop lid). If the ``cilium status`` keeps showing
+   unreachable from nodes but reachable from endpoints, you could
+   hit this. Run the following code on each VM to rebuild routing
+   and neighbor entries:
+
+   .. code-block:: shell-session
+
+      # assume we deployed the cluster with "NWORKERS=1" and "NETNEXT=1"
+
+      # fetch ipv6 addresses
+      $ ipv6_k8s1=$(vagrant ssh k8s1+ -c 'ip -6 --br a sh enp0s9 scope global' | awk '{print $3}')
+      $ ipv6_k8s2=$(vagrant ssh k8s2+ -c 'ip -6 --br a sh enp0s9 scope global' | awk '{print $3}')
+
+      # fetch mac addresses
+      $ mac_k8s1=$(vagrant ssh k8s1+ -c 'ip --br l sh enp0s9' | awk '{print $3}')
+      $ mac_k8s2=$(vagrant ssh k8s2+ -c 'ip --br l sh enp0s9' | awk '{print $3}')
+
+      # add route
+      $ vagrant ssh k8s1+ -c 'ip -6 r a fd00::/16 dev enp0s9'
+      $ vagrant ssh k8s2+ -c 'ip -6 r a fd00::/16 dev enp0s9'
+
+      # add neighbor
+      $ vagrant ssh k8s1+ -c "ip n r $ipv6_k8s2 dev enp0s9 lladdr $mac_k8s2 nud reachable"
+      $ vagrant ssh k8s2+ -c "ip n r $ipv6_k8s1 dev enp0s9 lladdr $mac_k8s1 nud reachable"
 
 If for some reason, running of the provisioning script fails, you should bring the VM down before trying again:
 
@@ -600,6 +635,41 @@ Patch version
 #. Bump the Kubernetes version in ``test/provision/k8s_install.sh``.
 
 #. Submit all your changes into a new PR.
+
+Making changes to the Helm chart
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Helm chart is located in the ``install/kubernetes`` directory. The
+``values.yaml.tmpl`` file contains the values for the Helm chart which are being used into the ``values.yaml`` file.
+
+To prepare your changes you need to run the make scripts for the chart:
+
+.. code-block:: shell-session
+
+   $ make -C install/kubernetes
+
+This does all needed steps in one command. Your change to the Helm chart is now ready to be submitted!
+
+You can also run them one by one using the individual targets below.
+
+When updating or adding a value they can be synced to the ``values.yaml`` file by running the following command:
+
+.. code-block:: shell-session
+
+   $ make -C install/kubernetes cilium/values.yaml
+
+Before submitting the changes the ``README.md`` file needs to be updated, this can be done using the ``docs`` target:
+
+.. code-block:: shell-session
+
+   $ make -C install/kubernetes docs
+
+At last you might want to check the chart using the ``lint`` target:
+
+.. code-block:: shell-session
+
+   $ make -C install/kubernetes lint
+
 
 Optional: Docker and IPv6
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

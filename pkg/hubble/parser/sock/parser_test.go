@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -75,7 +76,7 @@ func TestDecodeSockEvent(t *testing.T) {
 	)
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
 			switch ip.String() {
 			case xwingIPv4, xwingIPv6:
 				return &testutils.FakeEndpointInfo{
@@ -119,7 +120,7 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 	dnsGetter := &testutils.FakeFQDNCache{
-		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
+		OnGetNamesOf: func(epID uint32, ip netip.Addr) (names []string) {
 			switch epID {
 			case xwingEndpoint:
 				switch ip.String() {
@@ -131,7 +132,7 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 	ipGetter := &testutils.FakeIPGetter{
-		OnGetK8sMetadata: func(ip net.IP) *ipcache.K8sMetadata {
+		OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
 			switch ip.String() {
 			case xwingIPv4, xwingIPv6:
 				return &ipcache.K8sMetadata{
@@ -151,7 +152,7 @@ func TestDecodeSockEvent(t *testing.T) {
 			}
 			return nil
 		},
-		OnLookupSecIDByIP: func(ip net.IP) (ipcache.Identity, bool) {
+		OnLookupSecIDByIP: func(ip netip.Addr) (ipcache.Identity, bool) {
 			switch ip.String() {
 			case xwingIPv4, xwingIPv6:
 				return ipcache.Identity{
@@ -166,7 +167,7 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
-		OnGetServiceByAddr: func(ip net.IP, port uint16) *flowpb.Service {
+		OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
 			switch ip.String() {
 			case deathstarServiceV4, deathstarServiceV6:
 				if port == deathstarServicePort {

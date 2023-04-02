@@ -71,20 +71,28 @@ func (client *Client) ListTrafficMirrorSessionsWithCallback(request *ListTraffic
 // ListTrafficMirrorSessionsRequest is the request struct for api ListTrafficMirrorSessions
 type ListTrafficMirrorSessionsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId          requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	TrafficMirrorSourceId    string           `position:"Query" name:"TrafficMirrorSourceId"`
-	Enabled                  requests.Boolean `position:"Query" name:"Enabled"`
-	TrafficMirrorSessionName string           `position:"Query" name:"TrafficMirrorSessionName"`
-	NextToken                string           `position:"Query" name:"NextToken"`
-	TrafficMirrorSessionIds  *[]string        `position:"Query" name:"TrafficMirrorSessionIds"  type:"Repeated"`
-	ResourceOwnerAccount     string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount             string           `position:"Query" name:"OwnerAccount"`
-	Priority                 requests.Integer `position:"Query" name:"Priority"`
-	OwnerId                  requests.Integer `position:"Query" name:"OwnerId"`
-	TrafficMirrorTargetId    string           `position:"Query" name:"TrafficMirrorTargetId"`
-	TrafficMirrorFilterId    string           `position:"Query" name:"TrafficMirrorFilterId"`
-	MaxResults               requests.Integer `position:"Query" name:"MaxResults"`
-	VirtualNetworkId         requests.Integer `position:"Query" name:"VirtualNetworkId"`
+	ResourceOwnerId          requests.Integer                 `position:"Query" name:"ResourceOwnerId"`
+	TrafficMirrorSourceId    string                           `position:"Query" name:"TrafficMirrorSourceId"`
+	Enabled                  requests.Boolean                 `position:"Query" name:"Enabled"`
+	ResourceGroupId          string                           `position:"Query" name:"ResourceGroupId"`
+	TrafficMirrorSessionName string                           `position:"Query" name:"TrafficMirrorSessionName"`
+	NextToken                string                           `position:"Query" name:"NextToken"`
+	TrafficMirrorSessionIds  *[]string                        `position:"Query" name:"TrafficMirrorSessionIds"  type:"Repeated"`
+	ResourceOwnerAccount     string                           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount             string                           `position:"Query" name:"OwnerAccount"`
+	Priority                 requests.Integer                 `position:"Query" name:"Priority"`
+	OwnerId                  requests.Integer                 `position:"Query" name:"OwnerId"`
+	TrafficMirrorTargetId    string                           `position:"Query" name:"TrafficMirrorTargetId"`
+	TrafficMirrorFilterId    string                           `position:"Query" name:"TrafficMirrorFilterId"`
+	Tags                     *[]ListTrafficMirrorSessionsTags `position:"Query" name:"Tags"  type:"Repeated"`
+	MaxResults               requests.Integer                 `position:"Query" name:"MaxResults"`
+	VirtualNetworkId         requests.Integer                 `position:"Query" name:"VirtualNetworkId"`
+}
+
+// ListTrafficMirrorSessionsTags is a repeated param struct in ListTrafficMirrorSessionsRequest
+type ListTrafficMirrorSessionsTags struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // ListTrafficMirrorSessionsResponse is the response struct for api ListTrafficMirrorSessions

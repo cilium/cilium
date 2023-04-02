@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -163,10 +164,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			DoFunc: func(ctx context.Context) error {
 				rc.releaseOldConnection()
 
-				extraOpts := kvstore.ExtraOptions{NoLockQuorumCheck: true}
-				if rc.mesh.conf.NodeManager != nil {
-					extraOpts.ClusterSizeDependantInterval = rc.mesh.conf.NodeManager.ClusterSizeDependantInterval
-				}
+				extraOpts := rc.makeExtraOpts()
 
 				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
 					map[string]string{
@@ -208,8 +206,8 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				remoteNodes, err := store.JoinSharedStore(store.Configuration{
 					Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
 					KeyCreator:              rc.mesh.conf.NodeKeyCreator,
-					SharedKeyDeleteDelay:    rc.mesh.conf.NodesSharedKeyDeleteDelay,
 					SynchronizationInterval: time.Minute,
+					SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
 					Backend:                 backend,
 					Observer:                rc.mesh.conf.NodeObserver(),
 				})
@@ -219,8 +217,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				}
 
 				remoteServices, err := store.JoinSharedStore(store.Configuration{
-					Prefix:               path.Join(serviceStore.ServiceStorePrefix, rc.name),
-					SharedKeyDeleteDelay: rc.mesh.conf.ServicesSharedKeyDeleteDelay,
+					Prefix: path.Join(serviceStore.ServiceStorePrefix, rc.name),
 					KeyCreator: func() store.Key {
 						svc := serviceStore.ClusterService{}
 						return &svc
@@ -239,7 +236,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				}
 				rc.swg.Stop()
 
-				remoteIdentityCache, err := allocator.WatchRemoteIdentities(backend)
+				remoteIdentityCache, err := allocator.WatchRemoteIdentities(rc.name, backend)
 				if err != nil {
 					remoteServices.Close(ctx)
 					remoteNodes.Close(ctx)
@@ -269,11 +266,24 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				rc.releaseOldConnection()
 				rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
 				rc.mesh.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
+				allocator.RemoveRemoteIdentities(rc.name)
 				rc.getLogger().Info("All resources of remote cluster cleaned up")
 				return nil
 			},
+			CancelDoFuncOnUpdate: true,
 		},
 	)
+}
+
+func (rc *remoteCluster) makeExtraOpts() kvstore.ExtraOptions {
+	extraOpts := kvstore.ExtraOptions{
+		NoLockQuorumCheck: true,
+		ClusterName:       rc.name,
+	}
+	if rc.mesh.conf.NodeManager != nil {
+		extraOpts.ClusterSizeDependantInterval = rc.mesh.conf.NodeManager.ClusterSizeDependantInterval
+	}
+	return extraOpts
 }
 
 func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher) {

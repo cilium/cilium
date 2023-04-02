@@ -91,7 +91,7 @@ type IdentityAllocator interface {
 	Release(context.Context, *identity.Identity, bool) (released bool, err error)
 
 	// ReleaseSlice is the slice variant of Release().
-	ReleaseSlice(context.Context, IdentityAllocatorOwner, []*identity.Identity) error
+	ReleaseSlice(context.Context, []*identity.Identity) error
 
 	// LookupIdentityByID returns the identity that corresponds to the given
 	// labels.
@@ -184,10 +184,9 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 				log.Warnf("Ignoring provided identityStore")
 			}
 			backend, err = identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
-				NodeName: owner.GetNodeSuffix(),
-				Store:    nil,
-				Client:   client,
-				KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
+				Store:   nil,
+				Client:  client,
+				KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize Kubernetes CRD backend for identity allocation")
@@ -248,8 +247,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 	return m
 }
 
-// Close closes the identity allocator and allows to call
-// InitIdentityAllocator() again.
+// Close closes the identity allocator
 func (m *CachingIdentityAllocator) Close() {
 	m.setupMutex.Lock()
 	defer m.setupMutex.Unlock()
@@ -264,6 +262,10 @@ func (m *CachingIdentityAllocator) Close() {
 	}
 
 	m.IdentityAllocator.Delete()
+	if m.events != nil {
+		close(m.events)
+	}
+
 	m.IdentityAllocator = nil
 	m.globalIdentityAllocatorInitialized = make(chan struct{})
 }
@@ -421,7 +423,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 // function that may be useful for cleaning up multiple identities in paths
 // where several identities may be allocated and another error means that they
 // should all be released.
-func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, owner IdentityAllocatorOwner, identities []*identity.Identity) error {
+func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, identities []*identity.Identity) error {
 	var err error
 	for _, id := range identities {
 		if id == nil {
@@ -439,19 +441,26 @@ func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, owner Ident
 }
 
 // WatchRemoteIdentities starts watching for identities in another kvstore and
-// syncs all identities to the local identity cache.
-func (m *CachingIdentityAllocator) WatchRemoteIdentities(backend kvstore.BackendOperations) (*allocator.RemoteCache, error) {
+// syncs all identities to the local identity cache. remoteName must be unique,
+// unless replacing the kvstore for an existing remote.
+func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations) (*allocator.RemoteCache, error) {
 	<-m.globalIdentityAllocatorInitialized
 
 	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(m.identitiesPath, m.owner.GetNodeSuffix(), &key.GlobalIdentity{}, backend)
 	if err != nil {
-		return nil, fmt.Errorf("Error setting up remote allocator backend: %s", err)
+		return nil, fmt.Errorf("error setting up remote allocator backend: %s", err)
 	}
 
-	remoteAlloc, err := allocator.NewAllocator(&key.GlobalIdentity{}, remoteAllocatorBackend, allocator.WithEvents(m.IdentityAllocator.GetEvents()))
+	remoteAlloc, err := allocator.NewAllocator(&key.GlobalIdentity{}, remoteAllocatorBackend, allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC())
 	if err != nil {
-		return nil, fmt.Errorf("Unable to initialize remote Identity Allocator: %s", err)
+		return nil, fmt.Errorf("unable to initialize remote Identity Allocator: %s", err)
 	}
 
-	return m.IdentityAllocator.WatchRemoteKVStore(remoteAlloc), nil
+	return m.IdentityAllocator.WatchRemoteKVStore(remoteName, remoteAlloc), nil
+}
+
+func (m *CachingIdentityAllocator) RemoveRemoteIdentities(name string) {
+	if m.IdentityAllocator != nil {
+		m.IdentityAllocator.RemoveRemoteKVStore(name)
+	}
 }

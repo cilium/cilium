@@ -29,9 +29,9 @@ Cluster Addressing Requirements
 * PodCIDR ranges in all clusters and all nodes must be non-conflicting and
   unique IP addresses.
 
-* Nodes in all clusters must have IP connectivity between each other. This
-  requirement is typically met by establishing peering or VPN tunnels between
-  the networks of the nodes of each cluster.
+* Nodes in all clusters must have IP connectivity between each other using the 
+  configured InternalIP for each node. This requirement is typically met by establishing 
+  peering or VPN tunnels between the networks of the nodes of each cluster.
 
 * The network between clusters must allow the inter-cluster communication. The
   exact ports are documented in the :ref:`firewall_requirements` section.
@@ -53,7 +53,7 @@ Additional Requirements for Native-routed Datapath Modes
 
  * ConfigMap option ``ipv4-native-routing-cidr=10.0.0.0/9``
  * Helm option ``--set ipv4NativeRoutingCIDR=10.0.0.0/9``
- * ``cilium install`` option ``--ipv4-native-routing-cidr=10.0.0.0/9``
+ * ``cilium install`` option ``--helm-set ipv4NativeRoutingCIDR=10.0.0.0/9``
 
 * In addition to nodes, pods in all clusters must have IP connectivity between each other. This
   requirement is typically met by establishing peering or VPN tunnels between

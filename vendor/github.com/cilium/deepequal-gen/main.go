@@ -10,11 +10,11 @@ Copyright 2019 Wind River Systems, Inc.
 package main
 
 import (
-	"github.com/cilium/deepequal-gen/generators"
-	"k8s.io/gengo/args"
-
 	"github.com/spf13/pflag"
+	"k8s.io/gengo/args"
 	"k8s.io/klog"
+
+	"github.com/cilium/deepequal-gen/generators"
 )
 
 func main() {

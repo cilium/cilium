@@ -14,6 +14,8 @@ echo "Addressing:"
 ip -4 a
 ip -6 a
 
+{{ .Values.nodeinit.startup.preScript }}
+
 {{- if .Values.nodeinit.removeCbrBridge }}
 if ip link show cbr0; then
   echo "Detected cbr0 bridge. Deleting interface..."
@@ -199,4 +201,7 @@ fi
 {{- if .Values.nodeinit.revertReconfigureKubelet }}
 rm -f /tmp/node-deinit.cilium.io
 {{- end }}
+
+{{ .Values.nodeinit.startup.postScript }}
+
 echo "Node initialization complete"

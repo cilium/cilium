@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -123,7 +124,6 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 	agentOption.Config.Debug = true
 
 	operatorOption.Config.Populate(operatorCmd.Vp)
-	operatorOption.Config.SkipCRDCreation = true
 
 	// Apply the test specific global configuration
 	modConfig(agentOption.Config, operatorOption.Config)
@@ -167,6 +167,8 @@ func (cpt *ControlPlaneTest) StartOperator(modCellConfig func(vp *viper.Viper)) 
 			operatorCmd.OperatorCell,
 		),
 	}
+
+	cpt.operatorHandle.hive.Viper().Set(client.SkipCRDCreation, true)
 
 	// Apply the test specific cells configuration
 	//
@@ -389,12 +391,6 @@ var (
 	// This is mostly relevant for the feature detection at pkg/k8s/version/version.go.
 	// The lists here are currently not exhaustive and expanded on need-by-need basis.
 	apiResources = map[string][]*metav1.APIResourceList{
-		"1.23": {
-			corev1APIResources,
-			discoveryV1APIResources,
-			discoveryV1beta1APIResources,
-			ciliumv2APIResources,
-		},
 		"1.24": {
 			corev1APIResources,
 			discoveryV1APIResources,
@@ -402,6 +398,11 @@ var (
 			ciliumv2APIResources,
 		},
 		"1.25": {
+			corev1APIResources,
+			discoveryV1APIResources,
+			ciliumv2APIResources,
+		},
+		"1.26": {
 			corev1APIResources,
 			discoveryV1APIResources,
 			ciliumv2APIResources,

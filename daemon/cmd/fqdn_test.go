@@ -113,15 +113,17 @@ func (f *FakeRefcountingIdentityAllocator) Close() {
 func (f *FakeRefcountingIdentityAllocator) InitIdentityAllocator(versioned.Interface, k8sCache.Store) <-chan struct{} {
 	return nil
 }
-func (f *FakeRefcountingIdentityAllocator) WatchRemoteIdentities(kvstore.BackendOperations) (*allocator.RemoteCache, error) {
+func (f *FakeRefcountingIdentityAllocator) WatchRemoteIdentities(string, kvstore.BackendOperations) (*allocator.RemoteCache, error) {
 	return nil, nil
 }
+
+func (f *FakeRefcountingIdentityAllocator) RemoveRemoteIdentities(string) {}
 
 func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 	d := &Daemon{}
 	d.initDNSProxyContext(128)
 	d.identityAllocator = NewFakeIdentityAllocator(nil)
-	d.policy = policy.NewPolicyRepository(d.identityAllocator, nil, nil)
+	d.policy = policy.NewPolicyRepository(d.identityAllocator, nil, nil, nil)
 	d.dnsNameManager = fqdn.NewNameManager(fqdn.Config{
 		MinTTL:          1,
 		Cache:           fqdn.NewDNSCache(0),

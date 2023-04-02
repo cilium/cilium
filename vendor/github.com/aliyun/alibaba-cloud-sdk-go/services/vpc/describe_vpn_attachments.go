@@ -71,14 +71,21 @@ func (client *Client) DescribeVpnAttachmentsWithCallback(request *DescribeVpnAtt
 // DescribeVpnAttachmentsRequest is the request struct for api DescribeVpnAttachments
 type DescribeVpnAttachmentsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	AttachType           string           `position:"Query" name:"AttachType"`
-	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
-	PageSize             requests.Integer `position:"Query" name:"PageSize"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	VpnConnectionId      string           `position:"Query" name:"VpnConnectionId"`
+	ResourceOwnerId      requests.Integer             `position:"Query" name:"ResourceOwnerId"`
+	AttachType           string                       `position:"Query" name:"AttachType"`
+	PageNumber           requests.Integer             `position:"Query" name:"PageNumber"`
+	PageSize             requests.Integer             `position:"Query" name:"PageSize"`
+	Tag                  *[]DescribeVpnAttachmentsTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount string                       `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                       `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer             `position:"Query" name:"OwnerId"`
+	VpnConnectionId      string                       `position:"Query" name:"VpnConnectionId"`
+}
+
+// DescribeVpnAttachmentsTag is a repeated param struct in DescribeVpnAttachmentsRequest
+type DescribeVpnAttachmentsTag struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // DescribeVpnAttachmentsResponse is the response struct for api DescribeVpnAttachments

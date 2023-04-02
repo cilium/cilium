@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/renameio"
+	"github.com/google/renameio/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -26,6 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -195,6 +197,30 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	return err
 }
 
+// policyIdentitiesLabelLookup is an implementation of the policy.Identities interface.
+type policyIdentitiesLabelLookup struct {
+	*Endpoint
+}
+
+// GetLabels implements the policy.Identites interface{} method GetLabels,
+// which allows Endpoint.addNewRedirectsFromDesiredPolicy to call `l4.ToMapState`
+// with a label cache. This enables `l4.ToMapstate` to look up CIDRs associated with
+// identites to make a final determination about whether they should even be inserted into
+// an Endpoint's policy map.
+//
+// Note that while other policy implementations use the SelectorCache as the
+// underlying source for labels during calls to ToMapState(), this
+// implementation uses the identity allocator. This means that the locking
+// patterns from this code path will differ from the other policy calculation
+// cases!
+func (p *policyIdentitiesLabelLookup) GetLabels(id identity.NumericIdentity) labels.LabelArray {
+	ident := p.allocator.LookupIdentityByID(context.Background(), id)
+	if ident != nil {
+		return ident.LabelArray
+	}
+	return nil
+}
+
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
 // writing. On success, returns nil; otherwise, returns an error indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
@@ -301,7 +327,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				direction = trafficdirection.Egress
 			}
 
-			keysFromFilter := l4.ToMapState(e, direction)
+			keysFromFilter := l4.ToMapState(e, direction, &policyIdentitiesLabelLookup{e})
 
 			for keyFromFilter, entry := range keysFromFilter {
 				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {
@@ -584,6 +610,17 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	defer datapathRegenCtxt.completionCancel()
 
 	headerfileChanged, err = e.runPreCompilationSteps(regenContext)
+	// The following DNS rules code was previously inside the critical section
+	// above (runPreCompilationSteps()), but this caused a deadlock with the
+	// ipcache. It's not necessary to run this code within the  critical
+	// section as the only use for the DNS rules is for restoring them upon the
+	// Agent restart.
+	rules := e.owner.GetDNSRules(uint16(e.ID))
+	if err := e.lockAlive(); err != nil {
+		return 0, compilationExecuted, err
+	}
+	e.OnDNSPolicyUpdateLocked(rules)
+	e.unlock()
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.

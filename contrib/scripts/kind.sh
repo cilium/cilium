@@ -9,9 +9,22 @@ default_workers=1
 default_cluster_name=""
 default_image=""
 default_kubeproxy_mode="iptables"
-default_ipfamily="ipv4"
+default_ipfamily="dual"
+default_pod_subnet=""
+default_service_subnet=""
+default_agent_port_prefix="234"
+default_operator_port_prefix="235"
+default_network="kind-cilium"
 
 PROG=${0}
+
+xdp=false
+if [ "${1:-}" = "--xdp" ]; then
+  xdp=true
+  shift
+fi
+readonly xdp
+
 controlplanes="${1:-${CONTROLPLANES:=${default_controlplanes}}}"
 workers="${2:-${WORKERS:=${default_workers}}}"
 cluster_name="${3:-${CLUSTER_NAME:=${default_cluster_name}}}"
@@ -19,10 +32,17 @@ cluster_name="${3:-${CLUSTER_NAME:=${default_cluster_name}}}"
 image="${4:-${IMAGE:=${default_image}}}"
 kubeproxy_mode="${5:-${KUBEPROXY_MODE:=${default_kubeproxy_mode}}}"
 ipfamily="${6:-${IPFAMILY:=${default_ipfamily}}}"
+pod_subnet="${PODSUBNET:=${default_pod_subnet}}"
+service_subnet="${SERVICESUBNET:=${default_service_subnet}}"
+agent_port_prefix="${AGENTPORTPREFIX:=${default_agent_port_prefix}}"
+operator_port_prefix="${OPERATORPORTPREFIX:=${default_operator_port_prefix}}"
+
+bridge_dev="br-${default_network}"
+v6_prefix="fc00:c111::/64"
 CILIUM_ROOT="$(git rev-parse --show-toplevel)"
 
 usage() {
-  echo "Usage: ${PROG} [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family]"
+  echo "Usage: ${PROG} [--xdp] [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family]"
 }
 
 have_kind() {
@@ -44,27 +64,6 @@ if [[ "${controlplanes}" == "-h" || "${controlplanes}" == "--help" ]]; then
   exit 0
 fi
 
-# Registry will be localhost:5000
-reg_name="kind-registry"
-reg_port="5000"
-running="$(docker inspect -f '{{.State.Running}}' "${reg_name}" 2>/dev/null || true)"
-if [[ "${running}" != "true" ]]; then
-  retry_count=0
-  while ! docker pull registry:2
-  do
-    retry_count=$((retry_count+1))
-    if [[ "$retry_count" -ge 10 ]]; then
-      echo "ERROR: 'docker pull registry:2' failed $retry_count times. Please make sure docker is running"
-      exit 1
-    fi
-    echo "docker pull registry:2 failed. Sleeping for 1 second and trying again..."
-    sleep 1
-  done
-  docker run \
-    -d --restart=always -p "${reg_port}:5000" --name "${reg_name}" \
-    registry:2
-fi
-
 kind_cmd="kind create cluster"
 
 if [[ -n "${cluster_name}" ]]; then
@@ -75,7 +74,8 @@ if [[ -n "${image}" ]]; then
 fi
 
 node_config() {
-    local port="234$1$2"
+    local agentDebugPort="$agent_port_prefix$1$2"
+    local operatorDebugPort="$operator_port_prefix$1$2"
     local max="$3"
 
     echo "  extraMounts:"
@@ -84,7 +84,11 @@ node_config() {
     if [[ "${max}" -lt 10 ]]; then
         echo "  extraPortMappings:"
         echo "  - containerPort: 2345"
-        echo "    hostPort: $port"
+        echo "    hostPort: $agentDebugPort"
+        echo "    listenAddress: \"127.0.0.1\""
+        echo "    protocol: TCP"
+        echo "  - containerPort: 2346"
+        echo "    hostPort: $operatorDebugPort"
         echo "    listenAddress: \"127.0.0.1\""
         echo "    protocol: TCP"
     fi
@@ -104,6 +108,16 @@ workers() {
   done
 }
 
+# create a custom network so we can control the name of the bridge device.
+# Inspired by https://github.com/kubernetes-sigs/kind/blob/6b58c9dfcbdb1b3a0d48754d043d59ca7073589b/pkg/cluster/internal/providers/docker/network.go#L149-L161
+docker network create -d=bridge \
+  -o "com.docker.network.bridge.enable_ip_masquerade=true" \
+  -o "com.docker.network.bridge.name=${bridge_dev}" \
+  --ipv6 --subnet "${v6_prefix}" \
+  "${default_network}"
+
+export KIND_EXPERIMENTAL_DOCKER_NETWORK="${default_network}"
+
 # create a cluster with the local registry enabled in containerd
 cat <<EOF | ${kind_cmd} --config=-
 kind: Cluster
@@ -115,20 +129,39 @@ networking:
   disableDefaultCNI: true
   kubeProxyMode: ${kubeproxy_mode}
   ipFamily: ${ipfamily}
-containerdConfigPatches:
-- |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]
-    endpoint = ["http://${reg_name}:${reg_port}"]
+  ${pod_subnet:+"podSubnet: "$pod_subnet}
+  ${service_subnet:+"serviceSubnet: "$service_subnet}
+kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    metadata:
+      name: config
+    apiServer:
+      extraArgs:
+        "v": "3"
 EOF
 
-docker network connect "kind" "${reg_name}" || true
+if [ "${xdp}" = true ]; then
+  if ! [ -f "${CILIUM_ROOT}/test/l4lb/bpf_xdp_veth_host.o" ]; then
+    pushd "${CILIUM_ROOT}/test/l4lb/" > /dev/null
+    clang -O2 -Wall -target bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
+    popd > /dev/null
+  fi
 
-for node in $(kind get nodes); do
-  kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${reg_port}";
-done
+  for ifc in /sys/class/net/"${bridge_dev}"/brif/*; do
+    ifc="${ifc#"/sys/class/net/${bridge_dev}/brif/"}"
+
+    # Attach a dummy XDP prog to the host side of the veth so that XDP_TX in the
+    # pod side works.
+    sudo ip link set dev "${ifc}" xdp obj "${CILIUM_ROOT}/test/l4lb/bpf_xdp_veth_host.o"
+
+    # Disable TX and RX csum offloading, as veth does not support it. Otherwise,
+    # the forwarded packets by the LB to the worker node will have invalid csums.
+    sudo ethtool -K "${ifc}" rx off tx off > /dev/null
+  done
+fi
 
 set +e
-kubectl taint nodes --all node-role.kubernetes.io/master-
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 set -e
 

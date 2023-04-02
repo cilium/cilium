@@ -14,6 +14,7 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -171,7 +172,7 @@ func (s *StoreSuite) TestStoreOperations(c *C) {
 		Prefix:               rand.RandomString(),
 		KeyCreator:           newTestType,
 		Observer:             &observer{},
-		SharedKeyDeleteDelay: func() *time.Duration { a := sharedKeyDeleteDelay; return &a }(),
+		SharedKeyDeleteDelay: sharedKeyDeleteDelay,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
@@ -218,6 +219,7 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 		Prefix:                  rand.RandomString(),
 		KeyCreator:              newTestType,
 		SynchronizationInterval: 10 * time.Millisecond,
+		SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
 		Observer:                &observer{},
 	})
 	c.Assert(err, IsNil)

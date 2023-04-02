@@ -35,6 +35,29 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/cgroup-dump-metadata": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieve cgroup metadata for all pods",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/CgroupDumpMetadata"
+            }
+          },
+          "500": {
+            "description": "CgroupDumpMetadata get failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
     "/cluster/nodes": {
       "get": {
         "tags": [
@@ -823,6 +846,9 @@ func init() {
             "$ref": "#/parameters/ipam-owner"
           },
           {
+            "$ref": "#/parameters/ipam-pool"
+          },
+          {
             "$ref": "#/parameters/ipam-expiration"
           }
         ],
@@ -855,6 +881,9 @@ func init() {
           },
           {
             "$ref": "#/parameters/ipam-owner"
+          },
+          {
+            "$ref": "#/parameters/ipam-pool"
           }
         ],
         "responses": {
@@ -890,6 +919,9 @@ func init() {
         "parameters": [
           {
             "$ref": "#/parameters/ipam-release-arg"
+          },
+          {
+            "$ref": "#/parameters/ipam-pool"
           }
         ],
         "responses": {
@@ -1151,27 +1183,6 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Failure"
-          }
-        }
-      }
-    },
-    "/policy/resolve": {
-      "get": {
-        "tags": [
-          "policy"
-        ],
-        "summary": "Resolve policy for an identity context",
-        "parameters": [
-          {
-            "$ref": "#/parameters/trace-selector"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/PolicyTraceResult"
-            }
           }
         }
       }
@@ -1752,6 +1763,55 @@ func init() {
             "generic-veth",
             "portmap"
           ]
+        }
+      }
+    },
+    "CgroupContainerMetadata": {
+      "description": "cgroup container metadata",
+      "type": "object",
+      "properties": {
+        "cgroup-id": {
+          "type": "integer",
+          "format": "uint64"
+        },
+        "cgroup-path": {
+          "type": "string"
+        }
+      }
+    },
+    "CgroupDumpMetadata": {
+      "description": "cgroup full metadata",
+      "type": "object",
+      "properties": {
+        "pod-metadatas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CgroupPodMetadata"
+          }
+        }
+      }
+    },
+    "CgroupPodMetadata": {
+      "description": "cgroup pod metadata",
+      "type": "object",
+      "properties": {
+        "containers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CgroupContainerMetadata"
+          }
+        },
+        "ips": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
         }
       }
     },
@@ -3600,6 +3660,19 @@ func init() {
         "rule": {
           "description": "The policy rule as json",
           "type": "string"
+        },
+        "rules-by-selector": {
+          "description": "The policy rule labels identifying the policy rules this rule derives from, mapped by selector",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
@@ -4395,6 +4468,11 @@ func init() {
       "name": "owner",
       "in": "query"
     },
+    "ipam-pool": {
+      "type": "string",
+      "name": "pool",
+      "in": "query"
+    },
     "ipam-release-arg": {
       "type": "string",
       "description": "IP address or owner name",
@@ -4522,6 +4600,29 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/cgroup-dump-metadata": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieve cgroup metadata for all pods",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/CgroupDumpMetadata"
+            }
+          },
+          "500": {
+            "description": "CgroupDumpMetadata get failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
     "/cluster/nodes": {
       "get": {
         "tags": [
@@ -5410,6 +5511,11 @@ func init() {
             "in": "query"
           },
           {
+            "type": "string",
+            "name": "pool",
+            "in": "query"
+          },
+          {
             "type": "boolean",
             "name": "expiration",
             "in": "header"
@@ -5450,6 +5556,11 @@ func init() {
             "type": "string",
             "name": "owner",
             "in": "query"
+          },
+          {
+            "type": "string",
+            "name": "pool",
+            "in": "query"
           }
         ],
         "responses": {
@@ -5489,6 +5600,11 @@ func init() {
             "name": "ip",
             "in": "path",
             "required": true
+          },
+          {
+            "type": "string",
+            "name": "pool",
+            "in": "query"
           }
         ],
         "responses": {
@@ -5767,32 +5883,6 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Failure"
-          }
-        }
-      }
-    },
-    "/policy/resolve": {
-      "get": {
-        "tags": [
-          "policy"
-        ],
-        "summary": "Resolve policy for an identity context",
-        "parameters": [
-          {
-            "description": "Context to provide policy evaluation on",
-            "name": "trace-selector",
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/TraceSelector"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/PolicyTraceResult"
-            }
           }
         }
       }
@@ -6421,6 +6511,55 @@ func init() {
             "generic-veth",
             "portmap"
           ]
+        }
+      }
+    },
+    "CgroupContainerMetadata": {
+      "description": "cgroup container metadata",
+      "type": "object",
+      "properties": {
+        "cgroup-id": {
+          "type": "integer",
+          "format": "uint64"
+        },
+        "cgroup-path": {
+          "type": "string"
+        }
+      }
+    },
+    "CgroupDumpMetadata": {
+      "description": "cgroup full metadata",
+      "type": "object",
+      "properties": {
+        "pod-metadatas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CgroupPodMetadata"
+          }
+        }
+      }
+    },
+    "CgroupPodMetadata": {
+      "description": "cgroup pod metadata",
+      "type": "object",
+      "properties": {
+        "containers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CgroupContainerMetadata"
+          }
+        },
+        "ips": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
         }
       }
     },
@@ -8716,6 +8855,19 @@ func init() {
         "rule": {
           "description": "The policy rule as json",
           "type": "string"
+        },
+        "rules-by-selector": {
+          "description": "The policy rule labels identifying the policy rules this rule derives from, mapped by selector",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
@@ -9573,6 +9725,11 @@ func init() {
     "ipam-owner": {
       "type": "string",
       "name": "owner",
+      "in": "query"
+    },
+    "ipam-pool": {
+      "type": "string",
+      "name": "pool",
       "in": "query"
     },
     "ipam-release-arg": {

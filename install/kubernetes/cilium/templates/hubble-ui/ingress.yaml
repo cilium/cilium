@@ -1,4 +1,5 @@
 {{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled .Values.hubble.ui.ingress.enabled }}
+{{- $baseUrl  := .Values.hubble.ui.baseUrl -}}
 apiVersion: {{ template "ingress.apiVersion" . }}
 kind: Ingress
 metadata:
@@ -8,6 +9,9 @@ metadata:
     k8s-app: hubble-ui
     app.kubernetes.io/name: hubble-ui
     app.kubernetes.io/part-of: cilium
+  {{- with .Values.hubble.ui.ingress.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- with .Values.hubble.ui.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -25,7 +29,7 @@ spec:
     - host: {{ . }}
       http:
         paths:
-          - path: /
+          - path: {{ $baseUrl | quote }}
             {{- include "ingress.paths" $ | nindent 12 }}
   {{- end }}
 {{- end }}

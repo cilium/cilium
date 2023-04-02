@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ip"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -109,7 +109,7 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 		}).Debug("getting identities for IPs associated with FQDNSelector")
 		var currentlyAllocatedIdentities []*identity.Identity
 		if currentlyAllocatedIdentities, err = identityAllocator.AllocateCIDRsForIPs(selectorIPs, newlyAllocatedIdentities); err != nil {
-			identityAllocator.ReleaseSlice(context.TODO(), nil, usedIdentities)
+			identityAllocator.ReleaseSlice(context.TODO(), usedIdentities)
 			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 				"failed to allocate identities for IPs")
 			return nil, nil, nil, err
@@ -398,7 +398,11 @@ func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate ma
 
 // lookupEPByIP returns the endpoint that this IP belongs to
 func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, err error) {
-	e := d.endpointManager.LookupIP(endpointIP)
+	endpointAddr, ok := ippkg.AddrFromIP(endpointIP)
+	if !ok {
+		return nil, fmt.Errorf("invalid IP %s for endpoint lookup", endpointIP)
+	}
+	e := d.endpointManager.LookupIP(endpointAddr)
 	if e == nil {
 		return nil, fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
 	}
@@ -581,7 +585,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// doesn't happen in the case, we play it safe and don't purge the zombie
 		// in case of races.
 		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
-		if updated := ep.DNSHistory.Update(lookupTime, qname, ip.MustAddrsFromIPs(responseIPs), int(TTL)); updated {
+		if updated := ep.DNSHistory.Update(lookupTime, qname, ippkg.MustAddrsFromIPs(responseIPs), int(TTL)); updated {
 			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
 			ep.SyncEndpointHeaderFile()
 		}

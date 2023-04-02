@@ -18,11 +18,9 @@ import (
 )
 
 const (
-	appServiceName     = "app1-service"
-	appServiceNameIPv6 = "app1-service-ipv6"
-	echoServiceName    = "echo"
-	echoPodLabel       = "name=echo"
-	app2PodLabel       = "id=app2"
+	appServiceName  = "app1-service"
+	echoServiceName = "echo"
+	echoPodLabel    = "name=echo"
 	// echoServiceNameIPv6 = "echo-ipv6"
 
 	testDSClient = "zgroup=testDSClient"
@@ -97,49 +95,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			ExpectAllPodsTerminated(kubectl)
 		})
 
-		// This is testing bpf_lxc LB (= KPR=disabled) when both client and
-		// server are running on the same node. Thus, skipping when running with
-		// KPR.
-		SkipItIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement()
-		}, "Checks service on same node", func() {
-			serviceNames := []string{appServiceName}
-			if helpers.DualStackSupported() {
-				serviceNames = append(serviceNames, appServiceNameIPv6)
-			}
-
-			ciliumPods, err := kubectl.GetCiliumPods()
-			Expect(err).To(BeNil(), "Cannot get cilium pods")
-
-			for _, svcName := range serviceNames {
-				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, svcName)
-				Expect(err).Should(BeNil(), "Cannot get service %s", svcName)
-				Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
-
-				By("testing connectivity via cluster IP %s", clusterIP)
-
-				httpSVCURL := fmt.Sprintf("http://%s/", net.JoinHostPort(clusterIP, "80"))
-				tftpSVCURL := fmt.Sprintf("tftp://%s/hello", net.JoinHostPort(clusterIP, "69"))
-
-				status := kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
-					helpers.CurlFail(httpSVCURL))
-				Expect(status).Should(helpers.CMDSuccess(), "cannot curl to service IP from host: %s", status.CombineOutput())
-
-				status = kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName,
-					helpers.CurlFail(tftpSVCURL))
-				Expect(status).Should(helpers.CMDSuccess(), "cannot curl to service IP from host: %s", status.CombineOutput())
-
-				for _, pod := range ciliumPods {
-					Expect(ciliumHasServiceIP(kubectl, pod, clusterIP)).Should(BeTrue(),
-						"ClusterIP is not present in the cilium service list")
-				}
-				// Send requests from "app2" pod which runs on the same node as
-				// "app1" pods
-				testCurlFromPods(kubectl, app2PodLabel, httpSVCURL, 10, 0)
-				testCurlFromPods(kubectl, app2PodLabel, tftpSVCURL, 10, 0)
-			}
-		})
-
 		SkipContextIf(helpers.DoesNotRunWithKubeProxyReplacement, "Checks in-cluster KPR", func() {
 			It("Tests HealthCheckNodePort", func() {
 				testHealthCheckNodePort(kubectl, ni)
@@ -196,6 +151,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 				deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"encryption.enabled": "true",
+					// Until https://github.com/cilium/cilium/issues/23461
+					// has been fixed, we need to disable IPv6 masq
+					"enableIPv6Masquerade": "false",
 				})
 				testExternalTrafficPolicyLocal(kubectl, ni)
 				deploymentManager.DeleteAll()

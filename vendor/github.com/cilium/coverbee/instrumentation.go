@@ -274,8 +274,20 @@ func InstrumentCollection(coll *ebpf.CollectionSpec, logWriter io.Writer) ([]*Ba
 
 			// Index which registers are sometimes used and which are never used
 			var usedRegs [11]bool
-			for _, reg := range mergedStates[instn].Registers {
-				usedRegs[reg.Register] = true
+
+			// It is possible that the number of merged states is lower than the instruction count if
+			// the end of a program is dynamically dead code. (the verifier didn't reach it but it also doesn't error)
+			if instn < len(mergedStates) && !mergedStates[instn].Unknown {
+				// Index which registers are sometimes used and which are never used
+				for _, reg := range mergedStates[instn].Registers {
+					usedRegs[reg.Register] = true
+				}
+			} else {
+				// Mark all registers as in use, that is the worst case assumption, but it should work even
+				// without verifier log.
+				for i := range usedRegs {
+					usedRegs[i] = true
+				}
 			}
 
 			var (

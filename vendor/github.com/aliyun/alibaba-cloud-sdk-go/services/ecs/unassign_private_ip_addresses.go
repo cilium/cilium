@@ -72,6 +72,7 @@ func (client *Client) UnassignPrivateIpAddressesWithCallback(request *UnassignPr
 type UnassignPrivateIpAddressesRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	Ipv4Prefix           *[]string        `position:"Query" name:"Ipv4Prefix"  type:"Repeated"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`

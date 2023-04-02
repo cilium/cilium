@@ -13,7 +13,7 @@ jobs:
   build_commits:
     name: Check if build works for every commit
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Configure git
         run: |
@@ -23,13 +23,17 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: 1.19.5
+          go-version: 1.20.1
+
+      - name: Set clang directory
+        id: set_clang_dir
+        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
 
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@627f0f41f6904a5b1efbaed9f96d9eb58e92e920 # v3.2.4
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
-          path: $HOME/.clang
+          path: ${{ steps.set_clang_dir.outputs.clang_dir }}
           key: llvm-10.0
 
       - name: Install LLVM and Clang prerequisites
@@ -41,7 +45,7 @@ jobs:
         uses: KyleMayes/install-llvm-action@ef175530927af66c61e4e8da4fea4e15de63f780 # v1.7.0
         with:
           version: "10.0"
-          directory: $HOME/.clang
+          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
 
       - name: Install ginkgo
@@ -49,7 +53,7 @@ jobs:
           go install github.com/onsi/ginkgo/ginkgo@cc0216944b25a88d3259699a029d4e601fb8a222 # v1.12.1
 
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}

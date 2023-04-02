@@ -13,6 +13,8 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "clustermesh")
 const (
 	fieldClusterName   = "clusterName"
 	fieldConfig        = "config"
+	fieldConfigDir     = "configDir"
+	fieldEvent         = "event"
 	fieldKVStoreStatus = "kvstoreStatus"
 	fieldKVStoreErr    = "kvstoreErr"
 )

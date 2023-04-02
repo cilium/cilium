@@ -14,6 +14,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -25,11 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
-
-type CertificateManager interface {
-	GetTLSContext(ctx context.Context, tls *api.TLSContext, defaultNs string) (ca, public, private string, err error)
-	GetSecretString(ctx context.Context, secret *api.Secret, defaultNs string) (string, error)
-}
 
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
@@ -137,9 +133,10 @@ type Repository struct {
 	// PolicyCache tracks the selector policies created from this repo
 	policyCache *PolicyCache
 
-	certManager CertificateManager
+	certManager   certificatemanager.CertificateManager
+	secretManager certificatemanager.SecretManager
 
-	getEnvoyHTTPRules func(CertificateManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
+	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -147,7 +144,7 @@ func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
 }
 
-func (p *Repository) SetEnvoyRulesFunc(f func(CertificateManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)) {
+func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)) {
 	p.getEnvoyHTTPRules = f
 }
 
@@ -155,7 +152,7 @@ func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium
 	if p.getEnvoyHTTPRules == nil {
 		return nil, true
 	}
-	return p.getEnvoyHTTPRules(p.certManager, l7Rules, ns)
+	return p.getEnvoyHTTPRules(p.secretManager, l7Rules, ns)
 }
 
 // GetPolicyCache() returns the policy cache used by the Repository
@@ -164,19 +161,34 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 }
 
 // NewPolicyRepository creates a new policy repository.
-func NewPolicyRepository(idAllocator cache.IdentityAllocator, idCache cache.IdentityCache, certManager CertificateManager) *Repository {
-	repoChangeQueue := eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
-	ruleReactionQueue := eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
-	repoChangeQueue.Run()
-	ruleReactionQueue.Run()
-	selectorCache := NewSelectorCache(idAllocator, idCache)
+func NewPolicyRepository(
+	idAllocator cache.IdentityAllocator,
+	idCache cache.IdentityCache,
+	certManager certificatemanager.CertificateManager,
+	secretManager certificatemanager.SecretManager,
+) *Repository {
+	repo := NewStoppedPolicyRepository(idAllocator, idCache, certManager, secretManager)
+	repo.Start()
+	return repo
+}
 
+// NewStoppedPolicyRepository creates a new policy repository without starting
+// queues.
+//
+// Qeues must be allocated via [Repository.Start]. The function serves to
+// satisfy hive invariants.
+func NewStoppedPolicyRepository(
+	idAllocator cache.IdentityAllocator,
+	idCache cache.IdentityCache,
+	certManager certificatemanager.CertificateManager,
+	secretManager certificatemanager.SecretManager,
+) *Repository {
+	selectorCache := NewSelectorCache(idAllocator, idCache)
 	repo := &Repository{
-		revision:              1,
-		RepositoryChangeQueue: repoChangeQueue,
-		RuleReactionQueue:     ruleReactionQueue,
-		selectorCache:         selectorCache,
-		certManager:           certManager,
+		revision:      1,
+		selectorCache: selectorCache,
+		certManager:   certManager,
+		secretManager: secretManager,
 	}
 	repo.policyCache = NewPolicyCache(repo, true)
 	return repo
@@ -218,6 +230,16 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 			ctx.PolicyTrace("Found no deny rule\n")
 		}
 	}
+}
+
+// Start allocates and starts various queues used by the Repository.
+//
+// Must only be called if using [NewStoppedPolicyRepository]
+func (p *Repository) Start() {
+	p.RepositoryChangeQueue = eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
+	p.RuleReactionQueue = eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
+	p.RepositoryChangeQueue.Run()
+	p.RuleReactionQueue.Run()
 }
 
 // ResolveL4IngressPolicy resolves the L4 ingress policy for a set of endpoints

@@ -28,7 +28,7 @@ endif
 
 .PHONY: all clean
 
-TEST_OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
+TEST_OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c)) $(patsubst %c, %i, $(wildcard *.c))
 
 %.o: %.ll $(LIB)
 	$(ECHO_CC)
@@ -38,8 +38,13 @@ TEST_OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
 	$(ECHO_CC)
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
 
+%.i: %.c
+	$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -E -c $< -o $@
+
 all: $(TEST_OBJECTS)
 
 clean:
 	rm -f $(wildcard *.ll)
 	rm -f $(wildcard *.o)
+	rm -f $(wildcard *.i)

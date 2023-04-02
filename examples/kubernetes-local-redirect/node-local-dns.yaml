@@ -114,7 +114,7 @@ spec:
         operator: "Exists"
       containers:
       - name: node-cache
-        image: k8s.gcr.io/dns/k8s-dns-node-cache:1.15.16
+        image: registry.k8s.io/dns/k8s-dns-node-cache:1.15.16
         resources:
           requests:
             cpu: 25m

@@ -616,7 +616,7 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	c.Assert(err, IsNil)
 	a2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2, allocator.WithMax(idpool.ID(256)))
 	c.Assert(err, IsNil)
-	rc := a.WatchRemoteKVStore(a2)
+	rc := a.WatchRemoteKVStore("", a2)
 	c.Assert(rc, Not(IsNil))
 
 	// wait for remote cache to be populated

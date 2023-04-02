@@ -1,3 +1,7 @@
+# Release (2022-12-02)
+
+* No change notes available for this release.
+
 # Release (2022-10-24)
 
 ## Module Highlights

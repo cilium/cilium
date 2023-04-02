@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package winrio
@@ -84,8 +84,10 @@ type iocpNotificationCompletion struct {
 	overlapped     *windows.Overlapped
 }
 
-var initialized sync.Once
-var available bool
+var (
+	initialized sync.Once
+	available   bool
+)
 
 func Initialize() bool {
 	initialized.Do(func() {
@@ -108,7 +110,7 @@ func Initialize() bool {
 			return
 		}
 		defer windows.CloseHandle(socket)
-		var WSAID_MULTIPLE_RIO = &windows.GUID{0x8509e081, 0x96dd, 0x4005, [8]byte{0xb1, 0x65, 0x9e, 0x2e, 0xe8, 0xc7, 0x9e, 0x3f}}
+		WSAID_MULTIPLE_RIO := &windows.GUID{0x8509e081, 0x96dd, 0x4005, [8]byte{0xb1, 0x65, 0x9e, 0x2e, 0xe8, 0xc7, 0x9e, 0x3f}}
 		const SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER = 0xc8000024
 		ob := uint32(0)
 		err = windows.WSAIoctl(socket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,

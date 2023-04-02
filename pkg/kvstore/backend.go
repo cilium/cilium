@@ -34,6 +34,9 @@ type ExtraOptions struct {
 
 	// NoLockQuorumCheck disables the lock acquisition quorum check
 	NoLockQuorumCheck bool
+
+	// ClusterName is the name of each etcd cluster
+	ClusterName string
 }
 
 // StatusCheckInterval returns the interval of status checks depending on the
@@ -212,4 +215,15 @@ type BackendOperations interface {
 	// created with the specified sizes. Upon every change observed, a
 	// KeyValueEvent will be sent to the Events channel
 	ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher
+
+	BackendOperationsUserMgmt
+}
+
+// BackendOperationsUserMgmt are the kvstore operations for users management.
+type BackendOperationsUserMgmt interface {
+	// UserEnforcePresence creates a user in the kvstore if not already present, and grants the specified roles.
+	UserEnforcePresence(ctx context.Context, name string, roles []string) error
+
+	// UserEnforcePresence deletes a user from the kvstore, if present.
+	UserEnforceAbsence(ctx context.Context, name string) error
 }

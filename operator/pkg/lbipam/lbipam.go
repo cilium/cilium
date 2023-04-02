@@ -150,9 +150,6 @@ func (ipam *LBIPAM) restart() {
 	})
 }
 
-type ipPoolEvent = resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-type svcEvent = resource.Event[*slim_core_v1.Service]
-
 func (ipam *LBIPAM) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -939,7 +936,7 @@ func (ipam *LBIPAM) findRangeOfIP(sv *ServiceView, ip net.IP) (lbRange *LBRange,
 		return r, false, nil
 	}
 
-	return nil, false, nil
+	return nil, foundPool, nil
 }
 
 // isResponsibleForSVC checks if LB IPAM should allocate and assign IPs or some other controller

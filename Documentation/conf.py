@@ -269,5 +269,6 @@ def setup(app):
     app.add_js_file('clipboardjs.min.js')
     app.add_js_file("copybutton.js")
     app.add_css_file('helm-reference.css')
+    app.add_css_file('wrapped-table.css')
     # Patch HTML translator to open external links in new tabs
     app.set_translator("html", cilium_external_links.PatchedHTMLTranslator)

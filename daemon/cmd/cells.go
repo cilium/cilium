@@ -4,8 +4,12 @@
 package cmd
 
 import (
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -14,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pprof"
 )
 
 var (
@@ -23,7 +28,7 @@ var (
 
 		Infrastructure,
 		ControlPlane,
-		Datapath,
+		datapath.Cell,
 	)
 
 	// Infrastructure provides access and services to the outside.
@@ -32,6 +37,13 @@ var (
 	Infrastructure = cell.Module(
 		"infra",
 		"Infrastructure",
+
+		// Register the pprof HTTP handlers, to get runtime profiling data.
+		pprof.Cell,
+		cell.Config(pprof.Config{
+			PprofAddress: option.PprofAddressAgent,
+			PprofPort:    option.PprofPortAgent,
+		}),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.GopsPortAgent),
@@ -65,22 +77,22 @@ var (
 		// NodeManager maintains a collection of other nodes in the cluster.
 		nodeManager.Cell,
 
+		// Certificate manager provides an API for retrieving secrets and certificate in the form of TLS contexts.
+		certificatemanager.Cell,
+
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
-	)
 
-	// Datapath provides the privileged operations to apply control-plane
-	// decision to the kernel.
-	Datapath = cell.Module(
-		"datapath",
-		"Datapath",
+		// Auth is responsible for authenticating a request if required by a policy.
+		auth.Cell,
 
-		cell.Provide(
-			newWireguardAgent,
-			newDatapath,
-		),
+		// IPCache, policy.Repository and CachingIdentityAllocator.
+		cell.Provide(newPolicyTrifecta),
+
+		// Egress Gateway allows originating traffic from specific IPv4 addresses.
+		egressgateway.Cell,
 	)
 )

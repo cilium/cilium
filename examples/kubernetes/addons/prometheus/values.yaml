@@ -1,7 +1,5 @@
 image:
   prometheus:
-    version:
-      "v2.18.1"
+    version: v2.42.0
   grafana:
-    version:
-      "7.0.1"
+    version: 9.3.6

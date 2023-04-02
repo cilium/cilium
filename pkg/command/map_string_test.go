@@ -180,6 +180,18 @@ func TestGetStringMapString(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
+			name: "valid kv format for cluster-pool-map",
+			args: args{
+				key:   "CLUSTER_POOL_MAP",
+				value: "mars=ipv4-cidrs:172.16.0.0/16,172.17.0.0/16;ipv4-mask-size:24,jupiter=ipv4-cidrs:192.168.0.0/19;ipv4-mask-size:26",
+			},
+			want: map[string]string{
+				"mars":    "ipv4-cidrs:172.16.0.0/16,172.17.0.0/16;ipv4-mask-size:24",
+				"jupiter": "ipv4-cidrs:192.168.0.0/19;ipv4-mask-size:26",
+			},
+			wantErr: assert.NoError,
+		},
+		{
 			name: "invalid kv format with extra comma",
 			args: args{
 				key:   "FOO_BAR",

@@ -92,6 +92,7 @@ type ModifySecurityGroupEgressRuleRequest struct {
 	DestGroupOwnerAccount string           `position:"Query" name:"DestGroupOwnerAccount"`
 	DestCidrIp            string           `position:"Query" name:"DestCidrIp"`
 	DestGroupOwnerId      requests.Integer `position:"Query" name:"DestGroupOwnerId"`
+	SecurityGroupRuleId   string           `position:"Query" name:"SecurityGroupRuleId"`
 }
 
 // ModifySecurityGroupEgressRuleResponse is the response struct for api ModifySecurityGroupEgressRule

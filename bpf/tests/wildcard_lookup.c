@@ -274,7 +274,7 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 	test_finish();
 }
 
-static inline void __setup_v6_ipcache(union v6addr *HOST_IP6)
+static inline void __setup_v6_ipcache(const union v6addr *HOST_IP6)
 {
 	struct remote_endpoint_info cache_value = {};
 	struct ipcache_key cache_key = {};
@@ -286,7 +286,7 @@ static inline void __setup_v6_ipcache(union v6addr *HOST_IP6)
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 }
 
-static inline void __setup_v6_nodeport(union v6addr *HOST_IP6)
+static inline void __setup_v6_nodeport(const union v6addr *HOST_IP6)
 {
 	union v6addr ZERO = {};
 	struct { struct lb6_key key; struct lb6_service value; } services[] = {
@@ -301,7 +301,7 @@ static inline void __setup_v6_nodeport(union v6addr *HOST_IP6)
 				BPF_ANY);
 }
 
-static inline void __setup_v6_hostport(union v6addr *HOST_IP6)
+static inline void __setup_v6_hostport(const union v6addr *HOST_IP6)
 {
 	union v6addr ZERO = {};
 	struct { struct lb6_key key; struct lb6_service value; } services[] = {

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/google/gopacket"
@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -169,7 +170,8 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	ether, ip, l4, srcIP, dstIP, srcPort, dstPort, summary := decodeLayers(p.packet)
 	if tn != nil {
 		if !tn.OriginalIP().IsUnspecified() {
-			srcIP = tn.OriginalIP()
+			// Ignore invalid IP - getters will handle invalid value.
+			srcIP, _ = ippkg.AddrFromIP(tn.OriginalIP())
 			if ip != nil {
 				ip.Source = srcIP.String()
 			}
@@ -216,7 +218,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	return nil
 }
 
-func (p *Parser) resolveNames(epID uint32, ip net.IP) (names []string) {
+func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
 	if p.dnsGetter != nil {
 		return p.dnsGetter.GetNamesOf(epID, ip)
 	}
@@ -228,7 +230,7 @@ func decodeLayers(packet *packet) (
 	ethernet *pb.Ethernet,
 	ip *pb.IP,
 	l4 *pb.Layer4,
-	sourceIP, destinationIP net.IP,
+	sourceIP, destinationIP netip.Addr,
 	sourcePort, destinationPort uint16,
 	summary string) {
 	for _, typ := range packet.Layers {
@@ -306,20 +308,28 @@ func decodeEthernet(ethernet *layers.Ethernet) *pb.Ethernet {
 	}
 }
 
-func decodeIPv4(ipv4 *layers.IPv4) (ip *pb.IP, src, dst net.IP) {
+func decodeIPv4(ipv4 *layers.IPv4) (ip *pb.IP, src, dst netip.Addr) {
+	// Ignore invalid IPs - getters will handle invalid values.
+	// IPs can be empty for Ethernet-only packets.
+	src, _ = ippkg.AddrFromIP(ipv4.SrcIP)
+	dst, _ = ippkg.AddrFromIP(ipv4.DstIP)
 	return &pb.IP{
 		Source:      ipv4.SrcIP.String(),
 		Destination: ipv4.DstIP.String(),
 		IpVersion:   pb.IPVersion_IPv4,
-	}, ipv4.SrcIP, ipv4.DstIP
+	}, src, dst
 }
 
-func decodeIPv6(ipv6 *layers.IPv6) (ip *pb.IP, src, dst net.IP) {
+func decodeIPv6(ipv6 *layers.IPv6) (ip *pb.IP, src, dst netip.Addr) {
+	// Ignore invalid IPs - getters will handle invalid values.
+	// IPs can be empty for Ethernet-only packets.
+	src, _ = ippkg.AddrFromIP(ipv6.SrcIP)
+	dst, _ = ippkg.AddrFromIP(ipv6.DstIP)
 	return &pb.IP{
 		Source:      ipv6.SrcIP.String(),
 		Destination: ipv6.DstIP.String(),
 		IpVersion:   pb.IPVersion_IPv6,
-	}, ipv6.SrcIP, ipv6.DstIP
+	}, src, dst
 }
 
 func decodeTCP(tcp *layers.TCP) (l4 *pb.Layer4, src, dst uint16) {

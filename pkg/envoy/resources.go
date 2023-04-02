@@ -174,7 +174,7 @@ func (cache *NPHDSCache) handleIPUpsert(npHost *envoyAPI.NetworkPolicyHosts, ide
 	}
 	_, updated, _ := cache.Upsert(NetworkPolicyHostsTypeURL, identityStr, &newNpHost)
 	if !updated {
-		return errors.New(fmt.Sprintf("NPHDS cache not updated when expected adding: %s", newNpHost.String()))
+		return fmt.Errorf("NPHDS cache not updated when expected adding: %s", newNpHost.String())
 	}
 	return nil
 }
@@ -222,7 +222,7 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, ide
 		}
 		_, updated, _ := cache.Upsert(NetworkPolicyHostsTypeURL, identityStr, &newNpHost)
 		if !updated {
-			return errors.New(fmt.Sprintf("NPHDS cache not updated when expected deleting: %s", newNpHost.String()))
+			return fmt.Errorf("NPHDS cache not updated when expected deleting: %s", newNpHost.String())
 		}
 	}
 	return nil

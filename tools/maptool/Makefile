@@ -11,11 +11,7 @@ all: $(TARGET)
 
 $(TARGET):
 	@$(ECHO_GO)
-ifneq ($(RACE),"")
-	$(QUIET)$(GO_BUILD_WITH_CGO) -o $@
-else
 	$(QUIET)$(GO_BUILD) -o $@
-endif
 
 clean:
 	@$(ECHO_CLEAN)

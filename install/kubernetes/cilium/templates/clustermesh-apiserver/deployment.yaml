@@ -1,4 +1,7 @@
 {{- if (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) }}
+{{- if not (list "legacy" "migration" "cluster" | has .Values.clustermesh.apiserver.tls.authMode) -}}
+{{- fail ".Values.clustermesh.apiserver.tls.authMode must be one of legacy, migration, cluster" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -35,6 +38,10 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.clustermesh.apiserver.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       initContainers:
       - name: etcd-init
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.etcd.image | quote }}
@@ -44,18 +51,17 @@ spec:
         - |
           rm -rf /var/run/etcd/*;
           /usr/local/bin/etcd --data-dir=/var/run/etcd --name=clustermesh-apiserver --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379 --initial-cluster-token=clustermesh-apiserver --initial-cluster-state=new --auto-compaction-retention=1 &
-          export rootpw=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16`;
-          echo $rootpw | etcdctl --interactive=false user add root;
+          etcdctl user add root --no-password;
           etcdctl user grant-role root root;
-          export vmpw=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16`;
-          echo $vmpw | etcdctl --interactive=false user add externalworkload;
+          etcdctl user add admin-{{ .Values.cluster.name }} --no-password;
+          etcdctl user grant-role admin-{{ .Values.cluster.name }} root;
+          etcdctl user add externalworkload --no-password;
           etcdctl role add externalworkload;
           etcdctl role grant-permission externalworkload --from-key read '';
           etcdctl role grant-permission externalworkload readwrite --prefix cilium/state/noderegister/v1/;
           etcdctl role grant-permission externalworkload readwrite --prefix cilium/.initlock/;
           etcdctl user grant-role externalworkload externalworkload;
-          export remotepw=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16`;
-          echo $remotepw | etcdctl --interactive=false user add remote;
+          etcdctl user add remote --no-password;
           etcdctl role add remote;
           etcdctl role grant-permission remote --from-key read '';
           etcdctl user grant-role remote remote;
@@ -113,6 +119,10 @@ spec:
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- with .Values.clustermesh.apiserver.etcd.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       - name: apiserver
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
@@ -126,6 +136,10 @@ spec:
         - --cluster-id=$(CLUSTER_ID)
         - --kvstore-opt
         - etcd.config=/var/lib/cilium/etcd-config.yaml
+        {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
+        - --cluster-users-enabled
+        - --cluster-users-config-path=/var/lib/cilium/etcd-config/users.yaml
+        {{- end }}
         env:
         - name: CLUSTER_NAME
           valueFrom:
@@ -160,10 +174,19 @@ spec:
         - name: etcd-admin-client
           mountPath: /var/lib/cilium/etcd-secrets
           readOnly: true
+        {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
+        - name: etcd-users-config
+          mountPath: /var/lib/cilium/etcd-config
+          readOnly: true
+        {{- end }}
         {{- with .Values.clustermesh.apiserver.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.clustermesh.apiserver.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       volumes:
       - name: etcd-server-secrets
         secret:
@@ -175,6 +198,13 @@ spec:
           secretName: clustermesh-apiserver-admin-cert
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
+      {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
+      - name: etcd-users-config
+        configMap:
+          name: clustermesh-remote-users
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+      {{- end }}
       - name: etcd-data-dir
         emptyDir: {}
       {{- with .Values.clustermesh.apiserver.extraVolumes }}

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  *
  * This implements userspace semantics of "sticky sockets", modeled after
  * WireGuard's kernelspace implementation. This is more or less a straight port
@@ -25,7 +25,10 @@ import (
 )
 
 func (device *Device) startRouteListener(bind conn.Bind) (*rwcancel.RWCancel, error) {
-	if _, ok := bind.(*conn.LinuxSocketBind); !ok {
+	if !conn.StdNetSupportsStickySockets {
+		return nil, nil
+	}
+	if _, ok := bind.(*conn.StdNetBind); !ok {
 		return nil, nil
 	}
 
@@ -112,11 +115,11 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 									pePtr.peer.Unlock()
 									break
 								}
-								if uint32(pePtr.peer.endpoint.(*conn.LinuxSocketEndpoint).Src4().Ifindex) == ifidx {
+								if uint32(pePtr.peer.endpoint.(*conn.StdNetEndpoint).SrcIfidx()) == ifidx {
 									pePtr.peer.Unlock()
 									break
 								}
-								pePtr.peer.endpoint.(*conn.LinuxSocketEndpoint).ClearSrc()
+								pePtr.peer.endpoint.(*conn.StdNetEndpoint).ClearSrc()
 								pePtr.peer.Unlock()
 							}
 							attr = attr[attrhdr.Len:]
@@ -136,12 +139,12 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 							peer.RUnlock()
 							continue
 						}
-						nativeEP, _ := peer.endpoint.(*conn.LinuxSocketEndpoint)
+						nativeEP, _ := peer.endpoint.(*conn.StdNetEndpoint)
 						if nativeEP == nil {
 							peer.RUnlock()
 							continue
 						}
-						if nativeEP.IsV6() || nativeEP.Src4().Ifindex == 0 {
+						if nativeEP.DstIP().Is6() || nativeEP.SrcIfidx() == 0 {
 							peer.RUnlock()
 							break
 						}
@@ -169,12 +172,12 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 								Len:  8,
 								Type: unix.RTA_DST,
 							},
-							nativeEP.Dst4().Addr,
+							nativeEP.DstIP().As4(),
 							unix.RtAttr{
 								Len:  8,
 								Type: unix.RTA_SRC,
 							},
-							nativeEP.Src4().Src,
+							nativeEP.SrcIP().As4(),
 							unix.RtAttr{
 								Len:  8,
 								Type: unix.RTA_MARK,
@@ -204,7 +207,7 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 }
 
 func createNetlinkRouteSocket() (int, error) {
-	sock, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW, unix.NETLINK_ROUTE)
+	sock, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW|unix.SOCK_CLOEXEC, unix.NETLINK_ROUTE)
 	if err != nil {
 		return -1, err
 	}

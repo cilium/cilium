@@ -81,6 +81,7 @@ type CreateNatGatewayRequest struct {
 	Duration                  string                              `position:"Query" name:"Duration"`
 	IcmpReplyEnabled          requests.Boolean                    `position:"Query" name:"IcmpReplyEnabled"`
 	NatType                   string                              `position:"Query" name:"NatType"`
+	Tag                       *[]CreateNatGatewayTag              `position:"Query" name:"Tag"  type:"Repeated"`
 	InstanceChargeType        string                              `position:"Query" name:"InstanceChargeType"`
 	BandwidthPackage          *[]CreateNatGatewayBandwidthPackage `position:"Query" name:"BandwidthPackage"  type:"Repeated"`
 	AutoPay                   requests.Boolean                    `position:"Query" name:"AutoPay"`
@@ -95,6 +96,12 @@ type CreateNatGatewayRequest struct {
 	PrivateLinkEnabled        requests.Boolean                    `position:"Query" name:"PrivateLinkEnabled"`
 	EipBindMode               string                              `position:"Query" name:"EipBindMode"`
 	PricingCycle              string                              `position:"Query" name:"PricingCycle"`
+}
+
+// CreateNatGatewayTag is a repeated param struct in CreateNatGatewayRequest
+type CreateNatGatewayTag struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // CreateNatGatewayBandwidthPackage is a repeated param struct in CreateNatGatewayRequest

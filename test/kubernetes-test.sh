@@ -70,7 +70,7 @@ test -d kubernetes && rm -rfv kubernetes
 git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} --depth 1
 cd kubernetes
 
-GO_VERSION="1.19.5"
+GO_VERSION="1.20.1"
 sudo rm -fr /usr/local/go
 curl -LO https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
@@ -93,9 +93,7 @@ ${HOME}/go/bin/kubetest --provider=local --test \
 
 # We currently skip the following tests:
 # - NetworkPolicy between server and client using SCTP
-# - should not allow access by TCP when a policy specifies only SCTP
-# - should properly isolate pods that are selected by a policy allowing SCTP, even if the plugin doesn't supportSCTP [Feature:NetworkPolicy]
-#   - Cilium does not support SCTP yet
+#   - Service translation is not yet supported, and the tests rely on Services.
 #   - More info at https://github.com/cilium/cilium/issues/5719
 # - should allow egress access to server in CIDR block and
 # - should ensure an IP overlapping both IPBlock.CIDR and IPBlock.Except is allowed and
@@ -105,4 +103,4 @@ ${HOME}/go/bin/kubetest --provider=local --test \
 #   - More info at https://github.com/cilium/cilium/issues/9209
 echo "Running upstream NetworkPolicy tests"
 ${HOME}/go/bin/kubetest --provider=local --test \
-  --test_args="--ginkgo.focus=Net.*ol.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block)|(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(NetworkPolicy.between.server.and.client.using.SCTP)|(should.properly.isolate.pods.that.are.selected.by.a.policy.allowing.SCTP..even.if.the.plugin.doesn.t.support.SCTP..Feature.NetworkPolicy.)"
+  --test_args="--ginkgo.focus=Net.*ol.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.allow.egress.access.to.server.in.CIDR.block)|(should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block)|(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(Feature:SCTPConnectivity)"

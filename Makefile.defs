@@ -10,6 +10,11 @@ space := $(empty) $(empty)
 comma := ,
 join-with-comma = $(subst $(space),$(comma),$(strip $1))
 
+define newline
+
+
+endef
+
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 RELATIVE_DIR := $(shell echo $(realpath .) | sed "s;$(ROOT_DIR)[/]*;;")
 include $(ROOT_DIR)/Makefile.quiet
@@ -59,7 +64,7 @@ endif
 
 CONSUL_IMAGE=consul:1.7.2
 
-GO ?= go
+export GO ?= go
 
 # go build/test/clean flags
 # these are declared here so they are treated explicitly
@@ -87,8 +92,9 @@ ifneq ($(V),0)
 endif
 endif
 
-GOLANGCILINT_WANT_VERSION = 1.48.0
-GOLANGCILINT_IMAGE_SHA = sha256:5e4256fd5001c1c6ec3de3d31fdae2fa2af6dd21ebbb86b3ddfe1925376af326
+# renovate: datasource=docker depName=golangci/golangci-lint
+GOLANGCILINT_WANT_VERSION = v1.51.2
+GOLANGCILINT_IMAGE_SHA = sha256:be42f5df32011553183947c2b2502718bde485f566e15bbd2541f38a077e4d29
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)

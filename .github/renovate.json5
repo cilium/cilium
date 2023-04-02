@@ -1,0 +1,279 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    ":gitSignOff",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "includePaths": [
+    ".github/workflows/**",
+    "images/**",
+    "examples/hubble/*",
+    "go.mod",
+    "go.sum",
+    "Makefile.defs"
+  ],
+  postUpdateOptions: [
+    "gomodTidy"
+  ],
+  // This ignorePaths configuration option overrides the config:base preset and
+  // should not be removed.
+  // If removed, we would fall back on the config:base preset, which ignores any
+  // paths that match 'examples/*' (which we explicitly do not want to ignore).
+  "ignorePaths": [
+    // This file is deprecated and no longer present in master
+    "images/cilium-test/Dockerfile"
+  ],
+  "ignoreDeps": [
+    // 'google/oss-fuzz' is ignored from the updates because it's currently
+    // unversioned and it would be receiving an update every time the upstream
+    // repository would receive a new commit.
+    "google/oss-fuzz"
+  ],
+  "pinDigests": true,
+  "ignorePresets": [":prHourlyLimit2"],
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "separateMinorPatch": true,
+  "pruneStaleBranches": true,
+  "baseBranches": [
+    "master",
+    "v1.13",
+    "v1.12",
+    "v1.11"
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
+  "labels": [
+    "kind/enhancement",
+    "release-note/misc"
+  ],
+  "stopUpdatingLabel": "renovate/stop-updating",
+  "packageRules": [
+    {
+      "groupName": "all github action dependencies",
+      "groupSlug": "all-github-action",
+      "matchPaths": [
+        ".github/workflows/**"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ],
+      "schedule": [
+        "on friday"
+      ]
+    },
+    {
+      "groupName": "all go dependencies master",
+      "groupSlug": "all-go-deps-master",
+      "matchFiles": [
+        "go.mod",
+        "go.sum"
+      ],
+      "postUpdateOptions": [
+        // update source import paths on major updates
+        "gomodUpdateImportPaths",
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ],
+      "schedule": [
+        "on friday"
+      ],
+      matchBaseBranches: [
+        "master"
+      ]
+    },
+    {
+      // Do not allow any updates into stable branches.
+      "enabled": false,
+      "groupName": "all go dependencies stable",
+      "groupSlug": "all-go-deps-stable",
+      "matchFiles": [
+        "go.mod",
+        "go.sum"
+      ],
+      matchBaseBranches: [
+        "v1.13",
+        "v1.12",
+        "v1.11"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchPackageNames": [
+        // All of these packages are maintained on a Cilium fork. Thus, we don't
+        // want to update them automatically.
+        "go.universe.tf/metallb",
+        "github.com/cilium/metallb",
+        "github.com/miekg/dns",
+        "github.com/cilium/dns",
+        "sigs.k8s.io/controller-tools",
+        "github.com/cilium/controller-tools",
+        // We update this dependency manually together with envoy proxy updates
+        "github.com/cilium/proxy",
+      ],
+      "matchPackagePatterns": [
+        // Once we decide to spend cycles on ginkgo v2 we should update the
+        // dependency manually.
+        "github.com/onsi/gomega/*",
+        // k8s dependencies will be updated manually along with tests
+        "k8s.io/*",
+        "sigs.k8s.io/*"
+      ]
+    },
+    {
+      "groupName": "base-images",
+      "matchFiles": [
+        "images/builder/Dockerfile",
+        "images/runtime/Dockerfile"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/ubuntu"
+      ],
+      "allowedVersions": "22.04",
+      "matchBaseBranches": [
+        "master",
+        "v1.13"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/ubuntu"
+      ],
+      "allowedVersions": "20.04",
+      "matchBaseBranches": [
+        "v1.12",
+        "v1.11"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
+      // Golang 1.20.0 had a regression which prevented us from upgrading it
+      // to 1.20 before the 1.13 release.
+      "allowedVersions": "<1.20",
+      "matchBaseBranches": [
+        "v1.13"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
+      "allowedVersions": "<1.19",
+      "matchBaseBranches": [
+        "v1.12"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
+      "allowedVersions": "<1.18",
+      "matchBaseBranches": [
+        "v1.11"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.17",
+      "matchBaseBranches": [
+        "v1.13",
+        "v1.12",
+        "v1.11"
+      ]
+    },
+    {
+      "matchDepNames": [
+        "golang.zx2c4.com/wireguard",
+      ],
+      "versioning": "regex:^v0.0.0-(<patch>\\d+)-.*$",
+    },
+    {
+      "groupName": "Hubble CLI",
+      "groupSlug": "hubble-cli",
+      "matchDepNames": [
+        "cilium/hubble",
+        "quay.io/cilium/hubble"
+      ],
+    },
+    {
+      // Do not allow any updates into stable branches.
+      "enabled": false,
+      "matchDepNames": [
+        "golangci/golangci-lint"
+      ],
+      "matchBaseBranches": [
+        "v1.13",
+        "v1.12",
+        "v1.11"
+      ]
+    }
+  ],
+  "kubernetes": {
+    "fileMatch": [
+      "examples/hubble/hubble-cli\\.yaml"
+    ]
+  },
+  "regexManagers": [
+    {
+      "fileMatch": [
+        "images/cilium/download-hubble\\.sh",
+        "images/runtime/build-gops.sh"
+      ],
+      // These regexes manage version and digest strings in shell scripts,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_version=\"(?<currentValue>.*)\"",
+        // The digestVersion in this regex is required for Renovate to be able
+        // to match the digest to the pinned version. It will not work without it.
+        // Note that for GitHub release artifact digests, you likely want to use
+        // github-release-attachments as the datasource here.
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) digestVersion=(?<currentValue>.*)\\s+.+_sha256.*=\"(?<currentDigest>.*)\""
+      ]
+    },
+    {
+      "fileMatch": [
+        "^\\.github/workflows/[^/]+\\.yaml$"
+      ],
+      // This regex manages version strings in GitHub actions workflow files,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)",
+      ]
+    },
+    {
+      "fileMatch": [
+        "^Makefile\\.defs$"
+      ],
+      // This regex manages version strings in the Makefile.defs file,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION = (?<currentValue>.*)\\s+.+_SHA = (?<currentDigest>sha256:[a-f0-9]+)"
+      ]
+    }
+  ]
+}

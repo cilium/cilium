@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -32,16 +33,16 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
-	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -51,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -77,13 +79,10 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
-	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
-	wireguardTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -387,7 +386,7 @@ func initializeFlags() {
 	flags.Uint(option.HTTPRetryTimeout, 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
 	option.BindEnv(Vp, option.HTTPRetryTimeout)
 
-	flags.Uint(option.ProxyConnectTimeout, 1, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
+	flags.Uint(option.ProxyConnectTimeout, 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
 	option.BindEnv(Vp, option.ProxyConnectTimeout)
 
 	flags.Uint(option.ProxyGID, 1337, "Group ID for proxy control plane sockets.")
@@ -666,9 +665,6 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
 	option.BindEnv(Vp, option.EnableIPv4EgressGateway)
 
-	flags.Bool(option.InstallEgressGatewayRoutes, false, "Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface")
-	option.BindEnv(Vp, option.InstallEgressGatewayRoutes)
-
 	flags.Int(option.EgressGatewayPolicyMapEntriesName, egressmap.MaxPolicyEntries, "Maximum number of entries in egress gateway policy map")
 	option.BindEnv(Vp, option.EgressGatewayPolicyMapEntriesName)
 
@@ -682,6 +678,7 @@ func initializeFlags() {
 	option.BindEnv(Vp, option.IPMasqAgentConfigPath)
 
 	flags.Bool(option.InstallIptRules, true, "Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading)")
+	flags.MarkHidden(option.InstallIptRules)
 	option.BindEnv(Vp, option.InstallIptRules)
 
 	flags.Duration(option.IPTablesLockTimeout, 5*time.Second, "Time to pass to each iptables invocation to wait for xtables lock acquisition")
@@ -757,15 +754,6 @@ func initializeFlags() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(Vp, option.Version)
 
-	flags.Bool(option.PProf, false, "Enable serving pprof debugging API")
-	option.BindEnv(Vp, option.PProf)
-
-	flags.String(option.PProfAddress, defaults.PprofAddressAgent, "Address that pprof listens on")
-	option.BindEnv(Vp, option.PProfAddress)
-
-	flags.Int(option.PProfPort, defaults.PprofPortAgent, "Port that pprof listens on")
-	option.BindEnv(Vp, option.PProfPort)
-
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
 	option.BindEnv(Vp, option.EnableXDPPrefilter)
 
@@ -780,11 +768,11 @@ func initializeFlags() {
 	flags.String(option.PrometheusServeAddr, ":9962", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.PrometheusServeAddr, "PROMETHEUS_SERVE_ADDR")
 
+	flags.Int(option.AuthMapEntriesName, option.AuthMapEntriesDefault, "Maximum number of entries in auth map")
+	option.BindEnv(Vp, option.AuthMapEntriesName)
+
 	flags.Int(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPDefault, "Maximum number of entries in TCP CT table")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.CTMapEntriesGlobalTCPName, "CILIUM_GLOBAL_CT_MAX_TCP")
-
-	flags.String(option.CertsDirectory, defaults.CertsDirectory, "Root directory to find certificates specified in L7 TLS policy enforcement")
-	option.BindEnv(Vp, option.CertsDirectory)
 
 	flags.Int(option.CTMapEntriesGlobalAnyName, option.CTMapEntriesGlobalAnyDefault, "Maximum number of entries in non-TCP CT table")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.CTMapEntriesGlobalAnyName, "CILIUM_GLOBAL_CT_MAX_ANY")
@@ -835,7 +823,7 @@ func initializeFlags() {
 	flags.MarkHidden(option.CMDRef)
 	option.BindEnv(Vp, option.CMDRef)
 
-	flags.Int(option.ToFQDNsMinTTL, 0, fmt.Sprintf("The minimum time, in seconds, to use DNS data for toFQDNs policies. (default %d )", defaults.ToFQDNsMinTTL))
+	flags.Int(option.ToFQDNsMinTTL, defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies")
 	option.BindEnv(Vp, option.ToFQDNsMinTTL)
 
 	flags.Int(option.ToFQDNsProxyPort, 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
@@ -1092,6 +1080,10 @@ func initializeFlags() {
 	flags.Duration(option.IPAMCiliumNodeUpdateRate, 15*time.Second, "Maximum rate at which the CiliumNode custom resource is updated")
 	option.BindEnv(Vp, option.IPAMCiliumNodeUpdateRate)
 
+	flags.Bool(option.EnableK8sNetworkPolicy, defaults.EnableK8sNetworkPolicy, "Enable support for K8s NetworkPolicy")
+	flags.MarkHidden(option.EnableK8sNetworkPolicy)
+	option.BindEnv(Vp, option.EnableK8sNetworkPolicy)
+
 	if err := Vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
@@ -1209,10 +1201,6 @@ func initEnv() {
 		}
 	}
 
-	if option.Config.PProf {
-		pprof.Enable(option.Config.PProfAddress, option.Config.PProfPort)
-	}
-
 	if option.Config.PreAllocateMaps {
 		bpf.EnableMapPreAllocation()
 	}
@@ -1297,6 +1285,7 @@ func initEnv() {
 	option.Config.Opts.SetBool(option.ConntrackAccounting, true)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
+	option.Config.Opts.SetBool(option.SourceIPVerification, true)
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(option.Config.MonitorAggregation)
 	if err != nil {
@@ -1385,9 +1374,6 @@ func initEnv() {
 		if !option.Config.EnableIPv6 {
 			log.Fatalf("SRv6 requires IPv6.")
 		}
-		if probes.HaveMapType(ebpf.LRUHash) != nil {
-			log.Fatalf("SRv6 requires support for BPF LRU maps (Linux 4.10 or later).")
-		}
 	}
 
 	if option.Config.EnableHostFirewall {
@@ -1441,11 +1427,6 @@ func initEnv() {
 	if option.Config.EnableIPv4FragmentsTracking {
 		if !option.Config.EnableIPv4 {
 			option.Config.EnableIPv4FragmentsTracking = false
-		} else {
-			if probes.HaveMapType(ebpf.LRUHash) != nil {
-				option.Config.EnableIPv4FragmentsTracking = false
-				log.Info("Disabled support for IPv4 fragments due to missing kernel support for BPF LRU maps")
-			}
 		}
 	}
 
@@ -1585,55 +1566,6 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
-func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
-	var wgAgent *wireguard.Agent
-	if option.Config.EnableWireguard {
-		if option.Config.EnableIPSec {
-			log.Fatalf("Wireguard (--%s) cannot be used with IPSec (--%s)",
-				option.EnableWireguard, option.EnableIPSecName)
-		}
-
-		var err error
-		privateKeyPath := filepath.Join(option.Config.StateDir, wireguardTypes.PrivKeyFilename)
-		wgAgent, err = wireguard.NewAgent(privateKeyPath)
-		if err != nil {
-			log.Fatalf("failed to initialize wireguard: %s", err)
-		}
-
-		lc.Append(hive.Hook{
-			OnStop: func(hive.HookContext) error {
-				wgAgent.Close()
-				return nil
-			},
-		})
-	} else {
-		// Delete wireguard device from previous run (if such exists)
-		link.DeleteByName(wireguardTypes.IfaceName)
-	}
-	return wgAgent
-}
-
-func newDatapath(lc hive.Lifecycle, wgAgent *wireguard.Agent) datapath.Datapath {
-	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice: defaults.HostDevice,
-		ProcFs:     option.Config.ProcFs,
-	}
-
-	iptablesManager := &iptables.IptablesManager{}
-
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
-			if err := enableIPForwarding(); err != nil {
-				log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
-			}
-
-			iptablesManager.Init()
-			return nil
-		}})
-
-	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent)
-}
-
 // daemonCell wraps the existing implementation of the cilium-agent that has
 // not yet been converted into a cell. Provides *Daemon as a Promise that is
 // resolved once daemon has been started to facilitate conversion into modules.
@@ -1642,22 +1574,32 @@ var daemonCell = cell.Module(
 	"Legacy Daemon",
 
 	cell.Provide(newDaemonPromise),
+	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
 type daemonParams struct {
 	cell.In
 
-	Lifecycle       hive.Lifecycle
-	Clientset       k8sClient.Clientset
-	Datapath        datapath.Datapath
-	WGAgent         *wg.Agent `optional:"true"`
-	LocalNodeStore  node.LocalNodeStore
-	BGPController   *bgpv1.Controller
-	Shutdowner      hive.Shutdowner
-	SharedResources k8s.SharedResources
-	NodeManager     nodeManager.NodeManager
-	EndpointManager endpointmanager.EndpointManager
+	Lifecycle            hive.Lifecycle
+	Clientset            k8sClient.Clientset
+	Datapath             datapath.Datapath
+	WGAgent              *wireguard.Agent `optional:"true"`
+	LocalNodeStore       node.LocalNodeStore
+	BGPController        *bgpv1.Controller
+	Shutdowner           hive.Shutdowner
+	SharedResources      k8s.SharedResources
+	CacheStatus          k8s.CacheStatus
+	NodeManager          nodeManager.NodeManager
+	EndpointManager      endpointmanager.EndpointManager
+	CertManager          certificatemanager.CertificateManager
+	SecretManager        certificatemanager.SecretManager
+	AuthManager          auth.Manager
+	IdentityAllocator    CachingIdentityAllocator
+	Policy               *policy.Repository
+	PolicyUpdater        *policy.Updater
+	IPCache              *ipcache.IPCache
+	EgressGatewayManager *egressgateway.Manager
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1686,7 +1628,18 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.Datapath,
 				params.WGAgent,
 				params.Clientset,
-				params.SharedResources)
+				params.SharedResources,
+				params.CertManager,
+				params.SecretManager,
+				params.LocalNodeStore,
+				params.AuthManager,
+				params.CacheStatus,
+				params.IPCache,
+				params.IdentityAllocator,
+				params.Policy,
+				params.PolicyUpdater,
+				params.EgressGatewayManager,
+			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}
@@ -1737,7 +1690,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
 		// (Check Daemon.InitK8sSubsystem() for more info)
-		<-d.k8sCachesSynced
+		<-params.CacheStatus
 	}
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
@@ -1773,7 +1726,9 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 			<-restoreComplete
 		}
 
-		if params.Clientset.IsEnabled() {
+		// Only attempt CEP cleanup if cilium endpoint CRD is not disabled, otherwise the cep/ces
+		// watchers/indexers will not be initialized.
+		if params.Clientset.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup && !option.Config.DisableCiliumEndpointCRD {
 			// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
 			// This will clear out any CiliumEndpoints that may be stale.
 			// Likely causes for this are Pods having their init container restarted or the node being restarted.
@@ -1865,6 +1820,12 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		}
 	}
 
+	// Process queued deletion requests
+	bootstrapStats.deleteQueue.Start()
+	unlockDeleteDir := d.processQueuedDeletes()
+	bootstrapStats.deleteQueue.End(true)
+
+	// Start up the local api socket
 	bootstrapStats.initAPI.Start()
 	srv := server.NewServer(d.instantiateAPI())
 	srv.EnabledListeners = []string{"unix"}
@@ -1874,6 +1835,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	cleaner.cleanupFuncs.Add(func() { srv.Shutdown() })
 
 	srv.ConfigureAPI()
+	unlockDeleteDir() // can't unlock this until the api socket is written
 	bootstrapStats.initAPI.End(true)
 
 	err := d.SendNotification(monitorAPI.StartMessage(time.Now()))
@@ -1984,9 +1946,6 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 		restAPI.PolicyDeletePolicyHandler = newDeletePolicyHandler(d)
 		restAPI.PolicyGetPolicySelectorsHandler = newGetPolicyCacheHandler(d)
 
-		// /policy/resolve/
-		restAPI.PolicyGetPolicyResolveHandler = NewGetPolicyResolveHandler(d)
-
 		// /lrp/
 		restAPI.ServiceGetLrpHandler = NewGetLrpHandler(d.redirectPolicyManager)
 	}
@@ -2024,6 +1983,9 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 
 	// /debuginfo
 	restAPI.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
+
+	// /cgroup-dump-metadata
+	restAPI.DaemonGetCgroupDumpMetadataHandler = NewGetCgroupDumpMetadataHandler(d)
 
 	// /map
 	restAPI.DaemonGetMapHandler = NewGetMapHandler(d)

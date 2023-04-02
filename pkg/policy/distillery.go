@@ -6,7 +6,6 @@ package policy
 import (
 	"fmt"
 	"sync/atomic"
-	"unsafe"
 
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -161,7 +160,7 @@ type cachedSelectorPolicy struct {
 	lock.Mutex // lock is needed to synchronize parallel policy updates
 
 	identity *identityPkg.Identity
-	policy   unsafe.Pointer
+	policy   atomic.Pointer[selectorPolicy]
 }
 
 func newCachedSelectorPolicy(identity *identityPkg.Identity, selectorCache *SelectorCache) *cachedSelectorPolicy {
@@ -176,13 +175,13 @@ func newCachedSelectorPolicy(identity *identityPkg.Identity, selectorCache *Sele
 //
 // Users should treat the result as immutable state that MUST NOT be modified.
 func (cip *cachedSelectorPolicy) getPolicy() *selectorPolicy {
-	return (*selectorPolicy)(atomic.LoadPointer(&cip.policy))
+	return cip.policy.Load()
 }
 
 // setPolicy updates the reference to the SelectorPolicy that is cached.
 // Calls Detach() on the old policy, if any.
 func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy) {
-	oldPolicy := (*selectorPolicy)(atomic.SwapPointer(&cip.policy, unsafe.Pointer(policy)))
+	oldPolicy := cip.policy.Swap(policy)
 	if oldPolicy != nil {
 		// Release the references the previous policy holds on the selector cache.
 		oldPolicy.Detach()

@@ -2,6 +2,10 @@
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 dst_file="${PWD}/$(basename ${dir})/network/kubernetes/compatibility-table.rst"
+# Cilium 1.12 and earlier had a different path for the compatibility table.
+if [ ! -e "$dst_file" ]; then
+   dst_file="${PWD}/$(basename ${dir})/concepts/kubernetes/compatibility-table.rst"
+fi
 
 . "${dir}/../contrib/backporting/common.sh"
 remote="$(get_remote)"

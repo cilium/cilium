@@ -135,6 +135,15 @@ spec:
                 required:
                 - nodeSelector
                 type: object
+              excludedCIDRs:
+                description: ExcludedCIDRs is a list of destination CIDRs that will
+                  be excluded from the egress gateway redirection and SNAT logic.
+                  Should be a subset of destinationCIDRs otherwise it will not have
+                  any effect.
+                items:
+                  pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
+                  type: string
+                type: array
               selectors:
                 description: Egress represents a list of rules by which egress traffic
                   is filtered from the source pods.

@@ -190,8 +190,8 @@ func (h *Hive) waitForSignalOrShutdown() error {
 	defer signal.Stop(signals)
 	signal.Notify(signals, os.Interrupt, unix.SIGINT, unix.SIGTERM)
 	select {
-	case <-signals:
-		log.Error("Interrupt received")
+	case sig := <-signals:
+		log.WithField("signal", sig).Info("Signal received")
 		return nil
 	case err := <-h.shutdown:
 		return err
@@ -238,6 +238,8 @@ func (h *Hive) Start(ctx context.Context) error {
 
 	defer close(h.fatalOnTimeout(ctx))
 
+	log.Info("Starting")
+
 	return h.lifecycle.Start(ctx)
 }
 
@@ -246,6 +248,7 @@ func (h *Hive) Start(ctx context.Context) error {
 // then after 5 more seconds the process will be terminated forcefully.
 func (h *Hive) Stop(ctx context.Context) error {
 	defer close(h.fatalOnTimeout(ctx))
+	log.Info("Stopping")
 	return h.lifecycle.Stop(ctx)
 }
 

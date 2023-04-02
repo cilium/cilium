@@ -110,7 +110,11 @@ section for the full list of available metrics and their options.
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --set hubble.metrics.enabled="{dns,drop,tcp,flow,icmp,http}"
+     --set prometheus.enabled=true \\
+     --set operator.prometheus.enabled=true \\
+     --set hubble.enabled=true \\
+     --set hubble.metrics.enableOpenMetrics=true \\
+     --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
 
 The port of the Hubble metrics can be configured with the
 ``hubble.metrics.port`` Helm value.
@@ -149,6 +153,8 @@ have it scrape all Hubble metrics from the endpoints automatically:
             regex: (.+)(?::\d+);(\d+)
             replacement: $1:$2
 
+.. _hubble_open_metrics:
+
 OpenMetrics
 -----------
 
@@ -161,8 +167,8 @@ Using OpenMetrics supports additional functionality such as Exemplars, which
 enables associating metrics with traces by embedding trace IDs into the
 exported metrics.
 
-Prometheus needs to be configured to take advantage of OpenMetrics. and will
-only use OpenMetrics format when the `exemplars storage feature is enabled
+Prometheus needs to be configured to take advantage of OpenMetrics and will
+only scrape exemplars when the `exemplars storage feature is enabled
 <https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage>`_.
 
 OpenMetrics imposes a few additional requirements on metrics names and labels,
@@ -334,7 +340,9 @@ Name                                       Labels                               
 ``policy_regeneration_time_stats_seconds`` ``scope``                                          Enabled    Policy regeneration time stats labeled by the scope
 ``policy_max_revision``                                                                       Enabled    Highest policy revision number in the agent
 ``policy_import_errors_total``                                                                Enabled    Number of times a policy import has failed
+``policy_change_total``                                                                       Enabled    Number of policy changes by outcome
 ``policy_endpoint_enforcement_status``                                                        Enabled    Number of endpoints labeled by policy enforcement status
+``policy_implementation_delay``            ``source``                                         Enabled    Time in seconds between a policy change and it being fully deployed into the datapath, labeled by the policy's source
 ========================================== ================================================== ========== ========================================================
 
 Policy L7 (HTTP/Kafka)
@@ -550,8 +558,9 @@ Option Value          Description
 ===================== ===================================================================================
 ``identity``          All Cilium security identity labels
 ``namespace``         Kubernetes namespace name
-``pod``               Kubernetes pod name
-``pod-short``         Deprecated, will be removed in Cilium 1.14 - use ``workload-name|pod`` instead. Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
+``pod``               Kubernetes pod name and namespace name in the form of ``namespace/pod``.
+``pod-short``         Deprecated, will be removed in Cilium 1.14 - use ``workload-name|pod-name`` instead. Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
+``pod-name``          Kubernetes pod name.
 ``dns``               All known DNS names of the source or destination (comma-separated)
 ``ip``                The IPv4 or IPv6 address
 ``reserved-identity`` Reserved identity label.
@@ -602,12 +611,42 @@ All labels listed are included in the metric, even if empty. For example, a metr
 ``http:labelsContext=source_namespace,source_pod`` will add the ``source_namespace`` and ``source_pod``
 labels to all Hubble HTTP metrics.
 
+.. note::
+
+    To limit metrics cardinality hubble will remove data series bound to specific pod after one minute from pod deletion.
+    Metric is considered to be bound to a specific pod when at least one of the following conditions is met:
+
+    * ``sourceContext`` is set to ``pod`` and metric series has ``source`` label matching ``<pod_namespace>/<pod_name>``
+    * ``destinationContext`` is set to ``pod`` and metric series has ``destination`` label matching ``<pod_namespace>/<pod_name>``
+    * ``labelsContext`` contains both ``source_namespace`` and ``source_pod`` and metric series labels match namespace and name of deleted pod
+    * ``labelsContext`` contains both ``destination_namespace`` and ``destination_pod`` and metric series labels match namespace and name of deleted pod
+
 .. _hubble_exported_metrics:
 
 Exported Metrics
 ^^^^^^^^^^^^^^^^
 
 Hubble metrics are exported under the ``hubble_`` Prometheus namespace.
+
+lost events
+~~~~~~~~~~~
+
+This metric, unlike other ones, is not directly tied to network flows. It's enabled if any of the other metrics is enabled.
+
+================================ ======================================== ========== ==================================================
+Name                             Labels                                   Default    Description
+================================ ======================================== ========== ==================================================
+``lost_events_total``            ``source``                               Enabled    Number of lost events
+================================ ======================================== ========== ==================================================
+
+Labels
+""""""
+
+``source`` identifies the source of lost events, one of:
+- ``perf_event_ring_buffer``
+- ``observer_events_queue``
+- ``hubble_ring_buffer``
+
 
 ``dns``
 ~~~~~~~
@@ -748,6 +787,12 @@ Labels
 
 Options
 """""""
+
+============== ============== =============================================================================================================
+Option Key     Option Value   Description
+============== ============== =============================================================================================================
+``exemplars``  ``true``       Include extracted trace IDs in HTTP metrics. Requires :ref:`OpenMetrics to be enabled<hubble_open_metrics>`.
+============== ============== =============================================================================================================
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 

@@ -11,7 +11,7 @@ import (
 	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/datapath"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -143,7 +143,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	defer mgr.Close()
 
 	do := &DummyOwner{
-		repo: policy.NewPolicyRepository(nil, nil, nil),
+		repo: policy.NewPolicyRepository(nil, nil, nil, nil),
 	}
 	identitymanager.Subscribe(do.repo)
 

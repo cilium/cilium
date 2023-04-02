@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/ip"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -59,11 +60,12 @@ type PolicyConfig struct {
 
 	endpointSelectors []api.EndpointSelector
 	dstCIDRs          []*net.IPNet
+	excludedCIDRs     []*net.IPNet
 
 	policyGwConfig *policyGatewayConfig
 
-	matchedEndpointIDs map[endpointID]struct{}
-	gatewayConfig      gatewayConfig
+	matchedEndpoints map[endpointID]*endpointMetadata
+	gatewayConfig    gatewayConfig
 }
 
 // PolicyID includes policy name and namespace
@@ -83,20 +85,13 @@ func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata
 
 // updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
 func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) {
-	config.matchedEndpointIDs = make(map[endpointID]struct{})
+	config.matchedEndpoints = make(map[endpointID]*endpointMetadata)
 
 	for _, endpoint := range epDataStore {
 		if config.matchesEndpointLabels(endpoint) {
-			config.matchedEndpointIDs[endpoint.id] = struct{}{}
+			config.matchedEndpoints[endpoint.id] = endpoint
 		}
 	}
-}
-
-// selectsEndpoint determines if the given endpoint is selected by the policy
-// config
-func (config *PolicyConfig) selectsEndpoint(endpointInfo *endpointMetadata) bool {
-	_, ok := config.matchedEndpointIDs[endpointInfo.id]
-	return ok
 }
 
 func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) bool {
@@ -177,40 +172,72 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 	return nil
 }
 
-func (config *PolicyConfig) forEachEndpointAndDestination(epDataStore map[endpointID]*endpointMetadata,
-	f func(net.IP, *net.IPNet, *gatewayConfig)) {
+// destinationMinusExcludedCIDRs will return, for a given policy, a list of all
+// destination CIDRs to which the excluded CIDRs have been subtracted.
+func (config *PolicyConfig) destinationMinusExcludedCIDRs() []*net.IPNet {
+	if len(config.excludedCIDRs) == 0 {
+		return config.dstCIDRs
+	}
 
-	for _, endpoint := range epDataStore {
-		if !config.selectsEndpoint(endpoint) {
-			continue
+	cidrs := []*net.IPNet{}
+
+	for _, dstCIDR := range config.dstCIDRs {
+		dstCIDRMinusExcludedCIDRs := []*net.IPNet{dstCIDR}
+		for _, excludedCIDR := range config.excludedCIDRs {
+			newDstCIDRMinuxExcludedCIDRs := []*net.IPNet{}
+			for _, cidr := range dstCIDRMinusExcludedCIDRs {
+				r, _, l := ip.PartitionCIDR(*cidr, *excludedCIDR)
+				newDstCIDRMinuxExcludedCIDRs = append(newDstCIDRMinuxExcludedCIDRs, append(r, l...)...)
+			}
+
+			dstCIDRMinusExcludedCIDRs = newDstCIDRMinuxExcludedCIDRs
 		}
 
+		cidrs = append(cidrs, dstCIDRMinusExcludedCIDRs...)
+	}
+
+	return cidrs
+}
+
+// forEachEndpointAndCIDR iterates through each combination of endpoints and
+// destination/excluded CIDRs of the receiver policy, and for each of them it
+// calls the f callback function passing the given endpoint and CIDR, together
+// with a boolean value indicating if the CIDR belongs to the excluded ones and
+// the gatewayConfig of the receiver policy
+func (config *PolicyConfig) forEachEndpointAndCIDR(f func(net.IP, *net.IPNet, bool, *gatewayConfig)) {
+
+	for _, endpoint := range config.matchedEndpoints {
 		for _, endpointIP := range endpoint.ips {
+			isExcludedCIDR := false
 			for _, dstCIDR := range config.dstCIDRs {
-				f(endpointIP, dstCIDR, &config.gatewayConfig)
+				f(endpointIP, dstCIDR, isExcludedCIDR, &config.gatewayConfig)
+			}
+
+			isExcludedCIDR = true
+			for _, excludedCIDR := range config.excludedCIDRs {
+				f(endpointIP, excludedCIDR, isExcludedCIDR, &config.gatewayConfig)
 			}
 		}
 	}
 }
 
-func (config *PolicyConfig) matches(epDataStore map[endpointID]*endpointMetadata,
-	f func(net.IP, *net.IPNet, *gatewayConfig) bool) bool {
+// forEachEndpointAndDestination iterates through each combination of endpoints
+// and computed destination (i.e. the effective destination CIDR space, defined
+// as the diff between the destination and the excluded CIDRs) of the receiver
+// policy, and for each of them it calls the f callback function, passing the
+// given endpoint and CIDR, together with the gatewayConfig of the receiver
+// policy
+func (config *PolicyConfig) forEachEndpointAndDestination(f func(net.IP, *net.IPNet, *gatewayConfig)) {
 
-	for _, endpoint := range epDataStore {
-		if !config.selectsEndpoint(endpoint) {
-			continue
-		}
+	cidrs := config.destinationMinusExcludedCIDRs()
 
+	for _, endpoint := range config.matchedEndpoints {
 		for _, endpointIP := range endpoint.ips {
-			for _, dstCIDR := range config.dstCIDRs {
-				if f(endpointIP, dstCIDR, &config.gatewayConfig) {
-					return true
-				}
+			for _, cidr := range cidrs {
+				f(endpointIP, cidr, &config.gatewayConfig)
 			}
 		}
 	}
-
-	return false
 }
 
 // ParseCEGP takes a CiliumEgressGatewayPolicy CR and converts to PolicyConfig,
@@ -218,6 +245,7 @@ func (config *PolicyConfig) matches(epDataStore map[endpointID]*endpointMetadata
 func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	var endpointSelectorList []api.EndpointSelector
 	var dstCidrList []*net.IPNet
+	var excludedCIDRs []*net.IPNet
 
 	allowAllNamespacesRequirement := slim_metav1.LabelSelectorRequirement{
 		Key:      k8sConst.PodNamespaceLabel,
@@ -247,6 +275,15 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 			return nil, err
 		}
 		dstCidrList = append(dstCidrList, cidr)
+	}
+
+	for _, cidrString := range cegp.Spec.ExcludedCIDRs {
+		_, cidr, err := net.ParseCIDR(string(cidrString))
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{logfields.CiliumEgressGatewayPolicyName: name}).Warn("Error parsing cidr.")
+			return nil, err
+		}
+		excludedCIDRs = append(excludedCIDRs, cidr)
 	}
 
 	for _, egressRule := range cegp.Spec.Selectors {
@@ -287,10 +324,11 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	}
 
 	return &PolicyConfig{
-		endpointSelectors:  endpointSelectorList,
-		dstCIDRs:           dstCidrList,
-		matchedEndpointIDs: make(map[endpointID]struct{}),
-		policyGwConfig:     policyGwc,
+		endpointSelectors: endpointSelectorList,
+		dstCIDRs:          dstCidrList,
+		excludedCIDRs:     excludedCIDRs,
+		matchedEndpoints:  make(map[endpointID]*endpointMetadata),
+		policyGwConfig:    policyGwc,
 		id: types.NamespacedName{
 			Name: name,
 		},

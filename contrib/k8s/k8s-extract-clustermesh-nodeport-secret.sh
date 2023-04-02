@@ -7,7 +7,7 @@ set -e
 
 NAMESPACE=$(kubectl get pod -l k8s-app=clustermesh-apiserver -o jsonpath='{.items[0].metadata.namespace}' --all-namespaces)
 NODE_NAME=$(kubectl -n $NAMESPACE get pod -l k8s-app=clustermesh-apiserver -o jsonpath='{.items[0].spec.nodeName}')
-NODE_IP=$(kubectl -n $NAMESPACE get node $NODE_NAME -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+NODE_IP=$(kubectl -n $NAMESPACE get node $NODE_NAME -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}' | awk '{print $1}')
 NODE_PORT=$(kubectl -n $NAMESPACE get svc clustermesh-apiserver -o jsonpath='{.spec.ports[0].nodePort}')
 CLUSTER_NAME=$(kubectl -n $NAMESPACE get cm cilium-config -o jsonpath='{.data.cluster-name}')
 # TODO: once v1.10 is the minimum version supported, we can replace the

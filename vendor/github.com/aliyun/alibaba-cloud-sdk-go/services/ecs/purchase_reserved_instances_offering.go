@@ -79,12 +79,14 @@ type PurchaseReservedInstancesOfferingRequest struct {
 	Scope                string                                  `position:"Query" name:"Scope"`
 	InstanceType         string                                  `position:"Query" name:"InstanceType"`
 	Tag                  *[]PurchaseReservedInstancesOfferingTag `position:"Query" name:"Tag"  type:"Repeated"`
+	AutoRenewPeriod      requests.Integer                        `position:"Query" name:"AutoRenewPeriod"`
 	Period               requests.Integer                        `position:"Query" name:"Period"`
 	ResourceOwnerAccount string                                  `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                                  `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer                        `position:"Query" name:"OwnerId"`
 	PeriodUnit           string                                  `position:"Query" name:"PeriodUnit"`
 	OfferingType         string                                  `position:"Query" name:"OfferingType"`
+	AutoRenew            requests.Boolean                        `position:"Query" name:"AutoRenew"`
 	ZoneId               string                                  `position:"Query" name:"ZoneId"`
 	ReservedInstanceName string                                  `position:"Query" name:"ReservedInstanceName"`
 	InstanceAmount       requests.Integer                        `position:"Query" name:"InstanceAmount"`

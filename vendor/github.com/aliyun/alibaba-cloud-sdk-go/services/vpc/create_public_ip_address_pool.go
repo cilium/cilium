@@ -75,6 +75,7 @@ type CreatePublicIpAddressPoolRequest struct {
 	ClientToken          string           `position:"Query" name:"ClientToken"`
 	Isp                  string           `position:"Query" name:"Isp"`
 	Description          string           `position:"Query" name:"Description"`
+	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
 	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
@@ -87,6 +88,7 @@ type CreatePublicIpAddressPoolResponse struct {
 	*responses.BaseResponse
 	PulbicIpAddressPoolId string `json:"PulbicIpAddressPoolId" xml:"PulbicIpAddressPoolId"`
 	RequestId             string `json:"RequestId" xml:"RequestId"`
+	ResourceGroupId       string `json:"ResourceGroupId" xml:"ResourceGroupId"`
 }
 
 // CreateCreatePublicIpAddressPoolRequest creates a request to invoke CreatePublicIpAddressPool API

@@ -49,7 +49,7 @@ GIT_IGNORE_FILES := $(shell find . -not -path "./vendor*" -name .gitignore -prin
 	@echo "/hack" > $@
 	@echo ".git" >> $@
 	@echo "/Makefile.docker" >> $@
-	echo $(dir $(GIT_IGNORE_FILES)) | tr ' ' '\n' | xargs -P1 -n1 -I {DIR} sed \
+	@echo $(dir $(GIT_IGNORE_FILES)) | tr ' ' '\n' | xargs -P1 -n1 -I {DIR} sed \
 		-e '# Remove lines with white space, comments and files that must be passed to docker, "$$" due to make. #' \
 			-e '/^[[:space:]]*$$/d' -e '/^#/d' -e '/GIT_VERSION/d' \
 		-e '# Apply pattern in all directories if it contains no "/", keep "!" up front. #' \
@@ -97,6 +97,7 @@ endif
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		--build-arg OPERATOR_VARIANT=$(IMAGE_NAME) \
+		--build-arg DEBUG_HOLD=$(DEBUG_HOLD) \
 		--target $(5) \
 		-t $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}$(DOCKER_IMAGE_SUFFIX):$(4) .
 ifneq ($(KIND_LOAD),)
@@ -106,7 +107,7 @@ else
     ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
 	@echo 'Define "DOCKER_FLAGS=--push" to push the build results.'
     else
-	$(CONTAINER_ENGINE) buildx imagetools inspect $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4)
+	$(CONTAINER_ENGINE) buildx imagetools inspect $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}$(DOCKER_IMAGE_SUFFIX):$(4)
 	@echo '^^^ Images pushed, multi-arch manifest should be above. ^^^'
     endif
 endif
@@ -140,6 +141,7 @@ $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-clustermesh-apiserver-image,images/cl
 # to build also 'docker-operator-image', where the stem would be empty otherwise.
 $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),release))
 $(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),release))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image-debug,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),debug))
 
 #
 # docker-*-all targets are mainly used from the CI

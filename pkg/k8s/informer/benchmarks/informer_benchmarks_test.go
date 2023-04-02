@@ -4,6 +4,7 @@
 package benchmarks
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"reflect"
@@ -15,7 +16,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
@@ -261,8 +261,8 @@ var nodeSampleJSON = `{
             },
             {
                 "names": [
-                    "k8s.gcr.io/node-problem-detector@sha256:f95cab985c26b2f46e9bd43283e0bfa88860c14e0fb0649266babe8b65e9eb2b",
-                    "k8s.gcr.io/node-problem-detector:v0.4.1"
+                    "registry.k8s.io/node-problem-detector@sha256:f95cab985c26b2f46e9bd43283e0bfa88860c14e0fb0649266babe8b65e9eb2b",
+                    "registry.k8s.io/node-problem-detector:v0.4.1"
                 ],
                 "sizeBytes": 286572743
             },
@@ -282,59 +282,59 @@ var nodeSampleJSON = `{
             },
             {
                 "names": [
-                    "k8s.gcr.io/fluentd-elasticsearch@sha256:a54e7a450c0bdd19f49f56e487427a08c50f99ea8f8846179acf7d4182ce1fc0",
-                    "k8s.gcr.io/fluentd-elasticsearch:v2.2.0"
+                    "registry.k8s.io/fluentd-elasticsearch@sha256:a54e7a450c0bdd19f49f56e487427a08c50f99ea8f8846179acf7d4182ce1fc0",
+                    "registry.k8s.io/fluentd-elasticsearch:v2.2.0"
                 ],
                 "sizeBytes": 138313727
             },
             {
                 "names": [
-                    "k8s.gcr.io/fluentd-gcp-scaler@sha256:457a13df66534b94bab627c4c2dc2df0ee5153a5d0f0afd27502bd46bd8da81d",
-                    "k8s.gcr.io/fluentd-gcp-scaler:0.5"
+                    "registry.k8s.io/fluentd-gcp-scaler@sha256:457a13df66534b94bab627c4c2dc2df0ee5153a5d0f0afd27502bd46bd8da81d",
+                    "registry.k8s.io/fluentd-gcp-scaler:0.5"
                 ],
                 "sizeBytes": 103488147
             },
             {
                 "names": [
-                    "k8s.gcr.io/kubernetes-dashboard-amd64@sha256:dc4026c1b595435ef5527ca598e1e9c4343076926d7d62b365c44831395adbd0",
-                    "k8s.gcr.io/kubernetes-dashboard-amd64:v1.8.3"
+                    "registry.k8s.io/kubernetes-dashboard-amd64@sha256:dc4026c1b595435ef5527ca598e1e9c4343076926d7d62b365c44831395adbd0",
+                    "registry.k8s.io/kubernetes-dashboard-amd64:v1.8.3"
                 ],
                 "sizeBytes": 102319441
             },
             {
                 "names": [
                     "gcr.io/google_containers/kube-proxy:v1.12.5-gke.10",
-                    "k8s.gcr.io/kube-proxy:v1.12.5-gke.10"
+                    "registry.k8s.io/kube-proxy:v1.12.5-gke.10"
                 ],
                 "sizeBytes": 101370340
             },
             {
                 "names": [
-                    "k8s.gcr.io/event-exporter@sha256:7f9cd7cb04d6959b0aa960727d04fa86759008048c785397b7b0d9dff0007516",
-                    "k8s.gcr.io/event-exporter:v0.2.3"
+                    "registry.k8s.io/event-exporter@sha256:7f9cd7cb04d6959b0aa960727d04fa86759008048c785397b7b0d9dff0007516",
+                    "registry.k8s.io/event-exporter:v0.2.3"
                 ],
                 "sizeBytes": 94171943
             },
             {
                 "names": [
                     "gcr.io/google-containers/prometheus-to-sd@sha256:6c0c742475363d537ff059136e5d5e4ab1f512ee0fd9b7ca42ea48bc309d1662",
-                    "k8s.gcr.io/prometheus-to-sd@sha256:6c0c742475363d537ff059136e5d5e4ab1f512ee0fd9b7ca42ea48bc309d1662",
+                    "registry.k8s.io/prometheus-to-sd@sha256:6c0c742475363d537ff059136e5d5e4ab1f512ee0fd9b7ca42ea48bc309d1662",
                     "gcr.io/google-containers/prometheus-to-sd:v0.3.1",
-                    "k8s.gcr.io/prometheus-to-sd:v0.3.1"
+                    "registry.k8s.io/prometheus-to-sd:v0.3.1"
                 ],
                 "sizeBytes": 88077694
             },
             {
                 "names": [
-                    "k8s.gcr.io/heapster-amd64@sha256:9fae0af136ce0cf4f88393b3670f7139ffc464692060c374d2ae748e13144521",
-                    "k8s.gcr.io/heapster-amd64:v1.6.0-beta.1"
+                    "registry.k8s.io/heapster-amd64@sha256:9fae0af136ce0cf4f88393b3670f7139ffc464692060c374d2ae748e13144521",
+                    "registry.k8s.io/heapster-amd64:v1.6.0-beta.1"
                 ],
                 "sizeBytes": 76016169
             },
             {
                 "names": [
-                    "k8s.gcr.io/ingress-gce-glbc-amd64@sha256:14f14351a03038b238232e60850a9cfa0dffbed0590321ef84216a432accc1ca",
-                    "k8s.gcr.io/ingress-gce-glbc-amd64:v1.2.3"
+                    "registry.k8s.io/ingress-gce-glbc-amd64@sha256:14f14351a03038b238232e60850a9cfa0dffbed0590321ef84216a432accc1ca",
+                    "registry.k8s.io/ingress-gce-glbc-amd64:v1.2.3"
                 ],
                 "sizeBytes": 71797285
             },
@@ -347,45 +347,45 @@ var nodeSampleJSON = `{
             },
             {
                 "names": [
-                    "k8s.gcr.io/kube-addon-manager@sha256:d53486c3a0b49ebee019932878dc44232735d5622a51dbbdcec7124199020d09",
-                    "k8s.gcr.io/kube-addon-manager:v8.7"
+                    "registry.k8s.io/kube-addon-manager@sha256:d53486c3a0b49ebee019932878dc44232735d5622a51dbbdcec7124199020d09",
+                    "registry.k8s.io/kube-addon-manager:v8.7"
                 ],
                 "sizeBytes": 63322109
             },
             {
                 "names": [
-                    "k8s.gcr.io/cpvpa-amd64@sha256:cfe7b0a11c9c8e18c87b1eb34fef9a7cbb8480a8da11fc2657f78dbf4739f869",
-                    "k8s.gcr.io/cpvpa-amd64:v0.6.0"
+                    "registry.k8s.io/cpvpa-amd64@sha256:cfe7b0a11c9c8e18c87b1eb34fef9a7cbb8480a8da11fc2657f78dbf4739f869",
+                    "registry.k8s.io/cpvpa-amd64:v0.6.0"
                 ],
                 "sizeBytes": 51785854
             },
             {
                 "names": [
-                    "k8s.gcr.io/k8s-dns-kube-dns-amd64@sha256:618a82fa66cf0c75e4753369a6999032372be7308866fc9afb381789b1e5ad52",
-                    "k8s.gcr.io/k8s-dns-kube-dns@sha256:c54a527a4ba8f1bc15e4796b09bf5d69313c7f42af9911dc437e056c0264a2fe",
-                    "k8s.gcr.io/k8s-dns-kube-dns-amd64:1.14.13",
-                    "k8s.gcr.io/k8s-dns-kube-dns:1.14.13"
+                    "registry.k8s.io/k8s-dns-kube-dns-amd64@sha256:618a82fa66cf0c75e4753369a6999032372be7308866fc9afb381789b1e5ad52",
+                    "registry.k8s.io/k8s-dns-kube-dns@sha256:c54a527a4ba8f1bc15e4796b09bf5d69313c7f42af9911dc437e056c0264a2fe",
+                    "registry.k8s.io/k8s-dns-kube-dns-amd64:1.14.13",
+                    "registry.k8s.io/k8s-dns-kube-dns:1.14.13"
                 ],
                 "sizeBytes": 51157394
             },
             {
                 "names": [
-                    "k8s.gcr.io/cluster-proportional-autoscaler-amd64@sha256:36359630278b119e7dd78f5437be1c667080108fa59ecba1b81cda3610dcf4d7",
-                    "k8s.gcr.io/cluster-proportional-autoscaler-amd64:1.2.0"
+                    "registry.k8s.io/cluster-proportional-autoscaler-amd64@sha256:36359630278b119e7dd78f5437be1c667080108fa59ecba1b81cda3610dcf4d7",
+                    "registry.k8s.io/cluster-proportional-autoscaler-amd64:1.2.0"
                 ],
                 "sizeBytes": 50258329
             },
             {
                 "names": [
-                    "k8s.gcr.io/cluster-proportional-autoscaler-amd64@sha256:003f98d9f411ddfa6ff6d539196355e03ddd69fa4ed38c7ffb8fec6f729afe2d",
-                    "k8s.gcr.io/cluster-proportional-autoscaler-amd64:1.1.2-r2"
+                    "registry.k8s.io/cluster-proportional-autoscaler-amd64@sha256:003f98d9f411ddfa6ff6d539196355e03ddd69fa4ed38c7ffb8fec6f729afe2d",
+                    "registry.k8s.io/cluster-proportional-autoscaler-amd64:1.1.2-r2"
                 ],
                 "sizeBytes": 49648481
             },
             {
                 "names": [
-                    "k8s.gcr.io/ip-masq-agent-amd64@sha256:1ffda57d87901bc01324c82ceb2145fe6a0448d3f0dd9cb65aa76a867cd62103",
-                    "k8s.gcr.io/ip-masq-agent-amd64:v2.1.1"
+                    "registry.k8s.io/ip-masq-agent-amd64@sha256:1ffda57d87901bc01324c82ceb2145fe6a0448d3f0dd9cb65aa76a867cd62103",
+                    "registry.k8s.io/ip-masq-agent-amd64:v2.1.1"
                 ],
                 "sizeBytes": 49612505
             },
@@ -413,7 +413,7 @@ var nodeSampleJSON = `{
 }
 `
 
-func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c *C) {
+func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, c *C) {
 	n := v1.Node{}
 	err := json.Unmarshal([]byte(nodeSampleJSON), &n)
 	n.ResourceVersion = "1"
@@ -468,7 +468,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 			},
 			k8s.ConvertToNode,
 		)
-		go controller.Run(wait.NeverStop)
+		go controller.Run(ctx.Done())
 	} else {
 		_, controller := cache.NewInformer(
 			lw,
@@ -504,7 +504,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 				},
 			},
 		)
-		go controller.Run(wait.NeverStop)
+		go controller.Run(ctx.Done())
 	}
 
 	wg.Add(1)
@@ -533,20 +533,20 @@ func OldCopyObjToV1Node(obj interface{}) *v1.Node {
 	return node.DeepCopy()
 }
 
-func (k *K8sIntegrationSuite) Benchmark_Informer(c *C) {
+func (k *K8sIntegrationSuite) Benchmark_Informer(ctx context.Context, c *C) {
 	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
 	if err != nil {
 		nCycles = c.N
 	}
 
-	k.benchmarkInformer(nCycles, true, c)
+	k.benchmarkInformer(ctx, nCycles, true, c)
 }
 
-func (k *K8sIntegrationSuite) Benchmark_K8sInformer(c *C) {
+func (k *K8sIntegrationSuite) Benchmark_K8sInformer(ctx context.Context, c *C) {
 	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
 	if err != nil {
 		nCycles = c.N
 	}
 
-	k.benchmarkInformer(nCycles, false, c)
+	k.benchmarkInformer(ctx, nCycles, false, c)
 }

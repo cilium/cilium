@@ -103,7 +103,6 @@ var (
 			},
 		},
 	}
-	googleRe2 = &envoy_type_matcher.RegexMatcher_GoogleRe2{GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{}}
 
 	PNPAllowGETbar = cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
@@ -112,19 +111,27 @@ var (
 					Headers: []*envoy_config_route.HeaderMatcher{
 						{
 							Name: ":method",
-							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-									EngineType: googleRe2,
-									Regex:      "GET",
-								}},
+							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+								StringMatch: &envoy_type_matcher.StringMatcher{
+									MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+										SafeRegex: &envoy_type_matcher.RegexMatcher{
+											Regex: "GET",
+										},
+									},
+								},
+							},
 						},
 						{
 							Name: ":path",
-							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-									EngineType: googleRe2,
-									Regex:      "/bar",
-								}},
+							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+								StringMatch: &envoy_type_matcher.StringMatcher{
+									MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+										SafeRegex: &envoy_type_matcher.RegexMatcher{
+											Regex: "/bar",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -139,11 +146,15 @@ var (
 					Headers: []*envoy_config_route.HeaderMatcher{
 						{
 							Name: ":method",
-							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-									EngineType: googleRe2,
-									Regex:      "GET",
-								}},
+							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+								StringMatch: &envoy_type_matcher.StringMatcher{
+									MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+										SafeRegex: &envoy_type_matcher.RegexMatcher{
+											Regex: "GET",
+										},
+									},
+								},
+							},
 						},
 					},
 					HeaderMatches: []*cilium.HeaderMatch{
@@ -1023,11 +1034,11 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 							},
 						},
 					},
-					repo: policy.NewPolicyRepository(nil, nil, nil),
+					repo: policy.NewPolicyRepository(nil, nil, nil, nil),
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				r.AddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{
@@ -1056,7 +1067,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		{
 			name: "have a rule with user labels and update it without user labels, all other rules should be deleted",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.AddList(api.Rules{
@@ -1099,7 +1110,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				r.AddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{
@@ -1128,7 +1139,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		{
 			name: "have a rule without user labels and update it with user labels, all other rules should be deleted",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				r.AddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
@@ -1170,7 +1181,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
 				r.AddList(api.Rules{
@@ -1196,7 +1207,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		{
 			name: "have a rule policy installed with multiple rules and apply an empty spec should delete all rules installed",
 			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				r.AddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
@@ -1243,7 +1254,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				}
 			},
 			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil)
+				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				r.AddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{

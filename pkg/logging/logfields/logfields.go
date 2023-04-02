@@ -60,6 +60,9 @@ const (
 	// Ingress is the identifier of an ingress object
 	Ingress = "ingress"
 
+	// IngressClass is the identifier of an ingress class object
+	IngressClass = "ingressClass"
+
 	// OldIdentity is a previously used security identity
 	OldIdentity = "oldIdentity"
 
@@ -603,6 +606,9 @@ const (
 	// CEPName is the name of the CiliumEndpoint.
 	CEPName = "ciliumEndpointName"
 
+	// CEPCount is the count of the CiliumEndpoint.
+	CEPCount = "ciliumEndpointCount"
+
 	// CEPUID is the UID of the CiliumEndpoint.
 	CEPUID = "ciliumEndpointUID"
 
@@ -668,4 +674,7 @@ const (
 
 	// ConfigAnnotation is an annotation on a node
 	ConfigAnnotation = "configAnnotation"
+
+	// User identifies a given user
+	User = "user"
 )

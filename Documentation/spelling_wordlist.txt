@@ -17,12 +17,14 @@ Brouer
 CES
 CIDR
 CIDRs
+CN
 CRD
 CRI
 Cavium
 Cheng
 Chewbacca
 Chun
+Clientset
 Cloudflare
 Codespaces
 ConnectX
@@ -126,9 +128,11 @@ SRv
 Sharma
 Shirokov
 Shortnames
+Shutdowner
 Socionext
 Solarflare
 Spectre
+Splunk
 Starovoitov
 Stormtroopers
 Suchakra
@@ -185,6 +189,10 @@ artii
 asm
 assignees
 au
+auth
+authMapMax
+authMapMin
+authMode
 authenticator
 autoDirectNodeRoutes
 autoMount
@@ -208,6 +216,7 @@ backports
 balancer
 balancers
 bandwidthManager
+baseUrl
 battlestation
 bbr
 bcc
@@ -253,6 +262,7 @@ certgen
 certmanager
 certsVolume
 cgroup
+cgroups
 chainingMode
 changelog
 cheatsheet
@@ -268,6 +278,7 @@ cleanBpfState
 cleanCiliumState
 cleanState
 cli
+clientsets
 clockProbe
 cls
 clusterDomain
@@ -345,6 +356,7 @@ dependant
 dereference
 deserialization
 destinationContext
+detections
 dev
 devel
 dialTimeout
@@ -375,6 +387,7 @@ eBPF
 eXpress
 ebpf
 ec
+effectful
 egressGateway
 egressMasqueradeInterfaces
 egressing
@@ -419,6 +432,7 @@ extern
 externalAPILimitBurstSize
 externalAPILimitQPS
 externalIPs
+externalTrafficPolicy
 externalWorkloads
 extraArgs
 extraConfig
@@ -474,6 +488,7 @@ golang
 golangci
 golangci-lint
 gops
+goroutines
 grafana
 graphviz
 grep
@@ -526,6 +541,7 @@ idleConnectionGracePeriod
 ie
 ifindex
 imagePullSecrets
+impactful
 incrementing
 indices
 ingressController
@@ -539,11 +555,12 @@ inlines
 inlining
 inodes
 insecureNodePort
-installIptablesRules
 installNoConntrackIptablesRules
 installRoutes
 instanceTagsFilter
+instantiation
 integrations
+internalTrafficPolicy
 internet
 intervalSeconds
 intra
@@ -690,13 +707,17 @@ minAvailable
 minTtl
 minikube
 misconfigures
+mitigations
 mlx
+modularity
+modularizing
 monitorAggregation
 monitorFlags
 monitorInterval
 mountCgroup
 mountPath
 mov
+mtls
 mul
 multi
 multicore
@@ -808,6 +829,7 @@ prepend
 prepended
 prepulls
 prerequirement
+prestop
 printf
 priori
 priorityClassName
@@ -836,6 +858,7 @@ rbac
 rc
 rcW
 reStructuredText
+reachability
 readCniConf
 readinessProbe
 readthedocs
@@ -875,9 +898,11 @@ routable
 rst
 rsync
 runPath
+runnable
 runtime
 runtimes
 sEventHandover
+sNetworkPolicy
 sNode
 sNodes
 sService
@@ -909,6 +934,7 @@ serviceMonitor
 servicePort
 sessionAffinity
 setNodeNetworkStatus
+setNodeTaints
 setrlimit
 setupinterface
 setupiptables
@@ -932,6 +958,9 @@ sockops
 sortBufferDrainTimeout
 sortBufferLenMax
 sourceContext
+spiffe
+spiffeTrustDomain
+spireAdminSocketPath
 src
 srv
 ssl
@@ -1018,7 +1047,9 @@ udp
 ui
 uid
 uint
+unaudited
 unencrypted
+unexported
 unicast
 uninline
 uninstall
@@ -1058,6 +1089,7 @@ virtIO
 virtio
 virtualbox
 virtualization
+virtualized
 vlan
 vlanBypass
 vmlinux

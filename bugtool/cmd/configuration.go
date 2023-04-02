@@ -256,7 +256,8 @@ func tcInterfaceCommands() ([]string, error) {
 	commands := []string{}
 	for _, iface := range ifaces {
 		commands = append(commands,
-			fmt.Sprintf("tc filter show dev %s", iface.Name),
+			fmt.Sprintf("tc filter show dev %s ingress", iface.Name),
+			fmt.Sprintf("tc filter show dev %s egress", iface.Name),
 			fmt.Sprintf("tc chain show dev %s", iface.Name),
 			fmt.Sprintf("tc class show dev %s", iface.Name))
 	}
@@ -272,6 +273,7 @@ func catCommands() []string {
 		"/var/log/docker.log",
 		"/var/log/daemon.log",
 		"/var/log/messages",
+		"/var/run/cilium/cilium-cni.log",
 	}
 	// Only print the files that do exist to reduce number of errors in
 	// archive
@@ -406,6 +408,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium node list",
 		"cilium node list -o json",
 		"cilium lrp list",
+		"cilium cgroups list -o json",
 	}
 	var commands []string
 

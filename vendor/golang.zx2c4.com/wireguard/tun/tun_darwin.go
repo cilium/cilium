@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package tun
@@ -8,6 +8,7 @@ package tun
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"time"
 	"unsafe"
 
-	"golang.org/x/net/ipv6"
 	"golang.org/x/sys/unix"
 )
 
@@ -33,7 +33,7 @@ type NativeTun struct {
 func retryInterfaceByIndex(index int) (iface *net.Interface, err error) {
 	for i := 0; i < 20; i++ {
 		iface, err = net.InterfaceByIndex(index)
-		if err != nil && errors.Is(err, syscall.ENOMEM) {
+		if err != nil && errors.Is(err, unix.ENOMEM) {
 			time.Sleep(time.Duration(i) * time.Second / 3)
 			continue
 		}
@@ -55,7 +55,7 @@ func (tun *NativeTun) routineRouteListener(tunIfindex int) {
 	retry:
 		n, err := unix.Read(tun.routeSocket, data)
 		if err != nil {
-			if errno, ok := err.(syscall.Errno); ok && errno == syscall.EINTR {
+			if errno, ok := err.(unix.Errno); ok && errno == unix.EINTR {
 				goto retry
 			}
 			tun.errors <- err
@@ -107,7 +107,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 		}
 	}
 
-	fd, err := unix.Socket(unix.AF_SYSTEM, unix.SOCK_DGRAM, 2)
+	fd, err := socketCloexec(unix.AF_SYSTEM, unix.SOCK_DGRAM, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	if err == nil && name == "utun" {
 		fname := os.Getenv("WG_TUN_NAME_FILE")
 		if fname != "" {
-			os.WriteFile(fname, []byte(tun.(*NativeTun).name+"\n"), 0400)
+			os.WriteFile(fname, []byte(tun.(*NativeTun).name+"\n"), 0o400)
 		}
 	}
 
@@ -173,7 +173,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 		return nil, err
 	}
 
-	tun.routeSocket, err = unix.Socket(unix.AF_ROUTE, unix.SOCK_RAW, unix.AF_UNSPEC)
+	tun.routeSocket, err = socketCloexec(unix.AF_ROUTE, unix.SOCK_RAW, unix.AF_UNSPEC)
 	if err != nil {
 		tun.tunFile.Close()
 		return nil, err
@@ -213,50 +213,50 @@ func (tun *NativeTun) File() *os.File {
 	return tun.tunFile
 }
 
-func (tun *NativeTun) Events() chan Event {
+func (tun *NativeTun) Events() <-chan Event {
 	return tun.events
 }
 
-func (tun *NativeTun) Read(buff []byte, offset int) (int, error) {
+func (tun *NativeTun) Read(bufs [][]byte, sizes []int, offset int) (int, error) {
+	// TODO: the BSDs look very similar in Read() and Write(). They should be
+	// collapsed, with platform-specific files containing the varying parts of
+	// their implementations.
 	select {
 	case err := <-tun.errors:
 		return 0, err
 	default:
-		buff := buff[offset-4:]
-		n, err := tun.tunFile.Read(buff[:])
+		buf := bufs[0][offset-4:]
+		n, err := tun.tunFile.Read(buf[:])
 		if n < 4 {
 			return 0, err
 		}
-		return n - 4, err
+		sizes[0] = n - 4
+		return 1, err
 	}
 }
 
-func (tun *NativeTun) Write(buff []byte, offset int) (int, error) {
-
-	// reserve space for header
-
-	buff = buff[offset-4:]
-
-	// add packet information header
-
-	buff[0] = 0x00
-	buff[1] = 0x00
-	buff[2] = 0x00
-
-	if buff[4]>>4 == ipv6.Version {
-		buff[3] = unix.AF_INET6
-	} else {
-		buff[3] = unix.AF_INET
+func (tun *NativeTun) Write(bufs [][]byte, offset int) (int, error) {
+	if offset < 4 {
+		return 0, io.ErrShortBuffer
 	}
-
-	// write
-
-	return tun.tunFile.Write(buff)
-}
-
-func (tun *NativeTun) Flush() error {
-	// TODO: can flushing be implemented by buffering and using sendmmsg?
-	return nil
+	for i, buf := range bufs {
+		buf = buf[offset-4:]
+		buf[0] = 0x00
+		buf[1] = 0x00
+		buf[2] = 0x00
+		switch buf[4] >> 4 {
+		case 4:
+			buf[3] = unix.AF_INET
+		case 6:
+			buf[3] = unix.AF_INET6
+		default:
+			return i, unix.EAFNOSUPPORT
+		}
+		if _, err := tun.tunFile.Write(buf); err != nil {
+			return i, err
+		}
+	}
+	return len(bufs), nil
 }
 
 func (tun *NativeTun) Close() error {
@@ -277,12 +277,11 @@ func (tun *NativeTun) Close() error {
 }
 
 func (tun *NativeTun) setMTU(n int) error {
-	fd, err := unix.Socket(
+	fd, err := socketCloexec(
 		unix.AF_INET,
 		unix.SOCK_DGRAM,
 		0,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -301,12 +300,11 @@ func (tun *NativeTun) setMTU(n int) error {
 }
 
 func (tun *NativeTun) MTU() (int, error) {
-	fd, err := unix.Socket(
+	fd, err := socketCloexec(
 		unix.AF_INET,
 		unix.SOCK_DGRAM,
 		0,
 	)
-
 	if err != nil {
 		return 0, err
 	}
@@ -319,4 +317,20 @@ func (tun *NativeTun) MTU() (int, error) {
 	}
 
 	return int(ifr.MTU), nil
+}
+
+func (tun *NativeTun) BatchSize() int {
+	return 1
+}
+
+func socketCloexec(family, sotype, proto int) (fd int, err error) {
+	// See go/src/net/sys_cloexec.go for background.
+	syscall.ForkLock.RLock()
+	defer syscall.ForkLock.RUnlock()
+
+	fd, err = unix.Socket(family, sotype, proto)
+	if err == nil {
+		unix.CloseOnExec(fd)
+	}
+	return
 }

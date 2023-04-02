@@ -4,8 +4,6 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _gs_cassandra:
-
 *****************************
 Securing a Cassandra Database
 *****************************

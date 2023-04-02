@@ -2,7 +2,7 @@
 
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package ipc
@@ -33,7 +33,7 @@ func sockPath(iface string) string {
 }
 
 func UAPIOpen(name string) (*os.File, error) {
-	if err := os.MkdirAll(socketDirectory, 0755); err != nil {
+	if err := os.MkdirAll(socketDirectory, 0o755); err != nil {
 		return nil, err
 	}
 
@@ -43,7 +43,7 @@ func UAPIOpen(name string) (*os.File, error) {
 		return nil, err
 	}
 
-	oldUmask := unix.Umask(0077)
+	oldUmask := unix.Umask(0o077)
 	defer unix.Umask(oldUmask)
 
 	listener, err := net.ListenUnix("unix", addr)

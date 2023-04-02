@@ -18,7 +18,7 @@ import (
 
 var (
 	ciliumBasePath  = flag.String("cilium-base-path", "", "Cilium checkout base path")
-	ciKernelVersion = flag.String("ci-kernel-version", "", "CI kernel version to assume for verifier tests (supported values: 419, 54, netnext)")
+	ciKernelVersion = flag.String("ci-kernel-version", "", "CI kernel version to assume for verifier tests (supported values: 419, 54, 510, netnext)")
 )
 
 func getCIKernelVersion(t *testing.T) string {
@@ -39,6 +39,8 @@ func getCIKernelVersion(t *testing.T) string {
 		ciKernel = "419"
 	case strings.HasPrefix(release, "5.4"):
 		ciKernel = "54"
+	case strings.HasPrefix(release, "5.10"):
+		ciKernel = "510"
 	case strings.HasPrefix(release, "bpf-next"):
 		ciKernel = "netnext"
 	default:
@@ -117,21 +119,19 @@ func TestVerifier(t *testing.T) {
 				t.Logf("Cleaning %s build files", bpfProgram.name)
 				cmd := exec.Command("make", "-C", "bpf/", "clean")
 				cmd.Dir = *ciliumBasePath
-				if err := cmd.Run(); err != nil {
-					t.Fatalf("Failed to clean bpf objects: %v", err)
+				if out, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("Failed to clean bpf objects: %v\ncommand output: %s", err, out)
 				}
 
 				t.Logf("Building %s object file", bpfProgram.name)
-				cmd = exec.Command("make", "-C", "bpf",
-					fmt.Sprintf("%s.o", bpfProgram.name),
-					fmt.Sprintf("KERNEL=%s %s=%q",
-						kernelVersion,
-						bpfProgram.macroName,
-						datapathConfig),
-				)
+				cmd = exec.Command("make", "-C", "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
 				cmd.Dir = *ciliumBasePath
-				if err := cmd.Run(); err != nil {
-					t.Fatalf("Failed to compile %s bpf objects: %v", bpfProgram.name, err)
+				cmd.Env = append(cmd.Env,
+					fmt.Sprintf("%s=%s", bpfProgram.macroName, datapathConfig),
+					fmt.Sprintf("KERNEL=%s", kernelVersion),
+				)
+				if out, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("Failed to compile %s bpf objects: %v\ncommand output: %s", bpfProgram.name, err, out)
 				}
 
 				t.Logf("Running the verifier test script with %s", bpfProgram.name)

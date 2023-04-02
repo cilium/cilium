@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 45
     steps:
     - name: Checkout master branch to access local actions
-      uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       with:
         ref: ${{ github.event.repository.default_branch }}
         persist-credentials: false
@@ -43,7 +43,7 @@ jobs:
         echo sha=${SHA} >> $GITHUB_OUTPUT
 
     - name: Checkout
-      uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       with:
         ref: ${{ steps.vars.outputs.sha }}
         persist-credentials: false
@@ -51,7 +51,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
       with:
-        go-version: 1.19.4
+        go-version: 1.20.1
 
     - name: Prepare environment
       timeout-minutes: 15

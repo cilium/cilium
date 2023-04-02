@@ -84,7 +84,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -106,29 +106,12 @@ jobs:
               - 'bpf/**'
               - 'test/verifier/**'
 
-  setup-and-test:
-    runs-on: ubuntu-latest-4cores-16gb
+  setup-report:
+    runs-on: ubuntu-latest
     needs: check_changes
-    name: Setup & Test
-    if: |
-      (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-verifier' ||
-        (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
-      )) ||
-      github.event_name == 'schedule' ||
-      github.event_name == 'pull_request'
-    strategy:
-      fail-fast: false
-      matrix:
-        # TODO: add '4.19-main' once verifier issues are resolved on that version.
-        include:
-          - kernel: '5.4-main'
-            ci-kernel: '54'
-          - kernel: '5.15-main'
-            ci-kernel: '54'
-          - kernel: 'bpf-next-main'
-            ci-kernel: 'netnext'
-    timeout-minutes: 60
+    name: Set commit status
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
     steps:
       - name: Set up job variables
         id: vars
@@ -154,10 +137,53 @@ jobs:
           state: pending
           target_url: ${{ env.check_url }}
 
+  skip-test-run:
+    # If the modified files are not relevant for this test then we can skip
+    # this test and mark it as successful.
+    if: github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'false'
+    runs-on: ubuntu-latest
+    needs: setup-report
+    steps:
+    - name: Set commit status to success
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ needs.setup-report.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Datapath BPF Complexity tests skipped
+        state: success
+        target_url: ${{ env.check_url }}
+
+  setup-and-test:
+    runs-on: ubuntu-latest-4cores-16gb
+    needs: setup-report
+    name: Setup & Test
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-verifier' ||
+        (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO: add '4.19-main' once verifier issues are resolved on that version.
+        include:
+          - kernel: '5.4-main'
+            ci-kernel: '54'
+          - kernel: '5.10-main'
+            ci-kernel: '510'
+          - kernel: '5.15-main'
+            ci-kernel: '510'
+          - kernel: 'bpf-next-main'
+            ci-kernel: 'netnext'
+    timeout-minutes: 60
+    steps:
       - name: Checkout pull request
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ needs.setup-report.outputs.sha }}
           persist-credentials: false
 
       - name: Provision LVH VMs
@@ -171,6 +197,7 @@ jobs:
           install-dependencies: 'true'
           cmd: |
             git config --global --add safe.directory /host
+            uname -a
 
       - name: Run verifier tests
         uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
@@ -205,34 +232,46 @@ jobs:
           path: datapath-verifier
           retention-days: 5
 
-      - name: Set commit status to success
-        if: ${{ success() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-success:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to success
+    if: ${{ success() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
           description: Datapath BPF Complexity tests successful
           state: success
           target_url: ${{ env.check_url }}
 
-      - name: Set commit status to failure
-        if: ${{ failure() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-failure:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to failure
+    if: ${{ failure() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
           description: Datapath BPF Complexity tests failed
           state: failure
           target_url: ${{ env.check_url }}
 
-      - name: Set commit status to cancelled
-        if: ${{ cancelled() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-cancelled:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to cancelled
+    if: ${{ cancelled() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
           description: Datapath BPF Complexity tests cancelled
           state: error

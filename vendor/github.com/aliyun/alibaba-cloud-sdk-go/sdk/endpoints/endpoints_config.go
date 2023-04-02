@@ -3777,6 +3777,10 @@ const endpointsJson = `{
 					"endpoint": "mongodb.ap-southeast-3.aliyuncs.com"
 				},
 				{
+					"region": "ap-southeast-7",
+					"endpoint": "mongodb.ap-southeast-7.aliyuncs.com"
+				},
+				{
 					"region": "ap-southeast-5",
 					"endpoint": "mongodb.ap-southeast-5.aliyuncs.com"
 				},

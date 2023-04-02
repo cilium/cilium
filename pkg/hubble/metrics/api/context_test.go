@@ -115,6 +115,14 @@ func TestParseGetLabelValues(t *testing.T) {
 	assert.Nil(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-bar-123-123"}}), []string{"foo/bar-bar"})
 
+	opts, err = ParseContextOptions(Options{"sourceContext": "pod-name"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}}), []string{"foo-123"})
+
+	opts, err = ParseContextOptions(Options{"destinationContext": "pod-name"})
+	assert.Nil(t, err)
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-123"}}), []string{"bar-123"})
+
 	opts, err = ParseContextOptions(Options{"sourceContext": "dns"})
 	assert.Nil(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{SourceNames: []string{"foo", "bar"}}), []string{"foo,bar"})

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"unsafe"
 
 	"github.com/sirupsen/logrus"
 
@@ -147,7 +146,7 @@ type identitySelector interface {
 	// fetchIdentityMappings returns all of the identities currently
 	// reference-counted by this selector. It is used during cleanup of the
 	// selector.
-	fetchIdentityMappings(cache.IdentityAllocator) []identity.NumericIdentity
+	fetchIdentityMappings() []identity.NumericIdentity
 
 	// This may be called while the NameManager lock is held. wg.Wait()
 	// returns after user notifications have been completed, which may require
@@ -222,6 +221,9 @@ type SelectorCache struct {
 	userMutex lock.Mutex
 	// userNotes holds a FIFO list of user notifications to be made
 	userNotes []userNotification
+
+	// used to lazily start the handler for user notifications.
+	startNotificationsHandlerOnce sync.Once
 }
 
 // GetModel returns the API model of the SelectorCache.
@@ -268,6 +270,9 @@ func (sc *SelectorCache) handleUserNotifications() {
 }
 
 func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selector CachedSelector, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup) {
+	sc.startNotificationsHandlerOnce.Do(func() {
+		go sc.handleUserNotifications()
+	})
 	wg.Add(1)
 	sc.userMutex.Lock()
 	sc.userNotes = append(sc.userNotes, userNotification{
@@ -289,8 +294,6 @@ func NewSelectorCache(allocator cache.IdentityAllocator, ids cache.IdentityCache
 		selectors:   make(map[string]identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
-	go sc.handleUserNotifications()
-
 	return sc
 }
 
@@ -314,7 +317,7 @@ var (
 
 type selectorManager struct {
 	key              string
-	selections       unsafe.Pointer // *[]identity.NumericIdentity
+	selections       atomic.Pointer[[]identity.NumericIdentity]
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
 }
@@ -337,7 +340,7 @@ func (s *selectorManager) Equal(b *selectorManager) bool {
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
 func (s *selectorManager) GetSelections() []identity.NumericIdentity {
-	return *(*[]identity.NumericIdentity)(atomic.LoadPointer(&s.selections))
+	return *s.selections.Load()
 }
 
 // Selects return 'true' if the CachedSelector selects the given
@@ -423,9 +426,9 @@ func (s *selectorManager) updateSelections() {
 
 func (s *selectorManager) setSelections(selections *[]identity.NumericIdentity) {
 	if len(*selections) > 0 {
-		atomic.StorePointer(&s.selections, unsafe.Pointer(selections))
+		s.selections.Store(selections)
 	} else {
-		atomic.StorePointer(&s.selections, unsafe.Pointer(&emptySelection))
+		s.selections.Store(&emptySelection)
 	}
 }
 
@@ -533,7 +536,7 @@ func (f *fqdnSelector) transferIdentityReferencesToSelector(currentlyAllocatedId
 // holds references for. This should be used during cleanup of the selector
 // to ensure that all remaining references to local identities are released,
 // in order to prevent leaking of identities.
-func (f *fqdnSelector) fetchIdentityMappings(idAllocator cache.IdentityAllocator) []identity.NumericIdentity {
+func (f *fqdnSelector) fetchIdentityMappings() []identity.NumericIdentity {
 	ids := make([]identity.NumericIdentity, 0, len(f.cachedSelections))
 	for id := range f.cachedSelections {
 		ids = append(ids, id)
@@ -637,7 +640,7 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 	return l.matchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
 }
 
-func (l *labelIdentitySelector) fetchIdentityMappings(idAllocator cache.IdentityAllocator) []identity.NumericIdentity {
+func (l *labelIdentitySelector) fetchIdentityMappings() []identity.NumericIdentity {
 	// labelIdentitySelectors don't retain identity references, so no-op.
 	return nil
 }
@@ -928,7 +931,7 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	if exists {
 		if sel.removeUser(user, sc.localIdentityNotifier) {
 			delete(sc.selectors, key)
-			identitiesToRelease = sel.fetchIdentityMappings(sc.idAllocator)
+			identitiesToRelease = sel.fetchIdentityMappings()
 		}
 	}
 	return identitiesToRelease
@@ -1088,4 +1091,12 @@ func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelect
 	}
 	sc.mutex.Unlock()
 	sc.releaseIdentityMappings(identitiesToRelease)
+}
+
+func (sc *SelectorCache) GetLabels(id identity.NumericIdentity) labels.LabelArray {
+	ident, ok := sc.idCache[id]
+	if !ok {
+		return labels.LabelArray{}
+	}
+	return ident.lbls
 }

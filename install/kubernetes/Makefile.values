@@ -4,20 +4,26 @@
 DIGESTS_PATH:=Makefile.digests
 include $(DIGESTS_PATH)
 export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"; else echo "true"; fi)
+export RELEASE_REGISTRY ?= quay.io
+export RELEASE_ORG ?= cilium
+export CI_REGISTRY ?= quay.io
+export CI_ORG ?= cilium
 
 ifeq ($(RELEASE),yes)
     export PULL_POLICY:=IfNotPresent
-    export CILIUM_REPO:=quay.io/cilium/cilium
-    export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver
-    export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay
+    export CILIUM_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/cilium
+    export CILIUM_OPERATOR_BASE_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/operator
+    export CLUSTERMESH_APISERVER_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/clustermesh-apiserver
+    export HUBBLE_RELAY_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/hubble-relay
 else
     export CILIUM_BRANCH:=master
     export PULL_POLICY:=Always
-    export CILIUM_REPO:=quay.io/cilium/cilium-ci
+    export CILIUM_REPO:=${CI_REGISTRY}/${CI_ORG}/cilium-ci
+    export CILIUM_OPERATOR_BASE_REPO:=${CI_REGISTRY}/${CI_ORG}/operator
     export CILIUM_OPERATOR_SUFFIX=-ci
     export CILIUM_VERSION:=latest
-    export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver-ci
-    export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay-ci
+    export CLUSTERMESH_APISERVER_REPO:=${CI_REGISTRY}/${CI_ORG}/clustermesh-apiserver-ci
+    export HUBBLE_RELAY_REPO:=${CI_REGISTRY}/${CI_ORG}/hubble-relay-ci
 endif
 
 ifndef CILIUM_BRANCH
@@ -33,15 +39,14 @@ export CILIUM_ETCD_OPERATOR_VERSION:=v2.0.7
 export CILIUM_ETCD_OPERATOR_DIGEST:=sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc
 export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
 export CILIUM_NODEINIT_VERSION:=d69851597ea019af980891a4628fb36b7880ec26
-export CILIUM_OPERATOR_BASE_REPO:=quay.io/cilium/operator
 
 export ETCD_REPO:=quay.io/coreos/etcd
-export ETCD_VERSION:=v3.5.7
-export ETCD_DIGEST:=sha256:7238b08a6bad494e84ed1c632a62d39bdeed1f929950a05c1a32b6d4490a0047
+export ETCD_VERSION:=v3.5.4
+export ETCD_DIGEST:=sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3
 
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
-export HUBBLE_UI_BACKEND_VERSION:=v0.10.0
-export HUBBLE_UI_BACKEND_DIGEST:=sha256:cc5e2730b3be6f117b22176e25875f2308834ced7c3aa34fb598aa87a2c0a6a4
+export HUBBLE_UI_BACKEND_VERSION:=v0.11.0
+export HUBBLE_UI_BACKEND_DIGEST:=sha256:14c04d11f78da5c363f88592abae8d2ecee3cbe009f443ef11df6ac5f692d839
 export HUBBLE_UI_FRONTEND_REPO:=quay.io/cilium/hubble-ui
-export HUBBLE_UI_FRONTEND_VERSION:=v0.10.0
-export HUBBLE_UI_FRONTEND_DIGEST:=sha256:118ad2fcfd07fabcae4dde35ec88d33564c9ca7abe520aa45b1eb13ba36c6e0a
+export HUBBLE_UI_FRONTEND_VERSION:=v0.11.0
+export HUBBLE_UI_FRONTEND_DIGEST:=sha256:bcb369c47cada2d4257d63d3749f7f87c91dde32e010b223597306de95d1ecc8

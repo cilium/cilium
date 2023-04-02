@@ -283,17 +283,6 @@ options:
   key in its corresponding ``CiliumNode`` CRD when a worker node's public key
   changes, given that the worker node will be unable to do so itself.
 
-
-Limitations
-===========
-
-WireGuard support in Cilium currently lacks the following features,
-which may be resolved in upcoming Cilium releases:
-
- - eBPF-based host routing
-
-The current status of these limitations is tracked in :gh-issue:`15462`.
-
 Legal
 =====
 

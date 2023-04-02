@@ -13,7 +13,7 @@ metadata:
   labels:
     gateway-conformance: infra
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: same-namespace
@@ -28,7 +28,7 @@ spec:
       namespaces:
         from: Same
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: all-namespaces
@@ -43,7 +43,7 @@ spec:
       namespaces:
         from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: backend-namespaces
@@ -93,7 +93,8 @@ spec:
     spec:
       containers:
       - name: infra-backend-v1
-        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        # From https://github.com/kubernetes-sigs/ingress-controller-conformance/tree/master/images/echoserver
+        image: gcr.io/k8s-staging-ingressconformance/echoserver:v20221109-7ee2f3e
         env:
         - name: POD_NAME
           valueFrom:
@@ -139,7 +140,7 @@ spec:
     spec:
       containers:
       - name: infra-backend-v2
-        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        image: gcr.io/k8s-staging-ingressconformance/echoserver:v20221109-7ee2f3e
         env:
         - name: POD_NAME
           valueFrom:
@@ -185,7 +186,7 @@ spec:
     spec:
       containers:
       - name: infra-backend-v3
-        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        image: gcr.io/k8s-staging-ingressconformance/echoserver:v20221109-7ee2f3e
         env:
         - name: POD_NAME
           valueFrom:
@@ -238,7 +239,7 @@ spec:
     spec:
       containers:
       - name: app-backend-v1
-        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        image: gcr.io/k8s-staging-ingressconformance/echoserver:v20221109-7ee2f3e
         env:
         - name: POD_NAME
           valueFrom:
@@ -284,7 +285,7 @@ spec:
     spec:
       containers:
       - name: app-backend-v2
-        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        image: gcr.io/k8s-staging-ingressconformance/echoserver:v20221109-7ee2f3e
         env:
         - name: POD_NAME
           valueFrom:
@@ -337,7 +338,7 @@ spec:
     spec:
       containers:
       - name: web-backend
-        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        image: gcr.io/k8s-staging-ingressconformance/echoserver:v20221109-7ee2f3e
         env:
         - name: POD_NAME
           valueFrom:

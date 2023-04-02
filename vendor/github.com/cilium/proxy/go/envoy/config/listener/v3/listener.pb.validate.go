@@ -39,6 +39,165 @@ var (
 	_ = v3.TrafficDirection(0)
 )
 
+// Validate checks the field values on AdditionalAddress with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *AdditionalAddress) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AdditionalAddress with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// AdditionalAddressMultiError, or nil if none found.
+func (m *AdditionalAddress) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AdditionalAddress) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AdditionalAddressValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AdditionalAddressValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AdditionalAddressValidationError{
+				field:  "Address",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetSocketOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AdditionalAddressValidationError{
+					field:  "SocketOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AdditionalAddressValidationError{
+					field:  "SocketOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSocketOptions()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AdditionalAddressValidationError{
+				field:  "SocketOptions",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return AdditionalAddressMultiError(errors)
+	}
+	return nil
+}
+
+// AdditionalAddressMultiError is an error wrapping multiple validation errors
+// returned by AdditionalAddress.ValidateAll() if the designated constraints
+// aren't met.
+type AdditionalAddressMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AdditionalAddressMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AdditionalAddressMultiError) AllErrors() []error { return m }
+
+// AdditionalAddressValidationError is the validation error returned by
+// AdditionalAddress.Validate if the designated constraints aren't met.
+type AdditionalAddressValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e AdditionalAddressValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e AdditionalAddressValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e AdditionalAddressValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e AdditionalAddressValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e AdditionalAddressValidationError) ErrorName() string {
+	return "AdditionalAddressValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e AdditionalAddressValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAdditionalAddress.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = AdditionalAddressValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = AdditionalAddressValidationError{}
+
 // Validate checks the field values on ListenerCollection with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
@@ -198,17 +357,6 @@ func (m *Listener) validate(all bool) error {
 
 	// no validation rules for Name
 
-	if m.GetAddress() == nil {
-		err := ListenerValidationError{
-			field:  "Address",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if all {
 		switch v := interface{}(m.GetAddress()).(type) {
 		case interface{ ValidateAll() error }:
@@ -236,6 +384,40 @@ func (m *Listener) validate(all bool) error {
 				cause:  err,
 			}
 		}
+	}
+
+	for idx, item := range m.GetAdditionalAddresses() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerValidationError{
+						field:  fmt.Sprintf("AdditionalAddresses[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerValidationError{
+						field:  fmt.Sprintf("AdditionalAddresses[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListenerValidationError{
+					field:  fmt.Sprintf("AdditionalAddresses[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	}
 
 	// no validation rules for StatPrefix
@@ -1143,6 +1325,37 @@ func (m *Listener_ConnectionBalanceConfig) validate(all bool) error {
 			if err := v.Validate(); err != nil {
 				return Listener_ConnectionBalanceConfigValidationError{
 					field:  "ExactBalance",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *Listener_ConnectionBalanceConfig_ExtendBalance:
+
+		if all {
+			switch v := interface{}(m.GetExtendBalance()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, Listener_ConnectionBalanceConfigValidationError{
+						field:  "ExtendBalance",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, Listener_ConnectionBalanceConfigValidationError{
+						field:  "ExtendBalance",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetExtendBalance()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return Listener_ConnectionBalanceConfigValidationError{
+					field:  "ExtendBalance",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}

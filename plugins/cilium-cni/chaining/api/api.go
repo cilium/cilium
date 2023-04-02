@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/plugins/cilium-cni/lib"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -33,14 +34,14 @@ type PluginContext struct {
 	Args    *skel.CmdArgs
 	CniArgs types.ArgsSpec
 	NetConf *types.NetConf
-	Client  *client.Client
+	//Client  *client.Client
 }
 
 // ChainingPlugin is the interface each chaining plugin must implement
 type ChainingPlugin interface {
 	// Add is called on CNI ADD. It is given the plugin context from the
 	// previous plugin. It must return a CNI result or an error.
-	Add(ctx context.Context, pluginContext PluginContext) (res *cniTypesVer.Result, err error)
+	Add(ctx context.Context, pluginContext PluginContext, client *client.Client) (res *cniTypesVer.Result, err error)
 
 	// ImplementsAdd returns true if the chaining plugin implements its own
 	// add logic
@@ -48,7 +49,7 @@ type ChainingPlugin interface {
 
 	// Delete is called on CNI DELETE. It is given the plugin context from
 	// the previous plugin.
-	Delete(ctx context.Context, pluginContext PluginContext) (err error)
+	Delete(ctx context.Context, pluginContext PluginContext, delClient *lib.DeletionFallbackClient) (err error)
 
 	// ImplementsDelete returns true if the chaining plugin implements its
 	// own delete logic
@@ -56,7 +57,7 @@ type ChainingPlugin interface {
 
 	// Check is called on CNI CHECK. The plugin should verify (to the best of its
 	// ability) that everything is reasonably configured, else return error.
-	Check(ctx context.Context, pluginContext PluginContext) error
+	Check(ctx context.Context, pluginContext PluginContext, client *client.Client) error
 }
 
 // Register is called by chaining plugins to register themselves. After
