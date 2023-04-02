@@ -255,6 +255,89 @@ func toBothListenersXDSResource(serverNames []string, certName string) *anypb.An
 
 // Ingress Conformance test resources
 
+// Conformance/DefaultBackend test
+var defaultBackendListeners = []model.HTTPListener{
+	{
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "load-balancing",
+				Namespace: "random-namespace",
+				Version:   "networking.k8s.io/v1",
+				Kind:      "Ingress",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "default-backend",
+						Namespace: "random-namespace",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var defaultBackendListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-ingress-random-namespace-load-balancing",
+		Namespace: "random-namespace",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "networking.k8s.io/v1",
+				Kind:       "Ingress",
+				Name:       "load-balancing",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-ingress-load-balancing",
+				Namespace: "random-namespace",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "default-backend",
+				Namespace: "random-namespace",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: toHTTPListenerXDSResource()},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: toRouteAction("random-namespace", "default-backend", "8080"),
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: toAny(toEnvoyCluster("random-namespace", "default-backend", "8080"))},
+		},
+	},
+}
+
 // Conformance/HostRules test
 var hostRulesListeners = []model.HTTPListener{
 	{
