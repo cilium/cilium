@@ -198,9 +198,6 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
-			ct_state->proxy_redirect = entry->proxy_redirect;
-			ct_state->from_l7lb = entry->from_l7lb;
-			ct_state->auth_required = entry->auth_required;
 			if (dir == CT_SERVICE) {
 				ct_state->backend_id = entry->backend_id;
 				ct_state->syn = syn;
@@ -208,6 +205,9 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 				ct_state->loopback = entry->lb_loopback;
 				ct_state->node_port = entry->node_port;
 				ct_state->dsr = entry->dsr;
+				ct_state->proxy_redirect = entry->proxy_redirect;
+				ct_state->from_l7lb = entry->from_l7lb;
+				ct_state->auth_required = entry->auth_required;
 				ct_state->from_tunnel = entry->from_tunnel;
 				ct_state->ifindex = entry->ifindex;
 			}
@@ -840,13 +840,6 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
 
-	/* Note if this is a proxy connection so that replies can be redirected
-	 * back to the proxy.
-	 */
-	entry.proxy_redirect = proxy_redirect;
-	entry.from_l7lb = from_l7lb;
-	entry.auth_required = auth_required;
-
 	if (dir == CT_SERVICE) {
 		entry.backend_id = ct_state->backend_id;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
@@ -854,6 +847,13 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 		entry.node_port = ct_state->node_port;
 		entry.dsr = ct_state->dsr;
 		entry.ifindex = ct_state->ifindex;
+
+		/* Note if this is a proxy connection so that replies can be redirected
+		 * back to the proxy.
+		 */
+		entry.proxy_redirect = proxy_redirect;
+		entry.from_l7lb = from_l7lb;
+		entry.auth_required = auth_required;
 	}
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
@@ -911,13 +911,6 @@ static __always_inline int ct_create4(const void *map_main,
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
 
-	/* Note if this is a proxy connection so that replies can be redirected
-	 * back to the proxy.
-	 */
-	entry.proxy_redirect = proxy_redirect;
-	entry.from_l7lb = from_l7lb;
-	entry.auth_required = auth_required;
-
 	if (dir == CT_SERVICE) {
 		entry.backend_id = ct_state->backend_id;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
@@ -926,6 +919,13 @@ static __always_inline int ct_create4(const void *map_main,
 		entry.dsr = ct_state->dsr;
 		entry.from_tunnel = ct_state->from_tunnel;
 		entry.ifindex = ct_state->ifindex;
+
+		/* Note if this is a proxy connection so that replies can be redirected
+		 * back to the proxy.
+		 */
+		entry.proxy_redirect = proxy_redirect;
+		entry.from_l7lb = from_l7lb;
+		entry.auth_required = auth_required;
 	}
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
