@@ -977,7 +977,6 @@ static __always_inline void lb6_ctx_store_state(struct __ctx_buff *ctx,
 					       __u16 proxy_port)
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_BACKEND_ID, state->backend_id);
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index);
 }
 
@@ -995,10 +994,6 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
 	ctx_store_meta(ctx, CB_CT_STATE, 0);
 
 	/* No loopback support for IPv6, see lb6_local() above. */
-
-	state->backend_id = ctx_load_meta(ctx, CB_BACKEND_ID);
-	/* Must clear to avoid policy bypass as CB_BACKEND_ID aliases CB_POLICY. */
-	ctx_store_meta(ctx, CB_BACKEND_ID, 0);
 
 	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
@@ -1709,7 +1704,6 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
 					       __u16 proxy_port, __u32 cluster_id)
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_BACKEND_ID, state->backend_id);
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
 		       state->loopback);
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
@@ -1737,10 +1731,6 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 
 	/* Clear to not leak state to later stages of the datapath. */
 	ctx_store_meta(ctx, CB_CT_STATE, 0);
-
-	state->backend_id = ctx_load_meta(ctx, CB_BACKEND_ID);
-	/* must clear to avoid policy bypass as CB_BACKEND_ID aliases CB_POLICY. */
-	ctx_store_meta(ctx, CB_BACKEND_ID, 0);
 
 	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
