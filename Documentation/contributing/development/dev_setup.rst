@@ -160,9 +160,7 @@ brought up by vagrant:
 * ``NETNEXT=1``: Run with net-next kernel.
 * ``SERVER_BOX`` and ``SERVER_VERSION``: Run with a specified vagrant
   box. See: ``vagrant_box_defaults.rb`` for the supported
-  versions. This may be useful for BPF developers that want to test
-  their changes with ``make -C bpf && sudo
-  test/bpf/verifier-test.sh``.
+  versions.
 * ``IPV4=1``: Run Cilium with IPv4 enabled.
 * ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
   cluster. Valid options are: ``containerd`` and ``crio``. If not
