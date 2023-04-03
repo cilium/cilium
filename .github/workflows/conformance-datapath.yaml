@@ -311,13 +311,7 @@ jobs:
           if [ "${{ matrix.ipv6 }}" != "false" ]; then
             IPV6="--helm-set=ipv6.enabled=true"
           fi
-          # We need to enable BPF masquerading for EGW so we keep the default
-          # here. masq is off due to https://github.com/cilium/cilium/issues/23283
-          EGRESS_GATEWAY="--helm-set=bpf.masquerade=false"
           if [ "${{ matrix.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=bpf.masquerade=true --helm-set=enableIPv6Masquerade=false"
-            # Force legacy host routing to work around #23283 with masq on.
-            EGRESS_GATEWAY+=" --helm-set=bpf.hostLegacyRouting=true"
             EGRESS_GATEWAY+=" --helm-set=egressGateway.enabled=true"
           fi
 
