@@ -161,6 +161,12 @@ if [ "${xdp}" = true ]; then
   done
 fi
 
+# Replace "forward . /etc/resolv.conf" in the coredns cm with "forward . 8.8.8.8".
+# This is required because in case of BPF Host Routing we bypass iptables thus
+# breaking DNS. See https://github.com/cilium/cilium/issues/23330
+NewCoreFile=$(kubectl get cm -n kube-system coredns -o jsonpath='{.data.Corefile}' | sed 's,forward . /etc/resolv.conf,forward . 8.8.8.8,' | sed -z 's/\n/\\n/g')
+kubectl patch configmap/coredns -n kube-system --type merge -p '{"data":{"Corefile": "'"$NewCoreFile"'"}}'
+
 set +e
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 set -e
