@@ -13,6 +13,7 @@ import (
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 
+	"github.com/cilium/cilium/api/v1/client/bgp"
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/client/ipam"
@@ -65,6 +66,7 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *CiliumAPI 
 
 	cli := new(CiliumAPI)
 	cli.Transport = transport
+	cli.Bgp = bgp.New(transport, formats)
 	cli.Daemon = daemon.New(transport, formats)
 	cli.Endpoint = endpoint.New(transport, formats)
 	cli.Ipam = ipam.New(transport, formats)
@@ -117,6 +119,8 @@ func (cfg *TransportConfig) WithSchemes(schemes []string) *TransportConfig {
 
 // CiliumAPI is a client for cilium API
 type CiliumAPI struct {
+	Bgp bgp.ClientService
+
 	Daemon daemon.ClientService
 
 	Endpoint endpoint.ClientService
@@ -139,6 +143,7 @@ type CiliumAPI struct {
 // SetTransport changes the transport on the client and all its subresources
 func (c *CiliumAPI) SetTransport(transport runtime.ClientTransport) {
 	c.Transport = transport
+	c.Bgp.SetTransport(transport)
 	c.Daemon.SetTransport(transport)
 	c.Endpoint.SetTransport(transport)
 	c.Ipam.SetTransport(transport)
