@@ -4,7 +4,7 @@ move-to-projects-for-labels-xored:
   v1.13:
     needs-backport/1.13:
       project: "https://github.com/cilium/cilium/projects/229"
-      column: "Needs backport from master"
+      column: "Needs backport from main"
     backport-pending/1.13:
       project: "https://github.com/cilium/cilium/projects/229"
       column: "Backport pending to v1.13"
@@ -14,7 +14,7 @@ move-to-projects-for-labels-xored:
   v1.12:
     needs-backport/1.12:
       project: "https://github.com/cilium/cilium/projects/228"
-      column: "Needs backport from master"
+      column: "Needs backport from main"
     backport-pending/1.12:
       project: "https://github.com/cilium/cilium/projects/228"
       column: "Backport pending to v1.12"
@@ -24,7 +24,7 @@ move-to-projects-for-labels-xored:
   v1.11:
     needs-backport/1.11:
       project: "https://github.com/cilium/cilium/projects/227"
-      column: "Needs backport from master"
+      column: "Needs backport from main"
     backport-pending/1.11:
       project: "https://github.com/cilium/cilium/projects/227"
       column: "Backport pending to v1.11"

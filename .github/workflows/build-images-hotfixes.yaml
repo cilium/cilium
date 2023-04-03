@@ -3,7 +3,7 @@ name: Hot Fix Image Release Build
 on:
   push:
     branches:
-      - hf/master/**
+      - hf/main/**
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -46,7 +46,7 @@ jobs:
             dockerfile: ./images/cilium-docker-plugin/Dockerfile
 
     steps:
-      - name: Checkout master branch to access local actions
+      - name: Checkout main branch to access local actions
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}

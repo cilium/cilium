@@ -6,7 +6,7 @@ on:
     types:
       - created
   ### FOR TESTING PURPOSES
-  # This workflow runs in the context of `master`, and ignores changes to
+  # This workflow runs in the context of `main`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
   # - Make sure the PR uses a branch from the base repository (requires write
   #   privileges). It will not work with a branch from a fork (missing secrets).
@@ -124,7 +124,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout master branch to access local actions
+      - name: Checkout main branch to access local actions
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
