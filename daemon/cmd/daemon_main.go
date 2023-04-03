@@ -1861,6 +1861,10 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		}
 	}
 
+	// Assign the BGP Control to the struct field so non-modularized components can interact with the BGP Controller
+	// like they are used to.
+	d.bgpControlPlaneController = params.BGPController
+
 	bootstrapStats.initAPI.Start()
 	srv := server.NewServer(d.instantiateAPI())
 	srv.EnabledListeners = []string{"unix"}
@@ -1891,10 +1895,6 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 			}
 		}
 	}
-
-	// Assign the BGP Control to the struct field so non-modularized components can interact with the BGP Controller
-	// like they are used to.
-	d.bgpControlPlaneController = params.BGPController
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")
@@ -2045,6 +2045,9 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 
 	// /node/ids
 	restAPI.DaemonGetNodeIdsHandler = NewGetNodeIDsHandler(d.datapath.Node())
+
+	// /bgp/peers
+	restAPI.BgpGetBgpPeersHandler = NewGetBGPHandler(d.bgpControlPlaneController)
 
 	return restAPI
 }
