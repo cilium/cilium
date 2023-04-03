@@ -948,6 +948,9 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new4Net)
 
+			err = ipsec.IPsecDefaultDropPolicy(false)
+			upsertIPsecLog(err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi)
+
 			if localIP := newNode.GetCiliumInternalIP(false); localIP != nil {
 				if n.subnetEncryption() {
 					for _, cidr := range n.nodeConfig.IPv4PodSubnets {
@@ -998,6 +1001,10 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new6Net)
+
+			err = ipsec.IPsecDefaultDropPolicy(true)
+			upsertIPsecLog(err, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi)
+
 			if localIP := newNode.GetCiliumInternalIP(true); localIP != nil {
 				if n.subnetEncryption() {
 					for _, cidr := range n.nodeConfig.IPv6PodSubnets {
