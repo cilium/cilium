@@ -34,9 +34,8 @@ func (sc *ServerWithConfig) GetPeerState(ctx context.Context) ([]*models.BgpPeer
 
 			// Uptime is time since session got established.
 			// It is calculated by difference in time from uptime timestamp till now.
-			// Time is rounded to second precision.
 			if peer.State.SessionState == gobgp.PeerState_ESTABLISHED && peer.Timers != nil && peer.Timers.State != nil {
-				peerState.UptimeNanoseconds = int64(time.Now().Sub(peer.Timers.State.Uptime.AsTime()).Round(time.Second))
+				peerState.UptimeNanoseconds = int64(time.Now().Sub(peer.Timers.State.Uptime.AsTime()))
 			}
 		}
 
