@@ -5,8 +5,6 @@ package linux_defaults
 
 import (
 	"time"
-
-	"golang.org/x/sys/unix"
 )
 
 // Linux specific constants used in Linux datapath
@@ -63,8 +61,8 @@ const (
 	// RouterMarkNodePort
 	MaskMultinodeNodeport = 0x80
 
-	// RTProto is the default protocol we install our fib rules and routes with
-	RTProto = unix.RTPROT_KERNEL
+	// IPSecProtocolID IP protocol ID for IPSec defined in RFC4303
+	RouteProtocolIPSec = 50
 
 	// RulePriorityWireguard is the priority of the rule used for routing packets to Wireguard device for encryption
 	RulePriorityWireguard = 1
@@ -79,10 +77,6 @@ const (
 	// of endpoints. This priority is after encryption and proxy rules, and
 	// before the local table priority.
 	RulePriorityIngress = 20
-
-	// RulePriorityLocalLookup is the priority for the local lookup rule which is
-	// moved on init from 0
-	RulePriorityLocalLookup = 100
 
 	// RulePriorityEgress is the priority of the rule used for egress routing
 	// of endpoints. This priority is after the local table priority.

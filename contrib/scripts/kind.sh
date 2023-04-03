@@ -64,27 +64,6 @@ if [[ "${controlplanes}" == "-h" || "${controlplanes}" == "--help" ]]; then
   exit 0
 fi
 
-# Registry will be localhost:5000
-reg_name="kind-registry"
-reg_port="5000"
-running="$(docker inspect -f '{{.State.Running}}' "${reg_name}" 2>/dev/null || true)"
-if [[ "${running}" != "true" ]]; then
-  retry_count=0
-  while ! docker pull registry:2
-  do
-    retry_count=$((retry_count+1))
-    if [[ "$retry_count" -ge 10 ]]; then
-      echo "ERROR: 'docker pull registry:2' failed $retry_count times. Please make sure docker is running"
-      exit 1
-    fi
-    echo "docker pull registry:2 failed. Sleeping for 1 second and trying again..."
-    sleep 1
-  done
-  docker run \
-    -d --restart=always -p "${reg_port}:5000" --name "${reg_name}" \
-    registry:2
-fi
-
 kind_cmd="kind create cluster"
 
 if [[ -n "${cluster_name}" ]]; then
@@ -160,10 +139,6 @@ kubeadmConfigPatches:
     apiServer:
       extraArgs:
         "v": "3"
-containerdConfigPatches:
-- |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]
-    endpoint = ["http://${reg_name}:${reg_port}"]
 EOF
 
 if [ "${xdp}" = true ]; then
@@ -186,14 +161,7 @@ if [ "${xdp}" = true ]; then
   done
 fi
 
-docker network connect "${default_network}" "${reg_name}" || true
-
-for node in $(kubectl get nodes --no-headers -o custom-columns=:.metadata.name); do
-  kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${reg_port}";
-done
-
 set +e
-kubectl taint nodes --all node-role.kubernetes.io/master-
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 set -e
 

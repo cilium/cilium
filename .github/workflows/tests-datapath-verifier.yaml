@@ -172,8 +172,10 @@ jobs:
         include:
           - kernel: '5.4-main'
             ci-kernel: '54'
+          - kernel: '5.10-main'
+            ci-kernel: '510'
           - kernel: '5.15-main'
-            ci-kernel: '54'
+            ci-kernel: '510'
           - kernel: 'bpf-next-main'
             ci-kernel: 'netnext'
     timeout-minutes: 60
@@ -195,6 +197,7 @@ jobs:
           install-dependencies: 'true'
           cmd: |
             git config --global --add safe.directory /host
+            uname -a
 
       - name: Run verifier tests
         uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3

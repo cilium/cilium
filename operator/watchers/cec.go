@@ -22,7 +22,7 @@ func StartCECController(ctx context.Context, clientset k8sClient.Clientset, serv
 			log.WithError(err).Fatal("Failed to retrieve service store")
 		}
 
-		m, err := ciliumenvoyconfig.New(clientset, store.CacheStore(), ports, defaultAlgorithm)
+		m, err := ciliumenvoyconfig.New(ctx, clientset, store.CacheStore(), ports, defaultAlgorithm)
 		if err != nil {
 			log.WithError(err).Fatal("Error creating CiliumEnvoyConfiguration manager")
 		}

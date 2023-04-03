@@ -422,6 +422,12 @@ Users (Alphabetically)
       U: Networking, network policies, kube-proxy replacement
       L: https://github.com/postfinance
 
+    * N: Proton AG
+      D: Proton is using Cilium as their CNI for all their Kubernetes clusters
+      U: Networking, network policies, host firewall, kube-proxy replacement, Hubble
+      L: https://proton.me/
+      Q: @j4m3s @MrFreezeex
+
     * N: Radio France
       D: Radio France is using Cilium in their production clusters (self-hosted k8s with kops on AWS)
       U: Mainly Service load-balancing

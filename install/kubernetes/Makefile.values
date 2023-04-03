@@ -4,20 +4,26 @@
 DIGESTS_PATH:=Makefile.digests
 include $(DIGESTS_PATH)
 export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"; else echo "true"; fi)
+export RELEASE_REGISTRY ?= quay.io
+export RELEASE_ORG ?= cilium
+export CI_REGISTRY ?= quay.io
+export CI_ORG ?= cilium
 
 ifeq ($(RELEASE),yes)
     export PULL_POLICY:=IfNotPresent
-    export CILIUM_REPO:=quay.io/cilium/cilium
-    export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver
-    export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay
+    export CILIUM_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/cilium
+    export CILIUM_OPERATOR_BASE_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/operator
+    export CLUSTERMESH_APISERVER_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/clustermesh-apiserver
+    export HUBBLE_RELAY_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/hubble-relay
 else
     export CILIUM_BRANCH:=master
     export PULL_POLICY:=Always
-    export CILIUM_REPO:=quay.io/cilium/cilium-ci
+    export CILIUM_REPO:=${CI_REGISTRY}/${CI_ORG}/cilium-ci
+    export CILIUM_OPERATOR_BASE_REPO:=${CI_REGISTRY}/${CI_ORG}/operator
     export CILIUM_OPERATOR_SUFFIX=-ci
     export CILIUM_VERSION:=latest
-    export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver-ci
-    export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay-ci
+    export CLUSTERMESH_APISERVER_REPO:=${CI_REGISTRY}/${CI_ORG}/clustermesh-apiserver-ci
+    export HUBBLE_RELAY_REPO:=${CI_REGISTRY}/${CI_ORG}/hubble-relay-ci
 endif
 
 ifndef CILIUM_BRANCH
@@ -33,7 +39,6 @@ export CILIUM_ETCD_OPERATOR_VERSION:=v2.0.7
 export CILIUM_ETCD_OPERATOR_DIGEST:=sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc
 export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
 export CILIUM_NODEINIT_VERSION:=d69851597ea019af980891a4628fb36b7880ec26
-export CILIUM_OPERATOR_BASE_REPO:=quay.io/cilium/operator
 
 export ETCD_REPO:=quay.io/coreos/etcd
 export ETCD_VERSION:=v3.5.4

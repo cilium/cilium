@@ -7,6 +7,7 @@ package conn
 
 import (
 	"fmt"
+	"runtime"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -36,14 +37,18 @@ func init() {
 			var err error
 			switch network {
 			case "udp4":
-				c.Control(func(fd uintptr) {
-					err = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_PKTINFO, 1)
-				})
+				if runtime.GOOS != "android" {
+					c.Control(func(fd uintptr) {
+						err = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_PKTINFO, 1)
+					})
+				}
 			case "udp6":
 				c.Control(func(fd uintptr) {
-					err = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_RECVPKTINFO, 1)
-					if err != nil {
-						return
+					if runtime.GOOS != "android" {
+						err = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_RECVPKTINFO, 1)
+						if err != nil {
+							return
+						}
 					}
 					err = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_V6ONLY, 1)
 				})

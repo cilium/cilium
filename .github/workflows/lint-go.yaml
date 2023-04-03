@@ -47,6 +47,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@08e2f20817b15149a52b5b3ebe7de50aff2ba8c5 # v3.4.0
         with:
+          # renovate: datasource=docker depName=golangci/golangci-lint
           version: v1.51.2
           skip-cache: true
 
@@ -111,8 +112,6 @@ jobs:
           # Set GOBIN to ensure 'go install' binaries end up in the same directory
           # as the one actions/setup-go adds to PATH, regardless of GOPATH.
           export GOBIN="$HOME/go/bin"
-          # check-k8s-code-gen.sh needs a GOPATH set that contains the Cilium repo at src/github.com/cilium/cilium.
-          export GOPATH="$GITHUB_WORKSPACE"
 
           cd src/github.com/cilium/cilium
           contrib/scripts/check-k8s-code-gen.sh

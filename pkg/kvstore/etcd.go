@@ -1727,6 +1727,49 @@ func (e *etcdClient) ListAndWatch(ctx context.Context, name, prefix string, chan
 	return w
 }
 
+// UserEnforcePresence creates a user in etcd if not already present, and grants the specified roles.
+func (e *etcdClient) UserEnforcePresence(ctx context.Context, name string, roles []string) error {
+	scopedLog := e.getLogger().WithField(FieldUser, name)
+
+	scopedLog.Debug("Creating user")
+	_, err := e.client.Auth.UserAddWithOptions(ctx, name, "", &client.UserAddOptions{NoPassword: true})
+	if err != nil {
+		if errors.Is(err, v3rpcErrors.ErrUserAlreadyExist) {
+			scopedLog.Debug("User already exists")
+		} else {
+			return err
+		}
+	}
+
+	for _, role := range roles {
+		scopedLog.WithField(FieldRole, role).Debug("Granting role to user")
+
+		_, err := e.client.Auth.UserGrantRole(ctx, name, role)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// UserEnforcePresence deletes a user from etcd, if present.
+func (e *etcdClient) UserEnforceAbsence(ctx context.Context, name string) error {
+	scopedLog := e.getLogger().WithField(FieldUser, name)
+
+	scopedLog.Debug("Deleting user")
+	_, err := e.client.Auth.UserDelete(ctx, name)
+	if err != nil {
+		if errors.Is(err, v3rpcErrors.ErrUserNotFound) {
+			scopedLog.Debug("User not found")
+		} else {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // SplitK8sServiceURL returns the service name and namespace for the given address.
 // If the given address is not parseable or it is not the format
 // '<protocol>://><name>.<namespace>[optional]', returns an error.

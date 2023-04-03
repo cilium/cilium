@@ -189,14 +189,29 @@ func tcpPacketsCanCoalesce(pkt []byte, iphLen, tcphLen uint8, seq uint32, pshSet
 			return coalesceUnavailable
 		}
 	}
-	if pkt[1] != pktTarget[1] {
-		// cannot coalesce with unequal ToS values
-		return coalesceUnavailable
-	}
-	if pkt[6]>>5 != pktTarget[6]>>5 {
-		// cannot coalesce with unequal DF or reserved bits. MF is checked
-		// further up the stack.
-		return coalesceUnavailable
+	if pkt[0]>>4 == 6 {
+		if pkt[0] != pktTarget[0] || pkt[1]>>4 != pktTarget[1]>>4 {
+			// cannot coalesce with unequal Traffic class values
+			return coalesceUnavailable
+		}
+		if pkt[7] != pktTarget[7] {
+			// cannot coalesce with unequal Hop limit values
+			return coalesceUnavailable
+		}
+	} else {
+		if pkt[1] != pktTarget[1] {
+			// cannot coalesce with unequal ToS values
+			return coalesceUnavailable
+		}
+		if pkt[6]>>5 != pktTarget[6]>>5 {
+			// cannot coalesce with unequal DF or reserved bits. MF is checked
+			// further up the stack.
+			return coalesceUnavailable
+		}
+		if pkt[8] != pktTarget[8] {
+			// cannot coalesce with unequal TTL values
+			return coalesceUnavailable
+		}
 	}
 	// seq adjacency
 	lhsLen := item.gsoSize
@@ -366,7 +381,7 @@ func coalesceTCPPackets(mode canCoalesce, pkt []byte, pktBuffsIndex int, gsoSize
 }
 
 const (
-	ipv4FlagMoreFragments = 0x80
+	ipv4FlagMoreFragments uint8 = 0x20
 )
 
 const (
@@ -397,9 +412,6 @@ func tcpGRO(bufs [][]byte, offset int, pktI int, table *tcpGROTable, isV6 bool) 
 		if totalLen != len(pkt) {
 			return false
 		}
-		if iphLen < 20 || iphLen > 60 {
-			return false
-		}
 	}
 	if len(pkt) < iphLen {
 		return false
@@ -412,7 +424,7 @@ func tcpGRO(bufs [][]byte, offset int, pktI int, table *tcpGROTable, isV6 bool) 
 		return false
 	}
 	if !isV6 {
-		if pkt[6]&ipv4FlagMoreFragments != 0 || (pkt[6]<<3 != 0 || pkt[7] != 0) {
+		if pkt[6]&ipv4FlagMoreFragments != 0 || pkt[6]<<3 != 0 || pkt[7] != 0 {
 			// no GRO support for fragmented segments for now
 			return false
 		}
@@ -474,11 +486,14 @@ func tcpGRO(bufs [][]byte, offset int, pktI int, table *tcpGROTable, isV6 bool) 
 	return false
 }
 
-func isTCP4(b []byte) bool {
+func isTCP4NoIPOptions(b []byte) bool {
 	if len(b) < 40 {
 		return false
 	}
 	if b[0]>>4 != 4 {
+		return false
+	}
+	if b[0]&0x0F != 5 {
 		return false
 	}
 	if b[9] != unix.IPPROTO_TCP {
@@ -511,7 +526,7 @@ func handleGRO(bufs [][]byte, offset int, tcp4Table, tcp6Table *tcpGROTable, toW
 		}
 		var coalesced bool
 		switch {
-		case isTCP4(bufs[i][offset:]):
+		case isTCP4NoIPOptions(bufs[i][offset:]): // ipv4 packets w/IP options do not coalesce
 			coalesced = tcpGRO(bufs, offset, i, tcp4Table, false)
 		case isTCP6NoEH(bufs[i][offset:]): // ipv6 packets w/extension headers do not coalesce
 			coalesced = tcpGRO(bufs, offset, i, tcp6Table, true)

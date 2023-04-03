@@ -25,6 +25,9 @@ import (
 )
 
 func (device *Device) startRouteListener(bind conn.Bind) (*rwcancel.RWCancel, error) {
+	if !conn.StdNetSupportsStickySockets {
+		return nil, nil
+	}
 	if _, ok := bind.(*conn.StdNetBind); !ok {
 		return nil, nil
 	}

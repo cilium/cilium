@@ -10,7 +10,8 @@
     "images/**",
     "examples/hubble/*",
     "go.mod",
-    "go.sum"
+    "go.sum",
+    "Makefile.defs"
   ],
   postUpdateOptions: [
     "gomodTidy"
@@ -207,6 +208,26 @@
         "golang.zx2c4.com/wireguard",
       ],
       "versioning": "regex:^v0.0.0-(<patch>\\d+)-.*$",
+    },
+    {
+      "groupName": "Hubble CLI",
+      "groupSlug": "hubble-cli",
+      "matchDepNames": [
+        "cilium/hubble",
+        "quay.io/cilium/hubble"
+      ],
+    },
+    {
+      // Do not allow any updates into stable branches.
+      "enabled": false,
+      "matchDepNames": [
+        "golangci/golangci-lint"
+      ],
+      "matchBaseBranches": [
+        "v1.13",
+        "v1.12",
+        "v1.11"
+      ]
     }
   ],
   "kubernetes": {
@@ -240,7 +261,18 @@
       // similar to the examples shown here:
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_version: (?<currentValue>.*)",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)",
+      ]
+    },
+    {
+      "fileMatch": [
+        "^Makefile\\.defs$"
+      ],
+      // This regex manages version strings in the Makefile.defs file,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION = (?<currentValue>.*)\\s+.+_SHA = (?<currentDigest>sha256:[a-f0-9]+)"
       ]
     }
   ]

@@ -98,7 +98,6 @@ func addEgressIpRule(endpointIP net.IP, dstCIDR *net.IPNet, egressIP net.IP, ifa
 		From:     &net.IPNet{IP: endpointIP, Mask: net.CIDRMask(32, 32)},
 		To:       dstCIDR,
 		Table:    routingTableIdx,
-		Protocol: linux_defaults.RTProto,
 	}
 
 	return route.ReplaceRule(ipRule)
@@ -126,7 +125,6 @@ func addEgressIpRoutes(egressIP net.IPNet, ifaceIndex int) error {
 		Dst:       &net.IPNet{IP: eniGatewayIP, Mask: net.CIDRMask(32, 32)},
 		Scope:     netlink.SCOPE_LINK,
 		Table:     routingTableIdx,
-		Protocol:  linux_defaults.RTProto,
 	}); err != nil {
 		return fmt.Errorf("unable to add L2 nexthop route: %w", err)
 	}
@@ -137,7 +135,6 @@ func addEgressIpRoutes(egressIP net.IPNet, ifaceIndex int) error {
 		Dst:       &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
 		Table:     routingTableIdx,
 		Gw:        eniGatewayIP,
-		Protocol:  linux_defaults.RTProto,
 	}); err != nil {
 		return fmt.Errorf("unable to add L2 nexthop route: %w", err)
 	}
@@ -154,7 +151,6 @@ func deleteIpRule(ipRule netlink.Rule) {
 		From:     ipRule.Src,
 		To:       ipRule.Dst,
 		Table:    ipRule.Table,
-		Protocol: linux_defaults.RTProto,
 	})
 }
 

@@ -224,10 +224,6 @@ func XfrmPolicyList(family int) ([]XfrmPolicy, error) {
 	return nil, ErrNotImplemented
 }
 
-func XfrmPolicyGet(policy *XfrmPolicy) (*XfrmPolicy, error) {
-	return nil, ErrNotImplemented
-}
-
 func XfrmStateAdd(policy *XfrmState) error {
 	return ErrNotImplemented
 }

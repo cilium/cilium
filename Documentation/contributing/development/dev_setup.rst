@@ -300,6 +300,12 @@ to enable NFS.
 
 .. note::
 
+   Although providing a Developer preview for macOS/arm64 (M1/M2) hosts, 
+   Oracle is not going to offer official support for ARM64 on Mac. As of VirtualBox 7.0.6
+   the developer preview is *not* working with the Cilium Vagrant Setup.
+   
+.. note::
+
    OSX file system is by default case insensitive, which can confuse
    git.  At the writing of this Cilium repo has no file names that
    would be considered referring to the same file on a case

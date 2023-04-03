@@ -1640,9 +1640,14 @@ func (m *IptablesManager) addCiliumAcceptXfrmRules() error {
 	return nil
 }
 
-func (m *IptablesManager) addCiliumNoTrackXfrmRules() error {
+func (m *IptablesManager) addCiliumNoTrackXfrmRules() (err error) {
 	if option.Config.EnableIPv4 {
-		return m.ciliumNoTrackXfrmRules(ip4tables, "-I")
+		if err = m.ciliumNoTrackXfrmRules(ip4tables, "-I"); err != nil {
+			return
+		}
+	}
+	if option.Config.EnableIPv6 {
+		return m.ciliumNoTrackXfrmRules(ip6tables, "-I")
 	}
 	return nil
 }

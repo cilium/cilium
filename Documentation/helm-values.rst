@@ -1,6 +1,9 @@
 ..
   AUTO-GENERATED. Please DO NOT edit manually.
 
+.. role:: raw-html-m2r(raw)
+   :format: html
+
 
 .. list-table::
    :header-rows: 1
@@ -341,6 +344,10 @@
      - base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key. Used if 'auto' is not enabled.
      - object
      - ``{"cert":"","key":""}``
+   * - clustermesh.apiserver.tls.authMode
+     - Configure the clustermesh authentication mode. Supported values: - legacy:     All clusters access remote clustermesh instances with the same               username (i.e., remote). The "remote" certificate must be               generated with CN=remote if provided manually. - migration:  Intermediate mode required to upgrade from legacy to cluster               (and vice versa) with no disruption. Specifically, it enables               the creation of the per-cluster usernames, while still using               the common one for authentication. The "remote" certificate must               be generated with CN=remote if provided manually (same as legacy). - cluster:    Each cluster accesses remote etcd instances with a username               depending on the local cluster name (i.e., remote-\ :raw-html-m2r:`<cluster-name>`\ ).               The "remote" certificate must be generated with CN=remote-\ :raw-html-m2r:`<cluster-name>`               if provided manually. Cluster mode is meaningful only when the same               CA is shared across all clusters part of the mesh.
+     - string
+     - ``"legacy"``
    * - clustermesh.apiserver.tls.auto
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
      - object
@@ -1673,6 +1680,10 @@
      - Labels to be added to node-init pods.
      - object
      - ``{}``
+   * - nodeinit.prestop
+     - prestop offers way to customize prestop nodeinit script (pre and post position)
+     - object
+     - ``{"postScript":"","preScript":""}``
    * - nodeinit.priorityClassName
      - The priority class to use for the nodeinit pod.
      - string
@@ -1685,6 +1696,10 @@
      - Security context to be added to nodeinit pods.
      - object
      - ``{"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
+   * - nodeinit.startup
+     - startup offers way to customize startup nodeinit script (pre and post position)
+     - object
+     - ``{"postScript":"","preScript":""}``
    * - nodeinit.tolerations
      - Node tolerations for nodeinit scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list

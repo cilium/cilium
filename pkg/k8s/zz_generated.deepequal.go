@@ -17,22 +17,8 @@ func (in *Backend) DeepEqual(other *Backend) bool {
 
 	if ((in.Ports != nil) && (other.Ports != nil)) || ((in.Ports == nil) != (other.Ports == nil)) {
 		in, other := &in.Ports, &other.Ports
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for key, inValue := range *in {
-				if otherValue, present := (*other)[key]; !present {
-					return false
-				} else {
-					if !inValue.DeepEqual(otherValue) {
-						return false
-					}
-				}
-			}
 		}
 	}
 

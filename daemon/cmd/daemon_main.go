@@ -42,6 +42,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -663,9 +664,6 @@ func initializeFlags() {
 
 	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
 	option.BindEnv(Vp, option.EnableIPv4EgressGateway)
-
-	flags.Bool(option.InstallEgressGatewayRoutes, false, "Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface")
-	option.BindEnv(Vp, option.InstallEgressGatewayRoutes)
 
 	flags.Int(option.EgressGatewayPolicyMapEntriesName, egressmap.MaxPolicyEntries, "Maximum number of entries in egress gateway policy map")
 	option.BindEnv(Vp, option.EgressGatewayPolicyMapEntriesName)
@@ -1583,24 +1581,25 @@ var daemonCell = cell.Module(
 type daemonParams struct {
 	cell.In
 
-	Lifecycle         hive.Lifecycle
-	Clientset         k8sClient.Clientset
-	Datapath          datapath.Datapath
-	WGAgent           *wireguard.Agent `optional:"true"`
-	LocalNodeStore    node.LocalNodeStore
-	BGPController     *bgpv1.Controller
-	Shutdowner        hive.Shutdowner
-	SharedResources   k8s.SharedResources
-	CacheStatus       k8s.CacheStatus
-	NodeManager       nodeManager.NodeManager
-	EndpointManager   endpointmanager.EndpointManager
-	CertManager       certificatemanager.CertificateManager
-	SecretManager     certificatemanager.SecretManager
-	AuthManager       auth.Manager
-	IdentityAllocator CachingIdentityAllocator
-	Policy            *policy.Repository
-	PolicyUpdater     *policy.Updater
-	IPCache           *ipcache.IPCache
+	Lifecycle            hive.Lifecycle
+	Clientset            k8sClient.Clientset
+	Datapath             datapath.Datapath
+	WGAgent              *wireguard.Agent `optional:"true"`
+	LocalNodeStore       node.LocalNodeStore
+	BGPController        *bgpv1.Controller
+	Shutdowner           hive.Shutdowner
+	SharedResources      k8s.SharedResources
+	CacheStatus          k8s.CacheStatus
+	NodeManager          nodeManager.NodeManager
+	EndpointManager      endpointmanager.EndpointManager
+	CertManager          certificatemanager.CertificateManager
+	SecretManager        certificatemanager.SecretManager
+	AuthManager          auth.Manager
+	IdentityAllocator    CachingIdentityAllocator
+	Policy               *policy.Repository
+	PolicyUpdater        *policy.Updater
+	IPCache              *ipcache.IPCache
+	EgressGatewayManager *egressgateway.Manager
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1639,6 +1638,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.IdentityAllocator,
 				params.Policy,
 				params.PolicyUpdater,
+				params.EgressGatewayManager,
 			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)

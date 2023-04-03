@@ -72,6 +72,7 @@ func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitG
 			if !ok {
 				return
 			}
+			var errs error
 			switch event.Kind {
 			case resource.Sync:
 				synced.Store(true)
@@ -79,19 +80,19 @@ func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitG
 				newNode := event.Object
 				if oldNode == nil {
 					k.K8sEventReceived(apiGroup, metricNode, resources.MetricCreate, true, false)
-					errs := k.NodeChain.OnAddNode(newNode, swg)
+					errs = k.NodeChain.OnAddNode(newNode, swg)
 					k.K8sEventProcessed(metricNode, resources.MetricCreate, errs == nil)
 				} else {
 					equal := nodeEventsAreEqual(oldNode, newNode)
 					k.K8sEventReceived(apiGroup, metricNode, resources.MetricUpdate, true, equal)
 					if !equal {
-						errs := k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
+						errs = k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
 						k.K8sEventProcessed(metricNode, resources.MetricUpdate, errs == nil)
 					}
 				}
 				oldNode = newNode
 			}
-			event.Done(nil)
+			event.Done(errs)
 		}
 	}
 }

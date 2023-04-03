@@ -57,3 +57,23 @@ func (merr *multiError) Is(target error) bool {
 	}
 	return false
 }
+
+func extractErrors(err error) []error {
+	if err == nil {
+		return nil
+	}
+
+	// Note that we're casting to multiError, not errorGroup. Our contract is
+	// that returned errors MAY implement errorGroup. Errors, however, only
+	// has special behavior for multierr-specific error objects.
+	//
+	// This behavior can be expanded in the future but I think it's prudent to
+	// start with as little as possible in terms of contract and possibility
+	// of misuse.
+	eg, ok := err.(*multiError)
+	if !ok {
+		return []error{err}
+	}
+
+	return append(([]error)(nil), eg.Errors()...)
+}

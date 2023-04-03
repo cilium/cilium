@@ -496,8 +496,10 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 		}
 	}
 
+	var hasExternalEndpoints bool
 	if svcFound && svc.IncludeExternal {
-		externalEndpoints, hasExternalEndpoints := s.externalEndpoints[id]
+		externalEndpoints, ok := s.externalEndpoints[id]
+		hasExternalEndpoints = ok && len(externalEndpoints.endpoints) > 0
 		if hasExternalEndpoints {
 			// remote cluster endpoints already contain all Endpoints from all
 			// EndpointSlices so no need to search the endpoints of a particular
@@ -522,7 +524,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 
 	// Report the service as ready if a local endpoints object exists or if
 	// external endpoints have been identified
-	return endpoints, hasLocalEndpoints || len(endpoints.Backends) > 0
+	return endpoints, hasLocalEndpoints || hasExternalEndpoints
 }
 
 // MergeExternalServiceUpdate merges a cluster service of a remote cluster into
@@ -606,6 +608,9 @@ func (s *ServiceCache) MergeExternalServiceDelete(service *serviceStore.ClusterS
 		scopedLog.Debug("Deleting external endpoints")
 
 		delete(externalEndpoints.endpoints, service.Cluster)
+		if len(externalEndpoints.endpoints) == 0 {
+			delete(s.externalEndpoints, id)
+		}
 
 		svc, ok := s.services[id]
 
@@ -623,6 +628,7 @@ func (s *ServiceCache) MergeExternalServiceDelete(service *serviceStore.ClusterS
 			}
 
 			if !serviceReady {
+				delete(s.services, id)
 				event.Action = DeleteService
 			}
 
@@ -668,6 +674,9 @@ func (s *ServiceCache) MergeClusterServiceDelete(service *serviceStore.ClusterSe
 	if ok {
 		scopedLog.Debug("Deleting cluster endpoints")
 		delete(externalEndpoints.endpoints, service.Cluster)
+		if len(externalEndpoints.endpoints) == 0 {
+			delete(s.externalEndpoints, id)
+		}
 	}
 
 	svc, ok := s.services[id]

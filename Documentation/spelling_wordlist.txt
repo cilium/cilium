@@ -17,6 +17,7 @@ Brouer
 CES
 CIDR
 CIDRs
+CN
 CRD
 CRI
 Cavium
@@ -131,6 +132,7 @@ Shutdowner
 Socionext
 Solarflare
 Spectre
+Splunk
 Starovoitov
 Stormtroopers
 Suchakra
@@ -188,9 +190,10 @@ asm
 assignees
 au
 auth
-authenticator
 authMapMax
 authMapMin
+authMode
+authenticator
 autoDirectNodeRoutes
 autoMount
 autoProtectPortRange
@@ -353,6 +356,7 @@ dependant
 dereference
 deserialization
 destinationContext
+detections
 dev
 devel
 dialTimeout
@@ -537,6 +541,7 @@ idleConnectionGracePeriod
 ie
 ifindex
 imagePullSecrets
+impactful
 incrementing
 indices
 ingressController
@@ -702,6 +707,7 @@ minAvailable
 minTtl
 minikube
 misconfigures
+mitigations
 mlx
 modularity
 modularizing
@@ -823,6 +829,7 @@ prepend
 prepended
 prepulls
 prerequirement
+prestop
 printf
 priori
 priorityClassName
@@ -851,6 +858,7 @@ rbac
 rc
 rcW
 reStructuredText
+reachability
 readCniConf
 readinessProbe
 readthedocs
@@ -1039,6 +1047,7 @@ udp
 ui
 uid
 uint
+unaudited
 unencrypted
 unexported
 unicast

@@ -107,7 +107,8 @@ combine_ports(__u16 dport, __u16 sport)
  * ingress. Will modify 'tuple'!						\
  */										\
 static __always_inline int							\
-NAME(struct __ctx_buff *ctx, CT_TUPLE_TYPE * ct_tuple, __be16 proxy_port, void *tproxy_addr)	\
+NAME(struct __ctx_buff *ctx, const CT_TUPLE_TYPE * ct_tuple,			\
+     __be16 proxy_port, void *tproxy_addr)					\
 {										\
 	struct bpf_sock_tuple *tuple = (struct bpf_sock_tuple *)ct_tuple;	\
 	__u8 nexthdr = ct_tuple->nexthdr;					\
@@ -351,12 +352,12 @@ ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
 	}
 #endif /* ENABLE_TPROXY */
 
-mark: __maybe_unused
+mark: __maybe_unused;
 	cilium_dbg(ctx, DBG_CAPTURE_PROXY_POST, proxy_port, 0);
 	ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
 	ctx_change_type(ctx, PACKET_HOST);
 
-out: __maybe_unused
+out: __maybe_unused;
 	return ret;
 }
 

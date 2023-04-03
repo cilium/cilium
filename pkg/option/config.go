@@ -365,9 +365,6 @@ const (
 	// EnableIPv4EgressGateway enables the IPv4 egress gateway
 	EnableIPv4EgressGateway = "enable-ipv4-egress-gateway"
 
-	// InstallEgressGatewayRoutes installs IP rules and routes required to steer traffic to the correct network interface
-	InstallEgressGatewayRoutes = "install-egress-gateway-routes"
-
 	// EnableIngressController enables Ingress Controller
 	EnableIngressController = "enable-ingress-controller"
 
@@ -698,7 +695,7 @@ const (
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
 	MonitorQueueSizeName = "monitor-queue-size"
 
-	//FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
+	// FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
 	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
 
 	// FQDNProxyDenyWithNameError is useful when stub resolvers, like the one
@@ -809,10 +806,6 @@ const (
 	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
 	// endpoint for all local communication
 	ForceLocalPolicyEvalAtSource = "force-local-policy-eval-at-source"
-
-	// SkipCRDCreation specifies whether the CustomResourceDefinition will be
-	// created by the daemon
-	SkipCRDCreation = "skip-crd-creation"
 
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes = "enable-endpoint-routes"
@@ -1693,7 +1686,6 @@ type DaemonConfig struct {
 	EnableBPFClockProbe        bool
 	EnableIPMasqAgent          bool
 	EnableIPv4EgressGateway    bool
-	InstallEgressGatewayRoutes bool
 	EnableEnvoyConfig          bool
 	EnableIngressController    bool
 	EnableGatewayAPI           bool
@@ -2990,7 +2982,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableBPFClockProbe = vp.GetBool(EnableBPFClockProbe)
 	c.EnableIPMasqAgent = vp.GetBool(EnableIPMasqAgent)
 	c.EnableIPv4EgressGateway = vp.GetBool(EnableIPv4EgressGateway)
-	c.InstallEgressGatewayRoutes = vp.GetBool(InstallEgressGatewayRoutes)
 	c.EgressGatewayPolicyMapEntries = vp.GetInt(EgressGatewayPolicyMapEntriesName)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)

@@ -17,7 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -97,7 +100,11 @@ type parsedEgressRule struct {
 }
 
 // Hook up gocheck into the "go test" runner.
-type EgressGatewayTestSuite struct{}
+type EgressGatewayTestSuite struct {
+	hive        *hive.Hive
+	manager     *Manager
+	cacheStatus k8s.CacheStatus
+}
 
 var _ = Suite(&EgressGatewayTestSuite{})
 
@@ -112,12 +119,31 @@ func (k *EgressGatewayTestSuite) SetUpSuite(c *C) {
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 
-	option.Config.EnableIPv4EgressGateway = true
-	option.Config.InstallEgressGatewayRoutes = true
-
 	egressmap.InitEgressMaps(egressmap.MaxPolicyEntries)
 
 	nodeTypes.SetName(node1)
+}
+
+func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
+	k.cacheStatus = make(k8s.CacheStatus)
+	k.hive = hive.New(
+		cell.Provide(NewEgressGatewayManager),
+		cell.Provide(
+			func() Config { return Config{true} },
+			func() *option.DaemonConfig { return &option.DaemonConfig{EnableIPv4EgressGateway: true} },
+			func() k8s.CacheStatus { return k.cacheStatus },
+			func() cache.IdentityAllocator { return identityAllocator },
+		),
+		cell.Invoke(func(m *Manager) {
+			k.manager = m
+		}),
+	)
+	c.Assert(k.hive.Start(context.Background()), IsNil)
+	c.Assert(k.manager, NotNil)
+}
+
+func (k *EgressGatewayTestSuite) TearDownTest(c *C) {
+	c.Assert(k.hive.Stop(context.Background()), IsNil)
 }
 
 func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
@@ -127,13 +153,10 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	defer cleanupPolicies()
 
-	cacheStatus := make(k8s.CacheStatus)
-
-	egressGatewayManager := NewEgressGatewayManager(cacheStatus, identityAllocator, option.Config.InstallEgressGatewayRoutes)
-	c.Assert(egressGatewayManager, NotNil)
+	egressGatewayManager := k.manager
 	assertIPRules(c, []ipRule{})
 
-	close(cacheStatus)
+	close(k.cacheStatus)
 
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
 	egressGatewayManager.OnUpdateNode(node1)

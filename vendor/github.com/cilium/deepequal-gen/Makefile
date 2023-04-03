@@ -16,8 +16,11 @@ test: vet
 	    false; \
 	fi
 	@go build -o /tmp/$(TOOL)
+	$(eval TMPDIR := $(shell mktemp -d))
 	PKGS=$$(go list ./output_tests/...  | paste -sd' ' -); \
-	/tmp/$(TOOL) --logtostderr --v=${LOGLEVEL} -i $$(echo $$PKGS | sed 's/ /,/g') -O zz_generated -h hack/boilerplate.txt
+	/tmp/$(TOOL) --logtostderr --v=${LOGLEVEL} -i $$(echo $$PKGS | sed 's/ /,/g') -O zz_generated -h hack/boilerplate.txt --output-base $(TMPDIR)
+	cp -r "$(TMPDIR)/github.com/cilium/deepequal-gen/." ./
+	rm -rf "$(TMPDIR)"
 	@if ! git diff --quiet HEAD; then \
 		echo "FAIL: output files changed; please verify output_tests.diff"; \
 		git diff > output_tests.diff; \

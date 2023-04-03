@@ -142,6 +142,7 @@ package multierr // import "go.uber.org/multierr"
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -194,23 +195,7 @@ type errorGroup interface {
 //
 // Callers of this function are free to modify the returned slice.
 func Errors(err error) []error {
-	if err == nil {
-		return nil
-	}
-
-	// Note that we're casting to multiError, not errorGroup. Our contract is
-	// that returned errors MAY implement errorGroup. Errors, however, only
-	// has special behavior for multierr-specific error objects.
-	//
-	// This behavior can be expanded in the future but I think it's prudent to
-	// start with as little as possible in terms of contract and possibility
-	// of misuse.
-	eg, ok := err.(*multiError)
-	if !ok {
-		return []error{err}
-	}
-
-	return append(([]error)(nil), eg.Errors()...)
+	return extractErrors(err)
 }
 
 // multiError is an error that holds one or more errors.
@@ -224,8 +209,6 @@ type multiError struct {
 	copyNeeded atomic.Bool
 	errors     []error
 }
-
-var _ errorGroup = (*multiError)(nil)
 
 // Errors returns the list of underlying errors.
 //
@@ -250,6 +233,17 @@ func (merr *multiError) Error() string {
 	result := buff.String()
 	_bufferPool.Put(buff)
 	return result
+}
+
+// Every compares every error in the given err against the given target error
+// using [errors.Is], and returns true only if every comparison returned true.
+func Every(err error, target error) bool {
+	for _, e := range extractErrors(err) {
+		if !errors.Is(e, target) {
+			return false
+		}
+	}
+	return true
 }
 
 func (merr *multiError) Format(f fmt.State, c rune) {

@@ -38,6 +38,7 @@ spec:
             - "--clustermesh-apiserver-server-cert-sans={{ join "," $clustermeshServerSANs }}"
             - "--clustermesh-apiserver-admin-cert-generate"
             - "--clustermesh-apiserver-admin-cert-validity-duration={{ $certValiditySecondsStr }}"
+            - "--clustermesh-apiserver-admin-cert-common-name={{ include "clustermesh-apiserver-generate-certs.admin-common-name" . }}"
             {{- if .Values.externalWorkloads.enabled }}
             - "--clustermesh-apiserver-client-cert-generate"
             - "--clustermesh-apiserver-client-cert-validity-duration={{ $certValiditySecondsStr }}"
@@ -45,6 +46,7 @@ spec:
             {{- if .Values.clustermesh.useAPIServer }}
             - "--clustermesh-apiserver-remote-cert-generate"
             - "--clustermesh-apiserver-remote-cert-validity-duration={{ $certValiditySecondsStr }}"
+            - "--clustermesh-apiserver-remote-cert-common-name={{ include "clustermesh-apiserver-generate-certs.remote-common-name" . }}"
             {{- end }}
           {{- with .Values.certgen.extraVolumeMounts }}
           volumeMounts:

@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -209,7 +208,7 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 		}
 	}
 
-	if option.Config.EnableIPv4EgressGateway {
+	if k.egressGatewayManager != nil {
 		k.egressGatewayManager.OnUpdateEndpoint(endpoint)
 	}
 }
@@ -236,7 +235,7 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 			k.policyManager.TriggerPolicyUpdates(true, "Named ports deleted")
 		}
 	}
-	if option.Config.EnableIPv4EgressGateway {
+	if k.egressGatewayManager != nil {
 		k.egressGatewayManager.OnDeleteEndpoint(endpoint)
 	}
 }

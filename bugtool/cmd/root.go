@@ -140,14 +140,7 @@ func getVerifyCiliumPods() (k8sPods []string) {
 }
 
 func removeIfEmpty(dir string) {
-	d, err := os.Open(dir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to open directory %s\n", err)
-		return
-	}
-	defer d.Close()
-
-	files, err := d.Readdir(-1)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to read directory %s\n", err)
 		return
