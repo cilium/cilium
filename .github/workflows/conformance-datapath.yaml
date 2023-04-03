@@ -293,7 +293,9 @@ jobs:
             --rollback=false \
             --config monitor-aggregation=none \
             --nodes-without-cilium=kind-worker3 \
-            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
+            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }} \
+            --helm-set=bpf.masquerade=true \
+            --helm-set=enableIPv6Masquerade=false"
           TUNNEL="--helm-set-string=tunnel=${{ matrix.tunnel }}"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
@@ -311,13 +313,7 @@ jobs:
           if [ "${{ matrix.ipv6 }}" != "false" ]; then
             IPV6="--helm-set=ipv6.enabled=true"
           fi
-          # We need to enable BPF masquerading for EGW so we keep the default
-          # here. masq is off due to https://github.com/cilium/cilium/issues/23283
-          EGRESS_GATEWAY="--helm-set=bpf.masquerade=false"
           if [ "${{ matrix.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=bpf.masquerade=true --helm-set=enableIPv6Masquerade=false"
-            # Force legacy host routing to work around #23283 with masq on.
-            EGRESS_GATEWAY+=" --helm-set=bpf.hostLegacyRouting=true"
             EGRESS_GATEWAY+=" --helm-set=egressGateway.enabled=true"
           fi
 
