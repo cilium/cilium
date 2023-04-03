@@ -64,7 +64,7 @@ you can build the docs:
 .. note::
 
    By default, ``render-docs`` generates a preview with instructions to install
-   Cilium from the latest version on GitHub (i.e. from the HEAD of the master branch that has
+   Cilium from the latest version on GitHub (i.e. from the HEAD of the main branch that has
    not been released) regardless of which Cilium branch you are in. You can target a specific
    branch by specifying ``READTHEDOCS_VERSION`` environment variable:
 

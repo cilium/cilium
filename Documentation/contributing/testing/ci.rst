@@ -27,7 +27,7 @@ them all at once:
 +------------------+--------------------------+
 | PR target branch | Trigger required PR jobs |
 +==================+==========================+
-| master           | /test                    |
+| main             | /test                    |
 +------------------+--------------------------+
 | v1.13            | /test-backport-1.13      |
 +------------------+--------------------------+
@@ -36,7 +36,7 @@ them all at once:
 | v1.11            | /test-backport-1.11      |
 +------------------+--------------------------+
 
-For ``master`` PRs: on top of ``/test``, one may use ``/test-missed-k8s`` to
+For ``main`` PRs: on top of ``/test``, one may use ``/test-missed-k8s`` to
 trigger all non-required K8s versions on Kernel 4.9 as per the `Cilium CI
 matrix`_.
 
@@ -110,8 +110,8 @@ example patch that shows how this can be achieved.
 
                     })
 
-    -               It("K8sValidated Updating Cilium stable to master", func() {
-    +               FIt("K8sFooooo K8sValidated Updating Cilium stable to master", func() {
+    -               It("K8sValidated Updating Cilium stable to main", func() {
+    +               FIt("K8sFooooo K8sValidated Updating Cilium stable to main", func() {
                             podFilter := "k8s:zgroup=testapp"
 
                             //This test should run in each PR for now.
@@ -229,12 +229,12 @@ new builds of the image will be pushed to  `Vagrant Cloud
 the `BUILD_ID <https://wiki.jenkins.io/display/JENKINS/Building+a+software+project#Buildingasoftwareproject-below>`_
 environment variable in the Jenkins job. That version ID will be used in Cilium
 `Vagrantfiles
-<https://github.com/cilium/cilium/blob/master/test/Vagrantfile#L10>`_.
+<https://github.com/cilium/cilium/blob/main/test/Vagrantfile#L10>`_.
 
 Changes to this image are made via contributions to the packer-ci-build
 repository. Authorized GitHub users can trigger builds with a GitHub comment on
 the PR containing the trigger phrase ``/build``. In case that a new box needs to
-be rebased with a different branch than master, authorized developers can run
+be rebased with a different branch than main, authorized developers can run
 the build with custom parameters. To use a different Cilium branch in the `job`_
 go to *Build with parameters* and a base branch can be set as the user needs.
 
@@ -243,7 +243,7 @@ that is not installed in the current version of the box, or if a dependency that
 is cached within the box becomes stale.
 
 Make sure that you update vagrant box versions in `vagrant_box_defaults.rb
-<https://github.com/cilium/cilium/blob/master/vagrant_box_defaults.rb>`__ after
+<https://github.com/cilium/cilium/blob/main/vagrant_box_defaults.rb>`__ after
 new box is built and tested.
 
 Once you change the image versions locally, create a branch named
@@ -304,9 +304,9 @@ GitHub issues using the process below:
 +---------------------------------------+------------------------------------------------------------------+
 | Pipeline                              | Description                                                      |
 +=======================================+==================================================================+
-| `Ginkgo-Tests-Validated-master`_      | Runs whenever a PR is merged into master                         |
+| `Ginkgo-Tests-Validated-master`_      | Runs whenever a PR is merged into main                           |
 +---------------------------------------+------------------------------------------------------------------+
-| `Ginkgo-CI-Tests-Pipeline`_           | Runs every two hours on the master branch                        |
+| `Ginkgo-CI-Tests-Pipeline`_           | Runs every two hours on the main branch                          |
 +---------------------------------------+------------------------------------------------------------------+
 | `Vagrant-Master-Boxes-Packer-Build`_  | Runs on merge into `packer-ci-build`_ repository.                |
 +---------------------------------------+------------------------------------------------------------------+
@@ -387,8 +387,8 @@ Triage process
       issue. It's much more difficult to debug these without context around the
       PR and the changes it introduced. When creating an issue for a PR flake,
       include a description of the code change, the PR, or the diff. If it
-      isn't related to the PR, then it should already happen in master, and a
-      new issue isn't needed.
+      isn't related to the PR, then it should already happen in the ``main``
+      branch, and a new issue isn't needed.
 
 #. Edit the description of the Jenkins build to mark it as triaged. This will
    exclude it from future jenkins-failures.sh output.

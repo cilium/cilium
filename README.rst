@@ -1,8 +1,8 @@
 .. raw:: html
 
    <picture>
-      <source media="(prefers-color-scheme: light)" srcset="https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo.png" width="350" alt="Cilium Logo">
-      <img src="https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo-dark.png" width="350" alt="Cilium Logo">
+      <source media="(prefers-color-scheme: light)" srcset="https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo.png" width="350" alt="Cilium Logo">
+      <img src="https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-dark.png" width="350" alt="Cilium Logo">
    </picture>
 
 |cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl| |fossa| |codespaces|
@@ -63,8 +63,8 @@ Development
 ===========
 
 For development and testing purpose, the Cilium community publishes snapshots,
-early release candidates (RC) and CI container images build from the `master
-branch <https://github.com/cilium/cilium/commits/master>`_. These images are
+early release candidates (RC) and CI container images build from the `main
+branch <https://github.com/cilium/cilium/commits/main>`_. These images are
 not for use in production.
 
 For testing upgrades to new development releases please consult the latest
@@ -74,7 +74,7 @@ Listed below are branches for testing along with their snapshots or RC releases,
 corresponding image pull tags and their release notes where applicable:
 
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
-| `master <https://github.com/cilium/cilium/commits/master>`__                         | daily      | ``quay.io/cilium/cilium-ci:latest``          | N/A                                                                                   |
+| `main <https://github.com/cilium/cilium/commits/main>`__                         | daily      | ``quay.io/cilium/cilium-ci:latest``          | N/A                                                                                   |
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
 | `v1.14.0-snapshot.1 <https://github.com/cilium/cilium/commits/v1.14.0-snapshot.1>`__ | 2023-04-03 | ``quay.io/cilium/cilium:v1.14.0-snapshot.1`` | `Snapshot Notes <https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.1>`__ |
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
@@ -252,7 +252,7 @@ Linux kernel 4.9.x or later.
 To read up on the necessary kernel versions to run the BPF runtime, see the
 section Prerequisites_.
 
-.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/bpf-overview.png
+.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/bpf-overview.png
     :align: center
 
 XDP is a further step in evolution and enables to run a specific flavor of BPF
@@ -298,13 +298,13 @@ We host a weekly community `YouTube livestream called eCHO <https://www.youtube.
 
 Governance
 ----------
-The Cilium project is governed by a group of `Maintainers and Committers <https://raw.githubusercontent.com/cilium/cilium/master/MAINTAINERS.md>`__.
+The Cilium project is governed by a group of `Maintainers and Committers <https://raw.githubusercontent.com/cilium/cilium/main/MAINTAINERS.md>`__.
 How they are selected and govern is outlined in our `governance document <https://docs.cilium.io/en/latest/community/governance/commit_access/>`__.
 
 Adopters
 --------
 A list of adopters of the Cilium project who are deploying it in production, and of their use cases,
-can be found in file `USERS.md <https://raw.githubusercontent.com/cilium/cilium/master/USERS.md>`__.
+can be found in file `USERS.md <https://raw.githubusercontent.com/cilium/cilium/main/USERS.md>`__.
 
 Roadmap
 -------
