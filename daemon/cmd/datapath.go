@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -336,6 +337,8 @@ func (d *Daemon) initMaps() error {
 	if err := configmap.InitMap(); err != nil {
 		return err
 	}
+	// start configmap users after configmap.InitMap() above
+	utime.InitUTime(d.ctx, d.controllers, time.Minute)
 
 	if _, err := lxcmap.LXCMap().OpenOrCreate(); err != nil {
 		return err

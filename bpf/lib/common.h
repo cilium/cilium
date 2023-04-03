@@ -354,6 +354,13 @@ struct auth_info {
 	__u64       expiration;
 };
 
+/*
+ * Runtime configuration items for the datapath.
+ */
+enum {
+	RUNTIME_CONFIG_UTIME_OFFSET = 0, /* Index to Unix time offset in 512 ns units */
+};
+
 struct metrics_key {
 	__u8      reason;	/* 0: forwarded, >0 dropped */
 	__u8      dir:2,	/* 1: ingress 2: egress */
