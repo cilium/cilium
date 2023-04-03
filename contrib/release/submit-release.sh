@@ -50,7 +50,7 @@ if $GENERATE_SUMMARY; then
     CHANGELOG=$SUMMARY
     SUMMARY="$RELEASE-pr-$(date --rfc-3339=date).txt"
     echo "Prepare for release $RELEASE" > $SUMMARY
-    if [ "$BRANCH" = "master" ]; then
+    if [ "$BRANCH" = "main" ]; then
         echo "" >> $SUMMARY
         echo "See the included CHANGELOG.md for a full list of changes." >> $SUMMARY
     else
@@ -64,7 +64,7 @@ echo -e "\nSending pull request..." 2>&1
 PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git push $USER_REMOTE "$PR_BRANCH"
 LABELS="kind/release"
-if [ "$BRANCH" != "master" ]; then
+if [ "$BRANCH" != "main" ]; then
     LABELS="$LABELS,backport/$(echo $BRANCH | sed 's/^v//')"
 fi
 hub pull-request -b "$BRANCH" -l "$LABELS" -F $SUMMARY

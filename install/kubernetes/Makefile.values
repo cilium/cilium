@@ -16,7 +16,7 @@ ifeq ($(RELEASE),yes)
     export CLUSTERMESH_APISERVER_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/clustermesh-apiserver
     export HUBBLE_RELAY_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/hubble-relay
 else
-    export CILIUM_BRANCH:=master
+    export CILIUM_BRANCH:=main
     export PULL_POLICY:=Always
     export CILIUM_REPO:=${CI_REGISTRY}/${CI_ORG}/cilium-ci
     export CILIUM_OPERATOR_BASE_REPO:=${CI_REGISTRY}/${CI_ORG}/operator
