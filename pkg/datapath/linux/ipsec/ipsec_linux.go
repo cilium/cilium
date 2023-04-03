@@ -70,6 +70,17 @@ var (
 	// replaced with a newer one, allowing to reclaim old keys only after
 	// enough time has passed since their replacement
 	ipSecKeysRemovalTime = make(map[uint8]time.Time)
+
+	wildcardIPv4   = net.ParseIP("0.0.0.0")
+	wildcardCIDRv4 = &net.IPNet{
+		IP:   wildcardIPv4,
+		Mask: net.IPv4Mask(0, 0, 0, 0),
+	}
+	wildcardIPv6   = net.ParseIP("0::0")
+	wildcardCIDRv6 = &net.IPNet{
+		IP:   wildcardIPv6,
+		Mask: net.CIDRMask(128, 128),
+	}
 )
 
 func getIPSecKeys(ip net.IP) *ipSecKey {
@@ -266,9 +277,7 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID 
 
 	policy := ipSecNewPolicy()
 	if dir == IPSecDirOutNode {
-		wildcardIP := net.ParseIP("0.0.0.0")
-		wildcardMask := net.IPv4Mask(0, 0, 0, 0)
-		policy.Src = &net.IPNet{IP: wildcardIP, Mask: wildcardMask}
+		policy.Src = wildcardCIDRv4
 	} else {
 		policy.Src = src
 	}
