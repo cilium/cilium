@@ -80,12 +80,12 @@ go_release = open("../GO_VERSION", "r").read().strip()
 image_tag = 'v' + release
 
 # Fetch the docs version from an environment variable.
-# Map latest -> master.
+# Map latest -> main.
 # Map stable -> current version number.
 branch = os.environ.get('READTHEDOCS_VERSION')
 if not branch or branch == 'latest':
     branch = 'HEAD'
-    archive_name = 'master'
+    archive_name = 'main'
     chart_release = './cilium'
     image_tag = 'latest'
 elif branch == 'stable':
@@ -113,7 +113,8 @@ archive_filename = archive_name + '.tar.gz'
 archive_link = github_repo + 'archive/' + archive_filename
 archive_name = 'cilium-' + archive_name.strip('v')
 project_link = github_repo + 'projects?query=is:open+' + next_release
-backport_format = github_repo + 'pulls?q=is:open+is:pr+-label:backport/author+label:%s/' + current_release
+backport_format = github_repo + \
+    'pulls?q=is:open+is:pr+-label:backport/author+label:%s/' + current_release
 
 # Store variables in the epilogue so they are globally available.
 rst_epilog = """
