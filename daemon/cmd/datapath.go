@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/authmap"
+	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -330,6 +331,10 @@ func (d *Daemon) sourceByIP(ip net.IP, defaultSrc source.Source) source.Source {
 func (d *Daemon) initMaps() error {
 	if option.Config.DryMode {
 		return nil
+	}
+
+	if err := configmap.InitMap(); err != nil {
+		return err
 	}
 
 	if _, err := lxcmap.LXCMap().OpenOrCreate(); err != nil {

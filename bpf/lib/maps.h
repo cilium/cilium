@@ -88,6 +88,21 @@ struct {
 } AUTH_MAP __section_maps_btf;
 #endif
 
+#ifdef CONFIG_MAP
+/*
+ * CONFIG_MAP is an array containing runtime configuration information to the
+ * bpf datapath.  Each element in the array is a 64-bit integer, meaning of
+ * which is defined by the source of that index.
+ */
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, __u64);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CONFIG_MAP_SIZE);
+} CONFIG_MAP __section_maps_btf;
+#endif
+
 #ifndef SKIP_CALLS_MAP
 /* Private per EP map for internal tail calls */
 struct bpf_elf_map __section_maps CALLS_MAP = {
