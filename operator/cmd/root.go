@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -114,6 +115,9 @@ var (
 		),
 		api.MetricsHandlerCell,
 		api.ServerCell,
+
+		// Provides a global job registry which cells can use to spawn job groups.
+		job.Cell,
 
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
