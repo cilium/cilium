@@ -112,11 +112,14 @@ echo "${kind_cmd}"
 
 # create a custom network so we can control the name of the bridge device.
 # Inspired by https://github.com/kubernetes-sigs/kind/blob/6b58c9dfcbdb1b3a0d48754d043d59ca7073589b/pkg/cluster/internal/providers/docker/network.go#L149-L161
-docker network create -d=bridge \
-  -o "com.docker.network.bridge.enable_ip_masquerade=true" \
-  -o "com.docker.network.bridge.name=${bridge_dev}" \
-  --ipv6 --subnet "${v6_prefix}" \
-  "${default_network}"
+# This operation is skipped if the network is already present (most notably in case of "make kind-clustermesh")
+if ! docker network inspect "${default_network}" >/dev/null 2>&1; then
+  docker network create -d=bridge \
+    -o "com.docker.network.bridge.enable_ip_masquerade=true" \
+    -o "com.docker.network.bridge.name=${bridge_dev}" \
+    --ipv6 --subnet "${v6_prefix}" \
+    "${default_network}"
+fi
 
 export KIND_EXPERIMENTAL_DOCKER_NETWORK="${default_network}"
 
