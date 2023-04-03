@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -29,8 +30,9 @@ type LBIPAMParams struct {
 
 	Logger logrus.FieldLogger
 
-	LC         hive.Lifecycle
-	Shutdowner hive.Shutdowner
+	LC          hive.Lifecycle
+	Shutdowner  hive.Shutdowner
+	JobRegistry job.Registry
 
 	Clientset    k8sClient.Clientset
 	PoolResource resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]

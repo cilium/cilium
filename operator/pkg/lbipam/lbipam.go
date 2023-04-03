@@ -9,12 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cilium/ipam/service/ipallocator"
-	"github.com/cilium/workerpool"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
@@ -71,6 +72,11 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 		lbClasses = append(lbClasses, "io.cilium/bgp-control-plane")
 	}
 
+	jobGroup := params.JobRegistry.NewGroup(
+		job.WithLogger(params.Logger),
+		job.WithPprofLabels(pprof.Labels("cell", "lbipam")),
+	)
+
 	lbIPAM := &LBIPAM{
 		logger:       params.Logger,
 		poolResource: params.PoolResource,
@@ -84,9 +90,17 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 		lbClasses:    lbClasses,
 		ipv4Enabled:  option.Config.IPv4Enabled(),
 		ipv6Enabled:  option.Config.IPv6Enabled(),
+		jobGroup:     jobGroup,
 	}
 
-	params.LC.Append(lbIPAM)
+	jobGroup.Add(
+		job.OneShot("lbipam main", func(ctx context.Context) error {
+			lbIPAM.Run(ctx)
+			return nil
+		}),
+	)
+
+	params.LC.Append(jobGroup)
 
 	return lbIPAM
 }
@@ -112,27 +126,10 @@ type LBIPAM struct {
 	rangesStore  rangesStore
 	serviceStore serviceStore
 
-	workerpool *workerpool.WorkerPool
+	jobGroup job.Group
 
 	// Only used during testing.
 	initDoneCallbacks []func()
-}
-
-// Start implements hive.HookInterface
-func (ipam *LBIPAM) Start(hive.HookContext) error {
-	ipam.logger.Info("Starting LB IPAM")
-
-	ipam.workerpool = workerpool.New(1)
-
-	return ipam.workerpool.Submit("lb-ipam main", func(ctx context.Context) error {
-		ipam.Run(ctx)
-		return nil
-	})
-}
-
-// Stop implements hive.HookInterface
-func (ipam *LBIPAM) Stop(hive.HookContext) error {
-	return ipam.workerpool.Close()
 }
 
 func (ipam *LBIPAM) restart() {
@@ -144,10 +141,12 @@ func (ipam *LBIPAM) restart() {
 	ipam.serviceStore = NewServiceStore()
 
 	// Re-start the main goroutine
-	ipam.workerpool.Submit("lb-ipam main", func(ctx context.Context) error {
-		ipam.Run(ctx)
-		return nil
-	})
+	ipam.jobGroup.Add(
+		job.OneShot("lbipam main", func(ctx context.Context) error {
+			ipam.Run(ctx)
+			return nil
+		}),
+	)
 }
 
 func (ipam *LBIPAM) Run(ctx context.Context) {
