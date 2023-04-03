@@ -16,6 +16,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/datapath"
@@ -102,6 +103,10 @@ var (
 		Action:   netlink.XFRM_POLICY_BLOCK,
 		Priority: 1,
 	}
+
+	// To attempt to remove any stale XFRM configs once at startup, after
+	// we've added the catch-all default-drop policy.
+	removeStaleXFRMOnce sync.Once
 )
 
 func getIPSecKeys(ip net.IP) *ipSecKey {
@@ -359,12 +364,102 @@ func IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP) error {
 //
 // We do need to match on the mark because there is also traffic flowing
 // through XFRM that we don't want to encrypt (e.g., hostns traffic).
-func IPsecDefaultDropPolicy(ipv6 bool) error {
+func IPsecDefaultDropPolicy(ipv6 bool) (err error) {
 	defaultDropPolicy := defaultDropPolicyIPv4
+	family := netlink.FAMILY_V4
 	if ipv6 {
 		defaultDropPolicy = defaultDropPolicyIPv6
+		family = netlink.FAMILY_V6
 	}
+
+	// We call removeStaleStatesAndPolicies only if the catch-all default-drop
+	// policy was successfully installed. If it was not installed, then there's
+	// a danger of letting plain-text traffic leave the node if we remove stale
+	// XFRM configs.
+	// This code can be removed in Cilium v1.15.
+	defer func() {
+		if err == nil {
+			removeStaleStatesAndPolicies(family)
+		}
+	}()
+
 	return netlink.XfrmPolicyUpdate(defaultDropPolicy)
+}
+
+// Removes XFRM states and policies that are identified as installed by a
+// previous version of Cilium. We rely mainly on the mark mask to identify if
+// it was installed in a previous version. These states and policies need to be
+// removed for cross-node connectivity to work.
+func removeStaleStatesAndPolicies(family int) {
+	removeStaleXFRMOnce.Do(func() {
+		removeStalePolicies(family)
+		removeStaleStates(family)
+	})
+}
+
+func removeStalePolicies(family int) {
+	policies, err := netlink.XfrmPolicyList(family)
+	if err != nil {
+		log.WithError(err).Error("Cannot get XFRM policies")
+	}
+	for _, p := range policies {
+		switch p.Dir {
+		case netlink.XFRM_DIR_OUT:
+			if isDefaultDropPolicy(&p) {
+				continue
+			}
+			if p.Mark.Mask != linux_defaults.IPsecOldMarkMaskOut {
+				// This XFRM OUT policy was not installed by a previous version of Cilium.
+				continue
+			}
+		case netlink.XFRM_DIR_IN:
+			if p.Src.String() != wildcardCIDRv4.String() ||
+				p.Mark.Mask != linux_defaults.IPsecMarkMaskIn {
+				// This XFRM IN policy was not installed by a previous version of Cilium.
+				continue
+			}
+		default:
+			continue
+		}
+		if err := netlink.XfrmPolicyDel(&p); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.SourceCIDR:      p.Src,
+				logfields.DestinationCIDR: p.Dst,
+			}).Error("Failed to remove stale XFRM policy")
+		}
+	}
+}
+
+func removeStaleStates(family int) {
+	states, err := netlink.XfrmStateList(family)
+	if err != nil {
+		log.WithError(err).Error("Cannot get XFRM states")
+	}
+	for _, s := range states {
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.SPI:           s.Spi,
+			logfields.SourceIP:      s.Src,
+			logfields.DestinationIP: s.Dst,
+		})
+
+		if s.Mark.Mask == linux_defaults.IPsecOldMarkMaskOut &&
+			s.Mark.Value == ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(s.Spi)) {
+			// This XFRM state was installed by Cilium.
+			if err := netlink.XfrmStateDel(&s); err == nil {
+				scopedLog.Info("Removed stale XFRM OUT state")
+			} else {
+				scopedLog.WithError(err).Error("Failed to remove stale XFRM OUT state")
+			}
+		} else if s.Mark.Mask == linux_defaults.IPsecMarkMaskIn &&
+			s.Mark.Value == linux_defaults.RouteMarkDecrypt {
+			// This XFRM state was installed by Cilium.
+			if err := netlink.XfrmStateDel(&s); err == nil {
+				scopedLog.Info("Removed stale XFRM IN state")
+			} else {
+				scopedLog.WithError(err).Error("Failed to remove stale XFRM IN state")
+			}
+		}
+	}
 }
 
 // ipSecXfrmMarkSetSPI takes a XfrmMark base value, an SPI, returns the mark
