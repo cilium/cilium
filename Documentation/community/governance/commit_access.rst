@@ -28,7 +28,7 @@ Cilium Committer Grant/Revocation Policy
 ========================================
 
 A Cilium committer is a participant in the project with the ability to
-commit code directly to the master repository. Commit access grants a
+commit code directly to the main branch. Commit access grants a
 broad ability to affect the progress of the project as presented by its
 most important artifact, the code and related resources that produce
 working binaries of Cilium. As such it represents a significant level of
@@ -53,7 +53,7 @@ existing set of committers.
 
 For the list of current committers, see MAINTAINERS.md_.
 
-.. _MAINTAINERS.md: https://raw.githubusercontent.com/cilium/cilium/master/MAINTAINERS.md
+.. _MAINTAINERS.md: https://raw.githubusercontent.com/cilium/cilium/main/MAINTAINERS.md
 
 Expectations for Developers with commit access
 ----------------------------------------------
@@ -98,15 +98,14 @@ can ask the original submitter to address it. Regardless, you need to
 ensure that the problem is fixed in a timely way. The definition of
 "timely" depends on the severity of the problem.
 
-If a bug is present on master and other branches, fix it on master
-first, then backport the fix to other branches. Straightforward
-backports do not require additional review (beyond that for the fix on
-master).
+If a bug is present on main and other branches, fix it on main first,
+then backport the fix to other branches. Straightforward backports
+do not require additional review (beyond that for the fix on main).
 
-Feature development should be done only on master. Occasionally it makes
+Feature development should be done only on main. Occasionally it makes
 sense to add a feature to the most recent release branch, before the
 first actual release of that branch. These should be handled in the same
-way as bug fixes, that is, first implemented on master and then
+way as bug fixes, that is, first implemented on main and then
 backported.
 
 Keep the authorship of a commit clear by maintaining a correct list of
@@ -119,7 +118,7 @@ syntax.
 Use Reported-by: and Tested-by: tags in commit messages to indicate the
 source of a bug report.
 
-Keep the `AUTHORS <https://github.com/cilium/cilium/blob/master/AUTHORS>`__ file up to date.
+Keep the `AUTHORS <https://github.com/cilium/cilium/blob/main/AUTHORS>`__ file up to date.
 
 CNCF Resources
 ~~~~~~~~~~~~~~
@@ -131,7 +130,7 @@ The Maintainers may also choose to delegate working with the CNCF to non-Maintai
 Code of Conduct
 ~~~~~~~~~~~~~~~
 
-`Code of Conduct <https://github.com/cilium/cilium/blob/master/CODE_OF_CONDUCT.md>`__
+`Code of Conduct <https://github.com/cilium/cilium/blob/main/CODE_OF_CONDUCT.md>`__
 violations by community members will be discussed and resolved on the private
 committers Slack channel. If the reported Code of Conduct violator is a Maintainer, the 
 Maintainers will instead designate two Maintainers to work with the

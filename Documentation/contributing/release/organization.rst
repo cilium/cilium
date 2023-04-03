@@ -30,6 +30,6 @@ for the next stable release. New patch releases for an existing stable version
 
 New patch releases for stable branches are made periodically to provide
 security and bug fixes, based upon community demand and bugfix severity.
-Potential fixes for an upcoming release are first merged into the ``master``
+Potential fixes for an upcoming release are first merged into the ``main``
 branch, then backported to the relevant stable branches using the following
 criteria.

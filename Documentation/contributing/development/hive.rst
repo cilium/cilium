@@ -587,7 +587,7 @@ started, Run() waits for SIGTERM and SIGINT signals and upon receiving one
 will execute the stop hooks in reverse order to bring the hive down.
 
 Now would be a good time to try this out in practice. You'll find a small example
-application in `pkg/hive/example <https://github.com/cilium/cilium/tree/master/pkg/hive/example>`_.
+application in `pkg/hive/example <https://github.com/cilium/cilium/tree/main/pkg/hive/example>`_.
 Try running it with ``go run .`` and exploring the implementation (try what happens if a provider is commented out!).
 
 Inspecting a hive
@@ -820,8 +820,8 @@ test against and allows central control over what data (and at what rate)
 is pulled from the api-server and how it’s stored (in-memory or persisted).
 
 The resources are usually made available centrally for the application,
-e.g. in cilium-agent they’re provided from `pkg/k8s/shared_resources.go <https://github.com/cilium/cilium/blob/master/pkg/k8s/shared_resources.go>`_.
-See also the runnable example in `pkg/k8s/resource/example <https://github.com/cilium/cilium/tree/master/pkg/k8s/resource/example>`_.
+e.g. in cilium-agent they’re provided from `pkg/k8s/shared_resources.go <https://github.com/cilium/cilium/blob/main/pkg/k8s/shared_resources.go>`_.
+See also the runnable example in `pkg/k8s/resource/example <https://github.com/cilium/cilium/tree/main/pkg/k8s/resource/example>`_.
 
 .. code-block:: go
 

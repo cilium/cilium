@@ -297,7 +297,7 @@ review process smoother as GitHub has limitations that prevents reviewers from
 only seeing the new changes added since the last time they have reviewed a PR.
 Once all reviews are addressed those commits should be squashed against the
 commit that introduced those changes. This can be accomplished by the usage of
-``git rebase -i upstream/master`` and in that windows, move these new commits
+``git rebase -i upstream/main`` and in that windows, move these new commits
 below the commit that introduced the changes and replace the work ``pick`` with
 ``fixup``. In the following example, commit ``d2cb02265`` will be combined into
 ``9c62e62d8`` and commit ``146829b59`` will be combined into ``9400fed20``.

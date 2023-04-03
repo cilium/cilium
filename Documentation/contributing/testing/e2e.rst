@@ -701,7 +701,7 @@ periodically update images in a ``cron`` job::
 
 .. _aria2: https://aria2.github.io/
 .. _contrib/scripts/add_vagrant_box.sh:
-   https://github.com/cilium/cilium/blob/master/contrib/scripts/add_vagrant_box.sh
+   https://github.com/cilium/cilium/blob/main/contrib/scripts/add_vagrant_box.sh
 
 Known Issues and Workarounds
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

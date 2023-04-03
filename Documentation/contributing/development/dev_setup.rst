@@ -446,17 +446,17 @@ finishes.
 Making Changes
 ~~~~~~~~~~~~~~
 
-#. Make sure the ``master`` branch of your fork is up-to-date:
+#. Make sure the ``main`` branch of your fork is up-to-date:
 
    .. code-block:: shell-session
 
-      git fetch upstream master:master
+      git fetch upstream main:main
 
-#. Create a PR branch with a descriptive name, branching from ``master``:
+#. Create a PR branch with a descriptive name, branching from ``main``:
 
    .. code-block:: shell-session
 
-      git switch -c pr/changes-to-something master
+      git switch -c pr/changes-to-something main
 
 #. Make the changes you want.
 #. Separate the changes into logical commits.
