@@ -48,6 +48,7 @@ var ignoredELFPrefixes = []string{
 	"cilium_node_map",            // Global
 	"cilium_policy",              // All policy maps
 	"cilium_proxy",               // Global
+	"cilium_runtime_config",      // Global
 	"cilium_signals",             // Global
 	"cilium_snat",                // All SNAT maps
 	"cilium_tail_call_buffer",    // Global
