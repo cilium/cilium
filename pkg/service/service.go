@@ -951,15 +951,18 @@ func (s *Service) GetDeepCopyServicesByName(name, namespace string) (svcs []*lb.
 func (s *Service) RestoreServices() error {
 	s.Lock()
 	defer s.Unlock()
+	var errs error
 
 	// Restore backend IDs
 	if err := s.restoreBackendsLocked(); err != nil {
-		return err
+		errs = multierr.Append(errs,
+			fmt.Errorf("error while restoring backends: %w", err))
 	}
 
 	// Restore service cache from BPF maps
 	if err := s.restoreServicesLocked(); err != nil {
-		return err
+		errs = multierr.Append(errs,
+			fmt.Errorf("error while restoring services: %w", err))
 	}
 
 	// Remove LB source ranges for no longer existing services
@@ -969,7 +972,7 @@ func (s *Service) RestoreServices() error {
 		}
 	}
 
-	return nil
+	return errs
 }
 
 // deleteOrphanAffinityMatchesLocked removes affinity matches which point to
