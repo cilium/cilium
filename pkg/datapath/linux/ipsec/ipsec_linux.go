@@ -81,6 +81,27 @@ var (
 		IP:   wildcardIPv6,
 		Mask: net.CIDRMask(128, 128),
 	}
+
+	defaultDropMark = &netlink.XfrmMark{
+		Value: linux_defaults.RouteMarkEncrypt,
+		Mask:  linux_defaults.IPsecMarkMaskIn,
+	}
+	defaultDropPolicyIPv4 = &netlink.XfrmPolicy{
+		Dir:      netlink.XFRM_DIR_OUT,
+		Src:      wildcardCIDRv4,
+		Dst:      wildcardCIDRv4,
+		Mark:     defaultDropMark,
+		Action:   netlink.XFRM_POLICY_BLOCK,
+		Priority: 1,
+	}
+	defaultDropPolicyIPv6 = &netlink.XfrmPolicy{
+		Dir:      netlink.XFRM_DIR_OUT,
+		Src:      wildcardCIDRv6,
+		Dst:      wildcardCIDRv6,
+		Mark:     defaultDropMark,
+		Action:   netlink.XFRM_POLICY_BLOCK,
+		Priority: 1,
+	}
 )
 
 func getIPSecKeys(ip net.IP) *ipSecKey {
@@ -327,6 +348,23 @@ func ipSecReplacePolicyIn(src, dst *net.IPNet, tmplSrc, tmplDst net.IP) error {
 func IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP) error {
 	// The source CIDR and IP aren't used in the case of FWD policies.
 	return _ipSecReplacePolicyInFwd(nil, dst, net.IP{}, tmplDst, false, netlink.XFRM_DIR_FWD)
+}
+
+// Installs a catch-all policy for outgoing traffic that has the encryption
+// bit. The goal here is to catch any traffic that may passthrough our
+// encryption while we are replacing XFRM policies & states. Those operations
+// cannot always be performed atomically so we may have brief moments where
+// there is no XFRM policy to encrypt a subset of traffic. This policy ensures
+// we drop such traffic and don't let it flow in plain text.
+//
+// We do need to match on the mark because there is also traffic flowing
+// through XFRM that we don't want to encrypt (e.g., hostns traffic).
+func IPsecDefaultDropPolicy(ipv6 bool) error {
+	defaultDropPolicy := defaultDropPolicyIPv4
+	if ipv6 {
+		defaultDropPolicy = defaultDropPolicyIPv6
+	}
+	return netlink.XfrmPolicyUpdate(defaultDropPolicy)
 }
 
 // ipSecXfrmMarkSetSPI takes a XfrmMark base value, an SPI, returns the mark
@@ -864,6 +902,10 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 			continue
 		}
 
+		if isDefaultDropPolicy(&p) {
+			continue
+		}
+
 		scopedLog = log.WithField(logfields.OldSPI, policySPI)
 
 		scopedLog.Info("Deleting stale XFRM policy")
@@ -871,6 +913,20 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 			scopedLog.WithError(err).Warning("Deleting stale XFRM policy failed")
 		}
 	}
+}
+
+func isDefaultDropPolicy(p *netlink.XfrmPolicy) bool {
+	return equalDefaultDropPolicy(defaultDropPolicyIPv4, p) ||
+		equalDefaultDropPolicy(defaultDropPolicyIPv6, p)
+}
+
+func equalDefaultDropPolicy(defaultDropPolicy, p *netlink.XfrmPolicy) bool {
+	return p.Priority == defaultDropPolicy.Priority &&
+		p.Action == defaultDropPolicy.Action &&
+		p.Dir == defaultDropPolicy.Dir &&
+		xfrmMarkEqual(p.Mark, defaultDropPolicy.Mark) &&
+		p.Src.String() == defaultDropPolicy.Src.String() &&
+		p.Dst.String() == defaultDropPolicy.Dst.String()
 }
 
 func doReclaimStaleKeys() {
