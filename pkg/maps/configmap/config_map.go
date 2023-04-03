@@ -28,7 +28,8 @@ type Index uint32
 // All supported indices in one place.
 // Must be in sync with RUNTIME_CONFIG_ enum in bpf/lib/common.h
 const (
-	UsedEntries Index = iota
+	UTimeOffset Index = iota
+	UsedEntries
 )
 
 // Value is the generic datapath runtime config value.
