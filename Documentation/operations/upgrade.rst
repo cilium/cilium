@@ -372,7 +372,7 @@ Annotations:
   the cluster. As such, we recommend staying at v1.12.7. This issue can be mitigated by
   either replacing workload nodes in the cluster (to get a fresh IPSec state) or by
   flushing the current state by running the following command on each node:
-  ``ip xfrm state flush``.  
+  ``ip xfrm state flush && ip xfrm policy flush``.  
 
 New Options
 ~~~~~~~~~~~
