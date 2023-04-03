@@ -994,6 +994,22 @@ paths:
             type: array
             items:
               "$ref": "#/definitions/NodeID"
+  "/bgp/peers":
+    get:
+      summary: Lists operational state of BGP peers
+      description: |
+        Retrieves current operational state of BGP peers created by 
+        Cilium BGP virtual router. This includes session state, uptime,
+        information per address family, etc.
+      tags:
+        - bgp
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/BgpPeer"
 parameters:
   endpoint-id:
     name: id
@@ -3456,3 +3472,52 @@ definitions:
         type: array
         items:
           type: string
+  BgpPeer:
+    description: |-
+      State of a BGP Peer
+      
+      +k8s:deepcopy-gen=true
+    properties:
+      local-asn:
+        description: Local AS Number
+        type: integer
+      peer-asn:
+        description: Peer AS Number
+        type: integer
+      peer-address:
+        description: IP Address of peer
+        type: string
+      session-state:
+        description: |
+          BGP peer operational state as described here
+          https://www.rfc-editor.org/rfc/rfc4271#section-8.2.2
+        type: string
+      uptime-nanoseconds:
+        description: BGP peer connection uptime in nano seconds.
+        type: integer
+      families:
+        description: BGP peer address family state
+        type: array
+        items:
+          "$ref": "#/definitions/BgpPeerFamilies"
+  BgpPeerFamilies:
+    description: |-
+      BGP AFI SAFI state of the peer
+      
+      +k8s:deepcopy-gen=true
+    properties:
+      afi:
+        description: BGP address family indicator
+        type: string
+      safi:
+        description: BGP subsequent address family indicator
+        type: string
+      received:
+        description: Number of routes received from the peer of this address family
+        type: integer
+      accepted:
+        description: Number of routes accepted from the peer of this address family
+        type: integer
+      advertised:
+        description: Number of routes advertised of this address family to the peer
+        type: integer
