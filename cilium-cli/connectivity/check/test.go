@@ -302,6 +302,8 @@ func (t *Test) WithPolicy(policy string) *Test {
 	if err := t.addCNPs(pl...); err != nil {
 		t.Fatalf("Adding CNPs to policy context: %s", err)
 	}
+	t.WithFeatureRequirements(RequireFeatureEnabled(FeatureCNP))
+
 	return t
 }
 
@@ -320,9 +322,27 @@ func (t *Test) WithScenarios(sl ...Scenario) *Test {
 }
 
 // WithFeatureRequirements adds FeatureRequirements to Test, all of which
-// must be satisfied in order for the test to be run
+// must be satisfied in order for the test to be run. It adds only features
+// that are not already present in the requirements.
 func (t *Test) WithFeatureRequirements(reqs ...FeatureRequirement) *Test {
-	t.requirements = append(t.requirements, reqs...)
+	if len(reqs) == 0 {
+		return t
+	}
+
+	for _, target := range reqs {
+		var seen bool
+		for _, r := range t.requirements {
+			if target == r {
+				// Save the state of the target as seen if already in the requirements list.
+				seen = true
+			}
+		}
+		if !seen {
+			// Target requirement not present, let's add it.
+			t.requirements = append(t.requirements, target)
+		}
+	}
+
 	return t
 }
 

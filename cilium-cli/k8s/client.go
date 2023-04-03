@@ -24,6 +24,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -53,14 +55,15 @@ import (
 )
 
 type Client struct {
-	Clientset         kubernetes.Interface
-	DynamicClientset  dynamic.Interface
-	CiliumClientset   ciliumClientset.Interface
-	TetragonClientset tetragonClientset.Interface
-	Config            *rest.Config
-	RawConfig         clientcmdapi.Config
-	RESTClientGetter  genericclioptions.RESTClientGetter
-	contextName       string
+	Clientset          kubernetes.Interface
+	ExtensionClientset apiextensionsclientset.Interface // k8s api extension needed to retrieve CRDs
+	DynamicClientset   dynamic.Interface
+	CiliumClientset    ciliumClientset.Interface
+	TetragonClientset  tetragonClientset.Interface
+	Config             *rest.Config
+	RawConfig          clientcmdapi.Config
+	RESTClientGetter   genericclioptions.RESTClientGetter
+	contextName        string
 }
 
 func NewClient(contextName, kubeconfig string) (*Client, error) {
@@ -100,6 +103,11 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 		return nil, err
 	}
 
+	extensionClientset, err := apiextensionsclientset.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	dynamicClientset, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -110,14 +118,15 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 	}
 
 	return &Client{
-		CiliumClientset:   ciliumClientset,
-		TetragonClientset: tetragonClientset,
-		Clientset:         clientset,
-		Config:            config,
-		DynamicClientset:  dynamicClientset,
-		RawConfig:         rawConfig,
-		RESTClientGetter:  &restClientGetter,
-		contextName:       contextName,
+		CiliumClientset:    ciliumClientset,
+		TetragonClientset:  tetragonClientset,
+		Clientset:          clientset,
+		ExtensionClientset: extensionClientset,
+		Config:             config,
+		DynamicClientset:   dynamicClientset,
+		RawConfig:          rawConfig,
+		RESTClientGetter:   &restClientGetter,
+		contextName:        contextName,
 	}, nil
 }
 
@@ -502,6 +511,10 @@ func (c *Client) ListDaemonSet(ctx context.Context, namespace string, o metav1.L
 
 func (c *Client) DeleteDaemonSet(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.AppsV1().DaemonSets(namespace).Delete(ctx, name, opts)
+}
+
+func (c *Client) GetCRD(ctx context.Context, name string, opts metav1.GetOptions) (*apiextensions.CustomResourceDefinition, error) {
+	return c.ExtensionClientset.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, opts)
 }
 
 type Kind int
