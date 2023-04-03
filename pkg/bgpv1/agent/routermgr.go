@@ -6,6 +6,7 @@ package agent
 import (
 	"context"
 
+	"github.com/cilium/cilium/api/v1/models"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
@@ -31,4 +32,11 @@ type BGPRouterManager interface {
 	// Providing a nil policy to ConfigurePeers will withdrawal all routes
 	// and disconnect from the peers.
 	ConfigurePeers(ctx context.Context, policy *v2alpha1api.CiliumBGPPeeringPolicy, state *ControlPlaneState) error
+
+	// GetPeers fetches BGP peering state from underlying routing daemon.
+	//
+	// List of all peers will be returned and if there are multiple instances of
+	// BGP daemon running locally, then peers can be differentiated based on
+	// local AS number.
+	GetPeers(ctx context.Context) ([]*models.BgpPeer, error)
 }
