@@ -6,6 +6,7 @@ package mock
 import (
 	"context"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 
@@ -34,8 +35,13 @@ var _ agent.BGPRouterManager = (*MockBGPRouterManager)(nil)
 
 type MockBGPRouterManager struct {
 	ConfigurePeers_ func(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, cstate *agent.ControlPlaneState) error
+	GetPeers_       func(ctx context.Context) ([]*models.BgpPeer, error)
 }
 
 func (m *MockBGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, cstate *agent.ControlPlaneState) error {
 	return m.ConfigurePeers_(ctx, policy, cstate)
+}
+
+func (m *MockBGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, error) {
+	return m.GetPeers_(ctx)
 }
