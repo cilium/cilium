@@ -35,6 +35,26 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/bgp/peers": {
+      "get": {
+        "description": "Retrieves current operational state of BGP peers created by \nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
+        "tags": [
+          "bgp"
+        ],
+        "summary": "Lists operational state of BGP peers",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/BgpPeer"
+              }
+            }
+          }
+        }
+      }
+    },
     "/cgroup-dump-metadata": {
       "get": {
         "tags": [
@@ -1725,6 +1745,63 @@ func init() {
         "enabled": {
           "description": "Is bandwidth manager enabled",
           "type": "boolean"
+        }
+      }
+    },
+    "BgpPeer": {
+      "description": "State of a BGP Peer\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "families": {
+          "description": "BGP peer address family state",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpPeerFamilies"
+          }
+        },
+        "local-asn": {
+          "description": "Local AS Number",
+          "type": "integer"
+        },
+        "peer-address": {
+          "description": "IP Address of peer",
+          "type": "string"
+        },
+        "peer-asn": {
+          "description": "Peer AS Number",
+          "type": "integer"
+        },
+        "session-state": {
+          "description": "BGP peer operational state as described here\nhttps://www.rfc-editor.org/rfc/rfc4271#section-8.2.2\n",
+          "type": "string"
+        },
+        "uptime-nanoseconds": {
+          "description": "BGP peer connection uptime in nano seconds.",
+          "type": "integer"
+        }
+      }
+    },
+    "BgpPeerFamilies": {
+      "description": "BGP AFI SAFI state of the peer\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "accepted": {
+          "description": "Number of routes accepted from the peer of this address family",
+          "type": "integer"
+        },
+        "advertised": {
+          "description": "Number of routes advertised of this address family to the peer",
+          "type": "integer"
+        },
+        "afi": {
+          "description": "BGP address family indicator",
+          "type": "string"
+        },
+        "received": {
+          "description": "Number of routes received from the peer of this address family",
+          "type": "integer"
+        },
+        "safi": {
+          "description": "BGP subsequent address family indicator",
+          "type": "string"
         }
       }
     },
@@ -4598,6 +4675,26 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/bgp/peers": {
+      "get": {
+        "description": "Retrieves current operational state of BGP peers created by \nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
+        "tags": [
+          "bgp"
+        ],
+        "summary": "Lists operational state of BGP peers",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/BgpPeer"
+              }
+            }
+          }
+        }
+      }
+    },
     "/cgroup-dump-metadata": {
       "get": {
         "tags": [
@@ -6470,6 +6567,63 @@ func init() {
         "enabled": {
           "description": "Is bandwidth manager enabled",
           "type": "boolean"
+        }
+      }
+    },
+    "BgpPeer": {
+      "description": "State of a BGP Peer\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "families": {
+          "description": "BGP peer address family state",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpPeerFamilies"
+          }
+        },
+        "local-asn": {
+          "description": "Local AS Number",
+          "type": "integer"
+        },
+        "peer-address": {
+          "description": "IP Address of peer",
+          "type": "string"
+        },
+        "peer-asn": {
+          "description": "Peer AS Number",
+          "type": "integer"
+        },
+        "session-state": {
+          "description": "BGP peer operational state as described here\nhttps://www.rfc-editor.org/rfc/rfc4271#section-8.2.2\n",
+          "type": "string"
+        },
+        "uptime-nanoseconds": {
+          "description": "BGP peer connection uptime in nano seconds.",
+          "type": "integer"
+        }
+      }
+    },
+    "BgpPeerFamilies": {
+      "description": "BGP AFI SAFI state of the peer\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "accepted": {
+          "description": "Number of routes accepted from the peer of this address family",
+          "type": "integer"
+        },
+        "advertised": {
+          "description": "Number of routes advertised of this address family to the peer",
+          "type": "integer"
+        },
+        "afi": {
+          "description": "BGP address family indicator",
+          "type": "string"
+        },
+        "received": {
+          "description": "Number of routes received from the peer of this address family",
+          "type": "integer"
+        },
+        "safi": {
+          "description": "BGP subsequent address family indicator",
+          "type": "string"
         }
       }
     },
