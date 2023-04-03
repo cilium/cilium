@@ -57,7 +57,9 @@ const (
 
 	zeroIP4 = "0.0.0.0"
 
-	gatewayExcludedCIDRValue = "0.0.0.1" // Special value for gatewayIP excluded CIDR, see pkg/egressgateway/manager.go
+	// Special values for gatewayIP, see pkg/egressgateway/manager.go
+	gatewayNotFoundValue     = "0.0.0.0"
+	gatewayExcludedCIDRValue = "0.0.0.1"
 )
 
 var (
@@ -66,11 +68,13 @@ var (
 
 	identityAllocator = testidentity.NewMockIdentityAllocator(nil)
 
-	nodeGroup1Labels = map[string]string{"label1": "1"}
-	nodeGroup2Labels = map[string]string{"label2": "2"}
+	nodeGroupNotFoundLabels = map[string]string{"label1": "notfound"}
+	nodeGroup1Labels        = map[string]string{"label1": "1"}
+	nodeGroup2Labels        = map[string]string{"label2": "2"}
 
-	nodeGroup1Selector = &slimv1.LabelSelector{MatchLabels: nodeGroup1Labels}
-	nodeGroup2Selector = &slimv1.LabelSelector{MatchLabels: nodeGroup2Labels}
+	nodeGroupNotFoundSelector = &slimv1.LabelSelector{MatchLabels: nodeGroupNotFoundLabels}
+	nodeGroup1Selector        = &slimv1.LabelSelector{MatchLabels: nodeGroup1Labels}
+	nodeGroup2Selector        = &slimv1.LabelSelector{MatchLabels: nodeGroup2Labels}
 )
 
 type ipRule struct {
@@ -354,6 +358,17 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	assertIPRules(c, []ipRule{
 		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
 	})
+
+	// Test matching no gateway
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroupNotFoundSelector, testInterface1)
+	egressGatewayManager.OnAddEgressPolicy(policy1)
+
+	assertEgressRules(c, []egressRule{
+		{ep1IP, destCIDR, zeroIP4, gatewayNotFoundValue},
+		{ep2IP, destCIDR, zeroIP4, node2IP},
+	})
+
+	assertIPRules(c, []ipRule{})
 
 	// Update the endpoint labels in order for it to not be a match
 	_ = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
