@@ -429,8 +429,7 @@ kind-clustermesh: ## Create two kind clusters for clustermesh development.
 
 .PHONY: kind-clustermesh-down
 kind-clustermesh-down: ## Destroy kind clusters for clustermesh development.
-	kind delete clusters clustermesh1
-	kind delete clusters clustermesh2
+	$(QUIET)./contrib/scripts/kind-down.sh clustermesh1 clustermesh2
 
 .PHONY: kind-clustermesh-ready
 kind-clustermesh-ready: ## Check if both kind clustermesh clusters exist
