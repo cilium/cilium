@@ -163,12 +163,7 @@ file.
 
 To minimize datapath disruption during the upgrade, the
 ``upgradeCompatibility`` option should be set to the initial Cilium
-version which was installed in this cluster. Valid options are:
-
-* ``1.7`` if the initial install was Cilium 1.7.x or earlier.
-* ``1.8`` if the initial install was Cilium 1.8.x.
-* ``1.9`` if the initial install was Cilium 1.9.x.
-* ``1.10`` if the initial install was Cilium 1.10.x.
+version which was installed in this cluster.
 
 .. tabs::
   .. group-tab:: kubectl
