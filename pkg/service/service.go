@@ -1004,16 +1004,16 @@ func (s *Service) RestoreServices() error {
 	defer s.Unlock()
 	var errs error
 
-	// Restore backend IDs
-	if err := s.restoreBackendsLocked(); err != nil {
-		errs = multierr.Append(errs,
-			fmt.Errorf("error while restoring backends: %w", err))
-	}
-
 	// Restore service cache from BPF maps
 	if err := s.restoreServicesLocked(); err != nil {
 		errs = multierr.Append(errs,
 			fmt.Errorf("error while restoring services: %w", err))
+	}
+
+	// Restore backend IDs
+	if err := s.restoreBackendsLocked(); err != nil {
+		errs = multierr.Append(errs,
+			fmt.Errorf("error while restoring backends: %w", err))
 	}
 
 	// Remove LB source ranges for no longer existing services
