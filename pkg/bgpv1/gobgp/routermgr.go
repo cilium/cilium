@@ -13,9 +13,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -78,6 +80,7 @@ type bgpRouterManagerParams struct {
 // BgpServers are abstracted by the ServerWithConfig structure which provides a
 // method set for low-level BGP operations.
 type BGPRouterManager struct {
+	lock.RWMutex
 	Servers     LocalASNMap
 	Reconcilers []ConfigReconciler
 }
@@ -111,6 +114,9 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 // ConfigurePeers should return only once a subsequent invocation is safe.
 // This method is not thread safe and does not intend to be called concurrently.
 func (m *BGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1api.CiliumBGPPeeringPolicy, cstate *agent.ControlPlaneState) error {
+	m.Lock()
+	defer m.Unlock()
+
 	l := log.WithFields(
 		logrus.Fields{
 			"component": "gobgp.RouterManager.ConfigurePeers",
@@ -355,4 +361,21 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context, sc *ServerWit
 	// all reconcilers succeeded so update Server's config with new peering config.
 	sc.Config = newc
 	return nil
+}
+
+// GetPeers gets peering state from previously initialized gobgp instances.
+func (m *BGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	var res []*models.BgpPeer
+
+	for _, s := range m.Servers {
+		peerStates, err := s.GetPeerState(ctx)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, peerStates...)
+	}
+	return res, nil
 }
