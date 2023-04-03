@@ -101,7 +101,7 @@ pipeline {
         stage('Netperf tests'){
 
             when {
-                environment name: 'GIT_BRANCH', value: 'origin/master'
+                environment name: 'GIT_BRANCH', value: 'origin/main'
             }
 
             options {
