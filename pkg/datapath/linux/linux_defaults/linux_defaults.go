@@ -109,8 +109,12 @@ const (
 	// IPsecMarkMaskNodeID is the mask used for the node ID.
 	IPsecMarkMaskNodeID = 0xFFFF0000
 
+	// IPsecOldMarkMaskOut is the mask that was previously used. It can be
+	// removed in Cilium v1.15.
+	IPsecOldMarkMaskOut = 0xFF00
+
 	// IPsecMarkMask is the mask required for the IPsec SPI, node ID, and encrypt/decrypt bits
-	IPsecMarkMaskOut = 0xFF00 | IPsecMarkMaskNodeID
+	IPsecMarkMaskOut = IPsecOldMarkMaskOut | IPsecMarkMaskNodeID
 
 	// IPsecMarkMaskIn is the mask required for IPsec to lookup encrypt/decrypt bits
 	IPsecMarkMaskIn = 0x0F00
