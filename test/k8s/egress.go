@@ -407,6 +407,46 @@ var _ = SkipDescribeIf(func() bool {
 					})
 				})
 			})
+			Context("egress gw policy when the gateway is not found", func() {
+				var policyYAML string
+
+				BeforeAll(func() {
+					policyYAML = applyEgressPolicy("egress-gateway-policy-not-found.yaml")
+
+					// Wait for 2 entries:
+					// - 1 policy with 2 matching endpoints
+
+					err := kubectl.WaitForEgressPolicyEntries(helpers.K8s1, 2)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+
+					err = kubectl.WaitForEgressPolicyEntries(helpers.K8s2, 2)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+				})
+				AfterAll(func() {
+					kubectl.Delete(policyYAML)
+
+					err := kubectl.WaitForEgressPolicyEntries(helpers.K8s1, 0)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+
+					err = kubectl.WaitForEgressPolicyEntries(helpers.K8s2, 0)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+				})
+
+				AfterFailed(func() {
+					kubectl.CiliumReport("cilium bpf egress list", "cilium bpf nat list")
+				})
+
+				It("Traffic is not SNATed with egress gateway IP", func() {
+					testEgressGateway(&egressGatewayTestOpts{
+						fromGateway:    false,
+						shouldBeSNATed: false,
+					})
+					testEgressGateway(&egressGatewayTestOpts{
+						fromGateway:    true,
+						shouldBeSNATed: false,
+					})
+				})
+			})
 		})
 	}
 

@@ -1,0 +1,18 @@
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: cegp-sample
+spec:
+  selectors:
+  - podSelector:
+      matchLabels:
+        zgroup: testDSClient
+    namespaceSelector:
+      matchLabels:
+        ns: cilium-test
+  destinationCIDRs:
+  - INPUT_OUTSIDE_NODE_IP/32
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        cilium.io/ci-node: not-found
