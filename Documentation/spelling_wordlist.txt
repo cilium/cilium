@@ -1070,6 +1070,7 @@ updateStrategy
 uplink
 uprobes
 upstreamed
+uptime
 uretprobes
 url
 useAPIServer
