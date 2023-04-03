@@ -26,7 +26,7 @@
   // If removed, we would fall back on the config:base preset, which ignores any
   // paths that match 'examples/*' (which we explicitly do not want to ignore).
   "ignorePaths": [
-    // This file is deprecated and no longer present in master
+    // This file is deprecated and no longer present in main
     "images/cilium-test/Dockerfile"
   ],
   "ignoreDeps": [
@@ -42,7 +42,7 @@
   "separateMinorPatch": true,
   "pruneStaleBranches": true,
   "baseBranches": [
-    "master",
+    "main",
     "v1.13",
     "v1.12",
     "v1.11"
@@ -75,8 +75,8 @@
       ]
     },
     {
-      "groupName": "all go dependencies master",
-      "groupSlug": "all-go-deps-master",
+      "groupName": "all go dependencies main",
+      "groupSlug": "all-go-deps-main",
       "matchFiles": [
         "go.mod",
         "go.sum"
@@ -97,7 +97,7 @@
         "on friday"
       ],
       matchBaseBranches: [
-        "master"
+        "main"
       ]
     },
     {
@@ -167,7 +167,7 @@
       ],
       "allowedVersions": "22.04",
       "matchBaseBranches": [
-        "master",
+        "main",
         "v1.13"
       ]
     },

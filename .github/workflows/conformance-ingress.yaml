@@ -8,8 +8,8 @@ on:
       - 'test/**'
   push:
     branches:
-      - master
-      - ft/master/**
+      - main
+      - ft/main/**
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
@@ -54,7 +54,7 @@ jobs:
           default-ingress-controller: true
 
     steps:
-      - name: Checkout master branch to access local actions
+      - name: Checkout main branch to access local actions
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
