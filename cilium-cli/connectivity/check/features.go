@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/option"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -53,6 +54,8 @@ const (
 	FeatureFlavor Feature = "flavor"
 
 	FeatureSecretBackendK8s Feature = "secret-backend-k8s"
+
+	FeatureCNP Feature = "cilium-network-policy"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -369,6 +372,34 @@ func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, r
 	}
 }
 
+const (
+	ciliumNetworkPolicyCRDName = "ciliumnetworkpolicies.cilium.io"
+)
+
+func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result FeatureSet) error {
+	// CNP are deployed by default.
+	cnpDeployed := true
+
+	// Check if CRD Cilium Network Policy is deployed.
+	_, err := ct.client.GetCRD(ctx, ciliumNetworkPolicyCRDName, metav1.GetOptions{})
+
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			fmt.Printf("Type of error: %v, %T", err, err)
+			return fmt.Errorf("unable to retrieve CRD %s: %w", ciliumNetworkPolicyCRDName, err)
+		}
+
+		// Not found it's not deployed.
+		cnpDeployed = false
+	}
+
+	result[FeatureCNP] = FeatureStatus{
+		Enabled: cnpDeployed,
+	}
+
+	return nil
+}
+
 func (ct *ConnectivityTest) validateFeatureSet(other FeatureSet, source string) {
 	for key, found := range other {
 		expected, ok := ct.features[key]
@@ -415,6 +446,10 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 		}
 		ct.extractFeaturesFromK8sCluster(ctx, features)
 		err = features.deriveFeatures()
+		if err != nil {
+			return err
+		}
+		err = ct.extractFeaturesFromCRDs(ctx, features)
 		if err != nil {
 			return err
 		}
