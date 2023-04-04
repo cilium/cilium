@@ -5,6 +5,7 @@ package verifier_test
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -122,7 +123,8 @@ func TestVerifier(t *testing.T) {
 		for i := 1; scanner.Scan(); i++ {
 			datapathConfig := scanner.Text()
 
-			t.Run(fmt.Sprintf("%s_%d", bpfProgram.name, i), func(t *testing.T) {
+			name := fmt.Sprintf("%s_%d", bpfProgram.name, i)
+			t.Run(name, func(t *testing.T) {
 				cmd := exec.Command("make", "-C", "bpf/", "clean")
 				cmd.Dir = *ciliumBasePath
 				if out, err := cmd.CombinedOutput(); err != nil {
@@ -178,7 +180,12 @@ func TestVerifier(t *testing.T) {
 				})
 				var ve *ebpf.VerifierError
 				if errors.As(err, &ve) {
-					t.Fatalf("Verifier error: %s\nVerifier log: %+v\n\nDatapath build config: %s", err, ve, datapathConfig)
+					var buf bytes.Buffer
+					fmt.Fprintf(&buf, "%+v", ve)
+					fullLogFile := name + "_verifier.log"
+					_ = os.WriteFile(fullLogFile, buf.Bytes(), 0444)
+					t.Log("Full verifier log at", fullLogFile)
+					t.Fatalf("Verifier error: %-10v\nDatapath build config: %s", ve, datapathConfig)
 				}
 				if err != nil {
 					t.Fatal(err)
