@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -23,16 +24,36 @@ func (k *K8sWatcher) onUpsertCIDRGroup(
 	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
 	cnpCache map[resource.Key]*types.SlimCNP,
 	cs client.Clientset,
+	apiGroup, metricLabel string,
 ) error {
+	var (
+		equal  bool
+		action string
+	)
+
+	// wrap k.K8sEventReceived call into a naked func() to capture equal in the closure
+	defer func() {
+		k.K8sEventReceived(apiGroup, metricLabel, action, true, equal)
+	}()
+
 	oldCidrGroup, ok := cidrGroupCache[cidrGroup.Name]
 	if ok && oldCidrGroup.Spec.DeepEqual(&cidrGroup.Spec) {
+		equal = true
 		return nil
+	} else if ok {
+		action = resources.MetricUpdate
+	} else {
+		action = resources.MetricCreate
 	}
 
 	cidrGroupCpy := cidrGroup.DeepCopy()
 	cidrGroupCache[cidrGroup.Name] = cidrGroupCpy
 
-	return k.updateCIDRGroupRefPolicies(cidrGroup.Name, cidrGroupCache, cnpCache, cs)
+	err := k.updateCIDRGroupRefPolicies(cidrGroup.Name, cidrGroupCache, cnpCache, cs)
+
+	k.K8sEventProcessed(metricLabel, action, err == nil)
+
+	return err
 }
 
 func (k *K8sWatcher) onDeleteCIDRGroup(
@@ -40,10 +61,16 @@ func (k *K8sWatcher) onDeleteCIDRGroup(
 	cidrGroupCache map[string]*cilium_v2_alpha1.CiliumCIDRGroup,
 	cnpCache map[resource.Key]*types.SlimCNP,
 	cs client.Clientset,
+	apiGroup, metricLabel string,
 ) error {
 	delete(cidrGroupCache, cidrGroupName)
 
-	return k.updateCIDRGroupRefPolicies(cidrGroupName, cidrGroupCache, cnpCache, cs)
+	err := k.updateCIDRGroupRefPolicies(cidrGroupName, cidrGroupCache, cnpCache, cs)
+
+	k.K8sEventProcessed(metricLabel, resources.MetricDelete, err == nil)
+	k.K8sEventReceived(apiGroup, metricLabel, resources.MetricDelete, true, true)
+
+	return err
 }
 
 func (k *K8sWatcher) updateCIDRGroupRefPolicies(

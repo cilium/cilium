@@ -176,9 +176,9 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Cl
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = k.onUpsertCIDRGroup(event.Object, cidrGroupCache, cnpCache, cs)
+					err = k.onUpsertCIDRGroup(event.Object, cidrGroupCache, cnpCache, cs, k8sAPIGroupCiliumCIDRGroupV2Alpha1, resources.MetricCCG)
 				case resource.Delete:
-					err = k.onDeleteCIDRGroup(event.Object.Name, cidrGroupCache, cnpCache, cs)
+					err = k.onDeleteCIDRGroup(event.Object.Name, cidrGroupCache, cnpCache, cs, k8sAPIGroupCiliumCIDRGroupV2Alpha1, resources.MetricCCG)
 				}
 				event.Done(err)
 			}
