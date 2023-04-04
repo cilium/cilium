@@ -309,6 +309,18 @@ Annotations:
 
 .. _1.11_upgrade_notes:
 
+1.11.x Known Regressions
+------------------------
+
+* Cilium version 1.11 prioritizes ConfigMap values over command line arguments,
+  whereas in versions 1.10, 1.12, and later, command line arguments are given
+  higher precedence, which aligns with the expected behavior.
+
+  Cilium committers have decided that implementing a fix for this issue may
+  result in additional problems since it would involve a significant change in
+  behavior for a patch release, particularly given that version 1.11 has been in
+  use for a considerable period and is expected to be stable.
+
 1.11.15 Upgrade Notes
 ---------------------
 
