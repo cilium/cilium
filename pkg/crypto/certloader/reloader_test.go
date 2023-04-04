@@ -449,15 +449,30 @@ func TestReload(t *testing.T) {
 				t.Error(err)
 				return
 			}
+			prevKeypairGeneration, prevCaCertPoolGeneration := r.generations()
 			keypair, caCertPool, err := r.Reload()
 			assert.Nil(t, err)
+			// keypair check
 			assert.Equal(t, tt.expectedKeypair, keypair)
+			// caCertPool check
 			if tt.expectedCaCertPool != nil {
 				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
 			} else {
 				assert.Nil(t, caCertPool)
 			}
-
+			// generations check
+			keypairGeneration, caCertPoolGeneration := r.generations()
+			if tt.expectedKeypair != nil {
+				assert.Equal(t, prevKeypairGeneration+1, keypairGeneration)
+			} else {
+				assert.Equal(t, prevKeypairGeneration, keypairGeneration)
+			}
+			if tt.expectedCaCertPool != nil {
+				assert.Equal(t, prevCaCertPoolGeneration+1, caCertPoolGeneration)
+			} else {
+				assert.Equal(t, prevCaCertPoolGeneration, caCertPoolGeneration)
+			}
+			// ensures that KeypairAndCACertPool() returns the expected values
 			keypair, caCertPool = r.KeypairAndCACertPool()
 			assert.Equal(t, tt.expectedKeypair, keypair)
 			if tt.expectedCaCertPool != nil {
@@ -480,10 +495,9 @@ func TestReloadKeypair(t *testing.T) {
 	}
 
 	tests := []struct {
-		name               string
-		constructor        func() (*FileReloader, error)
-		expectedKeypair    *tls.Certificate
-		expectedCaCertPool *x509.CertPool
+		name            string
+		constructor     func() (*FileReloader, error)
+		expectedKeypair *tls.Certificate
 	}{
 		{
 			name: "empty",
@@ -522,10 +536,19 @@ func TestReloadKeypair(t *testing.T) {
 				t.Error(err)
 				return
 			}
+			prevKeypairGeneration, _ := r.generations()
 			keypair, err := r.ReloadKeypair()
 			assert.Nil(t, err)
+			// keypair check
 			assert.Equal(t, tt.expectedKeypair, keypair)
-
+			// generations check
+			keypairGeneration, _ := r.generations()
+			if tt.expectedKeypair != nil {
+				assert.Equal(t, prevKeypairGeneration+1, keypairGeneration)
+			} else {
+				assert.Equal(t, prevKeypairGeneration, keypairGeneration)
+			}
+			// ensures that KeypairAndCACertPool() returns the expected values
 			keypair, caCertPool := r.KeypairAndCACertPool()
 			assert.Equal(t, tt.expectedKeypair, keypair)
 			assert.Nil(t, caCertPool)
@@ -585,14 +608,23 @@ func TestReloadCA(t *testing.T) {
 				t.Error(err)
 				return
 			}
+			_, prevCaCertPoolGeneration := r.generations()
 			caCertPool, err := r.ReloadCA()
 			assert.Nil(t, err)
+			// caCertPool check
 			if tt.expectedCaCertPool != nil {
 				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
 			} else {
 				assert.Nil(t, caCertPool)
 			}
-
+			// generations check
+			_, caCertPoolGeneration := r.generations()
+			if tt.expectedCaCertPool != nil {
+				assert.Equal(t, prevCaCertPoolGeneration+1, caCertPoolGeneration)
+			} else {
+				assert.Equal(t, prevCaCertPoolGeneration, caCertPoolGeneration)
+			}
+			// ensures that KeypairAndCACertPool() returns the expected values
 			keypair, caCertPool := r.KeypairAndCACertPool()
 			assert.Nil(t, keypair)
 			if tt.expectedCaCertPool != nil {
@@ -633,6 +665,7 @@ func TestReloadError(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	prevKeypairGeneration, prevCaCertPoolGeneration := r.generations()
 	_, _, err = r.Reload()
 	assert.NotNil(t, err)
 
@@ -640,4 +673,8 @@ func TestReloadError(t *testing.T) {
 	keypair, caCertPool = r.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
 	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	// generations should not have changed
+	keypairGeneration, caCertPoolGeneration := r.generations()
+	assert.Equal(t, prevKeypairGeneration, keypairGeneration)
+	assert.Equal(t, prevCaCertPoolGeneration, caCertPoolGeneration)
 }

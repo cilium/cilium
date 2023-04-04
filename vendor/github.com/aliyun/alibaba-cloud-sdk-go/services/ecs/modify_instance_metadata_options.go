@@ -72,6 +72,7 @@ func (client *Client) ModifyInstanceMetadataOptionsWithCallback(request *ModifyI
 type ModifyInstanceMetadataOptionsRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	InstanceMetadataTags    string           `position:"Query" name:"InstanceMetadataTags"`
 	HttpPutResponseHopLimit requests.Integer `position:"Query" name:"HttpPutResponseHopLimit"`
 	HttpEndpoint            string           `position:"Query" name:"HttpEndpoint"`
 	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`

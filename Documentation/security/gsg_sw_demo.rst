@@ -1,13 +1,13 @@
 Deploy the Demo Application
 ===========================
 
-Now that we have Cilium deployed and ``kube-dns`` operating correctly we can deploy our demo application.
+When we have Cilium deployed and ``kube-dns`` operating correctly we can deploy our demo application.
 
 In our Star Wars-inspired example, there are three microservices applications: *deathstar*, *tiefighter*, and *xwing*. The *deathstar* runs an HTTP webservice on port 80, which is exposed as a `Kubernetes Service <https://kubernetes.io/docs/concepts/services-networking/service/>`_ to load-balance requests to *deathstar* across two pod replicas. The *deathstar* service provides landing services to the empire's spaceships so that they can request a landing port. The *tiefighter* pod represents a landing-request client service on a typical empire ship and *xwing* represents a similar service on an alliance ship. They exist so that we can test different security policies for access control to *deathstar* landing services.
 
 **Application Topology for Cilium and Kubernetes**
 
-.. image:: images/cilium_http_gsg.png
+.. image:: /gettingstarted/images/cilium_http_gsg.png
    :scale: 30 %
 
 The file ``http-sw-app.yaml`` contains a `Kubernetes Deployment <https://kubernetes.io/docs/concepts/workloads/controllers/deployment/>`_ for each of the three services.
@@ -42,8 +42,10 @@ point the pod is ready.
     service/deathstar    ClusterIP   10.96.110.8   <none>        80/TCP    107s
     service/kubernetes   ClusterIP   10.96.0.1     <none>        443/TCP   3m53s
 
-Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
-``cilium`` tool inside the Cilium pod to list them:
+Each pod will be represented in Cilium as an :ref:`endpoint` in the local cilium agent. 
+We can invoke the ``cilium`` tool inside the Cilium pod to list them (in a single-node installation
+``kubectl -n kube-system exec ds/cilium -- cilium endpoint list`` lists them all, but in a 
+multi-node installation, only the ones running on the same node will be listed):
 
 .. code-block:: shell-session
 
@@ -51,7 +53,7 @@ Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
     NAME           READY   STATUS    RESTARTS   AGE
     cilium-5ngzd   1/1     Running   0          3m19s
 
-    $ kubectl -n kube-system exec cilium-1c2cz -- cilium endpoint list
+    $ kubectl -n kube-system exec cilium-5ngzd -- cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6   IPv4         STATUS
                ENFORCEMENT        ENFORCEMENT
     232        Disabled           Disabled          16530      k8s:class=deathstar                                      10.0.0.147   ready

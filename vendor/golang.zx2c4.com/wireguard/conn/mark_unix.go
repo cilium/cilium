@@ -2,7 +2,7 @@
 
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package conn
@@ -26,13 +26,13 @@ func init() {
 	}
 }
 
-func (bind *StdNetBind) SetMark(mark uint32) error {
+func (s *StdNetBind) SetMark(mark uint32) error {
 	var operr error
 	if fwmarkIoctl == 0 {
 		return nil
 	}
-	if bind.ipv4 != nil {
-		fd, err := bind.ipv4.SyscallConn()
+	if s.ipv4 != nil {
+		fd, err := s.ipv4.SyscallConn()
 		if err != nil {
 			return err
 		}
@@ -46,8 +46,8 @@ func (bind *StdNetBind) SetMark(mark uint32) error {
 			return err
 		}
 	}
-	if bind.ipv6 != nil {
-		fd, err := bind.ipv6.SyscallConn()
+	if s.ipv6 != nil {
+		fd, err := s.ipv6.SyscallConn()
 		if err != nil {
 			return err
 		}

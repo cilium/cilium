@@ -10,9 +10,9 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-// setGatewayScheduled inserts or updates the Scheduled condition for the provided Gateway resource.
-func setGatewayScheduled(gw *gatewayv1beta1.Gateway, scheduled bool, msg string) *gatewayv1beta1.Gateway {
-	gw.Status.Conditions = merge(gw.Status.Conditions, gatewayStatusScheduledCondition(gw, scheduled, msg))
+// setGatewayAccepted inserts or updates the Accepted condition for the provided Gateway resource.
+func setGatewayAccepted(gw *gatewayv1beta1.Gateway, accepted bool, msg string) *gatewayv1beta1.Gateway {
+	gw.Status.Conditions = merge(gw.Status.Conditions, gatewayStatusAcceptedCondition(gw, accepted, msg))
 	return gw
 }
 
@@ -22,20 +22,20 @@ func setGatewayReady(gw *gatewayv1beta1.Gateway, ready bool, msg string) *gatewa
 	return gw
 }
 
-func gatewayStatusScheduledCondition(gw *gatewayv1beta1.Gateway, scheduled bool, msg string) metav1.Condition {
-	switch scheduled {
+func gatewayStatusAcceptedCondition(gw *gatewayv1beta1.Gateway, accepted bool, msg string) metav1.Condition {
+	switch accepted {
 	case true:
 		return metav1.Condition{
-			Type:               string(gatewayv1beta1.GatewayConditionScheduled),
+			Type:               string(gatewayv1beta1.GatewayConditionAccepted),
 			Status:             metav1.ConditionTrue,
-			Reason:             string(gatewayv1beta1.GatewayReasonScheduled),
+			Reason:             string(gatewayv1beta1.GatewayConditionAccepted),
 			Message:            msg,
 			ObservedGeneration: gw.GetGeneration(),
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 	default:
 		return metav1.Condition{
-			Type:               string(gatewayv1beta1.GatewayConditionScheduled),
+			Type:               string(gatewayv1beta1.GatewayConditionAccepted),
 			Status:             metav1.ConditionFalse,
 			Reason:             string(gatewayv1beta1.GatewayReasonNoResources),
 			Message:            msg,
@@ -68,25 +68,36 @@ func gatewayStatusReadyCondition(gw *gatewayv1beta1.Gateway, scheduled bool, msg
 	}
 }
 
-func gatewayListenerReadyCondition(gw *gatewayv1beta1.Gateway, ready bool, msg string) metav1.Condition {
+func gatewayListenerProgrammedCondition(gw *gatewayv1beta1.Gateway, ready bool, msg string) metav1.Condition {
 	switch ready {
 	case true:
 		return metav1.Condition{
-			Type:               string(gatewayv1beta1.ListenerConditionReady),
+			Type:               string(gatewayv1beta1.ListenerConditionProgrammed),
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: gw.GetGeneration(),
 			LastTransitionTime: metav1.NewTime(time.Now()),
-			Reason:             string(gatewayv1beta1.ListenerConditionReady),
+			Reason:             string(gatewayv1beta1.ListenerConditionProgrammed),
 			Message:            msg,
 		}
 	default:
 		return metav1.Condition{
-			Type:               string(gatewayv1beta1.ListenerConditionReady),
+			Type:               string(gatewayv1beta1.ListenerConditionProgrammed),
 			Status:             metav1.ConditionFalse,
 			Reason:             string(gatewayv1beta1.ListenerReasonPending),
 			Message:            msg,
 			ObservedGeneration: gw.GetGeneration(),
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
+	}
+}
+
+func gatewayListenerInvalidRouteKinds(gw *gatewayv1beta1.Gateway, msg string) metav1.Condition {
+	return metav1.Condition{
+		Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(gatewayv1beta1.ListenerReasonInvalidRouteKinds),
+		Message:            msg,
+		ObservedGeneration: gw.GetGeneration(),
+		LastTransitionTime: metav1.NewTime(time.Now()),
 	}
 }

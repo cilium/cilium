@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/google/gopacket"
@@ -72,8 +73,8 @@ func TestL34Decode(t *testing.T) {
 		98, 0, 90, 176, 97, 0, 0}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
-			if ip.Equal(net.ParseIP("10.16.236.178")) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+			if ip == netip.MustParseAddr("10.16.236.178") {
 				return &testutils.FakeEndpointInfo{
 					ID:           1234,
 					Identity:     5678,
@@ -95,10 +96,10 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	dnsGetter := &testutils.FakeFQDNCache{
-		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
+		OnGetNamesOf: func(epID uint32, ip netip.Addr) (names []string) {
 			if epID == 1234 {
 				switch {
-				case ip.Equal(net.ParseIP("192.168.60.11")):
+				case ip.String() == "192.168.60.11":
 					return []string{"host-192.168.60.11"}
 				}
 			}
@@ -106,8 +107,8 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	ipGetter := &testutils.FakeIPGetter{
-		OnGetK8sMetadata: func(ip net.IP) *ipcache.K8sMetadata {
-			if ip.String() == "192.168.60.11" {
+		OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
+			if ip == netip.MustParseAddr("192.168.60.11") {
 				return &ipcache.K8sMetadata{
 					Namespace: "remote",
 					PodName:   "pod-192.168.60.11",
@@ -115,9 +116,9 @@ func TestL34Decode(t *testing.T) {
 			}
 			return nil
 		},
-		OnLookupSecIDByIP: func(ip net.IP) (ipcache.Identity, bool) {
+		OnLookupSecIDByIP: func(ip netip.Addr) (ipcache.Identity, bool) {
 			// pretend IP belongs to a pod on a remote node
-			if ip.String() == "192.168.60.11" {
+			if ip == netip.MustParseAddr("192.168.60.11") {
 				// This numeric identity will be ignored because the above
 				// TraceNotify event already contains the source identity
 				return ipcache.Identity{
@@ -129,14 +130,14 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
-		OnGetServiceByAddr: func(ip net.IP, port uint16) *flowpb.Service {
-			if ip.Equal(net.ParseIP("192.168.60.11")) && (port == 6443) {
+		OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
+			if ip == netip.MustParseAddr("192.168.60.11") && (port == 6443) {
 				return &flowpb.Service{
 					Name:      "service-1234",
 					Namespace: "remote",
 				}
 			}
-			if ip.Equal(net.ParseIP("10.16.236.178")) && (port == 54222) {
+			if ip == netip.MustParseAddr("10.16.236.178") && (port == 54222) {
 				return &flowpb.Service{
 					Name:      "service-4321",
 					Namespace: "default",
@@ -198,8 +199,8 @@ func TestL34Decode(t *testing.T) {
 		0, 0, 0, 0, 0}
 
 	endpointGetter = &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
-			if ip.Equal(net.ParseIP("ff02::1:ff00:b3e5")) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+			if ip == netip.MustParseAddr("ff02::1:ff00:b3e5") {
 				return &testutils.FakeEndpointInfo{
 					ID: 1234,
 				}, true
@@ -208,10 +209,10 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	dnsGetter = &testutils.FakeFQDNCache{
-		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
+		OnGetNamesOf: func(epID uint32, ip netip.Addr) (names []string) {
 			if epID == 1234 {
 				switch {
-				case ip.Equal(net.ParseIP("f00d::a10:0:0:9195")):
+				case ip.String() == "f00d::a10:0:0:9195":
 					return []string{"host-f00d::a10:0:0:9195"}
 				}
 			}
@@ -469,9 +470,9 @@ func TestDecodeLocalIdentity(t *testing.T) {
 }
 
 func TestDecodeTrafficDirection(t *testing.T) {
-	localIP := net.ParseIP("1.2.3.4")
+	localIP := "1.2.3.4"
 	localEP := uint16(1234)
-	remoteIP := net.ParseIP("5.6.7.8")
+	remoteIP := "5.6.7.8"
 	remoteID := uint32(5678)
 
 	directionFromProto := func(direction flowpb.TrafficDirection) trafficdirection.TrafficDirection {
@@ -500,8 +501,8 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
-			if ip.Equal(localIP) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+			if ip == netip.MustParseAddr(localIP) {
 				return &testutils.FakeEndpointInfo{
 					ID: uint64(localEP),
 					PolicyMap: map[policy.Key]labels.LabelArrayList{
@@ -516,14 +517,14 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	parser, err := New(log, endpointGetter, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
-	parseFlow := func(event interface{}, srcIPv4, dstIPv4 net.IP) *flowpb.Flow {
+	parseFlow := func(event interface{}, srcIPv4, dstIPv4 string) *flowpb.Flow {
 		data, err := testutils.CreateL3L4Payload(event,
 			&layers.Ethernet{
 				SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
 				DstMAC:       net.HardwareAddr{7, 8, 9, 0, 1, 2},
 				EthernetType: layers.EthernetTypeIPv4,
 			},
-			&layers.IPv4{SrcIP: srcIPv4, DstIP: dstIPv4})
+			&layers.IPv4{SrcIP: net.ParseIP(srcIPv4), DstIP: net.ParseIP(dstIPv4)})
 		require.NoError(t, err)
 		f := &flowpb.Flow{}
 		err = parser.Decode(data, f)
@@ -630,7 +631,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
-	ep, ok := endpointGetter.GetEndpointInfo(localIP)
+	ep, ok := endpointGetter.GetEndpointInfo(netip.MustParseAddr(localIP))
 	assert.Equal(t, true, ok)
 	lbls, rev, ok := ep.(policyGetter).GetRealizedPolicyRuleLabelsForKey(policy.Key{
 		Identity:         f.GetDestination().GetIdentity(),
@@ -903,7 +904,7 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 		Labels:       []string{"a", "b", "c"},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
 			return ep, true
 		},
 	}

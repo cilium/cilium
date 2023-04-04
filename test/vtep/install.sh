@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Authors of Cilium
 
-#Please refer https://docs.cilium.io/en/stable/gettingstarted/kind/
+#Please refer https://docs.cilium.io/en/stable/installation/kind/
 
 # 1 create kind cluster
 kind create cluster --config=kind-cluster.yaml

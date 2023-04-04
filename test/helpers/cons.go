@@ -162,6 +162,7 @@ const (
 
 	DaemonName             = "cilium"
 	CiliumBugtool          = "cilium-bugtool"
+	CiliumBugtoolArgs      = "--exclude-object-files"
 	CiliumDockerDaemonName = "cilium-docker"
 	AgentDaemon            = "cilium-agent"
 
@@ -174,9 +175,9 @@ const (
 
 	// CiliumStableHelmChartVersion should be the chart version that points
 	// to the v1.X branch
-	CiliumStableHelmChartVersion = "1.12"
+	CiliumStableHelmChartVersion = "1.13"
 	CiliumStableVersion          = "v" + CiliumStableHelmChartVersion
-	CiliumLatestHelmChartVersion = "1.12.90"
+	CiliumLatestHelmChartVersion = "1.13.90"
 
 	MonitorLogFileName = "monitor.log"
 
@@ -230,15 +231,17 @@ const (
 	missingIptablesWait = "Missing iptables wait arg (-w):"
 	localIDRestoreFail  = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
 	routerIPMismatch    = "Mismatch of router IPs found during restoration"
+	emptyIPNodeIDAlloc  = "Attempt to allocate a node ID for an empty node IP address"
 
 	// ...and their exceptions.
-	opCantBeFulfilled        = "Operation cannot be fulfilled on leases.coordination.k8s.io"        // cf. https://github.com/cilium/cilium/issues/16402
-	initLeaderElection       = "error initially creating leader election record: leases."           // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-861544964
-	globalDataSupport        = "kernel doesn't support global data"                                 // cf. https://github.com/cilium/cilium/issues/16418
-	removeInexistentID       = "removing identity not added to the identity manager!"               // cf. https://github.com/cilium/cilium/issues/16419
-	failedToListCRDs         = "the server could not find the requested resource"                   // cf. https://github.com/cilium/cilium/issues/16425
-	retrieveResLock          = "retrieving resource lock kube-system/cilium-operator-resource-lock" // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-871155492
-	failedToRelLockEmptyName = "Failed to release lock: resource name may not be empty"             // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-985819560
+	opCantBeFulfilled            = "Operation cannot be fulfilled on leases.coordination.k8s.io"        // cf. https://github.com/cilium/cilium/issues/16402
+	initLeaderElection           = "error initially creating leader election record: leases."           // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-861544964
+	globalDataSupport            = "kernel doesn't support global data"                                 // cf. https://github.com/cilium/cilium/issues/16418
+	removeInexistentID           = "removing identity not added to the identity manager!"               // cf. https://github.com/cilium/cilium/issues/16419
+	failedToListCRDs             = "the server could not find the requested resource"                   // cf. https://github.com/cilium/cilium/issues/16425
+	retrieveResLock              = "retrieving resource lock kube-system/cilium-operator-resource-lock" // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-871155492
+	failedToRelLockEmptyName     = "Failed to release lock: resource name may not be empty"             // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-985819560
+	failedToUpdateLockReqTimeout = "Failed to update lock: etcdserver: request timed out"
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -297,10 +300,11 @@ var badLogMessages = map[string][]string{
 	missingIptablesWait: nil,
 	localIDRestoreFail:  nil,
 	routerIPMismatch:    nil,
+	emptyIPNodeIDAlloc:  nil,
 	"DATA RACE":         nil,
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
-	"level=error": {opCantBeFulfilled, initLeaderElection, globalDataSupport, removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName},
+	"level=error": {opCantBeFulfilled, initLeaderElection, globalDataSupport, removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName, failedToUpdateLockReqTimeout},
 }
 
 var ciliumCLICommands = map[string]string{

@@ -52,6 +52,14 @@ type CiliumEgressGatewayPolicySpec struct {
 	// If a destination IP matches any one CIDR, it will be selected.
 	DestinationCIDRs []IPv4CIDR `json:"destinationCIDRs"`
 
+	// ExcludedCIDRs is a list of destination CIDRs that will be excluded
+	// from the egress gateway redirection and SNAT logic.
+	// Should be a subset of destinationCIDRs otherwise it will not have any
+	// effect.
+	//
+	// +kubebuilder:validation:Optional
+	ExcludedCIDRs []IPv4CIDR `json:"excludedCIDRs"`
+
 	// EgressGateway is the gateway node responsible for SNATing traffic.
 	EgressGateway *EgressGateway `json:"egressGateway"`
 }

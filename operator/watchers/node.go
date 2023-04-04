@@ -34,8 +34,16 @@ var (
 	nodeQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "node-queue")
 )
 
+// NodeQueueShutDown is a wrapper to expose ShutDown for the global nodeQueue.
+// It is meant to be used in unit test like the identity-gc one in operator/identity/
+// in order to avoid goleak complaining about leaked goroutines.
+func NodeQueueShutDown() {
+	nodeQueue.ShutDown()
+}
+
 type slimNodeGetter interface {
 	GetK8sSlimNode(nodeName string) (*slim_corev1.Node, error)
+	ListK8sSlimNode() []*slim_corev1.Node
 }
 
 type nodeGetter struct{}
@@ -55,6 +63,15 @@ func (nodeGetter) GetK8sSlimNode(nodeName string) (*slim_corev1.Node, error) {
 		}, nodeName)
 	}
 	return nodeInterface.(*slim_corev1.Node), nil
+}
+
+func (nodeGetter) ListK8sSlimNode() []*slim_corev1.Node {
+	nodesInt := slimNodeStore.List()
+	out := make([]*slim_corev1.Node, 0, len(nodesInt))
+	for i := range nodesInt {
+		out = append(out, nodesInt[i].(*slim_corev1.Node))
+	}
+	return out
 }
 
 // nodesInit starts up a node watcher to handle node events.

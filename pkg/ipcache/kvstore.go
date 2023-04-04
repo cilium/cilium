@@ -16,6 +16,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -34,7 +35,7 @@ const (
 
 var (
 	// IPIdentitiesPath is the path to where endpoint IPs are stored in the key-value
-	//store.
+	// store.
 	IPIdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "ip", "v1")
 
 	// AddressSpace is the address space (cluster, etc.) in which policy is
@@ -198,19 +199,36 @@ type IPIdentityWatcher struct {
 	stopOnce   sync.Once
 	syncedOnce sync.Once
 
-	ipcache *IPCache
+	clusterID uint32
+
+	ipcache IPCacher
+}
+
+type IPCacher interface {
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (bool, error)
+	ForEachListener(f func(listener IPIdentityMappingListener))
+	Delete(IP string, source source.Source) (namedPortsChanged bool)
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
-// kvstore backend
-func NewIPIdentityWatcher(ipc *IPCache, backend kvstore.BackendOperations) *IPIdentityWatcher {
-	watcher := &IPIdentityWatcher{
-		backend: backend,
-		stop:    make(chan struct{}),
-		synced:  make(chan struct{}),
-		ipcache: ipc,
-	}
+// kvstore backend.
+func NewIPIdentityWatcher(ipc IPCacher, backend kvstore.BackendOperations) *IPIdentityWatcher {
+	return NewClusterIPIdentityWatcher(0, ipc, backend)
+}
 
+// NewClusterIPIdentityWatcher creates a new IPIdentityWatcher using the specified
+// kvstore backend. The difference between the watcher created by NewIPIdentityWatcher
+// is that each IP <=> Identity mapping will be annotated with ClusterID. Thus, it
+// can be used for watching the kvstore of the remote cluster with overlapping PodCIDR.
+// Calling this function with clusterID = 0 is identical to calling NewIPIdentityWatcher.
+func NewClusterIPIdentityWatcher(clusterID uint32, ipc IPCacher, backend kvstore.BackendOperations) *IPIdentityWatcher {
+	watcher := &IPIdentityWatcher{
+		clusterID: clusterID,
+		backend:   backend,
+		stop:      make(chan struct{}),
+		synced:    make(chan struct{}),
+		ipcache:   ipc,
+	}
 	return watcher
 }
 
@@ -236,7 +254,10 @@ restart:
 			}
 
 			if option.Config.Debug {
-				scopedLog = log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key})
+				scopedLog = log.WithFields(logrus.Fields{
+					"kvstore-event": event.Typ.String(),
+					"key":           event.Key,
+				})
 				scopedLog.Debug("Received event")
 			}
 
@@ -260,19 +281,19 @@ restart:
 			//   the deletion event.
 			switch event.Typ {
 			case kvstore.EventTypeListDone:
-				iw.ipcache.Lock()
-				for _, listener := range iw.ipcache.listeners {
+				iw.ipcache.ForEachListener(func(listener IPIdentityMappingListener) {
 					listener.OnIPIdentityCacheGC()
-				}
-				iw.ipcache.Unlock()
+				})
 				iw.closeSynced()
 
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
 				var ipIDPair identity.IPIdentityPair
 				err := json.Unmarshal(event.Value, &ipIDPair)
 				if err != nil {
-					log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
-						WithError(err).Error("Not adding entry to ip cache; error unmarshaling data from key-value store")
+					log.WithFields(logrus.Fields{
+						"kvstore-event": event.Typ.String(),
+						"key":           event.Key,
+					}).WithError(err).Error("Not adding entry to ip cache; error unmarshaling data from key-value store")
 					continue
 				}
 				ip := ipIDPair.PrefixString()
@@ -292,8 +313,10 @@ restart:
 					for _, np := range ipIDPair.NamedPorts {
 						err = k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)
 						if err != nil {
-							log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
-								WithError(err).Error("Parsing named port failed")
+							log.WithFields(logrus.Fields{
+								"kvstore-event": event.Typ.String(),
+								"key":           event.Key,
+							}).WithError(err).Error("Parsing named port failed")
 						}
 					}
 				}
@@ -307,6 +330,13 @@ restart:
 					// identity. However, this node has remote-node enabled, so we should
 					// treat the peer as a "remote-node", not a "host".
 					peerIdentity = identity.ReservedIdentityRemoteNode
+				}
+
+				if iw.clusterID != 0 {
+					// Annotate IP/Prefix string with ClusterID. So that we can distinguish
+					// the two network endpoints that have the same IP adddress, but belogs
+					// to the different clusters.
+					ip = cmtypes.AnnotateIPCacheKeyWithClusterID(ip, iw.clusterID)
 				}
 
 				// There is no need to delete the "old" IP addresses from this
@@ -325,8 +355,10 @@ restart:
 				// need to convert kvstore key to IP.
 				ipnet, isHost, err := keyToIPNet(event.Key)
 				if err != nil {
-					log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
-						WithError(err).Error("Error parsing IP from key")
+					log.WithFields(logrus.Fields{
+						"kvstore-event": event.Typ.String(),
+						"key":           event.Key,
+					}).WithError(err).Error("Error parsing IP from key")
 					continue
 				}
 				var ip string
@@ -346,6 +378,11 @@ restart:
 					globalMap.Unlock()
 				} else {
 					globalMap.Unlock()
+
+					if iw.clusterID != 0 {
+						// See equivalent logic in the kvstore.EventTypeUpdate case
+						ip = cmtypes.AnnotateIPCacheKeyWithClusterID(ip, iw.clusterID)
+					}
 
 					// The key no longer exists in the
 					// local cache, it is safe to remove

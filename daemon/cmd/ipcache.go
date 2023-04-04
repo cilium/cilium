@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 )
 
@@ -47,8 +48,10 @@ type ipCacheDumpListener struct {
 
 // OnIPIdentityCacheChange is called by DumpToListenerLocked
 func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
-	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
-	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
+	cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
+	newID ipcache.Identity, encryptKey uint8, _ uint16, k8sMeta *ipcache.K8sMetadata) {
+	cidr := cidrCluster.AsIPNet()
+
 	// only capture entries which are a subnet of cidrFilter
 	if ipc.cidrFilter != nil && !containsSubnet(*ipc.cidrFilter, cidr) {
 		return

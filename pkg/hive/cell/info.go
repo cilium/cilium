@@ -61,7 +61,7 @@ func (l InfoLeaf) Print(indent int, w *InfoPrinter) {
 				indentString = strings.Repeat(" ", indent)
 			}
 			buf.WriteString(indentString)
-			currentLineLength = indent
+			currentLineLength = indent + len(f) + 1
 		} else {
 			currentLineLength = newLineLength
 		}

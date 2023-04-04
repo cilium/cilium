@@ -15,7 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.12
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.13.1
   KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
@@ -32,11 +33,11 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
       - name: Check code changes
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: tested-tree
         with:
           # For `push` events, compare against the `ref` base branch
@@ -52,7 +53,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -60,7 +61,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Checkout
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
 
@@ -91,7 +92,7 @@ jobs:
           sudo systemctl restart docker
 
       - name: Create kind cluster
-        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
@@ -130,9 +131,12 @@ jobs:
             --set tunnel=disabled \
             --set autoDirectNodeRoutes=true \
             --set ipv6NativeRoutingCIDR=2001:db8:1::/64 \
-            --set ingressController.enabled=true
+            --set ingressController.enabled=true \
+            --set bpf.monitorAggregation=none
 
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.TIMEOUT }}
+          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
+          kubectl rollout -n kube-system status deploy/coredns --timeout=5m
+
           # To make sure that cilium CRD is available (default timeout is 5m)
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
 
@@ -143,7 +147,7 @@ jobs:
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
           kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
 
-      - name: Capture cilium-sysdump
+      - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() }}
         # The following is needed to prevent hubble from receiving an empty
         # file (EOF) on stdin and displaying no flows.
@@ -162,7 +166,7 @@ jobs:
           cilium sysdump --output-filename cilium-sysdump-out
 
       - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         if: ${{ failure() }}
         with:
           name: cilium-sysdump-out.zip

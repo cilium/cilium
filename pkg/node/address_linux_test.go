@@ -55,6 +55,11 @@ func (s *NodePrivilegedSuite) Test_firstGlobalV4Addr(c *C) {
 			preferredIP:    "192.168.0.1",
 			want:           "21.0.0.1",
 		},
+		{
+			name:           "primary IP preferred by default",
+			ipsOnInterface: []string{"192.168.0.2", "192.168.0.1"},
+			want:           "192.168.0.2",
+		},
 	}
 	const ifName = "dummy_iface"
 	for _, tc := range testCases {

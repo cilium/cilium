@@ -6,8 +6,8 @@ package cpu
 import (
 	"context"
 	"regexp"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/shirou/gopsutil/v3/internal/common"
 )
@@ -28,19 +28,19 @@ func TimesWithContext(ctx context.Context, percpu bool) ([]TimesStat, error) {
 		}
 
 		ret := TimesStat{CPU: "cpu-total"}
-		h := whiteSpaces.Split(lines[len(lines)-3], -1)	// headers
-		v := whiteSpaces.Split(lines[len(lines)-2], -1)	// values
+		h := whiteSpaces.Split(lines[len(lines)-3], -1) // headers
+		v := whiteSpaces.Split(lines[len(lines)-2], -1) // values
 		for i, header := range h {
 			if t, err := strconv.ParseFloat(v[i], 64); err == nil {
 				switch header {
-					case `%usr`:
-						ret.User = t
-					case `%sys`:
-						ret.System = t
-					case `%wio`:
-						ret.Iowait = t
-					case `%idle`:
-						ret.Idle = t
+				case `%usr`:
+					ret.User = t
+				case `%sys`:
+					ret.System = t
+				case `%wio`:
+					ret.Iowait = t
+				case `%idle`:
+					ret.Idle = t
 				}
 			}
 		}

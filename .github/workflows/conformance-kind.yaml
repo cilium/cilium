@@ -1,4 +1,4 @@
-name: ConformanceKind1.19
+name: ConformanceKind
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -23,7 +23,8 @@ concurrency:
 env:
   kind_version: v0.17.0
   kind_config: .github/kind-config.yaml
-  cilium_cli_version: v0.12.12
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.13.2
 
 jobs:
   installation-and-connectivity:
@@ -31,7 +32,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -63,6 +64,8 @@ jobs:
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set cni.chainingMode=portmap \
+            --helm-set loadBalancer.l7.backend=envoy \
+            --helm-set tls.secretsBackend=k8s \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
@@ -71,7 +74,7 @@ jobs:
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
-            --test '!/pod-to-world,!/pod-to-cidr'"
+            --external-target bing.com --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
@@ -86,13 +89,13 @@ jobs:
           cilium version
 
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
 
       - name: Create kind cluster
-        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
         with:
           version: ${{ env.kind_version }}
           config: ${{ env.kind_config }}
@@ -127,8 +130,6 @@ jobs:
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
           cilium uninstall --chart-directory=install/kubernetes/cilium --wait
-          kubectl delete --all-namespaces rolebinding -l "app.kubernetes.io/part-of=cilium" --ignore-not-found=true
-          kubectl delete --all-namespaces role -l "app.kubernetes.io/part-of=cilium" --ignore-not-found=true
 
       - name: Install Cilium with encryption
         run: |
@@ -159,7 +160,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip

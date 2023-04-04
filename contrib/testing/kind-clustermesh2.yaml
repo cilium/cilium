@@ -1,0 +1,27 @@
+cluster:
+  name: clustermesh2
+  id: 2
+debug:
+  enabled: true
+image:
+  override: "localhost:5000/cilium/cilium-dev:local"
+  pullPolicy: Never
+operator:
+  image:
+    override: "localhost:5000/cilium/operator-generic:local"
+    pullPolicy: Never
+    suffix: ""
+ipam:
+  mode: kubernetes
+ipv6:
+  enabled: false
+ipv4:
+  enabled: true
+bpf:
+  monitorAggregation: none
+livenessProbe:
+  failureThreshold: 9999
+readinessProbe:
+  failureThreshold: 9999
+startupProbe:
+  failureThreshold: 9999

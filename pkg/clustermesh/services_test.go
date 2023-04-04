@@ -14,6 +14,7 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/rand"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -92,14 +94,13 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	})
 	defer ipc.Shutdown()
 	cm, err := NewClusterMesh(Configuration{
-		Name:                         "test2",
-		ConfigDirectory:              dir,
-		NodeKeyCreator:               testNodeCreator,
-		nodeObserver:                 &testObserver{},
-		ServiceMerger:                &s.svcCache,
-		RemoteIdentityWatcher:        mgr,
-		IPCache:                      ipc,
-		ServicesSharedKeyDeleteDelay: func() *time.Duration { a := time.Duration(0); return &a }(),
+		Name:                  "test2",
+		ConfigDirectory:       dir,
+		NodeKeyCreator:        testNodeCreator,
+		nodeObserver:          &testObserver{},
+		ServiceMerger:         &s.svcCache,
+		RemoteIdentityWatcher: mgr,
+		IPCache:               ipc,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
@@ -120,7 +121,7 @@ func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
 
 	os.RemoveAll(s.testDir)
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
-	kvstore.Client().Close()
+	kvstore.Client().Close(context.TODO())
 }
 
 func (s *ClusterMeshServicesTestSuite) expectEvent(c *C, action k8s.CacheAction, id k8s.ServiceID, fn func(event k8s.ServiceEvent) bool) {
@@ -157,7 +158,7 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 			Name:      "foo",
 			Namespace: "default",
 			Annotations: map[string]string{
-				"io.cilium/global-service": "true",
+				"service.cilium.io/global": "true",
 			},
 		},
 		Spec: slim_corev1.ServiceSpec{
@@ -233,7 +234,7 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 			Name:      "foo",
 			Namespace: "default",
 			Annotations: map[string]string{
-				"io.cilium/global-service": "true",
+				"service.cilium.io/global": "true",
 			},
 		},
 		Spec: slim_corev1.ServiceSpec{
@@ -328,4 +329,79 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesNonGlobal(c *C) {
 		swgSvcs.Wait()
 		return true
 	}, 2*time.Second), IsNil)
+}
+
+type fakeServiceMerger struct {
+	updated map[string]int
+	deleted map[string]int
+}
+
+func (f *fakeServiceMerger) init() {
+	f.updated = make(map[string]int)
+	f.deleted = make(map[string]int)
+}
+
+func (f *fakeServiceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService, _ *lock.StoppableWaitGroup) {
+	f.updated[service.String()]++
+}
+
+func (f *fakeServiceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService, _ *lock.StoppableWaitGroup) {
+	f.deleted[service.String()]++
+}
+
+func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
+	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: false, Shared: true}
+	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
+	cache := newGlobalServiceCache("cluster", "node")
+	merger := fakeServiceMerger{}
+
+	observer := remoteServiceObserver{
+		remoteCluster: &remoteCluster{
+			mesh: &ClusterMesh{
+				globalServices: cache,
+				conf:           Configuration{ServiceMerger: &merger},
+			},
+		},
+		swg: lock.NewStoppableWaitGroup(),
+	}
+
+	// Observe a new service update (for a non-shared service), and assert it is not added to the cache
+	merger.init()
+	observer.OnUpdate(&svc2)
+
+	c.Assert(merger.updated[svc1.String()], Equals, 0)
+	c.Assert(cache.byName, HasLen, 0)
+
+	// Observe a new service update (for a shared service), and assert it is correctly added to the cache
+	merger.init()
+	observer.OnUpdate(&svc1)
+
+	c.Assert(merger.updated[svc1.String()], Equals, 1)
+	c.Assert(merger.deleted[svc1.String()], Equals, 0)
+
+	c.Assert(cache.byName, HasLen, 1)
+	gs, ok := cache.byName[svc1.NamespaceServiceName()]
+	c.Assert(ok, Equals, true)
+	c.Assert(gs.clusterServices, HasLen, 1)
+	found, ok := gs.clusterServices[svc1.Cluster]
+	c.Assert(ok, Equals, true)
+	c.Assert(found, checker.DeepEquals, &svc1)
+
+	// Observe a new service deletion, and assert it is correctly removed from the cache
+	merger.init()
+	observer.OnDelete(&svc1)
+
+	c.Assert(merger.updated[svc1.String()], Equals, 0)
+	c.Assert(merger.deleted[svc1.String()], Equals, 1)
+	c.Assert(cache.byName, HasLen, 0)
+
+	// Observe two service updates in sequence (first shared, then non-shared),
+	// and assert that at the end it is not present in the cache (equivalent to update, then delete).
+	merger.init()
+	observer.OnUpdate(&svc1)
+	observer.OnUpdate(&svc2)
+
+	c.Assert(merger.updated[svc1.String()], Equals, 1)
+	c.Assert(merger.deleted[svc1.String()], Equals, 1)
+	c.Assert(cache.byName, HasLen, 0)
 }

@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: httproute-hostname-intersection
@@ -28,7 +28,7 @@ spec:
         from: Same
     hostname: "*.anotherwildcard.io"
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: specific-host-matches-listener-specific-host
@@ -50,7 +50,7 @@ spec:
     - name: infra-backend-v1
       port: 8080
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: specific-host-matches-listener-wildcard-host
@@ -74,7 +74,7 @@ spec:
     - name: infra-backend-v2
       port: 8080
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: wildcard-host-matches-listener-specific-host
@@ -95,7 +95,7 @@ spec:
     - name: infra-backend-v3
       port: 8080
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: wildcard-host-matches-listener-wildcard-host
@@ -115,7 +115,7 @@ spec:
     - name: infra-backend-v1
       port: 8080
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: no-intersecting-hosts

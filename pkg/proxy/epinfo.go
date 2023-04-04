@@ -6,10 +6,12 @@ package proxy
 import (
 	"context"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
@@ -24,7 +26,7 @@ var (
 
 // EndpointLookup is any type which maps from IP to the endpoint owning that IP.
 type EndpointLookup interface {
-	LookupIP(ip net.IP) (ep *endpoint.Endpoint)
+	LookupIP(ip netip.Addr) (ep *endpoint.Endpoint)
 }
 
 // endpointInfoRegistry provides a default implementation of the
@@ -49,7 +51,8 @@ func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ip
 		}
 
 		// Get (local) endpoint identifier to be reported by cilium monitor
-		ep = endpointManager.LookupIP(ip)
+		addr, _ := ippkg.AddrFromIP(ip)
+		ep = endpointManager.LookupIP(addr)
 		if ep != nil {
 			info.ID = ep.GetID()
 		}

@@ -52,11 +52,11 @@ struct {
  *            \---------------------------/
  */
 
-int build_packet(struct __ctx_buff *ctx)
+static __always_inline int build_packet(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	__u8 src[ETH_ALEN] = mac_one;
-	__u8 dst[ETH_ALEN] = mac_two;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
 	struct ethhdr *l2;
 	struct iphdr *l3;
 	struct tcphdr *l4;
@@ -71,7 +71,7 @@ int build_packet(struct __ctx_buff *ctx)
 	if (!l2)
 		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, src, dst);
+	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
 
 	/* Push IPv4 header */
 	l3 = pktgen__push_default_iphdr(&builder);
@@ -100,6 +100,12 @@ int build_packet(struct __ctx_buff *ctx)
 	return 0;
 }
 
+PKTGEN("tc", "hairpin_flow_1_forward_v4")
+int hairpin_flow_forward_pktgen(struct __ctx_buff *ctx)
+{
+	return build_packet(ctx);
+}
+
 /* Test that sending a packet from a pod to its own service gets source nat-ed
  * and that it is forwarded to the correct veth.
  */
@@ -115,11 +121,6 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	struct remote_endpoint_info cache_value = {};
 	struct endpoint_key ep_key = {};
 	struct endpoint_info ep_value = {};
-	int ret;
-
-	ret = build_packet(ctx);
-	if (ret)
-		return ret;
 
 	/* Register a fake LB backend with endpoint ID 124 for our service */
 	lb_svc_key.address = v4_svc_one;
@@ -217,14 +218,13 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-/* Test that a packet in the reverse direction gets translated back. */
-SETUP("tc", "hairpin_flow_2_reverse_v4")
-int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
+PKTGEN("tc", "hairpin_flow_2_reverse_v4")
+int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *l2;
-	__u8 src[ETH_ALEN] = mac_one;
-	__u8 dst[ETH_ALEN] = mac_two;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
 	struct iphdr *l3;
 	struct tcphdr *l4;
 	void *data;
@@ -238,7 +238,7 @@ int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 	if (!l2)
 		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, src, dst);
+	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
 
 	/* Push IPv4 header */
 	l3 = pktgen__push_default_iphdr(&builder);
@@ -267,6 +267,13 @@ int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
 
+	return 0;
+}
+
+/* Test that a packet in the reverse direction gets translated back. */
+SETUP("tc", "hairpin_flow_2_reverse_v4")
+int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
+{
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, 0);
 	/* Fail if we didn't jump */
@@ -361,7 +368,7 @@ int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "tc_drop_no_backend")
-int tc_drop_no_backend_check(struct __ctx_buff *ctx)
+int tc_drop_no_backend_check(const struct __ctx_buff *ctx)
 {
 	__u32 expected_status = TC_ACT_SHOT;
 	__u32 *status_code;

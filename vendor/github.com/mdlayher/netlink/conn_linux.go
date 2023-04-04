@@ -1,10 +1,10 @@
-//+build linux
+//go:build linux
+// +build linux
 
 package netlink
 
 import (
 	"os"
-	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -28,36 +28,14 @@ func dial(family int, config *Config) (*conn, uint32, error) {
 		config = &Config{}
 	}
 
-	// The caller has indicated it wants the netlink socket to be created
-	// inside another network namespace.
-	if config.NetNS != 0 {
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-
-		// Retrieve and store the calling OS thread's network namespace so
-		// the thread can be reassigned to it after creating a socket in another
-		// network namespace.
-		threadNS, err := threadNetNS()
-		if err != nil {
-			return nil, 0, err
-		}
-		// Always close the netns handle created above.
-		defer threadNS.Close()
-
-		// Assign the current OS thread the goroutine is locked to to the given
-		// network namespace.
-		if err := threadNS.Set(config.NetNS); err != nil {
-			return nil, 0, err
-		}
-
-		// Thread's namespace has been successfully set. Return the thread
-		// back to its original namespace after attempting to create the
-		// netlink socket.
-		defer threadNS.Restore()
-	}
-
 	// Prepare the netlink socket.
-	s, err := socket.Socket(unix.AF_NETLINK, unix.SOCK_RAW, family, "netlink")
+	s, err := socket.Socket(
+		unix.AF_NETLINK,
+		unix.SOCK_RAW,
+		family,
+		"netlink",
+		&socket.Config{NetNS: config.NetNS},
+	)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -74,6 +52,7 @@ func newConn(s *socket.Conn, config *Config) (*conn, uint32, error) {
 	addr := &unix.SockaddrNetlink{
 		Family: unix.AF_NETLINK,
 		Groups: config.Groups,
+		Pid:    config.PID,
 	}
 
 	// Socket must be closed in the event of any system call errors, to avoid
@@ -90,9 +69,24 @@ func newConn(s *socket.Conn, config *Config) (*conn, uint32, error) {
 		return nil, 0, err
 	}
 
-	return &conn{
-		s: s,
-	}, sa.(*unix.SockaddrNetlink).Pid, nil
+	c := &conn{s: s}
+	if config.Strict {
+		// The caller has requested the strict option set. Historically we have
+		// recommended checking for ENOPROTOOPT if the kernel does not support
+		// the option in question, but that may result in a silent failure and
+		// unexpected behavior for the user.
+		//
+		// Treat any error here as a fatal error, and require the caller to deal
+		// with it.
+		for _, o := range []ConnOption{ExtendedAcknowledge, GetStrictCheck} {
+			if err := c.SetOption(o, true); err != nil {
+				_ = c.Close()
+				return nil, 0, err
+			}
+		}
+	}
+
+	return c, sa.(*unix.SockaddrNetlink).Pid, nil
 }
 
 // SendMessages serializes multiple Messages and sends them to netlink.

@@ -18,9 +18,21 @@ spec:
     matchLabels:
       io.cilium/app: operator
       name: cilium-operator
+  # ensure operator update on single node k8s clusters, by using rolling update with maxUnavailable=100% in case
+  # of one replica and no user configured Recreate strategy.
+  # otherwise an update might get stuck due to the default maxUnavailable=50% in combination with the
+  # podAntiAffinity which prevents deployments of multiple operator replicas on the same node.
+  {{- if and (eq (.Values.operator.replicas | toString) "1") (eq .Values.operator.updateStrategy.type "RollingUpdate") }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.operator.updateStrategy.rollingUpdate.maxSurge }}
+      maxUnavailable: 100%
+    type: RollingUpdate
+  {{- else }}
   {{- with .Values.operator.updateStrategy }}
   strategy:
     {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
   {{- end }}
   template:
     metadata:
@@ -47,6 +59,10 @@ spec:
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.podSecurityContext }}
+      securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
@@ -163,6 +179,16 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 3
+        readinessProbe:
+          httpGet:
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            path: /healthz
+            port: 9234
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 5
         volumeMounts:
         - name: cilium-config-path
           mountPath: /tmp/cilium/config-map
@@ -219,6 +245,7 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.operator.priorityClassName "system-cluster-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.operator.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.operator.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.operator.automount }}
       {{- with .Values.operator.affinity }}
       # In HA mode, cilium-operator pods must not be scheduled on the same
       # node as they will clash with each other.

@@ -65,7 +65,7 @@ Deploy Cilium release via Helm:
 
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
-             --set containerRuntime.integration=crio
+             --set bpf.autoMount.enabled=false
 
      .. group-tab:: Using CRI-containerd
 

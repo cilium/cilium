@@ -65,15 +65,7 @@ type Configuration struct {
 	// remote cluster.
 	RemoteIdentityWatcher RemoteIdentityWatcher
 
-	IPCache *ipcache.IPCache
-
-	// ServicesSharedKeyDeleteDelay is the delay before a shared service delete
-	// event is handled. This parameter is optional.
-	ServicesSharedKeyDeleteDelay *time.Duration
-
-	// NodesSharedKeyDeleteDelay is the delay before a shared node delete event
-	// is handled. This parameter is optional.
-	NodesSharedKeyDeleteDelay *time.Duration
+	IPCache ipcache.IPCacher
 }
 
 func SetClusterConfig(clusterName string, config *cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
@@ -87,7 +79,7 @@ func SetClusterConfig(clusterName string, config *cmtypes.CiliumClusterConfig, b
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	_, err = kvstore.Client().UpdateIfDifferent(ctx, key, val, true)
+	_, err = backend.UpdateIfDifferent(ctx, key, val, true)
 	if err != nil {
 		return err
 	}
@@ -122,8 +114,12 @@ func GetClusterConfig(clusterName string, backend kvstore.BackendOperations) (*c
 // allocated on a remote cluster.
 type RemoteIdentityWatcher interface {
 	// WatchRemoteIdentities starts watching for identities in another kvstore and
-	// syncs all identities to the local identity cache.
-	WatchRemoteIdentities(backend kvstore.BackendOperations) (*allocator.RemoteCache, error)
+	// syncs all identities to the local identity cache. RemoteName should be unique
+	// unless replacing an existing remote's backend.
+	WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations) (*allocator.RemoteCache, error)
+
+	// RemoveRemoteIdentities removes any reference to a remote identity source.
+	RemoveRemoteIdentities(name string)
 
 	// Close stops the watcher.
 	Close()
@@ -148,7 +144,7 @@ type ClusterMesh struct {
 	controllers   *controller.Manager
 	configWatcher *configDirectoryWatcher
 
-	ipcache *ipcache.IPCache
+	ipcache ipcache.IPCacher
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.

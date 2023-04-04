@@ -29,11 +29,11 @@ them all at once:
 +==================+==========================+
 | master           | /test                    |
 +------------------+--------------------------+
+| v1.13            | /test-backport-1.13      |
++------------------+--------------------------+
 | v1.12            | /test-backport-1.12      |
 +------------------+--------------------------+
 | v1.11            | /test-backport-1.11      |
-+------------------+--------------------------+
-| v1.10            | /test-backport-1.10      |
 +------------------+--------------------------+
 
 For ``master`` PRs: on top of ``/test``, one may use ``/test-missed-k8s`` to
@@ -441,16 +441,16 @@ Logging into VM running tests
 1. If you have access to credentials for Jenkins, log into the Jenkins slave running the test workload
 2. Identify the vagrant box running the specific test
 
-.. code-block:: shell-session
+   .. code-block:: shell-session
 
-    $ vagrant global-status
-    id       name                          provider   state   directory
-    -------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    6e68c6c  k8s1-build-PR-1588-6          virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q/tests/k8s
-    ec5962a  cilium-master-build-PR-1588-6 virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q
-    bfaffaa  k8s2-build-PR-1588-6          virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q/tests/k8s
-    3fa346c  k8s1-build-PR-1588-7          virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q@2/tests/k8s
-    b7ded3c  cilium-master-build-PR-1588-7 virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q@2
+       $ vagrant global-status
+       id       name                          provider   state   directory
+       -------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+       6e68c6c  k8s1-build-PR-1588-6          virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q/tests/k8s
+       ec5962a  cilium-master-build-PR-1588-6 virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q
+       bfaffaa  k8s2-build-PR-1588-6          virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q/tests/k8s
+       3fa346c  k8s1-build-PR-1588-7          virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q@2/tests/k8s
+       b7ded3c  cilium-master-build-PR-1588-7 virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q@2
 
 3. Log into the specific VM
 

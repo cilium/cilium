@@ -129,7 +129,7 @@ type Allocator struct {
 
 	// remoteCaches is the list of additional remote caches being watched
 	// in addition to the main cache
-	remoteCaches map[*RemoteCache]struct{}
+	remoteCaches map[string]*RemoteCache
 
 	// stopGC is the channel used to stop the garbage collector
 	stopGC chan struct{}
@@ -289,7 +289,7 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 		localKeys:    newLocalKeys(),
 		stopGC:       make(chan struct{}),
 		suffix:       uuid.New().String()[:10],
-		remoteCaches: map[*RemoteCache]struct{}{},
+		remoteCaches: map[string]*RemoteCache{},
 		backoffTemplate: backoff.Exponential{
 			Min:    time.Duration(20) * time.Millisecond,
 			Factor: 2.0,
@@ -389,10 +389,6 @@ func (a *Allocator) GetEvents() AllocatorEventChan {
 func (a *Allocator) Delete() {
 	close(a.stopGC)
 	a.mainCache.stop()
-
-	if a.events != nil {
-		close(a.events)
-	}
 }
 
 // WaitForInitialSync waits until the initial sync is complete
@@ -415,7 +411,7 @@ func (a *Allocator) ForeachCache(cb RangeFunc) {
 	a.mainCache.foreach(cb)
 
 	a.remoteCachesMutex.RLock()
-	for rc := range a.remoteCaches {
+	for _, rc := range a.remoteCaches {
 		rc.cache.foreach(cb)
 	}
 	a.remoteCachesMutex.RUnlock()
@@ -727,7 +723,7 @@ func (a *Allocator) GetIncludeRemoteCaches(ctx context.Context, key AllocatorKey
 
 	// check remote caches
 	a.remoteCachesMutex.RLock()
-	for rc := range a.remoteCaches {
+	for _, rc := range a.remoteCaches {
 		if id := rc.cache.get(encoded); id != idpool.NoID {
 			a.remoteCachesMutex.RUnlock()
 			return id, nil
@@ -757,7 +753,7 @@ func (a *Allocator) GetByIDIncludeRemoteCaches(ctx context.Context, id idpool.ID
 
 	// check remote caches
 	a.remoteCachesMutex.RLock()
-	for rc := range a.remoteCaches {
+	for _, rc := range a.remoteCaches {
 		if key := rc.cache.getByID(id); key != nil {
 			a.remoteCachesMutex.RUnlock()
 			return key, nil
@@ -887,26 +883,31 @@ type AllocatorEvent struct {
 // identities. The contents are not directly accessible but will be merged into
 // the ForeachCache() function.
 type RemoteCache struct {
-	cache cache
+	cache *cache
 }
 
 // WatchRemoteKVStore starts watching an allocator base prefix the kvstore
 // represents by the provided backend. A local cache of all identities of that
 // kvstore will be maintained in the RemoteCache structure returned and will
 // start being reported in the identities returned by the ForeachCache()
-// function.
-func (a *Allocator) WatchRemoteKVStore(remoteAlloc *Allocator) *RemoteCache {
+// function. RemoteName should be unique per logical "remote".
+func (a *Allocator) WatchRemoteKVStore(remoteName string, remoteAlloc *Allocator) *RemoteCache {
 	rc := &RemoteCache{
-		cache: newCache(remoteAlloc),
+		cache: &remoteAlloc.mainCache,
 	}
 
 	a.remoteCachesMutex.Lock()
-	a.remoteCaches[rc] = struct{}{}
+	a.remoteCaches[remoteName] = rc
 	a.remoteCachesMutex.Unlock()
 
-	rc.cache.start()
-
 	return rc
+}
+
+// RemoveRemoteKVStore removes any reference to a remote allocator / kvstore.
+func (a *Allocator) RemoveRemoteKVStore(remoteName string) {
+	a.remoteCachesMutex.Lock()
+	delete(a.remoteCaches, remoteName)
+	a.remoteCachesMutex.Unlock()
 }
 
 // NumEntries returns the number of entries in the remote cache
@@ -919,11 +920,7 @@ func (rc *RemoteCache) NumEntries() int {
 }
 
 // Close stops watching for identities in the kvstore associated with the
-// remote cache and will clear the local cache.
+// remote cache.
 func (rc *RemoteCache) Close() {
-	rc.cache.allocator.remoteCachesMutex.Lock()
-	delete(rc.cache.allocator.remoteCaches, rc)
-	rc.cache.allocator.remoteCachesMutex.Unlock()
-
-	rc.cache.stop()
+	rc.cache.allocator.Delete()
 }

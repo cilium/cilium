@@ -22,6 +22,12 @@ for i in "${used_by[@]}" ; do
   sed -E "s#(CILIUM_BUILDER_IMAGE=|image: )${image}:.*\$#\1${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
 done
 
+used_by=(".devcontainer/devcontainer.json")
+
+for i in "${used_by[@]}" ; do
+  sed -E "s#(\"image\": \")${image}:.*\",\$#\1${image_full}\",#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
+done
+
 do_check="${CHECK:-false}"
 if [ "${do_check}" = "true" ] ; then
     git diff --exit-code "${used_by[@]}"

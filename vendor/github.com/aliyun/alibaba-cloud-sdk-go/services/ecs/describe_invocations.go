@@ -76,6 +76,7 @@ type DescribeInvocationsRequest struct {
 	IncludeOutput        requests.Boolean          `position:"Query" name:"IncludeOutput"`
 	CommandId            string                    `position:"Query" name:"CommandId"`
 	PageNumber           requests.Integer          `position:"Query" name:"PageNumber"`
+	ResourceGroupId      string                    `position:"Query" name:"ResourceGroupId"`
 	ContentEncoding      string                    `position:"Query" name:"ContentEncoding"`
 	RepeatMode           string                    `position:"Query" name:"RepeatMode"`
 	PageSize             requests.Integer          `position:"Query" name:"PageSize"`

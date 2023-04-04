@@ -932,7 +932,7 @@ func TestServerStatus(t *testing.T) {
 					NumFlows:            3333,
 					MaxFlows:            3333,
 					SeenFlows:           3333,
-					UptimeNs:            111111111,
+					UptimeNs:            222222222,
 					NumConnectedNodes:   &wrapperspb.UInt32Value{Value: 2},
 					NumUnavailableNodes: &wrapperspb.UInt32Value{Value: 0},
 				},

@@ -2,8 +2,9 @@
 // Copyright Authors of Cilium
 
 // Package ingress contains all the logic for Cilium Ingress Controller.
-// Only Ingress resources having spec.ingressClassName set to "cilium" are
-// managed and processed by Cilium Ingress Controller.
+// Only Ingress resources having annotations."kubernetes.io/ingress.class"
+// or spec.ingressClassName set to "cilium" are managed and processed by the
+// Cilium Ingress Controller.
 //
 // Two LB modes are supported:
 //   - dedicated LB mode: a dedicated LB is used for each Ingress.

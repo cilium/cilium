@@ -22,10 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
@@ -64,31 +61,11 @@ var (
 	)
 )
 
-var Cell = cell.Module(
-	"lbipam",
-	"LB-IPAM",
-	// Provide LBIPAM so instances of it can be used while testing
-	cell.Provide(newLBIPAM),
-	// Invoke an empty function which takes an LBIPAM to force its construction.
-	cell.Invoke(func(*LBIPAM) {}),
-)
-
-type LBIPAMParams struct {
-	cell.In
-
-	Logger logrus.FieldLogger
-
-	LC         hive.Lifecycle
-	Shutdowner hive.Shutdowner
-
-	Clientset    k8sClient.Clientset
-	PoolResource resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-	SvcResource  resource.Resource[*slim_core_v1.Service]
-
-	DaemonConfig *option.DaemonConfig
-}
-
 func newLBIPAM(params LBIPAMParams) *LBIPAM {
+	if !params.Clientset.IsEnabled() {
+		return nil
+	}
+
 	var lbClasses []string
 	if params.DaemonConfig.EnableBGPControlPlane {
 		lbClasses = append(lbClasses, "io.cilium/bgp-control-plane")
@@ -172,9 +149,6 @@ func (ipam *LBIPAM) restart() {
 		return nil
 	})
 }
-
-type ipPoolEvent = resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-type svcEvent = resource.Event[*slim_core_v1.Service]
 
 func (ipam *LBIPAM) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
@@ -962,7 +936,7 @@ func (ipam *LBIPAM) findRangeOfIP(sv *ServiceView, ip net.IP) (lbRange *LBRange,
 		return r, false, nil
 	}
 
-	return nil, false, nil
+	return nil, foundPool, nil
 }
 
 // isResponsibleForSVC checks if LB IPAM should allocate and assign IPs or some other controller

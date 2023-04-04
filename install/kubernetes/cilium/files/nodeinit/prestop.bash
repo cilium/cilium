@@ -4,6 +4,8 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+{{ .Values.nodeinit.prestop.preScript }}
+
 if stat /tmp/node-deinit.cilium.io > /dev/null 2>&1; then
   exit 0
 fi
@@ -52,5 +54,7 @@ if iptables -w -t nat -L IP-MASQ > /dev/null; then
   iptables -w -t nat -A POSTROUTING -m comment --comment "ip-masq: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom IP-MASQ chain" -m addrtype ! --dst-type LOCAL -j IP-MASQ
 fi
 {{- end }}
+
+{{ .Values.nodeinit.prestop.postScript }}
 
 echo "Node de-initialization complete"

@@ -80,7 +80,7 @@ func TestDropHandler(t *testing.T) {
 		assert.Equal(t, "TCP", *metric.Label[1].Value)
 
 		assert.Equal(t, "reason", *metric.Label[2].Name)
-		assert.Equal(t, "Policy denied", *metric.Label[2].Value)
+		assert.Equal(t, "POLICY_DENIED", *metric.Label[2].Value)
 
 		assert.Equal(t, "source", *metric.Label[3].Name)
 		assert.Equal(t, "foo", *metric.Label[3].Value)

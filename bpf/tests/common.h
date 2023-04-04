@@ -10,6 +10,12 @@
 #include <bpf/loader.h>
 #include <bpf/section.h>
 
+/* We can use this macro inside the actual datapath code
+ * to compile-in the code for testing. The primary usecase
+ * is initializing map-in-map or prog-map.
+ */
+#define BPF_TEST
+
 #ifndef ___bpf_concat
 #define ___bpf_concat(a, b) a ## b
 #endif
@@ -247,7 +253,23 @@ test_result_cursor = 0;
 	} while (0);		\
 	return suite_result
 
+#define PKTGEN(progtype, name) __section(progtype "/test/" name "/pktgen")
 #define SETUP(progtype, name) __section(progtype "/test/" name "/setup")
 #define CHECK(progtype, name) __section(progtype "/test/" name "/check")
+
+#define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)	\
+static __always_inline int __##NAME(IPTYPE addr)		\
+{								\
+	int prefixes[] = { PREFIXES };				\
+	const int size = ARRAY_SIZE(prefixes);			\
+	int i;							\
+								\
+_Pragma("unroll")						\
+	for (i = 0; i < size; i++)				\
+		if (LOOKUP_FN(&(MAP), addr, prefixes[i]))	\
+			return 1;				\
+								\
+	return 0;						\
+}
 
 #endif /* ____BPF_TEST_COMMON____ */

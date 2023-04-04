@@ -117,58 +117,70 @@ func (i *defaultTranslator) getResources(m *model.Model) []ciliumv2.XDSResource 
 // listener is returned for shared LB mode, tls and non-tls filters are
 // applied by default.
 func (i *defaultTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
-	var tlsMap = make(map[string]model.TLSSecret)
+	var tlsMap = make(map[model.TLSSecret][]string)
 	for _, h := range m.HTTP {
 		for _, s := range h.TLS {
-			tlsMap[s.Namespace+"/"+s.Name] = s
+			tlsMap[s] = append(tlsMap[s], h.Hostname)
 		}
 	}
-	tls := make([]model.TLSSecret, 0, len(tlsMap))
-	for _, v := range tlsMap {
-		tls = append(tls, v)
-	}
 
-	l, _ := NewListenerWithDefaults("listener", i.secretsNamespace, tls)
+	l, _ := NewListenerWithDefaults("listener", i.secretsNamespace, tlsMap)
 	return []ciliumv2.XDSResource{l}
 }
 
 // getRouteConfiguration returns the route configuration for the given model.
 func (i *defaultTranslator) getRouteConfiguration(m *model.Model) []ciliumv2.XDSResource {
-	portHostNameRouteMap := map[string]map[string][]model.HTTPRoute{}
+	portHostName := map[string][]string{}
+	hostNameRoutes := map[string][]model.HTTPRoute{}
+
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
 			port := "insecure"
 			if l.TLS != nil {
 				port = "secure"
 			}
-			if _, ok := portHostNameRouteMap[port]; !ok {
-				portHostNameRouteMap[port] = map[string][]model.HTTPRoute{}
-			}
 
 			if len(r.Hostnames) == 0 {
-				portHostNameRouteMap[port][l.Hostname] = append(portHostNameRouteMap[port][l.Hostname], r)
+				portHostName[port] = append(portHostName[port], l.Hostname)
+				hostNameRoutes[l.Hostname] = append(hostNameRoutes[l.Hostname], r)
 				continue
 			}
 			for _, h := range r.Hostnames {
-				portHostNameRouteMap[port][h] = append(portHostNameRouteMap[port][h], r)
+				portHostName[port] = append(portHostName[port], h)
+				hostNameRoutes[h] = append(hostNameRoutes[h], r)
 			}
 		}
 	}
 
 	var res []ciliumv2.XDSResource
-	for port, hostNameRouteMap := range portHostNameRouteMap {
+
+	for _, port := range []string{insecureHost, secureHost} {
+		hostNames, exists := portHostName[port]
+		if !exists {
+			continue
+		}
 		var virtualhosts []*envoy_config_route_v3.VirtualHost
 
+		redirectedHost := map[string]struct{}{}
 		// Add HTTPs redirect virtual host for secure host
 		if port == insecureHost && i.enforceHTTPs {
-			for h, r := range portHostNameRouteMap[secureHost] {
-				vhs, _ := NewVirtualHostWithDefaults([]string{h}, true, i.hostNameSuffixMatch, r)
+			for _, h := range unique(portHostName[secureHost]) {
+				vhs, _ := NewVirtualHostWithDefaults([]string{h}, true, i.hostNameSuffixMatch, hostNameRoutes[h])
 				virtualhosts = append(virtualhosts, vhs)
+				redirectedHost[h] = struct{}{}
 			}
 		}
-
-		for h, r := range hostNameRouteMap {
-			vhs, _ := NewVirtualHostWithDefaults([]string{h}, false, i.hostNameSuffixMatch, r)
+		for _, h := range unique(hostNames) {
+			if port == insecureHost {
+				if _, ok := redirectedHost[h]; ok {
+					continue
+				}
+			}
+			routes, exists := hostNameRoutes[h]
+			if !exists {
+				continue
+			}
+			vhs, _ := NewVirtualHostWithDefaults([]string{h}, false, i.hostNameSuffixMatch, routes)
 			virtualhosts = append(virtualhosts, vhs)
 		}
 
@@ -227,15 +239,26 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 }
 
 func sortAndUnique(arr []string) []string {
+	res := unique(arr)
+	sort.Strings(res)
+	return res
+}
+
+// unique returns a unique slice of strings. The order of the elements is
+// preserved.
+func unique(arr []string) []string {
 	m := map[string]struct{}{}
 	for _, s := range arr {
 		m[s] = struct{}{}
 	}
 
 	res := make([]string, 0, len(m))
-	for k := range m {
-		res = append(res, k)
+	for _, v := range arr {
+		if _, exists := m[v]; !exists {
+			continue
+		}
+		res = append(res, v)
+		delete(m, v)
 	}
-	sort.Strings(res)
 	return res
 }

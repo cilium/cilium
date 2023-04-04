@@ -585,6 +585,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -747,6 +748,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -812,6 +814,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -870,6 +873,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -924,6 +928,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -987,6 +992,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1041,6 +1047,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1070,6 +1077,75 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 					},
 				}
 				return svcEP
+			},
+		},
+		{
+			name: "endpoint with IPv6 address type",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv6,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"fd00::1",
+								},
+							},
+						},
+						Ports: []slim_discovery_v1beta1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends[cmtypes.MustParseAddrCluster("fd00::1")] = &Backend{
+					Ports: serviceStore.PortConfiguration{
+						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					},
+				}
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint with FQDN address type",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeFQDN,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"foo.example.com",
+								},
+							},
+						},
+						Ports: []slim_discovery_v1beta1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				// We don't support FQDN address types. Should be empty.
+				return newEndpoints()
 			},
 		},
 	}
@@ -1194,6 +1270,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1356,6 +1433,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1420,6 +1498,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1479,10 +1558,11 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			},
 		},
 		{
-			name: "endpoints with some addresses not ready and terminating",
+			name: "endpoints with some addresses not ready and not serving and terminating",
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1496,6 +1576,60 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 							{
 								Conditions: slim_discovery_v1.EndpointConditions{
 									Ready:       func() *bool { a := false; return &a }(),
+									Serving:     func() *bool { a := false; return &a }(),
+									Terminating: func() *bool { a := true; return &a }(),
+								},
+								Addresses: []string{
+									"172.0.0.2",
+								},
+							},
+						},
+						Ports: []slim_discovery_v1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+							{
+								Name:     func() *string { a := "http-test-svc-2"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8081); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
+					Ports: serviceStore.PortConfiguration{
+						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					},
+				}
+				return svcEP
+			},
+		},
+		{
+			name: "endpoints with some addresses not ready and serving and terminating",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1.Endpoint{
+							{
+								Addresses: []string{
+									"172.0.0.1",
+								},
+							},
+							{
+								Conditions: slim_discovery_v1.EndpointConditions{
+									Ready:       func() *bool { a := false; return &a }(),
+									Serving:     func() *bool { a := true; return &a }(),
 									Terminating: func() *bool { a := true; return &a }(),
 								},
 								Addresses: []string{
@@ -1541,6 +1675,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1591,10 +1726,59 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			},
 		},
 		{
-			name: "endpoints with all addresses not ready and terminating",
+			name: "endpoints with all addresses ready and serving and terminating",
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1.Endpoint{
+							{
+								Conditions: slim_discovery_v1.EndpointConditions{
+									Ready:       func() *bool { a := true; return &a }(),
+									Serving:     func() *bool { a := true; return &a }(),
+									Terminating: func() *bool { a := true; return &a }(),
+								},
+								Addresses: []string{
+									"172.0.0.1",
+								},
+							},
+						},
+						Ports: []slim_discovery_v1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+							{
+								Name:     func() *string { a := "http-test-svc-2"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8081); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
+					Ports: serviceStore.PortConfiguration{
+						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					},
+				}
+				return svcEP
+			},
+		},
+		{
+			name: "endpoints with all addresses not ready and not serving and terminating",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1612,6 +1796,58 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 							{
 								Conditions: slim_discovery_v1.EndpointConditions{
 									Ready:       func() *bool { a := false; return &a }(),
+									Terminating: func() *bool { a := true; return &a }(),
+								},
+								Addresses: []string{
+									"172.0.0.2",
+								},
+							},
+						},
+						Ports: []slim_discovery_v1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+							{
+								Name:     func() *string { a := "http-test-svc-2"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8081); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				return svcEP
+			},
+		},
+		{
+			name: "endpoints with all addresses not ready and serving and terminating",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1.Endpoint{
+							{
+								Conditions: slim_discovery_v1.EndpointConditions{
+									Ready:       func() *bool { a := false; return &a }(),
+									Serving:     func() *bool { a := true; return &a }(),
+									Terminating: func() *bool { a := true; return &a }(),
+								},
+								Addresses: []string{
+									"172.0.0.1",
+								},
+							},
+							{
+								Conditions: slim_discovery_v1.EndpointConditions{
+									Ready:       func() *bool { a := false; return &a }(),
+									Serving:     func() *bool { a := true; return &a }(),
 									Terminating: func() *bool { a := true; return &a }(),
 								},
 								Addresses: []string{
@@ -1658,6 +1894,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1712,6 +1949,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1743,6 +1981,75 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 					HintsForZones: []string{"testing"},
 				}
 				return svcEP
+			},
+		},
+		{
+			name: "endpoint with IPv6 address type",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv6,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1.Endpoint{
+							{
+								Addresses: []string{
+									"fd00::1",
+								},
+							},
+						},
+						Ports: []slim_discovery_v1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends[cmtypes.MustParseAddrCluster("fd00::1")] = &Backend{
+					Ports: serviceStore.PortConfiguration{
+						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					},
+				}
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint with FQDN address type",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeFQDN,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1.Endpoint{
+							{
+								Addresses: []string{
+									"foo.example.com",
+								},
+							},
+						},
+						Ports: []slim_discovery_v1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				// We don't support FQDN address types. Should be empty.
+				return newEndpoints()
 			},
 		},
 	}

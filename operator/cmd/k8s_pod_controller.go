@@ -72,7 +72,7 @@ func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientse
 						log.WithFields(logrus.Fields{
 							logfields.K8sPodName: podID,
 							logfields.Identity:   cep.Status.ID,
-						}).Debug("Found Unmanaged pod")
+						}).Debug("Found managed pod due to presence of a CEP")
 					} else {
 						log.WithField(logfields.K8sPodName, podID).Debugf("Found unmanaged pod")
 						if startTime := pod.Status.StartTime; startTime != nil {
@@ -80,7 +80,7 @@ func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientse
 								if lastRestart, ok := lastPodRestart[podID]; ok {
 									if timeSinceRestart := time.Since(lastRestart); timeSinceRestart < minimalPodRestartInterval {
 										log.WithField(logfields.K8sPodName, podID).
-											Debugf("Not restaring unmanaged pod, only %s since last restart", timeSinceRestart)
+											Debugf("Not restarting unmanaged pod, only %s since last restart", timeSinceRestart)
 										continue
 									}
 								}

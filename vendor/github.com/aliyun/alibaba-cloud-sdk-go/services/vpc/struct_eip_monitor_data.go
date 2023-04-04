@@ -21,6 +21,6 @@ type EipMonitorData struct {
 	EipPackets   int    `json:"EipPackets" xml:"EipPackets"`
 	EipBandwidth int    `json:"EipBandwidth" xml:"EipBandwidth"`
 	TimeStamp    string `json:"TimeStamp" xml:"TimeStamp"`
-	EipFlow      int    `json:"EipFlow" xml:"EipFlow"`
+	EipFlow      int64  `json:"EipFlow" xml:"EipFlow"`
 	EipRX        int64  `json:"EipRX" xml:"EipRX"`
 }

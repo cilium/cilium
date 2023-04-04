@@ -67,9 +67,6 @@ const (
 	// SubsystemAPILimiter is the subsystem to scope metrics related to the API limiter package.
 	SubsystemAPILimiter = "api_limiter"
 
-	// SubsystemNodeNeigh is the subsystem to scope metrics related to management of node neighbor.
-	SubsystemNodeNeigh = "node_neigh"
-
 	// Namespace is used to scope metrics from cilium. It is prepended to metric
 	// names and separated with a '_'
 	Namespace = "cilium"
@@ -177,6 +174,12 @@ const (
 	// LabelVersion is the label for the version number
 	LabelVersion = "version"
 
+	// LabelVersionRevision is the label for the version revision
+	LabelVersionRevision = "revision"
+
+	// LabelArch is the label for the platform architecture (e.g. linux/amd64)
+	LabelArch = "arch"
+
 	// LabelDirection is the label for traffic direction
 	LabelDirection = "direction"
 
@@ -217,6 +220,9 @@ const (
 
 var (
 	registry = prometheus.NewPedanticRegistry()
+
+	// BootstrapTimes is the durations of cilium-agent bootstrap sequence.
+	BootstrapTimes = NoOpObserverVec
 
 	// APIInteractions is the total time taken to process an API call made
 	// to the cilium-agent
@@ -268,8 +274,14 @@ var (
 	// PolicyRevision is the current policy revision number for this agent
 	PolicyRevision = NoOpGauge
 
-	// PolicyImportErrorsTotal is a count of failed policy imports
+	// PolicyImportErrorsTotal is a count of failed policy imports.
+	// This metric was deprecated in Cilium 1.14 and is to be removed in 1.15.
+	// It is replaced by PolicyChangeTotal metric.
 	PolicyImportErrorsTotal = NoOpCounter
+
+	// PolicyChangeTotal is a count of policy changes by outcome ("success" or
+	// "failure")
+	PolicyChangeTotal = NoOpCounterVec
 
 	// PolicyEndpointStatus is the number of endpoints with policy labeled by enforcement type
 	PolicyEndpointStatus = NoOpGaugeVec
@@ -518,13 +530,10 @@ var (
 	// APILimiterProcessedRequests is the counter of the number of
 	// processed (successful and failed) requests
 	APILimiterProcessedRequests = NoOpCounterVec
-
-	// ArpingRequestsTotal is the counter of the number of sent
-	// (successful and failed) arping requests
-	ArpingRequestsTotal = NoOpCounterVec
 )
 
 type Configuration struct {
+	BootstrapTimesEnabled                   bool
 	APIInteractionsEnabled                  bool
 	NodeConnectivityStatusEnabled           bool
 	NodeConnectivityLatencyEnabled          bool
@@ -537,6 +546,7 @@ type Configuration struct {
 	PolicyRegenerationTimeStatsEnabled      bool
 	PolicyRevisionEnabled                   bool
 	PolicyImportErrorsEnabled               bool
+	PolicyChangeTotalEnabled                bool
 	PolicyEndpointStatusEnabled             bool
 	PolicyImplementationDelayEnabled        bool
 	IdentityCountEnabled                    bool
@@ -599,11 +609,11 @@ type Configuration struct {
 	APILimiterRateLimit                     bool
 	APILimiterAdjustmentFactor              bool
 	APILimiterProcessedRequests             bool
-	ArpingRequestsTotalEnabled              bool
 }
 
 func DefaultMetrics() map[string]struct{} {
 	return map[string]struct{}{
+		Namespace + "_" + SubsystemAgent + "_bootstrap_seconds":                      {},
 		Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":               {},
 		Namespace + "_endpoint_regenerations_total":                                  {},
 		Namespace + "_endpoint_state":                                                {},
@@ -613,6 +623,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_policy_regeneration_time_stats_seconds":                        {},
 		Namespace + "_policy_max_revision":                                           {},
 		Namespace + "_policy_import_errors_total":                                    {},
+		Namespace + "_policy_change_total":                                           {},
 		Namespace + "_policy_endpoint_enforcement_status":                            {},
 		Namespace + "_policy_implementation_delay":                                   {},
 		Namespace + "_identity":                                                      {},
@@ -666,7 +677,6 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemAPILimiter + "_rate_limit":                        {},
 		Namespace + "_" + SubsystemAPILimiter + "_adjustment_factor":                 {},
 		Namespace + "_" + SubsystemAPILimiter + "_processed_requests_total":          {},
-		Namespace + "_" + SubsystemNodeNeigh + "_arping_requests_total":              {},
 	}
 }
 
@@ -682,6 +692,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 		switch metricName {
 		default:
 			logrus.WithField("metric", metricName).Warning("Metric does not exist, skipping")
+
+		case Namespace + "_" + SubsystemAgent + "_bootstrap_seconds":
+			BootstrapTimes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemAgent,
+				Name:      "bootstrap_seconds",
+				Help:      "Duration of bootstrap sequence",
+			}, []string{LabelScope, LabelOutcome})
+
+			collectors = append(collectors, BootstrapTimes)
+			c.BootstrapTimesEnabled = true
 
 		case Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":
 			APIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -776,6 +797,16 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, PolicyImportErrorsTotal)
 			c.PolicyImportErrorsEnabled = true
+
+		case Namespace + "_policy_change_total":
+			PolicyChangeTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Name:      "policy_change_total",
+				Help:      "Number of policy changes by outcome",
+			}, []string{"outcome"})
+
+			collectors = append(collectors, PolicyChangeTotal)
+			c.PolicyChangeTotalEnabled = true
 
 		case Namespace + "_policy_endpoint_enforcement_status":
 			PolicyEndpointStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -1329,9 +1360,10 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace: Namespace,
 				Name:      "version",
 				Help:      "Cilium version",
-			}, []string{LabelVersion})
+			}, []string{LabelVersion, LabelVersionRevision, LabelArch})
 
-			VersionMetric.WithLabelValues(version.GetCiliumVersion().Version)
+			v := version.GetCiliumVersion()
+			VersionMetric.WithLabelValues(v.Version, v.Revision, v.Arch)
 
 			collectors = append(collectors, VersionMetric)
 			c.VersionMetric = true
@@ -1412,17 +1444,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, APILimiterProcessedRequests)
 			c.APILimiterProcessedRequests = true
-
-		case Namespace + "_" + SubsystemNodeNeigh + "_arping_requests_total":
-			ArpingRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemNodeNeigh,
-				Name:      "arping_requests_total",
-				Help:      "Number of arping requests sent labeled by status",
-			}, []string{LabelStatus})
-
-			collectors = append(collectors, ArpingRequestsTotal)
-			c.ArpingRequestsTotalEnabled = true
 
 		case Namespace + "_endpoint_propagation_delay_seconds":
 			EndpointPropagationDelay = prometheus.NewHistogramVec(prometheus.HistogramOpts{

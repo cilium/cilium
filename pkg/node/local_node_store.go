@@ -4,7 +4,6 @@
 package node
 
 import (
-	"context"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -14,28 +13,32 @@ import (
 	"github.com/cilium/cilium/pkg/stream"
 )
 
+type LocalNode struct {
+	types.Node
+	// OptOutNodeEncryption will make the local node opt-out of node-to-node
+	// encryption
+	OptOutNodeEncryption bool
+}
+
 // LocalNodeInitializer specifies how to build the initial local node object.
 type LocalNodeInitializer interface {
-	InitLocalNode(*types.Node) error
+	InitLocalNode(*LocalNode) error
 }
 
 // LocalNodeStore is the canonical owner for the local node object and provides
 // a reactive API for observing and updating the state.
 type LocalNodeStore interface {
-	// Observe subscribes to changes on the local node until ctx is
-	// cancelled.
-	Observe(ctx context.Context,
-		next func(types.Node),
-		complete func(error))
+	// Changes to the local node are observable via Observe()
+	stream.Observable[LocalNode]
 
 	// Update modifies the local node with a mutator. The updated value
 	// is passed to observers.
-	Update(func(*types.Node))
+	Update(func(*LocalNode))
 
 	// Get retrieves the current local node. Use Get() only for inspecting the state,
 	// e.g. in API handlers. Do not assume the value does not change over time.
 	// Blocks until the store has been initialized.
-	Get() types.Node
+	Get() LocalNode
 }
 
 // LocalNodeStoreCell provides the LocalNodeStore instance.
@@ -61,21 +64,21 @@ type LocalNodeStoreParams struct {
 // backing. Reflecting the new state to persistent stores, e.g. kvstore or k8s
 // is left to observers.
 type localNodeStore struct {
-	stream.Observable[types.Node]
+	stream.Observable[LocalNode]
 
 	mu   lock.Mutex
 	cond *sync.Cond
 
 	valid    bool
-	value    types.Node
-	emit     func(types.Node)
+	value    LocalNode
+	emit     func(LocalNode)
 	complete func(error)
 }
 
 var _ LocalNodeStore = &localNodeStore{}
 
 func NewLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
-	src, emit, complete := stream.Multicast[types.Node](stream.EmitLatest)
+	src, emit, complete := stream.Multicast[LocalNode](stream.EmitLatest)
 
 	s := &localNodeStore{
 		Observable: src,
@@ -114,7 +117,7 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
 // defaultLocalNodeStore constructs the default instance for the LocalNodeStore used by
 // address.go.
 func defaultLocalNodeStore() LocalNodeStore {
-	src, emit, complete := stream.Multicast[types.Node](stream.EmitLatest)
+	src, emit, complete := stream.Multicast[LocalNode](stream.EmitLatest)
 	s := &localNodeStore{
 		Observable: src,
 		valid:      true,
@@ -125,7 +128,7 @@ func defaultLocalNodeStore() LocalNodeStore {
 	return s
 }
 
-func (s *localNodeStore) Get() types.Node {
+func (s *localNodeStore) Get() LocalNode {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -137,7 +140,7 @@ func (s *localNodeStore) Get() types.Node {
 	return s.value
 }
 
-func (s *localNodeStore) Update(update func(*types.Node)) {
+func (s *localNodeStore) Update(update func(*LocalNode)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

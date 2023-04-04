@@ -72,7 +72,13 @@ The eBPF-based masquerading can masquerade packets of the following IPv4 L4 prot
 
 - TCP
 - UDP
-- ICMP (only Echo request and Echo reply)
+- ICMP
+
+.. note::
+
+    For ICMP, support is limited to Echo request, Echo reply, and the
+    error message "Destination unreachable, fragmentation required,
+    and DF flag set".
 
 By default, all packets from a pod destined to an IP address outside of the
 ``ipv4-native-routing-cidr`` range are masqueraded, except for packets destined

@@ -17,16 +17,17 @@ package ecs
 
 // Capacity is a nested struct in ecs response
 type Capacity struct {
-	AvailableLocalStorage int     `json:"AvailableLocalStorage" xml:"AvailableLocalStorage"`
-	TotalLocalStorage     int     `json:"TotalLocalStorage" xml:"TotalLocalStorage"`
-	ZoneId                string  `json:"ZoneId" xml:"ZoneId"`
-	AvailableAmount       int     `json:"AvailableAmount" xml:"AvailableAmount"`
-	TotalVgpus            int     `json:"TotalVgpus" xml:"TotalVgpus"`
-	AvailableVcpus        int     `json:"AvailableVcpus" xml:"AvailableVcpus"`
-	AvailableMemory       float64 `json:"AvailableMemory" xml:"AvailableMemory"`
-	TotalVcpus            int     `json:"TotalVcpus" xml:"TotalVcpus"`
-	AvailableVgpus        int     `json:"AvailableVgpus" xml:"AvailableVgpus"`
-	UsedAmount            int     `json:"UsedAmount" xml:"UsedAmount"`
-	LocalStorageCategory  string  `json:"LocalStorageCategory" xml:"LocalStorageCategory"`
-	TotalMemory           float64 `json:"TotalMemory" xml:"TotalMemory"`
+	TotalLocalStorage     int              `json:"TotalLocalStorage" xml:"TotalLocalStorage"`
+	AvailableAmount       int              `json:"AvailableAmount" xml:"AvailableAmount"`
+	AvailableVcpus        int              `json:"AvailableVcpus" xml:"AvailableVcpus"`
+	UsedAmount            int              `json:"UsedAmount" xml:"UsedAmount"`
+	AvailableLocalStorage int              `json:"AvailableLocalStorage" xml:"AvailableLocalStorage"`
+	ZoneId                string           `json:"ZoneId" xml:"ZoneId"`
+	TotalVgpus            int              `json:"TotalVgpus" xml:"TotalVgpus"`
+	AvailableMemory       float64          `json:"AvailableMemory" xml:"AvailableMemory"`
+	TotalVcpus            int              `json:"TotalVcpus" xml:"TotalVcpus"`
+	AvailableVgpus        int              `json:"AvailableVgpus" xml:"AvailableVgpus"`
+	LocalStorageCategory  string           `json:"LocalStorageCategory" xml:"LocalStorageCategory"`
+	TotalMemory           float64          `json:"TotalMemory" xml:"TotalMemory"`
+	SocketCapacities      SocketCapacities `json:"SocketCapacities" xml:"SocketCapacities"`
 }

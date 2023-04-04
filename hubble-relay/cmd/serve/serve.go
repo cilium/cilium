@@ -25,6 +25,7 @@ import (
 const (
 	keyClusterName            = "cluster-name"
 	keyPprof                  = "pprof"
+	keyPprofAddress           = "pprof-address"
 	keyPprofPort              = "pprof-port"
 	keyGops                   = "gops"
 	keyGopsPort               = "gops-port"
@@ -62,8 +63,11 @@ func New(vp *viper.Viper) *cobra.Command {
 	flags.Bool(
 		keyPprof, false, "Enable serving the pprof debugging API",
 	)
+	flags.String(
+		keyPprofAddress, defaults.PprofAddress, "Address that pprof listens on",
+	)
 	flags.Int(
-		keyPprofPort, defaults.PprofPort, "Port that the pprof listens on",
+		keyPprofPort, defaults.PprofPort, "Port that pprof listens on",
 	)
 	flags.Bool(
 		keyGops, true, "Run gops agent",
@@ -204,7 +208,7 @@ func runServe(vp *viper.Viper) error {
 	}
 
 	if vp.GetBool(keyPprof) {
-		pprof.Enable(vp.GetInt(keyPprofPort))
+		pprof.Enable(vp.GetString(keyPprofAddress), vp.GetInt(keyPprofPort))
 	}
 	gopsEnabled := vp.GetBool(keyGops)
 	if gopsEnabled {

@@ -38,7 +38,7 @@ value is an IPSec configuration in the following format::
     ``Secret`` resources need to be deployed in the same namespace as Cilium!
     In our example, we use ``kube-system``.
 
-In the example below, GMC-128-AES is used. However, any of the algorithms
+In the example below, GCM-128-AES is used. However, any of the algorithms
 supported by Linux may be used. To generate the secret, you may use the
 following command:
 
@@ -136,13 +136,14 @@ commands:
 2. Check that traffic is encrypted. In the example below, this can be verified
    by the fact that packets carry the IP Encapsulating Security Payload (ESP).
    In the example below, ``eth0`` is the interface used for pod-to-pod
-   communication. Replace this interface with ``cilium_vxlan`` if tunneling is enabled.
+   communication. Replace this interface with e.g. ``cilium_vxlan`` if
+   tunneling is enabled.
 
    .. code-block:: shell-session
 
-       tcpdump -n -i eth0 esp
+       tcpdump -l -n -i eth0 esp
        tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-       listening on cilium_vxlan, link-type EN10MB (Ethernet), capture size 262144 bytes
+       listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
        15:16:21.626416 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e2), length 180
        15:16:21.626473 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e3), length 180
        15:16:21.627167 IP 10.60.0.1 > 10.60.1.1: ESP(spi=0x00000001,seq=0x579d), length 100
@@ -180,136 +181,26 @@ Troubleshooting
  * If the ``cilium`` Pods fail to start after enabling encryption, double-check if
    the IPSec ``Secret`` and Cilium are deployed in the same namespace together.
 
- * Make sure that the Cilium pods have kvstore connectivity:
-
-   .. code-block:: shell-session
-
-      cilium status
-      KVStore:                Ok   etcd: 1/1 connected: http://127.0.0.1:31079 - 3.3.2 (Leader)
-      [...]
-
  * Check for ``level=warning`` and ``level=error`` messages in the Cilium log files
 
    * If there is a warning message similar to ``Device eth0 does not exist``,
      use ``--set encryption.ipsec.interface=ethX`` to set the encryption
      interface.
 
- * Run a ``bash`` in a Cilium Pod and validate the following:
+ * Run ``cilium encrypt status`` in the Cilium Pod:
 
-   * Routing rules matching on fwmark:
+   .. code-block:: shell-session
 
-     .. code-block:: shell-session
+       $ cilium encrypt status
+       Encryption: IPsec
+       Keys in use: 1
+       Max Seq. Number: 0x1e3/0xffffffff
+       Errors: 0
 
-        $ ip rule list
-        1:	from all fwmark 0xd00/0xf00 lookup 200
-        1:	from all fwmark 0xe00/0xf00 lookup 200
-        [...]
-
-   * Content of routing tables
-
-     .. code-block:: shell-session
-
-        $ ip route list table 200
-        local 10.60.0.0/24 dev cilium_vxlan proto 50 scope host
-        10.60.1.0/24 via 10.60.0.1 dev cilium_host
-
-     In case of IPAM ENI mode, check if routing rules exist for the IP
-     address of the ``cilium_host`` interface.
-
-     .. code-block:: shell-session
-
-         $ ip addr show cilium_host
-         5: cilium_host@cilium_net: <BROADCAST,MULTICAST,NOARP,UP,LOWER_UP> mtu 9001 qdisc noqueue state UP group default qlen 1000
-         link/ether 96:b1:5c:82:75:a3 brd ff:ff:ff:ff:ff:ff
-         inet 192.168.174.161/32 scope link cilium_host
-            valid_lft forever preferred_lft forever
-         inet6 fe80::94b1:5cff:fe82:75a3/64 scope link
-            valid_lft forever preferred_lft forever
-
-         $ ip rule | grep 192.168.174.161
-         111:	from 192.168.174.161 to 192.168.0.0/16 lookup 11
-
-   * XFRM policy:
-
-     .. code-block:: shell-session
-
-        $ ip xfrm p
-        src 10.60.1.1/24 dst 10.60.0.1/24
-                dir fwd priority 0
-                mark 0xd00/0xf00
-                tmpl src 10.60.1.1 dst 10.60.0.1
-                        proto esp spi 0x00000001 reqid 1 mode tunnel
-        src 10.60.1.1/24 dst 10.60.0.1/24
-                dir in priority 0
-                mark 0xd00/0xf00
-                tmpl src 10.60.1.1 dst 10.60.0.1
-                        proto esp spi 0x00000001 reqid 1 mode tunnel
-        src 10.60.0.1/24 dst 10.60.1.1/24
-                dir out priority 0
-                mark 0xe00/0xf00
-                tmpl src 10.60.0.1 dst 10.60.1.1
-                        proto esp spi 0x00000001 reqid 1 mode tunnel
-
-   * XFRM stats with state:
-
-    Check if the packets count increases as you send traffic.
-
-    Following is the output from the source node.
-
-    .. code-block:: shell-session
-
-       $ ip -s xfrm s
-       src 10.60.0.1 dst 10.60.1.1
-               proto esp spi 0x00000001 reqid 1 mode tunnel
-               replay-window 0
-               auth-trunc hmac(sha256) 0x6162636465666768696a6b6c6d6e6f70717273747576777a797a414243444546 96
-               enc cbc(aes) 0x6162636465666768696a6b6c6d6e6f70717273747576777a797a414243444546
-               anti-replay context: seq 0x0, oseq 0xe0c0, bitmap 0x00000000
-               sel src 0.0.0.0/0 dst 0.0.0.0/0
-               lifetime config:
-                 limit: soft (INF)(bytes), hard (INF)(bytes)
-                 limit: soft (INF)(packets), hard (INF)(packets)
-                 expire add: soft 0(sec), hard 0(sec)
-                 expire use: soft 0(sec), hard 0(sec)
-               lifetime current:
-                 9507(bytes), 137(packets)
-                 add 2021-02-10 08:20:09 use 2021-02-10 08:30:12
-               stats:
-                 replay-window 0 replay 0 failed 0
-
-    Following is the output from the destination node.
-
-    .. code-block:: shell-session
-
-       $ ip -s xfrm s
-       src 10.60.1.1 dst 10.60.0.1
-               proto esp spi 0x00000001 reqid 1 mode tunnel
-               replay-window 0
-               auth-trunc hmac(sha256) 0x6162636465666768696a6b6c6d6e6f70717273747576777a797a414243444546 96
-               enc cbc(aes) 0x6162636465666768696a6b6c6d6e6f70717273747576777a797a414243444546
-               anti-replay context: seq 0x0, oseq 0xe0c0, bitmap 0x00000000
-               sel src 0.0.0.0/0 dst 0.0.0.0/0
-               lifetime config:
-                 limit: soft (INF)(bytes), hard (INF)(bytes)
-                 limit: soft (INF)(packets), hard (INF)(packets)
-                 expire add: soft 0(sec), hard 0(sec)
-                 expire use: soft 0(sec), hard 0(sec)
-               lifetime current:
-                 9507(bytes), 137(packets)
-                 add 2021-02-10 08:20:09 use 2021-02-10 08:30:12
-               stats:
-                 replay-window 0 replay 0 failed 0
-
-   * BPF program to decrypt traffic:
-
-    Check if the BPF program to decrypt traffic is attached to all network facing
-    interfaces, or matching the configuration of ``--encrypt-interface`` (if specified).
-
-    .. code-block:: shell-session
-
-        $ tc filter show dev eth0 ingress
-        filter protocol all pref 1 bpf chain 0
-        filter protocol all pref 1 bpf chain 0 handle 0x1 bpf_network.o:[from-network] direct-action not_in_hw id 1145 tag 51b408acf94aa23f jited
+   If the error counter is non-zero, additional information will be displayed
+   with the specific errors the kernel encountered. If the sequence number
+   reaches its maximum value, it will also result in errors. The number of
+   keys in use should be 2 during a key rotation and always 1 otherwise.
 
 Disabling Encryption
 ====================
@@ -323,3 +214,5 @@ Limitations
     * Transparent encryption is not currently supported when chaining Cilium on
       top of other CNI plugins. For more information, see :gh-issue:`15596`.
     * :ref:`HostPolicies` are not currently supported with IPsec encryption.
+    * IPsec encryption is not currently supported in combination with IPv6-only clusters.
+    * IPsec encryption is not supported on clusters with more than 65535 nodes.

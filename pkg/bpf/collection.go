@@ -33,7 +33,9 @@ func LoadCollectionSpec(path string) (*ebpf.CollectionSpec, error) {
 		return nil, err
 	}
 
-	classifyProgramTypes(spec)
+	if err := classifyProgramTypes(spec); err != nil {
+		return nil, err
+	}
 
 	return spec, nil
 }
@@ -125,8 +127,17 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 	}
 
 	// Set initial size of verifier log buffer.
+	//
+	// Up until kernel 5.1, the maximum log size is (2^24)-1. In 5.2, this was
+	// increased to (2^30)-1 by 7a9f5c65abcc ("bpf: increase verifier log limit").
+	//
+	// The default value of (2^22)-1 was chosen to be large enough to fit the log
+	// of most Cilium programs, while falling just within the 5.1 maximum size in
+	// one of the steps of the multiplication loop below. Without the -1, it would
+	// overshoot the cap to 2^24, making e.g. verifier tests unable to load the
+	// program if the previous size (2^22) was too small to fit the log.
 	if opts.Programs.LogSize == 0 {
-		opts.Programs.LogSize = 4_194_304
+		opts.Programs.LogSize = 4_194_303
 	}
 
 	attempt := 1
@@ -166,10 +177,19 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 //
 // Cilium uses the iproute2 X/Y section name convention for assigning programs
 // to prog array slots, which is also not supported.
-func classifyProgramTypes(spec *ebpf.CollectionSpec) {
-	// Assign a program type based on the first recognized function name.
+//
+// TODO(timo): When iproute2 is no longer used for any loading, tail call progs
+// can receive proper prefixes.
+func classifyProgramTypes(spec *ebpf.CollectionSpec) error {
 	var t ebpf.ProgramType
-	for name := range spec.Programs {
+	for name, p := range spec.Programs {
+		// If the loader was able to classify a program, go with the verdict.
+		if p.Type != ebpf.UnspecifiedProgram {
+			t = p.Type
+			break
+		}
+
+		// Assign a program type based on the first recognized function name.
 		switch name {
 		// bpf_xdp.c
 		case "cil_xdp_entry":
@@ -196,6 +216,12 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) {
 			p.Type = t
 		}
 	}
+
+	if t == ebpf.UnspecifiedProgram {
+		return errors.New("unable to classify program types")
+	}
+
+	return nil
 }
 
 // inlineGlobalData replaces all map loads from a global data section with

@@ -21,6 +21,7 @@ CLI for interacting with the local Cilium Agent
 
 * [cilium bpf](cilium_bpf.md)	 - Direct access to local BPF maps
 * [cilium build-config](cilium_build-config.md)	 - Resolve all of the configuration sources that apply to this node
+* [cilium cgroups](cilium_cgroups.md)	 - Cgroup metadata
 * [cilium cleanup](cilium_cleanup.md)	 - Remove system state installed by Cilium at runtime
 * [cilium completion](cilium_completion.md)	 - Output shell completion code
 * [cilium config](cilium_config.md)	 - Cilium configuration options
@@ -36,6 +37,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium metrics](cilium_metrics.md)	 - Access metric status
 * [cilium monitor](cilium_monitor.md)	 - Display BPF program events
 * [cilium node](cilium_node.md)	 - Manage cluster nodes
+* [cilium nodeid](cilium_nodeid.md)	 - List node IDs and associated information
 * [cilium policy](cilium_policy.md)	 - Manage security policies
 * [cilium prefilter](cilium_prefilter.md)	 - Manage XDP CIDR filters
 * [cilium preflight](cilium_preflight.md)	 - Cilium upgrade helper

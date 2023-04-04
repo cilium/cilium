@@ -45,6 +45,14 @@ func (d *policyHandler) Status() string {
 	return d.context.Status()
 }
 
+func (d *policyHandler) Context() *api.ContextOptions {
+	return d.context
+}
+
+func (d *policyHandler) ListMetricVec() []*prometheus.MetricVec {
+	return []*prometheus.MetricVec{d.verdicts.MetricVec}
+}
+
 func (d *policyHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	if flow.GetEventType().GetType() == monitorAPI.MessageTypePolicyVerdict {
 		return d.ProcessFlowL3L4(ctx, flow)

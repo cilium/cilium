@@ -64,6 +64,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch related secrets used to configure TLS
 		Watches(&source.Kind{Type: &corev1.Secret{}}, r.enqueueRequestForTLSSecret(),
 			builder.WithPredicates(predicate.NewPredicateFuncs(r.usedInGateway))).
+		// Watch related namespace in allowed namespaces
+		Watches(&source.Kind{Type: &corev1.Namespace{}}, r.enqueueRequestForAllowedNamespace()).
 		Complete(r)
 }
 
@@ -176,6 +178,21 @@ func (r *gatewayReconciler) enqueueRequestForOwningHTTPRoute() handler.EventHand
 func (r *gatewayReconciler) enqueueRequestForTLSSecret() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
 		gateways := getGatewaysForSecret(context.Background(), r.Client, a)
+		reqs := make([]reconcile.Request, 0, len(gateways))
+		for _, gw := range gateways {
+			reqs = append(reqs, reconcile.Request{
+				NamespacedName: gw,
+			})
+		}
+		return reqs
+	})
+}
+
+// enqueueRequestForAllowedNamespace returns an event handler for any changes
+// with allowed namespaces
+func (r *gatewayReconciler) enqueueRequestForAllowedNamespace() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ns client.Object) []reconcile.Request {
+		gateways := getGatewaysForNamespace(context.Background(), r.Client, ns)
 		reqs := make([]reconcile.Request, 0, len(gateways))
 		for _, gw := range gateways {
 			reqs = append(reqs, reconcile.Request{

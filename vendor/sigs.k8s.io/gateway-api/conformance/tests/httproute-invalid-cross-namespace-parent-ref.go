@@ -17,14 +17,10 @@ limitations under the License.
 package tests
 
 import (
-	"context"
 	"testing"
-	"time"
 
-	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -42,29 +38,11 @@ var HTTPRouteInvalidCrossNamespaceParentRef = suite.ConformanceTest{
 		gwName := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
 
 		t.Run("Route should not have Parents set in status", func(t *testing.T) {
-			kubernetes.HTTPRouteMustHaveNoAcceptedParents(t, suite.Client, routeName, 60)
+			kubernetes.HTTPRouteMustHaveNoAcceptedParents(t, suite.Client, suite.TimeoutConfig, routeName)
 		})
 
 		t.Run("Gateway should have 0 Routes attached", func(t *testing.T) {
-			require.Eventually(t, func() bool {
-				gw := &v1alpha2.Gateway{}
-				if err := suite.Client.Get(context.TODO(), gwName, gw); err != nil {
-					t.Logf("error fetching gateway: %v", err)
-					return false
-				}
-
-				// There are two valid ways to represent this:
-				// 1. No listeners in status
-				// 2. One listener in status with 0 attached routes
-				if len(gw.Status.Listeners) == 0 {
-					// No listeners in status.
-					return true
-				} else if len(gw.Status.Listeners) == 1 {
-					// Listener with no attached routes
-					return gw.Status.Listeners[0].AttachedRoutes == 0
-				}
-				return false
-			}, time.Second*15, time.Second, "Expected no attached routes")
+			kubernetes.GatewayMustHaveZeroRoutes(t, suite.Client, suite.TimeoutConfig, gwName)
 		})
 	},
 }

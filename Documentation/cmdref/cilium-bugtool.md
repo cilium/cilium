@@ -35,6 +35,7 @@ cilium-bugtool [OPTIONS] [flags]
       --dry-run                              Create configuration file of all commands that would have been executed
       --enable-markdown                      Dump output of commands in markdown format
       --envoy-dump                           When set, dump envoy configuration from unix socket (default true)
+      --envoy-metrics                        When set, dump envoy prometheus metrics from unix socket (default true)
       --exclude-object-files                 Exclude per-endpoint object files. Template object files will be kept
       --exec-timeout duration                The default timeout for any cmd execution in seconds (default 30s)
       --get-pprof                            When set, only gets the pprof traces from the cilium-agent binary

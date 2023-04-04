@@ -7,6 +7,7 @@ include ../Makefile.quiet
 HELM_VALUES := helm-values.rst
 REQUIREMENTS_NODEP := requirements-min/requirements.txt
 REQUIREMENTS := requirements.txt
+SPHINX_OPTS := "-j=auto"
 
 .PHONY: default clean help builder-image cilium-build cmdref epub latex html
 

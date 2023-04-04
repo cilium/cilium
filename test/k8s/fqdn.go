@@ -94,7 +94,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		_ = kubectl.Exec(fmt.Sprintf("%s delete --all cnp", helpers.KubectlCmd))
 	})
 
-	SkipItIf(helpers.SkipQuarantined, "Restart Cilium validate that FQDN is still working", func() {
+	It("Restart Cilium validate that FQDN is still working", func() {
 		// Test functionality:
 		// - When Cilium is running) Connectivity from App2 application can
 		// connect to DNS because dns-proxy filter the DNS request. If the

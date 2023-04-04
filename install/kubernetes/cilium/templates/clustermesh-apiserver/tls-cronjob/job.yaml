@@ -1,21 +1,17 @@
 {{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "cronJob") }}
-{{/*
-Because Kubernetes job specs are immutable, Helm will fail patch this job if
-the spec changes between releases. To avoid breaking the upgrade path, we
-generate a name for the job here which is based on the checksum of the spec.
-This will cause the name of the job to change if its content changes,
-and in turn cause Helm to do delete the old job and replace it with a new one.
-*/}}
-{{- $jobSpec := include "clustermesh-apiserver-generate-certs.job.spec" . -}}
-{{- $checkSum := $jobSpec | sha256sum | trunc 10 -}}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: clustermesh-apiserver-generate-certs-{{$checkSum}}
+  name: clustermesh-apiserver-generate-certs
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: clustermesh-apiserver-generate-certs
     app.kubernetes.io/part-of: cilium
-{{ $jobSpec }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    {{- with .Values.certgen.annotations.job }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{ include "clustermesh-apiserver-generate-certs.job.spec" . }}
 {{- end }}

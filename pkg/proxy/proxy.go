@@ -42,7 +42,7 @@ const (
 )
 
 type DatapathUpdater interface {
-	InstallProxyRules(ctx context.Context, proxyPort uint16, ingress bool, name string) error
+	InstallProxyRules(ctx context.Context, proxyPort uint16, ingress, localOnly bool, name string) error
 	SupportsOriginalSourceAddr() bool
 }
 
@@ -94,6 +94,8 @@ type ProxyPort struct {
 	// is non-zero when a proxy has been successfully created and the
 	// datapath rules have been created.
 	rulesPort uint16
+	// localOnly is true when the proxy port is only accessible from the loopback device
+	localOnly bool
 }
 
 // Proxy maintains state about redirects
@@ -194,10 +196,12 @@ var (
 		"cilium-http-egress": {
 			proxyType: ProxyTypeHTTP,
 			ingress:   false,
+			localOnly: true,
 		},
 		"cilium-http-ingress": {
 			proxyType: ProxyTypeHTTP,
 			ingress:   true,
+			localOnly: true,
 		},
 		DNSProxyName: {
 			proxyType: ProxyTypeDNS,
@@ -206,10 +210,12 @@ var (
 		"cilium-proxylib-egress": {
 			proxyType: ProxyTypeAny,
 			ingress:   false,
+			localOnly: true,
 		},
 		"cilium-proxylib-ingress": {
 			proxyType: ProxyTypeAny,
 			ingress:   true,
+			localOnly: true,
 		},
 	}
 )
@@ -297,7 +303,7 @@ func (p *Proxy) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) er
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
 		scopedLog.Infof("Adding new proxy port rules for %s:%d", name, pp.proxyPort)
-		if err := p.datapathUpdater.InstallProxyRules(ctx, pp.proxyPort, pp.ingress, name); err != nil {
+		if err := p.datapathUpdater.InstallProxyRules(ctx, pp.proxyPort, pp.ingress, pp.localOnly, name); err != nil {
 			return fmt.Errorf("cannot install proxy rules for %s: %w", name, err)
 		}
 		pp.rulesPort = pp.proxyPort
@@ -397,13 +403,13 @@ func GetProxyPort(name string) (uint16, error) {
 // already allocated.
 // Each call has to be paired with AckProxyPort(name) to update the datapath rules accordingly.
 // Each allocated port must be eventually freed with ReleaseProxyPort().
-func (p *Proxy) AllocateProxyPort(name string, ingress bool) (uint16, error) {
+func (p *Proxy) AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error) {
 	// Accessing pp.proxyPort requires the lock
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
 	pp := proxyPorts[name]
 	if pp == nil {
-		pp = &ProxyPort{proxyType: ProxyTypeCRD, ingress: ingress}
+		pp = &ProxyPort{proxyType: ProxyTypeCRD, ingress: ingress, localOnly: localOnly}
 	}
 
 	// Allocate a new port only if a port was never allocated before.
@@ -465,7 +471,7 @@ func (p *Proxy) ReinstallRules(ctx context.Context) error {
 	for name, pp := range proxyPorts {
 		if pp.rulesPort > 0 {
 			// This should always succeed if we have managed to start-up properly
-			if err := p.datapathUpdater.InstallProxyRules(ctx, pp.rulesPort, pp.ingress, name); err != nil {
+			if err := p.datapathUpdater.InstallProxyRules(ctx, pp.rulesPort, pp.ingress, pp.localOnly, name); err != nil {
 				return fmt.Errorf("cannot install proxy rules for %s: %w", name, err)
 			}
 		}
@@ -501,6 +507,17 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 
 	var revertStack revert.RevertStack
 	revertFunc = revertStack.Revert
+	defer func() {
+		if err != nil {
+			// We ignore errors while reverting. This is best-effort.
+			// revertFunc must be called after p.mutex is unlocked, because
+			// some functions in the revert stack (like removeRevertFunc)
+			// require it
+			p.mutex.Unlock()
+			revertFunc()
+			p.mutex.Lock()
+		}
+	}()
 
 	if redir, ok := p.redirects[id]; ok {
 		redir.mutex.Lock()
@@ -544,7 +561,6 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 	ppName, pp := findProxyPortByType(ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
 	if pp == nil {
 		err = proxyTypeNotFoundError(ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
-		revertFunc()
 		return 0, err, nil, nil
 	}
 
@@ -566,14 +582,13 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 			// been already configured.
 			pp.proxyPort, err = allocatePort(pp.proxyPort, p.rangeMin, p.rangeMax)
 			if err != nil {
-				revertFunc() // Ignore errors while reverting. This is best-effort.
 				return 0, err, nil, nil
 			}
 		}
 
 		switch l4.GetL7Parser() {
 		case policy.ParserTypeDNS:
-			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, p.defaultEndpointInfoRegistry)
+			redir.implementation, err = createDNSRedirect(redir, p.defaultEndpointInfoRegistry)
 		default:
 			if pp.proxyType == ProxyTypeCRD {
 				// CRD Listeners already exist, create a no-op implementation
@@ -629,7 +644,6 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 
 	// an error occurred, and we have no more retries
 	scopedLog.WithError(err).Errorf("Unable to create %s proxy %s", l4.GetL7Parser(), l4.GetListener())
-	revertFunc() // Ignore errors while reverting. This is best-effort.
 	return 0, err, nil, nil
 }
 

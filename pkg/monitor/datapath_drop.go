@@ -46,11 +46,36 @@ func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 	}
 }
 
+var sourceFileNames = map[int]string{
+	// source files from bpf/
+	1: "bpf_host.c",
+	2: "bpf_lxc.c",
+	3: "bpf_overlay.c",
+	4: "bpf_xdp.c",
+
+	// header files from bpf/lib/
+	101: "arp.h",
+	102: "drop.h",
+	103: "egress_policies.h",
+	104: "icmp6.h",
+	105: "nodeport.h",
+	106: "encap.h",
+	//end
+}
+
+func decodeBPFSourceFileName(fileId int) string {
+	if name, ok := sourceFileNames[fileId]; ok {
+		return name
+	}
+	// this shouldn't ever happen
+	return fmt.Sprintf("<unknown-id-%d>", fileId)
+}
+
 // DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
-	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %d:%d, ",
-		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, int(n.File), int(n.Line))
+	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %s:%d, ",
+		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, decodeBPFSourceFileName(int(n.File)), int(n.Line))
 	n.dumpIdentity(buf, numeric)
 	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[DropNotifyLen:]))
 	buf.Flush()

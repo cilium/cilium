@@ -115,7 +115,7 @@ ServiceAccounts
 ----------------
 
 Kubernetes `Service Accounts
-<https://kubernetes.io/docs/concepts/configuration/assign-pod-node/>`_ are used
+<https://kubernetes.io/docs/concepts/security/service-accounts/>`_ are used
 to associate an identity to a pod or process managed by Kubernetes and grant
 identities access to Kubernetes resources and secrets. Cilium supports the
 specification of network security policies based on the service account

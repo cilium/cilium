@@ -31,7 +31,7 @@ func initDummyXfrmState() *netlink.XfrmState {
 		Key:    k,
 		ICVLen: 128,
 	}
-	state.Spi = int(stateId)
+	state.Spi = stateId
 	state.Reqid = stateId
 
 	state.Src = net.ParseIP(dummyIP)

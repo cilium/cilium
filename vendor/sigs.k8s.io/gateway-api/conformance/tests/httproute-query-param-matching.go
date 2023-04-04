@@ -40,7 +40,7 @@ var HTTPRouteQueryParamMatching = suite.ConformanceTest{
 			ns      = "gateway-conformance-infra"
 			routeNN = types.NamespacedName{Namespace: ns, Name: "query-param-matching"}
 			gwNN    = types.NamespacedName{Namespace: ns, Name: "same-namespace"}
-			gwAddr  = kubernetes.GatewayAndHTTPRoutesMustBeReady(t, suite.Client, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
+			gwAddr  = kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 		)
 
 		testCases := []http.ExpectedResponse{{
@@ -68,24 +68,24 @@ var HTTPRouteQueryParamMatching = suite.ConformanceTest{
 			Backend:   "infra-backend-v2",
 			Namespace: ns,
 		}, {
-			Request:    http.Request{Path: "/?color=blue"},
-			StatusCode: 404,
+			Request:  http.Request{Path: "/?color=blue"},
+			Response: http.Response{StatusCode: 404},
 		}, {
-			Request:    http.Request{Path: "/?animal=dog"},
-			StatusCode: 404,
+			Request:  http.Request{Path: "/?animal=dog"},
+			Response: http.Response{StatusCode: 404},
 		}, {
-			Request:    http.Request{Path: "/?animal=whaledolphin"},
-			StatusCode: 404,
+			Request:  http.Request{Path: "/?animal=whaledolphin"},
+			Response: http.Response{StatusCode: 404},
 		}, {
-			Request:    http.Request{Path: "/"},
-			StatusCode: 404,
+			Request:  http.Request{Path: "/"},
+			Response: http.Response{StatusCode: 404},
 		}}
 
 		for i := range testCases {
 			tc := testCases[i]
-			t.Run(testName(tc, i), func(t *testing.T) {
+			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
-				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, gwAddr, tc)
+				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, tc)
 			})
 		}
 	},

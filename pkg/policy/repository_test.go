@@ -31,7 +31,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	fooSelectLabel := labels.ParseSelectLabel("foo")
@@ -237,7 +237,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	// cannot add empty rule
@@ -323,7 +323,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 }
 
 func BenchmarkParseLabel(b *testing.B) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	b.ResetTimer()
@@ -362,7 +362,7 @@ func BenchmarkParseLabel(b *testing.B) {
 }
 
 func (ds *PolicyTestSuite) TestAllowsIngress(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	fooToBar := &SearchContext{
@@ -461,7 +461,7 @@ func (ds *PolicyTestSuite) TestAllowsIngress(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestAllowsEgress(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	fooToBar := &SearchContext{
@@ -569,7 +569,7 @@ func (ds *PolicyTestSuite) TestAllowsEgress(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
@@ -723,8 +723,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: nil,
 			},
-			Ingress:          true,
-			DerivedFromRules: labels.LabelArrayList{labelsL3},
+			Ingress:    true,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsL3}},
 		},
 		"8/ICMP": {
 			Port:     8,
@@ -733,8 +733,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: nil,
 			},
-			Ingress:          true,
-			DerivedFromRules: labels.LabelArrayList{labelsICMP},
+			Ingress:    true,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsICMP}},
 		},
 		"128/ICMPV6": {
 			Port:     128,
@@ -743,8 +743,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: nil,
 			},
-			Ingress:          true,
-			DerivedFromRules: labels.LabelArrayList{labelsICMPv6},
+			Ingress:    true,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsICMPv6}},
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -760,7 +760,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsKafka},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsKafka}},
 		},
 		"80/TCP": {
 			Port:     80,
@@ -776,7 +776,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsHTTP}},
 		},
 		"9090/TCP": {
 			Port:     9090,
@@ -793,7 +793,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsL7},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsL7}},
 		},
 	}
 	c.Assert(policy, checker.DeepEquals, expectedPolicy)
@@ -801,7 +801,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
@@ -928,7 +928,10 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsL4HTTP, labelsL7HTTP},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				cachedSelectorBar1: {labelsL4HTTP},
+				cachedSelectorBar2: {labelsL7HTTP},
+			},
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -945,7 +948,10 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsL4Kafka, labelsL7Kafka},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				cachedSelectorBar1: {labelsL4Kafka},
+				cachedSelectorBar2: {labelsL7Kafka},
+			},
 		},
 	}
 	c.Assert(policy, checker.DeepEquals, expectedPolicy)
@@ -953,7 +959,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
@@ -1013,8 +1019,10 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				expectedCachedSelector: nil,
 			},
-			Ingress:          true,
-			DerivedFromRules: labels.LabelArrayList{nil},
+			Ingress: true,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				expectedCachedSelector: {nil},
+			},
 		},
 	}
 	c.Assert(policy, checker.Equals, expectedPolicy)
@@ -1022,7 +1030,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
@@ -1094,7 +1102,9 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				expectedCachedSelector2: nil,
 			},
-			DerivedFromRules: labels.LabelArrayList{nil},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				expectedCachedSelector2: {nil},
+			},
 		},
 		"80/TCP": &L4Filter{
 			Port:     80,
@@ -1103,7 +1113,9 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				expectedCachedSelector: nil,
 			},
-			DerivedFromRules: labels.LabelArrayList{nil},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				expectedCachedSelector: {nil},
+			},
 		},
 	}
 	if !c.Check(policy, checker.Equals, expectedPolicy) {
@@ -1113,7 +1125,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
@@ -1258,7 +1270,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsDNS},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsDNS}},
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1274,7 +1286,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsHTTP}},
 		},
 		"8/ICMP": {
 			Port:     8,
@@ -1283,8 +1295,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: nil,
 			},
-			Ingress:          false,
-			DerivedFromRules: labels.LabelArrayList{labelsICMP},
+			Ingress:    false,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsICMP}},
 		},
 		"128/ICMPV6": {
 			Port:     128,
@@ -1293,8 +1305,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: nil,
 			},
-			Ingress:          false,
-			DerivedFromRules: labels.LabelArrayList{labelsICMPv6},
+			Ingress:    false,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsICMPv6}},
 		},
 		"0/ANY": {
 			Port:     0,
@@ -1304,8 +1316,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: nil,
 			},
-			Ingress:          false,
-			DerivedFromRules: labels.LabelArrayList{labelsL4},
+			Ingress:    false,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsL4}},
 		},
 	}
 	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
@@ -1316,7 +1328,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
@@ -1446,7 +1458,10 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsL3HTTP, labelsL7HTTP},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				cachedSelectorBar1: {labelsL3HTTP},
+				cachedSelectorBar2: {labelsL7HTTP},
+			},
 		},
 		"53/UDP": {
 			Port:     53,
@@ -1463,7 +1478,10 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsL3DNS, labelsL7DNS},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+				cachedSelectorBar1: {labelsL3DNS},
+				cachedSelectorBar2: {labelsL7DNS},
+			},
 		},
 	}
 	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
@@ -1474,7 +1492,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
@@ -1569,7 +1587,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsHTTP}},
 		},
 		"0/ANY": {
 			Port:     0,
@@ -1580,7 +1598,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: nil,
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsL3},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsL3}},
 		},
 	}
 	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
@@ -1591,7 +1609,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
@@ -1689,8 +1707,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorWorld: nil,
 			},
-			Ingress:          true,
-			DerivedFromRules: labels.LabelArrayList{labelsL3},
+			Ingress:    true,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorWorld: {labelsL3}},
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -1706,7 +1724,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsKafka},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsKafka}},
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1722,7 +1740,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsHTTP}},
 		},
 	}
 
@@ -1731,7 +1749,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
@@ -1829,8 +1847,8 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorWorld: nil,
 			},
-			Ingress:          false,
-			DerivedFromRules: labels.LabelArrayList{labelsL3},
+			Ingress:    false,
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorWorld: {labelsL3}},
 		},
 		"53/UDP": {
 			Port:     53,
@@ -1846,7 +1864,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsDNS},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsDNS}},
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1862,7 +1880,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 					isRedirect: true,
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar2: {labelsHTTP}},
 		},
 	}
 
@@ -1871,7 +1889,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	app2Selector := labels.ParseSelectLabelArray("id=app2")
@@ -1985,8 +2003,8 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: []labels.LabelArray{nil},
+		Ingress:    true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorApp2: {nil}},
 	}
 
 	if equal, err := checker.DeepEqual(l4IngressPolicy, expected.Ingress); !equal {
@@ -2059,7 +2077,7 @@ func (repo *Repository) checkTrace(c *C, ctx *SearchContext, trace string,
 }
 
 func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	// Add rules to allow foo=>bar
@@ -2254,7 +2272,7 @@ func (ds *PolicyTestSuite) TestremoveIdentityFromRuleCaches(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestIterate(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	numWithEgress := 0

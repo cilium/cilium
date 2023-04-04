@@ -82,9 +82,9 @@ type DescribeDiagnosticReportsRequest struct {
 // DescribeDiagnosticReportsResponse is the response struct for api DescribeDiagnosticReports
 type DescribeDiagnosticReportsResponse struct {
 	*responses.BaseResponse
-	RequestId string   `json:"RequestId" xml:"RequestId"`
-	NextToken string   `json:"NextToken" xml:"NextToken"`
-	Reports   []Report `json:"Reports" xml:"Reports"`
+	RequestId string  `json:"RequestId" xml:"RequestId"`
+	NextToken string  `json:"NextToken" xml:"NextToken"`
+	Reports   Reports `json:"Reports" xml:"Reports"`
 }
 
 // CreateDescribeDiagnosticReportsRequest creates a request to invoke DescribeDiagnosticReports API

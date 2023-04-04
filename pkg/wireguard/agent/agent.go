@@ -27,6 +27,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -61,15 +62,19 @@ type wireguardClient interface {
 // the public key of peer discovered via the node manager.
 type Agent struct {
 	lock.RWMutex
-	wgClient         wireguardClient
-	ipCache          *ipcache.IPCache
-	listenPort       int
-	privKey          wgtypes.Key
+	wgClient   wireguardClient
+	ipCache    *ipcache.IPCache
+	listenPort int
+	privKey    wgtypes.Key
+
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
 	nodeNameByPubKey map[wgtypes.Key]string
 	restoredPubKeys  map[wgtypes.Key]struct{}
-	cleanup          []func()
+
+	cleanup []func()
+
+	nodeToNodeEncryption bool
 }
 
 // NewAgent creates a new Wireguard Agent
@@ -87,14 +92,18 @@ func NewAgent(privKeyPath string) (*Agent, error) {
 	node.SetWireguardPubKey(key.PublicKey().String())
 
 	return &Agent{
-		wgClient:         wgClient,
-		privKey:          key,
-		listenPort:       listenPort,
+		wgClient:   wgClient,
+		privKey:    key,
+		listenPort: listenPort,
+
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
 		restoredPubKeys:  map[wgtypes.Key]struct{}{},
-		cleanup:          []func(){},
+
+		cleanup: []func(){},
+
+		nodeToNodeEncryption: option.Config.EncryptNode && !node.GetOptOutNodeEncryption(),
 	}, nil
 }
 
@@ -217,10 +226,12 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 		}
 	}
 
+	fwMark := linux_defaults.MagicMarkWireGuardEncrypted
 	cfg := wgtypes.Config{
 		PrivateKey:   &a.privKey,
 		ListenPort:   &a.listenPort,
 		ReplacePeers: false,
+		FirewallMark: &fwMark,
 	}
 	if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
 		return fmt.Errorf("failed to configure wireguard device: %w", err)
@@ -243,46 +254,10 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 		a.restoredPubKeys[peer.PublicKey] = struct{}{}
 	}
 
-	// Create the rule to steer the marked traffic (from a local endpoint to a
-	// remote endpoint) via the Wireguard tunnel
-	rule := route.Rule{
-		Priority: linux_defaults.RulePriorityWireguard,
-		Mark:     linux_defaults.RouteMarkEncrypt,
-		Mask:     linux_defaults.RouteMarkMask,
-		Table:    linux_defaults.RouteTableWireguard,
-	}
-	rt := route.Route{
-		Device: types.IfaceName,
-		Table:  linux_defaults.RouteTableWireguard,
-	}
-	if option.Config.EnableIPv4 {
-		if err := route.ReplaceRule(rule); err != nil {
-			return fmt.Errorf("failed to upsert ipv4 rule: %w", err)
-		}
-
-		subnet := net.IPNet{
-			IP:   net.IPv4zero,
-			Mask: net.CIDRMask(0, 8*net.IPv4len),
-		}
-		rt.Prefix = subnet
-		if err := route.Upsert(rt); err != nil {
-			return fmt.Errorf("failed to upsert ipv4 route: %w", err)
-		}
-	}
-	if option.Config.EnableIPv6 {
-		if err := route.ReplaceRuleIPv6(rule); err != nil {
-			return fmt.Errorf("failed to upsert ipv6 rule: %w", err)
-		}
-
-		subnet := net.IPNet{
-			IP:   net.IPv6zero,
-			Mask: net.CIDRMask(0, 8*net.IPv6len),
-		}
-		rt.Prefix = subnet
-		if err := route.Upsert(rt); err != nil {
-			return fmt.Errorf("failed to upsert ipv6 route: %w", err)
-		}
-	}
+	// Delete IP rules and routes installed by the agent to steer a traffic from
+	// a pod into the WireGuard tunnel device. The rules were used in Cilium
+	// versions < 1.13.
+	deleteObsoleteIPRules()
 
 	// this is read by the defer statement above
 	addIPCacheListener = true
@@ -366,9 +341,21 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 		var lookupIPv4, lookupIPv6 net.IP
 		if option.Config.EnableIPv4 && nodeIPv4 != nil {
 			lookupIPv4 = nodeIPv4
+			if a.nodeToNodeEncryption {
+				allowedIPs = append(allowedIPs, net.IPNet{
+					IP:   nodeIPv4,
+					Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
+				})
+			}
 		}
 		if option.Config.EnableIPv6 && nodeIPv6 != nil {
 			lookupIPv6 = nodeIPv6
+			if a.nodeToNodeEncryption {
+				allowedIPs = append(allowedIPs, net.IPNet{
+					IP:   nodeIPv6,
+					Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
+				})
+			}
 		}
 		allowedIPs = append(allowedIPs, a.ipCache.LookupByHostRLocked(lookupIPv4, lookupIPv6)...)
 	}
@@ -505,8 +492,9 @@ func loadOrGeneratePrivKey(filePath string) (key wgtypes.Key, err error) {
 }
 
 // OnIPIdentityCacheChange implements ipcache.IPIdentityMappingListener
-func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipnet net.IPNet, oldHostIP, newHostIP net.IP,
-	_ *ipcache.Identity, _ ipcache.Identity, _ uint8, _ *ipcache.K8sMetadata) {
+func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP,
+	_ *ipcache.Identity, _ ipcache.Identity, _ uint8, _ uint16, _ *ipcache.K8sMetadata) {
+	ipnet := cidrCluster.AsIPNet()
 
 	// This function is invoked from the IPCache with the
 	// ipcache.IPIdentityCache lock held. We therefore need to be careful when
@@ -517,15 +505,23 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipnet
 
 	// We are only interested in IPCache entries where the hostIP is set, i.e.
 	// updates with oldHostIP set for deleted entries and newHostIP set
-	// for newly created entries. Entries without a hostIP
-	// (e.g. remote identities) are not relevant for Wireguard's allowedIPs.
-	//
-	// If we do not find a Wireguard peer for a given hostIP, we intentionally
+	// for newly created entries.
+	// A special case (i.e. an entry without a hostIP) is the remote node entry
+	// itself when node-to-node encryption is enabled. We handle that case in
+	// UpdatePeer(), i.e. we add any required remote node IPs to AllowedIPs
+	// there.
+	// If we do not find a WireGuard peer for a given hostIP, we intentionally
 	// ignore the IPCache upserts here. We instead assume that UpdatePeer() will
-	// eventually be called once a node starts participating in Wireguard
+	// eventually be called once a node starts participating in WireGuard
 	// (or if its host IP changed). UpdatePeer initializes the allowedIPs
 	// of newly discovered hostIPs by querying the IPCache, which will contain
 	// all updates we might have skipped here before the hostIP was known.
+	//
+	// Note that we also ignore encryptKey here - it is only used by the
+	// datapath. We only ever add AllowedIPs based on IPCache updates for nodes
+	// which for which we already know the public key. If a node opts out of
+	// encryption, it will not announce it's public key and thus will not be
+	// part of the nodeNameByNodeIP map.
 	var updatedPeer *peerConfig
 	switch {
 	case modType == ipcache.Delete && oldHostIP != nil:
@@ -653,4 +649,38 @@ func (p *peerConfig) insertAllowedIP(ip net.IPNet) (updated bool) {
 
 	p.allowedIPs = append(p.allowedIPs, ip)
 	return true
+}
+
+// Removes < v1.13 IP rules and routes.
+func deleteObsoleteIPRules() {
+	rule := route.Rule{
+		Priority: linux_defaults.RulePriorityWireguard,
+		Mark:     linux_defaults.RouteMarkEncrypt,
+		Mask:     linux_defaults.RouteMarkMask,
+		Table:    linux_defaults.RouteTableWireguard,
+	}
+	rt := route.Route{
+		Device: types.IfaceName,
+		Table:  linux_defaults.RouteTableWireguard,
+	}
+	if option.Config.EnableIPv4 {
+		route.DeleteRule(rule)
+
+		subnet := net.IPNet{
+			IP:   net.IPv4zero,
+			Mask: net.CIDRMask(0, 8*net.IPv4len),
+		}
+		rt.Prefix = subnet
+		route.Delete(rt)
+	}
+	if option.Config.EnableIPv6 {
+		route.DeleteRuleIPv6(rule)
+
+		subnet := net.IPNet{
+			IP:   net.IPv6zero,
+			Mask: net.CIDRMask(0, 8*net.IPv6len),
+		}
+		rt.Prefix = subnet
+		route.Delete(rt)
+	}
 }

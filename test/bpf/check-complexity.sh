@@ -32,12 +32,12 @@ function annotate_section_names {
 	    -e "s/\(section '2\/16'\)/\1 (tail_call IPV6_NODEPORT_NAT_EGRESS)/" \
 	    -e "s/\(section '2\/17'\)/\1 (tail_call IPV4_NODEPORT_REVNAT)/" \
 	    -e "s/\(section '2\/18'\)/\1 (tail_call IPV6_NODEPORT_REVNAT)/" \
-	    -e "s/\(section '2\/19'\)/\1 (tail_call IPV4_ENCAP_NODEPORT_NAT)/" \
+	    -e "s/\(section '2\/19'\)/\1 (tail_call IPV4_NODEPORT_NAT_FWD)/" \
 	    -e "s/\(section '2\/20'\)/\1 (tail_call IPV4_NODEPORT_DSR)/" \
 	    -e "s/\(section '2\/21'\)/\1 (tail_call IPV6_NODEPORT_DSR)/" \
 	    -e "s/\(section '2\/22'\)/\1 (tail_call IPV4_FROM_HOST)/" \
 	    -e "s/\(section '2\/23'\)/\1 (tail_call IPV6_FROM_HOST)/" \
-	    -e "s/\(section '2\/24'\)/\1 (tail_call IPV6_ENCAP_NODEPORT_NAT)/" \
+	    -e "s/\(section '2\/24'\)/\1 (tail_call IPV6_NODEPORT_NAT_FWD)/" \
 	    -e "s/\(section '2\/25'\)/\1 (tail_call IPV4_FROM_LXC_CONT)/" \
 	    -e "s/\(section '2\/26'\)/\1 (tail_call IPV6_FROM_LXC_CONT)/" \
 	    -e "s/\(section '2\/27'\)/\1 (tail_call IPV4_CT_INGRESS)/" \
@@ -50,10 +50,15 @@ function annotate_section_names {
 	    -e "s/\(section '2\/34'\)/\1 (tail_call SRV6_DECAP)/" \
 	    -e "s/\(section '2\/35'\)/\1 (tail_call SRV6_REPLY)/" \
 	    -e "s/\(section '2\/36'\)/\1 (tail_call IPV4_NODEPORT_NAT_INGRESS)/" \
-	    -e "s/\(section '2\/37'\)/\1 (tail_call IPV6_NODEPORT_NAT_INGRESS)/"
+	    -e "s/\(section '2\/37'\)/\1 (tail_call IPV6_NODEPORT_NAT_INGRESS)/" \
+	    -e "s/\(section '2\/38'\)/\1 (tail_call IPV4_NODEPORT_SNAT_FWD)/" \
+	    -e "s/\(section '2\/39'\)/\1 (tail_call IPV6_NODEPORT_SNAT_FWD)/" \
+	    -e "s/\(section '2\/40'\)/\1 (tail_call IPV4_NODEPORT_DSR_INGRESS)/" \
+	    -e "s/\(section '2\/41'\)/\1 (tail_call IPV6_NODEPORT_DSR_INGRESS)/" \
+	    -e "s/\(section '2\/42'\)/\1 (tail_call IPV4_INTER_CLUSTER_REVSNAT)/"
 }
 
-if ! grep -q "CILIUM_CALL_SIZE.*38" "$BPFDIR/lib/common.h" ; then
+if ! grep -q "CILIUM_CALL_SIZE.*42" "$BPFDIR/lib/common.h" ; then
 	echo "This script is out of date compared to CILIUM_CALL_SIZE." 1>&2
 	exit 1
 fi

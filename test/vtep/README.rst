@@ -4,7 +4,7 @@ How to test VXLAN Tunnel Endpoint (VTEP) integration
 Requirements
 
 1. One Virtual Machine with Linux distribution (Ubuntu 20.04 tested)
-2. Please reference https://docs.cilium.io/en/stable/gettingstarted/kind/
+2. Please reference https://docs.cilium.io/en/stable/installation/kind/
    for Cilium deployment in kind dependencies
 3. Install python3-scapy package
 

@@ -77,6 +77,9 @@ enum {
 	XFER_ENCAP_DSTID = 3,
 };
 
+/* FIB errors from BPF neighbor map. */
+#define BPF_FIB_MAP_NO_NEIGH	100
+
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
  * the below, that script should also be updated.
  */
@@ -104,12 +107,12 @@ enum {
 #define CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS	16
 #define CILIUM_CALL_IPV4_NODEPORT_REVNAT	17
 #define CILIUM_CALL_IPV6_NODEPORT_REVNAT	18
-#define CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT	19
+#define CILIUM_CALL_IPV4_NODEPORT_NAT_FWD	19
 #define CILIUM_CALL_IPV4_NODEPORT_DSR		20
 #define CILIUM_CALL_IPV6_NODEPORT_DSR		21
 #define CILIUM_CALL_IPV4_FROM_HOST		22
 #define CILIUM_CALL_IPV6_FROM_HOST		23
-#define CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT	24
+#define CILIUM_CALL_IPV6_NODEPORT_NAT_FWD	24
 #define CILIUM_CALL_IPV4_FROM_LXC_CONT		25
 #define CILIUM_CALL_IPV6_FROM_LXC_CONT		26
 #define CILIUM_CALL_IPV4_CT_INGRESS		27
@@ -123,7 +126,12 @@ enum {
 #define CILIUM_CALL_SRV6_REPLY			35
 #define CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS	36
 #define CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS	37
-#define CILIUM_CALL_SIZE			38
+#define CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD	38
+#define CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD	39
+#define CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS	40
+#define CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS	41
+#define CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT	42
+#define CILIUM_CALL_SIZE			43
 
 typedef __u64 mac_t;
 
@@ -235,10 +243,8 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
-/* Structure representing an IPv4 or IPv6 address, being used for:
- *  - key as endpoints map
- *  - key for tunnel endpoint map
- *  - value for tunnel endpoint map
+/* Structure representing an IPv4 or IPv6 address, being used as the key
+ * for the endpoints map.
  */
 struct endpoint_key {
 	union {
@@ -254,6 +260,36 @@ struct endpoint_key {
 	__u8 key;
 	__u8 cluster_id;
 	__u8 pad;
+} __packed;
+
+struct tunnel_key {
+	union {
+		struct {
+			__u32		ip4;
+			__u32		pad1;
+			__u32		pad2;
+			__u32		pad3;
+		};
+		union v6addr	ip6;
+	};
+	__u8 family;
+	__u8 cluster_id;
+	__u16 pad;
+} __packed;
+
+struct tunnel_value {
+	union {
+		struct {
+			__u32		ip4;
+			__u32		pad1;
+			__u32		pad2;
+			__u32		pad3;
+		};
+		union v6addr	ip6;
+	};
+	__u8 family;
+	__u8 key;
+	__u16 node_id;
 } __packed;
 
 #define ENDPOINT_F_HOST		1 /* Special endpoint representing local host */
@@ -283,6 +319,7 @@ struct edt_info {
 struct remote_endpoint_info {
 	__u32		sec_label;
 	__u32		tunnel_endpoint;
+	__u16		node_id;
 	__u8		key;
 };
 
@@ -303,6 +340,18 @@ struct policy_entry {
 	__u16		pad2;
 	__u64		packets;
 	__u64		bytes;
+};
+
+struct auth_key {
+	__u32       local_sec_label;
+	__u32       remote_sec_label;
+	__u16       remote_node_id;
+	__u8        auth_type;
+	__u8        pad;
+};
+
+struct auth_info {
+	__u64       expiration;
 };
 
 struct metrics_key {
@@ -383,6 +432,8 @@ enum {
 	POLICY_MATCH_L3_L4 = 2,
 	POLICY_MATCH_L4_ONLY = 3,
 	POLICY_MATCH_ALL = 4,
+	POLICY_MATCH_L3_PROTO = 5,
+	POLICY_MATCH_PROTO_ONLY = 6,
 };
 
 enum {
@@ -507,6 +558,9 @@ enum {
 #define DROP_NAT46		-187
 #define DROP_NAT64		-188
 #define DROP_POLICY_AUTH_REQUIRED	-189
+#define DROP_CT_NO_MAP_FOUND	-190
+#define DROP_SNAT_NO_MAP_FOUND	-191
+#define DROP_INVALID_CLUSTER_ID	-192
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define NAT_46X64_RECIRC	100
@@ -567,14 +621,17 @@ enum metric_dir {
 #define MARK_MAGIC_ENCRYPT		0x0E00
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
+#define MARK_MAGIC_SNAT_DONE		0x0300
 
-#define MARK_MAGIC_KEY_ID		0xF000
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
-/* IPSec cannot be configured with NodePort BPF today, hence non-conflicting
- * overlap with MARK_MAGIC_KEY_ID.
+
+/* The mark is used to indicate that the WireGuard tunnel device is done
+ * encrypting a packet. The MSB invades the Kubernetes mark "space" which is
+ * fine, as it's not used by K8s. See pkg/datapath/linux/linux_defaults/mark.go
+ * for more details.
  */
-#define MARK_MAGIC_SNAT_DONE		0x1500
+#define MARK_MAGIC_WG_ENCRYPTED		0x1E00
 
 /* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
  * being mutual exclusive given former is only under DSR. Used to push health
@@ -587,8 +644,11 @@ enum metric_dir {
  */
 #define MARK_MAGIC_HEALTH		MARK_MAGIC_DECRYPT
 
-/* IPv4 option used to carry service addr and port for DSR. Lower 16bits set to
- * zero so that they can be OR'd with service port.
+/* Shouldn't interfere with MARK_MAGIC_TO_PROXY. Lower 8bits carries cluster_id */
+#define MARK_MAGIC_CLUSTER_ID		MARK_MAGIC_TO_PROXY
+#define MARK_MAGIC_CLUSTER_ID_MASK	0x00FF
+
+/* IPv4 option used to carry service addr and port for DSR.
  *
  * Copy = 1 (option is copied to each fragment)
  * Class = 0 (control option)
@@ -597,9 +657,7 @@ enum metric_dir {
  *
  * [1]: https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
  */
-#define DSR_IPV4_OPT_32		0x9a080000
-#define DSR_IPV4_OPT_MASK	0xffff0000
-#define DSR_IPV4_DPORT_MASK	0x0000ffff
+#define DSR_IPV4_OPT_TYPE	(IPOPT_COPY | 0x1a)
 
 /* IPv6 option type of Destination Option used to carry service IPv6 addr and
  * port for DSR.
@@ -665,26 +723,28 @@ enum {
 #define	CB_NAT_46X64		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V6_1		CB_IFINDEX	/* Alias, non-overlapping */
-#define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_ENCAP_SECLABEL	CB_IFINDEX	/* XDP */
+#define CB_CLUSTER_ID_EGRESS	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 #define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
 #define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
 #define CB_ENCAP_DSTID		CB_POLICY	/* XDP */
+#define	CB_CLUSTER_ID_INGRESS	CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT,
 #define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
 #define CB_SRV6_SID_4		CB_NAT		/* Alias, non-overlapping */
 	CB_CT_STATE,
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
-#define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
+#define	CB_ENCRYPT_IDENTITY	CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
+#define	CB_FROM_TUNNEL		CB_CT_STATE	/* Alias, non-overlapping */
 };
 
 /* Magic values for CB_FROM_HOST.
@@ -801,7 +861,8 @@ struct ct_entry {
 	      dsr:1,
 	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
 	      auth_required:1,
-	      reserved:6;
+	      from_tunnel:1, /* Connection is over tunnel */
+	      reserved:5;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
 	 * that ifindex of a NodePort device is <= MAX(u16).
@@ -989,7 +1050,8 @@ struct ct_state {
 	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
 	      auth_required:1,
-	      reserved:9;
+	      from_tunnel:1,	/* Connection is from tunnel */
+	      reserved:8;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
@@ -1043,6 +1105,15 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 # endif /* HAVE_ENCAP */
 		return ctx_redirect_peer(ctx, ifindex, 0);
 	}
+}
+
+static __always_inline __u64 ctx_adjust_hroom_flags(void)
+{
+#ifdef HAVE_CSUM_LEVEL
+	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
+#else
+	return 0;
+#endif
 }
 
 struct lpm_v4_key {

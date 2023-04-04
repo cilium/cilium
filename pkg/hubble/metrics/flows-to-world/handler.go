@@ -72,6 +72,14 @@ func (h *flowsToWorldHandler) Status() string {
 	return strings.Join(append(status, h.context.Status()), ",")
 }
 
+func (h *flowsToWorldHandler) Context() *api.ContextOptions {
+	return h.context
+}
+
+func (h *flowsToWorldHandler) ListMetricVec() []*prometheus.MetricVec {
+	return []*prometheus.MetricVec{h.flowsToWorld.MetricVec}
+}
+
 func (h *flowsToWorldHandler) isReservedWorld(endpoint *flowpb.Endpoint) bool {
 	for _, label := range endpoint.Labels {
 		if label == h.worldLabel {
@@ -94,7 +102,7 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 		return nil
 	}
 	// if this is potentially a forwarded reply packet, ignore it to avoid collecting statistics about ephemeral ports
-	isReply := flow.GetIsReply() == nil || flow.GetIsReply().GetValue()
+	isReply := flow.GetIsReply() != nil && flow.GetIsReply().GetValue()
 	if flow.GetVerdict() != flowpb.Verdict_DROPPED && isReply {
 		return nil
 	}
@@ -118,6 +126,8 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 			port = strconv.Itoa(int(tcp.GetDestinationPort()))
 		} else if udp := l4.GetUDP(); udp != nil {
 			port = strconv.Itoa(int(udp.GetDestinationPort()))
+		} else if sctp := l4.GetSCTP(); sctp != nil {
+			port = strconv.Itoa(int(sctp.GetDestinationPort()))
 		}
 		labels = append(labels, port)
 	}

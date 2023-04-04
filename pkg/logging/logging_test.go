@@ -6,6 +6,7 @@ package logging
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
@@ -40,6 +41,9 @@ func (s *LoggingSuite) TestGetLogFormat(c *C) {
 
 	opts[FormatOpt] = "Invalid"
 	c.Assert(opts.GetLogFormat(), Equals, DefaultLogFormat)
+
+	opts[FormatOpt] = "JSON-TS"
+	c.Assert(opts.GetLogFormat(), Equals, LogFormatJSONTimestamp)
 }
 
 func (s *LoggingSuite) TestSetLogLevel(c *C) {
@@ -64,6 +68,11 @@ func (s *LoggingSuite) TestSetLogFormat(c *C) {
 
 	SetLogFormat(LogFormatJSON)
 	c.Assert(reflect.TypeOf(DefaultLogger.Formatter).String(), Equals, "*logrus.JSONFormatter")
+
+	SetLogFormat(LogFormatJSONTimestamp)
+	c.Assert(reflect.TypeOf(DefaultLogger.Formatter).String(), Equals, "*logrus.JSONFormatter")
+	c.Assert(DefaultLogger.Formatter.(*logrus.JSONFormatter).DisableTimestamp, Equals, false)
+	c.Assert(DefaultLogger.Formatter.(*logrus.JSONFormatter).TimestampFormat, Equals, time.RFC3339Nano)
 }
 
 func (s *LoggingSuite) TestSetDefaultLogFormat(c *C) {

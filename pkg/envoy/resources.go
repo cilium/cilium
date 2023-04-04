@@ -13,6 +13,7 @@ import (
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
 	"github.com/sirupsen/logrus"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -94,11 +95,14 @@ func (cache *NPHDSCache) OnIPIdentityCacheGC() {
 // OnIPIdentityCacheChange pushes modifications to the IP<->Identity mapping
 // into the Network Policy Host Discovery Service (NPHDS).
 //
-// Note that the caller is responsible for passing 'oldID' when 'cidr' has been associated with a
-// different ID before, as this function does not search for conflicting IP/ID mappings.
-func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
+// Note that the caller is responsible for passing 'oldID' when 'cidrCluster' has been
+// associated with a different ID before, as this function does not search for conflicting
+// IP/ID mappings.
+func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster,
 	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
-	encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
+	encryptKey uint8, nodeID uint16, k8sMeta *ipcache.K8sMetadata) {
+	cidr := cidrCluster.AsIPNet()
+
 	cidrStr := cidr.String()
 	resourceName := newID.ID.StringID()
 
@@ -126,7 +130,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 		// but only if the old ID is different.
 		if oldID != nil && oldID.ID != newID.ID {
 			// Recursive call to delete the 'cidr' from the 'oldID'
-			cache.OnIPIdentityCacheChange(ipcache.Delete, cidr, nil, nil, nil, *oldID, encryptKey, k8sMeta)
+			cache.OnIPIdentityCacheChange(ipcache.Delete, cidrCluster, nil, nil, nil, *oldID, encryptKey, nodeID, k8sMeta)
 		}
 		err := cache.handleIPUpsert(npHost, resourceName, cidrStr, newID.ID)
 		if err != nil {
@@ -170,7 +174,7 @@ func (cache *NPHDSCache) handleIPUpsert(npHost *envoyAPI.NetworkPolicyHosts, ide
 	}
 	_, updated, _ := cache.Upsert(NetworkPolicyHostsTypeURL, identityStr, &newNpHost)
 	if !updated {
-		return errors.New(fmt.Sprintf("NPHDS cache not updated when expected adding: %s", newNpHost.String()))
+		return fmt.Errorf("NPHDS cache not updated when expected adding: %s", newNpHost.String())
 	}
 	return nil
 }
@@ -218,7 +222,7 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, ide
 		}
 		_, updated, _ := cache.Upsert(NetworkPolicyHostsTypeURL, identityStr, &newNpHost)
 		if !updated {
-			return errors.New(fmt.Sprintf("NPHDS cache not updated when expected deleting: %s", newNpHost.String()))
+			return fmt.Errorf("NPHDS cache not updated when expected deleting: %s", newNpHost.String())
 		}
 	}
 	return nil

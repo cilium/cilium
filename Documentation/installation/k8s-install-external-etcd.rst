@@ -35,7 +35,7 @@ when to use a kvstore:
 
 .. _ds_deploy:
 
-.. include:: requirements_intro.rst
+.. include:: requirements-intro.rst
 
 You will also need an external etcd version 3.1.0 or higher.
 

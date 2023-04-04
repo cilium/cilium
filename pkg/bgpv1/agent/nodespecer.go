@@ -5,11 +5,17 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/types"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/k8s"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/cilium/workerpool"
@@ -25,45 +31,57 @@ type nodeSpecer interface {
 type localNodeStoreSpecerParams struct {
 	cell.In
 
-	Lifecycle      hive.Lifecycle
-	Config         *option.DaemonConfig
-	LocalNodeStore node.LocalNodeStore
-	Signaler       Signaler
-	Shutdowner     hive.Shutdowner
+	Lifecycle          hive.Lifecycle
+	Config             *option.DaemonConfig
+	NodeResource       *k8s.LocalNodeResource
+	CiliumNodeResource *k8s.LocalCiliumNodeResource
+	Signaler           Signaler
 }
 
-// NewLocalNodeStoreSpecer constructs a new nodeSpecer and registers it in the hive lifecycle
-func NewLocalNodeStoreSpecer(params localNodeStoreSpecerParams) (nodeSpecer, error) {
-	specer := &localNodeStoreSpecer{
-		LocalNodeStore: params.LocalNodeStore,
-		Signaler:       params.Signaler,
-		Shutdowner:     params.Shutdowner,
-		workerpool:     workerpool.New(1),
+// NewNodeSpecer constructs a new nodeSpecer and registers it in the hive lifecycle
+func NewNodeSpecer(params localNodeStoreSpecerParams) (nodeSpecer, error) {
+	if !params.Config.BGPControlPlaneEnabled() {
+		return nil, nil
 	}
-	params.Lifecycle.Append(specer)
-	return specer, nil
+
+	switch params.Config.IPAM {
+	case ipamOption.IPAMClusterPoolV2, ipamOption.IPAMClusterPool:
+		cns := &ciliumNodeSpecer{
+			nodeResource: params.CiliumNodeResource,
+			signaler:     params.Signaler,
+		}
+		params.Lifecycle.Append(cns)
+		return cns, nil
+
+	case ipamOption.IPAMKubernetes:
+		kns := &kubernetesNodeSpecer{
+			nodeResource: params.NodeResource,
+			signaler:     params.Signaler,
+		}
+		params.Lifecycle.Append(kns)
+		return kns, nil
+
+	default:
+		return nil, fmt.Errorf("BGP Control Plane doesn't support current IPAM-mode: '%s'", params.Config.IPAM)
+	}
 }
 
-// localNodeStoreSpecer abstracts the underlying mechanism to list information about the
-// Node resource Cilium is running on.
-//
-// The localNodeStoreSpecer observes changes to the local node info and signals the Signaler
-// when it changes.
-type localNodeStoreSpecer struct {
-	LocalNodeStore node.LocalNodeStore
-	Signaler       Signaler
-	Shutdowner     hive.Shutdowner
+type kubernetesNodeSpecer struct {
+	nodeResource *k8s.LocalNodeResource
 
-	workerpool *workerpool.WorkerPool
+	currentNode *corev1.Node
+	workerpool  *workerpool.WorkerPool
+	signaler    Signaler
 }
 
-func (s *localNodeStoreSpecer) Start(_ hive.HookContext) error {
-	s.workerpool.Submit("local-node-store-run", s.run)
+func (s *kubernetesNodeSpecer) Start(_ hive.HookContext) error {
+	s.workerpool = workerpool.New(1)
+	s.workerpool.Submit("kubernetes-node-specer-run", s.run)
 
 	return nil
 }
 
-func (s *localNodeStoreSpecer) Stop(ctx hive.HookContext) error {
+func (s *kubernetesNodeSpecer) Stop(ctx hive.HookContext) error {
 	doneChan := make(chan struct{})
 
 	go func() {
@@ -80,53 +98,118 @@ func (s *localNodeStoreSpecer) Stop(ctx hive.HookContext) error {
 	return nil
 }
 
-// run observes the local node store for changes and triggers the signaller when the local node has been updated.
-func (s *localNodeStoreSpecer) run(ctx context.Context) error {
-	doneChan := make(chan struct{})
-
-	next := func(_ types.Node) {
-		s.Signaler.Event(nil)
-	}
-
-	complete := func(err error) {
-		if err != nil {
-			s.Shutdowner.Shutdown(hive.ShutdownWithError(err))
+func (s *kubernetesNodeSpecer) run(ctx context.Context) error {
+	for event := range s.nodeResource.Events(ctx) {
+		if event.Kind == resource.Upsert && event.Object != nil {
+			s.currentNode = event.Object
+			s.signaler.Event(struct{}{})
 		}
 
-		close(doneChan)
+		event.Done(nil)
 	}
 
-	s.LocalNodeStore.Observe(ctx, next, complete)
-
-	<-doneChan
 	return nil
 }
 
-func (s *localNodeStoreSpecer) Annotations() (map[string]string, error) {
-	return s.LocalNodeStore.Get().Annotations, nil
-}
-
-func (s *localNodeStoreSpecer) Labels() (map[string]string, error) {
-	return s.LocalNodeStore.Get().Labels, nil
-}
-
-func (s *localNodeStoreSpecer) PodCIDRs() ([]string, error) {
-	n := s.LocalNodeStore.Get()
-
-	var podCIDRs []string
-	if n.IPv4AllocCIDR != nil {
-		podCIDRs = append(podCIDRs, n.IPv4AllocCIDR.String())
-		for _, secCidr := range n.IPv4SecondaryAllocCIDRs {
-			podCIDRs = append(podCIDRs, secCidr.String())
-		}
+func (s *kubernetesNodeSpecer) Annotations() (map[string]string, error) {
+	if s.currentNode == nil {
+		return nil, errors.New("annotations of current node not yet available")
 	}
 
-	if n.IPv6AllocCIDR != nil {
-		podCIDRs = append(podCIDRs, n.IPv6AllocCIDR.String())
-		for _, secCidr := range n.IPv6SecondaryAllocCIDRs {
-			podCIDRs = append(podCIDRs, secCidr.String())
-		}
+	return s.currentNode.Annotations, nil
+}
+
+func (s *kubernetesNodeSpecer) Labels() (map[string]string, error) {
+	if s.currentNode == nil {
+		return nil, errors.New("labels of current node not yet available")
 	}
 
-	return podCIDRs, nil
+	return s.currentNode.Labels, nil
+}
+
+func (s *kubernetesNodeSpecer) PodCIDRs() ([]string, error) {
+	if s.currentNode == nil {
+		return nil, errors.New("pod ciders of current node not yet available")
+	}
+
+	if s.currentNode.Spec.PodCIDRs != nil {
+		return s.currentNode.Spec.PodCIDRs, nil
+	}
+	if s.currentNode.Spec.PodCIDR != "" {
+		return []string{s.currentNode.Spec.PodCIDR}, nil
+	}
+	return []string{}, nil
+}
+
+type ciliumNodeSpecer struct {
+	nodeResource *k8s.LocalCiliumNodeResource
+
+	currentNode *ciliumv2.CiliumNode
+	workerpool  *workerpool.WorkerPool
+	signaler    Signaler
+}
+
+func (s *ciliumNodeSpecer) Start(_ hive.HookContext) error {
+	s.workerpool = workerpool.New(1)
+	s.workerpool.Submit("cilium-node-specer-run", s.run)
+
+	return nil
+}
+
+func (s *ciliumNodeSpecer) Stop(ctx hive.HookContext) error {
+	doneChan := make(chan struct{})
+
+	go func() {
+		s.workerpool.Close()
+		close(doneChan)
+	}()
+
+	select {
+	case <-doneChan:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return nil
+}
+
+func (s *ciliumNodeSpecer) run(ctx context.Context) error {
+	for event := range s.nodeResource.Events(ctx) {
+		if event.Kind == resource.Upsert && event.Object != nil {
+			s.currentNode = event.Object
+			s.signaler.Event(struct{}{})
+		}
+
+		event.Done(nil)
+	}
+
+	return nil
+}
+
+func (s *ciliumNodeSpecer) Annotations() (map[string]string, error) {
+	if s.currentNode == nil {
+		return nil, errors.New("annotations of current node not yet available")
+	}
+
+	return s.currentNode.Annotations, nil
+}
+
+func (s *ciliumNodeSpecer) Labels() (map[string]string, error) {
+	if s.currentNode == nil {
+		return nil, errors.New("labels of current node not yet available")
+	}
+
+	return s.currentNode.Labels, nil
+}
+
+func (s *ciliumNodeSpecer) PodCIDRs() ([]string, error) {
+	if s.currentNode == nil {
+		return nil, errors.New("pod ciders of current node not yet available")
+	}
+
+	if s.currentNode.Spec.IPAM.PodCIDRs != nil {
+		return s.currentNode.Spec.IPAM.PodCIDRs, nil
+	}
+
+	return []string{}, nil
 }

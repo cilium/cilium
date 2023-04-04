@@ -4,6 +4,7 @@
 package ciliumenvoyconfig
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,8 @@ import (
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
+	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_extensions_filters_network_http_connection_manager_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/proto"
@@ -19,7 +22,6 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/envoy"
@@ -37,7 +39,7 @@ type envoyConfigManager struct {
 	maxRetries int
 }
 
-func newEnvoyConfigManager(client client.Clientset, maxRetries int) (*envoyConfigManager, error) {
+func newEnvoyConfigManager(ctx context.Context, client client.Clientset, maxRetries int) (*envoyConfigManager, error) {
 	manager := &envoyConfigManager{
 		client:     client,
 		maxRetries: maxRetries,
@@ -51,8 +53,8 @@ func newEnvoyConfigManager(client client.Clientset, maxRetries int) (*envoyConfi
 		nil,
 	)
 
-	go manager.informer.Run(wait.NeverStop)
-	if !cache.WaitForCacheSync(wait.NeverStop, manager.informer.HasSynced) {
+	go manager.informer.Run(ctx.Done())
+	if !cache.WaitForCacheSync(ctx.Done(), manager.informer.HasSynced) {
 		return manager, fmt.Errorf("unable to sync envoy configs")
 	}
 	return manager, nil
@@ -232,6 +234,9 @@ func (m *Manager) getListenerResource(svc *slim_corev1.Service) (ciliumv2.XDSRes
 		ListenerFilters: []*envoy_config_listener.ListenerFilter{
 			{
 				Name: "envoy.filters.listener.tls_inspector",
+				ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+				},
 			},
 		},
 	}
@@ -262,7 +267,12 @@ func (m *Manager) getConnectionManager(svc *slim_corev1.Service) (ciliumv2.XDSRe
 			},
 		},
 		HttpFilters: []*envoy_extensions_filters_network_http_connection_manager_v3.HttpFilter{
-			{Name: "envoy.filters.http.router"},
+			{
+				Name: "envoy.filters.http.router",
+				ConfigType: &envoy_extensions_filters_network_http_connection_manager_v3.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+				},
+			},
 		},
 	}
 

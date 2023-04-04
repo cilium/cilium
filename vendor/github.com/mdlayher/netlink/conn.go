@@ -44,6 +44,10 @@ type Conn struct {
 
 // A Socket is an operating-system specific implementation of netlink
 // sockets used by Conn.
+//
+// Deprecated: the intent of Socket was to provide an abstraction layer for
+// testing, but this abstraction is awkward to use properly and disables much of
+// the functionality of the Conn type. Do not use.
 type Socket interface {
 	Close() error
 	Send(m Message) error
@@ -52,10 +56,12 @@ type Socket interface {
 }
 
 // Dial dials a connection to netlink, using the specified netlink family.
-// Config specifies optional configuration for Conn.  If config is nil, a default
+// Config specifies optional configuration for Conn. If config is nil, a default
 // configuration will be used.
 func Dial(family int, config *Config) (*Conn, error) {
-	// Use OS-specific dial() to create Socket
+	// TODO(mdlayher): plumb in netlink.OpError wrapping?
+
+	// Use OS-specific dial() to create Socket.
 	c, pid, err := dial(family, config)
 	if err != nil {
 		return nil, err
@@ -556,6 +562,32 @@ type Config struct {
 	// to 0.
 	NetNS int
 
-	// DisableNSLockThread is deprecated and has no effect.
+	// DisableNSLockThread is a no-op.
+	//
+	// Deprecated: internal changes have made this option obsolete and it has no
+	// effect. Do not use.
 	DisableNSLockThread bool
+
+	// PID specifies the port ID used to bind the netlink socket. If set to 0,
+	// the kernel will assign a port ID on the caller's behalf.
+	//
+	// Most callers should leave this field set to 0. This option is intended
+	// for advanced use cases where the kernel expects a fixed unicast address
+	// destination for netlink messages.
+	PID uint32
+
+	// Strict applies a more strict default set of options to the Conn,
+	// including:
+	//   - ExtendedAcknowledge: true
+	//     - provides more useful error messages when supported by the kernel
+	//   - GetStrictCheck: true
+	//     - more strictly enforces request validation for some families such
+	//       as rtnetlink which were historically misused
+	//
+	// If any of the options specified by Strict cannot be configured due to an
+	// outdated kernel or similar, an error will be returned.
+	//
+	// When possible, setting Strict to true is recommended for applications
+	// running on modern Linux kernels.
+	Strict bool
 }

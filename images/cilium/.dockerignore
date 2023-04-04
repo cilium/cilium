@@ -22,7 +22,6 @@
 !/bugtool
 !/cilium
 !/cilium-health
-!/contrib/packaging/docker
 !/daemon
 !/envoy
 !/images/cilium/

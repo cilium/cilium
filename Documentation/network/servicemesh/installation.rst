@@ -1,11 +1,3 @@
-Prerequisites
-#############
-
-* Cilium must be configured with ``kubeProxyReplacement`` as partial
-  or strict. Please refer to :ref:`kube-proxy replacement <kubeproxy-free>`
-  for more details.
-* The minimum supported Kubernetes version for Ingress is 1.19.
-
 Installation
 ############
 
@@ -26,6 +18,9 @@ Installation
             $ kubectl -n kube-system rollout restart deployment/cilium-operator
             $ kubectl -n kube-system rollout restart ds/cilium
 
+        Cilium can become the default ingress controller by setting the
+        ``--set ingressController.default=true`` flag. This will create ingress entries even when the ``ingressClass`` 
+        is not set.
 
         If you only want to use envoy traffic management feature without Ingress support, you should only
         enable ``--enable-envoy-config`` flag.
@@ -39,6 +34,15 @@ Installation
             $ kubectl -n kube-system rollout restart deployment/cilium-operator
             $ kubectl -n kube-system rollout restart ds/cilium
 
+        Additionally, the proxy load-balancing feature can be configured with the ``loadBalancer.l7.backend=envoy`` flag.
+
+        .. parsed-literal::
+            $ helm upgrade cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --reuse-values \\
+                --set loadBalancer.l7.backend=envoy
+            $ kubectl -n kube-system rollout restart deployment/cilium-operator
+            $ kubectl -n kube-system rollout restart ds/cilium
 
         Next you can check the status of the Cilium agent and operator:
 
@@ -61,6 +65,9 @@ Installation
                 --helm-set ingressController.enabled=true \\
                 --helm-set ingressController.loadbalancerMode=dedicated
 
+        Cilium can become the default ingress controller by setting the
+        ``--helm-set ingressController.default=true`` flag. This will create ingress entries even when the ``ingressClass`` 
+        is not set.
 
         If you only want to use envoy traffic management feature without Ingress support, you should only
         enable ``--enable-envoy-config`` flag.
@@ -70,6 +77,15 @@ Installation
             $ cilium install \\
                 --kube-proxy-replacement=strict \\
                 --helm-set-string extraConfig.enable-envoy-config=true
+
+        Additionally, the proxy load-balancing feature can be configured with the ``loadBalancer.l7.backend=envoy`` flag.
+
+        .. code-block:: shell-session
+
+            $ cilium install \\
+                --kube-proxy-replacement=strict \\
+                --helm-set-string extraConfig.enable-envoy-config=true \\
+                --helm-set loadBalancer.l7.backend=envoy
 
         Next you can check the status of the Cilium agent and operator:
 

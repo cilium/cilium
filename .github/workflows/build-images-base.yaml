@@ -23,12 +23,12 @@ concurrency:
 
 jobs:
   build-and-push:
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment: release-base-images
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -37,17 +37,17 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8c0edbc76e98fa90f69d9a2c020dcb50019dc325
+        uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2.5.0
 
       - name: Set up QEMU
         id: qemu
-        uses: docker/setup-qemu-action@e81a89b1732b9c48d79cd809d8d81d79c4647a18
+        uses: docker/setup-qemu-action@e81a89b1732b9c48d79cd809d8d81d79c4647a18 # v2.1.0
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b
+        uses: sigstore/cosign-installer@c3667d99424e7e6047999fb6246c0da843953c65 # v3.0.1
 
       - name: Checkout Source Code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -74,7 +74,7 @@ jobs:
 
       - name: Login to quay.io
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v2.1.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME }}
@@ -82,9 +82,10 @@ jobs:
 
       - name: Release build cilium-runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
         id: docker_build_release_runtime
         with:
+          provenance: false
           context: ./images/runtime
           file: ./images/runtime/Dockerfile
           push: true
@@ -97,7 +98,7 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
       - name: Install Bom
         shell: bash
@@ -109,9 +110,10 @@ jobs:
       - name: Generate SBOM
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         shell: bash
+        # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
+        # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
         run: |
           bom generate -o sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx \
-          --dirs=. \
           --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
       - name: Attach SBOM to Container Image
@@ -127,7 +129,7 @@ jobs:
           docker_build_release_runtime_digest="${{ steps.docker_build_release_runtime.outputs.digest }}"
           image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${docker_build_release_runtime_digest/:/-}.sbom"
           docker_build_release_runtime_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${docker_build_release_runtime_sbom_digest}"
+          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${docker_build_release_runtime_sbom_digest}"
 
       - name: Image Release Digest Runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -141,7 +143,7 @@ jobs:
 
       - name: Upload artifact digests runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: image-digest cilium-runtime
           path: image-digest
@@ -170,7 +172,7 @@ jobs:
 
       - name: Login to quay.io
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v2.1.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME }}
@@ -178,9 +180,10 @@ jobs:
 
       - name: Release build cilium-builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
         id: docker_build_release_builder
         with:
+          provenance: false
           context: ./images/builder
           file: ./images/builder/Dockerfile
           push: true
@@ -193,14 +196,15 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
       - name: Generate SBOM
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         shell: bash
+        # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
+        # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
         run: |
           bom generate -o sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx \
-          --dirs=. \
           --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
       - name: Attach SBOM to Container Image
@@ -216,7 +220,7 @@ jobs:
           docker_build_release_builder_digest="${{ steps.docker_build_release_builder.outputs.digest }}"
           image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${docker_build_release_builder_digest/:/-}.sbom"
           docker_build_release_builder_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${docker_build_release_builder_sbom_digest}"
+          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${docker_build_release_builder_sbom_digest}"
 
       - name: Image Release Digest Builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
@@ -230,7 +234,7 @@ jobs:
 
       - name: Upload artifact digests builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: image-digest cilium-builder
           path: image-digest
@@ -261,7 +265,7 @@ jobs:
       - name: Get token
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' || steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         id: get_token
-        uses: cilium/actions-app-token@350a14155dd9be79227f081310f4d77fdf792e76
+        uses: cilium/actions-app-token@350a14155dd9be79227f081310f4d77fdf792e76 # v0.21.0
         with:
           APP_PEM: ${{ secrets.AUTO_COMMITTER_PEM }}
           APP_ID: ${{ secrets.AUTO_COMMITTER_APP_ID }}
@@ -283,7 +287,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           path: image-digest/
 

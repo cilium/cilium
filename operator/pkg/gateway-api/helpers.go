@@ -57,6 +57,13 @@ func namespaceDerefOr(namespace *gatewayv1beta1.Namespace, defaultNamespace stri
 	return defaultNamespace
 }
 
+func groupDerefOr(group *gatewayv1beta1.Group, defaultGroup string) string {
+	if group != nil && *group != "" {
+		return string(*group)
+	}
+	return defaultGroup
+}
+
 // isAllowed returns true if the provided HTTPRoute is allowed to attach to given gateway
 func isAllowed(ctx context.Context, c client.Client, gw *gatewayv1beta1.Gateway, hr *gatewayv1beta1.HTTPRoute) bool {
 	for _, listener := range gw.Spec.Listeners {

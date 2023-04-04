@@ -72,6 +72,9 @@ type ClusterService struct {
 
 	// Shared is true when the service should be exposed/shared to other clusters
 	Shared bool `json:"shared"`
+
+	// ClusterID is the cluster ID the service is configured in
+	ClusterID uint32 `json:"clusterID"`
 }
 
 func (s *ClusterService) String() string {

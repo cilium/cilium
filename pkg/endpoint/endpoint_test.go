@@ -17,8 +17,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -64,12 +64,12 @@ type EndpointSuite struct {
 }
 
 // suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
-var suite = EndpointSuite{repo: policy.NewPolicyRepository(nil, nil, nil)}
+var suite = EndpointSuite{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
 var _ = Suite(&suite)
 
 func (s *EndpointSuite) SetUpSuite(c *C) {
 	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
-	s.repo = policy.NewPolicyRepository(nil, nil, nil)
+	s.repo = policy.NewPolicyRepository(nil, nil, nil, nil)
 	// GetConfig the default labels prefix filter
 	err := labelsfilter.ParseLabelPrefixCfg(nil, "")
 	if err != nil {
@@ -157,7 +157,7 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 
 func (s *EndpointSuite) TearDownTest(c *C) {
 	s.mgr.Close()
-	kvstore.Client().Close()
+	kvstore.Client().Close(context.TODO())
 }
 
 func (s *EndpointSuite) TestEndpointStatus(c *C) {

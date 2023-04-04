@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:5569a29cea6b3ad50aeb03102aaf3dc03841197c@sha256:b15dbedb7c49816c74a765e2f6ecdb9359763b8e4e4328d794f48b9cefae9804
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:1a8102930aa1ec5d82312abc941edb4097db000a@sha256:a17d29f9d79dc984314c4f3420d5455a465b8201afb1eef3db7063d8de982b19
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:fe3fe058796057d2a089fac72a6a7afdf6b31435@sha256:d3f15d63ba73529963a3e9b5b2ff737f5638fc7a33819ac5380e72f2af7b4642
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:dd09c8d3ef349a909fbcdc99279516baef153f22@sha256:c056d064cb47c97acd607343db5457e1d49d9338d6d8a87e93e23cc93f052c73
-ARG GOLANG_IMAGE=docker.io/library/golang:1.19.3@sha256:dc76ef03e54c34a00dcdca81e55c242d24b34d231637776c4bb5c1a8e8514253
+ARG GOLANG_IMAGE=docker.io/library/golang:1.20.2@sha256:5990c4fbb1ab074b4be7bcc9ee3b8bd2888a1d4f9572fc7d63b804ea5da54e73
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:3408daa17f6490a464dfc746961e28ae31964c66@sha256:ff13a1a9f973d102c6ac907d2bc38a524c8e1d26c6c1b16ed809a98925206a79
 
 FROM ${COMPILERS_IMAGE} as compilers-image
@@ -56,7 +56,13 @@ ENV GOROOT /usr/local/go
 ENV GOPATH /go
 ENV PATH "${GOROOT}/bin:${GOPATH}/bin:${PATH}"
 
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
+RUN CGO_ENABLED=0 go install github.com/go-delve/delve/cmd/dlv@latest
+
+WORKDIR /go/src/github.com/cilium/cilium/images/builder
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/builder \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
+    ./build-debug-wrapper.sh
 
 WORKDIR /go/src/github.com/cilium/cilium/images/builder
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/builder \

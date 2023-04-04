@@ -31,6 +31,9 @@ func (d *Daemon) cleanStaleCEPs(ctx context.Context, eps localEndpointCache, cil
 		crdType = "ciliumendpointslice"
 	}
 	indexer := d.k8sWatcher.GetIndexer(crdType)
+	if indexer == nil {
+		return fmt.Errorf("%s indexer was nil", crdType)
+	}
 	objs, err := indexer.ByIndex("localNode", node.GetCiliumEndpointNodeIP())
 	if err != nil {
 		return fmt.Errorf("could not get %s objects from localNode indexer: %w", crdType, err)
@@ -103,8 +106,10 @@ func (d *Daemon) deleteCiliumEndpoint(
 	// This may occur for various reasons:
 	// * Pod was restarted while Cilium was not running (likely prior to CNI conf being installed).
 	// * Local endpoint was deleted (i.e. due to reboot + temporary filesystem) and Cilium or the Pod where restarted.
-	log.WithFields(logrus.Fields{logfields.CEPName: cepName, logfields.K8sNamespace: cepNamespace}).
-		Info("Found stale ciliumendpoint for local pod that is not being managed, deleting.")
+	log.WithFields(logrus.Fields{
+		logfields.CEPName:      cepName,
+		logfields.K8sNamespace: cepNamespace,
+	}).Info("Found stale ciliumendpoint for local pod that is not being managed, deleting.")
 	if err := ciliumClient.CiliumEndpoints(cepNamespace).Delete(ctx, cepName, metav1.DeleteOptions{
 		Preconditions: &metav1.Preconditions{
 			UID: cepUID,

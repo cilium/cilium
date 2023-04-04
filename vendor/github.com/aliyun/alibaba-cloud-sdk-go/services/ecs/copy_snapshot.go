@@ -76,17 +76,27 @@ type CopySnapshotRequest struct {
 	DestinationRegionId            string             `position:"Query" name:"DestinationRegionId"`
 	ResourceGroupId                string             `position:"Query" name:"ResourceGroupId"`
 	Tag                            *[]CopySnapshotTag `position:"Query" name:"Tag"  type:"Repeated"`
+	Arn                            *[]CopySnapshotArn `position:"Query" name:"Arn"  type:"Repeated"`
 	ResourceOwnerAccount           string             `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerId                        requests.Integer   `position:"Query" name:"OwnerId"`
 	DestinationSnapshotName        string             `position:"Query" name:"DestinationSnapshotName"`
 	DestinationSnapshotDescription string             `position:"Query" name:"DestinationSnapshotDescription"`
+	Encrypted                      requests.Boolean   `position:"Query" name:"Encrypted"`
 	RetentionDays                  requests.Integer   `position:"Query" name:"RetentionDays"`
+	KMSKeyId                       string             `position:"Query" name:"KMSKeyId"`
 }
 
 // CopySnapshotTag is a repeated param struct in CopySnapshotRequest
 type CopySnapshotTag struct {
 	Key   string `name:"Key"`
 	Value string `name:"Value"`
+}
+
+// CopySnapshotArn is a repeated param struct in CopySnapshotRequest
+type CopySnapshotArn struct {
+	RoleType      string `name:"RoleType"`
+	Rolearn       string `name:"Rolearn"`
+	AssumeRoleFor string `name:"AssumeRoleFor"`
 }
 
 // CopySnapshotResponse is the response struct for api CopySnapshot

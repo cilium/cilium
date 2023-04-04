@@ -22,8 +22,11 @@ import (
 	"github.com/cilium/workerpool"
 	"github.com/spf13/cobra"
 
+	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // BugtoolRootCmd is the top level command for the bugtool.
@@ -72,6 +75,7 @@ var (
 	getPProf                 bool
 	pprofDebug               int
 	envoyDump                bool
+	envoyMetrics             bool
 	pprofPort                int
 	traceSeconds             int
 	parallelWorkers          int
@@ -84,11 +88,12 @@ func init() {
 	BugtoolRootCmd.Flags().BoolVar(&getPProf, "get-pprof", false, "When set, only gets the pprof traces from the cilium-agent binary")
 	BugtoolRootCmd.Flags().IntVar(&pprofDebug, "pprof-debug", 1, "Debug pprof args")
 	BugtoolRootCmd.Flags().BoolVar(&envoyDump, "envoy-dump", true, "When set, dump envoy configuration from unix socket")
+	BugtoolRootCmd.Flags().BoolVar(&envoyMetrics, "envoy-metrics", true, "When set, dump envoy prometheus metrics from unix socket")
 	BugtoolRootCmd.Flags().IntVar(&pprofPort,
-		"pprof-port", defaults.PprofPortAgent,
+		"pprof-port", option.PprofPortAgent,
 		fmt.Sprintf(
 			"Pprof port to connect to. Known Cilium component ports are agent:%d, operator:%d, apiserver:%d",
-			defaults.PprofPortAgent, defaults.PprofPortOperator, defaults.PprofPortAPIServer,
+			option.PprofPortAgent, operatorOption.PprofPortOperator, apiserverOption.PprofPortAPIServer,
 		),
 	)
 	BugtoolRootCmd.Flags().IntVar(&traceSeconds, "pprof-trace-seconds", 180, "Amount of seconds used for pprof CPU traces")
@@ -135,14 +140,7 @@ func getVerifyCiliumPods() (k8sPods []string) {
 }
 
 func removeIfEmpty(dir string) {
-	d, err := os.Open(dir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to open directory %s\n", err)
-		return
-	}
-	defer d.Close()
-
-	files, err := d.Readdir(-1)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to read directory %s\n", err)
 		return
@@ -212,8 +210,14 @@ func runTool() {
 		}
 	} else {
 		if envoyDump {
-			if err := dumpEnvoy(cmdDir); err != nil {
+			if err := dumpEnvoy(cmdDir, "http://admin/config_dump?include_eds", "envoy-config.json"); err != nil {
 				fmt.Fprintf(os.Stderr, "Unable to dump envoy config: %s\n", err)
+			}
+		}
+
+		if envoyMetrics {
+			if err := dumpEnvoy(cmdDir, "http://admin/stats/prometheus", "envoy-metrics.txt"); err != nil {
+				fmt.Fprintf(os.Stderr, "Unable to retrieve envoy prometheus metrics: %s\n", err)
 			}
 		}
 
@@ -494,7 +498,7 @@ func getCiliumPods(namespace, label string) ([]string, error) {
 	return ciliumPods, nil
 }
 
-func dumpEnvoy(rootDir string) error {
+func dumpEnvoy(rootDir string, resource string, fileName string) error {
 	// curl --unix-socket /var/run/cilium/envoy-admin.sock http:/admin/config_dump\?include_eds > dump.json
 	c := &http.Client{
 		Transport: &http.Transport{
@@ -503,7 +507,7 @@ func dumpEnvoy(rootDir string) error {
 			},
 		},
 	}
-	return downloadToFile(c, "http://admin/config_dump?include_eds", filepath.Join(rootDir, "envoy-config.json"))
+	return downloadToFile(c, resource, filepath.Join(rootDir, fileName))
 }
 
 func pprofTraces(rootDir string, pprofDebug int) error {

@@ -9,6 +9,7 @@ import (
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -81,7 +82,7 @@ func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 }
 
 // NewListenerWithDefaults same as NewListener but with default mutators applied.
-func NewListenerWithDefaults(name string, ciliumSecretNamespace string, tls []model.TLSSecret, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func NewListenerWithDefaults(name string, ciliumSecretNamespace string, tls map[model.TLSSecret][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutatorFunc,
 		WithSocketOption(
 			defaultTCPKeepAlive,
@@ -95,7 +96,7 @@ func NewListenerWithDefaults(name string, ciliumSecretNamespace string, tls []mo
 // NewListener creates a new Envoy listener with the given name.
 // The listener will have both secure and insecure filters.
 // Secret Discovery Service (SDS) is used to fetch the TLS certificates.
-func NewListener(name string, ciliumSecretNamespace string, tls []model.TLSSecret, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func NewListener(name string, ciliumSecretNamespace string, tls map[model.TLSSecret][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
@@ -116,20 +117,23 @@ func NewListener(name string, ciliumSecretNamespace string, tls []model.TLSSecre
 		},
 	})
 
-	if len(tls) > 0 {
+	for secret, hostNames := range tls {
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
 		secureHttpConnectionManager, err := NewHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName)
 		if err != nil {
 			return ciliumv2.XDSResource{}, err
 		}
 
-		transportSocket, err := newTransportSocket(ciliumSecretNamespace, tls)
+		transportSocket, err := newTransportSocket(ciliumSecretNamespace, []model.TLSSecret{secret})
 		if err != nil {
 			return ciliumv2.XDSResource{}, err
 		}
 
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-			FilterChainMatch: &envoy_config_listener.FilterChainMatch{TransportProtocol: tlsTransportProtocol},
+			FilterChainMatch: &envoy_config_listener.FilterChainMatch{
+				ServerNames:       sortAndUnique(hostNames),
+				TransportProtocol: tlsTransportProtocol,
+			},
 			Filters: []*envoy_config_listener.Filter{
 				{
 					Name: httpConnectionManagerType,
@@ -143,9 +147,16 @@ func NewListener(name string, ciliumSecretNamespace string, tls []model.TLSSecre
 	}
 
 	listener := &envoy_config_listener.Listener{
-		Name:            name,
-		FilterChains:    filterChains,
-		ListenerFilters: []*envoy_config_listener.ListenerFilter{{Name: tlsInspectorType}},
+		Name:         name,
+		FilterChains: filterChains,
+		ListenerFilters: []*envoy_config_listener.ListenerFilter{
+			{
+				Name: tlsInspectorType,
+				ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+				},
+			},
+		},
 	}
 
 	for _, fn := range mutatorFunc {

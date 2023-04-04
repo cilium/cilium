@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	discov1 "k8s.io/api/discovery/v1"
 	discov1beta1 "k8s.io/api/discovery/v1beta1"
@@ -25,21 +26,21 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	k8sTesting "k8s.io/client-go/testing"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/k8s/version"
-	agentOption "github.com/cilium/cilium/pkg/option"
-
 	agentCmd "github.com/cilium/cilium/daemon/cmd"
 	operatorCmd "github.com/cilium/cilium/operator/cmd"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/node/types"
+	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
 )
 
@@ -96,7 +97,7 @@ func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *Cont
 
 // SetupEnvironment sets the fake k8s clients and the mock FQDN proxy required for control-plane testing.
 // Then, it loads the defaults values for both the daemon and the operator configurations.
-// Finally, it calls modConfig to overwrite testcase specific options values.
+// Finally, it calls modConfig to overwrite testcase specific global options values.
 func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.DaemonConfig, *operatorOption.OperatorConfig)) *ControlPlaneTest {
 	types.SetName(cpt.nodeName)
 
@@ -123,9 +124,8 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 	agentOption.Config.Debug = true
 
 	operatorOption.Config.Populate(operatorCmd.Vp)
-	operatorOption.Config.SkipCRDCreation = true
 
-	// Apply the test specific configuration
+	// Apply the test specific global configuration
 	modConfig(agentOption.Config, operatorOption.Config)
 
 	if agentOption.Config.EnableL7Proxy {
@@ -153,7 +153,7 @@ func (cpt *ControlPlaneTest) StopAgent() {
 	cpt.Datapath = nil
 }
 
-func (cpt *ControlPlaneTest) StartOperator() *ControlPlaneTest {
+func (cpt *ControlPlaneTest) StartOperator(modCellConfig func(vp *viper.Viper)) *ControlPlaneTest {
 	if cpt.operatorHandle != nil {
 		cpt.t.Fatal("StartOperator() already called")
 	}
@@ -167,6 +167,18 @@ func (cpt *ControlPlaneTest) StartOperator() *ControlPlaneTest {
 			operatorCmd.OperatorCell,
 		),
 	}
+
+	cpt.operatorHandle.hive.Viper().Set(client.SkipCRDCreation, true)
+
+	// Apply the test specific cells configuration
+	//
+	// Unlike global configuration options, cell-specific configuration options
+	// (i.e. the ones defined through cell.Config(...)) will not be loaded from
+	// agentOption or operatorOption, but from the *viper.Viper object bound to
+	// the test hive.
+	// modCellConfig function exposes the operator hive viper struct to each
+	// controlplane test, so to allow changing those options as needed.
+	modCellConfig(cpt.operatorHandle.hive.Viper())
 
 	// Disable support for operator HA. This should be cleaned up
 	// by injecting the capabilities, or by supporting the leader
@@ -379,12 +391,6 @@ var (
 	// This is mostly relevant for the feature detection at pkg/k8s/version/version.go.
 	// The lists here are currently not exhaustive and expanded on need-by-need basis.
 	apiResources = map[string][]*metav1.APIResourceList{
-		"1.23": {
-			corev1APIResources,
-			discoveryV1APIResources,
-			discoveryV1beta1APIResources,
-			ciliumv2APIResources,
-		},
 		"1.24": {
 			corev1APIResources,
 			discoveryV1APIResources,
@@ -392,6 +398,11 @@ var (
 			ciliumv2APIResources,
 		},
 		"1.25": {
+			corev1APIResources,
+			discoveryV1APIResources,
+			ciliumv2APIResources,
+		},
+		"1.26": {
 			corev1APIResources,
 			discoveryV1APIResources,
 			ciliumv2APIResources,

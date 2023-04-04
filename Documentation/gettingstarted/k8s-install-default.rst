@@ -56,14 +56,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
           Please make sure to read and understand the documentation page on :ref:`taint effects and unmanaged pods<taint_effects>`.
 
-    .. group-tab:: AKS (BYOCNI)
-
-       .. note::
-
-          BYOCNI is the preferred way to run Cilium on AKS, however integration
-          with the Azure stack via the :ref:`Azure IPAM<ipam_azure>` is not
-          available. If you require Azure IPAM, refer to the AKS (Azure IPAM)
-          installation.
+    .. group-tab:: AKS
 
        The following commands create a Kubernetes cluster using `Azure
        Kubernetes Service <https://docs.microsoft.com/en-us/azure/aks/>`_ with
@@ -73,11 +66,6 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
        the `Bring your own CNI documentation
        <https://docs.microsoft.com/en-us/azure/aks/use-byo-cni?tabs=azure-cli>`_
        for more details about BYOCNI prerequisites / implications.
-
-       .. note::
-
-          BYOCNI requires the ``aks-preview`` CLI extension with version >=
-          0.5.55, which itself requires an ``az`` CLI version >= 2.32.0 .
 
        .. code-block:: bash
 
@@ -93,43 +81,6 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
            # Get the credentials to access the cluster with kubectl
            az aks get-credentials --resource-group "${AZURE_RESOURCE_GROUP}" --name "${NAME}"
-
-    .. group-tab:: AKS (Azure IPAM)
-
-       .. note::
-
-          :ref:`Azure IPAM<ipam_azure>` offers integration with the Azure stack
-          but is not the preferred way to run Cilium on AKS. If you do not
-          require Azure IPAM, we recommend you to switch to the AKS (BYOCNI)
-          installation.
-
-       The following commands create a Kubernetes cluster using `Azure
-       Kubernetes Service <https://docs.microsoft.com/en-us/azure/aks/>`_. See
-       `Azure Cloud CLI
-       <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_
-       for instructions on how to install ``az`` and prepare your account.
-
-       .. code-block:: bash
-
-           export NAME="$(whoami)-$RANDOM"
-           export AZURE_RESOURCE_GROUP="${NAME}-group"
-           az group create --name "${AZURE_RESOURCE_GROUP}" -l westus2
-
-           # Create AKS cluster
-           az aks create \
-             --resource-group "${AZURE_RESOURCE_GROUP}" \
-             --name "${NAME}" \
-             --network-plugin azure \
-             --node-count 2
-
-           # Get the credentials to access the cluster with kubectl
-           az aks get-credentials --resource-group "${AZURE_RESOURCE_GROUP}" --name "${NAME}"
-
-       .. attention::
-
-           Do NOT specify the ``--network-policy`` flag when creating the
-           cluster, as this will cause the Azure CNI plugin to install unwanted
-           iptables rules.
 
     .. group-tab:: EKS
 
@@ -180,7 +131,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
     .. group-tab:: minikube
 
-       Install minikube >= v1.12 as per minikube documentation:
+       Install minikube ≥ v1.28.0 as per minikube documentation:
        `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
        The following command will bring up a single node minikube cluster prepared for installing cilium.
 
@@ -193,6 +144,10 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
           From minikube v1.12.1+, cilium networking plugin can be enabled directly with
           ``--cni=cilium`` parameter in ``minikube start`` command. However, this may not
           install the latest version of cilium.
+
+          MacOS M1 users using a Minikube version < v1.28.0 with ``--cni=false`` will also need to run
+          ``minikube ssh -- sudo mount bpffs -t bpf /sys/fs/bpf`` in order to mount the BPF filesystem
+          ``bpffs`` to ``/sys/fs/bpf``.
 
     .. group-tab:: Rancher Desktop
 
@@ -219,6 +174,8 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
         Kubernetes) cluster and to replace the CNI plugin with Cilium.
         For more details on how to set up an ACK cluster please follow
         the `official documentation <https://www.alibabacloud.com/help/doc-detail/86745.htm>`_.
+
+.. _install_cilium_cli:
 
 Install the Cilium CLI
 ======================
@@ -267,9 +224,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
            cilium install
 
-    .. group-tab:: AKS (BYOCNI)
-
-       .. include:: ../installation/requirements-aks-byocni.rst
+    .. group-tab:: AKS
 
        **Install Cilium:**
 
@@ -279,17 +234,21 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
            cilium install --azure-resource-group "${AZURE_RESOURCE_GROUP}"
 
-    .. group-tab:: AKS (Azure IPAM)
+       The Cilium CLI will automatically install Cilium using one of the
+       following installation modes based on the ``--network-plugin``
+       configuration detected from the AKS cluster:
 
-       .. include:: ../installation/requirements-aks-azure-ipam.rst
+       .. include:: ../installation/requirements-aks.rst
 
-       **Install Cilium:**
+       .. tabs::
 
-       Install Cilium into the AKS cluster:
+          .. tab:: BYOCNI
 
-       .. code-block:: shell-session
+             .. include:: ../installation/requirements-aks-byocni.rst
 
-           cilium install --azure-resource-group "${AZURE_RESOURCE_GROUP}"
+          .. tab:: Legacy Azure IPAM
+
+             .. include:: ../installation/requirements-aks-azure-ipam.rst
 
     .. group-tab:: EKS
 

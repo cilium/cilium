@@ -1,0 +1,29 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+message Status {
+    // A status code, which should be an enum value of google.rpc.Code.
+    int32 code = 1;
+
+    // A developer-facing error message.
+    string message = 2;
+}
+
+message PermissionDeniedDetails {
+    enum Reason {
+        // Reason unknown.
+        UNKNOWN = 0;
+        // Agent identity has expired.
+        AGENT_EXPIRED = 1;
+        // Identity is not an attested agent.
+        AGENT_NOT_ATTESTED = 2;
+        // Identity is not the active agent identity.
+        AGENT_NOT_ACTIVE = 3;
+        // Agent has been banned.
+        AGENT_BANNED = 4;
+	// Agent attempted to renew SVID, but should reattest instead
+	AGENT_MUST_REATTEST=5;
+    }
+    Reason reason = 1;
+}

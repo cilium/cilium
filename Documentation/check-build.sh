@@ -28,7 +28,7 @@ rm -f -- "${warnings}"
 has_spelling_errors() {
     # If spelling errors were found, Sphinx wrote them to files under
     # ${spelldir}. Let's check whether the directory is empty.
-    test -n "$(ls "${spelldir}")"
+    test -n "$(ls "${spelldir}" 2>/dev/null)"
 }
 
 # Filter out some undesirable warnings:
@@ -104,16 +104,18 @@ run_linter() {
     ignored_messages="${ignored_messages}bpf/.*\.rst:.*: \(INFO/1\) Enumerated list start value not ordinal"
     ignored_messages="${ignored_messages}|Hyperlink target .*is not referenced\."
     ignored_messages="${ignored_messages}|Duplicate implicit target name:"
-    ignored_messages="${ignored_messages}|Malformed table\."
     ignored_messages="${ignored_messages})"
+    # Filter out the AttributeError reports that are due to a bug in rstcheck,
+    # see https://github.com/rstcheck/rstcheck-core/issues/3.
     rstcheck \
-        --report info \
-        --ignore-language bash \
-        --ignore-message "${ignored_messages}" \
-        --ignore-directives tabs \
+        --report-level info \
+        --ignore-languages "bash,c" \
+        --ignore-messages "${ignored_messages}" \
+        --ignore-directives "tabs,openapi" \
         --ignore-roles "${CONF_PY_ROLES}" \
         --ignore-substitutions "${CONF_PY_SUBSTITUTIONS}" \
-        -r .
+       -r . 2>&1 | \
+       grep -v 'CRITICAL:rstcheck_core.checker:An `AttributeError` error occured. This is most propably due to a code block directive (code/code-block/sourcecode) without a specified language.'
 }
 
 read_all_opt=""

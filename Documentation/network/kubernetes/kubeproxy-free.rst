@@ -617,56 +617,7 @@ the multi-device XDP acceleration.
 NodePort acceleration can be used with either direct routing (``tunnel=disabled``)
 or tunnel mode. Direct routing is recommended to achieve optimal performance.
 
-A list of drivers supporting native XDP can be found in the table below. The
-corresponding network driver name of an interface can be determined as follows:
-
-.. code-block:: shell-session
-
-    # ethtool -i eth0
-    driver: nfp
-    [...]
-
-+-------------------+------------+-------------+
-| Vendor            | Driver     | XDP Support |
-+===================+============+=============+
-| Amazon            | ena        | >= 5.6      |
-+-------------------+------------+-------------+
-| Broadcom          | bnxt_en    | >= 4.11     |
-+-------------------+------------+-------------+
-| Cavium            | thunderx   | >= 4.12     |
-+-------------------+------------+-------------+
-| Freescale         | dpaa2      | >= 5.0      |
-+-------------------+------------+-------------+
-| Intel             | ixgbe      | >= 4.12     |
-|                   +------------+-------------+
-|                   | ixgbevf    | >= 4.17     |
-|                   +------------+-------------+
-|                   | i40e       | >= 4.13     |
-|                   +------------+-------------+
-|                   | ice        | >= 5.5      |
-+-------------------+------------+-------------+
-| Marvell           | mvneta     | >= 5.5      |
-+-------------------+------------+-------------+
-| Mellanox          | mlx4       | >= 4.8      |
-|                   +------------+-------------+
-|                   | mlx5       | >= 4.9      |
-+-------------------+------------+-------------+
-| Microsoft         | hv_netvsc  | >= 5.6      |
-+-------------------+------------+-------------+
-| Netronome         | nfp        | >= 4.10     |
-+-------------------+------------+-------------+
-| Others            | virtio_net | >= 4.10     |
-|                   +------------+-------------+
-|                   | tun/tap    | >= 4.14     |
-+-------------------+------------+-------------+
-| Qlogic            | qede       | >= 4.10     |
-+-------------------+------------+-------------+
-| Socionext         | netsec     | >= 5.3      |
-+-------------------+------------+-------------+
-| Solarflare        | sfc        | >= 5.5      |
-+-------------------+------------+-------------+
-| Texas Instruments | cpsw       | >= 5.3      |
-+-------------------+------------+-------------+
+A list of drivers supporting XDP can be found in :ref:`the documentation for XDP<xdp_drivers>`.
 
 The current Cilium kube-proxy XDP acceleration mode can also be introspected through
 the ``cilium status`` CLI command. If it has been enabled successfully, ``Native``
@@ -1094,11 +1045,15 @@ issue.
 
 This section elaborates on the various ``kubeProxyReplacement`` options:
 
-- ``kubeProxyReplacement=strict``: This option expects a kube-proxy-free
-  Kubernetes setup where Cilium is expected to fully replace all kube-proxy
-  functionality. Once the Cilium agent is up and running, it takes care of handling
-  Kubernetes services of type ClusterIP, NodePort, LoadBalancer, services with externalIPs
-  as well as HostPort. If the underlying kernel version requirements are not met
+- ``kubeProxyReplacement=strict``: When using this option, it's highly recommended
+  to run a kube-proxy-free Kubernetes setup where Cilium is expected to fully replace
+  all kube-proxy functionality. However, if it's not possible to remove kube-proxy for
+  specific reasons (e.g. Kubernetes distribution limitations), it's also acceptable to
+  leave it deployed in the background. Just be aware of the potential side effects on
+  existing nodes as mentioned above when running kube-proxy in co-existence. Once the
+  Cilium agent is up and running, it takes care of handling Kubernetes services of type
+  ClusterIP, NodePort, LoadBalancer, services with externalIPs as well as HostPort.
+  If the underlying kernel version requirements are not met
   (see :ref:`kubeproxy-free` note), then the Cilium agent will bail out on start-up
   with an error message.
 
@@ -1200,6 +1155,11 @@ gracefully. The endpoint state is fully removed when the agent receives
 a Kubernetes delete event for the endpoint. The `Kubernetes
 pod termination <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination>`_
 documentation contains more background on the behavior and configuration using ``terminationGracePeriodSeconds``.
+There are some special cases, like zero disruption during rolling updates, that require to be able to send traffic
+to Terminating Pods that are still Serving traffic during the Terminating period, the Kubernetes blog
+`Advancements in Kubernetes Traffic Engineering
+<https://kubernetes.io/blog/2022/12/30/advancements-in-kubernetes-traffic-engineering/#traffic-loss-from-load-balancers-during-rolling-updates>`_
+explains it in detail.
 
 .. admonition:: Video
   :class: attention
@@ -1399,6 +1359,102 @@ As per `k8s Service <https://kubernetes.io/docs/concepts/services-networking/ser
 Cilium's eBPF kube-proxy replacement by default disallows access to a ClusterIP service from outside the cluster.
 This can be allowed by setting ``bpf.lbExternalClusterIP=true``.
 
+Observability
+*************
+
+You can trace socket LB related datapath events using Hubble and cilium monitor.
+
+Apply the following pod and service:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: nginx
+      labels:
+        app: proxy
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:stable
+        ports:
+          - containerPort: 80
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: nginx-service
+    spec:
+      selector:
+        app: proxy
+      ports:
+      - port: 80
+
+Deploy a client pod to start traffic.
+
+.. parsed-literal::
+
+    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
+
+.. code-block:: shell-session
+
+    $ kubectl get svc | grep nginx
+      nginx-service   ClusterIP   10.96.128.44   <none>        80/TCP    140m
+
+    $ kubectl exec -it mediabot -- curl -v --connect-timeout 5 10.96.128.44
+
+Follow the Hubble :ref:`hubble_cli` guide  to see the network flows. The Hubble
+output prints datapath events before and after socket LB translation between service
+and selected service endpoint.
+
+.. code-block:: shell-session
+
+    $ hubble observe --all | grep mediabot
+    Jan 13 13:47:20.932: default/mediabot (ID:5618) <> default/nginx-service:80 (world) pre-xlate-fwd TRACED (TCP)
+    Jan 13 13:47:20.932: default/mediabot (ID:5618) <> default/nginx:80 (ID:35772) post-xlate-fwd TRANSLATED (TCP)
+    Jan 13 13:47:20.932: default/nginx:80 (ID:35772) <> default/mediabot (ID:5618) pre-xlate-rev TRACED (TCP)
+    Jan 13 13:47:20.932: default/nginx-service:80 (world) <> default/mediabot (ID:5618) post-xlate-rev TRANSLATED (TCP)
+    Jan 13 13:47:20.932: default/mediabot:38750 (ID:5618) <> default/nginx (ID:35772) pre-xlate-rev TRACED (TCP)
+
+Socket LB tracing with Hubble requires cilium agent to detect pod cgroup paths.
+If you see a warning message in cilium agent ``No valid cgroup base path found: socket load-balancing tracing with Hubble will not work.``,
+you can trace packets using ``cilium monitor`` instead.
+
+.. note::
+
+    In case of the warning log, please file a GitHub issue with the cgroup path
+    for any of your pods, obtained by running the following command on a Kubernetes
+    node in your cluster: ``sudo crictl inspectp -o=json $POD_ID | grep cgroup``.
+
+.. code-block:: shell-session
+
+    $ kubectl get pods -o wide
+    NAME       READY   STATUS    RESTARTS   AGE     IP             NODE          NOMINATED NODE   READINESS GATES
+    mediabot   1/1     Running   0          54m     10.244.1.237   kind-worker   <none>           <none>
+    nginx      1/1     Running   0          3h25m   10.244.1.246   kind-worker   <none>           <none>
+
+    $ kubectl exec -n kube-system cilium-rt2jh -- cilium monitor -v -t trace-sock
+    CPU 11: [pre-xlate-fwd] cgroup_id: 479586 sock_cookie: 7123674, dst [10.96.128.44]:80 tcp
+    CPU 11: [post-xlate-fwd] cgroup_id: 479586 sock_cookie: 7123674, dst [10.244.1.246]:80 tcp
+    CPU 11: [pre-xlate-rev] cgroup_id: 479586 sock_cookie: 7123674, dst [10.244.1.246]:80 tcp
+    CPU 11: [post-xlate-rev] cgroup_id: 479586 sock_cookie: 7123674, dst [10.96.128.44]:80 tcp
+
+You can identify the client pod using its printed ``cgroup id`` metadata. The pod
+``cgroup path`` corresponding to the ``cgroup id`` has its UUID. The socket
+cookie is a unique socket identifier allocated in the Linux kernel. The socket
+cookie metadata can be used to identify all the trace events from a socket.
+
+.. code-block:: shell-session
+
+    $ kubectl get pods -o custom-columns=PodName:.metadata.name,PodUID:.metadata.uid
+    PodName    PodUID
+    mediabot   b620703c-c446-49c7-84c8-e23f4ba5626b
+    nginx      73b9938b-7e4b-4cbd-8c4c-67d4f253ccf4
+
+    $ kubectl exec -n kube-system cilium-rt2jh -- find /run/cilium/cgroupv2/ -inum 479586
+    Defaulted container "cilium-agent" out of: cilium-agent, mount-cgroup (init), apply-sysctl-overwrites (init), clean-cilium-state (init)
+    /run/cilium/cgroupv2/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-besteffort.slice/kubelet-kubepods-besteffort-podb620703c_c446_49c7_84c8_e23f4ba5626b.slice/cri-containerd-4e7fc71c8bef8c05c9fb76d93a186736fca266e668722e1239fe64503b3e80d3.scope
 
 Troubleshooting
 ***************

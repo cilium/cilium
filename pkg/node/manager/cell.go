@@ -6,9 +6,10 @@ package manager
 import (
 	"time"
 
-	"github.com/cilium/cilium/pkg/datapath"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -38,7 +39,7 @@ type Notifier interface {
 type NodeManager interface {
 	Notifier
 
-	// GetNodes returns a copy of all of the nodes as a map from Identity to Node.
+	// GetNodes returns a copy of all the nodes as a map from Identity to Node.
 	GetNodes() map[types.Identity]types.Node
 
 	// GetNodeIdentities returns a list of all node identities store in node
@@ -52,22 +53,19 @@ type NodeManager interface {
 	// NodeDeleted is called when the store detects a deletion of a node
 	NodeDeleted(n types.Node)
 
-	// ClusterSizeDependantInterval returns a time.Duration that is dependant on
+	// ClusterSizeDependantInterval returns a time.Duration that is dependent on
 	// the cluster size, i.e. the number of nodes that have been discovered. This
 	// can be used to control sync intervals of shared or centralized resources to
 	// avoid overloading these resources as the cluster grows.
 	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
-
-	// SetIPCache sets the ipcache field in the Manager.
-	SetIPCache(ipc IPCache)
 
 	// StartNeighborRefresh spawns a controller which refreshes neighbor table
 	// by sending arping periodically.
 	StartNeighborRefresh(nh datapath.NodeHandler)
 }
 
-func newAllNodeManager(lc hive.Lifecycle) (NodeManager, error) {
-	mngr, err := New("all", option.Config)
+func newAllNodeManager(lc hive.Lifecycle, ipCache *ipcache.IPCache) (NodeManager, error) {
+	mngr, err := New("all", option.Config, ipCache)
 	if err != nil {
 		return nil, err
 	}

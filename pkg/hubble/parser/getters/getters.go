@@ -4,7 +4,7 @@
 package getters
 
 import (
-	"net"
+	"net/netip"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -20,13 +20,13 @@ type DNSGetter interface {
 	// GetNamesOf fetches FQDNs of a given IP from the perspective of
 	// the endpoint with ID sourceEpID. The returned names must not have
 	// trailing dots.
-	GetNamesOf(sourceEpID uint32, ip net.IP) (names []string)
+	GetNamesOf(sourceEpID uint32, ip netip.Addr) (names []string)
 }
 
 // EndpointGetter ...
 type EndpointGetter interface {
 	// GetEndpointInfo looks up endpoint by IP address.
-	GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool)
+	GetEndpointInfo(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool)
 	// GetEndpointInfo looks up endpoint by id
 	GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool)
 }
@@ -40,15 +40,15 @@ type IdentityGetter interface {
 // IPGetter fetches per-IP metadata
 type IPGetter interface {
 	// GetK8sMetadata returns Kubernetes metadata for the given IP address.
-	GetK8sMetadata(ip net.IP) *ipcache.K8sMetadata
+	GetK8sMetadata(ip netip.Addr) *ipcache.K8sMetadata
 	// LookupSecIDByIP returns the corresponding security identity that
 	// endpoint IP maps to as well as if the corresponding entry exists.
-	LookupSecIDByIP(ip net.IP) (ipcache.Identity, bool)
+	LookupSecIDByIP(ip netip.Addr) (ipcache.Identity, bool)
 }
 
 // ServiceGetter fetches service metadata.
 type ServiceGetter interface {
-	GetServiceByAddr(ip net.IP, port uint16) *flowpb.Service
+	GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service
 }
 
 // StoreGetter ...

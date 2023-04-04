@@ -36,7 +36,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.hubble.relay.securityContext }}
+      {{- with .Values.hubble.relay.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -46,6 +46,10 @@ spec:
       {{- end }}
       containers:
         - name: hubble-relay
+          {{- with .Values.hubble.relay.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           image: {{ include "cilium.image" .Values.hubble.relay.image | quote }}
           imagePullPolicy: {{ .Values.hubble.relay.image.pullPolicy }}
           command:
@@ -96,7 +100,7 @@ spec:
       priorityClassName: {{ .Values.hubble.relay.priorityClassName }}
       serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.relay.name | quote }}
-      automountServiceAccountToken: false
+      automountServiceAccountToken: {{ .Values.serviceAccounts.relay.automount }}
       terminationGracePeriodSeconds: {{ .Values.hubble.relay.terminationGracePeriodSeconds }}
       {{- with .Values.hubble.relay.affinity }}
       affinity:

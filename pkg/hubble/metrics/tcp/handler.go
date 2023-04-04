@@ -40,6 +40,14 @@ func (h *tcpHandler) Status() string {
 	return h.context.Status()
 }
 
+func (h *tcpHandler) Context() *api.ContextOptions {
+	return h.context
+}
+
+func (h *tcpHandler) ListMetricVec() []*prometheus.MetricVec {
+	return []*prometheus.MetricVec{h.tcpFlags.MetricVec}
+}
+
 func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	if (flow.GetVerdict() != flowpb.Verdict_FORWARDED && flow.GetVerdict() != flowpb.Verdict_REDIRECTED) ||
 		flow.GetL4() == nil {

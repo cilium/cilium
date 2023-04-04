@@ -71,14 +71,22 @@ func (client *Client) ListPrefixListsWithCallback(request *ListPrefixListsReques
 // ListPrefixListsRequest is the request struct for api ListPrefixLists
 type ListPrefixListsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	PrefixListIds        *[]string        `position:"Query" name:"PrefixListIds"  type:"Repeated"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	PrefixListName       string           `position:"Query" name:"PrefixListName"`
-	NextToken            string           `position:"Query" name:"NextToken"`
-	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
+	ResourceOwnerId      requests.Integer       `position:"Query" name:"ResourceOwnerId"`
+	ResourceGroupId      string                 `position:"Query" name:"ResourceGroupId"`
+	NextToken            string                 `position:"Query" name:"NextToken"`
+	ResourceOwnerAccount string                 `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                 `position:"Query" name:"OwnerAccount"`
+	PrefixListIds        *[]string              `position:"Query" name:"PrefixListIds"  type:"Repeated"`
+	OwnerId              requests.Integer       `position:"Query" name:"OwnerId"`
+	Tags                 *[]ListPrefixListsTags `position:"Query" name:"Tags"  type:"Repeated"`
+	PrefixListName       string                 `position:"Query" name:"PrefixListName"`
+	MaxResults           requests.Integer       `position:"Query" name:"MaxResults"`
+}
+
+// ListPrefixListsTags is a repeated param struct in ListPrefixListsRequest
+type ListPrefixListsTags struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // ListPrefixListsResponse is the response struct for api ListPrefixLists

@@ -67,7 +67,8 @@ env:
   location: westeurope
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
   k8s_version: 1.24
-  cilium_cli_version: v0.12.12
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.13.1
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -88,7 +89,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -100,7 +101,7 @@ jobs:
           echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
       - name: Check code changes
         if: ${{ github.event.issue.pull_request }}
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: tested-tree
         with:
           base: ${{ steps.pr.outputs.base }}
@@ -124,7 +125,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -170,7 +171,7 @@ jobs:
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled \
-            --hubble=false --collect-sysdump-on-failure --test '!/pod-to-world,!/pod-to-cidr'"
+            --hubble=false --collect-sysdump-on-failure --external-target bing.com --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
@@ -178,7 +179,7 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Set commit status to pending
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ steps.vars.outputs.sha }}
@@ -196,7 +197,7 @@ jobs:
           cilium version
 
       - name: Login to Azure
-        uses: azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2
+        uses: azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.7
         with:
           client-id: ${{ secrets.AZURE_PR_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_PR_TENANT_ID }}
@@ -243,7 +244,7 @@ jobs:
 
       # Checkout source code to install Cilium using local Helm chart.
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -270,8 +271,6 @@ jobs:
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
           cilium uninstall --chart-directory=install/kubernetes/cilium --wait
-          kubectl delete --all-namespaces rolebinding -l "app.kubernetes.io/part-of=cilium" --ignore-not-found=true
-          kubectl delete --all-namespaces role -l "app.kubernetes.io/part-of=cilium" --ignore-not-found=true
 
       - name: Create custom IPsec secret
         run: |
@@ -312,7 +311,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
@@ -320,7 +319,7 @@ jobs:
 
       - name: Set commit status to success
         if: ${{ success() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ steps.vars.outputs.sha }}
@@ -331,7 +330,7 @@ jobs:
 
       - name: Set commit status to failure
         if: ${{ failure() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ steps.vars.outputs.sha }}
@@ -342,7 +341,7 @@ jobs:
 
       - name: Set commit status to cancelled
         if: ${{ cancelled() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ steps.vars.outputs.sha }}

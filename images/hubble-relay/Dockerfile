@@ -1,9 +1,17 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG BASE_IMAGE=scratch
-ARG GOLANG_IMAGE=docker.io/library/golang:1.19.3@sha256:10e3c0f39f8e237baa5b66c5295c578cac42a99536cc9333d8505324a82407d9
-ARG ALPINE_IMAGE=docker.io/library/alpine:3.17.0@sha256:8914eb54f968791faf6a8638949e480fef81e697984fba772b3976835194c6d4
+# distroless images are signed by cosign. You should verify the image with the following public key:
+# $ cat cosign.pub
+# -----BEGIN PUBLIC KEY-----
+# MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEWZzVzkb8A+DbgDpaJId/bOmV8n7Q
+# OqxYbK0Iro6GzSmOzxkn+N2AKawLyXi84WSwJQBK//psATakCgAQKkNTAA==
+# -----END PUBLIC KEY-----
+# $ cosign verify --key cosign.pub $BASE_IMAGE
+# The key may be found at the following address:
+# https://raw.githubusercontent.com/GoogleContainerTools/distroless/main/cosign.pub
+ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:149531e38c7e4554d4a6725d7d70593ef9f9881358809463800669ac89f3b0ec
+ARG GOLANG_IMAGE=docker.io/library/golang:1.20.2@sha256:5990c4fbb1ab074b4be7bcc9ee3b8bd2888a1d4f9572fc7d63b804ea5da54e73
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -33,12 +41,6 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
 # TARGETARCH
-FROM --platform=${BUILDPLATFORM} ${ALPINE_IMAGE} as certs
-RUN apk --update add ca-certificates
-
-# BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
-# Represents the plataform where the build is happening, do not mix with
-# TARGETARCH
 FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as gops
 
 # build-gops.sh will build both archs at the same time
@@ -53,11 +55,10 @@ ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
-COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/hubble-relay /usr/bin/hubble-relay
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
-WORKDIR /
-ENV GOPS_CONFIG_DIR=/
+# use uid:gid for the nonroot user for compatibility with runAsNonRoot
+USER 65532:65532
 ENTRYPOINT ["/usr/bin/hubble-relay"]
 CMD ["serve"]

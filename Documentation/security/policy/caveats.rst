@@ -31,17 +31,4 @@ Differences From Kubernetes Network Policies
 
 When creating Cilium Network Policies it is important to keep in mind that Cilium Network
 Policies do not perfectly replicate the functionality of `Kubernetes Network Policies <https://kubernetes.io/docs/concepts/services-networking/network-policies/>`_.
-
-There are two ways Cilium Network Policies do not overlap with existing Kubernetes Network
-Policy functionality:
-
-1. Cilium Network Policies that reference the Stream Control Transmission Protocol (SCTP)
-   will not work properly. Currently, Cilium does not support SCTP (see :gh-issue:`5719`).
-
-2. Cilium Network Policies that use CIDR blocks to define endpoints controlled by Cilium
-   (i.e. internal to the Kubernetes cluster) will not work properly. As stated under the
-   :ref:`policy_cidr` section of this documentation, CIDR policies in Cilium are used to
-   define policies to and from endpoints which are not managed by Cilium (i.e. external
-   to the Kubernetes cluster). This differs from Kubernetes Network Policies which **can**
-   use CIDR blocks to define policies to and from endpoints which are internal to the
-   Kubernetes cluster (i.e. managed by a CNI other than Cilium).
+See :ref:`this table <networkpolicy_state>` for differences.

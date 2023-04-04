@@ -29,6 +29,10 @@ build:
 	$(GINKGO) build -tags=integration_tests
 	$(QUIET)$(MAKE) -C bpf/
 
+build-darwin:
+	@$(ECHO_GINKGO)$@
+	GOOS=darwin $(GINKGO) build -tags=integration_tests
+
 test: run k8s-test
 
 run:
@@ -75,6 +79,9 @@ ifeq ($(COVER),1)
 		COVERFORMAT:=html
 	endif
     BPF_TEST_FLAGS += -coverage-report $(ROOT_DIR)/bpf-coverage.$(COVERFORMAT) -coverage-format $(COVERFORMAT)
+ifdef NOCOVER
+    BPF_TEST_FLAGS += -no-test-coverage "$(NOCOVER)"
+endif
 endif
 ifeq ($(INSTRLOG),1)
     BPF_TEST_FLAGS += -instrumentation-log $(ROOT_DIR)/test/bpf-instrumentation.log

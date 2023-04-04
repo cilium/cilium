@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -18,8 +19,8 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -315,6 +316,10 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 		DynamicSizeRatio: option.Config.BPFMapsDynamicSizeRatio,
 		Maps: []*models.BPFMapProperties{
 			{
+				Name: "Auth",
+				Size: int64(option.Config.AuthMapEntries),
+			},
+			{
 				Name: "Non-TCP connection tracking",
 				Size: int64(option.Config.CTMapEntriesGlobalAny),
 			},
@@ -527,6 +532,21 @@ func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeT
 }
 
 func (c *clusterNodesClient) NodeCleanNeighbors(migrateOnly bool) {
+	// no-op
+	return
+}
+
+func (c *clusterNodesClient) AllocateNodeID(_ net.IP) uint16 {
+	// no-op
+	return 0
+}
+
+func (c *clusterNodesClient) DumpNodeIDs() []*models.NodeID {
+	// no-op
+	return nil
+}
+
+func (c *clusterNodesClient) RestoreNodeIDs() {
 	// no-op
 	return
 }
@@ -1086,7 +1106,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	d.statusResponse.CniChaining = d.getCNIChainingStatus()
 	d.statusResponse.IdentityRange = d.getIdentityRange()
 
-	d.statusCollector = status.NewCollector(probes, status.Config{})
+	d.statusCollector = status.NewCollector(probes, status.Config{StackdumpPath: "/run/cilium/state/agent.stack.gz"})
 
 	// Set up a signal handler function which prints out logs related to daemon status.
 	cleaner.cleanupFuncs.Add(func() {

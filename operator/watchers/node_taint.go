@@ -84,25 +84,31 @@ func checkTaintForNextNodeItem(c kubernetes.Interface, nodeGetter slimNodeGetter
 }
 
 // checkAndMarkNode checks if the node contains a Cilium pod in running state
-// so that it can remove the toleration and taints of that node.
+// so that it can set the taints / conditions of the node
 func checkAndMarkNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string, options markNodeOptions) bool {
 	node, err := nodeGetter.GetK8sSlimNode(nodeName)
-	if err != nil && !k8sErrors.IsNotFound(err) {
-		return false
-	}
-	if node == nil {
+	if node == nil || err != nil {
 		return false
 	}
 
-	if (options.RemoveNodeTaint && hasAgentNotReadyTaint(node)) ||
-		(options.SetCiliumIsUpCondition && !HasCiliumIsUpCondition(node)) {
-		if isCiliumPodRunning(node.GetName()) {
-			markNode(c, nodeGetter, node.GetName(), options)
-		} else {
-			log.WithFields(logrus.Fields{logfields.NodeName: node.GetName()}).Debug("Cilium pod not running for node")
+	// should we remove the taint?
+	scheduled, running := nodeHasCiliumPod(node.GetName())
+	if running {
+		if (options.RemoveNodeTaint && hasAgentNotReadyTaint(node)) ||
+			(options.SetCiliumIsUpCondition && !HasCiliumIsUpCondition(node)) {
+			log.WithFields(logrus.Fields{
+				logfields.NodeName: node.GetName(),
+			}).Info("Cilium pod running for node; marking accordingly")
+
+			markNode(c, nodeGetter, node.GetName(), options, true)
 		}
-	} else {
-		log.WithFields(logrus.Fields{logfields.NodeName: node.GetName()}).Debug("Node without taint and with CiliumIsUp condition")
+	} else if scheduled { // Taint nodes where the pod is scheduled but not running
+		if options.SetNodeTaint && !hasAgentNotReadyTaint(node) {
+			log.WithFields(logrus.Fields{
+				logfields.NodeName: node.GetName(),
+			}).Info("Cilium pod scheduled but not running for node; setting taint")
+			markNode(c, nodeGetter, node.GetName(), options, false)
+		}
 	}
 	return true
 }
@@ -193,23 +199,26 @@ func processNextCiliumPodItem(c kubernetes.Interface, nodeGetter slimNodeGetter,
 	return true
 }
 
-// isCiliumPodRunning returns true if there is a Cilium pod Ready on the given
-// nodeName.
-func isCiliumPodRunning(nodeName string) bool {
+// nodeHasCiliumPod determines if a the node has a Cilium agent pod scheduled
+// on it, and if it is running and ready.
+func nodeHasCiliumPod(nodeName string) (scheduled bool, ready bool) {
 	ciliumPodsInNode, err := ciliumPodsStore.ByIndex(hostnameIndexer, nodeName)
 	if err != nil {
-		return false
+		return false, false
 	}
 	if len(ciliumPodsInNode) == 0 {
-		return false
+		return false, false
 	}
 	for _, ciliumPodInterface := range ciliumPodsInNode {
 		ciliumPod := ciliumPodInterface.(*slim_corev1.Pod)
+		if ciliumPod.DeletionTimestamp != nil { // even if the pod is running, it will be down shortly
+			continue
+		}
 		if k8sUtils.GetLatestPodReadiness(ciliumPod.Status) == slim_corev1.ConditionTrue {
-			return true
+			return true, true
 		}
 	}
-	return false
+	return true, false
 }
 
 // hasAgentNotReadyTaint returns true if the given node has the Cilium Agent
@@ -284,6 +293,8 @@ func convertToCiliumPod(obj interface{}) interface{} {
 // setNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
 // false as Cilium is managing the network connectivity.
 // https://kubernetes.io/docs/concepts/architecture/nodes/#condition
+// This is because some clusters (notably GCP) come up with a NodeNetworkUnavailable condition set
+// and the network provider is expected to remove this manually.
 func setNodeNetworkUnavailableFalse(ctx context.Context, c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string) error {
 	n, err := nodeGetter.GetK8sSlimNode(nodeName)
 	if err != nil {
@@ -309,6 +320,9 @@ func setNodeNetworkUnavailableFalse(ctx context.Context, c kubernetes.Interface,
 	}
 	patch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
 	_, err = c.CoreV1().Nodes().PatchStatus(ctx, nodeName, patch)
+	if err != nil {
+		log.WithField(logfields.NodeName, nodeName).WithError(err).Info("Failed to patch node while setting condition")
+	}
 	return err
 }
 
@@ -377,36 +391,105 @@ func removeNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter sli
 	}
 
 	_, err = c.CoreV1().Nodes().Patch(ctx, nodeName, k8sTypes.JSONPatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		log.WithField(logfields.NodeName, nodeName).WithError(err).Info("Failed to patch node while removing taint")
+	}
+	return err
+}
+
+// setNodeTaint sets the AgentNotReady taint on a node
+func setNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string) error {
+	k8sNode, err := nodeGetter.GetK8sSlimNode(nodeName)
+	if err != nil {
+		return err
+	}
+
+	taintFound := false
+
+	taints := append([]slim_corev1.Taint{}, k8sNode.Spec.Taints...)
+	for _, taint := range k8sNode.Spec.Taints {
+		if taint.Key == pkgOption.Config.AgentNotReadyNodeTaintValue() {
+			taintFound = true
+			break
+		}
+	}
+
+	if taintFound {
+		log.WithFields(logrus.Fields{
+			logfields.NodeName: nodeName,
+			"taint":            pkgOption.Config.AgentNotReadyNodeTaintValue(),
+		}).Debug("Taint already set in node; skipping")
+		return nil
+	}
+	log.WithFields(logrus.Fields{
+		logfields.NodeName: nodeName,
+		"taint":            pkgOption.Config.AgentNotReadyNodeTaintValue(),
+	}).Debug("Setting Node Taint")
+
+	taints = append(taints, slim_corev1.Taint{
+		Key:    pkgOption.Config.AgentNotReadyNodeTaintValue(), // the function says value, but it's really a key
+		Value:  "",
+		Effect: slim_corev1.TaintEffectNoSchedule,
+	})
+
+	createStatusAndNodePatch := []k8s.JSONPatch{
+		{
+			OP:    "test",
+			Path:  "/spec/taints",
+			Value: k8sNode.Spec.Taints,
+		},
+		{
+			OP:    "replace",
+			Path:  "/spec/taints",
+			Value: taints,
+		},
+	}
+
+	patch, err := json.Marshal(createStatusAndNodePatch)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.CoreV1().Nodes().Patch(ctx, nodeName, k8sTypes.JSONPatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		log.WithField(logfields.NodeName, nodeName).WithError(err).Info("Failed to patch node while adding taint")
+	}
 	return err
 }
 
 type markNodeOptions struct {
 	RemoveNodeTaint        bool
+	SetNodeTaint           bool
 	SetCiliumIsUpCondition bool
 }
 
 // markNode marks the Kubernetes node depending on the modes that it is passed
 // on.
-func markNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string, options markNodeOptions) {
-	log.WithField(logfields.NodeName, nodeName).Debug("Setting NetworkUnavailable=false and removing taint of node")
-
-	ctrlName := fmt.Sprintf("mark-k8s-node-%s-as-available", nodeName)
+func markNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string, options markNodeOptions, running bool) {
+	ctrlName := fmt.Sprintf("mark-k8s-node-%s-taints-conditions", nodeName)
 
 	ctrlMgr.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				if options.RemoveNodeTaint {
+				if running && options.RemoveNodeTaint {
 					err := removeNodeTaint(ctx, c, nodeGetter, nodeName)
 					if err != nil {
 						return err
 					}
 				}
-				if options.SetCiliumIsUpCondition {
+				if running && options.SetCiliumIsUpCondition {
 					err := setNodeNetworkUnavailableFalse(ctx, c, nodeGetter, nodeName)
 					if err != nil {
 						return err
 					}
 				}
+				if !running && options.SetNodeTaint {
+					err := setNodeTaint(ctx, c, nodeGetter, nodeName)
+					if err != nil {
+						return err
+					}
+				}
+
 				return nil
 			},
 		})
@@ -416,6 +499,7 @@ func markNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string
 func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 	mno = markNodeOptions{
 		RemoveNodeTaint:        option.Config.RemoveCiliumNodeTaints,
+		SetNodeTaint:           option.Config.SetCiliumNodeTaints,
 		SetCiliumIsUpCondition: option.Config.SetCiliumIsUpCondition,
 	}
 	nodesInit(wg, clientset.Slim(), stopCh)

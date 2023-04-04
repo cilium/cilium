@@ -71,7 +71,10 @@ var (
 // privileged Pod (test-verifier) which mounts the bpffs and the Cilium source
 // directory. All test commands are executed in this privileged Pod after
 // uninstalling Cilium from the cluster.
-var _ = Describe("K8sDatapathVerifier", func() {
+//
+// The test is skipped on all but 4.19 kernels. These are already covered in the GHA datapath
+// verifier workflow, see .github/workflows/tests-datapath-verifier.yaml.
+var _ = SkipDescribeIf(helpers.DoesNotRunOn419Kernel, "K8sDatapathVerifier", func() {
 	var kubectl *helpers.Kubectl
 
 	collectObjectFiles := func() {
@@ -93,7 +96,7 @@ var _ = Describe("K8sDatapathVerifier", func() {
 	}
 
 	getKernel := func() string {
-		kernel := "49"
+		kernel := "54"
 		switch {
 		case helpers.RunsOnNetNextKernel():
 			kernel = "netnext"

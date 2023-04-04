@@ -21,6 +21,7 @@ Direct access to local BPF maps
 ### SEE ALSO
 
 * [cilium](cilium.md)	 - CLI
+* [cilium bpf auth](cilium_bpf_auth.md)	 - Manage authenticated connections between identities
 * [cilium bpf bandwidth](cilium_bpf_bandwidth.md)	 - BPF datapath bandwidth settings
 * [cilium bpf ct](cilium_bpf_ct.md)	 - Connection tracking tables
 * [cilium bpf egress](cilium_bpf_egress.md)	 - Manage the egress routing rules
@@ -31,6 +32,7 @@ Direct access to local BPF maps
 * [cilium bpf lb](cilium_bpf_lb.md)	 - Load-balancing configuration
 * [cilium bpf metrics](cilium_bpf_metrics.md)	 - BPF datapath traffic metrics
 * [cilium bpf nat](cilium_bpf_nat.md)	 - NAT mapping tables
+* [cilium bpf nodeid](cilium_bpf_nodeid.md)	 - Manage the node IDs
 * [cilium bpf policy](cilium_bpf_policy.md)	 - Manage policy related BPF maps
 * [cilium bpf recorder](cilium_bpf_recorder.md)	 - PCAP recorder
 * [cilium bpf sha](cilium_bpf_sha.md)	 - Manage compiled BPF template objects

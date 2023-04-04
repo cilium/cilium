@@ -3,7 +3,7 @@
 
 // Ensure build fails on versions of Go that are not supported by Cilium.
 // This build tag should be kept in sync with the version specified in go.mod.
-//go:build go1.19
+//go:build go1.20
 
 package main
 
@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
+	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -61,11 +62,16 @@ import (
 
 type configuration struct {
 	clusterName      string
+	clusterID        uint32
 	serviceProxyName string
 }
 
 func (c configuration) LocalClusterName() string {
 	return c.clusterName
+}
+
+func (c configuration) LocalClusterID() uint32 {
+	return c.clusterID
 }
 
 func (c configuration) K8sServiceProxyNameValue() string {
@@ -95,9 +101,8 @@ var (
 		},
 	}
 
-	mockFile  string
-	clusterID uint32
-	cfg       configuration
+	mockFile string
+	cfg      configuration
 
 	ciliumNodeStore *store.SharedStore
 
@@ -106,24 +111,31 @@ var (
 
 func init() {
 	rootHive = hive.New(
+		pprof.Cell,
+		cell.Config(pprof.Config{
+			PprofAddress: apiserverOption.PprofAddressAPIServer,
+			PprofPort:    apiserverOption.PprofPortAPIServer,
+		}),
+
 		gops.Cell(defaults.GopsPortApiserver),
 		k8sClient.Cell,
 		k8s.SharedResourcesCell,
 		healthAPIServerCell,
+		usersManagementCell,
 
 		cell.Invoke(registerHooks),
 	)
 	rootHive.RegisterFlags(rootCmd.Flags())
+	rootCmd.AddCommand(rootHive.Command())
 	vp = rootHive.Viper()
 }
 
 func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) error {
-	if !clientset.IsEnabled() {
-		return errors.New("Kubernetes client not configured, cannot continue.")
-	}
-
 	lc.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {
+			if !clientset.IsEnabled() {
+				return errors.New("Kubernetes client not configured, cannot continue.")
+			}
 			startServer(ctx, clientset, services)
 			return nil
 		},
@@ -206,7 +218,7 @@ func runApiserver() error {
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeCRD, "Method to use for identity allocation")
 	option.BindEnv(vp, option.IdentityAllocationMode)
 
-	flags.Uint32Var(&clusterID, option.ClusterIDName, 0, "Cluster ID")
+	flags.Uint32Var(&cfg.clusterID, option.ClusterIDName, 0, "Cluster ID")
 	option.BindEnv(vp, option.ClusterIDName)
 
 	flags.StringVar(&cfg.clusterName, option.ClusterName, "default", "Cluster name")
@@ -239,12 +251,6 @@ func runApiserver() error {
 
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enable support of Kubernetes EndpointSlice")
 	option.BindEnv(vp, option.K8sEnableEndpointSlice)
-
-	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
-	option.BindEnv(vp, option.PProf)
-
-	flags.Int(option.PProfPort, defaults.PprofPortAPIServer, "Port that the pprof listens on")
-	option.BindEnv(vp, option.PProfPort)
 
 	vp.BindPFlags(flags)
 
@@ -361,7 +367,7 @@ func updateNode(obj interface{}) {
 	if ciliumNode, ok := obj.(*ciliumv2.CiliumNode); ok {
 		n := nodeTypes.ParseCiliumNode(ciliumNode)
 		n.Cluster = cfg.clusterName
-		n.ClusterID = clusterID
+		n.ClusterID = cfg.clusterID
 		if err := ciliumNodeStore.UpdateLocalKeySync(context.Background(), &n); err != nil {
 			log.WithError(err).Warning("Unable to insert node into etcd")
 		} else {
@@ -555,11 +561,11 @@ func synchronizeCiliumEndpoints(clientset k8sClient.Clientset) {
 func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cfg.clusterName,
-		"cluster-id":   clusterID,
+		"cluster-id":   cfg.clusterID,
 	}).Info("Starting clustermesh-apiserver...")
 
 	if mockFile == "" {
-		synced.SyncCRDs(startCtx, clientset, synced.AllCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
+		synced.SyncCRDs(startCtx, clientset, synced.AllCiliumCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 	}
 
 	mgr := NewVMManager(clientset)
@@ -570,7 +576,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 	}
 
 	config := cmtypes.CiliumClusterConfig{
-		ID: clusterID,
+		ID: cfg.clusterID,
 	}
 
 	if err := clustermesh.SetClusterConfig(cfg.clusterName, &config, kvstore.Client()); err != nil {
@@ -578,12 +584,13 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 	}
 
 	_, err = store.JoinSharedStore(store.Configuration{
-		Prefix:     nodeStore.NodeRegisterStorePrefix,
-		KeyCreator: nodeStore.RegisterKeyCreator,
-		Observer:   mgr,
+		Prefix:               nodeStore.NodeRegisterStorePrefix,
+		KeyCreator:           nodeStore.RegisterKeyCreator,
+		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
+		Observer:             mgr,
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Unable to set up node store in etcd")
+		log.WithError(err).Fatal("Unable to set up node register store in etcd")
 	}
 
 	ciliumNodeStore, err = store.JoinSharedStore(store.Configuration{
@@ -618,10 +625,6 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 			<-timer.After(kvstore.HeartbeatWriteInterval)
 		}
 	}()
-
-	if option.Config.PProf {
-		pprof.Enable(option.Config.PProfPort)
-	}
 
 	log.Info("Initialization complete")
 }

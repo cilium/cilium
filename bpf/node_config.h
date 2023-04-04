@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#ifndef __NODE_CONFIG__
+#define __NODE_CONFIG__
+
 /*
  *
  *
@@ -12,6 +15,8 @@
  *
  */
 #include "lib/utils.h"
+
+#define CLUSTER_ID 0
 
 #ifndef NODE_MAC
 DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
@@ -30,8 +35,10 @@ DEFINE_IPV6(ROUTER_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 
 DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x0, 0x2, 0xf, 0xff, 0xff);
 #endif
 
-DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
-#define SECCTX_FROM_IPCACHE fetch_u32(SECCTX_FROM_IPCACHE)
+#ifndef SECCTX_FROM_IPCACHE
+ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
+ #define SECCTX_FROM_IPCACHE fetch_u32(SECCTX_FROM_IPCACHE)
+#endif
 
 #define TUNNEL_PORT 8472
 
@@ -79,6 +86,10 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 # endif /* ENABLE_MASQUERADE */
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
+#define PER_CLUSTER_SNAT_MAPPING_IPV4 test_cilium_per_cluster_snat_v4_external
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+#define IPV4_INTER_CLUSTER_SNAT 0xfffff50a
+#endif
 #define SNAT_MAPPING_IPV4_SIZE 524288
 #define NODEPORT_NEIGH4_SIZE 524288
 #endif /* ENABLE_NODEPORT */
@@ -89,6 +100,7 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 #ifdef ENABLE_IPV6
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV6 test_cilium_snat_v6_external
+#define PER_CLUSTER_SNAT_MAPPING_IPV6 test_cilium_per_cluster_snat_v6_external
 #define SNAT_MAPPING_IPV6_SIZE 524288
 #define NODEPORT_NEIGH6_SIZE 524288
 #endif /* ENABLE_NODEPORT */
@@ -110,7 +122,9 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 #define METRICS_MAP test_cilium_metrics
 #define POLICY_CALL_MAP test_cilium_policy
 #define SOCK_OPS_MAP test_sock_ops_map
+#define AUTH_MAP test_cilium_auth
 #define IPCACHE_MAP test_cilium_ipcache
+#define NODE_MAP test_cilium_node_map
 #define ENCRYPT_MAP test_cilium_encrypt_state
 #define TUNNEL_MAP test_cilium_tunnel_map
 #define VTEP_MAP test_cilium_vtep_map
@@ -146,7 +160,9 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 #define CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES	65536
 #define CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES	65536
 #define POLICY_MAP_SIZE 16384
+#define AUTH_MAP_SIZE 512000
 #define IPCACHE_MAP_SIZE 512000
+#define NODE_MAP_SIZE 16384
 #define EGRESS_POLICY_MAP_SIZE 16384
 #define SRV6_VRF_MAP_SIZE 16384
 #define SRV6_POLICY_MAP_SIZE 16384
@@ -191,7 +207,9 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 #ifdef ENABLE_NODEPORT
 # define DIRECT_ROUTING_DEV_IFINDEX 0
 # ifdef ENABLE_IPV4
-#  define IPV4_DIRECT_ROUTING 0
+#  ifndef IPV4_DIRECT_ROUTING
+#   define IPV4_DIRECT_ROUTING 0
+#  endif
 #  define IPV4_RSS_PREFIX IPV4_DIRECT_ROUTING
 #  define IPV4_RSS_PREFIX_BITS 32
 # endif
@@ -200,7 +218,10 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 #  define IPV6_RSS_PREFIX IPV6_DIRECT_ROUTING
 #  define IPV6_RSS_PREFIX_BITS 128
 # endif
-#define IS_L3_DEV(ifindex) false
+#endif
+
+#ifndef IS_L3_DEV
+# define IS_L3_DEV(ifindex) false
 #endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK
@@ -217,23 +238,13 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
+#ifdef ENABLE_WIREGUARD
+# define WG_IFINDEX	42
+#endif
+
 #ifdef ENABLE_VTEP
 # define VTEP_MASK 0xffffff
 #endif
-
-/* It appears that we can support around the below number of prefixes in an
- * unrolled loop for LPM CIDR handling in older kernels along with the rest of
- * the logic in the datapath, hence the defines below. This number was arrived
- * to by adjusting the number of prefixes and running:
- *
- *    $ make -C bpf && sudo test/bpf/verifier-test.sh
- *
- *  If you're from a future where all supported kernels include LPM map type,
- *  consider deprecating the hash-based CIDR lookup and removing the below.
- */
-#define IPCACHE4_PREFIXES 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, \
-4, 3, 2, 1
-#define IPCACHE6_PREFIXES 4, 3, 2, 1
 
 #define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \
 case 116: \
@@ -263,3 +274,5 @@ return false;
 # define NAT_46X64_PREFIX_2 0
 # define NAT_46X64_PREFIX_3 0
 #endif
+
+#endif /* __NODE_CONFIG__ */

@@ -47,7 +47,7 @@ jobs:
 
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -56,10 +56,10 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8c0edbc76e98fa90f69d9a2c020dcb50019dc325
+        uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2.5.0
 
       - name: Login to quay.io
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v2.1.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_DEVELOPER_USERNAME }}
@@ -80,14 +80,15 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           persist-credentials: false
 
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
         id: docker_build_release
         with:
+          provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
@@ -100,14 +101,14 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b
+        uses: sigstore/cosign-installer@c3667d99424e7e6047999fb6246c0da843953c65 # v3.0.1
 
       - name: Sign Container Image
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${{ steps.docker_build_release.outputs.digest }}
-          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_release.outputs.digest }}
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${{ steps.docker_build_release.outputs.digest }}
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Install Bom
         shell: bash
@@ -118,9 +119,10 @@ jobs:
 
       - name: Generate SBOM
         shell: bash
+        # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
+        # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
         run: |
           bom generate -o sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
-          --dirs=. \
           --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}
 
       - name: Attach SBOM to Container Images
@@ -135,12 +137,12 @@ jobs:
           docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
           image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev:${docker_build_release_digest/:/-}.sbom"
           docker_build_release_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${docker_build_release_sbom_digest}"
+          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev@${docker_build_release_sbom_digest}"
 
           docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
           image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_release_digest/:/-}.sbom"
           docker_build_release_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_release_sbom_digest}"
+          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_release_sbom_digest}"
 
       - name: Image Release Digest
         shell: bash
@@ -154,7 +156,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
@@ -171,7 +173,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           path: image-digest/
 

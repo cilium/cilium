@@ -77,11 +77,6 @@ type MapSpec struct {
 
 	// The key and value type of this map. May be nil.
 	Key, Value btf.Type
-
-	// The BTF associated with this map.
-	//
-	// Deprecated: use [CollectionSpec.Types] instead.
-	BTF *btf.Spec
 }
 
 func (ms *MapSpec) String() string {
@@ -154,7 +149,11 @@ type MapKV struct {
 	Value interface{}
 }
 
-func (ms *MapSpec) checkCompatibility(m *Map) error {
+// Compatible returns nil if an existing map may be used instead of creating
+// one from the spec.
+//
+// Returns an error wrapping [ErrMapIncompatible] otherwise.
+func (ms *MapSpec) Compatible(m *Map) error {
 	switch {
 	case m.typ != ms.Type:
 		return fmt.Errorf("expected type %v, got %v: %w", ms.Type, m.typ, ErrMapIncompatible)
@@ -277,7 +276,7 @@ func newMapWithOptions(spec *MapSpec, opts MapOptions) (_ *Map, err error) {
 		}
 		defer closeOnError(m)
 
-		if err := spec.checkCompatibility(m); err != nil {
+		if err := spec.Compatible(m); err != nil {
 			return nil, fmt.Errorf("use pinned map %s: %w", spec.Name, err)
 		}
 
@@ -321,7 +320,7 @@ func newMapWithOptions(spec *MapSpec, opts MapOptions) (_ *Map, err error) {
 	if spec.Pinning == PinByName {
 		path := filepath.Join(opts.PinPath, spec.Name)
 		if err := m.Pin(path); err != nil {
-			return nil, fmt.Errorf("pin map: %w", err)
+			return nil, fmt.Errorf("pin map to %s: %w", path, err)
 		}
 	}
 
@@ -420,16 +419,16 @@ func (spec *MapSpec) createMap(inner *sys.FD, opts MapOptions) (_ *Map, err erro
 		attr.MapName = sys.NewObjName(spec.Name)
 	}
 
-	btfDisabled := false
-	if spec.Type.supportsBTF() && (spec.Key != nil || spec.Value != nil) {
+	if spec.Key != nil || spec.Value != nil {
 		handle, keyTypeID, valueTypeID, err := btf.MarshalMapKV(spec.Key, spec.Value)
-		btfDisabled = errors.Is(err, btf.ErrNotSupported)
-		if err != nil && !btfDisabled {
+		if err != nil && !errors.Is(err, btf.ErrNotSupported) {
 			return nil, fmt.Errorf("load BTF: %w", err)
 		}
+
 		if handle != nil {
 			defer handle.Close()
 
+			// Use BTF k/v during map creation.
 			attr.BtfFd = uint32(handle.FD())
 			attr.BtfKeyTypeId = uint32(keyTypeID)
 			attr.BtfValueTypeId = uint32(valueTypeID)
@@ -437,6 +436,13 @@ func (spec *MapSpec) createMap(inner *sys.FD, opts MapOptions) (_ *Map, err erro
 	}
 
 	fd, err := sys.MapCreate(&attr)
+	// Some map types don't support BTF k/v in earlier kernel versions.
+	// Remove BTF metadata and retry map creation.
+	if (errors.Is(err, sys.ENOTSUPP) || errors.Is(err, unix.EINVAL)) && attr.BtfFd != 0 {
+		attr.BtfFd, attr.BtfKeyTypeId, attr.BtfValueTypeId = 0, 0, 0
+		fd, err = sys.MapCreate(&attr)
+	}
+
 	if err != nil {
 		if errors.Is(err, unix.EPERM) {
 			return nil, fmt.Errorf("map create: %w (MEMLOCK may be too low, consider rlimit.RemoveMemlock)", err)
@@ -444,8 +450,8 @@ func (spec *MapSpec) createMap(inner *sys.FD, opts MapOptions) (_ *Map, err erro
 		if errors.Is(err, unix.EINVAL) && attr.MaxEntries == 0 {
 			return nil, fmt.Errorf("map create: %w (MaxEntries may be incorrectly set to zero)", err)
 		}
-		if btfDisabled {
-			return nil, fmt.Errorf("map create: %w (kernel without BTF support)", err)
+		if attr.BtfFd == 0 {
+			return nil, fmt.Errorf("map create: %w (without BTF k/v)", err)
 		}
 		return nil, fmt.Errorf("map create: %w", err)
 	}

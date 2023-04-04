@@ -7,19 +7,21 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/cilium/cilium/operator/metrics"
 )
 
 // PrometheusMetrics is an implementation of Prometheus metrics for external
 // API usage
 type PrometheusMetrics struct {
-	registry    *prometheus.Registry
+	registry    metrics.RegisterGatherer
 	APIDuration *prometheus.HistogramVec
 	RateLimit   *prometheus.HistogramVec
 }
 
 // NewPrometheusMetrics returns a new metrics tracking implementation to cover
 // external API usage.
-func NewPrometheusMetrics(namespace, subsystem string, registry *prometheus.Registry) *PrometheusMetrics {
+func NewPrometheusMetrics(namespace, subsystem string, registry metrics.RegisterGatherer) *PrometheusMetrics {
 	m := &PrometheusMetrics{registry: registry}
 
 	m.APIDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{

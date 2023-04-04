@@ -25,8 +25,10 @@ type FileReloader struct {
 	mutex       lock.Mutex
 	// fields below should only be accessed with mutex acquired as they may be
 	// updated concurrently.
-	caCertPool *x509.CertPool
-	keypair    *tls.Certificate
+	caCertPool           *x509.CertPool
+	caCertPoolGeneration uint // incremented when caCertPool is reloaded
+	keypair              *tls.Certificate
+	keypairGeneration    uint // incremented when keypair is reloaded
 }
 
 var (
@@ -124,8 +126,14 @@ func (r *FileReloader) Reload() (keypair *tls.Certificate, caCertPool *x509.Cert
 	}
 
 	r.mutex.Lock()
-	r.keypair = keypair
-	r.caCertPool = caCertPool
+	if r.HasKeypair() {
+		r.keypair = keypair
+		r.keypairGeneration++
+	}
+	if r.HasCustomCA() {
+		r.caCertPool = caCertPool
+		r.caCertPoolGeneration++
+	}
 	r.mutex.Unlock()
 	return
 }
@@ -142,6 +150,7 @@ func (r *FileReloader) ReloadKeypair() (*tls.Certificate, error) {
 	}
 	r.mutex.Lock()
 	r.keypair = keypair
+	r.keypairGeneration++
 	r.mutex.Unlock()
 	return keypair, nil
 }
@@ -158,6 +167,7 @@ func (r *FileReloader) ReloadCA() (*x509.CertPool, error) {
 	}
 	r.mutex.Lock()
 	r.caCertPool = caCertPool
+	r.caCertPoolGeneration++
 	r.mutex.Unlock()
 	return caCertPool, nil
 }
@@ -184,4 +194,11 @@ func (r *FileReloader) readCertificateAuthority() (*x509.CertPool, error) {
 		}
 	}
 	return caCertPool, nil
+}
+
+// generations returns the keypair and caCertPool generation counters.
+func (r *FileReloader) generations() (uint, uint) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	return r.keypairGeneration, r.caCertPoolGeneration
 }

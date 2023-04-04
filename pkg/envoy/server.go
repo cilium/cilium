@@ -22,6 +22,8 @@ import (
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
+	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_mongo_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -37,6 +39,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -279,6 +282,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 			getCiliumHttpFilter(),
 			{
 				Name: "envoy.filters.http.router",
+				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+				},
 			},
 		},
 		StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
@@ -346,6 +352,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	chain := &envoy_config_listener.FilterChain{
 		Filters: []*envoy_config_listener.Filter{{
 			Name: "cilium.network",
+			ConfigType: &envoy_config_listener.Filter_TypedConfig{
+				TypedConfig: toAny(&cilium.NetworkFilter{}),
+			},
 		}, {
 			Name: "envoy.filters.network.http_connection_manager",
 			ConfigType: &envoy_config_listener.Filter_TypedConfig{
@@ -360,6 +369,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		}
 		chain.TransportSocket = &envoy_config_core.TransportSocket{
 			Name: "cilium.tls_wrapper",
+			ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+				TypedConfig: toAny(&cilium.DownstreamTlsWrapperContext{}),
+			},
 		}
 	}
 
@@ -433,6 +445,9 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string
 		}
 		chain.TransportSocket = &envoy_config_core.TransportSocket{
 			Name: "cilium.tls_wrapper",
+			ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+				TypedConfig: toAny(&cilium.DownstreamTlsWrapperContext{}),
+			},
 		}
 	} else {
 		chain.FilterChainMatch = &envoy_config_listener.FilterChainMatch{
@@ -451,7 +466,7 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string
 	return chain
 }
 
-func getListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.Address {
+func getPublicListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.Address {
 	listenerAddr := "0.0.0.0"
 	if ipv6 {
 		listenerAddr = "::"
@@ -468,6 +483,44 @@ func getListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.Address
 	}
 }
 
+func getLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core.Address, []*envoy_config_listener.AdditionalAddress) {
+	addresses := []*envoy_config_core.Address_SocketAddress{}
+
+	if ipv4 {
+		addresses = append(addresses, &envoy_config_core.Address_SocketAddress{
+			SocketAddress: &envoy_config_core.SocketAddress{
+				Protocol:      envoy_config_core.SocketAddress_TCP,
+				Address:       "127.0.0.1",
+				PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
+			},
+		})
+	}
+
+	if ipv6 {
+		addresses = append(addresses, &envoy_config_core.Address_SocketAddress{
+			SocketAddress: &envoy_config_core.SocketAddress{
+				Protocol:      envoy_config_core.SocketAddress_TCP,
+				Address:       "::1",
+				PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
+			},
+		})
+	}
+
+	var additionalAddress []*envoy_config_listener.AdditionalAddress
+
+	if len(addresses) > 1 {
+		additionalAddress = append(additionalAddress, &envoy_config_listener.AdditionalAddress{
+			Address: &envoy_config_core.Address{
+				Address: addresses[1],
+			},
+		})
+	}
+
+	return &envoy_config_core.Address{
+		Address: addresses[0],
+	}, additionalAddress
+}
+
 // AddMetricsListener adds a prometheus metrics listener to Envoy.
 // We could do this in the bootstrap config, but then a failure to bind to the configured port
 // would fail starting Envoy.
@@ -482,6 +535,9 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 			StatPrefix: metricsListenerName,
 			HttpFilters: []*envoy_config_http.HttpFilter{{
 				Name: "envoy.filters.http.router",
+				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+				},
 			}},
 			StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 			RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
@@ -509,7 +565,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 
 		listenerConf := &envoy_config_listener.Listener{
 			Name:    metricsListenerName,
-			Address: getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
+			Address: getPublicListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
 			FilterChains: []*envoy_config_listener.FilterChain{{
 				Filters: []*envoy_config_listener.Filter{{
 					Name: "envoy.filters.network.http_connection_manager",
@@ -536,6 +592,8 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 // 'listenerConf()' is only called if a new listener is being created.
 func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error), isProxyListener bool) {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	listener := s.listeners[name]
 	if listener == nil {
 		listener = &Listener{}
@@ -554,7 +612,6 @@ func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_l
 			listener.waiters = append(listener.waiters, wg.AddCompletion())
 		}
 		listener.mutex.Unlock()
-		s.mutex.Unlock()
 		return
 	}
 	// Try again after a NACK, potentially with a different port number, etc.
@@ -600,7 +657,6 @@ func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_l
 				cb(err)
 			}
 		})
-	s.mutex.Unlock()
 }
 
 // upsertListener either updates an existing LDS listener with 'name', or creates a new one.
@@ -736,10 +792,12 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		tlsClusterName = ingressTLSClusterName
 	}
 
+	addr, additionalAddr := getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 	listenerConf := &envoy_config_listener.Listener{
-		Name:        name,
-		Address:     getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
-		Transparent: &wrapperspb.BoolValue{Value: true},
+		Name:                name,
+		Address:             addr,
+		AdditionalAddresses: additionalAddr,
+		Transparent:         &wrapperspb.BoolValue{Value: true},
 		SocketOptions: []*envoy_config_core.SocketOption{
 			getListenerSocketMarkOption(isIngress),
 		},
@@ -748,6 +806,9 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 			// Always insert tls_inspector as the first filter
 			{
 				Name: "envoy.filters.listener.tls_inspector",
+				ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+				},
 			},
 			getListenerFilter(isIngress, mayUseOriginalSourceAddr, false),
 		},
@@ -943,14 +1004,14 @@ func getKafkaL7Rules(l7Rules []kafka.PortRule) *cilium.KafkaNetworkPolicyRules {
 	return rules
 }
 
-func getSecretString(certManager policy.CertificateManager, hdr *api.HeaderMatch, ns string) (string, error) {
+func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.HeaderMatch, ns string) (string, error) {
 	value := ""
 	var err error
 	if hdr.Secret != nil {
-		if certManager == nil {
-			err = fmt.Errorf("HeaderMatches: Nil certManager")
+		if secretManager == nil {
+			err = fmt.Errorf("HeaderMatches: Nil secretManager")
 		} else {
-			value, err = certManager.GetSecretString(context.TODO(), hdr.Secret, ns)
+			value, err = secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
 		}
 	}
 	// Only use Value if secret was not obtained
@@ -965,7 +1026,7 @@ func getSecretString(certManager policy.CertificateManager, hdr *api.HeaderMatch
 	return value, err
 }
 
-func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns string) (*cilium.HttpNetworkPolicyRule, bool) {
+func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRuleHTTP, ns string) (*cilium.HttpNetworkPolicyRule, bool) {
 	// Count the number of header matches we need
 	cnt := len(h.Headers) + len(h.HeaderMatches)
 	if h.Path != "" {
@@ -978,34 +1039,41 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 		cnt++
 	}
 
-	googleRe2 := &envoy_type_matcher.RegexMatcher_GoogleRe2{GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{}}
-
 	headers := make([]*envoy_config_route.HeaderMatcher, 0, cnt)
 	if h.Path != "" {
 		headers = append(headers, &envoy_config_route.HeaderMatcher{
 			Name: ":path",
-			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-				SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-					EngineType: googleRe2,
-					Regex:      h.Path,
+			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+				StringMatch: &envoy_type_matcher.StringMatcher{
+					MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+						SafeRegex: &envoy_type_matcher.RegexMatcher{
+							Regex: h.Path,
+						},
+					},
 				}}})
 	}
 	if h.Method != "" {
 		headers = append(headers, &envoy_config_route.HeaderMatcher{
 			Name: ":method",
-			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-				SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-					EngineType: googleRe2,
-					Regex:      h.Method,
+			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+				StringMatch: &envoy_type_matcher.StringMatcher{
+					MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+						SafeRegex: &envoy_type_matcher.RegexMatcher{
+							Regex: h.Method,
+						},
+					},
 				}}})
 	}
 	if h.Host != "" {
 		headers = append(headers, &envoy_config_route.HeaderMatcher{
 			Name: ":authority",
-			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-				SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-					EngineType: googleRe2,
-					Regex:      h.Host,
+			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+				StringMatch: &envoy_type_matcher.StringMatcher{
+					MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+						SafeRegex: &envoy_type_matcher.RegexMatcher{
+							Regex: h.Host,
+						},
+					},
 				}}})
 	}
 	for _, hdr := range h.Headers {
@@ -1015,7 +1083,14 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 			key := strings.TrimRight(strs[0], ":")
 			// Header presence and matching (literal) value needed.
 			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: key,
-				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: strs[1]}})
+				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+					StringMatch: &envoy_type_matcher.StringMatcher{
+						MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+							Exact: strs[1],
+						},
+					},
+				},
+			})
 		} else {
 			// Only header presence needed
 			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: strs[0],
@@ -1039,20 +1114,32 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 			mismatch_action = cilium.HeaderMatch_FAIL_ON_MISMATCH
 		}
 		// Fetch the secret
-		value, err := getSecretString(certManager, hdr, ns)
+		value, err := getSecretString(secretManager, hdr, ns)
 		if err != nil {
 			log.WithError(err).Warning("Failed fetching K8s Secret, header match will fail")
 			// Envoy treats an empty exact match value as matching ANY value; adding
 			// InvertMatch: true here will cause this rule to NEVER match.
 			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
-				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: ""},
-				InvertMatch:          true})
+				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+					StringMatch: &envoy_type_matcher.StringMatcher{
+						MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+							Exact: "",
+						},
+					},
+				},
+				InvertMatch: true})
 		} else {
 			// Header presence and matching (literal) value needed.
 			if mismatch_action == cilium.HeaderMatch_FAIL_ON_MISMATCH {
 				if value != "" {
 					headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
-						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: value}})
+						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+							StringMatch: &envoy_type_matcher.StringMatcher{
+								MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+									Exact: value,
+								},
+							},
+						}})
 				} else {
 					// Only header presence needed
 					headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
@@ -1171,7 +1258,12 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
 					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
-					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
+					TransportSocket: &envoy_config_core.TransportSocket{
+						Name: "cilium.tls_wrapper",
+						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
+						},
+					},
 				},
 				{
 					Name:                          ingressClusterName,
@@ -1188,7 +1280,12 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
 					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
-					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
+					TransportSocket: &envoy_config_core.TransportSocket{
+						Name: "cilium.tls_wrapper",
+						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
+						},
+					},
 				},
 				{
 					Name:                 CiliumXDSClusterName,
@@ -1281,7 +1378,7 @@ func getCiliumTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
 	}
 }
 
-func GetEnvoyHTTPRules(certManager policy.CertificateManager, l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
+func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
 	if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
 		// Assume none of the rules have side-effects so that rule evaluation can
 		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
@@ -1291,7 +1388,7 @@ func GetEnvoyHTTPRules(certManager policy.CertificateManager, l7Rules *api.L7Rul
 		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
 		for _, l7 := range l7Rules.HTTP {
 			var cs bool
-			rule, cs := getHTTPRule(certManager, &l7, ns)
+			rule, cs := getHTTPRule(secretManager, &l7, ns)
 			httpRules = append(httpRules, rule)
 			if !cs {
 				canShortCircuit = false

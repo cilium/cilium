@@ -293,6 +293,7 @@ message LsNodeDescriptor {
   bool pseudonode = 4;
   string igp_router_id = 5;
   string bgp_router_id = 6;
+  uint32 bgp_confederation_member = 7;
 }
 
 message LsLinkDescriptor {
@@ -829,10 +830,23 @@ message LsAttributePrefix {
   uint32 sr_prefix_sid = 3;
 }
 
+message LsBgpPeerSegmentSIDFlags {
+  bool value  = 1;
+  bool local = 2;
+  bool backup = 3;
+  bool persistent = 4;
+}
+
+message LsBgpPeerSegmentSID {
+  LsBgpPeerSegmentSIDFlags  flags = 1;
+  uint32 weight  = 2;
+  uint32 sid = 3;
+}
+
 message LsAttributeBgpPeerSegment {
-	uint32 bgp_peer_node_sid = 1;
-	uint32 bgp_peer_adjacency_sid = 2;
-	uint32 bgp_peer_set_sid = 3;
+  LsBgpPeerSegmentSID bgp_peer_node_sid = 1;
+  LsBgpPeerSegmentSID bgp_peer_adjacency_sid = 2;
+  LsBgpPeerSegmentSID bgp_peer_set_sid = 3;
 }
 
 message LsAttribute {

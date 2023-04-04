@@ -25,17 +25,31 @@ var _ = Suite(&MatchPatternTestSuite{})
 // cilium.io. -> cilium[.]io[.]
 // *.cilium.io. -> [-a-zA-Z0-9]+.cilium[.]io[.]
 // *cilium.io. -> "([a-zA-Z0-9]+[.])?cilium[.]io[.]
-func (ts *MatchPatternTestSuite) TestMatchPatternREConversion(c *C) {
+func (ts *MatchPatternTestSuite) TestAnchoredMatchPatternREConversion(c *C) {
 	for source, target := range map[string]string{
 		"cilium.io.":   "^cilium[.]io[.]$",
 		"*.cilium.io.": "^" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]$",
 		"*":            "(^(" + allowedDNSCharsREGroup + "+[.])+$)|(^[.]$)",
 		".":            "^[.]$",
 	} {
-		reStr := ToRegexp(source)
+		reStr := ToAnchoredRegexp(source)
 		_, err := regexp.Compile(reStr)
-		c.Assert(err, IsNil, Commentf("Regexp generated from pattern %sis not valid", source))
-		c.Assert(reStr, Equals, target, Commentf("Regexp generated from pattern %s isn't expected", source))
+		c.Assert(err, IsNil, Commentf("Regexp generated from pattern %q is not valid", source))
+		c.Assert(reStr, Equals, target, Commentf("Regexp generated from pattern %q isn't expected", source))
+	}
+}
+
+func (ts *MatchPatternTestSuite) TestUnAnchoredMatchPatternREConversion(c *C) {
+	for source, target := range map[string]string{
+		"cilium.io.":   "cilium[.]io[.]",
+		"*.cilium.io.": allowedDNSCharsREGroup + "*[.]cilium[.]io[.]",
+		"*":            MatchAllUnAnchoredPattern,
+		".":            "[.]",
+	} {
+		reStr := ToUnAnchoredRegexp(source)
+		_, err := regexp.Compile(reStr)
+		c.Assert(err, IsNil, Commentf("Regexp generated from pattern %q is not valid", source))
+		c.Assert(reStr, Equals, target, Commentf("Regexp generated from pattern %q isn't expected", source))
 	}
 }
 
@@ -44,7 +58,7 @@ func (ts *MatchPatternTestSuite) TestMatchPatternREConversion(c *C) {
 // *.cilium.io. matches anysub.cilium.io. but not cilium.io.
 // *cilium.io. matches  anysub.cilium.io. and cilium.io.
 // *.ci*.io. matches anysub.cilium.io. anysub.ci.io., anysub.ciliumandmore.io. but not cilium.io.
-func (ts *MatchPatternTestSuite) TestMatchPatternMatching(c *C) {
+func (ts *MatchPatternTestSuite) TestAnchoredMatchPatternMatching(c *C) {
 	for _, testCase := range []struct {
 		pattern string
 		accept  []string
@@ -88,7 +102,7 @@ func (ts *MatchPatternTestSuite) TestMatchPatternMatching(c *C) {
 			reject:  []string{""},
 		},
 	} {
-		reStr := ToRegexp(testCase.pattern)
+		reStr := ToAnchoredRegexp(testCase.pattern)
 		re, err := regexp.Compile(reStr)
 		c.Assert(err, IsNil, Commentf("Regexp generated from pattern is not valid"))
 		for _, accept := range testCase.accept {

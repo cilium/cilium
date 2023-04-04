@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -63,7 +64,7 @@ var mapEventListCmd = &cobra.Command{
 			for {
 				event := &models.MapEvent{}
 				err := dec.Decode(&event)
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					return
 				}
 				if err != nil {

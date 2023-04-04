@@ -24,12 +24,12 @@ import (
 )
 
 var _ = SkipDescribeIf(func() bool {
-	// We only need to run on 4.9 with kube-proxy and net-next with KPR
+	// We only need to run on 4.19 with kube-proxy and net-next with KPR
 	// and the third node. Other CI jobs are not expected to increase
 	// code coverage.
 	//
 	// For GKE coverage, see the K8sPolicyTestExtended Describe block below.
-	return helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
+	return helpers.RunsOnGKE() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
 }, "K8sAgentPolicyTest", func() {
 
 	var (
@@ -39,11 +39,6 @@ var _ = SkipDescribeIf(func() bool {
 		ciliumFilename       string
 		demoPath             string
 		l3Policy             string
-		l7PolicyTLS          string
-		TLSCaCerts           string
-		TLSLyftCrt           string
-		TLSLyftKey           string
-		TLSCa                string
 		connectivityCheckYml string
 
 		app1Service = "app1-service"
@@ -56,11 +51,6 @@ var _ = SkipDescribeIf(func() bool {
 
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
-		l7PolicyTLS = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-TLS.yaml")
-		TLSCaCerts = helpers.ManifestGet(kubectl.BasePath(), "testCA.crt")
-		TLSLyftCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.crt")
-		TLSLyftKey = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.key")
-		TLSCa = helpers.ManifestGet(kubectl.BasePath(), "ca.crt")
 		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
 
 		daemonCfg = map[string]string{
@@ -88,7 +78,6 @@ var _ = SkipDescribeIf(func() bool {
 		var (
 			ciliumPod        string
 			clusterIP        string
-			appPods          map[string]string
 			namespaceForTest string
 		)
 
@@ -106,7 +95,6 @@ var _ = SkipDescribeIf(func() bool {
 
 			clusterIP, _, err = kubectl.GetServiceHostPort(namespaceForTest, app1Service)
 			Expect(err).To(BeNil(), "Cannot get service in %q namespace", namespaceForTest)
-			appPods = helpers.GetAppPods(apps, namespaceForTest, kubectl, "id")
 			logger.WithFields(logrus.Fields{
 				"ciliumPod": ciliumPod,
 				"clusterIP": clusterIP}).Info("Initial data")
@@ -136,50 +124,6 @@ var _ = SkipDescribeIf(func() bool {
 			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
 			_ = kubectl.Exec(cmd)
 		})
-
-		SkipItIf(helpers.SkipQuarantined, "TLS policy", func() {
-			By("Testing L7 Policy with TLS")
-
-			res := kubectl.CreateSecret("generic", "user-agent", "default", "--from-literal=user-agent=CURRL")
-			res.ExpectSuccess("Cannot create secret %s", "user-agent")
-
-			res = kubectl.CreateSecret("generic", "test-client", "default", "--from-file="+TLSCa)
-			res.ExpectSuccess("Cannot create secret %s", "test-client")
-
-			res = kubectl.CreateSecret("tls", "lyft-server", "default", "--cert="+TLSLyftCrt+" --key="+TLSLyftKey)
-			res.ExpectSuccess("Cannot create secret %s", "lyft-server")
-
-			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App2], TLSCaCerts, "/cacert.pem")
-			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App2])
-
-			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App3], TLSCaCerts, "/cacert.pem")
-			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App3])
-
-			_, err := kubectl.CiliumPolicyAction(
-				namespaceForTest, l7PolicyTLS, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Cannot install %q policy", l7PolicyTLS)
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/privacy", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
-				appPods[helpers.App2])
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/private", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://www.lyft.com:443/private'",
-				appPods[helpers.App2])
-
-			By("Testing L7 Policy with TLS without HTTP rules")
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/privacy", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
-				appPods[helpers.App3])
-
-		}, 500)
 
 		It("Invalid Policy report status correctly", func() {
 			manifest := helpers.ManifestGet(kubectl.BasePath(), "invalid_cnp.yaml")
@@ -1469,7 +1413,7 @@ var _ = SkipDescribeIf(func() bool {
 // two cases for that feature:
 //   - kube-apiserver running within the cluster (Vagrant VMs)
 //   - kube-apiserver running outside of the cluster (GKE)
-var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
+var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 	"K8sPolicyTestExtended", func() {
 		var (
 			kubectl *helpers.Kubectl

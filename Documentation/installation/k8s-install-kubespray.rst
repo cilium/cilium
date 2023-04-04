@@ -60,7 +60,7 @@ We will start by specifying the infrastructure needed for the Kubernetes cluster
 .. code-block:: shell-session
 
   $ cd contrib/terraform/aws
-  $ cp contrib/terraform/aws/terraform.tfvars.example terraform.tfvars`
+  $ cp contrib/terraform/aws/terraform.tfvars.example terraform.tfvars
 
 Open the file and change any defaults particularly, the number of master, etcd, and worker nodes. 
 You can change the master and etcd number to 1 for deployments that don't need high availability.

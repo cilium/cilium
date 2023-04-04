@@ -108,14 +108,15 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 
 	svcHealthCheckNodePort := params.Config.Flags.HealthCheckNodePort
 
-	var svcName, svcNamespace string
+	var svcName, svcNamespace, svcCluster string
 	if params.Config.Flags != nil {
 		svcName = params.Config.Flags.Name
 		svcNamespace = params.Config.Flags.Namespace
+		svcCluster = params.Config.Flags.Cluster
 	}
 
 	p := &loadbalancer.SVC{
-		Name:                loadbalancer.ServiceName{Name: svcName, Namespace: svcNamespace},
+		Name:                loadbalancer.ServiceName{Name: svcName, Namespace: svcNamespace, Cluster: svcCluster},
 		Type:                svcType,
 		Frontend:            frontend,
 		Backends:            backends,

@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -398,6 +399,14 @@ func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CI
 
 	srcRangeMap := map[string]*cidr.CIDR{}
 	for _, cidr := range sourceRanges {
+		// k8s api server does not catch the IP family mismatch, so we need to catch it here
+		if ip.IsIPv6(cidr.IP) == !ipv6 {
+			log.WithFields(logrus.Fields{
+				logfields.ServiceID: revNATID,
+				logfields.CIDR:      cidr,
+			}).Warn("Source range's IP family does not match with the LB's. Ignoring the source range CIDR")
+			continue
+		}
 		srcRangeMap[cidr.String()] = cidr
 	}
 

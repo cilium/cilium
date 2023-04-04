@@ -9,7 +9,8 @@
 Documentation
 -------------
 
-This section describes the style and testing methods of Cilium documentation.
+This section describes the style and testing methods of Cilium documentation. Before contributing, please review the documentation style guide below.
+See the :ref:`clone and provision environment section <provision_environment>` to learn how to fork and clone the repository.
 
 .. toctree::
    :maxdepth: 2

@@ -131,15 +131,13 @@ Next, obtain Cilium manifest from ``cilium/cilium-olm`` repository and copy to `
 
 .. parsed-literal::
 
-   cilium_olm_rev="master"
    cilium_version="\ |release|\ "
+   git_dir="/tmp/cilium-olm"
 
-   curl --silent --location --fail --show-error "https://github.com/cilium/cilium-olm/archive/${cilium_olm_rev}.tar.gz" --output /tmp/cilium-olm.tgz
-   tar -C /tmp -xf /tmp/cilium-olm.tgz
+   git clone https://github.com/cilium/cilium-olm.git ${git_dir}
+   cp ${git_dir}/manifests/cilium.v${cilium_version}/* "${CLUSTER_NAME}/manifests"
 
-   cp /tmp/cilium-olm-${cilium_olm_rev}/manifests/cilium.v${cilium_version}/* "${CLUSTER_NAME}/manifests"
-
-   rm -rf -- /tmp/cilium-olm.tgz "/tmp/cilium-olm-${cilium_olm_rev}"
+   test -d ${git_dir} && rm -rf -- ${git_dir}
 
 At this stage manifest directory contains all that is needed to install Cilium.
 To get a list of the Cilium manifests, run:

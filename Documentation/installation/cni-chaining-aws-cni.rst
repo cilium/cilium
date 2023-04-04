@@ -66,6 +66,7 @@ Deploy Cilium via Helm:
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
      --set cni.chainingMode=aws-cni \\
+     --set cni.exclusive=false \\
      --set enableIPv4Masquerade=false \\
      --set tunnel=disabled \\
      --set endpointRoutes.enabled=true

@@ -193,7 +193,7 @@ func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Reposit
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	ids := mgr.GetIdentityCache()
 	fakeAllocator := testidentity.NewMockIdentityAllocator(ids)
-	testRepo := NewPolicyRepository(fakeAllocator, ids, nil)
+	testRepo := NewPolicyRepository(fakeAllocator, ids, nil, nil)
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 	GenerateNumIdentities(3000)
@@ -314,7 +314,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 								isRedirect:      true,
 							},
 						},
-						DerivedFromRules: labels.LabelArrayList{nil},
+						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 					},
 				},
 				Egress:        L4PolicyMap{},
@@ -411,7 +411,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 							},
 							cachedSelectorHost: nil,
 						},
-						DerivedFromRules: labels.LabelArrayList{nil},
+						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 					},
 				},
 				Egress:        L4PolicyMap{},
@@ -496,7 +496,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: nil,
 						},
-						DerivedFromRules: labels.LabelArrayList{ruleLabel},
+						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {ruleLabel}},
 					},
 				},
 				Egress: L4PolicyMap{},
@@ -643,7 +643,10 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 								CanShortCircuit: true,
 							},
 						},
-						DerivedFromRules: labels.LabelArrayList{ruleLabel},
+						RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+							cachedSelectorWorld: {ruleLabel},
+							cachedSelectorTest:  {ruleLabel},
+						},
 					},
 				},
 				Egress: L4PolicyMap{},

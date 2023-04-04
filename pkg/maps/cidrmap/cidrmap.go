@@ -166,21 +166,9 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 	)
 
 	if err != nil {
-		log.Debug("Kernel does not support CIDR maps, using hash table instead.")
-		typeMap = bpf.MapTypeHash
-		fd, isNewMap, err = bpf.OpenOrCreateMap(
-			path,
-			typeMap,
-			uint32(unsafe.Sizeof(uint32(0))+uintptr(bytes)),
-			uint32(LPM_MAP_VALUE_SIZE),
-			maxelem,
-			bpf.BPF_F_NO_PREALLOC, 0, true,
-		)
-		if err != nil {
-			scopedLog := log.WithError(err).WithField(logfields.Path, path)
-			scopedLog.Warning("Failed to create CIDR map")
-			return nil, false, err
-		}
+		scopedLog := log.WithError(err).WithField(logfields.Path, path)
+		scopedLog.Warning("Failed to create CIDR map")
+		return nil, false, err
 	}
 
 	m := &CIDRMap{

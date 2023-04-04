@@ -10,6 +10,11 @@ space := $(empty) $(empty)
 comma := ,
 join-with-comma = $(subst $(space),$(comma),$(strip $1))
 
+define newline
+
+
+endef
+
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 RELATIVE_DIR := $(shell echo $(realpath .) | sed "s;$(ROOT_DIR)[/]*;;")
 include $(ROOT_DIR)/Makefile.quiet
@@ -59,7 +64,7 @@ endif
 
 CONSUL_IMAGE=consul:1.7.2
 
-GO ?= go
+export GO ?= go
 
 # go build/test/clean flags
 # these are declared here so they are treated explicitly
@@ -87,8 +92,9 @@ ifneq ($(V),0)
 endif
 endif
 
-GOLANGCILINT_WANT_VERSION = 1.48.0
-GOLANGCILINT_IMAGE_SHA = sha256:5e4256fd5001c1c6ec3de3d31fdae2fa2af6dd21ebbb86b3ddfe1925376af326
+# renovate: datasource=docker depName=golangci/golangci-lint
+GOLANGCILINT_WANT_VERSION = v1.51.2
+GOLANGCILINT_IMAGE_SHA = sha256:be42f5df32011553183947c2b2502718bde485f566e15bbd2541f38a077e4d29
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
@@ -202,10 +208,6 @@ GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
 GO_VET = $(GO) vet
 GO_LIST = $(GO) list
 
-ifeq ($(BASE_IMAGE),)
-    BASE_IMAGE=scratch
-endif
-
 HELM_TOOLBOX_VERSION ?= "v1.0.1"
 HELM_TOOLBOX_SHA ?= "a1483fc036b15c290326ba7ed36b8f0b714e185913b72a6074c04225d74e034c"
 HELM_TOOLBOX_IMAGE ?= "quay.io/cilium/helm-toolbox:$(HELM_TOOLBOX_VERSION)@sha256:$(HELM_TOOLBOX_SHA)"
@@ -216,4 +218,11 @@ endef
 
 define print_help_from_makefile
   @awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9][a-zA-Z0-9 _-]*:.*?##/ { split($$1, targets, " "); for (i in targets) { printf "  \033[36m%-28s\033[0m %s\n", targets[i], $$2 } } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+endef
+
+# Use to ensure the CWD, or any child of it, belongs to Cilium's go module.
+CILIUM_GO_MODULE = github.com/cilium/cilium
+CURRENT_GO_MODULE = $(shell go list -m)
+define ASSERT_CILIUM_MODULE
+	$(if $(filter $(CILIUM_GO_MODULE), $(CURRENT_GO_MODULE)) ,, $(error "Could not locate Cilium's go.mod file, are you in Cilium's repository?"))
 endef

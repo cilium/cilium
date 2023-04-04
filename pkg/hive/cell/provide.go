@@ -60,7 +60,7 @@ func (p *provider) Info(container) Info {
 	return n
 }
 
-// Provide constructs a new named cell with the given name and constructors.
+// Provide constructs a new cell with the given constructors.
 // Constructor is any function that takes zero or more parameters and returns
 // one or more values and optionally an error. For example, the following forms
 // are accepted:
@@ -91,7 +91,7 @@ func Provide(ctors ...any) Cell {
 	return &provider{ctors: ctors, export: true}
 }
 
-// ProvidePrivate is like Private, but the constructed objects are only
+// ProvidePrivate is like Provide, but the constructed objects are only
 // available within the module it is defined and nested modules.
 func ProvidePrivate(ctors ...any) Cell {
 	return &provider{ctors: ctors, export: false}

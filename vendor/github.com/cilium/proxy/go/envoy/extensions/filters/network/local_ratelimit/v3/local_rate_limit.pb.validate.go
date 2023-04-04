@@ -137,6 +137,8 @@ func (m *LocalRateLimit) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for ShareKey
+
 	if len(errors) > 0 {
 		return LocalRateLimitMultiError(errors)
 	}

@@ -79,6 +79,7 @@ type CreatePhysicalConnectionRequest struct {
 	ClientToken                   string           `position:"Query" name:"ClientToken"`
 	Description                   string           `position:"Query" name:"Description"`
 	Type                          string           `position:"Query" name:"Type"`
+	ResourceGroupId               string           `position:"Query" name:"ResourceGroupId"`
 	RedundantPhysicalConnectionId string           `position:"Query" name:"RedundantPhysicalConnectionId"`
 	PeerLocation                  string           `position:"Query" name:"PeerLocation"`
 	Bandwidth                     requests.Integer `position:"Query" name:"bandwidth"`

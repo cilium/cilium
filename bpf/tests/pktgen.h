@@ -18,21 +18,26 @@
 #include <linux/tcp.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
- *  without having to come up with custom addresses.
+ * without having to come up with custom addresses.
+ *
+ * These are declared as volatile const to make them end up in .rodata. Cilium
+ * inlines global data from .data into bytecode as immediate values for compat
+ * with kernels before 5.2 that lack read-only map support. This test suite
+ * doesn't make the same assumptions, so disable the static data inliner by
+ * putting variables in another section.
  */
-
-#define mac_one   {0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xEF}
-#define mac_two   {0x13, 0x37, 0x13, 0x37, 0x13, 0x37}
-#define mac_three {0x31, 0x41, 0x59, 0x26, 0x35, 0x89}
-#define mac_four  {0x0D, 0x1D, 0x22, 0x59, 0xA9, 0xC2}
-#define mac_five  {0x15, 0x21, 0x39, 0x45, 0x4D, 0x5D}
-#define mac_six   {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E}
+static volatile const __u8 mac_one[] =   {0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xEF};
+static volatile const __u8 mac_two[] =   {0x13, 0x37, 0x13, 0x37, 0x13, 0x37};
+static volatile const __u8 mac_three[] = {0x31, 0x41, 0x59, 0x26, 0x35, 0x89};
+static volatile const __u8 mac_four[] =  {0x0D, 0x1D, 0x22, 0x59, 0xA9, 0xC2};
+static volatile const __u8 mac_five[] =  {0x15, 0x21, 0x39, 0x45, 0x4D, 0x5D};
+static volatile const __u8 mac_six[] =   {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E};
 
 /* A collection of pre-defined IP addresses, so tests can reuse them without
  *  having to come up with custom ips.
  */
 
-#define IPV4(a, b, c, d) (((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
+#define IPV4(a, b, c, d) __bpf_htonl(((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
 
 /* IPv4 addresses for hosts, external to the cluster */
 #define v4_ext_one	IPV4(110, 0, 11, 1)
@@ -54,6 +59,22 @@
 #define v4_pod_two	IPV4(192, 168, 0, 2)
 #define v4_pod_three	IPV4(192, 168, 0, 3)
 
+/* IPv6 addresses for pods in the cluster */
+static volatile const __u8 v6_pod_one[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 1};
+static volatile const __u8 v6_pod_two[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 2};
+static volatile const __u8 v6_pod_three[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 3};
+
+/* IPv6 addresses for nodes in the cluster */
+static volatile const __u8 v6_node_one[] = {0xfd, 0x05, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 1};
+static volatile const __u8 v6_node_two[] = {0xfd, 0x06, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 2};
+static volatile const __u8 v6_node_three[] = {0xfd, 0x07, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 3};
+
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22334)
 #define tcp_src_two	__bpf_htons(33445)
@@ -64,6 +85,23 @@
 #define tcp_svc_three	__bpf_htons(53)
 
 #define default_data "Should not change!!"
+
+#define NEXTHDR_HOP             0       /* Hop-by-hop option header. */
+#define NEXTHDR_TCP             6       /* TCP segment. */
+#define NEXTHDR_UDP             17      /* UDP message. */
+#define NEXTHDR_IPV6            41      /* IPv6 in IPv6 */
+#define NEXTHDR_ROUTING         43      /* Routing header. */
+#define NEXTHDR_FRAGMENT        44      /* Fragmentation/reassembly header. */
+#define NEXTHDR_GRE             47      /* GRE header. */
+#define NEXTHDR_ESP             50      /* Encapsulating security payload. */
+#define NEXTHDR_AUTH            51      /* Authentication header. */
+#define NEXTHDR_ICMP            58      /* ICMP for IPv6. */
+#define NEXTHDR_NONE            59      /* No next header */
+#define NEXTHDR_DEST            60      /* Destination options header. */
+#define NEXTHDR_SCTP            132     /* SCTP message. */
+#define NEXTHDR_MOBILITY        135     /* Mobility header. */
+
+#define NEXTHDR_MAX             255
 
 /* Define SCTP header here because this is all we need. */
 struct sctphdr {
@@ -84,7 +122,10 @@ enum pkt_layer {
 	PKT_LAYER_IPV4,
 	PKT_LAYER_IPV6,
 	PKT_LAYER_ARP,
-	/* TODO IPv6 extension headers */
+
+	/* IPv6 extension headers */
+	PKT_LAYER_IPV6_HOP_BY_HOP,
+	PKT_LAYER_IPV6_AUTH,
 
 	/* L4 layers */
 	PKT_LAYER_TCP,
@@ -96,6 +137,8 @@ enum pkt_layer {
 	/* Packet data*/
 	PKT_LAYER_DATA,
 };
+
+#define IPV6_DEFAULT_HOPLIMIT 64
 
 #define PKT_BUILDER_LAYERS 6
 
@@ -131,6 +174,29 @@ int pktgen__free_layer(const struct pktgen *builder)
 	}
 
 	return -1;
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+int ctx_data_valid(const struct __ctx_buff *ctx, __maybe_unused __u16 off)
+{
+	int ret = 0;
+
+	/* try to open up a range on the pkt reg */
+	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
+		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
+		     "%[off] &= %[offmax]\n\t"
+		     "r1 += %[off]\n\t"
+		     "if r1 > r2 goto +2\n\t"
+		     "%[ret] = 0\n\t"
+		     "goto +1\n\t"
+		     "%[ret] = %[errno]\n\t"
+		     : [ret]"=r"(ret)
+		     : [ctx]"r"(ctx), [off]"r"(off),
+		       [offmax]"i"(0xff), [errno]"i"(-EINVAL)
+		     : "r1", "r2");
+
+	return ret;
 }
 
 /* Push an empty ethernet header onto the packet */
@@ -177,21 +243,25 @@ void ethhdr__set_macs(struct ethhdr *l2, unsigned char *src, unsigned char *dst)
 /* Push an empty IPv4 header onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
-struct iphdr *pktgen__push_iphdr(struct pktgen *builder)
+struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 {
+	__u32 length = sizeof(struct iphdr) + option_bytes;
 	struct __ctx_buff *ctx = builder->ctx;
 	struct iphdr *layer;
 	int layer_idx;
 
+	if (option_bytes > MAX_IPOPTLEN)
+		return 0;
+
 	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct iphdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct iphdr) > ctx_data_end(ctx))
+	ctx_adjust_troom(ctx, builder->cur_off + length - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + length > ctx_data_end(ctx))
 		return 0;
 
 	/* Check that any value within the struct will not exceed a u16 which
 	 * is the max allowed offset within a packet from ctx->data.
 	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct iphdr))
+	if (builder->cur_off >= MAX_PACKET_OFF - length)
 		return 0;
 
 	layer = ctx_data(ctx) + builder->cur_off;
@@ -202,27 +272,160 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder)
 
 	builder->layers[layer_idx] = PKT_LAYER_IPV4;
 	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += sizeof(struct iphdr);
+	builder->cur_off += length;
 
 	return layer;
 }
 
-/* Push a IPv4 header with sane defaults onto the packet */
+/* helper to set the source and destination ipv6 address at the same time */
+static __always_inline
+void ipv6hdr__set_addrs(struct ipv6hdr *l3, __u8 *src, __u8 *dst)
+{
+	memcpy((__u8 *)&l3->saddr, src, 16);
+	memcpy((__u8 *)&l3->daddr, dst, 16);
+}
+
 static __always_inline
 __attribute__((warn_unused_result))
-struct iphdr *pktgen__push_default_iphdr(struct pktgen *builder)
+struct ipv6hdr *pktgen__push_ipv6hdr(struct pktgen *builder)
 {
-	struct iphdr *hdr = pktgen__push_iphdr(builder);
+	struct __ctx_buff *ctx = builder->ctx;
+	struct ipv6hdr *layer;
+	int layer_idx;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ipv6hdr) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct ipv6hdr) > ctx_data_end(ctx))
+		return 0;
+
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
+		return 0;
+
+	layer = ctx_data(ctx) + builder->cur_off;
+	layer_idx = pktgen__free_layer(builder);
+
+	if (layer_idx < 0)
+		return 0;
+
+	builder->layers[layer_idx] = PKT_LAYER_IPV6;
+	builder->layer_offsets[layer_idx] = builder->cur_off;
+	builder->cur_off += sizeof(struct ipv6hdr);
+
+	return layer;
+}
+
+/* Push a IPv4 header with sane defaults and options onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct iphdr *pktgen__push_default_iphdr_with_options(struct pktgen *builder,
+						      __u8 option_words)
+{
+	struct iphdr *hdr = pktgen__push_iphdr(builder, option_words * 4);
 
 	if (!hdr)
 		return 0;
 
 	hdr->version = 4;
-	/* No options by default */
-	hdr->ihl = 5;
+	hdr->ihl = 5 + option_words;
 	hdr->ttl = 64;
 	/* No fragmentation by default */
 	hdr->frag_off = 0;
+
+	return hdr;
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct iphdr *pktgen__push_default_iphdr(struct pktgen *builder)
+{
+	return pktgen__push_default_iphdr_with_options(builder, 0);
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+void *pktgen__push_rawhdr(struct pktgen *builder, __u16 hdrsize, enum pkt_layer type)
+{
+	struct __ctx_buff *ctx = builder->ctx;
+	void *layer = NULL;
+	int layer_idx;
+
+	ctx_adjust_troom(ctx, builder->cur_off + hdrsize - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + hdrsize > ctx_data_end(ctx))
+		return NULL;
+
+	if (builder->cur_off >= MAX_PACKET_OFF - hdrsize)
+		return NULL;
+
+	layer = ctx_data(ctx) + builder->cur_off;
+	layer_idx = pktgen__free_layer(builder);
+
+	if (layer_idx < 0)
+		return NULL;
+
+	builder->layers[layer_idx] = type;
+	builder->layer_offsets[layer_idx] = builder->cur_off;
+	builder->cur_off += hdrsize;
+
+	return layer;
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder,
+							  __maybe_unused __u8 nexthdr)
+{
+	struct ipv6_opt_hdr *hdr = NULL;
+	__u8 hdrlen = 0;
+	__u8 length = 0;
+	/* TODO improve */
+	switch (nexthdr) {
+	case NEXTHDR_HOP:
+		length = (0 + 1) << 3;
+		hdr = pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV6_HOP_BY_HOP);
+		break;
+	case NEXTHDR_AUTH:
+		length = (2 + 2) << 2;
+		hdr = pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV6_AUTH);
+		hdrlen = 2;
+		break;
+	default:
+		break;
+	}
+
+	if (!hdr)
+		return NULL;
+
+	/* after multiple extension headers are added, LLVM tends to generate
+	 * code that verifier doesn't understand. try to open up a range on
+	 * the pkt reg
+	 */
+	if (ctx_data_valid(builder->ctx, builder->cur_off))
+		return NULL;
+
+	hdr->hdrlen = hdrlen;
+
+	return hdr;
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct ipv6hdr *pktgen__push_default_ipv6hdr(struct pktgen *builder)
+{
+	struct ipv6hdr *hdr = pktgen__push_rawhdr(builder,
+			sizeof(struct ipv6hdr), PKT_LAYER_IPV6);
+
+	if (!hdr)
+		return NULL;
+
+	if ((void *) hdr + sizeof(struct ipv6hdr) > ctx_data_end(builder->ctx))
+		return NULL;
+
+	memset(hdr, 0, sizeof(struct ipv6hdr));
+	hdr->version = 6;
+	hdr->hop_limit = IPV6_DEFAULT_HOPLIMIT;
 
 	return hdr;
 }
@@ -376,6 +579,7 @@ void pktgen__finish(const struct pktgen *builder)
 	struct ethhdr *eth_layer;
 	struct iphdr *ipv4_layer;
 	struct ipv6hdr *ipv6_layer;
+	struct ipv6_opt_hdr *ipv6_opt_layer;
 	struct tcphdr *tcp_layer;
 	__u16 layer_off;
 	__u16 v4len;
@@ -480,6 +684,12 @@ void pktgen__finish(const struct pktgen *builder)
 				return;
 
 			switch (builder->layers[i + 1]) {
+			case PKT_LAYER_IPV6_HOP_BY_HOP:
+				ipv6_layer->nexthdr = NEXTHDR_HOP;
+				break;
+			case PKT_LAYER_IPV6_AUTH:
+				ipv6_layer->nexthdr = NEXTHDR_AUTH;
+				break;
 			case PKT_LAYER_TCP:
 				ipv6_layer->nexthdr = IPPROTO_TCP;
 				break;
@@ -501,6 +711,44 @@ void pktgen__finish(const struct pktgen *builder)
 
 			/* Calculate payload length, which doesn't include the header size */
 			ipv6_layer->payload_len = __bpf_htons(v6len);
+
+			break;
+
+		case PKT_LAYER_IPV6_HOP_BY_HOP:
+		case PKT_LAYER_IPV6_AUTH:
+			layer_off = builder->layer_offsets[i];
+			if (layer_off >= MAX_PACKET_OFF - sizeof(struct ipv6_opt_hdr))
+				return;
+
+			ipv6_opt_layer = ctx_data(builder->ctx) + layer_off;
+			if ((void *)(ipv6_opt_layer + 1) > ctx_data_end(builder->ctx))
+				return;
+
+			if (i + 1 >= PKT_BUILDER_LAYERS)
+				return;
+
+			switch (builder->layers[i + 1]) {
+			case PKT_LAYER_IPV6_HOP_BY_HOP:
+				ipv6_opt_layer->nexthdr = NEXTHDR_HOP;
+				break;
+			case PKT_LAYER_IPV6_AUTH:
+				ipv6_opt_layer->nexthdr = NEXTHDR_AUTH;
+				break;
+			case PKT_LAYER_TCP:
+				ipv6_opt_layer->nexthdr = IPPROTO_TCP;
+				break;
+			case PKT_LAYER_UDP:
+				ipv6_opt_layer->nexthdr = IPPROTO_UDP;
+				break;
+			case PKT_LAYER_ICMPV6:
+				ipv6_opt_layer->nexthdr = IPPROTO_ICMPV6;
+				break;
+			case PKT_LAYER_SCTP:
+				ipv6_opt_layer->nexthdr = IPPROTO_SCTP;
+				break;
+			default:
+				break;
+			}
 
 			break;
 

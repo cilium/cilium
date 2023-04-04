@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	iradix "github.com/hashicorp/go-immutable-radix"
+	iradix "github.com/hashicorp/go-immutable-radix/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/common"
@@ -116,7 +116,7 @@ func getLPMValue(ip net.IP, entries map[string][]string) (interface{}, bool) {
 		lpmEntries = append(lpmEntries, lpmEntry{prefix, identity})
 	}
 
-	r := iradix.New()
+	r := iradix.New[[]string]()
 	for _, e := range lpmEntries {
 		r, _, _ = r.Insert(e.prefix, e.identity)
 	}

@@ -75,6 +75,7 @@ type CreateTrafficMirrorSessionRequest struct {
 	ResourceOwnerId                 requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken                     string           `position:"Query" name:"ClientToken"`
 	Enabled                         requests.Boolean `position:"Query" name:"Enabled"`
+	ResourceGroupId                 string           `position:"Query" name:"ResourceGroupId"`
 	TrafficMirrorSessionName        string           `position:"Query" name:"TrafficMirrorSessionName"`
 	TrafficMirrorSessionDescription string           `position:"Query" name:"TrafficMirrorSessionDescription"`
 	TrafficMirrorSourceIds          *[]string        `position:"Query" name:"TrafficMirrorSourceIds"  type:"Repeated"`
@@ -94,6 +95,7 @@ type CreateTrafficMirrorSessionResponse struct {
 	*responses.BaseResponse
 	TrafficMirrorSessionId string `json:"TrafficMirrorSessionId" xml:"TrafficMirrorSessionId"`
 	RequestId              string `json:"RequestId" xml:"RequestId"`
+	ResourceGroupId        string `json:"ResourceGroupId" xml:"ResourceGroupId"`
 }
 
 // CreateCreateTrafficMirrorSessionRequest creates a request to invoke CreateTrafficMirrorSession API

@@ -71,18 +71,16 @@ func (client *Client) ReleasePublicIpAddressWithCallback(request *ReleasePublicI
 // ReleasePublicIpAddressRequest is the request struct for api ReleasePublicIpAddress
 type ReleasePublicIpAddressRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	PublicIpAddress      string           `position:"Query" name:"PublicIpAddress"`
-	InstanceId           string           `position:"Query" name:"InstanceId"`
+	DryRun          requests.Boolean `position:"Query" name:"DryRun"`
+	PublicIpAddress string           `position:"Query" name:"PublicIpAddress"`
+	InstanceId      string           `position:"Query" name:"InstanceId"`
 }
 
 // ReleasePublicIpAddressResponse is the response struct for api ReleasePublicIpAddress
 type ReleasePublicIpAddressResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
+	RequestId   string `json:"RequestId" xml:"RequestId"`
+	RemainTimes string `json:"RemainTimes" xml:"RemainTimes"`
 }
 
 // CreateReleasePublicIpAddressRequest creates a request to invoke ReleasePublicIpAddress API

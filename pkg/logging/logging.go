@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/klog/v2"
@@ -26,8 +27,9 @@ const (
 	LevelOpt  = "level"
 	FormatOpt = "format"
 
-	LogFormatText LogFormat = "text"
-	LogFormatJSON LogFormat = "json"
+	LogFormatText          LogFormat = "text"
+	LogFormatJSON          LogFormat = "json"
+	LogFormatJSONTimestamp LogFormat = "json-ts"
 
 	// DefaultLogFormat is the string representation of the default logrus.Formatter
 	// we want to use (possible values: text or json)
@@ -105,10 +107,10 @@ func (o LogOptions) GetLogFormat() LogFormat {
 	}
 
 	formatOpt = strings.ToLower(formatOpt)
-	re := regexp.MustCompile(`^(text|json)$`)
+	re := regexp.MustCompile(`^(text|json|json-ts)$`)
 	if !re.MatchString(formatOpt) {
 		logrus.WithError(
-			fmt.Errorf("incorrect log format configured '%s', expected 'text' or 'json'", formatOpt),
+			fmt.Errorf("incorrect log format configured '%s', expected 'text', 'json' or 'json-ts'", formatOpt),
 		).Warning("Ignoring user-configured log format")
 		return DefaultLogFormat
 	}
@@ -202,6 +204,11 @@ func GetFormatter(format LogFormat) logrus.Formatter {
 	case LogFormatJSON:
 		return &logrus.JSONFormatter{
 			DisableTimestamp: true,
+		}
+	case LogFormatJSONTimestamp:
+		return &logrus.JSONFormatter{
+			DisableTimestamp: false,
+			TimestampFormat:  time.RFC3339Nano,
 		}
 	}
 

@@ -1,19 +1,18 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:1b8f97cf70e2a4e7b0609f259d9540523c50cc9f@sha256:0b18c799b88ec039cb0d6d6338ddf539f530319960f9dbc22b69ec6167d3c2ec
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:1a8102930aa1ec5d82312abc941edb4097db000a@sha256:a17d29f9d79dc984314c4f3420d5455a465b8201afb1eef3db7063d8de982b19
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:43a07ce3ec4a5475d198b1e1ee88117e47deb5f9@sha256:3a989bb73973bdc140803ef97af9bcf953c50aead2c3447cfb49292f1bd97461
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:fe3fe058796057d2a089fac72a6a7afdf6b31435@sha256:d3f15d63ba73529963a3e9b5b2ff737f5638fc7a33819ac5380e72f2af7b4642
 
 # cilium-envoy from github.com/cilium/proxy
 #
-FROM quay.io/cilium/cilium-envoy:ff9a74a473dd5c1f6bfd7ce10938dab648f70c09@sha256:35afe14537ebf9fcfe4ab3d9488ec7f884bc2661da73383294f9b72deee82cfe as cilium-envoy
+FROM quay.io/cilium/cilium-envoy:b218e4dd49048afd03984963f832fe4a80f8e26f@sha256:78828f19e90d16ccd25c9f461e86d3d08b8f1e2b347f997501b59e30fc3d6b1e as cilium-envoy
 
 #
 # Hubble CLI
 #
 FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} as hubble
 ARG BUILDPLATFORM
-COPY images/cilium/hubble-version.sh /tmp/hubble-version.sh
 COPY images/cilium/download-hubble.sh /tmp/download-hubble.sh
 RUN /tmp/download-hubble.sh
 RUN /out/${BUILDPLATFORM}/bin/hubble completion bash > /out/linux/bash_completion
@@ -60,6 +59,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=
 
 COPY images/cilium/init-container.sh \
      plugins/cilium-cni/cni-install.sh \
+     plugins/cilium-cni/install-plugin.sh \
      plugins/cilium-cni/cni-uninstall.sh \
        /tmp/install/${TARGETOS}/${TARGETARCH}
 
@@ -106,6 +106,8 @@ FROM release as debug
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
+ARG DEBUG_HOLD
+ENV DEBUG_HOLD=${DEBUG_HOLD}
+COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-agent /usr/bin/cilium-agent-bin
 COPY --from=builder /go/bin/dlv /usr/bin/dlv
-RUN mv /usr/bin/cilium-agent /usr/bin/cilium-agent-bin
-COPY images/scripts/debug-wrapper.sh /usr/bin/cilium-agent
+COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/bin/debug-wrapper /usr/bin/cilium-agent

@@ -189,9 +189,23 @@ func TestFlowsToWorldHandler_IncludePort(t *testing.T) {
 		IsReply:          wrapperspb.Bool(false),
 	}
 	h.ProcessFlow(context.Background(), &flow)
+	flow.L4 = &flowpb.Layer4{
+		Protocol: &flowpb.Layer4_UDP{
+			UDP: &flowpb.UDP{DestinationPort: 53},
+		},
+	}
+	h.ProcessFlow(context.Background(), &flow)
+	flow.L4 = &flowpb.Layer4{
+		Protocol: &flowpb.Layer4_SCTP{
+			SCTP: &flowpb.SCTP{DestinationPort: 2905},
+		},
+	}
+	h.ProcessFlow(context.Background(), &flow)
 	expected := strings.NewReader(`# HELP hubble_flows_to_world_total Total number of flows to reserved:world
 # TYPE hubble_flows_to_world_total counter
+hubble_flows_to_world_total{destination="cilium.io",port="2905",protocol="SCTP",source="src-a",verdict="FORWARDED"} 1
 hubble_flows_to_world_total{destination="cilium.io",port="80",protocol="TCP",source="src-a",verdict="FORWARDED"} 1
+hubble_flows_to_world_total{destination="cilium.io",port="53",protocol="UDP",source="src-a",verdict="FORWARDED"} 1
 `)
 	assert.NoError(t, testutil.CollectAndCompare(h.flowsToWorld, expected))
 }
@@ -220,6 +234,10 @@ func TestFlowsToWorldHandler_SynOnly(t *testing.T) {
 	}
 	h.ProcessFlow(context.Background(), &flow)
 
+	// flows without is_reply field should be counted.
+	flow.IsReply = nil
+	h.ProcessFlow(context.Background(), &flow)
+
 	// reply flows should not be counted
 	flow.IsReply = wrapperspb.Bool(true)
 	h.ProcessFlow(context.Background(), &flow)
@@ -231,7 +249,7 @@ func TestFlowsToWorldHandler_SynOnly(t *testing.T) {
 
 	expected := strings.NewReader(`# HELP hubble_flows_to_world_total Total number of flows to reserved:world
 # TYPE hubble_flows_to_world_total counter
-hubble_flows_to_world_total{destination="cilium.io",protocol="TCP",source="src-a",verdict="DROPPED"} 1
+hubble_flows_to_world_total{destination="cilium.io",protocol="TCP",source="src-a",verdict="DROPPED"} 2
 `)
 	assert.NoError(t, testutil.CollectAndCompare(h.flowsToWorld, expected))
 }

@@ -127,9 +127,9 @@ Generating CRD YAML
 To simply generate the CRDs and copy them into the correct location you
 must perform two tasks:
 
-* Update the ``Makefile`` to copy your generated CRD from a ``tmp`` directory to 
-  the correct location in Cilium repository. Edit the following 
-  `location <https://github.com/cilium/cilium/blob/89ca3eddf3dae9ac5fc6c343a2cd26cf3aa405fa/Makefile#L303-L311>`__
+* Update the ``Makefile`` to edit the ``CRDS_CILIUM_V2`` or
+  ``CRDS_CILIUM_V2ALPHA1`` variable (depending on the version of your new CRD)
+  to contain the plural name of your new CRD.
 * Run ``make manifests``
 
 This will generate your Golang structs into CRD manifests and copy them
@@ -221,10 +221,8 @@ scheme.
            metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 
 You should also bump the ``CustomResourceDefinitionSchemaVersion``
-variable in the correct ``{api_version}/register.go`` to instruct Cilium
-that new CRDs have been added to the system. For example, bump this line if
-adding a CRD to the ``v2`` group:
-`register.go <https://github.com/cilium/cilium/blob/ea9fd6f97b6e7b0d115067dc9f69ba461055530f/pkg/k8s/apis/cilium.io/v2/register.go#L21-L27>`__
+variable in ``register.go`` to instruct Cilium
+that new CRDs have been added to the system.
 
 Register With Client
 ~~~~~~~~~~~~~~~~~~~~
@@ -258,7 +256,7 @@ client.
                    synced.CRDResourceName(k8sconstv2alpha1.CESName):  createCESCRD,
    +               synced.CRDResourceName(k8sconstv2alpha1.BGPPName): createCESCRD,
            }
-           for _, r := range synced.AllCRDResourceNames() {
+           for _, r := range synced.AllCiliumCRDResourceNames() {
                    fn, ok := resourceToCreateFnMapping[r]
    @@ -127,6 +134,12 @@ var (
     

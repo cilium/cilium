@@ -26,6 +26,7 @@ type NetworkAclAttribute struct {
 	OwnerId           int64                               `json:"OwnerId" xml:"OwnerId"`
 	Description       string                              `json:"Description" xml:"Description"`
 	IngressAclEntries IngressAclEntriesInCreateNetworkAcl `json:"IngressAclEntries" xml:"IngressAclEntries"`
+	Tags              TagsInDescribeNetworkAclAttributes  `json:"Tags" xml:"Tags"`
 	EgressAclEntries  EgressAclEntriesInCreateNetworkAcl  `json:"EgressAclEntries" xml:"EgressAclEntries"`
 	Resources         ResourcesInCreateNetworkAcl         `json:"Resources" xml:"Resources"`
 }

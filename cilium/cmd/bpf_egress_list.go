@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	egressListUsage = "List egress policy entries.\n" + lpmWarningMessage
+	egressListUsage = "List egress policy entries."
 )
 
 type egressPolicy struct {
@@ -67,7 +67,7 @@ var bpfEgressListCmd = &cobra.Command{
 		}
 
 		if len(bpfEgressList) == 0 {
-			fmt.Fprintf(os.Stderr, "No entries found.\n%v\n", lpmWarningMessage)
+			fmt.Fprintf(os.Stderr, "No entries found.\n")
 		} else {
 			printEgressList(bpfEgressList)
 		}

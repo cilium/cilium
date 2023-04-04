@@ -16,6 +16,8 @@ limitations under the License.
 
 package v1alpha2
 
+import "sigs.k8s.io/gateway-api/apis/v1beta1"
+
 // LocalObjectReference identifies an API object within the namespace of the
 // referrer.
 // The API object must be valid in the cluster; the Group and Kind must
@@ -24,17 +26,8 @@ package v1alpha2
 // References to objects with invalid Group and Kind are not valid, and must
 // be rejected by the implementation, with appropriate Conditions set
 // on the containing object.
-type LocalObjectReference struct {
-	// Group is the group of the referent. For example, "networking.k8s.io".
-	// When unspecified (empty string), core API group is inferred.
-	Group Group `json:"group"`
-
-	// Kind is kind of the referent. For example "HTTPRoute" or "Service".
-	Kind Kind `json:"kind"`
-
-	// Name is the name of the referent.
-	Name ObjectName `json:"name"`
-}
+// +k8s:deepcopy-gen=false
+type LocalObjectReference = v1beta1.LocalObjectReference
 
 // SecretObjectReference identifies an API object including its namespace,
 // defaulting to Secret.
@@ -45,36 +38,8 @@ type LocalObjectReference struct {
 // References to objects with invalid Group and Kind are not valid, and must
 // be rejected by the implementation, with appropriate Conditions set
 // on the containing object.
-type SecretObjectReference struct {
-	// Group is the group of the referent. For example, "networking.k8s.io".
-	// When unspecified (empty string), core API group is inferred.
-	//
-	// +optional
-	// +kubebuilder:default=""
-	Group *Group `json:"group"`
-
-	// Kind is kind of the referent. For example "HTTPRoute" or "Service".
-	//
-	// +optional
-	// +kubebuilder:default=Secret
-	Kind *Kind `json:"kind"`
-
-	// Name is the name of the referent.
-	Name ObjectName `json:"name"`
-
-	// Namespace is the namespace of the backend. When unspecified, the local
-	// namespace is inferred.
-	//
-	// Note that when a different namespace is specified, a ReferenceGrant
-	// object with ReferenceGrantTo.Kind=Secret is required in the referent
-	// namespace to allow that namespace's owner to accept the reference.
-	// See the ReferenceGrant documentation for details.
-	//
-	// Support: Core
-	//
-	// +optional
-	Namespace *Namespace `json:"namespace,omitempty"`
-}
+// +k8s:deepcopy-gen=false
+type SecretObjectReference = v1beta1.SecretObjectReference
 
 // BackendObjectReference defines how an ObjectReference that is
 // specific to BackendRef. It includes a few additional fields and features
@@ -91,43 +56,5 @@ type SecretObjectReference struct {
 // References to objects with invalid Group and Kind are not valid, and must
 // be rejected by the implementation, with appropriate Conditions set
 // on the containing object.
-type BackendObjectReference struct {
-	// Group is the group of the referent. For example, "networking.k8s.io".
-	// When unspecified (empty string), core API group is inferred.
-	//
-	// +optional
-	// +kubebuilder:default=""
-	Group *Group `json:"group,omitempty"`
-
-	// Kind is kind of the referent. For example "HTTPRoute" or "Service".
-	// Defaults to "Service" when not specified.
-	//
-	// +optional
-	// +kubebuilder:default=Service
-	Kind *Kind `json:"kind,omitempty"`
-
-	// Name is the name of the referent.
-	Name ObjectName `json:"name"`
-
-	// Namespace is the namespace of the backend. When unspecified, the local
-	// namespace is inferred.
-	//
-	// Note that when a different namespace is specified, a ReferenceGrant
-	// object with ReferenceGrantTo.Kind=Service is required in the referent
-	// namespace to allow that namespace's owner to accept the reference.
-	// See the ReferenceGrant documentation for details.
-	//
-	// Support: Core
-	//
-	// +optional
-	Namespace *Namespace `json:"namespace,omitempty"`
-
-	// Port specifies the destination port number to use for this resource.
-	// Port is required when the referent is a Kubernetes Service. In this
-	// case, the port number is the service port number, not the target port.
-	// For other resources, destination port might be derived from the referent
-	// resource or this field.
-	//
-	// +optional
-	Port *PortNumber `json:"port,omitempty"`
-}
+// +k8s:deepcopy-gen=false
+type BackendObjectReference = v1beta1.BackendObjectReference

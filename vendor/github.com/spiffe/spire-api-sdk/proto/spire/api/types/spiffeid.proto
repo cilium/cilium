@@ -1,0 +1,15 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+// A SPIFFE ID, consisting of the trust domain name and a path portions of
+// the SPIFFE ID URI.
+message SPIFFEID {
+    // Trust domain portion the SPIFFE ID (e.g. "example.org")
+    string trust_domain = 1;
+
+    // The path component of the SPIFFE ID (e.g. "/foo/bar/baz"). The path
+    // SHOULD have a leading slash. Consumers MUST normalize the path before
+    // making any sort of comparison between IDs.
+    string path = 2;
+}

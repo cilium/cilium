@@ -829,6 +829,53 @@ func (x *FqdnCapability) GetDomainName() string {
 	return ""
 }
 
+type SoftwareVersionCapability struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	SoftwareVersion string `protobuf:"bytes,1,opt,name=software_version,json=softwareVersion,proto3" json:"software_version,omitempty"`
+}
+
+func (x *SoftwareVersionCapability) Reset() {
+	*x = SoftwareVersionCapability{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_capability_proto_msgTypes[15]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SoftwareVersionCapability) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SoftwareVersionCapability) ProtoMessage() {}
+
+func (x *SoftwareVersionCapability) ProtoReflect() protoreflect.Message {
+	mi := &file_capability_proto_msgTypes[15]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SoftwareVersionCapability.ProtoReflect.Descriptor instead.
+func (*SoftwareVersionCapability) Descriptor() ([]byte, []int) {
+	return file_capability_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *SoftwareVersionCapability) GetSoftwareVersion() string {
+	if x != nil {
+		return x.SoftwareVersion
+	}
+	return ""
+}
+
 type UnknownCapability struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -841,7 +888,7 @@ type UnknownCapability struct {
 func (x *UnknownCapability) Reset() {
 	*x = UnknownCapability{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_capability_proto_msgTypes[15]
+		mi := &file_capability_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -854,7 +901,7 @@ func (x *UnknownCapability) String() string {
 func (*UnknownCapability) ProtoMessage() {}
 
 func (x *UnknownCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_capability_proto_msgTypes[15]
+	mi := &file_capability_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -867,7 +914,7 @@ func (x *UnknownCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnknownCapability.ProtoReflect.Descriptor instead.
 func (*UnknownCapability) Descriptor() ([]byte, []int) {
-	return file_capability_proto_rawDescGZIP(), []int{15}
+	return file_capability_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *UnknownCapability) GetCode() uint32 {
@@ -967,14 +1014,19 @@ var file_capability_proto_rawDesc = []byte{
 	0x0a, 0x09, 0x68, 0x6f, 0x73, 0x74, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x09, 0x52, 0x08, 0x68, 0x6f, 0x73, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x1f, 0x0a, 0x0b, 0x64,
 	0x6f, 0x6d, 0x61, 0x69, 0x6e, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x0a, 0x64, 0x6f, 0x6d, 0x61, 0x69, 0x6e, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x3d, 0x0a, 0x11,
-	0x55, 0x6e, 0x6b, 0x6e, 0x6f, 0x77, 0x6e, 0x43, 0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69, 0x74,
-	0x79, 0x12, 0x12, 0x0a, 0x04, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52,
-	0x04, 0x63, 0x6f, 0x64, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02,
-	0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x42, 0x24, 0x5a, 0x22, 0x67,
-	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6f, 0x73, 0x72, 0x67, 0x2f, 0x67,
-	0x6f, 0x62, 0x67, 0x70, 0x2f, 0x76, 0x33, 0x2f, 0x61, 0x70, 0x69, 0x3b, 0x61, 0x70, 0x69, 0x70,
-	0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x52, 0x0a, 0x64, 0x6f, 0x6d, 0x61, 0x69, 0x6e, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x46, 0x0a, 0x19,
+	0x53, 0x6f, 0x66, 0x74, 0x77, 0x61, 0x72, 0x65, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x43,
+	0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x12, 0x29, 0x0a, 0x10, 0x73, 0x6f, 0x66,
+	0x74, 0x77, 0x61, 0x72, 0x65, 0x5f, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x0f, 0x73, 0x6f, 0x66, 0x74, 0x77, 0x61, 0x72, 0x65, 0x56, 0x65, 0x72,
+	0x73, 0x69, 0x6f, 0x6e, 0x22, 0x3d, 0x0a, 0x11, 0x55, 0x6e, 0x6b, 0x6e, 0x6f, 0x77, 0x6e, 0x43,
+	0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x12, 0x12, 0x0a, 0x04, 0x63, 0x6f, 0x64,
+	0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x04, 0x63, 0x6f, 0x64, 0x65, 0x12, 0x14, 0x0a,
+	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61,
+	0x6c, 0x75, 0x65, 0x42, 0x24, 0x5a, 0x22, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
+	0x6d, 0x2f, 0x6f, 0x73, 0x72, 0x67, 0x2f, 0x67, 0x6f, 0x62, 0x67, 0x70, 0x2f, 0x76, 0x33, 0x2f,
+	0x61, 0x70, 0x69, 0x3b, 0x61, 0x70, 0x69, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -990,7 +1042,7 @@ func file_capability_proto_rawDescGZIP() []byte {
 }
 
 var file_capability_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_capability_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_capability_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_capability_proto_goTypes = []interface{}{
 	(AddPathCapabilityTuple_Mode)(0),                // 0: apipb.AddPathCapabilityTuple.Mode
 	(*MultiProtocolCapability)(nil),                 // 1: apipb.MultiProtocolCapability
@@ -1008,20 +1060,21 @@ var file_capability_proto_goTypes = []interface{}{
 	(*LongLivedGracefulRestartCapability)(nil),      // 13: apipb.LongLivedGracefulRestartCapability
 	(*RouteRefreshCiscoCapability)(nil),             // 14: apipb.RouteRefreshCiscoCapability
 	(*FqdnCapability)(nil),                          // 15: apipb.FqdnCapability
-	(*UnknownCapability)(nil),                       // 16: apipb.UnknownCapability
-	(*Family)(nil),                                  // 17: apipb.Family
+	(*SoftwareVersionCapability)(nil),               // 16: apipb.SoftwareVersionCapability
+	(*UnknownCapability)(nil),                       // 17: apipb.UnknownCapability
+	(*Family)(nil),                                  // 18: apipb.Family
 }
 var file_capability_proto_depIdxs = []int32{
-	17, // 0: apipb.MultiProtocolCapability.family:type_name -> apipb.Family
-	17, // 1: apipb.ExtendedNexthopCapabilityTuple.nlri_family:type_name -> apipb.Family
-	17, // 2: apipb.ExtendedNexthopCapabilityTuple.nexthop_family:type_name -> apipb.Family
+	18, // 0: apipb.MultiProtocolCapability.family:type_name -> apipb.Family
+	18, // 1: apipb.ExtendedNexthopCapabilityTuple.nlri_family:type_name -> apipb.Family
+	18, // 2: apipb.ExtendedNexthopCapabilityTuple.nexthop_family:type_name -> apipb.Family
 	4,  // 3: apipb.ExtendedNexthopCapability.tuples:type_name -> apipb.ExtendedNexthopCapabilityTuple
-	17, // 4: apipb.GracefulRestartCapabilityTuple.family:type_name -> apipb.Family
+	18, // 4: apipb.GracefulRestartCapabilityTuple.family:type_name -> apipb.Family
 	6,  // 5: apipb.GracefulRestartCapability.tuples:type_name -> apipb.GracefulRestartCapabilityTuple
-	17, // 6: apipb.AddPathCapabilityTuple.family:type_name -> apipb.Family
+	18, // 6: apipb.AddPathCapabilityTuple.family:type_name -> apipb.Family
 	0,  // 7: apipb.AddPathCapabilityTuple.mode:type_name -> apipb.AddPathCapabilityTuple.Mode
 	9,  // 8: apipb.AddPathCapability.tuples:type_name -> apipb.AddPathCapabilityTuple
-	17, // 9: apipb.LongLivedGracefulRestartCapabilityTuple.family:type_name -> apipb.Family
+	18, // 9: apipb.LongLivedGracefulRestartCapabilityTuple.family:type_name -> apipb.Family
 	12, // 10: apipb.LongLivedGracefulRestartCapability.tuples:type_name -> apipb.LongLivedGracefulRestartCapabilityTuple
 	11, // [11:11] is the sub-list for method output_type
 	11, // [11:11] is the sub-list for method input_type
@@ -1218,6 +1271,18 @@ func file_capability_proto_init() {
 			}
 		}
 		file_capability_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SoftwareVersionCapability); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_capability_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*UnknownCapability); i {
 			case 0:
 				return &v.state
@@ -1236,7 +1301,7 @@ func file_capability_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_capability_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   16,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -6,6 +6,7 @@ package watchers
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,12 +25,13 @@ import (
 func (k *K8sWatcher) namespacesInit() {
 	apiGroup := k8sAPIGroupNamespaceV1Core
 
-	synced := false
+	var synced atomic.Bool
+	synced.Store(false)
 
 	k.blockWaitGroupToSyncResources(
 		k.stop,
 		nil,
-		func() bool { return synced },
+		func() bool { return synced.Load() },
 		apiGroup,
 	)
 	k.k8sAPIGroups.AddAPI(apiGroup)
@@ -54,7 +56,7 @@ func (k *K8sWatcher) namespacesInit() {
 				var err error
 				switch event.Kind {
 				case resource.Sync:
-					synced = true
+					synced.Store(true)
 				case resource.Upsert:
 					err = nsUpdater.update(event.Object)
 					k.K8sEventProcessed(metricNS, resources.MetricUpdate, err == nil)

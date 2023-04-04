@@ -5,6 +5,7 @@ package watchers
 
 import (
 	"context"
+	"sync/atomic"
 
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,19 +44,20 @@ func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
 
 func (k *K8sWatcher) NodesInit(k8sClient client.Clientset) {
 	k.nodesInitOnce.Do(func() {
-		synced := false
+		var synced atomic.Bool
+		synced.Store(false)
 		swg := lock.NewStoppableWaitGroup()
 		k.blockWaitGroupToSyncResources(
 			k.stop,
 			swg,
-			func() bool { return synced },
+			func() bool { return synced.Load() },
 			k8sAPIGroupNodeV1Core,
 		)
 		go k.nodeEventLoop(&synced, swg)
 	})
 }
 
-func (k *K8sWatcher) nodeEventLoop(synced *bool, swg *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitGroup) {
 	apiGroup := k8sAPIGroupNodeV1Core
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -70,26 +72,27 @@ func (k *K8sWatcher) nodeEventLoop(synced *bool, swg *lock.StoppableWaitGroup) {
 			if !ok {
 				return
 			}
+			var errs error
 			switch event.Kind {
 			case resource.Sync:
-				*synced = true
+				synced.Store(true)
 			case resource.Upsert:
 				newNode := event.Object
 				if oldNode == nil {
 					k.K8sEventReceived(apiGroup, metricNode, resources.MetricCreate, true, false)
-					errs := k.NodeChain.OnAddNode(newNode, swg)
+					errs = k.NodeChain.OnAddNode(newNode, swg)
 					k.K8sEventProcessed(metricNode, resources.MetricCreate, errs == nil)
 				} else {
 					equal := nodeEventsAreEqual(oldNode, newNode)
 					k.K8sEventReceived(apiGroup, metricNode, resources.MetricUpdate, true, equal)
 					if !equal {
-						errs := k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
+						errs = k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
 						k.K8sEventProcessed(metricNode, resources.MetricUpdate, errs == nil)
 					}
 				}
 				oldNode = newNode
 			}
-			event.Done(nil)
+			event.Done(errs)
 		}
 	}
 }

@@ -50,9 +50,9 @@ linters-settings:
   goimports:
     local-prefixes: github.com/cilium/cilium
   staticcheck:
-    go: "1.19"
+    go: "1.20"
   unused:
-    go: "1.19"
+    go: "1.20"
   goheader:
     values:
       regexp:
@@ -60,6 +60,9 @@ linters-settings:
     template: |-
       SPDX-License-Identifier: Apache-2.0
       Copyright Authors of {{ PROJECT }}
+  gosec:
+    includes:
+      - G402
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
@@ -87,8 +90,8 @@ linters:
     - misspell
     - staticcheck
     - unused
-    - varcheck
     - goheader
+    - gosec
 
 # To enable later if makes sense
 #    - deadcode

@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // referenceGrantReconciler reconciles a ReferenceGrant object
@@ -21,6 +21,6 @@ type referenceGrantReconciler struct {
 // SetupWithManager sets up the controller with the Manager.
 func (r *referenceGrantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gatewayv1alpha2.ReferenceGrant{}).
+		For(&gatewayv1beta1.ReferenceGrant{}).
 		Complete(r)
 }

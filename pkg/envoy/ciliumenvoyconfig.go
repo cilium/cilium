@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
@@ -59,7 +60,7 @@ type Resources struct {
 }
 
 type PortAllocator interface {
-	AllocateProxyPort(name string, ingress bool) (uint16, error)
+	AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error)
 	AckProxyPort(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }
@@ -226,6 +227,9 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 							fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
 							fc.Filters[i] = &envoy_config_listener.Filter{
 								Name: "cilium.network",
+								ConfigType: &envoy_config_listener.Filter_TypedConfig{
+									TypedConfig: toAny(&cilium.NetworkFilter{}),
+								},
 							}
 						}
 					}
@@ -357,11 +361,11 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 	// Do this only after all other possible error cases.
 	for _, listener := range resources.Listeners {
 		if listener.GetAddress() == nil {
-			port, err := portAllocator.AllocateProxyPort(listener.Name, false)
+			port, err := portAllocator.AllocateProxyPort(listener.Name, false, true)
 			if err != nil || port == 0 {
 				return Resources{}, fmt.Errorf("Listener port allocation for %q failed: %s", listener.Name, err)
 			}
-			listener.Address = getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+			listener.Address, listener.AdditionalAddresses = getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 			if resources.portAllocations == nil {
 				resources.portAllocations = make(map[string]uint16)
 			}

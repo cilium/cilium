@@ -286,16 +286,16 @@ The table below lists suggested upgrade transitions, from a specified current
 version running in a cluster to a specified target version. If a specific
 combination is not listed in the table below, then it may not be safe. In that
 case, consider performing incremental upgrades between versions (e.g. upgrade
-from ``1.10.x`` to ``1.11.y`` first, and to ``1.12.z`` only afterwards).
+from ``1.11.x`` to ``1.12.y`` first, and to ``1.13.z`` only afterwards).
 
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | Current version       | Target version        | L3/L4 impact            | L7 impact                 |
 +=======================+=======================+=========================+===========================+
+| ``1.12.x``            | ``1.13.y``            | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.11.x``            | ``1.12.y``            | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.10.x``            | ``1.11.y``            | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.9.x``             | ``1.10.y``            | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
@@ -307,82 +307,30 @@ Annotations:
 
 .. _current_release_required_changes:
 
-.. _1.13_upgrade_notes:
+.. _1.14_upgrade_notes:
 
-1.13 Upgrade Notes
+1.14 Upgrade Notes
 ------------------
-* The code for the deprecated ``spec.eni.min-allocate``, ``spec.eni.pre-allocate``
-  ``spec.eni.max-above-watermark`` fields has been removed, those fields are
-  no longer functional. Please use their semantically equivalent ``spec.ipam``
-  replacements instead.
-
-* The kube-proxy replacement in DSR or Hybrid mode with tunneling causes failure upon cilium-agent start.
-  In previous versions, cilium-agent automatically used SNAT mode when we set tunneling.
-
-* In the ENI IPAM mode, the default subnet in which ENIs are created has changed
-  from the subnet (in the same VPC and AZ) with the most addresses available to
-  the subnet in which the primary ENI of the node is attached. Note that this
-  default only matters if no explicit selection of the subnet occurs, i.e.
-  specifying subnet IDs or tags still takes precedence.
-
-* NodeExternalIP of the local node is now correctly included into the ``host``
-  :ref:`entity <Entities based>` (it used to belong to the world entity).
-
-* The scope of the ``policy_implementation_delay`` Prometheus metric has been expanded to cover the
-  full interval from when a policy is first received from a cilium-agent, to when the policy has been
-  applied to endpoints. In previous versions, ``policy_implementation_delay`` only covered the work
-  done by the daemon subsystem to implement the policy. As a result, users may notice an expected
-  increase in ``policy_implementation_delay`` after upgrading.
-
-Removed Options
-~~~~~~~~~~~~~~~
-
-* The ineffective ``disable-conntrack``, ``endpoint-interface-name-prefix`` options deprecated in
-  version 1.12 have been removed.
-* The ``host-reachable-services-protos`` option deprecated in version v1.12 has
-  been removed.
-* The ``probe`` option of ``kube-proxy-replacement`` deprecated in version v1.12
-  has been removed. Users of the ``probe`` option are advised either to use
-  ``strict`` or ``partial`` with individual options configured. Please refer to
-  :ref:`kubeproxy-free` for more info.
-* The ``CiliumEgressNATPolicy`` CRD deprecated in version 1.12 has been removed. It is superseded
-  by the ``CiliumEgressGatewayPolicy`` CRD.
-
-
-Deprecated Options
-~~~~~~~~~~~~~~~~~~
-
-* The ``force-local-policy-eval-at-source`` option is deprecated and will be
-  removed in 1.14.
+* The default value of ``--tofqdns-min-ttl`` has changed from 3600 seconds to
+  zero. This means Cilium DNS network policy now honors the TTLs returned from
+  the upstream DNS server by default. Explicitly configure ``--tofqdns-min-ttl``
+  if you need to preserve the previous DNS network policy behavior that lets
+  applications create new connections after the TTL specified by the upstream
+  DNS server is expired.
 
 Added Metrics
 ~~~~~~~~~~~~~
 
-* ``cilium_operator_allocation_duration_seconds``
-* ``cilium_operator_release_duration_seconds``
-* ``httpV2``, an updated version of the existing ``http`` metrics.
-* ``cilium_operator_ipam_interface_candidates``
-* ``cilium_operator_ipam_empty_interface_slots``
-
-Modified Metrics
-~~~~~~~~~~~~~~~~~~
-
-* ``hubble_policy_verdicts_total`` now lists L7 flows. The match label has value ``l7/<l7_proto>``
-  after the detected L7 protocol of the flow (for example: ``l7/http``).
+* ``cilium_operator_ces_sync_total``
+* ``cilium_policy_change_total``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 
-* ``http`` is deprecated. Please use ``httpV2`` instead.
-* ``cilium_operator_ipam_available_interfaces`` is deprecated. Please use ``cilium_operator_ipam_interface_candidates`` and ``cilium_operator_ipam_empty_interface_slots`` instead.
-
-Removed Metrics/Labels
-~~~~~~~~~~~~~~~~~~~~~~
-
-* ``cilium_operator_ipam_available`` is removed. Please use ``cilium_operator_ipam_interface_candidates`` and ``cilium_operator_ipam_empty_interface_slots`` instead.
-* ``cilium_operator_ipam_allocation_ops`` is removed. Please use ``cilium_operator_ipam_ip_allocation_ops`` instead.
-* ``cilium_operator_ipam_release_ops`` is removed. Please use ``cilium_operator_ipam_ip_release_ops`` instead.
-* The label of ``status`` in ``cilium_operator_ipam_interface_creation_ops`` is removed.
+* ``cilium_operator_ces_sync_errors_total`` is deprecated. Please use ``cilium_operator_ces_sync_total`` instead.
+* ``cilium_policy_import_errors_total`` is deprecated. Please use
+  ``cilium_policy_change_total``, which counts all policy changes (Add, Update, Delete)
+  based on outcome ("success" or "failure").
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
@@ -392,25 +340,12 @@ Changed Metrics
 Helm Options
 ~~~~~~~~~~~~
 
-* The way Linux capabilities are configured has been revamped in this release. 
-  All capabilities of every container in the ``cilium-agent`` DaemonSet is
-  configured from Helm's values, defaulting to the old behavior. If you have not
-  been using ``securityContext.extraCapabilities`` you do not need to do anything.
-  If you were leveraging ``securityContext.extraCapabilities``, you need to review
-  ``securityContext.capabilities.cilium_agent``.
-* ``bpf.hostLegacyRouting`` will be set to true automatically if ``cni.chainingMode`` is set to any other value than ``none`` (default) 
-
-CRD Changes
-~~~~~~~~~~~
-
-* ``CiliumBGPLoadBalancerIPPool`` CRD has been renamed to ``CiliumLoadBalancerIPPool``.
-
-Deprecated API Fields
-~~~~~~~~~~~~~~~~~~~~~
-
-* ``trafficPolicy`` has been renamed to ``extTrafficPolicy`` in ``ServiceSpec.flags`` and
-  ``ServiceUpsertNotification``, in order to emphasize the distinction between the external and
-  internal traffic policies. The old name remains for backward compatibility.
+* The ``securityContext`` for Hubble Relay now applies to the container, not
+  the pod. To update the security context of the pod, use
+  ``podSecurityContext``.
+* The ``securityContext`` for Hubble Relay now defaults to drop all
+  capabilities and run as non-root user.
+* The ``containerRuntime.integration`` value is being deprecated in favor of ``bpf.autoMount.enabled``.
 
 .. _earlier_upgrade_notes:
 
@@ -560,85 +495,6 @@ the :term:`ConfigMap` in the ``kube-system`` namespace of your cluster.
 As the :term:`ConfigMap` is successfully upgraded we can start upgrading Cilium
 ``DaemonSet`` and ``RBAC`` which will pick up the latest configuration from the
 :term:`ConfigMap`.
-
-
-.. _cidr_limitations:
-
-Restrictions on unique prefix lengths for CIDR policy rules
------------------------------------------------------------
-
-The Linux kernel applies limitations on the complexity of eBPF code that is
-loaded into the kernel so that the code may be verified as safe to execute on
-packets. Over time, Linux releases become more intelligent about the
-verification of programs which allows more complex programs to be loaded.
-However, the complexity limitations affect some features in Cilium depending
-on the kernel version that is used with Cilium.
-
-One such limitation affects Cilium's configuration of CIDR policies. On Linux
-kernels 4.10 and earlier, this manifests as a restriction on the number of
-unique prefix lengths supported in CIDR policy rules.
-
-Unique prefix lengths are counted by looking at the prefix portion of CIDR
-rules and considering which prefix lengths are unique. For example, in the
-following policy example, the ``toCIDR`` section specifies a ``/32``, and the
-``toCIDRSet`` section specifies a ``/8`` with a ``/12`` removed from it. In
-addition, three prefix lengths are always counted: the host prefix length for
-the protocol (IPv4: ``/32``, IPv6: ``/128``), the default prefix length
-(``/0``), and the cluster prefix length (default IPv4: ``/8``, IPv6: ``/64``).
-All in all, the following example counts as seven unique prefix lengths in IPv4:
-
-* ``/32`` (from ``toCIDR``, also from host prefix)
-* ``/12`` (from ``toCIDRSet``)
-* ``/11`` (from ``toCIDRSet``)
-* ``/10`` (from ``toCIDRSet``)
-* ``/9`` (from ``toCIDRSet``)
-* ``/8`` (from cluster prefix)
-* ``/0`` (from default prefix)
-
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../examples/policies/l3/cidr/cidr.yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../examples/policies/l3/cidr/cidr.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../examples/policies/l3/cidr/cidr.json
-
-Affected versions
-~~~~~~~~~~~~~~~~~
-
-* Any version of Cilium running on Linux 4.10 or earlier
-
-When a CIDR policy with too many unique prefix lengths is imported, Cilium will
-reject the policy with a message like the following:
-
-.. code-block:: shell-session
-
-  $ cilium policy import too_many_cidrs.json
-  Error: Cannot import policy: [PUT /policy][500] putPolicyFailure  Adding
-  specified prefixes would result in too many prefix lengths (current: 3,
-  result: 32, max: 18)
-
-The supported count of unique prefix lengths may differ between Cilium minor
-releases, for example Cilium 1.1 supported 20 unique prefix lengths on Linux
-4.10 or older, while Cilium 1.2 only supported 18 (for IPv4) or 4 (for IPv6).
-
-Mitigation
-~~~~~~~~~~
-
-Users may construct CIDR policies that use fewer unique prefix lengths. This
-can be achieved by composing or decomposing adjacent prefixes.
-
-Solution
-~~~~~~~~
-
-Upgrade the host Linux version to 4.11 or later. This step is beyond the scope
-of the Cilium guide.
 
 
 Migrating from kvstore-backed identities to Kubernetes CRD-backed identities

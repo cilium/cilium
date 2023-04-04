@@ -17,19 +17,21 @@ package vpc
 
 // FlowLog is a nested struct in vpc response
 type FlowLog struct {
-	Status              string      `json:"Status" xml:"Status"`
-	CreationTime        string      `json:"CreationTime" xml:"CreationTime"`
-	FlowLogName         string      `json:"FlowLogName" xml:"FlowLogName"`
-	TrafficType         string      `json:"TrafficType" xml:"TrafficType"`
-	ResourceType        string      `json:"ResourceType" xml:"ResourceType"`
-	Description         string      `json:"Description" xml:"Description"`
-	ProjectName         string      `json:"ProjectName" xml:"ProjectName"`
-	LogStoreName        string      `json:"LogStoreName" xml:"LogStoreName"`
-	ResourceId          string      `json:"ResourceId" xml:"ResourceId"`
-	RegionId            string      `json:"RegionId" xml:"RegionId"`
-	FlowLogId           string      `json:"FlowLogId" xml:"FlowLogId"`
-	BusinessStatus      string      `json:"BusinessStatus" xml:"BusinessStatus"`
-	AggregationInterval int         `json:"AggregationInterval" xml:"AggregationInterval"`
-	ServiceType         string      `json:"ServiceType" xml:"ServiceType"`
-	TrafficPath         TrafficPath `json:"TrafficPath" xml:"TrafficPath"`
+	Status              string                 `json:"Status" xml:"Status"`
+	CreationTime        string                 `json:"CreationTime" xml:"CreationTime"`
+	FlowLogName         string                 `json:"FlowLogName" xml:"FlowLogName"`
+	TrafficType         string                 `json:"TrafficType" xml:"TrafficType"`
+	ResourceType        string                 `json:"ResourceType" xml:"ResourceType"`
+	Description         string                 `json:"Description" xml:"Description"`
+	ProjectName         string                 `json:"ProjectName" xml:"ProjectName"`
+	LogStoreName        string                 `json:"LogStoreName" xml:"LogStoreName"`
+	ResourceId          string                 `json:"ResourceId" xml:"ResourceId"`
+	RegionId            string                 `json:"RegionId" xml:"RegionId"`
+	FlowLogId           string                 `json:"FlowLogId" xml:"FlowLogId"`
+	BusinessStatus      string                 `json:"BusinessStatus" xml:"BusinessStatus"`
+	AggregationInterval int                    `json:"AggregationInterval" xml:"AggregationInterval"`
+	ServiceType         string                 `json:"ServiceType" xml:"ServiceType"`
+	ResourceGroupId     string                 `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	TrafficPath         TrafficPath            `json:"TrafficPath" xml:"TrafficPath"`
+	Tags                TagsInDescribeFlowLogs `json:"Tags" xml:"Tags"`
 }

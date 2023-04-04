@@ -75,6 +75,7 @@ type DescribePhysicalConnectionsRequest struct {
 	ClientToken            string                               `position:"Query" name:"ClientToken"`
 	IncludeReservationData requests.Boolean                     `position:"Query" name:"IncludeReservationData"`
 	PageNumber             requests.Integer                     `position:"Query" name:"PageNumber"`
+	ResourceGroupId        string                               `position:"Query" name:"ResourceGroupId"`
 	PageSize               requests.Integer                     `position:"Query" name:"PageSize"`
 	ResourceOwnerAccount   string                               `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount           string                               `position:"Query" name:"OwnerAccount"`

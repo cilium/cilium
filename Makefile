@@ -55,63 +55,6 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddres
 
 TEST_UNITTEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/datapath.DatapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
-define generate_k8s_api
-	cd "./vendor/k8s.io/code-generator" && \
-	GO111MODULE=off bash ./generate-groups.sh $(1) \
-	    $(2) \
-	    $(3) \
-	    $(4) \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-endef
-
-define generate_deepequal
-	go run github.com/cilium/deepequal-gen \
-	--input-dirs $(1) \
-	-O zz_generated.deepequal \
-	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-endef
-
-define generate_k8s_api_all
-	$(call generate_k8s_api,all,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2))
-	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
-endef
-
-define generate_k8s_api_deepcopy_deepequal
-	$(call generate_k8s_api,deepcopy,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2))
-	@# Explanation for the 'subst' below:
-	@#   $(subst ",,$(subst :,/,$(pkg))) - replace all ':' with '/' and replace
-	@#    all '"' with '' from $pkg
-	@#   $(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))) - for each
-	@#    "$pkg", with the characters replaced, create a new string with the
-	@#    prefix $(1)
-	@#   Finally replace all spaces with commas from the generated strings.
-	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
-endef
-
-define generate_k8s_api_deepcopy_deepequal_client
-	$(call generate_k8s_api,deepcopy$(comma)client,github.com/cilium/cilium/pkg/k8s/slim/k8s/$(1),$(2),$(3))
-	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(3),$(2)/$(subst ",,$(subst :,/,$(pkg)))))")
-endef
-
-define generate_k8s_protobuf
-	go install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo
-	go install golang.org/x/tools/cmd/goimports
-
-	go run k8s.io/code-generator/cmd/go-to-protobuf \
-		--apimachinery-packages='-k8s.io/apimachinery/pkg/util/intstr,$\
-                                -k8s.io/apimachinery/pkg/api/resource,$\
-                                -k8s.io/apimachinery/pkg/runtime/schema,$\
-                                -k8s.io/apimachinery/pkg/runtime,$\
-                                -k8s.io/apimachinery/pkg/apis/meta/v1,$\
-                                -k8s.io/apimachinery/pkg/apis/meta/v1beta1'\
-		--drop-embedded-fields="github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1.TypeMeta" \
-		--proto-import="$(PWD)" \
-		--proto-import="$(PWD)/vendor" \
-		--proto-import="$(PWD)/tools/protobuf" \
-		--packages=$(1) \
-		--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-endef
-
 build: check-sources $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
 
 build-container: check-sources ## Builds components required for cilium-agent container.
@@ -210,8 +153,6 @@ clean-container: ## Perform `make clean` for each component required in cilium-a
 
 clean: ## Perform overall cleanup for Cilium.
 	-$(QUIET) for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i clean; done
-	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb clean
-	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm clean
 
 veryclean: ## Perform complete cleanup for container engine images(including build cache).
 	-$(QUIET) $(CONTAINER_ENGINE) image prune -af
@@ -243,34 +184,38 @@ install-bash-completion: ## Install bash completion for all components required 
 GIT_VERSION: force
 	@if [ "$(GIT_VERSION)" != "`cat 2>/dev/null GIT_VERSION`" ] ; then echo "$(GIT_VERSION)" >GIT_VERSION; fi
 
-build-deb: ## Build deb package of cilium.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb
-
-build-rpm: ## Build rpm package of cilium.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm
-
 -include Makefile.docker
 
 ##@ API targets
 CRD_OPTIONS ?= "crd:crdVersions=v1"
+CRD_PATHS := "$(PWD)/pkg/k8s/apis/cilium.io/v2;\
+              $(PWD)/pkg/k8s/apis/cilium.io/v2alpha1;"
+CRDS_CILIUM_PATHS := $(PWD)/pkg/k8s/apis/cilium.io/client/crds/v2\
+                     $(PWD)/pkg/k8s/apis/cilium.io/client/crds/v2alpha1
+CRDS_CILIUM_V2 := ciliumnetworkpolicies \
+                  ciliumclusterwidenetworkpolicies \
+                  ciliumendpoints \
+                  ciliumidentities \
+                  ciliumnodes \
+                  ciliumexternalworkloads \
+                  ciliumlocalredirectpolicies \
+                  ciliumegressgatewaypolicies \
+                  ciliumenvoyconfigs \
+                  ciliumclusterwideenvoyconfigs
+CRDS_CILIUM_V2ALPHA1 := ciliumendpointslices \
+                        ciliumbgppeeringpolicies \
+                        ciliumloadbalancerippools \
+                        ciliumnodeconfigs
 manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	$(eval TMPDIR := $(shell mktemp -d))
-	$(QUIET)$(GO) run sigs.k8s.io/controller-tools/cmd/controller-gen $(CRD_OPTIONS) paths="$(PWD)/pkg/k8s/apis/cilium.io/v2;$(PWD)/pkg/k8s/apis/cilium.io/v2alpha1" output:crd:artifacts:config="$(TMPDIR)"
+	$(QUIET)$(GO) run sigs.k8s.io/controller-tools/cmd/controller-gen $(CRD_OPTIONS) paths=$(CRD_PATHS) output:crd:artifacts:config="$(TMPDIR)"
 	$(QUIET)$(GO) run ./tools/crdcheck "$(TMPDIR)"
-	mv ${TMPDIR}/cilium.io_ciliumnetworkpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumnetworkpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumclusterwidenetworkpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumclusterwidenetworkpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumendpoints.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumendpoints.yaml
-	mv ${TMPDIR}/cilium.io_ciliumidentities.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumidentities.yaml
-	mv ${TMPDIR}/cilium.io_ciliumnodes.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumnodes.yaml
-	mv ${TMPDIR}/cilium.io_ciliumexternalworkloads.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumexternalworkloads.yaml
-	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumlocalredirectpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumegressgatewaypolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumendpointslices.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumendpointslices.yaml
-	mv ${TMPDIR}/cilium.io_ciliumclusterwideenvoyconfigs.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumclusterwideenvoyconfigs.yaml
-	mv ${TMPDIR}/cilium.io_ciliumenvoyconfigs.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumenvoyconfigs.yaml
-	mv ${TMPDIR}/cilium.io_ciliumbgppeeringpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumbgppeeringpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumloadbalancerippools.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumloadbalancerippools.yaml
-	mv ${TMPDIR}/cilium.io_ciliumnodeconfigs.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumnodeconfigs.yaml
+
+	# Clean up old CRD state and start with a blank state.
+	for path in $(CRDS_CILIUM_PATHS); do rm -rf $${path} && mkdir $${path}; done
+
+	for file in $(CRDS_CILIUM_V2); do mv ${TMPDIR}/cilium.io_$${file}.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/$${file}.yaml; done
+	for file in $(CRDS_CILIUM_V2ALPHA1); do mv ${TMPDIR}/cilium.io_$${file}.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/$${file}.yaml; done
 	rm -rf $(TMPDIR)
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.
@@ -325,76 +270,83 @@ generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator 
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
-generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
-	@if [ -z "$(GOPATH)" ] || [ ! -d "$(GOPATH)/src/github.com/cilium/cilium" ] || \
-		[ "$(PWD)" != "$(GOPATH)/src/github.com/cilium/cilium" ]; then \
-		echo "Set \$$GOPATH to a directory containing the Cilium repository at \$$GOPATH/src/github.com/cilium/cilium."; \
-		echo "The current working directory must be the repository root for code generation to work correctly."; \
-		exit 1; \
-	fi
+define generate_k8s_api
+	$(QUIET) cd "./vendor/k8s.io/code-generator" && \
+	bash ./generate-groups.sh $(1) \
+	    $(2) \
+	    $(3) \
+	    $(4) \
+	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+	    --output-base $(5)
+endef
 
-	$(call generate_k8s_protobuf,$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1)
-	$(call generate_k8s_api_deepcopy_deepequal_client,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/api,"$\
-	discovery:v1beta1\
-	discovery:v1\
-	networking:v1\
-	core:v1")
-	$(call generate_k8s_api_deepcopy_deepequal_client,apiextensions-client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
-	apiextensions:v1")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
-	util:intstr\
-	meta:v1\
-	meta:v1beta1")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s,"$\
-	apis:labels")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg,"$\
-	aws:types\
-	azure:types\
-	ipam:types\
-	alibabacloud:types\
-	k8s:types\
-	k8s:utils\
-	maps:ctmap\
-	maps:encrypt\
-	maps:eppolicymap\
-	maps:eventsmap\
-	maps:fragmap\
-	maps:ipcache\
-	maps:ipmasq\
-	maps:lbmap\
-	maps:lxcmap\
-	maps:metricsmap\
-	maps:nat\
-	maps:neighborsmap\
-	maps:policymap\
-	maps:signalmap\
-	maps:sockmap\
-	maps:srv6map\
-	maps:tunnel\
-	maps:vtep\
-	node:types\
-	policy:api\
-	service:store")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/policy,"api:kafka")
-	$(call generate_k8s_api_all,github.com/cilium/cilium/pkg/k8s/apis,"cilium.io:v2 cilium.io:v2alpha1")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/aws,"eni:types")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/alibabacloud,"eni:types")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/api,"v1:models")
-	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium,"$\
-	pkg:bpf\
-	pkg:k8s\
-	pkg:labels\
-	pkg:loadbalancer\
-	pkg:tuple\
-	pkg:recorder")
+define generate_deepequal
+	$(GO) run github.com/cilium/deepequal-gen \
+	--input-dirs $(subst $(space),$(comma),$(1)) \
+	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+	--output-file-base zz_generated.deepequal \
+	--output-base $(2)
+endef
+
+define generate_deepcopy
+	$(GO) run k8s.io/code-generator/cmd/deepcopy-gen \
+	--input-dirs $(subst $(space),$(comma),$(1)) \
+	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+	--output-file-base zz_generated.deepcopy \
+	--output-base $(2)
+endef
+
+define generate_k8s_protobuf
+	$(GO) install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo && \
+	$(GO) install golang.org/x/tools/cmd/goimports && \
+	$(GO) run k8s.io/code-generator/cmd/go-to-protobuf \
+		--apimachinery-packages='-k8s.io/apimachinery/pkg/util/intstr,$\
+                                -k8s.io/apimachinery/pkg/api/resource,$\
+                                -k8s.io/apimachinery/pkg/runtime/schema,$\
+                                -k8s.io/apimachinery/pkg/runtime,$\
+                                -k8s.io/apimachinery/pkg/apis/meta/v1,$\
+                                -k8s.io/apimachinery/pkg/apis/meta/v1beta1'\
+		--drop-embedded-fields="github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1.TypeMeta" \
+		--proto-import="$(PWD)" \
+		--proto-import="$(PWD)/vendor" \
+		--proto-import="$(PWD)/tools/protobuf" \
+		--packages=$(subst $(newline),$(comma),$(1)) \
+		--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
+		--output-base=$(2)
+endef
+
+define K8S_PROTO_PACKAGES
+github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1
+github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr
+endef
+
+GEN_CRD_GROUPS := "cilium.io:v2\
+                   cilium.io:v2alpha1"
+generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
+	$(ASSERT_CILIUM_MODULE)
+
+	$(eval TMPDIR := $(shell mktemp -d))
+
+	$(QUIET) $(call generate_k8s_protobuf,${K8S_PROTO_PACKAGES},"$(TMPDIR)")
+
+	$(eval DEEPEQUAL_PACKAGES := $(shell grep "\+deepequal-gen" -l -r --include \*.go --exclude-dir 'vendor' . | xargs dirname {} | sort | uniq | grep -x -v '.' | sed 's|\.\/|github.com/cilium/cilium\/|g'))
+	$(QUIET) $(call generate_deepequal,${DEEPEQUAL_PACKAGES},"$(TMPDIR)")
+
+	$(eval DEEPCOPY_PACKAGES := $(shell grep "\+k8s:deepcopy-gen" -l -r --include \*.go --exclude-dir 'vendor' . | xargs dirname {} | sort | uniq | grep -x -v '.' | sed 's|\.\/|github.com/cilium/cilium\/|g'))
+	$(QUIET) $(call generate_deepcopy,${DEEPCOPY_PACKAGES},"$(TMPDIR)")
+
+	$(QUIET) $(call generate_k8s_api,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/client,github.com/cilium/cilium/pkg/k8s/slim/k8s/api,"discovery:v1beta1 discovery:v1 networking:v1 core:v1","$(TMPDIR)")
+	$(QUIET) $(call generate_k8s_api,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"apiextensions:v1","$(TMPDIR)")
+	$(QUIET) $(call generate_k8s_api,client$(comma)lister$(comma)informer,github.com/cilium/cilium/pkg/k8s/client,github.com/cilium/cilium/pkg/k8s/apis,$(GEN_CRD_GROUPS),"$(TMPDIR)")
+
+	$(QUIET) cp -r "$(TMPDIR)/github.com/cilium/cilium/." ./
+	$(QUIET) rm -rf "$(TMPDIR)"
 
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
 	./contrib/scripts/check-preflight-clusterrole.sh
@@ -416,7 +368,6 @@ release: ## Perform a Git release for Cilium.
 	$(info Checking if tag $(VERSION) is created '$(TAG_VERSION)' $(BRANCH))
 
 	@if [ "$(TAG_VERSION)" -eq "0" ];then { echo Git tag v$(VERSION) is already created; exit 1; } fi
-	$(MAKE) -C ./contrib/packaging/deb release
 	git commit -m "Version $(VERSION)"
 	git tag v$(VERSION)
 	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
@@ -433,7 +384,7 @@ ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION),$(GOLANGCILINT_VERSION)))
 	@$(ECHO_CHECK) golangci-lint $(GOLANGCI_LINT_ARGS)
 	$(QUIET) golangci-lint run $(GOLANGCI_LINT_ARGS)
 else
-	$(QUIET) $(CONTAINER_ENGINE) run --rm -v `pwd`:/app -w /app docker.io/golangci/golangci-lint:v$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) golangci-lint run $(GOLANGCI_LINT_ARGS)
+	$(QUIET) $(CONTAINER_ENGINE) run --rm -v `pwd`:/app -w /app docker.io/golangci/golangci-lint:$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) golangci-lint run $(GOLANGCI_LINT_ARGS)
 endif
 
 golangci-lint-fix: ## Run golangci-lint to automatically fix warnings
@@ -470,11 +421,24 @@ kind: ## Create a kind cluster for Cilium development.
 kind-down: ## Destroy a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind-down.sh
 
-.PHONY: kind-ready
-kind-ready:
-	@$(ECHO_CHECK) kind is ready...
-	@kind get clusters 2>&1 | grep "No kind clusters found." \
-		&& exit 1 || exit 0
+.PHONY: kind-clustermesh
+kind-clustermesh: ## Create two kind clusters for clustermesh development.
+	@echo " If you have problems with too many open file, check https://kind.sigs.k8s.io/docs/user/known-issues/#pod-errors-due-to-too-many-open-files"
+	$(QUIET) CLUSTER_NAME=clustermesh1 IPFAMILY=ipv4 PODSUBNET=10.1.0.0/16 SERVICESUBNET=172.20.1.0/24 ./contrib/scripts/kind.sh
+	$(QUIET) CLUSTER_NAME=clustermesh2 AGENTPORTPREFIX=236 OPERATORPORTPREFIX=237 IPFAMILY=ipv4 PODSUBNET=10.2.0.0/16 SERVICESUBNET=172.20.2.0/24 ./contrib/scripts/kind.sh
+
+.PHONY: kind-clustermesh-down
+kind-clustermesh-down: ## Destroy kind clusters for clustermesh development.
+	kind delete clusters clustermesh1
+	kind delete clusters clustermesh2
+
+.PHONY: kind-clustermesh-ready
+kind-clustermesh-ready: ## Check if both kind clustermesh clusters exist
+	@$(ECHO_CHECK) clustermesh kind is ready...
+	@kind get clusters 2>&1 | grep "clustermesh1" \
+		&& exit 0 || exit 1
+	@kind get clusters 2>&1 | grep "clustermesh2" \
+		&& exit 0 || exit 1
 
 # Template for kind environment for a target. Parameters are:
 # $(1) Makefile target name
@@ -483,21 +447,70 @@ define KIND_ENV
 $(1): export DOCKER_REGISTRY=localhost:5000
 $(1): export LOCAL_AGENT_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/cilium-dev:$$(LOCAL_IMAGE_TAG)
 $(1): export LOCAL_OPERATOR_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/operator-generic:$$(LOCAL_IMAGE_TAG)
+$(1): export LOCAL_CLUSTERMESH_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/clustermesh-apiserver:$$(LOCAL_IMAGE_TAG)
 endef
 
-$(eval $(call KIND_ENV,kind-image-agent))
-kind-image-agent: kind-ready ## Build cilium-dev docker image and import it into kind.
+$(eval $(call KIND_ENV,kind-clustermesh-images))
+kind-clustermesh-images: kind-clustermesh-ready kind-build-clustermesh-apiserver kind-build-image-agent kind-build-image-operator ## Builds images and imports them into clustermesh clusters
+	$(QUIET)kind load docker-image $(LOCAL_CLUSTERMESH_IMAGE) --name clustermesh1
+	$(QUIET)kind load docker-image $(LOCAL_CLUSTERMESH_IMAGE) --name clustermesh2
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) --name clustermesh1
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) --name clustermesh2
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh1
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh2
+
+.PHONY: kind-install-cilium-clustermesh
+kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
+	@echo "  INSTALL cilium on clustermesh1 cluster"
+	kubectl config use kind-clustermesh1
+	-cilium uninstall >/dev/null
+	cilium install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
+		--version=
+	@echo "  INSTALL cilium on clustermesh2 cluster"
+	kubectl config use kind-clustermesh2
+	-cilium uninstall >/dev/null
+	cilium install \
+		--inherit-ca kind-clustermesh1 \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
+		--version=
+	@echo "  Enabling clustermesh"
+	cilium clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
+	cilium clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
+	cilium clustermesh status --context kind-clustermesh1 --wait
+	cilium clustermesh status --context kind-clustermesh2 --wait
+	cilium clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
+	cilium clustermesh status --context kind-clustermesh1 --wait
+	cilium clustermesh status --context kind-clustermesh2 --wait
+
+
+.PHONY: kind-ready
+kind-ready:
+	@$(ECHO_CHECK) kind is ready...
+	@kind get clusters 2>&1 | grep "No kind clusters found." \
+		&& exit 1 || exit 0
+
+$(eval $(call KIND_ENV,kind-build-image-agent))
+kind-build-image-agent: ## Build cilium-dev docker image
 	$(QUIET)$(MAKE) dev-docker-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DEPLOY image to kind ($(LOCAL_AGENT_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_AGENT_IMAGE)
+
+$(eval $(call KIND_ENV,kind-image-agent))
+kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
 	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
 
+$(eval $(call KIND_ENV,kind-build-image-operator))
+kind-build-image-operator: ## Build cilium-operator-dev docker image
+	$(QUIET)$(MAKE) dev-docker-operator-generic-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+
 $(eval $(call KIND_ENV,kind-image-operator))
-kind-image-operator: kind-ready ## Build cilium-operator-dev docker image and import it into kind.
-	$(QUIET)$(MAKE) dev-docker-operator-generic-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DEPLOY image to kind ($(LOCAL_OPERATOR_IMAGE))"
-	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE)
+kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operator-dev docker image and import it into kind.
 	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE)
+
+$(eval $(call KIND_ENV,kind-build-clustermesh-apiserver))
+kind-build-clustermesh-apiserver: ## Build cilium-clustermesh-apiserver docker image
+	$(QUIET)$(MAKE) docker-clustermesh-apiserver-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 
 .PHONY: kind-image
 kind-image: ## Build cilium and operator images and import them into kind.
@@ -538,19 +551,35 @@ endef
 # kind-image-agent-debug
 $(eval $(call DEBUG_KIND_TEMPLATE,-agent))
 
+# kind-image-operator-debug
+$(eval $(call DEBUG_KIND_TEMPLATE,-operator))
+
 $(eval $(call KIND_ENV,kind-debug-agent))
 kind-debug-agent: ## Create a local kind development environment with cilium-agent attached to a debugger.
 	$(QUIET)$(MAKE) kind-ready 2>/dev/null \
 		|| $(MAKE) kind
 	$(MAKE) kind-image-agent-debug
 	# Not debugging cilium-operator here; any image is good enough.
-	$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE) \
+	kind load docker-image $(LOCAL_OPERATOR_IMAGE) \
 		|| $(MAKE) kind-image-operator
 	$(MAKE) kind-check-cilium 2>/dev/null \
 		|| $(MAKE) kind-install-cilium
 	@echo "Attach delve to localhost on these ports to continue:"
 	@echo " - 23401: cilium-agent (kind-control-plane)"
 	@echo " - 23411: cilium-agent (kind-worker)"
+
+$(eval $(call KIND_ENV,kind-debug))
+kind-debug: ## Create a local kind development environment with cilium-agent & cilium-operator attached to a debugger.
+	$(QUIET)$(MAKE) kind-ready 2>/dev/null \
+		|| $(MAKE) kind
+	$(MAKE) kind-image-agent-debug
+	$(MAKE) kind-image-operator-debug
+	$(MAKE) kind-check-cilium 2>/dev/null \
+		|| $(MAKE) kind-install-cilium
+	@echo "Attach delve to localhost on these ports to continue:"
+	@echo " - 23401: cilium-agent    (kind-control-plane)"
+	@echo " - 23411: cilium-agent    (kind-worker)"
+	@echo " - 23511: cilium-operator (kind-worker)"
 
 precheck: check-go-version logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")

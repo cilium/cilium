@@ -100,6 +100,7 @@ type DescribeVSwitchAttributesResponse struct {
 	ShareType               string                                    `json:"ShareType" xml:"ShareType"`
 	RouteTable              RouteTable                                `json:"RouteTable" xml:"RouteTable"`
 	CloudResources          CloudResourcesInDescribeVSwitchAttributes `json:"CloudResources" xml:"CloudResources"`
+	Tags                    TagsInDescribeVSwitchAttributes           `json:"Tags" xml:"Tags"`
 }
 
 // CreateDescribeVSwitchAttributesRequest creates a request to invoke DescribeVSwitchAttributes API

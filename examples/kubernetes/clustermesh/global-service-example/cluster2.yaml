@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: rebel-base
   annotations:
-    io.cilium/global-service: "true"
+    service.cilium.io/global: "true"
 spec:
   type: ClusterIP
   ports:
@@ -72,7 +72,7 @@ spec:
     spec:
       containers:
       - name: x-wing-container
-        image: docker.io/cilium/json-mock:1.2
+        image: quay.io/cilium/json-mock:v1.3.3@sha256:f26044a2b8085fcaa8146b6b8bb73556134d7ec3d5782c6a04a058c945924ca0
         livenessProbe:
           exec:
             command:

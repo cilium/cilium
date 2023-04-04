@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/prometheus/client_golang/prometheus"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/pkg/api"
@@ -68,15 +67,20 @@ type bootstrapStatistics struct {
 	fqdn            spanstat.SpanStat
 	enableConntrack spanstat.SpanStat
 	kvstore         spanstat.SpanStat
+	deleteQueue     spanstat.SpanStat
 }
 
 func (b *bootstrapStatistics) updateMetrics() {
+	if !option.Config.MetricsConfig.BootstrapTimesEnabled {
+		return
+	}
+
 	for scope, stat := range b.getMap() {
 		if stat.SuccessTotal() != time.Duration(0) {
-			metricBootstrapTimes.WithLabelValues(scope, metrics.LabelValueOutcomeSuccess).Observe(stat.SuccessTotal().Seconds())
+			metrics.BootstrapTimes.WithLabelValues(scope, metrics.LabelValueOutcomeSuccess).Observe(stat.SuccessTotal().Seconds())
 		}
 		if stat.FailureTotal() != time.Duration(0) {
-			metricBootstrapTimes.WithLabelValues(scope, metrics.LabelValueOutcomeFail).Observe(stat.FailureTotal().Seconds())
+			metrics.BootstrapTimes.WithLabelValues(scope, metrics.LabelValueOutcomeFail).Observe(stat.FailureTotal().Seconds())
 		}
 	}
 }
@@ -102,22 +106,6 @@ func (b *bootstrapStatistics) getMap() map[string]*spanstat.SpanStat {
 		"fqdn":            &b.fqdn,
 		"enableConntrack": &b.enableConntrack,
 		"kvstore":         &b.kvstore,
-	}
-}
-
-var (
-	metricBootstrapTimes prometheus.ObserverVec
-)
-
-func registerBootstrapMetrics() {
-	metricBootstrapTimes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: metrics.Namespace,
-		Subsystem: metrics.SubsystemAgent,
-		Name:      "bootstrap_seconds",
-		Help:      "Duration of bootstrap sequence",
-	}, []string{metrics.LabelScope, metrics.LabelOutcome})
-
-	if err := metrics.Register(metricBootstrapTimes); err != nil {
-		log.WithError(err).Fatal("unable to register prometheus metric")
+		"deleteQueue":     &b.deleteQueue,
 	}
 }

@@ -696,10 +696,17 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
 	if option.Config.EnableHealthCheckNodePort {
 		if svc.isExtLocal() && filterBackends {
-			_, activeBackends, _ := segregateBackends(backendsCopy)
-
+			// HealthCheckNodePort is used by external systems to poll the state of the Service,
+			// it should never take into consideration Terminating backends, even when there are only
+			// Terminating backends.
+			activeBackends := 0
+			for _, b := range backendsCopy {
+				if b.State == lb.BackendStateActive {
+					activeBackends++
+				}
+			}
 			s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcName.Namespace, svc.svcName.Name,
-				len(activeBackends), svc.svcHealthCheckNodePort)
+				activeBackends, svc.svcHealthCheckNodePort)
 		} else if svc.svcHealthCheckNodePort == 0 {
 			// Remove the health check server in case this service used to have
 			// externalTrafficPolicy=Local with HealthCheckNodePort in the previous
@@ -1148,7 +1155,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		svc.sessionAffinity = p.SessionAffinity
 		svc.sessionAffinityTimeoutSec = p.SessionAffinityTimeoutSec
 		svc.loadBalancerSourceRanges = p.LoadBalancerSourceRanges
-		// Name and namespace are both optional and intended for exposure via
+		// Name, namespace and cluster are optional and intended for exposure via
 		// API. They they are not part of any BPF maps and cannot be restored
 		// from datapath.
 		if p.Name.Name != "" {
@@ -1156,6 +1163,9 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		}
 		if p.Name.Namespace != "" {
 			svc.svcName.Namespace = p.Name.Namespace
+		}
+		if p.Name.Cluster != "" {
+			svc.svcName.Cluster = p.Name.Cluster
 		}
 		// We have heard about the service from k8s, so unset the flag so that
 		// SyncWithK8sFinished() won't consider the service obsolete, and thus
@@ -1437,6 +1447,11 @@ func (s *Service) restoreServicesLocked() error {
 		}
 
 		for j, backend := range svc.Backends {
+			// DumpServiceMaps() can return services with some empty (nil) backends.
+			if backend == nil {
+				continue
+			}
+
 			hash := backend.L3n4Addr.Hash()
 			s.backendRefCount.Add(hash)
 			newSVC.backendByHash[hash] = svc.Backends[j]
@@ -1451,6 +1466,11 @@ func (s *Service) restoreServicesLocked() error {
 
 			backends := make(map[string]*lb.Backend, len(newSVC.backends))
 			for _, b := range newSVC.backends {
+				// DumpServiceMaps() can return services with some empty (nil) backends.
+				if b == nil {
+					continue
+				}
+
 				backends[b.String()] = b
 			}
 			if err := s.lbmap.UpsertMaglevLookupTable(uint16(newSVC.frontend.ID), backends,
@@ -1669,6 +1689,9 @@ func isWildcardAddr(frontend lb.L3n4AddrID) bool {
 	return cmtypes.MustParseAddrCluster("0.0.0.0").Equal(frontend.AddrCluster)
 }
 
+// segregateBackends returns the list of active, preferred and nonActive backends to be
+// added to the lbmaps. If EnableK8sTerminatingEndpoint and there are no active backends,
+// segregateBackends will return all terminating backends as active.
 func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]*lb.Backend,
 	activeBackends map[string]*lb.Backend, nonActiveBackends []lb.BackendID) {
 	preferredBackends = make(map[string]*lb.Backend)
@@ -1688,6 +1711,21 @@ func segregateBackends(backends []*lb.Backend) (preferredBackends map[string]*lb
 			}
 		} else {
 			nonActiveBackends = append(nonActiveBackends, b.ID)
+		}
+	}
+	// To avoid connections drops during rolling updates, Kubernetes defines a Terminating state on the EndpointSlices
+	// that can be used to identify Pods that, despite being terminated, still can serve traffic.
+	// In case that there are no Active backends, use the Backends in TerminatingState to answer new requests
+	// and avoid traffic disruption until new active backends are created.
+	// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1669-proxy-terminating-endpoints
+	if option.Config.EnableK8sTerminatingEndpoint && len(activeBackends) == 0 {
+		nonActiveBackends = []lb.BackendID{}
+		for _, b := range backends {
+			if b.State == lb.BackendStateTerminating {
+				activeBackends[b.String()] = b
+			} else {
+				nonActiveBackends = append(nonActiveBackends, b.ID)
+			}
 		}
 	}
 	return preferredBackends, activeBackends, nonActiveBackends

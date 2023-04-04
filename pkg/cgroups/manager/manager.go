@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/cgroups"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -30,6 +31,7 @@ const (
 	podUpdateEvent
 	podDeleteEvent
 	podGetMetadataEvent
+	podDumpMetadataEvent
 )
 
 // CgroupManager maintains Kubernetes and low-level metadata (cgroup path and
@@ -66,6 +68,19 @@ type PodMetadata struct {
 	Name      string
 	Namespace string
 	IPs       []string
+}
+
+// FullPodMetadata stores selected metadata of a pod and associated containers.
+type FullPodMetadata struct {
+	Name       string
+	Namespace  string
+	Containers []*cgroupMetadata
+	IPs        []string
+}
+
+type cgroupMetadata struct {
+	CgroupId   uint64
+	CgroupPath string
 }
 
 // NewCgroupManager returns an initialized version of CgroupManager.
@@ -124,6 +139,22 @@ func (m *CgroupManager) GetPodMetadataForContainer(cgroupId uint64) *PodMetadata
 	}
 }
 
+func (m *CgroupManager) DumpPodMetadata() []*FullPodMetadata {
+	if !m.enabled {
+		return nil
+	}
+	allMetaOut := make(chan []*FullPodMetadata)
+
+	m.podEvents <- podEvent{
+		eventType:      podDumpMetadataEvent,
+		allMetadataOut: allMetaOut,
+	}
+	select {
+	case cm := <-allMetaOut:
+		return cm
+	}
+}
+
 // Close should only be called once from daemon close.
 func (m *CgroupManager) Close() {
 	close(m.shutdown)
@@ -150,6 +181,7 @@ type podEvent struct {
 	cgroupId       uint64
 	eventType      int
 	podMetadataOut chan *PodMetadata
+	allMetadataOut chan []*FullPodMetadata
 }
 
 type fs interface {
@@ -195,10 +227,8 @@ func (m *CgroupManager) enable() {
 		}
 		var err error
 		if m.pathProvider, err = getCgroupPathProvider(); err != nil {
-			log.Warn("No valid cgroup base path found: socket " +
-				"load-balancing tracing feature will not work. File a GitHub issue" +
-				"with an example cgroup path for a pod by running command on Kubernetes node: " +
-				"sudo crictl inspectp -o=json $POD_ID | grep cgroupsPath")
+			log.Warn("No valid cgroup base path found: socket load-balancing tracing with Hubble will not work." +
+				"See the kubeproxy-free guide for more details.")
 			m.enabled = false
 		}
 	})
@@ -222,6 +252,8 @@ func (m *CgroupManager) processPodEvents() {
 				m.deletePodMetadata(ev.pod)
 			case podGetMetadataEvent:
 				m.getPodMetadata(ev.cgroupId, ev.podMetadataOut)
+			case podDumpMetadataEvent:
+				m.dumpPodMetadata(ev.allMetadataOut)
 			}
 		case <-m.shutdown:
 			return
@@ -365,4 +397,34 @@ func (m *CgroupManager) getPodMetadata(cgroupId uint64, podMetadataOut chan *Pod
 
 	podMetadataOut <- &podMetadata
 	close(podMetadataOut)
+}
+
+func (m *CgroupManager) dumpPodMetadata(allMetadataOut chan []*FullPodMetadata) {
+	allMetas := make(map[string]*FullPodMetadata)
+	for _, cm := range m.containerMetadataByCgrpId {
+		pm, ok := m.podMetadataById[cm.podId]
+		if !ok {
+			log.WithFields(logrus.Fields{
+				"container-cgroup-id": cm.cgroupId,
+			}).Debugf("Pod metadata not found")
+			continue
+		}
+		fullPm, ok := allMetas[cm.podId]
+		if !ok {
+			fullPm = &FullPodMetadata{
+				Name:      pm.name,
+				Namespace: pm.namespace,
+			}
+			fullPm.IPs = append(fullPm.IPs, pm.ips...)
+			allMetas[cm.podId] = fullPm
+		}
+		cgroupMetadata := &cgroupMetadata{
+			CgroupId:   cm.cgroupId,
+			CgroupPath: cm.cgroupPath,
+		}
+		fullPm.Containers = append(fullPm.Containers, cgroupMetadata)
+	}
+
+	allMetadataOut <- maps.Values(allMetas)
+	close(allMetadataOut)
 }

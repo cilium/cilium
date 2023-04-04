@@ -35,7 +35,7 @@ func (k *EgressMapTestSuite) SetUpSuite(c *C) {
 }
 
 func (k *EgressMapTestSuite) TestEgressMap(c *C) {
-	err := initEgressPolicyMap(PolicyMapName, true)
+	err := initEgressPolicyMap(PolicyMapName, MaxPolicyEntries, true)
 	c.Assert(err, IsNil)
 	defer EgressPolicyMap.Unpin()
 

@@ -96,7 +96,7 @@ external KVStore configured for the Cilium Operator if running with
 ``--synchronize-k8s-services`` flag.
 
 The Cilium Operator performs this operation only for shared services (services
-that have ``io.cilium/shared-service`` annotation set to true). This is
+that have ``service.cilium.io/shared`` annotation set to true). This is
 meaningful when running Cilium to setup a ClusterMesh.
 
 K8s Nodes synchronization

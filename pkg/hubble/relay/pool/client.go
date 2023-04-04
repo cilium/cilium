@@ -52,7 +52,9 @@ func (b GRPCClientConnBuilder) ClientConn(target, hostname string) (poolTypes.Cl
 	if b.TLSConfig == nil {
 		opts = append(opts, grpc.WithInsecure())
 	} else {
-		tlsConfig := b.TLSConfig.ClientConfig(&tls.Config{
+		// NOTE: gosec is unable to resolve the constant and warns about "TLS
+		// MinVersion too low".
+		tlsConfig := b.TLSConfig.ClientConfig(&tls.Config{ //nolint:gosec
 			ServerName: hostname,
 			MinVersion: hubbleopts.MinTLSVersion,
 		})

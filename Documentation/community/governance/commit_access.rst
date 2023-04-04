@@ -61,14 +61,15 @@ Expectations for Developers with commit access
 Pre-requisites
 ~~~~~~~~~~~~~~
 
-Be familiar with the :ref:`dev_guide`.
+Be familiar with the :ref:`dev_guide` and have `2-Factor Authentication
+<https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/configuring-two-factor-authentication>`__ 
+enabled on your Github account.
 
 Review
 ~~~~~~
 
 Code (yours or others') must be reviewed publicly (by you or others)
-before you push it to the repository. With one exception (see below),
-every change needs at least one review.
+before you push it to the repository. Every change needs at least one review.
 
 If one or more people know an area of code particularly well, code that
 affects that area should ordinarily get a review from one of them.
@@ -83,11 +84,6 @@ good," then this is probably not a quality review.
 review, but it is not strictly tied to it. A search and replace across
 many files may not need much review, but one-line optimization changes
 can have widespread implications.)
-
-Your own small changes to fix a recently broken build ("make") or tests
-("make check"), that you believe to be visible to a large number of
-developers, may be checked in without review. If you are not sure, ask
-for review.
 
 Regularly review submitted code in areas where you have expertise.
 Consider reviewing other code as well.
@@ -124,6 +120,22 @@ Use Reported-by: and Tested-by: tags in commit messages to indicate the
 source of a bug report.
 
 Keep the `AUTHORS <https://github.com/cilium/cilium/blob/master/AUTHORS>`__ file up to date.
+
+CNCF Resources
+~~~~~~~~~~~~~~
+
+Any Maintainer may suggest a request for `CNCF Resources <https://www.cncf.io/services-for-projects/>`__
+through the `CNCF Service Desk <https://cncfservicedesk.atlassian.net/servicedesk/customer/portal/1>`__.
+The Maintainers may also choose to delegate working with the CNCF to non-Maintainer community members.
+
+Code of Conduct
+~~~~~~~~~~~~~~~
+
+`Code of Conduct <https://github.com/cilium/cilium/blob/master/CODE_OF_CONDUCT.md>`__
+violations by community members will be discussed and resolved on the private
+committers Slack channel. If the reported Code of Conduct violator is a Maintainer, the 
+Maintainers will instead designate two Maintainers to work with the
+`CNCF CoC Committee <https://www.cncf.io/conduct/procedures/>`__.  
 
 Granting Commit Access
 ----------------------
@@ -177,20 +189,30 @@ The process to grant commit access to a candidate is simple:
    of the candidate it should be accompanied by a reason for the vote.
 
 -  The nominator summarizes the result of the vote in a Slack message to all
-   existing committers.
+   existing committers. Report the votes after applying the :ref:`vote_limit`.
 
 -  If the vote to grant commit access passed, the candidate is contacted
    with an invitation to become a committer to the project which asks
    them to agree to the committer expectations documented on the project
    web site.
 
--  If the candidate agrees access is granted by setting up commit access
-   to the repos. The new committer is invited to the #committers Slack channel,
-   *after* the nomination poll and related discussions have been deleted. The
-   name of the new committer is also added to the list in the MAINTAINERS.md_
-   file. The new committer is also added to the CNCF's list of Cilium
-   maintainers as documented `here
-   <https://github.com/cncf/foundation/blob/main/README.md#other-content>`__. 
+-  If the candidate agrees, access is granted by setting up commit access.
+
+    #. Delete the nomination poll and related discussions to preserve the
+       privacy of any discussions regarding the newly nominated committer.
+       If any discussion may be relevant for subsequent project governance
+       discussion, those remarks may optionally be summarized and re-posted
+       to the channel. The final vote summary does not need to be deleted.
+
+    #. Invite the new committer to the #committers Slack channel.
+
+    #. Add the new committer to the list in MAINTAINERS.md_.
+
+    #. Add the new committer to the `CNCF's list of Cilium maintainers
+       <https://github.com/cncf/foundation/blob/main/README.md#other-content>`__.
+
+    #. Add the new committer to the `Committers team
+       <https://github.com/orgs/cilium/teams/committers>`__.
 
 Revoking Commit Access
 ----------------------
@@ -295,7 +317,7 @@ with care. The process in this case is:
 
 -  Ideally the revoked committer peacefully leaves the community and no
    further action is required. However, there is a distinct possibility
-   that he/she will try to generate support for his/her point of view
+   that they will try to generate support for their point of view
    within the larger community. In this case the reasoning for removing
    commit access as described in the request for a vote will be
    published to the community.
@@ -331,6 +353,8 @@ which each committer and each maintainer receives one vote.
 Votes are done in the Slack channel #committers using Slack polls. A failure to
 vote is an implicit abstention.
 
+.. _vote_limit:
+
 Company Block Vote Limit
 ------------------------
 
@@ -354,7 +378,7 @@ Nomination to Grant Commit Access
 ::
 
     I would like to nominate *[candidate]* for commit access. I believe
-    *[he/she]* has met the conditions for commit access described in the
+    *[he/she/they]* has met the conditions for commit access described in the
     committer grant policy on the project web site in the following ways:
 
     *[list of requirements & evidence]*
@@ -383,6 +407,9 @@ Vote to Grant Commit Access
 Vote Results for Grant of Commit Access
 ---------------------------------------
 
+Vote results should be reported based on the vote count, i.e. after applying
+the :ref:`vote_limit`.
+
 ::
 
     The voting period for granting to commit access to *[candidate]* initiated
@@ -394,7 +421,7 @@ Vote Results for Grant of Commit Access
 
     ABSTAIN: *[count of abstentions]* (*[% of voters]*)
 
-    Based on these results committer status *[is/is NOT]* granted and *[she/he]* 
+    Based on these results committer status *[is/is NOT]* granted and *[she/he/they]* 
     *[will/will NOT]* be added to the list of Cilium maintainers at the CNCF.
 
 Invitation to Accepted Committer
@@ -420,7 +447,7 @@ Proposal to Remove Commit Access for Inactivity
 ::
 
     Committer *[candidate]* has been inactive for *[duration]*. I have
-    attempted to privately contacted *[him/her]* and *[he/she]* could not be
+    attempted to privately contacted *[him/her]* and *[he/she/they]* could not be
     reached.
 
     Based on this I would like to formally propose removal of commit access.
@@ -432,10 +459,10 @@ Notification of Commit Removal for Inactivity
 
 ::
 
-    Committer *[candidate]* has been inactive for *[duration]*. *[He/she]*
+    Committer *[candidate]* has been inactive for *[duration]*. *[He/she/they]*
     *[stated no commit access is required/failed to respond]* to the formal
     proposal to remove access on *[date]*. Commit access has now been removed 
-    and *[she/he]* is being removed from the CNCF's list of Cilium maintainers.
+    and *[she/he/they]* is being removed from the CNCF's list of Cilium maintainers.
 
 Proposal to Revoke Commit Access for Detrimental Behavior
 ---------------------------------------------------------
@@ -443,8 +470,8 @@ Proposal to Revoke Commit Access for Detrimental Behavior
 ::
 
     I regret that I feel compelled to propose revocation of commit access for
-    *[candidate]*. I have privately discussed with *[him/her]* the following
-    reasons I believe *[his/her]* actions are detrimental to the project and we
+    *[candidate]*. I have privately discussed with *[him/her/them]* the following
+    reasons I believe *[his/her/their]* actions are detrimental to the project and we
     have failed to come to a mutual understanding:
 
     *[List of reasons and supporting evidence]*
@@ -489,6 +516,9 @@ Vote to Revoke Commit Access
 
 Vote Results for Revocation of Commit Access
 --------------------------------------------
+
+Vote results should be reported based on the vote count, i.e. after applying
+the :ref:`vote_limit`.
 
 ::
 

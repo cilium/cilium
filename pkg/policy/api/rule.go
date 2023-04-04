@@ -14,7 +14,8 @@ import (
 type AuthType string
 
 const (
-	AuthTypeNull AuthType = "null" // Always succeeds
+	AuthTypeNull       AuthType = "null"        // Always succeeds
+	AuthTypeMTLSSpiffe AuthType = "mtls-spiffe" // Mutual TLS with SPIFFE as certificate provider
 )
 
 // Auth specifies the kind of cryptographic authentication required for the traffic to
@@ -22,7 +23,7 @@ const (
 type Auth struct {
 	// Type is the required authentication type for the allowed traffic, if any.
 	//
-	// +kubebuilder:validation:Enum=null
+	// +kubebuilder:validation:Enum=null;mtls-spiffe
 	// +kubebuilder:validation:Required
 	Type AuthType `json:"type"`
 }
@@ -64,7 +65,7 @@ type Rule struct {
 	Ingress []IngressRule `json:"ingress,omitempty"`
 
 	// IngressDeny is a list of IngressDenyRule which are enforced at ingress.
-	// Any rule inserted here will by denied regardless of the allowed ingress
+	// Any rule inserted here will be denied regardless of the allowed ingress
 	// rules in the 'ingress' field.
 	// If omitted or empty, this rule does not apply at ingress.
 	//
@@ -78,7 +79,7 @@ type Rule struct {
 	Egress []EgressRule `json:"egress,omitempty"`
 
 	// EgressDeny is a list of EgressDenyRule which are enforced at egress.
-	// Any rule inserted here will by denied regardless of the allowed egress
+	// Any rule inserted here will be denied regardless of the allowed egress
 	// rules in the 'egress' field.
 	// If omitted or empty, this rule does not apply at egress.
 	//
@@ -210,6 +211,11 @@ func (r *Rule) RequiresDerivative() bool {
 			return true
 		}
 	}
+	for _, rule := range r.EgressDeny {
+		if rule.RequiresDerivative() {
+			return true
+		}
+	}
 	return false
 }
 
@@ -218,6 +224,7 @@ func (r *Rule) RequiresDerivative() bool {
 func (r *Rule) CreateDerivative(ctx context.Context) (*Rule, error) {
 	newRule := r.DeepCopy()
 	newRule.Egress = []EgressRule{}
+	newRule.EgressDeny = []EgressDenyRule{}
 
 	for _, egressRule := range r.Egress {
 		derivativeEgressRule, err := egressRule.CreateDerivative(ctx)
@@ -225,6 +232,14 @@ func (r *Rule) CreateDerivative(ctx context.Context) (*Rule, error) {
 			return newRule, err
 		}
 		newRule.Egress = append(newRule.Egress, *derivativeEgressRule)
+	}
+
+	for _, egressDenyRule := range r.EgressDeny {
+		derivativeEgressDenyRule, err := egressDenyRule.CreateDerivative(ctx)
+		if err != nil {
+			return newRule, err
+		}
+		newRule.EgressDeny = append(newRule.EgressDeny, *derivativeEgressDenyRule)
 	}
 	return newRule, nil
 }

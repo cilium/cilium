@@ -50,9 +50,9 @@ Connections Rate
   a single request/response payload message transmitted for each new connection. A
   single process and 32 parallel processes are tested.
 
-For the various benchmarks `netperf <https://github.com/HewlettPackard/netperf>`_
-has been used to generate the workloads and to collect the metrics. For spawning
-parallel netperf sessions, `super_netperf <https://raw.githubusercontent.com/borkmann/netperf_scripts/master/super_netperf>`_
+For the various benchmarks `netperf`_ has been used to generate the workloads
+and to collect the metrics. For spawning parallel netperf sessions,
+`super_netperf <https://raw.githubusercontent.com/borkmann/netperf_scripts/master/super_netperf>`_
 has been used. Both netperf and super_netperf are also frequently used and well
 established tools for benchmarking in the Linux kernel networking community.
 
@@ -432,16 +432,16 @@ Install ``kubeadm`` and its dependencies:
   $ ansible-playbook -i packet-hosts.ini playbooks/install-kubeadm.yaml
 
 We use `kubenetbench <https://github.com/cilium/kubenetbench>`_ to execute the
-`netperf <https://github.com/HewlettPackard/netperf>`_ benchmark in a Kubernetes
-environment. kubenetbench is a Kubernetes benchmarking project that is agnostic
-to the CNI or networking plugin that the cluster is deployed with. In this
-report we focus on pod-to-pod communication between different nodes. To install
-kubenetbench:
+`netperf`_ benchmark in a Kubernetes environment. kubenetbench is a Kubernetes
+benchmarking project that is agnostic to the CNI or networking plugin that the
+cluster is deployed with. In this report we focus on pod-to-pod communication
+between different nodes. To install kubenetbench:
 
 .. code-block:: shell-session
 
   $ ansible-playbook -i packet-hosts.ini playbooks/install-kubenetbench.yaml
 
+.. _netperf: https://github.com/HewlettPackard/netperf
 
 Running Benchmarks
 ------------------

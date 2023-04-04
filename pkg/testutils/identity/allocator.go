@@ -70,7 +70,7 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 
 	requiresGlobal := identity.RequiresGlobalIdentity(lbls)
 
-	if numID, ok := f.labelsToIdentity[lbls.String()]; ok && !requiresGlobal {
+	if numID, ok := f.labelsToIdentity[lbls.String()]; ok {
 		id := f.idToIdentity[numID]
 		id.ReferenceCount++
 		return id, false, nil
@@ -108,6 +108,11 @@ func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity
 	if realID.ReferenceCount == 1 {
 		delete(f.idToIdentity, int(id.ID))
 		delete(f.IdentityCache, id.ID)
+		for key, lblID := range f.labelsToIdentity {
+			if lblID == int(id.ID) {
+				delete(f.labelsToIdentity, key)
+			}
+		}
 	} else {
 		realID.ReferenceCount--
 		return false, nil
@@ -116,7 +121,7 @@ func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity
 }
 
 // ReleaseSlice wraps Release for slices.
-func (f *MockIdentityAllocator) ReleaseSlice(ctx context.Context, _ cache.IdentityAllocatorOwner, identities []*identity.Identity) error {
+func (f *MockIdentityAllocator) ReleaseSlice(ctx context.Context, identities []*identity.Identity) error {
 	for _, id := range identities {
 		if _, err := f.Release(ctx, id, false); err != nil {
 			return err

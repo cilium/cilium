@@ -18,31 +18,31 @@ import (
 	"path"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
 	"github.com/cilium/coverbee"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/rlimit"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/tools/cover"
 	"google.golang.org/protobuf/encoding/protowire"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/monitor"
-	"github.com/cilium/cilium/pkg/safeio"
 )
 
 var (
 	testPath               = flag.String("bpf-test-path", "", "Path to the eBPF tests")
 	testCoverageReport     = flag.String("coverage-report", "", "Specify a path for the coverage report")
 	testCoverageFormat     = flag.String("coverage-format", "html", "Specify the format of the coverage report")
+	noTestCoverage         = flag.String("no-test-coverage", "", "Don't collect coverages for the file matches to the given regex")
 	testInstrumentationLog = flag.String("instrumentation-log", "", "Path to a log file containing details about"+
 		" code coverage instrumentation, needed if code coverage breaks the verifier")
 
@@ -52,6 +52,10 @@ var (
 func TestBPF(t *testing.T) {
 	if testPath == nil || *testPath == "" {
 		t.Skip("Set -bpf-test-path to run BPF tests")
+	}
+
+	if err := rlimit.RemoveMemlock(); err != nil {
+		t.Log(err)
 	}
 
 	entries, err := os.ReadDir(*testPath)
@@ -83,12 +87,14 @@ func TestBPF(t *testing.T) {
 			continue
 		}
 
-		profiles := loadAndRunSpec(t, entry, instrLog)
-		for _, profile := range profiles {
-			if len(profile.Blocks) > 0 {
-				mergedProfiles = addProfile(mergedProfiles, profile)
+		t.Run(entry.Name(), func(t *testing.T) {
+			profiles := loadAndRunSpec(t, entry, instrLog)
+			for _, profile := range profiles {
+				if len(profile.Blocks) > 0 {
+					mergedProfiles = addProfile(mergedProfiles, profile)
+				}
 			}
-		}
+		})
 	}
 
 	if *testCoverageReport != "" {
@@ -121,40 +127,51 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 	spec := loadAndPrepSpec(t, elfPath)
 
 	var (
-		coll *ebpf.Collection
-		cfg  []*coverbee.BasicBlock
-		err  error
+		coll            *ebpf.Collection
+		cfg             []*coverbee.BasicBlock
+		err             error
+		collectCoverage bool
 	)
 
-	opts := ebpf.CollectionOptions{
-		Programs: ebpf.ProgramOptions{
-			LogSize: 64 << 20, // 64 MiB, not needed in most cases, except when running instrumented code.
-		},
+	if *testCoverageReport != "" {
+		if *noTestCoverage != "" {
+			matched, err := regexp.MatchString(*noTestCoverage, entry.Name())
+			if err != nil {
+				t.Fatal("test file regex matching failed:", err)
+			}
+
+			if matched {
+				t.Logf("Disabling coverage report for %s", entry.Name())
+			}
+
+			collectCoverage = !matched
+		} else {
+			collectCoverage = true
+		}
 	}
 
-	if *testCoverageReport == "" {
-		coll, err = ebpf.NewCollectionWithOptions(spec, opts)
+	if !collectCoverage {
+		coll, err = bpf.LoadCollection(spec, ebpf.CollectionOptions{})
 	} else {
-		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, opts, instrLog)
+		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, ebpf.CollectionOptions{
+			Programs: ebpf.ProgramOptions{
+				// 64 MiB, not needed in most cases, except when running instrumented code.
+				LogSize: 64 << 20,
+			},
+		}, instrLog)
+	}
+
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		if ve.Truncated {
+			t.Fatal("Verifier log exceeds 64MiB, increase LogSize passed to coverbee.InstrumentAndLoadCollection")
+		}
+		t.Fatalf("verifier error: %+v", ve)
 	}
 	if err != nil {
-		// Use this definition of ENOSPC instead of syscall.ENOSPC, since the stdlib constant is only
-		// available on linux. Even if this doesn't run, we still want it to compile on non-linux systems.
-		const ENOSPC = syscall.Errno(0x1c)
-		// ENOSPC usually means that the log size was to small, so increase and retry.
-		if errors.Is(err, ENOSPC) {
-			t.Fatal("Verifier logs larger than 64MiB, increase the log size passed to ebpf.NewCollectionWithOptions " +
-				"or decrease the size/complexity of the program")
-		}
-
-		t.Fatal("new coll:", err)
+		t.Fatal("loading collection:", err)
 	}
 	defer coll.Close()
-
-	err = loadCallsMap(spec, coll)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	testNameToPrograms := make(map[string]programSet)
 
@@ -165,6 +182,9 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 		}
 
 		progs := testNameToPrograms[match[1]]
+		if match[2] == "pktgen" {
+			progs.pktgenProg = coll.Programs[progName]
+		}
 		if match[2] == "setup" {
 			progs.setupProg = coll.Programs[progName]
 		}
@@ -221,8 +241,11 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 	}
 	sort.Strings(testNames)
 
+	// Get maps used for common mocking facilities
+	skbMdMap := coll.Maps[mockSkbMetaMap]
+
 	for _, name := range testNames {
-		t.Run(name, subTest(testNameToPrograms[name], coll.Maps[suiteResultMap]))
+		t.Run(name, subTest(testNameToPrograms[name], coll.Maps[suiteResultMap], skbMdMap))
 	}
 
 	if globalLogReader != nil {
@@ -231,7 +254,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	if *testCoverageReport == "" {
+	if !collectCoverage {
 		return nil
 	}
 
@@ -256,100 +279,63 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 }
 
 func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
-	spec, err := ebpf.LoadCollectionSpec(elfPath)
+	spec, err := bpf.LoadCollectionSpec(elfPath)
 	if err != nil {
-		t.Fatal("load spec: ", elfPath, err)
+		t.Fatalf("load spec %s: %v", elfPath, err)
 	}
 
-	for _, mspec := range spec.Maps {
-		// Drain extra info from map specs, cilium/ebpf will complain if we don't
-		if mspec.Extra != nil {
-			_, err := safeio.ReadAllLimit(mspec.Extra, safeio.MB)
-			if err != nil {
-				t.Fatalf("error draining map specs: %v", err)
-			}
+	for _, m := range spec.Maps {
+		m.Pinning = ebpf.PinNone
+	}
+
+	for n, p := range spec.Programs {
+		switch p.Type {
+		case ebpf.XDP, ebpf.SchedACT, ebpf.SchedCLS:
+			continue
 		}
 
-		mspec.Pinning = ebpf.PinNone
-	}
-
-	// Detect program type mismatches
-	var progTestType ebpf.ProgramType
-	for _, prog := range spec.Programs {
-		if progTestType != prog.Type {
-			if progTestType == ebpf.UnspecifiedProgram {
-				progTestType = prog.Type
-				continue
-			}
-			if prog.Type == ebpf.UnspecifiedProgram {
-				continue
-			}
-		}
-	}
-
-	if progTestType == ebpf.UnspecifiedProgram {
-		t.Fatalf("File '%s' only contains unspecified program types", elfPath)
-	}
-
-	// Give all untyped tail call programs the same program type as the test programs
-	for _, spec := range spec.Programs {
-		if spec.Type == ebpf.UnspecifiedProgram {
-			spec.Type = progTestType
-		}
+		t.Logf("Skipping program '%s' of type '%s': BPF_PROG_RUN not supported", p.Name, p.Type)
+		delete(spec.Programs, n)
 	}
 
 	return spec
 }
 
-// Fill the tail calls map with the tail calls based on the calls .id and names of the program sections.
-func loadCallsMap(spec *ebpf.CollectionSpec, coll *ebpf.Collection) error {
-	callMap, found := coll.Maps[callsMapName]
-	if !found {
-		// If we can't find the map, tailcalls aren't required for the current tests
-		return nil
-	}
-
-	for name, prog := range coll.Programs {
-		if strings.HasPrefix(spec.Programs[name].SectionName, callsMapID) {
-			indexStr := strings.TrimPrefix(spec.Programs[name].SectionName, callsMapID)
-			index, err := strconv.Atoi(indexStr)
-			if err != nil {
-				return fmt.Errorf("atoi tail call index: %w", err)
-			}
-
-			index32 := uint32(index)
-			err = callMap.Update(&index32, prog, ebpf.UpdateAny)
-			if err != nil {
-				return fmt.Errorf("update tailcall map: %w", err)
-			}
-		}
-	}
-
-	return nil
-}
-
 type programSet struct {
-	setupProg *ebpf.Program
-	checkProg *ebpf.Program
+	pktgenProg *ebpf.Program
+	setupProg  *ebpf.Program
+	checkProg  *ebpf.Program
 }
 
-var checkProgRegex = regexp.MustCompile(`[^/]+/test/([^/]+)/((?:check)|(?:setup))`)
+var checkProgRegex = regexp.MustCompile(`[^/]+/test/([^/]+)/((?:check)|(?:setup)|(?:pktgen))`)
 
 const (
 	ResultSuccess = 1
 
 	suiteResultMap = "suite_result_map"
-
-	callsMapName = "test_cilium_calls_65535"
-	// TODO we should read the .id field from the maps BTF, but the current cilium/ebpf version doesn't make the raw
-	// map BTF available.
-	callsMapID = "2/"
+	mockSkbMetaMap = "mock_skb_meta_map"
 )
 
-func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
+func subTest(progSet programSet, resultMap *ebpf.Map, skbMdMap *ebpf.Map) func(t *testing.T) {
 	return func(t *testing.T) {
 		// create ctx with the max allowed size(4k - head room - tailroom)
 		ctx := make([]byte, 4096-256-320)
+
+		if progSet.pktgenProg != nil {
+			statusCode, result, err := progSet.pktgenProg.Test(ctx)
+			if err != nil {
+				t.Fatalf("error while running pktgen prog: %s", err)
+			}
+
+			if *dumpCtx {
+				t.Log("Pktgen returned status: ")
+				t.Log(statusCode)
+				t.Log("Ctx after pktgen: ")
+				t.Log(spew.Sdump(result))
+			}
+
+			ctx = result
+		}
 
 		if progSet.setupProg != nil {
 			statusCode, result, err := progSet.setupProg.Test(ctx)
@@ -384,13 +370,19 @@ func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
 
 		// Clear map value after each test
 		defer func() {
-			var key int32
-			value := make([]byte, resultMap.ValueSize())
-			resultMap.Lookup(&key, &value)
-			for i := 0; i < len(value); i++ {
-				value[i] = 0
+			for _, m := range []*ebpf.Map{resultMap, skbMdMap} {
+				if m == nil {
+					continue
+				}
+
+				var key int32
+				value := make([]byte, m.ValueSize())
+				m.Lookup(&key, &value)
+				for i := 0; i < len(value); i++ {
+					value[i] = 0
+				}
+				m.Update(&key, &value, ebpf.UpdateAny)
 			}
-			resultMap.Update(&key, &value, ebpf.UpdateAny)
 		}()
 
 		var key int32

@@ -46,4 +46,5 @@ type VirtualPhysicalConnection struct {
 	AliUid                          string `json:"AliUid" xml:"AliUid"`
 	VlanId                          string `json:"VlanId" xml:"VlanId"`
 	ExpectSpec                      string `json:"ExpectSpec" xml:"ExpectSpec"`
+	ResourceGroupId                 string `json:"ResourceGroupId" xml:"ResourceGroupId"`
 }

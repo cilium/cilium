@@ -11,7 +11,6 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 type dropHandler struct {
@@ -43,6 +42,14 @@ func (d *dropHandler) Status() string {
 	return d.context.Status()
 }
 
+func (d *dropHandler) Context() *api.ContextOptions {
+	return d.context
+}
+
+func (d *dropHandler) ListMetricVec() []*prometheus.MetricVec {
+	return []*prometheus.MetricVec{d.drops.MetricVec}
+}
+
 func (d *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	if flow.GetVerdict() != flowpb.Verdict_DROPPED {
 		return nil
@@ -53,7 +60,7 @@ func (d *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 		return err
 	}
 
-	labels := append(contextLabels, monitorAPI.DropReason(uint8(flow.GetDropReason())), v1.FlowProtocol(flow))
+	labels := append(contextLabels, flow.GetDropReasonDesc().String(), v1.FlowProtocol(flow))
 
 	d.drops.WithLabelValues(labels...).Inc()
 	return nil

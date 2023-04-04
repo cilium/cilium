@@ -81,18 +81,20 @@ type DescribeIpv6GatewayAttributeRequest struct {
 // DescribeIpv6GatewayAttributeResponse is the response struct for api DescribeIpv6GatewayAttribute
 type DescribeIpv6GatewayAttributeResponse struct {
 	*responses.BaseResponse
-	VpcId              string `json:"VpcId" xml:"VpcId"`
-	Status             string `json:"Status" xml:"Status"`
-	CreationTime       string `json:"CreationTime" xml:"CreationTime"`
-	Spec               string `json:"Spec" xml:"Spec"`
-	RegionId           string `json:"RegionId" xml:"RegionId"`
-	InstanceChargeType string `json:"InstanceChargeType" xml:"InstanceChargeType"`
-	RequestId          string `json:"RequestId" xml:"RequestId"`
-	Ipv6GatewayId      string `json:"Ipv6GatewayId" xml:"Ipv6GatewayId"`
-	Description        string `json:"Description" xml:"Description"`
-	ExpiredTime        string `json:"ExpiredTime" xml:"ExpiredTime"`
-	BusinessStatus     string `json:"BusinessStatus" xml:"BusinessStatus"`
-	Name               string `json:"Name" xml:"Name"`
+	VpcId              string                             `json:"VpcId" xml:"VpcId"`
+	Status             string                             `json:"Status" xml:"Status"`
+	CreationTime       string                             `json:"CreationTime" xml:"CreationTime"`
+	Spec               string                             `json:"Spec" xml:"Spec"`
+	RegionId           string                             `json:"RegionId" xml:"RegionId"`
+	InstanceChargeType string                             `json:"InstanceChargeType" xml:"InstanceChargeType"`
+	RequestId          string                             `json:"RequestId" xml:"RequestId"`
+	Ipv6GatewayId      string                             `json:"Ipv6GatewayId" xml:"Ipv6GatewayId"`
+	Description        string                             `json:"Description" xml:"Description"`
+	ExpiredTime        string                             `json:"ExpiredTime" xml:"ExpiredTime"`
+	BusinessStatus     string                             `json:"BusinessStatus" xml:"BusinessStatus"`
+	Name               string                             `json:"Name" xml:"Name"`
+	ResourceGroupId    string                             `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	Tags               TagsInDescribeIpv6GatewayAttribute `json:"Tags" xml:"Tags"`
 }
 
 // CreateDescribeIpv6GatewayAttributeRequest creates a request to invoke DescribeIpv6GatewayAttribute API

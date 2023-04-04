@@ -11,10 +11,8 @@ IPv4 Fragment Handling
 
 By default, Cilium configures the eBPF datapath to perform IP fragment tracking
 to allow protocols that do not support segmentation (such as UDP) to
-transparently transmit large messages over the network. IP fragment tracking is
-implemented in eBPF using an LRU (*Least Recently Used*) map which requires
-Linux 4.10 or later. This feature may be configured using the following
-options:
+transparently transmit large messages over the network. This feature may be
+configured using the following options:
 
 - ``--enable-ipv4-fragment-tracking``: Enable or disable IPv4 fragment
   tracking. Enabled by default.

@@ -30,62 +30,65 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	if (!map)
 		return CTX_ACT_OK;
 
+	/* Policy match precedence:
+	 * 1. id/proto/port  (L3/L4)
+	 * 2. ANY/proto/port (L4-only)
+	 * 3. id/proto/ANY   (L3-proto)
+	 * 4. ANY/proto/ANY  (Proto-only)
+	 * 5. id/ANY/ANY     (L3-only)
+	 * 6. ANY/ANY/ANY    (All)
+	 */
 	/* Start with L3/L4 lookup. */
 	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return policy->proxy_port;
+	if (likely(policy)) {					/* 1. id/proto/port */
+		goto policy_check_entry;
 	}
 
 	/* L4-only lookup. */
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return policy->proxy_port;
+	if (likely(policy)) {					/* 2. ANY/proto/port */
+		goto policy_check_entry;
 	}
-	key.sec_label = identity;
 
-	/* Check L4 any port policy */
+	/* Check L3-proto policy */
+	key.sec_label = identity;
 	key.dport = 0;
 	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+	if (likely(policy)) {					/* 3. id/proto/ANY */
+		goto policy_check_entry;
 	}
 
-	/* If L4 policy check misses, fall back to L3. */
+	/* Check Proto-only policy */
+	key.sec_label = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {					/* 4. ANY/proto/ANY */
+		goto policy_check_entry;
+	}
+
+	/* If L4 policy check misses, fall back to L3-only. */
+	key.sec_label = identity;
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+	if (likely(policy)) {					/* 5. id/ANY/ANY */
+		goto policy_check_entry;
 	}
 
 	/* Final fallback if allow-all policy is in place. */
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+	if (likely(policy)) {					/* 6. ANY/ANY/ANY */
+		goto policy_check_entry;
 	}
 
 	return DROP_POLICY;
+
+policy_check_entry:
+	/* FIXME: Need byte counter */
+	__sync_fetch_and_add(&policy->packets, 1);
+	if (unlikely(policy->deny))
+		return DROP_POLICY_DENY;
+	return policy->proxy_port;
 }
 #else
 static __always_inline void
@@ -174,6 +177,14 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	}
 #endif /* ENABLE_ICMP_RULE */
 
+	/* Policy match precedence:
+	 * 1. id/proto/port  (L3/L4)
+	 * 2. ANY/proto/port (L4-only)
+	 * 3. id/proto/ANY   (L3-proto)
+	 * 4. ANY/proto/ANY  (Proto-only)
+	 * 5. id/ANY/ANY     (L3-only)
+	 * 6. ANY/ANY/ANY    (All)
+	 */
 	/* L4 lookup can't be done on untracked fragments. */
 	if (!is_untracked_fragment) {
 		/* Start with L3/L4 lookup. */
@@ -181,9 +192,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		if (likely(policy)) {
 			cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
 				    dport << 16 | proto);
-
-			account(ctx, policy);
-			*match_type = POLICY_MATCH_L3_L4;
+			*match_type = POLICY_MATCH_L3_L4;	/* 1. id/proto/port */
 			goto policy_check_entry;
 		}
 
@@ -191,29 +200,34 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		key.sec_label = 0;
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
-			account(ctx, policy);
-			*match_type = POLICY_MATCH_L4_ONLY;
+			*match_type = POLICY_MATCH_L4_ONLY;	/* 2. ANY/proto/port */
 			goto policy_check_entry;
 		}
-
-		/* Check L4 any port policy */
-		key.dport = 0;
-		policy = map_lookup_elem(map, &key);
-		if (likely(policy)) {
-			account(ctx, policy);
-			*match_type = POLICY_MATCH_L4_ONLY;
-			goto policy_check_entry;
-		}
-		key.sec_label = remote_id;
 	}
 
-	/* If L4 policy check misses, fall back to L3. */
+	/* Check L3-proto policy */
+	key.sec_label = remote_id;
 	key.dport = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		*match_type = POLICY_MATCH_L3_PROTO;		/* 3. id/proto/ANY */
+		goto policy_check_entry;
+	}
+
+	/* Check Proto-only policy */
+	key.sec_label = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		*match_type = POLICY_MATCH_PROTO_ONLY;		/* 4. ANY/proto/ANY */
+		goto policy_check_entry;
+	}
+
+	/* If L4 policy check misses, fall back to L3-only. */
+	key.sec_label = remote_id;
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
-		account(ctx, policy);
-		*match_type = POLICY_MATCH_L3_ONLY;
+		*match_type = POLICY_MATCH_L3_ONLY;		/* 5. id/ANY/ANY */
 		goto policy_check_entry;
 	}
 
@@ -221,8 +235,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
 	if (policy) {
-		account(ctx, policy);
-		*match_type = POLICY_MATCH_ALL;
+		*match_type = POLICY_MATCH_ALL;			/* 6. ANY/ANY/ANY */
 		goto policy_check_entry;
 	}
 
@@ -238,6 +251,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	return DROP_POLICY;
 
 policy_check_entry:
+	account(ctx, policy);
+
 	if (unlikely(policy->deny))
 		return DROP_POLICY_DENY;
 
@@ -260,6 +275,7 @@ policy_check_entry:
  * @arg is_untracked_fragment	True if packet is a TCP/UDP datagram fragment
  *				AND IPv4 fragment tracking is disabled
  * @arg match_type		Pointer to store layers used for policy match
+ * @arg ext_err		Pointer to store extended error information if this packet isn't allowed
  *
  * Returns:
  *   - Positive integer indicating the proxy_port to handle this traffic
@@ -269,13 +285,13 @@ policy_check_entry:
 static __always_inline int
 policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 			  __u16 dport, __u8 proto, bool is_untracked_fragment,
-			  __u8 *match_type, __u8 *audited, __u16 *proxy_port)
+			  __u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
 	int ret;
 
 	ret = __policy_can_access(&POLICY_MAP, ctx, dst_id, src_id, dport,
 				  proto, CT_INGRESS, is_untracked_fragment,
-				  match_type, NULL, proxy_port);
+				  match_type, ext_err, proxy_port);
 	if (ret >= CTX_ACT_OK)
 		return ret;
 

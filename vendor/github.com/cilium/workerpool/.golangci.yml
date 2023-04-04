@@ -1,17 +1,23 @@
 # See https://golangci-lint.run/usage/configuration/ for available options.
 # Also https://github.com/cilium/cilium/blob/master/.golangci.yaml as a
 # reference.
+run:
+  go: '1.20'
+  timeout: 1m
 linters:
   disable-all: true
   enable:
+    - asasalint
     - asciicheck
     - bidichk
     - bodyclose
     - containedctx
+    - contextcheck
     - cyclop
-    - deadcode
+    - decorder
     - dogsled
     - dupl
+    - dupword
     - durationcheck
     - errcheck
     - errname
@@ -19,32 +25,39 @@ linters:
     - exhaustive
     - exportloopref
     - forcetypeassert
+    - gocheckcompilerdirectives
     - gocognit
     - goconst
     - gocritic
     - godot
     - goerr113
     - gofmt
+    - goheader
     - goimports
     - gomnd
+    - goprintffuncname
     - gosec
     - gosimple
     - govet
     - grouper
-    - ifshort
     - ineffassign
+    - interfacebloat
     - ireturn
     - makezero
     - misspell
+    - musttag
+    - nakedret
     - nestif
     - nilerr
     - nilnil
+    - noctx
+    - nosprintfhostport
     - prealloc
     - predeclared
+    - reassign
     - revive
     - rowserrcheck
     - staticcheck
-    - structcheck
     - tenv
     - thelper
     - tparallel
@@ -52,19 +65,16 @@ linters:
     - unconvert
     - unparam
     - unused
-    - varcheck
+    - usestdlibvars
     - wastedassign
 
 linters-settings:
   cyclop:
     skip-tests: true
-  gosimple:
-    go: "1.18"
+
+  goheader:
+    template: |-
+      SPDX-License-Identifier: Apache-2.0
+      Copyright Authors of Cilium
   govet:
     enable-all: true
-  staticcheck:
-    go: "1.18"
-  stylecheck:
-    go: "1.18"
-  unused:
-    go: "1.18"

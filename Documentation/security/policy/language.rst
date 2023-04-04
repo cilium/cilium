@@ -36,8 +36,8 @@ can talk to each other. Layer 3 policies can be specified using the following me
 
 * `DNS based`: Selects remote, non-cluster, peers using DNS names converted to
   IPs via DNS lookups. It shares all limitations of the `CIDR based` rules
-  above. DNS information is acquired by routing DNS traffic via a proxy, or
-  polling for listed DNS targets. DNS TTLs are respected.
+  above. DNS information is acquired by routing DNS traffic via a proxy.
+  DNS TTLs are respected.
 
 .. _Labels based:
 
@@ -453,10 +453,6 @@ connection are either managed by Cilium or use an IP belonging to a node in the
 cluster (including host networking pods). This traffic may be allowed using
 labels, services or entities -based policies as described above.
 
-.. note::
-
-   When running Cilium on Linux 4.10 or earlier, there are :ref:`cidr_limitations`.
-
 Ingress
 ~~~~~~~
 
@@ -586,38 +582,8 @@ Example
         .. literalinclude:: ../../../examples/policies/l3/fqdn/fqdn.json
 
 
-.. _DNS and Long-Lived Connections:
-
-Managing Long-Lived Connections & Minimum DNS Cache Times
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Often, an application may keep a connection open for longer than the DNS TTL.
-Without further DNS queries the remote IP used in the long-lived connection may
-expire out of the DNS cache. When this occurs, existing connections established
-before the TTL expires will continue to be allowed until they terminate. Unused
-IPs will no longer be allowed, however, even when from the same DNS lookup as
-an in-use IP. This tracking is per-endpoint per-IP and DNS entries in this
-state will be have ``source: connection`` with a single IP listed within the
-``cilium fqdn cache list`` output.
-
-A minimum TTL is used to ensure a lower time bound to DNS data expiration, and
-IPs allowed by a ``toFQDNs`` rule will be allowed at least this long It can be
-configured with the ``--tofqdns-min-ttl`` CLI option. The value is in integer
-seconds and must be 1 or more, the default is 1 hour.
-
-Some care needs to be taken when setting ``--tofqdns-min-ttl`` with DNS data
-that returns many distinct IPs over time. A long TTL will keep each IP cached
-long after the related connections have terminated. Large numbers of IPs each
-have corresponding Security Identities and too many may slow down Cilium policy
-regeneration.
-
 Managing Short-Lived Connections & Maximum IPs per FQDN/endpoint
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The minimum TTL for DNS entries in the cache is deliberately long with 1 hour
-as the default. This is done to accommodate long-lived persistent connections.
-On the other end of the spectrum are workloads that perform short-lived
-connections in repetition to FQDNs that are backed by a large number of IP
-addresses (e.g. AWS S3).
 
 Many short-lived connections can grow the number of IPs mapping to an FQDN
 quickly. In order to limit the number of IP addresses that map a particular
@@ -1178,8 +1144,6 @@ for instructions.
 Deny Policies
 =============
 
-.. include:: ../../beta.rst
-
 Deny policies, available and enabled by default since Cilium 1.9, allows to
 explicitly restrict certain traffic to and from a Pod.
 
@@ -1245,40 +1209,13 @@ Deny policies do not support: policy enforcement at L7, i.e., specifically
 denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
 domain name.
 
-Limitations and known issues
-----------------------------
+Previous limitations and known issues
+-------------------------------------
 
-The current known limitation is a deny policy with ``toEntities`` "world" for
-which a ``toFQDNs`` can cause traffic to be allowed if such traffic is
-considered external to the cluster.
-
-.. code-block:: yaml
-
-  apiVersion: "cilium.io/v2"
-  kind: CiliumNetworkPolicy
-  metadata:
-    name: "deny-egress-to-world"
-  spec:
-    endpointSelector:
-      matchLabels:
-        k8s-app.guestbook: web
-    egressDeny:
-    - toEntities:
-      - "world"
-    egress:
-      - toEndpoints:
-        - matchLabels:
-            "k8s:io.kubernetes.pod.namespace": kube-system
-            "k8s:k8s-app": kube-dns
-        toPorts:
-          - ports:
-             - port: "53"
-               protocol: ANY
-            rules:
-              dns:
-                - matchPattern: "*"
-      - toFQDNs:
-          - matchName: "www.google.com"
+For Cilium versions prior to 1.14 deny-policies for peers outside the cluster
+sometimes did not work because of :gh-issue:`15198`.  Make sure that you are
+using version 1.14 or later if you are relying on deny policies to manage
+external traffic to your cluster.
 
 .. _HostPolicies:
 

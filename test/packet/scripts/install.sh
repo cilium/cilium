@@ -5,7 +5,7 @@ set -e
 # Ensure no prompts from apt & co.
 export DEBIAN_FRONTEND=noninteractive
 
-GOLANG_VERSION="1.19.4"
+GOLANG_VERSION="1.20.1"
 VAGRANT_VERSION="2.2.16"
 PACKER_VERSION="1.3.5"
 

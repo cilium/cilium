@@ -42,7 +42,7 @@ var _ = Describe("RuntimeDatapathPrivilegedUnitTests", func() {
 		path, _ := filepath.Split(vm.BasePath())
 		ctx, cancel := context.WithTimeout(context.Background(), privilegedUnitTestTimeout)
 		defer cancel()
-		res := vm.ExecContext(ctx, fmt.Sprintf("bash -c 'sudo make -C %s tests-privileged | ts \"[%%H:%%M:%%S]\"; exit \"${PIPESTATUS[0]}\"'", path))
+		res := vm.ExecContext(ctx, fmt.Sprintf("bash -c 'sudo make -C %s tests-privileged NO_COLOR=1 | ts \"[%%H:%%M:%%S]\"; exit \"${PIPESTATUS[0]}\"'", path))
 		res.ExpectSuccess("Failed to run privileged unit tests")
 	})
 })

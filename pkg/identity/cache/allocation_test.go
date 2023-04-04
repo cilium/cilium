@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
+	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -90,7 +91,7 @@ func (e *IdentityAllocatorEtcdSuite) SetUpTest(c *C) {
 }
 
 func (e *IdentityAllocatorEtcdSuite) TearDownTest(c *C) {
-	kvstore.Client().Close()
+	kvstore.Client().Close(context.TODO())
 }
 
 type IdentityAllocatorConsulSuite struct {
@@ -104,7 +105,7 @@ func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
 }
 
 func (e *IdentityAllocatorConsulSuite) TearDownTest(c *C) {
-	kvstore.Client().Close()
+	kvstore.Client().Close(context.TODO())
 }
 
 type dummyOwner struct {
@@ -180,7 +181,7 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 	watcher.watch(events)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
-	key := GlobalIdentity{lbls.LabelArray()}
+	key := &cacheKey.GlobalIdentity{lbls.LabelArray()}
 
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{

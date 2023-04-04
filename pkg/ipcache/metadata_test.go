@@ -22,6 +22,7 @@ import (
 var (
 	worldPrefix     = netip.MustParsePrefix("1.1.1.1/32")
 	inClusterPrefix = netip.MustParsePrefix("10.0.0.4/32")
+	aPrefix         = netip.MustParsePrefix("100.4.16.32/32")
 )
 
 func TestInjectLabels(t *testing.T) {
@@ -56,6 +57,42 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
+
+	// Clean up.
+	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid", overrideIdentity(false), labels.LabelRemoteNode)
+	IPIdentityCache.metadata.remove(inClusterPrefix, "kube-uid", overrideIdentity(false), labels.LabelKubeAPIServer)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.metadata.m, 1)
+
+	// Assert that an upsert for reserved:health label results in only the
+	// reserved health ID.
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.Local, "node-uid", labels.LabelHealth)
+	assert.Len(t, IPIdentityCache.metadata.m, 2)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
+	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
+	assert.Equal(t, identity.ReservedIdentityHealth, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID)
+
+	// Assert that a CIDR identity can be overridden automatically (without
+	// overrideIdentity=true) when the prefix becomes associated with an entity
+	// within the cluster.
+	IPIdentityCache.metadata.upsertLocked(aPrefix, source.Generated, "cnp-uid", labels.LabelWorld)
+	assert.Len(t, IPIdentityCache.metadata.m, 3)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{aPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
+	assert.True(t, IPIdentityCache.ipToIdentityCache["100.4.16.32/32"].ID.HasLocalScope())
+	IPIdentityCache.metadata.upsertLocked(aPrefix, source.CustomResource, "node-uid", labels.LabelRemoteNode)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{aPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
+	assert.False(t, IPIdentityCache.ipToIdentityCache["100.4.16.32/32"].ID.HasLocalScope())
 }
 
 func TestFilterMetadataByLabels(t *testing.T) {
@@ -115,8 +152,103 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
-	assert.NotContains(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels(), labels.LabelKubeAPIServer)
+	assert.NotContains(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels(), labels.IDNameKubeAPIServer)
 	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
+}
+
+func TestOverrideIdentity(t *testing.T) {
+	allocator := testidentity.NewMockIdentityAllocator(nil)
+
+	// pre-allocate override identities
+	fooLabels := labels.NewLabelsFromSortedList("k8s:name=foo")
+	fooID, isNew, err := allocator.AllocateIdentity(context.TODO(), fooLabels, false, identity.InvalidIdentity)
+	assert.Equal(t, fooID.ReferenceCount, 1)
+	assert.NoError(t, err)
+	assert.True(t, isNew)
+
+	barLabels := labels.NewLabelsFromSortedList("k8s:name=bar")
+	barID, isNew, err := allocator.AllocateIdentity(context.TODO(), barLabels, false, identity.InvalidIdentity)
+	assert.Equal(t, fooID.ReferenceCount, 1)
+	assert.NoError(t, err)
+	assert.True(t, isNew)
+
+	ipc := NewIPCache(&Configuration{
+		IdentityAllocator: allocator,
+		PolicyHandler:     &mockUpdater{},
+		DatapathHandler:   &mockTriggerer{},
+	})
+	ctx := context.Background()
+
+	// Create CIDR identity from labels
+	ipc.metadata.upsertLocked(worldPrefix, source.KubeAPIServer, "kube-uid", labels.LabelKubeAPIServer)
+	remaining, err := ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok := ipc.LookupByPrefix(worldPrefix.String())
+	assert.True(t, ok)
+	assert.True(t, id.ID.HasLocalScope())
+	assert.False(t, id.ID.IsReservedIdentity())
+
+	// Force an identity override
+	ipc.metadata.upsertLocked(worldPrefix, source.CustomResource, "cep-uid", overrideIdentity(true), fooLabels)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(worldPrefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, fooID.ReferenceCount, 2)
+	assert.Equal(t, id.ID, fooID.ID)
+
+	// Remove identity override from prefix, should assign a CIDR identity again
+	ipc.metadata.remove(worldPrefix, "cep-uid", overrideIdentity(true), fooLabels)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(worldPrefix.String())
+	assert.True(t, ok)
+	assert.True(t, id.ID.HasLocalScope())
+	assert.False(t, id.ID.IsReservedIdentity())
+	assert.Equal(t, fooID.ReferenceCount, 1)
+
+	// Remove remaining labels from prefix, this should remove the entry
+	ipc.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	_, ok = ipc.LookupByPrefix(worldPrefix.String())
+	assert.False(t, ok)
+
+	// Create a new entry again via override
+	ipc.metadata.upsertLocked(worldPrefix, source.CustomResource, "cep-uid", overrideIdentity(true), barLabels)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	// Add labels, those will be ignored due to override
+	ipc.metadata.upsertLocked(worldPrefix, source.KubeAPIServer, "kube-uid", labels.LabelKubeAPIServer)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(worldPrefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, id.ID, barID.ID)
+	assert.Equal(t, barID.ReferenceCount, 2)
+
+	// Remove all metadata at once, this should remove the whole entry
+	ipc.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
+	ipc.metadata.remove(worldPrefix, "cep-uid", overrideIdentity(true), barLabels)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	_, ok = ipc.LookupByPrefix(worldPrefix.String())
+	assert.Equal(t, barID.ReferenceCount, 1)
+	assert.False(t, ok)
 }
 
 func setupTest(t *testing.T) (cleanup func()) {
@@ -130,7 +262,6 @@ func setupTest(t *testing.T) (cleanup func()) {
 		PolicyHandler:     &mockUpdater{},
 		DatapathHandler:   &mockTriggerer{},
 	})
-	IPIdentityCache.k8sSyncedChecker = &mockK8sSyncedChecker{}
 
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "kube-uid", labels.LabelKubeAPIServer)
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.Local, "host-uid", labels.LabelHost)
@@ -140,10 +271,6 @@ func setupTest(t *testing.T) (cleanup func()) {
 		IPIdentityCache.Shutdown()
 	}
 }
-
-type mockK8sSyncedChecker struct{}
-
-func (m *mockK8sSyncedChecker) K8sCacheIsSynced() bool { return true }
 
 type mockUpdater struct{}
 

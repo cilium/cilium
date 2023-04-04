@@ -31,15 +31,9 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("TLS", func(t *testing.T) {
-		res, err := NewListener("dummy-name", "dummy-secret-namespace", []model.TLSSecret{
-			{
-				Name:      "dummy-secret-1",
-				Namespace: "dummy-namespace",
-			},
-			{
-				Name:      "dummy-secret-2",
-				Namespace: "dummy-namespace",
-			},
+		res, err := NewListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
+			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
+			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
 		})
 		require.Nil(t, err)
 
@@ -49,20 +43,40 @@ func TestNewListener(t *testing.T) {
 
 		require.Equal(t, "dummy-name", listener.Name)
 		require.Len(t, listener.GetListenerFilters(), 1)
-		require.Len(t, listener.GetFilterChains(), 2)
+		require.Len(t, listener.GetFilterChains(), 3)
 		require.Equal(t, "raw_buffer", listener.GetFilterChains()[0].GetFilterChainMatch().TransportProtocol)
 		require.Equal(t, "tls", listener.GetFilterChains()[1].GetFilterChainMatch().TransportProtocol)
+		require.Equal(t, "tls", listener.GetFilterChains()[2].GetFilterChainMatch().TransportProtocol)
 		require.Len(t, listener.GetFilterChains()[1].GetFilters(), 1)
+		var serverNames []string
+		serverNames = append(serverNames, listener.GetFilterChains()[1].GetFilterChainMatch().ServerNames...)
+		serverNames = append(serverNames, listener.GetFilterChains()[2].GetFilterChainMatch().ServerNames...)
+		sort.Strings(serverNames)
+		require.Equal(t, []string{"dummy.anotherserver.com", "dummy.server.com"}, serverNames)
 
 		downStreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
 		err = proto.Unmarshal(listener.FilterChains[1].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
 		require.NoError(t, err)
 
-		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, 2)
+		var secretNames []string
+		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, 1)
 		sort.Slice(downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, func(i, j int) bool {
 			return downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[i].Name < downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[j].Name
 		})
-		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-1", downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
-		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-2", downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[1].GetName())
+		secretNames = append(secretNames, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
+
+		err = proto.Unmarshal(listener.FilterChains[2].TransportSocket.ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downStreamTLS)
+		require.NoError(t, err)
+
+		require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, 1)
+		sort.Slice(downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, func(i, j int) bool {
+			return downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[i].Name < downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[j].Name
+		})
+		secretNames = append(secretNames, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
+
+		sort.Strings(secretNames)
+		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-1", secretNames[0])
+		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-2", secretNames[1])
+
 	})
 }

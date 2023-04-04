@@ -48,7 +48,7 @@ func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) e
 	return nil
 }
 
-// Client returns the global kvstore client or nil if the client is not configured yet
+// Client returns the global kvstore, blocking until it has been configured
 func Client() BackendOperations {
 	<-defaultClientSet
 	return defaultClient

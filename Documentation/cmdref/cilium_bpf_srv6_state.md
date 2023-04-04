@@ -8,11 +8,6 @@ List SRv6 state entries
 
 List SRv6 state entries.
 
-Note that for Linux kernel versions between 4.11 and 4.15 inclusive, the native
-LPM map type used for implementing this feature does not provide the ability to
-walk / dump the entries, so on these kernel versions this tool will never
-return any entries, even if entries exist in the map. 
-
 ```
 cilium bpf srv6 state [flags]
 ```

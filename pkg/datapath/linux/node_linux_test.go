@@ -20,10 +20,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
@@ -35,7 +35,7 @@ import (
 )
 
 type linuxPrivilegedBaseTestSuite struct {
-	nodeAddressing types.NodeAddressing
+	nodeAddressing datapath.NodeAddressing
 	mtuConfig      mtu.Configuration
 	enableIPv4     bool
 	enableIPv6     bool
@@ -79,7 +79,7 @@ const (
 	baseIPv6Time = "net.ipv6.neigh.default.base_reachable_time_ms"
 )
 
-func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing types.NodeAddressing, enableIPv6, enableIPv4 bool) {
+func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
 	rlimit.RemoveMemlock()
 	s.nodeAddressing = addressing
 	s.mtuConfig = mtu.NewConfiguration(0, false, false, false, 1500, nil)
@@ -108,6 +108,10 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing types.No
 
 	tunnel.SetTunnelMap(tunnel.NewTunnelMap("test_cilium_tunnel_map"))
 	_, err = tunnel.TunnelMap().OpenOrCreate()
+	c.Assert(err, check.IsNil)
+
+	nodemap.SetNodeMap(nodemap.NewNodeMap("test_cilium_node_map"))
+	err = nodemap.NodeMap().OpenOrCreate()
 	c.Assert(err, check.IsNil)
 }
 

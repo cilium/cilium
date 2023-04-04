@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _component_overview:
+
 ******************
 Component Overview
 ******************
@@ -35,6 +37,15 @@ Client (CLI)
   agent running on the same node. The CLI allows inspecting the state and
   status of the local agent. It also provides tooling to directly access the
   eBPF maps to validate their state.
+
+  .. note::
+
+     The in-agent Cilium CLI client described here should not be confused with
+     the `command line tool for quick-installing, managing and troubleshooting
+     Cilium on Kubernetes clusters <https://github.com/cilium/cilium-cli>`_,
+     which also has the name ``cilium``. That tool is typically installed
+     remote from the cluster, and uses ``kubeconfig`` information to access
+     Cilium running on the cluster via the Kubernetes API.
 
 Operator
   The Cilium Operator is responsible for managing duties in the cluster which
@@ -89,14 +100,6 @@ An in-kernel verifier ensures that eBPF programs are safe to run and a JIT
 compiler converts the bytecode to CPU architecture specific instructions for
 native execution efficiency. eBPF programs can be run at various hooking points
 in the kernel such as for incoming and outgoing packets.
-
-eBPF continues to evolve and gain additional capabilities with each new Linux
-release.  Cilium leverages eBPF to perform core datapath filtering, mangling,
-monitoring and redirection, and requires eBPF capabilities that are in any Linux
-kernel version 4.8.0 or newer. On the basis that 4.8.x is already declared end
-of life and 4.9.x has been nominated as a stable release we recommend to run at
-least kernel 4.9.17 (the latest current stable Linux kernel as of this writing
-is 4.10.x).
 
 Cilium is capable of probing the Linux kernel for available features and will
 automatically make use of more recent features as they are detected.
