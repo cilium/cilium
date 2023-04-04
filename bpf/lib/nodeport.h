@@ -1939,9 +1939,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info && info->tunnel_endpoint != 0) {
-		/* The dir == NAT_DIR_EGRESS branch is executed for
-		 * N/S LB requests which needs to be fwd-ed to a remote
-		 * node. As the request came from outside, we need to
+		/* The request came from outside, so we need to
 		 * set the security id in the tunnel header to WORLD_ID.
 		 * Otherwise, the remote node will assume, that the
 		 * request originated from a cluster node which will
