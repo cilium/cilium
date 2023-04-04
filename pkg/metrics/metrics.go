@@ -12,6 +12,7 @@ package metrics
 
 import (
 	"net/http"
+	"regexp"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -219,6 +220,9 @@ const (
 )
 
 var (
+	// goCustomCollectorsRX tracks enabled go runtime metrics.
+	goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
+
 	registry = prometheus.NewPedanticRegistry()
 
 	// BootstrapTimes is the durations of cilium-agent bootstrap sequence.
@@ -1561,7 +1565,10 @@ func init() {
 
 func registerDefaultMetrics() {
 	MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
-	MustRegister(collectors.NewGoCollector())
+	MustRegister(collectors.NewGoCollector(
+		collectors.WithGoCollectorRuntimeMetrics(
+			collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
+		)))
 	MustRegister(newStatusCollector())
 	MustRegister(newbpfCollector())
 }
