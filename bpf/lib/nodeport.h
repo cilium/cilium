@@ -761,8 +761,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 					  info->sec_label,
 					  NOT_VTEP_DST,
 					  (enum trace_reason)CT_NEW,
-					  TRACE_PAYLOAD_LEN,
-					  (int *)&fib_params.l.ifindex);
+					  TRACE_PAYLOAD_LEN, &oif);
 		if (IS_ERR(ret))
 			goto drop_err;
 
@@ -780,7 +779,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	if (use_tunnel) {
 		cilium_capture_out(ctx);
 		if (verdict == CTX_ACT_REDIRECT)
-			return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+			return ctx_redirect(ctx, oif, 0);
 		ctx_move_xfer(ctx);
 		return verdict;
 	}
