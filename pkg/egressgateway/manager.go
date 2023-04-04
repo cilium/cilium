@@ -188,7 +188,7 @@ func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, config.id.Name)
+	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, config.id)
 
 	if _, ok := manager.policyConfigs[config.id]; !ok {
 		logger.Debug("Added CiliumEgressGatewayPolicy")

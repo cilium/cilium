@@ -331,7 +331,8 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		matchedEndpoints:  make(map[endpointID]*endpointMetadata),
 		policyGwConfig:    policyGwc,
 		id: types.NamespacedName{
-			Name: name,
+			Name:      name,
+			Namespace: cegp.Namespace,
 		},
 	}, nil
 }
