@@ -807,9 +807,6 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 			// possible to receive an API call for a backend that's already deleted.
 			continue
 		}
-		if be.State == updatedB.State {
-			continue
-		}
 		if !lb.IsValidStateTransition(be.State, updatedB.State) {
 			currentState, _ := be.State.String()
 			newState, _ := updatedB.State.String()
@@ -826,6 +823,9 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 			for i, b := range info.backends {
 				if b.L3n4Addr.String() != updatedB.L3n4Addr.String() {
 					continue
+				}
+				if b.State == updatedB.State {
+					break
 				}
 				info.backends[i].State = updatedB.State
 				info.backends[i].Preferred = updatedB.Preferred
