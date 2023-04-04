@@ -369,6 +369,10 @@ func getConnectionManager(ingress *slim_networkingv1.Ingress, name string, route
 			{UpgradeType: "websocket"},
 		}
 	}
+	connectConfig := envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
+		UpgradeType: "CONNECT",
+	}
+	upgradeConfigs = append(upgradeConfigs, &connectConfig)
 
 	connectionManager = envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{
 		StatPrefix: name,
@@ -627,8 +631,8 @@ func getRedirectRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (
 // Currently, only TPC keep-alive related options are specified.
 //
 // Related references:
-//  - https://man7.org/linux/man-pages/man7/tcp.7.html
-//  - https://github.com/envoyproxy/envoy/issues/3634
+//   - https://man7.org/linux/man-pages/man7/tcp.7.html
+//   - https://github.com/envoyproxy/envoy/issues/3634
 func getSocketOptions(ingress *slim_networkingv1.Ingress) []*envoy_config_core_v3.SocketOption {
 	tcpKeepAliveEnabled := annotations.GetAnnotationTCPKeepAliveEnabled(ingress)
 	if tcpKeepAliveEnabled == 0 {
