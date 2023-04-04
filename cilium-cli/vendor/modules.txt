@@ -163,7 +163,7 @@ github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
-# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230328153651-1931d946da7c
+# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230404142504-55664278b779
 ## explicit; go 1.18
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1
@@ -1146,7 +1146,7 @@ golang.org/x/crypto/scrypt
 ## explicit; go 1.18
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
-# golang.org/x/mod v0.9.0
+# golang.org/x/mod v0.10.0
 ## explicit; go 1.17
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
