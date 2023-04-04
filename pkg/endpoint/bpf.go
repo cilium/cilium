@@ -47,11 +47,6 @@ const (
 	// EndpointGenerationTimeout specifies timeout for proxy completion context
 	EndpointGenerationTimeout = 330 * time.Second
 
-	// OldCHeaderFileName is the previous name of the C header file for BPF
-	// programs for a particular endpoint. It can be removed once Cilium v1.11
-	// is the oldest supported version.
-	oldCHeaderFileName = "lxc_config.h"
-
 	// ciliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
 	ciliumCHeaderPrefix = "CILIUM_BASE64_"
@@ -176,25 +171,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 		return err
 	}
 
-	err = f.CloseAtomicallyReplace()
-
-	// Create symlink with old header filename, to allow downgrade to pre-1.11
-	// Cilium. Can be removed once v1.11 is the oldest supported release.
-	// The symlink is not needed for the host endpoint because we check the new
-	// header filename for that special endpoint. To avoid linking to a
-	// nonexistent file, only create the symlink if the header file
-	// creation/replacement file succeeded above.
-	if !e.IsHost() && err == nil {
-		oldHeaderPath := filepath.Join(prefix, oldCHeaderFileName)
-		if _, err := os.Stat(oldHeaderPath); err != nil {
-			// The symlink doesn't already exists.
-			if err := renameio.Symlink(common.CHeaderFileName, oldHeaderPath); err != nil {
-				e.getLogger().WithError(err).Error("Failed to create C header file symlink")
-			}
-		}
-	}
-
-	return err
+	return f.CloseAtomicallyReplace()
 }
 
 // policyIdentitiesLabelLookup is an implementation of the policy.Identities interface.

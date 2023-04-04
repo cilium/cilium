@@ -118,22 +118,6 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 			continue
 		}
 
-		// This symlink is only needed when upgrading from a pre-1.11 Cilium
-		// and we can thus remove it once Cilium v1.11 is the oldest supported
-		// version.
-		oldCHeaderFile := filepath.Join(epDir, oldCHeaderFileName)
-		if _, err := os.Stat(oldCHeaderFile); err != nil {
-			if !os.IsNotExist(err) {
-				scopedLog.WithError(err).Warn("Failed to check if old C header exists. Ignoring endpoint")
-				continue
-			}
-			if err := os.Symlink(common.CHeaderFileName, oldCHeaderFile); err != nil {
-				scopedLog.WithError(err).Warn("Failed to create symlink for C header. Ignoring endpoint")
-				continue
-			}
-			scopedLog.Debug("Created symlink for endpoint C header file")
-		}
-
 		scopedLog.Debug("Found endpoint C header file")
 
 		bEp, err := getCiliumVersionString(cHeaderFile)
