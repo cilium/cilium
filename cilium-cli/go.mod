@@ -15,7 +15,7 @@ require (
 	github.com/cilium/cilium v1.14.0-snapshot.0.0.20230320204036-914de5793c1b
 	github.com/cilium/hubble v0.11.1
 	github.com/cilium/proxy v0.0.0-20230224085913-505865fff55a
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230328153651-1931d946da7c
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230404142504-55664278b779
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.3
 	github.com/go-openapi/strfmt v0.21.7
@@ -25,7 +25,7 @@ require (
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.6-0.20200504143853-81378bbcd8a1
 	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0
-	golang.org/x/mod v0.9.0
+	golang.org/x/mod v0.10.0
 	google.golang.org/grpc v1.54.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	helm.sh/helm/v3 v3.11.2
