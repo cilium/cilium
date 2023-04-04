@@ -335,6 +335,7 @@ Added Metrics
 
 * ``cilium_operator_ces_sync_total``
 * ``cilium_policy_change_total``
+* ``go_sched_latencies_seconds``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
