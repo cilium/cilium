@@ -33,6 +33,7 @@ func NewHTTPConnectionManager(name, routeName string, mutationFunc ...HttpConnec
 		},
 		UpgradeConfigs: []*httpConnectionManagerv3.HttpConnectionManager_UpgradeConfig{
 			{UpgradeType: "websocket"},
+			{UpgradeType: "CONNECT"},
 		},
 	}
 
