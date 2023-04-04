@@ -38,7 +38,7 @@ func NewConsumer(observer Observer) monitorConsumer.MonitorConsumer {
 	mc := &consumer{
 		observer:      observer,
 		numEventsLost: 0,
-		logLimiter:    logging.NewLimiter(10*time.Second, 3),
+		logLimiter:    logging.NewLimiter(30*time.Second, 1),
 	}
 	return mc
 }
@@ -98,7 +98,8 @@ func (c *consumer) countDroppedEvent() {
 	c.lostLock.Lock()
 	defer c.lostLock.Unlock()
 	if c.numEventsLost == 0 && c.logLimiter.Allow() {
-		c.observer.GetLogger().Warning("hubble events queue is full: dropping messages; consider increasing the queue size (hubble-event-queue-size) or provisioning more CPU")
+		c.observer.GetLogger().WithField("related-metric", "hubble_lost_events_total").
+			Warning("hubble events queue is full: dropping messages; consider increasing the queue size (hubble-event-queue-size) or provisioning more CPU")
 	}
 	c.numEventsLost++
 	metrics.LostEvents.WithLabelValues(strings.ToLower(flowpb.LostEventSource_OBSERVER_EVENTS_QUEUE.String())).Inc()
