@@ -210,6 +210,13 @@
       "versioning": "regex:^v0.0.0-(<patch>\\d+)-.*$",
     },
     {
+      "groupName": "Cilium CLI",
+      "groupSlug": "cilium-cli",
+      "matchDepNames": [
+        "cilium/cilium-cli"
+      ]
+    },
+    {
       "groupName": "Hubble CLI",
       "groupSlug": "hubble-cli",
       "matchDepNames": [
