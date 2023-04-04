@@ -5,6 +5,8 @@
     ":gitSignOff",
     "helpers:pinGitHubActionDigests"
   ],
+  // This ensures that the gitAuthor and gitSignOff fields match
+  "gitAuthor": "renovate[bot] <bot@renovateapp.com>",
   "includePaths": [
     ".github/workflows/**",
     "images/**",
