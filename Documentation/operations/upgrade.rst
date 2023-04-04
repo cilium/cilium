@@ -334,6 +334,11 @@ Deprecated Metrics
   ``cilium_policy_change_total``, which counts all policy changes (Add, Update, Delete)
   based on outcome ("success" or "failure").
 
+Changed Metrics
+~~~~~~~~~~~~~~~
+
+* ``cilium_bpf_map_pressure`` is now enabled by default.
+
 Helm Options
 ~~~~~~~~~~~~
 
