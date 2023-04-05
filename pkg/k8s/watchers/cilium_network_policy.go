@@ -240,7 +240,9 @@ func (k *K8sWatcher) onUpsert(
 	// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 	cnpCpy := cnp.DeepCopy()
 
+	translationStart := time.Now()
 	translatedCNP := resolveCIDRGroupRef(cnpCpy, cidrGroupCache)
+	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
 	var err error
 	if ok {

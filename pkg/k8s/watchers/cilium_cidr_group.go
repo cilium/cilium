@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -99,7 +100,9 @@ func (k *K8sWatcher) updateCIDRGroupRefPolicies(
 		// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 		cnpCpy := cnp.DeepCopy()
 
+		translationStart := time.Now()
 		translatedCNP := resolveCIDRGroupRef(cnpCpy, cidrGroupCache)
+		metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
 		err := k.updateCiliumNetworkPolicyV2(cs, cnpCpy, translatedCNP, initialRecvTime)
 		if err == nil {
