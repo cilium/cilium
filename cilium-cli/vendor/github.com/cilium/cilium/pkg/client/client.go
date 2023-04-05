@@ -608,6 +608,11 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			socketLBTracing = "Enabled"
 		}
 
+		socketLBCoverage := "Full"
+		if sr.KubeProxyReplacement.Features.BpfSocketLBHostnsOnly {
+			socketLBCoverage = "Hostns-only"
+		}
+
 		gracefulTerm := "Disabled"
 		if sr.KubeProxyReplacement.Features.GracefulTermination.Enabled {
 			gracefulTerm = "Enabled"
@@ -633,6 +638,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(tab, "  Status:\t%s\n", sr.KubeProxyReplacement.Mode)
 		fmt.Fprintf(tab, "  Socket LB:\t%s\n", socketLB)
 		fmt.Fprintf(tab, "  Socket LB Tracing:\t%s\n", socketLBTracing)
+		fmt.Fprintf(tab, "  Socket LB Coverage:\t%s\n", socketLBCoverage)
 		if kubeProxyDevices != "" {
 			fmt.Fprintf(tab, "  Devices:\t%s\n", kubeProxyDevices)
 		}
@@ -682,20 +688,21 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	}
 
 	if sr.Encryption != nil {
-		fields := []string{sr.Encryption.Mode}
+		var fields []string
 
 		if sr.Encryption.Msg != "" {
 			fields = append(fields, sr.Encryption.Msg)
 		} else if wg := sr.Encryption.Wireguard; wg != nil {
+			fields = append(fields, fmt.Sprintf("[NodeEncryption: %s", wg.NodeEncryption))
 			ifaces := make([]string, 0, len(wg.Interfaces))
 			for _, i := range wg.Interfaces {
 				iface := fmt.Sprintf("%s (Pubkey: %s, Port: %d, Peers: %d)",
 					i.Name, i.PublicKey, i.ListenPort, i.PeerCount)
 				ifaces = append(ifaces, iface)
 			}
-			fields = append(fields, fmt.Sprintf("[%s]", strings.Join(ifaces, ", ")))
+			fields = append(fields, fmt.Sprintf("%s]", strings.Join(ifaces, ", ")))
 		}
 
-		fmt.Fprintf(w, "Encryption:\t%s\n", strings.Join(fields, "\t"))
+		fmt.Fprintf(w, "Encryption:\t%s\t%s\n", sr.Encryption.Mode, strings.Join(fields, ", "))
 	}
 }

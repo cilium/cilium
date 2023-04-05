@@ -91,25 +91,30 @@ const (
 	// PidFilePath is the path to the pid file for the agent.
 	PidFilePath = RuntimePath + "/cilium.pid"
 
+	// DeletionQueueDir is the directory used for the CNI plugin to queue deletion requests
+	// if the agent is down
+	DeleteQueueDir = RuntimePath + "/deleteQueue"
+
+	// DeleteQueueLockfile is the file used to synchronize access of the queue directory between
+	// the agent and the CNI plugin processes
+	DeleteQueueLockfile = DeleteQueueDir + "/lockfile"
+
 	// EnableHostIPRestore controls whether the host IP should be restored
 	// from previous state automatically
 	EnableHostIPRestore = true
 
-	// DefaultMapRoot is the default path where BPFFS should be mounted
-	DefaultMapRoot = "/sys/fs/bpf"
+	// BPFFSRoot is the default path where BPFFS should be mounted
+	BPFFSRoot = "/sys/fs/bpf"
+
+	// BPFFSRootFallback is the path which is used when /sys/fs/bpf has
+	// a mount, but with the other filesystem than BPFFS.
+	BPFFSRootFallback = "/run/cilium/bpffs"
+
+	// TCGlobalsPath is the default prefix for all BPF maps.
+	TCGlobalsPath = "tc/globals"
 
 	// DefaultCgroupRoot is the default path where cilium cgroup2 should be mounted
 	DefaultCgroupRoot = "/run/cilium/cgroupv2"
-
-	// SockopsEnable controsl whether sockmap should be used
-	SockopsEnable = false
-
-	// DefaultMapRootFallback is the path which is used when /sys/fs/bpf has
-	// a mount, but with the other filesystem than BPFFS.
-	DefaultMapRootFallback = "/run/cilium/bpffs"
-
-	// DefaultMapPrefix is the default prefix for all BPF maps.
-	DefaultMapPrefix = "tc/globals"
 
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules.
