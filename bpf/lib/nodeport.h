@@ -1028,7 +1028,7 @@ redo:
 		case CT_REOPENED:
 		case CT_ESTABLISHED:
 			if (unlikely(ct_state.rev_nat_index !=
-				     svc->rev_nat_index))
+				     ct_state_new.rev_nat_index))
 				goto redo;
 			break;
 		default:
@@ -2279,7 +2279,7 @@ redo:
 			 * belongs to a flow which target a different svc.
 			 */
 			if (unlikely(ct_state.rev_nat_index !=
-				     svc->rev_nat_index))
+				     ct_state_new.rev_nat_index))
 				goto redo;
 			break;
 		default:
