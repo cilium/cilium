@@ -344,19 +344,21 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 		linker:   string(linkerVersion),
 	}).Debug("Compiling datapath")
 
-	// Write out assembly and preprocessing files for debugging purposes
-	progs := debugProgs
-	if isHost {
-		progs = debugHostProgs
-	}
-	for _, p := range progs {
-		if err := compile(ctx, p, dirs); err != nil {
-			// Only log an error here if the context was not canceled. This log message
-			// should only represent failures with respect to compiling the program.
-			if !errors.Is(err, context.Canceled) {
-				scopedLog.WithField(logfields.Params, logfields.Repr(p)).WithError(err).Debug("JoinEP: Failed to compile")
+	if option.Config.Debug {
+		// Write out assembly and preprocessing files for debugging purposes
+		progs := debugProgs
+		if isHost {
+			progs = debugHostProgs
+		}
+		for _, p := range progs {
+			if err := compile(ctx, p, dirs); err != nil {
+				// Only log an error here if the context was not canceled. This log message
+				// should only represent failures with respect to compiling the program.
+				if !errors.Is(err, context.Canceled) {
+					scopedLog.WithField(logfields.Params, logfields.Repr(p)).WithError(err).Debug("JoinEP: Failed to compile")
+				}
+				return err
 			}
-			return err
 		}
 	}
 
