@@ -4,6 +4,7 @@
 # @cilium/cli                Commandline interfaces
 # @cilium/contributing       Developer documentation & tools
 # @cilium/github-sec         GitHub security (handling of secrets, consequences of pull_request_target, etc.)
+# @cilium/sig-bgp            BGP integration
 # @cilium/sig-clustermesh    Clustermesh and external workloads
 # @cilium/sig-hubble         Hubble integration
 # @cilium/sig-k8s            K8s integration, K8s CNI plugin
@@ -22,6 +23,7 @@
 /.github/kind-config*.yaml @cilium/ci-structure
 /.github/tools/ @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
+/bgp/ @cilium/sig-bgp
 /cmd/ @cilium/cli
 /clustermesh/ @cilium/sig-clustermesh
 /connectivity/ @cilium/cli
