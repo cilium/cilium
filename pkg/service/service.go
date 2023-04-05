@@ -1465,6 +1465,8 @@ func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{
 }
 
 func (s *Service) deleteOrphanBackends() error {
+	orphanBackends := 0
+
 	for hash, b := range s.backendByHash {
 		if s.backendRefCount[hash] == 0 {
 			log.WithField(logfields.BackendID, b.ID).
@@ -1474,8 +1476,12 @@ func (s *Service) deleteOrphanBackends() error {
 			DeleteBackendID(b.ID)
 			s.lbmap.DeleteBackendByID(b.ID)
 			delete(s.backendByHash, hash)
+			orphanBackends++
 		}
 	}
+	log.WithFields(logrus.Fields{
+		logfields.OrphanBackends: orphanBackends,
+	}).Info("Deleted orphan backends")
 
 	return nil
 }
