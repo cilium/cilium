@@ -35,6 +35,20 @@ func NewTableCell[Obj ObjectConstraints[Obj]](schema *memdb.TableSchema) cell.Ce
 	)
 }
 
+// NewReadOnlyTableCell is like NewTableCell, but provides Table[Obj] privately and
+// ReadOnlyTable[Obj] publicly.
+func NewReadOnlyTableCell[Obj ObjectConstraints[Obj]](schema *memdb.TableSchema) cell.Cell {
+	return cell.Group(
+		cell.ProvidePrivate(
+			func() Table[Obj] { return &table[Obj]{table: schema.Name} },
+		),
+		cell.Provide(
+			func(t Table[Obj]) ReadOnlyTable[Obj] { return t },
+			func() tableSchemaOut { return tableSchemaOut{Schema: schema} },
+		),
+	)
+}
+
 // NewPrivateTableCell is like NewTableCell, but provides Table[Obj] privately, e.g. only
 // to the module defining it.
 func NewPrivateTableCell[Obj ObjectConstraints[Obj]](schema *memdb.TableSchema) cell.Cell {

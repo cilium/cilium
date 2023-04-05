@@ -219,3 +219,57 @@ func Debounce[T any](src Observable[T], duration time.Duration) Observable[T] {
 			}()
 		})
 }
+
+// TODO docs
+func BufferBy[Buf any, T any](src Observable[T], bufferSize int, waitTime time.Duration, bufferItem func(Buf, T) Buf, resetBuffer func(Buf) Buf) Observable[Buf] {
+	return FuncObservable[Buf](
+		func(ctx context.Context, next func(Buf), complete func(error)) {
+			subCtx, cancel := context.WithCancel(ctx)
+			items := make(chan T, bufferSize)
+			src.Observe(
+				ctx,
+				func(item T) {
+					items <- item
+				},
+				func(err error) {
+					cancel()
+					complete(err)
+				})
+			go func() {
+				ticker := time.NewTicker(waitTime)
+				defer ticker.Stop()
+
+				var (
+					emptyBuf Buf
+					buf      Buf
+				)
+				n := 0
+				for {
+					select {
+					case <-ticker.C:
+						if n > 0 {
+							next(buf)
+							buf = emptyBuf
+							n = 0
+						}
+
+					case item := <-items:
+						buf = bufferItem(buf, item)
+						n++
+						if n >= bufferSize {
+							next(buf)
+							buf = emptyBuf
+							n = 0
+						}
+					case <-subCtx.Done():
+						if n > 0 {
+							next(buf)
+						}
+						return
+					}
+				}
+			}()
+
+		})
+
+}

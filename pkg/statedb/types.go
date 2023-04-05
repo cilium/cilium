@@ -110,6 +110,15 @@ type Table[Obj ObjectConstraints[Obj]] interface {
 	Writer(tx WriteTransaction) TableReaderWriter[Obj]
 }
 
+// ReadOnlyTable provides only read access to a specific table.
+type ReadOnlyTable[Obj ObjectConstraints[Obj]] interface {
+	Name() TableName
+
+	// Reader when given a read transaction returns a table reader
+	// that can be used to read from the snapshot of the database.
+	Reader(tx ReadTransaction) TableReader[Obj]
+}
+
 // TableReader provides a set of read-only queries to a table.
 //
 // It is encouraged to wrap these methods behind a table-specific API as these
