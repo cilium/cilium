@@ -5,6 +5,7 @@ AdapterLimitViaAPI
 Alemayhu
 Alibaba
 Anthos
+Attestor
 Automount
 BIGTCP
 BPF
@@ -338,10 +339,12 @@ curl
 customCalls
 customConf
 daemonset
+dataStorage
 datacenter
 datagrams
 datapath
 datapathMode
+datastorage
 datastore
 datastream
 datastreams
@@ -554,6 +557,7 @@ ingressLBAnnotationPrefixes
 ingressing
 init
 initContainer
+initContainers
 inline
 inlined
 inlines
@@ -610,6 +614,7 @@ kata
 keepDeprecatedLabels
 keepDeprecatedProbes
 keyFile
+keyType
 keyless
 keypair
 keyspace
@@ -932,6 +937,7 @@ securityContext
 selftest
 selftests
 sendmsg
+serverAddress
 serviceAccount
 serviceAccountName
 serviceAccounts
@@ -953,6 +959,7 @@ sig
 skb
 skipCNPStatusStartupClean
 skipCRDCreation
+skipKubeletVerification
 skipUnknownCGroupIDs
 skipteardown
 sleepAfterInit

@@ -1,0 +1,12 @@
+{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled .Values.auth.mTLS.spire.install.server.serviceAccount.create -}}
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.auth.mTLS.spire.install.server.serviceAccount.name }}
+  namespace: {{ .Values.auth.mTLS.spire.install.namespace }}
+rules:
+# Role (namespace scoped) to be able to push certificate bundles to a configmap
+- apiGroups: [ "" ]
+  resources: [ "configmaps" ]
+  verbs: [ "patch", "get", "list" ]
+{{- end }}

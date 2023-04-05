@@ -63,7 +63,35 @@
    * - auth.mTLS.spire.install
      - Settings to control the SPIRE installation and configuration
      - object
-     - ``{"enabled":false,"namespace":"cilium-spire"}``
+     - ``{"agent":{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8","initContainers":[{"args":["-t","30","spire-server:8081"],"image":"cgr.dev/chainguard/wait-for-it@sha256:ecb58e3a2ffbdb732bb9049987e06eaf826d945410e167f31d6ffe28fab259f4","name":"init"}],"labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":false},"enabled":false,"namespace":"cilium-spire","server":{"annotations":{},"ca":{"keyType":"rsa-4096","subject":{"commonName":"","country":"US","organization":"SPIRE"}},"dataStorage":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null},"image":"ghcr.io/spiffe/spire-server:1.5.1@sha256:4851ec8c71a8fbe230d87be78dfed0e908800c2342cf192289c7885bb2f7a870","initContainers":[],"labels":{},"service":{"annotations":{},"labels":{},"type":"ClusterIP"},"serviceAccount":{"create":true,"name":"spire-server"}}}``
+   * - auth.mTLS.spire.install.agent
+     - SPIRE agent configuration
+     - object
+     - ``{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8","initContainers":[{"args":["-t","30","spire-server:8081"],"image":"cgr.dev/chainguard/wait-for-it@sha256:ecb58e3a2ffbdb732bb9049987e06eaf826d945410e167f31d6ffe28fab259f4","name":"init"}],"labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":false}``
+   * - auth.mTLS.spire.install.agent.annotations
+     - SPIRE agent annotations
+     - object
+     - ``{}``
+   * - auth.mTLS.spire.install.agent.image
+     - SPIRE agent image
+     - string
+     - ``"ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8"``
+   * - auth.mTLS.spire.install.agent.initContainers
+     - SPIRE agent init containers
+     - list
+     - ``[{"args":["-t","30","spire-server:8081"],"image":"cgr.dev/chainguard/wait-for-it@sha256:ecb58e3a2ffbdb732bb9049987e06eaf826d945410e167f31d6ffe28fab259f4","name":"init"}]``
+   * - auth.mTLS.spire.install.agent.labels
+     - SPIRE agent labels
+     - object
+     - ``{}``
+   * - auth.mTLS.spire.install.agent.serviceAccount
+     - SPIRE agent service account
+     - object
+     - ``{"create":true,"name":"spire-agent"}``
+   * - auth.mTLS.spire.install.agent.skipKubeletVerification
+     - SPIRE Workload Attestor kubelet verification.
+     - bool
+     - ``false``
    * - auth.mTLS.spire.install.enabled
      - Enable SPIRE installation. This will only take effect only if auth.mTLS.spire.enabled is true
      - bool
@@ -72,6 +100,46 @@
      - SPIRE namespace to install into
      - string
      - ``"cilium-spire"``
+   * - auth.mTLS.spire.install.server.annotations
+     - SPIRE server annotations
+     - object
+     - ``{}``
+   * - auth.mTLS.spire.install.server.ca
+     - SPIRE CA configuration
+     - object
+     - ``{"keyType":"rsa-4096","subject":{"commonName":"","country":"US","organization":"SPIRE"}}``
+   * - auth.mTLS.spire.install.server.ca.keyType
+     - SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported
+     - string
+     - ``"rsa-4096"``
+   * - auth.mTLS.spire.install.server.ca.subject
+     - SPIRE CA Subject
+     - object
+     - ``{"commonName":"","country":"US","organization":"SPIRE"}``
+   * - auth.mTLS.spire.install.server.dataStorage
+     - SPIRE server datastorage configuration
+     - object
+     - ``{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null}``
+   * - auth.mTLS.spire.install.server.image
+     - SPIRE server image
+     - string
+     - ``"ghcr.io/spiffe/spire-server:1.5.1@sha256:4851ec8c71a8fbe230d87be78dfed0e908800c2342cf192289c7885bb2f7a870"``
+   * - auth.mTLS.spire.install.server.initContainers
+     - SPIRE server init containers
+     - list
+     - ``[]``
+   * - auth.mTLS.spire.install.server.labels
+     - SPIRE server labels
+     - object
+     - ``{}``
+   * - auth.mTLS.spire.install.server.service
+     - SPIRE server service configuration
+     - object
+     - ``{"annotations":{},"labels":{},"type":"ClusterIP"}``
+   * - auth.mTLS.spire.install.server.serviceAccount
+     - SPIRE server service account
+     - object
+     - ``{"create":true,"name":"spire-server"}``
    * - auth.mTLS.spire.serverAddress
      - SPIRE server address
      - string

@@ -2659,6 +2659,59 @@ auth:
         enabled: false
         # -- SPIRE namespace to install into
         namespace: cilium-spire
+        # -- SPIRE agent configuration
+        agent:
+          # -- SPIRE agent image
+          image: ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8
+          # -- SPIRE agent service account
+          serviceAccount:
+            create: true
+            name: spire-agent
+          # -- SPIRE agent init containers
+          initContainers:
+          - name: init
+            image: cgr.dev/chainguard/wait-for-it@sha256:ecb58e3a2ffbdb732bb9049987e06eaf826d945410e167f31d6ffe28fab259f4
+            args: [ "-t", "30", "spire-server:8081" ]
+          # -- SPIRE agent annotations
+          annotations: { }
+          # -- SPIRE agent labels
+          labels: { }
+          # -- SPIRE Workload Attestor kubelet verification.
+          skipKubeletVerification: false
+        server:
+          # -- SPIRE server image
+          image: ghcr.io/spiffe/spire-server:1.5.1@sha256:4851ec8c71a8fbe230d87be78dfed0e908800c2342cf192289c7885bb2f7a870
+          # -- SPIRE server service account
+          serviceAccount:
+            create: true
+            name: spire-server
+          # -- SPIRE server init containers
+          initContainers: []
+          # -- SPIRE server annotations
+          annotations: {}
+          # -- SPIRE server labels
+          labels: {}
+          # -- SPIRE server service configuration
+          service:
+            type: ClusterIP
+            annotations: {}
+            labels: {}
+          # -- SPIRE server datastorage configuration
+          dataStorage:
+            enabled: true
+            size: 1Gi
+            accessMode: ReadWriteOnce
+            storageClass: null
+          # -- SPIRE CA configuration
+          ca:
+            # -- SPIRE CA key type
+            # AWS requires the use of RSA. EC cryptography is not supported
+            keyType: "rsa-4096"
+            # -- SPIRE CA Subject
+            subject:
+              country: "US"
+              organization: "SPIRE"
+              commonName: ""
       # -- SPIRE server address
       serverAddress: spire-server.cilium-spire.svc.cluster.local:8081
       # -- SPIFFE trust domain to use for fetching certificates
