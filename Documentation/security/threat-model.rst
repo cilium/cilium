@@ -407,30 +407,11 @@ The threat matrix for such an attacker is as follows:
 | Cilium eBPF      | None                                              |
 | programs         |                                                   |
 +------------------+---------------------------------------------------+
-| Network data     | If using :ref:`gsg_encryption`                    |
-|                  | there is no potential for spoofing, tampering,    |
-|                  | repudiation, or information leakage.              |
-|                  |                                                   |
-|                  | Without transparent encryption:                   |
-|                  |                                                   |
-|                  | -  In overlay mode, the attacker could inspect    |
-|                  |    communication between workloads, and spoof     |
-|                  |    traffic that appears to come from any          |
-|                  |    workload via spoofing identities               |
-|                  | -  In native routing mode, the attacker could     |
-|                  |    inspect communication between workloads. If    |
-|                  |    the attacker was able to control the           |
-|                  |    ipcache through another attack (for            |
-|                  |    example, by either being a successful          |
-|                  |    :ref:`API server attacker                      |
-|                  |    <kubernetes-api-server-attacker>`              |
-|                  |    or :ref:`key-value store attacker              | 
-|                  |    <kv-store-attacker>`                           |
-|                  |    they could also spoof traffic by spoofing      |
-|                  |    pod identities.                                |
-|                  |                                                   |
-|                  | Denial of service could occur depending on the    |
-|                  | behavior of the attacker.                         |
+| Network data     | - Without transparent encryption, an attacker     |
+|                  |   could inspect traffic between workloads in both |
+|                  |   overlay and native routing modes.               |
+|                  | - Denial of service could occur depending on the  |
+|                  |   behavior of the attacker.                       |
 +------------------+---------------------------------------------------+
 | Observability    | - TLS is required for all connectivity between    |
 | data             |   Cilium components, as well as for exporting     |
@@ -489,27 +470,7 @@ For such an attacker, the threat matrix is as follows:
 | Cilium eBPF      | None                                              |
 | programs         |                                                   |
 +------------------+---------------------------------------------------+
-| Network data     | If using :ref:`gsg_encryption`                    |
-|                  | there is no potential for spoofing, tampering,    |
-|                  | repudiation, or information leakage.              |
-|                  | |br| |br|                                         |
-|                  | Without transparent encryption:                   |
-|                  |                                                   |
-|                  | -  In overlay mode, the attacker could spoof      |
-|                  |    traffic that appears to come from any          |
-|                  |    workload via spoofing identities.              |
-|                  |                                                   |
-|                  | -  If the attacker was able to control the        |
-|                  |    ipcache through another attack (for            |
-|                  |    example, by either being a successful          |
-|                  |    :ref:`API Server attacker                      |
-|                  |    <kubernetes-api-server-attacker>`              |
-|                  |    or :ref:`key-value store attacker              |
-|                  |    <kv-store-attacker>`                           |
-|                  |    they could also spoof traffic by spoofing      |
-|                  |    pod identities.                                |
-|                  |                                                   |
-|                  | Denial of service could occur depending on the    |
+| Network data     | Denial of service could occur depending on the    |
 |                  | behavior of the attacker.                         |
 +------------------+---------------------------------------------------+
 | Observability    | - Denial of service could occur depending on the  |
@@ -714,6 +675,7 @@ Recommended Controls
    ``hubble-ui`` services
 -  Kubernetes RBAC should be used to limit access to any ``cilium-*``
    or ``hubble-`*`` pods
+-  TLS should be configured for access to the Hubble Relay API and Hubble UI
 -  TLS should be correctly configured for any data export
 -  The destination data stores for exported data should be secured (such
    as by applying encryption at rest and cloud provider specific RBAC
@@ -725,21 +687,23 @@ Overall Recommendations
 To summarize the recommended controls to be used when configuring a
 production Kubernetes cluster with Cilium:
 
-1. Ensure that Kubernetes roles are scoped correctly to the requirements of your
+#. Ensure that Kubernetes roles are scoped correctly to the requirements of your
    users, and that service account permissions for pods are tightly scoped to
    the needs of the workloads. In particular, access to sensitive namespaces,
    ``exec`` actions, and Kubernetes secrets should all be highly controlled.
-2. Use resource limits for workloads where possible to reduce the chance of
+#. Use resource limits for workloads where possible to reduce the chance of
    denial of service attacks.
-3. Ensure that workload privileges and capabilities are only granted when
+#. Ensure that workload privileges and capabilities are only granted when
    essential to the functionality of the workload, and ensure that specific
    controls to limit and monitor the behavior of the workload are in place.
-4. Use :ref:`network policies <network_policy>` to ensure that network traffic in Kubernetes is segregated.
-5. Use :ref:`gsg_encryption` in Cilium to ensure that communication between
+#. Use :ref:`network policies <network_policy>` to ensure that network traffic in Kubernetes is segregated.
+#. Use :ref:`gsg_encryption` in Cilium to ensure that communication between
    workloads is secured.
-6. Enable Kubernetes audit logging, forward the audit logs to a centralized
+#. Enable Kubernetes audit logging, forward the audit logs to a centralized
    monitoring platform, and define alerting for suspicious activity.
-7. Use `Tetragon`_ as a runtime security solution to rapidly detect unexpected
+#. Enable TLS for access to any externally-facing services, such as Hubble Relay
+   and Hubble UI.
+#. Use `Tetragon`_ as a runtime security solution to rapidly detect unexpected
    behavior within your Kubernetes cluster.
 
 .. |br| raw:: html
