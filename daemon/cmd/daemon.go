@@ -19,6 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
@@ -278,6 +279,11 @@ func (d *Daemon) init() error {
 			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 
+		if err := linuxdatapath.NodeEnsureLocalIPRule(); errors.Is(err, unix.EEXIST) {
+			log.WithError(err).Warn("Failed to ensure local IP rules")
+		} else if err != nil {
+			return fmt.Errorf("failed to ensure local IP rules: %w", err)
+		}
 	}
 
 	return nil
