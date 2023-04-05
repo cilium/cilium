@@ -118,22 +118,8 @@ func (in *IPAMStatus) DeepEqual(other *IPAMStatus) bool {
 
 	if ((in.PodCIDRs != nil) && (other.PodCIDRs != nil)) || ((in.PodCIDRs == nil) != (other.PodCIDRs == nil)) {
 		in, other := &in.PodCIDRs, &other.PodCIDRs
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for key, inValue := range *in {
-				if otherValue, present := (*other)[key]; !present {
-					return false
-				} else {
-					if !inValue.DeepEqual(&otherValue) {
-						return false
-					}
-				}
-			}
 		}
 	}
 
@@ -313,22 +299,8 @@ func (in *Subnet) DeepEqual(other *Subnet) bool {
 	}
 	if ((in.Tags != nil) && (other.Tags != nil)) || ((in.Tags == nil) != (other.Tags == nil)) {
 		in, other := &in.Tags, &other.Tags
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for key, inValue := range *in {
-				if otherValue, present := (*other)[key]; !present {
-					return false
-				} else {
-					if inValue != otherValue {
-						return false
-					}
-				}
-			}
 		}
 	}
 

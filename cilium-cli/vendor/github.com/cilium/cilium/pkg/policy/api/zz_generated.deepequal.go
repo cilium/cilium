@@ -222,18 +222,8 @@ func (in *EgressCommonRule) DeepEqual(other *EgressCommonRule) bool {
 
 	if ((in.ToEntities != nil) && (other.ToEntities != nil)) || ((in.ToEntities == nil) != (other.ToEntities == nil)) {
 		in, other := &in.ToEntities, &other.ToEntities
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if inElement != (*other)[i] {
-					return false
-				}
-			}
 		}
 	}
 
@@ -273,18 +263,8 @@ func (in *EgressCommonRule) DeepEqual(other *EgressCommonRule) bool {
 
 	if ((in.aggregatedSelectors != nil) && (other.aggregatedSelectors != nil)) || ((in.aggregatedSelectors == nil) != (other.aggregatedSelectors == nil)) {
 		in, other := &in.aggregatedSelectors, &other.aggregatedSelectors
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
 		}
 	}
 
@@ -304,35 +284,15 @@ func (in *EgressDenyRule) DeepEqual(other *EgressDenyRule) bool {
 
 	if ((in.ToPorts != nil) && (other.ToPorts != nil)) || ((in.ToPorts == nil) != (other.ToPorts == nil)) {
 		in, other := &in.ToPorts, &other.ToPorts
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
 		}
 	}
 
 	if ((in.ICMPs != nil) && (other.ICMPs != nil)) || ((in.ICMPs == nil) != (other.ICMPs == nil)) {
 		in, other := &in.ICMPs, &other.ICMPs
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
 		}
 	}
 
@@ -352,52 +312,22 @@ func (in *EgressRule) DeepEqual(other *EgressRule) bool {
 
 	if ((in.ToPorts != nil) && (other.ToPorts != nil)) || ((in.ToPorts == nil) != (other.ToPorts == nil)) {
 		in, other := &in.ToPorts, &other.ToPorts
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
 		}
 	}
 
 	if ((in.ToFQDNs != nil) && (other.ToFQDNs != nil)) || ((in.ToFQDNs == nil) != (other.ToFQDNs == nil)) {
 		in, other := &in.ToFQDNs, &other.ToFQDNs
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
 		}
 	}
 
 	if ((in.ICMPs != nil) && (other.ICMPs != nil)) || ((in.ICMPs == nil) != (other.ICMPs == nil)) {
 		in, other := &in.ICMPs, &other.ICMPs
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
 		}
 	}
 
@@ -713,18 +643,8 @@ func (in *IngressDenyRule) DeepEqual(other *IngressDenyRule) bool {
 
 	if ((in.ToPorts != nil) && (other.ToPorts != nil)) || ((in.ToPorts == nil) != (other.ToPorts == nil)) {
 		in, other := &in.ToPorts, &other.ToPorts
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
 		}
 	}
 
@@ -751,18 +671,8 @@ func (in *IngressRule) DeepEqual(other *IngressRule) bool {
 
 	if ((in.ToPorts != nil) && (other.ToPorts != nil)) || ((in.ToPorts == nil) != (other.ToPorts == nil)) {
 		in, other := &in.ToPorts, &other.ToPorts
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
 		}
 	}
 
@@ -1261,18 +1171,8 @@ func (in *Rule) deepEqual(other *Rule) bool {
 
 	if ((in.Labels != nil) && (other.Labels != nil)) || ((in.Labels == nil) != (other.Labels == nil)) {
 		in, other := &in.Labels, &other.Labels
-		if other == nil {
+		if other == nil || !in.DeepEqual(other) {
 			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
 		}
 	}
 

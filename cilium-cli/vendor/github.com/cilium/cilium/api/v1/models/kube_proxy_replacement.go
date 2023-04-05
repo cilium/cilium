@@ -283,6 +283,9 @@ func (m *KubeProxyReplacementDeviceListItems0) UnmarshalBinary(b []byte) error {
 // swagger:model KubeProxyReplacementFeatures
 type KubeProxyReplacementFeatures struct {
 
+	// flag bpf-lb-sock-hostns-only
+	BpfSocketLBHostnsOnly bool `json:"bpfSocketLBHostnsOnly,omitempty"`
+
 	// external i ps
 	ExternalIPs *KubeProxyReplacementFeaturesExternalIPs `json:"externalIPs,omitempty"`
 
