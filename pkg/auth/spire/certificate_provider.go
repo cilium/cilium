@@ -64,7 +64,7 @@ func (s *SpireDelegateClient) GetCertificateForIdentity(id identity.NumericIdent
 }
 
 func (s *SpireDelegateClient) sniToSPIFFEID(id identity.NumericIdentity) string {
-	return "spiffe://" + s.cfg.SpiffeTrustDomain + "/cilium-id/" + id.String()
+	return "spiffe://" + s.cfg.SpiffeTrustDomain + "/identity/" + id.String()
 }
 
 func (s *SpireDelegateClient) ValidateIdentity(id identity.NumericIdentity, cert *x509.Certificate) (bool, error) {

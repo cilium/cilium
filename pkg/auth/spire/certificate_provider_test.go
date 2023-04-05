@@ -126,7 +126,7 @@ func TestSpireDelegateClient_sniToSPIFFEID(t *testing.T) {
 			args: args{
 				id: 1234,
 			},
-			want: "spiffe://test.cilium.io/cilium-id/1234",
+			want: "spiffe://test.cilium.io/identity/1234",
 		},
 	}
 	for _, tt := range tests {
@@ -145,8 +145,8 @@ func TestSpireDelegateClient_sniToSPIFFEID(t *testing.T) {
 }
 
 func TestSpireDelegateClient_ValidateIdentity(t *testing.T) {
-	urlFor1234, _ := url.Parse("spiffe://test.cilium.io/cilium-id/1234")
-	urlFor9999, _ := url.Parse("spiffe://test.cilium.io/cilium-id/9999")
+	urlFor1234, _ := url.Parse("spiffe://test.cilium.io/identity/1234")
+	urlFor9999, _ := url.Parse("spiffe://test.cilium.io/identity/9999")
 
 	type args struct {
 		id   identity.NumericIdentity
@@ -271,7 +271,7 @@ func TestSpireDelegateClient_GetTrustBundle(t *testing.T) {
 }
 
 func TestSpireDelegateClient_GetCertificateForIdentity(t *testing.T) {
-	certURL, err := url.Parse("spiffe://spiffe.cilium.io/cilium-id/1234")
+	certURL, err := url.Parse("spiffe://spiffe.cilium.io/identity/1234")
 	if err != nil {
 		t.Fatalf("failed to parse URL: %v", err)
 	}
@@ -300,31 +300,31 @@ func TestSpireDelegateClient_GetCertificateForIdentity(t *testing.T) {
 	}
 
 	svidStore := map[string]*delegatedidentityv1.X509SVIDWithKey{
-		"spiffe://test.cilium.io/cilium-id/1234": {
+		"spiffe://test.cilium.io/identity/1234": {
 			X509Svid: &types.X509SVID{
 				Id: &types.SPIFFEID{
 					TrustDomain: "test.cilium.io",
-					Path:        "/cilium-id/1234",
+					Path:        "/identity/1234",
 				},
 				CertChain: [][]byte{leafCertBytes},
 			},
 			X509SvidKey: leafPKCS8Key,
 		},
-		"spiffe://test.cilium.io/cilium-id/2222": {
+		"spiffe://test.cilium.io/identity/2222": {
 			X509Svid: &types.X509SVID{
 				Id: &types.SPIFFEID{
 					TrustDomain: "test.cilium.io",
-					Path:        "/cilium-id/2222",
+					Path:        "/identity/2222",
 				},
 				CertChain: [][]byte{},
 			},
 			X509SvidKey: leafPKCS8Key,
 		},
-		"spiffe://test.cilium.io/cilium-id/3333": {
+		"spiffe://test.cilium.io/identity/3333": {
 			X509Svid: &types.X509SVID{
 				Id: &types.SPIFFEID{
 					TrustDomain: "test.cilium.io",
-					Path:        "/cilium-id/3333",
+					Path:        "/identity/3333",
 				},
 				CertChain: [][]byte{leafCertBytes},
 			},
