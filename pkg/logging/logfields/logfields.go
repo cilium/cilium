@@ -588,6 +588,10 @@ const (
 	// GatewayIP is the gateway IP used in a given egress policy
 	GatewayIP = "gatewayIP"
 
+	// SkippedBackends is the number of Backends that were skipped during restore
+	// as duplicates.
+	SkippedBackends = "skippedBackends"
+
 	// Chain is an Iptables chain
 	Chain = "chain"
 
