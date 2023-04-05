@@ -287,12 +287,14 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy --test-namespace cilium-test-tunnel
+        # --test-namespace cilium-test-tunnel added for mitigating test flake until the issue is solved https://github.com/cilium/cilium/issues/22368
 
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
+          cilium uninstall --chart-directory=install/kubernetes/cilium --test-namespace cilium-test-tunnel
+        # --wait removed and --test-namespace cilium-test-tunnel added for mitigating test flake until the issue is solved https://github.com/cilium/cilium/issues/22368
 
       - name: Create custom IPsec secret
         run: |
