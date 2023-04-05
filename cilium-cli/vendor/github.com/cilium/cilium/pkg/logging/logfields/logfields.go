@@ -674,4 +674,7 @@ const (
 
 	// ConfigAnnotation is an annotation on a node
 	ConfigAnnotation = "configAnnotation"
+
+	// User identifies a given user
+	User = "user"
 )

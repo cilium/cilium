@@ -221,7 +221,7 @@ type EndpointIdentity struct {
 // global coordination backend, and can be used in place of a KVStore (such as
 // etcd).
 // The name of the CRD is the numeric identity and the labels on the CRD object
-// are the the kubernetes sourced labels seen by cilium. This is currently the
+// are the kubernetes sourced labels seen by cilium. This is currently the
 // only label source possible when running under kubernetes. Non-kubernetes
 // labels are filtered but all labels, from all sources, are places in the
 // SecurityLabels field. These also include the source and are used to define
@@ -231,12 +231,6 @@ type EndpointIdentity struct {
 // with invocations such as:
 //
 //	kubectl get ciliumid -l 'foo=bar'
-//
-// Each node using a ciliumidentity updates the status field with it's name and
-// a timestamp when it first allocates or uses an identity, and periodically
-// after that. It deletes its entry when no longer using this identity.
-// cilium-operator uses the list of nodes in status to reference count
-// users of this identity, and to expire stale usage.
 type CiliumIdentity struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`

@@ -16,6 +16,7 @@ type AuthType string
 const (
 	AuthTypeNull       AuthType = "null"        // Always succeeds
 	AuthTypeMTLSSpiffe AuthType = "mtls-spiffe" // Mutual TLS with SPIFFE as certificate provider
+	AuthTypeAlwaysFail AuthType = "always-fail"
 )
 
 // Auth specifies the kind of cryptographic authentication required for the traffic to
@@ -23,7 +24,7 @@ const (
 type Auth struct {
 	// Type is the required authentication type for the allowed traffic, if any.
 	//
-	// +kubebuilder:validation:Enum=null;mtls-spiffe
+	// +kubebuilder:validation:Enum=null;mtls-spiffe;always-fail
 	// +kubebuilder:validation:Required
 	Type AuthType `json:"type"`
 }
