@@ -40,34 +40,46 @@
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
      - ``false``
-   * - auth.mTLS.enabled
-     - Enable mtls-spiffe authentication method in CiliumNetworkPolicy
-     - bool
-     - ``false``
    * - auth.mTLS.port
-     - port on the agent which is used to mTLS handshakes on
+     - Port on the agent where mTLS handshakes between agents will be performed
      - int
      - ``4250``
-   * - auth.mTLS.spiffeTrustDomain
-     - SPIFFE trust domain to use for fetching certificates
-     - string
-     - ``"spiffe.cilium"``
-   * - auth.mTLS.spireAdminSocketPath
+   * - auth.mTLS.spire.adminSocketPath
      - SPIRE socket path where the SPIRE delegated api agent is listening
      - string
      - ``"/run/spire/sockets/admin.sock"``
-   * - auth.mTLS.spireAgentSocketPath
-     - SPIRE agent socket path where the SPIRE agent is listening
+   * - auth.mTLS.spire.agentSocketPath
+     - SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator
      - string
      - ``"/run/spire/sockets/agent/agent.sock"``
-   * - auth.mTLS.spireServerAddress
-     - SPIRE server endpoint This endpoint will be automatically injected later once embedded SPIRE installation is done.
+   * - auth.mTLS.spire.connectionTimeout
+     - SPIRE connection timeout
      - string
-     - ``"spire-server.spire.svc.cluster.local:8081"``
-   * - auth.mTLS.spireServerConnectionTimeout
-     - SPIRE server connection timeout
+     - ``"30s"``
+   * - auth.mTLS.spire.enabled
+     - Enable SPIRE integration
+     - bool
+     - ``false``
+   * - auth.mTLS.spire.install
+     - Settings to control the SPIRE installation and configuration
+     - object
+     - ``{"enabled":false,"namespace":"cilium-spire"}``
+   * - auth.mTLS.spire.install.enabled
+     - Enable SPIRE installation. This will only take effect only if auth.mTLS.spire.enabled is true
+     - bool
+     - ``false``
+   * - auth.mTLS.spire.install.namespace
+     - SPIRE namespace to install into
      - string
-     - ``"10s"``
+     - ``"cilium-spire"``
+   * - auth.mTLS.spire.serverAddress
+     - SPIRE server address
+     - string
+     - ``"spire-server.cilium-spire.svc.cluster.local:8081"``
+   * - auth.mTLS.spire.trustDomain
+     - SPIFFE trust domain to use for fetching certificates
+     - string
+     - ``"spiffe.cilium"``
    * - autoDirectNodeRoutes
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
@@ -249,7 +261,7 @@
      - int
      - ``0``
    * - cluster.name
-     - Name of the cluster. Only required for Cluster Mesh.
+     - Name of the cluster. Only required for Cluster Mesh and mTLS auth with SPIRE.
      - string
      - ``"default"``
    * - clustermesh.apiserver.affinity

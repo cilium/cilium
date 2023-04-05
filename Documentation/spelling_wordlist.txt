@@ -165,7 +165,9 @@ Zhou
 Zookeeper
 aarch
 admin
+adminSocketPath
 agentNotReadyTaintKey
+agentSocketPath
 aksbyocni
 alibabacloud
 allocator
@@ -271,6 +273,7 @@ cidr
 cidrs
 ciliumAgent
 ciliumNodeUpdateRate
+ciliumOperator
 ciliumnode
 classful
 classid
@@ -309,6 +312,7 @@ configSources
 configmap
 configs
 conformant
+connectionTimeout
 conntrack
 conntrackGCInterval
 containerRuntime
@@ -350,6 +354,7 @@ decapsulation
 decrypt
 decrypted
 deepcopy
+delegatedClient
 deletetopic
 demux
 dependant
@@ -959,11 +964,6 @@ sortBufferLenMax
 sourceContext
 spiffe
 spiffeTrustDomain
-spireAdminSocketPath
-spireAgentSocketPath
-spireServerAddress
-spireServerConnectionTimeout
-spireServerSocketPath
 src
 srv
 ssl
@@ -1042,6 +1042,7 @@ tracepoint
 tracepoints
 transpiling
 triaged
+trustDomain
 ttlSecondsAfterFinished
 tunnelPort
 tunnelProtocol

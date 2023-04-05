@@ -266,9 +266,9 @@ spec:
           {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
-        {{- if .Values.auth.mTLS.enabled }}
+        {{- if .Values.auth.mTLS.spire.enabled }}
         - name: spire-agent-socket
-          mountPath: {{ dir .Values.auth.mTLS.spireAdminSocketPath }}
+          mountPath: {{ dir .Values.auth.mTLS.spire.adminSocketPath }}
           readOnly: false
         {{- end }}
         {{- if not .Values.securityContext.privileged }}
@@ -766,10 +766,10 @@ spec:
         hostPath:
           path: /run/xtables.lock
           type: FileOrCreate
-      {{- if .Values.auth.mTLS.enabled }}
+      {{- if .Values.auth.mTLS.spire.enabled }}
       - name: spire-agent-socket
         hostPath:
-          path: {{ dir .Values.auth.mTLS.spireAdminSocketPath }}
+          path: {{ dir .Values.auth.mTLS.spire.adminSocketPath }}
           type: DirectoryOrCreate
       {{- end }}
       {{- if .Values.kubeConfigPath }}

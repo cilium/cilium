@@ -208,9 +208,9 @@ spec:
           mountPath: {{ .Values.kubeConfigPath }}
           readOnly: true
         {{- end }}
-        {{- if .Values.auth.mTLS.enabled }}
+        {{- if .Values.auth.mTLS.spire.enabled }}
         - name: spire-agent-socket
-          mountPath: {{ dir .Values.auth.mTLS.spireAgentSocketPath }}
+          mountPath: {{ dir .Values.auth.mTLS.spire.agentSocketPath }}
           readOnly: true
         {{- end }}
         {{- range .Values.operator.extraHostPathMounts }}
@@ -239,7 +239,7 @@ spec:
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
       hostNetwork: true
-      {{- if or (and .Values.etcd.managed (not .Values.etcd.k8sService)) .Values.auth.mTLS.enabled }}
+      {{- if or (and .Values.etcd.managed (not .Values.etcd.k8sService)) .Values.auth.mTLS.spire.enabled }}
       # Cilium must be able to resolve the DNS name of the etcd service in managed etcd mode,
       # and the DNS name of the SPIRE server in mTLS mode.
       dnsPolicy: ClusterFirstWithHostNet
@@ -321,10 +321,10 @@ spec:
         configMap:
           name: bgp-config
       {{- end }}
-      {{- if .Values.auth.mTLS.enabled }}
+      {{- if .Values.auth.mTLS.spire.enabled }}
       - name: spire-agent-socket
         hostPath:
-          path: {{ dir .Values.auth.mTLS.spireAgentSocketPath }}
+          path: {{ dir .Values.auth.mTLS.spire.agentSocketPath }}
           type: DirectoryOrCreate
       {{- end }}
       {{- with .Values.operator.extraVolumes }}

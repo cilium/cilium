@@ -37,7 +37,7 @@ k8sServiceHost: ""
 k8sServicePort: ""
 
 cluster:
-  # -- Name of the cluster. Only required for Cluster Mesh.
+  # -- Name of the cluster. Only required for Cluster Mesh and mTLS auth with SPIRE.
   name: default
   # -- (int) Unique ID of the cluster. Must be unique across all connected
   # clusters and in the range of 1 to 255. Only required for Cluster Mesh,
@@ -2623,18 +2623,27 @@ sctp:
 
 auth:
   mTLS:
-    # -- Enable mtls-spiffe authentication method in CiliumNetworkPolicy
-    enabled: false
-    # -- SPIRE server endpoint
-    # This endpoint will be automatically injected later once embedded SPIRE installation is done.
-    spireServerAddress: spire-server.spire.svc.cluster.local:8081
-    # -- SPIRE server connection timeout
-    spireServerConnectionTimeout: 10s
-    # -- SPIRE agent socket path where the SPIRE agent is listening
-    spireAgentSocketPath: /run/spire/sockets/agent/agent.sock
-    # -- SPIRE socket path where the SPIRE delegated api agent is listening
-    spireAdminSocketPath: /run/spire/sockets/admin.sock
-    # -- SPIFFE trust domain to use for fetching certificates
-    spiffeTrustDomain: spiffe.cilium
-    # -- port on the agent which is used to mTLS handshakes on
+    # -- Port on the agent where mTLS handshakes between agents will be performed
     port: 4250
+    # Settings for SPIRE
+    spire:
+      # -- Enable SPIRE integration
+      enabled: false
+      # -- Settings to control the SPIRE installation and configuration
+      install:
+        # -- Enable SPIRE installation.
+        # This will only take effect only if auth.mTLS.spire.enabled is true
+        enabled: false
+        # -- SPIRE namespace to install into
+        namespace: cilium-spire
+      # -- SPIRE server address
+      serverAddress: spire-server.cilium-spire.svc.cluster.local:8081
+      # -- SPIFFE trust domain to use for fetching certificates
+      trustDomain: spiffe.cilium
+      # -- SPIRE socket path where the SPIRE delegated api agent is listening
+      adminSocketPath: /run/spire/sockets/admin.sock
+      # -- SPIRE socket path where the SPIRE workload agent is listening.
+      # Applies to both the Cilium Agent and Operator
+      agentSocketPath: /run/spire/sockets/agent/agent.sock
+      # -- SPIRE connection timeout
+      connectionTimeout: 30s
