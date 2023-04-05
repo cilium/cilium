@@ -169,6 +169,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             host-fw: 'true'
+            lb-acceleration: 'testing-only'
 
           - name: '7'
             kernel: 'bpf-next-main'
@@ -177,6 +178,7 @@ jobs:
             tunnel: 'disabled'
             lb-mode: 'snat'
             egress-gateway: 'true'
+            lb-acceleration: 'testing-only'
 
           - name: '8'
             kernel: 'bpf-next-main'
@@ -317,6 +319,10 @@ jobs:
           if [ "${{ matrix.egress-gateway }}" == "true" ]; then
             EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true"
           fi
+          LB_ACCELERATION=""
+          if [ "${{ matrix.lb-acceleration }}" != "" ]; then
+            LB_ACCELERATION="--helm-set=loadBalancer.acceleration=${{ matrix.lb-acceleration }}"
+          fi
 
           ENCRYPT=""
           if [ "${{ matrix.encryption }}" != "" ]; then
@@ -331,7 +337,7 @@ jobs:
             HOST_FW="--helm-set=hostFirewall.enabled=true"
           fi
 
-          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW}"
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
           echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
 
       - name: Set commit status to pending
