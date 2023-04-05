@@ -13,6 +13,8 @@ nodes:
           taints: []
   - role: worker
     image: kindest/node:${K8S_VERSION}
+  - role: worker
+    image: kindest/node:${K8S_VERSION}
 networking:
   disableDefaultCNI: true
   ipFamily: ${IPFAMILY}
