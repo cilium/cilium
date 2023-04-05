@@ -76,7 +76,7 @@ func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
 		"SPIRE server endpoint.")
 	flags.StringVar(&cfg.SpiffeTrustDomain,
 		"mesh-auth-spiffe-trust-domain",
-		"spiffe.cilium.io",
+		"spiffe.cilium",
 		"The trust domain for the SPIFFE identity.")
 }
 

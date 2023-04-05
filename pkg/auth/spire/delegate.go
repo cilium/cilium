@@ -75,7 +75,7 @@ func newSpireDelegateClient(lc hive.Lifecycle, cfg SpireDelegateConfig, log logr
 
 func (cfg SpireDelegateConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringVar(&cfg.SpireAdminSocketPath, "mesh-auth-spire-admin-socket", "", "The path for the SPIRE admin agent Unix socket.") // default is /run/spire/sockets/admin.sock
-	flags.StringVar(&cfg.SpiffeTrustDomain, "mesh-auth-spiffe-trust-domain", "spiffe.cilium.io", "The trust domain for the SPIFFE identity.")
+	flags.StringVar(&cfg.SpiffeTrustDomain, "mesh-auth-spiffe-trust-domain", "spiffe.cilium", "The trust domain for the SPIFFE identity.")
 }
 
 func (s *SpireDelegateClient) onStart(ctx hive.HookContext) error {

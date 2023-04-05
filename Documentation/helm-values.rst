@@ -51,7 +51,7 @@
    * - auth.mTLS.spiffeTrustDomain
      - SPIFFE trust domain to use for fetching certificates
      - string
-     - ``"spiffe.cilium.io"``
+     - ``"spiffe.cilium"``
    * - auth.mTLS.spireAdminSocketPath
      - SPIRE socket path where the SPIRE delegated api agent is listening
      - string
