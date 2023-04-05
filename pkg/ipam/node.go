@@ -43,6 +43,23 @@ const (
 	failed  = "failed"
 )
 
+func (n *Node) SetOpts(ops NodeOperations) {
+	n.ops = ops
+}
+
+func (n *Node) SetPoolMaintainer(maintainer PoolMaintainer) {
+	n.poolMaintainer = maintainer
+}
+
+func (n *Node) Update(resource *v2.CiliumNode) bool {
+	return n.manager.Update(resource)
+}
+
+type PoolMaintainer interface {
+	Trigger()
+	Shutdown()
+}
+
 // Node represents a Kubernetes node running Cilium with an associated
 // CiliumNode custom resource
 type Node struct {
@@ -92,7 +109,7 @@ type Node struct {
 	// private IP addresses of this node.
 	// It ensures that multiple requests to operate private IPs are
 	// batched together if pool maintenance is still ongoing.
-	poolMaintainer *trigger.Trigger
+	poolMaintainer PoolMaintainer
 
 	// k8sSync is the trigger used to synchronize node information with the
 	// K8s apiserver. The trigger is used to batch multiple updates
@@ -127,9 +144,13 @@ type Statistics struct {
 	// UsedIPs is the number of IPs currently in use
 	UsedIPs int
 
-	// AvailableIPs is the number of IPs currently available for allocation
-	// by the node
+	// AvailableIPs is the number of IPs currently allocated and available for assignment.
 	AvailableIPs int
+
+	// Capacity is the max inferred IPAM IP capacity for the node.
+	// In theory, this provides an upper limit on the number of Cilium IPs that
+	// this Node can support.
+	Capacity int
 
 	// NeededIPs is the number of IPs needed to reach the PreAllocate
 	// watermwark
@@ -403,7 +424,7 @@ func (n *Node) recalculate() {
 	}
 	scopedLog := n.logger()
 
-	a, remainingAvailableInterfaceCount, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog)
+	a, stats, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog)
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -428,16 +449,18 @@ func (n *Node) recalculate() {
 	n.stats.AvailableIPs = len(n.available)
 	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
 	n.stats.ExcessIPs = calculateExcessIPs(n.stats.AvailableIPs, usedIPForExcessCalc, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
-	n.stats.RemainingInterfaces = remainingAvailableInterfaceCount
+	n.stats.RemainingInterfaces = stats.RemainingAvailableInterfaceCount
+	n.stats.Capacity = stats.NodeCapacity
 
 	scopedLog.WithFields(logrus.Fields{
 		"available":                 n.stats.AvailableIPs,
+		"capacity":                  n.stats.Capacity,
 		"used":                      n.stats.UsedIPs,
 		"toAlloc":                   n.stats.NeededIPs,
 		"toRelease":                 n.stats.ExcessIPs,
 		"waitingForPoolMaintenance": n.waitingForPoolMaintenance,
 		"resyncNeeded":              n.resyncNeeded,
-		"remainingInterfaces":       remainingAvailableInterfaceCount,
+		"remainingInterfaces":       stats.RemainingAvailableInterfaceCount,
 	}).Debug("Recalculated needed addresses")
 }
 

@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
+	ipamStats "github.com/cilium/cilium/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -63,7 +64,7 @@ type NodeOperations interface {
 	// It returns all available ip in node and remaining available interfaces
 	// that can either be allocated or have not yet exhausted the instance specific quota of addresses
 	// and error occurred during execution.
-	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, int, error)
+	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, ipamStats.InterfaceStats, error)
 
 	// PrepareIPAllocation is called to calculate the number of IPs that
 	// can be allocated on the node and whether a new network interface
@@ -278,6 +279,8 @@ func (n *NodeManager) Create(resource *v2.CiliumNode) bool {
 
 // Update is called whenever a CiliumNode resource has been updated in the
 // Kubernetes apiserver
+//
+// This is only used for testing.
 func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 	nodeSynced = true
 	n.mutex.Lock()
@@ -444,6 +447,7 @@ type resyncStats struct {
 	nodes               int
 	nodesAtCapacity     int
 	nodesInDeficit      int
+	nodeCapacity        int
 }
 
 func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time) {
@@ -467,6 +471,8 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 	stats.interfaceCandidates += nodeStats.InterfaceCandidates
 	stats.emptyInterfaceSlots += nodeStats.EmptyInterfaceSlots
 	stats.nodes++
+
+	stats.nodeCapacity = nodeStats.Capacity
 
 	if allocationNeeded {
 		stats.nodesInDeficit++
