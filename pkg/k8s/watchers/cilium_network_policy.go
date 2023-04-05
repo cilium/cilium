@@ -159,6 +159,7 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Cl
 				case resource.Delete:
 					err = k.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resources.MetricCCNP)
 				}
+				reportCNPChangeMetrics(err)
 				event.Done(err)
 			case event, ok := <-cidrGroupEvents:
 				if !ok {
