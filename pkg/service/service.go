@@ -1398,7 +1398,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 }
 
 func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{}) error {
-	failed, restored := 0, 0
+	failed, restored, skipped := 0, 0, 0
 	backends, err := s.lbmap.DumpBackendMaps()
 	if err != nil {
 		return fmt.Errorf("Unable to dump backend maps: %s", err)
@@ -1437,7 +1437,7 @@ func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{
 				logfields.BackendState:     b.State,
 				logfields.BackendPreferred: b.Preferred,
 			}).Debug("Duplicate backend entry not restored")
-			failed++
+			skipped++
 			continue
 		}
 		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
@@ -1458,6 +1458,7 @@ func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{
 	log.WithFields(logrus.Fields{
 		logfields.RestoredBackends: restored,
 		logfields.FailedBackends:   failed,
+		logfields.SkippedBackends:  skipped,
 	}).Info("Restored backends from maps")
 
 	return nil
