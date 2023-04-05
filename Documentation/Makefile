@@ -63,12 +63,11 @@ codeowners.rst: $(ROOT_DIR)/CODEOWNERS
 .PHONY: update-codeowners
 update-codeowners: codeowners.rst
 
-update-metricsref:
+.PHONY: update-metricref
+update-metricref:
 	./update-metricref.sh
 
-.PHONY: update-metricsref
-
-check: builder-image update-cmdref update-helm-values update-codeowners update-metricsref ## Validate command and Helm references, as well as policy examples.
+check: builder-image update-cmdref update-helm-values update-codeowners update-metricref ## Validate command and Helm references, as well as policy examples.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) cmdref
