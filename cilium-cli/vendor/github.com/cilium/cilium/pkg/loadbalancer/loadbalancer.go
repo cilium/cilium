@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // SVCType is a type of a service.
@@ -334,13 +335,18 @@ type FEPortName string
 type ServiceID uint16
 
 // ServiceName represents the fully-qualified reference to the service by name,
-// including both the namespace and name of the service.
+// including both the namespace and name of the service (and optionally the cluster).
 type ServiceName struct {
 	Namespace string
 	Name      string
+	Cluster   string
 }
 
 func (n ServiceName) String() string {
+	if n.Cluster != "" {
+		return n.Cluster + "/" + n.Namespace + "/" + n.Name
+	}
+
 	return n.Namespace + "/" + n.Name
 }
 
@@ -426,6 +432,10 @@ func (s *SVC) GetModel() *models.Service {
 			Name:      s.Name.Name,
 			Namespace: s.Name.Namespace,
 		},
+	}
+
+	if s.Name.Cluster != option.Config.ClusterName {
+		spec.Flags.Cluster = s.Name.Cluster
 	}
 
 	placements := make([]backendPlacement, len(s.Backends))

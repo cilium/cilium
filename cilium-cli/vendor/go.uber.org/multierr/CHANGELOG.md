@@ -1,6 +1,13 @@
 Releases
 ========
 
+v1.11.0 (2023-03-28)
+====================
+-   `Errors` now supports any error that implements multiple-error
+    interface.
+-   Add `Every` function to allow checking if all errors in the chain
+    satisfies `errors.Is` against the target error.
+
 v1.10.0 (2023-03-08)
 ====================
 

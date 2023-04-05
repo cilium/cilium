@@ -26,6 +26,9 @@ type WireguardStatus struct {
 
 	// Wireguard interfaces managed by this Cilium instance
 	Interfaces []*WireguardInterface `json:"interfaces"`
+
+	// Node Encryption status
+	NodeEncryption string `json:"node-encryption,omitempty"`
 }
 
 // Validate validates this wireguard status

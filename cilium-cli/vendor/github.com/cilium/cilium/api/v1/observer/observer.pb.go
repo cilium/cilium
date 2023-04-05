@@ -153,6 +153,10 @@ const DropReason_MISSING_SRV6_STATE = flow.DropReason_MISSING_SRV6_STATE
 const DropReason_NAT46 = flow.DropReason_NAT46
 const DropReason_NAT64 = flow.DropReason_NAT64
 const DropReason_AUTH_REQUIRED = flow.DropReason_AUTH_REQUIRED
+const DropReason_CT_NO_MAP_FOUND = flow.DropReason_CT_NO_MAP_FOUND
+const DropReason_SNAT_NO_MAP_FOUND = flow.DropReason_SNAT_NO_MAP_FOUND
+const DropReason_INVALID_CLUSTER_ID = flow.DropReason_INVALID_CLUSTER_ID
+const DropReason_UNSUPPORTED_PROTOCOL_FOR_DSR_ENCAP = flow.DropReason_UNSUPPORTED_PROTOCOL_FOR_DSR_ENCAP
 
 var DropReason_name = flow.DropReason_name
 var DropReason_value = flow.DropReason_value
