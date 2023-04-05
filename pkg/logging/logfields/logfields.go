@@ -640,6 +640,9 @@ const (
 	// as duplicates.
 	SkippedBackends = "skippedBackends"
 
+	// OrphanBackends is the number Backends that are not associated with any services.
+	OrphanBackends = "orphanBackends"
+
 	// Number of Services failed while restoration.
 	RestoredSVCs = "restoredServices"
 
