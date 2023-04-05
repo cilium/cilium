@@ -69,6 +69,7 @@ cilium connectivity test`,
 	cmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 
 	cmd.AddCommand(
+		newCmdBgp(),
 		newCmdClusterMesh(),
 		newCmdConfig(),
 		newCmdConnectivity(),
