@@ -271,7 +271,7 @@ func TestSpireDelegateClient_GetTrustBundle(t *testing.T) {
 }
 
 func TestSpireDelegateClient_GetCertificateForIdentity(t *testing.T) {
-	certURL, err := url.Parse("spiffe://spiffe.cilium.io/identity/1234")
+	certURL, err := url.Parse("spiffe://spiffe.cilium/identity/1234")
 	if err != nil {
 		t.Fatalf("failed to parse URL: %v", err)
 	}

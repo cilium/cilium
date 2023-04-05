@@ -62,7 +62,7 @@ contributors across the globe, there is almost always someone available to help.
 | annotateK8sNode | bool | `false` | Annotate k8s node upon initialization with Cilium's metadata. |
 | auth.mTLS.enabled | bool | `false` | Enable mtls-spiffe authentication method in CiliumNetworkPolicy |
 | auth.mTLS.port | int | `4250` | port on the agent which is used to mTLS handshakes on |
-| auth.mTLS.spiffeTrustDomain | string | `"spiffe.cilium.io"` | SPIFFE trust domain to use for fetching certificates |
+| auth.mTLS.spiffeTrustDomain | string | `"spiffe.cilium"` | SPIFFE trust domain to use for fetching certificates |
 | auth.mTLS.spireAdminSocketPath | string | `"/run/spire/sockets/admin.sock"` | SPIRE socket path where the SPIRE delegated api agent is listening |
 | auth.mTLS.spireAgentSocketPath | string | `"/run/spire/sockets/agent/agent.sock"` | SPIRE agent socket path where the SPIRE agent is listening |
 | auth.mTLS.spireServerAddress | string | `"spire-server.spire.svc.cluster.local:8081"` | SPIRE server endpoint This endpoint will be automatically injected later once embedded SPIRE installation is done. |

@@ -2661,6 +2661,6 @@ auth:
     # -- SPIRE socket path where the SPIRE delegated api agent is listening
     spireAdminSocketPath: /run/spire/sockets/admin.sock
     # -- SPIFFE trust domain to use for fetching certificates
-    spiffeTrustDomain: spiffe.cilium.io
+    spiffeTrustDomain: spiffe.cilium
     # -- port on the agent which is used to mTLS handshakes on
     port: 4250

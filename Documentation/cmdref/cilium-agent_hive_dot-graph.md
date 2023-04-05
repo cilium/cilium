@@ -32,7 +32,7 @@ cilium-agent hive dot-graph [flags]
       --k8s-kubeconfig-path string             Absolute path of the kubernetes kubeconfig file
       --mesh-auth-monitor-queue-size int       Queue size for the auth monitor (default 1024)
       --mesh-auth-mtls-listener-port int       Port on which the Cilium Agent will perfom mTLS handshakes between other Agents
-      --mesh-auth-spiffe-trust-domain string   The trust domain for the SPIFFE identity. (default "spiffe.cilium.io")
+      --mesh-auth-spiffe-trust-domain string   The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-admin-socket string    The path for the SPIRE admin agent Unix socket.
       --pprof                                  Enable serving pprof debugging API
       --pprof-address string                   Address that pprof listens on (default "localhost")
