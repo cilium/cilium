@@ -96,6 +96,9 @@ var (
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.5"), 8080),
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.6"), 8080),
 	}
+	backends6 = []lb.Backend{
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.7"), 8080),
+	}
 )
 
 func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
@@ -1415,4 +1418,50 @@ func (m *ManagerTestSuite) TestDeleteServiceWithTerminatingBackends(c *C) {
 	c.Assert(found, Equals, true)
 	c.Assert(len(m.lbmap.ServiceByID), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
+}
+
+func (m *ManagerTestSuite) TestRestoreServicesWithLeakedBackends(c *C) {
+	backends := backends1
+	p1 := &lb.SVC{
+		Frontend:  frontend1,
+		Backends:  backends,
+		Type:      lb.SVCTypeClusterIP,
+		Name:      "svc1",
+		Namespace: "ns1",
+	}
+
+	_, id1, err1 := m.svc.UpsertService(p1)
+
+	c.Assert(err1, IsNil)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
+	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
+
+	// Simulate leaked backends with various leaked scenarios.
+	// Backend2 is a duplicate leaked backend with the same L3nL4Addr as backends[0]
+	// that's associated with the service.
+	// Backend3 is a leaked backend with no associated service.
+	// Backend4 and Backend5 are duplicate leaked backends with no associated service.
+	backend2 := backends[0]
+	backend2.ID = lb.BackendID(10)
+	backend3 := backends2[0]
+	backend4 := backends6[0]
+	backend4.ID = lb.BackendID(20)
+	backend5 := backends6[0]
+	backend5.ID = lb.BackendID(30)
+	m.svc.lbmap.AddBackend(backend2, backend2.L3n4Addr.IsIPv6())
+	m.svc.lbmap.AddBackend(backend3, backend3.L3n4Addr.IsIPv6())
+	m.svc.lbmap.AddBackend(backend4, backend4.L3n4Addr.IsIPv6())
+	m.svc.lbmap.AddBackend(backend5, backend5.L3n4Addr.IsIPv6())
+	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends)+4)
+	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
+	m.svc = NewService(nil, nil)
+	m.svc.lbmap = lbmap
+
+	// Restore services from lbmap
+	err := m.svc.RestoreServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
+	// Leaked backends should be deleted.
+	c.Assert(len(m.lbmap.BackendByID), Equals, len(backends))
 }
