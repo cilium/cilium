@@ -297,6 +297,12 @@ var (
 	// time taken to fully deploy an endpoint.
 	PolicyImplementationDelay = NoOpObserverVec
 
+	// CIDRGroup
+
+	// CIDRGroupTranslationTimeStats is the time taken to translate the policy field `FromCIDRGroupRef`
+	// after the referenced CIDRGroups have been updated or deleted.
+	CIDRGroupTranslationTimeStats = NoOpHistogram
+
 	// Identity
 
 	// Identity is the number of identities currently in use on the node by type
@@ -553,6 +559,7 @@ type Configuration struct {
 	PolicyChangeTotalEnabled                bool
 	PolicyEndpointStatusEnabled             bool
 	PolicyImplementationDelayEnabled        bool
+	CIDRGroupTranslationTimeStatsEnabled    bool
 	IdentityCountEnabled                    bool
 	EventTSEnabled                          bool
 	EventLagK8sEnabled                      bool
@@ -831,6 +838,16 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, PolicyImplementationDelay)
 			c.PolicyImplementationDelayEnabled = true
+
+		case Namespace + "_cidrgroup_translation_time_stats_seconds":
+			CIDRGroupTranslationTimeStats = prometheus.NewHistogram(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Name:      "cidrgroup_translation_time_stats_seconds",
+				Help:      "CIDRGroup translation time stats",
+			})
+
+			collectors = append(collectors, CIDRGroupTranslationTimeStats)
+			c.CIDRGroupTranslationTimeStatsEnabled = true
 
 		case Namespace + "_identity":
 			Identity = prometheus.NewGaugeVec(prometheus.GaugeOpts{
