@@ -24,6 +24,9 @@ type mockMetrics struct {
 	availableIPsPerSubnet map[string]int
 	nodes                 map[string]int
 	resyncCount           int64
+	nodeIPAvailable       map[string]int
+	nodeIPUsed            map[string]int
+	nodeIPNeeded          map[string]int
 }
 
 type histogram struct {
