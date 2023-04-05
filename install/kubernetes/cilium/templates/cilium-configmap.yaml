@@ -1032,14 +1032,14 @@ data:
 
 {{- end }}
 
-{{- if .Values.auth.mTLS.enabled }}
+{{- if .Values.auth.mTLS.spire.enabled }}
   mesh-auth-mtls-enabled: "true"
   mesh-auth-mtls-listener-port: {{ .Values.auth.mTLS.port | quote }}
-  mesh-auth-spire-agent-socket: {{ .Values.auth.mTLS.spireAgentSocketPath }}
-  mesh-auth-spire-server-address: {{ .Values.auth.mTLS.spireServerAddress }}
-  mesh-auth-spire-server-connection-timeout: {{ .Values.auth.mTLS.spireServerConnectionTimeout }}
-  mesh-auth-spire-admin-socket: {{ .Values.auth.mTLS.spireAdminSocketPath }}
-  mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spiffeTrustDomain }}
+  mesh-auth-spire-agent-socket: {{ .Values.auth.mTLS.spire.agentSocketPath | quote }}
+  mesh-auth-spire-server-address: {{ .Values.auth.mTLS.spire.serverAddress | quote }}
+  mesh-auth-spire-server-connection-timeout: {{ .Values.auth.mTLS.spire.connectionTimeout }}
+  mesh-auth-spire-admin-socket: {{ .Values.auth.mTLS.spire.adminSocketPath | quote }}
+  mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spire.trustDomain | quote }}
 {{- end }}
 
 ---

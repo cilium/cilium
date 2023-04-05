@@ -55,3 +55,9 @@
     {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
   {{- end }}
 {{- end }}
+
+{{- if .Values.auth.mTLS.spire.install.enabled }}
+  {{- if not .Values.auth.mTLS.spire.enabled }}
+    {{ fail "SPIRE installation requires .Values.auth.mTLS.enabled=true and .Values.auth.mTLS.spire.enabled=true" }}
+  {{- end }}
+{{- end }}

@@ -60,13 +60,16 @@ contributors across the globe, there is almost always someone available to help.
 | aksbyocni.enabled | bool | `false` | Enable AKS BYOCNI integration. Note that this is incompatible with AKS clusters not created in BYOCNI mode: use Azure integration (`azure.enabled`) instead. |
 | alibabacloud.enabled | bool | `false` | Enable AlibabaCloud ENI integration |
 | annotateK8sNode | bool | `false` | Annotate k8s node upon initialization with Cilium's metadata. |
-| auth.mTLS.enabled | bool | `false` | Enable mtls-spiffe authentication method in CiliumNetworkPolicy |
-| auth.mTLS.port | int | `4250` | port on the agent which is used to mTLS handshakes on |
-| auth.mTLS.spiffeTrustDomain | string | `"spiffe.cilium"` | SPIFFE trust domain to use for fetching certificates |
-| auth.mTLS.spireAdminSocketPath | string | `"/run/spire/sockets/admin.sock"` | SPIRE socket path where the SPIRE delegated api agent is listening |
-| auth.mTLS.spireAgentSocketPath | string | `"/run/spire/sockets/agent/agent.sock"` | SPIRE agent socket path where the SPIRE agent is listening |
-| auth.mTLS.spireServerAddress | string | `"spire-server.spire.svc.cluster.local:8081"` | SPIRE server endpoint This endpoint will be automatically injected later once embedded SPIRE installation is done. |
-| auth.mTLS.spireServerConnectionTimeout | string | `"10s"` | SPIRE server connection timeout |
+| auth.mTLS.port | int | `4250` | Port on the agent where mTLS handshakes between agents will be performed |
+| auth.mTLS.spire.adminSocketPath | string | `"/run/spire/sockets/admin.sock"` | SPIRE socket path where the SPIRE delegated api agent is listening |
+| auth.mTLS.spire.agentSocketPath | string | `"/run/spire/sockets/agent/agent.sock"` | SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator |
+| auth.mTLS.spire.connectionTimeout | string | `"30s"` | SPIRE connection timeout |
+| auth.mTLS.spire.enabled | bool | `false` | Enable SPIRE integration |
+| auth.mTLS.spire.install | object | `{"enabled":false,"namespace":"cilium-spire"}` | Settings to control the SPIRE installation and configuration |
+| auth.mTLS.spire.install.enabled | bool | `false` | Enable SPIRE installation. This will only take effect only if auth.mTLS.spire.enabled is true |
+| auth.mTLS.spire.install.namespace | string | `"cilium-spire"` | SPIRE namespace to install into |
+| auth.mTLS.spire.serverAddress | string | `"spire-server.cilium-spire.svc.cluster.local:8081"` | SPIRE server address |
+| auth.mTLS.spire.trustDomain | string | `"spiffe.cilium"` | SPIFFE trust domain to use for fetching certificates |
 | autoDirectNodeRoutes | bool | `false` | Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment. |
 | azure.enabled | bool | `false` | Enable Azure integration. Note that this is incompatible with AKS clusters created in BYOCNI mode: use AKS BYOCNI integration (`aksbyocni.enabled`) instead. |
 | bandwidthManager | object | `{"bbr":false,"enabled":false}` | Enable bandwidth manager to optimize TCP and UDP workloads and allow for rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation. |
@@ -112,7 +115,7 @@ contributors across the globe, there is almost always someone available to help.
 | cleanBpfState | bool | `false` | Clean all eBPF datapath state from the initContainer of the cilium-agent DaemonSet.  WARNING: Use with care! |
 | cleanState | bool | `false` | Clean all local Cilium state from the initContainer of the cilium-agent DaemonSet. Implies cleanBpfState: true.  WARNING: Use with care! |
 | cluster.id | int | `0` | Unique ID of the cluster. Must be unique across all connected clusters and in the range of 1 to 255. Only required for Cluster Mesh, may be 0 if Cluster Mesh is not used. |
-| cluster.name | string | `"default"` | Name of the cluster. Only required for Cluster Mesh. |
+| cluster.name | string | `"default"` | Name of the cluster. Only required for Cluster Mesh and mTLS auth with SPIRE. |
 | clustermesh.apiserver.affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for clustermesh.apiserver |
 | clustermesh.apiserver.etcd.image | object | `{"digest":"sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3","override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4","useDigest":true}` | Clustermesh API server etcd image. |
 | clustermesh.apiserver.etcd.init.resources | object | `{}` | Specifies the resources for etcd init container in the apiserver |
