@@ -65,7 +65,7 @@ env:
   region: us-east-2
   k8s_version: 1.23
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.1
+  cilium_cli_version: v0.13.2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.122.0
   kubectl_version: v1.23.6
