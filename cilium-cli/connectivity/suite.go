@@ -134,6 +134,9 @@ var (
 	//go:embed manifests/echo-ingress-icmp-deny.yaml
 	echoIngressICMPDenyPolicyYAML string
 
+	//go:embed manifests/echo-ingress-from-cidr.yaml
+	echoIngressFromCIDRYAML string
+
 	//go:embed manifests/echo-ingress-auth-fail.yaml
 	echoIngressAuthFailPolicyYAML string
 
@@ -163,6 +166,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		"clientEgressToFQDNsCiliumIOPolicyYAML":   clientEgressToFQDNsCiliumIOPolicyYAML,
 		"clientEgressL7TLSPolicyYAML":             clientEgressL7TLSPolicyYAML,
 		"clientEgressL7HTTPMatchheaderSecretYAML": clientEgressL7HTTPMatchheaderSecretYAML,
+		"echoIngressFromCIDRYAML":                 echoIngressFromCIDRYAML,
 	} {
 		val, err := utils.RenderTemplate(temp, ct.Params())
 		if err != nil {
@@ -213,6 +217,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		tests.PodToHost(),
 		tests.PodToExternalWorkload(),
 		tests.PodToCIDR(),
+	}
+	if s, ok := ct.Feature(check.FeatureNodeWithoutCilium); ok && s.Enabled {
+		noPoliciesScenarios = append(noPoliciesScenarios, tests.FromCIDRToPod())
 	}
 	ct.NewTest("no-policies").WithScenarios(noPoliciesScenarios...)
 
@@ -277,6 +284,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	//    then when replies come back, they are considered as "replies" to the outbound connection.
 	//    so they are not subject to ingress policy.
 	allIngressDenyScenarios := []check.Scenario{tests.PodToPod(), tests.PodToCIDR()}
+	if s, ok := ct.Feature(check.FeatureNodeWithoutCilium); ok && s.Enabled {
+		allIngressDenyScenarios = append(allIngressDenyScenarios, tests.FromCIDRToPod())
+	}
 	ct.NewTest("all-ingress-deny").WithCiliumPolicy(denyAllIngressPolicyYAML).
 		WithScenarios(allIngressDenyScenarios...).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
@@ -368,6 +378,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy allows ingress to echo only from client with a label 'other:client'.
 	echoIngressScenarios := []check.Scenario{tests.PodToPod()}
+	if s, ok := ct.Feature(check.FeatureNodeWithoutCilium); ok && s.Enabled {
+		echoIngressScenarios = append(echoIngressScenarios, tests.FromCIDRToPod())
+	}
 	ct.NewTest("echo-ingress").WithCiliumPolicy(echoIngressFromOtherClientPolicyYAML).
 		WithScenarios(echoIngressScenarios...).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
@@ -478,6 +491,17 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			}
 			return check.ResultOK, check.ResultNone
 		})
+
+	if s, ok := ct.Feature(check.FeatureNodeWithoutCilium); ok && s.Enabled {
+		ct.NewTest("from-cidr-host-netns").
+			WithCiliumPolicy(renderedTemplates["echoIngressFromCIDRYAML"]).
+			WithScenarios(
+				tests.FromCIDRToPod(),
+			).
+			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+				return check.ResultOK, check.ResultNone
+			})
+	}
 
 	// Tests with deny policy
 	ct.NewTest("echo-ingress-from-other-client-deny").
