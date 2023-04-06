@@ -1584,7 +1584,6 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 						 __be16 svc_port, int *ifindex, __be16 *ohead)
 {
 	__be16 src_port = tunnel_gen_src_port_v4();
-	struct remote_endpoint_info *info = NULL;
 	struct geneve_dsr_opt4 gopt;
 	bool need_opt = true;
 	__u16 encap_len = sizeof(struct iphdr) + sizeof(struct udphdr) +
@@ -1593,12 +1592,19 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 	__be32 tunnel_endpoint;
 	__u16 total_len = 0;
 
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
+	tunnel_endpoint = ip4->daddr;
+	dst_sec_identity = 0;
+#else
+	struct remote_endpoint_info *info;
+
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (!info || info->tunnel_endpoint == 0)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 	tunnel_endpoint = info->tunnel_endpoint;
 	dst_sec_identity = info->sec_identity;
+#endif
 
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
