@@ -212,7 +212,7 @@ spec:
               - "bash"
               - "-c"
               - |
-                {{- tpl (.Files.Get "files/agent/poststart-eni.bash") . | nindent 20 }}
+                {{- tpl (.Files.Get "files/agent/poststart-eni.bash") . | nindent 16 }}
           {{- end }}
           preStop:
             exec:
