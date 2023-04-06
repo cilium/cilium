@@ -15,40 +15,30 @@ cilium-bugtool [OPTIONS] [flags]
 	$ cilium-bugtool
 	[...]
 
-	# Collect and retrieve archive if Cilium is running in a Kubernetes pod
-	$ kubectl get pods --namespace kube-system
-	NAME                          READY     STATUS    RESTARTS   AGE
-	cilium-kg8lv                  1/1       Running   0          13m
-	[...]
-	$ kubectl -n kube-system exec cilium-kg8lv -- cilium-bugtool
-	$ kubectl cp kube-system/cilium-kg8lv:/tmp/cilium-bugtool-243785589.tar /tmp/cilium-bugtool-243785589.tar
 ```
 
 ### Options
 
 ```
-      --archive                              Create archive when false skips deletion of the output directory (default true)
-      --archive-prefix string                String to prefix to name of archive if created (e.g., with cilium pod-name)
-  -o, --archiveType string                   Archive type: tar | gz (default "tar")
-      --cilium-agent-container-name string   Name of the Cilium Agent main container (when k8s-mode is true) (default "cilium-agent")
-      --config string                        Configuration to decide what should be run (default "./.cilium-bugtool.config")
-      --dry-run                              Create configuration file of all commands that would have been executed
-      --enable-markdown                      Dump output of commands in markdown format
-      --envoy-dump                           When set, dump envoy configuration from unix socket (default true)
-      --envoy-metrics                        When set, dump envoy prometheus metrics from unix socket (default true)
-      --exclude-object-files                 Exclude per-endpoint object files. Template object files will be kept
-      --exec-timeout duration                The default timeout for any cmd execution in seconds (default 30s)
-      --get-pprof                            When set, only gets the pprof traces from the cilium-agent binary
-  -h, --help                                 help for cilium-bugtool
-  -H, --host string                          URI to server-side API
-      --k8s-label string                     Kubernetes label for Cilium pod (default "k8s-app=cilium")
-      --k8s-mode                             Require Kubernetes pods to be found or fail
-      --k8s-namespace string                 Kubernetes namespace for Cilium pod (default "kube-system")
-      --parallel-workers int                 Maximum number of parallel worker tasks, use 0 for number of CPUs
-      --pprof-debug int                      Debug pprof args (default 1)
-      --pprof-port int                       Pprof port to connect to. Known Cilium component ports are agent:6060, operator:6061, apiserver:6063 (default 6060)
-      --pprof-trace-seconds int              Amount of seconds used for pprof CPU traces (default 180)
-  -t, --tmp string                           Path to store extracted files. Use '-' to send to stdout. (default "/tmp")
+      --archive                   Create archive when false skips deletion of the output directory (default true)
+      --archive-name string       Override default dump archive naming scheme (if --archive is true)
+      --archive-prefix string     String to prefix to name of archive if created (e.g., with cilium pod-name)
+  -o, --archiveType string        Archive type: tar | gz (default "tar")
+      --config string             Configuration to decide what should be run
+      --debug                     Enable debug logging
+      --exclude-object-files      Exclude per-endpoint object files. Template object files will be kept
+      --exec-timeout duration     The default timeout for any cmd execution in seconds (default 30s)
+      --generate                  Create configuration file of all commands that would have been executed
+  -h, --help                      help for cilium-bugtool
+      --parallel-workers int      Maximum number of parallel worker tasks, use 0 for number of CPUs
+      --pprof-debug int           Debug pprof args (default 1)
+      --pprof-port int            Pprof port to connect to. Known Cilium component ports are agent:6060, operator:6061, apiserver:6063 (default 6060)
+      --pprof-trace-seconds int   Amount of seconds used for pprof CPU traces (default 180)
+      --timeout duration          Dump timeout seconds (default 30s)
+  -t, --tmp string                Path to store extracted files. Use '-' to send to stdout. (default "/tmp")
+      --topics strings            Select dump tasks to run by available topics: [bpfmaps agent system envoy envoy] (default [bpfmaps,agent,system,envoy])
+      --wait                      Wait for agent to be ready before attempting dump, avoids trying to get data that hasn't been initialized yet (default true)
+      --wait-timeout duration     Timeout to use while waiting for agent to be ready (default 20s)
 ```
 
 ### SEE ALSO
