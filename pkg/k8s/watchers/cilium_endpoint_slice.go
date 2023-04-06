@@ -22,8 +22,6 @@ import (
 
 var (
 	cesNotify = subscriber.NewCES()
-	// cepMap maps CEPName to CEBName.
-	cepMap = newCEPToCESMap()
 )
 
 // CreateCiliumEndpointSliceLocalPodIndexFunc returns an IndexFunc that indexes CiliumEndpointSlices
