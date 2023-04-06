@@ -935,6 +935,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			goto drop_no_service;
 		state->backend_id = backend_id;
 		ct_update_backend_id(map, tuple, state);
+		state->rev_nat_index = svc->rev_nat_index;
+		ct_update_rev_nat_index(map, tuple, state);
 	}
 update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
@@ -1618,6 +1620,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			goto drop_no_service;
 		state->backend_id = backend_id;
 		ct_update_backend_id(map, tuple, state);
+		state->rev_nat_index = svc->rev_nat_index;
+		ct_update_rev_nat_index(map, tuple, state);
 	}
 update_state:
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
