@@ -2680,3 +2680,94 @@ func BenchmarkRuleString(b *testing.B) {
 		_ = r.String()
 	}
 }
+
+// Test merging of L7 rules when the same rules apply to multiple selectors.
+// This was added to prevent regression of a bug where the merging of l7 rules for "foo"
+// also affected the rules for "baz".
+func (ds *PolicyTestSuite) TestMergeL7PolicyEgressWithMultipleSelectors(c *C) {
+	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
+	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
+
+	fooSelector := []api.EndpointSelector{
+		api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+	}
+	foobazSelector := []api.EndpointSelector{
+		api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+		api.NewESFromLabels(labels.ParseSelectLabel("baz")),
+	}
+
+	rule1 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: fooSelector,
+					},
+					// Note that this allows all on 80, so the result should wildcard HTTP to "foo"
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: foobazSelector,
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Method: "GET"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	expected := L4PolicyMap{"80/TCP": &L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		L7Parser: ParserTypeHTTP,
+		PerSelectorPolicies: L7DataMap{
+			cachedFooSelector: &PerSelectorPolicy{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Method: "GET"}, {}},
+				},
+				isRedirect: true,
+			},
+			cachedBazSelector: &PerSelectorPolicy{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Method: "GET"}},
+				},
+				isRedirect: true,
+			},
+		},
+		Ingress: false,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedBazSelector: {nil},
+			cachedFooSelector: {nil},
+		},
+	}}
+
+	state := traceState{}
+	res, err := rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
+
+	state = traceState{}
+	res, err = rule1.resolveEgressPolicy(testPolicyContext, fromFoo, &state, L4PolicyMap{}, nil, nil)
+	c.Assert(err, IsNil)
+	c.Assert(res, IsNil)
+	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
+}
