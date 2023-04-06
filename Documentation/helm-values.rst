@@ -523,7 +523,11 @@
    * - cni.chainingMode
      - Configure chaining on top of other CNI plugins. Possible values:  - none  - aws-cni  - flannel  - generic-veth  - portmap
      - string
-     - ``"none"``
+     - ``nil``
+   * - cni.chainingTarget
+     - A CNI network name in to which the Cilium plugin should be added as a chained plugin. This will cause the agent to watch for a CNI network with this network name. When it is found, this will be used as the basis for Cilium's CNI configuration file. If this is set, it assumes a chaining mode of generic-veth. As a special case, a chaining mode of aws-cni implies a chainingTarget of aws-cni.
+     - string
+     - ``nil``
    * - cni.confFileMountPath
      - Configure the path to where to mount the ConfigMap inside the agent pod.
      - string

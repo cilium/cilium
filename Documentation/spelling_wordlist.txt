@@ -270,6 +270,7 @@ certsVolume
 cgroup
 cgroups
 chainingMode
+chainingTarget
 changelog
 cheatsheet
 ci
