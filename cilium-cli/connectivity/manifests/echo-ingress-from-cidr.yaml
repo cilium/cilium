@@ -1,0 +1,14 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: echo-ingress-from-cidr
+spec:
+  description: "Allow echo pods to receive ingress traffic from a specific CIDR"
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+  - fromCIDR:
+{{ range $i, $cidr := .ExternalFromCIDRs }}
+    - {{$cidr}}/{{index $.ExternalFromCIDRMasks $i}}
+{{ end }}
