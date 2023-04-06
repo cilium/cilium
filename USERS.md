@@ -83,6 +83,12 @@ Users (Alphabetically)
       L: https://cloud.arangodb.com
       Q: @ewoutp @Robert-Stam
 
+    * N: Ascend.io
+      D: Ascend.io is using Cilium as a consistent CNI for our Data Automation Platform on GKE, EKS, and AKS.
+      U: Transparent Encryption, Overlay Networking, Cluster Mesh, Egress Gateway, Network Policy, Hubble
+      L: https://www.ascend.io/
+      Q: @Joe Stevens
+
     * N: Ayedo
       D: Ayedo builds and operates cloud-native container platforms based on Kubernetes
       U: Hubble for Visibility, Cilium as Mesh between Services
