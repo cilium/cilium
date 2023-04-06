@@ -492,13 +492,13 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache *Selec
 
 // add L7 rules for all endpoints in the L7DataMap
 func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, terminatingTLS, originatingTLS *TLSContext, deny bool) {
-	l7policy := &PerSelectorPolicy{
-		L7Rules:        rules,
-		TerminatingTLS: terminatingTLS,
-		OriginatingTLS: originatingTLS,
-		IsDeny:         deny,
-	}
 	for epsel := range l7 {
+		l7policy := &PerSelectorPolicy{
+			L7Rules:        rules,
+			TerminatingTLS: terminatingTLS,
+			OriginatingTLS: originatingTLS,
+			IsDeny:         deny,
+		}
 		l7[epsel] = l7policy
 	}
 }
