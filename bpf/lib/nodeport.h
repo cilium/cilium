@@ -780,10 +780,12 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		     * needed.
 		     */
 		    ret == DROP_NAT_NO_MAPPING) {
-			/* In case of no mapping, recircle back to main path. SNAT
-			 * is very expensive in terms of instructions (since we
-			 * don't have BPF to BPF calls as we use tail calls) and
-			 * complexity, hence this is done inside a tail call here.
+			/* In case of no mapping, recircle back to
+			 * main path. SNAT is very expensive in terms
+			 * of instructions and
+			 * complexity. Consequently, this is done
+			 * inside a tail call here (because we don't
+			 * have BPF to BPF calls).
 			 */
 			ctx_skip_nodeport_set(ctx);
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
@@ -1992,10 +1994,12 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		     * needed.
 		     */
 		    ret == DROP_NAT_NO_MAPPING) {
-			/* In case of no mapping, recircle back to main path. SNAT
-			 * is very expensive in terms of instructions (since we
-			 * don't have BPF to BPF calls as we use tail calls) and
-			 * complexity, hence this is done inside a tail call here.
+			/* In case of no mapping, recircle back to
+			 * main path. SNAT is very expensive in terms
+			 * of instructions and
+			 * complexity. Consequently, this is done
+			 * inside a tail call here (because we don't
+			 * have BPF to BPF calls).
 			 */
 			ctx_skip_nodeport_set(ctx);
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
