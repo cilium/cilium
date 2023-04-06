@@ -1,24 +1,22 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-SHELL := /bin/bash
-.SHELLFLAGS := -eu -o pipefail -c
-
+###########################################################################################
+# Makefile Templating                                                                     #
+###########################################################################################
 # define a function replacing spaces with commas in a list
 empty :=
 space := $(empty) $(empty)
 comma := ,
 join-with-comma = $(subst $(space),$(comma),$(strip $1))
-
 define newline
 
 
 endef
 
-ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-RELATIVE_DIR := $(shell echo $(realpath .) | sed "s;$(ROOT_DIR)[/]*;;")
-include $(ROOT_DIR)/Makefile.quiet
-
+###########################################################################################
+# Build Paths                                                                             #
+###########################################################################################
 PREFIX?=/usr
 BINDIR?=$(PREFIX)/bin
 CNIBINDIR?=/opt/cni/bin
@@ -27,45 +25,35 @@ LIBDIR?=$(PREFIX)/lib
 LOCALSTATEDIR?=/var
 RUNDIR?=/var/run
 CONFDIR?=/etc
+ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+RELATIVE_DIR := $(shell echo $(realpath .) | sed "s;$(ROOT_DIR)[/]*;;")
 
-NATIVE_ARCH = $(shell GOARCH= $(GO) env GOARCH)
-export GOARCH ?= $(NATIVE_ARCH)
-
+###########################################################################################
+# SHELL and Shell Commands                                                                #
+###########################################################################################
+SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
 INSTALL = install
-
-CONTAINER_ENGINE?=docker
-DOCKER_FLAGS?=
-DOCKER_BUILD_FLAGS?=
-
 # use gsed if avaiable, otherwise use sed.
 # gsed is needed for MacOS to make in-place replacement work correctly.
 SED ?= $(if $(shell command -v gsed), gsed, sed)
+include $(ROOT_DIR)/Makefile.quiet
 
-# Set DOCKER_DEV_ACCOUNT with "cilium" by default
-ifeq ($(DOCKER_DEV_ACCOUNT),)
-    DOCKER_DEV_ACCOUNT=cilium
-endif
-
-ifneq ($(CI_BUILD),)
-    DOCKER_IMAGE_SUFFIX=-ci
-    DOCKER_IMAGE_TAG=$(shell git rev-parse HEAD)
-endif
-
-# Set DOCKER_IMAGE_TAG with "latest" by default
-ifeq ($(DOCKER_IMAGE_TAG),)
-    DOCKER_IMAGE_TAG=latest
-endif
-
-ifeq ($(shell uname -m),aarch64)
-    ETCD_IMAGE=quay.io/coreos/etcd:v3.3.20-arm64
+###########################################################################################
+# Git                                                                                     #
+###########################################################################################
+# Use git only if in a Git repo
+ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
+    GIT_VERSION = $(shell git show -s --format='format:%h %aI')
 else
-    ETCD_IMAGE=quay.io/coreos/etcd:v3.3.20
+    GIT_VERSION = $(shell cat $(ROOT_DIR)/GIT_VERSION)
 endif
+FULL_BUILD_VERSION = $(VERSION) $(GIT_VERSION)
 
-CONSUL_IMAGE=consul:1.7.2
-
+###########################################################################################
+# Golang                                                                                  #
+###########################################################################################
 export GO ?= go
-
 # go build/test/clean flags
 # these are declared here so they are treated explicitly
 # as non-immediate variables
@@ -75,39 +63,32 @@ GO_CLEAN_FLAGS =
 GO_BUILD_LDFLAGS =
 # go build/test -tags values
 GO_TAGS_FLAGS = osusergo
-
 # This is declared here as it is needed to change the covermode depending on if
 # RACE is specified.
 GOTEST_COVER_OPTS =
-
-# By default, just print go test output immediately to the terminal. If tparse
-# is installed, use it to format the output. This is either silent silent (V=0)
-# or gives some signal about ongoing progress by teeing to the terminal (V=1).
-GOTEST_FORMATTER ?= cat
-ifneq ($(shell command -v tparse),)
-	GOTEST_COVER_OPTS += -json
-	GOTEST_FORMATTER = tparse
-ifneq ($(V),0)
-	GOTEST_FORMATTER += -follow
-endif
-endif
-
-# renovate: datasource=docker depName=golangci/golangci-lint
+GO_VERSION := $(shell cat $(ROOT_DIR)/GO_VERSION)
 GOLANGCILINT_WANT_VERSION = v1.52.2
 GOLANGCILINT_IMAGE_SHA = sha256:3d2f4240905054c7efa7f4e98ba145c12a16995bbc3e605300e21400a1665cb6
-GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
-
-VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
-VERSION_MAJOR = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION | cut -d. -f1)
-# Use git only if in a Git repo
-ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
-    GIT_VERSION = $(shell git show -s --format='format:%h %aI')
-else
-    GIT_VERSION = $(shell cat $(ROOT_DIR)/GIT_VERSION)
-endif
-FULL_BUILD_VERSION = $(VERSION) $(GIT_VERSION)
+GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?/\1.\2/' $(ROOT_DIR)/GO_VERSION)
+GO_IMAGE_VERSION := $(shell awk -F. '{ z=$$3; if (z == "") z=0; print $$1 "." $$2 "." z}' $(ROOT_DIR)/GO_VERSION)
+GO_INSTALLED_MAJOR_AND_MINOR_VERSION := $(shell $(GO) version | sed 's/go version go\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?.*/\1.\2/')
+GO_CONTAINER := $(CONTAINER_ENGINE) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) golang:$(GO_VERSION)
+GOIMPORTS_VERSION ?= v0.1.12
+GO_BUILD = CGO_ENABLED=0 $(GO) build
+GO_BUILD += $(GO_BUILD_FLAGS)
+GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(CGO_CC) $(GO) build
+GO_BUILD_WITH_CGO += $(GO_BUILD_FLAGS)
+GO_TEST = CGO_ENABLED=0 $(GO) test $(GO_TEST_FLAGS)
+GOTEST_BASE := -test.v -timeout 600s
+GOTEST_COVER_OPTS += -coverprofile=coverage.out
+GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
+GO_VET = $(GO) vet
+GO_LIST = $(GO) list
+NATIVE_ARCH = $(shell GOARCH= $(GO) env GOARCH)
+export GOARCH ?= $(NATIVE_ARCH)
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/version.ciliumVersion=$(FULL_BUILD_VERSION)"
-
+GO_BUILD_FLAGS += -ldflags '$(GO_BUILD_LDFLAGS) $(EXTRA_GO_BUILD_LDFLAGS)' -tags=$(call join-with-comma,$(GO_TAGS_FLAGS)) $(EXTRA_GO_BUILD_FLAGS)
+GO_TEST_FLAGS += -tags=$(call join-with-comma,$(GO_TAGS_FLAGS))
 ifeq ($(NOSTRIP),)
     # Note: these options will not remove annotations needed for stack
     # traces, so panic backtraces will still be readable.
@@ -116,28 +97,7 @@ ifeq ($(NOSTRIP),)
     # -s: Omit the symbol table and debug information.
     GO_BUILD_LDFLAGS += -s -w
 endif
-
-ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
-    CILIUM_ENVOY_REF=$(shell sed -E -e 's/^FROM (--[^ ]* )*([^ ]*) as cilium-envoy/\2/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
-    CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:([^:@]*).*/\1/p;d' | sed -E -e 's/.*-([^-]*)$/\1/')
-    GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
-endif
-
-# Use git only if in a Git repo, otherwise find the files from the file system
-BPF_SRCFILES_IGNORE = bpf/.gitignore
-ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
-    BPF_SRCFILES := $(shell git ls-files $(ROOT_DIR)/bpf/ | LC_ALL=C sort | tr "\n" ' ')
-else
-    # this line has to be in-sync with bpf/.gitignore, please note usage of make patterns like `%.i`
-    BPF_SRCFILES_IGNORE += bpf/%.i bpf/%.s bpf/.rebuild_all
-    BPF_SRCFILES := $(shell find $(ROOT_DIR)/bpf/ -type f | LC_ALL=C sort | tr "\n" ' ')
-endif
-
-# ROOT_DIR can be either `../` or absolute path, each of these need to be stripped
-BPF_SRCFILES := $(filter-out $(BPF_SRCFILES_IGNORE),$(subst ../,,$(subst $(ROOT_DIR)/,,$(BPF_SRCFILES))))
-CILIUM_DATAPATH_SHA256=$(shell cd $(ROOT_DIR); cat $(BPF_SRCFILES) | sha256sum | awk '{print $$1}')
-GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA256=$(CILIUM_DATAPATH_SHA256)"
-
+# TODO: Is this necessary with latest Go versions?
 # Set -mod=vendor if running >= go 1.13 or if GO111MODULE is set.
 # A go build is being executed with go modules if:
 # * The go command is invoked with GO111MODULE=on environment variable set.
@@ -158,9 +118,6 @@ else
         endif
     endif
 endif
-
-GO_BUILD = CGO_ENABLED=0 $(GO) build
-
 # Support CGO cross-compiling for amd64 and arm64 targets
 CGO_CC =
 CROSS_ARCH =
@@ -172,8 +129,6 @@ ifeq ($(CROSS_ARCH),arm64)
 else ifeq ($(CROSS_ARCH),amd64)
     CGO_CC = CC=x86_64-linux-gnu-gcc
 endif
-GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(CGO_CC) $(GO) build
-
 ifneq ($(RACE),)
     GO_BUILD_FLAGS += -race
     GO_TEST_FLAGS += -race
@@ -187,42 +142,89 @@ ifneq ($(RACE),)
 else
     GOTEST_COVER_OPTS += -covermode=count
 endif
-
 ifneq ($(LOCKDEBUG),)
     GO_TAGS_FLAGS += lockdebug
 endif
-
-GO_BUILD_FLAGS += -ldflags '$(GO_BUILD_LDFLAGS) $(EXTRA_GO_BUILD_LDFLAGS)' -tags=$(call join-with-comma,$(GO_TAGS_FLAGS)) $(EXTRA_GO_BUILD_FLAGS)
-GO_TEST_FLAGS += -tags=$(call join-with-comma,$(GO_TAGS_FLAGS))
-
 ifeq ($(NOOPT),1)
     GO_BUILD_FLAGS += -gcflags="all=-N -l"
 endif
-
-GO_BUILD += $(GO_BUILD_FLAGS)
-GO_BUILD_WITH_CGO += $(GO_BUILD_FLAGS)
-
-GO_TEST = CGO_ENABLED=0 $(GO) test $(GO_TEST_FLAGS)
-GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
-
-GO_VET = $(GO) vet
-GO_LIST = $(GO) list
-
-HELM_TOOLBOX_VERSION ?= "v1.0.1"
-HELM_TOOLBOX_SHA ?= "a1483fc036b15c290326ba7ed36b8f0b714e185913b72a6074c04225d74e034c"
-HELM_TOOLBOX_IMAGE ?= "quay.io/cilium/helm-toolbox:$(HELM_TOOLBOX_VERSION)@sha256:$(HELM_TOOLBOX_SHA)"
-
-define print_help_line
-  @printf "  \033[36m%-29s\033[0m %s.\n" $(1) $(2)
-endef
-
-define print_help_from_makefile
-  @awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9][a-zA-Z0-9 _-]*:.*?##/ { split($$1, targets, " "); for (i in targets) { printf "  \033[36m%-28s\033[0m %s\n", targets[i], $$2 } } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
-endef
-
+# By default, just print go test output immediately to the terminal. If tparse
+# is installed, use it to format the output. This is either silent silent (V=0)
+# or gives some signal about ongoing progress by teeing to the terminal (V=1).
+GOTEST_FORMATTER ?= cat
+ifneq ($(shell command -v tparse),)
+	GOTEST_COVER_OPTS += -json
+	GOTEST_FORMATTER = tparse
+ifneq ($(V),0)
+	GOTEST_FORMATTER += -follow
+endif
+endif
 # Use to ensure the CWD, or any child of it, belongs to Cilium's go module.
 CILIUM_GO_MODULE = github.com/cilium/cilium
 CURRENT_GO_MODULE = $(shell go list -m)
 define ASSERT_CILIUM_MODULE
 	$(if $(filter $(CILIUM_GO_MODULE), $(CURRENT_GO_MODULE)) ,, $(error "Could not locate Cilium's go.mod file, are you in Cilium's repository?"))
 endef
+
+###########################################################################################
+# Container Runtimes                                                                      #
+###########################################################################################
+CONTAINER_ENGINE?=docker
+DOCKER_FLAGS?=
+DOCKER_BUILD_FLAGS?=
+# Set DOCKER_DEV_ACCOUNT with "cilium" by default
+ifeq ($(DOCKER_DEV_ACCOUNT),)
+    DOCKER_DEV_ACCOUNT=cilium
+endif
+ifneq ($(CI_BUILD),)
+    DOCKER_IMAGE_SUFFIX=-ci
+    DOCKER_IMAGE_TAG=$(shell git rev-parse HEAD)
+endif
+# Set DOCKER_IMAGE_TAG with "latest" by default
+ifeq ($(DOCKER_IMAGE_TAG),)
+    DOCKER_IMAGE_TAG=latest
+endif
+ifeq ($(BASE_IMAGE),)
+    BASE_IMAGE=scratch
+endif
+
+###########################################################################################
+# Cilium Control Plane                                                                    #
+###########################################################################################
+VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
+VERSION_MAJOR = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION | cut -d. -f1)
+ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
+    CILIUM_ENVOY_REF=$(shell sed -E -e 's/^FROM (--[^ ]* )*([^ ]*) as cilium-envoy/\2/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
+    CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:([^:@]*).*/\1/p;d' | sed -E -e 's/.*-([^-]*)$/\1/')
+    GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+endif
+ifeq ($(shell uname -m),aarch64)
+    ETCD_IMAGE=quay.io/coreos/etcd:v3.3.20-arm64
+else
+    ETCD_IMAGE=quay.io/coreos/etcd:v3.3.20
+endif
+CONSUL_IMAGE=consul:1.7.2
+
+###########################################################################################
+# Cilium DataPath                                                                         #
+###########################################################################################
+# Use git only if in a Git repo, otherwise find the files from the file system
+BPF_SRCFILES_IGNORE = bpf/.gitignore
+ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
+    BPF_SRCFILES := $(shell git ls-files $(ROOT_DIR)/bpf/ | LC_ALL=C sort | tr "\n" ' ')
+else
+    # this line has to be in-sync with bpf/.gitignore, please note usage of make patterns like `%.i`
+    BPF_SRCFILES_IGNORE += bpf/%.i bpf/%.s bpf/.rebuild_all
+    BPF_SRCFILES := $(shell find $(ROOT_DIR)/bpf/ -type f | LC_ALL=C sort | tr "\n" ' ')
+endif
+# ROOT_DIR can be either `../` or absolute path, each of these need to be stripped
+BPF_SRCFILES := $(filter-out $(BPF_SRCFILES_IGNORE),$(subst ../,,$(subst $(ROOT_DIR)/,,$(BPF_SRCFILES))))
+CILIUM_DATAPATH_SHA256=$(shell cd $(ROOT_DIR); cat $(BPF_SRCFILES) | sha256sum | awk '{print $$1}')
+GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA256=$(CILIUM_DATAPATH_SHA256)"
+
+###########################################################################################
+# Helm                                                                                    #
+###########################################################################################
+HELM_TOOLBOX_VERSION ?= "v1.0.1"
+HELM_TOOLBOX_SHA ?= "a1483fc036b15c290326ba7ed36b8f0b714e185913b72a6074c04225d74e034c"
+HELM_TOOLBOX_IMAGE ?= "quay.io/cilium/helm-toolbox:$(HELM_TOOLBOX_VERSION)@sha256:$(HELM_TOOLBOX_SHA)"
