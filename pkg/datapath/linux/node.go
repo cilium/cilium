@@ -1104,9 +1104,9 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if option.Config.EnableWireguard && newNode.WireguardPubKey != "" {
-		if err := n.wgAgent.UpdatePeer(newNode.Name, newNode.WireguardPubKey, newIP4, newIP6); err != nil {
+		if err := n.wgAgent.UpdatePeer(newNode.Fullname(), newNode.WireguardPubKey, newIP4, newIP6); err != nil {
 			log.WithError(err).
-				WithField(logfields.NodeName, newNode.Name).
+				WithField(logfields.NodeName, newNode.Fullname()).
 				Warning("Failed to update wireguard configuration for peer")
 		}
 	}
@@ -1222,7 +1222,7 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	}
 
 	if option.Config.EnableWireguard {
-		if err := n.wgAgent.DeletePeer(oldNode.Name); err != nil {
+		if err := n.wgAgent.DeletePeer(oldNode.Fullname()); err != nil {
 			return err
 		}
 	}
