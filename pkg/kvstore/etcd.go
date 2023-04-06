@@ -1198,7 +1198,13 @@ func (e *etcdClient) statusChecker() {
 
 		e.statusLock.Unlock()
 		if e.latestErrorStatus != nil {
-			e.statusCheckErrors <- e.latestErrorStatus
+			select {
+			case e.statusCheckErrors <- e.latestErrorStatus:
+			default:
+				// Channel's buffer is full, skip sending errors to the channel but log warnings instead
+				log.WithError(e.latestErrorStatus).
+					Warning("Status check error channel is full, dropping this error")
+			}
 		}
 
 		select {
