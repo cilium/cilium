@@ -56,6 +56,13 @@
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
 {{- $azureUsePrimaryAddress = (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
 {{- $socketLB := (coalesce .Values.socketLB .Values.hostServices) -}}
+
+{{- $cniChainingMode := "none" -}}
+{{- if (not (kindIs "invalid" .Values.cni.chainingMode)) -}}
+  {{- $cniChainingMode = .Values.cni.chainingMode  -}}
+{{- else if (not (kindIs "invalid" .Values.cni.chainingTarget)) -}}
+  {{- $cniChainingMode = "generic-veth" -}}
+{{- end -}}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -306,7 +313,7 @@ data:
 
 {{- if (not (kindIs "invalid" .Values.bpf.hostLegacyRouting)) }}
   enable-host-legacy-routing: {{ .Values.bpf.hostLegacyRouting | quote }}
-{{- else if ne .Values.cni.chainingMode "none" }}
+{{- else if ne $cniChainingMode "none" }}
   # In cni chaining mode, the other chained plugin is responsible for underlying connectivity,
   # so cilium eBPF host routing shoud not work, and let it fall back to the legacy routing mode
   enable-host-legacy-routing: "true"
@@ -481,7 +488,7 @@ data:
   enable-l7-proxy: {{ .Values.l7Proxy | quote }}
 {{- end }}
 
-{{- if ne .Values.cni.chainingMode "none" }}
+{{- if ne $cniChainingMode "none" }}
   # Enable chaining with another CNI plugin
   #
   # Supported modes:
@@ -490,14 +497,14 @@ data:
   #  - flannel
   #  - generic-veth
   #  - portmap (Enables HostPort support for Cilium)
-  cni-chaining-mode: {{ .Values.cni.chainingMode }}
+  cni-chaining-mode: {{ $cniChainingMode }}
 
 {{- if hasKey .Values "enableIdentityMark" }}
   enable-identity-mark: {{ .Values.enableIdentityMark | quote }}
 {{- else if (ne $enableIdentityMark "true") }}
   enable-identity-mark: "false"
 {{- end }}
-{{- if ne .Values.cni.chainingMode "portmap" }}
+{{- if ne $cniChainingMode "portmap" }}
   # Disable the PodCIDR route to the cilium_host interface as it is not
   # required. While chaining, it is the responsibility of the underlying plugin
   # to enable routing.
@@ -547,7 +554,7 @@ data:
 {{- end }}
 
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
-{{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne .Values.cni.chainingMode "none") }}
+{{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne $cniChainingMode "none") }}
   install-no-conntrack-iptables-rules: "false"
 {{- else }}
   install-no-conntrack-iptables-rules: {{ .Values.installNoConntrackIptablesRules | quote }}
@@ -739,10 +746,13 @@ data:
 {{- if .Values.cni.uninstall }}
   cni-uninstall: {{ .Values.cni.uninstall | quote }}
 {{- end }}
+{{- if (not (kindIs "invalid" .Values.cni.chainingTarget)) }}
+  cni-chaining-target: {{ .Values.cni.chainingTarget | quote }}
+{{- end}}
 {{- if .Values.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.kubeConfigPath | quote }}
 {{- end }}
-{{- if and ( .Values.endpointHealthChecking.enabled ) (or (eq .Values.cni.chainingMode "portmap") (eq .Values.cni.chainingMode "none")) }}
+{{- if and ( .Values.endpointHealthChecking.enabled ) (or (eq $cniChainingMode "portmap") (eq $cniChainingMode "none")) }}
   enable-endpoint-health-checking: "true"
 {{- else}}
   # Disable health checking, when chaining mode is not set to portmap or none
