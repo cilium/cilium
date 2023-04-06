@@ -747,7 +747,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 
-		if ct.params.Datapath {
+		if ct.features[FeatureNodeWithoutCilium].Enabled {
 			_, err = ct.clients.src.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentName, metav1.GetOptions{})
 			if err != nil {
 				ct.Logf("✨ [%s] Deploying host-netns daemonset...", ct.clients.src.ClusterName())
