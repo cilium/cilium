@@ -53,6 +53,7 @@ needs_encapsulation(__u32 addr)
 static __always_inline int
 decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 {
+	struct geneve_dsr_opt4 dsr_opt __maybe_unused;
 	struct genevehdr geneve __maybe_unused;
 	__u32 opt_len __maybe_unused;
 	void *data, *data_end;
@@ -87,6 +88,22 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 
 		opt_len = geneve.opt_len * 4;
 		memcpy(src_id, &geneve.vni, sizeof(__u32));
+
+#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+		ctx_store_meta(ctx, CB_HSIPC_ADDR_V4, 0);
+
+		if (opt_len && opt_len >= sizeof(dsr_opt)) {
+			if (ctx_load_bytes(ctx, off + sizeof(geneve), &dsr_opt,
+					   sizeof(dsr_opt)) < 0)
+				return DROP_INVALID;
+
+			if (dsr_opt.hdr.opt_class == bpf_htons(DSR_GENEVE_OPT_CLASS) &&
+			    dsr_opt.hdr.type == DSR_GENEVE_OPT_TYPE) {
+				ctx_store_meta(ctx, CB_HSIPC_ADDR_V4, dsr_opt.addr);
+				ctx_store_meta(ctx, CB_HSIPC_PORT, dsr_opt.port);
+			}
+		}
+#endif /* ENABLE_DSR && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
 
 		shrink = ipv4_hdrlen(ip4) + sizeof(struct udphdr) +
 			 sizeof(struct genevehdr) + opt_len +
