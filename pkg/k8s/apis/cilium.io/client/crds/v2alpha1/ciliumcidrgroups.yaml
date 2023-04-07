@@ -41,7 +41,7 @@ spec:
             type: object
           spec:
             properties:
-              external-cidrs:
+              externalCIDRs:
                 description: ExternalCIDRs is a list of CIDRs selecting peers outside
                   the clusters.
                 items:
@@ -51,7 +51,7 @@ spec:
                 minItems: 0
                 type: array
             required:
-            - external-cidrs
+            - externalCIDRs
             type: object
         required:
         - spec

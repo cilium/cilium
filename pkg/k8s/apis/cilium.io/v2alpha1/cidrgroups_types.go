@@ -35,7 +35,7 @@ type CiliumCIDRGroupSpec struct {
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=0
-	ExternalCIDRs []api.CIDR `json:"external-cidrs"`
+	ExternalCIDRs []api.CIDR `json:"externalCIDRs"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
