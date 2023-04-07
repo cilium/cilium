@@ -73,59 +73,6 @@ jobs:
             kubectl label nodes "${node}" cilium.io/no-schedule=true
           done
 
-      # This is needed for the tests that run with nodes without Cilium.
-      - name: Install static routes
-        run: |
-          EXTERNAL_FROM_CIDRS=($(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.podCIDR}{"\n"}{end}'))
-          EXTERNAL_NODE_IPS=() # Nodes IPs are collected to be passed to the Cilium CLI later on.
-
-          # Loop over each pod CIDR from all nodes.
-          for i in "${!EXTERNAL_FROM_CIDRS[@]}"; do
-            EXTERNAL_FROM_CIDR=${EXTERNAL_FROM_CIDRS[i]}
-
-            if [[ $EXTERNAL_FROM_CIDR =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$ ]]; then
-              IP_FAMILY="v4"
-            elif [[ $EXTERNAL_FROM_CIDR =~ ^[0-9a-fA-F:]+/[0-9]+$ ]]; then
-              IP_FAMILY="v6"
-            else
-              echo "ERROR: Malformed pod CIDR '${EXTERNAL_FROM_CIDR}'" >&2
-              exit 1
-            fi
-
-            IFS=',' read -ra NODES_WITHOUT <<< "$NODES_WITHOUT_CILIUM" # Split by comma into an array
-            for WITHOUT in "${NODES_WITHOUT[@]}"; do
-              # Fetch node with a specific pod CIDR.
-              node=$(kubectl get nodes -o jsonpath="{range .items[?(@.spec.podCIDR == '$EXTERNAL_FROM_CIDR')]}{@.metadata.name}{end}")
-              if [[ -z "$node" ]]; then
-                echo "ERROR: Could not find node with .spec.podCIDR matching ${EXTERNAL_FROM_CIDR}" >&2
-                exit 1
-              fi
-              for NODE_IP in $(kubectl get node "$node" -o jsonpath="{.status.addresses[?(@.type == 'InternalIP')].address}"); do
-                # Skip if the node IP's family mismatches with pod CIDR's
-                # family. Cannot create a route with the gateway IP family
-                # mismatching the subnet.
-                if [[ "$IP_FAMILY" == "v4" && ! "$NODE_IP" =~ \. ]]; then
-                  continue
-                elif [[ "$IP_FAMILY" == "v6" && ! "$NODE_IP" =~ \: ]]; then
-                  continue
-                fi
-                # Install static route on the host, towards the pod CIDR via the node IP.
-                docker exec "$WITHOUT" ip route replace "${EXTERNAL_FROM_CIDR}" via "${NODE_IP}"
-                EXTERNAL_NODE_IPS+=("${NODE_IP}")
-              done
-            done
-          done
-
-          # Join the elements with a comma delimiter, or leave them unmodified
-          # if there's only one element so that it can be passed properly to
-          # the CLI.
-          if [[ ${#EXTERNAL_NODE_IPS[@]} -eq 1 ]]; then
-            EXTERNAL_NODE_IPS_PARAM="${EXTERNAL_NODE_IPS[0]}"
-          else
-            EXTERNAL_NODE_IPS_PARAM=$(IFS=','; echo "${EXTERNAL_NODE_IPS[*]}")
-          fi
-          echo "EXTERNAL_NODE_IPS_PARAM=${EXTERNAL_NODE_IPS_PARAM}" >> $GITHUB_ENV
-
       # Install Cilium with HostPort support and enables Prometheus for extended connectivity test.
       - name: Install Cilium
         run: |
@@ -154,7 +101,6 @@ jobs:
         run: |
           # Run the connectivity test in non-default namespace (i.e. not cilium-test)
           cilium connectivity test --debug --all-flows --test-namespace test-namespace \
-            --external-from-cidrs="${EXTERNAL_NODE_IPS_PARAM}" \
             --collect-sysdump-on-failure --junit-file connectivity-${{ matrix.mode }}.xml
 
       - name: Upload junit output
@@ -205,7 +151,6 @@ jobs:
       - name: Connectivity test
         run: |
           cilium connectivity test --debug --force-deploy --all-flows --test-namespace test-namespace \
-            --external-from-cidrs="${EXTERNAL_NODE_IPS_PARAM}" \
             --collect-sysdump-on-failure --junit-file connectivity-ipsec-${{ matrix.mode }}.xml
 
       - name: Upload junit output
