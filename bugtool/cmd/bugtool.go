@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"time"
 
 	"github.com/cilium/workerpool"
@@ -98,6 +99,10 @@ func (bugtool *Bugtool) runTool(ctx context.Context, config *options.Config, roo
 
 	defer cleanup(bugtool.outDir, config)
 
+	if config.ParallelWorkers <= 0 {
+		log.Debug("No parallel workers specified, using number of CPUs")
+		config.ParallelWorkers = runtime.NumCPU()
+	}
 	log.Debugf("Running bugtool with %d workers", config.ParallelWorkers)
 	sched := workerpool.New(config.ParallelWorkers)
 	runtime := dump.NewContext(bugtool.outDir, func(s string, f func(context.Context) error) error {

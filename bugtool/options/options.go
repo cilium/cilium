@@ -5,7 +5,6 @@ package options
 
 import (
 	"fmt"
-	"runtime"
 	"time"
 
 	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
@@ -78,7 +77,9 @@ func (bugtoolConf *Config) Flags(flags *pflag.FlagSet) {
 	flags.MarkDeprecated("dry-run", "use --generate instead")
 	flags.DurationVarP(&bugtoolConf.ExecTimeout, "exec-timeout", "", 30*time.Second, "The default timeout for any cmd execution in seconds")
 	flags.StringVarP(&bugtoolConf.ConfigFile, "config", "", "", "Configuration to decide what should be run")
-	flags.IntVar(&bugtoolConf.ParallelWorkers, "parallel-workers", runtime.NumCPU(), "Maximum number of parallel worker tasks, use 0 for number of CPUs")
+	// Note: Parallel workers must be static, otherwise the cmdref will not be deterministic and will
+	// cause the CI cmdref check to sometimes fail.
+	flags.IntVar(&bugtoolConf.ParallelWorkers, "parallel-workers", 0, "Maximum number of parallel worker tasks, use 0 for number of CPUs")
 	flags.DurationVar(&bugtoolConf.Timeout, "timeout", 30*time.Second, "Dump timeout seconds")
 	flags.BoolVar(&bugtoolConf.Debug, "debug", false, "Enable debug logging")
 	flags.BoolVar(&bugtoolConf.ExcludeObjectFiles, "exclude-object-files", false, "Exclude per-endpoint object files. Template object files will be kept")
