@@ -9,6 +9,6 @@ spec:
       kind: echo
   ingress:
   - fromCIDR:
-{{ range $i, $cidr := .ExternalFromCIDRs }}
-    - {{$cidr}}/{{index $.ExternalFromCIDRMasks $i}}
+{{ range $i := .NodesWithoutCiliumIPs }}
+    - {{$i.IP}}/{{$i.Mask}}
 {{ end }}
