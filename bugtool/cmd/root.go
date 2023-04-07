@@ -20,6 +20,7 @@ var config = &options.Config{}
 
 func init() {
 	config.Flags(BugtoolRootCmd.Flags())
+	BugtoolRootCmd.AddCommand(cmdRef)
 }
 
 // BugtoolRootCmd is the top level command for the bugtool.
