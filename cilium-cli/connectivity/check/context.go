@@ -308,8 +308,12 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 		}
 	}
 	if ct.features.MatchRequirements(RequireFeatureEnabled(FeatureNodeWithoutCilium)) {
-		if err := ct.validateExternalFromCIDRsWithNodesWithoutCilium(); err != nil {
-			return fmt.Errorf("invalid configuration for nodes without Cilium: %w", err)
+		if err := ct.detectPodCIDRs(ctx); err != nil {
+			return fmt.Errorf("unable to detect pod CIDRs: %w", err)
+		}
+
+		if err := ct.detectNodesWithoutCiliumIPs(); err != nil {
+			return fmt.Errorf("unable to detect nodes w/o Cilium IPs: %w", err)
 		}
 	}
 	return nil
@@ -544,17 +548,62 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 	return nil
 }
 
-func (ct *ConnectivityTest) validateExternalFromCIDRsWithNodesWithoutCilium() error {
-	if len(ct.params.ExternalFromCIDRs) == 0 {
-		ct.Fatalf("--%s must not be empty if Cilium was install with --%s set", "external-from-cidrs", "nodes-without-cilium")
+func (ct *ConnectivityTest) detectPodCIDRs(ctx context.Context) error {
+	nodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list nodes: %w", err)
 	}
-	for _, cidr := range ct.params.ExternalFromCIDRs {
-		addr, err := netip.ParseAddr(cidr)
-		if err != nil {
-			return fmt.Errorf("unable to parse external-from-cidr %q: %w", cidr, err)
+
+	for _, n := range nodes.Items {
+		for _, cidr := range n.Spec.PodCIDRs {
+			f := GetIPFamily(ct.hostNetNSPodsByNode[n.Name].Pod.Status.HostIP)
+			if strings.Contains(cidr, ":") && f == IPFamilyV4 {
+				// Skip if the host IP of the pod mismatches with pod CIDR.
+				// Cannot create a route with the gateway IP family
+				// mismatching the subnet.
+				continue
+			}
+			hostIP := ct.hostNetNSPodsByNode[n.Name].Pod.Status.HostIP
+			ct.params.PodCIDRs = append(ct.params.PodCIDRs, podCIDRs{cidr, hostIP})
 		}
-		ct.params.ExternalFromCIDRMasks = append(ct.params.ExternalFromCIDRMasks, addr.BitLen())
 	}
+
+	return nil
+}
+
+func (ct *ConnectivityTest) detectNodesWithoutCiliumIPs() error {
+	for _, n := range ct.nodesWithoutCilium {
+		pod := ct.hostNetNSPodsByNode[n]
+		for _, ip := range pod.Pod.Status.PodIPs {
+			hostIP, err := netip.ParseAddr(ip.IP)
+			if err != nil {
+				return fmt.Errorf("unable to parse nodes without Cilium IP addr %q: %w", ip.IP, err)
+			}
+			ct.params.NodesWithoutCiliumIPs = append(ct.params.NodesWithoutCiliumIPs,
+				nodesWithoutCiliumIP{ip.IP, hostIP.BitLen()})
+		}
+	}
+
+	return nil
+}
+
+func (ct *ConnectivityTest) modifyStaticRoutesForNodesWithoutCilium(ctx context.Context, verb string) error {
+	for _, e := range ct.params.PodCIDRs {
+		for _, withoutCilium := range ct.nodesWithoutCilium {
+			pod := ct.hostNetNSPodsByNode[withoutCilium]
+			_, err := ct.client.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, hostNetNSDeploymentName,
+				[]string{"ip", "route", verb, e.CIDR, "via", e.HostIP},
+			)
+			ct.Debugf("Modifying (%s) static route on nodes without Cilium (%v): %v",
+				verb, withoutCilium,
+				[]string{"ip", "route", verb, e.CIDR, "via", e.HostIP},
+			)
+			if err != nil {
+				return fmt.Errorf("failed to %s static route: %w", verb, err)
+			}
+		}
+	}
+
 	return nil
 }
 

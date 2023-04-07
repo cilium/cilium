@@ -55,8 +55,8 @@ type Parameters struct {
 	ExternalCIDR          string
 	ExternalIP            string
 	ExternalOtherIP       string
-	ExternalFromCIDRs     []string
-	ExternalFromCIDRMasks []int // Derived from ExternalFromCIDRs
+	PodCIDRs              []podCIDRs
+	NodesWithoutCiliumIPs []nodesWithoutCiliumIP
 	JunitFile             string
 
 	K8sVersion           string
@@ -73,6 +73,16 @@ type Parameters struct {
 
 	CollectSysdumpOnFailure bool
 	SysdumpOptions          sysdump.Options
+}
+
+type podCIDRs struct {
+	CIDR   string
+	HostIP string
+}
+
+type nodesWithoutCiliumIP struct {
+	IP   string
+	Mask int
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
