@@ -40,7 +40,7 @@ jobs:
 
       - name: Check author association
         if: ${{ steps.check_secret.outputs.is_CHECK_TEAM_ORG_APP_ID_set == 'true' }}
-        uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # v6.4.0
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6.4.1
         id: author_association
         # https://docs.github.com/en/rest/orgs/members?apiVersion=2022-11-28#check-organization-membership-for-a-user
         with:
@@ -62,7 +62,7 @@ jobs:
           echo author_association_from_event=${{ github.event.pull_request.author_association }}
           echo author_association_from_api=${{ steps.author_association.outputs.result }}
 
-      - uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # v6.4.0
+      - uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6.4.1
         if: ${{ steps.check_secret.outputs.is_CHECK_TEAM_ORG_APP_ID_set == 'true' && steps.author_association.outputs.result != 'true' }}
         with:
           script: |
