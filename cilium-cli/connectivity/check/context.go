@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -282,6 +283,11 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 			return fmt.Errorf("unable to create hubble client: %s", err)
 		}
 	}
+	if ct.features.MatchRequirements(RequireFeatureEnabled(FeatureNodeWithoutCilium)) {
+		if err := ct.validateExternalFromCIDRsWithNodesWithoutCilium(ctx); err != nil {
+			return fmt.Errorf("invalid configuration for nodes without Cilium: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -435,6 +441,20 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 		ct.Infof("Hubble is OK, flows: %d/%d", status.NumFlows, status.MaxFlows)
 	}
 
+	return nil
+}
+
+func (ct *ConnectivityTest) validateExternalFromCIDRsWithNodesWithoutCilium(ctx context.Context) error {
+	if len(ct.params.ExternalFromCIDRs) == 0 {
+		ct.Fatalf("--%s must not be empty if Cilium was install with --%s set", "external-from-cidrs", "nodes-without-cilium")
+	}
+	for _, cidr := range ct.params.ExternalFromCIDRs {
+		addr, err := netip.ParseAddr(cidr)
+		if err != nil {
+			return fmt.Errorf("unable to parse external-from-cidr %q: %w", cidr, err)
+		}
+		ct.params.ExternalFromCIDRMasks = append(ct.params.ExternalFromCIDRMasks, addr.BitLen())
+	}
 	return nil
 }
 
