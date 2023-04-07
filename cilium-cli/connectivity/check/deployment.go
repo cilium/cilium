@@ -266,7 +266,7 @@ func newDaemonSet(p daemonSetParameters) *appsv1.DaemonSet {
 							ReadinessProbe:  p.ReadinessProbe,
 							SecurityContext: &corev1.SecurityContext{
 								Capabilities: &corev1.Capabilities{
-									Add: []corev1.Capability{"NET_RAW"},
+									Add: []corev1.Capability{"NET_ADMIN", "NET_RAW"},
 								},
 							},
 						},
