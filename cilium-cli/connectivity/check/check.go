@@ -55,6 +55,8 @@ type Parameters struct {
 	ExternalCIDR          string
 	ExternalIP            string
 	ExternalOtherIP       string
+	ExternalFromCIDRs     []string
+	ExternalFromCIDRMasks []int // Derived from ExternalFromCIDRs
 
 	K8sVersion           string
 	HelmChartDirectory   string
