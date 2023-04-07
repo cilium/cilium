@@ -66,6 +66,10 @@ type Test struct {
 	// for this test to be run
 	requirements []FeatureRequirement
 
+	// installIPRoutesFromOutsideToPodCIDRs indicates that the test runner needs
+	// to install podCIDR => nodeIP routes before running the test
+	installIPRoutesFromOutsideToPodCIDRs bool
+
 	// Scenarios registered to this test.
 	scenarios map[Scenario][]*Action
 
@@ -158,6 +162,14 @@ func (t *Test) setup(ctx context.Context) error {
 		t.ciliumLogs(ctx)
 		return fmt.Errorf("applying network policies: %w", err)
 	}
+
+	if err := t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "add"); err != nil {
+		return fmt.Errorf("installing static routes: %w", err)
+	}
+
+	t.finalizers = append(t.finalizers, func() error {
+		return t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "del")
+	})
 
 	return nil
 }
@@ -474,6 +486,15 @@ func (t *Test) WithFeatureRequirements(reqs ...FeatureRequirement) *Test {
 			t.requirements = append(t.requirements, target)
 		}
 	}
+
+	return t
+}
+
+// WithIPRoutesFromOutsideToPodCIDRs instructs the test runner that
+// podCIDR => nodeIP routes needs to be installed on a node which doesn't run
+// Cilium before running the test (and removed after the test completion).
+func (t *Test) WithIPRoutesFromOutsideToPodCIDRs() *Test {
+	t.installIPRoutesFromOutsideToPodCIDRs = true
 
 	return t
 }
