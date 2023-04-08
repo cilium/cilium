@@ -204,7 +204,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	}
 
 	// Run all tests without any policies in place.
-	ct.NewTest("no-policies").WithScenarios(
+	noPoliciesScenarios := []check.Scenario{
 		tests.PodToPod(),
 		tests.ClientToClient(),
 		tests.PodToService(),
@@ -213,7 +213,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		tests.PodToHost(),
 		tests.PodToExternalWorkload(),
 		tests.PodToCIDR(),
-	)
+	}
+	ct.NewTest("no-policies").WithScenarios(noPoliciesScenarios...)
 
 	// Skip the nodeport-related tests in the multicluster scenario if KPR is not
 	// enabled, since global nodeport services are not supported in that case.
@@ -268,17 +269,16 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			return check.ResultOK, check.ResultDefaultDenyIngressDrop
 		})
 
-	// This policy denies all ingresses by default
+	// This policy denies all ingresses by default.
+	//
+	// 1. Pod to Pod fails because there is no egress policy (so egress traffic originating from a pod is allowed),
+	//    but then at the destination there is ingress policy that denies the traffic.
+	// 2. Egress to world works because there is no egress policy (so egress traffic originating from a pod is allowed),
+	//    then when replies come back, they are considered as "replies" to the outbound connection.
+	//    so they are not subject to ingress policy.
+	allIngressDenyScenarios := []check.Scenario{tests.PodToPod(), tests.PodToCIDR()}
 	ct.NewTest("all-ingress-deny").WithCiliumPolicy(denyAllIngressPolicyYAML).
-		WithScenarios(
-			// Pod to Pod fails because there is no egress policy (so egress traffic originating from a pod is allowed),
-			// but then at the destination there is ingress policy that denies the traffic.
-			tests.PodToPod(),
-			// Egress to world works because there is no egress policy (so egress traffic originating from a pod is allowed),
-			// then when replies come back, they are considered as "replies" to the outbound connection.
-			// so they are not subject to ingress policy.
-			tests.PodToCIDR(),
-		).
+		WithScenarios(allIngressDenyScenarios...).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP ||
 				a.Destination().Address(check.GetIPFamily(ct.Params().ExternalIP)) == ct.Params().ExternalIP {
@@ -367,10 +367,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		})
 
 	// This policy allows ingress to echo only from client with a label 'other:client'.
+	echoIngressScenarios := []check.Scenario{tests.PodToPod()}
 	ct.NewTest("echo-ingress").WithCiliumPolicy(echoIngressFromOtherClientPolicyYAML).
-		WithScenarios(
-			tests.PodToPod(),
-		).
+		WithScenarios(echoIngressScenarios...).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().HasLabel("kind", "echo") && !a.Source().HasLabel("other", "client") {
 				// TCP handshake fails both in egress and ingress when
