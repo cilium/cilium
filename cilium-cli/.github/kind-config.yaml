@@ -13,6 +13,8 @@ nodes:
           taints: []
   - role: worker
     image: kindest/node:v1.19.11
+  - role: worker
+    image: kindest/node:v1.19.11
 networking:
   disableDefaultCNI: true
   podSubnet: "10.244.0.0/16"

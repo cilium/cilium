@@ -59,6 +59,11 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
 
+      - name: Set NODES_WITHOUT_CILIUM
+        run: |
+          # To add more elements, keep it comma-separated.
+          echo "NODES_WITHOUT_CILIUM=chart-testing-worker2" >> $GITHUB_ENV
+
       - name: Label nodes
         if: ${{ matrix.mode == 'helm' }}
         run: |
@@ -125,6 +130,7 @@ jobs:
         run: |
           cilium install \
             --version=${{ env.cilium_version }} \
+            --nodes-without-cilium="${NODES_WITHOUT_CILIUM}" \
             --wait=false \
             --helm-set bpf.monitorAggregation=none \
             --helm-set cni.chainingMode=portmap \
@@ -146,6 +152,7 @@ jobs:
         run: |
           # Run the connectivity test in non-default namespace (i.e. not cilium-test)
           cilium connectivity test --debug --all-flows --test-namespace test-namespace \
+            --external-from-cidrs="${EXTERNAL_NODE_IPS_PARAM}" \
             --collect-sysdump-on-failure
 
       - name: Uninstall cilium
@@ -159,6 +166,7 @@ jobs:
           cilium install \
           --version=${{ env.cilium_version}} \
           --encryption=ipsec \
+          --nodes-without-cilium="${NODES_WITHOUT_CILIUM}" \
           --helm-set kubeProxyReplacement=disabled
 
       - name: Install Cilium with IPsec Encryption
@@ -168,6 +176,7 @@ jobs:
             --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
           cilium install \
           --version=${{ env.cilium_version}} \
+          --nodes-without-cilium="${NODES_WITHOUT_CILIUM}" \
           --helm-set encryption.enabled=true \
           --helm-set encryption.type=ipsec \
           --helm-set kubeProxyReplacement=disabled
@@ -186,6 +195,7 @@ jobs:
       - name: Connectivity test
         run: |
           cilium connectivity test --debug --force-deploy --all-flows --test-namespace another-test-namespace \
+            --external-from-cidrs="${EXTERNAL_NODE_IPS_PARAM}" \
             --collect-sysdump-on-failure
 
       - name: Cleanup
