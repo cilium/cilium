@@ -347,11 +347,12 @@ static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 				}
 			}
 
-			nh = opthdr.nexthdr;
 			if (nh == NEXTHDR_AUTH)
 				len += ipv6_authlen(&opthdr);
 			else
 				len += ipv6_optlen(&opthdr);
+
+			nh = opthdr.nexthdr;
 			break;
 
 		default:
