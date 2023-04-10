@@ -619,12 +619,13 @@ int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
 	struct ct_state ct_state_new = {};
 	struct ipv6_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
+	union v6addr addr = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u32 monitor = 0;
-	union v6addr addr;
+	bool dsr = false;
 	int ret, l4_off;
-	__be16 port;
+	__be16 port = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -635,17 +636,13 @@ int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	addr.p1 = ctx_load_meta(ctx, CB_ADDR_V6_1);
-	addr.p2 = ctx_load_meta(ctx, CB_ADDR_V6_2);
-	addr.p3 = ctx_load_meta(ctx, CB_ADDR_V6_3);
-	addr.p4 = ctx_load_meta(ctx, CB_ADDR_V6_4);
-	port = (__be16)ctx_load_meta(ctx, CB_PORT);
-
-	ctx_store_meta(ctx, CB_PORT, 0);
-	ctx_store_meta(ctx, CB_ADDR_V6_1, 0);
-	ctx_store_meta(ctx, CB_ADDR_V6_2, 0);
-	ctx_store_meta(ctx, CB_ADDR_V6_3, 0);
-	ctx_store_meta(ctx, CB_ADDR_V6_4, 0);
+	ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off, &addr, &port, &dsr);
+	if (IS_ERR(ret))
+		goto drop_err;
+	if (!dsr) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
 
 	ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 			    CT_EGRESS, &ct_state, &monitor);
@@ -981,11 +978,6 @@ skip_service_lookup:
 						      &key.address,
 						      &key.dport, &dsr);
 			if (dsr) {
-				ctx_store_meta(ctx, CB_PORT, key.dport);
-				ctx_store_meta(ctx, CB_ADDR_V6_1, key.address.p1);
-				ctx_store_meta(ctx, CB_ADDR_V6_2, key.address.p2);
-				ctx_store_meta(ctx, CB_ADDR_V6_3, key.address.p3);
-				ctx_store_meta(ctx, CB_ADDR_V6_4, key.address.p4);
 				ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS);
 				return DROP_MISSED_TAIL_CALL;
 			}
@@ -1864,9 +1856,10 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 	bool has_l4_header;
 	struct iphdr *ip4;
 	__u32 monitor = 0;
+	bool dsr = false;
 	int ret, l4_off;
-	__be32 addr;
-	__be16 port;
+	__be32 addr = 0;
+	__be16 port = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -1879,12 +1872,16 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	addr = ctx_load_meta(ctx, CB_ADDR_V4);
-	port = (__be16)ctx_load_meta(ctx, CB_PORT);
-
-	/* Be paranoid about leaking info back to the main path: */
-	ctx_store_meta(ctx, CB_PORT, 0);
-	ctx_store_meta(ctx, CB_ADDR_V4, 0);
+	ret = nodeport_extract_dsr_v4(ctx, ip4, &tuple, l4_off, &addr, &port, &dsr);
+	if (IS_ERR(ret))
+		goto drop_err;
+	if (!dsr) {
+		/* nodeport_lb4() already determined that the packet belongs
+		 * to a DSR connection.
+		 */
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
 
 	ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
 			    has_l4_header, CT_EGRESS, &ct_state, &monitor);
@@ -2183,8 +2180,6 @@ skip_service_lookup:
 						      l4_off, &key.address,
 						      &key.dport, &dsr);
 			if (dsr) {
-				ctx_store_meta(ctx, CB_PORT, key.dport);
-				ctx_store_meta(ctx, CB_ADDR_V4, key.address);
 				ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS);
 				return DROP_MISSED_TAIL_CALL;
 			}
