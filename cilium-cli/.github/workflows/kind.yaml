@@ -59,6 +59,14 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
 
+      - name: Label nodes
+        if: ${{ matrix.mode == 'helm' }}
+        run: |
+          IFS=',' read -ra nodes <<< "$NODES_WITHOUT_CILIUM"
+          for node in "${nodes[@]}"; do
+            kubectl label nodes "${node}" cilium.io/no-schedule=true
+          done
+
       # Install Cilium with HostPort support for extended connectivity test.
       - name: Install Cilium
         run: |
@@ -134,6 +142,14 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           cilium sysdump --output-filename cilium-sysdump-out --hubble-flows-count 10000
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Unlabel nodes
+        if: ${{ matrix.mode == 'helm' }}
+        run: |
+          IFS=',' read -ra nodes <<< "$NODES_WITHOUT_CILIUM"
+          for node in "${nodes[@]}"; do
+            kubectl label nodes "${node}" cilium.io/no-schedule-
+          done
 
       - name: Upload Artifacts
         if: ${{ !success() }}
