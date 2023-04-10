@@ -111,7 +111,6 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().StringSliceVar(&params.APIVersions, "api-versions", []string{}, "Kubernetes API versions to use for helm's Capabilities.APIVersions in case discovery fails")
 	cmd.Flags().StringVar(&params.ImageSuffix, "image-suffix", "", "Set all generated images with this suffix")
 	cmd.Flags().StringVar(&params.ImageTag, "image-tag", "", "Set all images with this tag")
-	cmd.Flags().StringSliceVar(&params.NodesWithoutCilium, "nodes-without-cilium", []string{}, "List of node names on which Cilium will not be installed")
 
 	for flagName := range install.FlagsToHelmOpts {
 		// TODO(aanm) Do not mark the flags has deprecated for now.
@@ -236,7 +235,7 @@ func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
 	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for helm install to finish")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
-
+	cmd.Flags().StringSliceVar(&params.NodesWithoutCilium, "nodes-without-cilium", []string{}, "List of node names on which Cilium will not be installed. In Helm installation mode, it's assumed that the no-schedule node labels are present.")
 }
 
 // addCommonUninstallFlags adds uninstall command flags that are shared between classic and helm mode.
