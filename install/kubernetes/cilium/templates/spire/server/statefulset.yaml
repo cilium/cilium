@@ -25,6 +25,7 @@ spec:
         app: spire-server
     spec:
       serviceAccountName: {{ .Values.auth.mTLS.spire.install.server.serviceAccount.name }}
+      shareProcessNamespace: true
       {{- if gt (len .Values.auth.mTLS.spire.install.server.initContainers) 0 }}
       initContainers:
         {{- toYaml .Values.auth.mTLS.spire.install.server.initContainers | nindent 8 }}
