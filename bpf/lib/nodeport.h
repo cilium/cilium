@@ -1014,6 +1014,7 @@ skip_service_lookup:
 						      &key.address,
 						      &key.dport, &dsr);
 			if (dsr) {
+				ctx_store_meta(ctx, CB_SRC_LABEL, src_identity);
 				ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS);
 				ret = DROP_MISSED_TAIL_CALL;
 			}
@@ -2225,6 +2226,7 @@ skip_service_lookup:
 						      l4_off, &key.address,
 						      &key.dport, &dsr);
 			if (dsr) {
+				ctx_store_meta(ctx, CB_SRC_LABEL, src_identity);
 				ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS);
 				ret = DROP_MISSED_TAIL_CALL;
 			}
