@@ -569,6 +569,82 @@ out_send:
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
+
+declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS)
+int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
+{
+	struct ct_state ct_state_new = {};
+	struct ipv6_ct_tuple tuple = {};
+	struct ct_state ct_state = {};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	__u32 monitor = 0;
+	union v6addr addr;
+	int ret, l4_off;
+	__be16 port;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+	if (IS_ERR(ret))
+		goto drop_err;
+
+	addr.p1 = ctx_load_meta(ctx, CB_ADDR_V6_1);
+	addr.p2 = ctx_load_meta(ctx, CB_ADDR_V6_2);
+	addr.p3 = ctx_load_meta(ctx, CB_ADDR_V6_3);
+	addr.p4 = ctx_load_meta(ctx, CB_ADDR_V6_4);
+	port = (__be16)ctx_load_meta(ctx, CB_PORT);
+
+	ctx_store_meta(ctx, CB_PORT, 0);
+	ctx_store_meta(ctx, CB_ADDR_V6_1, 0);
+	ctx_store_meta(ctx, CB_ADDR_V6_2, 0);
+	ctx_store_meta(ctx, CB_ADDR_V6_3, 0);
+	ctx_store_meta(ctx, CB_ADDR_V6_4, 0);
+
+	ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
+			    CT_EGRESS, &ct_state, &monitor);
+	switch (ret) {
+	case CT_NEW:
+	case CT_REOPENED:
+create_ct:
+		if (port == 0) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
+		ct_state_new.src_sec_id = WORLD_ID;
+		ct_state_new.dsr = 1;
+		ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
+		ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
+				 CT_EGRESS, &ct_state_new, false, false, false);
+		if (!IS_ERR(ret))
+			ret = snat_v6_create_dsr(&tuple, &addr, port);
+
+		if (IS_ERR(ret))
+			goto drop_err;
+		break;
+	case CT_ESTABLISHED:
+		if ((tuple.nexthdr == IPPROTO_TCP && port) || !ct_state.dsr)
+			goto create_ct;
+		break;
+	case CT_REPLY:
+		ipv6_ct_tuple_reverse(&tuple);
+		goto create_ct;
+	default:
+		ret = DROP_UNKNOWN_CT;
+		goto drop_err;
+	}
+
+	ctx_skip_nodeport_set(ctx);
+	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
+	ret = DROP_MISSED_TAIL_CALL;
+
+drop_err:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+}
 #endif /* ENABLE_DSR */
 
 #ifdef ENABLE_NAT_46X64_GATEWAY
@@ -853,82 +929,6 @@ out_send:
 	return verdict;
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
-}
-
-declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS)
-int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
-{
-	struct ct_state ct_state_new = {};
-	struct ipv6_ct_tuple tuple = {};
-	struct ct_state ct_state = {};
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
-	__u32 monitor = 0;
-	union v6addr addr;
-	int ret, l4_off;
-	__be16 port;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
-		ret = DROP_INVALID;
-		goto drop_err;
-	}
-
-	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
-	if (IS_ERR(ret))
-		goto drop_err;
-
-	addr.p1 = ctx_load_meta(ctx, CB_ADDR_V6_1);
-	addr.p2 = ctx_load_meta(ctx, CB_ADDR_V6_2);
-	addr.p3 = ctx_load_meta(ctx, CB_ADDR_V6_3);
-	addr.p4 = ctx_load_meta(ctx, CB_ADDR_V6_4);
-	port = (__be16)ctx_load_meta(ctx, CB_PORT);
-
-	ctx_store_meta(ctx, CB_PORT, 0);
-	ctx_store_meta(ctx, CB_ADDR_V6_1, 0);
-	ctx_store_meta(ctx, CB_ADDR_V6_2, 0);
-	ctx_store_meta(ctx, CB_ADDR_V6_3, 0);
-	ctx_store_meta(ctx, CB_ADDR_V6_4, 0);
-
-	ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
-			    CT_EGRESS, &ct_state, &monitor);
-	switch (ret) {
-	case CT_NEW:
-	case CT_REOPENED:
-create_ct:
-		if (port == 0) {
-			ret = DROP_INVALID;
-			goto drop_err;
-		}
-
-		ct_state_new.src_sec_id = WORLD_ID;
-		ct_state_new.dsr = 1;
-		ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
-		ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false, false, false);
-		if (!IS_ERR(ret))
-			ret = snat_v6_create_dsr(&tuple, &addr, port);
-
-		if (IS_ERR(ret))
-			goto drop_err;
-		break;
-	case CT_ESTABLISHED:
-		if ((tuple.nexthdr == IPPROTO_TCP && port) || !ct_state.dsr)
-			goto create_ct;
-		break;
-	case CT_REPLY:
-		ipv6_ct_tuple_reverse(&tuple);
-		goto create_ct;
-	default:
-		ret = DROP_UNKNOWN_CT;
-		goto drop_err;
-	}
-
-	ctx_skip_nodeport_set(ctx);
-	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-	ret = DROP_MISSED_TAIL_CALL;
-
-drop_err:
-	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
 }
 
 /* See nodeport_lb4(). */
@@ -1862,6 +1862,97 @@ out_send:
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
+
+declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS)
+int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
+{
+	struct ct_state ct_state_new = {};
+	struct ipv4_ct_tuple tuple = {};
+	struct ct_state ct_state = {};
+	void *data, *data_end;
+	bool has_l4_header;
+	struct iphdr *ip4;
+	__u32 monitor = 0;
+	int ret, l4_off;
+	__be32 addr;
+	__be16 port;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+
+	has_l4_header = ipv4_has_l4_header(ip4),
+
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	if (IS_ERR(ret))
+		goto drop_err;
+
+	addr = ctx_load_meta(ctx, CB_ADDR_V4);
+	port = (__be16)ctx_load_meta(ctx, CB_PORT);
+
+	/* Be paranoid about leaking info back to the main path: */
+	ctx_store_meta(ctx, CB_PORT, 0);
+	ctx_store_meta(ctx, CB_ADDR_V4, 0);
+
+	ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
+			    has_l4_header, CT_EGRESS, &ct_state, &monitor);
+	switch (ret) {
+	case CT_NEW:
+	/* Maybe we can be a bit more selective about CT_REOPENED?
+	 * But we have to assume that both the CT and the SNAT entry are stale.
+	 */
+	case CT_REOPENED:
+create_ct:
+		if (port == 0) {
+			/* Not expected at all - nodeport_extract_dsr_v4() said
+			 * there would be a CT entry! Without DSR info we can't
+			 * do anything smart here.
+			 */
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
+		ct_state_new.src_sec_id = WORLD_ID;
+		ct_state_new.dsr = 1;
+		ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
+		ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
+				 CT_EGRESS, &ct_state_new, false, false, false);
+		if (!IS_ERR(ret))
+			ret = snat_v4_create_dsr(&tuple, addr, port);
+
+		if (IS_ERR(ret))
+			goto drop_err;
+		break;
+	case CT_ESTABLISHED:
+		/* For TCP we only expect DSR info on the SYN, so CT_ESTABLISHED
+		 * is unexpected and we need to refresh the CT entry.
+		 *
+		 * Otherwise we tolerate DSR info on an established connection.
+		 * TODO: how do we know if we need to refresh the SNAT entry?
+		 */
+		if ((tuple.nexthdr == IPPROTO_TCP && port) || !ct_state.dsr)
+			goto create_ct;
+		break;
+	case CT_REPLY:
+		/* We're not expecting DSR info on replies, must be a stale flow.
+		 * Recreate the CT entry.
+		 */
+		ipv4_ct_tuple_reverse(&tuple);
+		goto create_ct;
+	default:
+		ret = DROP_UNKNOWN_CT;
+		goto drop_err;
+	}
+
+	/* Recircle, so packet can continue on its way to the local backend: */
+	ctx_skip_nodeport_set(ctx);
+	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
+	ret = DROP_MISSED_TAIL_CALL;
+
+drop_err:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+}
 #endif /* ENABLE_DSR */
 
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
@@ -2034,97 +2125,6 @@ out_send:
 	return verdict;
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
-}
-
-declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS)
-int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
-{
-	struct ct_state ct_state_new = {};
-	struct ipv4_ct_tuple tuple = {};
-	struct ct_state ct_state = {};
-	void *data, *data_end;
-	bool has_l4_header;
-	struct iphdr *ip4;
-	__u32 monitor = 0;
-	int ret, l4_off;
-	__be32 addr;
-	__be16 port;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
-		ret = DROP_INVALID;
-		goto drop_err;
-	}
-
-	has_l4_header = ipv4_has_l4_header(ip4),
-
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
-	if (IS_ERR(ret))
-		goto drop_err;
-
-	addr = ctx_load_meta(ctx, CB_ADDR_V4);
-	port = (__be16)ctx_load_meta(ctx, CB_PORT);
-
-	/* Be paranoid about leaking info back to the main path: */
-	ctx_store_meta(ctx, CB_PORT, 0);
-	ctx_store_meta(ctx, CB_ADDR_V4, 0);
-
-	ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
-			    has_l4_header, CT_EGRESS, &ct_state, &monitor);
-	switch (ret) {
-	case CT_NEW:
-	/* Maybe we can be a bit more selective about CT_REOPENED?
-	 * But we have to assume that both the CT and the SNAT entry are stale.
-	 */
-	case CT_REOPENED:
-create_ct:
-		if (port == 0) {
-			/* Not expected at all - nodeport_extract_dsr_v4() said
-			 * there would be a CT entry! Without DSR info we can't
-			 * do anything smart here.
-			 */
-			ret = DROP_INVALID;
-			goto drop_err;
-		}
-
-		ct_state_new.src_sec_id = WORLD_ID;
-		ct_state_new.dsr = 1;
-		ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
-		ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false, false, false);
-		if (!IS_ERR(ret))
-			ret = snat_v4_create_dsr(&tuple, addr, port);
-
-		if (IS_ERR(ret))
-			goto drop_err;
-		break;
-	case CT_ESTABLISHED:
-		/* For TCP we only expect DSR info on the SYN, so CT_ESTABLISHED
-		 * is unexpected and we need to refresh the CT entry.
-		 *
-		 * Otherwise we tolerate DSR info on an established connection.
-		 * TODO: how do we know if we need to refresh the SNAT entry?
-		 */
-		if ((tuple.nexthdr == IPPROTO_TCP && port) || !ct_state.dsr)
-			goto create_ct;
-		break;
-	case CT_REPLY:
-		/* We're not expecting DSR info on replies, must be a stale flow.
-		 * Recreate the CT entry.
-		 */
-		ipv4_ct_tuple_reverse(&tuple);
-		goto create_ct;
-	default:
-		ret = DROP_UNKNOWN_CT;
-		goto drop_err;
-	}
-
-	/* Recircle, so packet can continue on its way to the local backend: */
-	ctx_skip_nodeport_set(ctx);
-	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
-	ret = DROP_MISSED_TAIL_CALL;
-
-drop_err:
-	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
 }
 
 /* Main node-port entry point for host-external ingressing node-port traffic
