@@ -101,7 +101,6 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 #define ctx_set_tunnel_key		xdp_set_tunnel_key__stub
 
 #define ctx_get_tunnel_opt		xdp_get_tunnel_opt__stub
-#define ctx_set_tunnel_opt		xdp_set_tunnel_opt__stub
 
 #define ctx_event_output		xdp_event_output
 
@@ -269,6 +268,7 @@ static __always_inline __maybe_unused int
 ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 		 const __u64 flags __maybe_unused)
 {
+	const __u32 move_len_v4_geneve = 14 + 20 + 8 + 8; /* eth, ipv4, udp, geneve */
 	const __u32 move_len_v4 = 14 + 20;
 	const __u32 move_len_v6 = 14 + 40;
 	void *data, *data_end;
@@ -289,6 +289,13 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 		data = ctx_data(ctx);
 		switch (len_diff) {
 		case 28: /* struct {iphdr + icmphdr} */
+			break;
+		case 12: /* struct geneve_dsr_opt4 */
+			if (data + move_len_v4_geneve + len_diff <= data_end)
+				__bpf_memmove_fwd(data, data + len_diff,
+						  move_len_v4_geneve);
+			else
+				ret = -EFAULT;
 			break;
 		case 20: /* struct iphdr */
 		case 8:  /* __u32 opt[2] */
