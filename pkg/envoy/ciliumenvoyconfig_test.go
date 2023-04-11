@@ -167,7 +167,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
@@ -258,7 +258,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, false, portAllocator, false)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, false, portAllocator, false, false)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
@@ -291,7 +291,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	//
 	// Same with validation fails
 	//
-	resources, err = ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false)
+	resources, err = ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false)
 	c.Assert(err, Not(IsNil))
 }
 
@@ -331,7 +331,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
@@ -445,7 +445,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 5)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/multi-resource-listener")
@@ -610,7 +610,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 2)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, true)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address, Not(IsNil))
@@ -742,7 +742,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 2)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, true)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, true, false)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address, Not(IsNil))
