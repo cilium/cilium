@@ -53,12 +53,12 @@ func (e *Exec) filename() string {
 
 func (e *Exec) Run(ctx context.Context, runtime Context) error {
 	return runtime.Submit(ctx, e.Identifier(), func(ctx context.Context) error {
-		fd, err := runtime.CreateFile(e.filename())
+		fd, err := runtime.CreateTaskFile(e.filename())
 		if err != nil {
 			return fmt.Errorf("failed to create file for %q: %w", e.Identifier(), err)
 		}
 		defer fd.Close()
-		errFd, err := runtime.CreateErrFile(e.filename() + ".err")
+		errFd, err := runtime.CreateTaskFile(e.filename() + ".err")
 		if err != nil {
 			return fmt.Errorf("failed to create file for %q: %w", e.Identifier(), err)
 		}

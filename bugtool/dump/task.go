@@ -160,18 +160,18 @@ func (c Context) WithSubdir(name string) Context {
 	return c
 }
 
-// CreateFile attempts to create a file in the current runtime contexts
+// createFile attempts to create a file in the current runtime contexts
 // directory.
-func (c Context) CreateFile(filename string) (*os.File, error) {
+func (c Context) createFile(filename string) (*os.File, error) {
 	filepath := path.Join(c.dir, filename)
 	return os.Create(filepath)
 }
 
 // CreateFile attempts to create a file in the current runtime contexts
 // directory.
-func (c Context) CreateErrFile(filename string) (*ErrFile, error) {
-	fd, err := c.CreateFile(filename)
-	return createErrFile(path.Join(c.dir, filename), fd), err
+func (c Context) CreateTaskFile(filename string) (*TaskFile, error) {
+	fd, err := c.createFile(filename)
+	return createTaskFile(path.Join(c.dir, filename), fd), err
 }
 
 // Initialize initializes a runtime context, ensuring that dump directory is in place.

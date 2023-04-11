@@ -109,7 +109,7 @@ func downloadToFile(ctx context.Context, client *http.Client, url, file, headers
 	if err != nil {
 		return fmt.Errorf("failed to create request body file: %w", err)
 	}
-	out := createErrFile(file, fd)
+	out := createTaskFile(file, fd)
 	defer out.Close()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -127,7 +127,7 @@ func downloadToFile(ctx context.Context, client *http.Client, url, file, headers
 	if err != nil {
 		return fmt.Errorf("failed to create request headers file: %w", err)
 	}
-	hdrs := createErrFile(file, fd)
+	hdrs := createTaskFile(file, fd)
 	defer func() {
 		if err := json.NewEncoder(hdrs).Encode(resp.Header); err != nil {
 			log.Errorf("failed to write request headers: %s", err)

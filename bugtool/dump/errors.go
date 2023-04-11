@@ -8,21 +8,21 @@ import (
 	"os"
 )
 
-// ErrFile implements a WriteCloser, but if nothing is written to the file
+// TaskFile implements a WriteCloser, but if nothing is written to the file
 // at when Close is invoked then the file is deleted.
-type ErrFile struct {
+type TaskFile struct {
 	f       string
 	written int
 	w       io.WriteCloser
 }
 
-func (f *ErrFile) Write(p []byte) (n int, err error) {
+func (f *TaskFile) Write(p []byte) (n int, err error) {
 	n, err = f.w.Write(p)
 	f.written += n
 	return
 }
 
-func (f *ErrFile) Close() error {
+func (f *TaskFile) Close() error {
 	if err := f.w.Close(); err != nil {
 		return err
 	}
@@ -32,6 +32,6 @@ func (f *ErrFile) Close() error {
 	return nil
 }
 
-func createErrFile(filename string, fd io.WriteCloser) *ErrFile {
-	return &ErrFile{f: filename, w: fd}
+func createTaskFile(filename string, fd io.WriteCloser) *TaskFile {
+	return &TaskFile{f: filename, w: fd}
 }
