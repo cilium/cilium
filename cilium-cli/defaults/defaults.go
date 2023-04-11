@@ -16,6 +16,8 @@ const (
 	AgentResourceQuota      = "cilium-resource-quota"
 	AgentImage              = "quay.io/cilium/cilium"
 
+	EnvoyDaemonSetName = "cilium-envoy"
+
 	CASecretName     = "cilium-ca"
 	CASecretKeyName  = "ca.key"
 	CASecretCertName = "ca.crt"
