@@ -628,9 +628,9 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(lf, Not(IsNil))
 	c.Assert(lf.IsIngress, Equals, false)
-	c.Assert(lf.MayUseOriginalSourceAddress, Equals, true)
+	c.Assert(lf.UseOriginalSourceAddress, Equals, true)
 	c.Assert(lf.BpfRoot, Equals, bpf.GetMapRoot())
-	c.Assert(lf.EgressMarkSourceEndpointId, Equals, false)
+	c.Assert(lf.IsL7Lb, Equals, false)
 
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -760,9 +760,9 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(lf, Not(IsNil))
 	c.Assert(lf.IsIngress, Equals, false)
-	c.Assert(lf.MayUseOriginalSourceAddress, Equals, false)
+	c.Assert(lf.UseOriginalSourceAddress, Equals, false)
 	c.Assert(lf.BpfRoot, Equals, bpf.GetMapRoot())
-	c.Assert(lf.EgressMarkSourceEndpointId, Equals, true)
+	c.Assert(lf.IsL7Lb, Equals, true)
 
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
 	chain := resources.Listeners[0].FilterChains[0]
