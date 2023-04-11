@@ -366,8 +366,6 @@ func (m *TcpProxy) validate(all bool) error {
 		}
 	}
 
-	// no validation rules for ReceiveBeforeConnect
-
 	switch m.ClusterSpecifier.(type) {
 
 	case *TcpProxy_Cluster:
