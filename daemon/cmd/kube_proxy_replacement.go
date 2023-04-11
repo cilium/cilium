@@ -199,6 +199,13 @@ func initKubeProxyReplacementOptions() error {
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
+			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve &&
+			option.Config.TunnelingEnabled() && option.Config.TunnelProtocol != option.TunnelGeneve {
+			return fmt.Errorf("Node Port %q mode with %s dispatch requires %s tunneling.",
+				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, option.TunnelGeneve)
+		}
+
+		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
 			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 				return fmt.Errorf("DSR dispatch mode %s only supported for --%s=%s", option.Config.LoadBalancerDSRDispatch, option.DatapathMode, datapathOption.DatapathModeLBOnly)
