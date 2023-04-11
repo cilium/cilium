@@ -130,17 +130,15 @@ func (ct *ConnectivityTest) deleteCiliumPods(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) generateManifestsNodeAffinity(ctx context.Context, helmState *helm.State) error {
-	helmMapOpts := map[string]string{}
-
 	// Set affinity to prevent Cilium from being scheduled on nodes labeled with
 	// "cilium.io/no-schedule=true"
-	for k, v := range defaults.CiliumScheduleAffinity {
-		helmMapOpts[k] = v
+	options := values.Options{
+		StringValues: defaults.CiliumScheduleAffinity,
 	}
 
 	vals, err := helm.MergeVals(
-		values.Options{},
-		helmMapOpts,
+		options,
+		nil,
 		helmState.Values,
 		nil,
 	)
