@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	stderr "errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -158,7 +158,7 @@ func (srv *server) post(url string, jsonData []byte) (*api.Response, error) {
 	}
 	defer req.Body.Close()
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrap(errors.APIClientError, errors.IOError, err)
 	}

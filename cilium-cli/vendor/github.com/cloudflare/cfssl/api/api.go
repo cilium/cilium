@@ -3,7 +3,7 @@ package api
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/cloudflare/cfssl/errors"
@@ -92,7 +92,7 @@ func (h HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func readRequestBlob(r *http.Request) (map[string]string, error) {
 	var blob map[string]string
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, err
 	}
