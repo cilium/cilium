@@ -19,8 +19,8 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -43,7 +43,7 @@ func TemporalLogConfigFromFile(filename string) (*configpb.TemporalLogConfig, er
 		return nil, errors.New("log config filename empty")
 	}
 
-	cfgBytes, err := ioutil.ReadFile(filename)
+	cfgBytes, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read log config: %v", err)
 	}

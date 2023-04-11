@@ -2,11 +2,10 @@ package derhelpers
 
 import (
 	"crypto"
+	"crypto/ed25519"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
-
-	"golang.org/x/crypto/ed25519"
 )
 
 var errEd25519WrongID = errors.New("incorrect object identifier")

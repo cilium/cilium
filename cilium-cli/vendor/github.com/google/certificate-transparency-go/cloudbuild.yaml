@@ -44,9 +44,6 @@ steps:
   args:
   - '-exc'
   - |
-    # googleapis is not Go code, but it's required for .pb.go regeneration because of API dependencies.
-    git clone --depth=1 https://github.com/googleapis/googleapis.git "$$GOPATH/src/github.com/googleapis/googleapis"
-
     # Use latest versions of Trillian docker images built by the Trillian CI cloudbuilders.
     docker pull gcr.io/$PROJECT_ID/log_server:latest
     docker tag gcr.io/$PROJECT_ID/log_server:latest deployment_trillian-log-server
@@ -70,8 +67,8 @@ steps:
     - '-ec'
     - |
       go install \
-        google.golang.org/protobuf/proto \
-        google.golang.org/protobuf/cmd/protoc-gen-go \
+        github.com/golang/protobuf/proto \
+        github.com/golang/protobuf/protoc-gen-go \
         github.com/golang/mock/mockgen \
         go.etcd.io/etcd/v3 go.etcd.io/etcd/etcdctl/v3 \
         github.com/fullstorydev/grpcurl/cmd/grpcurl
@@ -188,7 +185,7 @@ steps:
   name: gcr.io/cloud-builders/kubectl
   args:
   - apply
-  - --server-dry-run
+  - --dry-run=server
   - -f=trillian/examples/deployment/kubernetes/ctfe-deployment.yaml
   - -f=trillian/examples/deployment/kubernetes/ctfe-service.yaml
   - -f=trillian/examples/deployment/kubernetes/ctfe-ingress.yaml
