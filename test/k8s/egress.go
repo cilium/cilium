@@ -536,6 +536,7 @@ var _ = SkipDescribeIf(func() bool {
 			"loadBalancer.acceleration": "testing-only",
 			"loadBalancer.mode":         "dsr",
 			"loadBalancer.algorithm":    "maglev",
+			"tunnelProtocol":            "geneve",
 			"maglev.tableSize":          "251",
 			"loadBalancer.dsrDispatch":  "geneve",
 		},
