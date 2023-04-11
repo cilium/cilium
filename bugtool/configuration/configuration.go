@@ -139,9 +139,11 @@ func defaultResources() (logs, unstructured, structured dump.Tasks) {
 	structured = append(structured, jsonStructuredCommands()...)
 	structured = append(structured, tcCommands()...)
 
-	xfrmState := createExecFromString("ip --json -s xfrm state", "json")
+	xfrmState := createExecFromString("ip -s xfrm state", "md")
+	xfrmPolicy := createExecFromString("ip -s xfrm policy", "md")
 	xfrmState.HashEncryptionKeys = true
-	structured = append(structured, xfrmState)
+	xfrmPolicy.HashEncryptionKeys = true
+	unstructured = append(unstructured, xfrmState, xfrmPolicy)
 
 	for _, cmd := range logCommands() {
 		logs = append(logs, createExecFromString(cmd, "log"))
@@ -357,7 +359,6 @@ func jsonStructuredCommands() dump.Tasks {
 		"-j -4 n",
 		"-j -6 n",
 		"--json rule",
-		"--json -s xfrm policy",
 	} {
 		ts = append(ts, createExecFromString(fmt.Sprintf("ip %s", c), "json"))
 	}
