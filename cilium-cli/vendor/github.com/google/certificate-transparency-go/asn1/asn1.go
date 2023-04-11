@@ -5,7 +5,7 @@
 // Package asn1 implements parsing of DER-encoded ASN.1 data structures,
 // as defined in ITU-T Rec X.690.
 //
-// See also ``A Layman's Guide to a Subset of ASN.1, BER, and DER,''
+// See also “A Layman's Guide to a Subset of ASN.1, BER, and DER,”
 // http://luca.ntop.org/Teaching/Appunti/asn1.html.
 //
 // This is a fork of the Go standard library ASN.1 implementation
@@ -14,15 +14,15 @@
 // wild.
 //
 // Main differences:
-//  - Extra "lax" tag that recursively applies and relaxes some strict
-//    checks:
-//     - parsePrintableString() copes with invalid PrintableString contents,
-//       e.g. use of tagPrintableString when the string data is really
-//       ISO8859-1.
-//     - checkInteger() allows integers that are not minimally encoded (and
-//       so are not correct DER).
-//     - parseObjectIdentifier() allows zero-length OIDs.
-//  - Better diagnostics on which particular field causes errors.
+//   - Extra "lax" tag that recursively applies and relaxes some strict
+//     checks:
+//   - parsePrintableString() copes with invalid PrintableString contents,
+//     e.g. use of tagPrintableString when the string data is really
+//     ISO8859-1.
+//   - checkInteger() allows integers that are not minimally encoded (and
+//     so are not correct DER).
+//   - parseObjectIdentifier() allows zero-length OIDs.
+//   - Better diagnostics on which particular field causes errors.
 package asn1
 
 // ASN.1 is a syntax for specifying abstract objects and BER, DER, PER, XER etc

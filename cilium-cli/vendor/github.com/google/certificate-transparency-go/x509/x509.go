@@ -11,40 +11,40 @@
 // This is a fork of the Go library crypto/x509 package, primarily adapted for
 // use with Certificate Transparency.  Main areas of difference are:
 //
-//  - Life as a fork:
-//     - Rename OS-specific cgo code so it doesn't clash with main Go library.
-//     - Use local library imports (asn1, pkix) throughout.
-//     - Add version-specific wrappers for Go version-incompatible code (in
-//       ptr_*_windows.go).
-//  - Laxer certificate parsing:
-//     - Add options to disable various validation checks (times, EKUs etc).
-//     - Use NonFatalErrors type for some errors and continue parsing; this
-//       can be checked with IsFatal(err).
-//     - Support for short bitlength ECDSA curves (in curves.go).
-//  - Certificate Transparency specific function:
-//     - Parsing and marshaling of SCTList extension.
-//     - RemoveSCTList() function for rebuilding CT leaf entry.
-//     - Pre-certificate processing (RemoveCTPoison(), BuildPrecertTBS(),
-//       ParseTBSCertificate(), IsPrecertificate()).
-//  - Revocation list processing:
-//     - Detailed CRL parsing (in revoked.go)
-//     - Detailed error recording mechanism (in error.go, errors.go)
-//     - Factor out parseDistributionPoints() for reuse.
-//     - Factor out and generalize GeneralNames parsing (in names.go)
-//     - Fix CRL commenting.
-//  - RPKI support:
-//     - Support for SubjectInfoAccess extension
-//     - Support for RFC3779 extensions (in rpki.go)
-//  - RSAES-OAEP support:
-//     - Support for parsing RSASES-OAEP public keys from certificates
-//  - Ed25519 support:
-//     - Support for parsing and marshaling Ed25519 keys
-//  - General improvements:
-//     - Export and use OID values throughout.
-//     - Export OIDFromNamedCurve().
-//     - Export SignatureAlgorithmFromAI().
-//     - Add OID value to UnhandledCriticalExtension error.
-//     - Minor typo/lint fixes.
+//   - Life as a fork:
+//   - Rename OS-specific cgo code so it doesn't clash with main Go library.
+//   - Use local library imports (asn1, pkix) throughout.
+//   - Add version-specific wrappers for Go version-incompatible code (in
+//     ptr_*_windows.go).
+//   - Laxer certificate parsing:
+//   - Add options to disable various validation checks (times, EKUs etc).
+//   - Use NonFatalErrors type for some errors and continue parsing; this
+//     can be checked with IsFatal(err).
+//   - Support for short bitlength ECDSA curves (in curves.go).
+//   - Certificate Transparency specific function:
+//   - Parsing and marshaling of SCTList extension.
+//   - RemoveSCTList() function for rebuilding CT leaf entry.
+//   - Pre-certificate processing (RemoveCTPoison(), BuildPrecertTBS(),
+//     ParseTBSCertificate(), IsPrecertificate()).
+//   - Revocation list processing:
+//   - Detailed CRL parsing (in revoked.go)
+//   - Detailed error recording mechanism (in error.go, errors.go)
+//   - Factor out parseDistributionPoints() for reuse.
+//   - Factor out and generalize GeneralNames parsing (in names.go)
+//   - Fix CRL commenting.
+//   - RPKI support:
+//   - Support for SubjectInfoAccess extension
+//   - Support for RFC3779 extensions (in rpki.go)
+//   - RSAES-OAEP support:
+//   - Support for parsing RSASES-OAEP public keys from certificates
+//   - Ed25519 support:
+//   - Support for parsing and marshaling Ed25519 keys
+//   - General improvements:
+//   - Export and use OID values throughout.
+//   - Export OIDFromNamedCurve().
+//   - Export SignatureAlgorithmFromAI().
+//   - Add OID value to UnhandledCriticalExtension error.
+//   - Minor typo/lint fixes.
 package x509
 
 import (
@@ -566,17 +566,19 @@ func SignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) SignatureAlgorithm {
 // RFC 3279, 2.3 Public Key Algorithms
 //
 // pkcs-1 OBJECT IDENTIFIER ::== { iso(1) member-body(2) us(840)
-//    rsadsi(113549) pkcs(1) 1 }
+//
+//	rsadsi(113549) pkcs(1) 1 }
 //
 // rsaEncryption OBJECT IDENTIFIER ::== { pkcs1-1 1 }
 //
 // id-dsa OBJECT IDENTIFIER ::== { iso(1) member-body(2) us(840)
-//    x9-57(10040) x9cm(4) 1 }
 //
-// RFC 5480, 2.1.1 Unrestricted Algorithm Identifier and Parameters
+//	x9-57(10040) x9cm(4) 1 }
 //
-// id-ecPublicKey OBJECT IDENTIFIER ::= {
-//       iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
+// # RFC 5480, 2.1.1 Unrestricted Algorithm Identifier and Parameters
+//
+//	id-ecPublicKey OBJECT IDENTIFIER ::= {
+//	      iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
 var (
 	OIDPublicKeyRSA         = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
 	OIDPublicKeyRSAESOAEP   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 7}
@@ -604,22 +606,22 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 
 // RFC 5480, 2.1.1.1. Named Curve
 //
-// secp224r1 OBJECT IDENTIFIER ::= {
-//   iso(1) identified-organization(3) certicom(132) curve(0) 33 }
+//	secp224r1 OBJECT IDENTIFIER ::= {
+//	  iso(1) identified-organization(3) certicom(132) curve(0) 33 }
 //
-// secp256r1 OBJECT IDENTIFIER ::= {
-//   iso(1) member-body(2) us(840) ansi-X9-62(10045) curves(3)
-//   prime(1) 7 }
+//	secp256r1 OBJECT IDENTIFIER ::= {
+//	  iso(1) member-body(2) us(840) ansi-X9-62(10045) curves(3)
+//	  prime(1) 7 }
 //
-// secp384r1 OBJECT IDENTIFIER ::= {
-//   iso(1) identified-organization(3) certicom(132) curve(0) 34 }
+//	secp384r1 OBJECT IDENTIFIER ::= {
+//	  iso(1) identified-organization(3) certicom(132) curve(0) 34 }
 //
-// secp521r1 OBJECT IDENTIFIER ::= {
-//   iso(1) identified-organization(3) certicom(132) curve(0) 35 }
+//	secp521r1 OBJECT IDENTIFIER ::= {
+//	  iso(1) identified-organization(3) certicom(132) curve(0) 35 }
 //
-// secp192r1 OBJECT IDENTIFIER ::= {
-//     iso(1) member-body(2) us(840) ansi-X9-62(10045) curves(3)
-//     prime(1) 1 }
+//	secp192r1 OBJECT IDENTIFIER ::= {
+//	    iso(1) member-body(2) us(840) ansi-X9-62(10045) curves(3)
+//	    prime(1) 1 }
 //
 // NB: secp256r1 is equivalent to prime256v1,
 // secp192r1 is equivalent to ansix9p192r and prime192v1
@@ -1221,9 +1223,9 @@ func RemoveCTPoison(tbsData []byte) ([]byte, error) {
 // CertificateTransparency extended key usage).  In this case, the issuance
 // information of the pre-cert is updated to reflect the next issuer in the
 // chain, i.e. the issuer of this special intermediate:
-//  - The precert's Issuer is changed to the Issuer of the intermediate
-//  - The precert's AuthorityKeyId is changed to the AuthorityKeyId of the
-//    intermediate.
+//   - The precert's Issuer is changed to the Issuer of the intermediate
+//   - The precert's AuthorityKeyId is changed to the AuthorityKeyId of the
+//     intermediate.
 func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
 	data, err := removeExtension(tbsData, OIDExtensionCTPoison)
 	if err != nil {
@@ -2681,25 +2683,25 @@ var emptyASN1Subject = []byte{0x30, 0}
 
 // CreateCertificate creates a new X.509v3 certificate based on a template.
 // The following members of template are used:
-//  - SerialNumber
-//  - Subject
-//  - NotBefore, NotAfter
-//  - SignatureAlgorithm
-//  - For extensions:
-//    - KeyUsage
-//    - ExtKeyUsage, UnknownExtKeyUsage
-//    - BasicConstraintsValid, IsCA, MaxPathLen, MaxPathLenZero
-//    - SubjectKeyId
-//    - AuthorityKeyId
-//    - OCSPServer, IssuingCertificateURL
-//    - SubjectTimestamps, SubjectCARepositories
-//    - DNSNames, EmailAddresses, IPAddresses, URIs
-//    - PolicyIdentifiers
-//    - ExcludedDNSDomains, ExcludedIPRanges, ExcludedEmailAddresses, ExcludedURIDomains, PermittedDNSDomainsCritical,
-//      PermittedDNSDomains, PermittedIPRanges, PermittedEmailAddresses, PermittedURIDomains
-//    - CRLDistributionPoints
-//    - RawSCT, SCTList
-//    - ExtraExtensions
+//   - SerialNumber
+//   - Subject
+//   - NotBefore, NotAfter
+//   - SignatureAlgorithm
+//   - For extensions:
+//   - KeyUsage
+//   - ExtKeyUsage, UnknownExtKeyUsage
+//   - BasicConstraintsValid, IsCA, MaxPathLen, MaxPathLenZero
+//   - SubjectKeyId
+//   - AuthorityKeyId
+//   - OCSPServer, IssuingCertificateURL
+//   - SubjectTimestamps, SubjectCARepositories
+//   - DNSNames, EmailAddresses, IPAddresses, URIs
+//   - PolicyIdentifiers
+//   - ExcludedDNSDomains, ExcludedIPRanges, ExcludedEmailAddresses, ExcludedURIDomains, PermittedDNSDomainsCritical,
+//     PermittedDNSDomains, PermittedIPRanges, PermittedEmailAddresses, PermittedURIDomains
+//   - CRLDistributionPoints
+//   - RawSCT, SCTList
+//   - ExtraExtensions
 //
 // The certificate is signed by parent. If parent is equal to template then the
 // certificate is self-signed. The parameter pub is the public key of the
@@ -3031,14 +3033,14 @@ func parseCSRExtensions(rawAttributes []asn1.RawValue) ([]pkix.Extension, error)
 // CreateCertificateRequest creates a new certificate request based on a
 // template. The following members of template are used:
 //
-//  - SignatureAlgorithm
-//  - Subject
-//  - DNSNames
-//  - EmailAddresses
-//  - IPAddresses
-//  - URIs
-//  - ExtraExtensions
-//  - Attributes (deprecated)
+//   - SignatureAlgorithm
+//   - Subject
+//   - DNSNames
+//   - EmailAddresses
+//   - IPAddresses
+//   - URIs
+//   - ExtraExtensions
+//   - Attributes (deprecated)
 //
 // priv is the private key to sign the CSR with, and the corresponding public
 // key will be included in the CSR. It must implement crypto.Signer and its

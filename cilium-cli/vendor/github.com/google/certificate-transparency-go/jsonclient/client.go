@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -30,10 +30,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/x509"
 	"golang.org/x/net/context/ctxhttp"
+	"k8s.io/klog/v2"
 )
 
 const maxJitter = 250 * time.Millisecond
@@ -176,7 +176,7 @@ func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[st
 		vals.Add(k, v)
 	}
 	fullURI := fmt.Sprintf("%s%s?%s", c.uri, path, vals.Encode())
-	glog.V(2).Infof("GET %s", fullURI)
+	klog.V(2).Infof("GET %s", fullURI)
 	httpReq, err := http.NewRequest(http.MethodGet, fullURI, nil)
 	if err != nil {
 		return nil, nil, err
@@ -191,7 +191,7 @@ func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[st
 	}
 
 	// Read everything now so http.Client can reuse the connection.
-	body, err := ioutil.ReadAll(httpRsp.Body)
+	body, err := io.ReadAll(httpRsp.Body)
 	httpRsp.Body.Close()
 	if err != nil {
 		return nil, nil, RspError{Err: fmt.Errorf("failed to read response body: %v", err), StatusCode: httpRsp.StatusCode, Body: body}
@@ -222,7 +222,7 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 		return nil, nil, err
 	}
 	fullURI := fmt.Sprintf("%s%s", c.uri, path)
-	glog.V(2).Infof("POST %s", fullURI)
+	klog.V(2).Infof("POST %s", fullURI)
 	httpReq, err := http.NewRequest(http.MethodPost, fullURI, bytes.NewReader(postBody))
 	if err != nil {
 		return nil, nil, err
@@ -237,7 +237,7 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 	// Read all of the body, if there is one, so that the http.Client can do Keep-Alive.
 	var body []byte
 	if httpRsp != nil {
-		body, err = ioutil.ReadAll(httpRsp.Body)
+		body, err = io.ReadAll(httpRsp.Body)
 		httpRsp.Body.Close()
 	}
 	if err != nil {
@@ -295,6 +295,8 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 				// Request timeout, retry immediately
 				c.logger.Printf("Request to %s timed out, retrying immediately", c.uri)
 			case httpRsp.StatusCode == http.StatusServiceUnavailable:
+				fallthrough
+			case httpRsp.StatusCode == http.StatusTooManyRequests:
 				var backoff *time.Duration
 				// Retry-After may be either a number of seconds as a int or a RFC 1123
 				// date string (RFC 7231 Section 7.1.3)

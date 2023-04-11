@@ -3,6 +3,7 @@ package local
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -38,7 +39,6 @@ import (
 	zx509 "github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zlint/v3"
 	"github.com/zmap/zlint/v3/lint"
-	"golang.org/x/net/context"
 )
 
 // Signer contains a signer that uses the standard library to
