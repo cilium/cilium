@@ -61,6 +61,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.13.2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -256,9 +258,14 @@ jobs:
       - name: Install cilium-cli
         shell: bash
         run: |
-          cid=$(docker create quay.io/cilium/cilium-cli-ci:latest ls)
-          docker cp $cid:/usr/local/bin/cilium ./cilium-cli
-          docker rm $cid
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          mkdir cilium-cli-tmp
+          tar xzvfC cilium-linux-amd64.tar.gz cilium-cli-tmp
+          mv ./cilium-cli-tmp/cilium cilium-cli
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          rmdir cilium-cli-tmp
+          ./cilium-cli version
 
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
