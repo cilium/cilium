@@ -99,7 +99,7 @@ func (old *Resources) ListenersAddedOrDeleted(new *Resources) bool {
 // ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources
 // type cecNamespace and cecName parameters, if not empty, will be prepended to the Envoy resource
 // names.
-func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XDSResource, validate bool, portAllocator PortAllocator, isL7LB bool) (Resources, error) {
+func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XDSResource, validate bool, portAllocator PortAllocator, isL7LB bool, useOriginalSourceAddr bool) (Resources, error) {
 	resources := Resources{}
 	for _, r := range anySlice {
 		// Skip empty TypeURLs, which are left behind when Unmarshaling resource JSON fails
@@ -142,10 +142,10 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 				}
 			}
 			if !found {
-				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* not ingress */, !isL7LB, isL7LB))
+				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
 			}
 			// Inject listener socket option for Cilium datapath
-			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* not ingress */))
+			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
 
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
