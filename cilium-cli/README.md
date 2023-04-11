@@ -47,6 +47,10 @@ binary releases.
 | [v0.13.2](https://github.com/cilium/cilium-cli/releases/tag/v0.13.2) | 2023-03-20   | Yes        | Cilium 1.11 and newer     |
 | [v0.10.7](https://github.com/cilium/cilium-cli/releases/tag/v0.10.7) | 2022-05-31   | No         | Cilium 1.10               |
 
+Please see [Experimental `helm` installation mode](#experimental-helm-installation-mode)
+section regarding our plan to migrate to the new `helm` installation mode and deprecate
+the current implementation.
+
 ## Capabilities
 
 ### Install Cilium
@@ -336,3 +340,60 @@ Install a Cilium in a cluster and enable encryption with IPsec
     🚀 Creating Agent DaemonSet...
     🚀 Creating Operator Deployment...
     ⌛ Waiting for Cilium to be installed...
+
+## Experimental `helm` installation mode
+
+`cilium-cli` v0.14 introduces a new `helm` installation mode. In the current installation mode
+(we now call it `classic` mode), `cilium-cli` directly calls Kubernetes APIs to manage resources
+related to Cilium. In the new `helm` mode, `cilium-cli` delegates all the installation state
+management to Helm. This enables you to use `cilium-cli` and `helm` interchangeably to manage your
+Cilium installation, while taking advantage of `cilium-cli`'s advanced features such as Cilium
+configuration auto-detection.
+
+Our current plan is to:
+
+- v0.14: Introduce the `helm` installation mode as an opt-in feature.
+- v0.15: Enable the `helm` installation mode by default, and deprecate the `classic` installation mode.
+- v1.0: Remove the `classic` installation mode.
+
+### Examples
+
+To opt in to use the `helm` installation mode:
+
+    export CILIUM_CLI_MODE=helm
+
+To install the default version of Cilium:
+
+    cilium install
+
+To see the Helm release that got deployed:
+
+    helm list -n kube-system cilium
+
+To see non-default Helm values that `cilium-cli` used for this Cilium installation:
+
+    helm get values -n kube-system cilium
+
+To see all the Cilium-related resources without installing them to your cluster:
+
+    cilium install --dry-run
+
+To see all the non-default Helm values without actually performing the installation:
+
+    cilium install --dry-run-helm-values
+
+### Supported commands as of v0.14
+
+- [ ] `clustermesh`
+- [x] `completion`
+- [x] `config`
+- [x] `connectivity`
+- [x] `context`
+- [x] `help`
+- [x] `hubble`
+- [x] `install`
+- [x] `status`
+- [x] `sysdump`
+- [x] `uninstall`
+- [x] `upgrade`
+- [x] `version`
