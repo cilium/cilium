@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strings"
@@ -262,6 +263,10 @@ cilium install --context kind-cluster1 --helm-set cluster.id=1 --helm-set cluste
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
+			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
+			if params.DryRun || params.DryRunHelmValues {
+				params.Writer = io.Discard
+			}
 			installer, err := install.NewK8sInstaller(k8sClient, params)
 			if err != nil {
 				return err
@@ -275,6 +280,8 @@ cilium install --context kind-cluster1 --helm-set cluster.id=1 --helm-set cluste
 	}
 
 	addCommonInstallFlags(cmd, &params)
+	cmd.Flags().BoolVar(&params.DryRun, "dry-run", false, "Write resources to be installed to stdout without actually installing them")
+	cmd.Flags().BoolVar(&params.DryRunHelmValues, "dry-run-helm-values", false, "Write non-default Helm values to stdout without performing the actual installation")
 	return cmd
 }
 
