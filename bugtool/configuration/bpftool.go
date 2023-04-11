@@ -5,6 +5,7 @@ package configuration
 
 import (
 	"fmt"
+	"strings"
 
 	dump "github.com/cilium/cilium/bugtool/dump"
 
@@ -107,5 +108,5 @@ func mapDumpPinned(mountPoint string, mapNames ...string) dump.Tasks {
 }
 
 func newBPFMapTask(args ...string) dump.Task {
-	return dump.NewExec("bpftool-map", "json", "bpftool", append(args, "-j")...)
+	return dump.NewExec("bpftool-"+strings.Join(args, "-"), "json", "bpftool", append(args, "-j")...)
 }
