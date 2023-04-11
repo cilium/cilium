@@ -136,9 +136,8 @@ func defaultResources() (logs, unstructured, structured dump.Tasks) {
 		unstructured = append(unstructured, createExecFromString(cmd, "txt"))
 	}
 
-	for _, cmd := range jsonStructuredCommands() {
-		structured = append(structured, createExecFromString(cmd, "json"))
-	}
+	structured = append(structured, jsonStructuredCommands()...)
+	structured = append(structured, tcCommands()...)
 
 	xfrmState := createExecFromString("ip --json -s xfrm state", "json")
 	xfrmState.HashEncryptionKeys = true
@@ -335,25 +334,34 @@ func tableStructuredCommands() []string {
 	}
 }
 
-// Contains commands that output json.
-func jsonStructuredCommands() []string {
-	return []string{
-		// ip
-		"ip -j a",
-		"ip -j -4 r",
-		"ip -j -6 r",
-		"ip -j -d -s l",
-		"ip -j -4 n",
-		"ip -j -6 n",
-
+func tcCommands() dump.Tasks {
+	ts := dump.Tasks{}
+	for _, c := range []string{
 		// tc
 		"tc -j -s qdisc show", // Show statistics on queuing disciplines
-
-		// ip
-		"ip --json rule",
-		// xfrm
-		"ip --json -s xfrm policy",
+	} {
+		ts = append(ts, createExecFromString(c, "json"))
 	}
+	return ts
+}
+
+// Contains commands that output json.
+func jsonStructuredCommands() dump.Tasks {
+	ts := dump.Tasks{}
+	for _, c := range []string{
+		// ip
+		"-j a",
+		"-j -4 r",
+		"-j -6 r",
+		"-j -d -s l",
+		"-j -4 n",
+		"-j -6 n",
+		"--json rule",
+		"--json -s xfrm policy",
+	} {
+		ts = append(ts, createExecFromString(fmt.Sprintf("ip %s", c), "json"))
+	}
+	return ts
 }
 
 // gops is a special case, you can't really format this data but we still need it.
