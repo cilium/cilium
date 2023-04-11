@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -382,6 +383,14 @@ type Parameters struct {
 	APIVersions []string
 	// UserSetKubeProxyReplacement will be set as true if user passes helm opt or commadline flag for the Kube-Proxy replacement.
 	UserSetKubeProxyReplacement bool
+
+	// DryRun writes resources to be installed to stdout without actually installing them. For Helm
+	// installation mode only.
+	DryRun bool
+
+	// DryRunHelmValues writes non-default Helm values to stdout without performing the actual installation.
+	// For Helm installation mode only.
+	DryRunHelmValues bool
 }
 
 type rollbackStep func(context.Context)
@@ -999,6 +1008,20 @@ func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient genericcli
 	helmClient.Namespace = k.params.Namespace
 	helmClient.Wait = k.params.Wait
 	helmClient.Timeout = k.params.WaitDuration
-	_, err = helmClient.RunWithContext(ctx, k.chart, vals)
+	helmClient.DryRun = k.params.DryRun || k.params.DryRunHelmValues
+	release, err := helmClient.RunWithContext(ctx, k.chart, vals)
+	if err != nil {
+		return err
+	}
+	if k.params.DryRun {
+		fmt.Println(release.Manifest)
+	}
+	if k.params.DryRunHelmValues {
+		helmValues, err := yaml.Marshal(release.Config)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(helmValues))
+	}
 	return err
 }
