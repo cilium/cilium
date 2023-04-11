@@ -87,6 +87,7 @@ func NewContext(baseDir string, submit ScheduleFunc) Context {
 // TaskResult contains result metadata about the outcome of a tasks execution.
 type TaskResult struct {
 	Name           string    `json:"name"`
+	Command        string    `json:"command"`
 	StartTime      time.Time `json:"start_time"`
 	Duration       string    `json:"duration"`
 	OutputFilePath string    `json:"output_file,omitempty"`

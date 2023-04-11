@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 
@@ -80,6 +81,7 @@ func (e *Exec) Run(ctx context.Context, runtime Context) error {
 		defer func() {
 			tr := TaskResult{
 				Name:           e.Identifier(),
+				Command:        strings.Join(c.Args, " "),
 				StartTime:      startTime,
 				Duration:       time.Since(startTime).String(),
 				OutputFilePath: e.filename(),
