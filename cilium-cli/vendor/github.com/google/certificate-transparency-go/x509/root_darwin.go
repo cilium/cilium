@@ -13,7 +13,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
@@ -38,21 +37,21 @@ func (c *Certificate) systemVerify(opts *VerifyOptions) (chains [][]*Certificate
 //
 // The strategy is as follows:
 //
-// 1. Run "security trust-settings-export" and "security
-//    trust-settings-export -d" to discover the set of certs with some
-//    user-tweaked trust policy. We're too lazy to parse the XML
-//    (Issue 26830) to understand what the trust
-//    policy actually is. We just learn that there is _some_ policy.
+//  1. Run "security trust-settings-export" and "security
+//     trust-settings-export -d" to discover the set of certs with some
+//     user-tweaked trust policy. We're too lazy to parse the XML
+//     (Issue 26830) to understand what the trust
+//     policy actually is. We just learn that there is _some_ policy.
 //
-// 2. Run "security find-certificate" to dump the list of system root
-//    CAs in PEM format.
+//  2. Run "security find-certificate" to dump the list of system root
+//     CAs in PEM format.
 //
-// 3. For each dumped cert, conditionally verify it with "security
-//    verify-cert" if that cert was in the set discovered in Step 1.
-//    Without the Step 1 optimization, running "security verify-cert"
-//    150-200 times takes 3.5 seconds. With the optimization, the
-//    whole process takes about 180 milliseconds with 1 untrusted root
-//    CA. (Compared to 110ms in the cgo path)
+//  3. For each dumped cert, conditionally verify it with "security
+//     verify-cert" if that cert was in the set discovered in Step 1.
+//     Without the Step 1 optimization, running "security verify-cert"
+//     150-200 times takes 3.5 seconds. With the optimization, the
+//     whole process takes about 180 milliseconds with 1 untrusted root
+//     CA. (Compared to 110ms in the cgo path)
 func execSecurityRoots() (*CertPool, error) {
 	hasPolicy, err := getCertsWithTrustPolicy()
 	if err != nil {
@@ -185,7 +184,7 @@ func verifyCertWithSystem(cert *Certificate) bool {
 		Type: "CERTIFICATE", Bytes: cert.Raw,
 	})
 
-	f, err := ioutil.TempFile("", "cert")
+	f, err := os.CreateTemp("", "cert")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "can't create temporary file for cert: %v", err)
 		return false
@@ -224,7 +223,7 @@ func verifyCertWithSystem(cert *Certificate) bool {
 // settings. This code is only used for cgo-disabled builds.
 func getCertsWithTrustPolicy() (map[string]bool, error) {
 	set := map[string]bool{}
-	td, err := ioutil.TempDir("", "x509trustpolicy")
+	td, err := os.MkdirTemp("", "x509trustpolicy")
 	if err != nil {
 		return nil, err
 	}

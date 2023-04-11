@@ -69,7 +69,7 @@ type Config struct {
 	AKI               string
 	DBConfigFile      string
 	CRLExpiration     time.Duration
-	Disable     	  string
+	Disable           string
 }
 
 // registerFlags defines all cfssl command flags and associates their values with variables.
