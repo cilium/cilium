@@ -292,9 +292,7 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 	// Set affinity to prevent Cilium from being scheduled on nodes labeled with
 	// "cilium.io/no-schedule=true"
 	if len(k.params.NodesWithoutCilium) != 0 {
-		for k, v := range defaults.CiliumScheduleAffinity {
-			helmMapOpts[k] = v
-		}
+		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.CiliumScheduleAffinity...)
 	}
 
 	// Store all the options passed by --config into helm extraConfig
