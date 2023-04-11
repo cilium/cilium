@@ -529,7 +529,7 @@ var _ = SkipDescribeIf(func() bool {
 			"egressGateway.enabled":     "true",
 			"bpf.masquerade":            "true",
 			"routingMode":               "native",
-			"autoDirectNodeRoutes":      "false",
+			"autoDirectNodeRoutes":      "true",
 			"endpointRoutes.enabled":    "false",
 			"enableCiliumEndpointSlice": "false",
 			"l7Proxy":                   "false",
