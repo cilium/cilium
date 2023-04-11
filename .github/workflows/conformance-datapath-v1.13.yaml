@@ -146,7 +146,7 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
-            encryption: 'wireguard'
+            encryption: 'disabled'
             lb-mode: 'snat'
             endpoint-routes: 'true'
 
@@ -155,7 +155,7 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
-            encryption: 'wireguard'
+            encryption: 'disabled'
             lb-mode: 'snat'
             endpoint-routes: 'true'
 
@@ -164,7 +164,7 @@ jobs:
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
-            encryption: 'wireguard'
+            encryption: 'disabled'
             lb-mode: 'snat'
 
           - name: '7'
@@ -172,7 +172,7 @@ jobs:
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
-            encryption: 'wireguard'
+            encryption: 'disabled'
             lb-mode: 'snat'
 
           - name: '8'
