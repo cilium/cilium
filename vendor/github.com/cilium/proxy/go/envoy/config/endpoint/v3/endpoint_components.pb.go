@@ -131,8 +131,8 @@ type LbEndpoint struct {
 	HealthStatus v3.HealthStatus `protobuf:"varint,2,opt,name=health_status,json=healthStatus,proto3,enum=envoy.config.core.v3.HealthStatus" json:"health_status,omitempty"`
 	// The endpoint metadata specifies values that may be used by the load
 	// balancer to select endpoints in a cluster for a given request. The filter
-	// name should be specified as *envoy.lb*. An example boolean key-value pair
-	// is *canary*, providing the optional canary status of the upstream host.
+	// name should be specified as “envoy.lb“. An example boolean key-value pair
+	// is “canary“, providing the optional canary status of the upstream host.
 	// This may be matched against in a route's
 	// :ref:`RouteAction <envoy_v3_api_msg_config.route.v3.RouteAction>` metadata_match field
 	// to subset the endpoints considered in cluster load balancing.
@@ -143,9 +143,9 @@ type LbEndpoint struct {
 	// of the weights of all endpoints in the endpoint's locality to produce a
 	// percentage of traffic for the endpoint. This percentage is then further
 	// weighted by the endpoint's locality's load balancing weight from
-	// LocalityLbEndpoints. If unspecified, each host is presumed to have equal
-	// weight in a locality. The sum of the weights of all endpoints in the
-	// endpoint's locality must not exceed uint32_t maximal value (4294967295).
+	// LocalityLbEndpoints. If unspecified, will be treated as 1. The sum
+	// of the weights of all endpoints in the endpoint's locality must not
+	// exceed uint32_t maximal value (4294967295).
 	LoadBalancingWeight *wrapperspb.UInt32Value `protobuf:"bytes,4,opt,name=load_balancing_weight,json=loadBalancingWeight,proto3" json:"load_balancing_weight,omitempty"`
 }
 
@@ -313,7 +313,7 @@ type LocalityLbEndpoints struct {
 	Locality *v3.Locality `protobuf:"bytes,1,opt,name=locality,proto3" json:"locality,omitempty"`
 	// The group of endpoints belonging to the locality specified.
 	// [#comment:TODO(adisuissa): Once LEDS is implemented this field needs to be
-	// deprecated and replaced by *load_balancer_endpoints*.]
+	// deprecated and replaced by “load_balancer_endpoints“.]
 	LbEndpoints []*LbEndpoint `protobuf:"bytes,2,rep,name=lb_endpoints,json=lbEndpoints,proto3" json:"lb_endpoints,omitempty"`
 	// [#not-implemented-hide:]
 	//
@@ -447,7 +447,7 @@ type isLocalityLbEndpoints_LbConfig interface {
 
 type LocalityLbEndpoints_LoadBalancerEndpoints struct {
 	// The group of endpoints belonging to the locality.
-	// [#comment:TODO(adisuissa): Once LEDS is implemented the *lb_endpoints* field
+	// [#comment:TODO(adisuissa): Once LEDS is implemented the “lb_endpoints“ field
 	// needs to be deprecated.]
 	LoadBalancerEndpoints *LocalityLbEndpoints_LbEndpointList `protobuf:"bytes,7,opt,name=load_balancer_endpoints,json=loadBalancerEndpoints,proto3,oneof"`
 }

@@ -58,7 +58,7 @@ type LocalRateLimit struct {
 	RuntimeEnabled *v31.RuntimeFeatureFlag `protobuf:"bytes,3,opt,name=runtime_enabled,json=runtimeEnabled,proto3" json:"runtime_enabled,omitempty"`
 	// Specifies that the token bucket used for rate limiting should be shared with other local_rate_limit filters
 	// with a matching :ref:`token_bucket <envoy_v3_api_field_extensions.filters.network.local_ratelimit.v3.LocalRateLimit.token_bucket>`
-	// and `share_key` configuration. All fields of `token_bucket` must match exactly for the token bucket to be shared. If this
+	// and “share_key“ configuration. All fields of “token_bucket“ must match exactly for the token bucket to be shared. If this
 	// field is empty, this filter will not share a token bucket with any other filter.
 	ShareKey string `protobuf:"bytes,4,opt,name=share_key,json=shareKey,proto3" json:"share_key,omitempty"`
 }

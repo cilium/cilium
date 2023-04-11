@@ -938,10 +938,10 @@ func (m *HeaderMatch) validate(all bool) error {
 
 	var errors []error
 
-	if len(m.GetName()) < 1 {
+	if utf8.RuneCountInString(m.GetName()) < 1 {
 		err := HeaderMatchValidationError{
 			field:  "Name",
-			reason: "value length must be at least 1 bytes",
+			reason: "value length must be at least 1 runes",
 		}
 		if !all {
 			return err

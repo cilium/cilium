@@ -111,18 +111,18 @@ type DnsCacheConfig struct {
 	// The refresh rate is rounded to the closest millisecond, and must be at least 1ms.
 	//
 	// Once a host has been resolved, the refresh rate will be the DNS TTL, capped
-	// at a minimum of `dns_min_refresh_rate`.
+	// at a minimum of “dns_min_refresh_rate“.
 	DnsRefreshRate *durationpb.Duration `protobuf:"bytes,3,opt,name=dns_refresh_rate,json=dnsRefreshRate,proto3" json:"dns_refresh_rate,omitempty"`
-	// The minimum rate that DNS resolution will occur. Per `dns_refresh_rate`, once a host is
-	// resolved, the DNS TTL will be used, with a minimum set by `dns_min_refresh_rate`.
-	// `dns_min_refresh_rate` defaults to 5s and must also be >= 5s.
+	// The minimum rate that DNS resolution will occur. Per “dns_refresh_rate“, once a host is
+	// resolved, the DNS TTL will be used, with a minimum set by “dns_min_refresh_rate“.
+	// “dns_min_refresh_rate“ defaults to 5s and must also be >= 5s.
 	DnsMinRefreshRate *durationpb.Duration `protobuf:"bytes,14,opt,name=dns_min_refresh_rate,json=dnsMinRefreshRate,proto3" json:"dns_min_refresh_rate,omitempty"`
 	// The TTL for hosts that are unused. Hosts that have not been used in the configured time
 	// interval will be purged. If not specified defaults to 5m.
 	//
 	// .. note:
 	//
-	//	 The TTL is only checked at the time of DNS refresh, as specified by *dns_refresh_rate*. This
+	//	 The TTL is only checked at the time of DNS refresh, as specified by ``dns_refresh_rate``. This
 	//	 means that if the configured TTL is shorter than the refresh rate the host may not be removed
 	//	 immediately.
 	//
@@ -146,7 +146,7 @@ type DnsCacheConfig struct {
 	// Envoy will use dns cache circuit breakers with default settings even if this value is not set.
 	DnsCacheCircuitBreaker *DnsCacheCircuitBreakers `protobuf:"bytes,7,opt,name=dns_cache_circuit_breaker,json=dnsCacheCircuitBreaker,proto3" json:"dns_cache_circuit_breaker,omitempty"`
 	// Always use TCP queries instead of UDP queries for DNS lookups.
-	// This field is deprecated in favor of *dns_resolution_config*
+	// This field is deprecated in favor of “dns_resolution_config“
 	// which aggregates all of the DNS resolver configuration in a single message.
 	//
 	// Deprecated: Do not use.
@@ -161,12 +161,12 @@ type DnsCacheConfig struct {
 	// or any other DNS resolver types and the related parameters.
 	// For example, an object of
 	// :ref:`CaresDnsResolverConfig <envoy_v3_api_msg_extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig>`
-	// can be packed into this *typed_dns_resolver_config*. This configuration replaces the
+	// can be packed into this “typed_dns_resolver_config“. This configuration replaces the
 	// :ref:`dns_resolution_config <envoy_v3_api_field_extensions.common.dynamic_forward_proxy.v3.DnsCacheConfig.dns_resolution_config>`
 	// configuration.
-	// During the transition period when both *dns_resolution_config* and *typed_dns_resolver_config* exists,
-	// when *typed_dns_resolver_config* is in place, Envoy will use it and ignore *dns_resolution_config*.
-	// When *typed_dns_resolver_config* is missing, the default behavior is in place.
+	// During the transition period when both “dns_resolution_config“ and “typed_dns_resolver_config“ exists,
+	// when “typed_dns_resolver_config“ is in place, Envoy will use it and ignore “dns_resolution_config“.
+	// When “typed_dns_resolver_config“ is missing, the default behavior is in place.
 	// [#extension-category: envoy.network.dns_resolver]
 	TypedDnsResolverConfig *v31.TypedExtensionConfig `protobuf:"bytes,12,opt,name=typed_dns_resolver_config,json=typedDnsResolverConfig,proto3" json:"typed_dns_resolver_config,omitempty"`
 	// Hostnames that should be preresolved into the cache upon creation. This might provide a

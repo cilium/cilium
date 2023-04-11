@@ -37,7 +37,7 @@ const _ = proto.ProtoPackageIsVersion4
 type HealthStatus int32
 
 const (
-	// The health status is not known. This is interpreted by Envoy as *HEALTHY*.
+	// The health status is not known. This is interpreted by Envoy as “HEALTHY“.
 	HealthStatus_UNKNOWN HealthStatus = 0
 	// Healthy.
 	HealthStatus_HEALTHY HealthStatus = 1
@@ -47,10 +47,10 @@ const (
 	// `<https://aws.amazon.com/blogs/aws/elb-connection-draining-remove-instances-from-service-with-care/>`_
 	// or
 	// `<https://cloud.google.com/compute/docs/load-balancing/enabling-connection-draining>`_.
-	// This is interpreted by Envoy as *UNHEALTHY*.
+	// This is interpreted by Envoy as “UNHEALTHY“.
 	HealthStatus_DRAINING HealthStatus = 3
 	// Health check timed out. This is part of HDS and is interpreted by Envoy as
-	// *UNHEALTHY*.
+	// “UNHEALTHY“.
 	HealthStatus_TIMEOUT HealthStatus = 4
 	// Degraded.
 	HealthStatus_DEGRADED HealthStatus = 5
@@ -170,14 +170,14 @@ type HealthCheck struct {
 	// interval Envoy will add interval_jitter to the wait time.
 	IntervalJitter *durationpb.Duration `protobuf:"bytes,3,opt,name=interval_jitter,json=intervalJitter,proto3" json:"interval_jitter,omitempty"`
 	// An optional jitter amount as a percentage of interval_ms. If specified,
-	// during every interval Envoy will add interval_ms *
-	// interval_jitter_percent / 100 to the wait time.
+	// during every interval Envoy will add “interval_ms“ *
+	// “interval_jitter_percent“ / 100 to the wait time.
 	//
 	// If interval_jitter_ms and interval_jitter_percent are both set, both of
 	// them will be used to increase the wait time.
 	IntervalJitterPercent uint32 `protobuf:"varint,18,opt,name=interval_jitter_percent,json=intervalJitterPercent,proto3" json:"interval_jitter_percent,omitempty"`
 	// The number of unhealthy health checks required before a host is marked
-	// unhealthy. Note that for *http* health checking if a host responds with a code not in
+	// unhealthy. Note that for “http“ health checking if a host responds with a code not in
 	// :ref:`expected_statuses <envoy_v3_api_field_config.core.v3.HealthCheck.HttpHealthCheck.expected_statuses>`
 	// or :ref:`retriable_statuses <envoy_v3_api_field_config.core.v3.HealthCheck.HttpHealthCheck.retriable_statuses>`,
 	// this threshold is ignored and the host is considered immediately unhealthy.
@@ -211,7 +211,7 @@ type HealthCheck struct {
 	// (including new hosts) when the cluster has received no traffic.
 	//
 	// This is useful for when we want to send frequent health checks with
-	// `no_traffic_interval` but then revert to lower frequency `no_traffic_healthy_interval` once
+	// “no_traffic_interval“ but then revert to lower frequency “no_traffic_healthy_interval“ once
 	// a host in the cluster is marked as healthy.
 	//
 	// Once a cluster has been used for traffic routing, Envoy will shift back to using the
@@ -273,7 +273,7 @@ type HealthCheck struct {
 	//	    name: envoy.transport_sockets.tls
 	//	    config: { ... } # tls socket configuration
 	//
-	// If this field is set, then for health checks it will supersede an entry of *envoy.transport_socket* in the
+	// If this field is set, then for health checks it will supersede an entry of “envoy.transport_socket“ in the
 	// :ref:`LbEndpoint.Metadata <envoy_v3_api_field_config.endpoint.v3.LbEndpoint.metadata>`.
 	// This allows using different transport socket capabilities for health checking versus proxying to the
 	// endpoint.
@@ -613,7 +613,7 @@ type HealthCheck_HttpHealthCheck struct {
 	// :ref:`hostname <envoy_v3_api_field_config.endpoint.v3.Endpoint.HealthCheckConfig.hostname>` field.
 	Host string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
 	// Specifies the HTTP path that will be requested during health checking. For example
-	// */healthcheck*.
+	// “/healthcheck“.
 	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	// [#not-implemented-hide:] HTTP specific payload.
 	Send *HealthCheck_Payload `protobuf:"bytes,3,opt,name=send,proto3" json:"send,omitempty"`
