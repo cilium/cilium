@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type IPSecDir string
@@ -739,7 +740,7 @@ func ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
 		// If not found in the keyRemovalTime map, assume the key was
 		// deleted just now.
 		// In this way if the agent gets restarted before an old key is
-		// removed we will always wait at least IPsecKeyDeleteDelay time
+		// removed we will always wait at least IPsecKeyRotationDuration time
 		// before reclaiming it
 		ipSecKeysRemovalTime[spi] = time.Now()
 
@@ -748,7 +749,7 @@ func ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
 
 	// If the key was deleted less than the IPSec key deletion delay
 	// time ago, it should not be reclaimed
-	if reclaimTimestamp.Sub(keyRemovalTime) < linux_defaults.IPsecKeyDeleteDelay {
+	if reclaimTimestamp.Sub(keyRemovalTime) < option.Config.IPsecKeyRotationDuration {
 		return false
 	}
 

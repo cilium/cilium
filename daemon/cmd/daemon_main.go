@@ -348,6 +348,9 @@ func initializeFlags() {
 	flags.String(option.IPSecKeyFileName, "", "Path to IPSec key file")
 	option.BindEnv(Vp, option.IPSecKeyFileName)
 
+	flags.Duration(option.IPsecKeyRotationDuration, defaults.IPsecKeyRotationDuration, "Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.")
+	option.BindEnv(Vp, option.IPsecKeyRotationDuration)
+
 	flags.Bool(option.EnableWireguard, false, "Enable wireguard")
 	option.BindEnv(Vp, option.EnableWireguard)
 

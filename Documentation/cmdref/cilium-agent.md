@@ -187,6 +187,7 @@ cilium-agent [flags]
       --ipam string                                             Backend to use for IPAM (default "cluster-pool")
       --ipam-cilium-node-update-rate duration                   Maximum rate at which the CiliumNode custom resource is updated (default 15s)
       --ipsec-key-file string                                   Path to IPSec key file
+      --ipsec-key-rotation-duration duration                    Maximum duration of the IPsec key rotation. The previous key will be removed after that delay. (default 5m0s)
       --iptables-lock-timeout duration                          Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --iptables-random-fully                                   Set iptables flag random-fully on masquerading rules
       --ipv4-native-routing-cidr string                         Allows to explicitly specify the IPv4 CIDR for native routing. When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag.

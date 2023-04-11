@@ -216,6 +216,10 @@ const (
 	// EnableIPSec is the default value for IPSec enablement
 	EnableIPSec = false
 
+	// IPsecKeyRotationDuration is the time to wait before removing old keys when
+	// the IPsec key is changing.
+	IPsecKeyRotationDuration = 5 * time.Minute
+
 	// EncryptNode enables encrypting traffic from host networking applications
 	// which are not part of Cilium manged pods.
 	EncryptNode = false
