@@ -523,6 +523,9 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// Delete the old node IP addresses if they have changed in this node.
 		var oldNodeIPAddrs []net.IP
 		for _, address := range oldNode.IPAddresses {
+			if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
+				iptables.RemoveFromNodeIpset(address.IP)
+			}
 			if skipIPCache(address) {
 				continue
 			}
