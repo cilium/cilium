@@ -708,7 +708,19 @@ func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool) *e
 		BpfRoot:                  bpf.GetMapRoot(),
 		IsL7Lb:                   l7lb,
 	}
-	// Set Ingress source addresses if configuring for L7 LB
+	// Set Ingress source addresses if configuring for L7 LB One of these will be used when
+	// useOriginalSourceAddr is false, or when the source is known to not be from the local node
+	// (in such a case use of the original source address would lead to broken routing for the
+	// return traffic, as it would not be sent to the this node where upstream connection
+	// originates from).
+	//
+	// Note: This means that all non-local traffic will be identified by the destination to be
+	// coming from/via "Ingress", even if the listener is not an Ingress listener.
+	// We could refrain from using these ingress addresses in such cases, but then the upstream
+	// traffic would come from an (other) host IP, which is even worse.
+	//
+	// One solution to this dilemma would be to never configure these addresses if
+	// useOriginalSourceAddr is true and let such traffic fail.
 	if l7lb {
 		ingressIPv4 := node.GetIngressIPv4()
 		if ingressIPv4 != nil {

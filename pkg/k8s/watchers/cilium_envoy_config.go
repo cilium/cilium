@@ -19,6 +19,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -83,6 +84,16 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient client.Clientset) {
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEnvoyConfigV2)
 }
 
+// isIngressKind returns true if any of the OwnerReferences is Kind "Ingress"
+func isIngressKind(meta *meta_v1.ObjectMeta) bool {
+	for _, owner := range meta.OwnerReferences {
+		if owner.Kind == "Ingress" {
+			return true
+		}
+	}
+	return false
+}
+
 func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumEnvoyConfigName: cec.ObjectMeta.Name,
@@ -98,6 +109,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 		true,
 		k.envoyConfigManager,
 		len(cec.Spec.Services) > 0,
+		!isIngressKind(&cec.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig: malformed Envoy config")
@@ -201,6 +213,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		false,
 		k.envoyConfigManager,
 		len(oldCEC.Spec.Services) > 0,
+		!isIngressKind(&oldCEC.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed old Envoy config")
@@ -213,6 +226,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		true,
 		k.envoyConfigManager,
 		len(newCEC.Spec.Services) > 0,
+		!isIngressKind(&newCEC.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed new Envoy config")
@@ -318,6 +332,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) e
 		false,
 		k.envoyConfigManager,
 		len(cec.Spec.Services) > 0,
+		!isIngressKind(&cec.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEnvoyConfig: parsing rersource names failed")
