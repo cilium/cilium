@@ -322,11 +322,6 @@ const (
 	// LoopbackIPv4 is the default address for service loopback
 	LoopbackIPv4 = "169.254.42.1"
 
-	// ForceLocalPolicyEvalAtSource is the default value for
-	// option.ForceLocalPolicyEvalAtSource. It can be enabled to provide
-	// backwards compatibility.
-	ForceLocalPolicyEvalAtSource = false
-
 	// EnableEndpointRoutes is the value for option.EnableEndpointRoutes.
 	// It is disabled by default for backwards compatibility.
 	EnableEndpointRoutes = false

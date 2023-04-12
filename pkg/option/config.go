@@ -800,10 +800,6 @@ const (
 	// LocalRouterIPv6 is the link-local IPv6 address to use for Cilium router device
 	LocalRouterIPv6 = "local-router-ipv6"
 
-	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
-	// endpoint for all local communication
-	ForceLocalPolicyEvalAtSource = "force-local-policy-eval-at-source"
-
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes = "enable-endpoint-routes"
 
@@ -1859,10 +1855,6 @@ type DaemonConfig struct {
 	// LocalRouterIPv6 is the link-local IPv6 address used for Cilium's router device
 	LocalRouterIPv6 string
 
-	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
-	// endpoint for all local communication
-	ForceLocalPolicyEvalAtSource bool
-
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes bool
 
@@ -2331,7 +2323,6 @@ var (
 		KVStoreOpt:                   make(map[string]string),
 		LogOpt:                       make(map[string]string),
 		LoopbackIPv4:                 defaults.LoopbackIPv4,
-		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 		K8sServiceCacheSize:          defaults.K8sServiceCacheSize,
@@ -2915,7 +2906,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
 	c.EnvoyLogPath = vp.GetString(EnvoyLog)
-	c.ForceLocalPolicyEvalAtSource = vp.GetBool(ForceLocalPolicyEvalAtSource)
 	c.HTTPNormalizePath = vp.GetBool(HTTPNormalizePath)
 	c.HTTPIdleTimeout = vp.GetInt(HTTPIdleTimeout)
 	c.HTTPMaxGRPCTimeout = vp.GetInt(HTTPMaxGRPCTimeout)
