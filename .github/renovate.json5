@@ -140,6 +140,9 @@
       "matchFiles": [
         "images/builder/Dockerfile",
         "images/runtime/Dockerfile"
+      ],
+      "schedule": [
+        "on friday"
       ]
     },
     {
