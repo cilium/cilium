@@ -2,6 +2,7 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request:
   pull_request_target:
     types:
       - opened
@@ -63,11 +64,8 @@ jobs:
             dockerfile: ./images/cilium-docker-plugin/Dockerfile
 
     steps:
-      - name: Checkout master branch to access local actions
+      - name: Checkout Source Code
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
