@@ -45,8 +45,8 @@ var (
 
 type SharedResources struct {
 	cell.In
-	LocalNode                        *LocalNodeResource
-	LocalCiliumNode                  *LocalCiliumNodeResource
+	LocalNode                        LocalNodeResource
+	LocalCiliumNode                  LocalCiliumNodeResource
 	Services                         resource.Resource[*slim_corev1.Service]
 	Namespaces                       resource.Resource[*slim_corev1.Namespace]
 	LBIPPools                        resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
@@ -71,32 +71,28 @@ func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[
 
 // LocalNodeResource is a resource.Resource[*corev1.Node] but one which will only stream updates for the node object
 // associated with the node we are currently running on.
-type LocalNodeResource struct {
-	resource.Resource[*corev1.Node]
-}
+type LocalNodeResource resource.Resource[*corev1.Node]
 
-func localNodeResource(lc hive.Lifecycle, cs client.Clientset) (*LocalNodeResource, error) {
+func localNodeResource(lc hive.Lifecycle, cs client.Clientset) (LocalNodeResource, error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
 	lw = utils.ListerWatcherWithFields(lw, fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName()))
-	return &LocalNodeResource{Resource: resource.New[*corev1.Node](lc, lw)}, nil
+	return LocalNodeResource(resource.New[*corev1.Node](lc, lw)), nil
 }
 
 // LocalCiliumNodeResource is a resource.Resource[*cilium_api_v2.Node] but one which will only stream updates for the
 // CiliumNode object associated with the node we are currently running on.
-type LocalCiliumNodeResource struct {
-	resource.Resource[*cilium_api_v2.CiliumNode]
-}
+type LocalCiliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]
 
-func localCiliumNodeResource(lc hive.Lifecycle, cs client.Clientset) (*LocalCiliumNodeResource, error) {
+func localCiliumNodeResource(lc hive.Lifecycle, cs client.Clientset) (LocalCiliumNodeResource, error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](cs.CiliumV2().CiliumNodes())
 	lw = utils.ListerWatcherWithFields(lw, fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName()))
-	return &LocalCiliumNodeResource{Resource: resource.New[*cilium_api_v2.CiliumNode](lc, lw)}, nil
+	return LocalCiliumNodeResource(resource.New[*cilium_api_v2.CiliumNode](lc, lw)), nil
 }
 
 func namespaceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Namespace], error) {
