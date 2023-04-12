@@ -324,6 +324,10 @@ Annotations:
   ``--update-ec2-adapter-limit-via-api`` to ``false`` if you want to avoid this
   additional IAM permission. Beware that if your EC2 instance type that Cilium
   is running on is not known to Cilium, it may cause a crash.
+* Egress Gateway policies now drop matching traffic when no
+  gateway nodes can be found. Previously, traffic would be allowed without
+  being rerouted towards an Egress Gateway.
+
 
 Removed Options
 ~~~~~~~~~~~~~~~
