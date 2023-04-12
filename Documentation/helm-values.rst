@@ -1728,6 +1728,14 @@
      - Additional nodeinit environment variables.
      - list
      - ``[]``
+   * - nodeinit.extraVolumeMounts
+     - Additional nodeinit volumeMounts.
+     - list
+     - ``[]``
+   * - nodeinit.extraVolumes
+     - Additional nodeinit volumes.
+     - list
+     - ``[]``
    * - nodeinit.image
      - node-init image.
      - object
@@ -2192,6 +2200,10 @@
      - Hubblecertgen is used if hubble.tls.auto.method=cronJob
      - object
      - ``{"annotations":{},"automount":true,"create":true,"name":"hubble-generate-certs"}``
+   * - serviceAccounts.nodeinit.enabled
+     - Enabled is temporary until https://github.com/cilium/cilium-cli/issues/1396 is implemented. Cilium CLI doesn't create the SAs for node-init, thus the workaround. Helm is not affected by this issue. Name and automount can be configured, if enabled is set to true.  Otherwise, they are ignored. Enabled can be removed once the issue is fixed. Cilium-nodeinit DS must also be fixed.
+     - bool
+     - ``false``
    * - sleepAfterInit
      - Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node.
      - bool
