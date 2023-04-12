@@ -1112,7 +1112,7 @@ func initializeFlags() {
 	flags.MarkHidden(option.BypassIPAvailabilityUponRestore)
 	option.BindEnv(option.BypassIPAvailabilityUponRestore)
 
-	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, CiliumEndpointSlice feature is enabled and cilium agent watch for CiliumEndpointSlice instead of CiliumEndpoint to update the IPCache.")
+	flags.Bool(option.EnableCiliumEndpointSlice, false, "Enable the CiliumEndpointSlice watcher in place of the CiliumEndpoint watcher (beta)")
 	option.BindEnv(option.EnableCiliumEndpointSlice)
 
 	flags.Bool(option.EnableK8sTerminatingEndpoint, true, "Enable auto-detect of terminating endpoint condition")
