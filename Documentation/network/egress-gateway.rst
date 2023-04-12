@@ -250,6 +250,11 @@ the ``nodeSelector`` field:
     In case multiple nodes are a match for the given set of labels, the
     first node in lexical ordering based on their name will be selected.
 
+.. note::
+
+    If there is no match for the given set of labels, Cilium drops the
+    traffic that matches the destination CIDR(s).
+
 The IP address that should be used to SNAT traffic must also be configured.
 There are 3 different ways this can be achieved:
 

@@ -1073,6 +1073,10 @@ ct_recreate4:
 			goto skip_egress_gateway;
 
 		if (egress_gw_request_needs_redirect(ip4, &tunnel_endpoint)) {
+			if (tunnel_endpoint == EGRESS_GATEWAY_NO_GATEWAY) {
+				/* Special case for no gateway to drop the traffic */
+				return DROP_NO_EGRESS_GATEWAY;
+			}
 			/* Send the packet to egress gateway node through a tunnel. */
 			ret = __encap_and_redirect_lxc(ctx, tunnel_endpoint, 0,
 						       node_id, SECLABEL,
