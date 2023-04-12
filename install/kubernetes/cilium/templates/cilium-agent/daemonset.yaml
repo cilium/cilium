@@ -234,10 +234,10 @@ spec:
           containerPort: {{ .Values.prometheus.port }}
           hostPort: {{ .Values.prometheus.port }}
           protocol: TCP
-        {{- if .Values.proxy.prometheus.enabled }}
+        {{- if and .Values.envoy.prometheus.enabled (not .Values.envoy.enabled) }}
         - name: envoy-metrics
-          containerPort: {{ .Values.proxy.prometheus.port }}
-          hostPort: {{ .Values.proxy.prometheus.port }}
+          containerPort: {{ .Values.envoy.prometheus.port }}
+          hostPort: {{ .Values.envoy.prometheus.port }}
           protocol: TCP
         {{- end }}
         {{- end }}
@@ -271,6 +271,9 @@ spec:
           mountPath: {{ dir .Values.auth.mTLS.spire.adminSocketPath }}
           readOnly: false
         {{- end }}
+        - name: envoy-sockets
+          mountPath: {{ .Values.envoy.socketDir.containers }}
+          readOnly: false
         {{- if not .Values.securityContext.privileged }}
         # Unprivileged containers need to mount /proc/sys/net from the host
         # to have write access
@@ -773,6 +776,15 @@ spec:
         hostPath:
           path: {{ dir .Values.auth.mTLS.spire.adminSocketPath }}
           type: DirectoryOrCreate
+      {{- end }}
+      - name: envoy-sockets
+      {{- if .Values.envoy.enabled }}
+        # Sharing socket with Cilium Envoy on the same node by using a host path
+        hostPath:
+          path: {{ .Values.envoy.socketDir.host }}
+          type: DirectoryOrCreate
+      {{- else }}
+        emptyDir: {}
       {{- end }}
       {{- if .Values.kubeConfigPath }}
       - name: kube-config

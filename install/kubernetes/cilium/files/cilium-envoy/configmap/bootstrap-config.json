@@ -1,0 +1,197 @@
+{
+  "node": {
+    "id": "host~127.0.0.1~no-id~localdomain",
+    "cluster": "ingress-cluster"
+  },
+  "staticResources": {
+    "clusters": [
+      {
+        "name": "ingress-cluster",
+        "type": "ORIGINAL_DST",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "lbPolicy": "CLUSTER_PROVIDED",
+        "typedExtensionProtocolOptions": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+            "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+            "commonHttpProtocolOptions": {
+              "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
+              "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
+            },
+            "useDownstreamProtocolConfig": {}
+          }
+        },
+        "cleanupInterval": "{{ .Values.envoy.connectTimeoutSeconds }}.500s"
+      },
+      {
+        "name": "egress-cluster-tls",
+        "type": "ORIGINAL_DST",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "lbPolicy": "CLUSTER_PROVIDED",
+        "typedExtensionProtocolOptions": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+            "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+            "commonHttpProtocolOptions": {
+              "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
+              "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
+            },
+            "upstreamHttpProtocolOptions": {},
+            "useDownstreamProtocolConfig": {}
+          }
+        },
+        "cleanupInterval": "{{ .Values.envoy.connectTimeoutSeconds }}.500s",
+        "transportSocket": {
+          "name": "cilium.tls_wrapper",
+          "typedConfig": {
+            "@type": "type.googleapis.com/cilium.UpstreamTlsWrapperContext"
+          }
+        }
+      },
+      {
+        "name": "egress-cluster",
+        "type": "ORIGINAL_DST",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "lbPolicy": "CLUSTER_PROVIDED",
+        "typedExtensionProtocolOptions": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+            "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+            "commonHttpProtocolOptions": {
+              "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
+              "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
+            },
+            "useDownstreamProtocolConfig": {}
+          }
+        },
+        "cleanupInterval": "{{ .Values.envoy.connectTimeoutSeconds }}.500s"
+      },
+      {
+        "name": "ingress-cluster-tls",
+        "type": "ORIGINAL_DST",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "lbPolicy": "CLUSTER_PROVIDED",
+        "typedExtensionProtocolOptions": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+            "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+            "commonHttpProtocolOptions": {
+              "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
+              "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
+            },
+            "upstreamHttpProtocolOptions": {},
+            "useDownstreamProtocolConfig": {}
+          }
+        },
+        "cleanupInterval": "{{ .Values.envoy.connectTimeoutSeconds }}.500s",
+        "transportSocket": {
+          "name": "cilium.tls_wrapper",
+          "typedConfig": {
+            "@type": "type.googleapis.com/cilium.UpstreamTlsWrapperContext"
+          }
+        }
+      },
+      {
+        "name": "xds-grpc-cilium",
+        "type": "STATIC",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "loadAssignment": {
+          "clusterName": "xds-grpc-cilium",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "endpoint": {
+                    "address": {
+                      "pipe": {
+                        "path": "{{ .Values.envoy.socketDir.containers }}/xds.sock"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "typedExtensionProtocolOptions": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+            "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+            "explicitHttpConfig": {
+              "http2ProtocolOptions": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "envoy-admin",
+        "type": "STATIC",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "loadAssignment": {
+          "clusterName": "envoy-admin",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "endpoint": {
+                    "address": {
+                      "pipe": {
+                        "path": "{{ .Values.envoy.socketDir.containers }}/admin.sock"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "dynamicResources": {
+    "ldsConfig": {
+      "apiConfigSource": {
+        "apiType": "GRPC",
+        "transportApiVersion": "V3",
+        "grpcServices": [
+          {
+            "envoyGrpc": {
+              "clusterName": "xds-grpc-cilium"
+            }
+          }
+        ],
+        "setNodeOnFirstMessageOnly": true
+      },
+      "resourceApiVersion": "V3"
+    },
+    "cdsConfig": {
+      "apiConfigSource": {
+        "apiType": "GRPC",
+        "transportApiVersion": "V3",
+        "grpcServices": [
+          {
+            "envoyGrpc": {
+              "clusterName": "xds-grpc-cilium"
+            }
+          }
+        ],
+        "setNodeOnFirstMessageOnly": true
+      },
+      "resourceApiVersion": "V3"
+    }
+  },
+  "layeredRuntime": {
+    "layers": [
+      {
+        "name": "static_layer_0",
+        "staticLayer": {
+          "overload": {
+            "global_downstream_max_connections": 50000
+          }
+        }
+      }
+    ]
+  },
+  "admin": {
+    "address": {
+      "pipe": {
+        "path": "{{ .Values.envoy.socketDir.containers }}/admin.sock"
+      }
+    }
+  }
+}
