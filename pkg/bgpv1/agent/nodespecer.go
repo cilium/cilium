@@ -33,8 +33,8 @@ type localNodeStoreSpecerParams struct {
 
 	Lifecycle          hive.Lifecycle
 	Config             *option.DaemonConfig
-	NodeResource       *k8s.LocalNodeResource
-	CiliumNodeResource *k8s.LocalCiliumNodeResource
+	NodeResource       k8s.LocalNodeResource
+	CiliumNodeResource k8s.LocalCiliumNodeResource
 	Signaler           Signaler
 }
 
@@ -67,7 +67,7 @@ func NewNodeSpecer(params localNodeStoreSpecerParams) (nodeSpecer, error) {
 }
 
 type kubernetesNodeSpecer struct {
-	nodeResource *k8s.LocalNodeResource
+	nodeResource k8s.LocalNodeResource
 
 	currentNode *corev1.Node
 	workerpool  *workerpool.WorkerPool
@@ -142,7 +142,7 @@ func (s *kubernetesNodeSpecer) PodCIDRs() ([]string, error) {
 }
 
 type ciliumNodeSpecer struct {
-	nodeResource *k8s.LocalCiliumNodeResource
+	nodeResource k8s.LocalCiliumNodeResource
 
 	currentNode *ciliumv2.CiliumNode
 	workerpool  *workerpool.WorkerPool
