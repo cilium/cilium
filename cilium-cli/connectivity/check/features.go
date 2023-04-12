@@ -431,6 +431,26 @@ func (ct *ConnectivityTest) validateFeatureSet(other FeatureSet, source string) 
 	}
 }
 
+func (ct *ConnectivityTest) detectCiliumVersion(ctx context.Context) error {
+	if assumeCiliumVersion := ct.Params().AssumeCiliumVersion; assumeCiliumVersion != "" {
+		ct.Warnf("Assuming Cilium version %s for connectivity tests", assumeCiliumVersion)
+		var err error
+		ct.CiliumVersion, err = utils.ParseCiliumVersion(assumeCiliumVersion)
+		if err != nil {
+			return err
+		}
+	} else if minVersion, err := ct.DetectMinimumCiliumVersion(ctx); err != nil {
+		ct.Warnf("Unable to detect Cilium version, assuming %v for connectivity tests: %s", defaults.Version, err)
+		ct.CiliumVersion, err = utils.ParseCiliumVersion(defaults.Version)
+		if err != nil {
+			return err
+		}
+	} else {
+		ct.CiliumVersion = *minVersion
+	}
+	return nil
+}
+
 func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 	initialized := false
 	for _, ciliumPod := range ct.ciliumPods {
@@ -488,28 +508,18 @@ func (ct *ConnectivityTest) ForceDisableFeature(feature Feature) {
 // isFeatureKNPEnabled checks if the Kubernetes Network Policy feature is enabled from the configuration.
 // Note that the flag appears in Cilium version 1.14, before that it was unable even thought KNPs were present.
 func (ct *ConnectivityTest) isFeatureKNPEnabled(namespace string, enableK8SNetworkPolicy bool) (bool, error) {
-	version, err := ct.client.GetRunningCiliumVersion(context.Background(), namespace)
-	if version == "" || err != nil {
-		return false, fmt.Errorf("cilium image (running): unknown. Unable to obtain cilium version, no cilium pods found in namespace %q", namespace)
-	}
-
-	ciliumVer, err := utils.ParseCiliumVersion(version)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse Cilium version %s to semver", version)
-	}
-
 	switch {
 	case enableK8SNetworkPolicy:
 		// Flag is enabled, means the flag exists.
 		return true, nil
-	case !enableK8SNetworkPolicy && versioncheck.MustCompile("<1.14.0")(ciliumVer):
+	case !enableK8SNetworkPolicy && versioncheck.MustCompile("<1.14.0")(ct.CiliumVersion):
 		// Flag was always disabled even KNP were activated before Cilium 1.14.
 		return true, nil
-	case !enableK8SNetworkPolicy && versioncheck.MustCompile(">=1.14.0")(ciliumVer):
+	case !enableK8SNetworkPolicy && versioncheck.MustCompile(">=1.14.0")(ct.CiliumVersion):
 		// Flag is explicitly set to disabled after Cilium 1.14.
 		return false, nil
 	default:
-		return false, fmt.Errorf("cilium version unsupported %s", ciliumVer.String())
+		return false, fmt.Errorf("cilium version unsupported %s", ct.CiliumVersion.String())
 	}
 }
 
