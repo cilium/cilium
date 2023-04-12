@@ -731,6 +731,9 @@ func initializeFlags() {
 	flags.String(option.StateDir, defaults.RuntimePath, "Directory path to store runtime state")
 	option.BindEnv(Vp, option.StateDir)
 
+	flags.Bool(option.ExternalEnvoyProxy, false, "whether the Envoy is deployed externally in form of a DaemonSet or not")
+	option.BindEnv(Vp, option.ExternalEnvoyProxy)
+
 	flags.StringP(option.TunnelName, "t", "", fmt.Sprintf("Tunnel mode {%s} (default \"vxlan\" for the \"veth\" datapath mode)", option.GetTunnelModes()))
 	option.BindEnv(Vp, option.TunnelName)
 	flags.MarkDeprecated(option.TunnelName,

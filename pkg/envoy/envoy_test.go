@@ -67,7 +67,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	StartAccessLogServer(testRunDir, xdsServer)
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 0)
+	envoyProxy := StartEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 0, false)
 	c.Assert(envoyProxy, NotNil)
 	log.Debug("started Envoy")
 
@@ -147,7 +147,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 	StartAccessLogServer(testRunDir, xdsServer)
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 42)
+	envoyProxy := StartEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 42, false)
 	c.Assert(envoyProxy, NotNil)
 	log.Debug("started Envoy")
 
