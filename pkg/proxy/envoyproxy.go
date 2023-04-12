@@ -30,7 +30,7 @@ var envoyOnce sync.Once
 func startEnvoy(runDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
-		envoyProxy = envoy.StartEnvoy(runDir, option.Config.EnvoyLogPath, 0)
+		envoyProxy = envoy.StartEnvoy(runDir, option.Config.EnvoyLogPath, 0, option.Config.ExternalEnvoyProxy)
 
 		// Add Prometheus listener if the port is (properly) configured
 		if option.Config.ProxyPrometheusPort < 0 || option.Config.ProxyPrometheusPort > 65535 {

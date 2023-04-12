@@ -135,7 +135,7 @@ func GetEnvoyVersion() string {
 }
 
 // StartEnvoy starts an Envoy proxy instance.
-func StartEnvoy(runDir, logPath string, baseID uint64) *Envoy {
+func StartEnvoy(runDir, logPath string, baseID uint64, externalEnvoyProxy bool) *Envoy {
 	// Have to use a fake IP address:port even when we Dial to a Unix domain socket.
 	// The address:port will be visible to Envoy as ':authority', but its value is
 	// not meaningful.
@@ -152,6 +152,13 @@ func StartEnvoy(runDir, logPath string, baseID uint64) *Envoy {
 			unixPath: adminSocketPath,
 		},
 	}
+
+	if externalEnvoyProxy {
+		// Case Envoy as DaemonSet
+		return e
+	}
+
+	// Case Envoy as standalone process within Agent Container
 
 	// Use the same structure as Istio's pilot-agent for the node ID:
 	// nodeType~ipAddress~proxyId~domain
