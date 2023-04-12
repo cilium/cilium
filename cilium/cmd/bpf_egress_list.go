@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"text/tabwriter"
 
@@ -14,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 )
 
@@ -51,7 +53,7 @@ var bpfEgressListCmd = &cobra.Command{
 				SourceIP:  key.GetSourceIP().String(),
 				DestCIDR:  key.GetDestCIDR().String(),
 				EgressIP:  val.GetEgressIP().String(),
-				GatewayIP: val.GetGatewayIP().String(),
+				GatewayIP: mapGatewayIP(val.GetGatewayIP()),
 			})
 		}
 
@@ -72,6 +74,15 @@ var bpfEgressListCmd = &cobra.Command{
 			printEgressList(bpfEgressList)
 		}
 	},
+}
+
+// This function attempt to translate gatewayIP to special values if they exist
+// or return the IP as a string otherwise.
+func mapGatewayIP(ip net.IP) string {
+	if ip.Equal(egressgateway.GatewayNotFoundIPv4) {
+		return "Not Found"
+	}
+	return ip.String()
 }
 
 func printEgressList(egressList []egressPolicy) {
