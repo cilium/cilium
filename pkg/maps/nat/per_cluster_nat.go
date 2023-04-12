@@ -6,6 +6,7 @@ package nat
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strconv"
 	"syscall"
@@ -176,7 +177,10 @@ func (om *PerClusterNATMap) deleteClusterNATMap(clusterID uint32) error {
 
 	im := om.newInnerMap(om.getInnerMapName(clusterID))
 
-	if _, err := im.OpenOrCreate(); err != nil {
+	if err := im.Open(); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		return err
 	}
 
@@ -211,8 +215,8 @@ func (om *PerClusterNATMap) getClusterNATMap(clusterID uint32) (*Map, error) {
 }
 
 func (om *PerClusterNATMap) cleanup() {
-	for i := uint32(1); i < perClusterNATMapMaxEntries; i++ {
-		om.deleteClusterNATMap(i)
+	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
+		_ = om.deleteClusterNATMap(i)
 	}
 	om.Unpin()
 	om.Close()
@@ -405,7 +409,7 @@ func (gm *dummyPerClusterNATMaps) GetClusterNATMap(clusterID uint32, v4 bool) (*
 }
 
 func (gm *dummyPerClusterNATMaps) Cleanup() {
-	for i := uint32(1); i < perClusterNATMapMaxEntries; i++ {
+	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
 		gm.DeleteClusterNATMaps(i)
 	}
 	gm.v4Map = nil
