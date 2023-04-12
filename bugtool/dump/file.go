@@ -29,9 +29,12 @@ func (f *File) Validate(ctx context.Context) error {
 }
 
 func NewFile(Src string) *File {
+	n := strings.ReplaceAll(Src, "/", "_")
+	// remove trailing dot, in case of copying only contents.
+	n = strings.TrimSuffix(n, ".")
 	return &File{
 		base: base{
-			Name: strings.ReplaceAll(Src, "/", "_"),
+			Name: n,
 			Kind: "File",
 		},
 		Src: Src,

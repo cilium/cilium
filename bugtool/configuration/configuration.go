@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/bugtool/dump"
 	"github.com/cilium/cilium/bugtool/options"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mountinfo"
 
 	log "github.com/sirupsen/logrus"
@@ -87,13 +86,14 @@ func CreateDump(conf *options.Config) dump.Task {
 			)
 			fallthrough
 
-		// State contains cilium runtime state that is written to disk,
+		// Runtime state contains cilium runtime state that is written to disk,
 		// including endpoint restore data.
 		// This is also included as part of the "agent" topic.
 		case "state":
-			runFiles := dump.NewFile("/run/cilium/state")
+			// Append with . will include only contents of directory.
+			runFiles := dump.NewFile("/run/cilium/state/.")
 			if conf.ExcludeObjectFiles {
-				runFiles = runFiles.WithExclude(defaults.StateDir + "/[0-9]*/*.o")
+				runFiles = runFiles.WithExclude("/[0-9]*/*.o")
 			}
 			ts = append(ts, dump.NewDir("state", dump.Tasks{runFiles}))
 
