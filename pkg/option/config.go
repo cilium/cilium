@@ -431,6 +431,9 @@ const (
 	// ProxySocketDir is the directory path to store proxy sockets
 	ProxySocketDir = "proxy-socket-dir"
 
+	// EmbeddedProxyEnabled defines whether the embedded Cilium Proxy should be enabled or not.
+	EmbeddedProxyEnabled = "proxy-embedded-enabled"
+
 	// CMDRef is the path to cmdref output directory
 	CMDRef = "cmdref"
 
@@ -1352,21 +1355,22 @@ func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
 
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
-	CreationTime        time.Time
-	BpfDir              string       // BPF template files directory
-	LibDir              string       // Cilium library files directory
-	RunDir              string       // Cilium runtime directory
-	ProxySocketDir      string       // Cilium Proxy socket directory
-	devicesMu           lock.RWMutex // Protects devices
-	devices             []string     // bpf_host device
-	DirectRoutingDevice string       // Direct routing device (used by BPF NodePort and BPF Host Routing)
-	LBDevInheritIPAddr  string       // Device which IP addr used by bpf_host devices
-	EnableXDPPrefilter  bool         // Enable XDP-based prefiltering
-	XDPMode             string       // XDP mode, values: { xdpdrv | xdpgeneric | none }
-	HostV4Addr          net.IP       // Host v4 address of the snooping device
-	HostV6Addr          net.IP       // Host v6 address of the snooping device
-	EncryptInterface    []string     // Set of network facing interface to encrypt over
-	EncryptNode         bool         // Set to true for encrypting node IP traffic
+	CreationTime         time.Time
+	BpfDir               string       // BPF template files directory
+	LibDir               string       // Cilium library files directory
+	RunDir               string       // Cilium runtime directory
+	ProxySocketDir       string       // Cilium Proxy socket directory
+	EmbeddedProxyEnabled bool         // Whether the embedded Cilium Proxy in the Agent should be enabled or not
+	devicesMu            lock.RWMutex // Protects devices
+	devices              []string     // bpf_host device
+	DirectRoutingDevice  string       // Direct routing device (used by BPF NodePort and BPF Host Routing)
+	LBDevInheritIPAddr   string       // Device which IP addr used by bpf_host devices
+	EnableXDPPrefilter   bool         // Enable XDP-based prefiltering
+	XDPMode              string       // XDP mode, values: { xdpdrv | xdpgeneric | none }
+	HostV4Addr           net.IP       // Host v4 address of the snooping device
+	HostV6Addr           net.IP       // Host v6 address of the snooping device
+	EncryptInterface     []string     // Set of network facing interface to encrypt over
+	EncryptNode          bool         // Set to true for encrypting node IP traffic
 
 	// If set to true the daemon will detect new and deleted datapath devices
 	// at runtime and reconfigure the datapath to load programs onto the new
@@ -3033,6 +3037,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.RouteMetric = vp.GetInt(RouteMetric)
 	c.RunDir = vp.GetString(StateDir)
 	c.ProxySocketDir = vp.GetString(ProxySocketDir)
+	c.EmbeddedProxyEnabled = vp.GetBool(EmbeddedProxyEnabled)
 	c.SidecarIstioProxyImage = vp.GetString(SidecarIstioProxyImage)
 	c.UseSingleClusterRoute = vp.GetBool(SingleClusterRouteName)
 	c.SocketPath = vp.GetString(SocketPath)

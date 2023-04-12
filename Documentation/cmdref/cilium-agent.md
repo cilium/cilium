@@ -255,6 +255,7 @@ cilium-agent [flags]
       --procfs string                                           Root's proc filesystem path (default "/proc")
       --prometheus-serve-addr string                            IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off) (default ":9962")
       --proxy-connect-timeout uint                              Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 2)
+      --proxy-embedded-enabled                                  Whether the embedded Cilium Proxy should be enabled or not (default true)
       --proxy-gid uint                                          Group ID for proxy control plane sockets. (default 1337)
       --proxy-max-connection-duration-seconds int               Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
       --proxy-max-requests-per-connection int                   Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)

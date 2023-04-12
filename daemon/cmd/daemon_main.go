@@ -735,6 +735,9 @@ func initializeFlags() {
 	flags.String(option.ProxySocketDir, defaults.ProxySocketPath, "Directory path where proxy sockets are located")
 	option.BindEnv(Vp, option.ProxySocketDir)
 
+	flags.Bool(option.EmbeddedProxyEnabled, true, "Whether the embedded Cilium Proxy should be enabled or not")
+	option.BindEnv(Vp, option.EmbeddedProxyEnabled)
+
 	flags.StringP(option.TunnelName, "t", "", fmt.Sprintf("Tunnel mode {%s} (default \"vxlan\" for the \"veth\" datapath mode)", option.GetTunnelModes()))
 	option.BindEnv(Vp, option.TunnelName)
 	flags.MarkDeprecated(option.TunnelName,

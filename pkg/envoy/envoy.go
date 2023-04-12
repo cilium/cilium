@@ -136,7 +136,7 @@ func GetEnvoyVersion() string {
 }
 
 // StartEnvoy starts an Envoy proxy instance.
-func StartEnvoy(runDir, proxySocketDir, logPath string, baseID uint64) *Envoy {
+func StartEnvoy(runDir, proxySocketDir, logPath string, baseID uint64, useEmbeddedProxy bool) *Envoy {
 	// Have to use a fake IP address:port even when we Dial to a Unix domain socket.
 	// The address:port will be visible to Envoy as ':authority', but its value is
 	// not meaningful.
@@ -153,115 +153,121 @@ func StartEnvoy(runDir, proxySocketDir, logPath string, baseID uint64) *Envoy {
 			unixPath: adminSocketPath,
 		},
 	}
+	if useEmbeddedProxy {
+		// Case Proxy as standalone process within Agent DaemonSet
 
-	// Use the same structure as Istio's pilot-agent for the node ID:
-	// nodeType~ipAddress~proxyId~domain
-	nodeId := "host~127.0.0.1~no-id~localdomain"
-	bootstrapPath := filepath.Join(runDir, "bootstrap.pb")
-	xdsSocketPath := getXDSSocketPath(proxySocketDir)
+		// Use the same structure as Istio's pilot-agent for the node ID:
+		// nodeType~ipAddress~proxyId~domain
+		nodeId := "host~127.0.0.1~no-id~localdomain"
+		bootstrapPath := filepath.Join(runDir, "bootstrap.pb")
+		xdsSocketPath := getXDSSocketPath(proxySocketDir)
 
-	// Create static configuration
-	createBootstrap(bootstrapPath, nodeId, ingressClusterName,
-		xdsSocketPath, egressClusterName, ingressClusterName, adminSocketPath)
+		// Create static configuration
+		createBootstrap(bootstrapPath, nodeId, ingressClusterName,
+			xdsSocketPath, egressClusterName, ingressClusterName, adminSocketPath)
 
-	log.Debugf("Envoy: Starting: %v", *e)
+		log.Debugf("Envoy: Starting: %v", *e)
 
-	// make it a buffered channel, so we can not only
-	// read the written value but also skip it in
-	// case no one reader reads it.
-	started := make(chan bool, 1)
-	go func() {
-		var logWriter io.WriteCloser
-		var logFormat string
-		if logPath != "" {
-			// Use the Envoy default log format when logging to a separate file
-			logFormat = "[%Y-%m-%d %T.%e][%t][%l][%n] %v"
-			logger := &lumberjack.Logger{
-				Filename:   logPath,
-				MaxSize:    100, // megabytes
-				MaxBackups: 3,
-				MaxAge:     28,   //days
-				Compress:   true, // disabled by default
+		// make it a buffered channel, so we can not only
+		// read the written value but also skip it in
+		// case no one reader reads it.
+		started := make(chan bool, 1)
+		go func() {
+			var logWriter io.WriteCloser
+			var logFormat string
+			if logPath != "" {
+				// Use the Envoy default log format when logging to a separate file
+				logFormat = "[%Y-%m-%d %T.%e][%t][%l][%n] %v"
+				logger := &lumberjack.Logger{
+					Filename:   logPath,
+					MaxSize:    100, // megabytes
+					MaxBackups: 3,
+					MaxAge:     28,   //days
+					Compress:   true, // disabled by default
+				}
+				logWriter = logger
+			} else {
+				// Use log format that looks like Cilium logs when integrating logs
+				// The logs will be reported as coming from the cilium-agent, so
+				// we add the thread id to be able to differentiate between Envoy's
+				// main and worker threads.
+				logFormat = "%t|%l|%n|%v"
+
+				// Create a piper that parses and writes into logrus the log
+				// messages from Envoy.
+				logWriter = newEnvoyLogPiper()
 			}
-			logWriter = logger
-		} else {
-			// Use log format that looks like Cilium logs when integrating logs
-			// The logs will be reported as coming from the cilium-agent, so
-			// we add the thread id to be able to differentiate between Envoy's
-			// main and worker threads.
-			logFormat = "%t|%l|%n|%v"
+			defer logWriter.Close()
 
-			// Create a piper that parses and writes into logrus the log
-			// messages from Envoy.
-			logWriter = newEnvoyLogPiper()
-		}
-		defer logWriter.Close()
+			for {
+				logLevel := logging.GetLevel(logging.DefaultLogger)
+				cmd := exec.Command(ciliumEnvoy, "-l", mapLogLevel(logLevel), "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10), "--log-format", logFormat)
+				cmd.Stderr = logWriter
+				cmd.Stdout = logWriter
 
-		for {
-			logLevel := logging.GetLevel(logging.DefaultLogger)
-			cmd := exec.Command(ciliumEnvoy, "-l", mapLogLevel(logLevel), "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10), "--log-format", logFormat)
-			cmd.Stderr = logWriter
-			cmd.Stdout = logWriter
-
-			if err := cmd.Start(); err != nil {
-				log.WithError(err).Warn("Envoy: Failed to start proxy")
+				if err := cmd.Start(); err != nil {
+					log.WithError(err).Warn("Envoy: Failed to start proxy")
+					select {
+					case started <- false:
+					default:
+					}
+					return
+				}
+				log.Debugf("Envoy: Started proxy")
 				select {
-				case started <- false:
+				case started <- true:
 				default:
 				}
-				return
-			}
-			log.Debugf("Envoy: Started proxy")
-			select {
-			case started <- true:
-			default:
-			}
 
-			log.Infof("Envoy: Proxy started with pid %d", cmd.Process.Pid)
-			metrics.SubprocessStart.WithLabelValues(ciliumEnvoy).Inc()
+				log.Infof("Envoy: Proxy started with pid %d", cmd.Process.Pid)
+				metrics.SubprocessStart.WithLabelValues(ciliumEnvoy).Inc()
 
-			// We do not return after a successful start, but watch the Envoy process
-			// and restart it if it crashes.
-			// Waiting for the process execution is done in the goroutime.
-			// The purpose of the "crash channel" is to inform the loop about their
-			// Envoy process crash - after closing that channel by the goroutime,
-			// the loop continues, the channel is recreated and the new process
-			// is watched again.
-			crashCh := make(chan struct{})
-			go func() {
-				if err := cmd.Wait(); err != nil {
-					log.WithError(err).Warn("Envoy: Proxy crashed")
-					// Avoid busy loop & hogging CPU resources by waiting before restarting envoy.
-					time.Sleep(100 * time.Millisecond)
-				}
-				close(crashCh)
-			}()
-
-			select {
-			case <-crashCh:
-				// Start Envoy again
-				continue
-			case <-e.stopCh:
-				log.Infof("Envoy: Stopping proxy with pid %d", cmd.Process.Pid)
-				if err := e.admin.quit(); err != nil {
-					log.WithError(err).Fatalf("Envoy: Envoy admin quit failed, killing process with pid %d", cmd.Process.Pid)
-
-					if err := cmd.Process.Kill(); err != nil {
-						log.WithError(err).Fatal("Envoy: Stopping Envoy failed")
-						e.errCh <- err
+				// We do not return after a successful start, but watch the Envoy process
+				// and restart it if it crashes.
+				// Waiting for the process execution is done in the goroutime.
+				// The purpose of the "crash channel" is to inform the loop about their
+				// Envoy process crash - after closing that channel by the goroutime,
+				// the loop continues, the channel is recreated and the new process
+				// is watched again.
+				crashCh := make(chan struct{})
+				go func() {
+					if err := cmd.Wait(); err != nil {
+						log.WithError(err).Warn("Envoy: Proxy crashed")
+						// Avoid busy loop & hogging CPU resources by waiting before restarting envoy.
+						time.Sleep(100 * time.Millisecond)
 					}
-				}
-				close(e.errCh)
-				return
-			}
-		}
-	}()
+					close(crashCh)
+				}()
 
-	if <-started {
+				select {
+				case <-crashCh:
+					// Start Envoy again
+					continue
+				case <-e.stopCh:
+					log.Infof("Envoy: Stopping proxy with pid %d", cmd.Process.Pid)
+					if err := e.admin.quit(); err != nil {
+						log.WithError(err).Fatalf("Envoy: Envoy admin quit failed, killing process with pid %d", cmd.Process.Pid)
+
+						if err := cmd.Process.Kill(); err != nil {
+							log.WithError(err).Fatal("Envoy: Stopping Envoy failed")
+							e.errCh <- err
+						}
+					}
+					close(e.errCh)
+					return
+				}
+			}
+		}()
+
+		if <-started {
+			return e
+		}
+
+		return nil
+	} else {
+		// Case Proxy as DaemonSet
 		return e
 	}
-
-	return nil
 }
 
 // newEnvoyLogPiper creates a writer that parses and logs log messages written by Envoy.
