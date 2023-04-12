@@ -254,6 +254,41 @@ contributors across the globe, there is almost always someone available to help.
 | eni.subnetIDsFilter | list | `[]` | Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead. |
 | eni.subnetTagsFilter | list | `[]` | Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead. |
 | eni.updateEC2AdapterLimitViaAPI | bool | `true` | Update ENI Adapter limits from the EC2 API |
+| envoy | object | `{"affinity":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}},"connectTimeoutSeconds":2,"dnsPolicy":null,"enabled":false,"extraArgs":[],"extraContainers":[],"extraEnv":[],"extraHostPathMounts":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":9879,"image":{"digest":"sha256:5d03695af25448768062fa42bffec7dbaa970f0d2b320d39e60b0a12f45027e8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.6-4350471813b173839df78f7a1ea5d77b5cdf714b","useDigest":true},"livenessProbe":{"failureThreshold":10,"periodSeconds":30},"maxConnectionDurationSeconds":0,"maxRequestsPerConnection":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"podSecurityContext":{},"priorityClassName":null,"prometheus":{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}},"readinessProbe":{"failureThreshold":3,"periodSeconds":30},"resources":{},"rollOutPods":false,"securityContext":{"capabilities":{"envoy":["NET_ADMIN","SYS_ADMIN"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}},"socketDir":{"containers":"/var/run/cilium/envoy/sockets","host":"/var/run/cilium/envoy/sockets"},"startupProbe":{"failureThreshold":105,"periodSeconds":2},"terminationGracePeriodSeconds":1,"tolerations":[{"operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}}` | Configure Cilium Envoy options. |
+| envoy.affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-envoy. |
+| envoy.dnsPolicy | string | `nil` | DNS policy for Cilium envoy pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy |
+| envoy.extraArgs | list | `[]` | Additional envoy container arguments. |
+| envoy.extraContainers | list | `[]` | Additional containers added to the cilium Envoy DaemonSet. |
+| envoy.extraEnv | list | `[]` | Additional envoy container environment variables. |
+| envoy.extraHostPathMounts | list | `[]` | Additional envoy hostPath mounts. |
+| envoy.extraVolumeMounts | list | `[]` | Additional envoy volumeMounts. |
+| envoy.extraVolumes | list | `[]` | Additional envoy volumes. |
+| envoy.healthPort | int | `9879` | TCP port for the health API. |
+| envoy.image | object | `{"digest":"sha256:5d03695af25448768062fa42bffec7dbaa970f0d2b320d39e60b0a12f45027e8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.6-4350471813b173839df78f7a1ea5d77b5cdf714b","useDigest":true}` | Envoy container image. |
+| envoy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
+| envoy.livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
+| envoy.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node selector for cilium-envoy. |
+| envoy.podAnnotations | object | `{}` | Annotations to be added to envoy pods |
+| envoy.podLabels | object | `{}` | Labels to be added to envoy pods |
+| envoy.podSecurityContext | object | `{}` | Security Context for cilium-envoy pods. |
+| envoy.priorityClassName | string | `nil` | The priority class to use for cilium-envoy. |
+| envoy.prometheus.serviceMonitor.annotations | object | `{}` | Annotations to add to ServiceMonitor cilium-envoy |
+| envoy.prometheus.serviceMonitor.enabled | bool | `false` | Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml) |
+| envoy.prometheus.serviceMonitor.interval | string | `"10s"` | Interval for scrape metrics. |
+| envoy.prometheus.serviceMonitor.labels | object | `{}` | Labels to add to ServiceMonitor cilium-envoy |
+| envoy.prometheus.serviceMonitor.metricRelabelings | string | `nil` | Metrics relabeling configs for the ServiceMonitor cilium-envoy |
+| envoy.prometheus.serviceMonitor.relabelings | list | `[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]` | Relabeling configs for the ServiceMonitor cilium-envoy |
+| envoy.readinessProbe.failureThreshold | int | `3` | failure threshold of readiness probe |
+| envoy.readinessProbe.periodSeconds | int | `30` | interval between checks of the readiness probe |
+| envoy.resources | object | `{}` | Envoy resource limits & requests ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/ |
+| envoy.rollOutPods | bool | `false` | Roll out cilium envoy pods automatically when configmap is updated. |
+| envoy.securityContext.capabilities.envoy | list | `["NET_ADMIN","SYS_ADMIN"]` | Capabilities for the `cilium-envoy` container |
+| envoy.securityContext.privileged | bool | `false` | Run the pod with elevated privileges |
+| envoy.securityContext.seLinuxOptions | object | `{"level":"s0","type":"spc_t"}` | SELinux options for the `cilium-envoy` container |
+| envoy.startupProbe.failureThreshold | int | `105` | failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s) |
+| envoy.startupProbe.periodSeconds | int | `2` | interval between checks of the startup probe |
+| envoy.terminationGracePeriodSeconds | int | `1` | Configure termination grace period for cilium-envoy DaemonSet. |
+| envoy.tolerations | list | `[{"operator":"Exists"}]` | Node tolerations for envoy scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
 | etcd.clusterDomain | string | `"cluster.local"` | Cluster domain for cilium-etcd-operator. |
 | etcd.enabled | bool | `false` | Enable etcd mode for the agent. |
 | etcd.endpoints | list | `["https://CHANGE-ME:2379"]` | List of etcd endpoints (not needed when using managed=true). |

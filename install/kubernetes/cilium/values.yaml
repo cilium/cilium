@@ -66,6 +66,11 @@ serviceAccounts:
     name: cilium-nodeinit
     automount: true
     annotations: {}
+  envoy:
+    create: true
+    name: cilium-envoy
+    automount: true
+    annotations: {}
   etcd:
     create: true
     name: cilium-etcd-operator
@@ -1709,12 +1714,195 @@ dashboards:
 
 # -- Configure Istio proxy options.
 proxy:
+  # Deprecated: use envoy.prometheus instead
   prometheus:
     enabled: true
     port: "9964"
   # -- Regular expression matching compatible Istio sidecar istio-proxy
   # container image names
   sidecarImageRegex: "cilium/istio_proxy"
+
+# -- Configure Cilium Envoy options.
+envoy:
+  # Enable Envoy Proxy in standalone DaemonSet.
+  enabled: false
+
+  # Location of unix sockets for communication between Agent & Envoy.
+  socketDir:
+    # Socket directory within the envoy & agent containers
+    containers: "/var/run/cilium/envoy/sockets"
+    # Socket directory on the host
+    host: "/var/run/cilium/envoy/sockets"
+
+  # Time in seconds after which a TCP connection attempt times out
+  connectTimeoutSeconds: 2
+  # ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
+  maxRequestsPerConnection: 0
+  # Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
+  maxConnectionDurationSeconds: 0
+
+  # -- Envoy container image.
+  image:
+    override: ~
+    repository: "quay.io/cilium/cilium-envoy"
+    tag: "v1.25.6-4350471813b173839df78f7a1ea5d77b5cdf714b"
+    pullPolicy: "Always"
+    digest: "sha256:5d03695af25448768062fa42bffec7dbaa970f0d2b320d39e60b0a12f45027e8"
+    useDigest: true
+
+  # -- Additional containers added to the cilium Envoy DaemonSet.
+  extraContainers: []
+
+  # -- Additional envoy container arguments.
+  extraArgs: []
+
+  # -- Additional envoy container environment variables.
+  extraEnv: []
+
+  # -- Additional envoy hostPath mounts.
+  extraHostPathMounts: []
+    # - name: host-mnt-data
+    #   mountPath: /host/mnt/data
+    #   hostPath: /mnt/data
+    #   hostPathType: Directory
+    #   readOnly: true
+    #   mountPropagation: HostToContainer
+
+  # -- Additional envoy volumes.
+  extraVolumes: []
+
+  # -- Additional envoy volumeMounts.
+  extraVolumeMounts: []
+
+  # -- Configure termination grace period for cilium-envoy DaemonSet.
+  terminationGracePeriodSeconds: 1
+
+  # -- TCP port for the health API.
+  healthPort: 9879
+
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 2
+  # -- Roll out cilium envoy pods automatically when configmap is updated.
+  rollOutPods: false
+
+  # -- Security Context for cilium-envoy pods.
+  podSecurityContext: {}
+
+  # -- Annotations to be added to envoy pods
+  podAnnotations: {}
+
+  # -- Labels to be added to envoy pods
+  podLabels: {}
+
+  # -- Envoy resource limits & requests
+  # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  resources: {}
+    # limits:
+    #   cpu: 4000m
+    #   memory: 4Gi
+    # requests:
+    #   cpu: 100m
+    #   memory: 512Mi
+
+  startupProbe:
+    # -- failure threshold of startup probe.
+    # 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
+    failureThreshold: 105
+    # -- interval between checks of the startup probe
+    periodSeconds: 2
+  livenessProbe:
+    # -- failure threshold of liveness probe
+    failureThreshold: 10
+    # -- interval between checks of the liveness probe
+    periodSeconds: 30
+  readinessProbe:
+    # -- failure threshold of readiness probe
+    failureThreshold: 3
+    # -- interval between checks of the readiness probe
+    periodSeconds: 30
+
+  securityContext:
+    # -- User to run the pod with
+    # runAsUser: 0
+    # -- Run the pod with elevated privileges
+    privileged: false
+    # -- SELinux options for the `cilium-envoy` container
+    seLinuxOptions:
+      level: 's0'
+      # Running with spc_t since we have removed the privileged mode.
+      # Users can change it to a different type as long as they have the
+      # type available on the system.
+      type: 'spc_t'
+    capabilities:
+      # -- Capabilities for the `cilium-envoy` container
+      envoy:
+        # Used since cilium proxy uses setting IPPROTO_IP/IP_TRANSPARENT
+        - NET_ADMIN
+        # We need it for now but might not need it for >= 5.11 specially
+        # for the 'SYS_RESOURCE'.
+        # In >= 5.8 there's already BPF and PERMON capabilities
+        - SYS_ADMIN
+        # Both PERFMON and BPF requires kernel 5.8, container runtime
+        # cri-o >= v1.22.0 or containerd >= v1.5.0.
+        # If available, SYS_ADMIN can be removed.
+        #- PERFMON
+        #- BPF
+
+  # -- Affinity for cilium-envoy.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            k8s-app: cilium-envoy
+
+  # -- Node selector for cilium-envoy.
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  # -- Node tolerations for envoy scheduling to nodes with taints
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  tolerations:
+  - operator: Exists
+    # - key: "key"
+    #   operator: "Equal|Exists"
+    #   value: "value"
+    #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+
+  # -- The priority class to use for cilium-envoy.
+  priorityClassName: ~
+
+  # -- DNS policy for Cilium envoy pods.
+  # Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+  dnsPolicy: ~
+
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      # -- Enable service monitors.
+      # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+      enabled: false
+      # -- Labels to add to ServiceMonitor cilium-envoy
+      labels: {}
+      # -- Annotations to add to ServiceMonitor cilium-envoy
+      annotations: {}
+      # -- Interval for scrape metrics.
+      interval: "10s"
+      # -- Specify the Kubernetes namespace where Prometheus expects to find
+      # service monitors configured.
+      # namespace: ""
+      # -- Relabeling configs for the ServiceMonitor cilium-envoy
+      relabelings:
+        - sourceLabels:
+            - __meta_kubernetes_pod_node_name
+          targetLabel: node
+          replacement: ${1}
+      # -- Metrics relabeling configs for the ServiceMonitor cilium-envoy
+      metricRelabelings: ~
+    port: "9964"
 
 # -- Enable use of the remote node identity.
 # ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity
