@@ -259,6 +259,7 @@ cilium-agent [flags]
       --proxy-max-connection-duration-seconds int               Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
       --proxy-max-requests-per-connection int                   Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)
       --proxy-prometheus-port int                               Port to serve Envoy metrics on. Default 0 (disabled).
+      --proxy-socket-dir string                                 Directory path where proxy sockets are located (default "/var/run/proxy")
       --read-cni-conf string                                    CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
       --restore                                                 Restores state, if possible, from previous daemon (default true)
       --route-metric int                                        Overwrite the metric used by cilium when adding routes to its 'cilium_host' device

@@ -27,10 +27,10 @@ type envoyRedirect struct {
 
 var envoyOnce sync.Once
 
-func startEnvoy(stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) {
+func startEnvoy(runDir, proxySocketDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
-		envoyProxy = envoy.StartEnvoy(stateDir, option.Config.EnvoyLogPath, 0)
+		envoyProxy = envoy.StartEnvoy(runDir, proxySocketDir, option.Config.EnvoyLogPath, 0)
 
 		// Add Prometheus listener if the port is (properly) configured
 		if option.Config.ProxyPrometheusPort < 0 || option.Config.ProxyPrometheusPort > 65535 {
@@ -43,12 +43,12 @@ func startEnvoy(stateDir string, xdsServer *envoy.XDSServer, wg *completion.Wait
 
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
-func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
-	startEnvoy(stateDir, xdsServer, wg)
+func createEnvoyRedirect(r *Redirect, runDir, proxySocketDir string, xdsServer *envoy.XDSServer, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
+	startEnvoy(runDir, proxySocketDir, xdsServer, wg)
 
 	l := r.listener
 	if envoyProxy != nil {
-		redir := &envoyRedirect{
+		redirect := &envoyRedirect{
 			listenerName: net.JoinHostPort(r.name, fmt.Sprintf("%d", l.proxyPort)),
 			xdsServer:    xdsServer,
 		}
@@ -56,10 +56,10 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 		if l.ingress {
 			mayUseOriginalSourceAddr = false
 		}
-		xdsServer.AddListener(redir.listenerName, policy.L7ParserType(l.proxyType), l.proxyPort, l.ingress,
+		xdsServer.AddListener(redirect.listenerName, policy.L7ParserType(l.proxyType), l.proxyPort, l.ingress,
 			mayUseOriginalSourceAddr, wg)
 
-		return redir, nil
+		return redirect, nil
 	}
 
 	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", r.name)

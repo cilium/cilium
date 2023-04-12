@@ -611,7 +611,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	bootstrapStats.proxyStart.Start()
 	// FIXME: Make the port range configurable.
 	if option.Config.EnableL7Proxy {
-		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
+		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir, option.Config.ProxySocketDir,
 			&d, option.Config.AgentLabels, d.datapath, d.endpointManager, d.ipcache)
 	} else {
 		log.Info("L7 proxies are disabled")

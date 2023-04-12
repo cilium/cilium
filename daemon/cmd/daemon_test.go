@@ -76,6 +76,7 @@ func setupTestDirectories() {
 	}
 
 	option.Config.RunDir = tempRunDir
+	option.Config.ProxySocketDir = tempRunDir
 	option.Config.StateDir = tempRunDir
 }
 

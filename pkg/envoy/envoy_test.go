@@ -57,17 +57,17 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	logging.SetLogLevelToDebug()
 	flowdebug.Enable()
 
-	stateLogDir, err := os.MkdirTemp("", "envoy_go_test")
+	testDir, err := os.MkdirTemp("", "envoy_go_test")
 	c.Assert(err, IsNil)
 
-	log.Debugf("state log directory: %s", stateLogDir)
+	log.Debugf("state log directory: %s", testDir)
 
-	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), stateLogDir)
+	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), testDir)
 	defer xdsServer.stop()
-	StartAccessLogServer(stateLogDir, xdsServer)
+	StartAccessLogServer(testDir, xdsServer)
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEnvoy(stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 0)
+	envoyProxy := StartEnvoy(testDir, testDir, filepath.Join(testDir, "cilium-envoy.log"), 0)
 	c.Assert(envoyProxy, NotNil)
 	log.Debug("started Envoy")
 
@@ -137,17 +137,17 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	flowdebug.Enable()
 
-	stateLogDir, err := os.MkdirTemp("", "envoy_go_test")
+	testDir, err := os.MkdirTemp("", "envoy_go_test")
 	c.Assert(err, IsNil)
 
-	log.Debugf("state log directory: %s", stateLogDir)
+	log.Debugf("state log directory: %s", testDir)
 
-	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), stateLogDir)
+	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), testDir)
 	defer xdsServer.stop()
-	StartAccessLogServer(stateLogDir, xdsServer)
+	StartAccessLogServer(testDir, xdsServer)
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEnvoy(stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 42)
+	envoyProxy := StartEnvoy(testDir, testDir, filepath.Join(testDir, "cilium-envoy.log"), 42)
 	c.Assert(envoyProxy, NotNil)
 	log.Debug("started Envoy")
 

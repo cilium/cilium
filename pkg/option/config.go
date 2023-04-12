@@ -428,6 +428,9 @@ const (
 	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	PrometheusServeAddr = "prometheus-serve-addr"
 
+	// ProxySocketDir is the directory path to store proxy sockets
+	ProxySocketDir = "proxy-socket-dir"
+
 	// CMDRef is the path to cmdref output directory
 	CMDRef = "cmdref"
 
@@ -1353,6 +1356,7 @@ type DaemonConfig struct {
 	BpfDir              string       // BPF template files directory
 	LibDir              string       // Cilium library files directory
 	RunDir              string       // Cilium runtime directory
+	ProxySocketDir      string       // Cilium Proxy socket directory
 	devicesMu           lock.RWMutex // Protects devices
 	devices             []string     // bpf_host device
 	DirectRoutingDevice string       // Direct routing device (used by BPF NodePort and BPF Host Routing)
@@ -3028,6 +3032,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.RestoreState = vp.GetBool(Restore)
 	c.RouteMetric = vp.GetInt(RouteMetric)
 	c.RunDir = vp.GetString(StateDir)
+	c.ProxySocketDir = vp.GetString(ProxySocketDir)
 	c.SidecarIstioProxyImage = vp.GetString(SidecarIstioProxyImage)
 	c.UseSingleClusterRoute = vp.GetBool(SingleClusterRouteName)
 	c.SocketPath = vp.GetString(SocketPath)

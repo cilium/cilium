@@ -41,6 +41,9 @@ const (
 	// RuntimePath is the default path to the runtime directory
 	RuntimePath = "/var/run/cilium"
 
+	// ProxySocketPath is the default path to the proxy socket directory
+	ProxySocketPath = "/var/run/proxy"
+
 	// RuntimePathRights are the default access rights of the RuntimePath directory
 	RuntimePathRights = 0775
 

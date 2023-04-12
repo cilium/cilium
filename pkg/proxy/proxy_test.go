@@ -31,8 +31,8 @@ func (m *MockDatapathUpdater) SupportsOriginalSourceAddr() bool {
 func (s *ProxySuite) TestPortAllocator(c *C) {
 	mockDatapathUpdater := &MockDatapathUpdater{}
 
-	stateDir := c.MkDir()
-	p := StartProxySupport(10000, 20000, stateDir, nil, nil, mockDatapathUpdater, nil,
+	testDir := c.MkDir()
+	p := StartProxySupport(10000, 20000, testDir, testDir, nil, nil, mockDatapathUpdater, nil,
 		testipcache.NewMockIPCache())
 
 	port, err := p.AllocateProxyPort("listener1", false, true)

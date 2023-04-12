@@ -25,8 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
-func getAccessLogPath(stateDir string) string {
-	return filepath.Join(stateDir, "access_log.sock")
+func getAccessLogSocketPath(proxySocketDir string) string {
+	return filepath.Join(proxySocketDir, "access_log.sock")
 }
 
 type accessLogServer struct {
@@ -34,8 +34,8 @@ type accessLogServer struct {
 }
 
 // StartAccessLogServer starts the access log server.
-func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
-	accessLogPath := getAccessLogPath(stateDir)
+func StartAccessLogServer(proxySocketDir string, xdsServer *XDSServer) {
+	accessLogPath := getAccessLogSocketPath(proxySocketDir)
 
 	// Create the access log listener
 	os.Remove(accessLogPath) // Remove/Unlink the old unix domain socket, if any.

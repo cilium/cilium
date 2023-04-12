@@ -93,6 +93,7 @@ func setupTestDirectories() string {
 		panic(fmt.Sprintf("TempDir() failed: %s", err))
 	}
 	agentOption.Config.RunDir = tempDir
+	agentOption.Config.ProxySocketDir = tempDir
 	agentOption.Config.StateDir = tempDir
 	return tempDir
 }

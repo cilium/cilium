@@ -152,8 +152,8 @@ type XDSServer struct {
 	stopServer context.CancelFunc
 }
 
-func getXDSPath(stateDir string) string {
-	return filepath.Join(stateDir, "xds.sock")
+func getXDSSocketPath(proxySocketDir string) string {
+	return filepath.Join(proxySocketDir, "xds.sock")
 }
 
 func toAny(pb proto.Message) *anypb.Any {
@@ -165,23 +165,23 @@ func toAny(pb proto.Message) *anypb.Any {
 }
 
 // StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(ipcache IPCacheEventSource, stateDir string) *XDSServer {
-	xdsPath := getXDSPath(stateDir)
+func StartXDSServer(ipcache IPCacheEventSource, proxySocketDir string) *XDSServer {
+	xdsSocketPath := getXDSSocketPath(proxySocketDir)
 
-	os.Remove(xdsPath)
-	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsPath, Net: "unix"})
+	os.Remove(xdsSocketPath)
+	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsSocketPath, Net: "unix"})
 	if err != nil {
-		log.WithError(err).Fatalf("Envoy: Failed to open xDS listen socket at %s", xdsPath)
+		log.WithError(err).Fatalf("Envoy: Failed to open xDS listen socket at %s", xdsSocketPath)
 	}
 
 	// Make the socket accessible by owner and group only. Group access is needed for Istio
 	// sidecar proxies.
-	if err = os.Chmod(xdsPath, 0660); err != nil {
-		log.WithError(err).Fatalf("Envoy: Failed to change mode of xDS listen socket at %s", xdsPath)
+	if err = os.Chmod(xdsSocketPath, 0660); err != nil {
+		log.WithError(err).Fatalf("Envoy: Failed to change mode of xDS listen socket at %s", xdsSocketPath)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
-	if err = os.Chown(xdsPath, -1, option.Config.ProxyGID); err != nil {
-		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", xdsPath)
+	if err = os.Chown(xdsSocketPath, -1, option.Config.ProxyGID); err != nil {
+		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", xdsSocketPath)
 	}
 
 	ldsCache := xds.NewCache()
@@ -243,8 +243,8 @@ func StartXDSServer(ipcache IPCacheEventSource, stateDir string) *XDSServer {
 	}, 5*time.Second)
 
 	return &XDSServer{
-		socketPath:             xdsPath,
-		accessLogPath:          getAccessLogPath(stateDir),
+		socketPath:             xdsSocketPath,
+		accessLogPath:          getAccessLogSocketPath(proxySocketDir),
 		listenerMutator:        ldsMutator,
 		listeners:              make(map[string]*Listener),
 		routeMutator:           rdsMutator,
@@ -263,7 +263,7 @@ func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
 		Name: "cilium.l7policy",
 		ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
 			TypedConfig: toAny(&cilium.L7Policy{
-				AccessLogPath:  getAccessLogPath(option.Config.RunDir),
+				AccessLogPath:  getAccessLogSocketPath(option.Config.ProxySocketDir),
 				Denied_403Body: option.Config.HTTP403Message,
 			}),
 		},
@@ -1200,12 +1200,14 @@ var ciliumXDS = &envoy_config_core.ConfigSource{
 
 func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
 	connectTimeout := int64(option.Config.ProxyConnectTimeout) // in seconds
+	maxRequestsPerConnection := uint32(option.Config.ProxyMaxRequestsPerConnection)
+	maxConnectionDuration := option.Config.ProxyMaxConnectionDuration * time.Second
 
 	useDownstreamProtocol := map[string]*anypb.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
-				MaxRequestsPerConnection: wrapperspb.UInt32(uint32(option.Config.ProxyMaxRequestsPerConnection)),
-				MaxConnectionDuration:    durationpb.New(option.Config.ProxyMaxConnectionDuration * time.Second),
+				MaxRequestsPerConnection: wrapperspb.UInt32(maxRequestsPerConnection),
+				MaxConnectionDuration:    durationpb.New(maxConnectionDuration),
 			},
 			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
 				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
@@ -1221,8 +1223,8 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 				//	downstream to upstream.
 			},
 			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
-				MaxRequestsPerConnection: wrapperspb.UInt32(uint32(option.Config.ProxyMaxRequestsPerConnection)),
-				MaxConnectionDuration:    durationpb.New(option.Config.ProxyMaxConnectionDuration * time.Second),
+				MaxRequestsPerConnection: wrapperspb.UInt32(maxRequestsPerConnection),
+				MaxConnectionDuration:    durationpb.New(maxConnectionDuration),
 			},
 			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
 				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},

@@ -136,38 +136,37 @@ func GetEnvoyVersion() string {
 }
 
 // StartEnvoy starts an Envoy proxy instance.
-func StartEnvoy(stateDir, logPath string, baseID uint64) *Envoy {
-	bootstrapPath := filepath.Join(stateDir, "bootstrap.pb")
-	xdsPath := getXDSPath(stateDir)
-
+func StartEnvoy(runDir, proxySocketDir, logPath string, baseID uint64) *Envoy {
 	// Have to use a fake IP address:port even when we Dial to a Unix domain socket.
 	// The address:port will be visible to Envoy as ':authority', but its value is
 	// not meaningful.
 	// Not using the normal localhost address to make it obvious that we are not
 	// connecting to Envoy's admin interface via the IP stack.
 	adminAddress := "192.0.2.34:56"
-	adminPath := filepath.Join(stateDir, adminSock)
+	adminSocketPath := filepath.Join(proxySocketDir, adminSock)
 
 	e := &Envoy{
 		stopCh: make(chan struct{}),
 		errCh:  make(chan error, 1),
 		admin: &admin{
-			adminURL: "http://" + adminAddress + "/",
-			unixPath: adminPath,
+			adminURL: fmt.Sprintf("http://%s/", adminAddress),
+			unixPath: adminSocketPath,
 		},
 	}
 
 	// Use the same structure as Istio's pilot-agent for the node ID:
 	// nodeType~ipAddress~proxyId~domain
 	nodeId := "host~127.0.0.1~no-id~localdomain"
+	bootstrapPath := filepath.Join(runDir, "bootstrap.pb")
+	xdsSocketPath := getXDSSocketPath(proxySocketDir)
 
 	// Create static configuration
 	createBootstrap(bootstrapPath, nodeId, ingressClusterName,
-		xdsPath, egressClusterName, ingressClusterName, adminPath)
+		xdsSocketPath, egressClusterName, ingressClusterName, adminSocketPath)
 
 	log.Debugf("Envoy: Starting: %v", *e)
 
-	// make it a buffered channel so we can not only
+	// make it a buffered channel, so we can not only
 	// read the written value but also skip it in
 	// case no one reader reads it.
 	started := make(chan bool, 1)

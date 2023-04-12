@@ -732,6 +732,9 @@ func initializeFlags() {
 	flags.String(option.StateDir, defaults.RuntimePath, "Directory path to store runtime state")
 	option.BindEnv(Vp, option.StateDir)
 
+	flags.String(option.ProxySocketDir, defaults.ProxySocketPath, "Directory path where proxy sockets are located")
+	option.BindEnv(Vp, option.ProxySocketDir)
+
 	flags.StringP(option.TunnelName, "t", "", fmt.Sprintf("Tunnel mode {%s} (default \"vxlan\" for the \"veth\" datapath mode)", option.GetTunnelModes()))
 	option.BindEnv(Vp, option.TunnelName)
 	flags.MarkDeprecated(option.TunnelName,
@@ -1209,8 +1212,9 @@ func initEnv() {
 	}
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Path + ".RunDir": option.Config.RunDir,
-		logfields.Path + ".LibDir": option.Config.LibDir,
+		logfields.Path + ".RunDir":         option.Config.RunDir,
+		logfields.Path + ".ProxySocketDir": option.Config.ProxySocketDir,
+		logfields.Path + ".LibDir":         option.Config.LibDir,
 	})
 
 	option.Config.BpfDir = filepath.Join(option.Config.LibDir, defaults.BpfDir)
