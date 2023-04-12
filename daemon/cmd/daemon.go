@@ -154,7 +154,7 @@ type Daemon struct {
 
 	// nodeDiscovery defines the node discovery logic of the agent
 	nodeDiscovery  *nodediscovery.NodeDiscovery
-	nodeLocalStore node.LocalNodeStore
+	nodeLocalStore *node.LocalNodeStore
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM

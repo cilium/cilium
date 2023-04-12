@@ -1601,7 +1601,7 @@ type daemonParams struct {
 	Clientset            k8sClient.Clientset
 	Datapath             datapath.Datapath
 	WGAgent              *wireguard.Agent `optional:"true"`
-	LocalNodeStore       node.LocalNodeStore
+	LocalNodeStore       *node.LocalNodeStore
 	BGPController        *bgpv1.Controller
 	Shutdowner           hive.Shutdowner
 	Resources            agentK8s.Resources
