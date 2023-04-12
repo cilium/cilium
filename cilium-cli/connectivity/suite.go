@@ -8,13 +8,11 @@ import (
 	_ "embed"
 	"fmt"
 
-	"github.com/blang/semver/v4"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/tests"
-	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
 )
 
@@ -167,25 +165,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		renderedTemplates[key] = val
 	}
 
-	var v semver.Version
-	if assumeCiliumVersion := ct.Params().AssumeCiliumVersion; assumeCiliumVersion != "" {
-		ct.Warnf("Assuming Cilium version %s for connectivity tests", assumeCiliumVersion)
-		var err error
-		v, err = utils.ParseCiliumVersion(assumeCiliumVersion)
-		if err != nil {
-			return err
-		}
-	} else if minVersion, err := ct.DetectMinimumCiliumVersion(ctx); err != nil {
-		ct.Warnf("Unable to detect Cilium version, assuming %v for connectivity tests: %s", defaults.Version, err)
-		v, err = utils.ParseCiliumVersion(defaults.Version)
-		if err != nil {
-			return err
-		}
-	} else {
-		v = *minVersion
-	}
-
-	ct.Infof("Cilium version: %v", v)
+	ct.Infof("Cilium version: %v", ct.CiliumVersion)
 
 	// Network Performance Test
 	if ct.Params().Perf {
