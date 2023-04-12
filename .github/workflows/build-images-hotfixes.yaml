@@ -21,6 +21,9 @@ jobs:
           - name: cilium
             dockerfile: ./images/cilium/Dockerfile
 
+          - name: proxy
+            dockerfile: ./images/proxy/Dockerfile
+
           - name: operator
             dockerfile: ./images/operator/Dockerfile
 

@@ -21,6 +21,8 @@ jobs:
         include:
           - name: cilium
 
+          - name: proxy
+
           - name: operator-aws
 
           - name: operator-azure
