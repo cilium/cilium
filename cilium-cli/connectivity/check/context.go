@@ -34,11 +34,15 @@ type ConnectivityTest struct {
 	client       *k8s.Client
 	hubbleClient observer.ObserverClient
 
+	// CiliumVersion is the detected or assumed version of the Cilium agent
+	CiliumVersion semver.Version
+
 	features FeatureSet
 
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
 
+	// version is the version string of the cilium-cli itself
 	version string
 
 	// Clients for source and destination clusters.
@@ -237,6 +241,11 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 		return err
 	}
 	if err := ct.initCiliumPods(ctx); err != nil {
+		return err
+	}
+	// Detect Cilium version after Cilium pods have been initialized and before feature
+	// detection.
+	if err := ct.detectCiliumVersion(ctx); err != nil {
 		return err
 	}
 	if err := ct.detectFeatures(ctx); err != nil {
