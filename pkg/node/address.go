@@ -39,7 +39,8 @@ var (
 	// This is defined here until all uses of the getters and
 	// setters in this file have been migrated to use LocalNodeStore
 	// directly.
-	localNode LocalNodeStore = defaultLocalNodeStore()
+	// Initialized via an invoke function in LocalNodeStoreCell.
+	localNode *LocalNodeStore
 )
 
 type addresses struct {
@@ -359,7 +360,7 @@ func SetIPv4AllocRange(net *cidr.CIDR) {
 func Uninitialize() {
 	addrsMu.Lock()
 	addrs = addresses{}
-	localNode = defaultLocalNodeStore()
+	localNode.Update(func(n *LocalNode) { *n = LocalNode{} })
 	addrsMu.Unlock()
 }
 

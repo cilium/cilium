@@ -32,7 +32,7 @@ func TestLocalNodeStore(t *testing.T) {
 
 	// observe observes changes to the LocalNodeStore and completes
 	// waitObserve after the last change has been observed.
-	observe := func(store LocalNodeStore) {
+	observe := func(store *LocalNodeStore) {
 		store.Observe(context.TODO(),
 			func(n LocalNode) {
 				observed = append(observed, n.NodeIdentity)
@@ -46,7 +46,7 @@ func TestLocalNodeStore(t *testing.T) {
 
 	// update adds a start hook to the application that modifies
 	// the local node.
-	update := func(lc hive.Lifecycle, store LocalNodeStore) {
+	update := func(lc hive.Lifecycle, store *LocalNodeStore) {
 		lc.Append(hive.Hook{
 			OnStart: func(hive.HookContext) error {
 				// emit 2, 3, 4, 5

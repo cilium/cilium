@@ -27,7 +27,6 @@ type NodeSuite struct{}
 var _ = Suite(&NodeSuite{})
 
 func (s *NodeSuite) TearDownTest(c *C) {
-	Uninitialize()
 }
 
 // This also provides cover for RestoreHostIPs.
