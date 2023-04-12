@@ -234,6 +234,9 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 	void *data, *data_end;
 	__u32 *status_code;
 
+	struct metrics_value *entry = NULL;
+	struct metrics_key key = {};
+
 	test_init();
 
 	data = (void *)(long)ctx_data(ctx);
@@ -243,7 +246,14 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_OK);
+	assert(*status_code == CTX_ACT_DROP);
+
+	key.reason = (__u8)-DROP_NO_EGRESS_GATEWAY;
+	key.dir = METRIC_EGRESS;
+	entry = map_lookup_elem(&METRICS_MAP, &key);
+	if (!entry)
+		test_fatal("metrics entry not found");
+	assert(entry->count == 1);
 
 	/* Delete the no gateway entry otherwise other tests may fail as this
 	 * entry will persist across the different tests.

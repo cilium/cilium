@@ -954,6 +954,7 @@ here.
 | NAT46 | 187 |  |
 | NAT64 | 188 |  |
 | AUTH_REQUIRED | 189 |  |
+| NO_EGRESS_GATEWAY | 194 |  |
 
 
 
