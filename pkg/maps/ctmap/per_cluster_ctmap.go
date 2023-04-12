@@ -6,6 +6,7 @@ package ctmap
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"strconv"
 	"unsafe"
 
@@ -205,13 +206,13 @@ func (gm *perClusterCTMaps) DeleteClusterCTMaps(clusterID uint32) error {
 			return err
 		}
 
-		if err := gm.tcp6.deleteClusterCTMap(clusterID); err != nil {
+		if err := gm.any4.deleteClusterCTMap(clusterID); err != nil {
 			return err
 		}
 	}
 
 	if gm.ipv6 {
-		if err := gm.any4.deleteClusterCTMap(clusterID); err != nil {
+		if err := gm.tcp6.deleteClusterCTMap(clusterID); err != nil {
 			return err
 		}
 
@@ -282,7 +283,6 @@ func (gm *perClusterCTMaps) GetAllClusterCTMaps() ([]*Map, error) {
 	defer func() {
 		if err != nil {
 			for _, im := range ret {
-				im.Unpin()
 				im.Close()
 			}
 		}
@@ -435,7 +435,7 @@ func (gm *dummyPerClusterCTMaps) GetAllClusterCTMaps() ([]*Map, error) {
 	gm.RLock()
 	defer gm.RUnlock()
 
-	for i := uint32(1); i < cmtypes.ClusterIDMax; i++ {
+	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
 		if gm.ipv4 {
 			if _, ok := gm.tcp4[i]; ok {
 				ims = append(ims, &Map{})
@@ -549,7 +549,10 @@ func (om *PerClusterCTMap) deleteClusterCTMap(clusterID uint32) error {
 
 	im := om.newInnerMap(clusterID)
 
-	if err := im.OpenOrCreate(); err != nil {
+	if err := im.Open(); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		return err
 	}
 
@@ -598,7 +601,7 @@ func (om *PerClusterCTMap) getAllClusterMaps() ([]*Map, error) {
 		}
 	}()
 
-	for i := uint32(1); i < cmtypes.ClusterIDMax; i++ {
+	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
 		im, err = om.getClusterMap(i)
 		if errors.Is(err, unix.ENOENT) {
 			continue
@@ -613,7 +616,7 @@ func (om *PerClusterCTMap) getAllClusterMaps() ([]*Map, error) {
 }
 
 func (om *PerClusterCTMap) cleanup() {
-	for i := uint32(0); i < cmtypes.ClusterIDMax; i++ {
+	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
 		om.deleteClusterCTMap(i)
 	}
 	om.Unpin()

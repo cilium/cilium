@@ -4,7 +4,9 @@
 package nat
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"strconv"
 	"unsafe"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -163,7 +166,10 @@ func (om *PerClusterNATMap) deleteClusterNATMap(clusterID uint32) error {
 
 	im := om.newInnerMap(om.getInnerMapName(clusterID))
 
-	if err := im.OpenOrCreate(); err != nil {
+	if err := im.Open(); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		return err
 	}
 
@@ -196,8 +202,11 @@ func (om *PerClusterNATMap) getClusterNATMap(clusterID uint32) (*Map, error) {
 }
 
 func (om *PerClusterNATMap) cleanup() {
-	for i := uint32(1); i < perClusterNATMapMaxEntries; i++ {
-		om.deleteClusterNATMap(i)
+	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
+		err := om.deleteClusterNATMap(i)
+		if err != nil {
+			log.WithError(err).WithField(logfields.ClusterID, i).Error("Failed to cleanup per-cluster NAT map")
+		}
 	}
 	om.Unpin()
 	om.Close()
@@ -390,7 +399,7 @@ func (gm *dummyPerClusterNATMaps) GetClusterNATMap(clusterID uint32, v4 bool) (*
 }
 
 func (gm *dummyPerClusterNATMaps) Cleanup() {
-	for i := uint32(1); i < perClusterNATMapMaxEntries; i++ {
+	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
 		gm.DeleteClusterNATMaps(i)
 	}
 	gm.v4Map = nil

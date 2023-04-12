@@ -257,6 +257,9 @@ const (
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"
 
+	// ClusterID is the ID of the cluster
+	ClusterID = "clusterID"
+
 	// AddrCluster is a pair of IP address and ClusterID
 	AddrCluster = "addrCluster"
 
