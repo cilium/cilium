@@ -304,6 +304,12 @@ Annotations:
 
 .. _1.13_upgrade_notes:
 
+1.13.3+ Upgrade Notes
+---------------------
+* Egress Gateway policies now drop matching traffic when no
+  gateway nodes can be found. Previously, traffic would be allowed without
+  being rerouted towards an Egress Gateway.
+
 1.13.2+ Upgrade Notes
 ---------------------
 

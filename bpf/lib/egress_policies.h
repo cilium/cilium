@@ -42,9 +42,15 @@ bool egress_gw_request_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint)
 	if (!egress_gw_policy)
 		return false;
 
-	/* FIXME: no gateway traffic should be dropped in a future release */
-	if (egress_gw_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY)
-		return false;
+	switch (egress_gw_policy->gateway_ip) {
+	case EGRESS_GATEWAY_NO_GATEWAY:
+		/* If no gateway is found we return that the connection is
+		 * "redirected" and the caller will handle this special case
+		 * and drop the traffic.
+		 */
+		*tunnel_endpoint = EGRESS_GATEWAY_NO_GATEWAY;
+		return true;
+	}
 
 	/* If the gateway node is the local node, then just let the
 	 * packet go through, as it will be SNATed later on by
