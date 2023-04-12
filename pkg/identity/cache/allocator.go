@@ -257,7 +257,8 @@ func (m *CachingIdentityAllocator) Close() {
 		// This means the channel was closed and therefore the IdentityAllocator == nil will never be true
 	default:
 		if m.IdentityAllocator == nil {
-			log.Panic("Close() called without calling InitIdentityAllocator() first")
+			log.Error("Close() called without calling InitIdentityAllocator() first")
+			return
 		}
 	}
 
