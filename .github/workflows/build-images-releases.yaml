@@ -104,8 +104,6 @@ jobs:
         uses: sigstore/cosign-installer@204a51a57a74d190b284a0ce69b44bc37201f343 # v3.0.3
 
       - name: Sign Container Image
-        env:
-          COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign -y docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
@@ -131,8 +129,6 @@ jobs:
           cosign attach sbom --sbom sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Sign SBOM Image
-        env:
-          COSIGN_EXPERIMENTAL: "true"
         run: |
           docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
           image_name="docker.io/${{ github.repository_owner }}/${{ matrix.name }}:${docker_build_release_digest/:/-}.sbom"
