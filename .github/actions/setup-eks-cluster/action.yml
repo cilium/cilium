@@ -33,11 +33,22 @@ runs:
            owner: "${{ inputs.owner }}"
 
         managedNodeGroups:
-        - name: ng-1
+        - name: ng-amd64
           instanceTypes:
            - t3.medium
-           - t3a.medium
-          desiredCapacity: 2
+          desiredCapacity: 1
+          spot: true
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 10
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+        - name: ng-arm64
+          instanceTypes:
+           - t4g.medium
+          desiredCapacity: 1
           spot: true
           privateNetworking: true
           volumeType: "gp3"
