@@ -21,6 +21,7 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/envoy"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
@@ -78,6 +79,12 @@ func setupTestDirectories() {
 
 	option.Config.RunDir = tempRunDir
 	option.Config.StateDir = tempRunDir
+
+	socketDir := envoy.GetSocketDir(tempRunDir)
+	err = os.MkdirAll(socketDir, 0700)
+	if err != nil {
+		panic("creating envoy socket directory failed")
+	}
 }
 
 func TestMain(m *testing.M) {

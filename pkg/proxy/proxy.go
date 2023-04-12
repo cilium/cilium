@@ -102,9 +102,9 @@ type ProxyPort struct {
 type Proxy struct {
 	*envoy.XDSServer
 
-	// stateDir is the path of the directory where the state of L7 proxies is
+	// runDir is the path of the directory where the state of L7 proxies is
 	// stored.
-	stateDir string
+	runDir string
 
 	// mutex is the lock required when modifying any proxy datastructure
 	mutex lock.RWMutex
@@ -137,14 +137,14 @@ type Proxy struct {
 
 // StartProxySupport starts the servers to support L7 proxies: xDS GRPC server
 // and access log server.
-func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
+func StartProxySupport(minPort uint16, maxPort uint16, runDir string,
 	accessLogNotifier logger.LogRecordNotifier, accessLogMetadata []string,
 	datapathUpdater DatapathUpdater, mgr EndpointLookup,
 	ipcache IPCacheManager) *Proxy {
 	endpointManager = mgr
 	eir := newEndpointInfoRegistry(ipcache)
 	logger.SetEndpointInfoRegistry(eir)
-	xdsServer := envoy.StartXDSServer(ipcache, stateDir)
+	xdsServer := envoy.StartXDSServer(ipcache, envoy.GetSocketDir(runDir))
 
 	if accessLogNotifier != nil {
 		logger.SetNotifier(accessLogNotifier)
@@ -154,11 +154,11 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 		logger.SetMetadata(accessLogMetadata)
 	}
 
-	envoy.StartAccessLogServer(stateDir, xdsServer)
+	envoy.StartAccessLogServer(envoy.GetSocketDir(runDir), xdsServer)
 
 	return &Proxy{
 		XDSServer:                   xdsServer,
-		stateDir:                    stateDir,
+		runDir:                      runDir,
 		rangeMin:                    minPort,
 		rangeMax:                    maxPort,
 		redirects:                   make(map[string]*Redirect),
@@ -170,13 +170,13 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 
 // Overload XDSServer.UpsertEnvoyResources to start Envoy on demand
 func (p *Proxy) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources, portAllocator envoy.PortAllocator) error {
-	startEnvoy(p.stateDir, p.XDSServer, nil)
+	startEnvoy(p.runDir, p.XDSServer, nil)
 	return p.XDSServer.UpsertEnvoyResources(ctx, resources, portAllocator)
 }
 
 // Overload XDSServer.UpdateEnvoyResources to start Envoy on demand
 func (p *Proxy) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, portAllocator envoy.PortAllocator) error {
-	startEnvoy(p.stateDir, p.XDSServer, nil)
+	startEnvoy(p.runDir, p.XDSServer, nil)
 	return p.XDSServer.UpdateEnvoyResources(ctx, old, new, portAllocator)
 }
 
@@ -596,7 +596,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 				err = nil
 			} else {
 				// create an Envoy Listener for Cilium policy enforcement
-				redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
+				redir.implementation, err = createEnvoyRedirect(redir, p.runDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
 			}
 		}
 
