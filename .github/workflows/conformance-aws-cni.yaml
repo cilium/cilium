@@ -227,35 +227,11 @@ jobs:
           aws-region: ${{ env.region }}
 
       - name: Create EKS cluster
-        run: |
-          cat <<EOF > eks-config.yaml
-            apiVersion: eksctl.io/v1alpha5
-            kind: ClusterConfig
-
-            metadata:
-              name: ${{ env.clusterName }}
-              region: ${{ env.region }}
-              tags:
-               usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
-               owner: "${{ steps.vars.outputs.owner }}"
-
-            managedNodeGroups:
-            - name: ng-1
-              instanceTypes:
-               - t3.medium
-               - t3a.medium
-              desiredCapacity: 2
-              spot: true
-              privateNetworking: true
-              volumeType: "gp3"
-              volumeSize: 10
-              taints:
-               - key: "node.cilium.io/agent-not-ready"
-                 value: "true"
-                 effect: "NoExecute"
-          EOF
-
-          eksctl create cluster -f ./eks-config.yaml
+        uses: ./.github/actions/setup-eks-cluster
+        with:
+          cluster_name: ${{ env.clusterName }}
+          region: ${{ env.region }}
+          owner: "${{ steps.vars.outputs.owner }}"
 
       - name: Update AWS VPC CNI plugin
         run: |
