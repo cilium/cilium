@@ -401,11 +401,15 @@ check-microk8s: ## Validate if microk8s is ready to install cilium.
 LOCAL_IMAGE_TAG=local
 microk8s: export DOCKER_REGISTRY=localhost:32000
 microk8s: export LOCAL_AGENT_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/cilium-dev:$(LOCAL_IMAGE_TAG)
+microk8s: export LOCAL_PROXY_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/proxy:$(LOCAL_IMAGE_TAG)
 microk8s: export LOCAL_OPERATOR_IMAGE=$(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)/operator:$(LOCAL_IMAGE_TAG)
 microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to microk8s ($(LOCAL_AGENT_IMAGE))"
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_AGENT_IMAGE)
+	$(QUIET)$(MAKE) dev-docker-proxy-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	@echo "  DEPLOY image to microk8s ($(LOCAL_PROXY_IMAGE))"
+	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_PROXY_IMAGE)
 	$(QUIET)$(MAKE) dev-docker-operator-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to microk8s ($(LOCAL_OPERATOR_IMAGE))"
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_OPERATOR_IMAGE)
@@ -440,6 +444,7 @@ define KIND_ENV
 .PHONY: $(1)
 $(1): export DOCKER_REGISTRY=localhost:5000
 $(1): export LOCAL_AGENT_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/cilium-dev:$$(LOCAL_IMAGE_TAG)
+$(1): export LOCAL_PROXY_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/proxy:$$(LOCAL_IMAGE_TAG)
 $(1): export LOCAL_OPERATOR_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/operator-generic:$$(LOCAL_IMAGE_TAG)
 $(1): export LOCAL_CLUSTERMESH_IMAGE=$$(DOCKER_REGISTRY)/$$(DOCKER_DEV_ACCOUNT)/clustermesh-apiserver:$$(LOCAL_IMAGE_TAG)
 endef
@@ -494,6 +499,14 @@ $(eval $(call KIND_ENV,kind-image-agent))
 kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
 	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
 
+$(eval $(call KIND_ENV,kind-build-image-proxy))
+kind-build-image-proxy: ## Build cilium proxy docker image
+	$(QUIET)$(MAKE) docker-proxy-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+
+$(eval $(call KIND_ENV,kind-image-proxy))
+kind-image-proxy: kind-ready kind-build-image-proxy ## Build cilium proxy docker image and import it into kind.
+	$(QUIET)kind load docker-image $(LOCAL_PROXY_IMAGE)
+
 $(eval $(call KIND_ENV,kind-build-image-operator))
 kind-build-image-operator: ## Build cilium-operator-dev docker image
 	$(QUIET)$(MAKE) dev-docker-operator-generic-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
@@ -509,6 +522,7 @@ kind-build-clustermesh-apiserver: ## Build cilium-clustermesh-apiserver docker i
 .PHONY: kind-image
 kind-image: ## Build cilium and operator images and import them into kind.
 	$(MAKE) kind-image-agent
+	$(MAKE) kind-image-proxy
 	$(MAKE) kind-image-operator
 
 .PHONY: kind-install-cilium
@@ -553,6 +567,8 @@ kind-debug-agent: ## Create a local kind development environment with cilium-age
 	$(QUIET)$(MAKE) kind-ready 2>/dev/null \
 		|| $(MAKE) kind
 	$(MAKE) kind-image-agent-debug
+	# Not debugging cilium-proxy here; using non debug image
+	$(MAKE) kind-image-proxy
 	# Not debugging cilium-operator here; any image is good enough.
 	kind load docker-image $(LOCAL_OPERATOR_IMAGE) \
 		|| $(MAKE) kind-image-operator
@@ -567,6 +583,8 @@ kind-debug: ## Create a local kind development environment with cilium-agent & c
 	$(QUIET)$(MAKE) kind-ready 2>/dev/null \
 		|| $(MAKE) kind
 	$(MAKE) kind-image-agent-debug
+	# Not debugging cilium-proxy here; using non debug image
+	$(MAKE) kind-image-proxy
 	$(MAKE) kind-image-operator-debug
 	$(MAKE) kind-check-cilium 2>/dev/null \
 		|| $(MAKE) kind-install-cilium

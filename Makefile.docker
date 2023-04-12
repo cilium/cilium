@@ -130,6 +130,9 @@ $(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-image-debug,images/cilium/Dockerf
 # docker-plugin-image
 $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-plugin-image,images/cilium-docker-plugin/Dockerfile,docker-plugin,$(DOCKER_IMAGE_TAG),release))
 
+# docker-proxy-image
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-proxy-image,images/proxy/Dockerfile,proxy,$(DOCKER_IMAGE_TAG),release))
+
 # docker-hubble-relay-image
 $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-hubble-relay-image,images/hubble-relay/Dockerfile,hubble-relay,$(DOCKER_IMAGE_TAG),release))
 
