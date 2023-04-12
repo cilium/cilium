@@ -279,11 +279,11 @@ func systemFileDumps() []dump.Task {
 // routeCommands gets the routes tables dynamically.
 func routeCommands() []dump.Task {
 	// oneline script gets table names for all devices, then dumps either ip4/ip6 route tables.
-	routesScript := "for table in $(ip --json route show table all | jq -r '.[] | select(.table != null) | select(.table != \"local\") | .table'); do ip --json %s route show table $table ; done"
+	routesScript := "for table in $(ip --json %s route show table all | jq -r '.[] | select(.table != null) | select(.table != \"local\") | .table'); do ip --json %s route show table $table ; done"
 	var commands []dump.Task
 	commands = append(commands,
-		dump.NewExec("ip4-route-tables", "json", "bash", []string{"-c", fmt.Sprintf(routesScript, "-4")}...),
-		dump.NewExec("ip6-route-tables", "json", "bash", []string{"-c", fmt.Sprintf(routesScript, "-6")}...),
+		dump.NewExec("ip4-route-tables", "json", "bash", []string{"-c", fmt.Sprintf(routesScript, "-4", "-4")}...),
+		dump.NewExec("ip6-route-tables", "json", "bash", []string{"-c", fmt.Sprintf(routesScript, "-6", "-6")}...),
 	)
 	return commands
 }
