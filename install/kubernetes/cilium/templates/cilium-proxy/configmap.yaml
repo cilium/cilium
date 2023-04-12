@@ -1,0 +1,12 @@
+{{- if and .Values.proxy.enabled (not .Values.preflight.enabled) }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-proxy-config
+  namespace: {{ .Release.Namespace }}
+data:
+{{- (tpl (.Files.Glob "files/cilium-proxy/configmap/*").AsConfig .) | nindent 2 }}
+
+{{- end }}

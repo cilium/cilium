@@ -2109,13 +2109,149 @@
      - list
      - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
    * - proxy
-     - Configure Istio proxy options.
+     - Configure Cilium Proxy options.
      - object
-     - ``{"prometheus":{"enabled":true,"port":"9964"},"sidecarImageRegex":"cilium/istio_proxy"}``
+     - ``{"affinity":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-proxy"}},"topologyKey":"kubernetes.io/hostname"}]}},"connectTimeout":2,"dnsPolicy":"","enabled":false,"extraArgs":[],"extraContainers":[],"extraEnv":[],"extraHostPathMounts":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":9879,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/proxy","tag":"latest","useDigest":false},"livenessProbe":{"failureThreshold":10,"periodSeconds":30},"maxConnectionDuration":0,"maxRequestsPerConnection":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"podSecurityContext":{},"priorityClassName":"","prometheus":{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}},"readinessProbe":{"failureThreshold":3,"periodSeconds":30},"resources":{},"rollOutOnConfigMapUpdate":false,"securityContext":{"capabilities":{"ciliumProxy":["NET_ADMIN","SYS_ADMIN"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}},"sidecarImageRegex":"cilium/istio_proxy","socketDir":{"container":"/var/run/proxy","host":"/var/run/cilium-proxy"},"startupProbe":{"failureThreshold":105,"periodSeconds":2},"terminationGracePeriodSeconds":1,"tolerations":[{"operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}}``
+   * - proxy.affinity
+     - Affinity for cilium-proxy.
+     - object
+     - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-proxy"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - proxy.dnsPolicy
+     - DNS policy for Cilium proxy pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+     - string
+     - ``""``
+   * - proxy.extraArgs
+     - Additional proxy container arguments.
+     - list
+     - ``[]``
+   * - proxy.extraContainers
+     - Additional containers added to the cilium proxy DaemonSet.
+     - list
+     - ``[]``
+   * - proxy.extraEnv
+     - Additional proxy container environment variables.
+     - list
+     - ``[]``
+   * - proxy.extraHostPathMounts
+     - Additional proxy hostPath mounts.
+     - list
+     - ``[]``
+   * - proxy.extraVolumeMounts
+     - Additional proxy volumeMounts.
+     - list
+     - ``[]``
+   * - proxy.extraVolumes
+     - Additional proxy volumes.
+     - list
+     - ``[]``
+   * - proxy.healthPort
+     - TCP port for the health API.
+     - int
+     - ``9879``
+   * - proxy.image
+     - Proxy container image.
+     - object
+     - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/proxy","tag":"latest","useDigest":false}``
+   * - proxy.livenessProbe.failureThreshold
+     - failure threshold of liveness probe
+     - int
+     - ``10``
+   * - proxy.livenessProbe.periodSeconds
+     - interval between checks of the liveness probe
+     - int
+     - ``30``
+   * - proxy.nodeSelector
+     - Node selector for cilium-proxy.
+     - object
+     - ``{"kubernetes.io/os":"linux"}``
+   * - proxy.podAnnotations
+     - Annotations to be added to proxy pods
+     - object
+     - ``{}``
+   * - proxy.podLabels
+     - Labels to be added to proxy pods
+     - object
+     - ``{}``
+   * - proxy.podSecurityContext
+     - Security Context for cilium-proxy pods.
+     - object
+     - ``{}``
+   * - proxy.priorityClassName
+     - The priority class to use for cilium-proxy.
+     - string
+     - ``""``
+   * - proxy.prometheus.serviceMonitor.annotations
+     - Annotations to add to ServiceMonitor cilium-proxy
+     - object
+     - ``{}``
+   * - proxy.prometheus.serviceMonitor.enabled
+     - Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+     - bool
+     - ``false``
+   * - proxy.prometheus.serviceMonitor.interval
+     - Interval for scrape metrics.
+     - string
+     - ``"10s"``
+   * - proxy.prometheus.serviceMonitor.labels
+     - Labels to add to ServiceMonitor cilium-proxy
+     - object
+     - ``{}``
+   * - proxy.prometheus.serviceMonitor.metricRelabelings
+     - Metrics relabeling configs for the ServiceMonitor cilium-proxy
+     - string
+     - ``nil``
+   * - proxy.prometheus.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor cilium-proxy
+     - list
+     - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
+   * - proxy.readinessProbe.failureThreshold
+     - failure threshold of readiness probe
+     - int
+     - ``3``
+   * - proxy.readinessProbe.periodSeconds
+     - interval between checks of the readiness probe
+     - int
+     - ``30``
+   * - proxy.resources
+     - Proxy resource limits & requests ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+     - object
+     - ``{}``
+   * - proxy.rollOutOnConfigMapUpdate
+     - Roll out cilium proxy pods automatically when configmap is updated.
+     - bool
+     - ``false``
+   * - proxy.securityContext.capabilities.ciliumProxy
+     - Capabilities for the ``cilium-proxy`` container
+     - list
+     - ``["NET_ADMIN","SYS_ADMIN"]``
+   * - proxy.securityContext.privileged
+     - Run the pod with elevated privileges
+     - bool
+     - ``false``
+   * - proxy.securityContext.seLinuxOptions
+     - SELinux options for the ``cilium-proxy`` container
+     - object
+     - ``{"level":"s0","type":"spc_t"}``
    * - proxy.sidecarImageRegex
      - Regular expression matching compatible Istio sidecar istio-proxy container image names
      - string
      - ``"cilium/istio_proxy"``
+   * - proxy.startupProbe.failureThreshold
+     - failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
+     - int
+     - ``105``
+   * - proxy.startupProbe.periodSeconds
+     - interval between checks of the startup probe
+     - int
+     - ``2``
+   * - proxy.terminationGracePeriodSeconds
+     - Configure termination grace period for cilium-proxy DaemonSet.
+     - int
+     - ``1``
+   * - proxy.tolerations
+     - Node tolerations for proxy scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[{"operator":"Exists"}]``
    * - rbac.create
      - Enable creation of Resource-Based Access Control configuration.
      - bool

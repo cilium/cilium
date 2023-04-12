@@ -275,6 +275,7 @@ cidrs
 ciliumAgent
 ciliumNodeUpdateRate
 ciliumOperator
+ciliumProxy
 ciliumnode
 classful
 classid
@@ -902,6 +903,7 @@ retryTimeout
 rn
 roadmap
 rollOutCiliumPods
+rollOutOnConfigMapUpdate
 rollOutPods
 rollout
 routable

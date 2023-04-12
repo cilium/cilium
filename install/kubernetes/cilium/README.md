@@ -577,8 +577,42 @@ contributors across the globe, there is almost always someone available to help.
 | prometheus.serviceMonitor.labels | object | `{}` | Labels to add to ServiceMonitor cilium-agent |
 | prometheus.serviceMonitor.metricRelabelings | string | `nil` | Metrics relabeling configs for the ServiceMonitor cilium-agent |
 | prometheus.serviceMonitor.relabelings | list | `[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]` | Relabeling configs for the ServiceMonitor cilium-agent |
-| proxy | object | `{"prometheus":{"enabled":true,"port":"9964"},"sidecarImageRegex":"cilium/istio_proxy"}` | Configure Istio proxy options. |
+| proxy | object | `{"affinity":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-proxy"}},"topologyKey":"kubernetes.io/hostname"}]}},"connectTimeout":2,"dnsPolicy":"","enabled":false,"extraArgs":[],"extraContainers":[],"extraEnv":[],"extraHostPathMounts":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":9879,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/proxy","tag":"latest","useDigest":false},"livenessProbe":{"failureThreshold":10,"periodSeconds":30},"maxConnectionDuration":0,"maxRequestsPerConnection":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"podSecurityContext":{},"priorityClassName":"","prometheus":{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}},"readinessProbe":{"failureThreshold":3,"periodSeconds":30},"resources":{},"rollOutOnConfigMapUpdate":false,"securityContext":{"capabilities":{"ciliumProxy":["NET_ADMIN","SYS_ADMIN"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}},"sidecarImageRegex":"cilium/istio_proxy","socketDir":{"container":"/var/run/proxy","host":"/var/run/cilium-proxy"},"startupProbe":{"failureThreshold":105,"periodSeconds":2},"terminationGracePeriodSeconds":1,"tolerations":[{"operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}}` | Configure Cilium Proxy options. |
+| proxy.affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-proxy"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-proxy. |
+| proxy.dnsPolicy | string | `""` | DNS policy for Cilium proxy pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy |
+| proxy.extraArgs | list | `[]` | Additional proxy container arguments. |
+| proxy.extraContainers | list | `[]` | Additional containers added to the cilium proxy DaemonSet. |
+| proxy.extraEnv | list | `[]` | Additional proxy container environment variables. |
+| proxy.extraHostPathMounts | list | `[]` | Additional proxy hostPath mounts. |
+| proxy.extraVolumeMounts | list | `[]` | Additional proxy volumeMounts. |
+| proxy.extraVolumes | list | `[]` | Additional proxy volumes. |
+| proxy.healthPort | int | `9879` | TCP port for the health API. |
+| proxy.image | object | `{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/proxy","tag":"latest","useDigest":false}` | Proxy container image. |
+| proxy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
+| proxy.livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
+| proxy.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node selector for cilium-proxy. |
+| proxy.podAnnotations | object | `{}` | Annotations to be added to proxy pods |
+| proxy.podLabels | object | `{}` | Labels to be added to proxy pods |
+| proxy.podSecurityContext | object | `{}` | Security Context for cilium-proxy pods. |
+| proxy.priorityClassName | string | `""` | The priority class to use for cilium-proxy. |
+| proxy.prometheus.serviceMonitor.annotations | object | `{}` | Annotations to add to ServiceMonitor cilium-proxy |
+| proxy.prometheus.serviceMonitor.enabled | bool | `false` | Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml) |
+| proxy.prometheus.serviceMonitor.interval | string | `"10s"` | Interval for scrape metrics. |
+| proxy.prometheus.serviceMonitor.labels | object | `{}` | Labels to add to ServiceMonitor cilium-proxy |
+| proxy.prometheus.serviceMonitor.metricRelabelings | string | `nil` | Metrics relabeling configs for the ServiceMonitor cilium-proxy |
+| proxy.prometheus.serviceMonitor.relabelings | list | `[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]` | Relabeling configs for the ServiceMonitor cilium-proxy |
+| proxy.readinessProbe.failureThreshold | int | `3` | failure threshold of readiness probe |
+| proxy.readinessProbe.periodSeconds | int | `30` | interval between checks of the readiness probe |
+| proxy.resources | object | `{}` | Proxy resource limits & requests ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/ |
+| proxy.rollOutOnConfigMapUpdate | bool | `false` | Roll out cilium proxy pods automatically when configmap is updated. |
+| proxy.securityContext.capabilities.ciliumProxy | list | `["NET_ADMIN","SYS_ADMIN"]` | Capabilities for the `cilium-proxy` container |
+| proxy.securityContext.privileged | bool | `false` | Run the pod with elevated privileges |
+| proxy.securityContext.seLinuxOptions | object | `{"level":"s0","type":"spc_t"}` | SELinux options for the `cilium-proxy` container |
 | proxy.sidecarImageRegex | string | `"cilium/istio_proxy"` | Regular expression matching compatible Istio sidecar istio-proxy container image names |
+| proxy.startupProbe.failureThreshold | int | `105` | failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s) |
+| proxy.startupProbe.periodSeconds | int | `2` | interval between checks of the startup probe |
+| proxy.terminationGracePeriodSeconds | int | `1` | Configure termination grace period for cilium-proxy DaemonSet. |
+| proxy.tolerations | list | `[{"operator":"Exists"}]` | Node tolerations for proxy scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
 | rbac.create | bool | `true` | Enable creation of Resource-Based Access Control configuration. |
 | readinessProbe.failureThreshold | int | `3` | failure threshold of readiness probe |
 | readinessProbe.periodSeconds | int | `30` | interval between checks of the readiness probe |

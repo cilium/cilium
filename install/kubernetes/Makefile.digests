@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 export CILIUM_DIGEST := ""
+export PROXY_DIGEST := ""
 export CLUSTERMESH_APISERVER_DIGEST := ""
 export DOCKER_PLUGIN_DIGEST := ""
 export HUBBLE_RELAY_DIGEST := ""

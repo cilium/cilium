@@ -1,0 +1,258 @@
+{{- if and .Values.proxy.enabled (not .Values.preflight.enabled) }}
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cilium-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: cilium-proxy
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-proxy
+    name: cilium-proxy
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-proxy
+  {{- with .Values.proxy.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        {{- if and .Values.proxy.prometheus.enabled (not .Values.proxy.prometheus.serviceMonitor.enabled) }}
+        prometheus.io/port: "{{ .Values.proxy.prometheus.port }}"
+        prometheus.io/scrape: "true"
+        {{- end }}
+        {{- if .Values.proxy.rollOutOnConfigMapUpdate }}
+        # ensure pods roll when configmap updates
+        cilium.io/cilium-proxy-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-proxy/configmap.yaml") . | sha256sum | quote }}
+        {{- end }}
+        {{- if not .Values.proxy.securityContext.privileged }}
+        # Set app AppArmor's profile to "unconfined". The value of this annotation
+        # can be modified as long users know which profiles they have available
+        # in AppArmor.
+        container.apparmor.security.beta.kubernetes.io/cilium-proxy: "unconfined"
+        {{- end }}
+        {{- with .Values.proxy.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        k8s-app: cilium-proxy
+        name: cilium-proxy
+        app.kubernetes.io/name: cilium-proxy
+        app.kubernetes.io/part-of: cilium
+        {{- with .Values.proxy.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.proxy.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: cilium-proxy
+        image: {{ include "cilium.image" .Values.proxy.image | quote }}
+        imagePullPolicy: {{ .Values.proxy.image.pullPolicy }}
+        command:
+        - /usr/bin/cilium-envoy
+        args:
+        - '-c /var/lib/proxy/envoy-bootstrap-config.json'
+        - '--base-id 0'
+        - '--log-level info'
+        - '--log-format "[%Y-%m-%d %T.%e][%t][%l][%n] %v"'
+        {{- with .Values.proxy.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        {{- if semverCompare ">=1.20-0" .Capabilities.KubeVersion.Version }}
+        startupProbe:
+          httpGet:
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            path: /healthz
+            port: {{ .Values.proxy.healthPort }}
+            scheme: HTTP
+            httpHeaders:
+            - name: "brief"
+              value: "true"
+          failureThreshold: {{ .Values.proxy.startupProbe.failureThreshold }}
+          periodSeconds: {{ .Values.proxy.startupProbe.periodSeconds }}
+          successThreshold: 1
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            path: /healthz
+            port: {{ .Values.proxy.healthPort }}
+            scheme: HTTP
+            httpHeaders:
+            - name: "brief"
+              value: "true"
+          {{- if semverCompare "<1.20-0" .Capabilities.KubeVersion.Version }}
+          # The initial delay for the liveness probe is intentionally large to
+          # avoid an endless kill & restart cycle if in the event that the initial
+          # bootstrapping takes longer than expected.
+          # Starting from Kubernetes 1.20, we are using startupProbe instead
+          # of this field.
+          initialDelaySeconds: 120
+          {{- end }}
+          periodSeconds: {{ .Values.proxy.livenessProbe.periodSeconds }}
+          successThreshold: 1
+          failureThreshold: {{ .Values.proxy.livenessProbe.failureThreshold }}
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            path: /healthz
+            port: {{ .Values.proxy.healthPort }}
+            scheme: HTTP
+            httpHeaders:
+            - name: "brief"
+              value: "true"
+          {{- if semverCompare "<1.20-0" .Capabilities.KubeVersion.Version }}
+          initialDelaySeconds: 5
+          {{- end }}
+          periodSeconds: {{ .Values.proxy.readinessProbe.periodSeconds }}
+          successThreshold: 1
+          failureThreshold: {{ .Values.proxy.readinessProbe.failureThreshold }}
+          timeoutSeconds: 5
+        env:
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: CILIUM_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        {{- if .Values.k8sServiceHost }}
+        - name: KUBERNETES_SERVICE_HOST
+          value: {{ .Values.k8sServiceHost | quote }}
+        {{- end }}
+        {{- if .Values.k8sServicePort }}
+        - name: KUBERNETES_SERVICE_PORT
+          value: {{ .Values.k8sServicePort | quote }}
+        {{- end }}
+        {{- with .Values.proxy.extraEnv }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        {{- with .Values.proxy.resources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
+        {{- if .Values.proxy.prometheus.enabled }}
+        ports:
+        - name: envoy-metrics
+          containerPort: {{ .Values.proxy.prometheus.port }}
+          hostPort: {{ .Values.proxy.prometheus.port }}
+          protocol: TCP
+        {{- end }}
+        securityContext:
+          {{- if .Values.proxy.securityContext.privileged }}
+          privileged: true
+          {{- else }}
+          seLinuxOptions:
+            {{- with .Values.proxy.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          capabilities:
+            add:
+            {{- with .Values.proxy.securityContext.capabilities.ciliumProxy }}
+            {{- toYaml . | nindent 14 }}
+            {{- end }}
+            drop:
+              - ALL
+          {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - name: proxy-sockets
+          mountPath: {{ .Values.proxy.socketDir.container }}
+          readOnly: false
+        - name: proxy-config
+          mountPath: /var/lib/proxy/
+          readOnly: true
+        {{- if .Values.bpf.autoMount.enabled }}
+        - name: bpf-maps
+          mountPath: /sys/fs/bpf
+          mountPropagation: HostToContainer
+        {{- end }}
+        {{- range .Values.proxy.extraHostPathMounts }}
+        - name: {{ .name }}
+          mountPath: {{ .mountPath }}
+          readOnly: {{ .readOnly }}
+          {{- if .mountPropagation }}
+          mountPropagation: {{ .mountPropagation }}
+          {{- end }}
+        {{- end }}
+        {{- with .Values.proxy.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if .Values.proxy.extraContainers }}
+      {{- toYaml .Values.proxy.extraContainers | nindent 6 }}
+      {{- end }}
+      restartPolicy: Always
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.proxy.priorityClassName "system-node-critical") }}
+      serviceAccount: {{ .Values.serviceAccounts.proxy.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.proxy.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.proxy.automount }}
+      terminationGracePeriodSeconds: {{ .Values.proxy.terminationGracePeriodSeconds }}
+      hostNetwork: true
+      {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
+      # In managed etcd mode, Cilium must be able to resolve the DNS name of
+      # the etcd service
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- else if .Values.proxy.dnsPolicy }}
+      dnsPolicy: {{ .Values.proxy.dnsPolicy }}
+      {{- end }}
+      {{- with .Values.proxy.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.proxy.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.proxy.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: proxy-sockets
+        hostPath:
+          path: {{ .Values.proxy.socketDir.host }}
+          type: DirectoryOrCreate
+      - name: proxy-config
+        configMap:
+          name: cilium-proxy-config
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          items:
+            - key: envoy-bootstrap-config.json
+              path: envoy-bootstrap-config.json
+        # To keep state between restarts / upgrades
+      {{- if and .Values.bpf.autoMount.enabled }}
+        # To keep state between restarts / upgrades for bpf maps
+      - name: bpf-maps
+        hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+      {{- end }}
+      {{- range .Values.proxy.extraHostPathMounts }}
+      - name: {{ .name }}
+        hostPath:
+          path: {{ .hostPath }}
+          {{- if .hostPathType }}
+          type: {{ .hostPathType }}
+          {{- end }}
+      {{- end }}
+      {{- with .Values.proxy.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}

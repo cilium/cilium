@@ -1042,6 +1042,14 @@ data:
   mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spire.trustDomain | quote }}
 {{- end }}
 
+  proxy-connect-timeout: {{ .Values.proxy.connectTimeout | quote }}
+  proxy-max-requests-per-connection: {{ .Values.proxy.maxRequestsPerConnection | quote }}
+  proxy-max-connection-duration-seconds: {{ .Values.proxy.maxConnectionDuration | quote }}
+
+{{- if .Values.proxy.enabled }}
+  proxy-embedded-enabled: "false"
+{{- end }}
+
 ---
 {{- if and .Values.ipMasqAgent.enabled .Values.ipMasqAgent.config }}
 apiVersion: v1

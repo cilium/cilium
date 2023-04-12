@@ -12,6 +12,7 @@ export CI_ORG ?= cilium
 ifeq ($(RELEASE),yes)
     export PULL_POLICY:=IfNotPresent
     export CILIUM_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/cilium
+    export CILIUM_PROXYREPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/proxy
     export CILIUM_OPERATOR_BASE_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/operator
     export CLUSTERMESH_APISERVER_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/clustermesh-apiserver
     export HUBBLE_RELAY_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/hubble-relay
@@ -19,6 +20,7 @@ else
     export CILIUM_BRANCH:=main
     export PULL_POLICY:=Always
     export CILIUM_REPO:=${CI_REGISTRY}/${CI_ORG}/cilium-ci
+    export CILIUM_PROXY_REPO:=${CI_REGISTRY}/${CI_ORG}/proxy
     export CILIUM_OPERATOR_BASE_REPO:=${CI_REGISTRY}/${CI_ORG}/operator
     export CILIUM_OPERATOR_SUFFIX=-ci
     export CILIUM_VERSION:=latest

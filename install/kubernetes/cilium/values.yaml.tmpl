@@ -52,6 +52,11 @@ serviceAccounts:
     name: cilium
     automount: true
     annotations: {}
+  proxy:
+    create: true
+    name: cilium-proxy
+    automount: true
+    annotations: {}
   etcd:
     create: true
     name: cilium-etcd-operator
@@ -1688,10 +1693,187 @@ dashboards:
   labelValue: "1"
   annotations: {}
 
-# -- Configure Istio proxy options.
+# -- Configure Cilium Proxy options.
 proxy:
+  # Enable Cilium Proxy in standalone DaemonSet.
+  enabled: false
+
+  # Location of unix sockets for communication between Agent & Proxy.
+  socketDir:
+    # Socket directory within the proxy & agent containers
+    container: "/var/run/proxy"
+    # Socket directory within the host
+    host: "/var/run/cilium-proxy"
+
+  # Time in seconds after which a TCP connection attempt times out
+  connectTimeout: 2
+  # ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for the proxy
+  maxRequestsPerConnection: 0
+  # Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
+  maxConnectionDuration: 0
+
+  # -- Proxy container image.
+  image:
+    override: ~
+    repository: "${CILIUM_PROXY_REPO}"
+    tag: "${CILIUM_VERSION}"
+    pullPolicy: "${PULL_POLICY}"
+    # proxy-digest
+    digest: ${PROXY_DIGEST}
+    useDigest: ${USE_DIGESTS}
+
+  # -- Additional containers added to the cilium proxy DaemonSet.
+  extraContainers: []
+
+  # -- Additional proxy container arguments.
+  extraArgs: []
+
+  # -- Additional proxy container environment variables.
+  extraEnv: []
+
+  # -- Additional proxy hostPath mounts.
+  extraHostPathMounts: []
+    # - name: host-mnt-data
+    #   mountPath: /host/mnt/data
+    #   hostPath: /mnt/data
+    #   hostPathType: Directory
+    #   readOnly: true
+    #   mountPropagation: HostToContainer
+
+  # -- Additional proxy volumes.
+  extraVolumes: []
+
+  # -- Additional proxy volumeMounts.
+  extraVolumeMounts: []
+
+  # -- Configure termination grace period for cilium-proxy DaemonSet.
+  terminationGracePeriodSeconds: 1
+
+  # -- TCP port for the health API.
+  healthPort: 9879
+
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 2
+  # -- Roll out cilium proxy pods automatically when configmap is updated.
+  rollOutOnConfigMapUpdate: false
+
+  # -- Security Context for cilium-proxy pods.
+  podSecurityContext: {}
+
+  # -- Annotations to be added to proxy pods
+  podAnnotations: {}
+
+  # -- Labels to be added to proxy pods
+  podLabels: {}
+
+  # -- Proxy resource limits & requests
+  # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  resources: {}
+    # limits:
+    #   cpu: 4000m
+    #   memory: 4Gi
+    # requests:
+    #   cpu: 100m
+    #   memory: 512Mi
+
+  startupProbe:
+    # -- failure threshold of startup probe.
+    # 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
+    failureThreshold: 105
+    # -- interval between checks of the startup probe
+    periodSeconds: 2
+  livenessProbe:
+    # -- failure threshold of liveness probe
+    failureThreshold: 10
+    # -- interval between checks of the liveness probe
+    periodSeconds: 30
+  readinessProbe:
+    # -- failure threshold of readiness probe
+    failureThreshold: 3
+    # -- interval between checks of the readiness probe
+    periodSeconds: 30
+
+  securityContext:
+    # -- User to run the pod with
+    # runAsUser: 0
+    # -- Run the pod with elevated privileges
+    privileged: false
+    # -- SELinux options for the `cilium-proxy` container
+    seLinuxOptions:
+      level: 's0'
+      # Running with spc_t since we have removed the privileged mode.
+      # Users can change it to a different type as long as they have the
+      # type available on the system.
+      type: 'spc_t'
+    capabilities:
+      # -- Capabilities for the `cilium-proxy` container
+      ciliumProxy:
+        # Used since cilium proxy uses setting IPPROTO_IP/IP_TRANSPARENT
+        - NET_ADMIN
+        # We need it for now but might not need it for >= 5.11 specially
+        # for the 'SYS_RESOURCE'.
+        # In >= 5.8 there's already BPF and PERMON capabilities
+        - SYS_ADMIN
+        # Both PERFMON and BPF requires kernel 5.8, container runtime
+        # cri-o >= v1.22.0 or containerd >= v1.5.0.
+        # If available, SYS_ADMIN can be removed.
+        #- PERFMON
+        #- BPF
+
+  # -- Affinity for cilium-proxy.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            k8s-app: cilium-proxy
+
+  # -- Node selector for cilium-proxy.
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  # -- Node tolerations for proxy scheduling to nodes with taints
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  tolerations:
+  - operator: Exists
+    # - key: "key"
+    #   operator: "Equal|Exists"
+    #   value: "value"
+    #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+
+  # -- The priority class to use for cilium-proxy.
+  priorityClassName: ""
+
+  # -- DNS policy for Cilium proxy pods.
+  # Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+  dnsPolicy: ""
+
   prometheus:
     enabled: true
+    serviceMonitor:
+      # -- Enable service monitors.
+      # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+      enabled: false
+      # -- Labels to add to ServiceMonitor cilium-proxy
+      labels: {}
+      # -- Annotations to add to ServiceMonitor cilium-proxy
+      annotations: {}
+      # -- Interval for scrape metrics.
+      interval: "10s"
+      # -- Specify the Kubernetes namespace where Prometheus expects to find
+      # service monitors configured.
+      # namespace: ""
+      # -- Relabeling configs for the ServiceMonitor cilium-proxy
+      relabelings:
+        - sourceLabels:
+            - __meta_kubernetes_pod_node_name
+          targetLabel: node
+          replacement: ${1}
+      # -- Metrics relabeling configs for the ServiceMonitor cilium-proxy
+      metricRelabelings: ~
     port: "9964"
   # -- Regular expression matching compatible Istio sidecar istio-proxy
   # container image names
