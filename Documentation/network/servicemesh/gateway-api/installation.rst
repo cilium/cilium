@@ -61,7 +61,7 @@ Installation
         .. code-block:: shell-session
 
             $ cilium install \\
-                --kube-proxy-replacement=strict \\
+                --kube-proxy-replacement=partial \\
                 --helm-set gatewayAPI.enabled=true
 
         Next you can check the status of the Cilium agent and operator:

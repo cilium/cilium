@@ -68,7 +68,7 @@ jobs:
             --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
-            --helm-set kubeProxyReplacement=strict \
+            --helm-set kubeProxyReplacement=partial \
             --helm-set=securityContext.privileged=true \
             --helm-set=gatewayAPI.enabled=true \
             --rollback=false \

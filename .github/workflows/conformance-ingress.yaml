@@ -89,7 +89,7 @@ jobs:
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
             --helm-set=securityContext.privileged=true \
-            --helm-set kubeProxyReplacement=strict \
+            --helm-set kubeProxyReplacement=partial \
             --helm-set=ingressController.enabled=true \
             --helm-set=ingressController.loadbalancerMode=${{ matrix.loadbalancer-mode }} \
             --helm-set=ingressController.default=${{ matrix.default-ingress-controller }} \

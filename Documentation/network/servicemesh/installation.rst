@@ -61,7 +61,7 @@ Installation
         .. code-block:: shell-session
 
             $ cilium install \\
-                --kube-proxy-replacement=strict \\
+                --kube-proxy-replacement=partial \\
                 --helm-set ingressController.enabled=true \\
                 --helm-set ingressController.loadbalancerMode=dedicated
 
@@ -75,7 +75,7 @@ Installation
         .. code-block:: shell-session
 
             $ cilium install \\
-                --kube-proxy-replacement=strict \\
+                --kube-proxy-replacement=partial \\
                 --helm-set-string extraConfig.enable-envoy-config=true
 
         Additionally, the proxy load-balancing feature can be configured with the ``loadBalancer.l7.backend=envoy`` flag.
@@ -83,7 +83,7 @@ Installation
         .. code-block:: shell-session
 
             $ cilium install \\
-                --kube-proxy-replacement=strict \\
+                --kube-proxy-replacement=partial \\
                 --helm-set-string extraConfig.enable-envoy-config=true \\
                 --helm-set loadBalancer.l7.backend=envoy
 
