@@ -1,3 +1,4 @@
+
 .. only:: not (epub or latex or html)
 
     WARNING: You are looking at unreleased Cilium documentation.
@@ -588,6 +589,8 @@ Minor version
 
 #. Add the new version in ``test/provision/k8s_install.sh``, if it is an RC
    install it using binaries.
+
+#. Bump the kindest/node version in all of kind's config files (for example, ``.github/kind-config*``).
 
 #. Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash`` and
    the etcd version to the latest version.
