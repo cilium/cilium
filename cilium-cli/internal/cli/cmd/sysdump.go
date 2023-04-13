@@ -68,6 +68,9 @@ func initSysdumpFlags(cmd *cobra.Command, options *sysdump.Options, optionPrefix
 	cmd.Flags().StringVar(&options.CiliumDaemonSetSelector,
 		optionPrefix+"cilium-daemon-set-label-selector", sysdump.DefaultCiliumLabelSelector,
 		"The labels used to target Cilium daemon set")
+	cmd.Flags().StringVar(&options.CiliumEnvoyLabelSelector,
+		optionPrefix+"cilium-envoy-label-selector", sysdump.DefaultCiliumEnvoyLabelSelector,
+		"The labels used to target Cilium Envoy pods")
 	cmd.Flags().StringVar(&options.CiliumOperatorLabelSelector,
 		optionPrefix+"cilium-operator-label-selector", sysdump.DefaultCiliumOperatorLabelSelector,
 		"The labels used to target Cilium operator pods")
