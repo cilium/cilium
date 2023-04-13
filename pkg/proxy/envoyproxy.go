@@ -16,8 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 )
 
-// the global Envoy instance
-var envoyProxy *envoy.Envoy
+// the global EnvoyAdminClient instance
+var envoyAdminClient *envoy.EnvoyAdminClient
 
 // envoyRedirect implements the RedirectImplementation interface for an l7 proxy.
 type envoyRedirect struct {
@@ -27,10 +27,17 @@ type envoyRedirect struct {
 
 var envoyOnce sync.Once
 
-func startEnvoy(runDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) {
+func initEnvoy(runDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) {
 	envoyOnce.Do(func() {
-		// Start Envoy on first invocation
-		envoyProxy = envoy.StartEnvoy(runDir, option.Config.EnvoyLogPath, 0, option.Config.ExternalEnvoyProxy)
+		if option.Config.ExternalEnvoyProxy {
+			envoyAdminClient = envoy.NewEnvoyAdminClient(envoy.GetSocketDir(runDir))
+		} else {
+			// Start embedded Envoy on first invocation
+			embeddedEnvoy := envoy.StartEmbeddedEnvoy(runDir, option.Config.EnvoyLogPath, 0)
+			if embeddedEnvoy != nil {
+				envoyAdminClient = embeddedEnvoy.GetAdminClient()
+			}
+		}
 
 		// Add Prometheus listener if the port is (properly) configured
 		if option.Config.ProxyPrometheusPort < 0 || option.Config.ProxyPrometheusPort > 65535 {
@@ -44,10 +51,10 @@ func startEnvoy(runDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGr
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
 func createEnvoyRedirect(r *Redirect, runDir string, xdsServer *envoy.XDSServer, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
-	startEnvoy(runDir, xdsServer, wg)
+	initEnvoy(runDir, xdsServer, wg)
 
 	l := r.listener
-	if envoyProxy != nil {
+	if envoyAdminClient != nil {
 		redirect := &envoyRedirect{
 			listenerName: net.JoinHostPort(r.name, fmt.Sprintf("%d", l.proxyPort)),
 			xdsServer:    xdsServer,
@@ -73,7 +80,7 @@ func (k *envoyRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc
 
 // Close the redirect.
 func (r *envoyRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
-	if envoyProxy == nil {
+	if envoyAdminClient == nil {
 		return nil, nil
 	}
 
