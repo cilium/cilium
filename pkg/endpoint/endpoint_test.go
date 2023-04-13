@@ -14,6 +14,7 @@ import (
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -253,6 +254,16 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 	}
 	eps.addStatusLog(sts)
 	c.Assert(eps.String(), Equals, "OK")
+}
+
+func (s *EndpointSuite) TestEndpointDatapathOptions(c *C) {
+	e, err := NewEndpointFromChangeModel(context.TODO(), s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
+		DatapathConfiguration: &models.EndpointDatapathConfiguration{
+			DisableSipVerification: true,
+		},
+	})
+	c.Assert(err, IsNil)
+	c.Assert(e.Options.GetValue(option.SourceIPVerification), Equals, option.OptionDisabled)
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
