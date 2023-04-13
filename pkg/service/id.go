@@ -61,7 +61,8 @@ func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id loadbalancer.BackendID)
 	// TODO(brb) This shouldn't happen (otherwise, there is a bug in the code).
 	//           But maybe it makes sense to delete all svc v2 in this case.
 	if newID != id {
-		DeleteBackendID(newID)
+		// The newID belongs to another backend that was previously restored,
+		// so don't release the ID here in case of conflicts.
 		return fmt.Errorf("restored backend ID for %+v does not match (%d != %d)",
 			l3n4Addr, newID, id)
 	}
