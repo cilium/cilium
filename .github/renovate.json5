@@ -146,6 +146,19 @@
       ]
     },
     {
+      // Images that directly use docker.io/library/golang for building.
+      "groupName": "golang-images",
+      "matchFiles": [
+        "images/cilium-docker-plugin/Dockerfile",
+        "images/clustermesh-apiserver/Dockerfile",
+        "images/hubble-relay/Dockerfile",
+        "images/operator/Dockerfile"
+      ],
+      "schedule": [
+        "on friday"
+      ]
+    },
+    {
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
