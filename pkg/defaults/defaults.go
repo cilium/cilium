@@ -466,7 +466,7 @@ const (
 	CertsDirectory = RuntimePath + "/certs"
 
 	// EnableRemoteNodeIdentity is the default value for option.EnableRemoteNodeIdentity
-	EnableRemoteNodeIdentity = false
+	EnableRemoteNodeIdentity = true
 
 	// IPAMExpiration is the timeout after which an IP subject to expiratio
 	// is being released again if no endpoint is being created in time.
