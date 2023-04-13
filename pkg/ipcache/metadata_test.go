@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -93,6 +94,54 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["100.4.16.32/32"].ID.HasLocalScope())
+}
+
+// TestInjectExisting tests "upgrading" an existing identity to the apiserver.
+// This is a common occurrence on startup - and this tests ensures we don't
+// regress the known issue in GH-24502
+func TestInjectExisting(t *testing.T) {
+	cancel := setupTest(t)
+	defer cancel()
+
+	// mimic the "restore cidr" logic from daemon.go
+	// for every ip -> identity mapping in the bpf ipcache
+	// - allocate that identity
+	// - insert the cidr=>identity mapping back in to the go ipcache
+	identities := make(map[netip.Prefix]*identity.Identity)
+	prefix := netip.MustParsePrefix("172.19.0.5/32")
+	oldID := identity.NumericIdentity(16777219)
+	_, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, []identity.NumericIdentity{oldID}, identities)
+	assert.NoError(t, err)
+
+	IPIdentityCache.UpsertGeneratedIdentities(identities, nil)
+
+	// sanity check: ensure the cidr is correctly in the ipcache
+	id, ok := IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, int32(16777219), int32(id.ID))
+
+	// Simulate the first half of UpsertLabels -- insert the labels only in to the metadata cache
+	// This is to "force" a race condition
+	resource := ipcacheTypes.NewResourceID(
+		ipcacheTypes.ResourceKindEndpoint, "default", "kubernetes")
+	IPIdentityCache.metadata.upsertLocked(prefix, source.KubeAPIServer, resource, labels.LabelKubeAPIServer)
+
+	// Now, emulate policyAdd(), which calls AllocateCIDRs()
+	_, err = IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, []identity.NumericIdentity{oldID}, nil)
+	assert.NoError(t, err)
+
+	// Now, trigger label injection
+	// This will allocate a new ID for the same /32 since the labels have changed
+	IPIdentityCache.UpsertLabels(prefix, labels.LabelKubeAPIServer, source.KubeAPIServer, resource)
+
+	// Need to wait for the label injector to finish; easiest just to remove it
+	IPIdentityCache.controllers.RemoveControllerAndWait(LabelInjectorName)
+
+	// Ensure the source is now correctly understood in the ipcache
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.KubeAPIServer, id.Source)
+
 }
 
 func TestFilterMetadataByLabels(t *testing.T) {
