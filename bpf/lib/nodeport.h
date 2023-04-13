@@ -1583,11 +1583,16 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 	bool need_opt = true;
 	__u16 encap_len = sizeof(struct iphdr) + sizeof(struct udphdr) +
 		sizeof(struct genevehdr) + ETH_HLEN;
+	__u32 src_sec_identity = WORLD_ID;
 	__u32 dst_sec_identity;
 	__be32 tunnel_endpoint;
 	__u16 total_len = 0;
 
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
+ #ifdef IS_BPF_OVERLAY
+	src_sec_identity = ctx_load_meta(ctx, CB_DSR_SRC_LABEL);
+ #endif
+
 	tunnel_endpoint = ip4->daddr;
 	dst_sec_identity = 0;
 #else
@@ -1633,7 +1638,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 						IPV4_DIRECT_ROUTING,
 						src_port,
 						tunnel_endpoint,
-						WORLD_ID,
+						src_sec_identity,
 						dst_sec_identity,
 						NOT_VTEP_DST,
 						&gopt,
@@ -1646,7 +1651,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 				   IPV4_DIRECT_ROUTING,
 				   src_port,
 				   tunnel_endpoint,
-				   WORLD_ID,
+				   src_sec_identity,
 				   dst_sec_identity,
 				   NOT_VTEP_DST,
 				   (enum trace_reason)CT_NEW,
@@ -2374,6 +2379,7 @@ redo:
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		ctx_store_meta(ctx, CB_PORT, key.dport);
 		ctx_store_meta(ctx, CB_ADDR_V4, key.address);
+		ctx_store_meta(ctx, CB_DSR_SRC_LABEL, src_sec_identity);
 #endif /* DSR_ENCAP_MODE */
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR);
 	} else {

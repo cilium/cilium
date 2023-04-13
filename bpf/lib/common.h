@@ -786,6 +786,7 @@ enum {
 #define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
 #define	CB_CLUSTER_ID_INGRESS	CB_POLICY	/* Alias, non-overlapping */
 #define CB_HSIPC_PORT		CB_POLICY	/* Alias, non-overlapping */
+#define CB_DSR_SRC_LABEL	CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT,
 #define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
