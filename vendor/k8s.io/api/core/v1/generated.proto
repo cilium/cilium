@@ -4512,9 +4512,10 @@ message ResourceRequirements {
   // This is an alpha field and requires enabling the
   // DynamicResourceAllocation feature gate.
   //
-  // This field is immutable.
+  // This field is immutable. It can only be set for containers.
   //
-  // +listType=set
+  // +listType=map
+  // +listMapKey=name
   // +featureGate=DynamicResourceAllocation
   // +optional
   repeated ResourceClaim claims = 3;
