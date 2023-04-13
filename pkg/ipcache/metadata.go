@@ -218,13 +218,10 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				break
 			}
 
-			// It's plausible to pull the same information twice
-			// from different sources, for instance in etcd mode
-			// where node information is propagated both via the
-			// kvstore and via the k8s control plane. If the new
-			// security identity is the same as the one currently
-			// being used, then no need to update it.
-			if oldID.ID == newID.ID {
+			// We can safely skip the ipcache upsert if the ID and source
+			// in the metadata cache match the ipcache exactly.
+			// Note that checking ID alone is insufficient, see GH-24502
+			if oldID.ID == newID.ID && prefixInfo.Source() == oldID.Source {
 				goto releaseIdentity
 			}
 
@@ -240,7 +237,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// have now been removed, then we need to explicitly
 			// work around that to remove the old higher-priority
 			// identity and replace it with this new identity.
-			if entryExists && prefixInfo.Source() != oldID.Source {
+			if entryExists && prefixInfo.Source() != oldID.Source && oldID.ID != newID.ID {
 				forceIPCacheUpdate[prefix] = true
 			}
 		}
@@ -286,10 +283,23 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			id,
 			forceIPCacheUpdate[p],
 		); err2 != nil {
-			log.WithError(err2).WithFields(logrus.Fields{
-				logfields.IPAddr:   prefix,
-				logfields.Identity: id,
-			}).Error("Failed to replace ipcache entry with new identity after label removal. Traffic may be disrupted.")
+			// It's plausible to pull the same information twice
+			// from different sources, for instance in etcd mode
+			// where node information is propagated both via the
+			// kvstore and via the k8s control plane. If the
+			// upsert was rejected due to source precedence, but the
+			// identity is unchanged, then we can safely ignore the
+			// error message.
+			oldID, ok := previouslyAllocatedIdentities[p]
+			if !(ok && oldID.ID == id.ID && errors.Is(err2, &ErrOverwrite{
+				ExistingSrc: oldID.Source,
+				NewSrc:      id.Source,
+			})) {
+				log.WithError(err2).WithFields(logrus.Fields{
+					logfields.IPAddr:   prefix,
+					logfields.Identity: id,
+				}).Error("Failed to replace ipcache entry with new identity after label removal. Traffic may be disrupted.")
+			}
 		}
 	}
 
