@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -762,4 +763,22 @@ func (e *Endpoint) getK8sPodLabels() labels.Labels {
 		}
 	}
 	return k8sEPPodLabels
+}
+
+func TestSetDefaultOpts(t *testing.T) {
+	opts := option.NewIntOptions(&option.DaemonMutableOptionLibrary)
+
+	// this is the default set in daemon
+	opts.SetBool(option.SourceIPVerification, true)
+
+	// this datapath option should override the above
+	e := Endpoint{DatapathConfiguration: models.EndpointDatapathConfiguration{
+		DisableSipVerification: true,
+	}}
+
+	e.SetDefaultOpts(opts)
+	gotOpt := e.Options.GetValue(option.SourceIPVerification)
+	if gotOpt != option.OptionDisabled {
+		t.Errorf("SourceIPVerification option should be %v, got %v", option.OptionDisabled, gotOpt)
+	}
 }
