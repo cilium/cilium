@@ -135,12 +135,20 @@ spec:
           - secret:
               name: hubble-relay-client-certs
               items:
-                - key: ca.crt
-                  path: hubble-server-ca.crt
                 - key: tls.crt
                   path: client.crt
                 - key: tls.key
                   path: client.key
+          {{- if not .Values.tls.caBundle.enabled }}
+                - key: ca.crt
+                  path: hubble-server-ca.crt
+          {{- else }}
+          - configMap:
+              name: {{ .Values.tls.caBundle.name }}
+              items:
+                - key: {{ .Values.tls.caBundle.key }}
+                  path: hubble-server-ca.crt
+          {{- end }}
           {{- if .Values.hubble.relay.tls.server.enabled }}
           - secret:
               name: hubble-relay-server-certs

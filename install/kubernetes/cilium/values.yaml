@@ -1764,6 +1764,30 @@ tls:
     # -- Generated certificates validity duration in days. This will be used for auto generated CA.
     certValidityDuration: 1095
 
+  # -- Configure the CA trust bundle used for the validation of the certificates
+  # leveraged by hubble and clustermesh. When enabled, it overrides the content of the
+  # 'ca.crt' field of the respective certificates, allowing for CA rotation with no down-time.
+  caBundle:
+    # -- Enable the use of the CA trust bundle.
+    enabled: false
+
+    # -- Name of the ConfigMap containing the CA trust bundle.
+    name: cilium-root-ca.crt
+
+    # -- Entry of the ConfigMap containing the CA trust bundle.
+    key: ca.crt
+
+    # If uncommented, creates the ConfigMap and fills it with the specified content.
+    # Otherwise, the ConfigMap is assumed to be already present in .Release.Namespace.
+    #
+    # content: |
+    #   -----BEGIN CERTIFICATE-----
+    #   ...
+    #   -----END CERTIFICATE-----
+    #   -----BEGIN CERTIFICATE-----
+    #   ...
+    #   -----END CERTIFICATE-----
+
 # -- Configure the encapsulation configuration for communication between nodes.
 # Possible values:
 #   - disabled
