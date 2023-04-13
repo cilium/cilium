@@ -52,7 +52,7 @@ struct {
  * gets correctly SNATed with the egress IP of the policy.
  */
 PKTGEN("tc", "tc_egressgw_snat")
-int egressgw_pktgen(struct __ctx_buff *ctx)
+int egressgw_snat_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -97,10 +97,10 @@ int egressgw_pktgen(struct __ctx_buff *ctx)
 }
 
 SETUP("tc", "tc_egressgw_snat")
-int egressgw_setup(struct __ctx_buff *ctx)
+int egressgw_snat_setup(struct __ctx_buff *ctx)
 {
 	struct egress_gw_policy_key in_key = {
-		.lpm_key = { 32 + 24, {} },
+		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
 		.saddr   = CLIENT_IP,
 		.daddr   = EXTERNAL_SVC_IP & 0Xffffff,
 	};
@@ -119,7 +119,7 @@ int egressgw_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "tc_egressgw_snat")
-int egressgw_check(const struct __ctx_buff *ctx)
+int egressgw_snat_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
