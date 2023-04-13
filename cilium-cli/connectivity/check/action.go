@@ -871,8 +871,7 @@ func (a *Action) ValidateFlows(ctx context.Context, peer TestPeer, reqs []filter
 	}
 
 	a.Logf("📄 Validating flows for peer %s", peer.Name())
-
-	res := a.validate(ctx, reqs)
+	res := a.validateFlowsForPeer(ctx, reqs)
 
 	// Store the validation result for the given peer.
 	a.flowResults[peer] = res
@@ -886,7 +885,7 @@ func (a *Action) ValidateFlows(ctx context.Context, peer TestPeer, reqs []filter
 	a.Log()
 }
 
-func (a *Action) validate(ctx context.Context, reqs []filters.FlowSetRequirement) FlowRequirementResults {
+func (a *Action) validateFlowsForPeer(ctx context.Context, reqs []filters.FlowSetRequirement) FlowRequirementResults {
 	var res FlowRequirementResults
 
 	interval := time.NewTicker(defaults.FlowRetryInterval)
