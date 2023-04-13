@@ -175,13 +175,13 @@ func StartProxySupport(minPort uint16, maxPort uint16, runDir, proxySocketDir st
 
 // Overload XDSServer.UpsertEnvoyResources to start Envoy on demand
 func (p *Proxy) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources, portAllocator envoy.PortAllocator) error {
-	startEnvoy(p.runDir, p.socketDir, p.XDSServer, nil)
+	initEnvoy(p.runDir, p.socketDir, p.XDSServer, nil)
 	return p.XDSServer.UpsertEnvoyResources(ctx, resources, portAllocator)
 }
 
 // Overload XDSServer.UpdateEnvoyResources to start Envoy on demand
 func (p *Proxy) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, portAllocator envoy.PortAllocator) error {
-	startEnvoy(p.runDir, p.socketDir, p.XDSServer, nil)
+	initEnvoy(p.runDir, p.socketDir, p.XDSServer, nil)
 	return p.XDSServer.UpdateEnvoyResources(ctx, old, new, portAllocator)
 }
 
@@ -720,8 +720,9 @@ func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, 
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.
 func ChangeLogLevel(level logrus.Level) {
-	if envoyProxy != nil {
-		envoyProxy.ChangeLogLevel(level)
+	if envoyAdminClient != nil {
+		err := envoyAdminClient.ChangeLogLevel(level)
+		log.WithError(err).Debug("failed to change log level in Envoy")
 	}
 }
 

@@ -67,7 +67,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	StartAccessLogServer(testDir, xdsServer)
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEnvoy(testDir, testDir, filepath.Join(testDir, "cilium-envoy.log"), 0, true)
+	envoyProxy := StartEmbeddedEnvoy(testDir, testDir, filepath.Join(testDir, "cilium-envoy.log"), 0)
 	c.Assert(envoyProxy, NotNil)
 	log.Debug("started Envoy")
 
@@ -112,7 +112,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	log.Debug("stopping Envoy")
-	err = envoyProxy.StopEnvoy()
+	err = envoyProxy.Stop()
 	c.Assert(err, IsNil)
 
 	time.Sleep(2 * time.Second) // Wait for Envoy to really terminate.
@@ -147,7 +147,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 	StartAccessLogServer(testDir, xdsServer)
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEnvoy(testDir, testDir, filepath.Join(testDir, "cilium-envoy.log"), 42, true)
+	envoyProxy := StartEmbeddedEnvoy(testDir, testDir, filepath.Join(testDir, "cilium-envoy.log"), 42)
 	c.Assert(envoyProxy, NotNil)
 	log.Debug("started Envoy")
 
