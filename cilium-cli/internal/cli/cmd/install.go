@@ -236,7 +236,7 @@ func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
 	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for helm install to finish")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
-	cmd.Flags().StringSliceVar(&params.NodesWithoutCilium, "nodes-without-cilium", []string{}, "List of node names on which Cilium will not be installed. In Helm installation mode, it's assumed that the no-schedule node labels are present.")
+	cmd.Flags().StringSliceVar(&params.NodesWithoutCilium, "nodes-without-cilium", []string{}, "List of node names on which Cilium will not be installed. In Helm installation mode, it's assumed that the no-schedule node labels are present and that the infastructure has set up routing on these nodes to provide connectivity within the Cilium cluster.")
 }
 
 // addCommonUninstallFlags adds uninstall command flags that are shared between classic and helm mode.
