@@ -42,6 +42,8 @@ type Options struct {
 	CiliumOperatorNamespace string
 	// The labels used to target Cilium daemon set. Usually, this label is same as CiliumLabelSelector.
 	CiliumDaemonSetSelector string
+	// The labels used to target Cilium Envoy pods.
+	CiliumEnvoyLabelSelector string
 	// The labels used to target Cilium operator pods.
 	CiliumOperatorLabelSelector string
 	// The labels used to target 'clustermesh-apiserver' pods.
@@ -923,6 +925,23 @@ func (c *Collector) Run() error {
 				}
 				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium pods")
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting logs from Cilium Envoy pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumEnvoyLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get logs from Cilium Envoy pods")
+				}
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from Cilium Envoy pods")
 				}
 				return nil
 			},
