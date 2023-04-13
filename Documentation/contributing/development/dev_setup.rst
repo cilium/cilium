@@ -611,10 +611,10 @@ Minor version
 #. Submit all your changes into a new PR.
 
 #. Ping the CI team to make changes in Jenkins (adding new pipeline and
-   dedicated test trigger ``/test-X.XX-4.9`` where ``X.XX`` is the new
+   dedicated test trigger ``/test-X.XX-4.19`` where ``X.XX`` is the new
    Kubernetes version).
 
-#. Run ``/test-upstream`` and the new ``/test-X.XX-4.9`` from the PR once
+#. Run ``/test-upstream-k8s`` and the new ``/test-X.XX-4.19`` from the PR once
    Jenkins is up-to-date.
 
 #. Once CI is green and PR has been merged, ping the CI team again so that they:
