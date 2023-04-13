@@ -1045,8 +1045,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		ipCacheCtx, cancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
 		defer cancel()
 		for _, cp := range ct.ciliumPods {
-			err := ct.waitForIPCache(ipCacheCtx, cp)
-			if err != nil {
+			if err := ct.waitForIPCache(ipCacheCtx, cp); err != nil {
 				return err
 			}
 		}
@@ -1125,35 +1124,14 @@ func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
 		// Don't retry lookups more often than once per second.
 		r := time.After(time.Second)
 
-		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
-			defaults.AgentContainerName, []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
+		err := ct.validateIPCache(ctx, pod)
 		if err == nil {
-			var ic ipCache
-
-			if err := json.Unmarshal(stdout.Bytes(), &ic); err != nil {
-				return fmt.Errorf("unmarshaling Cilium stdout json: %w", err)
-			}
-
-			for _, client := range ct.clientPods {
-				if _, err := ic.findPodID(client); err != nil {
-					ct.Debugf("Couldn't find client Pod %v in ipcache (%s), retrying...", client, err)
-					goto retry
-				}
-			}
-
-			for _, echo := range ct.echoPods {
-				if _, err := ic.findPodID(echo); err != nil {
-					ct.Debugf("Couldn't find echo Pod %v in ipcache (%s), retrying...", echo, err)
-					goto retry
-				}
-			}
-
+			ct.Debug("Successfully validated all podIDs in ipcache")
 			return nil
 		}
 
-		ct.Debugf("Error listing ipcache for Cilium pod %s: %s: %s", pod.Name(), err, stdout.String())
+		ct.Debugf("Error validating all podIDs in ipcache: %s, retrying...", err)
 
-	retry:
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("timeout reached waiting for pod IDs in ipcache of Cilium pod %s (last error: %w)", pod.Name(), err)
@@ -1163,6 +1141,34 @@ func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
 		// Wait for the pace timer to avoid busy polling.
 		<-r
 	}
+}
+
+func (ct *ConnectivityTest) validateIPCache(ctx context.Context, agentPod Pod) error {
+	stdout, err := agentPod.K8sClient.ExecInPod(ctx, agentPod.Pod.Namespace, agentPod.Pod.Name,
+		defaults.AgentContainerName, []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
+	if err != nil {
+		return fmt.Errorf("failed to list ipcache bpf map: %w", err)
+	}
+
+	var ic ipCache
+
+	if err := json.Unmarshal(stdout.Bytes(), &ic); err != nil {
+		return fmt.Errorf("failed to unmarshal Cilium ipcache stdout json: %w", err)
+	}
+
+	for _, p := range ct.clientPods {
+		if _, err := ic.findPodID(p); err != nil {
+			return fmt.Errorf("couldn't find client Pod %v in ipcache: %w", p, err)
+		}
+	}
+
+	for _, p := range ct.echoPods {
+		if _, err := ic.findPodID(p); err != nil {
+			return fmt.Errorf("couldn't find echo Pod %v in ipcache: %w", p, err)
+		}
+	}
+
+	return nil
 }
 
 func (ct *ConnectivityTest) waitForDeployments(ctx context.Context, client *k8s.Client, deployments []string) error {
