@@ -5,16 +5,44 @@ package gobgp
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	gobgp "github.com/osrg/gobgp/v3/api"
-
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
+
+	gobgp "github.com/osrg/gobgp/v3/api"
 )
 
+// GetBgp returns bgp global configuration from gobgp server
+func (g *GoBGPServer) GetBGP(ctx context.Context) (types.GetBGPResponse, error) {
+	bgpConfig, err := g.server.GetBgp(ctx, &gobgp.GetBgpRequest{})
+	if err != nil {
+		return types.GetBGPResponse{}, err
+	}
+
+	if bgpConfig.Global == nil {
+		return types.GetBGPResponse{}, fmt.Errorf("gobgp returned nil config")
+	}
+
+	res := types.BGPGlobal{
+		ASN:        bgpConfig.Global.Asn,
+		RouterID:   bgpConfig.Global.RouterId,
+		ListenPort: bgpConfig.Global.ListenPort,
+	}
+	if bgpConfig.Global.RouteSelectionOptions != nil {
+		res.RouteSelectionOptions = &types.RouteSelectionOptions{
+			AdvertiseInactiveRoutes: bgpConfig.Global.RouteSelectionOptions.AdvertiseInactiveRoutes,
+		}
+	}
+
+	return types.GetBGPResponse{
+		Global: res,
+	}, nil
+}
+
 // GetPeerState invokes goBGP ListPeer API to get current peering state.
-func (sc *ServerWithConfig) GetPeerState(ctx context.Context) ([]*models.BgpPeer, error) {
+func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateResponse, error) {
 	var data []*models.BgpPeer
 	fn := func(peer *gobgp.Peer) {
 		if peer == nil {
@@ -51,12 +79,14 @@ func (sc *ServerWithConfig) GetPeerState(ctx context.Context) ([]*models.BgpPeer
 
 	// API to get peering list from gobgp, enableAdvertised is set to true to get count of
 	// advertised routes.
-	err := sc.Server.ListPeer(ctx, &gobgp.ListPeerRequest{EnableAdvertised: true}, fn)
+	err := g.server.ListPeer(ctx, &gobgp.ListPeerRequest{EnableAdvertised: true}, fn)
 	if err != nil {
-		return nil, err
+		return types.GetPeerStateResponse{}, err
 	}
 
-	return data, nil
+	return types.GetPeerStateResponse{
+		Peers: data,
+	}, nil
 }
 
 // toAgentAfiSafiState translates gobgp structures to cilium bgp models.
@@ -76,82 +106,82 @@ func toAgentAfiSafiState(state *gobgp.AfiSafiState) *models.BgpPeerFamilies {
 }
 
 // toAgentSessionState translates gobgp session state to cilium bgp session state.
-func toAgentSessionState(s gobgp.PeerState_SessionState) agent.SessionState {
+func toAgentSessionState(s gobgp.PeerState_SessionState) types.SessionState {
 	switch s {
 	case gobgp.PeerState_UNKNOWN:
-		return agent.SessionUnknown
+		return types.SessionUnknown
 	case gobgp.PeerState_IDLE:
-		return agent.SessionIdle
+		return types.SessionIdle
 	case gobgp.PeerState_CONNECT:
-		return agent.SessionConnect
+		return types.SessionConnect
 	case gobgp.PeerState_ACTIVE:
-		return agent.SessionActive
+		return types.SessionActive
 	case gobgp.PeerState_OPENSENT:
-		return agent.SessionOpenSent
+		return types.SessionOpenSent
 	case gobgp.PeerState_OPENCONFIRM:
-		return agent.SessionOpenConfirm
+		return types.SessionOpenConfirm
 	case gobgp.PeerState_ESTABLISHED:
-		return agent.SessionEstablished
+		return types.SessionEstablished
 	default:
-		return agent.SessionUnknown
+		return types.SessionUnknown
 	}
 }
 
 // toAgentAfi translates gobgp AFI to cilium bgp AFI.
-func toAgentAfi(a gobgp.Family_Afi) agent.Afi {
+func toAgentAfi(a gobgp.Family_Afi) types.Afi {
 	switch a {
 	case gobgp.Family_AFI_UNKNOWN:
-		return agent.AfiUnknown
+		return types.AfiUnknown
 	case gobgp.Family_AFI_IP:
-		return agent.AfiIPv4
+		return types.AfiIPv4
 	case gobgp.Family_AFI_IP6:
-		return agent.AfiIPv6
+		return types.AfiIPv6
 	case gobgp.Family_AFI_L2VPN:
-		return agent.AfiL2VPN
+		return types.AfiL2VPN
 	case gobgp.Family_AFI_LS:
-		return agent.AfiLS
+		return types.AfiLS
 	case gobgp.Family_AFI_OPAQUE:
-		return agent.AfiOpaque
+		return types.AfiOpaque
 	default:
-		return agent.AfiUnknown
+		return types.AfiUnknown
 	}
 }
 
-func toAgentSafi(s gobgp.Family_Safi) agent.Safi {
+func toAgentSafi(s gobgp.Family_Safi) types.Safi {
 	switch s {
 	case gobgp.Family_SAFI_UNKNOWN:
-		return agent.SafiUnknown
+		return types.SafiUnknown
 	case gobgp.Family_SAFI_UNICAST:
-		return agent.SafiUnicast
+		return types.SafiUnicast
 	case gobgp.Family_SAFI_MULTICAST:
-		return agent.SafiMulticast
+		return types.SafiMulticast
 	case gobgp.Family_SAFI_MPLS_LABEL:
-		return agent.SafiMplsLabel
+		return types.SafiMplsLabel
 	case gobgp.Family_SAFI_ENCAPSULATION:
-		return agent.SafiEncapsulation
+		return types.SafiEncapsulation
 	case gobgp.Family_SAFI_VPLS:
-		return agent.SafiVpls
+		return types.SafiVpls
 	case gobgp.Family_SAFI_EVPN:
-		return agent.SafiEvpn
+		return types.SafiEvpn
 	case gobgp.Family_SAFI_LS:
-		return agent.SafiLs
+		return types.SafiLs
 	case gobgp.Family_SAFI_SR_POLICY:
-		return agent.SafiSrPolicy
+		return types.SafiSrPolicy
 	case gobgp.Family_SAFI_MUP:
-		return agent.SafiMup
+		return types.SafiMup
 	case gobgp.Family_SAFI_MPLS_VPN:
-		return agent.SafiMplsVpn
+		return types.SafiMplsVpn
 	case gobgp.Family_SAFI_MPLS_VPN_MULTICAST:
-		return agent.SafiMplsVpnMulticast
+		return types.SafiMplsVpnMulticast
 	case gobgp.Family_SAFI_ROUTE_TARGET_CONSTRAINTS:
-		return agent.SafiRouteTargetConstraints
+		return types.SafiRouteTargetConstraints
 	case gobgp.Family_SAFI_FLOW_SPEC_UNICAST:
-		return agent.SafiFlowSpecUnicast
+		return types.SafiFlowSpecUnicast
 	case gobgp.Family_SAFI_FLOW_SPEC_VPN:
-		return agent.SafiFlowSpecVpn
+		return types.SafiFlowSpecVpn
 	case gobgp.Family_SAFI_KEY_VALUE:
-		return agent.SafiKeyValue
+		return types.SafiKeyValue
 	default:
-		return agent.SafiUnknown
+		return types.SafiUnknown
 	}
 }

@@ -5,7 +5,7 @@ package bgpv1
 
 import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
+	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -31,12 +31,12 @@ var Cell = cell.Module(
 		newBGPPeeringPolicyResource,
 		// goBGP is currently the only supported RouterManager, if more are
 		// implemented, provide the manager via a Cell that pics implementation based on configuration.
-		gobgp.NewBGPRouterManager,
+		manager.NewBGPRouterManager,
 		// Create a slim service DiffStore
-		gobgp.NewDiffStore[*slim_core_v1.Service],
+		manager.NewDiffStore[*slim_core_v1.Service],
 	),
 	// Provides the reconcilers used by the route manager to update the config
-	gobgp.ConfigReconcilers,
+	manager.ConfigReconcilers,
 )
 
 func newBGPPeeringPolicyResource(lc hive.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy] {

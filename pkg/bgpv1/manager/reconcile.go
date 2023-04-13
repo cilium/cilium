@@ -1,26 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package gobgp
+package manager
 
 import (
 	"context"
 	"fmt"
 	"net"
 
-	gobgp "github.com/osrg/gobgp/v3/api"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
-
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
+
+type ReconcileParams struct {
+	Server *ServerWithConfig
+	NewC   *v2alpha1api.CiliumBGPVirtualRouter
+	CState *agent.ControlPlaneState
+}
 
 // ConfigReconciler is a interface for reconciling a particular aspect
 // of an old and new *v2alpha1api.CiliumBGPVirtualRouter
@@ -28,9 +34,9 @@ type ConfigReconciler interface {
 	// Priority is used to determine the order in which reconcilers are called. Reconcilers are called from lowest to
 	// highest.
 	Priority() int
-	// If the `Config` field in `sc` is nil the reconciler should unconditionally
+	// Reconcile If the `Config` field in `params.sc` is nil the reconciler should unconditionally
 	// perform the reconciliation actions, as no previous configuration is present.
-	Reconcile(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error
+	Reconcile(ctx context.Context, params ReconcileParams) error
 }
 
 var ConfigReconcilers = cell.ProvidePrivate(
@@ -40,7 +46,7 @@ var ConfigReconcilers = cell.ProvidePrivate(
 	NewLBServiceReconciler,
 )
 
-type preflightReconcilerOut struct {
+type PreflightReconcilerOut struct {
 	cell.Out
 
 	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
@@ -48,8 +54,8 @@ type preflightReconcilerOut struct {
 
 type PreflightReconciler struct{}
 
-func NewPreflightReconciler() preflightReconcilerOut {
-	return preflightReconcilerOut{
+func NewPreflightReconciler() PreflightReconcilerOut {
+	return PreflightReconcilerOut{
 		Reconciler: &PreflightReconciler{},
 	}
 }
@@ -58,8 +64,8 @@ func (r *PreflightReconciler) Priority() int {
 	return 10
 }
 
-func (r *PreflightReconciler) Reconcile(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
-	return preflightReconciler(ctx, m, sc, newc, cstate)
+func (r *PreflightReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
+	return preflightReconciler(ctx, params.Server, params.NewC, params.CState)
 }
 
 // preflightReconciler is a preflight task before any other reconciliation should
@@ -71,13 +77,18 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, m *BGPRouterManager
 // this must be done first so that the following reconciliation functions act
 // upon the recreated BgpServer with the desired permanent configurations.
 //
-// permanent configurations for gobgp BgpServers (ones that cannot be changed after creation)
+// permanent configurations for BgpServers (ones that cannot be changed after creation)
 // are router ID and local listening port.
-func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+func preflightReconciler(
+	ctx context.Context,
+	sc *ServerWithConfig,
+	newc *v2alpha1api.CiliumBGPVirtualRouter,
+	cstate *agent.ControlPlaneState) error {
+
 	var (
 		l = log.WithFields(
 			logrus.Fields{
-				"component": "gobgp.preflightReconciler",
+				"component": "manager.preflightReconciler",
 			},
 		)
 	)
@@ -93,7 +104,7 @@ func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWit
 	}
 
 	l.Debugf("Begin preflight reoncilation for virtual router with ASN %v", newc.LocalASN)
-	bgpInfo, err := sc.Server.GetBgp(ctx, &gobgp.GetBgpRequest{})
+	bgpInfo, err := sc.Server.GetBGP(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve BgpServer info for virtual router with ASN %v: %w", newc.LocalASN, err)
 	}
@@ -130,9 +141,9 @@ func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWit
 		shouldRecreate = true
 		l.Infof("Virtual router with ASN %v local port has changed from %v to %v", newc.LocalASN, bgpInfo.Global.ListenPort, localPort)
 	}
-	if routerID != bgpInfo.Global.RouterId {
+	if routerID != bgpInfo.Global.RouterID {
 		shouldRecreate = true
-		l.Infof("Virtual router with ASN %v router ID has changed from %v to %v", newc.LocalASN, bgpInfo.Global.RouterId, routerID)
+		l.Infof("Virtual router with ASN %v router ID has changed from %v to %v", newc.LocalASN, bgpInfo.Global.RouterID, routerID)
 	}
 	if !shouldRecreate {
 		l.Debugf("No preflight reconciliation necessary for virtual router with local ASN %v", newc.LocalASN)
@@ -140,13 +151,12 @@ func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWit
 	}
 
 	l.Infof("Recreating virtual router with ASN %v for changes to take effect", newc.LocalASN)
-
-	startReq := &gobgp.StartBgpRequest{
-		Global: &gobgp.Global{
-			Asn:        uint32(newc.LocalASN),
-			RouterId:   routerID,
+	globalConfig := types.ServerParameters{
+		Global: types.BGPGlobal{
+			ASN:        uint32(newc.LocalASN),
+			RouterID:   routerID,
 			ListenPort: localPort,
-			RouteSelectionOptions: &gobgp.RouteSelectionOptionsConfig{
+			RouteSelectionOptions: &types.RouteSelectionOptions{
 				AdvertiseInactiveRoutes: true,
 			},
 		},
@@ -156,7 +166,7 @@ func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWit
 	sc.Server.Stop()
 
 	// create a new one via ServerWithConfig constructor
-	s, err := NewServerWithConfig(ctx, startReq)
+	s, err := NewServerWithConfig(ctx, globalConfig)
 	if err != nil {
 		l.WithError(err).Errorf("Failed to start BGP server for virtual router with local ASN %v", newc.LocalASN)
 		return fmt.Errorf("failed to start BGP server for virtual router with local ASN %v: %w", newc.LocalASN, err)
@@ -171,12 +181,12 @@ func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWit
 
 	// Clear the shadow state since any advertisements will be gone now that the server has been recreated.
 	sc.PodCIDRAnnouncements = nil
-	sc.ServiceAnnouncements = make(map[resource.Key][]Advertisement)
+	sc.ServiceAnnouncements = make(map[resource.Key][]types.Advertisement)
 
 	return nil
 }
 
-type neighborReconcilerOut struct {
+type NeighborReconcilerOut struct {
 	cell.Out
 
 	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
@@ -184,8 +194,8 @@ type neighborReconcilerOut struct {
 
 type NeighborReconciler struct{}
 
-func NewNeighborReconciler() neighborReconcilerOut {
-	return neighborReconcilerOut{
+func NewNeighborReconciler() NeighborReconcilerOut {
+	return NeighborReconcilerOut{
 		Reconciler: &NeighborReconciler{},
 	}
 }
@@ -194,13 +204,18 @@ func (r *NeighborReconciler) Priority() int {
 	return 20
 }
 
-func (r *NeighborReconciler) Reconcile(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
-	return neighborReconciler(ctx, m, sc, newc, cstate)
+func (r *NeighborReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
+	return neighborReconciler(ctx, params.Server, params.NewC, params.CState)
 }
 
 // neighborReconciler is a ConfigReconcilerFunc which reconciles the peers of
 // the provided BGP server with the provided CiliumBGPVirtualRouter.
-func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, _ *agent.ControlPlaneState) error {
+func neighborReconciler(
+	ctx context.Context,
+	sc *ServerWithConfig,
+	newc *v2alpha1api.CiliumBGPVirtualRouter,
+	_ *agent.ControlPlaneState) error {
+
 	if newc == nil {
 		return fmt.Errorf("attempted neighbor reconciliation with nil CiliumBGPPeeringPolicy")
 	}
@@ -210,7 +225,7 @@ func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWith
 	var (
 		l = log.WithFields(
 			logrus.Fields{
-				"component": "gobgp.neighborReconciler",
+				"component": "manager.neighborReconciler",
 			},
 		)
 		toCreate []*v2alpha1api.CiliumBGPNeighbor
@@ -288,7 +303,7 @@ func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWith
 	// create new neighbors
 	for _, n := range toCreate {
 		l.Infof("Adding peer %v %v to local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
-		if err := sc.AddNeighbor(ctx, n); err != nil {
+		if err := sc.Server.AddNeighbor(ctx, types.NeighborRequest{Neighbor: n}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
 	}
@@ -296,7 +311,7 @@ func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWith
 	// remove neighbors
 	for _, n := range toRemove {
 		l.Infof("Removing peer %v %v to local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
-		if err := sc.RemoveNeighbor(ctx, n); err != nil {
+		if err := sc.Server.RemoveNeighbor(ctx, types.NeighborRequest{Neighbor: n}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
 	}
@@ -305,7 +320,7 @@ func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWith
 	return nil
 }
 
-type exportPodCIDRReconcilerOut struct {
+type ExportPodCIDRReconcilerOut struct {
 	cell.Out
 
 	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
@@ -313,8 +328,8 @@ type exportPodCIDRReconcilerOut struct {
 
 type ExportPodCIDRReconciler struct{}
 
-func NewExportPodCIDRReconciler() exportPodCIDRReconcilerOut {
-	return exportPodCIDRReconcilerOut{
+func NewExportPodCIDRReconciler() ExportPodCIDRReconcilerOut {
+	return ExportPodCIDRReconcilerOut{
 		Reconciler: &ExportPodCIDRReconciler{},
 	}
 }
@@ -323,13 +338,18 @@ func (r *ExportPodCIDRReconciler) Priority() int {
 	return 30
 }
 
-func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
-	return exportPodCIDRReconciler(ctx, m, sc, newc, cstate)
+func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
+	return exportPodCIDRReconciler(ctx, params.Server, params.NewC, params.CState)
 }
 
 // exportPodCIDRReconciler is a ConfigReconcilerFunc which reconciles the
 // advertisement of the private Kubernetes PodCIDR block.
-func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+func exportPodCIDRReconciler(
+	ctx context.Context,
+	sc *ServerWithConfig,
+	newc *v2alpha1api.CiliumBGPVirtualRouter,
+	cstate *agent.ControlPlaneState) error {
+
 	if newc == nil {
 		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil CiliumBGPPeeringPolicy")
 	}
@@ -352,7 +372,7 @@ func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *Serve
 	advertisements, err := exportAdvertisementsReconciler(&advertisementsReconcilerParams{
 		ctx:       ctx,
 		name:      "pod CIDR",
-		component: "gobgp.exportPodCIDRReconciler",
+		component: "manager.exportPodCIDRReconciler",
 		enabled:   newc.ExportPodCIDR,
 
 		sc:   sc,
@@ -372,7 +392,7 @@ func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *Serve
 	return nil
 }
 
-type lbServiceReconcilerOut struct {
+type LBServiceReconcilerOut struct {
 	cell.Out
 
 	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
@@ -382,12 +402,12 @@ type LBServiceReconciler struct {
 	diffStore DiffStore[*slim_corev1.Service]
 }
 
-func NewLBServiceReconciler(diffStore DiffStore[*slim_corev1.Service]) lbServiceReconcilerOut {
+func NewLBServiceReconciler(diffStore DiffStore[*slim_corev1.Service]) LBServiceReconcilerOut {
 	if diffStore == nil {
-		return lbServiceReconcilerOut{}
+		return LBServiceReconcilerOut{}
 	}
 
-	return lbServiceReconcilerOut{
+	return LBServiceReconcilerOut{
 		Reconciler: &LBServiceReconciler{
 			diffStore: diffStore,
 		},
@@ -398,13 +418,16 @@ func (r *LBServiceReconciler) Priority() int {
 	return 40
 }
 
-func (r *LBServiceReconciler) Reconcile(
+func (r *LBServiceReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
+	return r.lbServiceReconciler(ctx, params.Server, params.NewC, params.CState)
+}
+
+func (r *LBServiceReconciler) lbServiceReconciler(
 	ctx context.Context,
-	m *BGPRouterManager,
 	sc *ServerWithConfig,
 	newc *v2alpha1api.CiliumBGPVirtualRouter,
-	cstate *agent.ControlPlaneState,
-) error {
+	cstate *agent.ControlPlaneState) error {
+
 	var existingSelector *slim_metav1.LabelSelector
 	if sc != nil && sc.Config != nil {
 		existingSelector = sc.Config.ServiceSelector
@@ -416,14 +439,14 @@ func (r *LBServiceReconciler) Reconcile(
 		((existingSelector == nil) != (newc.ServiceSelector == nil))
 
 	if changed {
-		if err := r.fullReconciliation(ctx, m, sc, newc, cstate); err != nil {
+		if err := r.fullReconciliation(ctx, sc, newc, cstate); err != nil {
 			return fmt.Errorf("full reconciliation: %w", err)
 		}
 
 		return nil
 	}
 
-	if err := r.svcDiffReconciliation(ctx, m, sc, newc, cstate); err != nil {
+	if err := r.svcDiffReconciliation(ctx, sc, newc, cstate); err != nil {
 		return fmt.Errorf("svc Diff reconciliation: %w", err)
 	}
 
@@ -432,7 +455,7 @@ func (r *LBServiceReconciler) Reconcile(
 
 // fullReconciliation reconciles all services, this is a heavy operation due to the potential amount of services and
 // thus should be avoided if partial reconciliation is an option.
-func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
 	// Loop over all existing announcements, delete announcements for services which no longer exist
 	for svcKey := range sc.ServiceAnnouncements {
 		_, found, err := r.diffStore.GetByKey(svcKey)
@@ -471,7 +494,7 @@ func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, m *BGPRout
 
 // svcDiffReconciliation performs reconciliation, only on services which have been created, updated or deleted since
 // the last diff reconciliation.
-func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
 	upserted, deleted, err := r.diffStore.Diff()
 	if err != nil {
 		return fmt.Errorf("svc store diff: %w", err)
@@ -549,18 +572,22 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 
 	for _, desiredCidr := range desiredCidrs {
 		// If this route has already been announced, don't add it again
-		if slices.IndexFunc(sc.ServiceAnnouncements[svcKey], func(existing Advertisement) bool {
+		if slices.IndexFunc(sc.ServiceAnnouncements[svcKey], func(existing types.Advertisement) bool {
 			return cidrEqual(desiredCidr, existing.Net)
 		}) != -1 {
 			continue
 		}
 
 		// Advertise the new cidr
-		advert, err := sc.AdvertisePath(ctx, desiredCidr)
+		advertPathResp, err := sc.Server.AdvertisePath(ctx, types.PathRequest{
+			Advert: types.Advertisement{
+				Net: desiredCidr,
+			},
+		})
 		if err != nil {
 			return fmt.Errorf("failed to advertise service route %v: %w", desiredCidr, err)
 		}
-		sc.ServiceAnnouncements[svcKey] = append(sc.ServiceAnnouncements[svcKey], advert)
+		sc.ServiceAnnouncements[svcKey] = append(sc.ServiceAnnouncements[svcKey], advertPathResp.Advert)
 	}
 
 	// Loop over announcements in reverse order so we can delete entries without effecting iteration.
@@ -573,7 +600,7 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 			continue
 		}
 
-		if err := sc.WithdrawPath(ctx, announcement); err != nil {
+		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Advert: announcement}); err != nil {
 			return fmt.Errorf("failed to withdraw service route %s: %w", announcement, err)
 		}
 
@@ -590,7 +617,7 @@ func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *ServerWit
 	// Loop in reverse order so we can delete without effect to the iteration.
 	for i := len(advertisements) - 1; i >= 0; i-- {
 		advertisement := advertisements[i]
-		if err := sc.WithdrawPath(ctx, advertisement); err != nil {
+		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Advert: advertisement}); err != nil {
 			// Persist remaining advertisements
 			sc.ServiceAnnouncements[key] = advertisements
 			return fmt.Errorf("failed to withdraw deleted service route: %v: %w", advertisement.Net, err)
