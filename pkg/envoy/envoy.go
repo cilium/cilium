@@ -68,13 +68,13 @@ func mapLogLevel(level logrus.Level) string {
 	return envoyLevelMap[level]
 }
 
-type admin struct {
+type EnvoyAdminClient struct {
 	adminURL string
 	unixPath string
 	level    string
 }
 
-func (a *admin) transact(query string) error {
+func (a *EnvoyAdminClient) transact(query string) error {
 	// Use a custom dialer to use a Unix domain socket for a HTTP connection.
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -96,7 +96,8 @@ func (a *admin) transact(query string) error {
 	return nil
 }
 
-func (a *admin) changeLogLevel(level logrus.Level) error {
+// ChangeLogLevel changes Envoy log level to correspond to the logrus log level 'level'.
+func (a *EnvoyAdminClient) ChangeLogLevel(level logrus.Level) error {
 	envoyLevel := mapLogLevel(level)
 
 	if envoyLevel == a.level {
@@ -113,16 +114,16 @@ func (a *admin) changeLogLevel(level logrus.Level) error {
 	return err
 }
 
-func (a *admin) quit() error {
+func (a *EnvoyAdminClient) quit() error {
 	return a.transact("quitquitquit")
 }
 
 // Envoy manages a running Envoy proxy instance via the
 // ListenerDiscoveryService and RouteDiscoveryService gRPC APIs.
-type Envoy struct {
+type EmbeddedEnvoy struct {
 	stopCh chan struct{}
 	errCh  chan error
-	admin  *admin
+	admin  *EnvoyAdminClient
 }
 
 // GetEnvoyVersion returns the envoy binary version string
@@ -134,31 +135,13 @@ func GetEnvoyVersion() string {
 	return strings.TrimSpace(string(out))
 }
 
-// StartEnvoy starts an Envoy proxy instance.
-func StartEnvoy(runDir, logPath string, baseID uint64, externalEnvoyProxy bool) *Envoy {
-	// Have to use a fake IP address:port even when we Dial to a Unix domain socket.
-	// The address:port will be visible to Envoy as ':authority', but its value is
-	// not meaningful.
-	// Not using the normal localhost address to make it obvious that we are not
-	// connecting to Envoy's admin interface via the IP stack.
-	adminAddress := "192.0.2.34:56"
-	adminSocketPath := getAdminSocketPath(GetSocketDir(runDir))
-
-	e := &Envoy{
+// StartEmbeddedEnvoy starts an Envoy proxy instance.
+func StartEmbeddedEnvoy(runDir, logPath string, baseID uint64) *EmbeddedEnvoy {
+	e := &EmbeddedEnvoy{
 		stopCh: make(chan struct{}),
 		errCh:  make(chan error, 1),
-		admin: &admin{
-			adminURL: fmt.Sprintf("http://%s/", adminAddress),
-			unixPath: adminSocketPath,
-		},
+		admin:  NewEnvoyAdminClient(GetSocketDir(runDir)),
 	}
-
-	if externalEnvoyProxy {
-		// Case Envoy as DaemonSet
-		return e
-	}
-
-	// Case Envoy as standalone process within Agent Container
 
 	// Use the same structure as Istio's pilot-agent for the node ID:
 	// nodeType~ipAddress~proxyId~domain
@@ -168,7 +151,7 @@ func StartEnvoy(runDir, logPath string, baseID uint64, externalEnvoyProxy bool) 
 
 	// Create static configuration
 	createBootstrap(bootstrapPath, nodeId, ingressClusterName,
-		xdsSocketPath, egressClusterName, ingressClusterName, adminSocketPath)
+		xdsSocketPath, egressClusterName, ingressClusterName, getAdminSocketPath(GetSocketDir(runDir)))
 
 	log.Debugf("Envoy: Starting: %v", *e)
 
@@ -270,6 +253,23 @@ func StartEnvoy(runDir, logPath string, baseID uint64, externalEnvoyProxy bool) 
 	return nil
 }
 
+func NewEnvoyAdminClient(envoySocketDir string) *EnvoyAdminClient {
+	// Have to use a fake IP address:port even when we Dial to a Unix domain socket.
+	// The address:port will be visible to Envoy as ':authority', but its value is
+	// not meaningful.
+	// Not using the normal localhost address to make it obvious that we are not
+	// connecting to Envoy's admin interface via the IP stack.
+	adminAddress := "192.0.2.34:56"
+	adminSocketPath := getAdminSocketPath(envoySocketDir)
+
+	envoyAdmin := &EnvoyAdminClient{
+		adminURL: fmt.Sprintf("http://%s/", adminAddress),
+		unixPath: adminSocketPath,
+	}
+
+	return envoyAdmin
+}
+
 // newEnvoyLogPiper creates a writer that parses and logs log messages written by Envoy.
 func newEnvoyLogPiper() io.WriteCloser {
 	reader, writer := io.Pipe()
@@ -345,9 +345,9 @@ func isEOF(err error) bool {
 	return errlen >= 3 && strerr[errlen-3:] == io.EOF.Error()
 }
 
-// StopEnvoy kills the Envoy process started with StartEnvoy. The gRPC API streams are terminated
+// Stop kills the Envoy process started with StartEmbeddedEnvoy. The gRPC API streams are terminated
 // first.
-func (e *Envoy) StopEnvoy() error {
+func (e *EmbeddedEnvoy) Stop() error {
 	close(e.stopCh)
 	err, ok := <-e.errCh
 	if ok {
@@ -356,7 +356,6 @@ func (e *Envoy) StopEnvoy() error {
 	return nil
 }
 
-// ChangeLogLevel changes Envoy log level to correspond to the logrus log level 'level'.
-func (e *Envoy) ChangeLogLevel(level logrus.Level) {
-	e.admin.changeLogLevel(level)
+func (e *EmbeddedEnvoy) GetAdminClient() *EnvoyAdminClient {
+	return e.admin
 }
