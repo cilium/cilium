@@ -61,6 +61,8 @@ jobs:
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --helm-set=debug.enabled=true \
+            --helm-set=debug.verbose=envoy \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
