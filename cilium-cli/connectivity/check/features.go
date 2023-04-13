@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -280,22 +281,22 @@ func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, 
 		return err
 	}
 
-	hasSecretAccess := false
+	result[FeatureSecretBackendK8s] = FeatureStatus{
+		Enabled: canAccessK8sResourceSecret(cr),
+	}
+	return nil
+}
 
-L:
+func canAccessK8sResourceSecret(cr *rbacv1.ClusterRole) bool {
 	for _, rule := range cr.Rules {
 		for _, resource := range rule.Resources {
 			if resource == "secrets" {
-				hasSecretAccess = true
-				break L
+				return true
 			}
 		}
 	}
 
-	result[FeatureSecretBackendK8s] = FeatureStatus{
-		Enabled: hasSecretAccess,
-	}
-	return nil
+	return false
 }
 
 func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context, ciliumPod Pod, result FeatureSet) error {
