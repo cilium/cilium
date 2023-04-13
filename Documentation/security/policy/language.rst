@@ -1279,6 +1279,11 @@ considered external to the cluster.
       - toFQDNs:
           - matchName: "www.google.com"
 
+
+There is currently a known issue (:gh-issue:`24502`) that makes the ``kube-apiserver``
+entity unreliable. Until this is resolved, it is recommended to grant access to the apiserver
+by CIDR or by the special ``world`` entity.
+
 .. _HostPolicies:
 
 Host Policies
