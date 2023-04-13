@@ -17,6 +17,16 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 )
 
+type egressGatewayTestOpts struct {
+	fromGateway    bool
+	shouldBeSNATed bool
+}
+
+type egressGatewayConnectivityTestOpts struct {
+	fromGateway bool
+	ciliumOpts  map[string]string
+}
+
 var _ = SkipDescribeIf(func() bool {
 	return helpers.RunsOnEKS() || helpers.RunsOnGKE() || helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotExistNodeWithoutCilium() || helpers.DoesNotRunOn54OrLaterKernel()
 }, "K8sDatapathEgressGatewayTest", func() {
@@ -41,7 +51,6 @@ var _ = SkipDescribeIf(func() bool {
 
 		assignIPYAML string
 		echoPodYAML  string
-		policyYAML   string
 	)
 
 	runEchoServer := func() {
@@ -126,40 +135,54 @@ var _ = SkipDescribeIf(func() bool {
 		kubectl.OutsideNodeReport(outsideName, "ip -d route")
 	})
 
-	testEgressGateway := func(fromGateway bool) {
-		if fromGateway {
+	testEgressGateway := func(testOpts *egressGatewayTestOpts) {
+		if testOpts.fromGateway {
 			By("Check egress policy from gateway node")
 		} else {
 			By("Check egress policy from non-gateway node")
 		}
 
 		hostIP := k8s1IP
-		if fromGateway {
+		if testOpts.fromGateway {
 			hostIP = k8s2IP
 		}
 
 		src, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient, hostIP, false, 1)
 
-		By("Testing that a request from pod %s to outside is SNATed with the egressIP %s", src, egressIP)
-		ctEntriesBeforeConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
+		var (
+			targetDestinationIP       string
+			ctEntriesBeforeConnection int
+		)
+
+		if testOpts.shouldBeSNATed {
+			By("Testing that a request from pod %s to outside is SNATed with the egressIP %s", src, egressIP)
+			targetDestinationIP = egressIP
+			ctEntriesBeforeConnection = ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
+		} else {
+			By("Testing that a request from pod %s to outside is not SNATed with the egressIP %s", src, egressIP)
+			targetDestinationIP = hostIP
+		}
+
 		res := kubectl.ExecPodCmd(randomNamespace, src, helpers.CurlFail("http://%s:80", outsideIP))
 
 		res.ExpectSuccess()
-		res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", egressIP))
+		res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", targetDestinationIP))
 
-		ctEntriesAfterConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
-		Expect(ctEntriesAfterConnection - ctEntriesBeforeConnection).Should(Equal(1))
+		if testOpts.shouldBeSNATed {
+			ctEntriesAfterConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
+			Expect(ctEntriesAfterConnection - ctEntriesBeforeConnection).Should(Equal(1))
+		}
 	}
 
-	testConnectivity := func(fromGateway bool, ciliumOpts map[string]string) {
-		if fromGateway {
+	testConnectivity := func(testOpts *egressGatewayConnectivityTestOpts) {
+		if testOpts.fromGateway {
 			By("Check connectivity from gateway node")
 		} else {
 			By("Check connectivity from non-gateway node")
 		}
 		hostName := k8s1Name
 		hostIP := k8s1IP
-		if fromGateway {
+		if testOpts.fromGateway {
 			hostName = k8s2Name
 			hostIP = k8s2IP
 		}
@@ -202,7 +225,7 @@ var _ = SkipDescribeIf(func() bool {
 		res.ExpectSuccess()
 		res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideIP))
 
-		if ciliumOpts["tunnel"] == "disabled" {
+		if testOpts.ciliumOpts["tunnel"] == "disabled" {
 			// When connecting from outside the cluster directly to a pod which is
 			// selected by an egress policy, the reply traffic should not be SNATed with
 			// the egress IP (only connections originating from these pods should go
@@ -243,18 +266,20 @@ var _ = SkipDescribeIf(func() bool {
 		}
 	}
 
-	applyEgressPolicy := func(manifest string) {
+	applyEgressPolicy := func(manifest string) string {
 		// Apply egress policy yaml
 		originalPolicyYAML := helpers.ManifestGet(kubectl.BasePath(), manifest)
 		res := kubectl.ExecMiddle("mktemp")
 		res.ExpectSuccess()
-		policyYAML = strings.Trim(res.Stdout(), "\n")
+		policyYAML := strings.Trim(res.Stdout(), "\n")
 		kubectl.ExecMiddle(fmt.Sprintf("sed 's/INPUT_EGRESS_IP/%s/' %s > %s",
 			egressIP, originalPolicyYAML, policyYAML)).ExpectSuccess()
 		kubectl.ExecMiddle(fmt.Sprintf("sed 's/INPUT_OUTSIDE_NODE_IP/%s/' -i %s",
 			outsideIP, policyYAML)).ExpectSuccess()
 		res = kubectl.ApplyDefault(policyYAML)
 		Expect(res).Should(helpers.CMDSuccess(), "unable to apply %s", policyYAML)
+
+		return policyYAML
 	}
 
 	doContext := func(name string, ciliumOpts map[string]string) {
@@ -272,14 +297,23 @@ var _ = SkipDescribeIf(func() bool {
 
 			Context("no egress gw policy", func() {
 				It("connectivity works", func() {
-					testConnectivity(false, ciliumOpts)
-					testConnectivity(true, ciliumOpts)
+					testConnectivity(&egressGatewayConnectivityTestOpts{
+						fromGateway: false,
+						ciliumOpts:  ciliumOpts,
+					})
+
+					testConnectivity(&egressGatewayConnectivityTestOpts{
+						fromGateway: true,
+						ciliumOpts:  ciliumOpts,
+					})
 				})
 			})
 
 			Context("egress gw policy", func() {
+				var policyYAML string
+
 				BeforeAll(func() {
-					applyEgressPolicy("egress-gateway-policy.yaml")
+					policyYAML = applyEgressPolicy("egress-gateway-policy.yaml")
 
 					// Wait for 6 entries:
 					// - 3 policies, each with:
@@ -307,10 +341,25 @@ var _ = SkipDescribeIf(func() bool {
 				})
 
 				It("both egress gw and basic connectivity work", func() {
-					testEgressGateway(false)
-					testEgressGateway(true)
-					testConnectivity(false, ciliumOpts)
-					testConnectivity(true, ciliumOpts)
+					testEgressGateway(&egressGatewayTestOpts{
+						fromGateway:    false,
+						shouldBeSNATed: true,
+					})
+
+					testEgressGateway(&egressGatewayTestOpts{
+						fromGateway:    true,
+						shouldBeSNATed: true,
+					})
+
+					testConnectivity(&egressGatewayConnectivityTestOpts{
+						fromGateway: false,
+						ciliumOpts:  ciliumOpts,
+					})
+
+					testConnectivity(&egressGatewayConnectivityTestOpts{
+						fromGateway: true,
+						ciliumOpts:  ciliumOpts,
+					})
 				})
 			})
 		})
