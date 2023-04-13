@@ -825,8 +825,17 @@ spec:
                 path: common-etcd-client.key
               - key: tls.crt
                 path: common-etcd-client.crt
+          {{- if not .Values.tls.caBundle.enabled }}
               - key: ca.crt
                 path: common-etcd-client-ca.crt
+          {{- else }}
+          - configMap:
+              name: {{ .Values.tls.caBundle.name }}
+              optional: true
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: common-etcd-client-ca.crt
+          {{- end }}
       {{- if and .Values.ipMasqAgent .Values.ipMasqAgent.enabled }}
       - name: ip-masq-agent
         configMap:
@@ -871,12 +880,21 @@ spec:
               name: hubble-server-certs
               optional: true
               items:
-              - key: ca.crt
-                path: client-ca.crt
               - key: tls.crt
                 path: server.crt
               - key: tls.key
                 path: server.key
+          {{- if not .Values.tls.caBundle.enabled }}
+              - key: ca.crt
+                path: client-ca.crt
+          {{- else }}
+          - configMap:
+              name: {{ .Values.tls.caBundle.name }}
+              optional: true
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: client-ca.crt
+          {{- end }}
       {{- end }}
       {{- range .Values.extraHostPathMounts }}
       - name: {{ .name }}
