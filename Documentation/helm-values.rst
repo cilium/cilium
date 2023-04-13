@@ -2241,7 +2241,7 @@
      - object
      - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"secretsBackend":"local"}``
    * - tls.ca
-     - Base64 encoded PEM values for the CA certificate and private key. This can be used as common CA to generate certificates used by hubble and clustermesh components
+     - Base64 encoded PEM values for the CA certificate and private key. This can be used as common CA to generate certificates used by hubble and clustermesh components. It is neither required nor used when cert-manager is used to generate the certificates.
      - object
      - ``{"cert":"","certValidityDuration":1095,"key":""}``
    * - tls.ca.cert

@@ -1747,7 +1747,8 @@ tls:
   secretsBackend: local
 
   # -- Base64 encoded PEM values for the CA certificate and private key.
-  # This can be used as common CA to generate certificates used by hubble and clustermesh components
+  # This can be used as common CA to generate certificates used by hubble and clustermesh components.
+  # It is neither required nor used when cert-manager is used to generate the certificates.
   ca:
     # -- Optional CA cert. If it is provided, it will be used by cilium to
     # generate all other certificates. Otherwise, an ephemeral CA is generated.
