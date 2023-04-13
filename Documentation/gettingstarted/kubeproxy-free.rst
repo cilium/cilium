@@ -1420,6 +1420,28 @@ For more information, ensure that you have the fix `Pull Request <https://github
     48498    getpeername4
     48494    getpeername6
 
+Known Issues
+############
+
+For clusters deployed with Cilium version 1.11.14 or earlier, service backend entries could
+be leaked in the BPF maps in some instances. The known cases that could lead
+to such leaks are due to race conditions between deletion of a service backend
+while it's terminating, and simultaneous deletion of the service the backend is
+associated with. This could lead to duplicate backend entries that could eventually
+fill up the ``cilium_lb4_backends_v2`` map.
+In such cases, you might see error messages like these in the Cilium agent logs::
+
+    Unable to update element for cilium_lb4_backends_v2 map with file descriptor 15: the map is full, please consider resizing it. argument list too long
+
+While the leak was fixed in Cilium version 1.11.15, in some cases, any affected clusters upgrading
+from the problematic cilium versions 1.11.14 or earlier to any subsequent versions may not
+see the leaked backends cleaned up from the BPF maps after the Cilium agent restarts.
+The fixes to clean up leaked duplicate backend entries were backported to older
+releases, and are available as part of Cilium versions v1.11.16, v1.12.9 and v1.13.2.
+Fresh clusters deploying Cilium versions 1.11.15 or later don't experience this leak issue.
+
+For more information, see `this GitHub issue <https://github.com/cilium/cilium/issues/235514>`__.
+
 Limitations
 ###########
 
