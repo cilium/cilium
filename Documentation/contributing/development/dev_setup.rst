@@ -563,7 +563,7 @@ Minor version
    default. Make sure the files ``contributing/testing/{ci,e2e}.rst`` are up to
    date with these changes.
 
-#  Update documentation files:
+#. Update documentation files:
    - Documentation/contributing/testing/e2e.rst
    - Documentation/network/istio.rst
    - Documentation/network/kubernetes/compatibility.rst
