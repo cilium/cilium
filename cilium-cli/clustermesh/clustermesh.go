@@ -1057,16 +1057,17 @@ func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context, log bool, 
 	}})
 	defer w.Cancel()
 
-retry:
-	ai, err := k.extractAccessInformation(ctx, k.client, []string{}, false, getExternalWorkloadSecret)
-	if err != nil && k.params.Wait {
-		if err := w.Retry(err); err != nil {
-			return nil, err
+	for {
+		ai, err := k.extractAccessInformation(ctx, k.client, []string{}, false, getExternalWorkloadSecret)
+		if err != nil && k.params.Wait {
+			if err := w.Retry(err); err != nil {
+				return nil, err
+			}
+			continue
 		}
-		goto retry
-	}
 
-	return ai, err
+		return ai, err
+	}
 }
 
 func (k *K8sClusterMesh) statusService(ctx context.Context) (*corev1.Service, error) {
@@ -1075,20 +1076,21 @@ func (k *K8sClusterMesh) statusService(ctx context.Context) (*corev1.Service, er
 	}})
 	defer w.Cancel()
 
-retry:
-	svc, err := k.client.GetService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.GetOptions{})
-	if err != nil {
-		if k.params.Wait {
-			if err := w.Retry(err); err != nil {
-				return nil, err
+	for {
+		svc, err := k.client.GetService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.GetOptions{})
+		if err != nil {
+			if k.params.Wait {
+				if err := w.Retry(err); err != nil {
+					return nil, err
+				}
+				continue
 			}
-			goto retry
+
+			return nil, fmt.Errorf("clustermesh-apiserver cannot be found: %w", err)
 		}
 
-		return nil, fmt.Errorf("clustermesh-apiserver cannot be found: %w", err)
+		return svc, nil
 	}
-
-	return svc, nil
 }
 
 func (k *K8sClusterMesh) waitForDeployment(ctx context.Context) error {
@@ -1190,27 +1192,28 @@ func (k *K8sClusterMesh) statusConnectivity(ctx context.Context) (*ConnectivityS
 	}})
 	defer w.Cancel()
 
-retry:
-	status, err := k.determineStatusConnectivity(ctx)
-	if k.params.Wait {
-		if err == nil {
-			if status.NotReady > 0 {
-				err = fmt.Errorf("%d clusters not ready", status.NotReady)
+	for {
+		status, err := k.determineStatusConnectivity(ctx)
+		if k.params.Wait {
+			if err == nil {
+				if status.NotReady > 0 {
+					err = fmt.Errorf("%d clusters not ready", status.NotReady)
+				}
+				if len(status.Errors) > 0 {
+					err = fmt.Errorf("%d clusters have errors", len(status.Errors))
+				}
 			}
-			if len(status.Errors) > 0 {
-				err = fmt.Errorf("%d clusters have errors", len(status.Errors))
+
+			if err != nil {
+				if err := w.Retry(err); err != nil {
+					return nil, err
+				}
+				continue
 			}
 		}
 
-		if err != nil {
-			if err := w.Retry(err); err != nil {
-				return nil, err
-			}
-			goto retry
-		}
+		return status, err
 	}
-
-	return status, err
 }
 
 func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*ConnectivityStatus, error) {
