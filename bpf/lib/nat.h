@@ -319,17 +319,17 @@ static __always_inline int snat_v4_track_connection(struct __ctx_buff *ctx,
 
 	if (state && state->common.host_local) {
 		needs_ct = true;
-	} else if (!state && dir == NAT_DIR_EGRESS) {
-		if (tuple->saddr == target->addr)
-			needs_ct = true;
 #if defined(ENABLE_EGRESS_GATEWAY)
-		/* Track egress gateway connections, but only if they are
-		 * related to a remote endpoint (if the endpoint is local then
-		 * the connection is already tracked).
-		 */
-		else if (target->egress_gateway && !target->from_local_endpoint)
-			needs_ct = true;
+	/* Track egress gateway connections, but only if they are related to a
+	 * remote endpoint (if the endpoint is local then the connection is
+	 * already tracked). NAT_DIR_EGRESS is implied. Do ct_lookup4 also for
+	 * established connections to extend the expiration timeout.
+	 */
+	} else if (target->egress_gateway && !target->from_local_endpoint) {
+		needs_ct = true;
 #endif
+	} else if (!state && dir == NAT_DIR_EGRESS && tuple->saddr == target->addr) {
+		needs_ct = true;
 	}
 	if (!needs_ct)
 		return 0;
