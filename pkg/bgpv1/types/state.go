@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package agent
+package types
 
 // SessionState as defined in rfc4271#section-8.2.2
 type SessionState uint32

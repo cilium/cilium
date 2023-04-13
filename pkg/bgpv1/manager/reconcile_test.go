@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package gobgp
+package manager
 
 import (
 	"context"
 	"net"
 	"testing"
 
-	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -84,14 +84,14 @@ func TestPreflightReconciler(t *testing.T) {
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
 			// our test BgpServer with our original router ID and local port
-			startReq := &gobgp.StartBgpRequest{
-				Global: &gobgp.Global{
-					Asn:        64125,
-					RouterId:   tt.routerID,
+			srvParams := types.ServerParameters{
+				Global: types.BGPGlobal{
+					ASN:        64125,
+					RouterID:   tt.routerID,
 					ListenPort: int32(tt.localPort),
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), startReq)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
@@ -118,22 +118,23 @@ func TestPreflightReconciler(t *testing.T) {
 				},
 			}
 
-			err = preflightReconciler(context.Background(), nil, testSC, newc, cstate)
+			err = preflightReconciler(context.Background(), testSC, newc, cstate)
 			if (tt.err == nil) != (err == nil) {
 				t.Fatalf("wanted error: %v", (tt.err == nil))
 			}
 			if tt.shouldRecreate && testSC.Server == originalServer {
 				t.Fatalf("preflightReconciler did not recreate server")
 			}
-			bgpInfo, err := testSC.Server.GetBgp(context.Background(), &gobgp.GetBgpRequest{})
+			getBgpResp, err := testSC.Server.GetBGP(context.Background())
 			if err != nil {
 				t.Fatalf("failed to retrieve BGP Info for BgpServer under test: %v", err)
 			}
-			if bgpInfo.Global.RouterId != tt.newRouterID {
-				t.Fatalf("got: %v, want: %v", bgpInfo.Global.RouterId, tt.newRouterID)
+			bgpInfo := getBgpResp.Global
+			if bgpInfo.RouterID != tt.newRouterID {
+				t.Fatalf("got: %v, want: %v", bgpInfo.RouterID, tt.newRouterID)
 			}
-			if bgpInfo.Global.ListenPort != int32(tt.newLocalPort) {
-				t.Fatalf("got: %v, want: %v", bgpInfo.Global.ListenPort, tt.newLocalPort)
+			if bgpInfo.ListenPort != int32(tt.newLocalPort) {
+				t.Fatalf("got: %v, want: %v", bgpInfo.ListenPort, tt.newLocalPort)
 			}
 		})
 	}
@@ -206,14 +207,14 @@ func TestNeighborReconciler(t *testing.T) {
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
 			// our test BgpServer with our original router ID and local port
-			startReq := &gobgp.StartBgpRequest{
-				Global: &gobgp.Global{
-					Asn:        64125,
-					RouterId:   "127.0.0.1",
+			srvParams := types.ServerParameters{
+				Global: types.BGPGlobal{
+					ASN:        64125,
+					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), startReq)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
@@ -230,9 +231,11 @@ func TestNeighborReconciler(t *testing.T) {
 					PeerAddress: n,
 					PeerASN:     64124,
 				})
-				testSC.AddNeighbor(context.Background(), &v2alpha1api.CiliumBGPNeighbor{
-					PeerAddress: n,
-					PeerASN:     64124,
+				testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
+					Neighbor: &v2alpha1api.CiliumBGPNeighbor{
+						PeerAddress: n,
+						PeerASN:     64124,
+					},
 				})
 			}
 			testSC.Config = oldc
@@ -249,19 +252,18 @@ func TestNeighborReconciler(t *testing.T) {
 				})
 			}
 
-			err = neighborReconciler(context.Background(), nil, testSC, newc, nil)
+			err = neighborReconciler(context.Background(), testSC, newc, nil)
 			if (tt.err == nil) != (err == nil) {
 				t.Fatalf("want error: %v, got: %v", (tt.err == nil), err)
 			}
 
 			// check testSC for desired neighbors
-			var peers []*gobgp.Peer
-			err = testSC.Server.ListPeer(context.Background(), &gobgp.ListPeerRequest{}, func(peer *gobgp.Peer) {
-				peers = append(peers, peer)
-			})
+			var getPeerResp types.GetPeerStateResponse
+			getPeerResp, err = testSC.Server.GetPeerState(context.Background())
 			if err != nil {
 				t.Fatalf("failed creating test BgpServer: %v", err)
 			}
+			peers := getPeerResp.Peers
 
 			if len(tt.newNeighbors) == 0 && len(peers) > 0 {
 				t.Fatalf("got: %v, want: %v", len(peers), len(tt.newNeighbors))
@@ -274,7 +276,7 @@ func TestNeighborReconciler(t *testing.T) {
 				}
 				var seen bool
 				for _, p := range peers {
-					ipp := net.ParseIP(p.Conf.NeighborAddress)
+					ipp := net.ParseIP(p.PeerAddress)
 					if ip.Equal(ipp) {
 						seen = true
 					}
@@ -285,7 +287,7 @@ func TestNeighborReconciler(t *testing.T) {
 			}
 
 			for _, p := range peers {
-				ip := net.ParseIP(p.Conf.NeighborAddress)
+				ip := net.ParseIP(p.PeerAddress)
 				var seen bool
 				for _, n := range tt.newNeighbors {
 					ipp, _, err := net.ParseCIDR(n)
@@ -297,7 +299,7 @@ func TestNeighborReconciler(t *testing.T) {
 					}
 				}
 				if !seen {
-					t.Fatalf("wanted peer %v, not present", p.Conf.NeighborAddress)
+					t.Fatalf("wanted peer %v, not present", p.PeerAddress)
 				}
 			}
 		})
@@ -386,10 +388,10 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// setup our test server, create a BgpServer, advertise the tt.advertised
 			// networks, and store each returned Advertisement in testSC.PodCIDRAnnouncements
-			startReq := &gobgp.StartBgpRequest{
-				Global: &gobgp.Global{
-					Asn:        64125,
-					RouterId:   "127.0.0.1",
+			srvParams := types.ServerParameters{
+				Global: types.BGPGlobal{
+					ASN:        64125,
+					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
 			}
@@ -398,17 +400,21 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				ExportPodCIDR: tt.enabled,
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), startReq)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
 			testSC.Config = oldc
 			for _, cidr := range tt.advertised {
-				advrt, err := testSC.AdvertisePath(context.Background(), cidr)
+				advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
+					Advert: types.Advertisement{
+						Net: cidr,
+					},
+				})
 				if err != nil {
 					t.Fatalf("failed to advertise initial pod cidr routes: %v", err)
 				}
-				testSC.PodCIDRAnnouncements = append(testSC.PodCIDRAnnouncements, advrt)
+				testSC.PodCIDRAnnouncements = append(testSC.PodCIDRAnnouncements, advrtResp.Advert)
 			}
 
 			newc := &v2alpha1api.CiliumBGPVirtualRouter{
@@ -421,7 +427,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				IPv4:     net.ParseIP("127.0.0.1"),
 			}
 
-			err = exportPodCIDRReconciler(context.Background(), nil, testSC, newc, &newcstate)
+			err = exportPodCIDRReconciler(context.Background(), testSC, newc, &newcstate)
 			if err != nil {
 				t.Fatalf("failed to reconcile new pod cidr advertisements: %v", err)
 			}
@@ -880,10 +886,10 @@ func TestLBServiceReconciler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// setup our test server, create a BgpServer, advertise the tt.advertised
 			// networks, and store each returned Advertisement in testSC.PodCIDRAnnouncements
-			startReq := &gobgp.StartBgpRequest{
-				Global: &gobgp.Global{
-					Asn:        64125,
-					RouterId:   "127.0.0.1",
+			srvParams := types.ServerParameters{
+				Global: types.BGPGlobal{
+					ASN:        64125,
+					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
 			}
@@ -892,7 +898,7 @@ func TestLBServiceReconciler(t *testing.T) {
 				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
 				ServiceSelector: tt.oldServiceSelector,
 			}
-			testSC, err := NewServerWithConfig(context.Background(), startReq)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
@@ -903,12 +909,16 @@ func TestLBServiceReconciler(t *testing.T) {
 					if err != nil {
 						t.Fatalf("bad cidr '%s': %s", cidr, err)
 					}
-					advrt, err := testSC.AdvertisePath(context.Background(), net)
+					advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
+						Advert: types.Advertisement{
+							Net: net,
+						},
+					})
 					if err != nil {
 						t.Fatalf("failed to advertise initial svc lb cidr routes: %v", err)
 					}
 
-					testSC.ServiceAnnouncements[svcKey] = append(testSC.ServiceAnnouncements[svcKey], advrt)
+					testSC.ServiceAnnouncements[svcKey] = append(testSC.ServiceAnnouncements[svcKey], advrtResp.Advert)
 				}
 			}
 
@@ -930,7 +940,11 @@ func TestLBServiceReconciler(t *testing.T) {
 			}
 
 			reconciler := NewLBServiceReconciler(diffstore)
-			err = reconciler.Reconciler.Reconcile(context.Background(), nil, testSC, newc, &newcstate)
+			err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
+				Server: testSC,
+				NewC:   newc,
+				CState: &newcstate,
+			})
 			if err != nil {
 				t.Fatalf("failed to reconcile new lb svc advertisements: %v", err)
 			}
@@ -1022,15 +1036,15 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	)
 
 	// Initial router configuration
-	startReq := &gobgp.StartBgpRequest{
-		Global: &gobgp.Global{
-			Asn:        uint32(localASN),
-			RouterId:   routerID,
-			ListenPort: int32(localPort),
+	srvParams := types.ServerParameters{
+		Global: types.BGPGlobal{
+			ASN:        64125,
+			RouterID:   "127.0.0.1",
+			ListenPort: -1,
 		},
 	}
 
-	testSC, err := NewServerWithConfig(context.Background(), startReq)
+	testSC, err := NewServerWithConfig(context.Background(), srvParams)
 	require.NoError(t, err)
 
 	originalServer := testSC.Server
@@ -1056,12 +1070,16 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 		},
 	}
 
-	err = exportPodCIDRReconciler(context.Background(), nil, testSC, newc, cstate)
+	err = exportPodCIDRReconciler(context.Background(), testSC, newc, cstate)
 	require.NoError(t, err)
 
 	diffstore.Upsert(obj)
 	reconciler := NewLBServiceReconciler(diffstore)
-	err = reconciler.Reconciler.Reconcile(context.Background(), nil, testSC, newc, cstate)
+	err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
+		Server: testSC,
+		NewC:   newc,
+		CState: cstate,
+	})
 	require.NoError(t, err)
 
 	// update server config, this is done outside of reconcilers
@@ -1078,15 +1096,19 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	}
 
 	// Trigger pre flight reconciler
-	err = preflightReconciler(context.Background(), nil, testSC, newc, cstate)
+	err = preflightReconciler(context.Background(), testSC, newc, cstate)
 	require.NoError(t, err)
 
 	// Test pod CIDR reconciler is working
-	err = exportPodCIDRReconciler(context.Background(), nil, testSC, newc, cstate)
+	err = exportPodCIDRReconciler(context.Background(), testSC, newc, cstate)
 	require.NoError(t, err)
 
 	// Update LB service
 	reconciler = NewLBServiceReconciler(diffstore)
-	err = reconciler.Reconciler.Reconcile(context.Background(), nil, testSC, newc, cstate)
+	err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
+		Server: testSC,
+		NewC:   newc,
+		CState: cstate,
+	})
 	require.NoError(t, err)
 }

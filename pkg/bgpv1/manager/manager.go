@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package gobgp
+package manager
 
 import (
 	"context"
@@ -9,17 +9,17 @@ import (
 	"net"
 	"sort"
 
-	gobgp "github.com/osrg/gobgp/v3/api"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 )
 
 var (
@@ -28,12 +28,8 @@ var (
 	// `subsys=bgp-control-plane`.
 	//
 	// Each log message will additionally contain the k/v
-	// 'component=gobgp.{Struct}.{Method}' or 'component=gobgp.{Function}' to
+	// 'component=manager.{Struct}.{Method}' or 'component=manager.{Function}' to
 	// provide further granularity on where the log is originating from.
-	//
-	// Every instantiated BgpServer will log with the k/v
-	// `subsys=bgp-control-plane`, `component=gobgp.BgpServerInstance` and
-	// `asn={Local ASN}`
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
 )
 
@@ -47,10 +43,7 @@ type bgpRouterManagerParams struct {
 	Reconcilers []ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
-// BGPRouterManager implements the pkg.bgpv1.agent.BGPRouterManager interface.
-//
-// This BGPRouterMananger utilizes the gobgp project to implement a BGP routing
-// plane.
+// BGPRouterManager implements the pkg.bgpv1.manager.BGPRouterManager interface.
 //
 // Logically, this manager views each CiliumBGPVirtualRouter within a
 // CiliumBGPPeeringPolicy as a BGP router instantiated on its host.
@@ -63,7 +56,7 @@ type bgpRouterManagerParams struct {
 // business logic.
 //
 // A reconcilerDiff is used to establish which BgpServers must be created,
-// and removed from the Mananger along with which servers must have their
+// and removed from the Manager along with which servers must have their
 // configurations reconciled.
 //
 // A set of ReconcilerConfigFunc(s), which usages are wrapped by the
@@ -119,7 +112,7 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1a
 
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "gobgp.RouterManager.ConfigurePeers",
+			"component": "manager.ConfigurePeers",
 		},
 	)
 
@@ -162,7 +155,7 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1a
 func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) error {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "gobgp.RouterManager.add",
+			"component": "manager.add",
 		},
 	)
 	for _, asn := range rd.register {
@@ -180,7 +173,7 @@ func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) erro
 	return nil
 }
 
-// registerBGPServer encapsulates the logic for instantiating a gobgp
+// registerBGPServer encapsulates the logic for instantiating a
 // BgpServer, configuring it based on a CiliumBGPVirtualRouter, and
 // registering it with the Manager.
 //
@@ -189,15 +182,15 @@ func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) erro
 func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "gobgp.RouterManager.registerBGPServer",
+			"component": "manager.registerBGPServer",
 		},
 	)
 
-	l.Infof("Registering GoBGP servers for policy with local ASN %v", c.LocalASN)
+	l.Infof("Registering BGP servers for policy with local ASN %v", c.LocalASN)
 
 	// ATTENTION: this defer handles cleaning up of a server if an error in
 	// registration occurs. for this to work the below err variable must be
-	// overwritten for the lengh of this method.
+	// overwritten for the length of this method.
 	var err error
 	var s *ServerWithConfig
 	defer func() {
@@ -236,18 +229,18 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 		return fmt.Errorf("router id not specified by annotation and no IPv4 address assigned by cilium, cannot resolve router id for virtual router with local ASN %v", c.LocalASN)
 	}
 
-	startReq := &gobgp.StartBgpRequest{
-		Global: &gobgp.Global{
-			Asn:        uint32(c.LocalASN),
-			RouterId:   routerID,
+	globalConfig := types.ServerParameters{
+		Global: types.BGPGlobal{
+			ASN:        uint32(c.LocalASN),
+			RouterID:   routerID,
 			ListenPort: localPort,
-			RouteSelectionOptions: &gobgp.RouteSelectionOptionsConfig{
+			RouteSelectionOptions: &types.RouteSelectionOptions{
 				AdvertiseInactiveRoutes: true,
 			},
 		},
 	}
 
-	if s, err = NewServerWithConfig(ctx, startReq); err != nil {
+	if s, err = NewServerWithConfig(ctx, globalConfig); err != nil {
 		return fmt.Errorf("failed to start BGP server for config with local ASN %v: %w", c.LocalASN, err)
 	}
 
@@ -267,7 +260,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 func (m *BGPRouterManager) withdraw(ctx context.Context, rd *reconcileDiff) error {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "gobgp.RouterManager.remove",
+			"component": "manager.remove",
 		},
 	)
 	for _, asn := range rd.withdraw {
@@ -305,7 +298,7 @@ func (m *BGPRouterManager) withdrawAll(ctx context.Context, rd *reconcileDiff) e
 func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) error {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "gobgp.RouterManager.reconcile",
+			"component": "manager.reconcile",
 		},
 	)
 	for _, asn := range rd.reconcile {
@@ -354,7 +347,11 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context, sc *ServerWit
 		}
 	}
 	for _, r := range m.Reconcilers {
-		if err := r.Reconcile(ctx, m, sc, newc, cstate); err != nil {
+		if err := r.Reconcile(ctx, ReconcileParams{
+			Server: sc,
+			NewC:   newc,
+			CState: cstate,
+		}); err != nil {
 			return fmt.Errorf("reconciliation of virtual router with local ASN %v failed: %w", newc.LocalASN, err)
 		}
 	}
@@ -363,7 +360,7 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context, sc *ServerWit
 	return nil
 }
 
-// GetPeers gets peering state from previously initialized gobgp instances.
+// GetPeers gets peering state from previously initialized bgp instances.
 func (m *BGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, error) {
 	m.RLock()
 	defer m.RUnlock()
@@ -371,11 +368,11 @@ func (m *BGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, err
 	var res []*models.BgpPeer
 
 	for _, s := range m.Servers {
-		peerStates, err := s.GetPeerState(ctx)
+		getPeerResp, err := s.Server.GetPeerState(ctx)
 		if err != nil {
 			return nil, err
 		}
-		res = append(res, peerStates...)
+		res = append(res, getPeerResp.Peers...)
 	}
 	return res, nil
 }
