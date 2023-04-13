@@ -863,7 +863,7 @@ func (a *Action) ValidateFlows(ctx context.Context, peer TestPeer, reqs []filter
 		return
 	}
 
-	// There can be am empty list of flow requirements for some tests, in which
+	// There can be an empty list of flow requirements for some tests, in which
 	// case we should not perform validation.
 	if len(reqs) == 0 {
 		a.Debugf("No flow requirements to validate for peer %s", peer.Name())
@@ -872,37 +872,7 @@ func (a *Action) ValidateFlows(ctx context.Context, peer TestPeer, reqs []filter
 
 	a.Logf("📄 Validating flows for peer %s", peer.Name())
 
-	var res FlowRequirementResults
-
-	interval := time.NewTicker(defaults.FlowRetryInterval)
-	defer interval.Stop()
-
-	ctx, cancel := context.WithTimeout(ctx, defaults.FlowWaitTimeout)
-	defer cancel()
-
-r:
-	for {
-		select {
-		// Attempt to validate all flows received during the Action so far,
-		// once per validation interval.
-		case <-interval.C:
-			if len(a.flows) == 0 {
-				// Suppress output like 'Validating 0 flows against 2 requirements'
-				// as it is futile to validate requirements when there are no flows yet.
-				continue r
-			}
-			a.Debugf("Validating %d flows against %d requirements", len(a.flows), len(reqs))
-
-			res = a.matchAllFlowRequirements(ctx, reqs)
-			if !res.NeedMoreFlows && res.FirstMatch != -1 {
-				// TODO(timo): This success condition should be a method on FlowRequirementResults.
-				break r
-			}
-		case <-ctx.Done():
-			a.Fail("Aborting flow matching:", ctx.Err())
-			break r
-		}
-	}
+	res := a.validate(ctx, reqs)
 
 	// Store the validation result for the given peer.
 	a.flowResults[peer] = res
@@ -914,4 +884,37 @@ r:
 	}
 
 	a.Log()
+}
+
+func (a *Action) validate(ctx context.Context, reqs []filters.FlowSetRequirement) FlowRequirementResults {
+	var res FlowRequirementResults
+
+	interval := time.NewTicker(defaults.FlowRetryInterval)
+	defer interval.Stop()
+
+	ctx, cancel := context.WithTimeout(ctx, defaults.FlowWaitTimeout)
+	defer cancel()
+
+	for {
+		select {
+		// Attempt to validate all flows received during the Action so far,
+		// once per validation interval.
+		case <-interval.C:
+			if len(a.flows) == 0 {
+				// Suppress output like 'Validating 0 flows against 2 requirements'
+				// as it is futile to validate requirements when there are no flows yet.
+				continue
+			}
+			a.Debugf("Validating %d flows against %d requirements", len(a.flows), len(reqs))
+
+			res = a.matchAllFlowRequirements(ctx, reqs)
+			if !res.NeedMoreFlows && res.FirstMatch != -1 {
+				// TODO(timo): This success condition should be a method on FlowRequirementResults.
+				return res
+			}
+		case <-ctx.Done():
+			a.Fail("Aborting flow matching:", ctx.Err())
+			return res
+		}
+	}
 }
