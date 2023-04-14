@@ -143,9 +143,15 @@ ctx_change_head(struct xdp_md *ctx __maybe_unused,
 	return 0; /* Only intended for SKB context. */
 }
 
-static __always_inline void ctx_snat_done_set(struct xdp_md *ctx)
+static __always_inline void ctx_skip_snat_set(struct xdp_md *ctx)
 {
 	ctx_set_xfer(ctx, XFER_PKT_SNAT_DONE);
+}
+
+/* Deprecated, use ctx_skip_snat_set() instead. */
+static __always_inline void ctx_snat_done_set(struct xdp_md *ctx)
+{
+	ctx_skip_snat_set(ctx);
 }
 
 static __always_inline bool ctx_snat_done(struct xdp_md *ctx)

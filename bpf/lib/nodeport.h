@@ -733,6 +733,8 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			       (union v6addr *)&ip6->daddr);
 	}
 
+	ctx_skip_snat_set(ctx);
+
 	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
@@ -2190,6 +2192,10 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
+
+	/* DSR is about preserving the client's IP, we don't need SNAT. */
+	ctx_skip_snat_set(ctx);
+
 	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, &ext_err,
 			      ctx_get_ifindex(ctx), &oif);
 	if (fib_ok(ret)) {
