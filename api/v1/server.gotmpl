@@ -14,10 +14,8 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
   "github.com/go-openapi/swag"
@@ -27,7 +25,6 @@ import (
   "strings"
   {{ end -}}
   "golang.org/x/net/netutil"
-  "golang.org/x/sys/unix"
 
   {{ imports .DefaultImports }}
   {{ imports .Imports }}
@@ -96,11 +93,12 @@ func init() {
 	}
 }
 
-{{ if not .UseGoStructFlags}}
-var ({{ if .ExcludeSpec }}
+var (
+  {{ if .ExcludeSpec }}
   specFile         string
-  {{ end }}enabledListeners []string
-  cleanupTimeout   time.Duration
+  {{ end }}
+
+  enabledListeners []string
   gracefulTimeout  time.Duration
   maxHeaderSize    int
 
@@ -124,121 +122,10 @@ var ({{ if .ExcludeSpec }}
   tlsCACertificate  string
 )
 
-{{ if .UseFlags}}
-// StringSliceVar support for flag
-type sliceValue []string
-
-func newSliceValue(vals []string, p *[]string) *sliceValue {
-	*p = vals
-	return (*sliceValue)(p)
-}
-
-func (s *sliceValue) Set(val string) error {
-	*s = sliceValue(strings.Split(val, ","))
-	return nil
-}
-
-func (s *sliceValue) Get() interface{} { return []string(*s) }
-
-func (s *sliceValue) String() string { return strings.Join([]string(*s), ",") }
-// end StringSliceVar support for flag
-{{ end }}
-
-func init() {
-  maxHeaderSize = 1000000{{ if .ExcludeSpec }}
-  flag.StringVarP(&specFile, "spec", "", "", "the swagger specification to serve")
-  {{ end }}
-  {{ if .UseFlags }}
-	flag.Var(newSliceValue(defaultSchemes, &enabledListeners), "schema", "the listeners to enable, this can be repeated and defaults to the schemes in the swagger spec")
-	{{ end }}
-	{{ if .UsePFlags }}
-	flag.StringSliceVar(&enabledListeners, "scheme", defaultSchemes, "the listeners to enable, this can be repeated and defaults to the schemes in the swagger spec")
-	{{ end }}
-	flag.DurationVar(&cleanupTimeout, "cleanup-timeout", 10*time.Second, "grace period for which to wait before killing idle connections")
-	flag.DurationVar(&gracefulTimeout, "graceful-timeout", 15*time.Second, "grace period for which to wait before shutting down the server")
-	flag.Var(&maxHeaderSize, "max-header-size", "controls the maximum number of bytes the server will read parsing the request header's keys and values, including the request line. It does not limit the size of the request body")
-
-	flag.StringVar(&socketPath, "socket-path", "/var/run/todo-list.sock", "the unix socket to listen on")
-
-	flag.StringVar(&host, "host", "localhost", "the IP to listen on")
-	flag.IntVar(&port, "port", 0, "the port to listen on for insecure connections, defaults to a random value")
-	flag.IntVar(&listenLimit, "listen-limit", 0, "limit the number of outstanding requests")
-	flag.DurationVar(&keepAlive, "keep-alive", 3*time.Minute, "sets the TCP keep-alive timeouts on accepted connections. It prunes dead TCP connections ( e.g. closing laptop mid-download)")
-	flag.DurationVar(&readTimeout, "read-timeout", 30*time.Second, "maximum duration before timing out read of the request")
-	flag.DurationVar(&writeTimeout, "write-timeout", 30*time.Second, "maximum duration before timing out write of the response")
-
-	flag.StringVar(&tlsHost, "tls-host", "localhost", "the IP to listen on")
-	flag.IntVar(&tlsPort, "tls-port", 0, "the port to listen on for secure connections, defaults to a random value")
-	flag.StringVar(&tlsCertificate, "tls-certificate", "", "the certificate file to use for secure connections")
-	flag.StringVar(&tlsCertificateKey, "tls-key", "", "the private key file to use for secure connections (without passphrase)")
-	flag.StringVar(&tlsCACertificate, "tls-ca", "", "the certificate authority certificate file to be used with mutual tls auth")
-	flag.IntVar(&tlsListenLimit, "tls-listen-limit", 0, "limit the number of outstanding requests")
-	flag.DurationVar(&tlsKeepAlive, "tls-keep-alive", 3*time.Minute, "sets the TCP keep-alive timeouts on accepted connections. It prunes dead TCP connections ( e.g. closing laptop mid-download)")
-	flag.DurationVar(&tlsReadTimeout, "tls-read-timeout", 30*time.Second, "maximum duration before timing out read of the request")
-	flag.DurationVar(&tlsWriteTimeout, "tls-write-timeout", 30*time.Second, "maximum duration before timing out write of the response")
-}
-
-func stringEnvOverride(orig string, def string, keys ...string) string {
-	for _, k := range keys {
-		if os.Getenv(k) != "" {
-			return os.Getenv(k)
-		}
-	}
-	if def != "" && orig == "" {
-		return def
-	}
-	return orig
-}
-
-func intEnvOverride(orig int, def int, keys ...string) int {
-	for _, k := range keys {
-		if os.Getenv(k) != "" {
-			v, err := strconv.Atoi(os.Getenv(k))
-			if err != nil {
-				fmt.Fprintln(os.Stderr, k, "is not a valid number")
-				os.Exit(1)
-			}
-			return v
-		}
-	}
-	if def != 0 && orig == 0 {
-		return def
-	}
-	return orig
-}
-{{ end }}
-
 // NewServer creates a new api {{ humanize .Name }} server but does not configure it
 func NewServer(api *{{ .Package }}.{{ pascalize .Name }}API) *Server {
 	s := new(Server)
-  {{ if not .UseGoStructFlags }}
-	s.EnabledListeners = enabledListeners
-	s.CleanupTimeout = cleanupTimeout
-	s.GracefulTimeout = gracefulTimeout
-	s.MaxHeaderSize = maxHeaderSize
-	s.SocketPath = socketPath
-	s.Host = stringEnvOverride(host, "", "HOST")
-	s.Port = intEnvOverride(port, 0, "PORT")
-	s.ListenLimit = listenLimit
-	s.KeepAlive = keepAlive
-	s.ReadTimeout = readTimeout
-	s.WriteTimeout = writeTimeout
-	s.TLSHost = stringEnvOverride(tlsHost, s.Host, "TLS_HOST", "HOST")
-	s.TLSPort = intEnvOverride(tlsPort, 0, "TLS_PORT")
-	s.TLSCertificate = stringEnvOverride(tlsCertificate, "", "TLS_CERTIFICATE")
-	s.TLSCertificateKey = stringEnvOverride(tlsCertificateKey, "", "TLS_PRIVATE_KEY")
-	s.TLSCACertificate = stringEnvOverride(tlsCACertificate, "", "TLS_CA_CERTIFICATE")
-	s.TLSListenLimit = tlsListenLimit
-	s.TLSKeepAlive = tlsKeepAlive
-	s.TLSReadTimeout = tlsReadTimeout
-	s.TLSWriteTimeout = tlsWriteTimeout
-    {{- if .ExcludeSpec }}
-    s.Spec = specFile
-    {{- end }}
-  {{- end }}
-	s.shutdown = make(chan struct{})
 	s.api = api
-	s.interrupt = make(chan os.Signal, 1)
 	return s
 }
 
@@ -289,10 +176,7 @@ type Server struct {
 	api               *{{ .Package }}.{{ pascalize .Name }}API
 	handler           http.Handler
 	hasListeners      bool
-	shutdown          chan struct{}
-	shuttingDown      int32
-	interrupted       bool
-	interrupt         chan os.Signal
+	servers           []*http.Server
 
 	wg sync.WaitGroup
         shutdowner hive.Shutdowner
@@ -368,6 +252,10 @@ func (s *Server) Start(hive.HookContext) (err error) {
 		}
 	}
 
+	if len(s.servers) != 0 {
+		return errors.New("already started")
+	}
+
 	// set default handler, if none is set
 	if s.handler == nil {
 		if s.api == nil {
@@ -376,12 +264,6 @@ func (s *Server) Start(hive.HookContext) (err error) {
 
 		s.SetHandler(s.api.Serve(nil))
 	}
-
-	once := new(sync.Once)
-	signalNotify(s.interrupt)
-	go handleInterrupt(once, s)
-
-	servers := []*http.Server{}
 
 	if s.hasScheme(schemeUnix) {
 		domainSocket := new(http.Server)
@@ -399,7 +281,7 @@ func (s *Server) Start(hive.HookContext) (err error) {
 				return err
 			}
 		}
-		servers = append(servers, domainSocket)
+		s.servers = append(s.servers, domainSocket)
 		s.wg.Add(1)
 		s.Logf("Serving {{ humanize .Name }} at unix://%s", s.SocketPath)
 		go func(l net.Listener){
@@ -429,7 +311,7 @@ func (s *Server) Start(hive.HookContext) (err error) {
 
 		configureServer(httpServer, "http", s.httpServerL.Addr().String())
 
-		servers = append(servers, httpServer)
+		s.servers = append(s.servers, httpServer)
 		s.wg.Add(1)
 		s.Logf("Serving {{ humanize .Name }} at http://%s", s.httpServerL.Addr())
 		go func(l net.Listener) {
@@ -527,7 +409,7 @@ func (s *Server) Start(hive.HookContext) (err error) {
 
 		configureServer(httpsServer, "https", s.httpsServerL.Addr().String())
 
-		servers = append(servers, httpsServer)
+		s.servers = append(s.servers, httpsServer)
 		s.wg.Add(1)
 		s.Logf("Serving {{ humanize .Name }} at https://%s", s.httpsServerL.Addr())
 		go func(l net.Listener) {
@@ -539,23 +421,8 @@ func (s *Server) Start(hive.HookContext) (err error) {
 		}(tls.NewListener(s.httpsServerL, httpsServer.TLSConfig))
 	}
 
-	s.wg.Add(1)
-	go s.handleShutdown(&servers)
-
 	return nil
 }
-
-func (s *Server) Stop(hive.HookContext) error {
-	if err := s.Shutdown(); err != nil {
-		return err
-	}
-	// FIXME need to pass HookContext somehow into handleShutdown to make this
-        // respect the timeout. Probably want to fold "handleShutdown" into this
-	// function.
-	s.wg.Wait()
-        return nil
-}
-
 
 // Listen creates the listeners for the server
 func (s *Server) Listen() error {
@@ -634,38 +501,28 @@ func (s *Server) Listen() error {
 
 // Shutdown server and clean up resources
 func (s *Server) Shutdown() error {
-	if atomic.CompareAndSwapInt32(&s.shuttingDown, 0, 1) {
-		close(s.shutdown)
-	}
-	return nil
-}
-
-func (s *Server) handleShutdown(serversPtr *[]*http.Server) {
-	// s.wg.Done must occur last, after s.api.ServerShutdown()
-	// (to preserve old behaviour)
-	defer s.wg.Done()
-
-	<-s.shutdown
-
-	servers := *serversPtr
-
 	ctx, cancel := context.WithTimeout(context.TODO(), s.GracefulTimeout)
 	defer cancel()
+	return s.Stop(ctx)
+}
 
+func (s *Server) Stop(ctx hive.HookContext) error {
 	// first execute the pre-shutdown hook
 	s.api.PreServerShutdown()
 
 	shutdownChan := make(chan bool)
-	for i := range servers {
-		server := servers[i]
+	for i := range s.servers {
+		server := s.servers[i]
 		go func() {
 			var success bool
 			defer func() {
 				shutdownChan <- success
 			}()
 			if err := server.Shutdown(ctx); err != nil {
-				// Error from closing listeners, or context timeout:
 				s.Logf("HTTP server Shutdown: %v", err)
+
+				// Forcefully close open connections.
+				server.Close()
 			} else {
 				success = true
 			}
@@ -674,12 +531,17 @@ func (s *Server) handleShutdown(serversPtr *[]*http.Server) {
 
 	// Wait until all listeners have successfully shut down before calling ServerShutdown
 	success := true
-	for range servers {
+	for range s.servers {
 		success = success && <-shutdownChan
 	}
 	if success {
 		s.api.ServerShutdown()
 	}
+
+	s.wg.Wait()
+	s.servers = nil
+
+	return nil
 }
 
 // GetHandler returns a handler useful for testing
@@ -720,25 +582,5 @@ func (s *Server) TLSListener() (net.Listener, error) {
 		}
 	}
 	return s.httpsServerL, nil
-}
-
-func handleInterrupt(once *sync.Once, s *Server) {
-	once.Do(func(){
-	for range s.interrupt {
-		if s.interrupted {
-			s.Logf("Server already shutting down")
-			continue
-		}
-		s.interrupted = true
-		s.Logf("Shutting down... ")
-		if err := s.Shutdown(); err != nil {
-			s.Logf("HTTP server Shutdown: %v", err)
-		}
-	}
-	})
-}
-
-func signalNotify(interrupt chan<- os.Signal) {
-	signal.Notify(interrupt, unix.SIGINT, unix.SIGTERM)
 }
 
