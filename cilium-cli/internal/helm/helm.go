@@ -472,6 +472,7 @@ func UpgradeCurrentRelease(
 	ctx context.Context,
 	k8sClient genericclioptions.RESTClientGetter,
 	params UpgradeParameters,
+	chart *chart.Chart,
 ) (*release.Release, error) {
 	actionConfig := action.Configuration{}
 	// Use the default Helm driver (Kubernetes secret).
@@ -486,6 +487,10 @@ func UpgradeCurrentRelease(
 	if err != nil {
 		return nil, err
 	}
+	if chart == nil {
+		chart = currentRelease.Chart
+	}
+
 	helmClient := action.NewUpgrade(&actionConfig)
 	helmClient.Namespace = params.Namespace
 	helmClient.ResetValues = params.ResetValues
@@ -494,5 +499,5 @@ func UpgradeCurrentRelease(
 	helmClient.Timeout = params.WaitDuration
 	helmClient.DryRun = params.DryRun || params.DryRunHelmValues
 
-	return helmClient.RunWithContext(ctx, defaults.HelmReleaseName, currentRelease.Chart, params.Values)
+	return helmClient.RunWithContext(ctx, defaults.HelmReleaseName, chart, params.Values)
 }
