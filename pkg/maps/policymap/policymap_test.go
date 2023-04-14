@@ -36,7 +36,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 				{
 					Key: PolicyKey{
 						Identity:         uint32(0),
-						DestPort:         0,
+						DestPortNetwork:  0,
 						Nexthdr:          0,
 						TrafficDirection: uint8(trafficdirection.Ingress),
 					},
@@ -54,7 +54,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 				{
 					Key: PolicyKey{
 						Identity:         uint32(0),
-						DestPort:         0,
+						DestPortNetwork:  0,
 						Nexthdr:          0,
 						TrafficDirection: uint8(trafficdirection.Ingress),
 					},
@@ -62,7 +62,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 				{
 					Key: PolicyKey{
 						Identity:         uint32(1),
-						DestPort:         0,
+						DestPortNetwork:  0,
 						Nexthdr:          0,
 						TrafficDirection: uint8(trafficdirection.Ingress),
 					},
@@ -80,7 +80,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 				{
 					Key: PolicyKey{
 						Identity:         uint32(0),
-						DestPort:         0,
+						DestPortNetwork:  0,
 						Nexthdr:          0,
 						TrafficDirection: uint8(trafficdirection.Ingress),
 					},
@@ -88,7 +88,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 				{
 					Key: PolicyKey{
 						Identity:         uint32(1),
-						DestPort:         0,
+						DestPortNetwork:  0,
 						Nexthdr:          0,
 						TrafficDirection: uint8(trafficdirection.Egress),
 					},
@@ -106,7 +106,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 				{
 					Key: PolicyKey{
 						Identity:         uint32(1),
-						DestPort:         0,
+						DestPortNetwork:  0,
 						Nexthdr:          0,
 						TrafficDirection: uint8(trafficdirection.Egress),
 					},
@@ -114,7 +114,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 				{
 					Key: PolicyKey{
 						Identity:         uint32(0),
-						DestPort:         0,
+						DestPortNetwork:  0,
 						Nexthdr:          0,
 						TrafficDirection: uint8(trafficdirection.Egress),
 					},
@@ -132,7 +132,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 				{
 					Key: PolicyKey{
 						Identity:         uint32(1),
-						DestPort:         0,
+						DestPortNetwork:  0,
 						Nexthdr:          0,
 						TrafficDirection: uint8(trafficdirection.Egress),
 					},
@@ -140,7 +140,7 @@ func (pm *PolicyMapTestSuite) TestPolicyEntriesDump_Less(c *C) {
 				{
 					Key: PolicyKey{
 						Identity:         uint32(0),
-						DestPort:         0,
+						DestPortNetwork:  0,
 						Nexthdr:          0,
 						TrafficDirection: uint8(trafficdirection.Egress),
 					},

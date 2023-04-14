@@ -77,9 +77,6 @@ func (pm *PolicyMapPrivilegedTestSuite) TestPolicyMapDumpToSlice(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(dump), Equals, 1)
 
-	// FIXME: It's weird that AllowKey() does the implicit byteorder
-	//        conversion above. But not really a bug, so work around it.
-	fooEntry = fooEntry.ToNetwork()
 	c.Assert(dump[0].Key, checker.DeepEquals, fooEntry)
 
 	// Special case: allow-all entry
@@ -113,9 +110,6 @@ func (pm *PolicyMapPrivilegedTestSuite) TestDenyPolicyMapDumpToSlice(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(dump), Equals, 1)
 
-	// FIXME: It's weird that AllowKey() does the implicit byteorder
-	//        conversion above. But not really a bug, so work around it.
-	fooEntry = fooEntry.ToNetwork()
 	c.Assert(dump[0].Key, checker.DeepEquals, fooEntry)
 	c.Assert(dump[0].PolicyEntry, checker.DeepEquals, fooValue)
 
