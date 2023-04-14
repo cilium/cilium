@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
@@ -454,6 +455,16 @@ type UpgradeParameters struct {
 	ResetValues bool
 	// --reuse-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.
 	ReuseValues bool
+	// Wait determines if Helm actions will wait for completion
+	Wait bool
+	// WaitDuration is the timeout for helm operations
+	WaitDuration time.Duration
+	// DryRun writes resources to be installed to stdout without actually installing them. For Helm
+	// installation mode only.
+	DryRun bool
+	// DryRunHelmValues writes non-default Helm values to stdout without performing the actual installation.
+	// For Helm installation mode only.
+	DryRunHelmValues bool
 }
 
 // UpgradeCurrentRelease upgrades the existing Helm release with given Helm values.
@@ -470,6 +481,7 @@ func UpgradeCurrentRelease(
 	if err := actionConfig.Init(k8sClient, params.Namespace, helmDriver, logger); err != nil {
 		return nil, err
 	}
+
 	currentRelease, err := actionConfig.Releases.Last(params.Name)
 	if err != nil {
 		return nil, err
@@ -478,5 +490,9 @@ func UpgradeCurrentRelease(
 	helmClient.Namespace = params.Namespace
 	helmClient.ResetValues = params.ResetValues
 	helmClient.ReuseValues = params.ReuseValues
+	helmClient.Wait = params.Wait
+	helmClient.Timeout = params.WaitDuration
+	helmClient.DryRun = params.DryRun || params.DryRunHelmValues
+
 	return helmClient.RunWithContext(ctx, defaults.HelmReleaseName, currentRelease.Chart, params.Values)
 }
