@@ -9,8 +9,8 @@ type watchState struct {
 
 type watcherCache map[string]watchState
 
-func (wc watcherCache) Exists(key []byte) bool {
-	if _, ok := wc[string(key)]; ok {
+func (wc watcherCache) Exists(key string) bool {
+	if _, ok := wc[key]; ok {
 		return true
 	}
 
@@ -32,10 +32,10 @@ func (wc watcherCache) MarkAllForDeletion() {
 	}
 }
 
-func (wc watcherCache) MarkInUse(key []byte) {
+func (wc watcherCache) MarkInUse(key string) {
 	wc[string(key)] = watchState{deletionMark: false}
 }
 
-func (wc watcherCache) RemoveKey(key []byte) {
-	delete(wc, string(key))
+func (wc watcherCache) RemoveKey(key string) {
+	delete(wc, key)
 }

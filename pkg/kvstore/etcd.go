@@ -996,21 +996,23 @@ reList:
 
 		if res.Count > 0 {
 			for _, key := range res.Kvs {
+				strkey := string(key.Key)
+
 				t := EventTypeCreate
-				if localCache.Exists(key.Key) {
+				if localCache.Exists(strkey) {
 					t = EventTypeModify
 				}
 
-				localCache.MarkInUse(key.Key)
+				localCache.MarkInUse(strkey)
 				scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
 
 				queueStart := spanstat.Start()
 				w.Events <- KeyValueEvent{
-					Key:   string(key.Key),
+					Key:   strkey,
 					Value: key.Value,
 					Typ:   t,
 				}
-				trackEventQueued(string(key.Key), t, queueStart.End(true).Total())
+				trackEventQueued(strkey, t, queueStart.End(true).Total())
 			}
 		}
 
@@ -1091,20 +1093,20 @@ reList:
 					switch {
 					case ev.Type == client.EventTypeDelete:
 						event.Typ = EventTypeDelete
-						localCache.RemoveKey(ev.Kv.Key)
+						localCache.RemoveKey(event.Key)
 					case ev.IsCreate():
 						event.Typ = EventTypeCreate
-						localCache.MarkInUse(ev.Kv.Key)
+						localCache.MarkInUse(event.Key)
 					default:
 						event.Typ = EventTypeModify
-						localCache.MarkInUse(ev.Kv.Key)
+						localCache.MarkInUse(event.Key)
 					}
 
 					scopedLog.Debugf("Emitting %s event for %s=%s", event.Typ, event.Key, event.Value)
 
 					queueStart := spanstat.Start()
 					w.Events <- event
-					trackEventQueued(string(ev.Kv.Key), event.Typ, queueStart.End(true).Total())
+					trackEventQueued(event.Key, event.Typ, queueStart.End(true).Total())
 				}
 			}
 		}
