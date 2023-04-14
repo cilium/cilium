@@ -288,9 +288,9 @@ func (t *Table) GetEvpnDestinationsWithRouteType(typ string) ([]*Destination, er
 	return results, nil
 }
 
-func (t *Table) GetMUPDestinationsWithRouteType(typ string) ([]*Destination, error) {
+func (t *Table) GetMUPDestinationsWithRouteType(p string) ([]*Destination, error) {
 	var routeType uint16
-	switch strings.ToLower(typ) {
+	switch strings.ToLower(p) {
 	case "isd":
 		routeType = bgp.MUP_ROUTE_TYPE_INTERWORK_SEGMENT_DISCOVERY
 	case "dsd":
@@ -300,7 +300,7 @@ func (t *Table) GetMUPDestinationsWithRouteType(typ string) ([]*Destination, err
 	case "t2st":
 		routeType = bgp.MUP_ROUTE_TYPE_TYPE_2_SESSION_TRANSFORMED
 	default:
-		return nil, fmt.Errorf("unsupported mup route type: %s", typ)
+		// use prefix as route key
 	}
 	destinations := t.GetDestinations()
 	results := make([]*Destination, 0, len(destinations))
@@ -310,6 +310,8 @@ func (t *Table) GetMUPDestinationsWithRouteType(typ string) ([]*Destination, err
 			if nlri, ok := dst.nlri.(*bgp.MUPNLRI); !ok {
 				return nil, fmt.Errorf("invalid mup nlri type detected: %T", dst.nlri)
 			} else if nlri.RouteType == routeType {
+				results = append(results, dst)
+			} else if nlri.String() == p {
 				results = append(results, dst)
 			}
 		}

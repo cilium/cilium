@@ -15,7 +15,7 @@ to enable it.  You can execute the following once:
 
 To load completions in your current shell session:
 
-	source <(cilium-operator-generic completion zsh); compdef _cilium-operator-generic cilium-operator-generic
+	source <(cilium-operator-generic completion zsh)
 
 To load completions for every new session, execute once:
 
