@@ -425,7 +425,8 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	// we allow more arbitrary labels to be associated with these IPs that
 	// correspond to remote nodes.
 	if !lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) &&
-		!lbls.Has(labels.LabelHealth[labels.IDNameHealth]) {
+		!lbls.Has(labels.LabelHealth[labels.IDNameHealth]) &&
+		!lbls.Has(labels.LabelIngress[labels.IDNameIngress]) {
 		cidrLabels := cidrlabels.GetCIDRLabels(prefix)
 		lbls.MergeLabels(cidrLabels)
 	}

@@ -21,9 +21,10 @@ import (
 )
 
 var (
-	worldPrefix     = netip.MustParsePrefix("1.1.1.1/32")
-	inClusterPrefix = netip.MustParsePrefix("10.0.0.4/32")
-	aPrefix         = netip.MustParsePrefix("100.4.16.32/32")
+	worldPrefix      = netip.MustParsePrefix("1.1.1.1/32")
+	inClusterPrefix  = netip.MustParsePrefix("10.0.0.4/32")
+	inClusterPrefix2 = netip.MustParsePrefix("10.0.0.5/32")
+	aPrefix          = netip.MustParsePrefix("100.4.16.32/32")
 )
 
 func TestInjectLabels(t *testing.T) {
@@ -77,6 +78,23 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
 	assert.Equal(t, identity.ReservedIdentityHealth, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID)
+
+	// Assert that an upsert for reserved:ingress label results in only the
+	// reserved ingress ID.
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix2, source.Local, "node-uid", labels.LabelIngress)
+	assert.Len(t, IPIdentityCache.metadata.m, 3)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix2})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
+	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID.HasLocalScope())
+	assert.Equal(t, identity.ReservedIdentityIngress, IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID)
+	// Clean up.
+	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid", overrideIdentity(false), labels.LabelIngress)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix2})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.metadata.m, 2)
 
 	// Assert that a CIDR identity can be overridden automatically (without
 	// overrideIdentity=true) when the prefix becomes associated with an entity
