@@ -16,6 +16,7 @@
 package apiutil
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
@@ -1342,7 +1343,7 @@ func MarshalNLRI(value bgp.AddrPrefixInterface) (*apb.Any, error) {
 			nlri = &api.MUPType1SessionTransformedRoute{
 				Rd:                    rd,
 				Prefix:                r.Prefix.String(),
-				Teid:                  r.TEID,
+				Teid:                  binary.BigEndian.Uint32(r.TEID.AsSlice()),
 				Qfi:                   uint32(r.QFI),
 				EndpointAddressLength: uint32(r.EndpointAddressLength),
 				EndpointAddress:       r.EndpointAddress.String(),
@@ -1352,12 +1353,13 @@ func MarshalNLRI(value bgp.AddrPrefixInterface) (*apb.Any, error) {
 			if err != nil {
 				return nil, err
 			}
-			nlri = &api.MUPType2SessionTransformedRoute{
+			ar := &api.MUPType2SessionTransformedRoute{
 				Rd:                    rd,
 				EndpointAddressLength: uint32(r.EndpointAddressLength),
 				EndpointAddress:       r.EndpointAddress.String(),
-				Teid:                  r.TEID,
+				Teid:                  binary.BigEndian.Uint32(r.TEID.AsSlice()),
 			}
+			nlri = ar
 		}
 	}
 
@@ -1548,7 +1550,13 @@ func UnmarshalNLRI(rf bgp.RouteFamily, an *apb.Any) (bgp.AddrPrefixInterface, er
 		if err != nil {
 			return nil, err
 		}
-		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, v.Teid, uint8(v.Qfi), ea)
+		b := make([]byte, 4)
+		binary.BigEndian.PutUint32(b, v.Teid)
+		teid, ok := netip.AddrFromSlice(b)
+		if !ok {
+			return nil, fmt.Errorf("invalid teid: %x", v.Teid)
+		}
+		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, teid, uint8(v.Qfi), ea)
 	case *api.MUPType2SessionTransformedRoute:
 		rd, err := UnmarshalRD(v.Rd)
 		if err != nil {
@@ -1558,7 +1566,13 @@ func UnmarshalNLRI(rf bgp.RouteFamily, an *apb.Any) (bgp.AddrPrefixInterface, er
 		if err != nil {
 			return nil, err
 		}
-		nlri = bgp.NewMUPType2SessionTransformedRoute(rd, ea, v.Teid)
+		b := make([]byte, 4)
+		binary.BigEndian.PutUint32(b, v.Teid)
+		teid, ok := netip.AddrFromSlice(b)
+		if !ok {
+			return nil, fmt.Errorf("invalid teid: %x", v.Teid)
+		}
+		nlri = bgp.NewMUPType2SessionTransformedRoute(rd, uint8(v.EndpointAddressLength), ea, teid)
 	case *api.LsAddrPrefix:
 		unmarshaledNlri, _ := v.Nlri.UnmarshalNew()
 		switch tp := unmarshaledNlri.(type) {

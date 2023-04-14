@@ -508,6 +508,7 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 				},
 			},
 			PeerAsn:         s.PeerAs,
+			LocalAsn:        s.LocalAs,
 			Type:            api.PeerType(s.PeerType.ToInt()),
 			NeighborAddress: pconf.State.NeighborAddress,
 			Queues:          &api.Queues{},

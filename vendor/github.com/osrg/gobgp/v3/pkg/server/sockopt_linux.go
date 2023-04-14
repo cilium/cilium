@@ -21,56 +21,47 @@ import (
 	"net"
 	"os"
 	"syscall"
-	"unsafe"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/osrg/gobgp/v3/pkg/log"
 )
 
 const (
-	tcpMD5SIG       = 14 // TCP MD5 Signature (RFC2385)
 	ipv6MinHopCount = 73 // Generalized TTL Security Mechanism (RFC5082)
 )
 
-type tcpmd5sig struct {
-	ss_family uint16
-	ss        [126]byte
-	// padding the struct
-	_      uint16
-	keylen uint16
-	// padding the struct
-	_   uint32
-	key [80]byte
-}
-
-func buildTcpMD5Sig(address, key string) (tcpmd5sig, error) {
-	t := tcpmd5sig{}
+func buildTcpMD5Sig(address, key string) *unix.TCPMD5Sig {
+	t := unix.TCPMD5Sig{}
 	addr := net.ParseIP(address)
 	if addr.To4() != nil {
-		t.ss_family = syscall.AF_INET
-		copy(t.ss[2:], addr.To4())
+		t.Addr.Family = unix.AF_INET
+		copy(t.Addr.Data[2:], addr.To4())
 	} else {
-		t.ss_family = syscall.AF_INET6
-		copy(t.ss[6:], addr.To16())
+		t.Addr.Family = unix.AF_INET6
+		copy(t.Addr.Data[6:], addr.To16())
 	}
 
-	t.keylen = uint16(len(key))
-	copy(t.key[0:], []byte(key))
+	t.Keylen = uint16(len(key))
+	copy(t.Key[0:], []byte(key))
 
-	return t, nil
+	return &t
 }
 
 func setTCPMD5SigSockopt(l *net.TCPListener, address string, key string) error {
-	t, err := buildTcpMD5Sig(address, key)
-	if err != nil {
-		return err
-	}
-	b := *(*[unsafe.Sizeof(t)]byte)(unsafe.Pointer(&t))
-
 	sc, err := l.SyscallConn()
 	if err != nil {
 		return err
 	}
-	return setsockOptString(sc, syscall.IPPROTO_TCP, tcpMD5SIG, string(b[:]))
+
+	var sockerr error
+	t := buildTcpMD5Sig(address, key)
+	if err := sc.Control(func(s uintptr) {
+		sockerr = unix.SetsockoptTCPMD5Sig(int(s), unix.IPPROTO_TCP, unix.TCP_MD5SIG, t)
+	}); err != nil {
+		return err
+	}
+	return sockerr
 }
 
 func setBindToDevSockopt(sc syscall.RawConn, device string) error {
@@ -111,13 +102,9 @@ func dialerControl(logger log.Logger, network, address string, c syscall.RawConn
 	var sockerr error
 	if password != "" {
 		addr, _, _ := net.SplitHostPort(address)
-		t, err := buildTcpMD5Sig(addr, password)
-		if err != nil {
-			return err
-		}
-		b := *(*[unsafe.Sizeof(t)]byte)(unsafe.Pointer(&t))
+		t := buildTcpMD5Sig(addr, password)
 		if err := c.Control(func(fd uintptr) {
-			sockerr = os.NewSyscallError("setsockopt", syscall.SetsockoptString(int(fd), syscall.IPPROTO_TCP, tcpMD5SIG, string(b[:])))
+			sockerr = os.NewSyscallError("setsockopt", unix.SetsockoptTCPMD5Sig(int(fd), unix.IPPROTO_TCP, unix.TCP_MD5SIG, t))
 		}); err != nil {
 			return err
 		}
