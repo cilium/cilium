@@ -90,7 +90,7 @@ func (pm *PolicyMapPrivilegedTestSuite) TestPolicyMapDumpToSlice(c *C) {
 }
 
 func (pm *PolicyMapPrivilegedTestSuite) TestDeleteNonexistentKey(c *C) {
-	key := newKey(27, 80, u8proto.ANY, trafficdirection.Ingress)
+	key := newKey(27, 80, u8proto.TCP, trafficdirection.Ingress)
 	err := testMap.Map.Delete(&key)
 	c.Assert(err, Not(IsNil))
 	var errno unix.Errno

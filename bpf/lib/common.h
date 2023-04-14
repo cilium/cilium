@@ -316,18 +316,44 @@ struct remote_endpoint_info {
 	__u8		key;
 };
 
+/*
+ * Longest-prefix match map lookup only matches the number of bits from the
+ * beginning of the key stored in the map indicated by the 'lpm_key' field in
+ * the same stored map key, not including the 'lpm_key' field itself. Note that
+ * the 'lpm_key' value passed in the lookup function argument needs to be a
+ * "full prefix" (POLICY_FULL_PREFIX defined below).
+ *
+ * Since we need to be able to wildcard 'sec_label' independently on 'protocol'
+ * and 'dport' fields, we'll need to do that explicitly with a separate lookup
+ * where 'sec_label' is zero. For the 'protocol' and 'port' we can use the
+ * longest-prefix match by placing them at the end ot the key in this specific
+ * order, as we want to be able to wildcard those fields in a specific pattern:
+ * 'protocol' can only be wildcarded if dport is also fully wildcarded.
+ * 'protocol' is never partially wildcarded, so it is either fully wildcarded or
+ * not wildcarded at all. 'dport' can be partially wildcarded, but only when
+ * 'protocol' is fully specified. This follows the logic that the destination
+ * port is a property of a transport protocol and can not be specified without
+ * also specifying the protocol.
+ */
 struct policy_key {
+	struct bpf_lpm_trie_key lpm_key;
 	__u32		sec_label;
-	__u16		dport;
-	__u8		protocol;
 	__u8		egress:1,
 			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__u16		dport; /* can be wildcarded with CIDR-like prefix */
 };
+
+/* POLICY_FULL_PREFIX gets full prefix length of policy_key */
+#define POLICY_FULL_PREFIX						\
+  (8 * (sizeof(struct policy_key) - sizeof(struct bpf_lpm_trie_key)))
 
 struct policy_entry {
 	__be16		proxy_port;
 	__u8		deny:1,
-			pad:7;
+			wildcard_protocol:1, /* protocol is fully wildcarded */
+			wildcard_dport:1, /* dport is fully wildcarded */
+			pad:5;
 	__u8		auth_type;
 	__u16		pad1;
 	__u16		pad2;
