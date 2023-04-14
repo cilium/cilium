@@ -99,11 +99,14 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath
 	err := setupDummyDevice(dummyExternalDeviceName, ips...)
 	c.Assert(err, check.IsNil)
 
+	ips = []net.IP{}
 	if enableIPv4 {
-		err = setupDummyDevice(dummyHostDeviceName, s.nodeAddressing.IPv4().Router())
-	} else {
-		err = setupDummyDevice(dummyHostDeviceName)
+		ips = append(ips, s.nodeAddressing.IPv4().Router())
 	}
+	if enableIPv6 {
+		ips = append(ips, s.nodeAddressing.IPv6().Router())
+	}
+	err = setupDummyDevice(dummyHostDeviceName, ips...)
 	c.Assert(err, check.IsNil)
 
 	tunnel.SetTunnelMap(tunnel.NewTunnelMap("test_cilium_tunnel_map"))

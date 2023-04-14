@@ -340,8 +340,9 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) {
 // f00d::a0a:0:0:0/112 via f00d::a0a:0:0:1 dev cilium_host src fd04::11 metric 1024 pref medium
 func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bool) (route.Route, error) {
 	var (
-		local, nexthop net.IP
-		mtu            int
+		local   net.IP
+		nexthop *net.IP
+		mtu     int
 	)
 	if prefix.IP.To4() != nil {
 		if n.nodeAddressing.IPv4() == nil {
@@ -352,8 +353,8 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 			return route.Route{}, fmt.Errorf("IPv4 router address unavailable")
 		}
 
-		nexthop = n.nodeAddressing.IPv4().Router()
-		local = nexthop
+		local = n.nodeAddressing.IPv4().Router()
+		nexthop = &local
 	} else {
 		if n.nodeAddressing.IPv6() == nil {
 			return route.Route{}, fmt.Errorf("IPv6 addressing unavailable")
@@ -367,8 +368,11 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 			return route.Route{}, fmt.Errorf("External IPv6 address unavailable")
 		}
 
-		nexthop = n.nodeAddressing.IPv6().Router()
-		local = n.nodeAddressing.IPv6().PrimaryExternal()
+		// For ipv6, kernel will reject "ip r a $cidr via $ipv6_cilium_host dev cilium_host"
+		// with "Error: Gateway can not be a local address". Instead, we have to remove "via"
+		// as "ip r a $cidr dev cilium_host" to make it work.
+		nexthop = nil
+		local = n.nodeAddressing.IPv6().Router()
 	}
 
 	if !isLocalNode {
@@ -377,7 +381,7 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 
 	// The default routing table accounts for encryption overhead for encrypt-node traffic
 	return route.Route{
-		Nexthop:  &nexthop,
+		Nexthop:  nexthop,
 		Local:    local,
 		Device:   n.datapathConfig.HostDevice,
 		Prefix:   *prefix.IPNet,
@@ -1028,7 +1032,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 						upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi)
 					}
 				} else {
-					localCIDR := &net.IPNet{IP: localIP, Mask: net.CIDRMask(0, 0)}
+					localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
 					remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 					n.replaceNodeIPSecOutRoute(new6Net)
 					spi, err := ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)

@@ -1146,7 +1146,7 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
 				}
 			} else {
-				log.Debugf("HeaderMatches: Adding %s: %s", hdr.Name, value)
+				log.Debugf("HeaderMatches: Adding %s", hdr.Name)
 				headerMatches = append(headerMatches, &cilium.HeaderMatch{
 					MismatchAction: mismatch_action,
 					Name:           hdr.Name,
