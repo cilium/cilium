@@ -63,6 +63,7 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	}
 
 	addCommonInstallFlags(cmd, &params)
+	addCommonHelmFlags(cmd, &params)
 	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.IPAM, "ipam", "", "IP Address Management (IPAM) mode")
@@ -228,14 +229,7 @@ func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
 	cmd.Flags().MarkDeprecated("cluster-name", "This can now be overridden via `helm-set` (Helm value: `cluster.name`).")
 	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
 	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use { tunnel | aws-eni | gke | azure | aks-byocni } (default: autodetected).")
-	cmd.Flags().StringVar(&params.HelmChartDirectory, "chart-directory", "", "Helm chart directory")
-	cmd.Flags().StringSliceVar(&params.HelmOpts.ValueFiles, "helm-values", []string{}, "Specify helm values in a YAML file or a URL (can specify multiple)")
-	cmd.Flags().StringArrayVar(&params.HelmOpts.Values, "helm-set", []string{}, "Set helm values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
-	cmd.Flags().StringArrayVar(&params.HelmOpts.StringValues, "helm-set-string", []string{}, "Set helm STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
-	cmd.Flags().StringArrayVar(&params.HelmOpts.FileValues, "helm-set-file", []string{}, "Set helm values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)")
 	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
-	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for helm install to finish")
-	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
 	cmd.Flags().StringSliceVar(&params.NodesWithoutCilium, "nodes-without-cilium", []string{}, "List of node names on which Cilium will not be installed. In Helm installation mode, it's assumed that the no-schedule node labels are present and that the infastructure has set up routing on these nodes to provide connectivity within the Cilium cluster.")
 }
 
@@ -243,6 +237,20 @@ func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
 func addCommonUninstallFlags(cmd *cobra.Command, params *install.UninstallParameters) {
 	cmd.Flags().StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to uninstall Cilium tests from")
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for uninstallation to have completed")
+}
+
+// addCommonHelmFlags adds flags which are used by all subcommands that use Helm underneath.
+// These flags are primarily used with a call to helm.MergeVals to allow setting and overriding all helm options via
+// flags and values files. These are flags that we will keep in the future for helm-based subcommands, all other similar
+// flags are likely to be removed in the future.
+func addCommonHelmFlags(cmd *cobra.Command, params *install.Parameters) {
+	cmd.Flags().StringVar(&params.HelmChartDirectory, "chart-directory", "", "Helm chart directory")
+	cmd.Flags().StringSliceVar(&params.HelmOpts.ValueFiles, "helm-values", []string{}, "Specify helm values in a YAML file or a URL (can specify multiple)")
+	cmd.Flags().StringArrayVar(&params.HelmOpts.Values, "helm-set", []string{}, "Set helm values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+	cmd.Flags().StringArrayVar(&params.HelmOpts.StringValues, "helm-set-string", []string{}, "Set helm STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+	cmd.Flags().StringArrayVar(&params.HelmOpts.FileValues, "helm-set-file", []string{}, "Set helm values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)")
+	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for helm install to finish")
+	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
 }
 
 func newCmdInstallWithHelm() *cobra.Command {
@@ -280,6 +288,7 @@ cilium install --context kind-cluster1 --helm-set cluster.id=1 --helm-set cluste
 	}
 
 	addCommonInstallFlags(cmd, &params)
+	addCommonHelmFlags(cmd, &params)
 	cmd.Flags().BoolVar(&params.DryRun, "dry-run", false, "Write resources to be installed to stdout without actually installing them")
 	cmd.Flags().BoolVar(&params.DryRunHelmValues, "dry-run-helm-values", false, "Write non-default Helm values to stdout without performing the actual installation")
 	return cmd
@@ -316,5 +325,48 @@ func newCmdUninstallWithHelm() *cobra.Command {
 	}
 
 	addCommonUninstallFlags(cmd, &params)
+	return cmd
+}
+
+func newCmdUpgradeWithHelm() *cobra.Command {
+	var params = install.Parameters{Writer: os.Stdout}
+
+	cmd := &cobra.Command{
+		Use:   "upgrade",
+		Short: "Upgrade a Cilium installation a Kubernetes cluster using Helm",
+		Long: `Upgrade a Cilium installation in a Kubernetes cluster using Helm
+
+Examples:
+# Upgrade Cilium to the latest version, using existing parameters
+cilium upgrade
+
+# Upgrade Cilium to the latest version and also set cluster name and ID
+# to prepare for multi-cluster capabilities.
+cilium upgrade --helm-set cluster.id=1 --helm-set cluster.name=cluster1
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
+			if params.DryRun || params.DryRunHelmValues {
+				params.Writer = io.Discard
+			}
+			installer, err := install.NewK8sInstaller(k8sClient, params)
+			if err != nil {
+				return err
+			}
+			cmd.SilenceUsage = true
+			if err := installer.UpgradeWithHelm(context.Background(), k8sClient.RESTClientGetter); err != nil {
+				fatalf("Unable to upgrade Cilium: %s", err)
+			}
+			return nil
+		},
+	}
+
+	addCommonInstallFlags(cmd, &params)
+	addCommonHelmFlags(cmd, &params)
+	cmd.Flags().BoolVar(&params.DryRun, "dry-run", false,
+		"Write resources to be installed to stdout without actually installing them")
+	cmd.Flags().BoolVar(&params.DryRunHelmValues, "dry-run-helm-values", false,
+		"Write non-default Helm values to stdout; without performing the actual upgrade")
 	return cmd
 }
