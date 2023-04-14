@@ -125,6 +125,8 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 				logger.WithError(err).Error("Failed to derive policy gateway configuration")
 			}
 		}
+
+		break
 	}
 
 	config.gatewayConfig = gwc
