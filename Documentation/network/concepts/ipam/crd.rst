@@ -87,7 +87,7 @@ the standard Cilium deployment artifacts:
 CRD Definition
 **************
 
-The CilumNode custom resource is modeled after a standard Kubernetes resource
+The CiliumNode custom resource is modeled after a standard Kubernetes resource
 and is split into a ``spec`` and ``status`` section:
 
 .. code-block:: go
