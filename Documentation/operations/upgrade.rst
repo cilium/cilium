@@ -314,6 +314,11 @@ Annotations:
   flushing the current state by running the following command on each node:
   ``ip xfrm state flush && ip xfrm policy flush``.
 
+* There is a known issue (:gh-issue:`24502`) with CiliumNetworkPolicies that
+  makes the ``kube-apiserver`` entity unreliable. Until this is resolved, 
+  it is recommended to grant access to the apiserver by CIDR or by the 
+  special ``world`` entity.
+
 1.13 Upgrade Notes
 ------------------
 * The code for the deprecated ``spec.eni.min-allocate``, ``spec.eni.pre-allocate``
