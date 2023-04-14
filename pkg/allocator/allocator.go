@@ -891,16 +891,66 @@ type RemoteCache struct {
 // kvstore will be maintained in the RemoteCache structure returned and will
 // start being reported in the identities returned by the ForeachCache()
 // function. RemoteName should be unique per logical "remote".
-func (a *Allocator) WatchRemoteKVStore(remoteName string, remoteAlloc *Allocator) *RemoteCache {
+func (a *Allocator) WatchRemoteKVStore(ctx context.Context, remoteName string, remoteAlloc *Allocator) (*RemoteCache, error) {
 	rc := &RemoteCache{
 		cache: &remoteAlloc.mainCache,
 	}
 
+	scopedLog := log.WithField(fieldRemote, remoteName)
+	scopedLog.Info("Waiting for remote KVStore watcher synchronization")
+
+	select {
+	case <-ctx.Done():
+		scopedLog.Info("Context canceled before remote KVStore watcher synchronization completed: stale identities will now be removed")
+		rc.Close()
+
+		a.remoteCachesMutex.RLock()
+		old := a.remoteCaches[remoteName]
+		a.remoteCachesMutex.RUnlock()
+
+		if old != nil {
+			old.cache.mutex.RLock()
+			defer old.cache.mutex.RUnlock()
+		}
+
+		// Drain all entries that might have been received until now, and that
+		// are not present in the current cache (if any). This ensures we do not
+		// leak any stale identity, and at the same time we do not invalidate the
+		// current state.
+		rc.cache.drainIf(func(id idpool.ID) bool {
+			if old == nil {
+				return true
+			}
+
+			_, ok := old.cache.nextCache[id]
+			return !ok
+		})
+		return nil, fmt.Errorf("context canceled before receiving the initial list of objects from kvstore")
+
+	case <-rc.cache.listDone:
+		scopedLog.Info("Remote KVStore watcher successfully synchronized and registered")
+	}
+
 	a.remoteCachesMutex.Lock()
+	old := a.remoteCaches[remoteName]
 	a.remoteCaches[remoteName] = rc
 	a.remoteCachesMutex.Unlock()
 
-	return rc
+	if old != nil {
+		// In case of reconnection, let's emit a deletion event for all stale identities
+		// that are no longer present in the kvstore. We take the lock of the new cache
+		// to ensure that we observe a stable state during this process (i.e., no keys
+		// are added/removed in the meanwhile).
+		scopedLog.Info("Another KVStore watcher was already registered: deleting stale identities")
+		rc.cache.mutex.RLock()
+		old.cache.drainIf(func(id idpool.ID) bool {
+			_, ok := rc.cache.nextCache[id]
+			return !ok
+		})
+		rc.cache.mutex.RUnlock()
+	}
+
+	return rc, nil
 }
 
 // RemoveRemoteKVStore removes any reference to a remote allocator / kvstore.

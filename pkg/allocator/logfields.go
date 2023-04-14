@@ -7,4 +7,5 @@ const (
 	fieldID     = "id"
 	fieldKey    = "key"
 	fieldRefCnt = "refcnt"
+	fieldRemote = "remote"
 )

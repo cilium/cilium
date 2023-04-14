@@ -116,7 +116,7 @@ type RemoteIdentityWatcher interface {
 	// WatchRemoteIdentities starts watching for identities in another kvstore and
 	// syncs all identities to the local identity cache. RemoteName should be unique
 	// unless replacing an existing remote's backend.
-	WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations) (*allocator.RemoteCache, error)
+	WatchRemoteIdentities(ctx context.Context, remoteName string, backend kvstore.BackendOperations) (*allocator.RemoteCache, error)
 
 	// RemoveRemoteIdentities removes any reference to a remote identity source.
 	RemoveRemoteIdentities(name string)

@@ -434,3 +434,90 @@ func (s *AllocatorSuite) TestAllocateCached(c *C) {
 //
 //	wg.Wait()
 //}
+
+func (s *AllocatorSuite) TestWatchRemoteKVStore(c *C) {
+	global := Allocator{remoteCaches: make(map[string]*RemoteCache)}
+	events := make(AllocatorEventChan, 10)
+
+	newRemoteAllocator := func() *Allocator {
+		remote := Allocator{
+			backend: newDummyBackend(),
+			events:  events,
+			idPool:  idpool.NewIDPool(0, 10),
+			stopGC:  make(chan struct{}),
+		}
+		remote.mainCache = newCache(&remote)
+		remote.mainCache.nextCache = make(idMap)
+		remote.mainCache.nextKeyCache = make(keyMap)
+		remote.mainCache.listDone = make(waitChan)
+		return &remote
+	}
+
+	// Add a new remote cache, and assert that it is registered correctly
+	// and the proper events are emitted
+	remote := newRemoteAllocator()
+
+	remote.mainCache.OnAdd(idpool.ID(1), TestAllocatorKey("foo"))
+	remote.mainCache.OnAdd(idpool.ID(2), TestAllocatorKey("bar"))
+	remote.mainCache.OnListDone()
+	remote.mainCache.OnModify(idpool.ID(2), TestAllocatorKey("baz"))
+
+	rc, err := global.WatchRemoteKVStore(context.Background(), "remote", remote)
+	c.Assert(err, IsNil)
+	c.Assert(global.remoteCaches["remote"], Equals, rc)
+
+	c.Assert(events, HasLen, 3)
+	c.Assert(<-events, Equals, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeCreate})
+	c.Assert(<-events, Equals, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("bar"), Typ: kvstore.EventTypeCreate})
+	c.Assert(<-events, Equals, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("baz"), Typ: kvstore.EventTypeModify})
+
+	// Add a new remote cache with the same name, and assert that it overrides
+	// the previous one, and the proper events are emitted (including deletions
+	// for all stale keys)
+	remote = newRemoteAllocator()
+
+	remote.mainCache.OnAdd(idpool.ID(1), TestAllocatorKey("qux"))
+	remote.mainCache.OnAdd(idpool.ID(5), TestAllocatorKey("bar"))
+	remote.mainCache.OnListDone()
+
+	rc, err = global.WatchRemoteKVStore(context.Background(), "remote", remote)
+	c.Assert(err, IsNil)
+	c.Assert(global.remoteCaches["remote"], Equals, rc)
+
+	c.Assert(events, HasLen, 3)
+	c.Assert(<-events, Equals, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeCreate})
+	c.Assert(<-events, Equals, AllocatorEvent{ID: idpool.ID(5), Key: TestAllocatorKey("bar"), Typ: kvstore.EventTypeCreate})
+	c.Assert(<-events, Equals, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("baz"), Typ: kvstore.EventTypeDelete})
+
+	// Add a new remote cache with the same name, but cancel the context before
+	// the ListDone event is received, and assert that it does not override the
+	// existing entry. A deletion event should also be emitted for any object
+	// detected as part of the initial list operation, which was not present in
+	// the existing cache.
+	remote = newRemoteAllocator()
+	remote.mainCache.OnAdd(idpool.ID(1), TestAllocatorKey("qux"))
+	remote.mainCache.OnAdd(idpool.ID(7), TestAllocatorKey("foo"))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = global.WatchRemoteKVStore(ctx, "remote", remote)
+	c.Assert(err, Not(IsNil))
+	c.Assert(global.remoteCaches["remote"], Equals, rc)
+
+	c.Assert(events, HasLen, 3)
+	c.Assert(<-events, Equals, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeCreate})
+	c.Assert(<-events, Equals, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeCreate})
+	c.Assert(<-events, Equals, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeDelete})
+
+	// Add a new remote cache with a different name, and assert that it does not
+	// override the previous one.
+	remote = newRemoteAllocator()
+	remote.mainCache.OnListDone()
+
+	oc, err := global.WatchRemoteKVStore(context.Background(), "other", remote)
+	c.Assert(err, IsNil)
+	c.Assert(global.remoteCaches["remote"], Equals, rc)
+	c.Assert(global.remoteCaches["other"], Equals, oc)
+
+	c.Assert(events, HasLen, 0)
+}

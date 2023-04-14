@@ -120,8 +120,10 @@ func (rc *remoteCluster) releaseOldConnection() {
 	remoteNodes := rc.remoteNodes
 	rc.remoteNodes = nil
 
-	remoteIdentityCache := rc.remoteIdentityCache
-	rc.remoteIdentityCache = nil
+	if rc.remoteIdentityCache != nil {
+		rc.remoteIdentityCache.Close()
+		rc.remoteIdentityCache = nil
+	}
 
 	remoteServices := rc.remoteServices
 	rc.remoteServices = nil
@@ -145,9 +147,6 @@ func (rc *remoteCluster) releaseOldConnection() {
 		}
 		if remoteNodes != nil {
 			remoteNodes.Close(context.TODO())
-		}
-		if remoteIdentityCache != nil {
-			remoteIdentityCache.Close()
 		}
 		if remoteServices != nil {
 			remoteServices.Close(context.TODO())
@@ -236,7 +235,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				}
 				rc.swg.Stop()
 
-				remoteIdentityCache, err := allocator.WatchRemoteIdentities(rc.name, backend)
+				remoteIdentityCache, err := allocator.WatchRemoteIdentities(ctx, rc.name, backend)
 				if err != nil {
 					remoteServices.Close(ctx)
 					remoteNodes.Close(ctx)
