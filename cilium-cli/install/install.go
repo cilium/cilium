@@ -598,6 +598,7 @@ func (k *K8sInstaller) restartUnmanagedPods(ctx context.Context) error {
 }
 
 func (k *K8sInstaller) listVersions() error {
+	// Print available versions and return.
 	versions, err := helm.ListVersions()
 	if err != nil {
 		return err
@@ -614,16 +615,15 @@ func (k *K8sInstaller) listVersions() error {
 }
 
 func (k *K8sInstaller) preinstall(ctx context.Context) error {
-	// If --list-versions flag is specified, print available versions and return.
-	if k.params.ListVersions {
-		return k.listVersions()
-	}
 	if err := k.autodetectAndValidate(ctx); err != nil {
 		return err
 	}
 
 	switch k.flavor.Kind {
 	case k8s.KindGKE:
+		// TODO (ajs): Note that we have our own implementation of helm MergeValues at internal/helm/MergeValues, used
+		//  e.g. in hubble.go. Does using the upstream HelmOpts.MergeValues here create inconsistencies with which
+		//  parameters take precedence? Test and determine which we should use here for expected behavior.
 		// Get Helm values to check if ipv4NativeRoutingCIDR value is specified via a Helm flag.
 		helmValues, err := k.params.HelmOpts.MergeValues(getter.All(cli.New()))
 		if err != nil {
@@ -651,6 +651,9 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 }
 
 func (k *K8sInstaller) Install(ctx context.Context) error {
+	if k.params.ListVersions {
+		return k.listVersions()
+	}
 	if err := k.preinstall(ctx); err != nil {
 		return err
 	}
@@ -988,6 +991,9 @@ func (k *K8sInstaller) RollbackInstallation(ctx context.Context) {
 }
 
 func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient genericclioptions.RESTClientGetter) error {
+	if k.params.ListVersions {
+		return k.listVersions()
+	}
 	if err := k.preinstall(ctx); err != nil {
 		return err
 	}
