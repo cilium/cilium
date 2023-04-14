@@ -89,7 +89,7 @@ type PolicyMap struct {
 }
 
 func (pe *PolicyEntry) String() string {
-	return fmt.Sprintf("%d %d %d", pe.ProxyPort, pe.Packets, pe.Bytes)
+	return fmt.Sprintf("%d %d %d", pe.GetProxyPort(), pe.Packets, pe.Bytes)
 }
 
 // PolicyKey represents a key in the BPF policy map for an endpoint. It must
@@ -98,9 +98,14 @@ func (pe *PolicyEntry) String() string {
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type PolicyKey struct {
 	Identity         uint32 `align:"sec_label"`
-	DestPort         uint16 `align:"dport"` // In network byte-order
+	DestPortNetwork  uint16 `align:"dport"` // In network byte-order
 	Nexthdr          uint8  `align:"protocol"`
 	TrafficDirection uint8  `align:"egress"`
+}
+
+// GetDestPort returns the DestPortNetwork in host byte order
+func (k *PolicyKey) GetDestPort() uint16 {
+	return byteorder.NetworkToHost16(k.DestPortNetwork)
 }
 
 // SizeofPolicyKey is the size of type PolicyKey.
@@ -111,25 +116,18 @@ const SizeofPolicyKey = int(unsafe.Sizeof(PolicyKey{}))
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type PolicyEntry struct {
-	ProxyPort uint16 `align:"proxy_port"` // In network byte-order
-	Flags     uint8  `align:"deny"`
-	AuthType  uint8  `align:"auth_type"`
-	Pad1      uint16 `align:"pad1"`
-	Pad2      uint16 `align:"pad2"`
-	Packets   uint64 `align:"packets"`
-	Bytes     uint64 `align:"bytes"`
+	ProxyPortNetwork uint16 `align:"proxy_port"` // In network byte-order
+	Flags            uint8  `align:"deny"`
+	AuthType         uint8  `align:"auth_type"`
+	Pad1             uint16 `align:"pad1"`
+	Pad2             uint16 `align:"pad2"`
+	Packets          uint64 `align:"packets"`
+	Bytes            uint64 `align:"bytes"`
 }
 
-// ToHost returns a copy of entry with fields converted from network byte-order
-// to host-byte-order if necessary.
-func (pe *PolicyEntry) ToHost() PolicyEntry {
-	if pe == nil {
-		return PolicyEntry{}
-	}
-
-	n := *pe
-	n.ProxyPort = byteorder.NetworkToHost16(n.ProxyPort)
-	return n
+// GetProxyPort returns the ProxyPortNetwork in host byte order
+func (pe *PolicyEntry) GetProxyPort() uint16 {
+	return byteorder.NetworkToHost16(pe.ProxyPortNetwork)
 }
 
 func (pe *PolicyEntry) SetFlags(flags uint8) {
@@ -239,61 +237,45 @@ func (key *PolicyKey) NewValue() bpf.MapValue    { return &PolicyEntry{} }
 func (key *PolicyKey) String() string {
 
 	trafficDirectionString := (trafficdirection.TrafficDirection)(key.TrafficDirection).String()
-	if key.DestPort != 0 {
-		return fmt.Sprintf("%s: %d %d/%d", trafficDirectionString, key.Identity, byteorder.NetworkToHost16(key.DestPort), key.Nexthdr)
+	if key.DestPortNetwork != 0 {
+		return fmt.Sprintf("%s: %d %d/%d", trafficDirectionString, key.Identity, key.GetDestPort(), key.Nexthdr)
 	}
 	return fmt.Sprintf("%s: %d", trafficDirectionString, key.Identity)
 }
 
-// ToHost returns a copy of key with fields converted from network byte-order
-// to host-byte-order if necessary.
-func (key *PolicyKey) ToHost() PolicyKey {
-	if key == nil {
-		return PolicyKey{}
+// NewKey returns a PolicyKey representing the specified parameters in network
+// byte-order.
+func NewKey(id uint32, dport uint16, proto uint8, trafficDirection uint8) PolicyKey {
+	return PolicyKey{
+		Identity:         id,
+		DestPortNetwork:  byteorder.HostToNetwork16(dport),
+		Nexthdr:          proto,
+		TrafficDirection: trafficDirection,
 	}
-
-	n := *key
-	n.DestPort = byteorder.NetworkToHost16(n.DestPort)
-	return n
-}
-
-// ToNetwork returns a copy of key with fields converted from host byte-order
-// to network-byte-order if necessary.
-func (key *PolicyKey) ToNetwork() PolicyKey {
-	if key == nil {
-		return PolicyKey{}
-	}
-
-	n := *key
-	n.DestPort = byteorder.HostToNetwork16(n.DestPort)
-	return n
 }
 
 // newKey returns a PolicyKey representing the specified parameters in network
 // byte-order.
 func newKey(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection) PolicyKey {
-	return PolicyKey{
-		Identity:         id,
-		DestPort:         byteorder.HostToNetwork16(dport),
-		Nexthdr:          uint8(proto),
-		TrafficDirection: trafficDirection.Uint8(),
-	}
+	return NewKey(id, dport, uint8(proto), trafficDirection.Uint8())
 }
 
 // newEntry returns a PolicyEntry representing the specified parameters in
 // network byte-order.
 func newEntry(authType uint8, proxyPort uint16, flags PolicyEntryFlags) PolicyEntry {
 	return PolicyEntry{
-		ProxyPort: byteorder.HostToNetwork16(proxyPort),
-		Flags:     flags.UInt8(),
-		AuthType:  authType,
+		ProxyPortNetwork: byteorder.HostToNetwork16(proxyPort),
+		Flags:            flags.UInt8(),
+		AuthType:         authType,
 	}
 }
 
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) AllowKey(k PolicyKey, authType uint8, proxyPort uint16) error {
-	return pm.Allow(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), trafficdirection.TrafficDirection(k.TrafficDirection), authType, proxyPort)
+func (pm *PolicyMap) AllowKey(key PolicyKey, authType uint8, proxyPort uint16) error {
+	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{})
+	entry := newEntry(authType, proxyPort, pef)
+	return pm.Update(&key, &entry)
 }
 
 // Allow pushes an entry into the PolicyMap to allow traffic in the given
@@ -301,15 +283,17 @@ func (pm *PolicyMap) AllowKey(k PolicyKey, authType uint8, proxyPort uint16) err
 // protocol `proto`. It is assumed that `dport` and `proxyPort` are in host byte-order.
 func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection, authType uint8, proxyPort uint16) error {
 	key := newKey(id, dport, proto, trafficDirection)
-	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{})
-	entry := newEntry(authType, proxyPort, pef)
-	return pm.Update(&key, &entry)
+	return pm.AllowKey(key, authType, proxyPort)
 }
 
 // DenyKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) DenyKey(k PolicyKey) error {
-	return pm.Deny(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), trafficdirection.TrafficDirection(k.TrafficDirection))
+func (pm *PolicyMap) DenyKey(key PolicyKey) error {
+	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{
+		IsDeny: true,
+	})
+	entry := newEntry(0, 0, pef)
+	return pm.Update(&key, &entry)
 }
 
 // Deny pushes an entry into the PolicyMap to deny traffic in the given
@@ -317,9 +301,7 @@ func (pm *PolicyMap) DenyKey(k PolicyKey) error {
 // protocol `proto`. It is assumed that `dport` is in host byte-order.
 func (pm *PolicyMap) Deny(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection) error {
 	key := newKey(id, dport, proto, trafficDirection)
-	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true})
-	entry := newEntry(0, 0, pef)
-	return pm.Update(&key, &entry)
+	return pm.DenyKey(key)
 }
 
 // Exists determines whether PolicyMap currently contains an entry that
@@ -334,8 +316,7 @@ func (pm *PolicyMap) Exists(id uint32, dport uint16, proto u8proto.U8proto, traf
 // DeleteKey deletes the key-value pair from the given PolicyMap with PolicyKey
 // k. Returns an error if deletion from the PolicyMap fails.
 func (pm *PolicyMap) DeleteKey(key PolicyKey) error {
-	k := key.ToNetwork()
-	return pm.Map.Delete(&k)
+	return pm.Map.Delete(&key)
 }
 
 // Delete removes an entry from the PolicyMap for identity `id`

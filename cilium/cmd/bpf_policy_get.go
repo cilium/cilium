@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/identity"
@@ -152,14 +151,15 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		trafficDirection := trafficdirection.TrafficDirection(stat.Key.TrafficDirection)
 		trafficDirectionString := trafficDirection.String()
 		port := models.PortProtocolANY
-		if stat.Key.DestPort != 0 || stat.Key.Nexthdr == uint8(u8proto.ICMP) || stat.Key.Nexthdr == uint8(u8proto.ICMPv6) {
-			dport := byteorder.NetworkToHost16(stat.Key.DestPort)
+		dport := stat.Key.GetDestPort()
+		if dport != 0 || stat.Key.Nexthdr == uint8(u8proto.ICMP) || stat.Key.Nexthdr == uint8(u8proto.ICMPv6) {
 			proto := u8proto.U8proto(stat.Key.Nexthdr)
 			port = fmt.Sprintf("%d/%s", dport, proto.String())
 		}
 		proxyPort := "NONE"
-		if stat.ProxyPort != 0 {
-			proxyPort = strconv.FormatUint(uint64(byteorder.NetworkToHost16(stat.ProxyPort)), 10)
+		pp := stat.GetProxyPort()
+		if pp != 0 {
+			proxyPort = strconv.FormatUint(uint64(pp), 10)
 		}
 		var policyStr string
 		if policymap.PolicyEntryFlags(stat.Flags).IsDeny() {

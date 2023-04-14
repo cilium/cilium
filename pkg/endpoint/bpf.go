@@ -1089,12 +1089,8 @@ func (e *Endpoint) updatePolicyMapPressureMetric() {
 // not otherwise changed (e.g., it is never set to 'false').
 func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, hadProxy *bool) bool {
 	// Convert from policy.Key to policymap.Key
-	policymapKey := policymap.PolicyKey{
-		Identity:         keyToDelete.Identity,
-		DestPort:         keyToDelete.DestPort,
-		Nexthdr:          keyToDelete.Nexthdr,
-		TrafficDirection: keyToDelete.TrafficDirection,
-	}
+	policymapKey := policymap.NewKey(keyToDelete.Identity, keyToDelete.DestPort,
+		keyToDelete.Nexthdr, keyToDelete.TrafficDirection)
 
 	// Do not error out if the map entry was already deleted from the bpf map.
 	// Incremental updates depend on this being OK in cases where identity change
@@ -1131,12 +1127,8 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, had
 
 func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry, incremental bool) bool {
 	// Convert from policy.Key to policymap.Key
-	policymapKey := policymap.PolicyKey{
-		Identity:         keyToAdd.Identity,
-		DestPort:         keyToAdd.DestPort,
-		Nexthdr:          keyToAdd.Nexthdr,
-		TrafficDirection: keyToAdd.TrafficDirection,
-	}
+	policymapKey := policymap.NewKey(keyToAdd.Identity, keyToAdd.DestPort,
+		keyToAdd.Nexthdr, keyToAdd.TrafficDirection)
 
 	var err error
 	if entry.IsDeny {
@@ -1347,21 +1339,19 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 	currentMap := make(policy.MapState)
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
-		// Convert key to host byte-order. ToHost() makes a copy.
-		keyHostOrder := key.(*policymap.PolicyKey).ToHost()
+		policymapKey := key.(*policymap.PolicyKey)
 		// Convert from policymap.Key to policy.Key
 		policyKey := policy.Key{
-			Identity:         keyHostOrder.Identity,
-			DestPort:         keyHostOrder.DestPort,
-			Nexthdr:          keyHostOrder.Nexthdr,
-			TrafficDirection: keyHostOrder.TrafficDirection,
+			Identity:         policymapKey.Identity,
+			DestPort:         policymapKey.GetDestPort(),
+			Nexthdr:          policymapKey.Nexthdr,
+			TrafficDirection: policymapKey.TrafficDirection,
 		}
-		// Convert value to host byte-order. ToHost() makes a copy.
-		entryHostOrder := value.(*policymap.PolicyEntry).ToHost()
+		policymapEntry := value.(*policymap.PolicyEntry)
 		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
 		policyEntry := policy.MapStateEntry{
-			ProxyPort: entryHostOrder.ProxyPort,
-			IsDeny:    policymap.PolicyEntryFlags(entryHostOrder.GetFlags()).IsDeny(),
+			ProxyPort: policymapEntry.GetProxyPort(),
+			IsDeny:    policymap.PolicyEntryFlags(policymapEntry.GetFlags()).IsDeny(),
 		}
 		currentMap[policyKey] = policyEntry
 	}
