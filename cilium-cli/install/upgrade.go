@@ -188,7 +188,7 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient genericcli
 		DryRun:           k.params.DryRun,
 		DryRunHelmValues: k.params.DryRunHelmValues,
 	}
-	release, err := helm.UpgradeCurrentRelease(ctx, k8sClient, upgradeParams)
+	release, err := helm.UpgradeCurrentRelease(ctx, k8sClient, upgradeParams, k.chart)
 
 	if k.params.DryRun {
 		fmt.Println(release.Manifest)
