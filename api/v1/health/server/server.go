@@ -15,17 +15,14 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/swag"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/netutil"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/health/server/restapi"
 	"github.com/cilium/cilium/api/v1/health/server/restapi/connectivity"
@@ -91,13 +88,35 @@ func init() {
 	}
 }
 
+var (
+	enabledListeners []string
+	gracefulTimeout  time.Duration
+	maxHeaderSize    int
+
+	socketPath string
+
+	host         string
+	port         int
+	listenLimit  int
+	keepAlive    time.Duration
+	readTimeout  time.Duration
+	writeTimeout time.Duration
+
+	tlsHost           string
+	tlsPort           int
+	tlsListenLimit    int
+	tlsKeepAlive      time.Duration
+	tlsReadTimeout    time.Duration
+	tlsWriteTimeout   time.Duration
+	tlsCertificate    string
+	tlsCertificateKey string
+	tlsCACertificate  string
+)
+
 // NewServer creates a new api cilium health API server but does not configure it
 func NewServer(api *restapi.CiliumHealthAPIAPI) *Server {
 	s := new(Server)
-
-	s.shutdown = make(chan struct{})
 	s.api = api
-	s.interrupt = make(chan os.Signal, 1)
 	return s
 }
 
@@ -147,10 +166,7 @@ type Server struct {
 	api          *restapi.CiliumHealthAPIAPI
 	handler      http.Handler
 	hasListeners bool
-	shutdown     chan struct{}
-	shuttingDown int32
-	interrupted  bool
-	interrupt    chan os.Signal
+	servers      []*http.Server
 
 	wg         sync.WaitGroup
 	shutdowner hive.Shutdowner
@@ -226,6 +242,10 @@ func (s *Server) Start(hive.HookContext) (err error) {
 		}
 	}
 
+	if len(s.servers) != 0 {
+		return errors.New("already started")
+	}
+
 	// set default handler, if none is set
 	if s.handler == nil {
 		if s.api == nil {
@@ -234,12 +254,6 @@ func (s *Server) Start(hive.HookContext) (err error) {
 
 		s.SetHandler(s.api.Serve(nil))
 	}
-
-	once := new(sync.Once)
-	signalNotify(s.interrupt)
-	go handleInterrupt(once, s)
-
-	servers := []*http.Server{}
 
 	if s.hasScheme(schemeUnix) {
 		domainSocket := new(http.Server)
@@ -257,7 +271,7 @@ func (s *Server) Start(hive.HookContext) (err error) {
 				return err
 			}
 		}
-		servers = append(servers, domainSocket)
+		s.servers = append(s.servers, domainSocket)
 		s.wg.Add(1)
 		s.Logf("Serving cilium health API at unix://%s", s.SocketPath)
 		go func(l net.Listener) {
@@ -287,7 +301,7 @@ func (s *Server) Start(hive.HookContext) (err error) {
 
 		configureServer(httpServer, "http", s.httpServerL.Addr().String())
 
-		servers = append(servers, httpServer)
+		s.servers = append(s.servers, httpServer)
 		s.wg.Add(1)
 		s.Logf("Serving cilium health API at http://%s", s.httpServerL.Addr())
 		go func(l net.Listener) {
@@ -383,7 +397,7 @@ func (s *Server) Start(hive.HookContext) (err error) {
 
 		configureServer(httpsServer, "https", s.httpsServerL.Addr().String())
 
-		servers = append(servers, httpsServer)
+		s.servers = append(s.servers, httpsServer)
 		s.wg.Add(1)
 		s.Logf("Serving cilium health API at https://%s", s.httpsServerL.Addr())
 		go func(l net.Listener) {
@@ -395,20 +409,6 @@ func (s *Server) Start(hive.HookContext) (err error) {
 		}(tls.NewListener(s.httpsServerL, httpsServer.TLSConfig))
 	}
 
-	s.wg.Add(1)
-	go s.handleShutdown(&servers)
-
-	return nil
-}
-
-func (s *Server) Stop(hive.HookContext) error {
-	if err := s.Shutdown(); err != nil {
-		return err
-	}
-	// FIXME need to pass HookContext somehow into handleShutdown to make this
-	// respect the timeout. Probably want to fold "handleShutdown" into this
-	// function.
-	s.wg.Wait()
 	return nil
 }
 
@@ -489,38 +489,28 @@ func (s *Server) Listen() error {
 
 // Shutdown server and clean up resources
 func (s *Server) Shutdown() error {
-	if atomic.CompareAndSwapInt32(&s.shuttingDown, 0, 1) {
-		close(s.shutdown)
-	}
-	return nil
-}
-
-func (s *Server) handleShutdown(serversPtr *[]*http.Server) {
-	// s.wg.Done must occur last, after s.api.ServerShutdown()
-	// (to preserve old behaviour)
-	defer s.wg.Done()
-
-	<-s.shutdown
-
-	servers := *serversPtr
-
 	ctx, cancel := context.WithTimeout(context.TODO(), s.GracefulTimeout)
 	defer cancel()
+	return s.Stop(ctx)
+}
 
+func (s *Server) Stop(ctx hive.HookContext) error {
 	// first execute the pre-shutdown hook
 	s.api.PreServerShutdown()
 
 	shutdownChan := make(chan bool)
-	for i := range servers {
-		server := servers[i]
+	for i := range s.servers {
+		server := s.servers[i]
 		go func() {
 			var success bool
 			defer func() {
 				shutdownChan <- success
 			}()
 			if err := server.Shutdown(ctx); err != nil {
-				// Error from closing listeners, or context timeout:
 				s.Logf("HTTP server Shutdown: %v", err)
+
+				// Forcefully close open connections.
+				server.Close()
 			} else {
 				success = true
 			}
@@ -529,12 +519,17 @@ func (s *Server) handleShutdown(serversPtr *[]*http.Server) {
 
 	// Wait until all listeners have successfully shut down before calling ServerShutdown
 	success := true
-	for range servers {
+	for range s.servers {
 		success = success && <-shutdownChan
 	}
 	if success {
 		s.api.ServerShutdown()
 	}
+
+	s.wg.Wait()
+	s.servers = nil
+
+	return nil
 }
 
 // GetHandler returns a handler useful for testing
@@ -575,24 +570,4 @@ func (s *Server) TLSListener() (net.Listener, error) {
 		}
 	}
 	return s.httpsServerL, nil
-}
-
-func handleInterrupt(once *sync.Once, s *Server) {
-	once.Do(func() {
-		for range s.interrupt {
-			if s.interrupted {
-				s.Logf("Server already shutting down")
-				continue
-			}
-			s.interrupted = true
-			s.Logf("Shutting down... ")
-			if err := s.Shutdown(); err != nil {
-				s.Logf("HTTP server Shutdown: %v", err)
-			}
-		}
-	})
-}
-
-func signalNotify(interrupt chan<- os.Signal) {
-	signal.Notify(interrupt, unix.SIGINT, unix.SIGTERM)
 }
