@@ -1,5 +1,60 @@
 # Changelog
 
+## v1.12.9
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump envoy version to v1.23.7 (#24747, @sayboras)
+
+**Bugfixes:**
+* Add missing xfrm-no-track rules for IPv6 IPSec. This fixes a connectivity issue for IPv6 IPSec with externalTrafficPolicy=local. (Backport PR #24605, Upstream PR #24557, @jschwinger233)
+* bpf: policy: fix handling of ICMPv6 packet with extension headers (Backport PR #24822, Upstream PR #24797, @julianwiedmann)
+* endpoint: fix k8sNamespace log field when ep gets deleted (Backport PR #24709, Upstream PR #24575, @mhofstetter)
+* Fix bug in BGP CP where changing the route-id of an existing router would cause announcements to disappear (Backport PR #24462, Upstream PR #24304, @dylandreimerink)
+* Fix Cilium Operator from crashing when encountering empty node pools on Azure (Backport PR #24462, Upstream PR #24189, @forgems)
+* Fix for disabled cloud provider rate limiting (Backport PR #24462, Upstream PR #24413, @hemanthmalla)
+* Fix missing delete events on informer re-lists to ensure all delete events are correctly emitted and using the latest known object state, so that all event handlers and stores always reflect the actual apiserver state as best as possible (#24871, @aanm)
+* Fixed bug where L7 rules would be incorrectly merged between rules for the same (remote) endpoint. This bug could have caused L7 rules to be bypassed via a wildcard header rule being improperly appended to the set of HTTP rules when both a policy with HTTP header rules applying to multiple endpoints and an allow-all rule for only one of those endpoints are specified. (Backport PR #24851, Upstream PR #24788, @jrajahalme)
+* Handle leaked service backends that may lead to filling up of `lb4_backends` map and thereby connectivity issues. (Backport PR #24761, Upstream PR #24681, @aditighag)
+* helm: mandate issuer configuration when using cert-manager to generate certificates (Backport PR #24822, Upstream PR #24666, @giorio94)
+* ipsec: Clean up stale XFRM policies and states (Backport PR #24822, Upstream PR #24773, @pchaigno)
+* Solve control-plane deadlock issues leading to outages. A typical log line indicative of this issue is `probe=l7-proxy msg="No response from probe within 15 seconds"` (Backport PR #24669, Upstream PR #24672, @bimmlerd)
+
+**CI Changes:**
+* Fix race conditions when deleting CNP / CCNP in e2e tests (Backport PR #24709, Upstream PR #24484, @jschwinger233)
+* renovate: Fix Hubble release digest regex (Backport PR #24605, Upstream PR #24477, @gandro)
+* tests: add exceptions for lease errors due to etcd (Backport PR #24761, Upstream PR #24723, @jibi)
+
+**Misc Changes:**
+* bpf: Remove fib_redirect's BPF_FIB_LOOKUP_DIRECT (Backport PR #24462, Upstream PR #24271, @borkmann)
+* checker: Fix incorrect checker for ExportedEqual() (Backport PR #24462, Upstream PR #24373, @christarazi)
+* chore(deps): update dependency cilium/hubble to v0.11.3 (v1.12) (#24819, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.5 (v1.12) (#24640, @renovate[bot])
+* chore(deps): update docker.io/library/alpine:3.16.4 docker digest to 2cf17aa (v1.12) (#24479, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 24a0df4 (v1.12) (#24480, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.11.3 (v1.12) (#24492, @renovate[bot])
+* doc: Fixed CiliumNode CRD fields for cluster-pool doc (Backport PR #24605, Upstream PR #24428, @PhilipSchmid)
+* docs: add note that there are two Cilium CLIs (Backport PR #24605, Upstream PR #24435, @lizrice)
+* docs: fix typo in operations/troubleshooting.rst (Backport PR #24605, Upstream PR #24460, @NikAleksandrov)
+* docs: Fix upgradeCompatibility references (Backport PR #24761, Upstream PR #24711, @joestringer)
+* docs: Update Cluster Mesh requirements to mention node InternalIP explicitly (Backport PR #24462, Upstream PR #24164, @jspaleta)
+* docs: Update the documentation for the `--conntrack-gc-interval` flag (Backport PR #24462, Upstream PR #24400, @pchaigno)
+* Expose bpf-lb-sock-hostns-only in cilium status (Backport PR #24761, Upstream PR #24570, @romanspb80)
+* Fix duplicated logs for test-output.log (Backport PR #24462, Upstream PR #24171, @romanspb80)
+* hubble-ui: allow ingress from non root `/` urls (Backport PR #24605, Upstream PR #23631, @geakstr)
+* loader: Don't compile `.asm` files by default (Backport PR #24822, Upstream PR #24769, @pchaigno)
+* pkg/bandwidth: add error for bandwidth manager not being enabled (Backport PR #24761, Upstream PR #24715, @aanm)
+* pkg/service: Extend unit test cases (Backport PR #24822, Upstream PR #24742, @aditighag)
+* proxylib: Downgrade noisy log msg to debug level (Backport PR #24462, Upstream PR #22848, @christarazi)
+
+**Other Changes:**
+* Add IPSec remark for upgrade to v1.12.8 (#24630, @darox)
+* Add note about fixed regression in ConfigMap values that were being prioritized over flags in Cilium agent (#24744, @aanm)
+* install: Update image digests for v1.12.8 (#24426, @nebril)
+* v1.12: docs: Fix mitigation for IPsec upgrade issue (#24702, @pchaigno)
+
 ## v1.12.8
 
 Summary of Changes
