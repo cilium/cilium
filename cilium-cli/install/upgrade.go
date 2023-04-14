@@ -12,8 +12,11 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/status"
 )
@@ -155,4 +158,46 @@ func upgradeDeployment(ctx context.Context, k *K8sInstaller, params upgradeDeplo
 
 	*patched++
 	return nil
+}
+
+func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient genericclioptions.RESTClientGetter) error {
+	if k.params.ListVersions {
+		return k.listVersions()
+	}
+	if err := k.preinstall(ctx); err != nil {
+		return err
+	}
+
+	// TODO (ajs): gethelmValues "extends" many Helm-parameters based on input flags in a non-obvious way, consider
+	//  removing it in favor of documentation. For now, it's needed for consistency with the install commands.
+	vals, err := k.getHelmValues()
+	if err != nil {
+		return err
+	}
+
+	upgradeParams := helm.UpgradeParameters{
+		Namespace:    k.params.Namespace,
+		Name:         defaults.HelmReleaseName,
+		Values:       vals,
+		Wait:         k.params.Wait,
+		WaitDuration: k.params.WaitDuration,
+
+		// In addition to the DryRun i/o, we need to tell Helm not to execute the upgrade
+		DryRun:           k.params.DryRun,
+		DryRunHelmValues: k.params.DryRunHelmValues,
+	}
+	release, err := helm.UpgradeCurrentRelease(ctx, k8sClient, upgradeParams)
+
+	if k.params.DryRun {
+		fmt.Println(release.Manifest)
+	}
+	if k.params.DryRunHelmValues {
+		helmValues, err := yaml.Marshal(release.Config)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(helmValues))
+	}
+
+	return err
 }
