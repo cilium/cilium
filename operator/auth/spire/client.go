@@ -28,7 +28,7 @@ import (
 
 const (
 	notFoundError   = "NotFound"
-	defaultParentID = "/dclient"
+	defaultParentID = "/cilium-operator"
 	pathPrefix      = "/identity"
 )
 
