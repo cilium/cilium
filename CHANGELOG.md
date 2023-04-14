@@ -1,5 +1,50 @@
 # Changelog
 
+## v1.11.16
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump envoy version to v1.23.7 (#24748, @sayboras)
+
+**Bugfixes:**
+* Add missing xfrm-no-track rules for IPv6 IPSec. This fixes a connectivity issue for IPv6 IPSec with externalTrafficPolicy=local. (Backport PR #24604, Upstream PR #24557, @jschwinger233)
+* Fix for disabled cloud provider rate limiting (Backport PR #24458, Upstream PR #24413, @hemanthmalla)
+* Fix missing delete events on informer re-lists to ensure all delete events are correctly emitted and using the latest known object state, so that all event handlers and stores always reflect the actual apiserver state as best as possible (#24872, @aanm)
+* Fixed bug where L7 rules would be incorrectly merged between rules for the same (remote) endpoint. This bug could have caused L7 rules to be bypassed via a wildcard header rule being improperly appended to the set of HTTP rules when both a policy with HTTP header rules applying to multiple endpoints and an allow-all rule for only one of those endpoints are specified. (Backport PR #24852, Upstream PR #24788, @jrajahalme)
+* Handle leaked service backends that may lead to filling up of `lb4_backends` map and thereby connectivity issues. (Backport PR #24823, Upstream PR #24681, @aditighag)
+* ipsec: Clean up stale XFRM policies and states (Backport PR #24823, Upstream PR #24773, @pchaigno)
+
+**CI Changes:**
+* Fix race conditions when deleting CNP / CCNP in e2e tests (Backport PR #24710, Upstream PR #24484, @jschwinger233)
+* renovate: Fix Hubble release digest regex (Backport PR #24604, Upstream PR #24477, @gandro)
+* tests: add exceptions for lease errors due to etcd (Backport PR #24823, Upstream PR #24723, @jibi)
+
+**Misc Changes:**
+* checker: Fix incorrect checker for ExportedEqual() (Backport PR #24458, Upstream PR #24373, @christarazi)
+* chore(deps): update dependency cilium/hubble to v0.11.3 (v1.11) (#24820, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.5 (v1.11) (#24644, @renovate[bot])
+* chore(deps): update docker.io/library/alpine:3.16.4 docker digest to 2cf17aa (v1.11) (#24493, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 24a0df4 (v1.11) (#24498, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.11.3 (v1.11) (#24499, @renovate[bot])
+* docs: add note that there are two Cilium CLIs (Backport PR #24604, Upstream PR #24435, @lizrice)
+* docs: fix typo in operations/troubleshooting.rst (Backport PR #24604, Upstream PR #24460, @NikAleksandrov)
+* docs: Fix upgradeCompatibility references (Backport PR #24823, Upstream PR #24711, @joestringer)
+* docs: Update Cluster Mesh requirements to mention node InternalIP explicitly (Backport PR #24458, Upstream PR #24164, @jspaleta)
+* docs: Update the documentation for the `--conntrack-gc-interval` flag (Backport PR #24458, Upstream PR #24400, @pchaigno)
+* Fix duplicated logs for test-output.log (Backport PR #24458, Upstream PR #24171, @romanspb80)
+* hubble-ui: allow ingress from non root `/` urls (Backport PR #24604, Upstream PR #23631, @geakstr)
+* loader: Don't compile `.asm` files by default (Backport PR #24823, Upstream PR #24769, @pchaigno)
+* pkg/bandwidth: add error for bandwidth manager not being enabled (Backport PR #24823, Upstream PR #24715, @aanm)
+
+**Other Changes:**
+* Add IPSec remark for upgrade to v1.11.15 (#24632, @darox)
+* Add note about known regression in ConfigMap values prioritized over flags in Cilium agent (#24743, @aanm)
+* In service recovery, don't skip if one of the service recovery fails (#23922, @jaredledvina)
+* install: Update image digests for v1.11.15 (#24425, @nebril)
+* v1.11: docs: Document IPsec upgrade issue on v1.11.15 (#24704, @pchaigno)
+
 ## v1.11.15
 
 Summary of Changes
