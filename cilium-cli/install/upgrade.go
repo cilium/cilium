@@ -179,6 +179,8 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient genericcli
 		Namespace:    k.params.Namespace,
 		Name:         defaults.HelmReleaseName,
 		Values:       vals,
+		ResetValues:  k.params.HelmResetValues,
+		ReuseValues:  k.params.HelmReuseValues,
 		Wait:         k.params.Wait,
 		WaitDuration: k.params.WaitDuration,
 
