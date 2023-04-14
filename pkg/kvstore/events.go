@@ -7,6 +7,9 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 // EventType defines the type of watch event that occurred
@@ -21,6 +24,8 @@ const (
 	EventTypeDelete
 	//EventTypeListDone signals that the initial list operation has completed
 	EventTypeListDone
+	// EventTypeDrainDone signals that the RestartableWatcher has been drained completely
+	EventTypeDrainDone
 )
 
 // String() returns the human readable format of an event type
@@ -34,6 +39,8 @@ func (t EventType) String() string {
 		return "delete"
 	case EventTypeListDone:
 		return "listDone"
+	case EventTypeDrainDone:
+		return "drainDone"
 	default:
 		return "unknown"
 	}
@@ -118,4 +125,154 @@ func (w *Watcher) Stop() {
 		w.log.Debug("Stopped watcher")
 		w.stopWait.Wait()
 	})
+}
+
+// RestartableWatcher implements a wrapper around a KVstore watcher, automatically
+// handling the generation of deletion events for stale keys during reconnections.
+type RestartableWatcher struct {
+	Events EventChan
+
+	watcher   *Watcher
+	knownKeys watcherCache
+	log       *logrus.Entry
+
+	mu lock.Mutex
+	wg sync.WaitGroup
+}
+
+// NewRestartableWatcher creates a new RestartableWatcher with the given parameters.
+func NewRestartableWatcher(chanSize int) *RestartableWatcher {
+	return &RestartableWatcher{
+		Events:    make(EventChan, chanSize),
+		knownKeys: watcherCache{},
+		log:       log.WithField(fieldWatcher, "unset"),
+	}
+}
+
+// Wrap takes ownership of the given Watcher, and starts keeping track and forwarding
+// all events. Once the initial list operation is completed, deletion events are
+// triggered for all stale entries.
+func (rw *RestartableWatcher) Wrap(watcher *Watcher) {
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
+	rw.stopWatcherLocked()
+
+	// Mark all previously known keys as stale. We will trigger a deletion event for
+	// the ones that will not be refreshed during the initial list process.
+	rw.knownKeys.MarkAllForDeletion()
+
+	rw.watcher = watcher
+	rw.log = rw.watcher.log
+	rw.log.Debug("Watcher wrapped")
+
+	// Start the loop which takes care of keeping the cache up-to-date and forwarding
+	// all events. When ListDone is received, it triggers the generation of a deletion
+	// event for all stale keys.
+	rw.wg.Add(1)
+	go rw.loop()
+}
+
+// Stop stops the watcher. The Events channel is not closed, and Wrap can be called again.
+func (rw *RestartableWatcher) Stop() {
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
+	rw.stopWatcherLocked()
+}
+
+// StopAndDrain stops the watcher and emits a deletion event for all known keys; finally,
+// the DrainDone event is emitted to signal the completion of the operation. The Events
+// channel is not closed, and Wrap can be called again.
+func (rw *RestartableWatcher) StopAndDrain() {
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
+	rw.drainLocked()
+	rw.log.Debugf("Drain operation completed: emitting %s event", EventTypeDrainDone)
+	rw.Events <- KeyValueEvent{Typ: EventTypeDrainDone}
+}
+
+// Close stops the watcher and closes the Events channel. At this point, the
+// RestartableWatcher cannot be reused.
+func (rw *RestartableWatcher) Close() {
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
+	rw.stopWatcherLocked()
+	close(rw.Events)
+}
+
+// CloseAndDrain stops the watcher, emits a deletion event for all known keys and then
+// closes the Events channel. At this point, the RestartableWatcher cannot be reused.
+func (rw *RestartableWatcher) CloseAndDrain() {
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
+	rw.drainLocked()
+	close(rw.Events)
+}
+
+func (rw *RestartableWatcher) loop() {
+	for {
+		select {
+		case ev, ok := <-rw.watcher.Events:
+			// The events channel gets closed when the watcher is stopped.
+			if !ok {
+				rw.wg.Done()
+				return
+			}
+
+			switch ev.Typ {
+			case EventTypeListDone:
+				rw.emitDeletionEventForStaleEntries()
+
+			case EventTypeCreate, EventTypeModify:
+				if rw.knownKeys.Exists(ev.Key) && ev.Typ == EventTypeCreate {
+					rw.log.Debugf("Converting event from %s to %s for %s, as already seen",
+						EventTypeCreate, EventTypeModify, ev.Key)
+					ev.Typ = EventTypeModify
+				}
+
+				rw.knownKeys.MarkInUse(ev.Key)
+			case EventTypeDelete:
+				rw.knownKeys.RemoveKey(ev.Key)
+			}
+
+			rw.Events <- ev
+		}
+	}
+}
+
+func (rw *RestartableWatcher) emitDeletionEventForStaleEntries() {
+	rw.knownKeys.RemoveDeleted(func(key string) {
+		rw.log.Debugf("Emitting %s event for stale key %s", EventTypeDelete, key)
+		queueStart := spanstat.Start()
+		rw.Events <- KeyValueEvent{
+			Typ: EventTypeDelete,
+			Key: key,
+		}
+		trackEventQueued(key, EventTypeDelete, queueStart.End(true).Total())
+	})
+}
+
+// stopWatcherLocked stops the watcher, and waits for the loop goroutine to terminate.
+// It must be called while holding rw.mu.
+func (rw *RestartableWatcher) stopWatcherLocked() {
+	if rw.watcher != nil {
+		rw.watcher.Stop()
+		rw.wg.Wait()
+		rw.log.Debug("Watcher unwrapped")
+		rw.watcher = nil
+	}
+}
+
+// drainLocked stops the watcher and emits a deletion event for all known keys.
+// It must be called while holding rw.mu.
+func (rw *RestartableWatcher) drainLocked() {
+	rw.stopWatcherLocked()
+
+	rw.log.Debug("Draining all known keys")
+	rw.knownKeys.MarkAllForDeletion()
+	rw.emitDeletionEventForStaleEntries()
 }
