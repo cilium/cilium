@@ -67,12 +67,12 @@ struct {
 #ifdef POLICY_MAP
 /* Per-endpoint policy enforcement map */
 struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct policy_key);
 	__type(value, struct policy_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, POLICY_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } POLICY_MAP __section_maps_btf;
 #endif
 
