@@ -137,29 +137,17 @@ function setup_proxy_rules()
 			if [ -z "$(ip -6 rule list $to_proxy_rulespec)" ]; then
 				ip -6 rule add $to_proxy_rulespec
 			fi
-			if [ "$ENDPOINT_ROUTES" = "true" ]; then
-				if [ ! -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
-					ip -6 rule delete $from_ingress_rulespec
-				fi
-			else
-				if [ -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
-					ip -6 rule add $from_ingress_rulespec
-				fi
-			fi
+
+			ip -6 rule delete $from_ingress_rulespec || true
 		fi
 
 		IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
 		if [ -n "$IP6_LLADDR" ]; then
 			# Traffic to the host proxy is local
 			ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo
-			# Traffic from ingress proxy goes to Cilium address space via the cilium host device
-			if [ "$ENDPOINT_ROUTES" = "true" ]; then
-				ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
-				ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
-			else
-				ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
-				ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
-			fi
+			# The $PROXY_RT_TABLE is no longer in use, so delete it
+			ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
+			ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
 		fi
 	else
 		ip -6 rule del $to_proxy_rulespec 2> /dev/null || true
