@@ -1,5 +1,103 @@
 # Changelog
 
+## v1.13.2
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump envoy version to v1.23.7 (#24746, @sayboras)
+* Move poststart eni script to agent pod from nodeinit pod (Backport PR #24547, Upstream PR #24134, @nebril)
+* Provides operational state of BGP peers via CLI 'cilium bgp peers' (Backport PR #24821, Upstream PR #24612, @harsimran-pabla)
+* Support L2-less devices with fast forward (bpf-based host routing) (Backport PR #24706, Upstream PR #23935, @jschwinger233)
+
+**Bugfixes:**
+* agent: rework clustermesh config watcher for increased robustness (Backport PR #24547, Upstream PR #24163, @giorio94)
+* bpf: dsr: fix parsing of IPv6 AUTH extension header (Backport PR #24821, Upstream PR #24792, @julianwiedmann)
+* bpf: fix ipv6 extension header parsing error (Backport PR #24706, Upstream PR #24309, @chenyuezhou)
+* bpf: policy: fix handling of ICMPv6 packet with extension headers (Backport PR #24821, Upstream PR #24797, @julianwiedmann)
+* Correctly configure extra SANs for the clustermesh API server certificate when generated through certgen (Backport PR #24607, Upstream PR #24339, @giorio94)
+* daemon: initialize datapath before compiling sockops programs (Backport PR #24547, Upstream PR #24140, @jibi)
+* egressgw: update all internal caches once k8s state is synced (Backport PR #24706, Upstream PR #24034, @jibi)
+* endpoint: fix k8sNamespace log field when ep gets deleted (Backport PR #24706, Upstream PR #24575, @mhofstetter)
+* Fix a bug where users are unable to change a wrong remote etcd configuration (Backport PR #24547, Upstream PR #24046, @oblazek)
+* Fix a memory leak in the service cache, and possible missed service updates on scale to zero events in rare circumstances (Backport PR #24706, Upstream PR #24619, @giorio94)
+* Fix bug in BGP CP where changing the route-id of an existing router would cause announcements to disappear (Backport PR #24547, Upstream PR #24304, @dylandreimerink)
+* Fix bug where ingress policies for remote-note identities are not applied correctly new nodes join the cluster, specifically when the nodes joining the cluster had IP addresses specified in CIDR policies (Backport PR #24547, Upstream PR #23764, @christarazi)
+* Fix Cilium Operator from crashing when encountering empty node pools on Azure (Backport PR #24547, Upstream PR #24189, @forgems)
+* Fix for disabled cloud provider rate limiting (Backport PR #24547, Upstream PR #24413, @hemanthmalla)
+* Fix missing delete events on informer re-lists to ensure all delete events are correctly emitted and using the latest known object state, so that all event handlers and stores always reflect the actual apiserver state as best as possible (#24870, @aanm)
+* Fixed bug where L7 rules would be incorrectly merged between rules for the same (remote) endpoint. This bug could have caused L7 rules to be bypassed via a wildcard header rule being improperly appended to the set of HTTP rules when both a policy with HTTP header rules applying to multiple endpoints and an allow-all rule for only one of those endpoints are specified. (Backport PR #24843, Upstream PR #24788, @jrajahalme)
+* gateway-api: Re-queue gateway for namespace change (Backport PR #24758, Upstream PR #24624, @sayboras)
+* Handle leaked service backends that may lead to filling up of `lb4_backends` map and thereby connectivity issues. (Backport PR #24758, Upstream PR #24681, @aditighag)
+* helm: mandate issuer configuration when using cert-manager to generate certificates (Backport PR #24821, Upstream PR #24666, @giorio94)
+* ipsec: Clean up stale XFRM policies and states (Backport PR #24821, Upstream PR #24773, @pchaigno)
+* Prevent egress gateway from adding and then immediately removing BPF policy entries for policies that don't match any gateway node (Backport PR #24706, Upstream PR #24646, @MrFreezeex)
+* Services backends with publishNotReadyAddresses are able to receive traffic independently if they are Terminating, since is the user intent to make them reachable despite its state. (Backport PR #24547, Upstream PR #24174, @aojea)
+* Set user-agent for k8s client with Cilium's version (Backport PR #24547, Upstream PR #24275, @aanm)
+* Solve control-plane deadlock issues leading to outages. A typical log line indicative of this issue is `probe=l7-proxy msg="No response from probe within 15 seconds"` (Backport PR #24814, Upstream PR #24672, @bimmlerd)
+
+**CI Changes:**
+* bpf/test: Add unit test to check whether netpol drops result in metric counter increament (Backport PR #24607, Upstream PR #24469, @brb)
+* bpf/tests: fix mac addresses definitions in egressgw test (Backport PR #24607, Upstream PR #23351, @jibi)
+* datapath/linux/route: fix CI expectations for rule string format (Backport PR #24607, Upstream PR #24577, @NikAleksandrov)
+* Fix race conditions when deleting CNP / CCNP in e2e tests (Backport PR #24706, Upstream PR #24484, @jschwinger233)
+* Fixed flake in the `TestRequestIPWithMismatchedLabel` LB-IPAM tests. (Backport PR #24547, Upstream PR #23297, @dylandreimerink)
+* gha: Clean-up Ingress/GatewayAPI Conformance tests (Backport PR #24441, Upstream PR #24025, @sayboras)
+* Increase timeout waiting for resources in Ingress conformance test (Backport PR #24441, Upstream PR #24388, @meyskens)
+* Port verifier tests to Go (Backport PR #24706, Upstream PR #24538, @ti-mo)
+* renovate: Fix Hubble release digest regex (Backport PR #24547, Upstream PR #24477, @gandro)
+* test: Enable conformance tests for non-SCTP traffic in conjunction with SCTP policies (Backport PR #24547, Upstream PR #24144, @joestringer)
+* test: Remove some {DP,Services} Ginkgo test cases (Backport PR #24547, Upstream PR #24223, @brb)
+* test: Update 1.26 k8s version (Backport PR #24607, Upstream PR #24569, @sayboras)
+* tests: add exceptions for lease errors due to etcd (Backport PR #24758, Upstream PR #24723, @jibi)
+
+**Misc Changes:**
+* bgp: extract exportPodCIDRReconciler logic into a generic function (Backport PR #24607, Upstream PR #24546, @jibi)
+* bpf: Remove fib_redirect's BPF_FIB_LOOKUP_DIRECT (Backport PR #24547, Upstream PR #24271, @borkmann)
+* bpf_test: use bpf.LoadCollection, print full verifier error logs (Backport PR #24607, Upstream PR #23281, @ti-mo)
+* checker: Fix incorrect checker for ExportedEqual() (Backport PR #24547, Upstream PR #24373, @christarazi)
+* chore(deps): update base-images (v1.13) (#24467, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.11.3 (v1.13) (#24799, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.19.7 (v1.13) (#24233, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.19.7 (v1.13) (#24234, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.19.8 (v1.13) (#24800, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.19.8 (v1.13) (#24802, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.19.7 docker digest to d2078d2 (v1.13) (#24550, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.11.3 (v1.13) (#24472, @renovate[bot])
+* cilium, docs: Move sig-datapath meeting to on-demand only (Backport PR #24547, Upstream PR #24205, @borkmann)
+* doc: Fixed CiliumNode CRD fields for cluster-pool doc (Backport PR #24547, Upstream PR #24428, @PhilipSchmid)
+* doc: kubeProxyReplacement=strict / kube-proxy co-existence (Backport PR #24547, Upstream PR #24407, @PhilipSchmid)
+* docs: add note that there are two Cilium CLIs (Backport PR #24547, Upstream PR #24435, @lizrice)
+* docs: Cleanup and update list of supported drivers for XDP (Backport PR #24547, Upstream PR #24398, @pchaigno)
+* docs: Document the threat model for Cilium (Backport PR #24706, Upstream PR #24497, @ferozsalam)
+* docs: fix typo in operations/troubleshooting.rst (Backport PR #24547, Upstream PR #24460, @NikAleksandrov)
+* docs: Fix upgradeCompatibility references (Backport PR #24758, Upstream PR #24711, @joestringer)
+* docs: Update Cluster Mesh requirements to mention node InternalIP explicitly (Backport PR #24547, Upstream PR #24164, @jspaleta)
+* docs: Update egress gateway limitations (Backport PR #24547, Upstream PR #24244, @pchaigno)
+* docs: Update the documentation for the `--conntrack-gc-interval` flag (Backport PR #24547, Upstream PR #24400, @pchaigno)
+* egressgw: change special values for gatewayIP (Backport PR #24849, Upstream PR #24449, @MrFreezeex)
+* Emit full verifier logs to agent logs and verifier.log in the endpoint directory (Backport PR #24706, Upstream PR #24506, @ti-mo)
+* endpoint: correctly log IPv6 addresses (Backport PR #24547, Upstream PR #24255, @tklauser)
+* Expose bpf-lb-sock-hostns-only in cilium status (Backport PR #24758, Upstream PR #24570, @romanspb80)
+* Fix duplicated logs for test-output.log (Backport PR #24547, Upstream PR #24171, @romanspb80)
+* Fixed BPF tests which would fail on older kernels (<=5.8) due to unsupported program loading (Backport PR #24607, Upstream PR #22980, @dylandreimerink)
+* gha: Skip HTTPRouteListenerHostnameMatching test temporarily (Backport PR #24821, Upstream PR #24521, @sayboras)
+* hubble-ui: allow ingress from non root `/` urls (Backport PR #24607, Upstream PR #23631, @geakstr)
+* loader: Don't compile `.asm` files by default (Backport PR #24821, Upstream PR #24769, @pchaigno)
+* Operator: Move leader election to a separate Kubernetes client (Backport PR #24547, Upstream PR #24267, @alexkats)
+* pkg/bandwidth: add error for bandwidth manager not being enabled (Backport PR #24758, Upstream PR #24715, @aanm)
+* pkg/cgroups: Prune excessive debug logging (Backport PR #24843, Upstream PR #24815, @aditighag)
+* pkg/service: Extend unit test cases (Backport PR #24821, Upstream PR #24742, @aditighag)
+* proxylib: Downgrade noisy log msg to debug level (Backport PR #24547, Upstream PR #22848, @christarazi)
+
+**Other Changes:**
+* Backport warning about known policy bug to v1.13 (#24892, @squeed)
+* docs: Document IPsec upgrade issue on v1.13.1 (#24705, @pchaigno)
+* helm: fix poststart-eni.bash execution in agent DS (#24789, @nebril)
+* install: Update image digests for v1.13.1 (#24427, @nebril)
+* v1.13 egress gateway tests sync (#24859, @jibi)
+
 ## v1.13.1
 
 Summary of Changes
