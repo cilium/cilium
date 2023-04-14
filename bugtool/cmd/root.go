@@ -499,11 +499,11 @@ func getCiliumPods(namespace, label string) ([]string, error) {
 }
 
 func dumpEnvoy(rootDir string, resource string, fileName string) error {
-	// curl --unix-socket /var/run/cilium/envoy-admin.sock http:/admin/config_dump\?include_eds > dump.json
+	// curl --unix-socket /var/run/proxy/envoy-admin.sock http:/admin/config_dump\?include_eds > dump.json
 	c := &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", "/var/run/cilium/envoy-admin.sock")
+				return net.Dial("unix", "/var/run/proxy/envoy-admin.sock")
 			},
 		},
 	}
