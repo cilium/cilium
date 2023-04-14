@@ -1277,11 +1277,14 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	union v6addr addr = { .p1 = 0 };
 
-	obs_point = TRACE_TO_OVERLAY;
 	BPF_V6(addr, ROUTER_IP);
 #else
 	union v6addr addr = IPV6_DIRECT_ROUTING;
+#endif
 
+#ifdef IS_BPF_OVERLAY
+	obs_point = TRACE_TO_OVERLAY;
+#else
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
@@ -1336,7 +1339,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	int ret;
 	enum trace_point obs_point;
 
-#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
+#ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
 #else
 	obs_point = TRACE_TO_NETWORK;
@@ -2506,7 +2509,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
-#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
+#ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
 #else
 	obs_point = TRACE_TO_NETWORK;
@@ -2576,7 +2579,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
-#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
+#ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
 #else
 	obs_point = TRACE_TO_NETWORK;
