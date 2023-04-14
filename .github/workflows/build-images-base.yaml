@@ -123,8 +123,6 @@ jobs:
 
       - name: Sign SBOM Image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        env:
-          COSIGN_EXPERIMENTAL: "true"
         run: |
           docker_build_release_runtime_digest="${{ steps.docker_build_release_runtime.outputs.digest }}"
           image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${docker_build_release_runtime_digest/:/-}.sbom"
