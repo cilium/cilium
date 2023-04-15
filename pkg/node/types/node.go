@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net"
 	"path"
+	"strings"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -127,6 +128,13 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 
 	if n.WireguardPubKey != "" {
 		annotations[annotation.WireguardPubKey] = n.WireguardPubKey
+	}
+
+	// if we use a cilium node instead of a node, we also need the BGP Control Plane annotations in the cilium node instead of the main node
+	for k, a := range n.Annotations {
+		if strings.HasPrefix(k, "cilium.io/bgp-virtual-router.") {
+			annotations[k] = a
+		}
 	}
 
 	return &ciliumv2.CiliumNode{
