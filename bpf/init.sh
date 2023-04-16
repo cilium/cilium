@@ -371,6 +371,24 @@ if [ "$MODE" = "tunnel" ]; then
 	echo "#define TUNNEL_MODE 1" >> $RUNDIR/globals/node_config.h
 fi
 
+# Remove eventual existing encapsulation device from previous run
+case "${TUNNEL_MODE}" in
+  "<nil>")
+	ip link del cilium_vxlan 2> /dev/null || true
+	ip link del cilium_geneve 2> /dev/null || true
+    ;;
+  "vxlan")
+	ip link del cilium_geneve 2> /dev/null || true
+    ;;
+  "geneve")
+	ip link del cilium_vxlan 2> /dev/null || true
+    ;;
+  *)
+	(>&2 echo "ERROR: Unknown tunnel mode")
+    exit 1
+    ;;
+esac
+
 if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	ENCAP_DEV="cilium_${TUNNEL_MODE}"
 
@@ -400,11 +418,6 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	bpf_load "$ENCAP_DEV" "$COPTS" egress bpf_overlay.c bpf_overlay.o to-overlay "$CALLS_MAP"
 
 	cilium bpf migrate-maps -e bpf_overlay.o -r 0
-
-else
-	# Remove eventual existing encapsulation device from previous run
-	ip link del cilium_vxlan 2> /dev/null || true
-	ip link del cilium_geneve 2> /dev/null || true
 fi
 
 if [ "$MODE" = "direct" ] || [ "$NODE_PORT" = "true" ] ; then
