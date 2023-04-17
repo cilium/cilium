@@ -6,6 +6,7 @@ Summary of Changes
 ------------------
 
 **Minor Changes:**
+* envoy: Bump envoy to v1.23.8 (#24911, @sayboras)
 * envoy: Bump envoy version to v1.23.7 (#24748, @sayboras)
 
 **Bugfixes:**
@@ -22,6 +23,8 @@ Summary of Changes
 * tests: add exceptions for lease errors due to etcd (Backport PR #24823, Upstream PR #24723, @jibi)
 
 **Misc Changes:**
+* Avoid clearing objects in CiliumEndpoint conversion funcs (Backport PR #24931, Upstream PR #24928, @aanm)
+* Avoid clearing objects in conversion funcs (Backport PR #24931, Upstream PR #24241, @odinuge)
 * checker: Fix incorrect checker for ExportedEqual() (Backport PR #24458, Upstream PR #24373, @christarazi)
 * chore(deps): update dependency cilium/hubble to v0.11.3 (v1.11) (#24820, @renovate[bot])
 * chore(deps): update docker.io/library/alpine docker tag to v3.16.5 (v1.11) (#24644, @renovate[bot])
@@ -43,6 +46,7 @@ Summary of Changes
 * Add note about known regression in ConfigMap values prioritized over flags in Cilium agent (#24743, @aanm)
 * In service recovery, don't skip if one of the service recovery fails (#23922, @jaredledvina)
 * install: Update image digests for v1.11.15 (#24425, @nebril)
+* Prepare for release v1.11.16 (#24880, @michi-covalent)
 * v1.11: docs: Document IPsec upgrade issue on v1.11.15 (#24704, @pchaigno)
 
 ## v1.11.15
@@ -686,7 +690,8 @@ Summary of Changes
 * Fixed node init in RKE (Backport PR #19418, Upstream PR #19286, @raphink)
 * helm: Update Clustermesh-APIServer RBAC permissions for platforms (like Openshift) that have the OwnerReferencesPermissionEnforcement admission controller enabled. (Backport PR #19277, Upstream PR #19071, @nathanjsweet)
 * Improve endpoint and DNS proxy lock contention during bursty DNS traffic (Backport PR #19418, Upstream PR #19347, @christarazi)
-* Improve reliably of faulty connections for kube-apiservers behind a LB. Reduce the number of connections to kube-apiserver by 6 for each cilium-agent. (Backport PR #19330, Upstream PR #19259, @aanm)
+* Improve reliably of faulty connections for kube-apiservers behind a LB.
+ Reduce the number of connections to kube-apiserver by 6 for each cilium-agent. (Backport PR #19330, Upstream PR #19259, @aanm)
 * install/kubernetes: fix hubble-ui with TLS (Backport PR #19418, Upstream PR #19338, @aanm)
 * metallb: fix SIGSEGV error when Service resource is deleted. (Backport PR #19277, Upstream PR #19249, @Inode1)
 * Update the 'refresh period' formatting in readme and doc (Backport PR #19418, Upstream PR #19205, @dongwangdw)
@@ -826,7 +831,9 @@ Summary of Changes
 * monitor: Output non-trace messages to stderr (Backport PR #18630, Upstream PR #18479, @YutaroHayakawa)
 * node: Don't skip masquerading for External node IPs (Backport PR #18630, Upstream PR #18483, @pchaigno)
 * Preserve tail call maps during resize to prevent drops during agent upgrade (Backport PR #18800, Upstream PR #17744, @ti-mo)
-* Prevent unmanaged pods in GKE's containerd flavors. *Important:* Users should update their node taints from `node.cilium.io/agent-not-ready=true:NoSchedule` to `node.cilium.io/agent-not-ready=true:NoExecute`. *Important:* During the first node reboot after the fix is applied pods may still get IPs from the default CNI as cilium-node-init is only run later in the node startup process. The fix will then be in place for all subsequent reboots. (Backport PR #18726, Upstream PR #18486, @bmcustodio)
+* Prevent unmanaged pods in GKE's containerd flavors.
+ *Important:* Users should update their node taints from `node.cilium.io/agent-not-ready=true:NoSchedule` to `node.cilium.io/agent-not-ready=true:NoExecute`.
+ *Important:* During the first node reboot after the fix is applied pods may still get IPs from the default CNI as cilium-node-init is only run later in the node startup process. The fix will then be in place for all subsequent reboots. (Backport PR #18726, Upstream PR #18486, @bmcustodio)
 * route: sort by priority to identify the default one (Backport PR #18630, Upstream PR #18564, @jibi)
 * Skip node ipset updates if iptables masquerading is disabled (Backport PR #18800, Upstream PR #17871, @pchaigno)
 
