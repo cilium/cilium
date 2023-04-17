@@ -158,7 +158,7 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 	}
 
 	/* load sport + dport into tuple */
-	ret = ctx_load_bytes(ctx, l4_off, ports, 4);
+	ret = l4_load_ports(ctx, l4_off, (__be16 *)ports);
 	if (ret < 0)
 		return ret;
 
