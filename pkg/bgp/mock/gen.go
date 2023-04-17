@@ -30,11 +30,11 @@ import (
 // to simulate it being the node the Cilium agent is running on.
 //
 // See definition for details.
-func GenTestNodeAndAdvertisements() (v1.Node, []*metallbbgp.Advertisement) {
+func GenTestNodeAndAdvertisements() (slim_corev1.Node, []*metallbbgp.Advertisement) {
 	const (
 		CIDR = "1.1.0.0/16"
 	)
-	meta := metav1.ObjectMeta{
+	meta := slim_metav1.ObjectMeta{
 		Name:      nodetypes.GetName(),
 		Namespace: "TestNamespace",
 		Labels: map[string]string{
@@ -42,11 +42,11 @@ func GenTestNodeAndAdvertisements() (v1.Node, []*metallbbgp.Advertisement) {
 		},
 		ResourceVersion: "1",
 	}
-	spec := v1.NodeSpec{
+	spec := slim_corev1.NodeSpec{
 		PodCIDR:  CIDR,
 		PodCIDRs: []string{CIDR},
 	}
-	node := v1.Node{
+	node := slim_corev1.Node{
 		ObjectMeta: meta,
 		Spec:       spec,
 	}

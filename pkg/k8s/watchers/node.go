@@ -7,13 +7,13 @@ import (
 	"context"
 	"sync/atomic"
 
-	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
@@ -34,7 +34,7 @@ type NodeUpdate interface {
 	UpdateLocalNode()
 }
 
-func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
+func nodeEventsAreEqual(oldNode, newNode *slim_corev1.Node) bool {
 	if !comparator.MapStringEquals(oldNode.GetLabels(), newNode.GetLabels()) {
 		return false
 	}
@@ -63,7 +63,7 @@ func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitG
 	defer cancel()
 
 	events := k.sharedResources.LocalNode.Events(ctx)
-	var oldNode *v1.Node
+	var oldNode *slim_corev1.Node
 	for {
 		select {
 		case <-k.stop:
@@ -98,7 +98,7 @@ func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitG
 }
 
 // GetK8sNode returns the *local Node* from the local store.
-func (k *K8sWatcher) GetK8sNode(ctx context.Context, nodeName string) (*v1.Node, error) {
+func (k *K8sWatcher) GetK8sNode(ctx context.Context, nodeName string) (*slim_corev1.Node, error) {
 	// Retrieve the store. Blocks until synced (or ctx cancelled).
 	store, err := k.sharedResources.LocalNode.Store(ctx)
 	if err != nil {
@@ -129,7 +129,7 @@ func NewCiliumNodeUpdater(kvStoreNodeUpdater NodeUpdate) *ciliumNodeUpdater {
 	}
 }
 
-func (u *ciliumNodeUpdater) OnAddNode(newNode *v1.Node, swg *lock.StoppableWaitGroup) error {
+func (u *ciliumNodeUpdater) OnAddNode(newNode *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
 	// We don't need to run OnAddNode because Cilium will fetch the state from
 	// k8s upon initialization and will populate the KVStore [1] node with this
 	// information or create a Cilium Node CR [2].
@@ -138,17 +138,17 @@ func (u *ciliumNodeUpdater) OnAddNode(newNode *v1.Node, swg *lock.StoppableWaitG
 	return nil
 }
 
-func (u *ciliumNodeUpdater) OnUpdateNode(oldNode, newNode *v1.Node, swg *lock.StoppableWaitGroup) error {
+func (u *ciliumNodeUpdater) OnUpdateNode(oldNode, newNode *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
 	u.updateCiliumNode(newNode)
 
 	return nil
 }
 
-func (u *ciliumNodeUpdater) OnDeleteNode(*v1.Node, *lock.StoppableWaitGroup) error {
+func (u *ciliumNodeUpdater) OnDeleteNode(*slim_corev1.Node, *lock.StoppableWaitGroup) error {
 	return nil
 }
 
-func (u *ciliumNodeUpdater) updateCiliumNode(node *v1.Node) {
+func (u *ciliumNodeUpdater) updateCiliumNode(node *slim_corev1.Node) {
 	if node.Name != nodeTypes.GetName() {
 		// The cilium node updater should only update the information relevant
 		// to itself. It should not update any of the other nodes.

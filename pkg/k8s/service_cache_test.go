@@ -10,7 +10,6 @@ import (
 
 	"gopkg.in/check.v1"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -1391,8 +1390,8 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 			},
 		},
 	}
-	k8sNode := &v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
+	k8sNode := &slim_corev1.Node{
+		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:   "node1",
 			Labels: map[string]string{v1.LabelTopologyZone: "test-zone-2"},
 		},
