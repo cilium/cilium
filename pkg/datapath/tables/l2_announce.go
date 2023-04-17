@@ -34,11 +34,9 @@ func (pne *L2AnnounceEntry) DeepCopy() *L2AnnounceEntry {
 	return &n
 }
 
-var L2AnnouncementTableCell = statedb.NewTableCell[*L2AnnounceEntry](schema)
-
 func ByProxyIPAndInterface(ip net.IP, iface string) statedb.Query {
 	return statedb.Query{
-		Index: idIndex,
+		Index: statedb.IDIndex,
 		Args:  []any{ip, iface},
 	}
 }
@@ -51,13 +49,13 @@ func ByProxyOrigin(originKey resource.Key) statedb.Query {
 }
 
 var (
-	idIndex     = statedb.Index("id")
-	originIndex = statedb.Index("byOrigin")
-	schema      = &memdb.TableSchema{
+	originIndex = statedb.Index("Origins")
+
+	l2AnnounceTableSchema = &memdb.TableSchema{
 		Name: "l2-announce-entries",
 		Indexes: map[string]*memdb.IndexSchema{
-			string(idIndex): {
-				Name:   string(idIndex),
+			string(statedb.IDIndex): {
+				Name:   string(statedb.IDIndex),
 				Unique: true,
 				Indexer: &memdb.CompoundIndex{
 					Indexes: []memdb.Indexer{
