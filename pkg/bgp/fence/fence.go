@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // Fencer provides a method set to prevent processing out of order events.
@@ -66,28 +64,22 @@ type Meta struct {
 	Rev uint64
 }
 
-// FromSlimObjectMeta allocates a meta derived from
-// a slim k8s ObjectMeta and stores it at the memory
-// pointed to by m.
-func (m *Meta) FromSlimObjectMeta(om *slim_metav1.ObjectMeta) error {
-	rev, err := strconv.ParseUint(om.ResourceVersion, 10, 64)
-	if err != nil {
-		return fmt.Errorf("ObjectMeta.ResourceVersion must be parsible to Uint64")
-	}
-	(*m).Rev = rev
-	(*m).UUID = string(om.UID)
-	return nil
+// metaGetter specifies the methods needed by (*Meta).FromObjectMeta.
+// This is used extract metadata from a corev1 or a slim_corev1 object.
+type metaGetter interface {
+	GetResourceVersion() string
+	GetUID() types.UID
 }
 
-// FromSlimObjectMeta allocates a meta derived from
+// FromObjectMeta allocates a meta derived from
 // a k8s ObjectMeta and stores it at the memory
 // pointed to by m.
-func (m *Meta) FromObjectMeta(om *v1.ObjectMeta) error {
-	rev, err := strconv.ParseUint(om.ResourceVersion, 10, 64)
+func (m *Meta) FromObjectMeta(mg metaGetter) error {
+	rev, err := strconv.ParseUint(mg.GetResourceVersion(), 10, 64)
 	if err != nil {
 		return fmt.Errorf("ObjectMeta.ResourceVersion must be parsible to Uint64")
 	}
 	(*m).Rev = rev
-	(*m).UUID = string(om.UID)
+	(*m).UUID = string(mg.GetUID())
 	return nil
 }

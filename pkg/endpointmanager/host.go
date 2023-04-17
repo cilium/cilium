@@ -4,9 +4,8 @@
 package endpointmanager
 
 import (
-	v1 "k8s.io/api/core/v1"
-
 	"github.com/cilium/cilium/pkg/endpoint"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
@@ -32,7 +31,7 @@ func (mgr *endpointManager) HostEndpointExists() bool {
 // OnAddNode implements the endpointManager's logic for reacting to new nodes
 // from K8s. It is currently not implemented as the endpointManager has not
 // need for it. This adheres to the subscriber.NodeHandler interface.
-func (mgr *endpointManager) OnAddNode(node *v1.Node,
+func (mgr *endpointManager) OnAddNode(node *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
 	return nil
@@ -41,7 +40,7 @@ func (mgr *endpointManager) OnAddNode(node *v1.Node,
 // OnUpdateNode implements the endpointManager's logic for reacting to updated
 // nodes in K8s. It is currently not implemented as the endpointManager has not
 // need for it. This adheres to the subscriber.NodeHandler interface.
-func (mgr *endpointManager) OnUpdateNode(oldNode, newNode *v1.Node,
+func (mgr *endpointManager) OnUpdateNode(oldNode, newNode *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
 	oldNodeLabels := oldNode.GetLabels()
@@ -66,7 +65,7 @@ func (mgr *endpointManager) OnUpdateNode(oldNode, newNode *v1.Node,
 // OnDeleteNode implements the endpointManager's logic for reacting to node
 // deletions from K8s. It is currently not implemented as the endpointManager
 // has not need for it. This adheres to the subscriber.NodeHandler interface.
-func (mgr *endpointManager) OnDeleteNode(node *v1.Node,
+func (mgr *endpointManager) OnDeleteNode(node *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
 	return nil
