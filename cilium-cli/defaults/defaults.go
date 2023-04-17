@@ -17,6 +17,7 @@ const (
 	AgentImage              = "quay.io/cilium/cilium"
 
 	EnvoyDaemonSetName = "cilium-envoy"
+	EnvoyConfigMapName = "cilium-envoy-config"
 
 	CASecretName     = "cilium-ca"
 	CASecretKeyName  = "ca.key"
