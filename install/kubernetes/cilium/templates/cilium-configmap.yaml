@@ -1058,6 +1058,10 @@ data:
 
   external-envoy-proxy: {{ .Values.envoy.enabled | quote }}
 
+{{- if .Values.envoy.log.path }}
+  envoy-log: {{ .Values.envoy.log.path | quote }}
+{{- end }}
+
 ---
 {{- if and .Values.ipMasqAgent.enabled .Values.ipMasqAgent.config }}
 apiVersion: v1

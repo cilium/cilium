@@ -1734,6 +1734,10 @@ envoy:
     # Socket directory on the host
     host: "/var/run/cilium/envoy/sockets"
 
+  log:
+    # Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
+    path: ""
+
   # Time in seconds after which a TCP connection attempt times out
   connectTimeoutSeconds: 2
   # ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
