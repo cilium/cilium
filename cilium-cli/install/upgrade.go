@@ -178,6 +178,7 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient genericcli
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:    k.params.Namespace,
 		Name:         defaults.HelmReleaseName,
+		Chart:        k.chart, // k.chart was initialized in NewK8sInstaller, based on Version and HelmChartDirectory
 		Values:       vals,
 		ResetValues:  k.params.HelmResetValues,
 		ReuseValues:  k.params.HelmReuseValues,
@@ -188,7 +189,7 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient genericcli
 		DryRun:           k.params.DryRun,
 		DryRunHelmValues: k.params.DryRunHelmValues,
 	}
-	release, err := helm.UpgradeCurrentRelease(ctx, k8sClient, upgradeParams, k.chart)
+	release, err := helm.Upgrade(ctx, k8sClient, upgradeParams)
 
 	if k.params.DryRun {
 		fmt.Println(release.Manifest)
