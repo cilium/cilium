@@ -67,6 +67,9 @@ spec:
         - '--base-id 0'
         - '--log-level info'
         - '--log-format "[%Y-%m-%d %T.%e][%t][%l][%n] %v"'
+        {{- if .Values.envoy.log.path }}
+        - '--log-path {{ .Values.envoy.log.path }}'
+        {{- end }}
         {{- with .Values.envoy.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
