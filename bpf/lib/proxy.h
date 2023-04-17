@@ -274,7 +274,7 @@ NAME(struct __ctx_buff *ctx, struct PREFIX ## _ct_tuple *tuple)		\
 	if (err != CTX_ACT_OK)						\
 		return err;						\
 									\
-	if (ctx_load_bytes(ctx, l4_off, &tuple->dport, 4) < 0)		\
+	if (l4_load_ports(ctx, l4_off, &tuple->dport) < 0)		\
 		return DROP_CT_INVALID_HDR;				\
 									\
 	__ ## PREFIX ## _ct_tuple_reverse(tuple);			\

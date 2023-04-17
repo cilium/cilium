@@ -1551,7 +1551,7 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, int off,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
+		if (l4_load_ports(ctx, off, (__be16 *)&l4hdr) < 0)
 			return DROP_INVALID;
 
 		tuple->dport = l4hdr.dport;
@@ -1707,7 +1707,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
+		if (l4_load_ports(ctx, off, (__be16 *)&l4hdr) < 0)
 			return DROP_INVALID;
 		tuple.dport = l4hdr.dport;
 		tuple.sport = l4hdr.sport;
