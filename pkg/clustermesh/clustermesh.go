@@ -263,6 +263,8 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		changed:     make(chan bool, configNotificationsChannelSize),
 		controllers: controller.NewManager(),
 		swg:         lock.NewStoppableWaitGroup(),
+
+		ipCacheWatcher: ipcache.NewIPIdentityWatcher(name, cm.ipcache),
 	}
 
 	return rc

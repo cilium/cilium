@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -193,11 +192,17 @@ func DeleteIPFromKVStore(ctx context.Context, ip string) error {
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
 // change in the kvstore
 type IPIdentityWatcher struct {
-	backend    kvstore.BackendOperations
-	stop       chan struct{}
-	synced     chan struct{}
-	stopOnce   sync.Once
-	syncedOnce sync.Once
+	name    string
+	watcher *kvstore.RestartableWatcher
+	log     *logrus.Entry
+
+	synced      chan struct{}
+	onDrainDone func()
+
+	// mu protects the restart of the watcher
+	mu lock.Mutex
+	// wg waits for the termination of the goroutine when closing the watcher
+	wg sync.WaitGroup
 
 	clusterID uint32
 
@@ -210,51 +215,72 @@ type IPCacher interface {
 	Delete(IP string, source source.Source) (namedPortsChanged bool)
 }
 
-// NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
-// kvstore backend.
-func NewIPIdentityWatcher(ipc IPCacher, backend kvstore.BackendOperations) *IPIdentityWatcher {
-	return NewClusterIPIdentityWatcher(0, ipc, backend)
-}
+const watcherChanSize = 512
 
-// NewClusterIPIdentityWatcher creates a new IPIdentityWatcher using the specified
-// kvstore backend. The difference between the watcher created by NewIPIdentityWatcher
-// is that each IP <=> Identity mapping will be annotated with ClusterID. Thus, it
-// can be used for watching the kvstore of the remote cluster with overlapping PodCIDR.
-// Calling this function with clusterID = 0 is identical to calling NewIPIdentityWatcher.
-func NewClusterIPIdentityWatcher(clusterID uint32, ipc IPCacher, backend kvstore.BackendOperations) *IPIdentityWatcher {
+// NewIPIdentityWatcher creates a new IPIdentityWatcher.
+func NewIPIdentityWatcher(clusterName string, ipc IPCacher) *IPIdentityWatcher {
 	watcher := &IPIdentityWatcher{
-		clusterID: clusterID,
-		backend:   backend,
-		stop:      make(chan struct{}),
-		synced:    make(chan struct{}),
-		ipcache:   ipc,
+		name:    clusterName,
+		watcher: kvstore.NewRestartableWatcher(watcherChanSize),
+		log:     log.WithField(logfields.ClusterName, clusterName),
+		synced:  make(chan struct{}),
+		ipcache: ipc,
 	}
+
+	watcher.wg.Add(1)
+	go watcher.loop()
+
 	return watcher
 }
 
-// Watch starts the watcher and blocks waiting for events. When events are
-// received from the kvstore, All IPIdentityMappingListener are notified. The
-// function returns when IPIdentityWatcher.Close() is called. The watcher will
-// automatically restart as required.
-func (iw *IPIdentityWatcher) Watch(ctx context.Context) {
+// Watch starts the watcher using the specified kvstore backend. When events are
+// received from the kvstore, All IPIdentityMappingListener are notified.
+// If another watch operation was in progress, it is stopped, and a new one is
+// restarted, properly handling possible stale entries.
+func (iw *IPIdentityWatcher) Watch(ctx context.Context, backend kvstore.BackendOperations) {
+	iw.WatchWithClusterID(ctx, backend, 0)
+}
 
-	scopedLog := log
+// WatchWithClusterID starts the watcher using the specified kvstore backend. When
+// events are received from the kvstore, All IPIdentityMappingListener are notified.
+// If another watch operation was in progress, it is stopped, and a new one is
+// restarted, properly handling possible stale entries.
+// Differently from Watch, each IP <=> Identity mapping will be annotated with ClusterID.
+// Thus, it can be used for watching the kvstore of the remote cluster with overlapping PodCIDR.
+// Calling this function with clusterID = 0 is identical to calling Watch.
+func (iw *IPIdentityWatcher) WatchWithClusterID(ctx context.Context, backend kvstore.BackendOperations, clusterID uint32) {
+	iw.mu.Lock()
+	defer iw.mu.Unlock()
 
-restart:
-	watcher := iw.backend.ListAndWatch(ctx, "endpointIPWatcher", IPIdentitiesPath, 512)
+	// The clusterID changed, hence we need to drain all ipcache entries we received so far.
+	if iw.clusterID != clusterID {
+		iw.watcher.StopAndDrain()
+
+		// We delay the configuration of the clusterID until when we receive the DrainDone event,
+		// to ensure that all pending events are still processed with the old cluster ID.
+		iw.onDrainDone = func() {
+			iw.clusterID = clusterID
+			iw.log.WithField("clusterID", clusterID).Info("ClusterID configured")
+		}
+	}
+
+	iw.watcher.Wrap(backend.ListAndWatch(ctx, "endpointIPWatcher-"+iw.name, IPIdentitiesPath, watcherChanSize))
+}
+
+func (iw *IPIdentityWatcher) loop() {
+	scopedLog := iw.log
 
 	for {
 		select {
 		// Get events from channel as they come in.
-		case event, ok := <-watcher.Events:
+		case event, ok := <-iw.watcher.Events:
 			if !ok {
-				log.Debugf("%s closed, restarting watch", watcher.String())
-				time.Sleep(500 * time.Millisecond)
-				goto restart
+				iw.wg.Done()
+				return
 			}
 
 			if option.Config.Debug {
-				scopedLog = log.WithFields(logrus.Fields{
+				scopedLog = iw.log.WithFields(logrus.Fields{
 					"kvstore-event": event.Typ.String(),
 					"key":           event.Key,
 				})
@@ -281,16 +307,29 @@ restart:
 			//   the deletion event.
 			switch event.Typ {
 			case kvstore.EventTypeListDone:
-				iw.ipcache.ForEachListener(func(listener IPIdentityMappingListener) {
-					listener.OnIPIdentityCacheGC()
-				})
-				iw.closeSynced()
+				select {
+				case <-iw.synced:
+					// Ignore all ListDone events after the first one (i.e., caused by reconnections)
+				default:
+					iw.ipcache.ForEachListener(func(listener IPIdentityMappingListener) {
+						listener.OnIPIdentityCacheGC()
+					})
+					close(iw.synced)
+				}
+
+			case kvstore.EventTypeDrainDone:
+				iw.mu.Lock()
+				if iw.onDrainDone != nil {
+					iw.onDrainDone()
+					iw.onDrainDone = nil
+				}
+				iw.mu.Unlock()
 
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
 				var ipIDPair identity.IPIdentityPair
 				err := json.Unmarshal(event.Value, &ipIDPair)
 				if err != nil {
-					log.WithFields(logrus.Fields{
+					iw.log.WithFields(logrus.Fields{
 						"kvstore-event": event.Typ.String(),
 						"key":           event.Key,
 					}).WithError(err).Error("Not adding entry to ip cache; error unmarshaling data from key-value store")
@@ -313,7 +352,7 @@ restart:
 					for _, np := range ipIDPair.NamedPorts {
 						err = k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)
 						if err != nil {
-							log.WithFields(logrus.Fields{
+							iw.log.WithFields(logrus.Fields{
 								"kvstore-event": event.Typ.String(),
 								"key":           event.Key,
 							}).WithError(err).Error("Parsing named port failed")
@@ -355,7 +394,7 @@ restart:
 				// need to convert kvstore key to IP.
 				ipnet, isHost, err := keyToIPNet(event.Key)
 				if err != nil {
-					log.WithFields(logrus.Fields{
+					iw.log.WithFields(logrus.Fields{
 						"kvstore-event": event.Typ.String(),
 						"key":           event.Key,
 					}).WithError(err).Error("Error parsing IP from key")
@@ -370,10 +409,10 @@ restart:
 				globalMap.Lock()
 
 				if m, ok := globalMap.marshaledIPIDPairs[event.Key]; ok {
-					log.WithField("ip", ip).Warning("Received kvstore delete notification for alive ipcache entry")
-					err := globalMap.store.upsert(ctx, event.Key, string(m), true)
+					iw.log.WithField("ip", ip).Warning("Received kvstore delete notification for alive ipcache entry")
+					err := globalMap.store.upsert(context.Background(), event.Key, string(m), true)
 					if err != nil {
-						log.WithError(err).WithField("ip", ip).Warning("Unable to re-create alive ipcache entry")
+						iw.log.WithError(err).WithField("ip", ip).Warning("Unable to re-create alive ipcache entry")
 					}
 					globalMap.Unlock()
 				} else {
@@ -390,30 +429,26 @@ restart:
 					iw.ipcache.Delete(ip, source.KVStore)
 				}
 			}
-		case <-ctx.Done():
-			// Stop this identity watcher, we have been signaled to shut down
-			// via context. This will result in iw.stop being closed.
-			iw.Close()
-		case <-iw.stop:
-			// identity watcher was stopped
-			watcher.Stop()
-			return
 		}
 	}
 }
 
-// Close stops the IPIdentityWatcher and causes Watch() to return
-func (iw *IPIdentityWatcher) Close() {
-	iw.stopOnce.Do(func() {
-		close(iw.stop)
-	})
+// Stops stops the underlying watcher, which can be restarted calling
+// Watch/WatchWithClusterID again.
+func (iw *IPIdentityWatcher) Stop() {
+	iw.watcher.Stop()
 }
 
-// closeSynced the IPIdentityWathcer and case panic
-func (iw *IPIdentityWatcher) closeSynced() {
-	iw.syncedOnce.Do(func() {
-		close(iw.synced)
-	})
+// Close stops the IPIdentityWatcher.
+func (iw *IPIdentityWatcher) Close() {
+	iw.watcher.Close()
+	iw.wg.Wait()
+}
+
+// Close stops the IPIdentityWatcher, triggering a deletion event for all watched keys.
+func (iw *IPIdentityWatcher) CloseAndDrain() {
+	iw.watcher.CloseAndDrain()
+	iw.wg.Wait()
 }
 
 func (iw *IPIdentityWatcher) waitForInitialSync() {
@@ -431,9 +466,9 @@ func (ipc *IPCache) InitIPIdentityWatcher(ctx context.Context) {
 	setupIPIdentityWatcher.Do(func() {
 		go func() {
 			log.Info("Starting IP identity watcher")
-			watcher = NewIPIdentityWatcher(ipc, kvstore.Client())
+			watcher = NewIPIdentityWatcher(option.Config.ClusterName, ipc)
 			close(initialized)
-			watcher.Watch(ctx)
+			watcher.Watch(ctx, kvstore.Client())
 		}()
 	})
 }
