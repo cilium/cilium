@@ -14,11 +14,6 @@
  */
 #define SKIP_ICMPV6_NS_HANDLING
 
-/* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_ECHO_REPLY section in
- * the bpf_lxc object file.
- */
-#define SKIP_ICMPV6_ECHO_HANDLING
-
 /* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
  */
 #define SKIP_SRV6_HANDLING

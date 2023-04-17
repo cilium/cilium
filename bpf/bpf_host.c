@@ -25,11 +25,6 @@
 /* CB_PROXY_MAGIC overlaps with CB_ENCRYPT_MAGIC */
 #define ENCRYPT_OR_PROXY_MAGIC 0
 
-/* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_ECHO_REPLY section in
- * the bpf_lxc object file.
- */
-#define SKIP_ICMPV6_ECHO_HANDLING
-
 #ifndef VLAN_FILTER
 # define VLAN_FILTER(ifindex, vlan_id) return false;
 #endif
