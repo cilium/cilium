@@ -6,7 +6,6 @@ package clustermesh
 import (
 	"context"
 	"fmt"
-	"path"
 	"time"
 
 	"github.com/go-openapi/strfmt"
@@ -16,14 +15,11 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
-	nodeStore "github.com/cilium/cilium/pkg/node/store"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 // remoteCluster represents another cluster other than the cluster the agent is
@@ -115,18 +111,14 @@ func (rc *remoteCluster) getLogger() *logrus.Entry {
 func (rc *remoteCluster) releaseOldConnection() {
 	rc.mutex.Lock()
 
+	rc.remoteNodes.Stop()
+	rc.remoteServices.Stop()
 	rc.ipCacheWatcher.Stop()
-
-	remoteNodes := rc.remoteNodes
-	rc.remoteNodes = nil
 
 	if rc.remoteIdentityCache != nil {
 		rc.remoteIdentityCache.Close()
 		rc.remoteIdentityCache = nil
 	}
-
-	remoteServices := rc.remoteServices
-	rc.remoteServices = nil
 
 	backend := rc.backend
 	rc.backend = nil
@@ -142,12 +134,6 @@ func (rc *remoteCluster) releaseOldConnection() {
 	// operations may time out if the connection was closed due to an error
 	// condition.
 	go func() {
-		if remoteNodes != nil {
-			remoteNodes.Close(context.TODO())
-		}
-		if remoteServices != nil {
-			remoteServices.Close(context.TODO())
-		}
 		if backend != nil {
 			backend.Close(context.TODO())
 		}
@@ -199,34 +185,14 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					return err
 				}
 
-				remoteNodes, err := store.JoinSharedStore(store.Configuration{
-					Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
-					KeyCreator:              rc.mesh.conf.NodeKeyCreator,
-					SynchronizationInterval: time.Minute,
-					SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
-					Backend:                 backend,
-					Observer:                rc.mesh.conf.NodeObserver(),
-				})
+				err = rc.remoteNodes.Join(ctx, backend)
 				if err != nil {
 					backend.Close(ctx)
 					return err
 				}
 
-				remoteServices, err := store.JoinSharedStore(store.Configuration{
-					Prefix: path.Join(serviceStore.ServiceStorePrefix, rc.name),
-					KeyCreator: func() store.Key {
-						svc := serviceStore.ClusterService{}
-						return &svc
-					},
-					SynchronizationInterval: time.Minute,
-					Backend:                 backend,
-					Observer: &remoteServiceObserver{
-						remoteCluster: rc,
-						swg:           rc.swg,
-					},
-				})
+				err = rc.remoteServices.Join(ctx, backend)
 				if err != nil {
-					remoteNodes.Close(ctx)
 					backend.Close(ctx)
 					return err
 				}
@@ -234,8 +200,6 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 
 				remoteIdentityCache, err := allocator.WatchRemoteIdentities(ctx, rc.name, backend)
 				if err != nil {
-					remoteServices.Close(ctx)
-					remoteNodes.Close(ctx)
 					backend.Close(ctx)
 					return err
 				}
@@ -243,8 +207,6 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				rc.ipCacheWatcher.Watch(ctx, backend)
 
 				rc.mutex.Lock()
-				rc.remoteNodes = remoteNodes
-				rc.remoteServices = remoteServices
 				rc.backend = backend
 				rc.config = config
 				rc.remoteIdentityCache = remoteIdentityCache
@@ -259,6 +221,8 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			StopFunc: func(ctx context.Context) error {
 				rc.releaseOldConnection()
 
+				rc.remoteNodes.CloseAndDrain(ctx)
+				rc.remoteServices.CloseAndDrain(ctx)
 				rc.ipCacheWatcher.CloseAndDrain()
 
 				rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
@@ -360,7 +324,7 @@ func (rc *remoteCluster) isReady() bool {
 }
 
 func (rc *remoteCluster) isReadyLocked() bool {
-	return rc.backend != nil && rc.remoteNodes != nil
+	return rc.backend != nil
 }
 
 func (rc *remoteCluster) status() *models.RemoteCluster {

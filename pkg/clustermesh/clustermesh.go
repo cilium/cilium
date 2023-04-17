@@ -24,6 +24,7 @@ import (
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 const (
@@ -255,10 +256,10 @@ func (cm *ClusterMesh) Close() {
 	metrics.Unregister(cm.metricTotalNodes)
 }
 
-func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
+func (cm *ClusterMesh) newRemoteCluster(name, cfgpath string) *remoteCluster {
 	rc := &remoteCluster{
 		name:        name,
-		configPath:  path,
+		configPath:  cfgpath,
 		mesh:        cm,
 		changed:     make(chan bool, configNotificationsChannelSize),
 		controllers: controller.NewManager(),
@@ -266,6 +267,26 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 
 		ipCacheWatcher: ipcache.NewIPIdentityWatcher(name, cm.ipcache),
 	}
+
+	rc.remoteNodes = store.MustCreateSharedStore(store.Configuration{
+		Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
+		KeyCreator:              cm.conf.NodeKeyCreator,
+		SynchronizationInterval: time.Minute,
+		Observer:                cm.conf.NodeObserver(),
+	})
+
+	rc.remoteServices = store.MustCreateSharedStore(store.Configuration{
+		Prefix: path.Join(serviceStore.ServiceStorePrefix, rc.name),
+		KeyCreator: func() store.Key {
+			svc := serviceStore.ClusterService{}
+			return &svc
+		},
+		SynchronizationInterval: time.Minute,
+		Observer: &remoteServiceObserver{
+			remoteCluster: rc,
+			swg:           rc.swg,
+		},
+	})
 
 	return rc
 }

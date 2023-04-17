@@ -165,6 +165,20 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	}
 	cm.mutex.RUnlock()
 
+	deleteNodes := func(cluster string) {
+		cm.mutex.RLock()
+		rc := cm.clusters[cluster]
+		cm.mutex.RUnlock()
+
+		c.Assert(rc, NotNil)
+		rc.mutex.RLock()
+		for _, name := range nodeNames {
+			rc.remoteNodes.DeleteLocalKey(context.TODO(), &testNode{Name: name, Cluster: rc.name})
+			c.Assert(err, IsNil)
+		}
+		rc.mutex.RUnlock()
+	}
+
 	// wait for all cm nodes in both clusters to appear in the node list
 	c.Assert(testutils.WaitUntil(func() bool {
 		nodesMutex.RLock()
@@ -172,6 +186,10 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		return len(nodes) == 3*len(nodeNames)
 	}, 10*time.Second), IsNil)
 
+	// Manually remove all local nodes before removing the configuration, as that
+	// will stop the client before closing the store. This causes no problems
+	// outside of tests, since stores are read-only in the clustermesh context.
+	deleteNodes("cluster2")
 	os.RemoveAll(config2)
 
 	// wait for the removed cluster to disappear
@@ -186,6 +204,8 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		return len(nodes) == 2*len(nodeNames)
 	}, 10*time.Second), IsNil)
 
+	deleteNodes("cluster1")
+	deleteNodes("cluster3")
 	os.RemoveAll(config1)
 	os.RemoveAll(config3)
 

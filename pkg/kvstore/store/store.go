@@ -292,7 +292,7 @@ func (s *SharedStore) Stop() {
 // kvstore intact
 func (s *SharedStore) Release() {
 	if s.kvstoreWatcher != nil {
-		s.kvstoreWatcher.Stop()
+		s.kvstoreWatcher.Close()
 	}
 
 	controllers.RemoveControllerAndWait(s.controllerName)
