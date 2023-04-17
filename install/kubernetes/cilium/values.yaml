@@ -1735,6 +1735,8 @@ envoy:
     host: "/var/run/cilium/envoy/sockets"
 
   log:
+    # The format string to use for laying out the log message metadata of Envoy.
+    format: "[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"
     # Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
     path: ""
 
