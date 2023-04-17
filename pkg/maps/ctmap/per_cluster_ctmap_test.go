@@ -43,7 +43,7 @@ func (k *PerClusterCTMapPrivilegedTestSuite) TearDownTest(c *C) {
 func (k *PerClusterCTMapPrivilegedTestSuite) Benchmark_PerClusterCTMapUpdate(c *C) {
 	c.StopTimer()
 
-	om, err := newPerClusterCTMap(testPerClusterCTMapNamePrefix+"tcp4", mapTypeIPv4TCPGlobal)
+	om, err := newPerClusterCTMap(testPerClusterCTMapNamePrefix+perClusterTCP4OuterMapSuffix, mapTypeIPv4TCPGlobal)
 	c.Assert(err, IsNil)
 
 	defer om.Unpin()
@@ -62,7 +62,7 @@ func (k *PerClusterCTMapPrivilegedTestSuite) Benchmark_PerClusterCTMapUpdate(c *
 func (k *PerClusterCTMapPrivilegedTestSuite) Benchmark_PerClusterCTMapLookup(c *C) {
 	c.StopTimer()
 
-	om, err := newPerClusterCTMap(testPerClusterCTMapNamePrefix+"tcp4", mapTypeIPv4TCPGlobal)
+	om, err := newPerClusterCTMap(testPerClusterCTMapNamePrefix+perClusterTCP4OuterMapSuffix, mapTypeIPv4TCPGlobal)
 	c.Assert(err, IsNil)
 
 	defer om.Unpin()
@@ -83,7 +83,7 @@ func (k *PerClusterCTMapPrivilegedTestSuite) Benchmark_PerClusterCTMapLookup(c *
 }
 
 func (k *PerClusterCTMapPrivilegedTestSuite) TestPerClusterCTMap(c *C) {
-	om, err := newPerClusterCTMap(testPerClusterCTMapNamePrefix+"tcp4", mapTypeIPv4TCPGlobal)
+	om, err := newPerClusterCTMap(testPerClusterCTMapNamePrefix+perClusterTCP4OuterMapSuffix, mapTypeIPv4TCPGlobal)
 	c.Assert(err, IsNil)
 
 	defer om.Unpin()
@@ -98,7 +98,7 @@ func (k *PerClusterCTMapPrivilegedTestSuite) TestPerClusterCTMap(c *C) {
 	c.Assert(err, NotNil)
 
 	// Basic update
-	cluster1MapName := om.innerMapNamePrefix + "1"
+	cluster1MapName := getInnerMapName(om.Name(), 1)
 	err = om.updateClusterCTMap(1)
 	c.Assert(err, IsNil)
 

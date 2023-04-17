@@ -37,7 +37,7 @@ func (k *PerClusterNATMapPrivilegedTestSuite) SetUpSuite(c *C) {
 }
 
 func (k *PerClusterNATMapPrivilegedTestSuite) SetUpTest(c *C) {
-	InitPerClusterNATMaps(true, true, option.NATMapEntriesGlobalDefault)
+	InitPerClusterNATMaps(testPerClusterNATMapNamePrefix, true, true, option.NATMapEntriesGlobalDefault)
 }
 
 func (k *PerClusterNATMapPrivilegedTestSuite) TearDownTest(c *C) {
@@ -45,7 +45,7 @@ func (k *PerClusterNATMapPrivilegedTestSuite) TearDownTest(c *C) {
 }
 
 func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterCtMap(c *C) {
-	om, err := newPerClusterNATMap(testPerClusterNATMapNamePrefix+"v4", true, option.NATMapEntriesGlobalDefault)
+	om, err := newPerClusterNATMap(testPerClusterNATMapNamePrefix+perClusterNATIPv4OuterMapSuffix, true, option.NATMapEntriesGlobalDefault)
 	c.Assert(err, IsNil)
 
 	defer om.Unpin()
@@ -68,7 +68,7 @@ func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterCtMap(c *C) {
 	c.Assert(err, NotNil)
 
 	// Basic update
-	cluster1MapName := innerMapNamePrefix4 + "1"
+	cluster1MapName := getInnerMapName(om.Name(), 1)
 	err = om.updateClusterNATMap(1)
 	c.Assert(err, IsNil)
 
@@ -109,7 +109,7 @@ func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterCtMap(c *C) {
 }
 
 func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterNATMaps(c *C) {
-	gm, err := newPerClusterNATMaps(true, true, option.NATMapEntriesGlobalDefault)
+	gm, err := newPerClusterNATMaps(testPerClusterNATMapNamePrefix, true, true, option.NATMapEntriesGlobalDefault)
 	c.Assert(err, IsNil)
 
 	defer gm.Cleanup()
