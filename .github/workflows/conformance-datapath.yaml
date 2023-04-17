@@ -434,7 +434,7 @@ jobs:
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
             ./cilium-cli connectivity test --collect-sysdump-on-failure \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
-            ./contrib/scripts/kind-down.sh --keep-registry
+            ./contrib/scripts/kind-down.sh
 
       - name: Fetch artifacts
         if: ${{ !success() }}
