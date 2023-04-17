@@ -1643,6 +1643,7 @@ type daemonParams struct {
 	Settings             cellSettings
 	HealthProvider       cell.Health
 	HealthReporter       cell.HealthReporter
+	DeviceManager        *linuxdatapath.DeviceManager `optional:"true"`
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

@@ -71,6 +71,15 @@ var Cell = cell.Module(
 	cell.Provide(func(dp types.Datapath) types.NodeIDHandler {
 		return dp.NodeIDs()
 	}),
+
+	// DevicesController manages the devices and routes tables
+	linuxdatapath.DevicesControllerCell,
+	cell.Provide(func(cfg *option.DaemonConfig) linuxdatapath.DevicesConfig {
+		// Provide the configured devices to the devices controller.
+		// This is temporary until DevicesController takes ownership of the
+		// device-related configuration options.
+		return linuxdatapath.DevicesConfig{Devices: cfg.GetDevices()}
+	}),
 )
 
 func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *wg.Agent {
@@ -143,4 +152,9 @@ type datapathParams struct {
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
 
 	NodeMap nodemap.Map
+
+	// Depend on DeviceManager to ensure devices have been resolved.
+	// This is required until option.Config.GetDevices() has been removed and
+	// uses of it converted to Table[Device].
+	DeviceManager *linuxdatapath.DeviceManager
 }
