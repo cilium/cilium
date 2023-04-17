@@ -8,14 +8,13 @@ import (
 	"errors"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/cilium/workerpool"
@@ -69,7 +68,7 @@ func NewNodeSpecer(params localNodeStoreSpecerParams) (nodeSpecer, error) {
 type kubernetesNodeSpecer struct {
 	nodeResource k8s.LocalNodeResource
 
-	currentNode *corev1.Node
+	currentNode *slim_corev1.Node
 	workerpool  *workerpool.WorkerPool
 	signaler    Signaler
 }

@@ -4,7 +4,6 @@
 package k8s
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -71,15 +70,15 @@ func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[
 
 // LocalNodeResource is a resource.Resource[*corev1.Node] but one which will only stream updates for the node object
 // associated with the node we are currently running on.
-type LocalNodeResource resource.Resource[*corev1.Node]
+type LocalNodeResource resource.Resource[*slim_corev1.Node]
 
 func localNodeResource(lc hive.Lifecycle, cs client.Clientset) (LocalNodeResource, error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
+	lw := utils.ListerWatcherFromTyped[*slim_corev1.NodeList](cs.Slim().CoreV1().Nodes())
 	lw = utils.ListerWatcherWithFields(lw, fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName()))
-	return LocalNodeResource(resource.New[*corev1.Node](lc, lw)), nil
+	return LocalNodeResource(resource.New[*slim_corev1.Node](lc, lw)), nil
 }
 
 // LocalCiliumNodeResource is a resource.Resource[*cilium_api_v2.Node] but one which will only stream updates for the

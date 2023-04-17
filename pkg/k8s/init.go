@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -30,7 +29,7 @@ const (
 )
 
 type k8sGetter interface {
-	GetK8sNode(ctx context.Context, nodeName string) (*corev1.Node, error)
+	GetK8sNode(ctx context.Context, nodeName string) (*slim_corev1.Node, error)
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
 }
 
@@ -94,17 +93,9 @@ func retrieveNodeInformation(ctx context.Context, nodeGetter k8sGetter, nodeName
 
 		}
 
-		nodeInterface := ConvertToNode(k8sNode)
-		if nodeInterface == nil {
-			// This will never happen and the GetNode on line 63 will be soon
-			// make a request from the local store instead.
-			return nil, fmt.Errorf("invalid k8s node: %s", k8sNode)
-		}
-		typesNode := nodeInterface.(*slim_corev1.Node)
-
 		// The source is left unspecified as this node resource should never be
 		// used to update state
-		n = ParseNode(typesNode, source.Unspec)
+		n = ParseNode(k8sNode, source.Unspec)
 		log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes node")
 	}
 

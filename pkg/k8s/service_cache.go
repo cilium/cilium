@@ -739,13 +739,13 @@ func (s *ServiceCache) DebugStatus() string {
 
 // Implementation of subscriber.Node
 
-func (s *ServiceCache) OnAddNode(node *core_v1.Node, swg *lock.StoppableWaitGroup) error {
+func (s *ServiceCache) OnAddNode(node *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
 	s.updateSelfNodeLabels(node.GetLabels(), swg)
 
 	return nil
 }
 
-func (s *ServiceCache) OnUpdateNode(oldNode, newNode *core_v1.Node,
+func (s *ServiceCache) OnUpdateNode(oldNode, newNode *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
 	s.updateSelfNodeLabels(newNode.GetLabels(), swg)
@@ -753,7 +753,7 @@ func (s *ServiceCache) OnUpdateNode(oldNode, newNode *core_v1.Node,
 	return nil
 }
 
-func (s *ServiceCache) OnDeleteNode(node *core_v1.Node,
+func (s *ServiceCache) OnDeleteNode(node *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
 	return nil
