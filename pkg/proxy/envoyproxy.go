@@ -6,6 +6,7 @@ package proxy
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -44,6 +45,22 @@ func initEnvoy(runDir, proxySocketDir string, xdsServer *envoy.XDSServer, wg *co
 			}
 		} else {
 			envoyAdminClient = envoy.NewEnvoyAdminClient(proxySocketDir)
+		}
+
+		if envoyAdminClient != nil && !option.Config.DisableEnvoyVersionCheck {
+			envoyVersion, err := envoyAdminClient.GetEnvoyVersion()
+			if err != nil {
+				log.WithError(err).Error("Envoy: ServerInfo endpoint can't be called")
+				return
+			}
+
+			log.Infof("Envoy: Version: %s", envoyVersion)
+
+			// Make sure Envoy version matches ours
+			if !strings.HasPrefix(envoyVersion, envoy.RequiredEnvoyVersionSHA) {
+				log.Errorf("Envoy: Envoy version %s does not match with required version %s ,aborting.",
+					envoyVersion, envoy.RequiredEnvoyVersionSHA)
+			}
 		}
 	})
 }

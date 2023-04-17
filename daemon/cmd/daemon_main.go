@@ -1193,23 +1193,6 @@ func initEnv() {
 		loadinfo.StartBackgroundLogger()
 	}
 
-	if option.Config.DisableEnvoyVersionCheck {
-		log.Info("Envoy version check disabled")
-	} else {
-		envoyVersion := envoy.GetEnvoyVersion()
-		log.Infof("%s", envoyVersion)
-
-		envoyVersionArray := strings.Fields(envoyVersion)
-		if len(envoyVersionArray) < 3 {
-			log.Fatal("Truncated Envoy version string, cannot verify version match.")
-		}
-		// Make sure Envoy version matches ours
-		if !strings.HasPrefix(envoyVersionArray[2], envoy.RequiredEnvoyVersionSHA) {
-			log.Fatalf("Envoy version %s does not match with required version %s ,aborting.",
-				envoyVersionArray[2], envoy.RequiredEnvoyVersionSHA)
-		}
-	}
-
 	if option.Config.PreAllocateMaps {
 		bpf.EnableMapPreAllocation()
 	}
