@@ -65,7 +65,13 @@ spec:
         args:
         - '-c /var/lib/proxy/envoy-bootstrap-config.json'
         - '--base-id 0'
+        {{- if and (hasKey .Values.debug "verbose") ( has "envoy" .Values.debug.verbose) }}
+        - '--log-level trace'
+        {{- else if and .Values.debug.enabled (hasKey .Values.debug "verbose") ( has "flow" .Values.debug.verbose) }}
+        - '--log-level debug'
+        {{- else }}
         - '--log-level info'
+        {{- end }}
         - '--log-format {{ .Values.proxy.log.format }}'
         {{- if .Values.proxy.log.path }}
         - '--log-path {{ .Values.proxy.log.path }}'
