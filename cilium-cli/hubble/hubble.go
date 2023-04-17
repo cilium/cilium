@@ -855,7 +855,7 @@ func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameter
 		ResetValues: false,
 		ReuseValues: true,
 	}
-	_, err = helm.UpgradeCurrentRelease(ctx, k8sClient.RESTClientGetter, upgradeParams, nil)
+	_, err = helm.Upgrade(ctx, k8sClient.RESTClientGetter, upgradeParams)
 	return err
 }
 
@@ -874,6 +874,6 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 		ResetValues: false,
 		ReuseValues: true,
 	}
-	_, err = helm.UpgradeCurrentRelease(ctx, k8sClient.RESTClientGetter, upgradeParams, nil)
+	_, err = helm.Upgrade(ctx, k8sClient.RESTClientGetter, upgradeParams)
 	return err
 }
