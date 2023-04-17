@@ -428,7 +428,7 @@ jobs:
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
-            kubectl -n kube-system exec -it daemonset/cilium  -- cilium status
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
