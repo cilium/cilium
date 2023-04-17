@@ -44,7 +44,7 @@ const (
 	initArgIPv4NodeIP
 	initArgIPv6NodeIP
 	initArgMode
-	initArgTunnelMode
+	initArgTunnelProtocol
 	initArgTunnelPort
 	initArgDevices
 	initArgHostDev1
@@ -375,10 +375,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// set init.sh args based on encapProto
-	args[initArgTunnelMode] = "<nil>"
+	args[initArgTunnelProtocol] = "<nil>"
 	args[initArgTunnelPort] = "<nil>"
 	if encapProto != option.TunnelDisabled {
-		args[initArgTunnelMode] = encapProto
+		args[initArgTunnelProtocol] = encapProto
 		args[initArgTunnelPort] = fmt.Sprintf("%d", option.Config.TunnelPort)
 	}
 

@@ -9,8 +9,8 @@ SYSCLASSNETDIR=${4}
 IP4_HOST=${5}
 IP6_HOST=${6}
 MODE=${7}
-TUNNEL_MODE=${8}
-# Only set if TUNNEL_MODE = "vxlan", "geneve"
+TUNNEL_PROTOCOL=${8}
+# Only set if TUNNEL_PROTOCOL = "vxlan", "geneve"
 TUNNEL_PORT=${9}
 # Only set if MODE = "direct"
 NATIVE_DEVS=${10}
@@ -197,7 +197,7 @@ function create_encap_dev()
 	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
 		TUNNEL_OPTS="dstport $TUNNEL_PORT $TUNNEL_OPTS"
 	fi
-	ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_MODE $TUNNEL_OPTS || encap_fail
+	ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_PROTOCOL $TUNNEL_OPTS || encap_fail
 }
 
 function encap_fail()
@@ -311,7 +311,7 @@ if [ "$MODE" = "tunnel" ]; then
 fi
 
 # Remove eventual existing encapsulation device from previous run
-case "${TUNNEL_MODE}" in
+case "${TUNNEL_PROTOCOL}" in
   "<nil>")
 	ip link del cilium_vxlan 2> /dev/null || true
 	ip link del cilium_geneve 2> /dev/null || true
@@ -328,14 +328,14 @@ case "${TUNNEL_MODE}" in
     ;;
 esac
 
-if [ "${TUNNEL_MODE}" != "<nil>" ]; then
-	ENCAP_DEV="cilium_${TUNNEL_MODE}"
+if [ "${TUNNEL_PROTOCOL}" != "<nil>" ]; then
+	ENCAP_DEV="cilium_${TUNNEL_PROTOCOL}"
 
 	ip link show $ENCAP_DEV || create_encap_dev
 
 	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
 		ip -details link show $ENCAP_DEV | grep "dstport $TUNNEL_PORT" || {
-			ip link delete name $ENCAP_DEV type $TUNNEL_MODE
+			ip link delete name $ENCAP_DEV type $TUNNEL_PROTOCOL
 			create_encap_dev
 		}
 	fi
