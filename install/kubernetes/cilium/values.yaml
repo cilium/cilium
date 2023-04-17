@@ -1778,7 +1778,7 @@ envoy:
   terminationGracePeriodSeconds: 1
 
   # -- TCP port for the health API.
-  healthPort: 9879
+  healthPort: 9878
 
   updateStrategy:
     type: RollingUpdate

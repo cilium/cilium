@@ -73,26 +73,20 @@ spec:
         {{- if semverCompare ">=1.20-0" .Capabilities.KubeVersion.Version }}
         startupProbe:
           httpGet:
-            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            host: "localhost"
             path: /healthz
             port: {{ .Values.envoy.healthPort }}
             scheme: HTTP
-            httpHeaders:
-            - name: "brief"
-              value: "true"
           failureThreshold: {{ .Values.envoy.startupProbe.failureThreshold }}
           periodSeconds: {{ .Values.envoy.startupProbe.periodSeconds }}
           successThreshold: 1
         {{- end }}
         livenessProbe:
           httpGet:
-            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            host: "localhost"
             path: /healthz
             port: {{ .Values.envoy.healthPort }}
             scheme: HTTP
-            httpHeaders:
-            - name: "brief"
-              value: "true"
           {{- if semverCompare "<1.20-0" .Capabilities.KubeVersion.Version }}
           # The initial delay for the liveness probe is intentionally large to
           # avoid an endless kill & restart cycle if in the event that the initial
@@ -107,13 +101,10 @@ spec:
           timeoutSeconds: 5
         readinessProbe:
           httpGet:
-            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            host: "localhost"
             path: /healthz
             port: {{ .Values.envoy.healthPort }}
             scheme: HTTP
-            httpHeaders:
-            - name: "brief"
-              value: "true"
           {{- if semverCompare "<1.20-0" .Capabilities.KubeVersion.Version }}
           initialDelaySeconds: 5
           {{- end }}
