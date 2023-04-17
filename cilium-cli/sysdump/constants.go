@@ -22,6 +22,8 @@ const (
 	clustermeshApiserverDeploymentName = defaults.ClusterMeshDeploymentName
 	hubbleContainerName                = "hubble"
 	hubbleDaemonSetName                = "hubble"
+	ciliumEnvoyDaemonSetName           = "cilium-envoy"
+	ciliumEnvoyConfigMapName           = defaults.EnvoyConfigMapName
 	hubbleRelayConfigMapName           = defaults.RelayConfigMapName
 	hubbleRelayContainerName           = defaults.RelayContainerName
 	hubbleRelayDeploymentName          = defaults.RelayDeploymentName
@@ -37,6 +39,8 @@ const (
 	ciliumClusterwideEnvoyConfigsFileName    = "ciliumclusterwideenvoyconfigs-<ts>.yaml"
 	ciliumConfigMapFileName                  = "cilium-configmap-<ts>.yaml"
 	ciliumDaemonSetFileName                  = "cilium-daemonset-<ts>.yaml"
+	ciliumEnvoyDaemonsetFileName             = "cilium-envoy-daemonset-<ts>.yaml"
+	ciliumEnvoyConfigMapFileName             = "cilium-envoy-configmap-<ts>.yaml"
 	ciliumIngressesFileName                  = "ciliumingresses-<ts>.yaml"
 	ciliumEgressNATPoliciesFileName          = "ciliumegressnatpolicies-<ts>.yaml"
 	ciliumEgressGatewayPoliciesFileName      = "ciliumegressgatewaypolicies-<ts>.yaml"
