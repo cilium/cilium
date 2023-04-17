@@ -79,7 +79,7 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 	}
 
 	if option.Config.EnableIPv6 {
-		v6Routes, err := connector.IPv6Routes(addressing, mtuConfig.GetRouteMTU())
+		v6Routes, err := connector.IPv6Routes("lxc_health", mtuConfig.GetRouteMTU())
 		if err != nil {
 			return fmt.Errorf("Failed to get IPv6 routes")
 		}

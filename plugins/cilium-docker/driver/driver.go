@@ -215,7 +215,8 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 	driver.routes = []api.StaticRoute{}
 
 	if driver.conf.Addressing.IPV6 != nil && driver.conf.Addressing.IPV6.Enabled {
-		if routes, err := connector.IPv6Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
+		//if routes, err := connector.IPv6Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
+		if routes, err := connector.IPv6Routes("", int(driver.conf.RouteMTU)); err != nil {
 			log.WithError(err).Fatal("Unable to generate IPv6 routes")
 		} else {
 			for _, r := range routes {

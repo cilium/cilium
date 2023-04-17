@@ -461,6 +461,15 @@ static __always_inline int icmp6_handle(struct __ctx_buff *ctx, int nh_off,
 	return 0;
 }
 
+static __always_inline bool
+is_icmp6_ndp(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
+{
+	__u8 type = icmp6_load_type(ctx, ETH_HLEN);
+	return ip6->nexthdr == IPPROTO_ICMPV6
+	       && (type == ICMP6_NS_MSG_TYPE
+		   || type == ICMP6_NA_MSG_TYPE);
+}
+
 static __always_inline int
 icmp6_host_handle(struct __ctx_buff *ctx __maybe_unused)
 {
@@ -533,5 +542,7 @@ icmp6_host_handle(struct __ctx_buff *ctx __maybe_unused)
 	return CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
 }
+
+
 
 #endif

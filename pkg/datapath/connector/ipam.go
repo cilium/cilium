@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/vishvananda/netlink"
 )
 
 // IPv6Gateway returns the IPv6 gateway address for endpoints.
@@ -25,10 +26,30 @@ func IPv4Gateway(addr *models.NodeAddressing) string {
 }
 
 // IPv6Routes returns IPv6 routes to be installed in endpoint's networking namespace.
-func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error) {
-	ip := net.ParseIP(addr.IPV6.IP)
+func IPv6Routes(lxcIfName string, linkMTU int) ([]route.Route, error) {
+	//ip := net.ParseIP(addr.IPV6.IP)
+	//if ip == nil {
+	//	return []route.Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV6.IP)
+	//}
+
+	// @gray: v6 route is different from v4, and nexthop ipv6 must be set to lxc
+	link, err := netlink.LinkByName(lxcIfName)
+	if err != nil {
+		return nil, err
+	}
+	addrs, err := netlink.AddrList(link, netlink.FAMILY_V6)
+	if err != nil {
+		return nil, err
+	}
+	var ip net.IP
+	for _, addr := range addrs {
+		if addr.IPNet.IP.IsLinkLocalUnicast() {
+			ip = addr.IPNet.IP
+			break
+		}
+	}
 	if ip == nil {
-		return []route.Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV6.IP)
+		return nil, fmt.Errorf("no link local ipv6 address found at %s", lxcIfName)
 	}
 	return []route.Route{
 		{

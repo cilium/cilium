@@ -707,23 +707,27 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+	if (unlikely(is_icmp6_ndp(ctx, ip6)))
+		return CTX_ACT_OK;
 
 	/* Handle special ICMPv6 messages. This includes echo requests to the
 	 * logical router address, neighbour advertisements to the router.
 	 * All remaining packets are subjected to forwarding into the container.
 	 */
-	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
-		if (data + sizeof(*ip6) + ETH_HLEN + sizeof(struct icmp6hdr) > data_end)
-			return DROP_INVALID;
+	// @gray: pass all ndp, and responder for icmp6 is no longer needed
+	// either
+	//if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
+	//	if (data + sizeof(*ip6) + ETH_HLEN + sizeof(struct icmp6hdr) > data_end)
+	//		return DROP_INVALID;
 
-		ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_EGRESS);
-		if (IS_ERR(ret))
-			return ret;
-	}
+	//	ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_EGRESS);
+	//	if (IS_ERR(ret))
+	//		return ret;
+	//}
 
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
@@ -1600,6 +1604,11 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
+		goto out;
+	}
+
+	if (unlikely(is_icmp6_ndp(ctx, ip6))) {
+		ret = CTX_ACT_OK;
 		goto out;
 	}
 

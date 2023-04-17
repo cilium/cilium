@@ -106,6 +106,10 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu, groMaxSize, gsoMaxSize
 		return nil, nil, fmt.Errorf("unable to lookup veth peer just created: %s", err)
 	}
 
+	if err := netlink.LinkSetUp(peer); err != nil {
+		return nil, nil, fmt.Errorf("unable to bring up veth peer: %s", err)
+	}
+
 	if err = netlink.LinkSetMTU(peer, mtu); err != nil {
 		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", tmpIfName, err)
 	}

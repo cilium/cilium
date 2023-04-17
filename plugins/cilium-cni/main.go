@@ -263,6 +263,7 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 	}
 
 	if ipv6IsEnabled(ipam) {
+		// use host veth's ipv6 as gateway
 		if err := addIPConfigToLink(state.IP6, state.IP6routes, l, ifName); err != nil {
 			return "", fmt.Errorf("error configuring IPv6: %s", err.Error())
 		}
@@ -308,7 +309,8 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 
 	if ip.Is6() {
 		state.IP6 = ip
-		if state.IP6routes, err = connector.IPv6Routes(state.HostAddr, mtu); err != nil {
+		lxcIfName := connector.Endpoint2IfName(state.Endpoint.ContainerID)
+		if state.IP6routes, err = connector.IPv6Routes(lxcIfName, mtu); err != nil {
 			return nil, nil, err
 		}
 		routes = state.IP6routes
