@@ -331,7 +331,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			*identity = key.tunnel_id = info->sec_identity;
 	} else {
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
-		*identity = key.tunnel_id = ctx_load_meta(ctx, CB_SRC_LABEL);
+		key.tunnel_id = *identity;
 #else
 		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
@@ -442,8 +442,14 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = 0;
 	__s8 ext_err = 0;
-	int ret = handle_ipv4(ctx, &src_sec_identity, &ext_err);
+	int ret;
 
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
+	src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
+#endif
+
+	ret = handle_ipv4(ctx, &src_sec_identity, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
