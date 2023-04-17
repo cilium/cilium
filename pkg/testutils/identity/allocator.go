@@ -63,7 +63,7 @@ func (f *MockIdentityAllocator) GetIdentities() cache.IdentitiesModel {
 
 // AllocateIdentity allocates a fake identity. It is meant to generally mock
 // the canonical identity allocator logic.
-func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.Labels, _ bool, _ identity.NumericIdentity) (*identity.Identity, bool, error) {
+func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.Labels, _ bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity, false, nil
 	}
@@ -81,8 +81,19 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 		id = f.currentID
 		f.currentID++
 	} else {
-		id = f.localID
-		f.localID++
+		if _, ok := f.idToIdentity[int(oldNID)]; oldNID.HasLocalScope() && !ok {
+			id = int(oldNID)
+		} else {
+			for {
+				_, ok := f.idToIdentity[f.localID]
+				if !ok {
+					break
+				}
+				f.localID++
+			}
+			id = f.localID
+			f.localID++
+		}
 	}
 
 	f.IdentityCache[identity.NumericIdentity(id)] = lbls.LabelArray()
