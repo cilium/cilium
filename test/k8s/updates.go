@@ -470,7 +470,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		nbMissedTailCalls, err := kubectl.CountMissedTailCalls()
 		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
-		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
+		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0), "Unexpected missed tail calls")
 
 		By("Check whether svc flows are not interrupted upon cilium-agent restart")
 		ciliumFilter := "k8s-app=cilium"
@@ -510,7 +510,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		nbMissedTailCalls, err = kubectl.CountMissedTailCalls()
 		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
-		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
+		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0), "Unexpected missed tail call")
 	}
 	return testfunc, cleanupCallback
 }
