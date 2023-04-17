@@ -70,7 +70,8 @@ type RemoteIdentityWatcher interface {
 	// remote's backend.
 	WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations) (*allocator.RemoteCache, error)
 
-	// RemoveRemoteIdentities removes any reference to a remote identity source.
+	// RemoveRemoteIdentities removes any reference to a remote identity source,
+	// emitting a deletion event for all previously known identities.
 	RemoveRemoteIdentities(name string)
 }
 

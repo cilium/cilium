@@ -551,4 +551,20 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	require.Equal(t, rc, global.remoteCaches["remote"])
 
 	require.Len(t, events, 0)
+
+	// Remove the remote caches and assert that a deletion event is triggered
+	// for all entries.
+	global.RemoveRemoteKVStore("remote")
+
+	require.Len(t, events, 2)
+
+	// Given that the drained events are spilled out from a map there is no
+	// ordering guarantee; hence, let's sort them before checking.
+	drained := make([]AllocatorEvent, 2)
+	drained[0] = <-events
+	drained[1] = <-events
+	sort.Slice(drained, func(i, j int) bool { return drained[i].ID < drained[j].ID })
+
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeDelete}, drained[0])
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(5), Key: TestAllocatorKey("bar"), Typ: kvstore.EventTypeDelete}, drained[1])
 }

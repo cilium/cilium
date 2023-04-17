@@ -986,11 +986,18 @@ func (a *Allocator) WatchRemoteKVStore(ctx context.Context, rc *RemoteCache) {
 	scopedLog.Info("Stopped remote kvstore watcher")
 }
 
-// RemoveRemoteKVStore removes any reference to a remote allocator / kvstore.
+// RemoveRemoteKVStore removes any reference to a remote allocator / kvstore, emitting
+// a deletion event for all previously known identities.
 func (a *Allocator) RemoveRemoteKVStore(remoteName string) {
 	a.remoteCachesMutex.Lock()
+	old := a.remoteCaches[remoteName]
 	delete(a.remoteCaches, remoteName)
 	a.remoteCachesMutex.Unlock()
+
+	if old != nil {
+		old.cache.drain()
+		log.WithField(logfields.ClusterName, remoteName).Info("Remote kvstore watcher unregistered")
+	}
 }
 
 // Watch starts watching the remote kvstore and synchronize the identities in
