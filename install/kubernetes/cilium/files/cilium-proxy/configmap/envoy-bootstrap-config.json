@@ -4,6 +4,62 @@
     "cluster": "ingress-cluster"
   },
   "staticResources": {
+    "listeners": [
+      {{- if .Values.prometheus.enabled }}
+      {
+        "name": "envoy-prometheus-metrics-listener",
+        "address": {
+          "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": {{ .Values.proxy.prometheus.port }}
+          }
+        },
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+                  "stat_prefix": "envoy-prometheus-metrics-listener",
+                  "route_config": {
+                    "virtual_hosts": [
+                      {
+                        "name": "prometheus_metrics_route",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "match": {
+                              "prefix": "/metrics"
+                            },
+                            "route": {
+                              "cluster": "envoy-admin",
+                              "prefix_rewrite": "/stats/prometheus"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "http_filters": [
+                    {
+                      "name": "envoy.filters.http.router",
+                      "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                      }
+                    }
+                  ],
+                  "stream_idle_timeout": "0s"
+                }
+              }
+            ]
+          }
+        ]
+      }
+      {{- end }}
+    ],
     "clusters": [
       {
         "name": "ingress-cluster",

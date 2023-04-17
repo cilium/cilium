@@ -35,15 +35,15 @@ func initEnvoy(runDir, proxySocketDir string, xdsServer *envoy.XDSServer, wg *co
 			if embeddedEnvoy != nil {
 				envoyAdminClient = embeddedEnvoy.GetAdminClient()
 			}
+
+			// Add Prometheus listener if the port is (properly) configured
+			if option.Config.ProxyPrometheusPort < 0 || option.Config.ProxyPrometheusPort > 65535 {
+				log.WithField(logfields.Port, option.Config.ProxyPrometheusPort).Error("Envoy: Invalid configured proxy-prometheus-port")
+			} else if option.Config.ProxyPrometheusPort != 0 {
+				xdsServer.AddMetricsListener(uint16(option.Config.ProxyPrometheusPort), wg)
+			}
 		} else {
 			envoyAdminClient = envoy.NewEnvoyAdminClient(proxySocketDir)
-		}
-
-		// Add Prometheus listener if the port is (properly) configured
-		if option.Config.ProxyPrometheusPort < 0 || option.Config.ProxyPrometheusPort > 65535 {
-			log.WithField(logfields.Port, option.Config.ProxyPrometheusPort).Error("Envoy: Invalid configured proxy-prometheus-port")
-		} else if option.Config.ProxyPrometheusPort != 0 {
-			xdsServer.AddMetricsListener(uint16(option.Config.ProxyPrometheusPort), wg)
 		}
 	})
 }
