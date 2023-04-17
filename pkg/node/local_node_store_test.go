@@ -18,7 +18,7 @@ import (
 
 type testInitializer struct{}
 
-func (testInitializer) InitLocalNode(n *LocalNode) error {
+func (testInitializer) InitLocalNode(ctx context.Context, n *LocalNode) error {
 	n.NodeIdentity = 1
 	return nil
 }
