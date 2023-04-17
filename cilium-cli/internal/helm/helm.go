@@ -449,6 +449,8 @@ type UpgradeParameters struct {
 	Namespace string
 	// Name of the Helm release to upgrade.
 	Name string
+	// Chart is the Helm chart to use for the release
+	Chart *chart.Chart
 	// Helm values to pass during upgrade.
 	Values map[string]interface{}
 	// --reset-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.
@@ -467,12 +469,11 @@ type UpgradeParameters struct {
 	DryRunHelmValues bool
 }
 
-// UpgradeCurrentRelease upgrades the existing Helm release with given Helm values.
-func UpgradeCurrentRelease(
+// Upgrade upgrades the existing Helm release with the given Helm chart and values
+func Upgrade(
 	ctx context.Context,
 	k8sClient genericclioptions.RESTClientGetter,
 	params UpgradeParameters,
-	chart *chart.Chart,
 ) (*release.Release, error) {
 	actionConfig := action.Configuration{}
 	// Use the default Helm driver (Kubernetes secret).
@@ -483,12 +484,12 @@ func UpgradeCurrentRelease(
 		return nil, err
 	}
 
-	currentRelease, err := actionConfig.Releases.Last(params.Name)
-	if err != nil {
-		return nil, err
-	}
-	if chart == nil {
-		chart = currentRelease.Chart
+	if params.Chart == nil {
+		currentRelease, err := actionConfig.Releases.Last(params.Name)
+		if err != nil {
+			return nil, err
+		}
+		params.Chart = currentRelease.Chart
 	}
 
 	helmClient := action.NewUpgrade(&actionConfig)
@@ -499,5 +500,5 @@ func UpgradeCurrentRelease(
 	helmClient.Timeout = params.WaitDuration
 	helmClient.DryRun = params.DryRun || params.DryRunHelmValues
 
-	return helmClient.RunWithContext(ctx, defaults.HelmReleaseName, chart, params.Values)
+	return helmClient.RunWithContext(ctx, defaults.HelmReleaseName, params.Chart, params.Values)
 }
