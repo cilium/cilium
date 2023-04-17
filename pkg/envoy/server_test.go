@@ -443,27 +443,27 @@ func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4+L7
-	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true, nil)
+	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true, nil, "ingress")
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies12Wildcard)
 
 	// L4+L7 with header mods
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true, nil)
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true, nil, "ingress")
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies122HeaderMatchWildcard)
 
 	// L4+L7
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true, nil)
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true, nil, "ingress")
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPolicies1Wildcard)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true, nil)
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true, nil, "ingress")
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true, nil)
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true, nil, "ingress")
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
 
 	// L4-only with SNI
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMapSNI, true, nil)
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMapSNI, true, nil, "ingress")
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesSNI)
 }
 
