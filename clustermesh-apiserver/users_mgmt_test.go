@@ -104,11 +104,12 @@ func TestUsersManagement(t *testing.T) {
 		}
 	}()
 
-	// Wait for processing to complete
-	time.Sleep(25 * time.Millisecond)
+	require.Eventuallyf(t, func() bool {
+		return len(client.created) == 3 && len(client.deleted) == 0
+	}, time.Second, 10*time.Millisecond,
+		"Failed waiting for events to be triggered: created: %v, deleted: %v",
+		client.created, client.deleted)
 
-	require.Len(t, client.created, 3)
-	require.Len(t, client.deleted, 0)
 	require.Equal(t, "r1", client.created["foo"])
 	require.Equal(t, "r2", client.created["bar"])
 	require.Equal(t, "r3", client.created["qux"])
@@ -123,11 +124,12 @@ func TestUsersManagement(t *testing.T) {
 	require.NoError(t, os.WriteFile(cfgPath2, []byte(users2), 0600))
 	require.NoError(t, os.Rename(cfgPath2, cfgPath))
 
-	// Wait for processing to complete
-	time.Sleep(25 * time.Millisecond)
+	require.Eventuallyf(t, func() bool {
+		return len(client.created) == 2 && len(client.deleted) == 1
+	}, time.Second, 10*time.Millisecond,
+		"Failed waiting for events to be triggered: created: %v, deleted: %v",
+		client.created, client.deleted)
 
-	require.Len(t, client.created, 2)
-	require.Len(t, client.deleted, 1)
 	require.Equal(t, "r3", client.created["baz"])
 	require.Equal(t, "r4", client.created["qux"])
 	require.Equal(t, 1, client.deleted["bar"])
