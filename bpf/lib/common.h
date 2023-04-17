@@ -78,7 +78,11 @@ enum {
 
 #define CILIUM_CALL_DROP_NOTIFY			1
 #define CILIUM_CALL_ERROR_NOTIFY		2
-#define CILIUM_CALL_SEND_ICMP6_ECHO_REPLY	3
+/*
+ * A gap in the macro numbering sequence was created by #24921.
+ * It can be reused for a new macro in the future, but caution is needed when
+ * backporting changes as it may conflict with older versions of the code.
+ */
 #define CILIUM_CALL_HANDLE_ICMP6_NS		4
 #define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
 #define CILIUM_CALL_ARP				6
