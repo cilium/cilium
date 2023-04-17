@@ -75,11 +75,8 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.proxy.healthPort }}
+            port: {{ .Values.proxy.prometheus.port }}
             scheme: HTTP
-            httpHeaders:
-            - name: "brief"
-              value: "true"
           failureThreshold: {{ .Values.proxy.startupProbe.failureThreshold }}
           periodSeconds: {{ .Values.proxy.startupProbe.periodSeconds }}
           successThreshold: 1
@@ -88,11 +85,8 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.proxy.healthPort }}
+            port: {{ .Values.proxy.prometheus.port }}
             scheme: HTTP
-            httpHeaders:
-            - name: "brief"
-              value: "true"
           {{- if semverCompare "<1.20-0" .Capabilities.KubeVersion.Version }}
           # The initial delay for the liveness probe is intentionally large to
           # avoid an endless kill & restart cycle if in the event that the initial
@@ -109,11 +103,8 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.proxy.healthPort }}
+            port: {{ .Values.proxy.prometheus.port }}
             scheme: HTTP
-            httpHeaders:
-            - name: "brief"
-              value: "true"
           {{- if semverCompare "<1.20-0" .Capabilities.KubeVersion.Version }}
           initialDelaySeconds: 5
           {{- end }}

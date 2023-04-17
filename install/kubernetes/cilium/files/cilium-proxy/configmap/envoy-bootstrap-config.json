@@ -5,7 +5,6 @@
   },
   "staticResources": {
     "listeners": [
-      {{- if .Values.prometheus.enabled }}
       {
         "name": "envoy-prometheus-metrics-listener",
         "address": {
@@ -30,6 +29,7 @@
                           "*"
                         ],
                         "routes": [
+                          {{- if .Values.prometheus.enabled }}
                           {
                             "match": {
                               "prefix": "/metrics"
@@ -37,6 +37,16 @@
                             "route": {
                               "cluster": "envoy-admin",
                               "prefix_rewrite": "/stats/prometheus"
+                            }
+                          },
+                          {{- end }}
+                          {
+                            "match": {
+                              "prefix": "/healthz"
+                            },
+                            "route": {
+                              "cluster": "envoy-admin",
+                              "prefix_rewrite": "/ready"
                             }
                           }
                         ]
@@ -58,7 +68,6 @@
           }
         ]
       }
-      {{- end }}
     ],
     "clusters": [
       {
