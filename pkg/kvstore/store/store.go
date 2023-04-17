@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -86,10 +87,6 @@ func (c *Configuration) validate() error {
 		c.SynchronizationInterval = option.Config.KVstorePeriodicSync
 	}
 
-	if c.Backend == nil {
-		c.Backend = kvstore.Client()
-	}
-
 	if c.Context == nil {
 		c.Context = context.Background()
 	}
@@ -113,8 +110,10 @@ type SharedStore struct {
 	// with the kvstore. It is derived from the name.
 	controllerName string
 
-	// backend is the backend as configured via Configuration
-	backend kvstore.BackendOperations
+	// backend is the backend as configured via Configuration, or overwitten
+	// calling Join. It must be accessed while holding backendMutex.
+	backendLocked kvstore.BackendOperations
+	backendMutex  lock.RWMutex
 
 	// mutex protects mutations to localKeys and sharedKeys
 	mutex lock.RWMutex
@@ -130,7 +129,13 @@ type SharedStore struct {
 	// kvstore events.
 	sharedKeys map[string]Key
 
-	kvstoreWatcher *kvstore.Watcher
+	kvstoreWatcher *kvstore.RestartableWatcher
+
+	listDone chan struct{}
+
+	// wg is used to wait for the termination of the goroutine when
+	// closing the store.
+	wg sync.WaitGroup
 }
 
 // Observer receives events when objects in the store mutate
@@ -187,23 +192,49 @@ type LocalKey interface {
 // if the contents cannot be retrieved synchronously from the kvstore. Starts a
 // controller to continuously synchronize the store with the kvstore.
 func JoinSharedStore(c Configuration) (*SharedStore, error) {
+	if c.Backend == nil {
+		// Retrieving the global client blocks until it is initialized. Hence, we
+		// do this only if we really want to join the shared store right now.
+		c.Backend = kvstore.Client()
+	}
+
+	s, err := CreateSharedStore(c)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.listAndStartWatcher(s.conf.Context); err != nil {
+		// Release all resources associated with the store, and observe a deletion
+		// event for all keys that might have been received before failing due to
+		// a timeout.
+		s.CloseAndDrain(s.conf.Context)
+		return nil, err
+	}
+
+	return s, nil
+}
+
+// CreateSharedStore creates a new shared store instance, without starting it.
+// An error is returned if the configuration is invalid.
+func CreateSharedStore(c Configuration) (*SharedStore, error) {
 	if err := c.validate(); err != nil {
 		return nil, err
 	}
 
 	s := &SharedStore{
-		conf:       c,
-		localKeys:  map[string]LocalKey{},
-		sharedKeys: map[string]Key{},
-		backend:    c.Backend,
+		conf:           c,
+		localKeys:      map[string]LocalKey{},
+		sharedKeys:     map[string]Key{},
+		backendLocked:  c.Backend,
+		kvstoreWatcher: kvstore.NewRestartableWatcher(watcherChanSize),
+		listDone:       make(chan struct{}, 1),
 	}
 
 	s.name = "store-" + s.conf.Prefix
 	s.controllerName = "kvstore-sync-" + s.name
 
-	if err := s.listAndStartWatcher(); err != nil {
-		return nil, err
-	}
+	s.wg.Add(1)
+	go s.loop(c.Context)
 
 	controllers.UpdateController(s.controllerName,
 		controller.ControllerParams{
@@ -215,6 +246,17 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 	)
 
 	return s, nil
+}
+
+// CreateSharedStore creates a new shared store instance, without starting it
+// (the specified backend is ignored). It panics if the configuration is invalid.
+func MustCreateSharedStore(c Configuration) *SharedStore {
+	s, err := CreateSharedStore(c)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to create shared store")
+	}
+
+	return s
 }
 
 func (s *SharedStore) onDelete(k NamedKey) {
@@ -229,19 +271,33 @@ func (s *SharedStore) onUpdate(k Key) {
 	}
 }
 
+// Join starts synchronizing the store with the content of the kvstore backend.
+// If already joined, the previous watcher is properly stopped, and a new one
+// restarted, handling the emission of a deletion event for possible leftover keys.
+func (s *SharedStore) Join(ctx context.Context, backend kvstore.BackendOperations) error {
+	s.backendMutex.Lock()
+	s.backendLocked = backend
+	s.backendMutex.Unlock()
+
+	return s.listAndStartWatcher(ctx)
+}
+
+// Stop stops synchronizing the store with the kvstore backend. Afterwards, it
+// is possible to call Join again.
+func (s *SharedStore) Stop() {
+	s.kvstoreWatcher.Stop()
+}
+
 // Release frees all resources own by the store but leaves all keys in the
 // kvstore intact
 func (s *SharedStore) Release() {
-	// Wait for all write operations to complete and then block all further
-	// operations
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	if s.kvstoreWatcher != nil {
 		s.kvstoreWatcher.Stop()
 	}
 
-	controllers.RemoveController(s.controllerName)
+	controllers.RemoveControllerAndWait(s.controllerName)
+	s.wg.Wait()
+	close(s.listDone)
 }
 
 // Close stops participation with a shared store and removes all keys owned by
@@ -251,7 +307,7 @@ func (s *SharedStore) Close(ctx context.Context) {
 	s.Release()
 
 	for name, key := range s.localKeys {
-		if err := s.backend.Delete(ctx, s.keyPath(key)); err != nil {
+		if err := s.backend().Delete(ctx, s.keyPath(key)); err != nil {
 			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
 		}
 
@@ -260,6 +316,18 @@ func (s *SharedStore) Close(ctx context.Context) {
 		// it from the shared keys.
 		delete(s.sharedKeys, name)
 
+		s.onDelete(key)
+	}
+}
+
+// Close stops participation with a shared store and removes all keys owned by
+// this node in the kvstore. Additionally, it also emits a deletion event for
+// all keys retrieved from the kvstore. This stops the controller started by
+// JoinSharedStore().
+func (s *SharedStore) CloseAndDrain(ctx context.Context) {
+	s.Close(ctx)
+
+	for _, key := range s.sharedKeys {
 		s.onDelete(key)
 	}
 }
@@ -280,7 +348,7 @@ func (s *SharedStore) syncLocalKey(ctx context.Context, key LocalKey, lease bool
 
 	// Update key in kvstore, overwrite an eventual existing key. If requested, attach
 	// lease to expire entry when agent dies and never comes back up.
-	if _, err := s.backend.UpdateIfDifferent(ctx, s.keyPath(key), jsonValue, lease); err != nil {
+	if _, err := s.backend().UpdateIfDifferent(ctx, s.keyPath(key), jsonValue, lease); err != nil {
 		return err
 	}
 
@@ -372,7 +440,7 @@ func (s *SharedStore) DeleteLocalKey(ctx context.Context, key NamedKey) {
 	delete(s.localKeys, name)
 	s.mutex.Unlock()
 
-	err := s.backend.Delete(ctx, s.keyPath(key))
+	err := s.backend().Delete(ctx, s.keyPath(key))
 
 	if ok {
 		if err != nil {
@@ -429,27 +497,41 @@ func (s *SharedStore) deleteSharedKey(name string) {
 	}
 }
 
-func (s *SharedStore) listAndStartWatcher() error {
-	listDone := make(chan struct{})
+func (s *SharedStore) listAndStartWatcher(ctx context.Context) error {
+	select {
+	case <-s.listDone:
+		// Let's clean the listDone channel, in case the ListDone event was received
+		// after we already stopped waiting due to a timeout. There's still a small
+		// race condition window in case that event is received past this line, but that
+		// is acceptable, since it can only occur on re-connection (ie.., we already
+		// observed ListDone at least once), and will cause this function to return
+		// immediately.
+	default:
+	}
 
-	go s.watcher(listDone)
+	s.kvstoreWatcher.Wrap(s.backend().ListAndWatch(ctx, s.name+"-watcher", s.conf.Prefix, watcherChanSize))
 
 	select {
-	case <-listDone:
+	case _, ok := <-s.listDone:
+		if !ok {
+			return fmt.Errorf("store closed while retrieving initial list of objects from kvstore")
+		}
 	case <-time.After(listTimeoutDefault):
+		s.Stop()
 		return fmt.Errorf("timeout while retrieving initial list of objects from kvstore")
+	case <-ctx.Done():
+		s.Stop()
+		return fmt.Errorf("context canceled while retrieving initial list of objects from kvstore")
 	}
 
 	return nil
 }
 
-func (s *SharedStore) watcher(listDone chan struct{}) {
-	s.kvstoreWatcher = s.backend.ListAndWatch(s.conf.Context, s.name+"-watcher", s.conf.Prefix, watcherChanSize)
-
+func (s *SharedStore) loop(ctx context.Context) {
 	for event := range s.kvstoreWatcher.Events {
 		if event.Typ == kvstore.EventTypeListDone {
 			s.getLogger().Debug("Initial list of objects received from kvstore")
-			close(listDone)
+			s.listDone <- struct{}{}
 			continue
 		}
 
@@ -475,10 +557,18 @@ func (s *SharedStore) watcher(listDone chan struct{}) {
 			if localKey := s.lookupLocalKey(keyName); localKey != nil {
 				logger.Warning("Received delete event for local key. Re-creating the key in the kvstore")
 
-				s.syncLocalKey(s.conf.Context, localKey, true)
+				s.syncLocalKey(ctx, localKey, true)
 			} else {
 				s.deleteSharedKey(keyName)
 			}
 		}
 	}
+	s.wg.Done()
+}
+
+func (s *SharedStore) backend() kvstore.BackendOperations {
+	s.backendMutex.RLock()
+	defer s.backendMutex.RUnlock()
+
+	return s.backendLocked
 }
