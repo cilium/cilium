@@ -6,6 +6,7 @@ Summary of Changes
 ------------------
 
 **Minor Changes:**
+* envoy: Bump envoy to v1.23.8 (#24909, @sayboras)
 * envoy: Bump envoy version to v1.23.7 (#24746, @sayboras)
 * Move poststart eni script to agent pod from nodeinit pod (Backport PR #24547, Upstream PR #24134, @nebril)
 * Provides operational state of BGP peers via CLI 'cilium bgp peers' (Backport PR #24821, Upstream PR #24612, @harsimran-pabla)
@@ -53,6 +54,8 @@ Summary of Changes
 * tests: add exceptions for lease errors due to etcd (Backport PR #24758, Upstream PR #24723, @jibi)
 
 **Misc Changes:**
+* Avoid clearing objects in CiliumEndpoint conversion funcs (Backport PR #24929, Upstream PR #24928, @aanm)
+* Avoid clearing objects in conversion funcs (Backport PR #24929, Upstream PR #24241, @odinuge)
 * bgp: extract exportPodCIDRReconciler logic into a generic function (Backport PR #24607, Upstream PR #24546, @jibi)
 * bpf: Remove fib_redirect's BPF_FIB_LOOKUP_DIRECT (Backport PR #24547, Upstream PR #24271, @borkmann)
 * bpf_test: use bpf.LoadCollection, print full verifier error logs (Backport PR #24607, Upstream PR #23281, @ti-mo)
@@ -64,6 +67,7 @@ Summary of Changes
 * chore(deps): update docker.io/library/golang docker tag to v1.19.8 (v1.13) (#24800, @renovate[bot])
 * chore(deps): update docker.io/library/golang docker tag to v1.19.8 (v1.13) (#24802, @renovate[bot])
 * chore(deps): update docker.io/library/golang:1.19.7 docker digest to d2078d2 (v1.13) (#24550, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.19.8 docker digest to 31a2f92 (v1.13) (#24831, @renovate[bot])
 * chore(deps): update quay.io/cilium/hubble docker tag to v0.11.3 (v1.13) (#24472, @renovate[bot])
 * cilium, docs: Move sig-datapath meeting to on-demand only (Backport PR #24547, Upstream PR #24205, @borkmann)
 * doc: Fixed CiliumNode CRD fields for cluster-pool doc (Backport PR #24547, Upstream PR #24428, @PhilipSchmid)
@@ -96,6 +100,7 @@ Summary of Changes
 * docs: Document IPsec upgrade issue on v1.13.1 (#24705, @pchaigno)
 * helm: fix poststart-eni.bash execution in agent DS (#24789, @nebril)
 * install: Update image digests for v1.13.1 (#24427, @nebril)
+* Prepare for release v1.13.2 (#24900, @gentoo-root)
 * v1.13 egress gateway tests sync (#24859, @jibi)
 
 ## v1.13.1
