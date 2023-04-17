@@ -90,6 +90,10 @@ var (
 		// observing changes to it.
 		node.LocalNodeStoreCell,
 
+		// Provide a LocalNodeInitializer that is invoked when LocalNodeStore is started.
+		// This fills in the initial state before it is accessed by other sub-systems.
+		cell.Provide(newLocalNodeInitializer),
+
 		// Shared resources provide access to k8s resources as event streams or as
 		// read-only stores.
 		agentK8s.ResourcesCell,

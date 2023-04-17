@@ -22,26 +22,17 @@ type LocalNode struct {
 
 // LocalNodeInitializer specifies how to build the initial local node object.
 type LocalNodeInitializer interface {
-	InitLocalNode(*LocalNode) error
+	InitLocalNode(context.Context, *LocalNode) error
 }
 
 // LocalNodeStoreCell provides the LocalNodeStore instance.
 // The LocalNodeStore is the canonical owner of `types.Node` for the local node and
 // provides a reactive API for observing and updating it.
-//
-// This currently returns the singleton instance instead of constructing a fresh
-// one with newLocalNodeStore() in order to keep the semantics of the global getters/setters
-// as is.
 var LocalNodeStoreCell = cell.Module(
 	"local-node-store",
 	"Provides LocalNodeStore for observing and updating local node info",
 
 	cell.Provide(NewLocalNodeStore),
-	cell.Invoke(func(s *LocalNodeStore) {
-		// Set the global variable still used by getters
-		// and setters in address.go
-		localNode = s
-	}),
 )
 
 // LocalNodeStoreParams are the inputs needed for constructing LocalNodeStore.
@@ -59,10 +50,20 @@ type LocalNodeStore struct {
 	stream.Observable[LocalNode]
 
 	mu       lock.Mutex
-	valid    bool
 	value    LocalNode
 	emit     func(LocalNode)
 	complete func(error)
+}
+
+func newTestLocalNodeStore() *LocalNodeStore {
+	src, emit, complete := stream.Multicast[LocalNode](stream.EmitLatest)
+	emit(LocalNode{})
+	return &LocalNodeStore{
+		Observable: src,
+		emit:       emit,
+		complete:   complete,
+		value:      LocalNode{},
+	}
 }
 
 func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
@@ -73,15 +74,20 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 	}
 
 	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
+		OnStart: func(ctx hive.HookContext) error {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if params.Init != nil {
-				if err := params.Init.InitLocalNode(&s.value); err != nil {
+				if err := params.Init.InitLocalNode(ctx, &s.value); err != nil {
 					return err
 				}
 			}
-			s.valid = true
+
+			// Set the global variable still used by getters
+			// and setters in address.go. We're setting it in Start
+			// to catch uses of it before it's initialized.
+			localNode = s
+
 			s.emit = emit
 			s.complete = complete
 			emit(s.value)
@@ -93,6 +99,8 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 			s.complete = nil
 			s.emit = nil
 			s.mu.Unlock()
+
+			localNode = nil
 			return nil
 		},
 	})

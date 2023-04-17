@@ -134,11 +134,11 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 	return cpt
 }
 
-func (cpt *ControlPlaneTest) StartAgent() *ControlPlaneTest {
+func (cpt *ControlPlaneTest) StartAgent(extraCells ...cell.Cell) *ControlPlaneTest {
 	if cpt.agentHandle != nil {
 		cpt.t.Fatal("StartAgent() already called")
 	}
-	datapath, agentHandle, err := startCiliumAgent(cpt.t, cpt.clients)
+	datapath, agentHandle, err := startCiliumAgent(cpt.t, cpt.clients, cell.Group(extraCells...))
 	if err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}

@@ -308,7 +308,7 @@ func TestControllerSanity(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			nodeaddr.SetIPv4(nodeIPv4.AsSlice())
+			nodeaddr.UpdateLocalNodeInTest(func(n *nodeaddr.LocalNode) { n.SetNodeInternalIP(nodeIPv4.AsSlice()) })
 			nodetypes.SetName(nodeName)
 			nodeSpecer := &fakeNodeSpecer{
 				Annotations_: tt.annotations,

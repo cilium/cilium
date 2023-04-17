@@ -59,6 +59,12 @@ func (s *DevicesSuite) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func nodeSetIP(ip net.IP) {
+	node.UpdateLocalNodeInTest(func(n *node.LocalNode) {
+		n.SetNodeInternalIP(ip)
+	})
+}
+
 func (s *DevicesSuite) TearDownTest(c *C) {
 	option.Config.SetDevices(s.prevConfigDevices)
 	option.Config.DirectRoutingDevice = s.prevConfigDirectRoutingDevice
@@ -69,11 +75,12 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 	option.Config.RoutingMode = s.prevConfigRoutingMode
 	option.Config.EnableIPv6NDP = s.prevConfigEnableIPv6NDP
 	option.Config.IPv6MCastDevice = s.prevConfigIPv6MCastDevice
-	node.SetIPv4(s.prevK8sNodeIP)
-	node.SetIPv6(s.prevK8sNodeIPv6)
+	nodeSetIP(s.prevK8sNodeIP)
+	nodeSetIP(s.prevK8sNodeIPv6)
 }
 
 func (s *DevicesSuite) TestDetect(c *C) {
+
 	s.withFreshNetNS(c, func() {
 		dm, err := NewDeviceManager()
 		c.Assert(err, IsNil)
@@ -90,7 +97,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		// Node IP not set, can still detect. Direct routing device shouldn't be detected.
 		option.Config.EnableNodePort = true
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
-		node.SetIPv4(nil)
+		nodeSetIP(nil)
 
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
@@ -100,7 +107,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 
 		// Manually specified devices, no detection is performed
 		option.Config.EnableNodePort = true
-		node.SetIPv4(net.ParseIP("192.168.0.1"))
+		nodeSetIP(net.ParseIP("192.168.0.1"))
 		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
 		option.Config.SetDevices([]string{"dummy0"})
 
@@ -116,7 +123,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(createDummy("dummy2", "192.168.2.1/24", false), IsNil)
 		c.Assert(createDummy("dummy3", "192.168.3.1/24", false), IsNil)
 		c.Assert(delRoutes("dummy3"), IsNil) // Delete routes so it won't be detected
-		node.SetIPv4(net.ParseIP("192.168.1.1"))
+		nodeSetIP(net.ParseIP("192.168.1.1"))
 		option.Config.EnableIPv4 = true
 		option.Config.EnableIPv6 = false
 		option.Config.RoutingMode = option.RoutingModeNative
@@ -130,7 +137,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 
 		// Tunnel routing mode with XDP, should find all devices and set direct
 		// routing device to the one with k8s node ip.
-		node.SetIPv4(net.ParseIP("192.168.1.1"))
+		nodeSetIP(net.ParseIP("192.168.1.1"))
 		option.Config.EnableIPv4 = true
 		option.Config.EnableIPv6 = false
 		option.Config.RoutingMode = option.RoutingModeTunnel
@@ -153,8 +160,8 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.EnableIPv6 = true
 		option.Config.EnableIPv6NDP = true
 		c.Assert(createDummy("cilium_foo", "2001:db8::face/64", true), IsNil)
-		node.SetIPv4(nil)
-		node.SetIPv6(net.ParseIP("2001:db8::face"))
+		nodeSetIP(nil)
+		nodeSetIP(net.ParseIP("2001:db8::face"))
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2"})

@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -1410,29 +1409,6 @@ func initEnv() {
 		}
 		if err := probes.HaveOuterSourceIPSupport(); err != nil {
 			log.WithError(err).Fatal("The high scale IPcache mode needs support in the kernel to set the outer source IP address.")
-		}
-	}
-
-	// If there is one device specified, use it to derive better default
-	// allocation prefixes
-	node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
-
-	// Initialize node IP addresses from configuration.
-	if option.Config.IPv6NodeAddr != "auto" {
-		if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {
-			log.WithField(logfields.IPAddr, option.Config.IPv6NodeAddr).Fatal("Invalid IPv6 node address")
-		} else {
-			if !ip.IsGlobalUnicast() {
-				log.WithField(logfields.IPAddr, ip).Fatal("Invalid IPv6 node address: not a global unicast address")
-			}
-			node.SetIPv6(ip)
-		}
-	}
-	if option.Config.IPv4NodeAddr != "auto" {
-		if ip := net.ParseIP(option.Config.IPv4NodeAddr); ip == nil {
-			log.WithField(logfields.IPAddr, option.Config.IPv4NodeAddr).Fatal("Invalid IPv4 node address")
-		} else {
-			node.SetIPv4(ip)
 		}
 	}
 
