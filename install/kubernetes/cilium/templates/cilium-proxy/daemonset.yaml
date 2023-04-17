@@ -66,7 +66,7 @@ spec:
         - '-c /var/lib/proxy/envoy-bootstrap-config.json'
         - '--base-id 0'
         - '--log-level info'
-        - '--log-format "[%Y-%m-%d %T.%e][%t][%l][%n] %v"'
+        - '--log-format {{ .Values.proxy.log.format }}'
         {{- if .Values.proxy.log.path }}
         - '--log-path {{ .Values.proxy.log.path }}'
         {{- end }}
