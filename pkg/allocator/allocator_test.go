@@ -6,6 +6,7 @@ package allocator
 import (
 	"context"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -520,4 +521,21 @@ func (s *AllocatorSuite) TestWatchRemoteKVStore(c *C) {
 	c.Assert(global.remoteCaches["other"], Equals, oc)
 
 	c.Assert(events, HasLen, 0)
+
+	// Remove the remote caches and assert that a deletion event is triggered
+	// for all entries.
+	global.RemoveRemoteKVStore("remote")
+	global.RemoveRemoteKVStore("other")
+
+	c.Assert(events, HasLen, 2)
+
+	// Given that the drained events are spilled out from a map there is no
+	// ordering guarantee; hence, let's sort them before checking.
+	drained := make([]AllocatorEvent, 2)
+	drained[0] = <-events
+	drained[1] = <-events
+	sort.Slice(drained, func(i, j int) bool { return drained[i].ID < drained[j].ID })
+
+	c.Assert(drained[0], Equals, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeDelete})
+	c.Assert(drained[1], Equals, AllocatorEvent{ID: idpool.ID(5), Key: TestAllocatorKey("bar"), Typ: kvstore.EventTypeDelete})
 }

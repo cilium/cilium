@@ -200,6 +200,19 @@ func (c *cache) stop() {
 	c.stopWatchWg.Wait()
 }
 
+// drain emits a deletion event for all known IDs. It must be called after the
+// cache has been stopped, to ensure that no new events can be received afterwards.
+func (c *cache) drain() {
+	// Make sure we wait until the watch loop has been properly stopped.
+	c.stopWatchWg.Wait()
+
+	c.mutex.Lock()
+	for id, key := range c.nextCache {
+		c.onDeleteLocked(id, key)
+	}
+	c.mutex.Unlock()
+}
+
 // drainIf emits a deletion event for all known IDs that are stale according to
 // the isStale function. It must be called after the cache has been stopped, to
 // ensure that no new events can be received afterwards.

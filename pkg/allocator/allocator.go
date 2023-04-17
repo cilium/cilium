@@ -953,11 +953,18 @@ func (a *Allocator) WatchRemoteKVStore(ctx context.Context, remoteName string, r
 	return rc, nil
 }
 
-// RemoveRemoteKVStore removes any reference to a remote allocator / kvstore.
+// RemoveRemoteKVStore removes any reference to a remote allocator / kvstore, emitting
+// a deletion event for all previously known identities.
 func (a *Allocator) RemoveRemoteKVStore(remoteName string) {
 	a.remoteCachesMutex.Lock()
+	old := a.remoteCaches[remoteName]
 	delete(a.remoteCaches, remoteName)
 	a.remoteCachesMutex.Unlock()
+
+	if old != nil {
+		old.cache.drain()
+		log.WithField(fieldRemote, remoteName).Info("Remote KVStore watcher unregistered")
+	}
 }
 
 // NumEntries returns the number of entries in the remote cache
