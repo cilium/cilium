@@ -1705,6 +1705,10 @@ proxy:
     # Socket directory within the host
     host: "/var/run/cilium-proxy"
 
+  log:
+    # Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
+    path: ""
+
   # Time in seconds after which a TCP connection attempt times out
   connectTimeout: 2
   # ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for the proxy

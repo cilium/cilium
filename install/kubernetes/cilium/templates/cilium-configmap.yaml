@@ -1050,6 +1050,10 @@ data:
   proxy-embedded-enabled: "false"
 {{- end }}
 
+{{- if .Values.proxy.log.path }}
+  envoy-log: {{ .Values.proxy.log.path | quote }}
+{{- end }}
+
 ---
 {{- if and .Values.ipMasqAgent.enabled .Values.ipMasqAgent.config }}
 apiVersion: v1
