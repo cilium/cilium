@@ -30,6 +30,7 @@ import (
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -1468,7 +1469,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 }
 
-func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
 		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis))
@@ -1528,6 +1529,13 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
 			rule := getWildcardNetworkPolicyRule(l4.L7RulesPerSelector)
 			if rule != nil {
+				log.WithFields(logrus.Fields{
+					logfields.EndpointID:       ep.GetID(),
+					logfields.TrafficDirection: dir,
+					logfields.Port:             port,
+					logfields.PolicyID:         rule.RemotePolicies,
+				}).Debug("Wildcard PortNetworkPolicyRule matching remote IDs")
+
 				if len(rule.RemotePolicies) == 0 {
 					// Got an allow-all rule, which can short-circuit all of
 					// the other rules.
@@ -1548,6 +1556,15 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 					if !cs {
 						canShortCircuit = false
 					}
+
+					log.WithFields(logrus.Fields{
+						logfields.EndpointID:       ep.GetID(),
+						logfields.TrafficDirection: dir,
+						logfields.Port:             port,
+						logfields.PolicyID:         rule.RemotePolicies,
+						logfields.ServerNames:      rule.ServerNames,
+					}).Debug("PortNetworkPolicyRule matching remote IDs")
+
 					if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
 						// Got an allow-all rule, which can short-circuit all of
 						// the other rules.
@@ -1601,8 +1618,8 @@ func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, i
 			visIngress = vis.Ingress
 			visEgress = vis.Egress
 		}
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced, visIngress)
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced, visEgress)
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced, visIngress, "ingress")
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced, visEgress, "egress")
 	}
 	return p
 }
