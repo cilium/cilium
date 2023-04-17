@@ -896,7 +896,6 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 			Networking: concreteObj.Status.Networking,
 			NamedPorts: concreteObj.Status.NamedPorts,
 		}
-		*concreteObj = cilium_v2.CiliumEndpoint{}
 		return p
 	case cache.DeletedFinalStateUnknown:
 		ciliumEndpoint, ok := concreteObj.Obj.(*cilium_v2.CiliumEndpoint)
@@ -929,7 +928,6 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 				NamedPorts: ciliumEndpoint.Status.NamedPorts,
 			},
 		}
-		*ciliumEndpoint = cilium_v2.CiliumEndpoint{}
 		return dfsu
 	default:
 		return obj
