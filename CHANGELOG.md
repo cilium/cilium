@@ -6,6 +6,7 @@ Summary of Changes
 ------------------
 
 **Minor Changes:**
+* envoy: Bump envoy to v1.23.8 (#24910, @sayboras)
 * envoy: Bump envoy version to v1.23.7 (#24747, @sayboras)
 
 **Bugfixes:**
@@ -28,6 +29,8 @@ Summary of Changes
 * tests: add exceptions for lease errors due to etcd (Backport PR #24761, Upstream PR #24723, @jibi)
 
 **Misc Changes:**
+* Avoid clearing objects in CiliumEndpoint conversion funcs (Backport PR #24930, Upstream PR #24928, @aanm)
+* Avoid clearing objects in conversion funcs (Backport PR #24930, Upstream PR #24241, @odinuge)
 * bpf: Remove fib_redirect's BPF_FIB_LOOKUP_DIRECT (Backport PR #24462, Upstream PR #24271, @borkmann)
 * checker: Fix incorrect checker for ExportedEqual() (Backport PR #24462, Upstream PR #24373, @christarazi)
 * chore(deps): update dependency cilium/hubble to v0.11.3 (v1.12) (#24819, @renovate[bot])
@@ -53,6 +56,7 @@ Summary of Changes
 * Add IPSec remark for upgrade to v1.12.8 (#24630, @darox)
 * Add note about fixed regression in ConfigMap values that were being prioritized over flags in Cilium agent (#24744, @aanm)
 * install: Update image digests for v1.12.8 (#24426, @nebril)
+* Prepare for release v1.12.9 (#24879, @michi-covalent)
 * v1.12: docs: Fix mitigation for IPsec upgrade issue (#24702, @pchaigno)
 
 ## v1.12.8
