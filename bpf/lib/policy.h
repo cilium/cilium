@@ -11,12 +11,24 @@
 #include "eps.h"
 #include "maps.h"
 
-static __always_inline void
-account(struct __ctx_buff *ctx, struct policy_entry *policy)
+static __always_inline int
+__account_and_check(struct __ctx_buff *ctx, struct policy_entry *policy,
+		    __s8 *ext_err, __u16 *proxy_port)
 {
 	/* FIXME: Use per cpu counters */
 	__sync_fetch_and_add(&policy->packets, 1);
 	__sync_fetch_and_add(&policy->bytes, ctx_full_len(ctx));
+
+	if (unlikely(policy->deny))
+		return DROP_POLICY_DENY;
+
+	*proxy_port = policy->proxy_port;
+	if (unlikely(policy->auth_type)) {
+		if (ext_err)
+			*ext_err = (__s8)policy->auth_type;
+		return DROP_POLICY_AUTH_REQUIRED;
+	}
+	return CTX_ACT_OK;
 }
 
 static __always_inline int
@@ -129,7 +141,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
 			    dport << 16 | proto);
 		*match_type = POLICY_MATCH_L3_L4;		/* 1. id/proto/port */
-		goto policy_check_entry;
+		return __account_and_check(ctx, policy, ext_err, proxy_port);
 	}
 
 	/* L4-only lookup. */
@@ -147,30 +159,27 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 
 	if (likely(l4policy && !l4policy->wildcard_dport)) {
 		*match_type = POLICY_MATCH_L4_ONLY;		/* 2. ANY/proto/port */
-		policy = l4policy;
-		goto policy_check_entry;
+		return __account_and_check(ctx, l4policy, ext_err, proxy_port);
 	}
 
 	if (likely(policy && !policy->wildcard_protocol)) {
 		*match_type = POLICY_MATCH_L3_PROTO;		/* 3. id/proto/ANY */
-		goto policy_check_entry;
+		return __account_and_check(ctx, policy, ext_err, proxy_port);
 	}
 
 	if (likely(l4policy && !l4policy->wildcard_protocol)) {
 		*match_type = POLICY_MATCH_PROTO_ONLY;		/* 4. ANY/proto/ANY */
-		policy = l4policy;
-		goto policy_check_entry;
+		return __account_and_check(ctx, l4policy, ext_err, proxy_port);
 	}
 
 	if (likely(policy)) {
 		*match_type = POLICY_MATCH_L3_ONLY;		/* 5. id/ANY/ANY */
-		goto policy_check_entry;
+		return __account_and_check(ctx, policy, ext_err, proxy_port);
 	}
 
 	if (likely(l4policy)) {
 		*match_type = POLICY_MATCH_ALL;			/* 6. ANY/ANY/ANY */
-		policy = l4policy;
-		goto policy_check_entry;
+		return __account_and_check(ctx, l4policy, ext_err, proxy_port);
 	}
 
 	/* TODO: Consider skipping policy lookup in this case? */
@@ -183,20 +192,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		return DROP_FRAG_NOSUPPORT;
 
 	return DROP_POLICY;
-
-policy_check_entry:
-	account(ctx, policy);
-
-	if (unlikely(policy->deny))
-		return DROP_POLICY_DENY;
-
-	*proxy_port = policy->proxy_port;
-	if (unlikely(policy->auth_type)) {
-		if (ext_err)
-			*ext_err = (__s8)policy->auth_type;
-		return DROP_POLICY_AUTH_REQUIRED;
-	}
-	return CTX_ACT_OK;
 }
 
 /**
