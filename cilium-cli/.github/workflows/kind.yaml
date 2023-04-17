@@ -221,3 +221,146 @@ jobs:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
           retention-days: 5
+
+  helm-upgrade-clustermesh:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+
+    env:
+      CILIUM_CLI_MODE: helm
+      KIND_CONFIG_1: .github/kind-config-1.yaml
+      KIND_CONFIG_2: .github/kind-config-2.yaml
+      # helm/kind-action will override the "name:" provided in the kind config with "chart-testing" unless these are
+      # specified as inputs. These must also match the suffix here for CLUSTER1 and CLUSTER2.
+      CLUSTER_NAME_1: c1
+      CLUSTER_NAME_2: c2
+      CLUSTER1: kind-c1
+      CLUSTER2: kind-c2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
+
+      - name: Install kubectl
+        run: |
+          curl -sLO "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
+          curl -sLO "https://dl.k8s.io/${{ env.kubectl_version }}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Set up Go
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9
+        with:
+          go-version: 1.20.2
+
+      - name: Set up Go for root
+        run: |
+          sudo ln -sf `which go` `sudo which go` || true
+          sudo go version
+
+      - name: Build and install cilium CLI binary
+        run: sudo make install
+
+      - name: Create kind cluster 1
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
+        with:
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG_1 }}
+          cluster_name: ${{ env.CLUSTER_NAME_1 }}
+
+      - name: Install Cilium on cluster 1
+        run: |
+          cilium install --context $CLUSTER1 \
+            --version=${{ env.cilium_version }} \
+            --wait=true \
+            --helm-set bpf.monitorAggregation=none \
+            --helm-set cni.chainingMode=portmap \
+            --helm-set cluster.id=1 \
+            --helm-set cluster.name=cluster1
+
+      - name: Create kind cluster 2
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
+        with:
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG_2 }}
+          cluster_name: ${{ env.CLUSTER_NAME_2 }}
+
+      - name: Install Cilium on cluster 2
+        run: |
+          cilium install --context $CLUSTER2 \
+            --version=${{ env.cilium_version }} \
+            --wait=true \
+            --helm-set bpf.monitorAggregation=none \
+            --helm-set cni.chainingMode=portmap \
+            --helm-set cluster.id=2 \
+            --helm-set cluster.name=cluster2
+
+      - name: Enable ClusterMesh on cluster 1 using helm-based upgrade
+        run: |
+          cilium upgrade --reuse-values --context $CLUSTER1 \
+            --wait=true \
+            --helm-set clustermesh.useAPIServer=true \
+            --helm-set clustermesh.apiserver.service.type=NodePort
+
+      - name: Copy CA cert from cluster 1 to cluster 2
+        run: |
+          kubectl --context $CLUSTER2 delete secret -n kube-system cilium-ca && \
+          kubectl --context $CLUSTER1 get secrets -n kube-system cilium-ca -oyaml \
+            | kubectl --context $CLUSTER2 apply -f -
+          # Restart Cilium on cluster 2
+          kubectl --context $CLUSTER2 delete pod -l app.kubernetes.io/part-of=cilium -A
+
+      - name: Enable ClusterMesh on cluster 2 using helm-based upgrade
+        run: |
+          cilium upgrade --reuse-values --context $CLUSTER2 \
+            --wait=true \
+            --helm-set clustermesh.useAPIServer=true \
+            --helm-set clustermesh.apiserver.service.type=NodePort
+
+      - name: Rename the secrets expected by the clustermesh connect command
+        run: |
+          kubectl get secrets --context $CLUSTER1 \
+            -n kube-system clustermesh-apiserver-remote-cert -oyaml \
+              | sed 's/name: .*/name: clustermesh-apiserver-client-cert/' \
+              | kubectl apply --context $CLUSTER1 -f -
+          kubectl get secrets --context $CLUSTER2 \
+            -n kube-system clustermesh-apiserver-remote-cert -oyaml \
+              | sed 's/name: .*/name: clustermesh-apiserver-client-cert/' \
+              | kubectl apply --context $CLUSTER2 -f -
+
+      - name: Connect the two clusters using clustermesh
+        run: |
+          cilium clustermesh connect --context $CLUSTER1 --destination-context $CLUSTER2
+          cilium clustermesh status --context $CLUSTER1 --wait
+
+      - name: Run the multicluster connectivity tests
+        run: |
+          cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug --collect-sysdump-on-failure
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          cilium --context $CLUSTER1 status
+          kubectl --context $CLUSTER1 get pods --all-namespaces -o wide
+          cilium --context $CLUSTER1 sysdump --output-filename cilium-sysdump-out-c1
+          cilium --context $CLUSTER2 status
+          kubectl --context $CLUSTER2 get pods --all-namespaces -o wide
+          cilium --context $CLUSTER2 sysdump --output-filename cilium-sysdump-out-c2
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload sysdump from cluster 1
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        with:
+          name: cilium-sysdump-out-c1.zip
+          path: cilium-sysdump-out-c1.zip
+          retention-days: 5
+
+      - name: Upload sysdump from cluster 2
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        with:
+          name: cilium-sysdump-out-c2.zip
+          path: cilium-sysdump-out-c2.zip
+          retention-days: 5
