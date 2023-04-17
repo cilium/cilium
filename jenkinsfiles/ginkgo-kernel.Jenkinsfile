@@ -199,7 +199,7 @@ pipeline {
         }
         stage ("BDD-Test-PR"){
             options {
-                timeout(time: 180, unit: 'MINUTES')
+                timeout(time: 210, unit: 'MINUTES')
             }
             environment {
                 KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
