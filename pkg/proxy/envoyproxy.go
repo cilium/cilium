@@ -6,7 +6,9 @@ package proxy
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -45,7 +47,44 @@ func initEnvoy(runDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGro
 				xdsServer.AddMetricsListener(uint16(option.Config.ProxyPrometheusPort), wg)
 			}
 		}
+
+		if envoyAdminClient != nil && !option.Config.DisableEnvoyVersionCheck {
+			if err := checkEnvoyVersion(); err != nil {
+				log.WithError(err).Error("Envoy: Version check failed")
+			}
+		}
 	})
+}
+
+func checkEnvoyVersion() error {
+	const versionRetryAttempts = 20
+	const versionRetryWait = 500 * time.Millisecond
+
+	// Retry is necessary because Envoy might not be ready yet
+	for i := 0; i <= versionRetryAttempts; i++ {
+		envoyVersion, err := envoyAdminClient.GetEnvoyVersion()
+		if err != nil {
+			if i < versionRetryAttempts {
+				log.Info("Envoy: Unable to retrieve Envoy version - retry")
+				time.Sleep(versionRetryWait)
+				continue
+			}
+			return fmt.Errorf("failed to retrieve Envoy version: %w", err)
+		}
+
+		log.Infof("Envoy: Version %s", envoyVersion)
+
+		// Make sure Envoy version matches ours
+		if !strings.HasPrefix(envoyVersion, envoy.RequiredEnvoyVersionSHA) {
+			log.Errorf("Envoy: Envoy version %s does not match with required version %s, aborting.",
+				envoyVersion, envoy.RequiredEnvoyVersionSHA)
+		}
+
+		log.Debugf("Envoy: Envoy version %s is matching required version %s", envoyVersion, envoy.RequiredEnvoyVersionSHA)
+		return nil
+	}
+
+	return nil
 }
 
 // createEnvoyRedirect creates a redirect with corresponding proxy

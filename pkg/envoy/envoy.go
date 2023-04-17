@@ -5,6 +5,9 @@ package envoy
 
 import (
 	"bufio"
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -30,7 +33,7 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "envoy-manager")
 var (
 	// RequiredEnvoyVersionSHA is set during build
 	// Running Envoy version will be checked against `RequiredEnvoyVersionSHA`.
-	// By default cilium-agent will fail to start if there is a version mismatch.
+	// By default, cilium-agent will fail to start if there is a version mismatch.
 	RequiredEnvoyVersionSHA string
 
 	// envoyLevelMap maps logrus.Level values to Envoy (spdlog) log levels.
@@ -118,21 +121,46 @@ func (a *EnvoyAdminClient) quit() error {
 	return a.transact("quitquitquit")
 }
 
+// GetEnvoyVersion returns the envoy binary version string
+func (a *EnvoyAdminClient) GetEnvoyVersion() (string, error) {
+	// Use a custom dialer to use a Unix domain socket for a HTTP connection.
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) { return net.Dial("unix", a.unixPath) },
+		},
+	}
+
+	resp, err := client.Get(fmt.Sprintf("%s%s", a.adminURL, "server_info"))
+	if err != nil {
+		return "", fmt.Errorf("failed to call ServerInfo endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := safeio.ReadAllLimit(resp.Body, safeio.MB)
+	if err != nil {
+		return "", fmt.Errorf("failed to read ServerInfo response: %w", err)
+	}
+
+	serverInfo := map[string]interface{}{}
+	if err := json.Unmarshal(body, &serverInfo); err != nil {
+		return "", fmt.Errorf("failed to parse ServerInfo: %w", err)
+	}
+
+	version, ok := serverInfo["version"]
+
+	if !ok {
+		return "", errors.New("failed to read version from ServerInfo")
+	}
+
+	return fmt.Sprintf("%s", version), nil
+}
+
 // Envoy manages a running Envoy proxy instance via the
 // ListenerDiscoveryService and RouteDiscoveryService gRPC APIs.
 type EmbeddedEnvoy struct {
 	stopCh chan struct{}
 	errCh  chan error
 	admin  *EnvoyAdminClient
-}
-
-// GetEnvoyVersion returns the envoy binary version string
-func GetEnvoyVersion() string {
-	out, err := exec.Command(ciliumEnvoy, "--version").Output()
-	if err != nil {
-		log.WithError(err).Fatalf("Envoy: Binary %q cannot be executed", ciliumEnvoy)
-	}
-	return strings.TrimSpace(string(out))
 }
 
 // StartEmbeddedEnvoy starts an Envoy proxy instance.
