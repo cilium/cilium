@@ -690,6 +690,38 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting the Cilium Envoy configuration",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumNamespace, ciliumEnvoyConfigMapName, metav1.GetOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect the Cilium Envoy configuration: %w", err)
+				}
+				if err := c.WriteYAML(ciliumEnvoyConfigMapFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium Envoy configuration: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Cilium Envoy daemonset",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetDaemonSet(ctx, c.Options.CiliumNamespace, ciliumEnvoyDaemonSetName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("Daemonset %q not found in namespace %q - this is expected if Envoy DaemonSet is not enabled", ciliumEnvoyDaemonSetName, c.Options.CiliumNamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cilium Envoy daemonset: %w", err)
+				}
+				if err := c.WriteYAML(ciliumEnvoyDaemonsetFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium Envoy daemonset: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting the Hubble daemonset",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
