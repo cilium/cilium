@@ -65,7 +65,13 @@ spec:
         args:
         - '-c /var/run/cilium/envoy/bootstrap-config.json'
         - '--base-id 0'
+        {{- if and (hasKey .Values.debug "verbose") (.Values.debug.verbose) (has "envoy" ( splitList "," .Values.debug.verbose )) }}
+        - '--log-level trace'
+        {{- else if and (.Values.debug.enabled) (hasKey .Values.debug "verbose") (.Values.debug.verbose) (has "flow" ( splitList "," .Values.debug.verbose )) }}
+        - '--log-level debug'
+        {{- else }}
         - '--log-level info'
+        {{- end }}
         - '--log-format {{ .Values.envoy.log.format }}'
         {{- if .Values.envoy.log.path }}
         - '--log-path {{ .Values.envoy.log.path }}'
