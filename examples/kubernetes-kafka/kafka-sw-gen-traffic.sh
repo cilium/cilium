@@ -1,4 +1,4 @@
-#/bin/bash
+#!/usr/bin/env bash
 
 
 HQ_POD=$(kubectl get pods -l app=empire-hq -o jsonpath='{.items[0].metadata.name}')

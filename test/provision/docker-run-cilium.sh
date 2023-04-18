@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # all args are passed as cilium-agent options (except for "uninstall" below)
 CILIUM_OPTS=$@
