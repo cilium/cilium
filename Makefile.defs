@@ -138,26 +138,9 @@ BPF_SRCFILES := $(filter-out $(BPF_SRCFILES_IGNORE),$(subst ../,,$(subst $(ROOT_
 CILIUM_DATAPATH_SHA256=$(shell cd $(ROOT_DIR); cat $(BPF_SRCFILES) | sha256sum | awk '{print $$1}')
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA256=$(CILIUM_DATAPATH_SHA256)"
 
-# Set -mod=vendor if running >= go 1.13 or if GO111MODULE is set.
-# A go build is being executed with go modules if:
-# * The go command is invoked with GO111MODULE=on environment variable set.
-# * The go command is invoked in a directory outside of the $GOPATH/src tree
-#   and the environment variable GO111MODULE unset (or explicitly set to 'auto').
-ifeq ($(GO111MODULE),on)
-    GO_BUILD_FLAGS += -mod=vendor
-    GO_TEST_FLAGS += -mod=vendor
-    GO_CLEAN_FLAGS += -mod=vendor
-else
-    GO_MAJOR_VERSION_GE_1 := $(shell expr `$(GO) version | grep -E 'go[0-9]+' -o | sed 's/go//g'` \>= 1)
-    ifeq ($(GO_MAJOR_VERSION_GE_1),1)
-        GO_MINOR_VERSION_GE_13 := $(shell expr `$(GO) version | grep -E 'go[^ ]+' -o | sed 's/go1.//g'` \>= 13)
-        ifeq ($(GO_MINOR_VERSION_GE_13),1)
-            GO_BUILD_FLAGS += -mod=vendor
-            GO_TEST_FLAGS += -mod=vendor
-            GO_CLEAN_FLAGS += -mod=vendor
-        endif
-    endif
-endif
+GO_BUILD_FLAGS += -mod=vendor
+GO_TEST_FLAGS += -mod=vendor
+GO_CLEAN_FLAGS += -mod=vendor
 
 GO_BUILD = CGO_ENABLED=0 $(GO) build
 
