@@ -69,11 +69,12 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 }
 
 func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
-	if value, ok := svc.ObjectMeta.Annotations[v1.DeprecatedAnnotationTopologyAwareHints]; ok {
-		return strings.ToLower(value) == "auto"
+	// v1.DeprecatedAnnotationTopologyAwareHints has precedence over v1.AnnotationTopologyMode.
+	value, ok := svc.ObjectMeta.Annotations[v1.DeprecatedAnnotationTopologyAwareHints]
+	if !ok {
+		value = svc.ObjectMeta.Annotations[v1.AnnotationTopologyMode]
 	}
-
-	return false
+	return strings.ToLower(value) == "auto"
 }
 
 // isValidServiceFrontendIP returns true if the provided service frontend IP address type
