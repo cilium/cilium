@@ -346,7 +346,6 @@ Makefile* @cilium/build
 /examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /FURTHER_READINGS.rst @cilium/docs-structure
 /hack/ @cilium/tophat
-/GO_VERSION @cilium/sig-agent
 *.Jenkinsfile @cilium/ci-structure
 /hubble-relay/ @cilium/sig-hubble
 /images @cilium/build
