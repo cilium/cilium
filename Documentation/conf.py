@@ -74,7 +74,8 @@ versionwarning_body_selector = "div.document"
 versionwarning_api_url = "https://docs.cilium.io/"
 
 # The version of Go used to compile Cilium
-go_release = open("../GO_VERSION", "r").read().strip()
+go_mod = open("../go.mod", "r").readlines()
+go_release = [line.rstrip()[len("go "):] for line in go_mod if line.startswith("go ")][0]
 
 # The image tag for Cilium docker images
 image_tag = 'v' + release
