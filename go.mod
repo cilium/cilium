@@ -93,6 +93,7 @@ require (
 	go.universe.tf/metallb v0.11.0
 	golang.org/x/crypto v0.14.0
 	golang.org/x/exp v0.0.0-20221106115401-f9659909a136
+	golang.org/x/mod v0.10.0
 	golang.org/x/net v0.17.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.13.0
@@ -231,7 +232,6 @@ require (
 	go.mongodb.org/mongo-driver v1.10.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
-	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
