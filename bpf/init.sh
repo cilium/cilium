@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 # Copyright Authors of Cilium
 
-LIB=${1}
+# LIB=${1}
 RUNDIR=${2}
 PROCSYSNETDIR=${3}
 SYSCLASSNETDIR=${4}
@@ -23,13 +23,11 @@ MTU=${13}
 # BPFFS_ROOT=${17}
 NODE_PORT=${18}
 # NODE_PORT_BIND=${19}
-MCPU=${20}
-NR_CPUS=${21}
+# MCPU=${20}
+# NR_CPUS=${21}
 ENDPOINT_ROUTES=${22}
 PROXY_RULE=${23}
-FILTER_PRIO=${24}
-
-ID_WORLD=2
+# FILTER_PRIO=${24}
 
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
@@ -42,9 +40,6 @@ set -o pipefail
 
 # Remove old legacy files
 rm $RUNDIR/encap.state 2> /dev/null || true
-
-# This directory was created by the daemon and contains the per container header file
-DIR="$PWD/globals"
 
 function setup_dev()
 {
