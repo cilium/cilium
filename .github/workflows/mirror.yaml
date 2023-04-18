@@ -1,17 +1,20 @@
 on:
-  push:
-    branches:
-      - 'main'
+  # Allow to run manually via GitHub UI
+  workflow_dispatch: {}
+  # Additionally run once a day at midnight
+  schedule:
+    - cron:  '0 0 * * *'
 
 jobs:
   mirror_job:
     runs-on: ubuntu-latest
+    environment: mirror
     name: Mirror main branch to master branch
     steps:
     - name: Mirror action step
       id: mirror
       uses: google/mirror-branch-action@c6b07e441a7ffc5ae15860c1d0a8107a3a151db8
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ secrets.MIRROR_API_TOKEN }}
         source: 'main'
         dest: 'master'
