@@ -43,7 +43,6 @@ JOB_BASE_NAME ?= cilium_test
 
 GO_VERSION := $(shell cat GO_VERSION)
 GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?/\1.\2/' GO_VERSION)
-GO_IMAGE_VERSION := $(shell awk -F. '{ z=$$3; if (z == "") z=0; print $$1 "." $$2 "." z}' GO_VERSION)
 GO_INSTALLED_MAJOR_AND_MINOR_VERSION := $(shell $(GO) version | sed 's/go version go\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?.*/\1.\2/')
 
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
@@ -662,9 +661,6 @@ update-go-version: ## Update Go version for all the components (images, CI, dev-
 	# Update dev-doctor Go version.
 	$(QUIET) sed -i 's/^const minGoVersionStr = ".*"/const minGoVersionStr = "$(GO_MAJOR_AND_MINOR_VERSION)"/' tools/dev-doctor/config.go
 	@echo "Updated go version in tools/dev-doctor to $(GO_MAJOR_AND_MINOR_VERSION)"
-	# Update Go version in GitHub action config.
-	$(QUIET) for fl in $(shell find .github/workflows -name "*.yaml" -print) ; do sed -i 's/go-version: .*/go-version: $(GO_IMAGE_VERSION)/g' $$fl ; done
-	@echo "Updated go version in GitHub Actions to $(GO_IMAGE_VERSION)"
 	# Update Go version in main.go.
 	$(QUIET) for fl in $(shell find .  -name main.go -not -path "./vendor/*" -print); do \
 		sed -i \
