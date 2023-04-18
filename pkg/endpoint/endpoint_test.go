@@ -45,10 +45,9 @@ func Test(t *testing.T) { TestingT(t) }
 
 type EndpointSuite struct {
 	regeneration.Owner
-	repo             *policy.Repository
-	compilationMutex *lock.RWMutex
-	datapath         datapath.Datapath
-	mgr              fakeIdentityAllocator
+	repo     *policy.Repository
+	datapath datapath.Datapath
+	mgr      fakeIdentityAllocator
 
 	// Owners interface mock
 	OnGetPolicyRepository     func() *policy.Repository
