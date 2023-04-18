@@ -81,6 +81,6 @@ RUN /test/bin/cst
 
 # this image is large, and re-using layers is beneficial,
 # so final images is not squashed
-FROM rootfs
+FROM rootfs as release
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
