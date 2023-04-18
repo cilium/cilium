@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
@@ -315,7 +313,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		o.SetPrefilter(preFilter)
 	}
 
-	args[initArgLib] = option.Config.BpfDir
+	args[initArgLib] = "<nil>"
 	args[initArgRundir] = option.Config.StateDir
 
 	if option.Config.EnableIPv4 {
@@ -392,8 +390,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initArgNodePortBind] = "<nil>"
 
-	args[initBPFCPU] = GetBPFCPU()
-	args[initArgNrCPUs] = fmt.Sprintf("%d", common.GetNumPossibleCPUs(log))
+	args[initBPFCPU] = "<nil>"
+	args[initArgNrCPUs] = "<nil>"
 
 	if option.Config.EnableEndpointRoutes {
 		args[initArgEndpointRoutes] = "true"
@@ -430,7 +428,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgProxyRule] = "false"
 	}
 
-	args[initTCFilterPriority] = strconv.Itoa(int(option.Config.TCFilterPriority))
+	args[initTCFilterPriority] = "<nil>"
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
