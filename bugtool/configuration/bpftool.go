@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	dump "github.com/cilium/cilium/bugtool/dump"
+	"github.com/cilium/cilium/bugtool/options"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -17,17 +18,24 @@ const bpftoolMapDumpPrefix = "bpftool-map-dump-pinned-"
 // GenerateBPFToolTasks returns all tasks related to bpftool, including:
 // * Dumping pinned bpf maps (using bpftool).
 // * Listing bpf maps/programs/network-iface attachments.
-func GenerateBPFToolTasks() dump.Tasks {
-	ts := dump.Tasks{
-		newBPFMapTask("map", "show"),
-		newBPFMapTask("prog", "show"),
-		newBPFMapTask("net", "show"),
+func GenerateBPFToolTasks(conf *options.Config) (misc, maps dump.Tasks) {
+	misc = append(misc,
+		newBPFMapTask(true, "map", "show"),
+		newBPFMapTask(true, "prog", "show"),
+		newBPFMapTask(true, "net", "show"),
+	)
+	if conf.HumanReadable {
+		misc = append(misc,
+			newBPFMapTask(false, "map", "show"),
+			newBPFMapTask(false, "prog", "show"),
+			newBPFMapTask(false, "net", "show"),
+		)
 	}
 
 	var mountpoint string
 	if bpffsMountpoint, err := bpffsMountpoint(); err == nil {
 		mountpoint = bpffsMountpoint
-		ts = append(ts, mapDumpPinned(mountpoint,
+		mapNames := []string{
 			"cilium_call_policy",
 			"cilium_calls_overlay_2",
 			"cilium_capture_cache",
@@ -85,28 +93,44 @@ func GenerateBPFToolTasks() dump.Tasks {
 			"cilium_ct_any6_global",
 			"cilium_snat_v4_external",
 			"cilium_snat_v6_external",
-		)...)
+		}
+		maps = append(maps, mapDumpPinned(true, mountpoint, mapNames...)...)
+		if conf.HumanReadable {
+			maps = append(maps, mapDumpPinned(false, mountpoint, mapNames...)...)
+		}
 	} else {
 		log.Fatalf("could not generate bpftool commands: could not detect bpf fs mountpoint: %v", err)
 	}
-	return ts
+	return misc, maps
 }
 
-func mapDumpPinned(mountPoint string, mapNames ...string) dump.Tasks {
+func mapDumpPinned(json bool, mountPoint string, mapNames ...string) dump.Tasks {
 	rs := dump.Tasks{}
 	for _, mapName := range mapNames {
 		fname := fmt.Sprintf("%s/tc/globals/%s", mountPoint, mapName)
-		rs = append(rs, dump.NewExec(
-			bpftoolMapDumpPrefix+mapName,
-			"json",
-			"bpftool",
-			"map", "dump", "pinned", fname, "-j",
-		))
+		if json {
+			rs = append(rs, dump.NewExec(
+				bpftoolMapDumpPrefix+mapName,
+				"json",
+				"bpftool",
+				"map", "dump", "pinned", fname, "-j",
+			))
+		} else {
+			rs = append(rs, dump.NewExec(
+				bpftoolMapDumpPrefix+mapName,
+				"md",
+				"bpftool",
+				"map", "dump", "pinned", fname,
+			))
+		}
 	}
 
 	return rs
 }
 
-func newBPFMapTask(args ...string) dump.Task {
+func newBPFMapTask(json bool, args ...string) dump.Task {
+	if !json {
+		return dump.NewExec("bpftool-"+strings.Join(args, "-"), "md", "bpftool", args...)
+	}
 	return dump.NewExec("bpftool-"+strings.Join(args, "-"), "json", "bpftool", append(args, "-j")...)
 }

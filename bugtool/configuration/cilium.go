@@ -5,41 +5,24 @@ package configuration
 
 import (
 	dump "github.com/cilium/cilium/bugtool/dump"
+	"github.com/cilium/cilium/bugtool/options"
 )
-
-func CiliumTasks() dump.Tasks {
-	ts := dump.Tasks{}
-	for _, cmd := range ciliumCommandsJSON() {
-		ts = append(ts, createExecFromString(cmd, "json"))
-	}
-	return ts
-}
-
-func ciliumCommandsJSON() []string {
-	var commands []string
-	generators := []func() []string{
-		CiliumAgentAPICLICommands,
-	}
-
-	for _, generator := range generators {
-		commands = append(commands, generator()...)
-	}
-
-	return commands
-}
 
 // CiliumAgentAPICLICommands returns a list of all dump commands that use the
 // Ciliums Agent CLI binary to dump data from the Agents API.
-func CiliumAgentAPICLICommands() []string {
-	commands := []string{
-		"cilium debuginfo --output=json", // debuginfo uses different output flag format.
+func CiliumTasks(conf *options.Config) dump.Tasks {
+	ts := dump.Tasks{
+		createExecFromString("cilium debuginfo --output json", "json"),
 	}
+	if conf.HumanReadable {
+		ts = append(ts, createExecFromString("cilium debuginfo", "md"))
+	}
+
 	// TODO: Many of these are redundant with debuginfo, clean them up.
 	for _, cmd := range []string{
 		"cilium metrics list",
 		"cilium fqdn cache list",
 		"cilium config -a",
-		"cilium encrypt status",
 		"cilium endpoint list",
 		"cilium bpf bandwidth list",
 		"cilium bpf tunnel list",
@@ -76,9 +59,15 @@ func CiliumAgentAPICLICommands() []string {
 		"cilium policy selectors",
 		"cilium node list",
 		"cilium lrp list",
-		"cilium cgroups list",
 	} {
-		commands = append(commands, cmd+" -o json")
+		ts = append(ts, createExecFromString(cmd+" -o json", "json"))
+		if conf.HumanReadable {
+			ts = append(ts, createExecFromString(cmd, "md"))
+		}
 	}
-	return commands
+
+	// Does not support json output.
+	ts = append(ts, createExecFromString("cilium encrypt status", "md"))
+	ts = append(ts, createExecFromString("cilium cgroups list", "md"))
+	return ts
 }

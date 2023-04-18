@@ -18,6 +18,8 @@ import (
 const DefaultDumpPath = "/tmp"
 
 type Config struct {
+	HumanReadable bool `mapstructure:"human-readable"`
+
 	Archive           bool          `mapstructure:"archive"`
 	ArchiveName       string        `mapstructure:"archive-name"`
 	ArchiveType       string        `mapstructure:"archiveType"`
@@ -44,11 +46,13 @@ type Config struct {
 }
 
 var (
-	DefaultTopics = []string{"bpfmaps", "agent", "system", "envoy"}
+	DefaultTopics = []string{"bpf", "agent", "system", "envoy"}
 	AllTopics     = append(DefaultTopics, "envoy")
 )
 
 func (bugtoolConf *Config) Flags(flags *pflag.FlagSet) {
+	flags.BoolVarP(&bugtoolConf.HumanReadable, "human-readable", "H", true, "Print output in human readable format (default: true)")
+
 	// Dump tasks
 	flags.StringSliceVar(&bugtoolConf.Topics, "topics", DefaultTopics, fmt.Sprintf("Select dump tasks to run by available topics: %v", AllTopics))
 

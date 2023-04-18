@@ -30,13 +30,14 @@ cilium-bugtool [OPTIONS] [flags]
       --exec-timeout duration     The default timeout for any cmd execution in seconds (default 30s)
       --generate                  Create configuration file of all commands that would have been executed
   -h, --help                      help for cilium-bugtool
+  -H, --human-readable            Print output in human readable format (default: true) (default true)
       --parallel-workers int      Maximum number of parallel worker tasks, use 0 for number of CPUs
       --pprof-debug int           Debug pprof args (default 1)
       --pprof-port int            Pprof port to connect to. Known Cilium component ports are agent:6060, operator:6061, apiserver:6063 (default 6060)
       --pprof-trace-seconds int   Amount of seconds used for pprof CPU traces (default 180)
       --timeout duration          Dump timeout seconds (default 30s)
   -t, --tmp string                Path to store extracted files. Use '-' to send to stdout. (default "/tmp")
-      --topics strings            Select dump tasks to run by available topics: [bpfmaps agent system envoy envoy] (default [bpfmaps,agent,system,envoy])
+      --topics strings            Select dump tasks to run by available topics: [bpf agent system envoy envoy] (default [bpf,agent,system,envoy])
       --wait                      Wait for agent to be ready before attempting dump, avoids trying to get data that hasn't been initialized yet (default true)
       --wait-timeout duration     Timeout to use while waiting for agent to be ready (default 20s)
 ```

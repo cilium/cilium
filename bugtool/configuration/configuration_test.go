@@ -42,7 +42,7 @@ func TestDefaultConfiguration(t *testing.T) {
 
 func TestGenerateTaskName(t *testing.T) {
 	assert := assert.New(t)
-	assert.Equal("bpftool-map-dump-pinned_foo_bar", GenerateTaskName("bpftool map dump pinned /foo/bar --json"))
-	assert.Equal("cilium-map-list", GenerateTaskName("cilium map list --foo"))
-	assert.Equal("ip-l", GenerateTaskName("ip -j -d -s l"))
+	assert.Equal("bpftool-map-dump-pinned_foo_bar-json", GenerateTaskName("bpftool map dump pinned /foo/bar --json"))
+	assert.Equal("cilium-map-list-foo", GenerateTaskName("cilium map list --foo"))
+	assert.Equal("ip-j-d-s-link", GenerateTaskName("ip -j -d -s link"))
 }

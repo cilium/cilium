@@ -68,11 +68,10 @@ func CreateDump(conf *options.Config) dump.Task {
 		// as well as a list of bpf maps/attachments/programs.
 		//
 		// Anything dumped with 'bpftool' should go in here.
-		case "bpfmaps":
+		case "bpf":
 			// bpfmaps is a dump of Cilium related bpf maps.
-			ts = append(ts,
-				dump.NewDir("bpfmaps", GenerateBPFToolTasks()),
-			)
+			misc, maps := GenerateBPFToolTasks(conf)
+			ts = append(ts, dump.NewDir("bpf", append(misc, dump.NewDir("maps", maps))))
 
 		// Agent contains output from cilium agent commands (i.e. cilium agent API).
 		// It also includes state data.
@@ -82,7 +81,7 @@ func CreateDump(conf *options.Config) dump.Task {
 			// agent is dumps of data gathered directly from the
 			// Cilium Agent.
 			ts = append(ts,
-				dump.NewDir("agent", CiliumTasks()),
+				dump.NewDir("agent", CiliumTasks(conf)),
 			)
 			fallthrough
 
@@ -101,11 +100,10 @@ func CreateDump(conf *options.Config) dump.Task {
 		// Command output is organized by structured/unstructured for commands
 		// that has a easily parsable output (i.e. JSON, YAML) and anything else.
 		case "system":
-			logs, unstructured, structured := defaultResources()
+			logs, cmds := defaultResources(conf)
 			// system contains system level dumps.
 			ts = append(ts, dump.NewDir("system", dump.Tasks{
-				dump.NewDir("structured", structured),
-				dump.NewDir("unstructured", unstructured),
+				dump.NewDir("cmd", cmds),
 				dump.NewDir("logs", logs),
 				dump.NewDir("files", systemFileDumps()),
 			}))
@@ -131,25 +129,27 @@ func CreateDump(conf *options.Config) dump.Task {
 	return dump.NewDir("", ts)
 }
 
-func defaultResources() (logs, unstructured, structured dump.Tasks) {
+func defaultResources(conf *options.Config) (logs, cmds dump.Tasks) {
 	for _, cmd := range unstructuredCommands() {
-		unstructured = append(unstructured, createExecFromString(cmd, "txt"))
+		cmds = append(cmds, createExecFromString(cmd, "txt"))
 	}
 
-	structured = append(structured, jsonStructuredCommands()...)
-	structured = append(structured, tcCommands()...)
+	cmds = append(cmds, iproute2Commands(conf)...)
+	cmds = append(cmds, tcCommands(conf)...)
 
+	cmds = append(cmds, routeCommands(conf)...)
+
+	// Note: JSON output is not currently supported for xfrm state/policy output.
 	xfrmState := createExecFromString("ip -s xfrm state", "md")
 	xfrmPolicy := createExecFromString("ip -s xfrm policy", "md")
+	// These ca
 	xfrmState.HashEncryptionKeys = true
 	xfrmPolicy.HashEncryptionKeys = true
-	unstructured = append(unstructured, xfrmState, xfrmPolicy)
 
-	for _, cmd := range logCommands() {
-		logs = append(logs, createExecFromString(cmd, "log"))
-	}
+	cmds = append(cmds, xfrmState, xfrmPolicy)
 
-	structured = append(structured, routeCommands()...)
+	logs = logCommands()
+
 	return
 }
 
@@ -214,7 +214,7 @@ func GenerateTaskName(cmdStr string) string {
 			continue
 		default:
 			if strings.HasPrefix(tok, "-") {
-				continue
+				tok = strings.TrimPrefix(strings.TrimPrefix(tok, "-"), "-")
 			}
 			if name == "" {
 				name = tok
@@ -277,14 +277,32 @@ func systemFileDumps() []dump.Task {
 }
 
 // routeCommands gets the routes tables dynamically.
-func routeCommands() []dump.Task {
+func routeCommands(conf *options.Config) []dump.Task {
 	// oneline script gets table names for all devices, then dumps either ip4/ip6 route tables.
-	routesScript := "for table in $(ip --json %s route show table all | jq -r '.[] | select(.table != null) | select(.table != \"local\") | .table'); do ip --json %s route show table $table ; done"
+	routesScript := "for table in $(ip %s %s route show table all | jq -r '.[] | select(.table != null) | select(.table != \"local\") | .table'); do ip %s %s route show table $table ; done"
 	var commands []dump.Task
+	args := func(ip6, json bool) []string {
+		ipv := "-4"
+		if ip6 {
+			ipv = "-6"
+		}
+		jsonStr := ""
+		if json {
+			jsonStr = "--json"
+		}
+		return []string{"-c", fmt.Sprintf(routesScript, jsonStr, ipv, jsonStr, ipv)}
+	}
+
 	commands = append(commands,
-		dump.NewExec("ip4-route-tables", "json", "bash", []string{"-c", fmt.Sprintf(routesScript, "-4", "-4")}...),
-		dump.NewExec("ip6-route-tables", "json", "bash", []string{"-c", fmt.Sprintf(routesScript, "-6", "-6")}...),
+		dump.NewExec("ip4-route-tables", "json", "bash", args(false, true)...),
+		dump.NewExec("ip6-route-tables", "json", "bash", args(true, true)...),
 	)
+	if conf.HumanReadable {
+		commands = append(commands,
+			dump.NewExec("ip4-route-tables-human", "json", "bash", args(false, false)...),
+			dump.NewExec("ip6-route-tables-human", "json", "bash", args(true, false)...),
+		)
+	}
 	return commands
 }
 
@@ -316,9 +334,9 @@ func humanReadableCommands() []string {
 	}
 }
 
-func logCommands() []string {
-	return []string{
-		"dmesg --time-format=iso",
+func logCommands() dump.Tasks {
+	return dump.Tasks{
+		createExecFromString("dmesg --time-format=iso", "log"),
 	}
 }
 
@@ -336,31 +354,37 @@ func tableStructuredCommands() []string {
 	}
 }
 
-func tcCommands() dump.Tasks {
+func tcCommands(conf *options.Config) dump.Tasks {
 	ts := dump.Tasks{}
 	for _, c := range []string{
-		// tc
-		"tc -j -s qdisc show", // Show statistics on queuing disciplines
+		// tc: all these commands work with the -j (json) flag.
+		"-s qdisc show", // Show statistics on queuing disciplines
 	} {
-		ts = append(ts, createExecFromString(c, "json"))
+		ts = append(ts, createExecFromString(fmt.Sprintf("tc -j %s", c), "json"))
+		if conf.HumanReadable {
+			ts = append(ts, createExecFromString(fmt.Sprintf("tc %s", c), "md"))
+		}
 	}
 	return ts
 }
 
-// Contains commands that output json.
-func jsonStructuredCommands() dump.Tasks {
+// Contains iproute commands that output json
+func iproute2Commands(conf *options.Config) dump.Tasks {
 	ts := dump.Tasks{}
 	for _, c := range []string{
-		// ip
-		"-j a",
-		"-j -4 r",
-		"-j -6 r",
-		"-j -d -s l",
-		"-j -4 n",
-		"-j -6 n",
-		"--json rule",
+		// ip: all these commands work with the -j (json) flag.
+		"addr",
+		"-4 route",
+		"-6 route",
+		"-d -s link",
+		"-4 neighbor",
+		"-6 neighbor",
+		"rule",
 	} {
-		ts = append(ts, createExecFromString(fmt.Sprintf("ip %s", c), "json"))
+		ts = append(ts, createExecFromString(fmt.Sprintf("ip -j %s", c), "json"))
+		if conf.HumanReadable {
+			ts = append(ts, createExecFromString(fmt.Sprintf("ip %s", c), "txt"))
+		}
 	}
 	return ts
 }
