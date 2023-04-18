@@ -656,14 +656,6 @@ else
 	@$(ECHO_CHECK) "Installed Go version $(GO_INSTALLED_MAJOR_AND_MINOR_VERSION) matches required version $(GO_MAJOR_AND_MINOR_VERSION)"
 endif
 
-update-go-version: ## Update Go version for all the components (images, CI, dev-doctor etc.).
-	# Update Go version in main.go.
-	$(QUIET) for fl in $(shell find .  -name main.go -not -path "./vendor/*" -print); do \
-		sed -i \
-			-e 's|^//go:build go.*|//go:build go$(GO_MAJOR_AND_MINOR_VERSION)|g' \
-			$$fl ; \
-	done
-
 dev-doctor: ## Run Cilium dev-doctor to validate local development environment.
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
 	$(QUIET)$(GO) run ./tools/dev-doctor
