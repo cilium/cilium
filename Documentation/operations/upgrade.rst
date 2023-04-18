@@ -316,6 +316,15 @@ Annotations:
   behavior for a patch release, particularly given that version 1.11 has been in
   use for a considerable period and is expected to be stable.
 
+1.11.16+ Upgrade Notes
+----------------------
+
+* When upgrading from Cilium v1.10 or <v1.11.15 to Cilium >=v1.11.16 with
+  IPsec enabled, packet drops may occur during the upgrade. These drops are
+  expected to stop as soon as the Cilium agent is ready. IPsec error counters
+  ``XfrmInNoStates`` and ``XfrmOutPolBlock`` may increase as a result of these
+  drops.
+
 1.11.15 Upgrade Notes
 ---------------------
 
