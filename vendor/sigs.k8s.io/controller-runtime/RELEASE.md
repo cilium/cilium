@@ -10,7 +10,7 @@ to create a new branch you will just need to ensure that all big fixes are cherr
 
 ### Create the new branch and the release tag
 
-1. Create a new branch `git checkout -b release-<MAJOR.MINOR>` from master
+1. Create a new branch `git checkout -b release-<MAJOR.MINOR>` from main
 2. Push the new branch to the remote repository
 
 ### Now, let's generate the changelog

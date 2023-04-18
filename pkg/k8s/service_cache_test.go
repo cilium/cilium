@@ -1355,7 +1355,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 			Namespace: "bar",
 			Labels:    map[string]string{"foo": "bar"},
 			Annotations: map[string]string{
-				v1.AnnotationTopologyAwareHints: "auto",
+				v1.DeprecatedAnnotationTopologyAwareHints: "auto",
 			},
 		},
 		Spec: slim_corev1.ServiceSpec{

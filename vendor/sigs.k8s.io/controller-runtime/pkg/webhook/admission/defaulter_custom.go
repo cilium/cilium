@@ -34,9 +34,9 @@ type CustomDefaulter interface {
 }
 
 // WithCustomDefaulter creates a new Webhook for a CustomDefaulter interface.
-func WithCustomDefaulter(obj runtime.Object, defaulter CustomDefaulter) *Webhook {
+func WithCustomDefaulter(scheme *runtime.Scheme, obj runtime.Object, defaulter CustomDefaulter) *Webhook {
 	return &Webhook{
-		Handler: &defaulterForType{object: obj, defaulter: defaulter},
+		Handler: &defaulterForType{object: obj, defaulter: defaulter, decoder: NewDecoder(scheme)},
 	}
 }
 
@@ -46,15 +46,11 @@ type defaulterForType struct {
 	decoder   *Decoder
 }
 
-var _ DecoderInjector = &defaulterForType{}
-
-func (h *defaulterForType) InjectDecoder(d *Decoder) error {
-	h.decoder = d
-	return nil
-}
-
 // Handle handles admission requests.
 func (h *defaulterForType) Handle(ctx context.Context, req Request) Response {
+	if h.decoder == nil {
+		panic("decoder should never be nil")
+	}
 	if h.defaulter == nil {
 		panic("defaulter should never be nil")
 	}

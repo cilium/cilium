@@ -98,12 +98,12 @@ func GetConfigWithContext(context string) (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if cfg.QPS == 0.0 {
 		cfg.QPS = 20.0
-		cfg.Burst = 30.0
 	}
-
+	if cfg.Burst == 0 {
+		cfg.Burst = 30
+	}
 	return cfg, nil
 }
 

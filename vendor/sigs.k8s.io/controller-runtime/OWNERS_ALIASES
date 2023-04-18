@@ -22,10 +22,8 @@ aliases:
   # include approvers & admins -- those count too via the OWNERS
   # file)
   controller-runtime-reviewers:
-  - vincepri
   - varshaprasad96
-  - fillzpp
-  - sbueringer
+  - inteon
 
   # folks to can approve things in the directly-ported
   # testing_frameworks portions of the codebase

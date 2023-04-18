@@ -27,9 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/controller-runtime/pkg/internal/field/selector"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/internal/field/selector"
 )
 
 // CacheReader is a client.Reader.
@@ -147,7 +147,7 @@ func (c *CacheReader) List(_ context.Context, out client.ObjectList, opts ...cli
 		}
 		obj, isObj := item.(runtime.Object)
 		if !isObj {
-			return fmt.Errorf("cache contained %T, which is not an Object", obj)
+			return fmt.Errorf("cache contained %T, which is not an Object", item)
 		}
 		meta, err := apimeta.Accessor(obj)
 		if err != nil {
