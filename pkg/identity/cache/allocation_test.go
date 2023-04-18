@@ -192,7 +192,7 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 	watcher.watch(events)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
-	key := &cacheKey.GlobalIdentity{lbls.LabelArray()}
+	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
 
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
