@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/signal"
 )
 
@@ -32,8 +33,6 @@ var Cell = cell.Module(
 		newSignalRegistration,
 		// Null auth handler provides support for auth type "null" - which always succeeds.
 		newNullAuthHandler,
-		// Auth map authenticator provides support to write authentication information into the eBPF auth map
-		newAuthMapAuthenticator,
 		// MTLS auth handler provides support for auth type "mtls-*" - which performs mTLS authentication.
 		newMTLSAuthHandler,
 		// Always fail auth handler provides support for auth type "always-fail" - which always fails.
@@ -51,8 +50,8 @@ func (r config) Flags(flags *pflag.FlagSet) {
 	flags.Int("mesh-auth-queue-size", r.MeshAuthQueueSize, "Queue size for the auth manager")
 }
 
-func newSignalRegistration(sm signal.SignalManager, config config) (<-chan AuthKey, error) {
-	var signalChannel = make(chan AuthKey, config.MeshAuthQueueSize)
+func newSignalRegistration(sm signal.SignalManager, config config) (<-chan signalAuthKey, error) {
+	var signalChannel = make(chan signalAuthKey, config.MeshAuthQueueSize)
 
 	// RegisterHandler registers signalChannel with SignalManager, but flow of events
 	// starts later during the OnStart hook of the SignalManager
@@ -66,15 +65,18 @@ func newSignalRegistration(sm signal.SignalManager, config config) (<-chan AuthK
 type authManagerParams struct {
 	cell.In
 
-	Lifecycle             hive.Lifecycle
-	SignalChannel         <-chan AuthKey
-	IPCache               *ipcache.IPCache
-	AuthHandlers          []authHandler `group:"authHandlers"`
-	DatapathAuthenticator datapathAuthenticator
+	Lifecycle     hive.Lifecycle
+	Config        config
+	IPCache       *ipcache.IPCache
+	AuthHandlers  []authHandler `group:"authHandlers"`
+	AuthMap       authmap.Map
+	SignalChannel <-chan signalAuthKey
 }
 
 func newManager(params authManagerParams) error {
-	mgr, err := newAuthManager(params.SignalChannel, params.AuthHandlers, params.DatapathAuthenticator, params.IPCache)
+	mapWriter := newAuthMapWriter(params.AuthMap)
+
+	mgr, err := newAuthManager(params.SignalChannel, params.AuthHandlers, mapWriter, params.IPCache)
 	if err != nil {
 		return fmt.Errorf("failed to create auth manager: %w", err)
 	}

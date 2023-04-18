@@ -4,8 +4,8 @@
 package auth
 
 import (
+	"errors"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -30,7 +30,7 @@ func Test_newAuthManager(t *testing.T) {
 		&fakeAuthHandler{},
 	}
 
-	am, err := newAuthManager(make(<-chan AuthKey, 100), authHandlers, nil, nil)
+	am, err := newAuthManager(make(<-chan signalAuthKey, 100), authHandlers, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
@@ -40,60 +40,66 @@ func Test_newAuthManager(t *testing.T) {
 func Test_authManager_authenticate(t *testing.T) {
 	tests := []struct {
 		name              string
-		args              AuthKey
+		args              authKey
 		wantErr           assert.ErrorAssertionFunc
 		wantAuthenticated bool
+		wantEntries       int
 	}{
 		{
 			name: "missing handler for auth type",
-			args: AuthKey{
-				LocalIdentity:  1,
-				RemoteIdentity: 2,
-				RemoteNodeID:   2,
-				AuthType:       0,
+			args: authKey{
+				localIdentity:  1,
+				remoteIdentity: 2,
+				remoteNodeID:   2,
+				authType:       0,
 			},
-			wantErr: assertErrorString("unknown requested auth type: "),
+			wantErr:     assertErrorString("unknown requested auth type: "),
+			wantEntries: 0,
 		},
 		{
 			name: "missing node IP for node ID",
-			args: AuthKey{
-				LocalIdentity:  1,
-				RemoteIdentity: 2,
-				RemoteNodeID:   1,
-				AuthType:       1,
+			args: authKey{
+				localIdentity:  1,
+				remoteIdentity: 2,
+				remoteNodeID:   1,
+				authType:       1,
 			},
-			wantErr: assertErrorString("remote node IP not available for node ID 1"),
+			wantErr:     assertErrorString("remote node IP not available for node ID 1"),
+			wantEntries: 0,
 		},
 		{
 			name: "successful auth",
-			args: AuthKey{
-				LocalIdentity:  1,
-				RemoteIdentity: 2,
-				RemoteNodeID:   2,
-				AuthType:       1,
+			args: authKey{
+				localIdentity:  1,
+				remoteIdentity: 2,
+				remoteNodeID:   2,
+				authType:       1,
 			},
-			wantErr:           assert.NoError,
-			wantAuthenticated: true,
+			wantErr:     assert.NoError,
+			wantEntries: 1,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dpAuth := &fakeDatapathAuthenticator{}
+			authMap := &fakeAuthMap{
+				entries: map[authKey]authInfo{},
+			}
 			am, err := newAuthManager(
-				make(<-chan AuthKey, 100),
+				make(<-chan signalAuthKey, 100),
 				[]authHandler{&nullAuthHandler{}},
-				dpAuth,
+				authMap,
 				newFakeIPCache(map[uint16]string{
 					2: "172.18.0.2",
 					3: "172.18.0.3",
 				}),
 			)
+
 			assert.NoError(t, err)
 
 			err = am.authenticate(tt.args)
 			tt.wantErr(t, err)
 
-			assert.Equal(t, tt.wantAuthenticated, dpAuth.authenticated)
+			assert.Len(t, authMap.entries, tt.wantEntries)
 		})
 	}
 }
@@ -114,7 +120,6 @@ func (r *fakeIPCache) GetNodeIP(id uint16) string {
 }
 
 // Fake AuthHandler
-
 type fakeAuthHandler struct {
 }
 
@@ -131,18 +136,37 @@ func (r *fakeAuthHandler) subscribeToRotatedIdentities() <-chan certs.Certificat
 	return nil
 }
 
-// Fake DatapathAuthenticator
-type fakeDatapathAuthenticator struct {
-	authenticated bool
+// Fake AuthMap
+type fakeAuthMap struct {
+	entries map[authKey]authInfo
 }
 
-func (r *fakeDatapathAuthenticator) markAuthenticated(key AuthKey, expiration time.Time) error {
-	r.authenticated = true
+func (r *fakeAuthMap) Delete(key authKey) error {
+	delete(r.entries, key)
 	return nil
 }
 
-func (r *fakeDatapathAuthenticator) checkAuthenticated(AuthKey) bool {
-	return false
+func (r *fakeAuthMap) All() (map[authKey]authInfo, error) {
+	return r.entries, nil
+}
+
+func (r *fakeAuthMap) Get(key authKey) (authInfo, error) {
+	v, ok := r.entries[key]
+	if !ok {
+		return authInfo{}, errors.New("authinfo not available")
+	}
+
+	return v, nil
+}
+
+func (r *fakeAuthMap) Update(key authKey, info authInfo) error {
+	r.entries[authKey{
+		localIdentity:  key.localIdentity,
+		remoteIdentity: key.remoteIdentity,
+		remoteNodeID:   key.remoteNodeID,
+		authType:       key.authType,
+	}] = authInfo{expiration: info.expiration}
+	return nil
 }
 
 func assertErrorString(errString string) assert.ErrorAssertionFunc {
