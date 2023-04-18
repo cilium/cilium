@@ -6,6 +6,7 @@ package envoy
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"syscall"
@@ -86,7 +87,7 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 	for {
 		n, _, flags, _, err := conn.ReadMsgUnix(buf, nil)
 		if err != nil {
-			if !isEOF(err) {
+			if !errors.Is(err, io.EOF) {
 				log.WithError(err).Error("Envoy: Error while reading from access log connection")
 			}
 			break

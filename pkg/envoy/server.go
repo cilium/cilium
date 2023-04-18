@@ -15,7 +15,6 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_mysql_proxy "github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3"
-	envoy_config_bootstrap "github.com/cilium/proxy/go/envoy/config/bootstrap/v3"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
@@ -27,14 +26,12 @@ import (
 	envoy_mongo_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
-	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -1203,181 +1200,6 @@ var ciliumXDS = &envoy_config_core.ConfigSource{
 			},
 		},
 	},
-}
-
-func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
-	connectTimeout := int64(option.Config.ProxyConnectTimeout) // in seconds
-	maxRequestsPerConnection := uint32(option.Config.ProxyMaxRequestsPerConnection)
-	maxConnectionDuration := option.Config.ProxyMaxConnectionDuration * time.Second
-
-	useDownstreamProtocol := map[string]*anypb.Any{
-		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
-			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
-				MaxRequestsPerConnection: wrapperspb.UInt32(maxRequestsPerConnection),
-				MaxConnectionDuration:    durationpb.New(maxConnectionDuration),
-			},
-			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
-				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
-			},
-		}),
-	}
-
-	useDownstreamProtocolAutoSNI := map[string]*anypb.Any{
-		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
-			UpstreamHttpProtocolOptions: &envoy_config_core.UpstreamHttpProtocolOptions{
-				//	Setting AutoSni or AutoSanValidation options here may crash
-				//	Envoy, when Cilium Network filter already passes these from
-				//	downstream to upstream.
-			},
-			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
-				MaxRequestsPerConnection: wrapperspb.UInt32(maxRequestsPerConnection),
-				MaxConnectionDuration:    durationpb.New(maxConnectionDuration),
-			},
-			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
-				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
-			},
-		}),
-	}
-
-	http2ProtocolOptions := map[string]*anypb.Any{
-		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
-			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig_{
-				ExplicitHttpConfig: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
-				},
-			},
-		}),
-	}
-
-	bs := &envoy_config_bootstrap.Bootstrap{
-		Node: &envoy_config_core.Node{Id: nodeId, Cluster: cluster},
-		StaticResources: &envoy_config_bootstrap.Bootstrap_StaticResources{
-			Clusters: []*envoy_config_cluster.Cluster{
-				{
-					Name:                          egressClusterName,
-					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocol,
-				},
-				{
-					Name:                          egressTLSClusterName,
-					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
-					TransportSocket: &envoy_config_core.TransportSocket{
-						Name: "cilium.tls_wrapper",
-						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
-							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
-						},
-					},
-				},
-				{
-					Name:                          ingressClusterName,
-					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocol,
-				},
-				{
-					Name:                          ingressTLSClusterName,
-					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
-					TransportSocket: &envoy_config_core.TransportSocket{
-						Name: "cilium.tls_wrapper",
-						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
-							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
-						},
-					},
-				},
-				{
-					Name:                 CiliumXDSClusterName,
-					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
-					ConnectTimeout:       &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					LbPolicy:             envoy_config_cluster.Cluster_ROUND_ROBIN,
-					LoadAssignment: &envoy_config_endpoint.ClusterLoadAssignment{
-						ClusterName: CiliumXDSClusterName,
-						Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{
-							LbEndpoints: []*envoy_config_endpoint.LbEndpoint{{
-								HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
-									Endpoint: &envoy_config_endpoint.Endpoint{
-										Address: &envoy_config_core.Address{
-											Address: &envoy_config_core.Address_Pipe{
-												Pipe: &envoy_config_core.Pipe{Path: xdsSock}},
-										},
-									},
-								},
-							}},
-						}},
-					},
-					TypedExtensionProtocolOptions: http2ProtocolOptions,
-				},
-				{
-					Name:                 adminClusterName,
-					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
-					ConnectTimeout:       &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					LbPolicy:             envoy_config_cluster.Cluster_ROUND_ROBIN,
-					LoadAssignment: &envoy_config_endpoint.ClusterLoadAssignment{
-						ClusterName: adminClusterName,
-						Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{
-							LbEndpoints: []*envoy_config_endpoint.LbEndpoint{{
-								HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
-									Endpoint: &envoy_config_endpoint.Endpoint{
-										Address: &envoy_config_core.Address{
-											Address: &envoy_config_core.Address_Pipe{
-												Pipe: &envoy_config_core.Pipe{Path: adminPath}},
-										},
-									},
-								},
-							}},
-						}},
-					},
-				},
-			},
-		},
-		DynamicResources: &envoy_config_bootstrap.Bootstrap_DynamicResources{
-			LdsConfig: ciliumXDS,
-			CdsConfig: ciliumXDS,
-		},
-		Admin: &envoy_config_bootstrap.Admin{
-			Address: &envoy_config_core.Address{
-				Address: &envoy_config_core.Address_Pipe{
-					Pipe: &envoy_config_core.Pipe{Path: adminPath},
-				},
-			},
-		},
-		LayeredRuntime: &envoy_config_bootstrap.LayeredRuntime{
-			Layers: []*envoy_config_bootstrap.RuntimeLayer{
-				{
-					Name: "static_layer_0",
-					LayerSpecifier: &envoy_config_bootstrap.RuntimeLayer_StaticLayer{
-						StaticLayer: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"overload": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-								"global_downstream_max_connections": {Kind: &structpb.Value_NumberValue{NumberValue: 50000}},
-							}}}},
-						}},
-					},
-				},
-			},
-		},
-	}
-
-	log.Debugf("Envoy: Bootstrap: %s", bs)
-	data, err := proto.Marshal(bs)
-	if err != nil {
-		log.WithError(err).Fatal("Envoy: Error marshaling Envoy bootstrap")
-	}
-	err = os.WriteFile(filePath, data, 0644)
-	if err != nil {
-		log.WithError(err).Fatal("Envoy: Error writing Envoy bootstrap file")
-	}
 }
 
 func getCiliumTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
