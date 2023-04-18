@@ -667,10 +667,6 @@ update-go-version: ## Update Go version for all the components (images, CI, dev-
 			-e 's|^//go:build go.*|//go:build go$(GO_MAJOR_AND_MINOR_VERSION)|g' \
 			$$fl ; \
 	done
-	# Update Go version in test scripts.
-	$(QUIET) sed -i 's/GO_VERSION=.*/GO_VERSION="$(GO_VERSION)"/g' test/kubernetes-test.sh
-	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION="$(GO_VERSION)"/g' test/packet/scripts/install.sh
-	@echo "Updated go version in test scripts to $(GO_VERSION)"
 
 dev-doctor: ## Run Cilium dev-doctor to validate local development environment.
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
