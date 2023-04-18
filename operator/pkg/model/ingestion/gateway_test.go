@@ -1277,7 +1277,7 @@ func TestGatewayAPI(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			listeners := GatewayAPI(tc.input)
+			listeners, _ := GatewayAPI(tc.input)
 			assert.Equal(t, tc.want, listeners, "Listeners did not match")
 		})
 	}

@@ -83,13 +83,19 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return fail(err)
 	}
 
-	routeList := &gatewayv1beta1.HTTPRouteList{}
-	if err := r.Client.List(ctx, routeList); err != nil {
+	httpRouteList := &gatewayv1beta1.HTTPRouteList{}
+	if err := r.Client.List(ctx, httpRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list HTTPRoutes")
 		return fail(err)
 	}
 
-	// TODO(tam): Only list the services used by accepted HTTPRoutes
+	tlsRouteList := &gatewayv1alpha2.TLSRouteList{}
+	if err := r.Client.List(ctx, tlsRouteList); err != nil {
+		scopedLog.WithError(err).Error("Unable to list TLSRoutes")
+		return fail(err)
+	}
+
+	// TODO(tam): Only list the services used by accepted Routes
 	servicesList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, servicesList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list Services")
@@ -102,17 +108,17 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return fail(err)
 	}
 
-	routes := r.filterRoutesByGateway(ctx, gw, routeList.Items)
-	listeners := ingestion.GatewayAPI(ingestion.Input{
+	httpListeners, tlsListeners := ingestion.GatewayAPI(ingestion.Input{
 		GatewayClass:    *gwc,
 		Gateway:         *gw,
-		HTTPRoutes:      routes,
+		HTTPRoutes:      r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items),
+		TLSRoutes:       r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items),
 		Services:        servicesList.Items,
 		ReferenceGrants: grants.Items,
 	})
 
 	// Step 3: Translate the listeners into Cilium model
-	cec, svc, ep, err := translation.NewTranslator(r.SecretsNamespace).Translate(&model.Model{HTTP: listeners})
+	cec, svc, ep, err := translation.NewTranslator(r.SecretsNamespace).Translate(&model.Model{HTTP: httpListeners, TLS: tlsListeners})
 	if err != nil {
 		scopedLog.WithError(err).Error("Unable to translate resources")
 		setGatewayAccepted(gw, false, "Unable to translate resources")
@@ -212,18 +218,28 @@ func (r *gatewayReconciler) updateStatus(ctx context.Context, original *gatewayv
 	return r.Client.Status().Update(ctx, new)
 }
 
-func (r *gatewayReconciler) filterRoutesByGateway(ctx context.Context, gw *gatewayv1beta1.Gateway, routes []gatewayv1beta1.HTTPRoute) []gatewayv1beta1.HTTPRoute {
+func (r *gatewayReconciler) filterHTTPRoutesByGateway(ctx context.Context, gw *gatewayv1beta1.Gateway, routes []gatewayv1beta1.HTTPRoute) []gatewayv1beta1.HTTPRoute {
 	var filtered []gatewayv1beta1.HTTPRoute
 	for _, route := range routes {
-		if isAccepted(ctx, gw, route) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, &route)) > 0 {
+		if isAccepted(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames)) > 0 {
 			filtered = append(filtered, route)
 		}
 	}
 	return filtered
 }
 
-func isAccepted(_ context.Context, gw *gatewayv1beta1.Gateway, route gatewayv1beta1.HTTPRoute) bool {
-	for _, rps := range route.Status.RouteStatus.Parents {
+func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *gatewayv1beta1.Gateway, routes []gatewayv1alpha2.TLSRoute) []gatewayv1alpha2.TLSRoute {
+	var filtered []gatewayv1alpha2.TLSRoute
+	for _, route := range routes {
+		if isAccepted(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames)) > 0 {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func isAccepted(_ context.Context, gw *gatewayv1beta1.Gateway, route metav1.Object, parents []gatewayv1beta1.RouteParentStatus) bool {
+	for _, rps := range parents {
 		if namespaceDerefOr(rps.ParentRef.Namespace, route.GetNamespace()) != gw.GetNamespace() ||
 			string(rps.ParentRef.Name) != gw.GetName() {
 			continue

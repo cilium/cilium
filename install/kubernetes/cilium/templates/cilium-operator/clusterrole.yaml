@@ -246,6 +246,7 @@ rules:
   resources:
   - gatewayclasses
   - gateways
+  - tlsroutes
   - httproutes
   - referencegrants
   - referencepolicies
@@ -259,6 +260,7 @@ rules:
   - gatewayclasses/status
   - gateways/status
   - httproutes/status
+  - tlsroutes/status
   verbs:
   - update
   - patch

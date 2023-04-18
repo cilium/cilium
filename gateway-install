@@ -1,0 +1,30 @@
+#!/bin/bash
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.6.0/config/crd/experimental/gateway.networking.k8s.io_gatewayclasses.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.6.0/config/crd/experimental/gateway.networking.k8s.io_gateways.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.6.0/config/crd/experimental/gateway.networking.k8s.io_httproutes.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.6.0/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v0.6.0/config/crd/experimental/gateway.networking.k8s.io_referencegrants.yaml
+
+KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
+METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
+METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
+METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
+
+cat << EOF > metallb_values.yaml
+configInline:
+  address-pools:
+  - name: default
+    protocol: layer2
+    addresses:
+    - ${METALLB_IP_RANGE}
+psp:
+  create: false
+EOF
+
+helm install --namespace metallb-system \
+  --create-namespace \
+  --repo https://metallb.github.io/metallb metallb metallb \
+  --version 0.12.1 \
+  --values metallb_values.yaml \
+  --wait

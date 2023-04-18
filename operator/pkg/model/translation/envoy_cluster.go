@@ -57,18 +57,18 @@ func WithConnectionTimeout(seconds int) ClusterMutator {
 	}
 }
 
-// NewClusterWithDefaults same as NewCluster but has default mutation functions applied.
-func NewClusterWithDefaults(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
+// NewClusterWithDefaults same as NewHTTPCluster but has default mutation functions applied.
+func NewHTTPClusterWithDefaults(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutationFunc,
 		WithConnectionTimeout(5),
 		WithClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		WithOutlierDetection(true),
 	)
-	return NewCluster(name, fns...)
+	return NewHTTPCluster(name, fns...)
 }
 
-// NewCluster creates a new Envoy cluster.
-func NewCluster(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
+// NewHTTPCluster creates a new Envoy cluster.
+func NewHTTPCluster(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name: name,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
@@ -80,6 +80,43 @@ func NewCluster(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResour
 				},
 			}),
 		},
+		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+			Type: envoy_config_cluster_v3.Cluster_EDS,
+		},
+	}
+
+	// Apply mutation functions for customizing the cluster.
+	for _, fn := range mutationFunc {
+		cluster = fn(cluster)
+	}
+
+	clusterBytes, err := proto.Marshal(cluster)
+	if err != nil {
+		return ciliumv2.XDSResource{}, err
+	}
+
+	return ciliumv2.XDSResource{
+		Any: &anypb.Any{
+			TypeUrl: envoy.ClusterTypeURL,
+			Value:   clusterBytes,
+		},
+	}, nil
+}
+
+// NewTCPClusterWithDefaults same as NewTCPCluster but has default mutation functions applied.
+func NewTCPClusterWithDefaults(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
+	fns := append(mutationFunc,
+		WithConnectionTimeout(5),
+		WithClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
+		WithOutlierDetection(true),
+	)
+	return NewTCPCluster(name, fns...)
+}
+
+// NewTCPCluster creates a new Envoy cluster.
+func NewTCPCluster(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
+	cluster := &envoy_config_cluster_v3.Cluster{
+		Name: name,
 		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
 			Type: envoy_config_cluster_v3.Cluster_EDS,
 		},

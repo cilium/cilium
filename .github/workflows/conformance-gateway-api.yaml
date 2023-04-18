@@ -106,12 +106,14 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_gatewayclasses.yaml
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_gateways.yaml
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_httproutes.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_referencegrants.yaml
 
           # To make sure that Gateway API CRs are available
           kubectl wait --for condition=Established crd/gatewayclasses.gateway.networking.k8s.io --timeout=${{ env.timeout }}
           kubectl wait --for condition=Established crd/gateways.gateway.networking.k8s.io --timeout=${{ env.timeout }}
           kubectl wait --for condition=Established crd/httproutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/tlsroutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
           kubectl wait --for condition=Established crd/referencegrants.gateway.networking.k8s.io --timeout=${{ env.timeout }}
 
       - name: Install Cilium
