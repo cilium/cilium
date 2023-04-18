@@ -11,7 +11,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -22,9 +21,9 @@ type FakeCiliumClusterwideNetworkPolicies struct {
 	Fake *FakeCiliumV2
 }
 
-var ciliumclusterwidenetworkpoliciesResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumclusterwidenetworkpolicies"}
+var ciliumclusterwidenetworkpoliciesResource = v2.SchemeGroupVersion.WithResource("ciliumclusterwidenetworkpolicies")
 
-var ciliumclusterwidenetworkpoliciesKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumClusterwideNetworkPolicy"}
+var ciliumclusterwidenetworkpoliciesKind = v2.SchemeGroupVersion.WithKind("CiliumClusterwideNetworkPolicy")
 
 // Get takes name of the ciliumClusterwideNetworkPolicy, and returns the corresponding ciliumClusterwideNetworkPolicy object, and an error if there is any.
 func (c *FakeCiliumClusterwideNetworkPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumClusterwideNetworkPolicy, err error) {

@@ -17,6 +17,8 @@ limitations under the License.
 package apiutil
 
 import (
+	"fmt"
+	"net/http"
 	"sync"
 	"sync/atomic"
 
@@ -40,6 +42,8 @@ type dynamicRESTMapper struct {
 	// Used for lazy init.
 	inited  uint32
 	initMtx sync.Mutex
+
+	useLazyRestmapper bool
 }
 
 // DynamicRESTMapperOption is a functional option on the dynamicRESTMapper.
@@ -60,6 +64,12 @@ var WithLazyDiscovery DynamicRESTMapperOption = func(drm *dynamicRESTMapper) err
 	return nil
 }
 
+// WithExperimentalLazyMapper enables experimental more advanced Lazy Restmapping mechanism.
+var WithExperimentalLazyMapper DynamicRESTMapperOption = func(drm *dynamicRESTMapper) error {
+	drm.useLazyRestmapper = true
+	return nil
+}
+
 // WithCustomMapper supports setting a custom RESTMapper refresher instead of
 // the default method, which uses a discovery client.
 //
@@ -75,8 +85,12 @@ func WithCustomMapper(newMapper func() (meta.RESTMapper, error)) DynamicRESTMapp
 // NewDynamicRESTMapper returns a dynamic RESTMapper for cfg. The dynamic
 // RESTMapper dynamically discovers resource types at runtime. opts
 // configure the RESTMapper.
-func NewDynamicRESTMapper(cfg *rest.Config, opts ...DynamicRESTMapperOption) (meta.RESTMapper, error) {
-	client, err := discovery.NewDiscoveryClientForConfig(cfg)
+func NewDynamicRESTMapper(cfg *rest.Config, httpClient *http.Client, opts ...DynamicRESTMapperOption) (meta.RESTMapper, error) {
+	if httpClient == nil {
+		return nil, fmt.Errorf("httpClient must not be nil, consider using rest.HTTPClientFor(c) to create a client")
+	}
+
+	client, err := discovery.NewDiscoveryClientForConfigAndClient(cfg, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +108,9 @@ func NewDynamicRESTMapper(cfg *rest.Config, opts ...DynamicRESTMapperOption) (me
 		if err = opt(drm); err != nil {
 			return nil, err
 		}
+	}
+	if drm.useLazyRestmapper {
+		return newLazyRESTMapperWithClient(client)
 	}
 	if !drm.lazy {
 		if err := drm.setStaticMapper(); err != nil {

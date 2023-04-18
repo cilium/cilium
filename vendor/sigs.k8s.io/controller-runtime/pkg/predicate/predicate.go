@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 )
 
 var log = logf.RuntimeLog.WithName("predicate").WithName("eventFilters")
@@ -242,15 +241,6 @@ type and struct {
 	predicates []Predicate
 }
 
-func (a and) InjectFunc(f inject.Func) error {
-	for _, p := range a.predicates {
-		if err := f(p); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (a and) Create(e event.CreateEvent) bool {
 	for _, p := range a.predicates {
 		if !p.Create(e) {
@@ -296,15 +286,6 @@ type or struct {
 	predicates []Predicate
 }
 
-func (o or) InjectFunc(f inject.Func) error {
-	for _, p := range o.predicates {
-		if err := f(p); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (o or) Create(e event.CreateEvent) bool {
 	for _, p := range o.predicates {
 		if p.Create(e) {
@@ -348,10 +329,6 @@ func Not(predicate Predicate) Predicate {
 
 type not struct {
 	predicate Predicate
-}
-
-func (n not) InjectFunc(f inject.Func) error {
-	return f(n.predicate)
 }
 
 func (n not) Create(e event.CreateEvent) bool {

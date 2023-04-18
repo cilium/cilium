@@ -21,18 +21,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/go-logr/logr"
-	jsonpatch "gomodules.xyz/jsonpatch/v2"
+	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/json"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+	"k8s.io/klog/v2"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics"
 )
 
@@ -131,16 +129,14 @@ type Webhook struct {
 	// headers thus allowing you to read them from within the handler
 	WithContextFunc func(context.Context, *http.Request) context.Context
 
-	// decoder is constructed on receiving a scheme and passed down to then handler
-	decoder *Decoder
+	// LogConstructor is used to construct a logger for logging messages during webhook calls
+	// based on the given base logger (which might carry more values like the webhook's path).
+	// Note: LogConstructor has to be able to handle nil requests as we are also using it
+	// outside the context of requests.
+	LogConstructor func(base logr.Logger, req *Request) logr.Logger
 
-	log logr.Logger
-}
-
-// InjectLogger gets a handle to a logging instance, hopefully with more info about this particular webhook.
-func (wh *Webhook) InjectLogger(l logr.Logger) error {
-	wh.log = l
-	return nil
+	setupLogOnce sync.Once
+	log          logr.Logger
 }
 
 // WithRecoverPanic takes a bool flag which indicates whether the panic caused by webhook should be recovered.
@@ -166,79 +162,47 @@ func (wh *Webhook) Handle(ctx context.Context, req Request) (response Response) 
 		}()
 	}
 
+	reqLog := wh.getLogger(&req)
+	reqLog = reqLog.WithValues("requestID", req.UID)
+	ctx = logf.IntoContext(ctx, reqLog)
+
 	resp := wh.Handler.Handle(ctx, req)
 	if err := resp.Complete(req); err != nil {
-		wh.log.Error(err, "unable to encode response")
+		reqLog.Error(err, "unable to encode response")
 		return Errored(http.StatusInternalServerError, errUnableToEncodeResponse)
 	}
 
 	return resp
 }
 
-// InjectScheme injects a scheme into the webhook, in order to construct a Decoder.
-func (wh *Webhook) InjectScheme(s *runtime.Scheme) error {
-	// TODO(directxman12): we should have a better way to pass this down
-
-	var err error
-	wh.decoder, err = NewDecoder(s)
-	if err != nil {
-		return err
-	}
-
-	// inject the decoder here too, just in case the order of calling this is not
-	// scheme first, then inject func
-	if wh.Handler != nil {
-		if _, err := InjectDecoderInto(wh.GetDecoder(), wh.Handler); err != nil {
-			return err
+// getLogger constructs a logger from the injected log and LogConstructor.
+func (wh *Webhook) getLogger(req *Request) logr.Logger {
+	wh.setupLogOnce.Do(func() {
+		if wh.log.GetSink() == nil {
+			wh.log = logf.Log.WithName("admission")
 		}
-	}
+	})
 
-	return nil
+	logConstructor := wh.LogConstructor
+	if logConstructor == nil {
+		logConstructor = DefaultLogConstructor
+	}
+	return logConstructor(wh.log, req)
 }
 
-// GetDecoder returns a decoder to decode the objects embedded in admission requests.
-// It may be nil if we haven't received a scheme to use to determine object types yet.
-func (wh *Webhook) GetDecoder() *Decoder {
-	return wh.decoder
-}
-
-// InjectFunc injects the field setter into the webhook.
-func (wh *Webhook) InjectFunc(f inject.Func) error {
-	// inject directly into the handlers.  It would be more correct
-	// to do this in a sync.Once in Handle (since we don't have some
-	// other start/finalize-type method), but it's more efficient to
-	// do it here, presumably.
-
-	// also inject a decoder, and wrap this so that we get a setFields
-	// that injects a decoder (hopefully things don't ignore the duplicate
-	// InjectorInto call).
-
-	var setFields inject.Func
-	setFields = func(target interface{}) error {
-		if err := f(target); err != nil {
-			return err
-		}
-
-		if _, err := inject.InjectorInto(setFields, target); err != nil {
-			return err
-		}
-
-		if _, err := InjectDecoderInto(wh.GetDecoder(), target); err != nil {
-			return err
-		}
-
-		return nil
+// DefaultLogConstructor adds some commonly interesting fields to the given logger.
+func DefaultLogConstructor(base logr.Logger, req *Request) logr.Logger {
+	if req != nil {
+		return base.WithValues("object", klog.KRef(req.Namespace, req.Name),
+			"namespace", req.Namespace, "name", req.Name,
+			"resource", req.Resource, "user", req.UserInfo.Username,
+		)
 	}
-
-	return setFields(wh.Handler)
+	return base
 }
 
 // StandaloneOptions let you configure a StandaloneWebhook.
 type StandaloneOptions struct {
-	// Scheme is the scheme used to resolve runtime.Objects to GroupVersionKinds / Resources
-	// Defaults to the kubernetes/client-go scheme.Scheme, but it's almost always better
-	// idea to pass your own scheme in.  See the documentation in pkg/scheme for more information.
-	Scheme *runtime.Scheme
 	// Logger to be used by the webhook.
 	// If none is set, it defaults to log.Log global logger.
 	Logger logr.Logger
@@ -258,19 +222,9 @@ type StandaloneOptions struct {
 // in your own server/mux. In order to be accessed by a kubernetes cluster,
 // all webhook servers require TLS.
 func StandaloneWebhook(hook *Webhook, opts StandaloneOptions) (http.Handler, error) {
-	if opts.Scheme == nil {
-		opts.Scheme = scheme.Scheme
+	if opts.Logger.GetSink() != nil {
+		hook.log = opts.Logger
 	}
-
-	if err := hook.InjectScheme(opts.Scheme); err != nil {
-		return nil, err
-	}
-
-	if opts.Logger.GetSink() == nil {
-		opts.Logger = logf.RuntimeLog.WithName("webhook")
-	}
-	hook.log = opts.Logger
-
 	if opts.MetricsPath == "" {
 		return hook, nil
 	}

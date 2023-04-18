@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // NewDryRunClient wraps an existing client and enforces DryRun mode
@@ -44,6 +45,16 @@ func (c *dryRunClient) Scheme() *runtime.Scheme {
 // RESTMapper returns the rest mapper this client is using.
 func (c *dryRunClient) RESTMapper() meta.RESTMapper {
 	return c.client.RESTMapper()
+}
+
+// GroupVersionKindFor returns the GroupVersionKind for the given object.
+func (c *dryRunClient) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return c.client.GroupVersionKindFor(obj)
+}
+
+// IsObjectNamespaced returns true if the GroupVersionKind of the object is namespaced.
+func (c *dryRunClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return c.client.IsObjectNamespaced(obj)
 }
 
 // Create implements client.Client.
