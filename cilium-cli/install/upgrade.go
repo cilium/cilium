@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/getter"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -168,9 +170,7 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient genericcli
 		return err
 	}
 
-	// TODO (ajs): gethelmValues "extends" many Helm-parameters based on input flags in a non-obvious way, consider
-	//  removing it in favor of documentation. For now, it's needed for consistency with the install commands.
-	vals, err := k.getHelmValues()
+	vals, err := k.params.HelmOpts.MergeValues(getter.All(cli.New()))
 	if err != nil {
 		return err
 	}
