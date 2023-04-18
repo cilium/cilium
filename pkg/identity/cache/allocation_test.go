@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package cache
 
 import (
@@ -21,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
@@ -80,11 +79,19 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 
 type IdentityAllocatorSuite struct{}
 
+func (ias *IdentityAllocatorSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
+
 type IdentityAllocatorEtcdSuite struct {
 	IdentityAllocatorSuite
 }
 
 var _ = Suite(&IdentityAllocatorEtcdSuite{})
+
+func (e *IdentityAllocatorEtcdSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (e *IdentityAllocatorEtcdSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
@@ -99,6 +106,10 @@ type IdentityAllocatorConsulSuite struct {
 }
 
 var _ = Suite(&IdentityAllocatorConsulSuite{})
+
+func (e *IdentityAllocatorConsulSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("consul")

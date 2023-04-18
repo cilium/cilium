@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package clustermesh
 
 import (
@@ -35,6 +33,10 @@ func Test(t *testing.T) {
 type ClusterMeshTestSuite struct{}
 
 var _ = Suite(&ClusterMeshTestSuite{})
+
+func (s *ClusterMeshTestSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 var (
 	nodes      = map[string]*testNode{}

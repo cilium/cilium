@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package kvstore
 
 import (
@@ -15,6 +13,8 @@ import (
 
 	consulAPI "github.com/hashicorp/consul/api"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type ConsulSuite struct {
@@ -22,6 +22,10 @@ type ConsulSuite struct {
 }
 
 var _ = Suite(&ConsulSuite{})
+
+func (e *ConsulSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (e *ConsulSuite) SetUpTest(c *C) {
 	SetupDummy("consul")
@@ -34,6 +38,12 @@ func (e *ConsulSuite) TearDownTest(c *C) {
 var handler http.HandlerFunc
 
 func TestMain(m *testing.M) {
+	if !testutils.IntegrationTests() {
+		// Immediately run the test suite without manipulating the environment
+		// if integration tests are not requested.
+		os.Exit(m.Run())
+	}
+
 	mux := http.NewServeMux()
 	// path is hardcoded in consul
 	mux.HandleFunc("/v1/status/leader", func(w http.ResponseWriter, r *http.Request) {
@@ -58,6 +68,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestConsulClientOk(t *testing.T) {
+	testutils.IntegrationTest(t)
+
 	maxRetries = 3
 	doneC := make(chan struct{})
 
