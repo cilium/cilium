@@ -557,6 +557,7 @@ func (ic *Controller) createEnvoyConfig(cec *ciliumv2.CiliumEnvoyConfig) error {
 		// Update existing CEC
 		newEnvoyConfig := existingEnvoyConfig.DeepCopy()
 		newEnvoyConfig.Spec = cec.Spec
+		newEnvoyConfig.OwnerReferences = cec.OwnerReferences
 		_, err = ic.clientset.CiliumV2().CiliumEnvoyConfigs(cec.GetNamespace()).Update(context.Background(), newEnvoyConfig, metav1.UpdateOptions{})
 		if err != nil {
 			log.WithError(err).Error("Failed to update CiliumEnvoyConfig for ingress")
