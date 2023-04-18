@@ -6,6 +6,7 @@ package envoy
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -125,6 +126,13 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 			localEndpoint.UpdateProxyStatistics("TCP", port, ingress, request, r.Verdict)
 		}
 	}
+}
+
+// isEOF returns true if the error message ends in "EOF". ReadMsgUnix returns extra info in the beginning.
+func isEOF(err error) bool {
+	strerr := err.Error()
+	errlen := len(strerr)
+	return errlen >= 3 && strerr[errlen-3:] == io.EOF.Error()
 }
 
 func logRecord(pblog *cilium.LogEntry) *logger.LogRecord {

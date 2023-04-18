@@ -20,6 +20,11 @@ import (
 // the global EnvoyAdminClient instance
 var envoyAdminClient *envoy.EnvoyAdminClient
 
+// requiredEnvoyVersionSHA is set during build
+// Running Envoy version will be checked against `requiredEnvoyVersionSHA`.
+// By default, cilium-agent will fail to start if there is a version mismatch.
+var requiredEnvoyVersionSHA string
+
 // envoyRedirect implements the RedirectImplementation interface for an l7 proxy.
 type envoyRedirect struct {
 	listenerName string
@@ -44,22 +49,22 @@ func initEnvoy(runDir, proxySocketDir string, xdsServer *envoy.XDSServer, wg *co
 				xdsServer.AddMetricsListener(uint16(option.Config.ProxyPrometheusPort), wg)
 			}
 		} else {
-			envoyAdminClient = envoy.NewEnvoyAdminClient(proxySocketDir)
+			envoyAdminClient = envoy.NewEnvoyAdminClientForSocket(proxySocketDir)
 		}
 
 		if envoyAdminClient != nil && !option.Config.DisableEnvoyVersionCheck {
 			envoyVersion, err := envoyAdminClient.GetEnvoyVersion()
 			if err != nil {
-				log.WithError(err).Error("Envoy: ServerInfo endpoint can't be called")
+				log.WithError(err).Error("Envoy: Unable to retrieve Envoy version")
 				return
 			}
 
-			log.Infof("Envoy: Version: %s", envoyVersion)
+			log.Infof("Envoy: Version %s", envoyVersion)
 
 			// Make sure Envoy version matches ours
-			if !strings.HasPrefix(envoyVersion, envoy.RequiredEnvoyVersionSHA) {
-				log.Errorf("Envoy: Envoy version %s does not match with required version %s ,aborting.",
-					envoyVersion, envoy.RequiredEnvoyVersionSHA)
+			if !strings.HasPrefix(envoyVersion, requiredEnvoyVersionSHA) {
+				log.Errorf("Envoy: Envoy version %s does not match with required version %s, aborting.",
+					envoyVersion, requiredEnvoyVersionSHA)
 			}
 		}
 	})
