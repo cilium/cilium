@@ -246,6 +246,16 @@
       ],
     },
     {
+      "groupName": "Go",
+      "matchDepNames": [
+        "go",
+        "docker.io/library/golang"
+      ],
+      "schedule": [
+        "on friday"
+      ]
+    },
+    {
       // Group golangci-lint updates to overrule grouping of version updates in the GHA files.
       // Without this, golangci-lint updates are not in sync for GHA files and other usages.
       "groupName": "golangci-lint",
