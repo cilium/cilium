@@ -26,6 +26,6 @@ export TF_VAR_metal_plan="c1.small.x86"
 13) Run `screen` which will create a new terminal, this is helpful as you can leave your terminal while tests are running and come back again afterwards.
 14) Enter the `test` directory with `cd test`
 15) Run the ginkgo command to initialize the tests, for example:
-`K8S_VERSION=1.14 ginkgo --focus="K8s" --tags integration_tests -v -- --cilium.showCommands --cilium.holdEnvironment=true`
+`INTEGRATION_TESTS=true K8S_VERSION=1.14 ginkgo --focus="K8s" -v -- --cilium.showCommands --cilium.holdEnvironment=true`
 16) Once tests are running and if you are running `screen`, you can leave the terminal
 by typing `CTRL+a+d`, to resume again type `screen -r`
