@@ -2692,11 +2692,6 @@ auth:
           serviceAccount:
             create: true
             name: spire-agent
-          # -- SPIRE agent init containers
-          initContainers:
-          - name: init
-            image: cgr.dev/chainguard/wait-for-it@sha256:ecb58e3a2ffbdb732bb9049987e06eaf826d945410e167f31d6ffe28fab259f4
-            args: [ "-t", "30", "spire-server:8081" ]
           # -- SPIRE agent annotations
           annotations: { }
           # -- SPIRE agent labels
