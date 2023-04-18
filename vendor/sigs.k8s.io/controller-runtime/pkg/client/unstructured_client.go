@@ -21,30 +21,27 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ Reader = &unstructuredClient{}
 var _ Writer = &unstructuredClient{}
 
-// client is a client.Client that reads and writes directly from/to an API server.  It lazily initializes
-// new clients at the time they are used, and caches the client.
 type unstructuredClient struct {
-	cache      *clientCache
+	resources  *clientRestResources
 	paramCodec runtime.ParameterCodec
 }
 
 // Create implements client.Client.
 func (uc *unstructuredClient) Create(ctx context.Context, obj Object, opts ...CreateOption) error {
-	u, ok := obj.(*unstructured.Unstructured)
+	u, ok := obj.(runtime.Unstructured)
 	if !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
-	gvk := u.GroupVersionKind()
+	gvk := u.GetObjectKind().GroupVersionKind()
 
-	o, err := uc.cache.getObjMeta(obj)
+	o, err := uc.resources.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -60,20 +57,20 @@ func (uc *unstructuredClient) Create(ctx context.Context, obj Object, opts ...Cr
 		Do(ctx).
 		Into(obj)
 
-	u.SetGroupVersionKind(gvk)
+	u.GetObjectKind().SetGroupVersionKind(gvk)
 	return result
 }
 
 // Update implements client.Client.
 func (uc *unstructuredClient) Update(ctx context.Context, obj Object, opts ...UpdateOption) error {
-	u, ok := obj.(*unstructured.Unstructured)
+	u, ok := obj.(runtime.Unstructured)
 	if !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
-	gvk := u.GroupVersionKind()
+	gvk := u.GetObjectKind().GroupVersionKind()
 
-	o, err := uc.cache.getObjMeta(obj)
+	o, err := uc.resources.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -90,17 +87,17 @@ func (uc *unstructuredClient) Update(ctx context.Context, obj Object, opts ...Up
 		Do(ctx).
 		Into(obj)
 
-	u.SetGroupVersionKind(gvk)
+	u.GetObjectKind().SetGroupVersionKind(gvk)
 	return result
 }
 
 // Delete implements client.Client.
 func (uc *unstructuredClient) Delete(ctx context.Context, obj Object, opts ...DeleteOption) error {
-	if _, ok := obj.(*unstructured.Unstructured); !ok {
+	if _, ok := obj.(runtime.Unstructured); !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
-	o, err := uc.cache.getObjMeta(obj)
+	o, err := uc.resources.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -119,11 +116,11 @@ func (uc *unstructuredClient) Delete(ctx context.Context, obj Object, opts ...De
 
 // DeleteAllOf implements client.Client.
 func (uc *unstructuredClient) DeleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error {
-	if _, ok := obj.(*unstructured.Unstructured); !ok {
+	if _, ok := obj.(runtime.Unstructured); !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
-	o, err := uc.cache.getObjMeta(obj)
+	o, err := uc.resources.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -142,11 +139,11 @@ func (uc *unstructuredClient) DeleteAllOf(ctx context.Context, obj Object, opts 
 
 // Patch implements client.Client.
 func (uc *unstructuredClient) Patch(ctx context.Context, obj Object, patch Patch, opts ...PatchOption) error {
-	if _, ok := obj.(*unstructured.Unstructured); !ok {
+	if _, ok := obj.(runtime.Unstructured); !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
-	o, err := uc.cache.getObjMeta(obj)
+	o, err := uc.resources.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -171,17 +168,17 @@ func (uc *unstructuredClient) Patch(ctx context.Context, obj Object, patch Patch
 
 // Get implements client.Client.
 func (uc *unstructuredClient) Get(ctx context.Context, key ObjectKey, obj Object, opts ...GetOption) error {
-	u, ok := obj.(*unstructured.Unstructured)
+	u, ok := obj.(runtime.Unstructured)
 	if !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
-	gvk := u.GroupVersionKind()
+	gvk := u.GetObjectKind().GroupVersionKind()
 
 	getOpts := GetOptions{}
 	getOpts.ApplyOptions(opts)
 
-	r, err := uc.cache.getResource(obj)
+	r, err := uc.resources.getResource(obj)
 	if err != nil {
 		return err
 	}
@@ -194,22 +191,22 @@ func (uc *unstructuredClient) Get(ctx context.Context, key ObjectKey, obj Object
 		Do(ctx).
 		Into(obj)
 
-	u.SetGroupVersionKind(gvk)
+	u.GetObjectKind().SetGroupVersionKind(gvk)
 
 	return result
 }
 
 // List implements client.Client.
 func (uc *unstructuredClient) List(ctx context.Context, obj ObjectList, opts ...ListOption) error {
-	u, ok := obj.(*unstructured.UnstructuredList)
+	u, ok := obj.(runtime.Unstructured)
 	if !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
-	gvk := u.GroupVersionKind()
+	gvk := u.GetObjectKind().GroupVersionKind()
 	gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
 
-	r, err := uc.cache.getResource(obj)
+	r, err := uc.resources.getResource(obj)
 	if err != nil {
 		return err
 	}
@@ -226,11 +223,11 @@ func (uc *unstructuredClient) List(ctx context.Context, obj ObjectList, opts ...
 }
 
 func (uc *unstructuredClient) GetSubResource(ctx context.Context, obj, subResourceObj Object, subResource string, opts ...SubResourceGetOption) error {
-	if _, ok := obj.(*unstructured.Unstructured); !ok {
+	if _, ok := obj.(runtime.Unstructured); !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", subResource)
 	}
 
-	if _, ok := subResourceObj.(*unstructured.Unstructured); !ok {
+	if _, ok := subResourceObj.(runtime.Unstructured); !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
@@ -238,7 +235,7 @@ func (uc *unstructuredClient) GetSubResource(ctx context.Context, obj, subResour
 		subResourceObj.SetName(obj.GetName())
 	}
 
-	o, err := uc.cache.getObjMeta(obj)
+	o, err := uc.resources.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -257,11 +254,11 @@ func (uc *unstructuredClient) GetSubResource(ctx context.Context, obj, subResour
 }
 
 func (uc *unstructuredClient) CreateSubResource(ctx context.Context, obj, subResourceObj Object, subResource string, opts ...SubResourceCreateOption) error {
-	if _, ok := obj.(*unstructured.Unstructured); !ok {
+	if _, ok := obj.(runtime.Unstructured); !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", subResourceObj)
 	}
 
-	if _, ok := subResourceObj.(*unstructured.Unstructured); !ok {
+	if _, ok := subResourceObj.(runtime.Unstructured); !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
@@ -269,7 +266,7 @@ func (uc *unstructuredClient) CreateSubResource(ctx context.Context, obj, subRes
 		subResourceObj.SetName(obj.GetName())
 	}
 
-	o, err := uc.cache.getObjMeta(obj)
+	o, err := uc.resources.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -289,11 +286,11 @@ func (uc *unstructuredClient) CreateSubResource(ctx context.Context, obj, subRes
 }
 
 func (uc *unstructuredClient) UpdateSubResource(ctx context.Context, obj Object, subResource string, opts ...SubResourceUpdateOption) error {
-	if _, ok := obj.(*unstructured.Unstructured); !ok {
+	if _, ok := obj.(runtime.Unstructured); !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
-	o, err := uc.cache.getObjMeta(obj)
+	o, err := uc.resources.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -324,14 +321,14 @@ func (uc *unstructuredClient) UpdateSubResource(ctx context.Context, obj Object,
 }
 
 func (uc *unstructuredClient) PatchSubResource(ctx context.Context, obj Object, subResource string, patch Patch, opts ...SubResourcePatchOption) error {
-	u, ok := obj.(*unstructured.Unstructured)
+	u, ok := obj.(runtime.Unstructured)
 	if !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
-	gvk := u.GroupVersionKind()
+	gvk := u.GetObjectKind().GroupVersionKind()
 
-	o, err := uc.cache.getObjMeta(obj)
+	o, err := uc.resources.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -359,6 +356,6 @@ func (uc *unstructuredClient) PatchSubResource(ctx context.Context, obj Object, 
 		Do(ctx).
 		Into(body)
 
-	u.SetGroupVersionKind(gvk)
+	u.GetObjectKind().SetGroupVersionKind(gvk)
 	return result
 }

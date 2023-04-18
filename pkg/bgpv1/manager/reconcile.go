@@ -457,7 +457,7 @@ endpointsLoop:
 		}
 
 		// We only need Endpoints tracking for externalTrafficPolicy=Local
-		if svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyTypeLocal {
+		if svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
 			continue
 		}
 
@@ -587,7 +587,7 @@ func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *Ser
 		}
 
 		// We only need Endpoints tracking for externalTrafficPolicy=Local
-		if svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyTypeLocal {
+		if svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
 			continue
 		}
 
@@ -646,7 +646,7 @@ func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtua
 	}
 
 	// Ignore externalTrafficPolicy == Local && no local endpoints
-	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyTypeLocal &&
+	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
 		!hasLocalEndpoints(svc, ls) {
 		return nil, nil
 	}

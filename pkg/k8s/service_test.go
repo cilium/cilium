@@ -173,13 +173,14 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Type:                     loadbalancer.SVCTypeClusterIP,
 	})
 
+	serviceInternalTrafficPolicyLocal := slim_corev1.ServiceInternalTrafficPolicyLocal
 	k8sSvc = &slim_corev1.Service{
 		ObjectMeta: objMeta,
 		Spec: slim_corev1.ServiceSpec{
 			ClusterIP:             "127.0.0.1",
 			Type:                  slim_corev1.ServiceTypeNodePort,
-			ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyTypeLocal,
-			InternalTrafficPolicy: slim_corev1.ServiceInternalTrafficPolicyTypeLocal,
+			ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyLocal,
+			InternalTrafficPolicy: &serviceInternalTrafficPolicyLocal,
 		},
 	}
 
@@ -202,7 +203,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		option.Config.EnableNodePort = oldNodePort
 	}()
 	objMeta.Annotations = map[string]string{
-		corev1.AnnotationTopologyAwareHints: "auto",
+		corev1.DeprecatedAnnotationTopologyAwareHints: "auto",
 	}
 	k8sSvc = &slim_corev1.Service{
 		ObjectMeta: objMeta,

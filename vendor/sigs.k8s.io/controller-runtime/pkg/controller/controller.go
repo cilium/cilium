@@ -39,6 +39,18 @@ type Options struct {
 	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run. Defaults to 1.
 	MaxConcurrentReconciles int
 
+	// CacheSyncTimeout refers to the time limit set to wait for syncing caches.
+	// Defaults to 2 minutes if not set.
+	CacheSyncTimeout time.Duration
+
+	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
+	// Defaults to the Controller.RecoverPanic setting from the Manager if unset.
+	RecoverPanic *bool
+
+	// NeedLeaderElection indicates whether the controller needs to use leader election.
+	// Defaults to true, which means the controller will use leader election.
+	NeedLeaderElection *bool
+
 	// Reconciler reconciles an object
 	Reconciler reconcile.Reconciler
 
@@ -50,14 +62,6 @@ type Options struct {
 	// LogConstructor is used to construct a logger used for this controller and passed
 	// to each reconciliation via the context field.
 	LogConstructor func(request *reconcile.Request) logr.Logger
-
-	// CacheSyncTimeout refers to the time limit set to wait for syncing caches.
-	// Defaults to 2 minutes if not set.
-	CacheSyncTimeout time.Duration
-
-	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
-	// Defaults to the Controller.RecoverPanic setting from the Manager if unset.
-	RecoverPanic *bool
 }
 
 // Controller implements a Kubernetes API.  A Controller manages a work queue fed reconcile.Requests
@@ -124,24 +128,31 @@ func NewUnmanaged(name string, mgr manager.Manager, options Options) (Controller
 	}
 
 	if options.MaxConcurrentReconciles <= 0 {
-		options.MaxConcurrentReconciles = 1
+		if mgr.GetControllerOptions().MaxConcurrentReconciles > 0 {
+			options.MaxConcurrentReconciles = mgr.GetControllerOptions().MaxConcurrentReconciles
+		} else {
+			options.MaxConcurrentReconciles = 1
+		}
 	}
 
 	if options.CacheSyncTimeout == 0 {
-		options.CacheSyncTimeout = 2 * time.Minute
+		if mgr.GetControllerOptions().CacheSyncTimeout != 0 {
+			options.CacheSyncTimeout = mgr.GetControllerOptions().CacheSyncTimeout
+		} else {
+			options.CacheSyncTimeout = 2 * time.Minute
+		}
 	}
 
 	if options.RateLimiter == nil {
 		options.RateLimiter = workqueue.DefaultControllerRateLimiter()
 	}
 
-	// Inject dependencies into Reconciler
-	if err := mgr.SetFields(options.Reconciler); err != nil {
-		return nil, err
-	}
-
 	if options.RecoverPanic == nil {
 		options.RecoverPanic = mgr.GetControllerOptions().RecoverPanic
+	}
+
+	if options.NeedLeaderElection == nil {
+		options.NeedLeaderElection = mgr.GetControllerOptions().NeedLeaderElection
 	}
 
 	// Create controller with dependencies set
@@ -152,10 +163,10 @@ func NewUnmanaged(name string, mgr manager.Manager, options Options) (Controller
 		},
 		MaxConcurrentReconciles: options.MaxConcurrentReconciles,
 		CacheSyncTimeout:        options.CacheSyncTimeout,
-		SetFields:               mgr.SetFields,
 		Name:                    name,
 		LogConstructor:          options.LogConstructor,
 		RecoverPanic:            options.RecoverPanic,
+		LeaderElected:           options.NeedLeaderElection,
 	}, nil
 }
 

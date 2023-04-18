@@ -218,7 +218,11 @@ var gwFixture = []client.Object{
 }
 
 func Test_gatewayReconciler_Reconcile(t *testing.T) {
-	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(gwFixture...).Build()
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(gwFixture...).
+		WithStatusSubresource(&gatewayv1beta1.Gateway{}).
+		Build()
 	r := &gatewayReconciler{Client: c}
 
 	t.Run("non-existent gateway", func(t *testing.T) {

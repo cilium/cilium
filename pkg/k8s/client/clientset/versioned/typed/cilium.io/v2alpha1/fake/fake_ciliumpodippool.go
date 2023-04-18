@@ -11,7 +11,6 @@ import (
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -22,9 +21,9 @@ type FakeCiliumPodIPPools struct {
 	Fake *FakeCiliumV2alpha1
 }
 
-var ciliumpodippoolsResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumpodippools"}
+var ciliumpodippoolsResource = v2alpha1.SchemeGroupVersion.WithResource("ciliumpodippools")
 
-var ciliumpodippoolsKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2alpha1", Kind: "CiliumPodIPPool"}
+var ciliumpodippoolsKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumPodIPPool")
 
 // Get takes name of the ciliumPodIPPool, and returns the corresponding ciliumPodIPPool object, and an error if there is any.
 func (c *FakeCiliumPodIPPools) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumPodIPPool, err error) {

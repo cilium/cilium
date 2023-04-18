@@ -22,9 +22,12 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
+
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -33,13 +36,14 @@ import (
 
 // WebhookBuilder builds a Webhook.
 type WebhookBuilder struct {
-	apiType       runtime.Object
-	withDefaulter admission.CustomDefaulter
-	withValidator admission.CustomValidator
-	gvk           schema.GroupVersionKind
-	mgr           manager.Manager
-	config        *rest.Config
-	recoverPanic  bool
+	apiType        runtime.Object
+	withDefaulter  admission.CustomDefaulter
+	withValidator  admission.CustomValidator
+	gvk            schema.GroupVersionKind
+	mgr            manager.Manager
+	config         *rest.Config
+	recoverPanic   bool
+	logConstructor func(base logr.Logger, req *admission.Request) logr.Logger
 }
 
 // WebhookManagedBy allows inform its manager.Manager.
@@ -69,6 +73,12 @@ func (blder *WebhookBuilder) WithValidator(validator admission.CustomValidator) 
 	return blder
 }
 
+// WithLogConstructor overrides the webhook's LogConstructor.
+func (blder *WebhookBuilder) WithLogConstructor(logConstructor func(base logr.Logger, req *admission.Request) logr.Logger) *WebhookBuilder {
+	blder.logConstructor = logConstructor
+	return blder
+}
+
 // RecoverPanic indicates whether the panic caused by webhook should be recovered.
 func (blder *WebhookBuilder) RecoverPanic() *WebhookBuilder {
 	blder.recoverPanic = true
@@ -80,6 +90,9 @@ func (blder *WebhookBuilder) Complete() error {
 	// Set the Config
 	blder.loadRestConfig()
 
+	// Configure the default LogConstructor
+	blder.setLogConstructor()
+
 	// Set the Webhook if needed
 	return blder.registerWebhooks()
 }
@@ -87,6 +100,26 @@ func (blder *WebhookBuilder) Complete() error {
 func (blder *WebhookBuilder) loadRestConfig() {
 	if blder.config == nil {
 		blder.config = blder.mgr.GetConfig()
+	}
+}
+
+func (blder *WebhookBuilder) setLogConstructor() {
+	if blder.logConstructor == nil {
+		blder.logConstructor = func(base logr.Logger, req *admission.Request) logr.Logger {
+			log := base.WithValues(
+				"webhookGroup", blder.gvk.Group,
+				"webhookKind", blder.gvk.Kind,
+			)
+			if req != nil {
+				return log.WithValues(
+					blder.gvk.Kind, klog.KRef(req.Namespace, req.Name),
+					"namespace", req.Namespace, "name", req.Name,
+					"resource", req.Resource, "user", req.UserInfo.Username,
+					"requestID", req.UID,
+				)
+			}
+			return log
+		}
 	}
 }
 
@@ -116,6 +149,7 @@ func (blder *WebhookBuilder) registerWebhooks() error {
 func (blder *WebhookBuilder) registerDefaultingWebhook() {
 	mwh := blder.getDefaultingWebhook()
 	if mwh != nil {
+		mwh.LogConstructor = blder.logConstructor
 		path := generateMutatePath(blder.gvk)
 
 		// Checking if the path is already registered.
@@ -131,10 +165,10 @@ func (blder *WebhookBuilder) registerDefaultingWebhook() {
 
 func (blder *WebhookBuilder) getDefaultingWebhook() *admission.Webhook {
 	if defaulter := blder.withDefaulter; defaulter != nil {
-		return admission.WithCustomDefaulter(blder.apiType, defaulter).WithRecoverPanic(blder.recoverPanic)
+		return admission.WithCustomDefaulter(blder.mgr.GetScheme(), blder.apiType, defaulter).WithRecoverPanic(blder.recoverPanic)
 	}
 	if defaulter, ok := blder.apiType.(admission.Defaulter); ok {
-		return admission.DefaultingWebhookFor(defaulter).WithRecoverPanic(blder.recoverPanic)
+		return admission.DefaultingWebhookFor(blder.mgr.GetScheme(), defaulter).WithRecoverPanic(blder.recoverPanic)
 	}
 	log.Info(
 		"skip registering a mutating webhook, object does not implement admission.Defaulter or WithDefaulter wasn't called",
@@ -145,6 +179,7 @@ func (blder *WebhookBuilder) getDefaultingWebhook() *admission.Webhook {
 func (blder *WebhookBuilder) registerValidatingWebhook() {
 	vwh := blder.getValidatingWebhook()
 	if vwh != nil {
+		vwh.LogConstructor = blder.logConstructor
 		path := generateValidatePath(blder.gvk)
 
 		// Checking if the path is already registered.
@@ -160,10 +195,10 @@ func (blder *WebhookBuilder) registerValidatingWebhook() {
 
 func (blder *WebhookBuilder) getValidatingWebhook() *admission.Webhook {
 	if validator := blder.withValidator; validator != nil {
-		return admission.WithCustomValidator(blder.apiType, validator).WithRecoverPanic(blder.recoverPanic)
+		return admission.WithCustomValidator(blder.mgr.GetScheme(), blder.apiType, validator).WithRecoverPanic(blder.recoverPanic)
 	}
 	if validator, ok := blder.apiType.(admission.Validator); ok {
-		return admission.ValidatingWebhookFor(validator).WithRecoverPanic(blder.recoverPanic)
+		return admission.ValidatingWebhookFor(blder.mgr.GetScheme(), validator).WithRecoverPanic(blder.recoverPanic)
 	}
 	log.Info(
 		"skip registering a validating webhook, object does not implement admission.Validator or WithValidator wasn't called",
@@ -179,7 +214,7 @@ func (blder *WebhookBuilder) registerConversionWebhook() error {
 	}
 	if ok {
 		if !blder.isAlreadyHandled("/convert") {
-			blder.mgr.GetWebhookServer().Register("/convert", &conversion.Webhook{})
+			blder.mgr.GetWebhookServer().Register("/convert", conversion.NewWebhookHandler(blder.mgr.GetScheme()))
 		}
 		log.Info("Conversion webhook enabled", "GVK", blder.gvk)
 	}
@@ -195,10 +230,10 @@ func (blder *WebhookBuilder) getType() (runtime.Object, error) {
 }
 
 func (blder *WebhookBuilder) isAlreadyHandled(path string) bool {
-	if blder.mgr.GetWebhookServer().WebhookMux == nil {
+	if blder.mgr.GetWebhookServer().WebhookMux() == nil {
 		return false
 	}
-	h, p := blder.mgr.GetWebhookServer().WebhookMux.Handler(&http.Request{URL: &url.URL{Path: path}})
+	h, p := blder.mgr.GetWebhookServer().WebhookMux().Handler(&http.Request{URL: &url.URL{Path: path}})
 	if p == path && h != nil {
 		return true
 	}

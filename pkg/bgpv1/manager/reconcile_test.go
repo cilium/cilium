@@ -587,14 +587,14 @@ func TestLBServiceReconciler(t *testing.T) {
 	svc1NonLB.Spec.Type = slim_corev1.ServiceTypeClusterIP
 
 	svc1ETPLocal := svc1.DeepCopy()
-	svc1ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyTypeLocal
+	svc1ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
 
 	svc1ETPLocalTwoIngress := svc1TwoIngress.DeepCopy()
-	svc1ETPLocalTwoIngress.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyTypeLocal
+	svc1ETPLocalTwoIngress.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
 
 	svc1IPv6ETPLocal := svc1.DeepCopy()
 	svc1IPv6ETPLocal.Status.LoadBalancer.Ingress[0] = slim_corev1.LoadBalancerIngress{IP: ingressV6}
-	svc1IPv6ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyTypeLocal
+	svc1IPv6ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
 
 	svc2NonDefault := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{

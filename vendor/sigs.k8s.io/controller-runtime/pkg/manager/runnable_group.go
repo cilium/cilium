@@ -56,7 +56,7 @@ func (r *runnables) Add(fn Runnable) error {
 		return r.Caches.Add(fn, func(ctx context.Context) bool {
 			return runnable.GetCache().WaitForCacheSync(ctx)
 		})
-	case *webhook.Server:
+	case webhook.Server:
 		return r.Webhooks.Add(fn, nil)
 	case LeaderElectionRunnable:
 		if !runnable.NeedLeaderElection() {

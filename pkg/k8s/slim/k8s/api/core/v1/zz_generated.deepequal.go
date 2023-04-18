@@ -1200,9 +1200,6 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 	if in.ExternalTrafficPolicy != other.ExternalTrafficPolicy {
 		return false
 	}
-	if in.InternalTrafficPolicy != other.InternalTrafficPolicy {
-		return false
-	}
 	if in.HealthCheckNodePort != other.HealthCheckNodePort {
 		return false
 	}
@@ -1243,6 +1240,14 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 		return false
 	} else if in.LoadBalancerClass != nil {
 		if *in.LoadBalancerClass != *other.LoadBalancerClass {
+			return false
+		}
+	}
+
+	if (in.InternalTrafficPolicy == nil) != (other.InternalTrafficPolicy == nil) {
+		return false
+	} else if in.InternalTrafficPolicy != nil {
+		if *in.InternalTrafficPolicy != *other.InternalTrafficPolicy {
 			return false
 		}
 	}

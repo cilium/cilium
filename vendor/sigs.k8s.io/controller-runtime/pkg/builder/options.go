@@ -138,3 +138,19 @@ var (
 )
 
 // }}}
+
+// MatchEveryOwner determines whether the watch should be filtered based on
+// controller ownership. As in, when the OwnerReference.Controller field is set.
+//
+// If passed as an option,
+// the handler receives notification for every owner of the object with the given type.
+// If unset (default), the handler receives notification only for the first
+// OwnerReference with `Controller: true`.
+var MatchEveryOwner = &matchEveryOwner{}
+
+type matchEveryOwner struct{}
+
+// ApplyToOwns applies this configuration to the given OwnsInput options.
+func (o matchEveryOwner) ApplyToOwns(opts *OwnsInput) {
+	opts.matchEveryOwner = true
+}

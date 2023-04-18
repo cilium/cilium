@@ -19,6 +19,7 @@ package cluster
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 
@@ -37,13 +39,14 @@ import (
 
 // Cluster provides various methods to interact with a cluster.
 type Cluster interface {
-	// SetFields will set any dependencies on an object for which the object has implemented the inject
-	// interface - e.g. inject.Client.
-	// Deprecated: use the equivalent Options field to set a field. This method will be removed in v0.10.
-	SetFields(interface{}) error
+	// GetHTTPClient returns an HTTP client that can be used to talk to the apiserver
+	GetHTTPClient() *http.Client
 
 	// GetConfig returns an initialized Config
 	GetConfig() *rest.Config
+
+	// GetCache returns a cache.Cache
+	GetCache() cache.Cache
 
 	// GetScheme returns an initialized Scheme
 	GetScheme() *runtime.Scheme
@@ -56,9 +59,6 @@ type Cluster interface {
 
 	// GetFieldIndexer returns a client.FieldIndexer configured with the client
 	GetFieldIndexer() client.FieldIndexer
-
-	// GetCache returns a cache.Cache
-	GetCache() cache.Cache
 
 	// GetEventRecorderFor returns a new EventRecorder for the provided name
 	GetEventRecorderFor(name string) record.EventRecorder
@@ -83,7 +83,7 @@ type Options struct {
 	Scheme *runtime.Scheme
 
 	// MapperProvider provides the rest mapper used to map go types to Kubernetes APIs
-	MapperProvider func(c *rest.Config) (meta.RESTMapper, error)
+	MapperProvider func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error)
 
 	// Logger is the logger that should be used by this Cluster.
 	// If none is set, it defaults to log.Log global logger.
@@ -103,24 +103,54 @@ type Options struct {
 	// Note: If a namespace is specified, controllers can still Watch for a
 	// cluster-scoped resource (e.g Node).  For namespaced resources the cache
 	// will only hold objects from the desired namespace.
+	//
+	// Deprecated: Use Cache.Namespaces instead.
 	Namespace string
+
+	// HTTPClient is the http client that will be used to create the default
+	// Cache and Client. If not set the rest.HTTPClientFor function will be used
+	// to create the http client.
+	HTTPClient *http.Client
+
+	// Cache is the cache.Options that will be used to create the default Cache.
+	// By default, the cache will watch and list requested objects in all namespaces.
+	Cache cache.Options
 
 	// NewCache is the function that will create the cache to be used
 	// by the manager. If not set this will use the default new cache function.
+	//
+	// When using a custom NewCache, the Cache options will be passed to the
+	// NewCache function.
+	//
+	// NOTE: LOW LEVEL PRIMITIVE!
+	// Only use a custom NewCache if you know what you are doing.
 	NewCache cache.NewCacheFunc
 
+	// Client is the client.Options that will be used to create the default Client.
+	// By default, the client will use the cache for reads and direct calls for writes.
+	Client client.Options
+
 	// NewClient is the func that creates the client to be used by the manager.
-	// If not set this will create the default DelegatingClient that will
-	// use the cache for reads and the client for writes.
-	// NOTE: The default client will not cache Unstructured.
-	NewClient NewClientFunc
+	// If not set this will create a Client backed by a Cache for read operations
+	// and a direct Client for write operations.
+	//
+	// When using a custom NewClient, the Client options will be passed to the
+	// NewClient function.
+	//
+	// NOTE: LOW LEVEL PRIMITIVE!
+	// Only use a custom NewClient if you know what you are doing.
+	NewClient client.NewClientFunc
 
 	// ClientDisableCacheFor tells the client that, if any cache is used, to bypass it
 	// for the given objects.
+	//
+	// Deprecated: Use Client.Cache.DisableFor instead.
 	ClientDisableCacheFor []client.Object
 
 	// DryRunClient specifies whether the client should be configured to enforce
 	// dryRun mode.
+	//
+	// Deprecated: Use Client.DryRun instead.
 	DryRunClient bool
 
 	// EventBroadcaster records Events emitted by the manager and sends them to the Kubernetes API
@@ -137,7 +167,7 @@ type Options struct {
 	makeBroadcaster intrec.EventBroadcasterProducer
 
 	// Dependency injection for testing
-	newRecorderProvider func(config *rest.Config, scheme *runtime.Scheme, logger logr.Logger, makeBroadcaster intrec.EventBroadcasterProducer) (*intrec.Provider, error)
+	newRecorderProvider func(config *rest.Config, httpClient *http.Client, scheme *runtime.Scheme, logger logr.Logger, makeBroadcaster intrec.EventBroadcasterProducer) (*intrec.Provider, error)
 }
 
 // Option can be used to manipulate Options.
@@ -153,52 +183,105 @@ func New(config *rest.Config, opts ...Option) (Cluster, error) {
 	for _, opt := range opts {
 		opt(&options)
 	}
-	options = setOptionsDefaults(options)
+	options, err := setOptionsDefaults(options, config)
+	if err != nil {
+		options.Logger.Error(err, "Failed to set defaults")
+		return nil, err
+	}
 
 	// Create the mapper provider
-	mapper, err := options.MapperProvider(config)
+	mapper, err := options.MapperProvider(config, options.HTTPClient)
 	if err != nil {
 		options.Logger.Error(err, "Failed to get API Group-Resources")
 		return nil, err
 	}
 
 	// Create the cache for the cached read client and registering informers
-	cache, err := options.NewCache(config, cache.Options{Scheme: options.Scheme, Mapper: mapper, Resync: options.SyncPeriod, Namespace: options.Namespace})
+	cacheOpts := options.Cache
+	{
+		if cacheOpts.Scheme == nil {
+			cacheOpts.Scheme = options.Scheme
+		}
+		if cacheOpts.Mapper == nil {
+			cacheOpts.Mapper = mapper
+		}
+		if cacheOpts.HTTPClient == nil {
+			cacheOpts.HTTPClient = options.HTTPClient
+		}
+		if cacheOpts.SyncPeriod == nil {
+			cacheOpts.SyncPeriod = options.SyncPeriod
+		}
+		if len(cacheOpts.Namespaces) == 0 && options.Namespace != "" {
+			cacheOpts.Namespaces = []string{options.Namespace}
+		}
+	}
+	cache, err := options.NewCache(config, cacheOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	clientOptions := client.Options{Scheme: options.Scheme, Mapper: mapper}
+	// Create the client, and default its options.
+	clientOpts := options.Client
+	{
+		if clientOpts.Scheme == nil {
+			clientOpts.Scheme = options.Scheme
+		}
+		if clientOpts.Mapper == nil {
+			clientOpts.Mapper = mapper
+		}
+		if clientOpts.HTTPClient == nil {
+			clientOpts.HTTPClient = options.HTTPClient
+		}
+		if clientOpts.Cache == nil {
+			clientOpts.Cache = &client.CacheOptions{
+				Unstructured: false,
+			}
+		}
+		if clientOpts.Cache.Reader == nil {
+			clientOpts.Cache.Reader = cache
+		}
 
-	apiReader, err := client.New(config, clientOptions)
+		// For backward compatibility, the ClientDisableCacheFor option should
+		// be appended to the DisableFor option in the client.
+		clientOpts.Cache.DisableFor = append(clientOpts.Cache.DisableFor, options.ClientDisableCacheFor...)
+
+		if clientOpts.DryRun == nil && options.DryRunClient {
+			// For backward compatibility, the DryRunClient (if set) option should override
+			// the DryRun option in the client (if unset).
+			clientOpts.DryRun = pointer.Bool(true)
+		}
+	}
+	clientWriter, err := options.NewClient(config, clientOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	writeObj, err := options.NewClient(cache, config, clientOptions, options.ClientDisableCacheFor...)
+	// Create the API Reader, a client with no cache.
+	clientReader, err := client.New(config, client.Options{
+		HTTPClient: options.HTTPClient,
+		Scheme:     options.Scheme,
+		Mapper:     mapper,
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	if options.DryRunClient {
-		writeObj = client.NewDryRunClient(writeObj)
 	}
 
 	// Create the recorder provider to inject event recorders for the components.
 	// TODO(directxman12): the log for the event provider should have a context (name, tags, etc) specific
 	// to the particular controller that it's being injected into, rather than a generic one like is here.
-	recorderProvider, err := options.newRecorderProvider(config, options.Scheme, options.Logger.WithName("events"), options.makeBroadcaster)
+	recorderProvider, err := options.newRecorderProvider(config, options.HTTPClient, options.Scheme, options.Logger.WithName("events"), options.makeBroadcaster)
 	if err != nil {
 		return nil, err
 	}
 
 	return &cluster{
 		config:           config,
+		httpClient:       options.HTTPClient,
 		scheme:           options.Scheme,
 		cache:            cache,
 		fieldIndexes:     cache,
-		client:           writeObj,
-		apiReader:        apiReader,
+		client:           clientWriter,
+		apiReader:        clientReader,
 		recorderProvider: recorderProvider,
 		mapper:           mapper,
 		logger:           options.Logger,
@@ -206,21 +289,27 @@ func New(config *rest.Config, opts ...Option) (Cluster, error) {
 }
 
 // setOptionsDefaults set default values for Options fields.
-func setOptionsDefaults(options Options) Options {
+func setOptionsDefaults(options Options, config *rest.Config) (Options, error) {
+	if options.HTTPClient == nil {
+		var err error
+		options.HTTPClient, err = rest.HTTPClientFor(config)
+		if err != nil {
+			return options, err
+		}
+	}
+
 	// Use the Kubernetes client-go scheme if none is specified
 	if options.Scheme == nil {
 		options.Scheme = scheme.Scheme
 	}
 
 	if options.MapperProvider == nil {
-		options.MapperProvider = func(c *rest.Config) (meta.RESTMapper, error) {
-			return apiutil.NewDynamicRESTMapper(c)
-		}
+		options.MapperProvider = apiutil.NewDynamicRESTMapper
 	}
 
 	// Allow users to define how to create a new client
 	if options.NewClient == nil {
-		options.NewClient = DefaultNewClient
+		options.NewClient = client.New
 	}
 
 	// Allow newCache to be mocked
@@ -250,39 +339,5 @@ func setOptionsDefaults(options Options) Options {
 		options.Logger = logf.RuntimeLog.WithName("cluster")
 	}
 
-	return options
-}
-
-// NewClientFunc allows a user to define how to create a client.
-type NewClientFunc func(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error)
-
-// ClientOptions are the optional arguments for tuning the caching client.
-type ClientOptions struct {
-	UncachedObjects   []client.Object
-	CacheUnstructured bool
-}
-
-// DefaultNewClient creates the default caching client, that will never cache Unstructured.
-func DefaultNewClient(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
-	return ClientBuilderWithOptions(ClientOptions{})(cache, config, options, uncachedObjects...)
-}
-
-// ClientBuilderWithOptions returns a Client constructor that will build a client
-// honoring the options argument
-func ClientBuilderWithOptions(options ClientOptions) NewClientFunc {
-	return func(cache cache.Cache, config *rest.Config, clientOpts client.Options, uncachedObjects ...client.Object) (client.Client, error) {
-		options.UncachedObjects = append(options.UncachedObjects, uncachedObjects...)
-
-		c, err := client.New(config, clientOpts)
-		if err != nil {
-			return nil, err
-		}
-
-		return client.NewDelegatingClient(client.NewDelegatingClientInput{
-			CacheReader:       cache,
-			Client:            c,
-			UncachedObjects:   options.UncachedObjects,
-			CacheUnstructured: options.CacheUnstructured,
-		})
-	}
+	return options, nil
 }

@@ -161,24 +161,3 @@ func Test_conditionChanged(t *testing.T) {
 		})
 	}
 }
-
-// findConditionInList finds a condition in a list of Conditions, checking
-// the Name, Value, and Reason. If an empty reason is passed, any Reason will match.
-func findConditionInList(t *testing.T, conditions []metav1.Condition, condName, condValue, condReason string) bool {
-	for _, cond := range conditions {
-		if cond.Type == condName {
-			if cond.Status == metav1.ConditionStatus(condValue) {
-				// an empty Reason string means "Match any reason".
-				if condReason == "" || cond.Reason == condReason {
-					return true
-				}
-				t.Logf("%s condition Reason set to %s, expected %s", condName, cond.Reason, condReason)
-			}
-
-			t.Logf("%s condition set to %s, expected %s", condName, cond.Status, condValue)
-		}
-	}
-
-	t.Logf("%s was not in conditions list", condName)
-	return false
-}
