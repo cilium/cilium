@@ -97,6 +97,15 @@ func NewController(enableSecretSync bool, secretsNamespace string) (*Controller,
 		return nil, err
 	}
 
+	tlsReconciler := &tlsRouteReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Model:  m,
+	}
+	if err = tlsReconciler.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+
 	rgReconciler := &referenceGrantReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -266,6 +275,13 @@ func onlyStatusChanged() predicate.Predicate {
 			case *gatewayv1beta1.HTTPRoute:
 				o, _ := e.ObjectOld.(*gatewayv1beta1.HTTPRoute)
 				n, ok := e.ObjectNew.(*gatewayv1beta1.HTTPRoute)
+				if !ok {
+					return false
+				}
+				return !cmp.Equal(o.Status, n.Status, option)
+			case *gatewayv1alpha2.TLSRoute:
+				o, _ := e.ObjectOld.(*gatewayv1alpha2.TLSRoute)
+				n, ok := e.ObjectNew.(*gatewayv1alpha2.TLSRoute)
 				if !ok {
 					return false
 				}

@@ -35,14 +35,24 @@ func NewTranslator(secretsNamespace string) translation.Translator {
 }
 
 func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
-	if m == nil || len(m.HTTP) == 0 || len(m.HTTP[0].Sources) == 0 {
+	listeners := m.GetListeners()
+	if len(listeners) == 0 || len(listeners[0].GetSources()) == 0 {
 		return nil, nil, nil, fmt.Errorf("model source can't be empty")
 	}
 
-	name := ciliumGatewayPrefix + m.HTTP[0].Sources[0].Name
-	namespace := m.HTTP[0].Sources[0].Namespace
+	var source *model.FullyQualifiedResource
+	var ports []uint32
+	for _, l := range listeners {
+		source = &l.GetSources()[0]
 
-	cec, _, _, err := translation.NewTranslator(name, namespace, t.secretsNamespace, false, true).Translate(m)
+		ports = append(ports, l.GetPort())
+	}
+
+	if source == nil || source.Name == "" {
+		return nil, nil, nil, fmt.Errorf("model source name can't be empty")
+	}
+
+	cec, _, _, err := translation.NewTranslator(ciliumGatewayPrefix+source.Name, source.Namespace, t.secretsNamespace, false, true).Translate(m)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -51,20 +61,18 @@ func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *co
 	cec.OwnerReferences = []metav1.OwnerReference{
 		{
 			APIVersion: gatewayv1beta1.GroupVersion.String(),
-			Kind:       m.HTTP[0].Sources[0].Kind,
-			Name:       m.HTTP[0].Sources[0].Name,
-			UID:        types.UID(m.HTTP[0].Sources[0].UID),
+			Kind:       source.Kind,
+			Name:       source.Name,
+			UID:        types.UID(source.UID),
 		},
 	}
-	return cec, getService(m), getEndpoints(m.HTTP[0].Sources[0]), err
+	return cec, getService(source, ports), getEndpoints(*source), err
 }
 
-func getService(m *model.Model) *corev1.Service {
-	resource := m.HTTP[0].Sources[0]
-
+func getService(resource *model.FullyQualifiedResource, allPorts []uint32) *corev1.Service {
 	uniquePorts := map[uint32]struct{}{}
-	for _, l := range m.HTTP {
-		uniquePorts[l.Port] = struct{}{}
+	for _, p := range allPorts {
+		uniquePorts[p] = struct{}{}
 	}
 
 	ports := make([]corev1.ServicePort, 0, len(uniquePorts))
