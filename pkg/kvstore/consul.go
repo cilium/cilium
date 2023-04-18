@@ -758,9 +758,9 @@ func (c *consulClient) Decode(in string) (out []byte, err error) {
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using consul
 func (c *consulClient) ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher {
-	w := newWatcher(name, prefix, chanSize)
+	w := newWatcher(name, prefix, chanSize, log)
 
-	log.WithField(fieldWatcher, w).Debug("Starting watcher...")
+	w.log.Debug("Starting watcher...")
 
 	go c.Watch(ctx, w)
 

@@ -5,6 +5,8 @@ package kvstore
 import (
 	"context"
 	"sync"
+
+	"github.com/sirupsen/logrus"
 )
 
 // EventType defines the type of watch event that occurred
@@ -64,6 +66,8 @@ type Watcher struct {
 	Prefix    string `json:"prefix"`
 	stopWatch stopChan
 
+	log *logrus.Entry
+
 	// stopOnce guarantees that Stop() is only called once
 	stopOnce sync.Once
 
@@ -71,12 +75,17 @@ type Watcher struct {
 	stopWait sync.WaitGroup
 }
 
-func newWatcher(name, prefix string, chanSize int) *Watcher {
+func newWatcher(name, prefix string, chanSize int, log *logrus.Entry) *Watcher {
 	w := &Watcher{
 		Name:      name,
 		Prefix:    prefix,
 		Events:    make(EventChan, chanSize),
 		stopWatch: make(stopChan),
+
+		log: log.WithFields(logrus.Fields{
+			fieldWatcher: name,
+			fieldPrefix:  prefix,
+		}),
 	}
 
 	w.stopWait.Add(1)
@@ -106,7 +115,7 @@ func ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watch
 func (w *Watcher) Stop() {
 	w.stopOnce.Do(func() {
 		close(w.stopWatch)
-		log.WithField(fieldWatcher, w).Debug("Stopped watcher")
+		w.log.Debug("Stopped watcher")
 		w.stopWait.Wait()
 	})
 }

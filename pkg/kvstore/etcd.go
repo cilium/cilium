@@ -946,10 +946,7 @@ func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 		w.Stop()
 	}()
 
-	scopedLog := e.getLogger().WithFields(logrus.Fields{
-		fieldWatcher: w,
-		fieldPrefix:  w.Prefix,
-	})
+	scopedLog := w.log
 
 	err := <-e.Connected(ctx)
 	if err != nil {
@@ -1726,9 +1723,9 @@ func (e *etcdClient) Decode(in string) (out []byte, err error) {
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using etcd
 func (e *etcdClient) ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher {
-	w := newWatcher(name, prefix, chanSize)
+	w := newWatcher(name, prefix, chanSize, e.getLogger())
 
-	e.getLogger().WithField(fieldWatcher, w).Debug("Starting watcher...")
+	w.log.Debug("Starting watcher...")
 
 	go e.Watch(ctx, w)
 
