@@ -14,22 +14,22 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 )
 
-// AuthKey used in the signalmap. Must reflect struct auth_key in the datapath
-type AuthKey authmap.AuthKey
+// signalAuthKey used in the signalmap. Must reflect struct auth_key in the datapath
+type signalAuthKey authmap.AuthKey
 
 // low-cardinality stringer for metrics
-func (key AuthKey) String() string {
+func (key signalAuthKey) String() string {
 	return policy.AuthType(key.AuthType).String()
 }
 
 type authManager struct {
-	signalChannel         <-chan AuthKey
-	ipCache               ipCache
-	authHandlers          map[policy.AuthType]authHandler
-	datapathAuthenticator datapathAuthenticator
+	signalChannel <-chan signalAuthKey
+	ipCache       ipCache
+	authHandlers  map[policy.AuthType]authHandler
+	authmap       authMap
 
 	mutex   lock.Mutex
-	pending map[AuthKey]struct{}
+	pending map[authKey]struct{}
 }
 
 // ipCache is the set of interactions the auth manager performs with the IPCache
@@ -54,15 +54,12 @@ type authResponse struct {
 	expirationTime time.Time
 }
 
-// datapathAuthenticator is responsible to write auth information back to a BPF map
-// Using AuthKey as an argument as the key originates from the datapath,
-// so we do not need to pack/unpack it here.
-type datapathAuthenticator interface {
-	markAuthenticated(AuthKey, time.Time) error
-	checkAuthenticated(AuthKey) bool
-}
-
-func newAuthManager(signalChannel <-chan AuthKey, authHandlers []authHandler, dpAuthenticator datapathAuthenticator, ipCache ipCache) (*authManager, error) {
+func newAuthManager(
+	signalChannel <-chan signalAuthKey,
+	authHandlers []authHandler,
+	authmap authMap,
+	ipCache ipCache,
+) (*authManager, error) {
 	ahs := map[policy.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if ah == nil {
@@ -75,11 +72,11 @@ func newAuthManager(signalChannel <-chan AuthKey, authHandlers []authHandler, dp
 	}
 
 	return &authManager{
-		signalChannel:         signalChannel,
-		authHandlers:          ahs,
-		datapathAuthenticator: dpAuthenticator,
-		ipCache:               ipCache,
-		pending:               make(map[AuthKey]struct{}),
+		signalChannel: signalChannel,
+		authHandlers:  ahs,
+		authmap:       authmap,
+		ipCache:       ipCache,
+		pending:       make(map[authKey]struct{}),
 	}, nil
 }
 
@@ -88,14 +85,21 @@ func newAuthManager(signalChannel <-chan AuthKey, authHandlers []authHandler, dp
 func (a *authManager) start() {
 	go func() {
 		for key := range a.signalChannel {
-			if a.markPendingAuth(key) {
-				go func(key AuthKey) {
+			k := authKey{
+				localIdentity:  identity.NumericIdentity(key.LocalIdentity),
+				remoteIdentity: identity.NumericIdentity(key.RemoteIdentity),
+				remoteNodeID:   key.RemoteNodeID,
+				authType:       policy.AuthType(key.AuthType),
+			}
+
+			if a.markPendingAuth(k) {
+				go func(key authKey) {
 					defer a.clearPendingAuth(key)
 
 					// Check if the auth is actually required, as we might have
 					// updated the authmap since the datapath issued the auth
 					// required signal.
-					if a.datapathAuthenticator.checkAuthenticated(key) {
+					if i, err := a.authmap.Get(key); err == nil && i.expiration.After(time.Now()) {
 						log.Debugf("auth: Already authenticated, skipped authentication for key %v", key)
 						return
 					}
@@ -103,7 +107,7 @@ func (a *authManager) start() {
 					if err := a.authenticate(key); err != nil {
 						log.WithError(err).Warningf("auth: Failed to authenticate request for key %v", key)
 					}
-				}(key)
+				}(k)
 			}
 		}
 	}()
@@ -112,7 +116,7 @@ func (a *authManager) start() {
 // markPendingAuth checks if there is a pending authentication for the given key.
 // If an auth is already pending returns false, otherwise marks the key as pending
 // and returns true.
-func (a *authManager) markPendingAuth(key AuthKey) bool {
+func (a *authManager) markPendingAuth(key authKey) bool {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -125,47 +129,56 @@ func (a *authManager) markPendingAuth(key AuthKey) bool {
 }
 
 // clearPendingAuth marks the pending authentication as finished.
-func (a *authManager) clearPendingAuth(key AuthKey) {
+func (a *authManager) clearPendingAuth(key authKey) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	delete(a.pending, key)
 }
 
-func (a *authManager) authenticate(key AuthKey) error {
-	authType := policy.AuthType(key.AuthType)
-
+func (a *authManager) authenticate(key authKey) error {
 	log.Debugf("auth: policy is requiring authentication type %s between local and remote identities %d<->%d",
-		authType, key.LocalIdentity, key.RemoteIdentity)
+		key.authType, key.localIdentity, key.remoteIdentity)
 
 	// Authenticate according to the requested auth type
-	h, ok := a.authHandlers[authType]
+	h, ok := a.authHandlers[key.authType]
 	if !ok {
-		return fmt.Errorf("unknown requested auth type: %s", authType)
+		return fmt.Errorf("unknown requested auth type: %s", key.authType)
 	}
 
-	nodeIP := a.ipCache.GetNodeIP(key.RemoteNodeID)
+	nodeIP := a.ipCache.GetNodeIP(key.remoteNodeID)
 	if nodeIP == "" {
-		return fmt.Errorf("remote node IP not available for node ID %d", key.RemoteNodeID)
+		return fmt.Errorf("remote node IP not available for node ID %d", key.remoteNodeID)
 	}
 
 	authReq := &authRequest{
-		localIdentity:  identity.NumericIdentity(key.LocalIdentity),
-		remoteIdentity: identity.NumericIdentity(key.RemoteIdentity),
+		localIdentity:  key.localIdentity,
+		remoteIdentity: key.remoteIdentity,
 		remoteNodeIP:   nodeIP,
 	}
 
 	authResp, err := h.authenticate(authReq)
 	if err != nil {
-		return fmt.Errorf("failed to authenticate with auth type %s: %w", authType, err)
+		return fmt.Errorf("failed to authenticate with auth type %s: %w", key.authType, err)
 	}
 
-	err = a.datapathAuthenticator.markAuthenticated(key, authResp.expirationTime)
-	if err != nil {
-		return fmt.Errorf("failed to write auth information to BPF map: %w", err)
+	if err = a.updateAuthMap(key, authResp.expirationTime); err != nil {
+		return fmt.Errorf("failed to update BPF map in datapath: %w", err)
 	}
 
 	log.Debugf("auth: Successfully authenticated for type %s identity %d<->%d, remote host %s",
-		authType, key.LocalIdentity, key.RemoteIdentity, nodeIP)
+		key.authType, key.localIdentity, key.remoteIdentity, nodeIP)
+
+	return nil
+}
+
+func (a *authManager) updateAuthMap(key authKey, expirationTime time.Time) error {
+	val := authInfo{
+		expiration: expirationTime,
+	}
+
+	if err := a.authmap.Update(key, val); err != nil {
+		return fmt.Errorf("failed to write auth information to BPF map: %w", err)
+	}
 
 	return nil
 }
