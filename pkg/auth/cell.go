@@ -75,8 +75,19 @@ type authManagerParams struct {
 
 func newManager(params authManagerParams) error {
 	mapWriter := newAuthMapWriter(params.AuthMap)
+	mapCache := newAuthMapCache(mapWriter)
 
-	mgr, err := newAuthManager(params.SignalChannel, params.AuthHandlers, mapWriter, params.IPCache)
+	params.Lifecycle.Append(hive.Hook{
+		OnStart: func(hookContext hive.HookContext) error {
+			if err := mapCache.restoreCache(); err != nil {
+				return fmt.Errorf("failed to restore auth map cache: %w", err)
+			}
+
+			return nil
+		},
+	})
+
+	mgr, err := newAuthManager(params.SignalChannel, params.AuthHandlers, mapCache, params.IPCache)
 	if err != nil {
 		return fmt.Errorf("failed to create auth manager: %w", err)
 	}
