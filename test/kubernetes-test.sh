@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Comment for the '--set identityChangeGracePeriod="0s"'
 # We need to change the identity as quickly as possible as there

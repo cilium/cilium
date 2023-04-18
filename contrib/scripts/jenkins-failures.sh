@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 DIR=$(dirname $(readlink -ne $BASH_SOURCE))
 

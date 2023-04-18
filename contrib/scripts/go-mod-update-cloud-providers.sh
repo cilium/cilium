@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script updates all vendored cloud provider SDK Go modules to their latest
 # version.

@@ -1,7 +1,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 
 # define a function replacing spaces with commas in a list

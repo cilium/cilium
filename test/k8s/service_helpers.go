@@ -72,7 +72,7 @@ func testCommand(cmd string, count, fails int) string {
 	// Note: All newlines and the following whitespace is removed from the script below.
 	//       This requires explicit semicolons also at the ends of lines!
 	return trimNewlines(fmt.Sprintf(
-		`/bin/bash -c
+		`/usr/bin/env bash -c
 			'fails="";
 			id=$RANDOM;
 			for i in $(seq 1 %d); do

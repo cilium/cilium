@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SNAP_COMMON=${SNAP_COMMON:-"/var/snap/microk8s/common"}
 KUBELET_CONF="/var/snap/microk8s/current/args/kubelet"
