@@ -54,15 +54,6 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	// Set the name to avoid any breaking change during upgrade.
 	cec.Name = fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, m.HTTP[0].Sources[0].Name)
-	// Set the owner reference to the CEC object.
-	cec.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: slim_networkingv1.SchemeGroupVersion.String(),
-			Kind:       "Ingress",
-			Name:       m.HTTP[0].Sources[0].Name,
-			UID:        types.UID(m.HTTP[0].Sources[0].UID),
-		},
-	}
 	return cec, getService(m.HTTP[0].Sources[0], m.HTTP[0].Service), getEndpoints(m.HTTP[0].Sources[0]), err
 }
 
