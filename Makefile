@@ -667,9 +667,6 @@ update-go-version: ## Update Go version for all the components (images, CI, dev-
 			-e 's|^//go:build go.*|//go:build go$(GO_MAJOR_AND_MINOR_VERSION)|g' \
 			$$fl ; \
 	done
-	# Update Go version in Travis CI config.
-	$(QUIET) sed -i 's/go: ".*/go: "$(GO_VERSION)"/g' .travis.yml
-	@echo "Updated go version in .travis.yml to $(GO_VERSION)"
 	# Update Go version in test scripts.
 	$(QUIET) sed -i 's/GO_VERSION=.*/GO_VERSION="$(GO_VERSION)"/g' test/kubernetes-test.sh
 	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION="$(GO_VERSION)"/g' test/packet/scripts/install.sh
