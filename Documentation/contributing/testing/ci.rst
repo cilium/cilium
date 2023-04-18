@@ -93,12 +93,12 @@ example patch that shows how this can be achieved.
                  steps {
                      parallel(
                          "Runtime":{
-    -                        sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated" --tags=integration_tests'
-    +                        sh 'cd ${TESTDIR}; ginkgo --focus="XFoooo" --tags=integration_tests'
+    -                        sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated"'
+    +                        sh 'cd ${TESTDIR}; ginkgo --focus="XFoooo"'
                          },
                          "K8s-1.9":{
-    -                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sValidated" --tags=integration_tests ${FAILFAST}'
-    +                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sFooooo" --tags=integration_tests ${FAILFAST}'
+    -                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sValidated" ${FAILFAST}'
+    +                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus="K8sFooooo" ${FAILFAST}'
                          },
                          failFast: true
                      )

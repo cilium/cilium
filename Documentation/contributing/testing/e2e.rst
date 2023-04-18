@@ -63,7 +63,7 @@ To run all of the runtime tests, execute the following command from the ``test``
 
 .. code-block:: shell-session
 
-    ginkgo --focus="Runtime" --tags=integration_tests
+    INTEGRATION_TESTS=true ginkgo --focus="Runtime"
 
 Ginkgo searches for all tests in all subdirectories that are "named" beginning
 with the string "Runtime" and contain any characters after it. For instance,
@@ -71,7 +71,7 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
 
 .. code-block:: shell-session
 
-    $ ginkgo --focus="Runtime" -dryRun --tags=integration_tests
+    $ INTEGRATION_TESTS=true ginkgo --focus="Runtime" -dryRun
     Running Suite: runtime
     ======================
     Random Seed: 1516125117
@@ -114,14 +114,14 @@ To run all of the Kubernetes tests, run the following command from the ``test`` 
 
 .. code-block:: shell-session
 
-    ginkgo --focus="K8s" --tags=integration_tests
+    INTEGRATION_TESTS=true ginkgo --focus="K8s"
 
 To run a specific test from the Kubernetes tests suite, run the following command
 from the ``test`` directory:
 
 .. code-block:: shell-session
 
-    ginkgo --focus="K8s.*Check iptables masquerading with random-fully" --tags=integration_tests
+    INTEGRATION_TESTS=true ginkgo --focus="K8s.*Check iptables masquerading with random-fully"
 
 Similar to the Runtime test suite, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "K8s" and
@@ -146,7 +146,7 @@ supported version of Kubernetes, run the test suite with the following format:
 
 .. code-block:: shell-session
 
-    K8S_VERSION=<version> ginkgo --focus="K8s" --tags=integration_tests
+    INTEGRATION_TESTS=true K8S_VERSION=<version> ginkgo --focus="K8s"
 
 .. note::
 
@@ -254,7 +254,7 @@ If you want to run one specified test, there are a few options:
 
   .. code-block:: shell-session
 
-      ginkgo --focus "Runtime.*L7" --tags=integration_tests
+      INTEGRATION_TESTS=true ginkgo --focus "Runtime.*L7"
 
 
 This will focus on tests that contain "Runtime", followed by any
@@ -457,7 +457,7 @@ Example how to run ginkgo using ``dlv``:
 
 .. code-block:: shell-session
 
-	dlv test . --build-flags="-tags=integration_tests" -- --ginkgo.focus="Runtime" -ginkgo.v=true --cilium.provision=false
+	dlv test . -- --ginkgo.focus="Runtime" -ginkgo.v=true --cilium.provision=false
 
 Running End-To-End Tests In Other Environments via kubeconfig
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -493,7 +493,7 @@ An example invocation is
 
 .. code-block:: shell-session
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.16 ginkgo --focus="K8s" --tags=integration_tests -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.passCLIEnvironment=true
+  INTEGRATION_TESTS=true CNI_INTEGRATION=eks K8S_VERSION=1.16 ginkgo --focus="K8s" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.passCLIEnvironment=true
 
 
 To run tests with Kind, try
@@ -529,7 +529,7 @@ cluster.
   export CLUSTER_ZONE=us-west2-a
   export NATIVE_CIDR="$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE --format 'value(clusterIpv4Cidr)')"
 
-  CNI_INTEGRATION=gke K8S_VERSION=1.17 ginkgo --focus="K8sDemo" --tags=integration_tests -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.hubble-relay-image="quay.io/cilium/hubble-relay-ci" -cilium.passCLIEnvironment=true
+  INTEGRATION_TESTS=true CNI_INTEGRATION=gke K8S_VERSION=1.17 ginkgo --focus="K8sDemo" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.hubble-relay-image="quay.io/cilium/hubble-relay-ci" -cilium.passCLIEnvironment=true
 
 .. note:: The kubernetes version defaults to 1.23 but can be configured with
           versions between 1.16 and 1.23. Version should match the server
@@ -551,7 +551,7 @@ AKS (experimental)
 .. code-block:: shell-session
 
     export NATIVE_CIDR="10.241.0.0/16"
-    CNI_INTEGRATION=aks K8S_VERSION=1.17 ginkgo --focus="K8s" --tags=integration_tests -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.passCLIEnvironment=true -cilium.image="mcr.microsoft.com/oss/cilium/cilium" -cilium.tag="1.12.1" -cilium.operator-image="mcr.microsoft.com/oss/cilium/operator" -cilium.operator-suffix=""  -cilium.operator-tag="1.12.1"
+    INTEGRATION_TESTS=true CNI_INTEGRATION=aks K8S_VERSION=1.17 ginkgo --focus="K8s" -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.passCLIEnvironment=true -cilium.image="mcr.microsoft.com/oss/cilium/cilium" -cilium.tag="1.12.1" -cilium.operator-image="mcr.microsoft.com/oss/cilium/operator" -cilium.operator-suffix=""  -cilium.operator-tag="1.12.1"
 
 AWS EKS (experimental)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -636,7 +636,7 @@ To run this you can use the following command:
 
 .. code-block:: shell-session
 
-    ginkgo --tags=integration_tests -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
+    ginkgo -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
 
 
 VMs for Testing
