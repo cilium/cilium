@@ -32,6 +32,15 @@ func Test_translator_Translate(t *testing.T) {
 			want: basicHTTPListenersCiliumEnvoyConfig,
 		},
 		{
+			name: "Basic TLS SNI Listener",
+			args: args{
+				m: &model.Model{
+					TLS: basicTLSListeners,
+				},
+			},
+			want: basicTLSListenersCiliumEnvoyConfig,
+		},
+		{
 			name: "Conformance/HTTPRouteSimpleSameNamespace",
 			args: args{
 				m: &model.Model{
