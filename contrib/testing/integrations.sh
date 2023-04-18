@@ -47,7 +47,7 @@ gct()
         HUBBLE_RELAY_IMAGE="${HUBBLE_RELAY_IMAGE:-"quay.io/cilium/hubble-relay"}" \
         HUBBLE_RELAY_IMAGE_TAG="${HUBBLE_RELAY_IMAGE_TAG:-"latest"}" \
         K8S_VERSION="$(kubectl version -o json |  jq -r '(.serverVersion.major + "." + (.serverVersion.minor | scan("[0-9]+")))' | sed 's/"//g')" \
-        ginkgo -v "$FOCUS" --tags integration_tests -- \
+        INTEGRATION_TESTS=true ginkgo -v "$FOCUS" -- \
             -cilium.provision=false \
             -cilium.kubeconfig=$HOME/.kube/config \
             -cilium.passCLIEnvironment=true \

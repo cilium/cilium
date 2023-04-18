@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package elf
 
 import (
@@ -15,18 +13,23 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cilium/ebpf"
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/ebpf"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 // Hook up gocheck into the "go test" runner.
 type ELFTestSuite struct{}
 
-var (
-	_ = Suite(&ELFTestSuite{})
+var _ = Suite(&ELFTestSuite{})
 
-	baseObjPath = filepath.Join("..", "..", "test", "bpf", "elf-demo.o")
-)
+func (s *ELFTestSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
+
+var baseObjPath = filepath.Join("..", "..", "test", "bpf", "elf-demo.o")
 
 const elfObjCopy = "elf-demo-copy.o"
 
@@ -203,7 +206,9 @@ func BenchmarkWriteELF(b *testing.B) {
 	defer os.RemoveAll(tmpDir)
 
 	elf, err := Open(baseObjPath)
-	b.Fatal(err)
+	if err != nil {
+		b.Fatal(err)
+	}
 	defer elf.Close()
 
 	b.ResetTimer()

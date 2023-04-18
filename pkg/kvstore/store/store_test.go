@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package store
 
 import (
@@ -19,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 const (
@@ -32,11 +31,19 @@ func Test(t *testing.T) {
 
 type StoreSuite struct{}
 
+func (s *StoreSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
+
 type StoreEtcdSuite struct {
 	StoreSuite
 }
 
 var _ = Suite(&StoreEtcdSuite{})
+
+func (e *StoreEtcdSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (e *StoreEtcdSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
@@ -52,6 +59,10 @@ type StoreConsulSuite struct {
 }
 
 var _ = Suite(&StoreConsulSuite{})
+
+func (e *StoreConsulSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (e *StoreConsulSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("consul")

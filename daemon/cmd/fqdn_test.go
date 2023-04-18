@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package cmd
 
 import (
@@ -38,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
@@ -48,6 +47,8 @@ type DaemonFQDNSuite struct {
 var _ = Suite(&DaemonFQDNSuite{})
 
 func (ds *DaemonFQDNSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+
 	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 }
 

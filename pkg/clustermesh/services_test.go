@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package clustermesh
 
 import (
@@ -49,9 +47,11 @@ type ClusterMeshServicesTestSuite struct {
 	randomName string
 }
 
-var (
-	_ = Suite(&ClusterMeshServicesTestSuite{})
-)
+var _ = Suite(&ClusterMeshServicesTestSuite{})
+
+func (s *ClusterMeshServicesTestSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")

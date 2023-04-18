@@ -109,13 +109,12 @@ generate-cov: ## Generate HTML coverage report at coverage-all.html.
 	$(QUIET) rm coverage.out.tmp
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
-integration-tests: GO_TAGS_FLAGS+=integration_tests
-integration-tests: start-kvstores ## Runs all integration tests.
+integration-tests: start-kvstores ## Run Go tests including ones that are marked as integration tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
 endif
-	$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
+	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 	$(MAKE) stop-kvstores
 

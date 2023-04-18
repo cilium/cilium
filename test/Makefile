@@ -26,20 +26,20 @@ all: build
 
 build:
 	@$(ECHO_GINKGO)$@
-	$(GINKGO) build -tags=integration_tests
+	$(GINKGO) build
 	$(QUIET)$(MAKE) -C bpf/
 
 build-darwin:
 	@$(ECHO_GINKGO)$@
-	GOOS=darwin $(GINKGO) build -tags=integration_tests
+	GOOS=darwin $(GINKGO) build
 
 test: run k8s-test
 
 run:
-	KERNEL=net-next ginkgo --focus "Runtime" --tags integration_tests -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
+	INTEGRATION_TESTS=true KERNEL=net-next ginkgo --focus "Runtime" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 k8s-test:
-	ginkgo --focus "K8s" --tags integration_tests -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
+	INTEGRATION_TESTS=true ginkgo --focus "K8s" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 # Match kind-image target in parent directory
 k8s-kind: export DOCKER_REGISTRY=localhost:5000
@@ -53,7 +53,7 @@ k8s-kind:
 		NETNEXT="$(NETNEXT)" \
 		KUBEPROXY="$(KUBEPROXY)" \
 		NO_CILIUM_ON_NODES="$(NO_CILIUM_ON_NODES)" \
-		ginkgo --focus "$(FOCUS)" --tags integration_tests -v -- \
+		INTEGRATION_TESTS=true ginkgo --focus "$(FOCUS)" -v -- \
 			-cilium.testScope=k8s \
 			-cilium.provision=false \
 			-cilium.kubeconfig=$$(echo ~/.kube/config) \
