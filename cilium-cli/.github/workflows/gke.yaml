@@ -27,7 +27,7 @@ concurrency:
 
 env:
   zone: us-west2-a
-  cilium_version: v1.13.1
+  cilium_version: v1.13.2
   kubectl_version: v1.23.6
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
