@@ -73,7 +73,7 @@ const (
 	ConnectivityDNSTestServerImage   = "docker.io/coredns/coredns:1.10.0@sha256:017727efcfeb7d053af68e51436ce8e65edbc6ca573720afb4f79c8594036955"
 
 	ConfigMapName = "cilium-config"
-	Version       = "v1.13.1"
+	Version       = "v1.13.2"
 
 	StatusWaitDuration = 5 * time.Minute
 
