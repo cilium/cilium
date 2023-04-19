@@ -1988,6 +1988,23 @@ func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI 
 	// /bgp/peers
 	restAPI.BgpGetBgpPeersHandler = NewGetBGPHandler(d.bgpControlPlaneController)
 
+	msg := "Required API option %s is disabled. This may prevent Cilium from operating correctly"
+	hint := "Consider enabling this API in " + server.AdminEnableFlag
+	for _, requiredAPI := range []string{
+		"GetConfig",
+		"GetHealthz",
+		"PutEndpointID",
+		"DeleteEndpointID",
+		"PostIPAM",
+		"DeleteIPAMIP",
+	} {
+		if _, denied := swaggerSpec.DeniedAPIs[requiredAPI]; denied {
+			log.WithFields(logrus.Fields{
+				logfields.Hint:   hint,
+				logfields.Params: requiredAPI,
+			}).Warning(msg)
+		}
+	}
 	api.DisableAPIs(swaggerSpec.DeniedAPIs, restAPI.AddMiddlewareFor)
 
 	return restAPI
