@@ -67,6 +67,7 @@ Core Agent
    :glob:
 
    api-rate-limiting
+   api-restrictions
    per-node-config
    sctp
    vlan-802.1q
