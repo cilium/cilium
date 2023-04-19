@@ -5,6 +5,9 @@ on:
   issue_comment:
     types:
       - created
+  # Run once a day
+  schedule:
+    - cron:  '0 9 * * *'
   ### FOR TESTING PURPOSES
   # This workflow runs in the context of `main`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
