@@ -22,6 +22,7 @@ import (
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/swag"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"golang.org/x/net/netutil"
 
 	"github.com/cilium/cilium/api/v1/server/restapi"
@@ -217,25 +218,52 @@ var (
 	tlsCACertificate  string
 )
 
+type SpecConfig struct {
+	EnableCiliumAPIServerAccess []string
+}
+
+var (
+	defaultSpecConfig = SpecConfig{
+		EnableCiliumAPIServerAccess: []string{"*"},
+	}
+	AdminEnableFlag = "enable-cilium-api-server-access"
+)
+
+func (cfg SpecConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringSlice(AdminEnableFlag, cfg.EnableCiliumAPIServerAccess,
+		"List of cilium API APIs which are administratively enabled. Supports '*'.")
+}
+
 var SpecCell = cell.Module(
 	"cilium-api-spec",
 	"cilium API Specification",
 
+	cell.Config(defaultSpecConfig),
 	cell.Provide(newSpec),
 )
 
 type Spec struct {
 	*loads.Document
+
+	// DeniedAPIs is a set of APIs that are administratively disabled.
+	DeniedAPIs api.PathSet
 }
 
-func newSpec() (*Spec, error) {
+func newSpec(cfg SpecConfig) (*Spec, error) {
 	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load swagger spec: %w", err)
 	}
 
+	deniedAPIs, err := api.AllowedFlagsToDeniedPaths(swaggerSpec, cfg.EnableCiliumAPIServerAccess)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %q flag: %w",
+			AdminEnableFlag, err)
+	}
+
 	return &Spec{
-		Document: swaggerSpec,
+		Document:   swaggerSpec,
+		DeniedAPIs: deniedAPIs,
 	}, nil
 }
 
