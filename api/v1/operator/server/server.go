@@ -113,6 +113,28 @@ var (
 	tlsCACertificate  string
 )
 
+var SpecCell = cell.Module(
+	"cilium-operator-spec",
+	"cilium operator Specification",
+
+	cell.Provide(newSpec),
+)
+
+type Spec struct {
+	*loads.Document
+}
+
+func newSpec() (*Spec, error) {
+	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load swagger spec: %w", err)
+	}
+
+	return &Spec{
+		Document: swaggerSpec,
+	}, nil
+}
+
 // NewServer creates a new api cilium operator server but does not configure it
 func NewServer(api *restapi.CiliumOperatorAPI) *Server {
 	s := new(Server)
