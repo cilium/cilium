@@ -221,6 +221,12 @@ func (c *Controller) runController() {
 			c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
 
 			if err != nil {
+				if ctx.Err() != nil {
+					// The controller's context was canceled. Let's wait for the
+					// next controller update (or stop).
+					err = NewExitReason("controller context canceled")
+				}
+
 				switch err := err.(type) {
 				case ExitReason:
 					// This is actually not an error case, but it causes an exit
