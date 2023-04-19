@@ -23,7 +23,7 @@ var (
 )
 
 func getLatestStableVersion() string {
-	resp, err := http.Get("https://raw.githubusercontent.com/cilium/cilium/master/stable.txt")
+	resp, err := http.Get("https://raw.githubusercontent.com/cilium/cilium/main/stable.txt")
 	if err != nil {
 		return "unknown"
 	}
