@@ -93,6 +93,7 @@ cilium-agent [flags]
       --enable-bpf-tproxy                                       Enable BPF-based proxy redirection, if support available
       --enable-cilium-api-server-access strings                 List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-endpoint-slice                            Enable the CiliumEndpointSlice watcher in place of the CiliumEndpoint watcher (beta)
+      --enable-cilium-health-api-server-access strings          List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-custom-calls                                     Enable tail call hooks for custom eBPF programs
       --enable-endpoint-health-checking                         Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                                  Use per endpoint routes instead of routing via cilium_host

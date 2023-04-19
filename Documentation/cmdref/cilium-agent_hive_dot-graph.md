@@ -17,30 +17,31 @@ cilium-agent hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
-      --certificates-directory string                 Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
-      --cni-chaining-mode string                      Enable CNI chaining with the specified plugin (default "none")
-      --cni-exclusive                                 Whether to remove other CNI configurations
-      --cni-log-file string                           Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")
-      --enable-cilium-api-server-access strings       List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
-      --enable-k8s                                    Enable the k8s clientset (default true)
-      --enable-k8s-api-discovery                      Enable discovery of Kubernetes API groups and resources with the discovery API
-      --gops-port uint16                              Port for gops server to listen on (default 9890)
-      --install-egress-gateway-routes                 Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
-      --k8s-api-server string                         Kubernetes API server URL
-      --k8s-client-burst int                          Burst value allowed for the K8s client
-      --k8s-client-qps float32                        Queries per second limit for the K8s client
-      --k8s-heartbeat-timeout duration                Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
-      --k8s-kubeconfig-path string                    Absolute path of the kubernetes kubeconfig file
-      --mesh-auth-monitor-queue-size int              Queue size for the auth monitor (default 1024)
-      --mesh-auth-mtls-listener-port int              Port on which the Cilium Agent will perfom mTLS handshakes between other Agents
-      --mesh-auth-rotated-identities-queue-size int   The size of the queue for signaling rotated identities. (default 1024)
-      --mesh-auth-spiffe-trust-domain string          The trust domain for the SPIFFE identity. (default "spiffe.cilium")
-      --mesh-auth-spire-admin-socket string           The path for the SPIRE admin agent Unix socket.
-      --pprof                                         Enable serving pprof debugging API
-      --pprof-address string                          Address that pprof listens on (default "localhost")
-      --pprof-port uint16                             Port that pprof listens on (default 6060)
-      --read-cni-conf string                          CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
-      --write-cni-conf-when-ready string              Write the CNI configuration to the specified path when agent is ready
+      --certificates-directory string                    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
+      --cni-chaining-mode string                         Enable CNI chaining with the specified plugin (default "none")
+      --cni-exclusive                                    Whether to remove other CNI configurations
+      --cni-log-file string                              Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")
+      --enable-cilium-api-server-access strings          List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
+      --enable-cilium-health-api-server-access strings   List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
+      --enable-k8s                                       Enable the k8s clientset (default true)
+      --enable-k8s-api-discovery                         Enable discovery of Kubernetes API groups and resources with the discovery API
+      --gops-port uint16                                 Port for gops server to listen on (default 9890)
+      --install-egress-gateway-routes                    Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
+      --k8s-api-server string                            Kubernetes API server URL
+      --k8s-client-burst int                             Burst value allowed for the K8s client
+      --k8s-client-qps float32                           Queries per second limit for the K8s client
+      --k8s-heartbeat-timeout duration                   Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
+      --k8s-kubeconfig-path string                       Absolute path of the kubernetes kubeconfig file
+      --mesh-auth-monitor-queue-size int                 Queue size for the auth monitor (default 1024)
+      --mesh-auth-mtls-listener-port int                 Port on which the Cilium Agent will perfom mTLS handshakes between other Agents
+      --mesh-auth-rotated-identities-queue-size int      The size of the queue for signaling rotated identities. (default 1024)
+      --mesh-auth-spiffe-trust-domain string             The trust domain for the SPIFFE identity. (default "spiffe.cilium")
+      --mesh-auth-spire-admin-socket string              The path for the SPIRE admin agent Unix socket.
+      --pprof                                            Enable serving pprof debugging API
+      --pprof-address string                             Address that pprof listens on (default "localhost")
+      --pprof-port uint16                                Port that pprof listens on (default 6060)
+      --read-cni-conf string                             CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
+      --write-cni-conf-when-ready string                 Write the CNI configuration to the specified path when agent is ready
 ```
 
 ### SEE ALSO

@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 
+	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/daemon/cmd/cni"
@@ -1601,6 +1602,7 @@ type daemonParams struct {
 	EgressGatewayManager *egressgateway.Manager
 	CNIConfigManager     cni.CNIConfigManager
 	SwaggerSpec          *server.Spec
+	HealthAPISpec        *healthApi.Spec
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1782,7 +1784,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
-		d.initHealth(cleaner)
+		d.initHealth(params.HealthAPISpec, cleaner)
 	}
 	bootstrapStats.healthCheck.End(true)
 
