@@ -63,7 +63,7 @@ codeowners.rst: $(ROOT_DIR)/CODEOWNERS
 .PHONY: update-codeowners
 update-codeowners: codeowners.rst
 
-check: builder-image update-cmdref update-helm-values update-codeowners ## Validate command and Helm references, as well as policy examples.
+check: builder-image api-flaggen update-cmdref update-helm-values update-codeowners ## Validate command and Helm references, as well as policy examples.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
@@ -72,10 +72,19 @@ check: builder-image update-cmdref update-helm-values update-codeowners ## Valid
 	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
 	@$(ECHO_CHECK) codeowners.rst
 	$(QUIET) ./check-codeowners.sh
+	@$(ECHO_CHECK) configuration/api-restrictions-table.rst
+	$(QUIET) ./check-flaggen.sh
 
 ifeq ($(V),0)
 SPHINX_OPTS += -q
 endif
+
+.PHONY: api-flaggen
+api-flaggen:
+	@$(ECHO_GEN) api-flags
+	$(QUIET)$(GO) run $(ROOT_DIR)/tools/api-flaggen \
+		2>/dev/null \
+		> configuration/api-restrictions-table.rst
 
 copy-api:
 	@$(ECHO_GEN)_api
