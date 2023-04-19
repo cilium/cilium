@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
+	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/identitygc"
@@ -114,6 +115,7 @@ var (
 			isLeader.Load,
 		),
 		api.MetricsHandlerCell,
+		operatorApi.SpecCell,
 		api.ServerCell,
 
 		// Provides a global job registry which cells can use to spawn job groups.
