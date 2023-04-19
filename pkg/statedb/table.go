@@ -4,8 +4,11 @@
 package statedb
 
 import (
+	"sync/atomic"
+
 	memdb "github.com/hashicorp/go-memdb"
 
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -28,10 +31,8 @@ import (
 //	func New(bees state.Table[*Bee]) Bee { ... }
 func NewTableCell[Obj ObjectConstraints[Obj]](schema *memdb.TableSchema) cell.Cell {
 	return cell.Provide(
-		func() (Table[Obj], tableSchemaOut) {
-			return &table[Obj]{table: schema.Name},
-				tableSchemaOut{Schema: schema}
-		},
+		newTable[Obj](schema),
+		func() tableSchemaOut { return tableSchemaOut{Schema: schema} },
 	)
 }
 
@@ -39,9 +40,7 @@ func NewTableCell[Obj ObjectConstraints[Obj]](schema *memdb.TableSchema) cell.Ce
 // to the module defining it.
 func NewPrivateTableCell[Obj ObjectConstraints[Obj]](schema *memdb.TableSchema) cell.Cell {
 	return cell.Group(
-		cell.ProvidePrivate(
-			func() Table[Obj] { return &table[Obj]{table: schema.Name} },
-		),
+		cell.ProvidePrivate(newTable[Obj](schema)),
 		cell.Provide(
 			func() tableSchemaOut { return tableSchemaOut{Schema: schema} },
 		),
@@ -54,12 +53,60 @@ type tableSchemaOut struct {
 	Schema *memdb.TableSchema `group:"statedb-table-schemas"`
 }
 
+func newTable[Obj ObjectConstraints[Obj]](schema *memdb.TableSchema) func(lc hive.Lifecycle) Table[Obj] {
+	return func(lc hive.Lifecycle) Table[Obj] {
+		t := &table[Obj]{
+			table:        schema.Name,
+			initialized:  make(chan struct{}),
+			initializers: map[string]chan struct{}{},
+		}
+		lc.Append(t)
+		return t
+	}
+}
+
 type table[Obj ObjectConstraints[Obj]] struct {
-	table string
+	started      atomic.Bool
+	table        string
+	initialized  chan struct{}
+	initializers map[string]chan struct{}
+}
+
+// Start implements hive.HookInterface
+func (t *table[Obj]) Start(hive.HookContext) error {
+	t.started.Store(true)
+	go func() {
+		for _, ch := range t.initializers {
+			<-ch
+		}
+		close(t.initialized)
+	}()
+	return nil
+}
+
+// Stop implements hive.HookInterface
+func (t *table[Obj]) Stop(hive.HookContext) error {
+	return nil
 }
 
 func (t *table[Obj]) Name() TableName {
 	return TableName(t.table)
+}
+
+func (t *table[Obj]) Initialized() <-chan struct{} {
+	if !t.started.Load() {
+		panic("Initialized() called before Start()")
+	}
+	return t.initialized
+}
+
+func (t *table[Obj]) RegisterInitializer(name string) chan<- struct{} {
+	if t.started.Load() {
+		panic("RegisterInitializer called after Start()")
+	}
+	ch := make(chan struct{})
+	t.initializers[name] = ch
+	return ch
 }
 
 func (t *table[Obj]) Reader(tx ReadTransaction) TableReader[Obj] {

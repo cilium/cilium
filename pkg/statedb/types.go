@@ -108,6 +108,20 @@ type Table[Obj ObjectConstraints[Obj]] interface {
 	// Writer when given a write transaction returns a table writer
 	// that can be used to modify the table.
 	Writer(tx WriteTransaction) TableReaderWriter[Obj]
+
+	// Initialized returns a channel that is closed when the table
+	// has been fully initialized. This method can only be used
+	// from start onwards.
+	Initialized() <-chan struct{}
+
+	// RegisterInitializer registers an initializer. Returns
+	// a channel that the initializer should close once it
+	// has completed.
+	//
+	// This method can only be called before starting in order
+	// to guarantee that all initializers are registered before
+	// Initialized() is called.
+	RegisterInitializer(name string) chan<- struct{}
 }
 
 // TableReader provides a set of read-only queries to a table.

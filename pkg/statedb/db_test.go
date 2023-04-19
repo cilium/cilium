@@ -197,6 +197,56 @@ func runTest(t *testing.T, p testParams) {
 	assert.True(t, len(foos[0].UUID) > 0)
 }
 
+func TestTableInitializers(t *testing.T) {
+	initReady := make(chan struct{})
+	waitReady := make(chan struct{})
+
+	initializer := func(t Table[*Foo]) {
+		initChan := t.RegisterInitializer("test")
+		go func() {
+			<-initReady
+			close(initChan)
+		}()
+	}
+	waiter := func(lc hive.Lifecycle, t Table[*Foo]) {
+		// Fork a goroutine at start to wait for the table
+		// to finish initializing.
+		lc.Append(hive.Hook{
+			OnStart: func(hive.HookContext) error {
+				go func() {
+					<-t.Initialized()
+					close(waitReady)
+				}()
+				return nil
+			}})
+	}
+
+	hive := hive.New(
+		cell.Provide(func() *testing.T { return t }),
+
+		Cell,
+		NewTableCell[*Foo](fooTableSchema),
+
+		cell.Invoke(initializer, waiter),
+	)
+
+	assert.NoError(t, hive.Start(context.TODO()))
+
+	// Initialized() should not be closed yet.
+	select {
+	case <-waitReady:
+		t.Fatalf("Initialized() channel closed before initializer done")
+	default:
+	}
+
+	// Tell the initializer to finish.
+	close(initReady)
+
+	<-waitReady
+
+	assert.NoError(t, hive.Stop(context.TODO()))
+}
+
 // Benchmark how many insertions per second can be performed on a table with UUID primary
 // key. On a 3.4Ghz i5 laptop I'm seeing 2719 ns/op, e.g. ~350k per second.
 func BenchmarkDB_Insert_UUID(b *testing.B) {
