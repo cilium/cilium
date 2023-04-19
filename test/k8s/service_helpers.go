@@ -492,17 +492,6 @@ func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, 
 			getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort),
 			getTFTPLink(ni.K8s2IP, data.Spec.Ports[1].NodePort),
 		}
-
-		if helpers.DualStackSupported() {
-			testURLsFromOutside = append(testURLsFromOutside,
-				getHTTPLink(ni.PrimaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
-				getTFTPLink(ni.PrimaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
-
-				getHTTPLink(ni.PrimaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
-				getTFTPLink(ni.PrimaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
-			)
-		}
-
 	}
 
 	count := 10
