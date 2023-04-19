@@ -9,7 +9,7 @@ on:
       - reopened
   push:
     branches:
-      - master
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
@@ -50,11 +50,11 @@ jobs:
         with:
           ref: ${{ steps.tag.outputs.tag }}
 
-      # master branch pushes
+      # main branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
-        id: docker_build_ci_master
+        id: docker_build_ci_main
         with:
           context: .
           file: ${{ matrix.dockerfile }}
@@ -69,8 +69,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_master.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_master.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_main.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_main.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       # PR updates
       - name: CI Build ${{ matrix.name }}
