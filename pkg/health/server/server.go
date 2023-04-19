@@ -8,13 +8,12 @@ import (
 	"path"
 	"time"
 
-	"github.com/go-openapi/loads"
-
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/health/server/restapi"
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/api"
 	ciliumPkg "github.com/cilium/cilium/pkg/client"
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
@@ -37,6 +36,7 @@ type Config struct {
 	ProbeInterval time.Duration
 	ProbeDeadline time.Duration
 	HTTPPathPort  int
+	HealthAPISpec *healthApi.Spec
 }
 
 // ipString is an IP address used as a more descriptive type name in maps.
@@ -382,8 +382,8 @@ func (s *Server) Shutdown() {
 
 // newServer instantiates a new instance of the health API server on the
 // defaults unix socket.
-func (s *Server) newServer(spec *loads.Document) *healthApi.Server {
-	restAPI := restapi.NewCiliumHealthAPIAPI(spec)
+func (s *Server) newServer(spec *healthApi.Spec) *healthApi.Server {
+	restAPI := restapi.NewCiliumHealthAPIAPI(spec.Document)
 	restAPI.Logger = log.Printf
 
 	// Admin API
@@ -391,6 +391,7 @@ func (s *Server) newServer(spec *loads.Document) *healthApi.Server {
 	restAPI.ConnectivityGetStatusHandler = NewGetStatusHandler(s)
 	restAPI.ConnectivityPutStatusProbeHandler = NewPutStatusProbeHandler(s)
 
+	api.DisableAPIs(spec.DeniedAPIs, restAPI.AddMiddlewareFor)
 	srv := healthApi.NewServer(restAPI)
 	srv.EnabledListeners = []string{"unix"}
 	srv.SocketPath = defaults.SockPath
@@ -408,18 +409,13 @@ func NewServer(config Config) (*Server, error) {
 		connectivity: &healthReport{},
 	}
 
-	swaggerSpec, err := loads.Analyzed(healthApi.SwaggerJSON, "")
-	if err != nil {
-		return nil, err
-	}
-
 	cl, err := ciliumPkg.NewClient(config.CiliumURI)
 	if err != nil {
 		return nil, err
 	}
 
 	server.Client = cl
-	server.Server = *server.newServer(swaggerSpec)
+	server.Server = *server.newServer(config.HealthAPISpec)
 
 	server.httpPathServer = responder.NewServer(config.HTTPPathPort)
 

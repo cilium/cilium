@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
@@ -86,6 +87,9 @@ var (
 
 		// Cilium API specification cell makes the swagger model available for reuse
 		server.SpecCell,
+
+		// cilium-health connectivity probe API specification cell makes the swagger model available for reuse
+		healthApi.SpecCell,
 
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
