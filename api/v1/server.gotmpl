@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-openapi/loads"
   "github.com/go-openapi/swag"
   {{ if .UsePFlags }}flag "github.com/spf13/pflag"
   {{ end -}}
@@ -121,6 +122,28 @@ var (
   tlsCertificateKey string
   tlsCACertificate  string
 )
+
+var SpecCell = cell.Module(
+	"{{ dasherize .Name }}-spec",
+	"{{ humanize .Name }} Specification",
+
+	cell.Provide(newSpec),
+)
+
+type Spec struct {
+	*loads.Document
+}
+
+func newSpec() (*Spec, error) {
+	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load swagger spec: %w", err)
+	}
+
+	return &Spec{
+		Document:   swaggerSpec,
+	}, nil
+}
 
 // NewServer creates a new api {{ humanize .Name }} server but does not configure it
 func NewServer(api *{{ .Package }}.{{ pascalize .Name }}API) *Server {

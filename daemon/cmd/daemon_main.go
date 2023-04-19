@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/rlimit"
-	"github.com/go-openapi/loads"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -1592,6 +1591,7 @@ type daemonParams struct {
 	IPCache              *ipcache.IPCache
 	EgressGatewayManager *egressgateway.Manager
 	CNIConfigManager     cni.CNIConfigManager
+	SwaggerSpec          *server.Spec
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1805,7 +1805,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 
 	// Start up the local api socket
 	bootstrapStats.initAPI.Start()
-	srv := server.NewServer(d.instantiateAPI())
+	srv := server.NewServer(d.instantiateAPI(params.SwaggerSpec))
 	srv.EnabledListeners = []string{"unix"}
 	srv.SocketPath = option.Config.SocketPath
 	srv.ReadTimeout = apiTimeout
@@ -1860,14 +1860,9 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	}
 }
 
-func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
-	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
-	if err != nil {
-		log.WithError(err).Fatal("Cannot load swagger spec")
-	}
-
+func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI {
 	log.Info("Initializing Cilium API")
-	restAPI := restapi.NewCiliumAPIAPI(swaggerSpec)
+	restAPI := restapi.NewCiliumAPIAPI(swaggerSpec.Document)
 
 	restAPI.Logger = log.Infof
 
