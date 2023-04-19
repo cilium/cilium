@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -985,4 +986,107 @@ func TestLBServiceReconciler(t *testing.T) {
 
 		})
 	}
+}
+
+// TestReconcileAfterServerReinit reproduces issue #24975, validates service reconcile works after router-id is
+// modified.
+func TestReconcileAfterServerReinit(t *testing.T) {
+	var (
+		routerID        = "192.168.0.1"
+		localPort       = 45450
+		localASN        = 64125
+		newRouterID     = "192.168.0.2"
+		diffstore       = newFakeDiffStore[*slim_corev1.Service]()
+		serviceSelector = &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
+		obj             = &slim_corev1.Service{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:      "svc-1",
+				Namespace: "default",
+				Labels: map[string]string{
+					"color": "blue",
+				},
+			},
+			Spec: slim_corev1.ServiceSpec{
+				Type: slim_corev1.ServiceTypeLoadBalancer,
+			},
+			Status: slim_corev1.ServiceStatus{
+				LoadBalancer: slim_corev1.LoadBalancerStatus{
+					Ingress: []slim_corev1.LoadBalancerIngress{
+						{
+							IP: "1.2.3.4",
+						},
+					},
+				},
+			},
+		}
+	)
+
+	// Initial router configuration
+	startReq := &gobgp.StartBgpRequest{
+		Global: &gobgp.Global{
+			Asn:        uint32(localASN),
+			RouterId:   routerID,
+			ListenPort: int32(localPort),
+		},
+	}
+
+	testSC, err := NewServerWithConfig(context.Background(), startReq)
+	require.NoError(t, err)
+
+	originalServer := testSC.Server
+	t.Cleanup(func() {
+		originalServer.Stop() // stop our test server
+		testSC.Server.Stop()  // stop any recreated server
+	})
+
+	// Validate pod CIDR and service announcements work as expected
+	newc := &v2alpha1api.CiliumBGPVirtualRouter{
+		LocalASN:        localASN,
+		ExportPodCIDR:   true,
+		Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
+		ServiceSelector: serviceSelector,
+	}
+
+	cstate := &agent.ControlPlaneState{
+		Annotations: agent.AnnotationMap{
+			localASN: agent.Attributes{
+				RouterID:  routerID,
+				LocalPort: localPort,
+			},
+		},
+	}
+
+	err = exportPodCIDRReconciler(context.Background(), nil, testSC, newc, cstate)
+	require.NoError(t, err)
+
+	diffstore.Upsert(obj)
+	reconciler := NewLBServiceReconciler(diffstore)
+	err = reconciler.Reconciler.Reconcile(context.Background(), nil, testSC, newc, cstate)
+	require.NoError(t, err)
+
+	// update server config, this is done outside of reconcilers
+	testSC.Config = newc
+
+	// Update router-ID
+	cstate = &agent.ControlPlaneState{
+		Annotations: agent.AnnotationMap{
+			localASN: agent.Attributes{
+				RouterID:  newRouterID,
+				LocalPort: localPort,
+			},
+		},
+	}
+
+	// Trigger pre flight reconciler
+	err = preflightReconciler(context.Background(), nil, testSC, newc, cstate)
+	require.NoError(t, err)
+
+	// Test pod CIDR reconciler is working
+	err = exportPodCIDRReconciler(context.Background(), nil, testSC, newc, cstate)
+	require.NoError(t, err)
+
+	// Update LB service
+	reconciler = NewLBServiceReconciler(diffstore)
+	err = reconciler.Reconciler.Reconcile(context.Background(), nil, testSC, newc, cstate)
+	require.NoError(t, err)
 }
