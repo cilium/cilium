@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -1978,6 +1979,8 @@ func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI 
 
 	// /bgp/peers
 	restAPI.BgpGetBgpPeersHandler = NewGetBGPHandler(d.bgpControlPlaneController)
+
+	api.DisableAPIs(swaggerSpec.DeniedAPIs, restAPI.AddMiddlewareFor)
 
 	return restAPI
 }
