@@ -15,6 +15,7 @@ cilium-agent hive [flags]
       --cni-chaining-mode string                      Enable CNI chaining with the specified plugin (default "none")
       --cni-exclusive                                 Whether to remove other CNI configurations
       --cni-log-file string                           Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")
+      --enable-cilium-api-server-access strings       List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-k8s                                    Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                      Enable discovery of Kubernetes API groups and resources with the discovery API
       --gops-port uint16                              Port for gops server to listen on (default 9890)
