@@ -84,6 +84,7 @@ jobs:
           networking:
             ipFamily: ${IP_FAMILY}
             kubeProxyMode: "none"
+            disableDefaultCNI: true
           nodes:
           - role: control-plane
           - role: worker
@@ -215,7 +216,7 @@ jobs:
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
             --provider=local                              \
-            --dump-logs-on-failure=false                  \
+            --dump-logs-on-failure=true                   \
             --report-dir=${E2E_REPORT_DIR}                \
             --disable-log-dump=true
 
