@@ -45,7 +45,7 @@ func k8sEventMetric(scope, action string) {
 	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action)
 }
 
-func k8sServiceHandler(clusterName string, shared bool, clusterID uint32) {
+func k8sServiceHandler(ctx context.Context, clusterName string, shared bool, clusterID uint32) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
 
@@ -64,25 +64,30 @@ func k8sServiceHandler(clusterName string, shared bool, clusterID uint32) {
 
 		if shared && !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
-			kvs.DeleteLocalKey(context.TODO(), &svc)
+			kvs.DeleteLocalKey(ctx, &svc)
 			return
 		}
 
 		switch event.Action {
 		case k8s.UpdateService:
-			kvs.UpdateLocalKeySync(context.TODO(), &svc)
+			kvs.UpdateLocalKeySync(ctx, &svc)
 
 		case k8s.DeleteService:
-			kvs.DeleteLocalKey(context.TODO(), &svc)
+			kvs.DeleteLocalKey(ctx, &svc)
 		}
 	}
 	for {
-		event, ok := <-K8sSvcCache.Events
-		if !ok {
+		select {
+		case event, ok := <-K8sSvcCache.Events:
+			if !ok {
+				return
+			}
+
+			serviceHandler(event)
+
+		case <-ctx.Done():
 			return
 		}
-
-		serviceHandler(event)
 	}
 }
 
@@ -191,7 +196,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 
 		<-readyChan
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(cfg.LocalClusterName(), shared, cfg.LocalClusterID())
+		k8sServiceHandler(ctx, cfg.LocalClusterName(), shared, cfg.LocalClusterID())
 	}()
 }
 
