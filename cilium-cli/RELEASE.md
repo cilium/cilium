@@ -2,7 +2,7 @@
 
 Release process and checklist for `cilium-cli`.
 
-This repository currently uses release branches `v0.10` and `master`. All releases stem from
+This repository currently uses release branches `v0.10` and `main`. All releases stem from
 one of these branches. Refer to the [Release
 table](https://github.com/cilium/cilium-cli#releases) for the most recent supported versions.
 
@@ -37,22 +37,22 @@ match the new release `$RELEASE`.
     git commit -s -m "Prepare for $RELEASE release"
     git push origin HEAD
 
-Then open a pull request against `master` branch. Wait for the PR to be reviewed and merged.
+Then open a pull request against `main` branch. Wait for the PR to be reviewed and merged.
 
 ## Tag a release
 
 Update your local checkout:
 
-    git checkout master
-    git pull origin master
+    git checkout main
+    git pull origin main
 
 Set the commit you want to tag:
 
     export COMMIT_SHA=<commit-sha-to-release>
 
-Usually this is the most recent commit on `master`, i.e.
+Usually this is the most recent commit on `main`, i.e.
 
-    export COMMIT_SHA=$(git rev-parse origin/master)
+    export COMMIT_SHA=$(git rev-parse origin/main)
 
 Then tag and push the release:
 
@@ -67,7 +67,7 @@ the draft is ready, review the release notes and publish the release.
 ### Update stable.txt
 
 The CLI installation instructions in the Cilium documentation use the version
-specified in `stable.txt` in the `master` branch. Update `stable.txt` after the
+specified in `stable.txt` in the `main` branch. Update `stable.txt` after the
 release, whenever Cilium users should pick up this new release for
 installation:
 
@@ -77,4 +77,4 @@ installation:
     git commit -s -m "Update stable release to $RELEASE"
     git push origin HEAD
 
-Then open a pull request against `master` branch.
+Then open a pull request against `main` branch.
