@@ -83,12 +83,12 @@ func (s *server) Start(ctx hive.HookContext) error {
 		return err
 	}
 
-	api := restapi.NewCiliumOperatorAPI(spec)
-	api.Logger = s.logger.Debugf
-	api.OperatorGetHealthzHandler = s.healthHandler
-	api.MetricsGetMetricsHandler = s.metricsHandler
+	restAPI := restapi.NewCiliumOperatorAPI(spec)
+	restAPI.Logger = s.logger.Debugf
+	restAPI.OperatorGetHealthzHandler = s.healthHandler
+	restAPI.MetricsGetMetricsHandler = s.metricsHandler
 
-	srv := operatorApi.NewServer(api)
+	srv := operatorApi.NewServer(restAPI)
 	srv.EnabledListeners = []string{"http"}
 	srv.ConfigureAPI()
 	s.Server = srv
