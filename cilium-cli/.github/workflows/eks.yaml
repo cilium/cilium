@@ -28,7 +28,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_version: v1.13.1
+  cilium_version: v1.13.2
   kubectl_version: v1.23.6
 
 jobs:
