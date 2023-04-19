@@ -41,9 +41,13 @@ const (
 	maxENIPerNode = 50
 )
 
+type ipamNodeActions interface {
+	InstanceID() string
+}
+
 type Node struct {
 	// node contains the general purpose fields of a node
-	node *ipam.Node
+	node ipamNodeActions
 
 	// mutex protects members below this field
 	mutex lock.RWMutex

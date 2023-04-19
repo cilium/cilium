@@ -17,13 +17,17 @@ import (
 	"github.com/cilium/cilium/pkg/math"
 )
 
+type ipamNodeActions interface {
+	InstanceID() string
+}
+
 // Node represents a node representing an Azure instance
 type Node struct {
 	// k8sObj is the CiliumNode custom resource representing the node
 	k8sObj *v2.CiliumNode
 
 	// node contains the general purpose fields of a node
-	node *ipam.Node
+	node ipamNodeActions
 
 	// manager is the Azure node manager responsible for this node
 	manager *InstancesManager

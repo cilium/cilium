@@ -40,11 +40,19 @@ const (
 		" this could lead to ip allocation overflows if the max-allocate flag is not set"
 )
 
+type ipamNodeActions interface {
+	IsPrefixDelegationEnabled() bool
+	InstanceID() string
+	Ops() ipam.NodeOperations
+	SetRunning(bool)
+	UpdatedResource(*v2.CiliumNode) bool
+}
+
 // Node represents a Kubernetes node running Cilium with an associated
 // CiliumNode custom resource
 type Node struct {
 	// node contains the general purpose fields of a node
-	node *ipam.Node
+	node ipamNodeActions
 
 	// mutex protects members below this field
 	mutex lock.RWMutex
