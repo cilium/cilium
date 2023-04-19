@@ -515,8 +515,16 @@ func (k *K8sHubble) generateManifestsEnable(ctx context.Context, printHelmTempla
 		}
 
 		helmMapOpts["hubble.enabled"] = "true"
-		helmMapOpts["hubble.tls.ca.cert"] = certs.EncodeCertBytes(k.certManager.CACertBytes())
-		helmMapOpts["hubble.tls.ca.key"] = certs.EncodeCertBytes(k.certManager.CAKeyBytes())
+
+		switch {
+		// hubble.tls.* properties have been deprecated in Cilium 1.12.x
+		case versioncheck.MustCompile("<1.12.0")(ciliumVer):
+			helmMapOpts["hubble.tls.ca.cert"] = certs.EncodeCertBytes(k.certManager.CACertBytes())
+			helmMapOpts["hubble.tls.ca.key"] = certs.EncodeCertBytes(k.certManager.CAKeyBytes())
+		default:
+			helmMapOpts["tls.ca.cert"] = certs.EncodeCertBytes(k.certManager.CACertBytes())
+			helmMapOpts["tls.ca.key"] = certs.EncodeCertBytes(k.certManager.CAKeyBytes())
+		}
 
 		if k.params.UI {
 			helmMapOpts["hubble.ui.enabled"] = "true"
