@@ -7,12 +7,12 @@ on:
       - 'Documentation/**'
       - 'test/**'
   push:
-    branches:
-      - master
-      - ft/master/**
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
+    # branches:
+    #   - master
+    #   - ft/master/**
+    # paths-ignore:
+    #   - 'Documentation/**'
+    #   - 'test/**'
 
 permissions: read-all
 
