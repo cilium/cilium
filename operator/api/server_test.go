@@ -12,6 +12,7 @@ import (
 
 	"go.uber.org/goleak"
 
+	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -46,6 +47,7 @@ func TestAPIServerK8sDisabled(t *testing.T) {
 			}
 		}),
 
+		operatorApi.SpecCell,
 		cell.Provide(newServer),
 
 		cell.Invoke(func(srv Server) {
@@ -103,6 +105,7 @@ func TestAPIServerK8sEnabled(t *testing.T) {
 			}
 		}),
 
+		operatorApi.SpecCell,
 		cell.Provide(newServer),
 
 		cell.Invoke(func(srv Server) {
