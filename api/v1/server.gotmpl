@@ -123,25 +123,52 @@ var (
   tlsCACertificate  string
 )
 
+type ServerConfig struct {
+	Enable{{ pascalize .Name }}ServerAccess []string
+}
+
+var (
+	defaultServerConfig = ServerConfig{
+		Enable{{ pascalize .Name }}ServerAccess: []string{"*"},
+	}
+	AdminEnableFlag = "enable-{{ dasherize .Name }}-server-access"
+)
+
+func (cfg ServerConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringSlice(AdminEnableFlag, cfg.Enable{{ pascalize .Name }}ServerAccess,
+		"List of {{ humanize .Name }} APIs which are administratively enabled. Supports '*'.")
+}
+
 var SpecCell = cell.Module(
 	"{{ dasherize .Name }}-spec",
 	"{{ humanize .Name }} Specification",
 
+	cell.Config(defaultServerConfig),
 	cell.Provide(newSpec),
 )
 
 type Spec struct {
 	*loads.Document
+
+	// DeniedAPIs is a set of APIs that are administratively disabled.
+	DeniedAPIs api.PathSet
 }
 
-func newSpec() (*Spec, error) {
+func newSpec(cfg ServerConfig) (*Spec, error) {
 	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load swagger spec: %w", err)
 	}
 
+	deniedAPIs, err := api.AllowedFlagsToDeniedPaths(swaggerSpec, cfg.Enable{{ pascalize .Name }}ServerAccess)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %q flag: %w",
+				       AdminEnableFlag, err)
+	}
+
 	return &Spec{
 		Document:   swaggerSpec,
+		DeniedAPIs: deniedAPIs,
 	}, nil
 }
 
