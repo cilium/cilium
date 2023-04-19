@@ -3,7 +3,7 @@ name: GKE
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   ### FOR TESTING PURPOSES
-  # This workflow runs in the context of `master`, and ignores changes to
+  # This workflow runs in the context of `main`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
   # - Make sure the PR uses a branch from the base repository (requires write
   #   privileges). It will not work with a branch from a fork (missing secrets).
@@ -13,7 +13,7 @@ on:
   # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
-  # 
+  #
   # pull_request: {}
   ###
   pull_request_target: {}
