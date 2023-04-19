@@ -307,9 +307,9 @@ Annotations:
 1.13.2+ Upgrade Notes
 ---------------------
 
-* When upgrading from Cilium <v1.13.1 or <1.12.8 to Cilium >v1.13.2 with IPsec
-  enabled, packet drops may occur during the upgrade. These drops are expected
-  to stop as soon as the Cilium agent is ready. IPsec error counters
+* When upgrading from Cilium <v1.13.1 or <v1.12.8 to Cilium >=v1.13.2 with
+  IPsec enabled, packet drops may occur during the upgrade. These drops are
+  expected to stop as soon as the Cilium agent is ready. IPsec error counters
   ``XfrmInNoStates`` and ``XfrmOutPolBlock`` may increase as a result of these
   drops.
 
