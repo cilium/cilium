@@ -148,9 +148,14 @@ func Execute() {
 }
 
 func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+	var wg sync.WaitGroup
 	lc.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
-			go runOperator(llc, clientset, shutdowner)
+			wg.Add(1)
+			go func() {
+				runOperator(llc, clientset, shutdowner)
+				wg.Done()
+			}()
 			return nil
 		},
 		OnStop: func(ctx hive.HookContext) error {
@@ -158,6 +163,7 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 				return err
 			}
 			doCleanup()
+			wg.Wait()
 			return nil
 		},
 	})
