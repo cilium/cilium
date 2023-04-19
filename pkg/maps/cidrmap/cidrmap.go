@@ -162,7 +162,7 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 		uint32(unsafe.Sizeof(uint32(0))+uintptr(bytes)),
 		uint32(LPM_MAP_VALUE_SIZE),
 		maxelem,
-		bpf.BPF_F_NO_PREALLOC, 0, true,
+		bpf.BPF_F_NO_PREALLOC, 0, true, true,
 	)
 
 	if err != nil {

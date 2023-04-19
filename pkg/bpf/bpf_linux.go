@@ -429,7 +429,10 @@ func ObjClose(fd int) error {
 	return nil
 }
 
-func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32) bool {
+// objCheck checks the map 'fd' for changes w.r.t. the given parameters and removes the old map at
+// 'path' if there is a mismatch.
+// A warning is logged if the old map is removed, but only if 'warn' is true.
+func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32, warn bool) bool {
 	info, err := GetMapInfo(os.Getpid(), fd)
 	if err != nil {
 		return false
@@ -442,7 +445,7 @@ func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntri
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.MapType,
 			"new": mapType,
-		}).Warning("Map type mismatch for BPF map")
+		}).Info("Map type mismatch for BPF map")
 		mismatch = true
 	}
 
@@ -450,7 +453,7 @@ func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntri
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.KeySize,
 			"new": keySize,
-		}).Warning("Key-size mismatch for BPF map")
+		}).Info("Key-size mismatch for BPF map")
 		mismatch = true
 	}
 
@@ -458,7 +461,7 @@ func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntri
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.ValueSize,
 			"new": valueSize,
-		}).Warning("Value-size mismatch for BPF map")
+		}).Info("Value-size mismatch for BPF map")
 		mismatch = true
 	}
 
@@ -466,14 +469,14 @@ func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntri
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.MaxEntries,
 			"new": maxEntries,
-		}).Warning("Max entries mismatch for BPF map")
+		}).Info("Max entries mismatch for BPF map")
 		mismatch = true
 	}
 	if info.Flags != flags {
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.Flags,
 			"new": flags,
-		}).Warning("Flags mismatch for BPF map")
+		}).Info("Flags mismatch for BPF map")
 		mismatch = true
 	}
 
@@ -482,8 +485,11 @@ func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntri
 			return false
 		}
 
-		scopedLog.Warning("Removing map to allow for property upgrade (expect map data loss)")
-
+		if warn {
+			scopedLog.Warning("Removing map to allow for property upgrade (expect map data loss)")
+		} else {
+			scopedLog.Info("Removing map to allow for property upgrade")
+		}
 		// Kernel still holds map reference count via attached prog.
 		// Only exception is prog array, but that is already resolved
 		// differently.
@@ -494,7 +500,7 @@ func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntri
 	return false
 }
 
-func OpenOrCreateMap(path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin bool) (int, bool, error) {
+func OpenOrCreateMap(path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin, warn bool) (int, bool, error) {
 	var fd int
 	var err error
 
@@ -565,6 +571,7 @@ recreate:
 			valueSize,
 			maxEntries,
 			flags,
+			warn,
 		)
 		if redo {
 			ObjClose(fd)

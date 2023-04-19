@@ -408,7 +408,8 @@ func newMap(path string) *PolicyMap {
 // protected by this map.
 func OpenOrCreate(path string) (*PolicyMap, bool, error) {
 	m := newMap(path)
-	isNewMap, err := m.OpenOrCreate()
+	// Open the map without triggring a warning if the map type, key, or value have changed.
+	isNewMap, err := m.OpenOrCreateWithoutWarning()
 	return m, isNewMap, err
 }
 

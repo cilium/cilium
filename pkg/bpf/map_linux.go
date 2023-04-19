@@ -486,8 +486,8 @@ func (m *Map) OpenParallel() (bool, error) {
 			m.inParallelMode = true
 		}
 	}
-
-	return m.openOrCreate(true)
+	// pin and warn if the map properties change
+	return m.openOrCreate(true, true)
 }
 
 // OpenOrCreate attempts to open the Map, or if it does not yet exist, create
@@ -496,12 +496,24 @@ func (m *Map) OpenParallel() (bool, error) {
 // deleted and reopened without any attempt to retain its previous contents.
 // If the map is marked as non-persistent, it will always be recreated.
 //
+// Logs a warning if map properties have changed.
+//
 // Returns whether the map was deleted and recreated, or an optional error.
 func (m *Map) OpenOrCreate() (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	return m.openOrCreate(true)
+	return m.openOrCreate(true, true)
+}
+
+// Like OpenOrCrate, but does not log a warning if map properties have changed.
+// This should only be used for maps that can be completely recreated from the
+// agent without needing to dump the previous map from the datapath.
+func (m *Map) OpenOrCreateWithoutWarning() (bool, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	return m.openOrCreate(true, false)
 }
 
 // CreateUnpinned creates the map without pinning it to the file system.
@@ -509,7 +521,7 @@ func (m *Map) CreateUnpinned() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	_, err := m.openOrCreate(false)
+	_, err := m.openOrCreate(false, true)
 	return err
 }
 
@@ -523,7 +535,7 @@ func (m *Map) Create() (bool, error) {
 	return isNew, m.Close()
 }
 
-func (m *Map) openOrCreate(pin bool) (bool, error) {
+func (m *Map) openOrCreate(pin, warn bool) (bool, error) {
 	if m.fd != 0 {
 		return false, nil
 	}
@@ -539,7 +551,7 @@ func (m *Map) openOrCreate(pin bool) (bool, error) {
 	}
 
 	flags := m.Flags | GetPreAllocateMapFlags(m.MapType)
-	fd, isNew, err := OpenOrCreateMap(m.path, m.MapType, m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID, pin)
+	fd, isNew, err := OpenOrCreateMap(m.path, m.MapType, m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID, pin, warn)
 	if err != nil {
 		return false, err
 	}
@@ -1237,6 +1249,9 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 // loaded into the kernel) against the desired properties, and if they do not
 // match, deletes the map.
 //
+// Logs a warning if the map properties have changed via the last parameter
+// to objCheck.
+//
 // Returns true if the map was upgraded.
 func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
 	desired.Flags |= GetPreAllocateMapFlags(desired.MapType)
@@ -1249,6 +1264,7 @@ func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
 		desired.ValueSize,
 		desired.MaxEntries,
 		desired.Flags,
+		true,
 	)
 }
 
