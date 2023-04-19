@@ -171,7 +171,7 @@ func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWit
 
 	// Clear the shadow state since any advertisements will be gone now that the server has been recreated.
 	sc.PodCIDRAnnouncements = nil
-	sc.ServiceAnnouncements = nil
+	sc.ServiceAnnouncements = make(map[resource.Key][]Advertisement)
 
 	return nil
 }
