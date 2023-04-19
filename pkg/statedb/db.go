@@ -4,6 +4,7 @@
 package statedb
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,38 +51,36 @@ var _ DB = &stateDB{}
 // WriteJSON marshals out the whole database as JSON into the given writer.
 func (db *stateDB) WriteJSON(w io.Writer) error {
 	tx := db.memDB.Txn(false)
-	if _, err := w.Write([]byte("{\n")); err != nil {
-		return err
-	}
+	buf := bufio.NewWriter(w)
+	buf.WriteString("{\n")
+	first := true
 	for table := range db.memDB.DBSchema().Tables {
+		if !first {
+			buf.WriteString(",\n")
+		} else {
+			first = false
+		}
 		iter, err := tx.Get(table, "id")
 		if err != nil {
 			return err
 		}
-		if _, err := w.Write([]byte("\"" + table + "\": [\n")); err != nil {
-			return err
-		}
+		buf.WriteString("\"" + table + "\": [\n")
 		obj := iter.Next()
 		for obj != nil {
 			bs, err := json.Marshal(obj)
 			if err != nil {
 				return err
 			}
-			if _, err := w.Write(bs); err != nil {
-				return err
-			}
+			buf.Write(bs)
 			obj = iter.Next()
 			if obj != nil {
-				if _, err := w.Write([]byte(",")); err != nil {
-					return err
-				}
+				buf.WriteByte(',')
 			}
 		}
-		if _, err := w.Write([]byte("]}\n")); err != nil {
-			return err
-		}
+		buf.WriteString("]\n")
 	}
-	return nil
+	buf.WriteString("}\n")
+	return buf.Flush()
 }
 
 // WriteTxn constructs a new WriteTransaction
