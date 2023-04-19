@@ -596,6 +596,28 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			})
 		})
 
+		SkipContextIf(func() bool {
+			return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.RunsOnAKS() || helpers.DoesNotExistNodeWithoutCilium()
+		}, "with L7 policy", func() {
+			var demoPolicyL7 string
+
+			BeforeAll(func() {
+				demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
+			})
+
+			AfterAll(func() {
+				kubectl.Delete(demoPolicyL7)
+				// Same reason as in other L7 test above
+				kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
+					"cilium bpf ct flush global", "Unable to flush CT maps")
+			})
+
+			It("Tests NodePort with L7 Policy from outside", func() {
+				applyPolicy(kubectl, demoPolicyL7)
+				testNodePort(kubectl, ni, false, true, 0)
+			})
+		})
+
 		It("ClusterIP cannot be accessed externally when access is disabled",
 			func() {
 				Expect(curlClusterIPFromExternalHost(kubectl, ni)).
