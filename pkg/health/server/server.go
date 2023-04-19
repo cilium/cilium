@@ -383,15 +383,15 @@ func (s *Server) Shutdown() {
 // newServer instantiates a new instance of the health API server on the
 // defaults unix socket.
 func (s *Server) newServer(spec *loads.Document) *healthApi.Server {
-	api := restapi.NewCiliumHealthAPIAPI(spec)
-	api.Logger = log.Printf
+	restAPI := restapi.NewCiliumHealthAPIAPI(spec)
+	restAPI.Logger = log.Printf
 
 	// Admin API
-	api.GetHealthzHandler = NewGetHealthzHandler(s)
-	api.ConnectivityGetStatusHandler = NewGetStatusHandler(s)
-	api.ConnectivityPutStatusProbeHandler = NewPutStatusProbeHandler(s)
+	restAPI.GetHealthzHandler = NewGetHealthzHandler(s)
+	restAPI.ConnectivityGetStatusHandler = NewGetStatusHandler(s)
+	restAPI.ConnectivityPutStatusProbeHandler = NewPutStatusProbeHandler(s)
 
-	srv := healthApi.NewServer(api)
+	srv := healthApi.NewServer(restAPI)
 	srv.EnabledListeners = []string{"unix"}
 	srv.SocketPath = defaults.SockPath
 
