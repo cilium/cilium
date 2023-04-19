@@ -106,6 +106,132 @@ entries:
             CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
             nodes indicated by a label selector.
     apiVersion: v2
+    appVersion: 1.14.0-snapshot.1
+    created: "2023-04-03T16:07:46+02:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: 1febcea5ba467f55417d2e9bd4bfbf079bbc87c1e1a85da422bbd1a9bcc3152d
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.14.0-snapshot.1.tgz
+    version: 1.14.0-snapshot.1
+  - annotations:
+      artifacthub.io/crds: |-
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicies.cilium.io
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicies.cilium.io
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumexternalworkloads.cilium.io
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicies.cilium.io
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnodes.cilium.io
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentities.cilium.io
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoints.cilium.io
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEndpointSlice
+          version: v2alpha1
+          name: ciliumendpointslices.cilium.io
+          displayName: Cilium Endpoint Slice
+          description: |
+            Cilium Endpoint Slice represents the status of groups of pods or nodes
+            in the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEgressGatewayPolicy
+          version: v2
+          name: ciliumegressgatewaypolicies.cilium.io
+          displayName: Cilium Egress Gateway Policy
+          description: |
+            Cilium Egress Gateway Policy provides control over the way that traffic
+            leaves the cluster and which source addresses to use for that traffic.
+        - kind: CiliumClusterwideEnvoyConfig
+          version: v2
+          name: ciliumclusterwideenvoyconfigs.cilium.io
+          displayName: Cilium Clusterwide Envoy Config
+          description: |
+            Cilium Clusterwide Envoy Config specifies Envoy resources and K8s service mappings
+            to be provisioned into Cilium host proxy instances in cluster context.
+        - kind: CiliumEnvoyConfig
+          version: v2
+          name: ciliumenvoyconfigs.cilium.io
+          displayName: Cilium Envoy Config
+          description: |
+            Cilium Envoy Config specifies Envoy resources and K8s service mappings
+            to be provisioned into Cilium host proxy instances in namespace context.
+        - kind: CiliumBGPPeeringPolicy
+          version: v2alpha1
+          name: ciliumbgppeeringpolicies.cilium.io
+          displayName: Cilium BGP Peering Policy
+          description: |
+            Cilium BGP Peering Policy instructs Cilium to create specific BGP peering
+            configurations.
+        - kind: CiliumLoadBalancerIPPool
+          version: v2alpha1
+          name: ciliumloadbalancerippools.cilium.io
+          displayName: Cilium Load Balancer IP Pool
+          description: |
+            Defining a Cilium Load Balancer IP Pool instructs Cilium to assign IPs to LoadBalancer Services.
+        - kind: CiliumNodeConfig
+          version: v2alpha1
+          name: ciliumnodeconfigs.cilium.io
+          displayName: Cilium Node Configuration
+          description: |
+            CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
+            nodes indicated by a label selector.
+    apiVersion: v2
     appVersion: 1.14.0-snapshot.0
     created: "2023-02-28T21:13:20-08:00"
     description: eBPF-based Networking, Security, and Observability
@@ -127,6 +253,132 @@ entries:
     urls:
     - cilium-1.14.0-snapshot.0.tgz
     version: 1.14.0-snapshot.0
+  - annotations:
+      artifacthub.io/crds: |-
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicies.cilium.io
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicies.cilium.io
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumexternalworkloads.cilium.io
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicies.cilium.io
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnodes.cilium.io
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentities.cilium.io
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoints.cilium.io
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEndpointSlice
+          version: v2alpha1
+          name: ciliumendpointslices.cilium.io
+          displayName: Cilium Endpoint Slice
+          description: |
+            Cilium Endpoint Slice represents the status of groups of pods or nodes
+            in the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEgressGatewayPolicy
+          version: v2
+          name: ciliumegressgatewaypolicies.cilium.io
+          displayName: Cilium Egress Gateway Policy
+          description: |
+            Cilium Egress Gateway Policy provides control over the way that traffic
+            leaves the cluster and which source addresses to use for that traffic.
+        - kind: CiliumClusterwideEnvoyConfig
+          version: v2
+          name: ciliumclusterwideenvoyconfigs.cilium.io
+          displayName: Cilium Clusterwide Envoy Config
+          description: |
+            Cilium Clusterwide Envoy Config specifies Envoy resources and K8s service mappings
+            to be provisioned into Cilium host proxy instances in cluster context.
+        - kind: CiliumEnvoyConfig
+          version: v2
+          name: ciliumenvoyconfigs.cilium.io
+          displayName: Cilium Envoy Config
+          description: |
+            Cilium Envoy Config specifies Envoy resources and K8s service mappings
+            to be provisioned into Cilium host proxy instances in namespace context.
+        - kind: CiliumBGPPeeringPolicy
+          version: v2alpha1
+          name: ciliumbgppeeringpolicies.cilium.io
+          displayName: Cilium BGP Peering Policy
+          description: |
+            Cilium BGP Peering Policy instructs Cilium to create specific BGP peering
+            configurations.
+        - kind: CiliumLoadBalancerIPPool
+          version: v2alpha1
+          name: ciliumloadbalancerippools.cilium.io
+          displayName: Cilium Load Balancer IP Pool
+          description: |
+            Defining a Cilium Load Balancer IP Pool instructs Cilium to assign IPs to LoadBalancer Services.
+        - kind: CiliumNodeConfig
+          version: v2alpha1
+          name: ciliumnodeconfigs.cilium.io
+          displayName: Cilium Node Configuration
+          description: |
+            CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
+            nodes indicated by a label selector.
+    apiVersion: v2
+    appVersion: 1.13.2
+    created: "2023-04-18T17:15:14+03:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: a531fb73dd654b501b09305a7e77248082b45f999786a1018263bd514aed2fb7
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.13/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.13.2.tgz
+    version: 1.13.2
   - annotations:
       artifacthub.io/crds: |-
         - kind: CiliumNetworkPolicy
@@ -1138,6 +1390,133 @@ entries:
     urls:
     - cilium-1.13.0-rc0.tgz
     version: 1.13.0-rc0
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicies.cilium.io
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicies.cilium.io
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumexternalworkloads.cilium.io
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicies.cilium.io
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnodes.cilium.io
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentities.cilium.io
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoints.cilium.io
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEndpointSlice
+          version: v2alpha1
+          name: ciliumendpointslices.cilium.io
+          displayName: Cilium Endpoint Slice
+          description: |
+            Cilium Endpoint Slice represents the status of groups of pods or nodes
+            in the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEgressNATPolicy
+          version: v2alpha1
+          name: ciliumegressnatpolicies.cilium.io
+          displayName: Cilium Egress NAT Policy
+          description: |
+            Cilium Egress NAT Policy provides control over the way that traffic
+            leaves the cluster and which source addresses to use for that traffic.
+        - kind: CiliumEgressGatewayPolicy
+          version: v2
+          name: ciliumegressgatewaypolicies.cilium.io
+          displayName: Cilium Egress Gateway Policy
+          description: |
+            Cilium Egress Gateway Policy provides control over the way that traffic
+            leaves the cluster and which source addresses to use for that traffic.
+        - kind: CiliumClusterwideEnvoyConfig
+          version: v2
+          name: ciliumclusterwideenvoyconfigs.cilium.io
+          displayName: Cilium Clusterwide Envoy Config
+          description: |
+            Cilium Clusterwide Envoy Config specifies Envoy resources and K8s service mappings
+            to be provisioned into Cilium host proxy instances in cluster context.
+        - kind: CiliumEnvoyConfig
+          version: v2
+          name: ciliumenvoyconfigs.cilium.io
+          displayName: Cilium Envoy Config
+          description: |
+            Cilium Envoy Config specifies Envoy resources and K8s service mappings
+            to be provisioned into Cilium host proxy instances in namespace context.
+        - kind: CiliumBGPPeeringPolicy
+          version: v2alpha1
+          name: ciliumbgppeeringpolicies.cilium.io
+          displayName: Cilium BGP Peering Policy
+          description: |
+            Cilium BGP Peering Policy instructs Cilium to create specific BGP peering
+            configurations.
+        - kind: CiliumBGPLoadBalancerIPPool
+          version: v2alpha1
+          name: ciliumbgploadbalancerippools.cilium.io
+          displayName: Cilium BGP Load Balancer IP Pool
+          description: |
+            Defining a Cilium BGP Load Balancer IP Pool instructs Cilium to assign and
+            advertise LoadBalancer Services to BGP peers defined by Cilium BGP Peering Policies.
+    apiVersion: v2
+    appVersion: 1.12.9
+    created: "2023-04-18T17:12:26+03:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: a2dfbcd89f7abb1ef801ff95a31d6e12a048550f64579cde28c6a970a2f5add4
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.12/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.12.9.tgz
+    version: 1.12.9
   - annotations:
       artifacthub.io/crds: |
         - kind: CiliumNetworkPolicy
@@ -2740,6 +3119,98 @@ entries:
     urls:
     - cilium-1.12.0-rc0.tgz
     version: 1.12.0-rc0
+  - annotations:
+      artifacthub.io/crds: |
+        - kind: CiliumNetworkPolicy
+          version: v2
+          name: ciliumnetworkpolicies.cilium.io
+          displayName: Cilium Network Policy
+          description: |
+            Cilium Network Policies provide additional functionality beyond what
+            is provided by standard Kubernetes NetworkPolicy such as the ability
+            to allow traffic based on FQDNs, or to filter at Layer 7.
+        - kind: CiliumClusterwideNetworkPolicy
+          version: v2
+          name: ciliumclusterwidenetworkpolicies.cilium.io
+          displayName: Cilium Clusterwide Network Policy
+          description: |
+            Cilium Clusterwide Network Policies support configuring network traffic
+            policiies across the entire cluster, including applying node firewalls.
+        - kind: CiliumExternalWorkload
+          version: v2
+          name: ciliumexternalworkloads.cilium.io
+          displayName: Cilium External Workload
+          description: |
+            Cilium External Workload supports configuring the ability for external
+            non-Kubernetes workloads to join the cluster.
+        - kind: CiliumLocalRedirectPolicy
+          version: v2
+          name: ciliumlocalredirectpolicies.cilium.io
+          displayName: Cilium Local Redirect Policy
+          description: |
+            Cilium Local Redirect Policy allows local redirects to be configured
+            within a node to support use cases like Node-Local DNS or KIAM.
+        - kind: CiliumNode
+          version: v2
+          name: ciliumnodes.cilium.io
+          displayName: Cilium Node
+          description: |
+            Cilium Node represents a node managed by Cilium. It contains a
+            specification to control various node specific configuration aspects
+            and a status section to represent the status of the node.
+        - kind: CiliumIdentity
+          version: v2
+          name: ciliumidentities.cilium.io
+          displayName: Cilium Identity
+          description: |
+            Cilium Identity allows introspection into security identities that
+            Cilium allocates which identify sets of labels that are assigned to
+            individual endpoints in the cluster.
+        - kind: CiliumEndpoint
+          version: v2
+          name: ciliumendpoints.cilium.io
+          displayName: Cilium Endpoint
+          description: |
+            Cilium Endpoint represents the status of individual pods or nodes in
+            the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEndpointSlice
+          version: v2alpha1
+          name: ciliumendpointslices.cilium.io
+          displayName: Cilium Endpoint Slice
+          description: |
+            Cilium Endpoint Slice represents the status of groups of pods or nodes
+            in the cluster which are managed by Cilium, including enforcement status,
+            IP addressing and whether the networking is succesfully operational.
+        - kind: CiliumEgressNATPolicy
+          version: v2alpha1
+          name: ciliumegressnatpolicies.cilium.io
+          displayName: Cilium Egress NAT Policy
+          description: |
+            Cilium Egress NAT Policy provides control over the way that traffic
+            leaves the cluster and which source addresses to use for that traffic.
+    apiVersion: v2
+    appVersion: 1.11.16
+    created: "2023-04-18T17:08:10+03:00"
+    description: eBPF-based Networking, Security, and Observability
+    digest: e117350753fc56b8ef451a2b033e0830934270c6cbc8faa4fe693d77e7439766
+    home: https://cilium.io/
+    icon: https://cdn.jsdelivr.net/gh/cilium/cilium@v1.11/Documentation/images/logo-solo.svg
+    keywords:
+    - BPF
+    - eBPF
+    - Kubernetes
+    - Networking
+    - Security
+    - Observability
+    - Troubleshooting
+    kubeVersion: '>= 1.16.0-0'
+    name: cilium
+    sources:
+    - https://github.com/cilium/cilium
+    urls:
+    - cilium-1.11.16.tgz
+    version: 1.11.16
   - annotations:
       artifacthub.io/crds: |
         - kind: CiliumNetworkPolicy
@@ -9910,6 +10381,16 @@ entries:
     version: 1.6-dev
   tetragon:
   - apiVersion: v2
+    appVersion: 0.9.0
+    created: "2023-04-03T15:04:49-04:00"
+    description: Helm chart for Tetragon
+    digest: 690d08be3e534ec9ff2937254c0f5ef3753b14bb8cf19b873e76be39e3f0181a
+    name: tetragon
+    type: application
+    urls:
+    - tetragon-0.9.0.tgz
+    version: 0.9.0
+  - apiVersion: v2
     appVersion: 0.8.4
     created: "2023-03-03T11:32:32+01:00"
     description: Helm chart for Tetragon
@@ -9959,4 +10440,4 @@ entries:
     urls:
     - tetragon-0.8.0.tgz
     version: 0.8.0
-generated: "2023-03-17T12:47:44.162964241+01:00"
+generated: "2023-04-18T17:15:13.602007554+03:00"
