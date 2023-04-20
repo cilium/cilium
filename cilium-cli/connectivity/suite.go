@@ -164,7 +164,7 @@ var (
 	client2Label = map[string]string{"name": "client2"}
 )
 
-func Run(ctx context.Context, ct *check.ConnectivityTest) error {
+func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*check.ConnectivityTest) error) error {
 	if err := ct.SetupAndValidate(ctx); err != nil {
 		return err
 	}
@@ -988,6 +988,10 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// Tests with DNS redirects to the proxy (e.g., client-egress-l7, dns-only,
 	// and to-fqdns) should always be executed last. See #367 for details.
+
+	if err := addExtraTests(ct); err != nil {
+		return err
+	}
 
 	return ct.Run(ctx)
 }

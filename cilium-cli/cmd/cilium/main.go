@@ -10,7 +10,7 @@ import (
 
 	gops "github.com/google/gops/agent"
 
-	"github.com/cilium/cilium-cli/internal/cli/cmd"
+	"github.com/cilium/cilium-cli/cli"
 	_ "github.com/cilium/cilium-cli/internal/logging" // necessary to disable unwanted cfssl log messages
 )
 
@@ -19,7 +19,7 @@ func main() {
 		log.Printf("Unable to start gops: %s", err)
 	}
 
-	if err := cmd.NewDefaultCiliumCommand().Execute(); err != nil {
+	if err := cli.NewDefaultCiliumCommand().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
