@@ -151,10 +151,10 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 		},
 	}
 	natVal := &nat.NatEntry4{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv4{192, 168, 61, 11},
-		Port:      0x3195,
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv4{192, 168, 61, 11},
+		Port:    0x3195,
 	}
 	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
 		unsafe.Pointer(natVal), 0)
@@ -172,10 +172,10 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 		},
 	}
 	natVal = &nat.NatEntry4{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv4{192, 168, 61, 11},
-		Port:      0x3195,
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv4{192, 168, 61, 11},
+		Port:    0x3195,
 	}
 	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
 		unsafe.Pointer(natVal), 0)
@@ -287,10 +287,10 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		},
 	}
 	natVal := &nat.NatEntry4{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv4{10, 23, 32, 45},
-		Port:      0x51d6,
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv4{10, 23, 32, 45},
+		Port:    0x51d6,
 	}
 	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
 		unsafe.Pointer(natVal), 0)
@@ -308,10 +308,10 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		},
 	}
 	natVal = &nat.NatEntry4{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv4{10, 23, 32, 45},
-		Port:      0x50d6,
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv4{10, 23, 32, 45},
+		Port:    0x50d6,
 	}
 	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
 		unsafe.Pointer(natVal), 0)
@@ -543,10 +543,10 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		},
 	}
 	natValV6 := &nat.NatEntry6{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv6{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
-		Port:      0x51d6,
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv6{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+		Port:    0x51d6,
 	}
 	err = bpf.UpdateElement(natMapV6.Map.GetFd(), natMapV6.Map.Name(), unsafe.Pointer(natKeyV6),
 		unsafe.Pointer(natValV6), 0)
