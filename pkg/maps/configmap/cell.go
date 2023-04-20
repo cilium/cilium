@@ -4,6 +4,7 @@
 package configmap
 
 import (
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
@@ -14,10 +15,9 @@ var Cell = cell.Module(
 	"eBPF map config contains runtime configuration state for the Cilium datapath",
 
 	cell.Provide(newMap),
-	cell.Invoke(func(Map) {}),
 )
 
-func newMap(lifecycle hive.Lifecycle) Map {
+func newMap(lifecycle hive.Lifecycle) MapOut {
 	configmap := newConfigMap()
 
 	lifecycle.Append(hive.Hook{
@@ -29,5 +29,15 @@ func newMap(lifecycle hive.Lifecycle) Map {
 		},
 	})
 
-	return configmap
+	return MapOut{
+		ConfigMap: configmap,
+		BpfMap:    configmap,
+	}
+}
+
+type MapOut struct {
+	cell.Out
+
+	ConfigMap Map
+	BpfMap    bpf.BpfMap `group:"bpf-maps"`
 }
