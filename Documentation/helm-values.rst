@@ -457,15 +457,15 @@
      - bool
      - ``true``
    * - clustermesh.apiserver.tls.ca
-     - base64 encoded PEM values for the ExternalWorkload CA certificate and private key.
+     - Deprecated in favor of tls.ca. To be removed in 1.15. base64 encoded PEM values for the ExternalWorkload CA certificate and private key.
      - object
      - ``{"cert":"","key":""}``
    * - clustermesh.apiserver.tls.ca.cert
-     - Optional CA cert. If it is provided, it will be used by the 'cronJob' method to generate all other certificates. Otherwise, an ephemeral CA is generated.
+     - Deprecated in favor of tls.ca.cert. To be removed in 1.15. Optional CA cert. If it is provided, it will be used by the 'cronJob' method to generate all other certificates. Otherwise, an ephemeral CA is generated.
      - string
      - ``""``
    * - clustermesh.apiserver.tls.ca.key
-     - Optional CA private key. If it is provided, it will be used by the 'cronJob' method to generate all other certificates. Otherwise, an ephemeral CA is generated.
+     - Deprecated in favor of tls.ca.key. To be removed in 1.15. Optional CA private key. If it is provided, it will be used by the 'cronJob' method to generate all other certificates. Otherwise, an ephemeral CA is generated.
      - string
      - ``""``
    * - clustermesh.apiserver.tls.client

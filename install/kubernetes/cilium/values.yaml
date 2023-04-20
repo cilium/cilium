@@ -2574,12 +2574,15 @@ clustermesh:
         #   name: ca-issuer
         # -- certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
         certManagerIssuerRef: {}
-      # -- base64 encoded PEM values for the ExternalWorkload CA certificate and private key.
+      # -- Deprecated in favor of tls.ca. To be removed in 1.15.
+      # base64 encoded PEM values for the ExternalWorkload CA certificate and private key.
       ca:
-        # -- Optional CA cert. If it is provided, it will be used by the 'cronJob' method to
+        # -- Deprecated in favor of tls.ca.cert. To be removed in 1.15.
+        # Optional CA cert. If it is provided, it will be used by the 'cronJob' method to
         # generate all other certificates. Otherwise, an ephemeral CA is generated.
         cert: ""
-        # -- Optional CA private key. If it is provided, it will be used by the 'cronJob' method to
+        # -- Deprecated in favor of tls.ca.key. To be removed in 1.15.
+        # Optional CA private key. If it is provided, it will be used by the 'cronJob' method to
         # generate all other certificates. Otherwise, an ephemeral CA is generated.
         key: ""
       # -- base64 encoded PEM values for the clustermesh-apiserver server certificate and private key.
