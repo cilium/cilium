@@ -277,6 +277,16 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 		rstate.common.needs_ct = ostate->common.needs_ct;
 	}
 
+#if defined(ENABLE_EGRESS_GATEWAY)
+	if (target->egress_gateway && !target->from_local_endpoint) {
+		/* Track established egress gateway connections to extend the
+		 * CT entry expiration timeout.
+		 */
+		ostate->common.needs_ct = 1;
+		rstate.common.needs_ct = ostate->common.needs_ct;
+	}
+#endif
+
 	map = get_cluster_snat_map_v4(target->cluster_id);
 	if (!map)
 		return DROP_SNAT_NO_MAP_FOUND;
@@ -324,8 +334,11 @@ static __always_inline int snat_v4_track_connection(struct __ctx_buff *ctx,
 #if defined(ENABLE_EGRESS_GATEWAY)
 	/* Track egress gateway connections, but only if they are related to a
 	 * remote endpoint (if the endpoint is local then the connection is
-	 * already tracked). NAT_DIR_EGRESS is implied. Do ct_lookup4 also for
-	 * established connections to extend the expiration timeout.
+	 * already tracked). NAT_DIR_EGRESS is implied.
+	 * This check is only relevant for the first packet; the subsequent ones
+	 * will have state->common.needs_ct set, therefore, both egress and
+	 * ingress packets will trigger ct_lookup4 and extend the expiration
+	 * timeout.
 	 */
 	} else if (target->egress_gateway && !target->from_local_endpoint) {
 		needs_ct = true;
