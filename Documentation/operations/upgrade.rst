@@ -319,6 +319,11 @@ Annotations:
   ``XfrmInNoStates`` and ``XfrmOutPolBlock`` may increase as a result of these
   drops.
 
+* There is a known issue (:gh-issue:`24502`) with CiliumNetworkPolicies that
+  makes the ``kube-apiserver`` entity unreliable. Until this is resolved,
+  it is recommended to grant access to the apiserver by the special ``world``
+  entity. This bug is present from v1.13.0.
+
 1.13.1 Upgrade Notes
 --------------------
 
@@ -328,11 +333,6 @@ Annotations:
   replacing workload nodes in the cluster (to get a fresh IPsec state) or by
   flushing the current state by running the following command on each node:
   ``ip xfrm state flush && ip xfrm policy flush``.
-
-* There is a known issue (:gh-issue:`24502`) with CiliumNetworkPolicies that
-  makes the ``kube-apiserver`` entity unreliable. Until this is resolved, 
-  it is recommended to grant access to the apiserver by CIDR or by the 
-  special ``world`` entity.
 
 1.13 Upgrade Notes
 ------------------
