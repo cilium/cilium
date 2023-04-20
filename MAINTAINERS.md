@@ -52,7 +52,8 @@ Everybody listed is a committer as per governance definition.
  * [Vlad Ungureanu] (Palantir)
  * [Weilong Cui] (Google)
  * [Yongkun Gui] (Google)
-
+ *  [Tamilmani Manoharan] (Microsoft)
+ *  [Chandan Aggarwal] (Microsoft)
 ## Cilium & Hubble Emeritus Committers
 
 We would like to acknowledge previous committers and their huge contributions to our collective success:
@@ -116,3 +117,5 @@ project.
 [Weilong Cui]: https://github.com/Weil0ng
 [Yongkun Gui]: https://github.com/anfernee
 [Zang Li]: https://github.com/lzang
+[Tamilmani Manoharan]: https://github.com/tamilmani1989
+[Chandan Aggarwak]: https://github.com/chandanAggarwal
