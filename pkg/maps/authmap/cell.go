@@ -4,6 +4,7 @@
 package authmap
 
 import (
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
@@ -20,7 +21,7 @@ var Cell = cell.Module(
 	cell.Provide(newAuthMap),
 )
 
-func newAuthMap(lifecycle hive.Lifecycle) (Map, error) {
+func newAuthMap(lifecycle hive.Lifecycle) MapOut {
 	authMap := newMap(option.Config.AuthMapEntries)
 
 	lifecycle.Append(hive.Hook{
@@ -32,5 +33,15 @@ func newAuthMap(lifecycle hive.Lifecycle) (Map, error) {
 		},
 	})
 
-	return authMap, nil
+	return MapOut{
+		AuthMap: authMap,
+		BpfMap:  authMap,
+	}
+}
+
+type MapOut struct {
+	cell.Out
+
+	AuthMap Map
+	BpfMap  bpf.BpfMap `group:"bpf-maps"`
 }
