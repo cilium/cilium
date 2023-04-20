@@ -198,7 +198,7 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 		NodeIdentity:            uint32(12345),
 		WireguardPubKey:         "6kiIGGPvMiadJ1brWTVfSGXheE3e3k5GjDTxfjMLYx8=",
 		Annotations: map[string]string{
-			"cilium.io/bgp-virtual-router.64512": "router-id=172.0.0.3",
+			annotation.BGPVRouterAnnoPrefix + "64512": "router-id=172.0.0.3",
 		},
 	}
 
@@ -208,8 +208,8 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 			Name:      "foo",
 			Namespace: "",
 			Annotations: map[string]string{
-				annotation.WireguardPubKey:           "6kiIGGPvMiadJ1brWTVfSGXheE3e3k5GjDTxfjMLYx8=",
-				"cilium.io/bgp-virtual-router.64512": "router-id=172.0.0.3",
+				annotation.WireguardPubKey:                "6kiIGGPvMiadJ1brWTVfSGXheE3e3k5GjDTxfjMLYx8=",
+				annotation.BGPVRouterAnnoPrefix + "64512": "router-id=172.0.0.3",
 			},
 		},
 		Spec: ciliumv2.NodeSpec{
