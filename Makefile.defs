@@ -10,6 +10,11 @@ space := $(empty) $(empty)
 comma := ,
 join-with-comma = $(subst $(space),$(comma),$(strip $1))
 
+define newline
+
+
+endef
+
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 RELATIVE_DIR := $(shell echo $(realpath .) | sed "s;$(ROOT_DIR)[/]*;;")
 include $(ROOT_DIR)/Makefile.quiet
@@ -87,8 +92,9 @@ ifneq ($(V),0)
 endif
 endif
 
-GOLANGCILINT_WANT_VERSION = 1.51.2
-GOLANGCILINT_IMAGE_SHA = sha256:be42f5df32011553183947c2b2502718bde485f566e15bbd2541f38a077e4d29
+# renovate: datasource=docker depName=golangci/golangci-lint
+GOLANGCILINT_WANT_VERSION = v1.52.2
+GOLANGCILINT_IMAGE_SHA = sha256:3d2f4240905054c7efa7f4e98ba145c12a16995bbc3e605300e21400a1665cb6
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
@@ -113,7 +119,7 @@ endif
 
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
     CILIUM_ENVOY_REF=$(shell sed -E -e 's/^FROM (--[^ ]* )*([^ ]*) as cilium-envoy/\2/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
-    CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:([^:@-]*).*/\1/p;d')
+    CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:(.*-)?([^:@]*).*/\2/p;d')
     GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
 endif
 
@@ -132,26 +138,9 @@ BPF_SRCFILES := $(filter-out $(BPF_SRCFILES_IGNORE),$(subst ../,,$(subst $(ROOT_
 CILIUM_DATAPATH_SHA256=$(shell cd $(ROOT_DIR); cat $(BPF_SRCFILES) | sha256sum | awk '{print $$1}')
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA256=$(CILIUM_DATAPATH_SHA256)"
 
-# Set -mod=vendor if running >= go 1.13 or if GO111MODULE is set.
-# A go build is being executed with go modules if:
-# * The go command is invoked with GO111MODULE=on environment variable set.
-# * The go command is invoked in a directory outside of the $GOPATH/src tree
-#   and the environment variable GO111MODULE unset (or explicitly set to 'auto').
-ifeq ($(GO111MODULE),on)
-    GO_BUILD_FLAGS += -mod=vendor
-    GO_TEST_FLAGS += -mod=vendor
-    GO_CLEAN_FLAGS += -mod=vendor
-else
-    GO_MAJOR_VERSION_GE_1 := $(shell expr `$(GO) version | grep -E 'go[0-9]+' -o | sed 's/go//g'` \>= 1)
-    ifeq ($(GO_MAJOR_VERSION_GE_1),1)
-        GO_MINOR_VERSION_GE_13 := $(shell expr `$(GO) version | grep -E 'go[^ ]+' -o | sed 's/go1.//g'` \>= 13)
-        ifeq ($(GO_MINOR_VERSION_GE_13),1)
-            GO_BUILD_FLAGS += -mod=vendor
-            GO_TEST_FLAGS += -mod=vendor
-            GO_CLEAN_FLAGS += -mod=vendor
-        endif
-    endif
-endif
+GO_BUILD_FLAGS += -mod=vendor
+GO_TEST_FLAGS += -mod=vendor
+GO_CLEAN_FLAGS += -mod=vendor
 
 GO_BUILD = CGO_ENABLED=0 $(GO) build
 

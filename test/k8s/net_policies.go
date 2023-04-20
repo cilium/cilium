@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,11 +40,6 @@ var _ = SkipDescribeIf(func() bool {
 		ciliumFilename       string
 		demoPath             string
 		l3Policy             string
-		l7PolicyTLS          string
-		TLSCaCerts           string
-		TLSLyftCrt           string
-		TLSLyftKey           string
-		TLSCa                string
 		connectivityCheckYml string
 
 		app1Service = "app1-service"
@@ -56,11 +52,6 @@ var _ = SkipDescribeIf(func() bool {
 
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
-		l7PolicyTLS = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-TLS.yaml")
-		TLSCaCerts = helpers.ManifestGet(kubectl.BasePath(), "testCA.crt")
-		TLSLyftCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.crt")
-		TLSLyftKey = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.key")
-		TLSCa = helpers.ManifestGet(kubectl.BasePath(), "ca.crt")
 		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
 
 		daemonCfg = map[string]string{
@@ -88,7 +79,6 @@ var _ = SkipDescribeIf(func() bool {
 		var (
 			ciliumPod        string
 			clusterIP        string
-			appPods          map[string]string
 			namespaceForTest string
 		)
 
@@ -106,7 +96,6 @@ var _ = SkipDescribeIf(func() bool {
 
 			clusterIP, _, err = kubectl.GetServiceHostPort(namespaceForTest, app1Service)
 			Expect(err).To(BeNil(), "Cannot get service in %q namespace", namespaceForTest)
-			appPods = helpers.GetAppPods(apps, namespaceForTest, kubectl, "id")
 			logger.WithFields(logrus.Fields{
 				"ciliumPod": ciliumPod,
 				"clusterIP": clusterIP}).Info("Initial data")
@@ -136,50 +125,6 @@ var _ = SkipDescribeIf(func() bool {
 			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
 			_ = kubectl.Exec(cmd)
 		})
-
-		SkipItIf(helpers.SkipQuarantined, "TLS policy", func() {
-			By("Testing L7 Policy with TLS")
-
-			res := kubectl.CreateSecret("generic", "user-agent", "default", "--from-literal=user-agent=CURRL")
-			res.ExpectSuccess("Cannot create secret %s", "user-agent")
-
-			res = kubectl.CreateSecret("generic", "test-client", "default", "--from-file="+TLSCa)
-			res.ExpectSuccess("Cannot create secret %s", "test-client")
-
-			res = kubectl.CreateSecret("tls", "lyft-server", "default", "--cert="+TLSLyftCrt+" --key="+TLSLyftKey)
-			res.ExpectSuccess("Cannot create secret %s", "lyft-server")
-
-			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App2], TLSCaCerts, "/cacert.pem")
-			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App2])
-
-			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App3], TLSCaCerts, "/cacert.pem")
-			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App3])
-
-			_, err := kubectl.CiliumPolicyAction(
-				namespaceForTest, l7PolicyTLS, helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Cannot install %q policy", l7PolicyTLS)
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/privacy", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
-				appPods[helpers.App2])
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/private", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://www.lyft.com:443/private'",
-				appPods[helpers.App2])
-
-			By("Testing L7 Policy with TLS without HTTP rules")
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/privacy", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
-				appPods[helpers.App3])
-
-		}, 500)
 
 		It("Invalid Policy report status correctly", func() {
 			manifest := helpers.ManifestGet(kubectl.BasePath(), "invalid_cnp.yaml")
@@ -467,7 +412,7 @@ var _ = SkipDescribeIf(func() bool {
 			BeforeAll(func() {
 				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 					map[string]string{
-						"tunnel":               "disabled",
+						"routingMode":          "native",
 						"autoDirectNodeRoutes": "true",
 
 						"hostFirewall.enabled": "true",
@@ -548,7 +493,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			It("connectivity is blocked after denying ingress", func() {
 				By("Running cilium monitor in the background")
-				ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
+				ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 				Expect(ciliumPod).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 
@@ -580,7 +525,7 @@ var _ = SkipDescribeIf(func() bool {
 				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
 
 				By("Running cilium monitor in the background")
-				ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
+				ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 				Expect(ciliumPod).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 
@@ -591,9 +536,17 @@ var _ = SkipDescribeIf(func() bool {
 				monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, ep.ID)
 
 				By("Importing fromCIDR+toPorts policy on ingress")
-				cnpAllowIngress := helpers.ManifestGet(kubectl.BasePath(),
-					"cnp-ingress-from-cidr-to-ports.yaml")
-				importPolicy(kubectl, testNamespace, cnpAllowIngress, "ingress-from-cidr-to-ports")
+
+				originalAssignIPYAML := helpers.ManifestGet(kubectl.BasePath(), "cnp-ingress-from-cidr-to-ports.yaml")
+				res := kubectl.ExecMiddle("mktemp")
+				res.ExpectSuccess()
+				cnpAllowIngressWithIP := strings.Trim(res.Stdout(), "\n")
+				nodeIP, err := kubectl.GetNodeIPByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
+				Expect(err).Should(BeNil())
+				kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM_IP/%s/' %s > %s",
+					nodeIP, originalAssignIPYAML, cnpAllowIngressWithIP)).ExpectSuccess()
+
+				importPolicy(kubectl, testNamespace, cnpAllowIngressWithIP, "ingress-from-cidr-to-ports")
 				count := testConnectivity(backendPodIP, true)
 				defer monitorCancel()
 
@@ -629,7 +582,7 @@ var _ = SkipDescribeIf(func() bool {
 
 				It("Connectivity to hostns is blocked after denying ingress", func() {
 					By("Running cilium monitor in the background")
-					ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
+					ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 					Expect(ciliumPod).ToNot(BeEmpty())
 					Expect(err).ToNot(HaveOccurred())
 
@@ -659,7 +612,7 @@ var _ = SkipDescribeIf(func() bool {
 					importPolicy(kubectl, testNamespace, ccnpDenyHostIngress, "default-deny-host-ingress")
 
 					By("Running cilium monitor in the background")
-					ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
+					ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 					Expect(ciliumPod).ToNot(BeEmpty())
 					Expect(err).ToNot(HaveOccurred())
 
@@ -669,9 +622,16 @@ var _ = SkipDescribeIf(func() bool {
 					monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, hostEpID)
 
 					By("Importing fromCIDR+toPorts host policy on ingress")
-					ccnpAllowHostIngress := helpers.ManifestGet(kubectl.BasePath(),
-						"ccnp-host-ingress-from-cidr-to-ports.yaml")
-					importPolicy(kubectl, testNamespace, ccnpAllowHostIngress, "host-ingress-from-cidr-to-ports")
+					originalCCNPAllowHostIngress := helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-ingress-from-cidr-to-ports.yaml")
+					res := kubectl.ExecMiddle("mktemp")
+					res.ExpectSuccess()
+					ccnpAllowIngressWithIP := strings.Trim(res.Stdout(), "\n")
+					nodeIP, err := kubectl.GetNodeIPByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
+					Expect(err).Should(BeNil())
+					kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM_IP/%s/' %s > %s",
+						nodeIP, originalCCNPAllowHostIngress, ccnpAllowIngressWithIP)).ExpectSuccess()
+
+					importPolicy(kubectl, testNamespace, ccnpAllowIngressWithIP, "host-ingress-from-cidr-to-ports")
 
 					testConnectivity(backendPodIP, true)
 					count := testConnectivity(hostIPOfBackendPod, true)
@@ -1534,7 +1494,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 					// The following are needed because of
 					// https://github.com/cilium/cilium/issues/17962 &&
 					// https://github.com/cilium/cilium/issues/16197.
-					"tunnel":               "disabled",
+					"routingMode":          "native",
 					"autoDirectNodeRoutes": "true",
 					"kubeProxyReplacement": "strict",
 				})

@@ -9,7 +9,7 @@ on:
   schedule:
     - cron:  '0 3/6 * * *'
   ### FOR TESTING PURPOSES
-  # This workflow runs in the context of `master`, and ignores changes to
+  # This workflow runs in the context of `main`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
   # - Make sure the PR uses a branch from the base repository (requires write
   #   privileges). It will not work with a branch from a fork (missing secrets).
@@ -111,10 +111,59 @@ jobs:
             src:
               - '!(test|Documentation)/**'
 
+  setup-report:
+    runs-on: ubuntu-latest
+    needs: check_changes
+    name: Set commit status to pending
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+    steps:
+    - name: Set up job variables
+      id: vars
+      run: |
+        if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+          PR_API_JSON=$(curl \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+          SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+        else
+          SHA=${{ github.sha }}
+        fi
+        echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+    - name: Set commit status to pending
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ steps.vars.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: ClusterMesh connectivity test in progress...
+        state: pending
+        target_url: ${{ env.check_url }}
+
+  skip-test-run:
+    # If the modified files are not relevant for this test then we can skip
+    # this test and mark it as successful.
+    if: github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'false'
+    runs-on: ubuntu-latest
+    needs: setup-report
+    name: Set commit status to success (skipped)
+    steps:
+    - name: Set commit status to success
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ needs.setup-report.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: ClusterMesh connectivity tests skipped
+        state: success
+        target_url: ${{ env.check_url }}
+
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`.
   installation-and-connectivity:
-    needs: check_changes
+    needs: setup-report
     name: Setup & Test
     if: |
       ((github.event_name == 'issue_comment' &&
@@ -196,7 +245,7 @@ jobs:
             kube-proxy: 'iptables'
 
     steps:
-    - name: Checkout GitHub master
+    - name: Checkout GitHub main
       uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       with:
         ref: ${{ github.event.repository.default_branch }}
@@ -208,17 +257,7 @@ jobs:
     - name: Set up job variables for GHA environment
       id: vars
       run: |
-        if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-          PR_API_JSON=$(curl \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-          SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-          OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
-        else
-          SHA=${{ github.sha }}
-          OWNER=${{ github.sha }}
-        fi
+        SHA=${{ needs.setup-report.outputs.sha }}
 
         # bpf.masquerade is disabled due to #23283
         CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
@@ -236,7 +275,7 @@ jobs:
 
         CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
         if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-          CILIUM_INSTALL_TUNNEL="--helm-set-string=tunnel=disabled \
+          CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
             --helm-set=autoDirectNodeRoutes=true \
             --helm-set=ipv4NativeRoutingCIDR=10.240.0.0/12 \
             --helm-set=ipv6NativeRoutingCIDR=fd00:10:240::/44"
@@ -299,23 +338,10 @@ jobs:
         echo kind_pod_cidr_2=${KIND_POD_CIDR_2} >> $GITHUB_OUTPUT
         echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
 
-        echo sha=${SHA} >> $GITHUB_OUTPUT
-        echo owner=${OWNER} >> $GITHUB_OUTPUT
-
-    - name: Set commit status to pending
-      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
-      with:
-        authToken: ${{ secrets.GITHUB_TOKEN }}
-        sha: ${{ steps.vars.outputs.sha }}
-        context: ${{ github.workflow }}
-        description: Connectivity test in progress...
-        state: pending
-        target_url: ${{ env.check_url }}
-
     - name: Checkout code
       uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       with:
-        ref: ${{ steps.vars.outputs.sha }}
+        ref: ${{ needs.setup-report.outputs.sha }}
         persist-credentials: false
 
     - name: Install Cilium CLI
@@ -380,7 +406,7 @@ jobs:
       shell: bash
       run: |
         for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci ; do
-          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.setup-report.outputs.sha }} &> /dev/null; do sleep 45s; done
         done
 
     - name: Install Cilium in cluster1
@@ -475,35 +501,47 @@ jobs:
         path: cilium-sysdump-*.zip
         retention-days: 5
 
-    - name: Set commit status to success
-      if: ${{ success() }}
-      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-success:
+    runs-on: ubuntu-latest
+    needs: [setup-report, installation-and-connectivity]
+    name: Set commit status to success
+    if: ${{ success() }}
+    steps:
+    - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
       with:
         authToken: ${{ secrets.GITHUB_TOKEN }}
-        sha: ${{ steps.vars.outputs.sha }}
+        sha: ${{ needs.setup-report.outputs.sha }}
         context: ${{ github.workflow }}
-        description: Connectivity test successful
+        description: ClusterMesh connectivity tests succeeded
         state: success
         target_url: ${{ env.check_url }}
 
-    - name: Set commit status to failure
-      if: ${{ failure() }}
-      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-failure:
+    runs-on: ubuntu-latest
+    needs: [setup-report, installation-and-connectivity]
+    name: Set commit status to failure
+    if: ${{ failure() }}
+    steps:
+    - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
       with:
         authToken: ${{ secrets.GITHUB_TOKEN }}
-        sha: ${{ steps.vars.outputs.sha }}
+        sha: ${{ needs.setup-report.outputs.sha }}
         context: ${{ github.workflow }}
-        description: Connectivity test failed
+        description: ClusterMesh connectivity tests failed
         state: failure
         target_url: ${{ env.check_url }}
 
-    - name: Set commit status to cancelled
-      if: ${{ cancelled() }}
-      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-cancelled:
+    runs-on: ubuntu-latest
+    needs: [setup-report, installation-and-connectivity]
+    name: Set commit status to cancelled
+    if: ${{ cancelled() }}
+    steps:
+    - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
       with:
         authToken: ${{ secrets.GITHUB_TOKEN }}
-        sha: ${{ steps.vars.outputs.sha }}
+        sha: ${{ needs.setup-report.outputs.sha }}
         context: ${{ github.workflow }}
-        description: Connectivity test cancelled
+        description: ClusterMesh connectivity tests cancelled
         state: error
         target_url: ${{ env.check_url }}

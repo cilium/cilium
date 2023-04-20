@@ -13,6 +13,7 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_DSR
+#define DSR_ENCAP_GENEVE	3
 
 #define DISABLE_LOOPBACK_LB
 

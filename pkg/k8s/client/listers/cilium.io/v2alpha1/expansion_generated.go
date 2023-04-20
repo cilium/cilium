@@ -9,6 +9,10 @@ package v2alpha1
 // CiliumBGPPeeringPolicyLister.
 type CiliumBGPPeeringPolicyListerExpansion interface{}
 
+// CiliumCIDRGroupListerExpansion allows custom methods to be added to
+// CiliumCIDRGroupLister.
+type CiliumCIDRGroupListerExpansion interface{}
+
 // CiliumEndpointSliceListerExpansion allows custom methods to be added to
 // CiliumEndpointSliceLister.
 type CiliumEndpointSliceListerExpansion interface{}

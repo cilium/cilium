@@ -216,10 +216,9 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 
 	// Create a CRD Backend
 	crdBackend, err := identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
-		NodeName: "cilium-preflight",
-		Store:    nil,
-		Client:   clientset,
-		KeyFunc:  (&cacheKey.GlobalIdentity{}).PutKeyFromMap,
+		Store:   nil,
+		Client:  clientset,
+		KeyFunc: (&cacheKey.GlobalIdentity{}).PutKeyFromMap,
 	})
 	if err != nil {
 		log.WithError(err).Fatal("Cannot create CRD identity backend")

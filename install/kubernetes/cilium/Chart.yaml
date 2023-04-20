@@ -5,7 +5,7 @@ home: https://cilium.io/
 version: 1.13.90
 appVersion: 1.13.90
 kubeVersion: ">= 1.16.0-0"
-icon: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo-solo.svg
+icon: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-solo.svg
 description: eBPF-based Networking, Security, and Observability
 keywords:
   - BPF
@@ -124,3 +124,9 @@ annotations:
       description: |
         CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
         nodes indicated by a label selector.
+    - kind: CiliumCIDRGroup
+      version: v2alpha1
+      name: ciliumcidrgroups.cilium.io
+      displayName: Cilium CIDR Group
+      description: |
+        CiliumCIDRGroup is a list of CIDRs that can be referenced as a single entity from CiliumNetworkPolicies.

@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -74,13 +75,16 @@ const (
 
 	// CNCCRDName is the full name of the CiliumNodeConfig CRD.
 	CNCCRDName = k8sconstv2alpha1.CNCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CCGCRDName is the full name of the CiliumCIDRGroup CRD.
+	CCGCRDName = k8sconstv2alpha1.CCGKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 var (
 	// log is the k8s package logger object.
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
 
-	comparableCRDSchemaVersion = versioncheck.MustVersion(k8sconstv2.CustomResourceDefinitionSchemaVersion)
+	comparableCRDSchemaVersion = versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion)
 )
 
 type crdCreationFn func(clientset apiextensionsclient.Interface) error
@@ -105,8 +109,9 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv2alpha1.BGPPName):     createCRD(BGPPCRDName, k8sconstv2alpha1.BGPPName),
 		synced.CRDResourceName(k8sconstv2alpha1.LBIPPoolName): createCRD(LBIPPoolCRDName, k8sconstv2alpha1.LBIPPoolName),
 		synced.CRDResourceName(k8sconstv2alpha1.CNCName):      createCRD(CNCCRDName, k8sconstv2alpha1.CNCName),
+		synced.CRDResourceName(k8sconstv2alpha1.CCGName):      createCRD(CCGCRDName, k8sconstv2alpha1.CCGName),
 	}
-	for _, r := range synced.AllCRDResourceNames() {
+	for _, r := range synced.AllCiliumCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
 		if !ok {
 			log.Fatalf("Unknown resource %s. Please update pkg/k8s/apis/cilium.io/client to understand this type.", r)
@@ -161,6 +166,9 @@ var (
 
 	//go:embed crds/v2alpha1/ciliumnodeconfigs.yaml
 	crdsv2Alpha1CiliumNodeConfigs []byte
+
+	//go:embed crds/v2alpha1/ciliumcidrgroups.yaml
+	crdsv2Alpha1CiliumCIDRGroups []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -204,6 +212,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv2Alpha1Ciliumloadbalancerippools
 	case CNCCRDName:
 		crdBytes = crdsv2Alpha1CiliumNodeConfigs
+	case CCGCRDName:
+		crdBytes = crdsv2Alpha1CiliumCIDRGroups
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -283,11 +293,11 @@ func constructV1CRD(
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+				k8sconst.CustomResourceDefinitionSchemaVersionKey: k8sconst.CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: k8sconstv2.CustomResourceDefinitionGroup,
+			Group: k8sconst.CustomResourceDefinitionGroup,
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Kind:       template.Spec.Names.Kind,
 				Plural:     template.Spec.Names.Plural,
@@ -305,7 +315,7 @@ func needsUpdateV1(clusterCRD *apiextensionsv1.CustomResourceDefinition) bool {
 		// no validation detected
 		return true
 	}
-	v, ok := clusterCRD.Labels[k8sconstv2.CustomResourceDefinitionSchemaVersionKey]
+	v, ok := clusterCRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey]
 	if !ok {
 		// no schema version detected
 		return true

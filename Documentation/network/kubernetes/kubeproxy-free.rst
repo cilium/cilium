@@ -477,7 +477,7 @@ made aware of the service IP/port which they need to reply with. Therefore, Cili
 encodes this information in a Cilium-specific IPv4 option or IPv6 Destination Option
 extension header at the cost of advertising a lower MTU. For TCP services, Cilium
 only encodes the service IP/port for the SYN packet, but not subsequent ones. The
-latter also allows to operate Cilium in a hybrid mode as detailed in the next subsection
+latter also allows to operate Cilium in a hybrid mode as detailed in the later subsection
 where DSR is used for TCP and SNAT for UDP in order to avoid an otherwise needed MTU
 reduction.
 
@@ -486,8 +486,9 @@ due to the Cilium-specific IP options that could be dropped by an underlying net
 In case of connectivity issues to services where backends are located on
 a remote node from the node that is processing the given NodePort request,
 first check whether the NodePort request actually arrived on the node
-containing the backend. If this was not the case, then switching back to the default
-SNAT mode would be advised as a workaround.
+containing the backend. If this was not the case, then consider either switching to
+DSR with Geneve which will be described in the later sections, or switching back to
+the default SNAT mode would be advised as a workaround.
 
 Also, in some public cloud provider environments, which implement a source /
 destination IP address checking (e.g. AWS), the checking has to be disabled in
@@ -500,9 +501,59 @@ enabled would look as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
+        --set routingMode=native \\
+        --set kubeProxyReplacement=strict \\
+        --set loadBalancer.mode=dsr \\
+        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServicePort=${API_SERVER_PORT}
+
+.. _DSR mode with Geneve:
+
+Direct Server Return (DSR) with Geneve
+**************************************
+By default, Cilium with DSR mode encodes the service IP/port in a Cilium-specific
+IPv4 option or IPv6 Destination Option extension so that the backends are aware of
+the service IP/port, which they need to reply with.
+
+However, some data center routers pass packets with unknown IP options to software
+processing called "Layer 2 slow path". Those routers drop the packets if the amount
+of packets with IP options exceeds a given threshold, which may significantly affect
+network performance.
+
+Cilium offers another dispatch mode, DSR with Geneve, to avoid this problem.
+In DSR with Geneve, Cilium encapsulates packets to the Loadbalancer with the Geneve
+header that includes the service IP/port in the Geneve option and redirects them
+to the backends.
+
+Note, IPv6 support for DSR with Geneve is currently limited. It works only with TC,
+not with XDP.
+
+The Helm example configuration in a kube-proxy-free environment with DSR and
+Geneve dispatch enabled would look as follows:
+
+.. parsed-literal::
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
         --set tunnel=disabled \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.mode=dsr \\
+        --set loadBalancer.dsrDispatch=geneve \\
+        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServicePort=${API_SERVER_PORT}
+
+DSR with Geneve is compatible with the Geneve encapsulation mode (:ref:`arch_overlay`).
+It works with either the direct routing mode or the Geneve tunneling mode. Unfortunately,
+it doesn't work with the vxlan encapsulation mode.
+
+The example configuration in DSR with Geneve dispatch and tunneling mode is as follows.
+
+.. parsed-literal::
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set tunnel=geneve \\
+        --set kubeProxyReplacement=strict \\
+        --set loadBalancer.mode=dsr \\
+        --set loadBalancer.dsrDispatch=geneve \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
@@ -528,7 +579,7 @@ mode would look as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set tunnel=disabled \\
+        --set routingMode=native \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.mode=hybrid \\
         --set k8sServiceHost=${API_SERVER_IP} \\
@@ -563,7 +614,7 @@ looks as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set tunnel=disabled \\
+        --set routingMode=native \\
         --set kubeProxyReplacement=strict \\
         --set socketLB.hostNamespaceOnly=true
 
@@ -599,7 +650,7 @@ modes and can be enabled as follows for ``loadBalancer.mode=hybrid`` in this exa
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set tunnel=disabled \\
+        --set routingMode=native \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.acceleration=native \\
         --set loadBalancer.mode=hybrid \\
@@ -614,7 +665,7 @@ each underlying device's driver must have native XDP support on all Cilium manag
 nodes. In addition, for performance reasons we recommend kernel >= 5.5 for
 the multi-device XDP acceleration.
 
-NodePort acceleration can be used with either direct routing (``tunnel=disabled``)
+NodePort acceleration can be used with either direct routing (``routingMode=native``)
 or tunnel mode. Direct routing is recommended to achieve optimal performance.
 
 A list of drivers supporting XDP can be found in :ref:`the documentation for XDP<xdp_drivers>`.
@@ -799,7 +850,7 @@ will automatically configure your virtual network to route pod traffic correctly
      --set azure.tenantID=$AZURE_TENANT_ID \\
      --set azure.clientID=$AZURE_CLIENT_ID \\
      --set azure.clientSecret=$AZURE_CLIENT_SECRET \\
-     --set tunnel=disabled \\
+     --set routingMode=native \\
      --set enableIPv4Masquerade=false \\
      --set devices=eth0 \\
      --set kubeProxyReplacement=strict \\
@@ -1073,6 +1124,13 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
   this server, and there would otherwise be a clash when cilium attempts to bind its server to the
   same port). A few example configurations
   for the ``partial`` option are provided below.
+
+.. note::
+
+    Switching from the ``strict`` to ``disabled`` mode, or vice versa can break
+    existing connections to services in a cluster. The same goes for enabling, or
+    disabling ``socketLB``. It is recommended to drain all the workloads before
+    performing such configuration changes.
 
   The following Helm setup below would be equivalent to ``kubeProxyReplacement=strict``
   in a kube-proxy-free environment:

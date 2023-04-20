@@ -9,7 +9,7 @@ permissions: read-all
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.0
+  cilium_cli_version: v0.13.1
   KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -37,7 +37,7 @@ jobs:
   cyclonus-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout master branch to access local actions
+      - name: Checkout main branch to access local actions
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
@@ -105,18 +105,18 @@ jobs:
              --set hubble.enabled=true \
              --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
 
-          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=${{ env.timeout }}
-          kubectl rollout -n kube-system status deploy/coredns --timeout=${{ env.timeout }}
+          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
+          kubectl rollout -n kube-system status deploy/coredns --timeout=5m
 
           # To make sure that cilium CRD is available (default timeout is 5m)
-          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
+          # https://github.com/cilium/cilium/blob/main/operator/crd.go#L34
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
 
       - name: Run cyclonus network policy test
         working-directory: test/k8s/manifests/netpol-cyclonus
         run: ./test-cyclonus.sh
 
-      - name: Capture cilium-sysdump
+      - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() }}
         run: |
           echo "=== Install Cilium CLI ==="

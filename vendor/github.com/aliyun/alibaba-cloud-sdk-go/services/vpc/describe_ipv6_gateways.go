@@ -71,15 +71,23 @@ func (client *Client) DescribeIpv6GatewaysWithCallback(request *DescribeIpv6Gate
 // DescribeIpv6GatewaysRequest is the request struct for api DescribeIpv6Gateways
 type DescribeIpv6GatewaysRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
-	PageSize             requests.Integer `position:"Query" name:"PageSize"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	VpcId                string           `position:"Query" name:"VpcId"`
-	Ipv6GatewayId        string           `position:"Query" name:"Ipv6GatewayId"`
-	Name                 string           `position:"Query" name:"Name"`
+	ResourceOwnerId      requests.Integer            `position:"Query" name:"ResourceOwnerId"`
+	PageNumber           requests.Integer            `position:"Query" name:"PageNumber"`
+	ResourceGroupId      string                      `position:"Query" name:"ResourceGroupId"`
+	PageSize             requests.Integer            `position:"Query" name:"PageSize"`
+	ResourceOwnerAccount string                      `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                      `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer            `position:"Query" name:"OwnerId"`
+	Tags                 *[]DescribeIpv6GatewaysTags `position:"Query" name:"Tags"  type:"Repeated"`
+	VpcId                string                      `position:"Query" name:"VpcId"`
+	Ipv6GatewayId        string                      `position:"Query" name:"Ipv6GatewayId"`
+	Name                 string                      `position:"Query" name:"Name"`
+}
+
+// DescribeIpv6GatewaysTags is a repeated param struct in DescribeIpv6GatewaysRequest
+type DescribeIpv6GatewaysTags struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeIpv6GatewaysResponse is the response struct for api DescribeIpv6Gateways

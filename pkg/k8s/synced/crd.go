@@ -44,6 +44,7 @@ func agentCRDResourceNames() []string {
 		CRDResourceName(v2.CNName),
 		CRDResourceName(v2.CIDName),
 		CRDResourceName(v2alpha1.CNCName),
+		CRDResourceName(v2alpha1.CCGName),
 	}
 
 	if !option.Config.DisableCiliumEndpointCRD {
@@ -78,10 +79,13 @@ func AgentCRDResourceNames() []string {
 	return agentCRDResourceNames()
 }
 
-// AllCRDResourceNames returns a list of all CRD resource names that the
-// clustermesh-apiserver or testsuite may register.
-func AllCRDResourceNames() []string {
-	return append(agentCRDResourceNames(), CRDResourceName(v2.CEWName))
+// AllCiliumCRDResourceNames returns a list of all Cilium CRD resource names
+// that the clustermesh-apiserver or testsuite may register.
+func AllCiliumCRDResourceNames() []string {
+	return append(
+		AgentCRDResourceNames(),
+		CRDResourceName(v2.CEWName),
+	)
 }
 
 // SyncCRDs will sync Cilium CRDs to ensure that they have all been

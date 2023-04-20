@@ -22,6 +22,18 @@
   {{- end }}
 {{- end }}
 
+{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "certmanager") }}
+  {{- if not .Values.hubble.tls.auto.certManagerIssuerRef }}
+    {{ fail "Hubble TLS certgen method=certmanager requires that user specifies .Values.hubble.tls.auto.certManagerIssuerRef" }}
+  {{- end }}
+{{- end }}
+
+{{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "certmanager") }}
+  {{- if not .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef }}
+    {{ fail "ClusterMesh TLS certgen method=certmanager requires that user specifies .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef" }}
+  {{- end }}
+{{- end }}
+
 {{/* validate hubble-ui specific config */}}
 {{- if and .Values.hubble.ui.enabled
   (ne .Values.hubble.ui.backend.image.tag "latest")
@@ -41,5 +53,11 @@
     {{- end }}
   {{- else }}
     {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+  {{- end }}
+{{- end }}
+
+{{- if .Values.auth.mTLS.spire.install.enabled }}
+  {{- if not .Values.auth.mTLS.spire.enabled }}
+    {{ fail "SPIRE installation requires .Values.auth.mTLS.enabled=true and .Values.auth.mTLS.spire.enabled=true" }}
   {{- end }}
 {{- end }}

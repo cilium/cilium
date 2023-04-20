@@ -19,10 +19,12 @@ package cache
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"reflect"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,7 +39,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 )
 
-var log = logf.RuntimeLog.WithName("object-cache")
+var (
+	log               = logf.RuntimeLog.WithName("object-cache")
+	defaultSyncPeriod = 10 * time.Hour
+)
 
 // Cache knows how to load Kubernetes objects, fetch informers to request
 // to receive events for Kubernetes objects (at a low-level),
@@ -98,99 +103,142 @@ type Informer interface {
 	HasSynced() bool
 }
 
-// ObjectSelector is an alias name of internal.Selector.
-type ObjectSelector internal.Selector
-
-// SelectorsByObject associate a client.Object's GVK to a field/label selector.
-// There is also `DefaultSelector` to set a global default (which will be overridden by
-// a more specific setting here, if any).
-type SelectorsByObject map[client.Object]ObjectSelector
-
 // Options are the optional arguments for creating a new InformersMap object.
 type Options struct {
+	// HTTPClient is the http client to use for the REST client
+	HTTPClient *http.Client
+
 	// Scheme is the scheme to use for mapping objects to GroupVersionKinds
 	Scheme *runtime.Scheme
 
 	// Mapper is the RESTMapper to use for mapping GroupVersionKinds to Resources
 	Mapper meta.RESTMapper
 
-	// Resync is the base frequency the informers are resynced.
-	// Defaults to defaultResyncTime.
-	// A 10 percent jitter will be added to the Resync period between informers
-	// So that all informers will not send list requests simultaneously.
-	Resync *time.Duration
+	// SyncPeriod determines the minimum frequency at which watched resources are
+	// reconciled. A lower period will correct entropy more quickly, but reduce
+	// responsiveness to change if there are many watched resources. Change this
+	// value only if you know what you are doing. Defaults to 10 hours if unset.
+	// there will a 10 percent jitter between the SyncPeriod of all controllers
+	// so that all controllers will not send list requests simultaneously.
+	//
+	// This applies to all controllers.
+	//
+	// A period sync happens for two reasons:
+	// 1. To insure against a bug in the controller that causes an object to not
+	// be requeued, when it otherwise should be requeued.
+	// 2. To insure against an unknown bug in controller-runtime, or its dependencies,
+	// that causes an object to not be requeued, when it otherwise should be
+	// requeued, or to be removed from the queue, when it otherwise should not
+	// be removed.
+	//
+	// If you want
+	// 1. to insure against missed watch events, or
+	// 2. to poll services that cannot be watched,
+	// then we recommend that, instead of changing the default period, the
+	// controller requeue, with a constant duration `t`, whenever the controller
+	// is "done" with an object, and would otherwise not requeue it, i.e., we
+	// recommend the `Reconcile` function return `reconcile.Result{RequeueAfter: t}`,
+	// instead of `reconcile.Result{}`.
+	SyncPeriod *time.Duration
 
-	// Namespace restricts the cache's ListWatch to the desired namespace
+	// Namespaces restricts the cache's ListWatch to the desired namespaces
 	// Default watches all namespaces
-	Namespace string
+	Namespaces []string
 
-	// SelectorsByObject restricts the cache's ListWatch to the desired
-	// fields per GVK at the specified object, the map's value must implement
-	// Selector [1] using for example a Set [2]
-	// [1] https://pkg.go.dev/k8s.io/apimachinery/pkg/fields#Selector
-	// [2] https://pkg.go.dev/k8s.io/apimachinery/pkg/fields#Set
-	SelectorsByObject SelectorsByObject
+	// DefaultLabelSelector will be used as a label selectors for all object types
+	// unless they have a more specific selector set in ByObject.
+	DefaultLabelSelector labels.Selector
 
-	// DefaultSelector will be used as selectors for all object types
-	// that do not have a selector in SelectorsByObject defined.
-	DefaultSelector ObjectSelector
+	// DefaultFieldSelector will be used as a field selectors for all object types
+	// unless they have a more specific selector set in ByObject.
+	DefaultFieldSelector fields.Selector
 
-	// UnsafeDisableDeepCopyByObject indicates not to deep copy objects during get or
-	// list objects per GVK at the specified object.
+	// DefaultTransform will be used as transform for all object types
+	// unless they have a more specific transform set in ByObject.
+	DefaultTransform toolscache.TransformFunc
+
+	// ByObject restricts the cache's ListWatch to the desired fields per GVK at the specified object.
+	ByObject map[client.Object]ByObject
+
+	// UnsafeDisableDeepCopy indicates not to deep copy objects during get or
+	// list objects for EVERY object.
 	// Be very careful with this, when enabled you must DeepCopy any object before mutating it,
 	// otherwise you will mutate the object in the cache.
-	UnsafeDisableDeepCopyByObject DisableDeepCopyByObject
+	//
+	// This is a global setting for all objects, and can be overridden by the ByObject setting.
+	UnsafeDisableDeepCopy *bool
+}
 
-	// TransformByObject is a map from GVKs to transformer functions which
+// ByObject offers more fine-grained control over the cache's ListWatch by object.
+type ByObject struct {
+	// Label represents a label selector for the object.
+	Label labels.Selector
+
+	// Field represents a field selector for the object.
+	Field fields.Selector
+
+	// Transform is a map from objects to transformer functions which
 	// get applied when objects of the transformation are about to be committed
 	// to cache.
 	//
 	// This function is called both for new objects to enter the cache,
-	// 	and for updated objects.
-	TransformByObject TransformByObject
+	// and for updated objects.
+	Transform toolscache.TransformFunc
 
-	// DefaultTransform is the transform used for all GVKs which do
-	// not have an explicit transform func set in TransformByObject
-	DefaultTransform toolscache.TransformFunc
+	// UnsafeDisableDeepCopy indicates not to deep copy objects during get or
+	// list objects per GVK at the specified object.
+	// Be very careful with this, when enabled you must DeepCopy any object before mutating it,
+	// otherwise you will mutate the object in the cache.
+	UnsafeDisableDeepCopy *bool
 }
-
-var defaultResyncTime = 10 * time.Hour
 
 // New initializes and returns a new Cache.
 func New(config *rest.Config, opts Options) (Cache, error) {
+	if len(opts.Namespaces) == 0 {
+		opts.Namespaces = []string{metav1.NamespaceAll}
+	}
+	if len(opts.Namespaces) > 1 {
+		return newMultiNamespaceCache(config, opts)
+	}
+
 	opts, err := defaultOpts(config, opts)
 	if err != nil {
 		return nil, err
 	}
-	selectorsByGVK, err := convertToByGVK(opts.SelectorsByObject, opts.DefaultSelector, opts.Scheme)
-	if err != nil {
-		return nil, err
-	}
-	disableDeepCopyByGVK, err := convertToDisableDeepCopyByGVK(opts.UnsafeDisableDeepCopyByObject, opts.Scheme)
-	if err != nil {
-		return nil, err
-	}
-	transformByGVK, err := convertToByGVK(opts.TransformByObject, opts.DefaultTransform, opts.Scheme)
-	if err != nil {
-		return nil, err
-	}
-	transformByObj := internal.TransformFuncByObjectFromMap(transformByGVK)
 
-	internalSelectorsByGVK := internal.SelectorsByGVK{}
-	for gvk, selector := range selectorsByGVK {
-		internalSelectorsByGVK[gvk] = internal.Selector(selector)
+	byGVK, err := convertToInformerOptsByGVK(opts.ByObject, opts.Scheme)
+	if err != nil {
+		return nil, err
+	}
+	// Set the default selector and transform.
+	byGVK[schema.GroupVersionKind{}] = internal.InformersOptsByGVK{
+		Selector: internal.Selector{
+			Label: opts.DefaultLabelSelector,
+			Field: opts.DefaultFieldSelector,
+		},
+		Transform:             opts.DefaultTransform,
+		UnsafeDisableDeepCopy: opts.UnsafeDisableDeepCopy,
 	}
 
-	im := internal.NewInformersMap(config, opts.Scheme, opts.Mapper, *opts.Resync, opts.Namespace, internalSelectorsByGVK, disableDeepCopyByGVK, transformByObj)
-	return &informerCache{InformersMap: im}, nil
+	return &informerCache{
+		scheme: opts.Scheme,
+		Informers: internal.NewInformers(config, &internal.InformersOpts{
+			HTTPClient:   opts.HTTPClient,
+			Scheme:       opts.Scheme,
+			Mapper:       opts.Mapper,
+			ResyncPeriod: *opts.SyncPeriod,
+			Namespace:    opts.Namespaces[0],
+			ByGVK:        byGVK,
+		}),
+	}, nil
 }
 
 // BuilderWithOptions returns a Cache constructor that will build a cache
 // honoring the options argument, this is useful to specify options like
-// SelectorsByObject
-// WARNING: If SelectorsByObject is specified, filtered out resources are not
+// ByObjects, DefaultSelector, DefaultTransform, etc.
+// WARNING: If ByObject selectors are specified, filtered out resources are not
 // returned.
-// WARNING: If UnsafeDisableDeepCopy is enabled, you must DeepCopy any object
+// WARNING: If ByObject UnsafeDisableDeepCopy is enabled, you must DeepCopy any object
 // returned from cache get/list before mutating it.
 func BuilderWithOptions(options Options) NewCacheFunc {
 	return func(config *rest.Config, inherited Options) (Cache, error) {
@@ -218,17 +266,23 @@ func (options Options) inheritFrom(inherited Options) (*Options, error) {
 	)
 	combined.Scheme = combineScheme(inherited.Scheme, options.Scheme)
 	combined.Mapper = selectMapper(inherited.Mapper, options.Mapper)
-	combined.Resync = selectResync(inherited.Resync, options.Resync)
-	combined.Namespace = selectNamespace(inherited.Namespace, options.Namespace)
-	combined.SelectorsByObject, combined.DefaultSelector, err = combineSelectors(inherited, options, combined.Scheme)
-	if err != nil {
-		return nil, err
+	combined.SyncPeriod = selectResync(inherited.SyncPeriod, options.SyncPeriod)
+	combined.Namespaces = selectNamespaces(inherited.Namespaces, options.Namespaces)
+	combined.DefaultLabelSelector = combineSelector(
+		internal.Selector{Label: inherited.DefaultLabelSelector},
+		internal.Selector{Label: options.DefaultLabelSelector},
+	).Label
+	combined.DefaultFieldSelector = combineSelector(
+		internal.Selector{Field: inherited.DefaultFieldSelector},
+		internal.Selector{Field: options.DefaultFieldSelector},
+	).Field
+	combined.DefaultTransform = combineTransform(inherited.DefaultTransform, options.DefaultTransform)
+	combined.ByObject, err = combineByObject(inherited, options, combined.Scheme)
+	if options.UnsafeDisableDeepCopy != nil {
+		combined.UnsafeDisableDeepCopy = options.UnsafeDisableDeepCopy
+	} else {
+		combined.UnsafeDisableDeepCopy = inherited.UnsafeDisableDeepCopy
 	}
-	combined.UnsafeDisableDeepCopyByObject, err = combineUnsafeDeepCopy(inherited, options, combined.Scheme)
-	if err != nil {
-		return nil, err
-	}
-	combined.TransformByObject, combined.DefaultTransform, err = combineTransforms(inherited, options, combined.Scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -265,44 +319,44 @@ func selectResync(def, override *time.Duration) *time.Duration {
 	return def
 }
 
-func selectNamespace(def, override string) string {
-	if override != "" {
+func selectNamespaces(def, override []string) []string {
+	if len(override) > 0 {
 		return override
 	}
 	return def
 }
 
-func combineSelectors(inherited, options Options, scheme *runtime.Scheme) (SelectorsByObject, ObjectSelector, error) {
-	// Selectors are combined via logical AND.
-	//  - Combined label selector is a union of the selectors requirements from both sets of options.
-	//  - Combined field selector uses fields.AndSelectors with the combined list of non-nil field selectors
-	//    defined in both sets of options.
-	//
-	// There is a bunch of complexity here because we need to convert to SelectorsByGVK
-	// to be able to match keys between options and inherited and then convert back to SelectorsByObject
-	optionsSelectorsByGVK, err := convertToByGVK(options.SelectorsByObject, options.DefaultSelector, scheme)
+func combineByObject(inherited, options Options, scheme *runtime.Scheme) (map[client.Object]ByObject, error) {
+	optionsByGVK, err := convertToInformerOptsByGVK(options.ByObject, scheme)
 	if err != nil {
-		return nil, ObjectSelector{}, err
+		return nil, err
 	}
-	inheritedSelectorsByGVK, err := convertToByGVK(inherited.SelectorsByObject, inherited.DefaultSelector, inherited.Scheme)
+	inheritedByGVK, err := convertToInformerOptsByGVK(inherited.ByObject, scheme)
 	if err != nil {
-		return nil, ObjectSelector{}, err
+		return nil, err
 	}
-
-	for gvk, inheritedSelector := range inheritedSelectorsByGVK {
-		optionsSelectorsByGVK[gvk] = combineSelector(inheritedSelector, optionsSelectorsByGVK[gvk])
+	for gvk, inheritedByGVK := range inheritedByGVK {
+		unsafeDisableDeepCopy := options.UnsafeDisableDeepCopy
+		if current, ok := optionsByGVK[gvk]; ok {
+			unsafeDisableDeepCopy = current.UnsafeDisableDeepCopy
+		}
+		optionsByGVK[gvk] = internal.InformersOptsByGVK{
+			Selector:              combineSelector(inheritedByGVK.Selector, optionsByGVK[gvk].Selector),
+			Transform:             combineTransform(inheritedByGVK.Transform, optionsByGVK[gvk].Transform),
+			UnsafeDisableDeepCopy: unsafeDisableDeepCopy,
+		}
 	}
-	return convertToByObject(optionsSelectorsByGVK, scheme)
+	return convertToByObject(optionsByGVK, scheme)
 }
 
-func combineSelector(selectors ...ObjectSelector) ObjectSelector {
+func combineSelector(selectors ...internal.Selector) internal.Selector {
 	ls := make([]labels.Selector, 0, len(selectors))
 	fs := make([]fields.Selector, 0, len(selectors))
 	for _, s := range selectors {
 		ls = append(ls, s.Label)
 		fs = append(fs, s.Field)
 	}
-	return ObjectSelector{
+	return internal.Selector{
 		Label: combineLabelSelectors(ls...),
 		Field: combineFieldSelectors(fs...),
 	}
@@ -340,51 +394,6 @@ func combineFieldSelectors(fs ...fields.Selector) fields.Selector {
 	return fields.AndSelectors(nonNil...)
 }
 
-func combineUnsafeDeepCopy(inherited, options Options, scheme *runtime.Scheme) (DisableDeepCopyByObject, error) {
-	// UnsafeDisableDeepCopyByObject is combined via precedence. Only if a value for a particular GVK is unset
-	// in options will a value from inherited be used.
-	optionsDisableDeepCopyByGVK, err := convertToDisableDeepCopyByGVK(options.UnsafeDisableDeepCopyByObject, options.Scheme)
-	if err != nil {
-		return nil, err
-	}
-	inheritedDisableDeepCopyByGVK, err := convertToDisableDeepCopyByGVK(inherited.UnsafeDisableDeepCopyByObject, inherited.Scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	for gvk, inheritedDeepCopy := range inheritedDisableDeepCopyByGVK {
-		if _, ok := optionsDisableDeepCopyByGVK[gvk]; !ok {
-			if optionsDisableDeepCopyByGVK == nil {
-				optionsDisableDeepCopyByGVK = map[schema.GroupVersionKind]bool{}
-			}
-			optionsDisableDeepCopyByGVK[gvk] = inheritedDeepCopy
-		}
-	}
-	return convertToDisableDeepCopyByObject(optionsDisableDeepCopyByGVK, scheme)
-}
-
-func combineTransforms(inherited, options Options, scheme *runtime.Scheme) (TransformByObject, toolscache.TransformFunc, error) {
-	// Transform functions are combined via chaining. If both inherited and options define a transform
-	// function, the transform function from inherited will be called first, and the transform function from
-	// options will be called second.
-	optionsTransformByGVK, err := convertToByGVK(options.TransformByObject, options.DefaultTransform, options.Scheme)
-	if err != nil {
-		return nil, nil, err
-	}
-	inheritedTransformByGVK, err := convertToByGVK(inherited.TransformByObject, inherited.DefaultTransform, inherited.Scheme)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for gvk, inheritedTransform := range inheritedTransformByGVK {
-		if optionsTransformByGVK == nil {
-			optionsTransformByGVK = map[schema.GroupVersionKind]toolscache.TransformFunc{}
-		}
-		optionsTransformByGVK[gvk] = combineTransform(inheritedTransform, optionsTransformByGVK[gvk])
-	}
-	return convertToByObject(optionsTransformByGVK, scheme)
-}
-
 func combineTransform(inherited, current toolscache.TransformFunc) toolscache.TransformFunc {
 	if inherited == nil {
 		return current
@@ -402,6 +411,18 @@ func combineTransform(inherited, current toolscache.TransformFunc) toolscache.Tr
 }
 
 func defaultOpts(config *rest.Config, opts Options) (Options, error) {
+	logger := log.WithName("setup")
+
+	// Use the rest HTTP client for the provided config if unset
+	if opts.HTTPClient == nil {
+		var err error
+		opts.HTTPClient, err = rest.HTTPClientFor(config)
+		if err != nil {
+			logger.Error(err, "Failed to get HTTP client")
+			return opts, fmt.Errorf("could not create HTTP client from config: %w", err)
+		}
+	}
+
 	// Use the default Kubernetes Scheme if unset
 	if opts.Scheme == nil {
 		opts.Scheme = scheme.Scheme
@@ -410,91 +431,46 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 	// Construct a new Mapper if unset
 	if opts.Mapper == nil {
 		var err error
-		opts.Mapper, err = apiutil.NewDiscoveryRESTMapper(config)
+		opts.Mapper, err = apiutil.NewDiscoveryRESTMapper(config, opts.HTTPClient)
 		if err != nil {
-			log.WithName("setup").Error(err, "Failed to get API Group-Resources")
-			return opts, fmt.Errorf("could not create RESTMapper from config")
+			logger.Error(err, "Failed to get API Group-Resources")
+			return opts, fmt.Errorf("could not create RESTMapper from config: %w", err)
 		}
 	}
 
 	// Default the resync period to 10 hours if unset
-	if opts.Resync == nil {
-		opts.Resync = &defaultResyncTime
+	if opts.SyncPeriod == nil {
+		opts.SyncPeriod = &defaultSyncPeriod
 	}
 	return opts, nil
 }
 
-func convertToByGVK[T any](byObject map[client.Object]T, def T, scheme *runtime.Scheme) (map[schema.GroupVersionKind]T, error) {
-	byGVK := map[schema.GroupVersionKind]T{}
-	for object, value := range byObject {
+func convertToInformerOptsByGVK(in map[client.Object]ByObject, scheme *runtime.Scheme) (map[schema.GroupVersionKind]internal.InformersOptsByGVK, error) {
+	out := map[schema.GroupVersionKind]internal.InformersOptsByGVK{}
+	for object, byObject := range in {
 		gvk, err := apiutil.GVKForObject(object, scheme)
 		if err != nil {
 			return nil, err
 		}
-		byGVK[gvk] = value
+		if _, ok := out[gvk]; ok {
+			return nil, fmt.Errorf("duplicate cache options for GVK %v, cache.Options.ByObject has multiple types with the same GroupVersionKind", gvk)
+		}
+		out[gvk] = internal.InformersOptsByGVK{
+			Selector: internal.Selector{
+				Field: byObject.Field,
+				Label: byObject.Label,
+			},
+			Transform:             byObject.Transform,
+			UnsafeDisableDeepCopy: byObject.UnsafeDisableDeepCopy,
+		}
 	}
-	byGVK[schema.GroupVersionKind{}] = def
-	return byGVK, nil
+	return out, nil
 }
 
-func convertToByObject[T any](byGVK map[schema.GroupVersionKind]T, scheme *runtime.Scheme) (map[client.Object]T, T, error) {
-	var byObject map[client.Object]T
-	def := byGVK[schema.GroupVersionKind{}]
-	for gvk, value := range byGVK {
+func convertToByObject(in map[schema.GroupVersionKind]internal.InformersOptsByGVK, scheme *runtime.Scheme) (map[client.Object]ByObject, error) {
+	out := map[client.Object]ByObject{}
+	for gvk, opts := range in {
 		if gvk == (schema.GroupVersionKind{}) {
-			continue
-		}
-		obj, err := scheme.New(gvk)
-		if err != nil {
-			return nil, def, err
-		}
-		cObj, ok := obj.(client.Object)
-		if !ok {
-			return nil, def, fmt.Errorf("object %T for GVK %q does not implement client.Object", obj, gvk)
-		}
-		if byObject == nil {
-			byObject = map[client.Object]T{}
-		}
-		byObject[cObj] = value
-	}
-	return byObject, def, nil
-}
-
-// DisableDeepCopyByObject associate a client.Object's GVK to disable DeepCopy during get or list from cache.
-type DisableDeepCopyByObject map[client.Object]bool
-
-var _ client.Object = &ObjectAll{}
-
-// ObjectAll is the argument to represent all objects' types.
-type ObjectAll struct {
-	client.Object
-}
-
-func convertToDisableDeepCopyByGVK(disableDeepCopyByObject DisableDeepCopyByObject, scheme *runtime.Scheme) (internal.DisableDeepCopyByGVK, error) {
-	disableDeepCopyByGVK := internal.DisableDeepCopyByGVK{}
-	for obj, disable := range disableDeepCopyByObject {
-		switch obj.(type) {
-		case ObjectAll, *ObjectAll:
-			disableDeepCopyByGVK[internal.GroupVersionKindAll] = disable
-		default:
-			gvk, err := apiutil.GVKForObject(obj, scheme)
-			if err != nil {
-				return nil, err
-			}
-			disableDeepCopyByGVK[gvk] = disable
-		}
-	}
-	return disableDeepCopyByGVK, nil
-}
-
-func convertToDisableDeepCopyByObject(byGVK internal.DisableDeepCopyByGVK, scheme *runtime.Scheme) (DisableDeepCopyByObject, error) {
-	var byObject DisableDeepCopyByObject
-	for gvk, value := range byGVK {
-		if byObject == nil {
-			byObject = DisableDeepCopyByObject{}
-		}
-		if gvk == (schema.GroupVersionKind{}) {
-			byObject[ObjectAll{}] = value
 			continue
 		}
 		obj, err := scheme.New(gvk)
@@ -505,12 +481,13 @@ func convertToDisableDeepCopyByObject(byGVK internal.DisableDeepCopyByGVK, schem
 		if !ok {
 			return nil, fmt.Errorf("object %T for GVK %q does not implement client.Object", obj, gvk)
 		}
-
-		byObject[cObj] = value
+		cObj.GetObjectKind().SetGroupVersionKind(gvk)
+		out[cObj] = ByObject{
+			Field:                 opts.Selector.Field,
+			Label:                 opts.Selector.Label,
+			Transform:             opts.Transform,
+			UnsafeDisableDeepCopy: opts.UnsafeDisableDeepCopy,
+		}
 	}
-	return byObject, nil
+	return out, nil
 }
-
-// TransformByObject associate a client.Object's GVK to a transformer function
-// to be applied when storing the object into the cache.
-type TransformByObject map[client.Object]toolscache.TransformFunc

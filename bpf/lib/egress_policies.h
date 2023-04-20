@@ -16,6 +16,11 @@
 #define EGRESS_STATIC_PREFIX (sizeof(__be32) * 8)
 #define EGRESS_PREFIX_LEN(PREFIX) (EGRESS_STATIC_PREFIX + (PREFIX))
 #define EGRESS_IPV4_PREFIX EGRESS_PREFIX_LEN(32)
+/* These are special IP values in the CIDR 0.0.0.0/8 range that map to specific
+ * case for in the egress gateway policies handling.
+ */
+#define EGRESS_GATEWAY_NO_GATEWAY (0)
+#define EGRESS_GATEWAY_EXCLUDED_CIDR bpf_htonl(1)
 
 static __always_inline
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
@@ -38,11 +43,17 @@ bool egress_gw_request_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint)
 	if (!egress_gw_policy)
 		return false;
 
-	/* If the gateway IP is 0.0.0.0 it means this is an excluded CIDR, so
-	 * skip redirection
-	 */
-	if (!egress_gw_policy->gateway_ip)
+	switch (egress_gw_policy->gateway_ip) {
+	case EGRESS_GATEWAY_NO_GATEWAY:
+		/* If no gateway is found we return that the connection is
+		 * "redirected" and the caller will handle this special case
+		 * and drop the traffic.
+		 */
+		*tunnel_endpoint = EGRESS_GATEWAY_NO_GATEWAY;
+		return true;
+	case EGRESS_GATEWAY_EXCLUDED_CIDR:
 		return false;
+	}
 
 	/* If the gateway node is the local node, then just let the
 	 * packet go through, as it will be SNATed later on by
@@ -65,10 +76,8 @@ bool egress_gw_snat_needed(struct iphdr *ip4, __be32 *snat_addr)
 	if (!egress_gw_policy)
 		return false;
 
-	/* If the gateway IP is 0.0.0.0 it means this is an excluded CIDR, so
-	 * skip SNAT
-	 */
-	if (!egress_gw_policy->gateway_ip)
+	if (egress_gw_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY ||
+	    egress_gw_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
 		return false;
 
 	*snat_addr = egress_gw_policy->egress_ip;
@@ -87,10 +96,8 @@ bool egress_gw_reply_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint,
 	if (!egress_policy)
 		return false;
 
-	/* If the gateway IP is 0.0.0.0 it means this is an excluded CIDR, so
-	 * skip reply redirect
-	 */
-	if (!egress_policy->gateway_ip)
+	if (egress_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY ||
+	    egress_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
 		return false;
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
@@ -313,7 +320,7 @@ srv6_decapsulation(struct __ctx_buff *ctx)
 	}
 #endif /* ENABLE_SRV6_SRH_ENCAP */
 	case IPPROTO_IPIP:
-parse_outer_ipv4: __maybe_unused
+parse_outer_ipv4: __maybe_unused;
 		if (ctx_change_proto(ctx, new_proto, 0) < 0)
 			return DROP_WRITE_ERROR;
 		if (ctx_store_bytes(ctx, offsetof(struct ethhdr, h_proto),
@@ -327,7 +334,7 @@ parse_outer_ipv4: __maybe_unused
 		shrink += sizeof(struct iphdr);
 		break;
 	case IPPROTO_IPV6:
-parse_outer_ipv6: __maybe_unused
+parse_outer_ipv6: __maybe_unused;
 		shrink += sizeof(struct ipv6hdr);
 		break;
 	default:

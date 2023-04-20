@@ -45,6 +45,9 @@ const (
 
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
 
+	symbolFromOverlay = "cil_from_overlay"
+	symbolToOverlay   = "cil_to_overlay"
+
 	dirIngress = "ingress"
 	dirEgress  = "egress"
 )
@@ -351,6 +354,25 @@ func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string
 		// Defer map removal until all interfaces' progs have been replaced.
 		defer finalize()
 	}
+	return nil
+}
+
+func (l *Loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, iface string) error {
+	if err := compileOverlay(ctx, cArgs); err != nil {
+		log.WithError(err).Fatal("failed to compile overlay programs")
+	}
+
+	progs := []progDefinition{
+		{progName: symbolFromOverlay, direction: dirIngress},
+		{progName: symbolToOverlay, direction: dirEgress},
+	}
+
+	finalize, err := replaceDatapath(ctx, iface, overlayObj, progs, "")
+	if err != nil {
+		log.WithField(logfields.Interface, iface).WithError(err).Fatal("Load overlay network failed")
+	}
+	finalize()
+
 	return nil
 }
 

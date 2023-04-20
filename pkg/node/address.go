@@ -551,7 +551,7 @@ const mismatchRouterIPsMsg = "Mismatch of router IPs found during restoration. T
 // ValidatePostInit validates the entire addressing setup and completes it as
 // required
 func ValidatePostInit() error {
-	if option.Config.EnableIPv4 || option.Config.Tunnel != option.TunnelDisabled {
+	if option.Config.EnableIPv4 || option.Config.TunnelingEnabled() {
 		if GetIPv4() == nil {
 			return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
 		}
@@ -580,7 +580,7 @@ func GetIPv6() net.IP {
 // GetHostMasqueradeIPv6 returns the IPv6 address to be used for masquerading
 // any traffic that is being forwarded from the host into the Cilium cluster.
 func GetHostMasqueradeIPv6() net.IP {
-	return GetIPv6()
+	return GetIPv6Router()
 }
 
 // GetIPv6Router returns the IPv6 address of the router, e.g. address

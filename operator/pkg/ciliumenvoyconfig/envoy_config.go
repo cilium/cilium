@@ -4,6 +4,7 @@
 package ciliumenvoyconfig
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -21,7 +22,6 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/envoy"
@@ -39,7 +39,7 @@ type envoyConfigManager struct {
 	maxRetries int
 }
 
-func newEnvoyConfigManager(client client.Clientset, maxRetries int) (*envoyConfigManager, error) {
+func newEnvoyConfigManager(ctx context.Context, client client.Clientset, maxRetries int) (*envoyConfigManager, error) {
 	manager := &envoyConfigManager{
 		client:     client,
 		maxRetries: maxRetries,
@@ -53,8 +53,8 @@ func newEnvoyConfigManager(client client.Clientset, maxRetries int) (*envoyConfi
 		nil,
 	)
 
-	go manager.informer.Run(wait.NeverStop)
-	if !cache.WaitForCacheSync(wait.NeverStop, manager.informer.HasSynced) {
+	go manager.informer.Run(ctx.Done())
+	if !cache.WaitForCacheSync(ctx.Done(), manager.informer.HasSynced) {
 		return manager, fmt.Errorf("unable to sync envoy configs")
 	}
 	return manager, nil

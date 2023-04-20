@@ -14,6 +14,7 @@ cilium build-config --node-name $K8S_NODE_NAME [flags]
       --allow-config-keys strings        List of configuration keys that are allowed to be overridden (e.g. set from not the first source. Takes precedence over deny-config-keys
       --deny-config-keys strings         List of configuration keys that are not allowed to be overridden (e.g. set from not the first source. If allow-config-keys is set, this field is ignored
       --dest string                      Destination directory to write the fully-resolved configuration. (default "/tmp/cilium/config-map")
+      --enable-k8s                       Enable the k8s clientset (default true)
       --enable-k8s-api-discovery         Enable discovery of Kubernetes API groups and resources with the discovery API
   -h, --help                             help for build-config
       --k8s-api-server string            Kubernetes API server URL

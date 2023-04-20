@@ -180,7 +180,7 @@ func Debounce[T any](src Observable[T], duration time.Duration) Observable[T] {
 	return FuncObservable[T](
 		func(ctx context.Context, next func(T), complete func(error)) {
 			errs := make(chan error, 1)
-			items := ToChannel(ctx, errs, src)
+			items := ToChannel(ctx, src, WithErrorChan(errs))
 			go func() {
 				defer close(errs)
 

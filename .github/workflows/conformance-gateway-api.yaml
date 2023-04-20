@@ -8,8 +8,8 @@ on:
       - 'test/**'
   push:
     branches:
-      - master
-      - ft/master/**
+      - main
+      - ft/main/**
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
@@ -22,7 +22,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.0
+  cilium_cli_version: v0.13.1
   kind_version: v0.17.0
   kind_config: .github/kind-config.yaml
   gateway_api_version: v0.6.0
@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Checkout master branch to access local actions
+      - name: Checkout main branch to access local actions
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
@@ -88,8 +88,9 @@ jobs:
           config: ${{ env.kind_config }}
 
       - name: Install Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
+          # renovate: datasource=golang-version depName=go
           go-version: 1.20.1
 
       - name: Wait for images to be available
@@ -161,7 +162,8 @@ jobs:
             -v ./operator/pkg/gateway-api \
             --gateway-class cilium \
             --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching,GatewayClassObservedGenerationBump,HTTPResponseHeaderModification \
-            -test.run "TestConformance"
+            -test.run "TestConformance" \
+            -test.skip "TestConformance/HTTPRouteListenerHostnameMatching" # Enable once #24217 is fixed
 
       - name: Post-test information gathering
         if: ${{ !success() }}

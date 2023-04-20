@@ -79,7 +79,7 @@ func SetClusterConfig(clusterName string, config *cmtypes.CiliumClusterConfig, b
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	_, err = kvstore.Client().UpdateIfDifferent(ctx, key, val, true)
+	_, err = backend.UpdateIfDifferent(ctx, key, val, true)
 	if err != nil {
 		return err
 	}

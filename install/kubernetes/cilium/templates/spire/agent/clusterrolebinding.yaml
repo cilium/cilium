@@ -1,0 +1,15 @@
+{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled .Values.auth.mTLS.spire.install.agent.serviceAccount.create -}}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.auth.mTLS.spire.install.agent.serviceAccount.name }}
+roleRef:
+  kind: ClusterRole
+  name: {{ .Values.auth.mTLS.spire.install.agent.serviceAccount.name }}
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.auth.mTLS.spire.install.agent.serviceAccount.name }}
+  namespace: {{ .Values.auth.mTLS.spire.install.namespace }}
+{{- end }}

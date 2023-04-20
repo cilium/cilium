@@ -3,10 +3,6 @@
 
 package linux_defaults
 
-import (
-	"time"
-)
-
 // Linux specific constants used in Linux datapath
 const (
 	// RouteTableIPSec is the default table ID to use for IPSec routing rules
@@ -106,16 +102,16 @@ const (
 	// IPsecMarkMaskNodeID is the mask used for the node ID.
 	IPsecMarkMaskNodeID = 0xFFFF0000
 
+	// IPsecOldMarkMaskOut is the mask that was previously used. It can be
+	// removed in Cilium v1.15.
+	IPsecOldMarkMaskOut = 0xFF00
+
 	// IPsecMarkMask is the mask required for the IPsec SPI, node ID, and encrypt/decrypt bits
-	IPsecMarkMaskOut = 0xFF00 | IPsecMarkMaskNodeID
+	IPsecMarkMaskOut = IPsecOldMarkMaskOut | IPsecMarkMaskNodeID
 
 	// IPsecMarkMaskIn is the mask required for IPsec to lookup encrypt/decrypt bits
 	IPsecMarkMaskIn = 0x0F00
 
 	// IPsecFwdPriority is the priority of the fwd rules placed by IPsec
 	IPsecFwdPriority = 0x0B9F
-
-	// IPsecKeyDeleteDelay is the time to wait before removing old keys when
-	// the IPsec key is changing.
-	IPsecKeyDeleteDelay = 5 * time.Minute
 )

@@ -68,6 +68,7 @@ get started and experiment with Cilium.
 
    installation/taints
    installation/k8s-install-helm
+   installation/k8s-install-migration
    installation/k8s-toc
    installation/external-toc
 
@@ -94,6 +95,7 @@ get started and experiment with Cilium.
    security/network/index
    security/policy/index
    security/restrict-pod-access
+   security/threat-model
 
 .. toctree::
    :maxdepth: 2

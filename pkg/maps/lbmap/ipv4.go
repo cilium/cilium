@@ -341,7 +341,7 @@ func (k *Service4Key) ToHost() ServiceKey {
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Service4Value struct {
-	BackendID uint32    `align:"backend_id"`
+	BackendID uint32    `align:"$union0"`
 	Count     uint16    `align:"count"`
 	RevNat    uint16    `align:"rev_nat_index"`
 	Flags     uint8     `align:"flags"`

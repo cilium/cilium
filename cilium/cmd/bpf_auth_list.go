@@ -9,12 +9,13 @@ import (
 	"io/fs"
 	"os"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/maps/auth"
+	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -23,7 +24,7 @@ type authEntry struct {
 	RemoteIdentity uint32
 	RemoteNodeID   uint16
 	AuthType       uint8
-	Expiration     uint64
+	Expiration     time.Time
 }
 
 var bpfAuthListCmd = &cobra.Command{
@@ -34,28 +35,29 @@ var bpfAuthListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf auth list")
 
-		if err := auth.OpenAuthMap(); err != nil {
+		authMap, err := authmap.LoadAuthMap()
+		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find auth bpf map")
 				return
 			}
 
-			Fatalf("Cannot open auth bpf map: %s", err)
+			Fatalf("Cannot load auth bpf map: %s", err)
 		}
 
 		var bpfAuthList []authEntry
-		parse := func(key *auth.AuthKey, val *auth.AuthInfo) {
+		parse := func(key *authmap.AuthKey, val *authmap.AuthInfo) {
 
 			bpfAuthList = append(bpfAuthList, authEntry{
 				LocalIdentity:  key.LocalIdentity,
 				RemoteIdentity: key.RemoteIdentity,
 				RemoteNodeID:   key.RemoteNodeID,
 				AuthType:       key.AuthType,
-				Expiration:     val.Expiration,
+				Expiration:     val.Expiration.Time(),
 			})
 		}
 
-		if err := auth.AuthMap().IterateWithCallback(parse); err != nil {
+		if err := authMap.IterateWithCallback(parse); err != nil {
 			Fatalf("Error dumping contents of the auth map: %s\n", err)
 		}
 
@@ -79,7 +81,7 @@ func printAuthList(authList []authEntry) {
 
 	fmt.Fprintln(w, "SRC IDENTITY\tDST IDENTITY\tREMOTE NODE ID\tAUTH TYPE\tEXPIRATION")
 	for _, a := range authList {
-		fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%d\n", a.LocalIdentity, a.RemoteIdentity, a.RemoteNodeID, policy.AuthType(a.AuthType), a.Expiration)
+		fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%s\n", a.LocalIdentity, a.RemoteIdentity, a.RemoteNodeID, policy.AuthType(a.AuthType), a.Expiration)
 	}
 
 	w.Flush()

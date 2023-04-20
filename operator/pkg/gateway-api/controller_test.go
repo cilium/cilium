@@ -89,6 +89,106 @@ var controllerTestFixture = []client.Object{
 			},
 		},
 	},
+
+	// Gateway with allowed route in same namespace only
+	&gatewayv1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway-from-same-namespace",
+			Namespace: "default",
+		},
+		Spec: gatewayv1beta1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1beta1.Listener{
+				{
+					Name: "https",
+					Port: 80,
+					AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
+						Namespaces: &gatewayv1beta1.RouteNamespaces{
+							From: model.AddressOf(gatewayv1beta1.NamespacesFromSame),
+						},
+					},
+				},
+			},
+		},
+	},
+
+	// Gateway with allowed routes from ALL namespace
+	&gatewayv1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway-from-all-namespaces",
+			Namespace: "default",
+		},
+		Spec: gatewayv1beta1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1beta1.Listener{
+				{
+					Name: "https",
+					Port: 80,
+					AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
+						Namespaces: &gatewayv1beta1.RouteNamespaces{
+							From: model.AddressOf(gatewayv1beta1.NamespacesFromAll),
+						},
+					},
+				},
+			},
+		},
+	},
+
+	// Gateway with allowed routes with selector
+	&gatewayv1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway-with-namespaces-selector",
+			Namespace: "default",
+		},
+		Spec: gatewayv1beta1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1beta1.Listener{
+				{
+					Name: "https",
+					Port: 80,
+					AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
+						Namespaces: &gatewayv1beta1.RouteNamespaces{
+							From: model.AddressOf(gatewayv1beta1.NamespacesFromSelector),
+							Selector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"gateway": "allowed",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var namespaceFixtures = []client.Object{
+	&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+	},
+	&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "another-namespace",
+		},
+	},
+	&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "namespace-with-allowed-gateway-selector",
+			Labels: map[string]string{
+				"gateway": "allowed",
+			},
+		},
+	},
+	&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "namespace-with-disallowed-gateway-selector",
+			Labels: map[string]string{
+				"gateway": "disallowed",
+			},
+		},
+	},
 }
 
 func Test_hasMatchingController(t *testing.T) {
@@ -144,6 +244,59 @@ func Test_getGatewaysForSecret(t *testing.T) {
 
 		require.Len(t, gwList, 0)
 	})
+}
+
+func Test_getGatewaysForNamespace(t *testing.T) {
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(namespaceFixtures...).
+		WithObjects(controllerTestFixture...).
+		Build()
+
+	type args struct {
+		namespace string
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "with default namespace",
+			args: args{namespace: "default"},
+			want: []string{"gateway-from-all-namespaces", "gateway-from-same-namespace"},
+		},
+		{
+			name: "with another namespace",
+			args: args{namespace: "another-namespace"},
+			want: []string{"gateway-from-all-namespaces"},
+		},
+		{
+			name: "with namespace-with-allowed-gateway-selector",
+			args: args{namespace: "namespace-with-allowed-gateway-selector"},
+			want: []string{"gateway-from-all-namespaces", "gateway-with-namespaces-selector"},
+		},
+		{
+			name: "with namespace-with-disallowed-gateway-selector",
+			args: args{namespace: "namespace-with-disallowed-gateway-selector"},
+			want: []string{"gateway-from-all-namespaces"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gwList := getGatewaysForNamespace(context.Background(), c, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: tt.args.namespace,
+				},
+			})
+			names := make([]string, 0, len(gwList))
+			for _, gw := range gwList {
+				names = append(names, gw.Name)
+			}
+			require.ElementsMatch(t, tt.want, names)
+		})
+	}
 }
 
 func Test_success(t *testing.T) {

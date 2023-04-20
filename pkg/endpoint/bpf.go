@@ -26,13 +26,13 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -46,11 +46,6 @@ import (
 const (
 	// EndpointGenerationTimeout specifies timeout for proxy completion context
 	EndpointGenerationTimeout = 330 * time.Second
-
-	// OldCHeaderFileName is the previous name of the C header file for BPF
-	// programs for a particular endpoint. It can be removed once Cilium v1.11
-	// is the oldest supported version.
-	oldCHeaderFileName = "lxc_config.h"
 
 	// ciliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
@@ -156,12 +151,10 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	}
 	defer f.Cleanup()
 
-	// Update DNSRules if any. This is needed because DNSRules also encode allowed destination IPs
-	// and those can change anytime we have identity updates in the cluster. If there are no
-	// DNSRules (== nil) we don't need to update here, as in that case there are no allowed
-	// destinations either.
 	if e.DNSRules != nil {
-		e.OnDNSPolicyUpdateLocked(e.owner.GetDNSRules(e.ID))
+		// Note: e.DNSRules is updated by syncEndpointHeaderFile and regenerateBPF
+		// before they call into writeHeaderfile, because GetDNSRules must not be
+		// called with endpoint.mutex held.
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.Path: headerPath,
 			"DNSRules":     e.DNSRules,
@@ -176,25 +169,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 		return err
 	}
 
-	err = f.CloseAtomicallyReplace()
-
-	// Create symlink with old header filename, to allow downgrade to pre-1.11
-	// Cilium. Can be removed once v1.11 is the oldest supported release.
-	// The symlink is not needed for the host endpoint because we check the new
-	// header filename for that special endpoint. To avoid linking to a
-	// nonexistent file, only create the symlink if the header file
-	// creation/replacement file succeeded above.
-	if !e.IsHost() && err == nil {
-		oldHeaderPath := filepath.Join(prefix, oldCHeaderFileName)
-		if _, err := os.Stat(oldHeaderPath); err != nil {
-			// The symlink doesn't already exists.
-			if err := renameio.Symlink(common.CHeaderFileName, oldHeaderPath); err != nil {
-				e.getLogger().WithError(err).Error("Failed to create C header file symlink")
-			}
-		}
-	}
-
-	return err
+	return f.CloseAtomicallyReplace()
 }
 
 // policyIdentitiesLabelLookup is an implementation of the policy.Identities interface.
@@ -609,18 +584,11 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
 	defer datapathRegenCtxt.completionCancel()
 
-	headerfileChanged, err = e.runPreCompilationSteps(regenContext)
 	// The following DNS rules code was previously inside the critical section
-	// above (runPreCompilationSteps()), but this caused a deadlock with the
-	// ipcache. It's not necessary to run this code within the  critical
-	// section as the only use for the DNS rules is for restoring them upon the
-	// Agent restart.
-	rules := e.owner.GetDNSRules(uint16(e.ID))
-	if err := e.lockAlive(); err != nil {
-		return 0, compilationExecuted, err
-	}
-	e.OnDNSPolicyUpdateLocked(rules)
-	e.unlock()
+	// below (runPreCompilationSteps()), but this caused a deadlock with the
+	// IPCache. Therefore, we obtain the DNSRules outside the critical section.
+	rules := e.owner.GetDNSRules(e.ID)
+	headerfileChanged, err = e.runPreCompilationSteps(regenContext, rules)
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.
@@ -657,12 +625,8 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	if !datapathRegenCtxt.epInfoCache.IsHost() || option.Config.EnableHostFirewall {
 		// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 		stats.mapSync.Start()
-		epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache, e.policyMap)
 		err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 		stats.mapSync.End(err == nil)
-		if epErr != nil {
-			e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", epErr))
-		}
 		if err != nil {
 			return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %s", err)
 		}
@@ -767,7 +731,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 // The endpoint mutex must not be held.
 //
 // Returns whether the headerfile changed and/or an error.
-func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (headerfileChanged bool, preCompilationError error) {
+func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rules restore.DNSRules) (headerfileChanged bool, preCompilationError error) {
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
@@ -804,6 +768,12 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 	} else {
 		close(datapathRegenCtxt.ctCleaned)
 	}
+
+	// We cannot obtain the rules while e.mutex is held, because obtaining
+	// fresh DNSRules requires the IPCache lock (which must not be taken while
+	// holding e.mutex to avoid deadlocks). Therefore, rules are obtained
+	// before the call to runPreCompilationSteps.
+	e.OnDNSPolicyUpdateLocked(rules)
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if option.Config.DryMode {

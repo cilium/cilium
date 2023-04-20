@@ -1,5 +1,9 @@
 {{- define "clustermesh-apiserver-generate-certs.job.spec" }}
 {{- $certValiditySecondsStr := printf "%ds" (mul .Values.clustermesh.apiserver.tls.auto.certValidityDuration 24 60 60) -}}
+{{- $clustermeshServerSANs := concat (list "*.mesh.cilium.io")
+  .Values.clustermesh.apiserver.tls.server.extraDnsNames
+  .Values.clustermesh.apiserver.tls.server.extraIpAddresses
+-}}
 spec:
   template:
     metadata:
@@ -31,8 +35,10 @@ spec:
             {{- end }}
             - "--clustermesh-apiserver-server-cert-generate"
             - "--clustermesh-apiserver-server-cert-validity-duration={{ $certValiditySecondsStr }}"
+            - "--clustermesh-apiserver-server-cert-sans={{ join "," $clustermeshServerSANs }}"
             - "--clustermesh-apiserver-admin-cert-generate"
             - "--clustermesh-apiserver-admin-cert-validity-duration={{ $certValiditySecondsStr }}"
+            - "--clustermesh-apiserver-admin-cert-common-name={{ include "clustermesh-apiserver-generate-certs.admin-common-name" . }}"
             {{- if .Values.externalWorkloads.enabled }}
             - "--clustermesh-apiserver-client-cert-generate"
             - "--clustermesh-apiserver-client-cert-validity-duration={{ $certValiditySecondsStr }}"
@@ -40,6 +46,7 @@ spec:
             {{- if .Values.clustermesh.useAPIServer }}
             - "--clustermesh-apiserver-remote-cert-generate"
             - "--clustermesh-apiserver-remote-cert-validity-duration={{ $certValiditySecondsStr }}"
+            - "--clustermesh-apiserver-remote-cert-common-name={{ include "clustermesh-apiserver-generate-certs.remote-common-name" . }}"
             {{- end }}
           {{- with .Values.certgen.extraVolumeMounts }}
           volumeMounts:

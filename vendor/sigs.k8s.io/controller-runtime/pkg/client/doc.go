@@ -26,8 +26,7 @@ limitations under the License.
 // to the API server.
 //
 // It is a common pattern in Kubernetes to read from a cache and write to the API
-// server.  This pattern is covered by the DelegatingClient type, which can
-// be used to have a client whose Reader is different from the Writer.
+// server.  This pattern is covered by the creating the Client with a Cache.
 //
 // # Options
 //

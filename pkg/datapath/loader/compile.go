@@ -57,6 +57,10 @@ const (
 	xdpPrefix = "bpf_xdp"
 	xdpProg   = xdpPrefix + "." + string(outputSource)
 	xdpObj    = xdpPrefix + ".o"
+
+	overlayPrefix = "bpf_overlay"
+	overlayProg   = overlayPrefix + "." + string(outputSource)
+	overlayObj    = overlayPrefix + ".o"
 )
 
 var (
@@ -345,19 +349,21 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 		linker:   string(linkerVersion),
 	}).Debug("Compiling datapath")
 
-	// Write out assembly and preprocessing files for debugging purposes
-	progs := debugProgs
-	if isHost {
-		progs = debugHostProgs
-	}
-	for _, p := range progs {
-		if err := compile(ctx, p, dirs); err != nil {
-			// Only log an error here if the context was not canceled. This log message
-			// should only represent failures with respect to compiling the program.
-			if !errors.Is(err, context.Canceled) {
-				scopedLog.WithField(logfields.Params, logfields.Repr(p)).WithError(err).Debug("JoinEP: Failed to compile")
+	if option.Config.Debug {
+		// Write out assembly and preprocessing files for debugging purposes
+		progs := debugProgs
+		if isHost {
+			progs = debugHostProgs
+		}
+		for _, p := range progs {
+			if err := compile(ctx, p, dirs); err != nil {
+				// Only log an error here if the context was not canceled. This log message
+				// should only represent failures with respect to compiling the program.
+				if !errors.Is(err, context.Canceled) {
+					scopedLog.WithField(logfields.Params, logfields.Repr(p)).WithError(err).Debug("JoinEP: Failed to compile")
+				}
+				return err
 			}
-			return err
 		}
 	}
 
@@ -440,6 +446,46 @@ func compileNetwork(ctx context.Context) error {
 	// Write out assembly and preprocessing files for debugging purposes
 	if err := compile(ctx, networkTcProg, &dirs); err != nil {
 		scopedLog.WithField(logfields.Params, logfields.Repr(networkTcProg)).
+			WithError(err).Warn("Failed to compile")
+		return err
+	}
+	return nil
+}
+
+// compileOverlay compiles BPF programs in bpf_overlay.c.
+func compileOverlay(ctx context.Context, opts []string) error {
+	dirs := &directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  option.Config.StateDir,
+		State:   option.Config.StateDir,
+	}
+	scopedLog := log.WithField(logfields.Debug, true)
+
+	versionCmd := exec.CommandContext(ctx, compiler, "--version")
+	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	if err != nil {
+		return err
+	}
+	versionCmd = exec.CommandContext(ctx, linker, "--version")
+	linkerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	if err != nil {
+		return err
+	}
+	scopedLog.WithFields(logrus.Fields{
+		compiler: string(compilerVersion),
+		linker:   string(linkerVersion),
+	}).Debug("Compiling overlay programs")
+
+	prog := &progInfo{
+		Source:     overlayProg,
+		Output:     overlayObj,
+		OutputType: outputObject,
+		Options:    opts,
+	}
+	// Write out assembly and preprocessing files for debugging purposes
+	if err := compile(ctx, prog, dirs); err != nil {
+		scopedLog.WithField(logfields.Params, logfields.Repr(prog)).
 			WithError(err).Warn("Failed to compile")
 		return err
 	}

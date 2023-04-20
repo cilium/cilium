@@ -81,8 +81,38 @@ func TestHiveBadConfig(t *testing.T) {
 	assert.ErrorContains(t, err, "has unset fields: Bar", "expected 'unset fields' error")
 }
 
+func TestHiveConfigOverride(t *testing.T) {
+	var cfg Config
+	h := hive.New(
+		cell.Config(Config{}),
+		cell.Invoke(func(c Config) {
+			cfg = c
+		}),
+	)
+	hive.AddConfigOverride(
+		h,
+		func(cfg *Config) {
+			cfg.Foo = "override"
+		})
+
+	// Set "foo" flag via Viper. This should be ignored.
+	h.Viper().Set("foo", "viper")
+
+	err := h.Start(context.TODO())
+	assert.NoError(t, err, "expected Start to succeed")
+
+	err = h.Stop(context.TODO())
+	assert.NoError(t, err, "expected Stop to succeed")
+
+	assert.Equal(t, cfg.Foo, "override", "Config.Foo not set correctly")
+}
+
 type SomeObject struct {
 	X int
+}
+
+type OtherObject struct {
+	Y int
 }
 
 func TestProvideInvoke(t *testing.T) {
@@ -102,6 +132,22 @@ func TestProvideInvoke(t *testing.T) {
 	assert.NoError(t, err, "expected Run to succeed")
 
 	assert.True(t, invoked, "expected invoke to be called, but it was not")
+}
+
+func TestGroup(t *testing.T) {
+	sum := 0
+
+	testCell := cell.Group(
+		cell.Provide(func() *SomeObject { return &SomeObject{10} }),
+		cell.Provide(func() *OtherObject { return &OtherObject{5} }),
+	)
+	err := hive.New(
+		testCell,
+		cell.Invoke(func(a *SomeObject, b *OtherObject) { sum = a.X + b.Y }),
+		shutdownOnStartCell,
+	).Run()
+	assert.NoError(t, err, "expected Run to succeed")
+	assert.Equal(t, 15, sum)
 }
 
 func TestProvidePrivate(t *testing.T) {

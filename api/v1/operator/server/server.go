@@ -15,19 +15,63 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/go-openapi/loads"
 	"github.com/go-openapi/swag"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/netutil"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/operator/server/restapi"
+	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
+	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
+
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 )
+
+// Cell implements the cilium operator REST API server when provided
+// the required request handlers.
+var Cell = cell.Module(
+	"cilium-operator-server",
+	"cilium operator server",
+
+	cell.Provide(newForCell),
+)
+
+type serverParams struct {
+	cell.In
+
+	Lifecycle  hive.Lifecycle
+	Shutdowner hive.Shutdowner
+	Logger     logrus.FieldLogger
+
+	OperatorGetHealthzHandler operator.GetHealthzHandler
+	MetricsGetMetricsHandler  metrics.GetMetricsHandler
+}
+
+func newForCell(p serverParams) (*Server, error) {
+	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to swagger spec: %w", err)
+	}
+	api := restapi.NewCiliumOperatorAPI(swaggerSpec)
+
+	// Construct the API from the provided handlers
+
+	api.OperatorGetHealthzHandler = p.OperatorGetHealthzHandler
+	api.MetricsGetMetricsHandler = p.MetricsGetMetricsHandler
+
+	s := NewServer(api)
+	s.shutdowner = p.Shutdowner
+	s.logger = p.Logger
+	p.Lifecycle.Append(s)
+
+	return s, nil
+}
 
 const (
 	schemeHTTP  = "http"
@@ -44,13 +88,35 @@ func init() {
 	}
 }
 
+var (
+	enabledListeners []string
+	gracefulTimeout  time.Duration
+	maxHeaderSize    int
+
+	socketPath string
+
+	host         string
+	port         int
+	listenLimit  int
+	keepAlive    time.Duration
+	readTimeout  time.Duration
+	writeTimeout time.Duration
+
+	tlsHost           string
+	tlsPort           int
+	tlsListenLimit    int
+	tlsKeepAlive      time.Duration
+	tlsReadTimeout    time.Duration
+	tlsWriteTimeout   time.Duration
+	tlsCertificate    string
+	tlsCertificateKey string
+	tlsCACertificate  string
+)
+
 // NewServer creates a new api cilium operator server but does not configure it
 func NewServer(api *restapi.CiliumOperatorAPI) *Server {
 	s := new(Server)
-
-	s.shutdown = make(chan struct{})
 	s.api = api
-	s.interrupt = make(chan os.Signal, 1)
 	return s
 }
 
@@ -100,15 +166,18 @@ type Server struct {
 	api          *restapi.CiliumOperatorAPI
 	handler      http.Handler
 	hasListeners bool
-	shutdown     chan struct{}
-	shuttingDown int32
-	interrupted  bool
-	interrupt    chan os.Signal
+	servers      []*http.Server
+
+	wg         sync.WaitGroup
+	shutdowner hive.Shutdowner
+	logger     logrus.FieldLogger
 }
 
 // Logf logs message either via defined user logger or via system one if no user logger is defined.
 func (s *Server) Logf(f string, args ...interface{}) {
-	if s.api != nil && s.api.Logger != nil {
+	if s.logger != nil {
+		s.logger.Infof(f, args...)
+	} else if s.api != nil && s.api.Logger != nil {
 		s.api.Logger(f, args...)
 	} else {
 		log.Printf(f, args...)
@@ -118,7 +187,9 @@ func (s *Server) Logf(f string, args ...interface{}) {
 // Fatalf logs message either via defined user logger or via system one if no user logger is defined.
 // Exits with non-zero status after printing
 func (s *Server) Fatalf(f string, args ...interface{}) {
-	if s.api != nil && s.api.Logger != nil {
+	if s.shutdowner != nil {
+		s.shutdowner.Shutdown(hive.ShutdownWithError(fmt.Errorf(f, args...)))
+	} else if s.api != nil && s.api.Logger != nil {
 		s.api.Logger(f, args...)
 		os.Exit(1)
 	} else {
@@ -152,12 +223,27 @@ func (s *Server) hasScheme(scheme string) bool {
 	return false
 }
 
-// Serve the api
-func (s *Server) Serve() (err error) {
+func (s *Server) Serve() error {
+	// TODO remove when this is not needed for compatibility anymore
+	if err := s.Start(context.TODO()); err != nil {
+		return err
+	}
+	s.wg.Wait()
+	return nil
+}
+
+// Start the server
+func (s *Server) Start(hive.HookContext) (err error) {
+	s.ConfigureAPI()
+
 	if !s.hasListeners {
 		if err = s.Listen(); err != nil {
 			return err
 		}
+	}
+
+	if len(s.servers) != 0 {
+		return errors.New("already started")
 	}
 
 	// set default handler, if none is set
@@ -168,13 +254,6 @@ func (s *Server) Serve() (err error) {
 
 		s.SetHandler(s.api.Serve(nil))
 	}
-
-	wg := new(sync.WaitGroup)
-	once := new(sync.Once)
-	signalNotify(s.interrupt)
-	go handleInterrupt(once, s)
-
-	servers := []*http.Server{}
 
 	if s.hasScheme(schemeUnix) {
 		domainSocket := new(http.Server)
@@ -192,11 +271,11 @@ func (s *Server) Serve() (err error) {
 				return err
 			}
 		}
-		servers = append(servers, domainSocket)
-		wg.Add(1)
+		s.servers = append(s.servers, domainSocket)
+		s.wg.Add(1)
 		s.Logf("Serving cilium operator at unix://%s", s.SocketPath)
 		go func(l net.Listener) {
-			defer wg.Done()
+			defer s.wg.Done()
 			if err := domainSocket.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
@@ -222,11 +301,11 @@ func (s *Server) Serve() (err error) {
 
 		configureServer(httpServer, "http", s.httpServerL.Addr().String())
 
-		servers = append(servers, httpServer)
-		wg.Add(1)
+		s.servers = append(s.servers, httpServer)
+		s.wg.Add(1)
 		s.Logf("Serving cilium operator at http://%s", s.httpServerL.Addr())
 		go func(l net.Listener) {
-			defer wg.Done()
+			defer s.wg.Done()
 			if err := httpServer.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
@@ -318,11 +397,11 @@ func (s *Server) Serve() (err error) {
 
 		configureServer(httpsServer, "https", s.httpsServerL.Addr().String())
 
-		servers = append(servers, httpsServer)
-		wg.Add(1)
+		s.servers = append(s.servers, httpsServer)
+		s.wg.Add(1)
 		s.Logf("Serving cilium operator at https://%s", s.httpsServerL.Addr())
 		go func(l net.Listener) {
-			defer wg.Done()
+			defer s.wg.Done()
 			if err := httpsServer.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
@@ -330,10 +409,6 @@ func (s *Server) Serve() (err error) {
 		}(tls.NewListener(s.httpsServerL, httpsServer.TLSConfig))
 	}
 
-	wg.Add(1)
-	go s.handleShutdown(wg, &servers)
-
-	wg.Wait()
 	return nil
 }
 
@@ -414,38 +489,28 @@ func (s *Server) Listen() error {
 
 // Shutdown server and clean up resources
 func (s *Server) Shutdown() error {
-	if atomic.CompareAndSwapInt32(&s.shuttingDown, 0, 1) {
-		close(s.shutdown)
-	}
-	return nil
-}
-
-func (s *Server) handleShutdown(wg *sync.WaitGroup, serversPtr *[]*http.Server) {
-	// wg.Done must occur last, after s.api.ServerShutdown()
-	// (to preserve old behaviour)
-	defer wg.Done()
-
-	<-s.shutdown
-
-	servers := *serversPtr
-
 	ctx, cancel := context.WithTimeout(context.TODO(), s.GracefulTimeout)
 	defer cancel()
+	return s.Stop(ctx)
+}
 
+func (s *Server) Stop(ctx hive.HookContext) error {
 	// first execute the pre-shutdown hook
 	s.api.PreServerShutdown()
 
 	shutdownChan := make(chan bool)
-	for i := range servers {
-		server := servers[i]
+	for i := range s.servers {
+		server := s.servers[i]
 		go func() {
 			var success bool
 			defer func() {
 				shutdownChan <- success
 			}()
 			if err := server.Shutdown(ctx); err != nil {
-				// Error from closing listeners, or context timeout:
 				s.Logf("HTTP server Shutdown: %v", err)
+
+				// Forcefully close open connections.
+				server.Close()
 			} else {
 				success = true
 			}
@@ -454,12 +519,17 @@ func (s *Server) handleShutdown(wg *sync.WaitGroup, serversPtr *[]*http.Server) 
 
 	// Wait until all listeners have successfully shut down before calling ServerShutdown
 	success := true
-	for range servers {
+	for range s.servers {
 		success = success && <-shutdownChan
 	}
 	if success {
 		s.api.ServerShutdown()
 	}
+
+	s.wg.Wait()
+	s.servers = nil
+
+	return nil
 }
 
 // GetHandler returns a handler useful for testing
@@ -500,24 +570,4 @@ func (s *Server) TLSListener() (net.Listener, error) {
 		}
 	}
 	return s.httpsServerL, nil
-}
-
-func handleInterrupt(once *sync.Once, s *Server) {
-	once.Do(func() {
-		for range s.interrupt {
-			if s.interrupted {
-				s.Logf("Server already shutting down")
-				continue
-			}
-			s.interrupted = true
-			s.Logf("Shutting down... ")
-			if err := s.Shutdown(); err != nil {
-				s.Logf("HTTP server Shutdown: %v", err)
-			}
-		}
-	})
-}
-
-func signalNotify(interrupt chan<- os.Signal) {
-	signal.Notify(interrupt, unix.SIGINT, unix.SIGTERM)
 }

@@ -8,11 +8,10 @@ import (
 
 	check "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/maps/auth"
+	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
-	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -23,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
-	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
@@ -57,7 +55,6 @@ func CheckStructAlignments(path string) error {
 		"metrics_value":        {reflect.TypeOf(metricsmap.Value{})},
 		"policy_key":           {reflect.TypeOf(policymap.PolicyKey{})},
 		"policy_entry":         {reflect.TypeOf(policymap.PolicyEntry{})},
-		"sock_key":             {reflect.TypeOf(sockmap.SockmapKey{})},
 		"ipv4_revnat_tuple":    {reflect.TypeOf(lbmap.SockRevNat4Key{})},
 		"ipv4_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat4Value{})},
 		"ipv6_revnat_tuple":    {reflect.TypeOf(lbmap.SockRevNat6Key{})},
@@ -79,7 +76,6 @@ func CheckStructAlignments(path string) error {
 		// "ipv6_nat_entry":    {reflect.TypeOf(nat.NatEntry6{})},
 		"endpoint_key": {
 			reflect.TypeOf(bpf.EndpointKey{}),
-			reflect.TypeOf(eppolicymap.EndpointKey{}),
 		},
 		"lb4_affinity_key":       {reflect.TypeOf(lbmap.Affinity4Key{})},
 		"lb6_affinity_key":       {reflect.TypeOf(lbmap.Affinity6Key{})},
@@ -99,8 +95,8 @@ func CheckStructAlignments(path string) error {
 		"tunnel_value":           {reflect.TypeOf(tunnel.TunnelValue{})},
 		"vtep_key":               {reflect.TypeOf(vtep.Key{})},
 		"vtep_value":             {reflect.TypeOf(vtep.VtepEndpointInfo{})},
-		"auth_key":               {reflect.TypeOf(auth.AuthKey{})},
-		"auth_info":              {reflect.TypeOf(auth.AuthInfo{})},
+		"auth_key":               {reflect.TypeOf(authmap.AuthKey{})},
+		"auth_info":              {reflect.TypeOf(authmap.AuthInfo{})},
 	}
 	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
 		return err
@@ -123,10 +119,6 @@ func CheckStructAlignments(path string) error {
 			reflect.TypeOf(policymap.CallValue{}),
 			reflect.TypeOf(srv6map.VRFValue{}),
 			reflect.TypeOf(srv6map.SIDValue{}),
-		},
-		"int": {
-			reflect.TypeOf(sockmap.SockmapValue{}),
-			reflect.TypeOf(eppolicymap.EPPolicyValue{}),
 		},
 		"__be32": {reflect.TypeOf(neighborsmap.Key4{})},
 	}

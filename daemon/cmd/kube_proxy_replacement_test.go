@@ -32,8 +32,9 @@ type kprConfig struct {
 
 	expectedErrorRegex string
 
-	tunnelingEnabled bool
-	nodePortMode     string
+	routingMode    string
+	tunnelProtocol string
+	nodePortMode   string
 }
 
 func (cfg *kprConfig) set() {
@@ -49,10 +50,8 @@ func (cfg *kprConfig) set() {
 	option.Config.EnableBPFMasquerade = cfg.enableBPFMasquerade
 	option.Config.EnableIPv4Masquerade = cfg.enableIPv4Masquerade
 	option.Config.EnableSocketLBTracing = true
-
-	if cfg.tunnelingEnabled {
-		option.Config.Tunnel = "enabled"
-	}
+	option.Config.RoutingMode = cfg.routingMode
+	option.Config.TunnelProtocol = cfg.tunnelProtocol
 
 	if cfg.nodePortMode == option.NodePortModeDSR || cfg.nodePortMode == option.NodePortModeHybrid {
 		option.Config.NodePortMode = cfg.nodePortMode
@@ -225,16 +224,17 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableSocketLBTracing:      true,
 			},
 		},
-		// Node port DSR mode + tunneling: error as they're incompatible
+		// Node port DSR mode + vxlan tunneling: error as they're incompatible
 		{
-			"node-port-dsr-mode+tunneling",
+			"node-port-dsr-mode+vxlan",
 			func(cfg *kprConfig) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
-				cfg.tunnelingEnabled = true
+				cfg.routingMode = option.RoutingModeTunnel
+				cfg.tunnelProtocol = option.TunnelVXLAN
 				cfg.nodePortMode = option.NodePortModeDSR
 			},
 			kprConfig{
-				expectedErrorRegex:      "Node Port .+ mode cannot be used with tunneling.",
+				expectedErrorRegex:      "Node Port .+ mode cannot be used with .+ tunneling.",
 				enableSocketLB:          true,
 				enableNodePort:          true,
 				enableHostPort:          true,

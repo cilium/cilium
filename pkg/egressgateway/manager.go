@@ -8,12 +8,15 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -28,8 +31,21 @@ import (
 )
 
 var (
-	log      = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
-	zeroIPv4 = net.ParseIP("0.0.0.0")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
+	// GatewayNotFoundIPv4 is a special IP value used as gatewayIP in the BPF policy
+	// map to indicate no gateway was found for the given policy
+	GatewayNotFoundIPv4 = net.ParseIP("0.0.0.0")
+	// ExcludedCIDRIPv4 is a special IP value used as gatewayIP in the BPF policy map
+	// to indicate the entry is for an excluded CIDR and should skip egress gateway
+	ExcludedCIDRIPv4 = net.ParseIP("0.0.0.1")
+)
+
+// Cell provides a [Manager] for consumption with hive.
+var Cell = cell.Module(
+	"egressgateway",
+	"Egress Gateway allows originating traffic from specific IPv4 addresses",
+	cell.Config(defaultConfig),
+	cell.Provide(NewEgressGatewayManager),
 )
 
 type eventType int
@@ -44,6 +60,20 @@ const (
 	eventUpdateEndpoint
 	eventDeleteEndpoint
 )
+
+type Config struct {
+	// Install egress gateway IP rules and routes in order to properly steer
+	// egress gateway traffic to the correct ENI interface
+	InstallEgressGatewayRoutes bool
+}
+
+var defaultConfig = Config{
+	InstallEgressGatewayRoutes: false,
+}
+
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.Bool("install-egress-gateway-routes", def.InstallEgressGatewayRoutes, "Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface")
+}
 
 // The egressgateway manager stores the internal data tracking the node, policy,
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
@@ -80,19 +110,47 @@ type Manager struct {
 	installRoutes bool
 }
 
-// NewEgressGatewayManager returns a new Egress Gateway Manager.
-func NewEgressGatewayManager(cacheStatus k8s.CacheStatus, identityAlocator identityCache.IdentityAllocator, installRoutes bool) *Manager {
+type Params struct {
+	cell.In
+
+	Config            Config
+	DaemonConfig      *option.DaemonConfig
+	CacheStatus       k8s.CacheStatus
+	IdentityAllocator identityCache.IdentityAllocator
+
+	Lifecycle hive.Lifecycle
+}
+
+func NewEgressGatewayManager(p Params) *Manager {
+	if !p.DaemonConfig.EnableIPv4EgressGateway {
+		return nil
+	}
+
 	manager := &Manager{
-		cacheStatus:             cacheStatus,
+		cacheStatus:             p.CacheStatus,
 		nodeDataStore:           make(map[string]nodeTypes.Node),
 		policyConfigs:           make(map[policyID]*PolicyConfig),
 		policyConfigsBySourceIP: make(map[string][]*PolicyConfig),
 		epDataStore:             make(map[endpointID]*endpointMetadata),
-		identityAllocator:       identityAlocator,
-		installRoutes:           installRoutes,
+		identityAllocator:       p.IdentityAllocator,
+		installRoutes:           p.Config.InstallEgressGatewayRoutes,
 	}
 
-	manager.runReconciliationAfterK8sSync()
+	ctx, cancel := context.WithCancel(context.Background())
+	p.Lifecycle.Append(hive.Hook{
+		OnStart: func(hc hive.HookContext) error {
+			if probes.HaveLargeInstructionLimit() != nil {
+				return fmt.Errorf("egress gateway needs kernel 5.2 or newer")
+			}
+
+			manager.runReconciliationAfterK8sSync(ctx)
+			return nil
+		},
+		OnStop: func(hc hive.HookContext) error {
+			cancel()
+			return nil
+		},
+	})
 
 	return manager
 }
@@ -115,19 +173,15 @@ func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Label
 
 // runReconciliationAfterK8sSync spawns a goroutine that waits for the agent to
 // sync with k8s and then runs the first reconciliation.
-func (manager *Manager) runReconciliationAfterK8sSync() {
+func (manager *Manager) runReconciliationAfterK8sSync(ctx context.Context) {
 	go func() {
-		for {
-			if manager.cacheStatus.Synchronized() {
-				break
-			}
-
-			time.Sleep(1 * time.Second)
+		select {
+		case <-manager.cacheStatus:
+			manager.Lock()
+			manager.reconcile(eventK8sSyncDone)
+			manager.Unlock()
+		case <-ctx.Done():
 		}
-
-		manager.Lock()
-		manager.reconcile(eventK8sSyncDone)
-		manager.Unlock()
 	}()
 }
 
@@ -481,7 +535,7 @@ func (manager *Manager) addMissingEgressRules() {
 
 		gatewayIP := gwc.gatewayIP
 		if excludedCIDR {
-			gatewayIP = zeroIPv4
+			gatewayIP = ExcludedCIDRIPv4
 		}
 
 		if policyPresent && policyVal.Match(gwc.egressIP.IP, gatewayIP) {
@@ -521,7 +575,7 @@ nextPolicyKey:
 		matchPolicy := func(endpointIP net.IP, dstCIDR *net.IPNet, excludedCIDR bool, gwc *gatewayConfig) bool {
 			gatewayIP := gwc.gatewayIP
 			if excludedCIDR {
-				gatewayIP = zeroIPv4
+				gatewayIP = ExcludedCIDRIPv4
 			}
 
 			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP.IP, gatewayIP)

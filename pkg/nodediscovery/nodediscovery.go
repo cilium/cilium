@@ -112,7 +112,7 @@ func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientse
 			UseSingleClusterRoute:   option.Config.UseSingleClusterRoute,
 			EnableIPv4:              option.Config.EnableIPv4,
 			EnableIPv6:              option.Config.EnableIPv6,
-			EnableEncapsulation:     option.Config.Tunnel != option.TunnelDisabled,
+			EnableEncapsulation:     option.Config.TunnelingEnabled(),
 			EnableAutoDirectRouting: option.Config.EnableAutoDirectRouting,
 			EnableLocalNodeRoute:    enableLocalNodeRoute(),
 			AuxiliaryPrefixes:       auxPrefixes,
@@ -586,6 +586,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 			if len(c.ENI.SecurityGroups) > 0 {
 				nodeResource.Spec.ENI.SecurityGroups = c.ENI.SecurityGroups
+			}
+
+			if len(c.ENI.SecurityGroupTags) > 0 {
+				nodeResource.Spec.ENI.SecurityGroupTags = c.ENI.SecurityGroupTags
 			}
 
 			if len(c.ENI.SubnetIDs) > 0 {

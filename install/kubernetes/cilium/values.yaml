@@ -43,7 +43,7 @@ k8sServiceHost: ""
 k8sServicePort: ""
 
 cluster:
-  # -- Name of the cluster. Only required for Cluster Mesh.
+  # -- Name of the cluster. Only required for Cluster Mesh and mTLS auth with SPIRE.
   name: default
   # -- (int) Unique ID of the cluster. Must be unique across all connected
   # clusters and in the range of 1 to 255. Only required for Cluster Mesh,
@@ -475,7 +475,7 @@ cni:
   # if you're removing Cilium from the cluster. Disable this to prevent the CNI
   # configuration file from being removed during agent upgrade, which can cause
   # nodes to go unmanageable.
-  uninstall: true
+  uninstall: false
 
   # -- Configure chaining on top of other CNI plugins. Possible values:
   #  - none
@@ -508,8 +508,9 @@ cni:
   # -- Specify the path to a CNI config to read from on agent start.
   # This can be useful if you want to manage your CNI
   # configuration outside of a Kubernetes environment. This parameter is
-  # mutually exclusive with the 'cni.configMap' parameter.
-  # readCniConf: /host/etc/cni/net.d/05-cilium.conf
+  # mutually exclusive with the 'cni.configMap' parameter. The agent will
+  # write this to 05-cilium.conflist on startup.
+  # readCniConf: /host/etc/cni/net.d/05-sample.conflist.input
 
   # -- When defined, configMap will mount the provided value as ConfigMap and
   # interpret the cniConf variable as CNI configuration file and write it
@@ -719,22 +720,22 @@ encryption:
     # -- Enables the fallback to the user-space implementation.
     userspaceFallback: false
 
-  # -- Deprecated in favor of encryption.ipsec.keyFile.
+  # -- Deprecated in favor of encryption.ipsec.keyFile. To be removed in 1.15.
   # Name of the key file inside the Kubernetes secret configured via secretName.
   # This option is only effective when encryption.type is set to ipsec.
   keyFile: keys
 
-  # -- Deprecated in favor of encryption.ipsec.mountPath.
+  # -- Deprecated in favor of encryption.ipsec.mountPath. To be removed in 1.15.
   # Path to mount the secret inside the Cilium pod.
   # This option is only effective when encryption.type is set to ipsec.
   mountPath: /etc/ipsec
 
-  # -- Deprecated in favor of encryption.ipsec.secretName.
+  # -- Deprecated in favor of encryption.ipsec.secretName. To be removed in 1.15.
   # Name of the Kubernetes secret containing the encryption keys.
   # This option is only effective when encryption.type is set to ipsec.
   secretName: cilium-ipsec-keys
 
-  # -- Deprecated in favor of encryption.ipsec.interface.
+  # -- Deprecated in favor of encryption.ipsec.interface. To be removed in 1.15.
   # The interface to use for encrypted traffic.
   # This option is only effective when encryption.type is set to ipsec.
   interface: ""
@@ -762,7 +763,7 @@ eni:
   # -- Enable Elastic Network Interface (ENI) integration.
   enabled: false
   # -- Update ENI Adapter limits from the EC2 API
-  updateEC2AdapterLimitViaAPI: false
+  updateEC2AdapterLimitViaAPI: true
   # -- Release IPs not used from the ENI
   awsReleaseExcessIPs: false
   # -- Enable ENI prefix delegation
@@ -945,10 +946,6 @@ hubble:
   skipUnknownCGroupIDs: ~
 
   peerService:
-    # -- Enable a K8s Service for the Peer service, so that it can be accessed
-    # by a non-local client. This configuration option is deprecated, the peer
-    # service will be non-optional starting Cilium v1.14.
-    enabled: true
     # -- Service Port for the Peer service.
     # If not set, it is dynamically assigned to port 443 if TLS is enabled and to
     # port 80 if not.
@@ -997,19 +994,8 @@ hubble:
       #   kind: ClusterIssuer
       #   name: ca-issuer
       # -- certmanager issuer used when hubble.tls.auto.method=certmanager.
-      # If not specified, a CA issuer will be created.
       certManagerIssuerRef: {}
 
-    # -- Deprecated in favor of tls.ca. To be removed in 1.13.
-    # base64 encoded PEM values for the Hubble CA certificate and private key.
-    ca:
-      # -- Deprecated in favor of tls.ca.cert. To be removed in 1.13.
-      cert: ""
-      # -- Deprecated in favor of tls.ca.key. To be removed in 1.13.
-      # The CA private key (optional). If it is provided, then it will be
-      # used by hubble.tls.auto.method=cronJob to generate all other certificates.
-      # Otherwise, a ephemeral CA is generated if hubble.tls.auto.enabled=true.
-      key: ""
     # -- base64 encoded PEM values for the Hubble server certificate and private key
     server:
       cert: ""
@@ -1248,8 +1234,8 @@ hubble:
       image:
         override: ~
         repository: "quay.io/cilium/hubble-ui-backend"
-        tag: "v0.10.0"
-        digest: "sha256:cc5e2730b3be6f117b22176e25875f2308834ced7c3aa34fb598aa87a2c0a6a4"
+        tag: "v0.11.0"
+        digest: "sha256:14c04d11f78da5c363f88592abae8d2ecee3cbe009f443ef11df6ac5f692d839"
         useDigest: true
         pullPolicy: "Always"
 
@@ -1279,8 +1265,8 @@ hubble:
       image:
         override: ~
         repository: "quay.io/cilium/hubble-ui"
-        tag: "v0.10.0"
-        digest: "sha256:118ad2fcfd07fabcae4dde35ec88d33564c9ca7abe520aa45b1eb13ba36c6e0a"
+        tag: "v0.11.0"
+        digest: "sha256:bcb369c47cada2d4257d63d3749f7f87c91dde32e010b223597306de95d1ecc8"
         useDigest: true
         pullPolicy: "Always"
 
@@ -1358,9 +1344,6 @@ hubble:
 
     # -- Security context to be added to Hubble UI pods
     securityContext:
-      # -- Deprecated in favor of hubble.ui.securityContext.
-      # Whether to set the security context on the Hubble UI pods.
-      enabled: true
       runAsUser: 1001
       runAsGroup: 1001
       fsGroup: 1001
@@ -1374,6 +1357,11 @@ hubble:
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31235
 
+    # -- Defines base url prefix for all hubble-ui http requests.
+    # It needs to be changed in case if ingress for hubble-ui is configured under some sub-path.
+    # Trailing `/` is required for custom path, ex. `/service-map/`
+    baseUrl: "/"
+
     # -- hubble-ui ingress configuration.
     ingress:
       enabled: false
@@ -1383,6 +1371,7 @@ hubble:
       className: ""
       hosts:
         - chart-example.local
+      labels: {}
       tls: []
       #  - secretName: chart-example-tls
       #    hosts:
@@ -1409,18 +1398,12 @@ ipam:
   # -- Maximum rate at which the CiliumNode custom resource is updated.
   ciliumNodeUpdateRate: "15s"
   operator:
-    # -- Deprecated in favor of ipam.operator.clusterPoolIPv4PodCIDRList.
-    # IPv4 CIDR range to delegate to individual nodes for IPAM.
-    clusterPoolIPv4PodCIDR: "10.0.0.0/8"
     # -- IPv4 CIDR list range to delegate to individual nodes for IPAM.
-    clusterPoolIPv4PodCIDRList: []
+    clusterPoolIPv4PodCIDRList: ["10.0.0.0/8"]
     # -- IPv4 CIDR mask size to delegate to individual nodes for IPAM.
     clusterPoolIPv4MaskSize: 24
-    # -- Deprecated in favor of ipam.operator.clusterPoolIPv6PodCIDRList.
-    # IPv6 CIDR range to delegate to individual nodes for IPAM.
-    clusterPoolIPv6PodCIDR: "fd00::/104"
-     # -- IPv6 CIDR list range to delegate to individual nodes for IPAM.
-    clusterPoolIPv6PodCIDRList: []
+    # -- IPv6 CIDR list range to delegate to individual nodes for IPAM.
+    clusterPoolIPv6PodCIDRList: ["fd00::/104"]
     # -- IPv6 CIDR mask size to delegate to individual nodes for IPAM.
     clusterPoolIPv6MaskSize: 120
     # -- The maximum burst size when rate limiting access to external APIs.
@@ -1745,11 +1728,6 @@ resourceQuotas:
 # in the node.
 sleepAfterInit: false
 
-# -- Configure BPF socket operations configuration
-sockops:
-  # enabled enables installation of socket options acceleration.
-  enabled: false
-
 # -- Enable check of service source ranges (currently, only for LoadBalancer).
 svcSourceRangeCheck: true
 
@@ -1784,7 +1762,15 @@ tls:
 #   - disabled
 #   - vxlan (default)
 #   - geneve
-tunnel: "vxlan"
+tunnel: ""
+
+# -- Tunneling protocol to use in tunneling mode and for ad-hoc tunnels.
+# @default -- `"vxlan"`
+tunnelProtocol: ""
+
+# -- Enable native-routing mode or tunneling mode.
+# @default -- `"tunnel"`
+routingMode: ""
 
 # -- Configure VXLAN and Geneve tunnel port.
 # @default -- Port 8472 for VXLAN, Port 6081 for Geneve
@@ -2087,6 +2073,11 @@ operator:
   # pod running.
   removeNodeTaints: true
 
+  # -- Taint nodes where Cilium is scheduled but not running. This prevents pods
+  # from being scheduled to nodes where Cilium is not the default CNI provider.
+  # @default -- same as removeNodeTaints
+  setNodeTaints: ~
+
   # -- Set Node condition NetworkUnavailable to 'false' with the reason
   # 'CiliumIsUp' for nodes that have a healthy Cilium pod.
   setNodeNetworkStatus: true
@@ -2171,6 +2162,15 @@ nodeinit:
   # -- bootstrapFile is the location of the file where the bootstrap timestamp is
   # written by the node-init DaemonSet
   bootstrapFile: "/tmp/cilium-bootstrap.d/cilium-bootstrap-time"
+
+  # -- startup offers way to customize startup nodeinit script (pre and post position)
+  startup:
+   preScript: ""
+   postScript: ""
+  # -- prestop offers way to customize prestop nodeinit script (pre and post position)
+  prestop:
+   preScript: ""
+   postScript: ""
 
 preflight:
   # -- Enable Cilium pre-flight resources (required for upgrade)
@@ -2473,6 +2473,23 @@ clustermesh:
     priorityClassName: ""
 
     tls:
+      # -- Configure the clustermesh authentication mode.
+      # Supported values:
+      # - legacy:     All clusters access remote clustermesh instances with the same
+      #               username (i.e., remote). The "remote" certificate must be
+      #               generated with CN=remote if provided manually.
+      # - migration:  Intermediate mode required to upgrade from legacy to cluster
+      #               (and vice versa) with no disruption. Specifically, it enables
+      #               the creation of the per-cluster usernames, while still using
+      #               the common one for authentication. The "remote" certificate must
+      #               be generated with CN=remote if provided manually (same as legacy).
+      # - cluster:    Each cluster accesses remote etcd instances with a username
+      #               depending on the local cluster name (i.e., remote-<cluster-name>).
+      #               The "remote" certificate must be generated with CN=remote-<cluster-name>
+      #               if provided manually. Cluster mode is meaningful only when the same
+      #               CA is shared across all clusters part of the mesh.
+      authMode: legacy
+
       # -- Configure automatic TLS certificates generation.
       # A Kubernetes CronJob is used the generate any
       # certificates not provided by the user at installation
@@ -2511,7 +2528,6 @@ clustermesh:
         #   kind: ClusterIssuer
         #   name: ca-issuer
         # -- certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
-        # If not specified, a CA issuer will be created.
         certManagerIssuerRef: {}
       # -- base64 encoded PEM values for the ExternalWorkload CA certificate and private key.
       ca:
@@ -2610,3 +2626,83 @@ dnsProxy:
 sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
   enabled: false
+
+auth:
+  mTLS:
+    # -- Port on the agent where mTLS handshakes between agents will be performed
+    port: 4250
+    # Settings for SPIRE
+    spire:
+      # -- Enable SPIRE integration
+      enabled: false
+      # -- Settings to control the SPIRE installation and configuration
+      install:
+        # -- Enable SPIRE installation.
+        # This will only take effect only if auth.mTLS.spire.enabled is true
+        enabled: false
+        # -- SPIRE namespace to install into
+        namespace: cilium-spire
+        # -- SPIRE agent configuration
+        agent:
+          # -- SPIRE agent image
+          image: ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8
+          # -- SPIRE agent service account
+          serviceAccount:
+            create: true
+            name: spire-agent
+          # -- SPIRE agent init containers
+          initContainers:
+          - name: init
+            image: cgr.dev/chainguard/wait-for-it@sha256:ecb58e3a2ffbdb732bb9049987e06eaf826d945410e167f31d6ffe28fab259f4
+            args: [ "-t", "30", "spire-server:8081" ]
+          # -- SPIRE agent annotations
+          annotations: { }
+          # -- SPIRE agent labels
+          labels: { }
+          # -- SPIRE Workload Attestor kubelet verification.
+          skipKubeletVerification: false
+        server:
+          # -- SPIRE server image
+          image: ghcr.io/spiffe/spire-server:1.5.1@sha256:4851ec8c71a8fbe230d87be78dfed0e908800c2342cf192289c7885bb2f7a870
+          # -- SPIRE server service account
+          serviceAccount:
+            create: true
+            name: spire-server
+          # -- SPIRE server init containers
+          initContainers: []
+          # -- SPIRE server annotations
+          annotations: {}
+          # -- SPIRE server labels
+          labels: {}
+          # -- SPIRE server service configuration
+          service:
+            type: ClusterIP
+            annotations: {}
+            labels: {}
+          # -- SPIRE server datastorage configuration
+          dataStorage:
+            enabled: true
+            size: 1Gi
+            accessMode: ReadWriteOnce
+            storageClass: null
+          # -- SPIRE CA configuration
+          ca:
+            # -- SPIRE CA key type
+            # AWS requires the use of RSA. EC cryptography is not supported
+            keyType: "rsa-4096"
+            # -- SPIRE CA Subject
+            subject:
+              country: "US"
+              organization: "SPIRE"
+              commonName: ""
+      # -- SPIRE server address
+      serverAddress: spire-server.cilium-spire.svc.cluster.local:8081
+      # -- SPIFFE trust domain to use for fetching certificates
+      trustDomain: spiffe.cilium
+      # -- SPIRE socket path where the SPIRE delegated api agent is listening
+      adminSocketPath: /run/spire/sockets/admin.sock
+      # -- SPIRE socket path where the SPIRE workload agent is listening.
+      # Applies to both the Cilium Agent and Operator
+      agentSocketPath: /run/spire/sockets/agent/agent.sock
+      # -- SPIRE connection timeout
+      connectionTimeout: 30s

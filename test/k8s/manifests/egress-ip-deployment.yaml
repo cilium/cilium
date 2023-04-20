@@ -28,11 +28,11 @@ spec:
         - name: EGRESS_IP
           value: "INPUT_EGRESS_IP/24"
         args:
-        - "ip address add $EGRESS_IP dev enp0s8; sleep inf"
+        - "ip address add $EGRESS_IP dev $(ip route get 1.1.1.1 | sed -n 's/.*dev \\([^\\ ]*\\).*/\\1/p'); sleep inf"
         lifecycle:
           preStop:
             exec:
               command:
               - "/bin/sh"
               - "-c"
-              - "ip address del $EGRESS_IP dev enp0s8"
+              - "ip address del $EGRESS_IP dev $(ip route get 1.1.1.1 | sed -n 's/.*dev \\([^\\ ]*\\).*/\\1/p')"

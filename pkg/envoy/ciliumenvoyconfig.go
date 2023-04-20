@@ -60,7 +60,7 @@ type Resources struct {
 }
 
 type PortAllocator interface {
-	AllocateProxyPort(name string, ingress bool) (uint16, error)
+	AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error)
 	AckProxyPort(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }
@@ -345,12 +345,12 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 			if validate {
 				if err := secret.Validate(); err != nil {
-					return Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%s): %s", secret.Name, err, secret.String())
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%s)", secret.Name, err)
 				}
 			}
 			resources.Secrets = append(resources.Secrets, secret)
 
-			log.Debugf("ParseResources: Parsed secret: %v", secret)
+			log.Debugf("ParseResources: Parsed secret: %s", secret.Name)
 
 		default:
 			return Resources{}, fmt.Errorf("Unsupported type: %s", typeURL)
@@ -361,11 +361,11 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 	// Do this only after all other possible error cases.
 	for _, listener := range resources.Listeners {
 		if listener.GetAddress() == nil {
-			port, err := portAllocator.AllocateProxyPort(listener.Name, false)
+			port, err := portAllocator.AllocateProxyPort(listener.Name, false, true)
 			if err != nil || port == 0 {
 				return Resources{}, fmt.Errorf("Listener port allocation for %q failed: %s", listener.Name, err)
 			}
-			listener.Address = getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+			listener.Address, listener.AdditionalAddresses = getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 			if resources.portAllocations == nil {
 				resources.portAllocations = make(map[string]uint16)
 			}
@@ -430,7 +430,7 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	// resources to begin with.
 	// If both listeners and clusters are added then wait for clusters.
 	for _, r := range resources.Secrets {
-		log.Debugf("Envoy upsertSecret %s %v", r.Name, r)
+		log.Debugf("Envoy upsertSecret %s", r.Name)
 		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
 	}
 	for _, r := range resources.Endpoints {

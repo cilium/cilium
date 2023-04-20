@@ -80,14 +80,6 @@ struct bpf_fib_lookup_padded {
 static int BPF_FUNC(fib_lookup, void *ctx, struct bpf_fib_lookup *params,
 		    __u32 plen, __u32 flags);
 
-/* Sockops and SK_MSG helpers */
-static int BPF_FUNC(sock_map_update, struct bpf_sock_ops *skops, void *map,
-		    __u32 key,  __u64 flags);
-static int BPF_FUNC(sock_hash_update, struct bpf_sock_ops *skops, void *map,
-		    void *key,  __u64 flags);
-static int BPF_FUNC(msg_redirect_hash, struct sk_msg_md *md, void *map,
-		    void *key, __u64 flags);
-
 /* Socket lookup helpers */
 static struct bpf_sock *BPF_FUNC(sk_lookup_tcp, void *ctx,
 				 struct bpf_sock_tuple *tuple, __u32 tuple_size,

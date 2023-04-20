@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -327,6 +328,29 @@ func (s *K8sSuite) TestCacheActionString(c *check.C) {
 	c.Assert(DeleteService.String(), check.Equals, "service-deleted")
 }
 
+func (s *K8sSuite) TestServiceMutators(c *check.C) {
+	var m1, m2 int
+
+	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	svcCache.ServiceMutators = append(svcCache.ServiceMutators,
+		func(svc *slim_corev1.Service, svcInfo *Service) { m1++ },
+		func(svc *slim_corev1.Service, svcInfo *Service) { m2++ },
+	)
+	swg := lock.NewStoppableWaitGroup()
+	svcCache.UpdateService(&slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Selector:  map[string]string{"foo": "bar"},
+			Type:      slim_corev1.ServiceTypeClusterIP,
+		},
+	}, swg)
+
+	// Assert that the service mutators configured have been executed.
+	c.Assert(m1, check.Equals, 1)
+	c.Assert(m2, check.Equals, 1)
+}
+
 func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
@@ -483,42 +507,9 @@ func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 		return true
 	}, 2*time.Second), check.IsNil)
 
-	svcCache.MergeExternalServiceUpdate(&serviceStore.ClusterService{
-		Cluster:   "cluster1",
-		Namespace: "bar",
-		Name:      "foo",
-		Frontends: map[string]serviceStore.PortConfiguration{
-			"1.1.1.1": {},
-		},
-		Backends: map[string]serviceStore.PortConfiguration{
-			"3.3.3.3": map[string]*loadbalancer.L4Addr{
-				"port": {Protocol: loadbalancer.TCP, Port: 80},
-			},
-		},
-		IncludeExternal: false,
-		Shared:          true,
-	},
-		swgSvcs,
-	)
-
-	// Adding shared remote endpoints will not trigger a service update, in case IncludeExternal
-	// is not set (i.e., the service is not marked as a global one in the remote cluster).
-	// Nonetheless, this condition should never happen, since a shared service shall always be global.
-	c.Assert(testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
-		defer event.SWG.Done()
-		c.Assert(event.Action, check.Equals, UpdateService)
-		c.Assert(event.ID, check.Equals, svcID)
-
-		c.Assert(len(event.Endpoints.Backends), checker.Equals, 1)
-		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("2.2.2.2")], checker.DeepEquals, &Backend{
-			Ports: serviceStore.PortConfiguration{
-				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
-			},
-		})
-
-		return true
-	}, 2*time.Second), check.IsNil)
+	// We do not test the case with shared remote endpoints and IncludeExternal not set
+	// (i.e., the service is not marked as a global one in the remote cluster).
+	// Indeed, this condition shall never happen, since a shared service shall always be global.
 
 	svcCache.MergeExternalServiceUpdate(&serviceStore.ClusterService{
 		Cluster:   "cluster1",
@@ -699,6 +690,85 @@ func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 	swgEps.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgEps.Wait()
+		return true
+	}, 2*time.Second), check.IsNil)
+}
+
+func (s *K8sSuite) TestExternalServiceDeletion(c *check.C) {
+	const cluster = "cluster"
+
+	createEndpoints := func(clusters ...string) externalEndpoints {
+		eeps := newExternalEndpoints()
+		for i, cluster := range clusters {
+			eps := newEndpoints()
+			eps.Backends[cmtypes.MustParseAddrCluster(fmt.Sprintf("1.1.1.%d", i))] = &Backend{}
+			eeps.endpoints[cluster] = eps
+		}
+
+		return eeps
+	}
+
+	svc := Service{IncludeExternal: true, Shared: true}
+	clsvc := serviceStore.ClusterService{Cluster: cluster, Namespace: "bar", Name: "foo"}
+	id1 := ServiceID{Namespace: "bar", Name: "foo"}
+	id2 := ServiceID{Cluster: cluster, Namespace: "bar", Name: "foo"}
+
+	swg := lock.NewStoppableWaitGroup()
+	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+
+	// Store the service with the non-cluster-aware ID
+	svcCache.services[id1] = &svc
+	svcCache.externalEndpoints[id1] = createEndpoints(cluster)
+
+	svcCache.MergeExternalServiceDelete(&clsvc, swg)
+	_, ok := svcCache.services[id1]
+	c.Assert(ok, check.Equals, false)
+	_, ok = svcCache.externalEndpoints[id1]
+	c.Assert(ok, check.Equals, false)
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.ID, check.Equals, id1)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Store the service with the non-cluster-aware ID and multiple endpoints
+	svcCache.services[id1] = &svc
+	svcCache.externalEndpoints[id1] = createEndpoints(cluster, "other")
+
+	svcCache.MergeExternalServiceDelete(&clsvc, swg)
+	_, ok = svcCache.services[id1]
+	c.Assert(ok, check.Equals, true)
+	_, ok = svcCache.externalEndpoints[id1]
+	c.Assert(ok, check.Equals, true)
+	_, ok = svcCache.externalEndpoints[id1].endpoints[cluster]
+	c.Assert(ok, check.Equals, false)
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, id1)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Store the service with the cluster-aware ID
+	svcCache.services[id2] = &svc
+	svcCache.externalEndpoints[id2] = createEndpoints(cluster)
+
+	svcCache.MergeExternalServiceDelete(&clsvc, swg)
+	_, ok = svcCache.services[id2]
+	c.Assert(ok, check.Equals, false)
+	_, ok = svcCache.externalEndpoints[id2]
+	c.Assert(ok, check.Equals, false)
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.ID, check.Equals, id2)
 		return true
 	}, 2*time.Second), check.IsNil)
 }
@@ -1285,7 +1355,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 			Namespace: "bar",
 			Labels:    map[string]string{"foo": "bar"},
 			Annotations: map[string]string{
-				v1.AnnotationTopologyAwareHints: "auto",
+				v1.DeprecatedAnnotationTopologyAwareHints: "auto",
 			},
 		},
 		Spec: slim_corev1.ServiceSpec{

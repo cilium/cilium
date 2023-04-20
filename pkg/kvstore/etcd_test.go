@@ -18,6 +18,7 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type EtcdSuite struct {
@@ -25,6 +26,10 @@ type EtcdSuite struct {
 }
 
 var _ = Suite(&EtcdSuite{})
+
+func (e *EtcdSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (e *EtcdSuite) SetUpTest(c *C) {
 	SetupDummy("etcd")
@@ -336,6 +341,8 @@ type EtcdLockedSuite struct {
 var _ = Suite(&EtcdLockedSuite{})
 
 func (e *EtcdLockedSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+
 	SetupDummy("etcd")
 
 	// setup client
@@ -348,6 +355,8 @@ func (e *EtcdLockedSuite) SetUpSuite(c *C) {
 }
 
 func (e *EtcdLockedSuite) TearDownSuite(c *C) {
+	testutils.IntegrationCheck(c)
+
 	err := e.etcdClient.Close()
 	c.Assert(err, IsNil)
 	Client().Close(context.TODO())
@@ -1684,6 +1693,8 @@ func (e *EtcdRateLimiterSuite) setupWithoutRateLimiter() {
 }
 
 func (e *EtcdRateLimiterSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+
 	e.maxQPS = 3
 	e.txnCount = e.maxQPS*2 + 2
 	e.minTime = time.Second
@@ -1698,6 +1709,8 @@ func (e *EtcdRateLimiterSuite) SetUpSuite(c *C) {
 }
 
 func (e *EtcdRateLimiterSuite) TearDownSuite(c *C) {
+	testutils.IntegrationCheck(c)
+
 	err := e.etcdClient.Close()
 	c.Assert(err, IsNil)
 }

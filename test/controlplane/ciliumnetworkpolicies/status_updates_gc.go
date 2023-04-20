@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
+	operatorApi "github.com/cilium/cilium/operator/api"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/cidr"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -27,54 +28,6 @@ import (
 )
 
 var (
-	initialObjects = []k8sRuntime.Object{
-		&corev1.Node{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "v1",
-				Kind:       "Node",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   "cnp-status-update-control-plane",
-				Labels: map[string]string{"kubernetes.io/hostname": "cnp-status-update-control-plane"},
-			},
-			Spec: corev1.NodeSpec{
-				PodCIDR:  cidr.MustParseCIDR("10.244.0.0/24").String(),
-				PodCIDRs: []string{cidr.MustParseCIDR("10.244.0.0/24").String()},
-				Taints: []corev1.Taint{
-					{Effect: corev1.TaintEffectNoSchedule, Key: "node-role.kubernetes.io/control-plane"},
-				},
-			},
-			Status: corev1.NodeStatus{
-				Conditions: []corev1.NodeCondition{},
-				Addresses: []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "172.18.0.3"},
-					{Type: corev1.NodeHostName, Address: "cnp-status-update-control-plane"},
-				},
-			},
-		},
-		&corev1.Node{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "v1",
-				Kind:       "Node",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   "cnp-status-update-worker",
-				Labels: map[string]string{"kubernetes.io/hostname": "cnp-status-update-worker"},
-			},
-			Spec: corev1.NodeSpec{
-				PodCIDR:  cidr.MustParseCIDR("10.244.1.0/24").String(),
-				PodCIDRs: []string{cidr.MustParseCIDR("10.244.1.0/24").String()},
-			},
-			Status: corev1.NodeStatus{
-				Conditions: []corev1.NodeCondition{},
-				Addresses: []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "172.18.0.2"},
-					{Type: corev1.NodeHostName, Address: "cnp-status-update-worker"},
-				},
-			},
-		},
-	}
-
 	dummyCNP = &v2.CiliumNetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "cilium.io/v2",
@@ -147,6 +100,56 @@ var (
 			},
 		},
 	}
+
+	initialObjects = []k8sRuntime.Object{
+		&corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Node",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "cnp-status-update-control-plane",
+				Labels: map[string]string{"kubernetes.io/hostname": "cnp-status-update-control-plane"},
+			},
+			Spec: corev1.NodeSpec{
+				PodCIDR:  cidr.MustParseCIDR("10.244.0.0/24").String(),
+				PodCIDRs: []string{cidr.MustParseCIDR("10.244.0.0/24").String()},
+				Taints: []corev1.Taint{
+					{Effect: corev1.TaintEffectNoSchedule, Key: "node-role.kubernetes.io/control-plane"},
+				},
+			},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{},
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeInternalIP, Address: "172.18.0.3"},
+					{Type: corev1.NodeHostName, Address: "cnp-status-update-control-plane"},
+				},
+			},
+		},
+		&corev1.Node{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Node",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "cnp-status-update-worker",
+				Labels: map[string]string{"kubernetes.io/hostname": "cnp-status-update-worker"},
+			},
+			Spec: corev1.NodeSpec{
+				PodCIDR:  cidr.MustParseCIDR("10.244.1.0/24").String(),
+				PodCIDRs: []string{cidr.MustParseCIDR("10.244.1.0/24").String()},
+			},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{},
+				Addresses: []corev1.NodeAddress{
+					{Type: corev1.NodeInternalIP, Address: "172.18.0.2"},
+					{Type: corev1.NodeHostName, Address: "cnp-status-update-worker"},
+				},
+			},
+		},
+		dummyCNP,
+		dummyCCNP,
+	}
 )
 
 func getDummyCNP(test *suite.ControlPlaneTest) (*v2.CiliumNetworkPolicy, error) {
@@ -205,15 +208,6 @@ func validateCNPs(test *suite.ControlPlaneTest) error {
 	return nil
 }
 
-func applyDummyCNPs(test *suite.ControlPlaneTest) error {
-	test.UpdateObjects(dummyCNP)
-	test.UpdateObjects(dummyCCNP)
-
-	// validate CNPs before starting the controlplane test,
-	// to be sure that they have been correctly stored.
-	return validateCNPs(test)
-}
-
 func validateCNPsAfterGC(test *suite.ControlPlaneTest) error {
 	cnp, err := getDummyCNP(test)
 	if err != nil {
@@ -255,14 +249,17 @@ func init() {
 			SetupEnvironment(func(_ *option.DaemonConfig, operatorCfg *operatorOption.OperatorConfig) {
 				operatorCfg.SkipCNPStatusStartupClean = true
 			}).
+			// check that CNPs contain status updates info before starting agent and operator
+			Eventually(func() error { return validateCNPs(test) }).
 			StartAgent().
-			StartOperator(func(_ *viper.Viper) {}).
-			Execute(func() error { return applyDummyCNPs(test) }).
+			StartOperator(func(vp *viper.Viper) {
+				vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
+			}).
 			Eventually(func() error { return validateCNPs(test) })
 
 		test.StopAgent()
 		test.StopOperator()
-		test.DeleteObjects()
+		test.DeleteObjects(initialObjects...)
 
 		// When running with GC enabled, the Nodes Status updates should eventually be deleted.
 		test.
@@ -270,9 +267,12 @@ func init() {
 			SetupEnvironment(func(_ *option.DaemonConfig, operatorCfg *operatorOption.OperatorConfig) {
 				operatorCfg.SkipCNPStatusStartupClean = false
 			}).
+			// check that CNPs contain status updates info before starting agent and operator
+			Eventually(func() error { return validateCNPs(test) }).
 			StartAgent().
-			StartOperator(func(_ *viper.Viper) {}).
-			Execute(func() error { return applyDummyCNPs(test) }).
+			StartOperator(func(vp *viper.Viper) {
+				vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
+			}).
 			Eventually(func() error { return validateCNPsAfterGC(test) })
 
 		test.StopAgent()

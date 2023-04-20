@@ -39,28 +39,20 @@ var (
 	log = logf.Log.WithName("conversion-webhook")
 )
 
-// Webhook implements a CRD conversion webhook HTTP handler.
-type Webhook struct {
+func NewWebhookHandler(scheme *runtime.Scheme) http.Handler {
+	return &webhook{scheme: scheme, decoder: NewDecoder(scheme)}
+}
+
+// webhook implements a CRD conversion webhook HTTP handler.
+type webhook struct {
 	scheme  *runtime.Scheme
 	decoder *Decoder
 }
 
-// InjectScheme injects a scheme into the webhook, in order to construct a Decoder.
-func (wh *Webhook) InjectScheme(s *runtime.Scheme) error {
-	var err error
-	wh.scheme = s
-	wh.decoder, err = NewDecoder(s)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // ensure Webhook implements http.Handler
-var _ http.Handler = &Webhook{}
+var _ http.Handler = &webhook{}
 
-func (wh *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (wh *webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	convertReview := &apix.ConversionReview{}
 	err := json.NewDecoder(r.Body).Decode(convertReview)
 	if err != nil {
@@ -95,7 +87,7 @@ func (wh *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // handles a version conversion request.
-func (wh *Webhook) handleConvertRequest(req *apix.ConversionRequest) (*apix.ConversionResponse, error) {
+func (wh *webhook) handleConvertRequest(req *apix.ConversionRequest) (*apix.ConversionResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("conversion request is nil")
 	}
@@ -128,7 +120,7 @@ func (wh *Webhook) handleConvertRequest(req *apix.ConversionRequest) (*apix.Conv
 // convertObject will convert given a src object to dst object.
 // Note(droot): couldn't find a way to reduce the cyclomatic complexity under 10
 // without compromising readability, so disabling gocyclo linter
-func (wh *Webhook) convertObject(src, dst runtime.Object) error {
+func (wh *webhook) convertObject(src, dst runtime.Object) error {
 	srcGVK := src.GetObjectKind().GroupVersionKind()
 	dstGVK := dst.GetObjectKind().GroupVersionKind()
 
@@ -155,7 +147,7 @@ func (wh *Webhook) convertObject(src, dst runtime.Object) error {
 	}
 }
 
-func (wh *Webhook) convertViaHub(src, dst conversion.Convertible) error {
+func (wh *webhook) convertViaHub(src, dst conversion.Convertible) error {
 	hub, err := wh.getHub(src)
 	if err != nil {
 		return err
@@ -179,7 +171,7 @@ func (wh *Webhook) convertViaHub(src, dst conversion.Convertible) error {
 }
 
 // getHub returns an instance of the Hub for passed-in object's group/kind.
-func (wh *Webhook) getHub(obj runtime.Object) (conversion.Hub, error) {
+func (wh *webhook) getHub(obj runtime.Object) (conversion.Hub, error) {
 	gvks, err := objectGVKs(wh.scheme, obj)
 	if err != nil {
 		return nil, err
@@ -207,7 +199,7 @@ func (wh *Webhook) getHub(obj runtime.Object) (conversion.Hub, error) {
 }
 
 // allocateDstObject returns an instance for a given GVK.
-func (wh *Webhook) allocateDstObject(apiVersion, kind string) (runtime.Object, error) {
+func (wh *webhook) allocateDstObject(apiVersion, kind string) (runtime.Object, error) {
 	gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
 
 	obj, err := wh.scheme.New(gvk)

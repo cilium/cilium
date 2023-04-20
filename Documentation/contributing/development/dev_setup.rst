@@ -1,3 +1,4 @@
+
 .. only:: not (epub or latex or html)
 
     WARNING: You are looking at unreleased Cilium documentation.
@@ -160,9 +161,7 @@ brought up by vagrant:
 * ``NETNEXT=1``: Run with net-next kernel.
 * ``SERVER_BOX`` and ``SERVER_VERSION``: Run with a specified vagrant
   box. See: ``vagrant_box_defaults.rb`` for the supported
-  versions. This may be useful for BPF developers that want to test
-  their changes with ``make -C bpf && sudo
-  test/bpf/verifier-test.sh``.
+  versions.
 * ``IPV4=1``: Run Cilium with IPv4 enabled.
 * ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
   cluster. Valid options are: ``containerd`` and ``crio``. If not
@@ -298,6 +297,12 @@ with NFS. Note that your host firewall must have a variety of ports open. The
 Vagrantfile will inform you of the configuration of these addresses and ports
 to enable NFS.
 
+.. note::
+
+   Although providing a Developer preview for macOS/arm64 (M1/M2) hosts, 
+   Oracle is not going to offer official support for ARM64 on Mac. As of VirtualBox 7.0.6
+   the developer preview is *not* working with the Cilium Vagrant Setup.
+   
 .. note::
 
    OSX file system is by default case insensitive, which can confuse
@@ -442,17 +447,17 @@ finishes.
 Making Changes
 ~~~~~~~~~~~~~~
 
-#. Make sure the ``master`` branch of your fork is up-to-date:
+#. Make sure the ``main`` branch of your fork is up-to-date:
 
    .. code-block:: shell-session
 
-      git fetch upstream master:master
+      git fetch upstream main:main
 
-#. Create a PR branch with a descriptive name, branching from ``master``:
+#. Create a PR branch with a descriptive name, branching from ``main``:
 
    .. code-block:: shell-session
 
-      git switch -c pr/changes-to-something master
+      git switch -c pr/changes-to-something main
 
 #. Make the changes you want.
 #. Separate the changes into logical commits.
@@ -559,7 +564,7 @@ Minor version
    default. Make sure the files ``contributing/testing/{ci,e2e}.rst`` are up to
    date with these changes.
 
-#  Update documentation files:
+#. Update documentation files:
    - Documentation/contributing/testing/e2e.rst
    - Documentation/network/istio.rst
    - Documentation/network/kubernetes/compatibility.rst
@@ -585,6 +590,8 @@ Minor version
 #. Add the new version in ``test/provision/k8s_install.sh``, if it is an RC
    install it using binaries.
 
+#. Bump the kindest/node version in all of kind's config files (for example, ``.github/kind-config*``).
+
 #. Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash`` and
    the etcd version to the latest version.
 
@@ -602,15 +609,15 @@ Minor version
 #. Provision a new dev VM to check if the provisioning scripts work correctly
    with the new k8s version.
 
-#. Run ``git add vendor/ test/provision/manifest/ Documentation/ && git commit -sam "Update k8s tests and libraries to v1.27.0-rc.0"``
+#. Run ``git add vendor/ test/provision/manifest/ Documentation/ && git commit -sam "Update k8s tests and libraries to v1.28.0-rc.0"``
 
 #. Submit all your changes into a new PR.
 
 #. Ping the CI team to make changes in Jenkins (adding new pipeline and
-   dedicated test trigger ``/test-X.XX-4.9`` where ``X.XX`` is the new
+   dedicated test trigger ``/test-X.XX-4.19`` where ``X.XX`` is the new
    Kubernetes version).
 
-#. Run ``/test-upstream`` and the new ``/test-X.XX-4.9`` from the PR once
+#. Run ``/test-upstream-k8s`` and the new ``/test-X.XX-4.19`` from the PR once
    Jenkins is up-to-date.
 
 #. Once CI is green and PR has been merged, ping the CI team again so that they:

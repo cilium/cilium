@@ -8,8 +8,8 @@ on:
     - 'test/**'
   push:
     branches:
-    - master
-    - ft/master/**
+    - main
+    - ft/main/**
     paths-ignore:
     - 'Documentation/**'
 
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 45
     steps:
-    - name: Checkout master branch to access local actions
+    - name: Checkout main branch to access local actions
       uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       with:
         ref: ${{ github.event.repository.default_branch }}
@@ -49,8 +49,9 @@ jobs:
         persist-credentials: false
 
     - name: Install Go
-      uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+      uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
       with:
+        # renovate: datasource=golang-version depName=go
         go-version: 1.20.1
 
     - name: Prepare environment

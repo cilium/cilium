@@ -243,9 +243,6 @@ func init() {
 	flags.String(operatorOption.OperatorPrometheusServeAddr, operatorOption.PrometheusServeAddr, "Address to serve Prometheus metrics")
 	option.BindEnv(Vp, operatorOption.OperatorPrometheusServeAddr)
 
-	flags.String(operatorOption.OperatorAPIServeAddr, "localhost:9234", "Address to serve API requests")
-	option.BindEnv(Vp, operatorOption.OperatorAPIServeAddr)
-
 	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(Vp, operatorOption.SyncK8sServices)
 
@@ -283,9 +280,6 @@ func init() {
 	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
 	option.BindEnv(Vp, option.BGPConfigPath)
 
-	flags.Bool(option.SkipCRDCreation, false, "When true, Kubernetes Custom Resource Definitions will not be created")
-	option.BindEnv(Vp, option.SkipCRDCreation)
-
 	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.")
 	option.BindEnv(Vp, option.EnableCiliumEndpointSlice)
 
@@ -306,14 +300,14 @@ func init() {
 	flags.Bool(operatorOption.RemoveCiliumNodeTaints, true, fmt.Sprintf("Remove node taint %q from Kubernetes nodes once Cilium is up and running", option.Config.AgentNotReadyNodeTaintValue()))
 	option.BindEnv(Vp, operatorOption.RemoveCiliumNodeTaints)
 
+	flags.Bool(operatorOption.SetCiliumNodeTaints, false, fmt.Sprintf("Set node taint %q from Kubernetes nodes if Cilium is scheduled but not up and running", option.Config.AgentNotReadyNodeTaintValue()))
+	option.BindEnv(Vp, operatorOption.SetCiliumNodeTaints)
+
 	flags.Bool(operatorOption.SetCiliumIsUpCondition, true, "Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node")
 	option.BindEnv(Vp, operatorOption.SetCiliumIsUpCondition)
 
 	flags.StringSlice(operatorOption.IngressLBAnnotationPrefixes, operatorOption.IngressLBAnnotationsDefault, "Annotation prefixes for propagating from Ingress to the Load Balancer service")
 	option.BindEnv(Vp, operatorOption.IngressLBAnnotationPrefixes)
-
-	flags.Bool(operatorOption.EnableK8s, true, `Enable operation of Kubernetes-related services/controllers when using Cilium with Kubernetes`)
-	option.BindEnv(Vp, operatorOption.EnableK8s)
 
 	flags.String(operatorOption.PodRestartSelector, "k8s-app=kube-dns", "cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted")
 	option.BindEnv(Vp, operatorOption.PodRestartSelector)

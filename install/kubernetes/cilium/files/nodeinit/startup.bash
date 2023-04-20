@@ -14,6 +14,8 @@ echo "Addressing:"
 ip -4 a
 ip -6 a
 
+{{ .Values.nodeinit.startup.preScript }}
+
 {{- if .Values.nodeinit.removeCbrBridge }}
 if ip link show cbr0; then
   echo "Detected cbr0 bridge. Deleting interface..."
@@ -97,8 +99,7 @@ then
     # Starting from GKE node version 1.24, containerd version used is 1.6.
     # Since that version containerd no longer allows missing configuration for the CNI,
     # not even for pods with hostNetwork set to true. Thus, we add a temporary one.
-    # This will be replaced with the real config by cni-install.sh script from the
-    # agent pod.
+    # This will be replaced with the real config by the agent pod.
     echo -e "{\n\t"cniVersion": "0.3.1",\n\t"name": "cilium",\n\t"type": "cilium-cni"\n}" > /etc/cni/net.d/05-cilium.conf
   fi
 
@@ -199,4 +200,7 @@ fi
 {{- if .Values.nodeinit.revertReconfigureKubelet }}
 rm -f /tmp/node-deinit.cilium.io
 {{- end }}
+
+{{ .Values.nodeinit.startup.postScript }}
+
 echo "Node initialization complete"

@@ -308,7 +308,7 @@ func (c *Client) AttachNetworkInterface(ctx context.Context, instanceID, eniID s
 // WaitENIAttached check ENI is attached to ECS and return attached ECS instanceID
 func (c *Client) WaitENIAttached(ctx context.Context, eniID string) (string, error) {
 	instanceID := ""
-	err := wait.ExponentialBackoffWithContext(ctx, maxAttachRetries, func() (done bool, err error) {
+	err := wait.ExponentialBackoffWithContext(ctx, maxAttachRetries, func(ctx context.Context) (done bool, err error) {
 		eni, err := c.DescribeNetworkInterface(ctx, eniID)
 		if err != nil {
 			return false, err

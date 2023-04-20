@@ -75,7 +75,7 @@ static __always_inline int mock_ct_create4(__maybe_unused const void *map_main,
 					   __maybe_unused const struct ct_state *ct_state,
 					   __maybe_unused bool proxy_redirect,
 					   __maybe_unused bool from_l7lb,
-					   __maybe_unused bool auth_required)
+					   __maybe_unused __s8 *ext_err)
 {
 	return mock_ct_create4_response;
 }
@@ -114,8 +114,8 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* So snat_v4_track_connection will return exactly the same value which means */
 	/* an error occurs when snat_v4_track_connection is looking for the ipv4_ct_tuple. */
 	TEST("return -1 on error", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
-		    != -1){
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS,
+					     0, &target, NULL) != -1) {
 			test_fail();
 		}
 	});
@@ -127,8 +127,8 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* So snat_v4_track_connection will return 0 which means snat_v4_track_connection */
 	/* successfully tracks ipv4_ct_tuple. */
 	TEST("return 0 on track", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
-		    != 0){
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS,
+					     0, &target, NULL) != 0) {
 			test_fail();
 		}
 	});
@@ -143,8 +143,8 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* So snat_v4_track_connection will return that value which means an error occurs */
 	/* when snat_v4_track_connection is trying to create the ipv4_ct_tuple. */
 	TEST("return -1 on create error", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
-		    != -1){
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS,
+					     0, &target, NULL) != -1) {
 			test_fail();
 		}
 	});
@@ -158,8 +158,8 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* So snat_v4_track_connection will return 0 which means snat_v4_track_connection */
 	/* successfully creates the ipv4_ct_tuple. */
 	TEST("return 0 on create success", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
-		    != 0) {
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS,
+					     0, &target, NULL) != 0) {
 			test_fail();
 		}
 	});

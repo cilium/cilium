@@ -90,7 +90,7 @@ Deploy Cilium release via Helm:
      --set cni.customConf=true \\
      --set nodeinit.enabled=true \\
      --set cni.configMap=cni-configuration \\
-     --set tunnel=disabled \\
+     --set routingMode=native \\
      --set enableIPv4Masquerade=false \\
      --set endpointRoutes.enabled=true
 

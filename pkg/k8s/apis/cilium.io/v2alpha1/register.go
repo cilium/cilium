@@ -18,16 +18,6 @@ const (
 	// CustomResourceDefinitionVersion is the current version of the resource
 	CustomResourceDefinitionVersion = "v2alpha1"
 
-	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
-	// Used to determine if CRD needs to be updated in cluster
-	//
-	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
-	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.27.0"
-
-	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
-	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
-
 	// Cilium Endpoint Slice (CES)
 
 	// CESSingularName is the singular name of Cilium Endpoint Slice
@@ -74,6 +64,11 @@ const (
 	CNCPluralName     = "ciliumnodeconfigs"
 	CNCKindDefinition = "CiliumNodeConfig"
 	CNCName           = CNCPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumCIDRGroup (CCG)
+	CCGPluralName     = "ciliumcidrgroups"
+	CCGKindDefinition = "CiliumCIDRGroup"
+	CCGName           = CCGPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -125,6 +120,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumLoadBalancerIPPoolList{},
 		&CiliumNodeConfig{},
 		&CiliumNodeConfigList{},
+		&CiliumCIDRGroup{},
+		&CiliumCIDRGroupList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

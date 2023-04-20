@@ -1,6 +1,9 @@
 ..
   AUTO-GENERATED. Please DO NOT edit manually.
 
+.. role:: raw-html-m2r(raw)
+   :format: html
+
 
 .. list-table::
    :header-rows: 1
@@ -37,6 +40,114 @@
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
      - ``false``
+   * - auth.mTLS.port
+     - Port on the agent where mTLS handshakes between agents will be performed
+     - int
+     - ``4250``
+   * - auth.mTLS.spire.adminSocketPath
+     - SPIRE socket path where the SPIRE delegated api agent is listening
+     - string
+     - ``"/run/spire/sockets/admin.sock"``
+   * - auth.mTLS.spire.agentSocketPath
+     - SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator
+     - string
+     - ``"/run/spire/sockets/agent/agent.sock"``
+   * - auth.mTLS.spire.connectionTimeout
+     - SPIRE connection timeout
+     - string
+     - ``"30s"``
+   * - auth.mTLS.spire.enabled
+     - Enable SPIRE integration
+     - bool
+     - ``false``
+   * - auth.mTLS.spire.install
+     - Settings to control the SPIRE installation and configuration
+     - object
+     - ``{"agent":{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8","initContainers":[{"args":["-t","30","spire-server:8081"],"image":"cgr.dev/chainguard/wait-for-it@sha256:ecb58e3a2ffbdb732bb9049987e06eaf826d945410e167f31d6ffe28fab259f4","name":"init"}],"labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":false},"enabled":false,"namespace":"cilium-spire","server":{"annotations":{},"ca":{"keyType":"rsa-4096","subject":{"commonName":"","country":"US","organization":"SPIRE"}},"dataStorage":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null},"image":"ghcr.io/spiffe/spire-server:1.5.1@sha256:4851ec8c71a8fbe230d87be78dfed0e908800c2342cf192289c7885bb2f7a870","initContainers":[],"labels":{},"service":{"annotations":{},"labels":{},"type":"ClusterIP"},"serviceAccount":{"create":true,"name":"spire-server"}}}``
+   * - auth.mTLS.spire.install.agent
+     - SPIRE agent configuration
+     - object
+     - ``{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8","initContainers":[{"args":["-t","30","spire-server:8081"],"image":"cgr.dev/chainguard/wait-for-it@sha256:ecb58e3a2ffbdb732bb9049987e06eaf826d945410e167f31d6ffe28fab259f4","name":"init"}],"labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":false}``
+   * - auth.mTLS.spire.install.agent.annotations
+     - SPIRE agent annotations
+     - object
+     - ``{}``
+   * - auth.mTLS.spire.install.agent.image
+     - SPIRE agent image
+     - string
+     - ``"ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8"``
+   * - auth.mTLS.spire.install.agent.initContainers
+     - SPIRE agent init containers
+     - list
+     - ``[{"args":["-t","30","spire-server:8081"],"image":"cgr.dev/chainguard/wait-for-it@sha256:ecb58e3a2ffbdb732bb9049987e06eaf826d945410e167f31d6ffe28fab259f4","name":"init"}]``
+   * - auth.mTLS.spire.install.agent.labels
+     - SPIRE agent labels
+     - object
+     - ``{}``
+   * - auth.mTLS.spire.install.agent.serviceAccount
+     - SPIRE agent service account
+     - object
+     - ``{"create":true,"name":"spire-agent"}``
+   * - auth.mTLS.spire.install.agent.skipKubeletVerification
+     - SPIRE Workload Attestor kubelet verification.
+     - bool
+     - ``false``
+   * - auth.mTLS.spire.install.enabled
+     - Enable SPIRE installation. This will only take effect only if auth.mTLS.spire.enabled is true
+     - bool
+     - ``false``
+   * - auth.mTLS.spire.install.namespace
+     - SPIRE namespace to install into
+     - string
+     - ``"cilium-spire"``
+   * - auth.mTLS.spire.install.server.annotations
+     - SPIRE server annotations
+     - object
+     - ``{}``
+   * - auth.mTLS.spire.install.server.ca
+     - SPIRE CA configuration
+     - object
+     - ``{"keyType":"rsa-4096","subject":{"commonName":"","country":"US","organization":"SPIRE"}}``
+   * - auth.mTLS.spire.install.server.ca.keyType
+     - SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported
+     - string
+     - ``"rsa-4096"``
+   * - auth.mTLS.spire.install.server.ca.subject
+     - SPIRE CA Subject
+     - object
+     - ``{"commonName":"","country":"US","organization":"SPIRE"}``
+   * - auth.mTLS.spire.install.server.dataStorage
+     - SPIRE server datastorage configuration
+     - object
+     - ``{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null}``
+   * - auth.mTLS.spire.install.server.image
+     - SPIRE server image
+     - string
+     - ``"ghcr.io/spiffe/spire-server:1.5.1@sha256:4851ec8c71a8fbe230d87be78dfed0e908800c2342cf192289c7885bb2f7a870"``
+   * - auth.mTLS.spire.install.server.initContainers
+     - SPIRE server init containers
+     - list
+     - ``[]``
+   * - auth.mTLS.spire.install.server.labels
+     - SPIRE server labels
+     - object
+     - ``{}``
+   * - auth.mTLS.spire.install.server.service
+     - SPIRE server service configuration
+     - object
+     - ``{"annotations":{},"labels":{},"type":"ClusterIP"}``
+   * - auth.mTLS.spire.install.server.serviceAccount
+     - SPIRE server service account
+     - object
+     - ``{"create":true,"name":"spire-server"}``
+   * - auth.mTLS.spire.serverAddress
+     - SPIRE server address
+     - string
+     - ``"spire-server.cilium-spire.svc.cluster.local:8081"``
+   * - auth.mTLS.spire.trustDomain
+     - SPIFFE trust domain to use for fetching certificates
+     - string
+     - ``"spiffe.cilium"``
    * - autoDirectNodeRoutes
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
@@ -218,7 +329,7 @@
      - int
      - ``0``
    * - cluster.name
-     - Name of the cluster. Only required for Cluster Mesh.
+     - Name of the cluster. Only required for Cluster Mesh and mTLS auth with SPIRE.
      - string
      - ``"default"``
    * - clustermesh.apiserver.affinity
@@ -325,12 +436,16 @@
      - base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key. Used if 'auto' is not enabled.
      - object
      - ``{"cert":"","key":""}``
+   * - clustermesh.apiserver.tls.authMode
+     - Configure the clustermesh authentication mode. Supported values: - legacy:     All clusters access remote clustermesh instances with the same               username (i.e., remote). The "remote" certificate must be               generated with CN=remote if provided manually. - migration:  Intermediate mode required to upgrade from legacy to cluster               (and vice versa) with no disruption. Specifically, it enables               the creation of the per-cluster usernames, while still using               the common one for authentication. The "remote" certificate must               be generated with CN=remote if provided manually (same as legacy). - cluster:    Each cluster accesses remote etcd instances with a username               depending on the local cluster name (i.e., remote-\ :raw-html-m2r:`<cluster-name>`\ ).               The "remote" certificate must be generated with CN=remote-\ :raw-html-m2r:`<cluster-name>`               if provided manually. Cluster mode is meaningful only when the same               CA is shared across all clusters part of the mesh.
+     - string
+     - ``"legacy"``
    * - clustermesh.apiserver.tls.auto
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
      - object
      - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm"}``
    * - clustermesh.apiserver.tls.auto.certManagerIssuerRef
-     - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager. If not specified, a CA issuer will be created.
+     - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
      - object
      - ``{}``
    * - clustermesh.apiserver.tls.auto.certValidityDuration
@@ -448,7 +563,7 @@
    * - cni.uninstall
      - Remove the CNI configuration and binary files on agent shutdown. Enable this if you're removing Cilium from the cluster. Disable this to prevent the CNI configuration file from being removed during agent upgrade, which can cause nodes to go unmanageable.
      - bool
-     - ``true``
+     - ``false``
    * - conntrackGCInterval
      - Configure how frequently garbage collection should occur for the datapath connection tracking table.
      - string
@@ -598,7 +713,7 @@
      - bool
      - ``false``
    * - encryption.interface
-     - Deprecated in favor of encryption.ipsec.interface. The interface to use for encrypted traffic. This option is only effective when encryption.type is set to ipsec.
+     - Deprecated in favor of encryption.ipsec.interface. To be removed in 1.15. The interface to use for encrypted traffic. This option is only effective when encryption.type is set to ipsec.
      - string
      - ``""``
    * - encryption.ipsec.interface
@@ -618,11 +733,11 @@
      - string
      - ``""``
    * - encryption.keyFile
-     - Deprecated in favor of encryption.ipsec.keyFile. Name of the key file inside the Kubernetes secret configured via secretName. This option is only effective when encryption.type is set to ipsec.
+     - Deprecated in favor of encryption.ipsec.keyFile. To be removed in 1.15. Name of the key file inside the Kubernetes secret configured via secretName. This option is only effective when encryption.type is set to ipsec.
      - string
      - ``"keys"``
    * - encryption.mountPath
-     - Deprecated in favor of encryption.ipsec.mountPath. Path to mount the secret inside the Cilium pod. This option is only effective when encryption.type is set to ipsec.
+     - Deprecated in favor of encryption.ipsec.mountPath. To be removed in 1.15. Path to mount the secret inside the Cilium pod. This option is only effective when encryption.type is set to ipsec.
      - string
      - ``"/etc/ipsec"``
    * - encryption.nodeEncryption
@@ -630,7 +745,7 @@
      - bool
      - ``false``
    * - encryption.secretName
-     - Deprecated in favor of encryption.ipsec.secretName. Name of the Kubernetes secret containing the encryption keys. This option is only effective when encryption.type is set to ipsec.
+     - Deprecated in favor of encryption.ipsec.secretName. To be removed in 1.15. Name of the Kubernetes secret containing the encryption keys. This option is only effective when encryption.type is set to ipsec.
      - string
      - ``"cilium-ipsec-keys"``
    * - encryption.type
@@ -700,7 +815,7 @@
    * - eni.updateEC2AdapterLimitViaAPI
      - Update ENI Adapter limits from the EC2 API
      - bool
-     - ``false``
+     - ``true``
    * - etcd.clusterDomain
      - Cluster domain for cilium-etcd-operator.
      - string
@@ -933,10 +1048,6 @@
      - The cluster domain to use to query the Hubble Peer service. It should be the local cluster.
      - string
      - ``"cluster.local"``
-   * - hubble.peerService.enabled
-     - Enable a K8s Service for the Peer service, so that it can be accessed by a non-local client. This configuration option is deprecated, the peer service will be non-optional starting Cilium v1.14.
-     - bool
-     - ``true``
    * - hubble.peerService.targetPort
      - Target Port for the Peer service, must match the hubble.listenAddress' port.
      - int
@@ -1140,13 +1251,13 @@
    * - hubble.tls
      - TLS configuration for Hubble
      - object
-     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"ca":{"cert":"","key":""},"enabled":true,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
+     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
    * - hubble.tls.auto
      - Configure automatic TLS certificates generation.
      - object
      - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
    * - hubble.tls.auto.certManagerIssuerRef
-     - certmanager issuer used when hubble.tls.auto.method=certmanager. If not specified, a CA issuer will be created.
+     - certmanager issuer used when hubble.tls.auto.method=certmanager.
      - object
      - ``{}``
    * - hubble.tls.auto.certValidityDuration
@@ -1165,18 +1276,6 @@
      - Schedule for certificates regeneration (regardless of their expiration date). Only used if method is "cronJob". If nil, then no recurring job will be created. Instead, only the one-shot job is deployed to generate the certificates at installation time.  Defaults to midnight of the first day of every fourth month. For syntax, see https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
      - string
      - ``"0 0 1 */4 *"``
-   * - hubble.tls.ca
-     - Deprecated in favor of tls.ca. To be removed in 1.13. base64 encoded PEM values for the Hubble CA certificate and private key.
-     - object
-     - ``{"cert":"","key":""}``
-   * - hubble.tls.ca.cert
-     - Deprecated in favor of tls.ca.cert. To be removed in 1.13.
-     - string
-     - ``""``
-   * - hubble.tls.ca.key
-     - Deprecated in favor of tls.ca.key. To be removed in 1.13. The CA private key (optional). If it is provided, then it will be used by hubble.tls.auto.method=cronJob to generate all other certificates. Otherwise, a ephemeral CA is generated if hubble.tls.auto.enabled=true.
-     - string
-     - ``""``
    * - hubble.tls.enabled
      - Enable mutual TLS for listenAddress. Setting this value to false is highly discouraged as the Hubble API provides access to potentially sensitive network flow metadata and is exposed on the host network.
      - bool
@@ -1212,7 +1311,7 @@
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
-     - ``{"digest":"sha256:cc5e2730b3be6f117b22176e25875f2308834ced7c3aa34fb598aa87a2c0a6a4","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.10.0","useDigest":true}``
+     - ``{"digest":"sha256:14c04d11f78da5c363f88592abae8d2ecee3cbe009f443ef11df6ac5f692d839","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.11.0","useDigest":true}``
    * - hubble.ui.backend.resources
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
@@ -1221,6 +1320,10 @@
      - Hubble-ui backend security context.
      - object
      - ``{}``
+   * - hubble.ui.baseUrl
+     - Defines base url prefix for all hubble-ui http requests. It needs to be changed in case if ingress for hubble-ui is configured under some sub-path. Trailing ``/`` is required for custom path, ex. ``/service-map/``
+     - string
+     - ``"/"``
    * - hubble.ui.enabled
      - Whether to enable the Hubble UI.
      - bool
@@ -1240,7 +1343,7 @@
    * - hubble.ui.frontend.image
      - Hubble-ui frontend image.
      - object
-     - ``{"digest":"sha256:118ad2fcfd07fabcae4dde35ec88d33564c9ca7abe520aa45b1eb13ba36c6e0a","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.10.0","useDigest":true}``
+     - ``{"digest":"sha256:bcb369c47cada2d4257d63d3749f7f87c91dde32e010b223597306de95d1ecc8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.11.0","useDigest":true}``
    * - hubble.ui.frontend.resources
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -1256,7 +1359,7 @@
    * - hubble.ui.ingress
      - hubble-ui ingress configuration.
      - object
-     - ``{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"tls":[]}``
+     - ``{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]}``
    * - hubble.ui.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -1296,11 +1399,7 @@
    * - hubble.ui.securityContext
      - Security context to be added to Hubble UI pods
      - object
-     - ``{"enabled":true,"fsGroup":1001,"runAsGroup":1001,"runAsUser":1001}``
-   * - hubble.ui.securityContext.enabled
-     - Deprecated in favor of hubble.ui.securityContext. Whether to set the security context on the Hubble UI pods.
-     - bool
-     - ``true``
+     - ``{"fsGroup":1001,"runAsGroup":1001,"runAsUser":1001}``
    * - hubble.ui.service
      - hubble-ui service configuration.
      - object
@@ -1449,26 +1548,18 @@
      - IPv4 CIDR mask size to delegate to individual nodes for IPAM.
      - int
      - ``24``
-   * - ipam.operator.clusterPoolIPv4PodCIDR
-     - Deprecated in favor of ipam.operator.clusterPoolIPv4PodCIDRList. IPv4 CIDR range to delegate to individual nodes for IPAM.
-     - string
-     - ``"10.0.0.0/8"``
    * - ipam.operator.clusterPoolIPv4PodCIDRList
      - IPv4 CIDR list range to delegate to individual nodes for IPAM.
      - list
-     - ``[]``
+     - ``["10.0.0.0/8"]``
    * - ipam.operator.clusterPoolIPv6MaskSize
      - IPv6 CIDR mask size to delegate to individual nodes for IPAM.
      - int
      - ``120``
-   * - ipam.operator.clusterPoolIPv6PodCIDR
-     - Deprecated in favor of ipam.operator.clusterPoolIPv6PodCIDRList. IPv6 CIDR range to delegate to individual nodes for IPAM.
-     - string
-     - ``"fd00::/104"``
    * - ipam.operator.clusterPoolIPv6PodCIDRList
      - IPv6 CIDR list range to delegate to individual nodes for IPAM.
      - list
-     - ``[]``
+     - ``["fd00::/104"]``
    * - ipam.operator.externalAPILimitBurstSize
      - The maximum burst size when rate limiting access to external APIs. Also known as the token bucket capacity.
      - string
@@ -1657,6 +1748,10 @@
      - Labels to be added to node-init pods.
      - object
      - ``{}``
+   * - nodeinit.prestop
+     - prestop offers way to customize prestop nodeinit script (pre and post position)
+     - object
+     - ``{"postScript":"","preScript":""}``
    * - nodeinit.priorityClassName
      - The priority class to use for the nodeinit pod.
      - string
@@ -1669,6 +1764,10 @@
      - Security context to be added to nodeinit pods.
      - object
      - ``{"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
+   * - nodeinit.startup
+     - startup offers way to customize startup nodeinit script (pre and post position)
+     - object
+     - ``{"postScript":"","preScript":""}``
    * - nodeinit.tolerations
      - Node tolerations for nodeinit scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
@@ -1829,6 +1928,10 @@
      - Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod.
      - bool
      - ``true``
+   * - operator.setNodeTaints
+     - Taint nodes where Cilium is scheduled but not running. This prevents pods from being scheduled to nodes where Cilium is not the default CNI provider.
+     - string
+     - same as removeNodeTaints
    * - operator.skipCNPStatusStartupClean
      - Skip CNP node status clean up at operator startup.
      - bool
@@ -2045,6 +2148,10 @@
      - Roll out cilium agent pods automatically when configmap is updated.
      - bool
      - ``false``
+   * - routingMode
+     - Enable native-routing mode or tunneling mode.
+     - string
+     - ``"tunnel"``
    * - sctp
      - SCTP Configuration Values
      - object
@@ -2101,10 +2208,6 @@
      - Enable socket LB
      - bool
      - ``false``
-   * - sockops
-     - Configure BPF socket operations configuration
-     - object
-     - ``{"enabled":false}``
    * - startupProbe.failureThreshold
      - failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
      - int
@@ -2156,11 +2259,15 @@
    * - tunnel
      - Configure the encapsulation configuration for communication between nodes. Possible values:   - disabled   - vxlan (default)   - geneve
      - string
-     - ``"vxlan"``
+     - ``""``
    * - tunnelPort
      - Configure VXLAN and Geneve tunnel port.
      - int
      - Port 8472 for VXLAN, Port 6081 for Geneve
+   * - tunnelProtocol
+     - Tunneling protocol to use in tunneling mode and for ad-hoc tunnels.
+     - string
+     - ``"vxlan"``
    * - updateStrategy
      - Cilium agent update strategy
      - object

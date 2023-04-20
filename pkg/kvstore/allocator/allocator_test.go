@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package allocator
 
 import (
@@ -35,11 +33,19 @@ type AllocatorSuite struct {
 	backend string
 }
 
+func (s *AllocatorSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
+
 type AllocatorEtcdSuite struct {
 	AllocatorSuite
 }
 
 var _ = Suite(&AllocatorEtcdSuite{})
+
+func (e *AllocatorEtcdSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (e *AllocatorEtcdSuite) SetUpTest(c *C) {
 	e.backend = "etcd"
@@ -56,6 +62,10 @@ type AllocatorConsulSuite struct {
 }
 
 var _ = Suite(&AllocatorConsulSuite{})
+
+func (e *AllocatorConsulSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (e *AllocatorConsulSuite) SetUpTest(c *C) {
 	e.backend = "consul"

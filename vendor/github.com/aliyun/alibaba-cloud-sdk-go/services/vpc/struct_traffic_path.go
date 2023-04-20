@@ -17,5 +17,5 @@ package vpc
 
 // TrafficPath is a nested struct in vpc response
 type TrafficPath struct {
-	TrafficPathList []string `json:"trafficPathList" xml:"trafficPathList"`
+	TrafficPathList []string `json:"TrafficPathList" xml:"TrafficPathList"`
 }

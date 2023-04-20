@@ -20,7 +20,7 @@ running:
 
 .. code-block:: shell-session
 
-        go get github.com/cilium/cilium@master
+        go get github.com/cilium/cilium@main
 
 However, Cilium's ``go.mod`` contains ``replace`` directives, which are ignored
 by ``go get`` and ``go mod``. Therefore you must also manually copy any updated

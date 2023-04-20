@@ -73,7 +73,7 @@ of all nodes in the cluster:
 
 .. code-block:: shell-session
 
-   curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-cilium-exec.sh
+   curl -sLO https://raw.githubusercontent.com/cilium/cilium/main/contrib/k8s/k8s-cilium-exec.sh
    chmod +x ./k8s-cilium-exec.sh
 
 ... and run ``cilium status`` on all nodes:
@@ -404,7 +404,7 @@ insufficient.
 Setting ``--conntrack-gc-interval`` to an interval lower than the current value
 may help. This controls the time interval between two garbage collection runs.
 
-By default ``--contrack-gc-interval`` is set to 0 which translates to
+By default ``--conntrack-gc-interval`` is set to 0 which translates to
 using a dynamic interval. In that case, the interval is updated after each
 garbage collection run depending on how many entries where garbage collected.
 If very few or no entries were garbage collected, the interval will increase;
@@ -486,7 +486,7 @@ Cilium:
 
 .. code-block:: shell-session
 
-   $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-unmanaged.sh
+   $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/main/contrib/k8s/k8s-unmanaged.sh
    $ chmod +x k8s-unmanaged.sh
    $ ./k8s-unmanaged.sh
    kube-system/cilium-hqpk7
@@ -734,7 +734,7 @@ Identifies the Cilium pod that is managing a particular pod in a namespace:
 
 .. code-block:: shell-session
 
-    $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-get-cilium-pod.sh
+    $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/main/contrib/k8s/k8s-get-cilium-pod.sh
     $ chmod +x k8s-get-cilium-pod.sh
     $ ./k8s-get-cilium-pod.sh luke-pod default
     cilium-zmjj9
@@ -754,7 +754,7 @@ Run a command within all Cilium pods of a cluster
 
 .. code-block:: shell-session
 
-    $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-cilium-exec.sh
+    $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/main/contrib/k8s/k8s-cilium-exec.sh
     $ chmod +x k8s-cilium-exec.sh
     $ ./k8s-cilium-exec.sh uptime
      10:15:16 up 6 days,  7:37,  0 users,  load average: 0.00, 0.02, 0.00
@@ -777,7 +777,7 @@ were started before Cilium was deployed.
 
 .. code-block:: shell-session
 
-   $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/master/contrib/k8s/k8s-unmanaged.sh
+   $ curl -sLO https://raw.githubusercontent.com/cilium/cilium/main/contrib/k8s/k8s-unmanaged.sh
    $ chmod +x k8s-unmanaged.sh
    $ ./k8s-unmanaged.sh
    kube-system/cilium-hqpk7

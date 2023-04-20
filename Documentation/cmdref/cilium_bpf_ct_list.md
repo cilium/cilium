@@ -5,7 +5,7 @@
 List connection tracking entries
 
 ```
-cilium bpf ct list ( <endpoint identifier> | global ) [flags]
+cilium bpf ct list ( global | endpoint | cluster ) [identifier] [flags]
 ```
 
 ### Options

@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-// Ensure build fails on versions of Go that are not supported by Cilium.
-// This build tag should be kept in sync with the version specified in go.mod.
-//go:build go1.20
-
 package main
 
 import (
@@ -121,6 +117,7 @@ func init() {
 		k8sClient.Cell,
 		k8s.SharedResourcesCell,
 		healthAPIServerCell,
+		usersManagementCell,
 
 		cell.Invoke(registerHooks),
 	)
@@ -564,7 +561,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 	}).Info("Starting clustermesh-apiserver...")
 
 	if mockFile == "" {
-		synced.SyncCRDs(startCtx, clientset, synced.AllCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
+		synced.SyncCRDs(startCtx, clientset, synced.AllCiliumCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 	}
 
 	mgr := NewVMManager(clientset)

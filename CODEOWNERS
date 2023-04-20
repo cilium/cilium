@@ -65,6 +65,9 @@
 #   Provide recommendations about the types, names and labels for metrics to
 #   follow best practices. This includes considering the cardinality impact of
 #   metrics being added or extended.
+# - @cilium/security:
+#   Provide feedback on changes that could have security implications for Cilium,
+#   and maintain security-related documentation.
 # - @cilium/tophat:
 #   Top Hat duties rotate between the committer group from week to week, and
 #   they may assist in maintenance, triage and backporting duties across
@@ -218,7 +221,7 @@
 /.gitattributes @cilium/tophat
 /.github/ @cilium/contributing
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
-/.github/workflows/conformance-datapath.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
+/.github/workflows/*datapath*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/tophat
 /.golangci.yaml @cilium/ci-structure
 /.mailmap @cilium/tophat
@@ -242,7 +245,6 @@ Makefile* @cilium/build
 /bpf/init.sh @cilium/loader
 /bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/lib/encrypt.h @cilium/ipsec
-/bpf/sockops/Makefile* @cilium/build @cilium/loader
 /bugtool/ @cilium/tophat
 /bugtool/cmd/ @cilium/cli
 /cilium/ @cilium/cli
@@ -325,10 +327,12 @@ Makefile* @cilium/build
 /Documentation/overview/intro.rst @cilium/docs-structure
 /Documentation/requirements.txt @cilium/docs-structure
 /Documentation/security/http.rst @cilium/sig-policy @cilium/docs-structure
+/Documentation/security/images/cilium_threat_model* @cilium/security @cilium/docs-structure
 /Documentation/security/network/encryption-ipsec.rst @cilium/ipsec @cilium/docs-structure
 /Documentation/security/network/proxy/ @cilium/proxy @cilium/docs-structure
 /Documentation/security/policy-creation.rst @cilium/sig-policy @cilium/docs-structure
 /Documentation/security/policy/ @cilium/sig-policy @cilium/docs-structure
+/Documentation/security/threat-model.rst @cilium/security @cilium/docs-structure
 /Documentation/spelling_wordlist.txt @cilium/docs-structure
 /Documentation/update-cmdref.sh @cilium/docs-structure
 /Documentation/update-spelling_wordlist.sh @cilium/docs-structure
@@ -342,7 +346,6 @@ Makefile* @cilium/build
 /examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /FURTHER_READINGS.rst @cilium/docs-structure
 /hack/ @cilium/tophat
-/GO_VERSION @cilium/sig-agent
 *.Jenkinsfile @cilium/ci-structure
 /hubble-relay/ @cilium/sig-hubble
 /images @cilium/build
@@ -424,6 +427,9 @@ jenkinsfiles @cilium/ci-structure
 /pkg/ipcache/ @cilium/ipcache
 /pkg/ipmasq @cilium/sig-agent
 /pkg/k8s/ @cilium/sig-k8s
+/pkg/k8s/watchers/cilium_network_policy.go @cilium/sig-policy
+/pkg/k8s/watchers/cilium_cidr_group.go @cilium/sig-policy
+/pkg/k8s/watchers/cilium_cidr_group_test.go @cilium/sig-policy
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
 /pkg/kafka/ @cilium/proxy
@@ -460,7 +466,6 @@ jenkinsfiles @cilium/ci-structure
 /pkg/safeio @cilium/sig-agent
 /pkg/serializer @cilium/sig-agent
 /pkg/service @cilium/sig-lb
-/pkg/sockops/ @cilium/sig-datapath @cilium/loader
 /pkg/status/ @cilium/sig-agent
 /pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure
@@ -481,13 +486,10 @@ jenkinsfiles @cilium/ci-structure
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
 # Datapath tests
 /test/bpf/ @cilium/sig-datapath
-/test/bpf/check-complexity.sh @cilium/loader
-/test/bpf/verifier-test.sh @cilium/loader
 /test/bpf_tests/ @cilium/sig-datapath
 /test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/chaos.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure
-/test/k8s/verifier.go @cilium/loader @cilium/ci-structure
 /test/runtime/connectivity.go @cilium/sig-datapath @cilium/ci-structure
 /test/verifier @cilium/loader @cilium/ci-structure
 # Policy tests
@@ -507,8 +509,6 @@ jenkinsfiles @cilium/ci-structure
 # BGP tests
 /test/k8s/bgp.go @cilium/sig-bgp @cilium/ci-structure
 # Misc. tests
-/test/k8s/cli.go @cilium/cli @cilium/ci-structure
-/test/k8s/health.go @cilium/sig-agent @cilium/ci-structure
 /test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure

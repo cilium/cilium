@@ -91,7 +91,8 @@ func initKubeProxyReplacementOptions() error {
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP ||
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve ||
 			option.Config.NodePortMode == option.NodePortModeHybrid &&
 				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption {
 			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
@@ -185,9 +186,23 @@ func initKubeProxyReplacementOptions() error {
 	}
 
 	if option.Config.EnableNodePort {
-		if option.Config.TunnelingEnabled() &&
+		if option.Config.TunnelingEnabled() && option.Config.TunnelProtocol == option.TunnelVXLAN &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {
-			return fmt.Errorf("Node Port %q mode cannot be used with tunneling.", option.Config.NodePortMode)
+			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, option.Config.TunnelProtocol)
+		}
+
+		if option.Config.TunnelingEnabled() && option.Config.TunnelProtocol == option.TunnelGeneve &&
+			option.Config.NodePortMode != option.NodePortModeSNAT &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+			return fmt.Errorf("Node Port %q mode with %s dispatch cannot be used with %s tunneling.",
+				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, option.Config.TunnelProtocol)
+		}
+
+		if option.Config.NodePortMode == option.NodePortModeDSR &&
+			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve &&
+			option.Config.TunnelingEnabled() && option.Config.TunnelProtocol != option.TunnelGeneve {
+			return fmt.Errorf("Node Port %q mode with %s dispatch requires %s tunneling.",
+				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, option.TunnelGeneve)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
@@ -449,8 +464,8 @@ func finishKubeProxyReplacementInit() error {
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		// All cases below still need to be implemented ...
-		case option.Config.EnableEndpointRoutes:
-			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
+		case option.Config.EnableEndpointRoutes && option.Config.EnableIPv6:
+			msg = fmt.Sprintf("BPF host routing is currently not supported with %s when IPv6 is enabled.", option.EnableEndpointRoutes)
 		default:
 			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
 				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {

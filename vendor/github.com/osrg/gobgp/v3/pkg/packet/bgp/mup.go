@@ -219,7 +219,7 @@ func TEIDString(nlri AddrPrefixInterface) string {
 	case *MUPNLRI:
 		switch route := n.RouteTypeData.(type) {
 		case *MUPType1SessionTransformedRoute:
-			s = fmt.Sprintf("%d", route.TEID)
+			s = route.TEID.String()
 		default:
 			s = ""
 		}
@@ -448,13 +448,13 @@ func (r *MUPDirectSegmentDiscoveryRoute) rd() RouteDistinguisherInterface {
 type MUPType1SessionTransformedRoute struct {
 	RD                    RouteDistinguisherInterface
 	Prefix                netip.Prefix
-	TEID                  uint32
+	TEID                  netip.Addr
 	QFI                   uint8
 	EndpointAddressLength uint8
 	EndpointAddress       netip.Addr
 }
 
-func NewMUPType1SessionTransformedRoute(rd RouteDistinguisherInterface, prefix netip.Prefix, teid uint32, qfi uint8, ea netip.Addr) *MUPNLRI {
+func NewMUPType1SessionTransformedRoute(rd RouteDistinguisherInterface, prefix netip.Prefix, teid netip.Addr, qfi uint8, ea netip.Addr) *MUPNLRI {
 	afi := uint16(AFI_IP)
 	if prefix.Addr().Is6() {
 		afi = uint16(AFI_IP6)
@@ -501,9 +501,9 @@ func (r *MUPType1SessionTransformedRoute) DecodeFromBytes(data []byte, afi uint1
 	}
 	r.Prefix = netip.PrefixFrom(addr, prefixLength)
 	p += byteLen
-	r.TEID = binary.BigEndian.Uint32(data[p : p+4])
-	if r.TEID == 0 {
-		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid TEID: %d", r.TEID))
+	r.TEID, ok = netip.AddrFromSlice(data[p : p+4])
+	if !ok {
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid TEID: %x", r.TEID))
 	}
 	p += 4
 	r.QFI = data[p]
@@ -536,9 +536,7 @@ func (r *MUPType1SessionTransformedRoute) Serialize() ([]byte, error) {
 	buf = append(buf, byte(r.Prefix.Bits()))
 	byteLen := (r.Prefix.Bits() + 7) / 8
 	buf = append(buf, r.Prefix.Addr().AsSlice()[:byteLen]...)
-	t := make([]byte, 4)
-	binary.BigEndian.PutUint32(t, r.TEID)
-	buf = append(buf, t...)
+	buf = append(buf, r.TEID.AsSlice()...)
 	buf = append(buf, r.QFI)
 	buf = append(buf, r.EndpointAddressLength)
 	buf = append(buf, r.EndpointAddress.AsSlice()...)
@@ -569,13 +567,13 @@ func (r *MUPType1SessionTransformedRoute) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		RD              RouteDistinguisherInterface `json:"rd"`
 		Prefix          string                      `json:"prefix"`
-		TEID            uint32                      `json:"teid"`
+		TEID            string                      `json:"teid"`
 		QFI             uint8                       `json:"qfi"`
 		EndpointAddress string                      `json:"endpoint_address"`
 	}{
 		RD:              r.RD,
 		Prefix:          r.Prefix.String(),
-		TEID:            r.TEID,
+		TEID:            r.TEID.String(),
 		QFI:             r.QFI,
 		EndpointAddress: r.EndpointAddress.String(),
 	})
@@ -591,17 +589,17 @@ type MUPType2SessionTransformedRoute struct {
 	RD                    RouteDistinguisherInterface
 	EndpointAddressLength uint8
 	EndpointAddress       netip.Addr
-	TEID                  uint32
+	TEID                  netip.Addr
 }
 
-func NewMUPType2SessionTransformedRoute(rd RouteDistinguisherInterface, ea netip.Addr, teid uint32) *MUPNLRI {
+func NewMUPType2SessionTransformedRoute(rd RouteDistinguisherInterface, eaLen uint8, ea netip.Addr, teid netip.Addr) *MUPNLRI {
 	afi := uint16(AFI_IP)
 	if ea.Is6() {
 		afi = AFI_IP6
 	}
 	return NewMUPNLRI(afi, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_TYPE_2_SESSION_TRANSFORMED, &MUPType2SessionTransformedRoute{
 		RD:                    rd,
-		EndpointAddressLength: uint8(ea.BitLen()) + 32,
+		EndpointAddressLength: eaLen,
 		EndpointAddress:       ea,
 		TEID:                  teid,
 	})
@@ -614,6 +612,9 @@ func (r *MUPType2SessionTransformedRoute) DecodeFromBytes(data []byte, afi uint1
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "invalid 3GPP 5G specific Type 2 Session Transformed Route length")
 	}
 	r.EndpointAddressLength = data[p]
+	if (afi == AFI_IP && r.EndpointAddressLength > 64) || (afi == AFI_IP6 && r.EndpointAddressLength > 160) {
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Endpoint Address Length: %d", r.EndpointAddressLength))
+	}
 	p += 1
 	var ea netip.Addr
 	var ok bool
@@ -625,24 +626,29 @@ func (r *MUPType2SessionTransformedRoute) DecodeFromBytes(data []byte, afi uint1
 			return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Endpoint Address: %x", data[p:p+int(r.EndpointAddressLength/8)]))
 		}
 		p += 4
-		teidLen = int(r.EndpointAddressLength)/8 - 4
+		teidLen = int(r.EndpointAddressLength) - 32
 	case AFI_IP6:
 		ea, ok = netip.AddrFromSlice(data[p : p+16])
 		if !ok {
 			return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Endpoint Address: %x", data[p:p+int(r.EndpointAddressLength/8)]))
 		}
 		p += 16
-		teidLen = int(r.EndpointAddressLength)/8 - 16
+		teidLen = int(r.EndpointAddressLength) - 128
 	default:
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid AFI: %d", afi))
 	}
 	r.EndpointAddress = ea
 	if teidLen > 0 {
-		teidData := append(make([]byte, 4-teidLen), data[p:p+teidLen]...)
-		r.TEID = binary.BigEndian.Uint32(teidData)
-		if r.TEID == 0 {
-			return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid TEID: %d", r.TEID))
+		l := (teidLen + 7) / 8
+		b := make([]byte, 4)
+		copy(b[:l], data[p:p+l])
+		a, ok := netip.AddrFromSlice(b)
+		if !ok {
+			return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid TEID: %x", data[p:p+l]))
 		}
+		r.TEID = a
+	} else {
+		r.TEID = netip.AddrFrom4([4]byte{0, 0, 0, 0})
 	}
 	return nil
 }
@@ -660,9 +666,11 @@ func (r *MUPType2SessionTransformedRoute) Serialize() ([]byte, error) {
 	}
 	buf = append(buf, r.EndpointAddressLength)
 	buf = append(buf, r.EndpointAddress.AsSlice()...)
-	t := make([]byte, 4)
-	binary.BigEndian.PutUint32(t, r.TEID)
-	buf = append(buf, t...)
+	teidLen := int(r.EndpointAddressLength) - r.EndpointAddress.BitLen()
+	if teidLen > 0 {
+		byteLen := (teidLen + 7) / 8
+		buf = append(buf, r.TEID.AsSlice()[:byteLen]...)
+	}
 	return buf, nil
 }
 
@@ -677,25 +685,27 @@ func (r *MUPType2SessionTransformedRoute) Len() int {
 	// RD(8) + EndpointAddressLength(1) + EndpointAddress(4 or 16)
 	// + TEID(4)
 	// Endpoint Address Length includes TEID Length
-	return 9 + int(r.EndpointAddressLength/8)
+	return 9 + int(r.EndpointAddressLength+7)/8
 }
 
 func (r *MUPType2SessionTransformedRoute) String() string {
 	// I-D.draft-mpmz-bess-mup-safi-01
 	// 3.1.4.  BGP Type 2 Session Transformed (ST) Route
 	// For the purpose of BGP route key processing, only the RD, Endpoint Address and Architecture specific Endpoint Identifier are considered to be part of the prefix in the NLRI.
-	return fmt.Sprintf("[type:t2st][rd:%s][endpoint:%s][teid:%d]", r.RD, r.EndpointAddress, r.TEID)
+	return fmt.Sprintf("[type:t2st][rd:%s][endpoint-address-length:%d][endpoint:%s][teid:%s]", r.RD, r.EndpointAddressLength, r.EndpointAddress, r.TEID)
 }
 
 func (r *MUPType2SessionTransformedRoute) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		RD              RouteDistinguisherInterface `json:"rd"`
-		EndpointAddress string                      `json:"endpoint_address"`
-		TEID            uint32                      `json:"teid"`
+		RD                    RouteDistinguisherInterface `json:"rd"`
+		EndpointAddressLength uint8                       `json:"endpoint_address_length"`
+		EndpointAddress       string                      `json:"endpoint_address"`
+		TEID                  string                      `json:"teid"`
 	}{
-		RD:              r.RD,
-		EndpointAddress: r.EndpointAddress.String(),
-		TEID:            r.TEID,
+		RD:                    r.RD,
+		EndpointAddressLength: r.EndpointAddressLength,
+		EndpointAddress:       r.EndpointAddress.String(),
+		TEID:                  r.TEID.String(),
 	})
 }
 

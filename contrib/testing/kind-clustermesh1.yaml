@@ -5,9 +5,11 @@ debug:
   enabled: true
 image:
   override: "localhost:5000/cilium/cilium-dev:local"
+  pullPolicy: Never
 operator:
   image:
     override: "localhost:5000/cilium/operator-generic:local"
+    pullPolicy: Never
     suffix: ""
 ipam:
   mode: kubernetes

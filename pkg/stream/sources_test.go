@@ -35,7 +35,7 @@ func TestMulticast(t *testing.T) {
 	for i := 0; i < numSubs; i++ {
 		go func() {
 			errs := make(chan error)
-			items := ToChannel(ctx, errs, src)
+			items := ToChannel(ctx, src, WithErrorChan(errs))
 			index := 0
 			ready := false
 			for {

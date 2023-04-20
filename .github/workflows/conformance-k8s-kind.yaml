@@ -1,0 +1,252 @@
+name: ConformanceK8sKind
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request:
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+  push:
+    branches:
+      - main
+      - ft/main/**
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+env:
+  kind_version: v0.17.0
+  cluster_name: cilium-testing
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.13.0
+  k8s_version: v1.26.0
+
+jobs:
+  kubernetes-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO add "dual" and "ipv6", "ipv6" fails to install cilium
+        ipFamily: ["ipv4"]
+    env:
+      IP_FAMILY: ${{ matrix.ipFamily }}
+
+    steps:
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Enable ipv4 and ipv6 forwarding
+        run: |
+          sudo sysctl -w net.ipv6.conf.all.forwarding=1
+          sudo sysctl -w net.ipv4.ip_forward=1
+
+      - name: Set up environment (download Kubernetes dependencies)
+        run: |
+          TMP_DIR=$(mktemp -d)
+          # Test binaries
+          curl -L https://dl.k8s.io/${{ env.k8s_version }}/kubernetes-test-linux-amd64.tar.gz -o ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz
+          tar xvzf ${TMP_DIR}/kubernetes-test-linux-amd64.tar.gz \
+            --directory ${TMP_DIR} \
+            --strip-components=3 kubernetes/test/bin/ginkgo kubernetes/test/bin/e2e.test
+          # kubectl
+          curl -L https://dl.k8s.io/${{ env.k8s_version }}/bin/linux/amd64/kubectl -o ${TMP_DIR}/kubectl
+          # kind
+          curl -Lo ${TMP_DIR}/kind https://kind.sigs.k8s.io/dl/${{ env.kind_version }}/kind-linux-amd64
+          # Install
+          sudo cp ${TMP_DIR}/ginkgo /usr/local/bin/ginkgo
+          sudo cp ${TMP_DIR}/e2e.test /usr/local/bin/e2e.test
+          sudo cp ${TMP_DIR}/kubectl /usr/local/bin/kubectl
+          sudo cp ${TMP_DIR}/kind /usr/local/bin/kind
+          sudo chmod +x /usr/local/bin/*
+          sudo rm -rf ${TMP_DIR}
+
+      - name: Create multi node cluster
+        run: |
+          cat <<EOF | /usr/local/bin/kind create cluster \
+            --name ${{ env.cluster_name}}           \
+            --image kindest/node:${{ env.k8s_version }}  \
+            -v7 --wait 1m --retain --config=-
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          networking:
+            ipFamily: ${IP_FAMILY}
+            kubeProxyMode: "none"
+          nodes:
+          - role: control-plane
+          - role: worker
+          - role: worker
+          EOF
+
+      - name: Workaround CoreDNS for IPv6 airgapped
+        if: ${{ matrix.ipFamily == 'ipv6' }}
+        run: |
+          # Patch CoreDNS to work in Github CI
+          # 1. Github CI doesn´t offer IPv6 connectivity, so CoreDNS should be configured
+          # to work in an offline environment:
+          # https://github.com/coredns/coredns/issues/2494#issuecomment-457215452
+          # 2. Github CI adds following domains to resolv.conf search field:
+          # .net.
+          # CoreDNS should handle those domains and answer with NXDOMAIN instead of SERVFAIL
+          # otherwise pods stops trying to resolve the domain.
+          # Get the current config
+          original_coredns=$(/usr/local/bin/kubectl get -oyaml -n=kube-system configmap/coredns)
+          echo "Original CoreDNS config:"
+          echo "${original_coredns}"
+          # Patch it
+          fixed_coredns=$(
+            printf '%s' "${original_coredns}" | sed \
+              -e 's/^.*kubernetes cluster\.local/& net/' \
+              -e '/^.*upstream$/d' \
+              -e '/^.*fallthrough.*$/d' \
+              -e '/^.*forward . \/etc\/resolv.conf$/d' \
+              -e '/^.*loop$/d' \
+          )
+          echo "Patched CoreDNS config:"
+          echo "${fixed_coredns}"
+          printf '%s' "${fixed_coredns}" | /usr/local/bin/kubectl apply -f -
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request }} ]; then
+            SHA=${{ github.event.pull_request.head.sha }}
+          else
+            SHA=${{ github.sha }}
+          fi
+
+          # Note: On Kind, we install Cilium with HostPort (portmap CNI chaining) enabled,
+          # to ensure coverage of that feature in cilium connectivity test
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
+            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
+            --helm-set=clustermesh.apiserver.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=cni.chainingMode=portmap \
+            --helm-set-string=kubeProxyReplacement=strict \
+            --helm-set=sessionAffinity=true \
+            --rollback=false \
+            --config monitor-aggregation=none \
+            --version="
+          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
+            --relay-version=${SHA}"
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+
+      - name: Install Cilium CLI
+        run: |
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
+
+      - name: Checkout code
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Cilium
+        run: |
+          cilium install --wait ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Run Kubernetes sig-network conformance test
+        run: |
+          # output_dir
+          mkdir -p _artifacts
+
+          # get kubeconfig to pass to the e2e binary
+          kind get kubeconfig --name ${{ env.cluster_name }} > _artifacts/kubeconfig.conf
+
+          # Kubernetes e2e tests use ginkgo and tags to select the tests that should run based on two regex, focus and skip:
+          # Focus tests:
+          # \[Conformance\]|\[sig-network\]: Conformance tests are defined by the project to guarantee a consistent behaviour and some mandatory features on all clusters
+          #                                  sig-network tests are defined by sig-networkto guarantee a consistent behaviour on all the the k8s network implementations
+          # Skipped tests:
+          # Disruptive|Serial : require to run in serial and perform disruptive operations on clusters (reboots, ...)
+          # Federation|PerformanceDNS : unrelated sig-network tests
+          # Feature : skip features that are not GA, however, some of them should be enabled, per example [Feature:ProxyTerminatingEndpoints]
+          # DualStack : only with dualstack clusters
+          # KubeProxy|kube-proxy : kube-proxy specifics
+          # LoadBalancer|GCE|ExternalIP : require a cloud provider, some of them are GCE specifics
+          # Netpol|NetworkPolicy : network policies, demand significant resources and use to be slow, better to run in a different job
+          # same.port.number.but.different.protocols|HostPort : #9207
+          # rejected : Kubernetes expect Services without endpoints associated to REJECT the connection to notify the client, Cilium silently drops the packet
+          # externalTrafficPolicy : needs investigation
+
+          # Run tests
+          export KUBERNETES_CONFORMANCE_TEST='y'
+          export E2E_REPORT_DIR=${PWD}/_artifacts
+          /usr/local/bin/ginkgo --nodes=25                \
+            --focus="\[Conformance\]|\[sig-network\]"     \
+            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols"   \
+            /usr/local/bin/e2e.test                       \
+            --                                            \
+            --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
+            --provider=local                              \
+            --dump-logs-on-failure=false                  \
+            --report-dir=${E2E_REPORT_DIR}                \
+            --disable-log-dump=true
+
+      - name: Post-test information gathering
+        if: ${{ !success() }}
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-final
+          /usr/local/bin/kind export logs --name  ${{ env.cluster_name }} --loglevel=debug ./_artifacts/logs
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
+          retention-days: 5
+
+      - name: Upload cluster logs
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: kind-logs
+          path: ./_artifacts/logs
+          retention-days: 5
+
+      - name: Upload Kubernetes e2e Junit Reports
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: kubernetes-e2e-junit
+          path: './_artifacts/*.xml'

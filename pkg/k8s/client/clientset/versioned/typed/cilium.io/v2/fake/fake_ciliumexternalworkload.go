@@ -11,7 +11,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -22,9 +21,9 @@ type FakeCiliumExternalWorkloads struct {
 	Fake *FakeCiliumV2
 }
 
-var ciliumexternalworkloadsResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumexternalworkloads"}
+var ciliumexternalworkloadsResource = v2.SchemeGroupVersion.WithResource("ciliumexternalworkloads")
 
-var ciliumexternalworkloadsKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumExternalWorkload"}
+var ciliumexternalworkloadsKind = v2.SchemeGroupVersion.WithKind("CiliumExternalWorkload")
 
 // Get takes name of the ciliumExternalWorkload, and returns the corresponding ciliumExternalWorkload object, and an error if there is any.
 func (c *FakeCiliumExternalWorkloads) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumExternalWorkload, err error) {

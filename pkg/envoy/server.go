@@ -30,6 +30,7 @@ import (
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -466,7 +467,7 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string
 	return chain
 }
 
-func getListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.Address {
+func getPublicListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.Address {
 	listenerAddr := "0.0.0.0"
 	if ipv6 {
 		listenerAddr = "::"
@@ -481,6 +482,44 @@ func getListenerAddress(port uint16, ipv4, ipv6 bool) *envoy_config_core.Address
 			},
 		},
 	}
+}
+
+func getLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core.Address, []*envoy_config_listener.AdditionalAddress) {
+	addresses := []*envoy_config_core.Address_SocketAddress{}
+
+	if ipv4 {
+		addresses = append(addresses, &envoy_config_core.Address_SocketAddress{
+			SocketAddress: &envoy_config_core.SocketAddress{
+				Protocol:      envoy_config_core.SocketAddress_TCP,
+				Address:       "127.0.0.1",
+				PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
+			},
+		})
+	}
+
+	if ipv6 {
+		addresses = append(addresses, &envoy_config_core.Address_SocketAddress{
+			SocketAddress: &envoy_config_core.SocketAddress{
+				Protocol:      envoy_config_core.SocketAddress_TCP,
+				Address:       "::1",
+				PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
+			},
+		})
+	}
+
+	var additionalAddress []*envoy_config_listener.AdditionalAddress
+
+	if len(addresses) > 1 {
+		additionalAddress = append(additionalAddress, &envoy_config_listener.AdditionalAddress{
+			Address: &envoy_config_core.Address{
+				Address: addresses[1],
+			},
+		})
+	}
+
+	return &envoy_config_core.Address{
+		Address: addresses[0],
+	}, additionalAddress
 }
 
 // AddMetricsListener adds a prometheus metrics listener to Envoy.
@@ -527,7 +566,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 
 		listenerConf := &envoy_config_listener.Listener{
 			Name:    metricsListenerName,
-			Address: getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
+			Address: getPublicListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
 			FilterChains: []*envoy_config_listener.FilterChain{{
 				Filters: []*envoy_config_listener.Filter{{
 					Name: "envoy.filters.network.http_connection_manager",
@@ -706,7 +745,7 @@ func getListenerFilter(isIngress bool, mayUseOriginalSourceAddr bool, l7lb bool)
 	conf := &cilium.BpfMetadata{
 		IsIngress:                   isIngress,
 		MayUseOriginalSourceAddress: mayUseOriginalSourceAddr,
-		BpfRoot:                     bpf.GetMapRoot(),
+		BpfRoot:                     bpf.BPFFSRoot(),
 		EgressMarkSourceEndpointId:  l7lb,
 	}
 	// Set Ingress source addresses if configuring for L7 LB
@@ -754,10 +793,12 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		tlsClusterName = ingressTLSClusterName
 	}
 
+	addr, additionalAddr := getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 	listenerConf := &envoy_config_listener.Listener{
-		Name:        name,
-		Address:     getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
-		Transparent: &wrapperspb.BoolValue{Value: true},
+		Name:                name,
+		Address:             addr,
+		AdditionalAddresses: additionalAddr,
+		Transparent:         &wrapperspb.BoolValue{Value: true},
 		SocketOptions: []*envoy_config_core.SocketOption{
 			getListenerSocketMarkOption(isIngress),
 		},
@@ -1106,7 +1147,7 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
 				}
 			} else {
-				log.Debugf("HeaderMatches: Adding %s: %s", hdr.Name, value)
+				log.Debugf("HeaderMatches: Adding %s", hdr.Name)
 				headerMatches = append(headerMatches, &cilium.HeaderMatch{
 					MismatchAction: mismatch_action,
 					Name:           hdr.Name,
@@ -1516,7 +1557,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 }
 
-func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
 		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis))
@@ -1576,6 +1617,13 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
 			rule := getWildcardNetworkPolicyRule(l4.PerSelectorPolicies)
 			if rule != nil {
+				log.WithFields(logrus.Fields{
+					logfields.EndpointID:       ep.GetID(),
+					logfields.TrafficDirection: dir,
+					logfields.Port:             port,
+					logfields.PolicyID:         rule.RemotePolicies,
+				}).Debug("Wildcard PortNetworkPolicyRule matching remote IDs")
+
 				if len(rule.RemotePolicies) == 0 {
 					// Got an allow-all rule, which can short-circuit all of
 					// the other rules.
@@ -1596,6 +1644,15 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 					if !cs {
 						canShortCircuit = false
 					}
+
+					log.WithFields(logrus.Fields{
+						logfields.EndpointID:       ep.GetID(),
+						logfields.TrafficDirection: dir,
+						logfields.Port:             port,
+						logfields.PolicyID:         rule.RemotePolicies,
+						logfields.ServerNames:      rule.ServerNames,
+					}).Debug("PortNetworkPolicyRule matching remote IDs")
+
 					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil && len(rule.ServerNames) == 0 {
 						// Got an allow-all rule, which can short-circuit all of
 						// the other rules.
@@ -1649,8 +1706,8 @@ func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, i
 			visIngress = vis.Ingress
 			visEgress = vis.Egress
 		}
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced, visIngress)
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced, visEgress)
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced, visIngress, "ingress")
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced, visEgress, "egress")
 	}
 	return p
 }

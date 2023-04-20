@@ -11,7 +11,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -23,9 +22,9 @@ type FakeCiliumLocalRedirectPolicies struct {
 	ns   string
 }
 
-var ciliumlocalredirectpoliciesResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumlocalredirectpolicies"}
+var ciliumlocalredirectpoliciesResource = v2.SchemeGroupVersion.WithResource("ciliumlocalredirectpolicies")
 
-var ciliumlocalredirectpoliciesKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumLocalRedirectPolicy"}
+var ciliumlocalredirectpoliciesKind = v2.SchemeGroupVersion.WithKind("CiliumLocalRedirectPolicy")
 
 // Get takes name of the ciliumLocalRedirectPolicy, and returns the corresponding ciliumLocalRedirectPolicy object, and an error if there is any.
 func (c *FakeCiliumLocalRedirectPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumLocalRedirectPolicy, err error) {

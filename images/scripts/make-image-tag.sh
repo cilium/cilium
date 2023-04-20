@@ -61,7 +61,7 @@ else
     # only append -dev suffix when no version tag is used, since tags
     # can be set on release branches
     if [ -z "${WITHOUT_SUFFIX+x}" ] ; then
-      if ! git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/master ; then
+      if ! git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/main ; then
         image_tag="${image_tag}-dev"
       fi
     fi

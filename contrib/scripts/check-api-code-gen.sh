@@ -40,7 +40,7 @@ diff="$(git diff)"
 if [ -n "$diff" ]; then
 	echo "Ungenerated api source code:"
 	echo "$diff"
-	echo "Please run `make generate-api generate-health-api generate-hubble-api generate-operator-api` and submit your changes"
+	echo "Please run 'make generate-api generate-health-api generate-hubble-api generate-operator-api' and submit your changes"
 	exit 1
 fi
 

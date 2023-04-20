@@ -439,7 +439,7 @@ type AllocatorKey interface {
 	// GetKey returns the canonical string representation of the key
 	GetKey() string
 
-	// PutKey stores the information in v into the key. This is is the inverse
+	// PutKey stores the information in v into the key. This is the inverse
 	// operation to GetKey
 	PutKey(v string) AllocatorKey
 

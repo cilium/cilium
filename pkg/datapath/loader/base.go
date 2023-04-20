@@ -10,16 +10,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/command/exec"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
@@ -29,10 +26,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/socketlb"
 	"github.com/cilium/cilium/pkg/sysctl"
 )
 
@@ -44,7 +44,7 @@ const (
 	initArgIPv4NodeIP
 	initArgIPv6NodeIP
 	initArgMode
-	initArgTunnelMode
+	initArgTunnelProtocol
 	initArgTunnelPort
 	initArgDevices
 	initArgHostDev1
@@ -210,6 +210,37 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 	return nil
 }
 
+func (l *Loader) reinitializeOverlay(ctx context.Context, encapProto string) error {
+	// encapProto can be one of option.[TunnelDisabled, TunnelVXLAN, TunnelGeneve]
+	// if it is disabled, the overlay network programs don't have to be (re)initialized
+	if encapProto == option.TunnelDisabled {
+		return nil
+	}
+
+	iface := fmt.Sprintf("cilium_%s", encapProto)
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve link for interface %s: %w", iface, err)
+	}
+
+	// gather compile options for bpf_overlay.c
+	opts := []string{
+		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
+		fmt.Sprintf("-DNODE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
+		fmt.Sprintf("-DCALLS_MAP=cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
+		"-DFROM_ENCAP_DEV=1",
+	}
+	if option.Config.EnableNodePort {
+		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
+	}
+
+	if err := l.replaceOverlayDatapath(ctx, opts, iface); err != nil {
+		return fmt.Errorf("failed to load overlay programs: %w", err)
+	}
+
+	return nil
+}
+
 func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
 	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode)
 	if option.Config.XDPMode == option.XDPModeDisabled {
@@ -282,10 +313,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		o.SetPrefilter(preFilter)
 	}
 
-	args[initArgLib] = option.Config.BpfDir
+	args[initArgLib] = "<nil>"
 	args[initArgRundir] = option.Config.StateDir
-	args[initArgCgroupRoot] = cgroups.GetCgroupRoot()
-	args[initArgBpffsRoot] = bpf.GetMapRoot()
 
 	if option.Config.EnableIPv4 {
 		args[initArgIPv4NodeIP] = node.GetInternalIPv4Router().String()
@@ -294,7 +323,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	if option.Config.EnableIPv6 {
-		args[initArgIPv6NodeIP] = node.GetIPv6().String()
+		args[initArgIPv6NodeIP] = node.GetIPv6Router().String()
 		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
@@ -306,17 +335,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)
 
-	if option.Config.EnableSocketLB {
-		args[initArgSocketLB] = "true"
-		if option.Config.EnableSocketLBPeer {
-			args[initArgSocketLBPeer] = "true"
-		} else {
-			args[initArgSocketLBPeer] = "false"
-		}
-	} else {
-		args[initArgSocketLB] = "false"
-		args[initArgSocketLBPeer] = "false"
-	}
+	args[initArgSocketLB] = "<nil>"
+	args[initArgSocketLBPeer] = "<nil>"
+	args[initArgCgroupRoot] = "<nil>"
+	args[initArgBpffsRoot] = "<nil>"
 
 	if len(option.Config.GetDevices()) != 0 {
 		args[initArgDevices] = strings.Join(option.Config.GetDevices(), ";")
@@ -325,11 +347,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	var mode baseDeviceMode
-	args[initArgTunnelMode] = "<nil>"
+	encapProto := option.TunnelDisabled
 	switch {
-	case option.Config.Tunnel != option.TunnelDisabled:
+	case option.Config.TunnelingEnabled():
 		mode = tunnelMode
-		args[initArgTunnelMode] = option.Config.Tunnel
+		encapProto = option.Config.TunnelProtocol
 	case option.Config.EnableHealthDatapath:
 		mode = option.DSRDispatchIPIP
 		sysSettings = append(sysSettings,
@@ -340,15 +362,23 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 	args[initArgMode] = string(mode)
 
-	if option.Config.Tunnel == option.TunnelDisabled && option.Config.EnableIPv4EgressGateway {
-		// Enable tunnel mode to vxlan if egress gateway is configured
+	if !option.Config.TunnelingEnabled() && option.Config.EnableIPv4EgressGateway {
 		// Tunnel is required for egress traffic under this config
-		args[initArgTunnelMode] = option.TunnelVXLAN
+		encapProto = option.Config.TunnelProtocol
 	}
 
+	if !option.Config.TunnelingEnabled() &&
+		option.Config.EnableNodePort &&
+		option.Config.NodePortMode == option.NodePortModeDSR &&
+		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
+		encapProto = option.TunnelGeneve
+	}
+
+	// set init.sh args based on encapProto
+	args[initArgTunnelProtocol] = "<nil>"
 	args[initArgTunnelPort] = "<nil>"
-	switch args[initArgTunnelMode] {
-	case option.TunnelVXLAN, option.TunnelGeneve:
+	if encapProto != option.TunnelDisabled {
+		args[initArgTunnelProtocol] = encapProto
 		args[initArgTunnelPort] = fmt.Sprintf("%d", option.Config.TunnelPort)
 	}
 
@@ -358,14 +388,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgNodePort] = "false"
 	}
 
-	if option.Config.NodePortBindProtection {
-		args[initArgNodePortBind] = "true"
-	} else {
-		args[initArgNodePortBind] = "false"
-	}
+	args[initArgNodePortBind] = "<nil>"
 
-	args[initBPFCPU] = GetBPFCPU()
-	args[initArgNrCPUs] = fmt.Sprintf("%d", common.GetNumPossibleCPUs(log))
+	args[initBPFCPU] = "<nil>"
+	args[initArgNrCPUs] = "<nil>"
 
 	if option.Config.EnableEndpointRoutes {
 		args[initArgEndpointRoutes] = "true"
@@ -402,7 +428,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgProxyRule] = "false"
 	}
 
-	args[initTCFilterPriority] = strconv.Itoa(int(option.Config.TCFilterPriority))
+	args[initTCFilterPriority] = "<nil>"
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
@@ -422,6 +448,20 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
+	if option.Config.EnableSocketLB {
+		// compile bpf_sock.c and attach/detach progs for socketLB
+		if err := CompileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
+			log.WithError(err).Fatal("failed to compile bpf_sock.c")
+		}
+		if err := socketlb.Enable(); err != nil {
+			return err
+		}
+	} else {
+		if err := socketlb.Disable(); err != nil {
+			return err
+		}
+	}
+
 	extraArgs := []string{"-Dcapture_enabled=0"}
 	if err := l.reinitializeXDPLocked(ctx, extraArgs); err != nil {
 		log.WithError(err).Fatal("Failed to compile XDP program")
@@ -437,6 +477,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	if err := l.reinitializeIPSec(ctx); err != nil {
+		return err
+	}
+
+	if err := l.reinitializeOverlay(ctx, encapProto); err != nil {
 		return err
 	}
 

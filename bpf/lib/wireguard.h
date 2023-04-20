@@ -48,9 +48,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		}
 #endif
 		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-#ifndef ENABLE_NODE_ENCRYPTION
 		src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
-#endif /* ENABLE_NODE_ENCRYPTION */
 		break;
 #endif
 #ifdef ENABLE_IPV4
@@ -58,9 +56,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-#ifndef ENABLE_NODE_ENCRYPTION
 		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-#endif /* ENABLE_NODE_ENCRYPTION */
 		break;
 #endif
 	default:
@@ -91,6 +87,15 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	if (!src || src->sec_label == HOST_ID)
 		goto out;
 #endif /* ENABLE_NODE_ENCRYPTION */
+
+	/* We don't want to encrypt any traffic that originates from outside
+	 * the cluster.
+	 * Without this check, that may happen for the egress gateway, when
+	 * reply traffic arrives from the cluster-external server and goes to
+	 * the client pod.
+	 */
+	if (!src || !identity_is_cluster(src->sec_label))
+		goto out;
 
 	/* Redirect to the WireGuard tunnel device if the encryption is
 	 * required.

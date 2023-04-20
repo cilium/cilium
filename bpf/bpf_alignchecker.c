@@ -13,66 +13,75 @@
 #include "node_config.h"
 #include "lib/common.h"
 #include "lib/maps.h"
-#include "sockops/bpf_sockops.h"
 #include "lib/nat.h"
 #include "lib/trace.h"
 #include "lib/policy_log.h"
 #include "lib/pcap.h"
 #include "lib/trace_sock.h"
 
-struct ipv4_ct_tuple _1;
-struct ipv6_ct_tuple _2;
-struct ct_entry _3;
-struct ipcache_key _4;
-struct remote_endpoint_info _5;
-struct lb4_key st6;
-struct lb4_service _7;
-struct lb4_backend _8;
-struct lb6_key _9;
-struct lb6_service _10;
-struct lb6_backend _11;
-struct endpoint_key _12;
-struct endpoint_info _13;
-struct metrics_key _14;
-struct metrics_value _15;
-struct sock_key _16;
-struct policy_key _17;
-struct policy_entry _18;
-struct ipv4_nat_entry _19;
-struct ipv6_nat_entry _20;
-struct trace_notify _21;
-struct drop_notify _22;
-struct policy_verdict_notify _23;
-struct debug_msg _24;
-struct debug_capture_msg _25;
-struct ipv4_revnat_tuple _26;
-struct ipv4_revnat_entry _27;
-struct ipv6_revnat_tuple _28;
-struct ipv6_revnat_entry _29;
-struct ipv4_frag_id _30;
-struct ipv4_frag_l4ports _31;
-union macaddr _32;
-struct lb4_affinity_key _33;
-struct lb6_affinity_key _34;
-struct lb_affinity_val _35;
-struct lb_affinity_match _36;
-struct lb4_src_range_key _37;
-struct lb6_src_range_key _38;
-struct edt_id _39;
-struct edt_info _40;
-struct egress_gw_policy_key _41;
-struct egress_gw_policy_entry _42;
-struct vtep_key _43;
-struct vtep_value _44;
-struct capture4_wcard _45;
-struct capture6_wcard _46;
-struct capture_rule _47;
-struct srv6_vrf_key4 _48;
-struct srv6_vrf_key6 _49;
-struct srv6_policy_key4 _50;
-struct srv6_policy_key6 _51;
-struct trace_sock_notify _52;
-struct tunnel_key _53;
-struct tunnel_value _54;
-struct auth_key _55;
-struct auth_info _56;
+/*
+ * The __COUNTER__ macro expands to an integer value which is increasing every
+ * time the macro is used.  Extra macros are required so that the __COUNTER__
+ * value is actually expanded before concatenation with the _ prefix.  Thus,
+ * the first occurrence of add_type(TYPE) will expand to "TYPE _0", the second
+ * to "TYPE _1", etc.
+ */
+#define __add_type(TYPE, N) TYPE _ ## N
+#define __expand(TYPE, N) __add_type(TYPE, N)
+#define add_type(TYPE) __expand(TYPE, __COUNTER__)
+
+add_type(struct ipv4_ct_tuple);
+add_type(struct ipv6_ct_tuple);
+add_type(struct ct_entry);
+add_type(struct ipcache_key);
+add_type(struct remote_endpoint_info);
+add_type(struct lb4_key);
+add_type(struct lb4_service);
+add_type(struct lb4_backend);
+add_type(struct lb6_key);
+add_type(struct lb6_service);
+add_type(struct lb6_backend);
+add_type(struct endpoint_key);
+add_type(struct endpoint_info);
+add_type(struct metrics_key);
+add_type(struct metrics_value);
+add_type(struct policy_key);
+add_type(struct policy_entry);
+add_type(struct ipv4_nat_entry);
+add_type(struct ipv6_nat_entry);
+add_type(struct trace_notify);
+add_type(struct drop_notify);
+add_type(struct policy_verdict_notify);
+add_type(struct debug_msg);
+add_type(struct debug_capture_msg);
+add_type(struct ipv4_revnat_tuple);
+add_type(struct ipv4_revnat_entry);
+add_type(struct ipv6_revnat_tuple);
+add_type(struct ipv6_revnat_entry);
+add_type(struct ipv4_frag_id);
+add_type(struct ipv4_frag_l4ports);
+add_type(union macaddr);
+add_type(struct lb4_affinity_key);
+add_type(struct lb6_affinity_key);
+add_type(struct lb_affinity_val);
+add_type(struct lb_affinity_match);
+add_type(struct lb4_src_range_key);
+add_type(struct lb6_src_range_key);
+add_type(struct edt_id);
+add_type(struct edt_info);
+add_type(struct egress_gw_policy_key);
+add_type(struct egress_gw_policy_entry);
+add_type(struct vtep_key);
+add_type(struct vtep_value);
+add_type(struct capture4_wcard);
+add_type(struct capture6_wcard);
+add_type(struct capture_rule);
+add_type(struct srv6_vrf_key4);
+add_type(struct srv6_vrf_key6);
+add_type(struct srv6_policy_key4);
+add_type(struct srv6_policy_key6);
+add_type(struct trace_sock_notify);
+add_type(struct tunnel_key);
+add_type(struct tunnel_value);
+add_type(struct auth_key);
+add_type(struct auth_info);

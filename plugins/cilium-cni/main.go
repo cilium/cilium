@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-// Ensure build fails on versions of Go that are not supported by Cilium.
-// This build tag should be kept in sync with the version specified in go.mod.
-//go:build go1.20
-
 package main
 
 import (
@@ -49,6 +45,7 @@ import (
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/flannel"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/generic-veth"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/portmap"
+	"github.com/cilium/cilium/plugins/cilium-cni/lib"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -422,12 +419,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 					Args:    args,
 					CniArgs: cniArgs,
 					NetConf: n,
-					Client:  c,
 				}
 			)
 
 			if chainAction.ImplementsAdd() {
-				res, err = chainAction.Add(context.TODO(), ctx)
+				res, err = chainAction.Add(context.TODO(), ctx, c)
 				if err != nil {
 					return
 				}
@@ -654,31 +650,24 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 	logger.Debugf("CNI Args: %#v", cniArgs)
 
-	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
-	if err != nil {
-		// this error can be recovered from
-		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
-	}
+	logger = logger.WithField("containerID", args.ContainerID)
 
-	conf, err := getConfigFromCiliumAgent(c)
+	c, err := lib.NewDeletionFallbackClient(logger)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to connect to Cilium agent: %w", err)
 	}
 
 	if n.Name != chainingapi.DefaultConfigName {
 		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
-			var (
-				ctx = chainingapi.PluginContext{
-					Logger:  logger,
-					Args:    args,
-					CniArgs: cniArgs,
-					NetConf: n,
-					Client:  c,
-				}
-			)
+			ctx := chainingapi.PluginContext{
+				Logger:  logger,
+				Args:    args,
+				CniArgs: cniArgs,
+				NetConf: n,
+			}
 
 			if chainAction.ImplementsDelete() {
-				return chainAction.Delete(context.TODO(), ctx)
+				return chainAction.Delete(context.TODO(), ctx, c)
 			}
 		} else {
 			logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
@@ -696,7 +685,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.WithError(err).Warning("Errors encountered while deleting endpoint")
 	}
 
-	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
+	if n.IPAM.Type != "" {
 		// If using a delegated plugin for IPAM, attempt to release the IP.
 		// We do this *before* entering the network namespace, because the ns may
 		// have already been deleted, and we want to avoid leaking IPs.
@@ -781,12 +770,11 @@ func cmdCheck(args *skel.CmdArgs) error {
 					Args:    args,
 					CniArgs: cniArgs,
 					NetConf: n,
-					Client:  c,
 				}
 			)
 
 			// err is nil on success
-			err := chainAction.Check(context.TODO(), ctx)
+			err := chainAction.Check(context.TODO(), ctx, c)
 			logger.Debugf("Chained CHECK %s returned %s", n.Name, err)
 			return err
 

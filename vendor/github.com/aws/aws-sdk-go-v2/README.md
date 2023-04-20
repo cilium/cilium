@@ -1,7 +1,6 @@
 # AWS SDK for Go v2
 
-[![Go Build status](https://github.com/aws/aws-sdk-go-v2/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/aws/aws-sdk-go-v2/actions/workflows/go.yml)[![Codegen Build status](https://github.com/aws/aws-sdk-go-v2/actions/workflows/codegen.yml/badge.svg?branch=main)](https://github.com/aws/aws-sdk-go-v2/actions/workflows/codegen.yml) [![SDK Documentation](https://img.shields.io/badge/SDK-Documentation-blue)](https://aws.github.io/aws-sdk-go-v2/docs/) [![Migration Guide](https://img.shields.io/badge/Migration-Guide-blue)](https://aws.github.io/aws-sdk-go-v2/docs/migrating/) [![API Reference](https://img.shields.io/badge/api-reference-blue.svg)](https://pkg.go.dev/mod/github.com/aws/aws-sdk-go-v2) [![Apache V2 License](https://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/aws/aws-sdk-go/blob/master/LICENSE.txt)
-
+[![Go Build status](https://github.com/aws/aws-sdk-go-v2/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/aws/aws-sdk-go-v2/actions/workflows/go.yml)[![Codegen Build status](https://github.com/aws/aws-sdk-go-v2/actions/workflows/codegen.yml/badge.svg?branch=main)](https://github.com/aws/aws-sdk-go-v2/actions/workflows/codegen.yml) [![SDK Documentation](https://img.shields.io/badge/SDK-Documentation-blue)](https://aws.github.io/aws-sdk-go-v2/docs/) [![Migration Guide](https://img.shields.io/badge/Migration-Guide-blue)](https://aws.github.io/aws-sdk-go-v2/docs/migrating/) [![API Reference](https://img.shields.io/badge/api-reference-blue.svg)](https://pkg.go.dev/mod/github.com/aws/aws-sdk-go-v2) [![Apache V2 License](https://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/aws/aws-sdk-go-v2/blob/main/LICENSE.txt)
 
 `aws-sdk-go-v2` is the v2 AWS SDK for the Go programming language.
 
@@ -118,7 +117,7 @@ Keeping the list of open issues lean will help us respond in a timely manner.
 
 ## Feedback and contributing
 
-The v2 SDK will use GitHub [Issues] to track feature requests and issues with the SDK. In addition, we'll use GitHub [Projects] to track large tasks spanning multiple pull requests, such as refactoring the SDK's internal request lifecycle. You can provide feedback to us in several ways. 
+The v2 SDK will use GitHub [Issues] to track feature requests and issues with the SDK. In addition, we'll use GitHub [Projects] to track large tasks spanning multiple pull requests, such as refactoring the SDK's internal request lifecycle. You can provide feedback to us in several ways.
 
 **GitHub issues**. To provide feedback or report bugs, file GitHub [Issues] on the SDK. This is the preferred mechanism to give feedback so that other users can engage in the conversation, +1 issues, etc. Issues you open will be evaluated, and included in our roadmap for the GA launch.
 
@@ -139,8 +138,8 @@ API operation require parameters.
 
 [Service Documentation](https://aws.amazon.com/documentation/) - Use this
 documentation to learn how to interface with AWS services. These guides are
-great for getting started with a service, or when looking for more 
-information about a service. While this document is not required for coding, 
+great for getting started with a service, or when looking for more
+information about a service. While this document is not required for coding,
 services may supply helpful samples to look out for.
 
 [Forum](https://forums.aws.amazon.com/forum.jspa?forumID=293) - Ask questions, get help, and give feedback
@@ -151,7 +150,7 @@ services may supply helpful samples to look out for.
 [Dep]: https://github.com/golang/dep
 [Issues]: https://github.com/aws/aws-sdk-go-v2/issues
 [Projects]: https://github.com/aws/aws-sdk-go-v2/projects
-[CHANGELOG]: https://github.com/aws/aws-sdk-go-v2/blob/master/CHANGELOG.md
+[CHANGELOG]: https://github.com/aws/aws-sdk-go-v2/blob/main/CHANGELOG.md
 [Amazon DynamoDB]: https://aws.amazon.com/dynamodb/
-[design]: https://github.com/aws/aws-sdk-go-v2/blob/master/DESIGN.md  
+[design]: https://github.com/aws/aws-sdk-go-v2/blob/main/DESIGN.md
 [license]: http://aws.amazon.com/apache2.0/

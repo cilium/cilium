@@ -290,20 +290,22 @@ func (t versionedTracker) Create(gvr schema.GroupVersionResource, obj runtime.Ob
 	return nil
 }
 
-// convertFromUnstructuredIfNecessary will convert *unstructured.Unstructured for a GVK that is recocnized
+// convertFromUnstructuredIfNecessary will convert runtime.Unstructured for a GVK that is recognized
 // by the schema into the whatever the schema produces with New() for said GVK.
 // This is required because the tracker unconditionally saves on manipulations, but its List() implementation
 // tries to assign whatever it finds into a ListType it gets from schema.New() - Thus we have to ensure
 // we save as the very same type, otherwise subsequent List requests will fail.
 func convertFromUnstructuredIfNecessary(s *runtime.Scheme, o runtime.Object) (runtime.Object, error) {
-	u, isUnstructured := o.(*unstructured.Unstructured)
-	if !isUnstructured || !s.Recognizes(u.GroupVersionKind()) {
+	gvk := o.GetObjectKind().GroupVersionKind()
+
+	u, isUnstructured := o.(runtime.Unstructured)
+	if !isUnstructured || !s.Recognizes(gvk) {
 		return o, nil
 	}
 
-	typed, err := s.New(u.GroupVersionKind())
+	typed, err := s.New(gvk)
 	if err != nil {
-		return nil, fmt.Errorf("scheme recognizes %s but failed to produce an object for it: %w", u.GroupVersionKind().String(), err)
+		return nil, fmt.Errorf("scheme recognizes %s but failed to produce an object for it: %w", gvk, err)
 	}
 
 	unstructuredSerialized, err := json.Marshal(u)
@@ -436,7 +438,7 @@ func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...cl
 
 	gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
 
-	if _, isUnstructuredList := obj.(*unstructured.UnstructuredList); isUnstructuredList && !c.scheme.Recognizes(gvk) {
+	if _, isUnstructuredList := obj.(runtime.Unstructured); isUnstructuredList && !c.scheme.Recognizes(gvk) {
 		// We need to register the ListKind with UnstructuredList:
 		// https://github.com/kubernetes/kubernetes/blob/7b2776b89fb1be28d4e9203bdeec079be903c103/staging/src/k8s.io/client-go/dynamic/fake/simple.go#L44-L51
 		c.schemeWriteLock.Lock()
@@ -561,6 +563,16 @@ func (c *fakeClient) Scheme() *runtime.Scheme {
 
 func (c *fakeClient) RESTMapper() meta.RESTMapper {
 	return c.restMapper
+}
+
+// GroupVersionKindFor returns the GroupVersionKind for the given object.
+func (c *fakeClient) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return apiutil.GVKForObject(obj, c.scheme)
+}
+
+// IsObjectNamespaced returns true if the GroupVersionKind of the object is namespaced.
+func (c *fakeClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return apiutil.IsObjectNamespaced(obj, c.scheme, c.restMapper)
 }
 
 func (c *fakeClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {

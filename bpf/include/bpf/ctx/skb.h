@@ -46,6 +46,9 @@
 #define ctx_get_tunnel_key	skb_get_tunnel_key
 #define ctx_set_tunnel_key	skb_set_tunnel_key
 
+#define ctx_get_tunnel_opt	skb_get_tunnel_opt
+#define ctx_set_tunnel_opt	skb_set_tunnel_opt
+
 #define ctx_event_output	skb_event_output
 
 #define ctx_adjust_meta		({ -ENOTSUPP; })

@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
   name: ciliumendpointslices.cilium.io
 spec:
@@ -78,7 +78,7 @@ spec:
                     addressing:
                       description: IP4/6 addresses assigned to this Endpoint
                       items:
-                        description: AddressPair is is a par of IPv4 and/or IPv6 address.
+                        description: AddressPair is a pair of IPv4 and/or IPv6 address.
                         properties:
                           ipv4:
                             type: string

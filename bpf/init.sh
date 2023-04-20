@@ -2,35 +2,32 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 # Copyright Authors of Cilium
 
-LIB=${1}
+# LIB=${1}
 RUNDIR=${2}
 PROCSYSNETDIR=${3}
 SYSCLASSNETDIR=${4}
 IP4_HOST=${5}
 IP6_HOST=${6}
 MODE=${7}
-TUNNEL_MODE=${8}
-# Only set if TUNNEL_MODE = "vxlan", "geneve"
+TUNNEL_PROTOCOL=${8}
+# Only set if TUNNEL_PROTOCOL = "vxlan", "geneve"
 TUNNEL_PORT=${9}
 # Only set if MODE = "direct"
 NATIVE_DEVS=${10}
 HOST_DEV1=${11}
 HOST_DEV2=${12}
 MTU=${13}
-SOCKETLB=${14}
-SOCKETLB_PEER=${15}
-CGROUP_ROOT=${16}
-BPFFS_ROOT=${17}
+# SOCKETLB=${14}
+# SOCKETLB_PEER=${15}
+# CGROUP_ROOT=${16}
+# BPFFS_ROOT=${17}
 NODE_PORT=${18}
-NODE_PORT_BIND=${19}
-MCPU=${20}
-NR_CPUS=${21}
+# NODE_PORT_BIND=${19}
+# MCPU=${20}
+# NR_CPUS=${21}
 ENDPOINT_ROUTES=${22}
 PROXY_RULE=${23}
-FILTER_PRIO=${24}
-
-ID_HOST=1
-ID_WORLD=2
+# FILTER_PRIO=${24}
 
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
@@ -43,9 +40,6 @@ set -o pipefail
 
 # Remove old legacy files
 rm $RUNDIR/encap.state 2> /dev/null || true
-
-# This directory was created by the daemon and contains the per container header file
-DIR="$PWD/globals"
 
 function setup_dev()
 {
@@ -197,166 +191,13 @@ function rnd_mac_addr()
     printf '%02x%s' $upper $lower
 }
 
-function bpf_compile()
-{
-	IN=$1
-	OUT=$2
-	TYPE=$3
-	EXTRA_OPTS=$4
-
-	clang -O2 -target bpf -std=gnu89 -nostdinc -emit-llvm	\
-	      -g -Wall -Wextra -Werror -Wshadow			\
-	      -Wno-address-of-packed-member			\
-	      -Wno-unknown-warning-option			\
-	      -Wno-gnu-variable-sized-type-not-at-end		\
-	      -Wdeclaration-after-statement			\
-	      -Wimplicit-int-conversion -Wenum-conversion	\
-	      -I. -I$DIR -I$LIB -I$LIB/include			\
-	      -D__NR_CPUS__=$NR_CPUS				\
-	      -DENABLE_ARP_RESPONDER=1				\
-	      $EXTRA_OPTS					\
-	      -c $LIB/$IN -o - |				\
-	llc -march=bpf -mcpu=$MCPU -filetype=$TYPE -o $OUT
-}
-
-function bpf_unload()
-{
-	DEV=$1
-	WHERE=$2
-
-	tc filter del dev $DEV $WHERE 2> /dev/null || true
-}
-
-function bpf_load()
-{
-	DEV=$1
-	OPTS=$2
-	WHERE=$3
-	IN=$4
-	OUT=$5
-	SEC=$6
-	CALLS_MAP=$7
-
-	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
-	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
-
-	OPTS="${OPTS} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
-	bpf_compile $IN $OUT obj "$OPTS"
-	tc qdisc replace dev $DEV clsact || true
-	[ -z "$(tc filter show dev $DEV $WHERE | grep -v "pref $FILTER_PRIO bpf chain 0 $\|pref $FILTER_PRIO bpf chain 0 handle 0x1")" ] || tc filter del dev $DEV $WHERE
-
-	cilium bpf migrate-maps -s "$OUT"
-
-	if ! tc filter replace dev "$DEV" "$WHERE" prio "$FILTER_PRIO" handle 1 bpf da obj "$OUT" sec "$SEC"; then
-		cilium bpf migrate-maps -e "$OUT" -r 1
-		return 1
-	fi
-}
-
-function bpf_load_cgroups()
-{
-	OPTS=$1
-	IN=$2
-	OUT=$3
-	PROG_TYPE=$4
-	WHERE=$5
-	CALLS_MAP=$6
-	CGRP=$7
-	BPFMNT=$8
-	NAME=$9
-
-	OPTS="${OPTS} -DCALLS_MAP=${CALLS_MAP}"
-	bpf_compile "$IN" "$OUT" obj "$OPTS"
-
-	TMP_FILE="$BPFMNT/tc/globals/cilium_cgroups_$WHERE"
-	rm -f "$TMP_FILE"
-
-	cilium bpf migrate-maps -s "$OUT"
-
-	if ! tc exec bpf pin "$TMP_FILE" obj "$OUT" type "$PROG_TYPE" attach_type "$WHERE" sec "cgroup/$WHERE"; then
-		cilium bpf migrate-maps -e "$OUT" -r 1
-		return 1
-	fi
-
-	set +e
-	bpftool link detach pinned "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME" || true
-	rm -f "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME"
-	set -e
-
-	if bpftool cgroup attach "$CGRP" "$WHERE" pinned "$TMP_FILE"; then
-		rm -f "$TMP_FILE"
-		return 0
-	fi
-
-	# Program might've been attached in multi-mode by a newer version of Cilium or
-	# by another tool. This means 'bpftool cgroup attach' won't succeed unless
-	# any/all attached programs are removed.
-	bpf_clear_cgroups "$CGRP" "$WHERE" "$NAME"
-
-	if bpftool cgroup attach "$CGRP" "$WHERE" pinned "$TMP_FILE"; then
-		rm -f "$TMP_FILE"
-		return 0
-	fi
-
-	rm -f "$TMP_FILE"
-	cilium bpf migrate-maps -e "$OUT" -r 1
-	return 1
-}
-
-function bpf_clear_cgroups()
-{
-	CGRP=$1
-	HOOK=$2
-	NAME=$3
-
-	# Since Linux commit 1ba5ad36e00f ("bpftool: Use libbpf_bpf_attach_type_str"),
-	# bpftool uses the libbpf_bpf_attach_type_str() format in 'bpftool cgroup
-	# show' output. Perform a naive translation to ensure compatibility with prior
-	# bpftool versions and to avoid updating the hook name at all call sites. The
-	# transformed string can be used in a suffix match against the new format.
-
-	# Examples: (old -> transformed, new)
-	# connect4 -> 4_connect, cgroup_inet4_connect
-	# post_bind6 -> 6_post_bind, cgroup_inet6_post_bind
-	# sendmsg4 -> 4_sendmsg, cgroup_udp4_sendmsg
-
-	# There is no inet4/6 variant of e.g. sendmsg, so it's safe to assume the
-	# intended udp4/6 hook is selected.
-	newhook=$(echo "$HOOK" | sed -E 's/([a-z_]+)([0-9])/\2_\1/')
-
-	set +e
-	bpftool link detach pinned "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME" || true
-	rm -f "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME"
-	set -e
-
-	# Get all programs attached to the given cgroup and store their ids in a
-	# newline-separated string. Perform a full match on the 'legacy' hook name
-	# appearing in older versions of bpftool, but perform a suffix match using the
-	# 'new' hook name.
-	ids=$(bpftool cgroup show "$CGRP" -j |
-		jq --arg legacy "$HOOK" --arg new "$newhook" '.[] |
-			select(
-				.attach_type == $legacy or
-				(.attach_type | endswith($new))
-			) | .id')
-
-	# Cilium versions 1.14 and later use ebpf-go to attach cgroup programs, which
-	# potentially attaches programs using the 'multi' flag if the kernel is recent
-	# enough to support the flag, but too old to support bpf_link. Detach all
-	# programs at the given hook since we can't reliably determine which ones
-	# Cilium owns.
-	for id in $ids; do
-		bpftool cgroup detach "$CGRP" "$HOOK" id "$id"
-	done
-}
-
 function create_encap_dev()
 {
 	TUNNEL_OPTS="external"
 	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
 		TUNNEL_OPTS="dstport $TUNNEL_PORT $TUNNEL_OPTS"
 	fi
-	ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_MODE $TUNNEL_OPTS || encap_fail
+	ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_PROTOCOL $TUNNEL_OPTS || encap_fail
 }
 
 function encap_fail()
@@ -469,14 +310,32 @@ if [ "$MODE" = "tunnel" ]; then
 	echo "#define TUNNEL_MODE 1" >> $RUNDIR/globals/node_config.h
 fi
 
-if [ "${TUNNEL_MODE}" != "<nil>" ]; then
-	ENCAP_DEV="cilium_${TUNNEL_MODE}"
+# Remove eventual existing encapsulation device from previous run
+case "${TUNNEL_PROTOCOL}" in
+  "<nil>")
+	ip link del cilium_vxlan 2> /dev/null || true
+	ip link del cilium_geneve 2> /dev/null || true
+    ;;
+  "vxlan")
+	ip link del cilium_geneve 2> /dev/null || true
+    ;;
+  "geneve")
+	ip link del cilium_vxlan 2> /dev/null || true
+    ;;
+  *)
+	(>&2 echo "ERROR: Unknown tunnel mode")
+    exit 1
+    ;;
+esac
+
+if [ "${TUNNEL_PROTOCOL}" != "<nil>" ]; then
+	ENCAP_DEV="cilium_${TUNNEL_PROTOCOL}"
 
 	ip link show $ENCAP_DEV || create_encap_dev
 
 	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
 		ip -details link show $ENCAP_DEV | grep "dstport $TUNNEL_PORT" || {
-			ip link delete name $ENCAP_DEV type $TUNNEL_MODE
+			ip link delete name $ENCAP_DEV type $TUNNEL_PROTOCOL
 			create_encap_dev
 		}
 	fi
@@ -487,22 +346,6 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
 	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
-
-	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
-	COPTS="-DSECLABEL=${ID_WORLD} -DFROM_ENCAP_DEV=1"
-	if [ "$NODE_PORT" = "true" ]; then
-		COPTS="${COPTS} -DDISABLE_LOOPBACK_LB"
-	fi
-
-	bpf_load "$ENCAP_DEV" "$COPTS" ingress bpf_overlay.c bpf_overlay.o from-overlay "$CALLS_MAP"
-	bpf_load "$ENCAP_DEV" "$COPTS" egress bpf_overlay.c bpf_overlay.o to-overlay "$CALLS_MAP"
-
-	cilium bpf migrate-maps -e bpf_overlay.o -r 0
-
-else
-	# Remove eventual existing encapsulation device from previous run
-	ip link del cilium_vxlan 2> /dev/null || true
-	ip link del cilium_geneve 2> /dev/null || true
 fi
 
 if [ "$MODE" = "direct" ] || [ "$NODE_PORT" = "true" ] ; then
@@ -548,67 +391,6 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 	done
 done
 
-if [ "$SOCKETLB" = "true" ]; then
-	if [ "$IP6_HOST" != "<nil>" ]; then
-		echo 1 > "${PROCSYSNETDIR}/ipv6/conf/all/forwarding"
-	fi
-
-	CALLS_MAP="cilium_calls_lb"
-	COPTS=""
-	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f "${PROCSYSNETDIR}/ipv6/conf/all/forwarding" ]; then
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_connect
-		if [ "$SOCKETLB_PEER" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_getpeername
-		fi
-		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_post_bind
-		else
-			bpf_clear_cgroups "$CGROUP_ROOT" post_bind6 cil_sock6_post_bind
-		fi
-		if [ "$MODE" = "ipip" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr bind6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_pre_bind
-		else
-			bpf_clear_cgroups "$CGROUP_ROOT" bind6 cil_sock6_pre_bind
-		fi
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_sendmsg
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_recvmsg
-	fi
-	if [ "$IP4_HOST" != "<nil>" ]; then
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_connect
-		if [ "$SOCKETLB_PEER" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_getpeername
-		fi
-		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_post_bind
-		else
-			bpf_clear_cgroups "$CGROUP_ROOT" post_bind4 cil_sock4_post_bind
-		fi
-		if [ "$MODE" = "ipip" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr bind4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_pre_bind
-		else
-			bpf_clear_cgroups "$CGROUP_ROOT" bind4 cil_sock4_pre_bind
-		fi
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_sendmsg
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_recvmsg
-	fi
-
-	cilium bpf migrate-maps -e bpf_sock.o -r 0
-
-else
-	bpf_clear_cgroups "$CGROUP_ROOT" bind4 cil_sock4_pre_bind
-	bpf_clear_cgroups "$CGROUP_ROOT" bind6 cil_sock6_pre_bind
-	bpf_clear_cgroups "$CGROUP_ROOT" post_bind4 cil_sock4_post_bind
-	bpf_clear_cgroups "$CGROUP_ROOT" post_bind6 cil_sock6_post_bind
-	bpf_clear_cgroups "$CGROUP_ROOT" connect4 cil_sock4_connect
-	bpf_clear_cgroups "$CGROUP_ROOT" connect6 cil_sock6_connect
-	bpf_clear_cgroups "$CGROUP_ROOT" sendmsg4 cil_sock4_sendmsg
-	bpf_clear_cgroups "$CGROUP_ROOT" sendmsg6 cil_sock6_sendmsg
-	bpf_clear_cgroups "$CGROUP_ROOT" recvmsg4 cil_sock4_recvmsg
-	bpf_clear_cgroups "$CGROUP_ROOT" recvmsg6 cil_sock6_recvmsg
-	bpf_clear_cgroups "$CGROUP_ROOT" getpeername4 cil_sock4_getpeername
-	bpf_clear_cgroups "$CGROUP_ROOT" getpeername6 cil_sock6_getpeername
-fi
-
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
-	bpf_unload $HOST_DEV2 "egress"
+	tc filter del dev $HOST_DEV2 "egress" 2> /dev/null || true
 fi

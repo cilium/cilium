@@ -90,6 +90,8 @@ type GetIpv4GatewayAttributeResponse struct {
 	Ipv4GatewayRouteTableId string `json:"Ipv4GatewayRouteTableId" xml:"Ipv4GatewayRouteTableId"`
 	Ipv4GatewayName         string `json:"Ipv4GatewayName" xml:"Ipv4GatewayName"`
 	CreateTime              string `json:"CreateTime" xml:"CreateTime"`
+	ResourceGroupId         string `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	Tags                    []Tag  `json:"Tags" xml:"Tags"`
 }
 
 // CreateGetIpv4GatewayAttributeRequest creates a request to invoke GetIpv4GatewayAttribute API

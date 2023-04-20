@@ -143,7 +143,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("Encapsulation", func() {
 		enableVXLANTunneling := func(options map[string]string) {
-			options["tunnel"] = "vxlan"
+			options["tunnelProtocol"] = "vxlan"
 			if helpers.RunsOnGKE() {
 				// We need to disable gke.enabled as it disables tunneling.
 				options["gke.enabled"] = "false"
@@ -197,7 +197,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		BeforeAll(func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                "disabled",
+				"routingMode":           "native",
 				"autoDirectNodeRoutes":  "true",
 				"ipv6NativeRoutingCIDR": helpers.IPv6NativeRoutingCIDR,
 			}, DeployCiliumOptionsAndDNS)
@@ -315,7 +315,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("DirectRouting", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"ipMasqAgent.enabled":                   "true",
-				"tunnel":                                "disabled",
+				"routingMode":                           "native",
 				"autoDirectNodeRoutes":                  "true",
 				"ipMasqAgent.config.nonMasqueradeCIDRs": fmt.Sprintf("{%s/32}", nodeIP),
 			}, DeployCiliumOptionsAndDNS)
@@ -326,7 +326,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("VXLAN", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"ipMasqAgent.enabled":                   "true",
-				"tunnel":                                "vxlan",
+				"tunnelProtocol":                        "vxlan",
 				"ipMasqAgent.config.nonMasqueradeCIDRs": fmt.Sprintf("{%s/32}", nodeIP),
 			}, DeployCiliumOptionsAndDNS)
 
@@ -353,7 +353,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                     "disabled",
+				"routingMode":                "native",
 				"autoDirectNodeRoutes":       "true",
 				"encryption.enabled":         "true",
 				"encryption.ipsec.interface": privateIface,
@@ -406,10 +406,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			kubectl.Exec("kubectl label nodes --all status-")
 		})
 
-		AfterEach(func() {
-			kubectl.Exec(fmt.Sprintf("%s delete --all ccnp", helpers.KubectlCmd))
-		})
-
 		SkipItIf(func() bool {
 			return !helpers.IsIntegration(helpers.CIIntegrationGKE)
 		}, "Check connectivity with IPv6 disabled", func() {
@@ -427,7 +423,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			if helpers.RunsOnGKE() {
 				options["gke.enabled"] = "false"
-				options["tunnel"] = "vxlan"
+				options["tunnelProtocol"] = "vxlan"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
@@ -442,7 +438,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			if helpers.RunsOnGKE() {
 				options["gke.enabled"] = "false"
-				options["tunnel"] = "vxlan"
+				options["tunnelProtocol"] = "vxlan"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
@@ -451,7 +447,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("With native routing", func() {
 			options := map[string]string{
 				"hostFirewall.enabled": "true",
-				"tunnel":               "disabled",
+				"routingMode":          "native",
 			}
 			// We don't want to run with per-endpoint routes (enabled by
 			// gke.enabled) for this test.
@@ -467,7 +463,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("With native routing and endpoint routes", func() {
 			options := map[string]string{
 				"hostFirewall.enabled":   "true",
-				"tunnel":                 "disabled",
+				"routingMode":            "native",
 				"endpointRoutes.enabled": "true",
 			}
 			if !helpers.RunsOnGKE() {
@@ -483,7 +479,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			return helpers.IsIntegration(helpers.CIIntegrationGKE) || helpers.DoesNotRunWithKubeProxyReplacement() || helpers.SkipQuarantined()
 		}, "Skip conntrack for pod traffic", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                          "disabled",
+				"routingMode":                     "native",
 				"autoDirectNodeRoutes":            "true",
 				"installNoConntrackIptablesRules": "true",
 			}, DeployCiliumOptionsAndDNS)
@@ -528,6 +524,10 @@ func testHostFirewall(kubectl *helpers.Kubectl) {
 	By(fmt.Sprintf("Applying policies %s", demoHostPolicies))
 	_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoHostPolicies, err))
+	defer func() {
+		_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlDelete, helpers.HelperTimeout)
+		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", demoHostPolicies, err))
+	}()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -649,18 +649,24 @@ func fetchPodsWithOffset(kubectl *helpers.Kubectl, namespace, name, filter, host
 	return targetPod, targetPodJSON
 }
 
-func applyL3Policy(kubectl *helpers.Kubectl, ns string) {
+func applyL3Policy(kubectl *helpers.Kubectl, ns string) (withdrawPolicy func()) {
 	demoPolicyL3 := helpers.ManifestGet(kubectl.BasePath(), "l3-policy-demo.yaml")
 	By(fmt.Sprintf("Applying policy %s", demoPolicyL3))
 	_, err := kubectl.CiliumPolicyAction(ns, demoPolicyL3, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoPolicyL3, err))
+
+	return func() {
+		_, err := kubectl.CiliumPolicyAction(ns, demoPolicyL3, helpers.KubectlDelete, helpers.HelperTimeout)
+		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", demoPolicyL3, err))
+	}
 }
 
 func testPodConnectivityAndReturnIP(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int) (bool, string) {
 	callOffset++
 
 	randomNamespace := deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
-	applyL3Policy(kubectl, randomNamespace)
+	withdrawPolicy := applyL3Policy(kubectl, randomNamespace)
+	defer withdrawPolicy()
 	deploymentManager.WaitUntilReady()
 
 	By("Checking pod connectivity between nodes")
@@ -697,7 +703,8 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 	}
 
 	namespace := deploymentManager.DeployRandomNamespaceShared(DemoDaemonSet)
-	applyL3Policy(kubectl, namespace)
+	withdrawPolicy := applyL3Policy(kubectl, namespace)
+	defer withdrawPolicy()
 	deploymentManager.WaitUntilReady()
 
 	label := "zgroup=testDSClient"

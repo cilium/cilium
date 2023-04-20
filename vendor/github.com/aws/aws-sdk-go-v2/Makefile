@@ -246,7 +246,6 @@ unit-race-modules-%:
 		"go test ${BUILD_TAGS} ${RUN_NONE} ./..." \
 		"go test -timeout=1m ${UNIT_TEST_TAGS} -race -cpu=4 ./..."
 
-
 unit-modules-%:
 	@# unit command that uses the pattern to define the root path that the
 	@# module testing will start from. Strips off the "unit-modules-" and
@@ -407,7 +406,6 @@ bench-modules-%:
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst bench-modules-,,$@)) ${EACHMODULE_FLAGS} \
 		"go test -timeout=10m -bench . --benchmem ${BUILD_TAGS} ${RUN_NONE} ./..."
-
 
 #####################
 #  Release Process  #

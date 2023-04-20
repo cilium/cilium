@@ -5,8 +5,8 @@ on:
   pull_request: {}
   push:
     branches:
-      - master
-      - ft/master/**
+      - main
+      - ft/main/**
 
 permissions: read-all
 
@@ -16,7 +16,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.0
+  cilium_cli_version: v0.13.1
   KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -75,7 +75,7 @@ jobs:
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout master branch to access local actions
+      - name: Checkout main branch to access local actions
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
@@ -153,7 +153,7 @@ jobs:
           kubectl rollout -n kube-system status deploy/coredns --timeout=5m
 
           # To make sure that cilium CRD is available (default timeout is 5m)
-          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
+          # https://github.com/cilium/cilium/blob/main/operator/crd.go#L34
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
 
           kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245 &
@@ -179,7 +179,7 @@ jobs:
           sudo mv prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/bin
           cat metrics.prom | promtool check metrics
 
-      - name: Capture cilium-sysdump
+      - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() }}
         # The following is needed to prevent hubble from receiving an empty
         # file (EOF) on stdin and displaying no flows.

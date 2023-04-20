@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 func Test_getService(t *testing.T) {
@@ -165,4 +166,61 @@ func Test_getEndpointForIngress(t *testing.T) {
 			},
 		},
 	}, res)
+}
+
+func Test_translator_Translate(t *testing.T) {
+	type args struct {
+		m            *model.Model
+		enforceHTTPs bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *ciliumv2.CiliumEnvoyConfig
+		wantErr bool
+	}{
+		{
+			name: "Conformance/DefaultBackend",
+			args: args{
+				m: &model.Model{
+					HTTP: defaultBackendListeners,
+				},
+				enforceHTTPs: true,
+			},
+			want: defaultBackendListenersCiliumEnvoyConfig,
+		},
+		{
+			name: "Conformance/HostRules",
+			args: args{
+				m: &model.Model{
+					HTTP: hostRulesListeners,
+				},
+				enforceHTTPs: true,
+			},
+			want: hostRulesListenersCiliumEnvoyConfig,
+		},
+		{
+			name: "Conformance/PathRules",
+			args: args{
+				m: &model.Model{
+					HTTP: pathRulesListeners,
+				},
+				enforceHTTPs: true,
+			},
+			want: pathRulesListenersCiliumEnvoyConfig,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			trans := &DedicatedIngressTranslator{
+				secretsNamespace: "cilium-secrets",
+				enforceHTTPs:     tt.args.enforceHTTPs,
+			}
+
+			cec, _, _, err := trans.Translate(tt.args.m)
+			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
+			require.Equal(t, tt.want, cec, "CiliumEnvoyConfig did not match")
+		})
+	}
 }

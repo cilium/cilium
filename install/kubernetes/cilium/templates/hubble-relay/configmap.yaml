@@ -12,11 +12,7 @@ metadata:
 data:
   config.yaml: |
     cluster-name: {{ .Values.cluster.name }}
-    {{- if and .Values.hubble.enabled .Values.hubble.peerService.enabled }}
     peer-service: "hubble-peer.{{ template "cilium.namespace" . }}.svc.{{ .Values.hubble.peerService.clusterDomain }}:{{ $peerSvcPort }}"
-    {{- else }}
-    peer-service: unix://{{ .Values.hubble.socketPath }}
-    {{- end }}
     listen-address: {{ .Values.hubble.relay.listenHost }}:{{ .Values.hubble.relay.listenPort }}
     gops: {{ .Values.hubble.relay.gops.enabled }}
     gops-port: {{ .Values.hubble.relay.gops.port | quote }}

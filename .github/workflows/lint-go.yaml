@@ -5,8 +5,8 @@ on:
   pull_request: {}
   push:
     branches:
-      - master
-      - ft/master/**
+      - main
+      - ft/main/**
 
 permissions: read-all
 
@@ -19,8 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
+          # renovate: datasource=golang-version depName=go
           go-version: 1.20.1
       - name: Checkout code
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
@@ -37,8 +38,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
+          # renovate: datasource=golang-version depName=go
           go-version: 1.20.1
       - name: Checkout code
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
@@ -47,15 +49,17 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@08e2f20817b15149a52b5b3ebe7de50aff2ba8c5 # v3.4.0
         with:
-          version: v1.51.2
+          # renovate: datasource=docker depName=golangci/golangci-lint
+          version: v1.52.2
           skip-cache: true
 
   precheck:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
+          # renovate: datasource=golang-version depName=go
           go-version: 1.20.1
       - name: Checkout code
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
@@ -72,8 +76,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
+          # renovate: datasource=golang-version depName=go
           go-version: 1.20.1
       - name: Checkout code
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
@@ -90,8 +95,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
+          # renovate: datasource=golang-version depName=go
           go-version: 1.20.1
       - name: Checkout code
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
@@ -111,8 +117,6 @@ jobs:
           # Set GOBIN to ensure 'go install' binaries end up in the same directory
           # as the one actions/setup-go adds to PATH, regardless of GOPATH.
           export GOBIN="$HOME/go/bin"
-          # check-k8s-code-gen.sh needs a GOPATH set that contains the Cilium repo at src/github.com/cilium/cilium.
-          export GOPATH="$GITHUB_WORKSPACE"
 
           cd src/github.com/cilium/cilium
           contrib/scripts/check-k8s-code-gen.sh

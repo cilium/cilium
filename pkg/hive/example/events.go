@@ -30,24 +30,16 @@ type ExampleEvent struct {
 }
 
 type ExampleEvents interface {
-	// Events subscribes to events until context expires.
-	Events(context.Context) <-chan ExampleEvent
+	stream.Observable[ExampleEvent]
 }
 
 type exampleEventSource struct {
+	stream.Observable[ExampleEvent]
+
 	wp *workerpool.WorkerPool // Worker pool for background workers
 
-	src      stream.Observable[ExampleEvent]
 	emit     func(ExampleEvent) // Emits an item to 'src'
 	complete func(error)        // Completes 'src'
-}
-
-func (es *exampleEventSource) Events(ctx context.Context) <-chan ExampleEvent {
-	// Subscribe to 'src' and return it as a channel.
-	return stream.ToChannel(
-		ctx,
-		make(chan error), // Stream errors not relevant here
-		es.src)
 }
 
 func (es *exampleEventSource) Start(hive.HookContext) error {
@@ -100,7 +92,7 @@ func makeEvent() ExampleEvent {
 func newExampleEvents(lc hive.Lifecycle) ExampleEvents {
 	es := &exampleEventSource{}
 	// Multicast() constructs a one-to-many observable to which items can be emitted.
-	es.src, es.emit, es.complete = stream.Multicast[ExampleEvent]()
+	es.Observable, es.emit, es.complete = stream.Multicast[ExampleEvent]()
 	lc.Append(es)
 	return es
 }

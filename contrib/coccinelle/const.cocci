@@ -64,7 +64,9 @@ cnt += 1
 
 if cnt > 0:
   print("""Use the following command to fix the above issues:
-docker run --rm --user 1000 --workdir /workspace -v `pwd`:/workspace                \\
-    -it docker.io/cilium/coccicheck:2.3@sha256:56c7445e3d0cc37de49750f5dfd154786082c4be6bc17683c231c0445862233a spatch --sp-file contrib/coccinelle/const.cocci \\
-    --include-headers --very-quiet --in-place bpf/\n
+docker run --rm --user 1000 --workdir /workspace -v `pwd`:/workspace \\
+    -e COCCINELLE_HOME=/usr/local/lib/coccinelle \\
+    -it docker.io/cilium/coccicheck:2.4@sha256:24abe3fbb8e829fa41a68a3b76cb4df84fd5a87a7d1d6254c1c1fe5effb5bd1b \\
+    spatch --include-headers --very-quiet --in-place bpf/ \\
+    --sp-file contrib/coccinelle/const.cocci\n
 """)

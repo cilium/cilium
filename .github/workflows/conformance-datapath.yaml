@@ -9,7 +9,7 @@ on:
   schedule:
     - cron:  '0 5/6 * * *'
   ### FOR TESTING PURPOSES
-  # This workflow runs in the context of `master`, and ignores changes to
+  # This workflow runs in the context of `main`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
   # - Make sure the PR uses a branch from the base repository (requires write
   #   privileges). It will not work with a branch from a fork (missing secrets).
@@ -64,6 +64,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.13.2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -105,9 +107,58 @@ jobs:
             src:
               - '!(test|Documentation)/**'
 
+  setup-report:
+    runs-on: ubuntu-latest
+    needs: check_changes
+    name: Set commit status
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+          else
+            SHA=${{ github.sha }}
+          fi
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Set commit status to pending
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Datapath tests in progress...
+          state: pending
+          target_url: ${{ env.check_url }}
+
+  skip-test-run:
+    # If the modified files are not relevant for this test then we can skip
+    # this test and mark it as successful.
+    if: github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'false'
+    runs-on: ubuntu-latest
+    needs: setup-report
+    name: Set commit status to success (skipped)
+    steps:
+      - name: Set commit status to success
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.setup-report.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Datapath tests skipped
+          state: success
+          target_url: ${{ env.check_url }}
+
   setup-and-test:
     runs-on: ubuntu-latest-4cores-16gb
-    needs: check_changes
+    needs: setup-report
     name: Setup & Test
     if: |
       (github.event_name == 'issue_comment' && (
@@ -159,6 +210,7 @@ jobs:
             lb-mode: 'dsr'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            host-fw: 'true'
 
           - name: '6'
             kernel: '6.0-main'
@@ -167,6 +219,8 @@ jobs:
             tunnel: 'vxlan'
             lb-mode: 'snat'
             egress-gateway: 'true'
+            host-fw: 'true'
+            lb-acceleration: 'testing-only'
 
           - name: '7'
             kernel: 'bpf-next-main'
@@ -175,6 +229,7 @@ jobs:
             tunnel: 'disabled'
             lb-mode: 'snat'
             egress-gateway: 'true'
+            lb-acceleration: 'testing-only'
 
           - name: '8'
             kernel: 'bpf-next-main'
@@ -265,18 +320,7 @@ jobs:
       - name: Set up job variables
         id: vars
         run: |
-          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-            PR_API_JSON=$(curl \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-          else
-            SHA=${{ github.sha }}
-          fi
-
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-
+          SHA="${{ needs.setup-report.outputs.sha }}"
           CILIUM_INSTALL_DEFAULTS="--wait \
             --chart-directory=./install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
@@ -291,10 +335,12 @@ jobs:
             --rollback=false \
             --config monitor-aggregation=none \
             --nodes-without-cilium=kind-worker3 \
-            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
-          TUNNEL="--helm-set-string=tunnel=${{ matrix.tunnel }}"
+            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }} \
+            --helm-set=bpf.masquerade=true \
+            --helm-set=enableIPv6Masquerade=false"
+          TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-            TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
+            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
             TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
           fi
           LB_MODE=""
@@ -309,14 +355,13 @@ jobs:
           if [ "${{ matrix.ipv6 }}" != "false" ]; then
             IPV6="--helm-set=ipv6.enabled=true"
           fi
-          # We need to enable BPF masquerading for EGW so we keep the default
-          # here. masq is off due to https://github.com/cilium/cilium/issues/23283
-          EGRESS_GATEWAY="--helm-set=bpf.masquerade=false"
+          EGRESS_GATEWAY=""
           if [ "${{ matrix.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=bpf.masquerade=true --helm-set=enableIPv6Masquerade=false"
-            # Force legacy host routing to work around #23283 with masq on.
-            EGRESS_GATEWAY+=" --helm-set=bpf.hostLegacyRouting=true"
-            EGRESS_GATEWAY+=" --helm-set=egressGateway.enabled=true"
+            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true"
+          fi
+          LB_ACCELERATION=""
+          if [ "${{ matrix.lb-acceleration }}" != "" ]; then
+            LB_ACCELERATION="--helm-set=loadBalancer.acceleration=${{ matrix.lb-acceleration }}"
           fi
 
           ENCRYPT=""
@@ -327,31 +372,31 @@ jobs:
             fi
           fi
 
-          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${EGRESS_GATEWAY} ${ENCRYPT}"
-          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
+          HOST_FW=""
+          if [ "${{ matrix.host-fw }}" == "true" ]; then
+            HOST_FW="--helm-set=hostFirewall.enabled=true"
+          fi
 
-      - name: Set commit status to pending
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Cilium Datapath Conformance test in progress...
-          state: pending
-          target_url: ${{ env.check_url }}
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
+          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
 
       - name: Checkout pull request for Helm chart
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ needs.setup-report.outputs.sha }}
           persist-credentials: false
 
       - name: Install cilium-cli
         shell: bash
         run: |
-          cid=$(docker create quay.io/cilium/cilium-cli-ci:latest ls)
-          docker cp $cid:/usr/local/bin/cilium ./cilium-cli
-          docker rm $cid
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          mkdir cilium-cli-tmp
+          tar xzvfC cilium-linux-amd64.tar.gz cilium-cli-tmp
+          mv ./cilium-cli-tmp/cilium cilium-cli
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          rmdir cilium-cli-tmp
+          ./cilium-cli version
 
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
@@ -370,7 +415,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ needs.setup-report.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Run tests
@@ -379,17 +424,17 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host/
-            ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
-            kubectl -n kube-system exec -it daemonset/cilium  -- cilium status
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
             ./cilium-cli connectivity test --collect-sysdump-on-failure \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
-            kind delete cluster
+            ./contrib/scripts/kind-down.sh
 
       - name: Fetch artifacts
         if: ${{ !success() }}
@@ -411,34 +456,46 @@ jobs:
           path: cilium-sysdump-*.zip
           retention-days: 5
 
-      - name: Set commit status to success
-        if: ${{ success() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-success:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to success
+    if: ${{ success() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
           description: Datapath tests successful
           state: success
           target_url: ${{ env.check_url }}
 
-      - name: Set commit status to failure
-        if: ${{ failure() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-failure:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to failure
+    if: ${{ failure() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
           description: Datapath tests failed
           state: failure
           target_url: ${{ env.check_url }}
 
-      - name: Set commit status to cancelled
-        if: ${{ cancelled() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-cancelled:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to cancelled
+    if: ${{ cancelled() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
           description: Datapath tests cancelled
           state: error

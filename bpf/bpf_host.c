@@ -194,7 +194,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
 		if (!ctx_skip_nodeport(ctx)) {
-			ret = nodeport_lb6(ctx, secctx);
+			ret = nodeport_lb6(ctx, secctx, ext_err);
 			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
 			 * traffic to L7 LB. Policy enforcement needs to take
 			 * place after L7 LB has processed the packet, so we
@@ -216,7 +216,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
-		ret = ipv6_host_policy_ingress(ctx, &remote_id, &trace);
+		ret = ipv6_host_policy_ingress(ctx, &remote_id, &trace, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -480,7 +480,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
 		if (!ctx_skip_nodeport(ctx)) {
-			ret = nodeport_lb4(ctx, secctx);
+			ret = nodeport_lb4(ctx, secctx, ext_err);
 			if (ret == NAT_46X64_RECIRC) {
 				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
 				ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
@@ -514,7 +514,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
 		/* We're on the ingress path of the native device. */
-		ret = ipv4_host_policy_ingress(ctx, &remote_id, &trace);
+		ret = ipv4_host_policy_ingress(ctx, &remote_id, &trace, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -575,7 +575,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 #endif
 
 		return ipv4_local_delivery(ctx, l3_off, secctx, ip4, ep,
-					   METRIC_INGRESS, from_host, false);
+					   METRIC_INGRESS, from_host, false,
+					   false, 0);
 	}
 
 	/* Below remainder is only relevant when traffic is pushed via cilium_host.
@@ -1049,7 +1050,30 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 
 	if (flags & XFER_PKT_ENCAP) {
 		edt_set_aggregate(ctx, 0);
+#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+		{
+			struct geneve_dsr_opt4 gopt;
+			__be16 port = (__be16)ctx_get_xfer(ctx, XFER_ENCAP_PORT);
+			__be32 addr = ctx_get_xfer(ctx, XFER_ENCAP_ADDR);
 
+			if (port && addr) {
+				set_geneve_dsr_opt4(port, addr, &gopt);
+
+				return encap_and_redirect_with_nodeid_opt(ctx,
+								  ctx_get_xfer(ctx,
+									       XFER_ENCAP_NODEID),
+								  ctx_get_xfer(ctx,
+									       XFER_ENCAP_SECLABEL),
+								  ctx_get_xfer(ctx,
+									       XFER_ENCAP_DSTID),
+								  NOT_VTEP_DST,
+								  &gopt,
+								  sizeof(gopt),
+								  false,
+								  &trace);
+			}
+		}
+#endif
 		return __encap_and_redirect_with_nodeid(ctx, ctx_get_xfer(ctx, XFER_ENCAP_NODEID),
 							ctx_get_xfer(ctx, XFER_ENCAP_SECLABEL),
 							ctx_get_xfer(ctx, XFER_ENCAP_DSTID),
@@ -1200,7 +1224,7 @@ out:
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
 		 */
-		ret = handle_nat_fwd(ctx);
+		ret = handle_nat_fwd(ctx, 0);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret,
 						      CTX_ACT_DROP,
@@ -1235,6 +1259,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	int ret = CTX_ACT_OK;
 	bool traced = false;
 	__u32 src_id = 0;
+	__s8 ext_err = 0;
 
 	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
 		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
@@ -1277,12 +1302,12 @@ int cil_to_host(struct __ctx_buff *ctx)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = ipv6_host_policy_ingress(ctx, &src_id, &trace);
+		ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = ipv4_host_policy_ingress(ctx, &src_id, &trace);
+		ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
 		break;
 # endif
 	default:
@@ -1295,8 +1320,8 @@ int cil_to_host(struct __ctx_buff *ctx)
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
-					      METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, 0, 0,
@@ -1317,11 +1342,12 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 	};
 	__u32 src_id = 0;
 	int ret;
+	__s8 ext_err = 0;
 
-	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace);
+	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
-					      METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
@@ -1337,11 +1363,12 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 	};
 	__u32 src_id = 0;
 	int ret;
+	__s8 ext_err = 0;
 
-	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace);
+	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
-					      METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 #endif /* ENABLE_IPV4 */

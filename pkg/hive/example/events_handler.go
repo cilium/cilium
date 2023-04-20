@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 var eventsHandlerCell = cell.Module(
@@ -25,8 +26,7 @@ func newEventsHandler(ee ExampleEvents) HTTPHandlerOut {
 				f := w.(http.Flusher)
 				w.WriteHeader(200)
 
-				events := ee.Events(req.Context())
-				for ev := range events {
+				for ev := range stream.ToChannel[ExampleEvent](req.Context(), ee) {
 					fmt.Fprintf(w, "%s\n", ev.Message)
 					f.Flush()
 				}

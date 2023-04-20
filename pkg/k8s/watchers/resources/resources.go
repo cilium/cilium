@@ -24,6 +24,8 @@ const (
 	MetricCNP = "CiliumNetworkPolicy"
 	// MetricCCNP is the scope label for CiliumClusterwideNetworkPolicy event metrics.
 	MetricCCNP = "CiliumClusterwideNetworkPolicy"
+	// MetricCCG is the scope label for CiliumCIDRGroup event metrics.
+	MetricCCG = "CiliumCIDRGroup"
 	// MetricService is the scope label for Kubernetes Service event metrics.
 	MetricService = "Service"
 	// MetricEndpoint is the scope label for Kubernetes Endpoint event metrics.

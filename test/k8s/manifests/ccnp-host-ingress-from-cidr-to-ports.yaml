@@ -11,4 +11,4 @@ spec:
       - port: "80"
         protocol: TCP
     fromCIDR:
-      - 192.168.56.13/32
+      - NODE_WITHOUT_CILIUM_IP/32

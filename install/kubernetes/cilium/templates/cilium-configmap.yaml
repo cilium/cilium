@@ -396,13 +396,30 @@ data:
   #   - vxlan (default)
   #   - geneve
 {{- if .Values.gke.enabled }}
-  tunnel: "disabled"
+  routing-mode: "native"
   enable-endpoint-routes: "true"
   enable-local-node-route: "false"
 {{- else if .Values.aksbyocni.enabled }}
-  tunnel: "vxlan"
-{{- else }}
-  tunnel: {{ .Values.tunnel | quote }}
+  routing-mode: "tunnel"
+  tunnel-protocol: "vxlan"
+{{- end }}
+
+{{- if eq .Values.tunnel "disabled" }}
+  routing-mode: "native"
+{{- else if eq .Values.tunnel "vxlan" }}
+  routing-mode: "tunnel"
+  tunnel-protocol: "vxlan"
+{{- else if eq .Values.tunnel "geneve" }}
+  routing-mode: "tunnel"
+  tunnel-protocol: "geneve"
+{{- end }}
+
+{{- if .Values.routingMode }}
+  routing-mode: "{{ .Values.routingMode }}"
+{{- end }}
+
+{{- if .Values.tunnelProtocol }}
+  tunnel-protocol: "{{ .Values.tunnelProtocol }}"
 {{- end }}
 
 {{- if .Values.tunnelPort }}
@@ -689,9 +706,6 @@ data:
 {{- if .Values.logOptions }}
   log-opt: {{ .Values.logOptions | toJson | quote }}
 {{- end }}
-{{- if and .Values.sockops .Values.sockops.enabled }}
-  sockops-enable: {{ .Values.sockops.enabled | quote }}
-{{- end }}
 {{- if hasKey .Values.k8s "requireIPv4PodCIDR" }}
   k8s-require-ipv4-pod-cidr: {{ .Values.k8s.requireIPv4PodCIDR | quote }}
 {{- end }}
@@ -709,9 +723,18 @@ data:
 {{- end }}
 {{- if .Values.cni.configMap }}
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
+{{- if .Values.cni.customConf  }}
+  {{- /* legacy: v1.13 and before needed cni.customConf: true with cni.configMap */ -}}
   write-cni-conf-when-ready: {{ .Values.cni.hostConfDirMountPath }}/05-cilium.conflist
+{{- end }}
 {{- else if .Values.cni.readCniConf }}
   read-cni-conf: {{ .Values.cni.readCniConf }}
+{{- end }}
+{{- if and (not .Values.cni.customConf) .Values.cni.install }}
+  # Tell the agent to generate and write a CNI configuration file
+  write-cni-conf-when-ready: {{ .Values.cni.hostConfDirMountPath }}/05-cilium.conflist
+  cni-exclusive: {{ .Values.cni.exclusive | quote }}
+  cni-log-file: {{ .Values.cni.logFile | quote }}
 {{- end }}
 {{- if .Values.cni.uninstall }}
   cni-uninstall: {{ .Values.cni.uninstall | quote }}
@@ -808,19 +831,19 @@ data:
 
 {{- if or (eq $ipam "cluster-pool") (eq $ipam "cluster-pool-v2beta") }}
 {{- if .Values.ipv4.enabled }}
-  {{- if .Values.ipam.operator.clusterPoolIPv4PodCIDRList }}
-  cluster-pool-ipv4-cidr: {{ .Values.ipam.operator.clusterPoolIPv4PodCIDRList | join " " | quote }}
-  {{- else }}
-  cluster-pool-ipv4-cidr: {{ .Values.ipam.operator.clusterPoolIPv4PodCIDR | quote }}
+  {{- if hasKey .Values.ipam.operator "clusterPoolIPv4PodCIDR" }}
+    {{- /* ipam.operator.clusterPoolIPv4PodCIDR removed in v1.14, remove this failsafe around v1.17 */ -}}
+    {{- fail "Value ipam.operator.clusterPoolIPv4PodCIDR removed, use ipam.operator.clusterPoolIPv4PodCIDRList instead" }}
   {{- end }}
+  cluster-pool-ipv4-cidr: {{ .Values.ipam.operator.clusterPoolIPv4PodCIDRList | join " " | quote }}
   cluster-pool-ipv4-mask-size: {{ .Values.ipam.operator.clusterPoolIPv4MaskSize | quote }}
 {{- end }}
 {{- if .Values.ipv6.enabled }}
-  {{- if .Values.ipam.operator.clusterPoolIPv6PodCIDRList }}
-  cluster-pool-ipv6-cidr: {{ .Values.ipam.operator.clusterPoolIPv6PodCIDRList | join " " | quote }}
-  {{- else }}
-  cluster-pool-ipv6-cidr: {{ .Values.ipam.operator.clusterPoolIPv6PodCIDR | quote }}
+  {{- if hasKey .Values.ipam.operator "clusterPoolIPv6PodCIDR" }}
+    {{- /* ipam.operator.clusterPoolIPv6PodCIDR removed in v1.14, remove this failsafe around v1.17 */ -}}
+    {{- fail "Value ipam.operator.clusterPoolIPv6PodCIDR removed, use ipam.operator.clusterPoolIPv6PodCIDRList instead" }}
   {{- end }}
+  cluster-pool-ipv6-cidr: {{ .Values.ipam.operator.clusterPoolIPv6PodCIDRList | join " " | quote }}
   cluster-pool-ipv6-mask-size: {{ .Values.ipam.operator.clusterPoolIPv6MaskSize | quote }}
 {{- end }}
 {{- end }}
@@ -947,8 +970,17 @@ data:
   annotate-k8s-node: "true"
 {{- end }}
 
+{{- if and .Values.operator.setNodeTaints (not .Values.operator.removeNodeTaints) -}}
+  {{ fail "Cannot have operator.setNodeTaintsMaxNodes and not operator.removeNodeTaints = false" }}
+{{- end -}}
 {{- if .Values.operator.removeNodeTaints }}
   remove-cilium-node-taints: "true"
+{{- end }}
+{{- /* set node taints if setNodeTaints is explicitly enabled or removeNodeTaints is set */ -}}
+{{- if or .Values.operator.setNodeTaints
+          ( and (kindIs "invalid" .Values.operator.setNodeTaints)
+                .Values.operator.removeNodeTaints ) }}
+  set-cilium-node-taints: "true"
 {{- end }}
 {{- if .Values.operator.setNodeNetworkStatus }}
   set-cilium-is-up-condition: "true"
@@ -998,6 +1030,16 @@ data:
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}
 
+{{- end }}
+
+{{- if .Values.auth.mTLS.spire.enabled }}
+  mesh-auth-mtls-enabled: "true"
+  mesh-auth-mtls-listener-port: {{ .Values.auth.mTLS.port | quote }}
+  mesh-auth-spire-agent-socket: {{ .Values.auth.mTLS.spire.agentSocketPath | quote }}
+  mesh-auth-spire-server-address: {{ .Values.auth.mTLS.spire.serverAddress | quote }}
+  mesh-auth-spire-server-connection-timeout: {{ .Values.auth.mTLS.spire.connectionTimeout }}
+  mesh-auth-spire-admin-socket: {{ .Values.auth.mTLS.spire.adminSocketPath | quote }}
+  mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spire.trustDomain | quote }}
 {{- end }}
 
 ---

@@ -18,7 +18,6 @@ package manager
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -41,12 +40,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
-	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/internal/httpserver"
 	intrec "sigs.k8s.io/controller-runtime/pkg/internal/recorder"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
@@ -107,8 +105,8 @@ type controllerManager struct {
 	// Healthz probe handler
 	healthzHandler *healthz.Handler
 
-	// controllerOptions are the global controller options.
-	controllerOptions v1alpha1.ControllerConfigurationSpec
+	// controllerConfig are the global controller options.
+	controllerConfig config.Controller
 
 	// Logger is the logger that should be used by this manager.
 	// If none is set, it defaults to log.Log global logger.
@@ -127,17 +125,6 @@ type controllerManager struct {
 	// managers, either because it won a leader election or because no leader
 	// election was configured.
 	elected chan struct{}
-
-	// port is the port that the webhook server serves at.
-	port int
-	// host is the hostname that the webhook server binds to.
-	host string
-	// CertDir is the directory that contains the server key and certificate.
-	// if not set, webhook server would look up the server key and certificate in
-	// {TempDir}/k8s-webhook-server/serving-certs
-	certDir string
-	// tlsOpts is used to allow configuring the TLS config used for the webhook server.
-	tlsOpts []func(*tls.Config)
 
 	webhookServer *webhook.Server
 	// webhookServerOnce will be called in GetWebhookServer() to optionally initialize
@@ -191,29 +178,7 @@ func (cm *controllerManager) Add(r Runnable) error {
 }
 
 func (cm *controllerManager) add(r Runnable) error {
-	// Set dependencies on the object
-	if err := cm.SetFields(r); err != nil {
-		return err
-	}
 	return cm.runnables.Add(r)
-}
-
-// Deprecated: use the equivalent Options field to set a field. This method will be removed in v0.10.
-func (cm *controllerManager) SetFields(i interface{}) error {
-	if err := cm.cluster.SetFields(i); err != nil {
-		return err
-	}
-	if _, err := inject.InjectorInto(cm.SetFields, i); err != nil {
-		return err
-	}
-	if _, err := inject.StopChannelInto(cm.internalProceduresStop, i); err != nil {
-		return err
-	}
-	if _, err := inject.LoggerInto(cm.logger, i); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // AddMetricsExtraHandler adds extra handler served on path to the http server that serves metrics.
@@ -272,6 +237,10 @@ func (cm *controllerManager) AddReadyzCheck(name string, check healthz.Checker) 
 	return nil
 }
 
+func (cm *controllerManager) GetHTTPClient() *http.Client {
+	return cm.cluster.GetHTTPClient()
+}
+
 func (cm *controllerManager) GetConfig() *rest.Config {
 	return cm.cluster.GetConfig()
 }
@@ -307,12 +276,7 @@ func (cm *controllerManager) GetAPIReader() client.Reader {
 func (cm *controllerManager) GetWebhookServer() *webhook.Server {
 	cm.webhookServerOnce.Do(func() {
 		if cm.webhookServer == nil {
-			cm.webhookServer = &webhook.Server{
-				Port:    cm.port,
-				Host:    cm.host,
-				CertDir: cm.certDir,
-				TLSOpts: cm.tlsOpts,
-			}
+			panic("webhook should not be nil")
 		}
 		if err := cm.Add(cm.webhookServer); err != nil {
 			panic(fmt.Sprintf("unable to add webhook server to the controller manager: %s", err))
@@ -325,8 +289,8 @@ func (cm *controllerManager) GetLogger() logr.Logger {
 	return cm.logger
 }
 
-func (cm *controllerManager) GetControllerOptions() v1alpha1.ControllerConfigurationSpec {
-	return cm.controllerOptions
+func (cm *controllerManager) GetControllerOptions() config.Controller {
+	return cm.controllerConfig
 }
 
 func (cm *controllerManager) serveMetrics() {
@@ -528,7 +492,12 @@ func (cm *controllerManager) engageStopProcedure(stopComplete <-chan struct{}) e
 	//
 	// The shutdown context immediately expires if the gracefulShutdownTimeout is not set.
 	var shutdownCancel context.CancelFunc
-	cm.shutdownCtx, shutdownCancel = context.WithTimeout(context.Background(), cm.gracefulShutdownTimeout)
+	if cm.gracefulShutdownTimeout < 0 {
+		// We want to wait forever for the runnables to stop.
+		cm.shutdownCtx, shutdownCancel = context.WithCancel(context.Background())
+	} else {
+		cm.shutdownCtx, shutdownCancel = context.WithTimeout(context.Background(), cm.gracefulShutdownTimeout)
+	}
 	defer shutdownCancel()
 
 	// Start draining the errors before acquiring the lock to make sure we don't deadlock

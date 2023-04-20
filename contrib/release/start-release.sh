@@ -81,9 +81,9 @@ main() {
     local old_version=""
 
     git fetch -q $REMOTE
-    if [ "$branch" = "master" ]; then
+    if [ "$branch" = "main" ]; then
         git checkout -b pr/prepare-$version $REMOTE/$branch
-        if version_is_prerelease "$version"; then
+        if ! version_is_prerelease "$version"; then
             old_version="$(git tag -l "$VERSION_GLOB" | grep -v 'rc\|snapshot' | sort -V | tail -n 1)"
         else
             old_version="$(git tag -l "$VERSION_GLOB" | sort -V | tail -n 1)"

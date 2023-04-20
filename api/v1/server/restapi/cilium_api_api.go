@@ -22,6 +22,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 
+	"github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
@@ -74,6 +75,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		}),
 		ServiceDeleteServiceIDHandler: service.DeleteServiceIDHandlerFunc(func(params service.DeleteServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation service.DeleteServiceID has not yet been implemented")
+		}),
+		BgpGetBgpPeersHandler: bgp.GetBgpPeersHandlerFunc(func(params bgp.GetBgpPeersParams) middleware.Responder {
+			return middleware.NotImplemented("operation bgp.GetBgpPeers has not yet been implemented")
 		}),
 		DaemonGetCgroupDumpMetadataHandler: daemon.GetCgroupDumpMetadataHandlerFunc(func(params daemon.GetCgroupDumpMetadataParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetCgroupDumpMetadata has not yet been implemented")
@@ -254,6 +258,8 @@ type CiliumAPIAPI struct {
 	RecorderDeleteRecorderIDHandler recorder.DeleteRecorderIDHandler
 	// ServiceDeleteServiceIDHandler sets the operation handler for the delete service ID operation
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
+	// BgpGetBgpPeersHandler sets the operation handler for the get bgp peers operation
+	BgpGetBgpPeersHandler bgp.GetBgpPeersHandler
 	// DaemonGetCgroupDumpMetadataHandler sets the operation handler for the get cgroup dump metadata operation
 	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
 	// DaemonGetClusterNodesHandler sets the operation handler for the get cluster nodes operation
@@ -437,6 +443,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.ServiceDeleteServiceIDHandler == nil {
 		unregistered = append(unregistered, "service.DeleteServiceIDHandler")
+	}
+	if o.BgpGetBgpPeersHandler == nil {
+		unregistered = append(unregistered, "bgp.GetBgpPeersHandler")
 	}
 	if o.DaemonGetCgroupDumpMetadataHandler == nil {
 		unregistered = append(unregistered, "daemon.GetCgroupDumpMetadataHandler")
@@ -683,6 +692,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/service/{id}"] = service.NewDeleteServiceID(o.context, o.ServiceDeleteServiceIDHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/bgp/peers"] = bgp.NewGetBgpPeers(o.context, o.BgpGetBgpPeersHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}

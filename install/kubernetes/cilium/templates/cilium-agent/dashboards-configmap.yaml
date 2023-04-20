@@ -1,5 +1,5 @@
 {{- if .Values.dashboards.enabled }}
-{{- $files := .Files.Glob "files/cilium-dashboards/*.json" }}
+{{- $files := .Files.Glob "files/cilium-agent/dashboards/*.json" }}
 {{- range $path, $fileContents := $files }}
 {{- $dashboardName := regexReplaceAll "(^.*/)(.*)\\.json$" $path "${2}" }}
 ---

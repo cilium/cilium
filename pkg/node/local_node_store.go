@@ -4,7 +4,6 @@
 package node
 
 import (
-	"context"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -29,11 +28,8 @@ type LocalNodeInitializer interface {
 // LocalNodeStore is the canonical owner for the local node object and provides
 // a reactive API for observing and updating the state.
 type LocalNodeStore interface {
-	// Observe subscribes to changes on the local node until ctx is
-	// cancelled.
-	Observe(ctx context.Context,
-		next func(LocalNode),
-		complete func(error))
+	// Changes to the local node are observable via Observe()
+	stream.Observable[LocalNode]
 
 	// Update modifies the local node with a mutator. The updated value
 	// is passed to observers.

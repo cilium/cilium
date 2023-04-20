@@ -99,11 +99,14 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath
 	err := setupDummyDevice(dummyExternalDeviceName, ips...)
 	c.Assert(err, check.IsNil)
 
+	ips = []net.IP{}
 	if enableIPv4 {
-		err = setupDummyDevice(dummyHostDeviceName, s.nodeAddressing.IPv4().Router())
-	} else {
-		err = setupDummyDevice(dummyHostDeviceName)
+		ips = append(ips, s.nodeAddressing.IPv4().Router())
 	}
+	if enableIPv6 {
+		ips = append(ips, s.nodeAddressing.IPv6().Router())
+	}
+	err = setupDummyDevice(dummyHostDeviceName, ips...)
 	c.Assert(err, check.IsNil)
 
 	tunnel.SetTunnelMap(tunnel.NewTunnelMap("test_cilium_tunnel_map"))
@@ -1149,9 +1152,9 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		return nil
 	})
 
-	prevTunnel := option.Config.Tunnel
-	defer func() { option.Config.Tunnel = prevTunnel }()
-	option.Config.Tunnel = option.TunnelDisabled
+	prevRoutingMode := option.Config.RoutingMode
+	defer func() { option.Config.RoutingMode = prevRoutingMode }()
+	option.Config.RoutingMode = option.RoutingModeNative
 	prevDRDev := option.Config.DirectRoutingDevice
 	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
 	option.Config.DirectRoutingDevice = "veth0"
@@ -2035,9 +2038,9 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	defer netlink.RouteDel(r)
 
-	prevTunnel := option.Config.Tunnel
-	defer func() { option.Config.Tunnel = prevTunnel }()
-	option.Config.Tunnel = option.TunnelDisabled
+	prevRoutingMode := option.Config.RoutingMode
+	defer func() { option.Config.RoutingMode = prevRoutingMode }()
+	option.Config.RoutingMode = option.RoutingModeNative
 	prevDRDev := option.Config.DirectRoutingDevice
 	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
 	option.Config.DirectRoutingDevice = "veth0"
@@ -2319,9 +2322,9 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandling(c *check.C) {
 		return nil
 	})
 
-	prevTunnel := option.Config.Tunnel
-	defer func() { option.Config.Tunnel = prevTunnel }()
-	option.Config.Tunnel = option.TunnelDisabled
+	prevRoutingMode := option.Config.RoutingMode
+	defer func() { option.Config.RoutingMode = prevRoutingMode }()
+	option.Config.RoutingMode = option.RoutingModeNative
 	prevDRDev := option.Config.DirectRoutingDevice
 	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
 	option.Config.DirectRoutingDevice = "veth0"
@@ -3206,9 +3209,9 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	c.Assert(err, check.IsNil)
 	defer netlink.RouteDel(r)
 
-	prevTunnel := option.Config.Tunnel
-	defer func() { option.Config.Tunnel = prevTunnel }()
-	option.Config.Tunnel = option.TunnelDisabled
+	prevRoutingMode := option.Config.RoutingMode
+	defer func() { option.Config.RoutingMode = prevRoutingMode }()
+	option.Config.RoutingMode = option.RoutingModeNative
 	prevDRDev := option.Config.DirectRoutingDevice
 	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
 	option.Config.DirectRoutingDevice = "veth0"

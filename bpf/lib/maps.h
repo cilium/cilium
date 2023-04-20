@@ -64,17 +64,6 @@ struct {
 } THROTTLE_MAP __section_maps_btf;
 #endif /* ENABLE_BANDWIDTH_MANAGER */
 
-/* Map to link endpoint id to per endpoint cilium_policy map */
-#ifdef SOCKMAP
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
-	__type(key, struct endpoint_key);
-	__type(value, int);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, ENDPOINTS_MAP_SIZE);
-} EP_POLICY_MAP __section_maps_btf;
-#endif
-
 #ifdef POLICY_MAP
 /* Per-endpoint policy enforcement map */
 struct {
@@ -97,6 +86,21 @@ struct {
 	__uint(max_entries, AUTH_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } AUTH_MAP __section_maps_btf;
+#endif
+
+#ifdef CONFIG_MAP
+/*
+ * CONFIG_MAP is an array containing runtime configuration information to the
+ * bpf datapath.  Each element in the array is a 64-bit integer, meaning of
+ * which is defined by the source of that index.
+ */
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, __u64);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CONFIG_MAP_SIZE);
+} CONFIG_MAP __section_maps_btf;
 #endif
 
 #ifndef SKIP_CALLS_MAP

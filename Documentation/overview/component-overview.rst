@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _component_overview:
+
 ******************
 Component Overview
 ******************
@@ -35,6 +37,15 @@ Client (CLI)
   agent running on the same node. The CLI allows inspecting the state and
   status of the local agent. It also provides tooling to directly access the
   eBPF maps to validate their state.
+
+  .. note::
+
+     The in-agent Cilium CLI client described here should not be confused with
+     the `command line tool for quick-installing, managing and troubleshooting
+     Cilium on Kubernetes clusters <https://github.com/cilium/cilium-cli>`_,
+     which also has the name ``cilium``. That tool is typically installed
+     remote from the cluster, and uses ``kubeconfig`` information to access
+     Cilium running on the cluster via the Kubernetes API.
 
 Operator
   The Cilium Operator is responsible for managing duties in the cluster which

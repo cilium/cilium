@@ -520,7 +520,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				EnableIPv4Masquerade:  true,
 				EnableIPv6Masquerade:  true,
-				Tunnel:                TunnelDisabled,
+				RoutingMode:           RoutingModeNative,
 				IPAM:                  ipamOption.IPAMAzure,
 				IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.127.64.0/18"),
 				EnableIPv4:            true,
@@ -532,7 +532,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				EnableIPv4Masquerade: false,
 				EnableIPv6Masquerade: false,
-				Tunnel:               TunnelDisabled,
+				RoutingMode:          RoutingModeNative,
 				IPAM:                 ipamOption.IPAMAzure,
 				EnableIPv4:           true,
 			},
@@ -543,7 +543,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
-				Tunnel:               TunnelVXLAN,
+				RoutingMode:          RoutingModeTunnel,
 				IPAM:                 ipamOption.IPAMAzure,
 				EnableIPv4:           true,
 			},
@@ -554,7 +554,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
-				Tunnel:               TunnelDisabled,
+				RoutingMode:          RoutingModeNative,
 				IPAM:                 ipamOption.IPAMENI,
 				EnableIPv4:           true,
 			},
@@ -565,7 +565,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
-				Tunnel:               TunnelDisabled,
+				RoutingMode:          RoutingModeNative,
 				IPAM:                 ipamOption.IPAMAzure,
 				EnableIPv4:           true,
 			},
@@ -597,7 +597,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				EnableIPv4Masquerade:  true,
 				EnableIPv6Masquerade:  true,
-				Tunnel:                TunnelDisabled,
+				RoutingMode:           RoutingModeNative,
 				IPv6NativeRoutingCIDR: cidr.MustParseCIDR("fd00::/120"),
 				EnableIPv6:            true,
 			},
@@ -608,7 +608,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				EnableIPv4Masquerade: false,
 				EnableIPv6Masquerade: false,
-				Tunnel:               TunnelDisabled,
+				RoutingMode:          RoutingModeNative,
 				EnableIPv6:           true,
 			},
 			wantErr: false,
@@ -618,7 +618,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
-				Tunnel:               TunnelVXLAN,
+				RoutingMode:          RoutingModeTunnel,
 				EnableIPv6:           true,
 			},
 			wantErr: false,
@@ -628,7 +628,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
-				Tunnel:               TunnelDisabled,
+				RoutingMode:          RoutingModeNative,
 				EnableIPv6:           true,
 			},
 			wantErr: true,

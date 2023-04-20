@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	toolscache "k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/internal/objectutil"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 // NewCacheFunc - Function for creating a new cache from the options and a rest config.
@@ -43,31 +43,43 @@ const globalCache = "_cluster-scope"
 // a global cache for cluster scoped resource. Note that this is not intended
 // to be used for excluding namespaces, this is better done via a Predicate. Also note that
 // you may face performance issues when using this with a high number of namespaces.
+//
+// Deprecated: Use cache.Options.View.Namespaces instead.
 func MultiNamespacedCacheBuilder(namespaces []string) NewCacheFunc {
 	return func(config *rest.Config, opts Options) (Cache, error) {
-		opts, err := defaultOpts(config, opts)
+		opts.Namespaces = namespaces
+		return newMultiNamespaceCache(config, opts)
+	}
+}
+
+func newMultiNamespaceCache(config *rest.Config, opts Options) (Cache, error) {
+	if len(opts.Namespaces) < 2 {
+		return nil, fmt.Errorf("must specify more than one namespace to use multi-namespace cache")
+	}
+	opts, err := defaultOpts(config, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create every namespace cache.
+	caches := map[string]Cache{}
+	for _, ns := range opts.Namespaces {
+		opts.Namespaces = []string{ns}
+		c, err := New(config, opts)
 		if err != nil {
 			return nil, err
 		}
-
-		caches := map[string]Cache{}
-
-		// create a cache for cluster scoped resources
-		gCache, err := New(config, opts)
-		if err != nil {
-			return nil, fmt.Errorf("error creating global cache: %w", err)
-		}
-
-		for _, ns := range namespaces {
-			opts.Namespace = ns
-			c, err := New(config, opts)
-			if err != nil {
-				return nil, err
-			}
-			caches[ns] = c
-		}
-		return &multiNamespaceCache{namespaceToCache: caches, Scheme: opts.Scheme, RESTMapper: opts.Mapper, clusterCache: gCache}, nil
+		caches[ns] = c
 	}
+
+	// Create a cache for cluster scoped resources.
+	opts.Namespaces = []string{}
+	gCache, err := New(config, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error creating global cache: %w", err)
+	}
+
+	return &multiNamespaceCache{namespaceToCache: caches, Scheme: opts.Scheme, RESTMapper: opts.Mapper, clusterCache: gCache}, nil
 }
 
 // multiNamespaceCache knows how to handle multiple namespaced caches
@@ -89,7 +101,7 @@ func (c *multiNamespaceCache) GetInformer(ctx context.Context, obj client.Object
 
 	// If the object is clusterscoped, get the informer from clusterCache,
 	// if not use the namespaced caches.
-	isNamespaced, err := objectutil.IsAPINamespaced(obj, c.Scheme, c.RESTMapper)
+	isNamespaced, err := apiutil.IsObjectNamespaced(obj, c.Scheme, c.RESTMapper)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +131,7 @@ func (c *multiNamespaceCache) GetInformerForKind(ctx context.Context, gvk schema
 
 	// If the object is clusterscoped, get the informer from clusterCache,
 	// if not use the namespaced caches.
-	isNamespaced, err := objectutil.IsAPINamespacedWithGVK(gvk, c.Scheme, c.RESTMapper)
+	isNamespaced, err := apiutil.IsGVKNamespaced(gvk, c.RESTMapper)
 	if err != nil {
 		return nil, err
 	}
@@ -183,9 +195,9 @@ func (c *multiNamespaceCache) WaitForCacheSync(ctx context.Context) bool {
 }
 
 func (c *multiNamespaceCache) IndexField(ctx context.Context, obj client.Object, field string, extractValue client.IndexerFunc) error {
-	isNamespaced, err := objectutil.IsAPINamespaced(obj, c.Scheme, c.RESTMapper)
+	isNamespaced, err := apiutil.IsObjectNamespaced(obj, c.Scheme, c.RESTMapper)
 	if err != nil {
-		return nil //nolint:nilerr
+		return err
 	}
 
 	if !isNamespaced {
@@ -201,7 +213,7 @@ func (c *multiNamespaceCache) IndexField(ctx context.Context, obj client.Object,
 }
 
 func (c *multiNamespaceCache) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-	isNamespaced, err := objectutil.IsAPINamespaced(obj, c.Scheme, c.RESTMapper)
+	isNamespaced, err := apiutil.IsObjectNamespaced(obj, c.Scheme, c.RESTMapper)
 	if err != nil {
 		return err
 	}
@@ -223,7 +235,7 @@ func (c *multiNamespaceCache) List(ctx context.Context, list client.ObjectList, 
 	listOpts := client.ListOptions{}
 	listOpts.ApplyOptions(opts)
 
-	isNamespaced, err := objectutil.IsAPINamespaced(list, c.Scheme, c.RESTMapper)
+	isNamespaced, err := apiutil.IsObjectNamespaced(list, c.Scheme, c.RESTMapper)
 	if err != nil {
 		return err
 	}
@@ -293,42 +305,63 @@ type multiNamespaceInformer struct {
 	namespaceToInformer map[string]Informer
 }
 
+type handlerRegistration struct {
+	handles map[string]toolscache.ResourceEventHandlerRegistration
+}
+
+type syncer interface {
+	HasSynced() bool
+}
+
+// HasSynced asserts that the handler has been called for the full initial state of the informer.
+// This uses syncer to be compatible between client-go 1.27+ and older versions when the interface changed.
+func (h handlerRegistration) HasSynced() bool {
+	for _, reg := range h.handles {
+		if s, ok := reg.(syncer); ok {
+			if !s.HasSynced() {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 var _ Informer = &multiNamespaceInformer{}
 
 // AddEventHandler adds the handler to each namespaced informer.
 func (i *multiNamespaceInformer) AddEventHandler(handler toolscache.ResourceEventHandler) (toolscache.ResourceEventHandlerRegistration, error) {
-	handles := make(map[string]toolscache.ResourceEventHandlerRegistration, len(i.namespaceToInformer))
+	handles := handlerRegistration{handles: make(map[string]toolscache.ResourceEventHandlerRegistration, len(i.namespaceToInformer))}
 	for ns, informer := range i.namespaceToInformer {
 		registration, err := informer.AddEventHandler(handler)
 		if err != nil {
 			return nil, err
 		}
-		handles[ns] = registration
+		handles.handles[ns] = registration
 	}
 	return handles, nil
 }
 
 // AddEventHandlerWithResyncPeriod adds the handler with a resync period to each namespaced informer.
 func (i *multiNamespaceInformer) AddEventHandlerWithResyncPeriod(handler toolscache.ResourceEventHandler, resyncPeriod time.Duration) (toolscache.ResourceEventHandlerRegistration, error) {
-	handles := make(map[string]toolscache.ResourceEventHandlerRegistration, len(i.namespaceToInformer))
+	handles := handlerRegistration{handles: make(map[string]toolscache.ResourceEventHandlerRegistration, len(i.namespaceToInformer))}
 	for ns, informer := range i.namespaceToInformer {
 		registration, err := informer.AddEventHandlerWithResyncPeriod(handler, resyncPeriod)
 		if err != nil {
 			return nil, err
 		}
-		handles[ns] = registration
+		handles.handles[ns] = registration
 	}
 	return handles, nil
 }
 
 // RemoveEventHandler removes a formerly added event handler given by its registration handle.
 func (i *multiNamespaceInformer) RemoveEventHandler(h toolscache.ResourceEventHandlerRegistration) error {
-	handles, ok := h.(map[string]toolscache.ResourceEventHandlerRegistration)
+	handles, ok := h.(handlerRegistration)
 	if !ok {
 		return fmt.Errorf("it is not the registration returned by multiNamespaceInformer")
 	}
 	for ns, informer := range i.namespaceToInformer {
-		registration, ok := handles[ns]
+		registration, ok := handles.handles[ns]
 		if !ok {
 			continue
 		}

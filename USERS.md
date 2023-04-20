@@ -83,6 +83,12 @@ Users (Alphabetically)
       L: https://cloud.arangodb.com
       Q: @ewoutp @Robert-Stam
 
+    * N: Ascend.io
+      D: Ascend.io is using Cilium as a consistent CNI for our Data Automation Platform on GKE, EKS, and AKS.
+      U: Transparent Encryption, Overlay Networking, Cluster Mesh, Egress Gateway, Network Policy, Hubble
+      L: https://www.ascend.io/
+      Q: @Joe Stevens
+
     * N: Ayedo
       D: Ayedo builds and operates cloud-native container platforms based on Kubernetes
       U: Hubble for Visibility, Cilium as Mesh between Services
@@ -113,6 +119,11 @@ Users (Alphabetically)
       D: Civo is offering Cilium as the CNI option for Civo users to choose it for their Civo Kubernetes clusters.
       U: Networking and network policy
       L: https://www.civo.com/kubernetes
+
+    * N: ClickHouse
+      D: ClickHouse uses Cilium as CNI for AWS Kubernetes environments
+      U: CiliumNetworkPolicy, Hubble, ClusterMesh
+      L: https://clickhouse.com
 
     * N: Cognite
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
@@ -416,6 +427,12 @@ Users (Alphabetically)
       D: PostFinance is using Cilium as their CNI for all mission critical, on premise k8s clusters
       U: Networking, network policies, kube-proxy replacement
       L: https://github.com/postfinance
+
+    * N: Proton AG
+      D: Proton is using Cilium as their CNI for all their Kubernetes clusters
+      U: Networking, network policies, host firewall, kube-proxy replacement, Hubble
+      L: https://proton.me/
+      Q: @j4m3s @MrFreezeex
 
     * N: Radio France
       D: Radio France is using Cilium in their production clusters (self-hosted k8s with kops on AWS)

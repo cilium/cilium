@@ -184,10 +184,9 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 				log.Warnf("Ignoring provided identityStore")
 			}
 			backend, err = identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
-				NodeName: owner.GetNodeSuffix(),
-				Store:    nil,
-				Client:   client,
-				KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
+				Store:   nil,
+				Client:  client,
+				KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize Kubernetes CRD backend for identity allocation")
@@ -258,7 +257,8 @@ func (m *CachingIdentityAllocator) Close() {
 		// This means the channel was closed and therefore the IdentityAllocator == nil will never be true
 	default:
 		if m.IdentityAllocator == nil {
-			log.Panic("Close() called without calling InitIdentityAllocator() first")
+			log.Error("Close() called without calling InitIdentityAllocator() first")
+			return
 		}
 	}
 

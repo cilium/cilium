@@ -1,0 +1,11 @@
+{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled .Values.auth.mTLS.spire.install.agent.serviceAccount.create -}}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.auth.mTLS.spire.install.agent.serviceAccount.name }}
+rules:
+# Required cluster role to allow spire-agent to query k8s API server
+- apiGroups: [ "" ]
+  resources: [ "pods","nodes","nodes/proxy" ]
+  verbs: [ "get" ]
+{{- end }}

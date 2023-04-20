@@ -36,18 +36,24 @@ var (
 			namespaceResource,
 			lbIPPoolsResource,
 			ciliumIdentityResource,
+			ciliumNetworkPolicy,
+			ciliumClusterwideNetworkPolicy,
+			ciliumCIDRGroup,
 		),
 	)
 )
 
 type SharedResources struct {
 	cell.In
-	LocalNode       *LocalNodeResource
-	LocalCiliumNode *LocalCiliumNodeResource
-	Services        resource.Resource[*slim_corev1.Service]
-	Namespaces      resource.Resource[*slim_corev1.Namespace]
-	LBIPPools       resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-	Identities      resource.Resource[*cilium_api_v2.CiliumIdentity]
+	LocalNode                        *LocalNodeResource
+	LocalCiliumNode                  *LocalCiliumNodeResource
+	Services                         resource.Resource[*slim_corev1.Service]
+	Namespaces                       resource.Resource[*slim_corev1.Namespace]
+	LBIPPools                        resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
+	Identities                       resource.Resource[*cilium_api_v2.CiliumIdentity]
+	CiliumNetworkPolicies            resource.Resource[*cilium_api_v2.CiliumNetworkPolicy]
+	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy]
+	CIDRGroups                       resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
 }
 
 func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
@@ -119,4 +125,28 @@ func ciliumIdentityResource(lc hive.Lifecycle, cs client.Clientset) (resource.Re
 		cs.CiliumV2().CiliumIdentities(),
 	)
 	return resource.New[*cilium_api_v2.CiliumIdentity](lc, lw), nil
+}
+
+func ciliumNetworkPolicy(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNetworkPolicyList](cs.CiliumV2().CiliumNetworkPolicies(""))
+	return resource.New[*cilium_api_v2.CiliumNetworkPolicy](lc, lw), nil
+}
+
+func ciliumClusterwideNetworkPolicy(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumClusterwideNetworkPolicyList](cs.CiliumV2().CiliumClusterwideNetworkPolicies())
+	return resource.New[*cilium_api_v2.CiliumClusterwideNetworkPolicy](lc, lw), nil
+}
+
+func ciliumCIDRGroup(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumCIDRGroupList](cs.CiliumV2alpha1().CiliumCIDRGroups())
+	return resource.New[*cilium_api_v2alpha1.CiliumCIDRGroup](lc, lw), nil
 }

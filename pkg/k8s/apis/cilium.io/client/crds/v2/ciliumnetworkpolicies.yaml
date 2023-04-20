@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
   name: ciliumnetworkpolicies.cilium.io
 spec:
@@ -87,6 +87,8 @@ spec:
                             the allowed traffic, if any.
                           enum:
                           - "null"
+                          - mtls-spiffe
+                          - always-fail
                           type: string
                       required:
                       - type
@@ -158,26 +160,42 @@ spec:
                           to/from which outside communication  is allowed, along with
                           an optional list of subnets within that CIDR prefix to/from
                           which outside communication is not allowed.
+                        oneOf:
+                        - properties:
+                            cidr: {}
+                          required:
+                          - cidr
+                        - properties:
+                            cidrGroupRef: {}
+                          required:
+                          - cidrGroupRef
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
                             pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                             type: string
+                          cidrGroupRef:
+                            description: CIDRGroupRef is a reference to a CiliumCIDRGroup
+                              object. A CiliumCIDRGroup contains a list of CIDRs that
+                              the endpoint, subject to the rule, can (Ingress) or
+                              cannot (IngressDeny) receive connections from.
+                            maxLength: 253
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
                           except:
                             description: ExceptCIDRs is a list of IP blocks which
                               the endpoint subject to the rule is not allowed to initiate
                               connections to. These CIDR prefixes should be contained
-                              within Cidr. These exceptions are only applied to the
-                              Cidr in this CIDRRule, and do not apply to any other
-                              CIDR prefixes in any other CIDRRules.
+                              within Cidr, using ExceptCIDRs together with CIDRGroupRef
+                              is not supported yet. These exceptions are only applied
+                              to the Cidr in this CIDRRule, and do not apply to any
+                              other CIDR prefixes in any other CIDRRules.
                             items:
                               description: 'CIDR specifies a block of IP addresses.
                                 Example: 192.0.2.1/32'
                               pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                               type: string
                             type: array
-                        required:
-                        - cidr
                         type: object
                       type: array
                     toEndpoints:
@@ -941,7 +959,7 @@ spec:
                 type: array
               egressDeny:
                 description: EgressDeny is a list of EgressDenyRule which are enforced
-                  at egress. Any rule inserted here will by denied regardless of the
+                  at egress. Any rule inserted here will be denied regardless of the
                   allowed egress rules in the 'egress' field. If omitted or empty,
                   this rule does not apply at egress.
                 items:
@@ -1025,26 +1043,42 @@ spec:
                           to/from which outside communication  is allowed, along with
                           an optional list of subnets within that CIDR prefix to/from
                           which outside communication is not allowed.
+                        oneOf:
+                        - properties:
+                            cidr: {}
+                          required:
+                          - cidr
+                        - properties:
+                            cidrGroupRef: {}
+                          required:
+                          - cidrGroupRef
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
                             pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                             type: string
+                          cidrGroupRef:
+                            description: CIDRGroupRef is a reference to a CiliumCIDRGroup
+                              object. A CiliumCIDRGroup contains a list of CIDRs that
+                              the endpoint, subject to the rule, can (Ingress) or
+                              cannot (IngressDeny) receive connections from.
+                            maxLength: 253
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
                           except:
                             description: ExceptCIDRs is a list of IP blocks which
                               the endpoint subject to the rule is not allowed to initiate
                               connections to. These CIDR prefixes should be contained
-                              within Cidr. These exceptions are only applied to the
-                              Cidr in this CIDRRule, and do not apply to any other
-                              CIDR prefixes in any other CIDRRules.
+                              within Cidr, using ExceptCIDRs together with CIDRGroupRef
+                              is not supported yet. These exceptions are only applied
+                              to the Cidr in this CIDRRule, and do not apply to any
+                              other CIDR prefixes in any other CIDRRules.
                             items:
                               description: 'CIDR specifies a block of IP addresses.
                                 Example: 192.0.2.1/32'
                               pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                               type: string
                             type: array
-                        required:
-                        - cidr
                         type: object
                       type: array
                     toEndpoints:
@@ -1441,6 +1475,8 @@ spec:
                             the allowed traffic, if any.
                           enum:
                           - "null"
+                          - mtls-spiffe
+                          - always-fail
                           type: string
                       required:
                       - type
@@ -1480,26 +1516,42 @@ spec:
                           to/from which outside communication  is allowed, along with
                           an optional list of subnets within that CIDR prefix to/from
                           which outside communication is not allowed.
+                        oneOf:
+                        - properties:
+                            cidr: {}
+                          required:
+                          - cidr
+                        - properties:
+                            cidrGroupRef: {}
+                          required:
+                          - cidrGroupRef
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
                             pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                             type: string
+                          cidrGroupRef:
+                            description: CIDRGroupRef is a reference to a CiliumCIDRGroup
+                              object. A CiliumCIDRGroup contains a list of CIDRs that
+                              the endpoint, subject to the rule, can (Ingress) or
+                              cannot (IngressDeny) receive connections from.
+                            maxLength: 253
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
                           except:
                             description: ExceptCIDRs is a list of IP blocks which
                               the endpoint subject to the rule is not allowed to initiate
                               connections to. These CIDR prefixes should be contained
-                              within Cidr. These exceptions are only applied to the
-                              Cidr in this CIDRRule, and do not apply to any other
-                              CIDR prefixes in any other CIDRRules.
+                              within Cidr, using ExceptCIDRs together with CIDRGroupRef
+                              is not supported yet. These exceptions are only applied
+                              to the Cidr in this CIDRRule, and do not apply to any
+                              other CIDR prefixes in any other CIDRRules.
                             items:
                               description: 'CIDR specifies a block of IP addresses.
                                 Example: 192.0.2.1/32'
                               pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                               type: string
                             type: array
-                        required:
-                        - cidr
                         type: object
                       type: array
                     fromEndpoints:
@@ -2127,7 +2179,7 @@ spec:
                 type: array
               ingressDeny:
                 description: IngressDeny is a list of IngressDenyRule which are enforced
-                  at ingress. Any rule inserted here will by denied regardless of
+                  at ingress. Any rule inserted here will be denied regardless of
                   the allowed ingress rules in the 'ingress' field. If omitted or
                   empty, this rule does not apply at ingress.
                 items:
@@ -2179,26 +2231,42 @@ spec:
                           to/from which outside communication  is allowed, along with
                           an optional list of subnets within that CIDR prefix to/from
                           which outside communication is not allowed.
+                        oneOf:
+                        - properties:
+                            cidr: {}
+                          required:
+                          - cidr
+                        - properties:
+                            cidrGroupRef: {}
+                          required:
+                          - cidrGroupRef
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
                             pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                             type: string
+                          cidrGroupRef:
+                            description: CIDRGroupRef is a reference to a CiliumCIDRGroup
+                              object. A CiliumCIDRGroup contains a list of CIDRs that
+                              the endpoint, subject to the rule, can (Ingress) or
+                              cannot (IngressDeny) receive connections from.
+                            maxLength: 253
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
                           except:
                             description: ExceptCIDRs is a list of IP blocks which
                               the endpoint subject to the rule is not allowed to initiate
                               connections to. These CIDR prefixes should be contained
-                              within Cidr. These exceptions are only applied to the
-                              Cidr in this CIDRRule, and do not apply to any other
-                              CIDR prefixes in any other CIDRRules.
+                              within Cidr, using ExceptCIDRs together with CIDRGroupRef
+                              is not supported yet. These exceptions are only applied
+                              to the Cidr in this CIDRRule, and do not apply to any
+                              other CIDR prefixes in any other CIDRRules.
                             items:
                               description: 'CIDR specifies a block of IP addresses.
                                 Example: 192.0.2.1/32'
                               pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                               type: string
                             type: array
-                        required:
-                        - cidr
                         type: object
                       type: array
                     fromEndpoints:
@@ -2560,6 +2628,8 @@ spec:
                               for the allowed traffic, if any.
                             enum:
                             - "null"
+                            - mtls-spiffe
+                            - always-fail
                             type: string
                         required:
                         - type
@@ -2631,26 +2701,43 @@ spec:
                             to/from which outside communication  is allowed, along
                             with an optional list of subnets within that CIDR prefix
                             to/from which outside communication is not allowed.
+                          oneOf:
+                          - properties:
+                              cidr: {}
+                            required:
+                            - cidr
+                          - properties:
+                              cidrGroupRef: {}
+                            required:
+                            - cidrGroupRef
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
                               pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                               type: string
+                            cidrGroupRef:
+                              description: CIDRGroupRef is a reference to a CiliumCIDRGroup
+                                object. A CiliumCIDRGroup contains a list of CIDRs
+                                that the endpoint, subject to the rule, can (Ingress)
+                                or cannot (IngressDeny) receive connections from.
+                              maxLength: 253
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
                             except:
                               description: ExceptCIDRs is a list of IP blocks which
                                 the endpoint subject to the rule is not allowed to
                                 initiate connections to. These CIDR prefixes should
-                                be contained within Cidr. These exceptions are only
-                                applied to the Cidr in this CIDRRule, and do not apply
-                                to any other CIDR prefixes in any other CIDRRules.
+                                be contained within Cidr, using ExceptCIDRs together
+                                with CIDRGroupRef is not supported yet. These exceptions
+                                are only applied to the Cidr in this CIDRRule, and
+                                do not apply to any other CIDR prefixes in any other
+                                CIDRRules.
                               items:
                                 description: 'CIDR specifies a block of IP addresses.
                                   Example: 192.0.2.1/32'
                                 pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                                 type: string
                               type: array
-                          required:
-                          - cidr
                           type: object
                         type: array
                       toEndpoints:
@@ -3430,7 +3517,7 @@ spec:
                   type: array
                 egressDeny:
                   description: EgressDeny is a list of EgressDenyRule which are enforced
-                    at egress. Any rule inserted here will by denied regardless of
+                    at egress. Any rule inserted here will be denied regardless of
                     the allowed egress rules in the 'egress' field. If omitted or
                     empty, this rule does not apply at egress.
                   items:
@@ -3515,26 +3602,43 @@ spec:
                             to/from which outside communication  is allowed, along
                             with an optional list of subnets within that CIDR prefix
                             to/from which outside communication is not allowed.
+                          oneOf:
+                          - properties:
+                              cidr: {}
+                            required:
+                            - cidr
+                          - properties:
+                              cidrGroupRef: {}
+                            required:
+                            - cidrGroupRef
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
                               pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                               type: string
+                            cidrGroupRef:
+                              description: CIDRGroupRef is a reference to a CiliumCIDRGroup
+                                object. A CiliumCIDRGroup contains a list of CIDRs
+                                that the endpoint, subject to the rule, can (Ingress)
+                                or cannot (IngressDeny) receive connections from.
+                              maxLength: 253
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
                             except:
                               description: ExceptCIDRs is a list of IP blocks which
                                 the endpoint subject to the rule is not allowed to
                                 initiate connections to. These CIDR prefixes should
-                                be contained within Cidr. These exceptions are only
-                                applied to the Cidr in this CIDRRule, and do not apply
-                                to any other CIDR prefixes in any other CIDRRules.
+                                be contained within Cidr, using ExceptCIDRs together
+                                with CIDRGroupRef is not supported yet. These exceptions
+                                are only applied to the Cidr in this CIDRRule, and
+                                do not apply to any other CIDR prefixes in any other
+                                CIDRRules.
                               items:
                                 description: 'CIDR specifies a block of IP addresses.
                                   Example: 192.0.2.1/32'
                                 pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                                 type: string
                               type: array
-                          required:
-                          - cidr
                           type: object
                         type: array
                       toEndpoints:
@@ -3936,6 +4040,8 @@ spec:
                               for the allowed traffic, if any.
                             enum:
                             - "null"
+                            - mtls-spiffe
+                            - always-fail
                             type: string
                         required:
                         - type
@@ -3975,26 +4081,43 @@ spec:
                             to/from which outside communication  is allowed, along
                             with an optional list of subnets within that CIDR prefix
                             to/from which outside communication is not allowed.
+                          oneOf:
+                          - properties:
+                              cidr: {}
+                            required:
+                            - cidr
+                          - properties:
+                              cidrGroupRef: {}
+                            required:
+                            - cidrGroupRef
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
                               pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                               type: string
+                            cidrGroupRef:
+                              description: CIDRGroupRef is a reference to a CiliumCIDRGroup
+                                object. A CiliumCIDRGroup contains a list of CIDRs
+                                that the endpoint, subject to the rule, can (Ingress)
+                                or cannot (IngressDeny) receive connections from.
+                              maxLength: 253
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
                             except:
                               description: ExceptCIDRs is a list of IP blocks which
                                 the endpoint subject to the rule is not allowed to
                                 initiate connections to. These CIDR prefixes should
-                                be contained within Cidr. These exceptions are only
-                                applied to the Cidr in this CIDRRule, and do not apply
-                                to any other CIDR prefixes in any other CIDRRules.
+                                be contained within Cidr, using ExceptCIDRs together
+                                with CIDRGroupRef is not supported yet. These exceptions
+                                are only applied to the Cidr in this CIDRRule, and
+                                do not apply to any other CIDR prefixes in any other
+                                CIDRRules.
                               items:
                                 description: 'CIDR specifies a block of IP addresses.
                                   Example: 192.0.2.1/32'
                                 pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                                 type: string
                               type: array
-                          required:
-                          - cidr
                           type: object
                         type: array
                       fromEndpoints:
@@ -4632,7 +4755,7 @@ spec:
                   type: array
                 ingressDeny:
                   description: IngressDeny is a list of IngressDenyRule which are
-                    enforced at ingress. Any rule inserted here will by denied regardless
+                    enforced at ingress. Any rule inserted here will be denied regardless
                     of the allowed ingress rules in the 'ingress' field. If omitted
                     or empty, this rule does not apply at ingress.
                   items:
@@ -4684,26 +4807,43 @@ spec:
                             to/from which outside communication  is allowed, along
                             with an optional list of subnets within that CIDR prefix
                             to/from which outside communication is not allowed.
+                          oneOf:
+                          - properties:
+                              cidr: {}
+                            required:
+                            - cidr
+                          - properties:
+                              cidrGroupRef: {}
+                            required:
+                            - cidrGroupRef
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
                               pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                               type: string
+                            cidrGroupRef:
+                              description: CIDRGroupRef is a reference to a CiliumCIDRGroup
+                                object. A CiliumCIDRGroup contains a list of CIDRs
+                                that the endpoint, subject to the rule, can (Ingress)
+                                or cannot (IngressDeny) receive connections from.
+                              maxLength: 253
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
                             except:
                               description: ExceptCIDRs is a list of IP blocks which
                                 the endpoint subject to the rule is not allowed to
                                 initiate connections to. These CIDR prefixes should
-                                be contained within Cidr. These exceptions are only
-                                applied to the Cidr in this CIDRRule, and do not apply
-                                to any other CIDR prefixes in any other CIDRRules.
+                                be contained within Cidr, using ExceptCIDRs together
+                                with CIDRGroupRef is not supported yet. These exceptions
+                                are only applied to the Cidr in this CIDRRule, and
+                                do not apply to any other CIDR prefixes in any other
+                                CIDRRules.
                               items:
                                 description: 'CIDR specifies a block of IP addresses.
                                   Example: 192.0.2.1/32'
                                 pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                                 type: string
                               type: array
-                          required:
-                          - cidr
                           type: object
                         type: array
                       fromEndpoints:

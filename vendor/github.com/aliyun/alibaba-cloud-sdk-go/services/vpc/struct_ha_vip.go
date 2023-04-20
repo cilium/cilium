@@ -29,6 +29,8 @@ type HaVip struct {
 	Description            string                 `json:"Description" xml:"Description"`
 	MasterInstanceId       string                 `json:"MasterInstanceId" xml:"MasterInstanceId"`
 	Name                   string                 `json:"Name" xml:"Name"`
+	ResourceGroupId        string                 `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	AssociatedEipAddresses AssociatedEipAddresses `json:"AssociatedEipAddresses" xml:"AssociatedEipAddresses"`
 	AssociatedInstances    AssociatedInstances    `json:"AssociatedInstances" xml:"AssociatedInstances"`
+	Tags                   TagsInDescribeHaVips   `json:"Tags" xml:"Tags"`
 }

@@ -5,8 +5,8 @@ on:
   pull_request: {}
   push:
     branches:
-      - master
-      - ft/master/**
+      - main
+      - ft/main/**
 
 permissions: read-all
 
@@ -16,7 +16,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.0
+  cilium_cli_version: v0.13.1
   KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
@@ -52,7 +52,7 @@ jobs:
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-20.04
     steps:
-      - name: Checkout master branch to access local actions
+      - name: Checkout main branch to access local actions
         uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
@@ -128,7 +128,7 @@ jobs:
             --set operator.image.useDigest=false \
             --set ipv6.enabled=true \
             --set ipv4.enabled=false \
-            --set tunnel=disabled \
+            --set routingMode=native \
             --set autoDirectNodeRoutes=true \
             --set ipv6NativeRoutingCIDR=2001:db8:1::/64 \
             --set ingressController.enabled=true \
@@ -147,7 +147,7 @@ jobs:
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
           kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
 
-      - name: Capture cilium-sysdump
+      - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() }}
         # The following is needed to prevent hubble from receiving an empty
         # file (EOF) on stdin and displaying no flows.

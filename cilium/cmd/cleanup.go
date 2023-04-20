@@ -66,6 +66,7 @@ const (
 	cniConfigV2       = cniPath + "/00-cilium-cni.conf"
 	cniConfigV3       = cniPath + "/05-cilium-cni.conf"
 	cniConfigV4       = cniPath + "/05-cilium.conf"
+	cniConfigV5       = cniPath + "/05-cilium.conflist"
 )
 
 func init() {
@@ -111,8 +112,8 @@ type bpfCleanup struct{}
 func (c bpfCleanup) whatWillBeRemoved() []string {
 	return []string{
 		fmt.Sprintf("all BPF maps in %s containing '%s' and '%s'",
-			bpf.MapPrefixPath(), ciliumLinkPrefix, tunnel.MapName),
-		fmt.Sprintf("mounted bpffs at %s", bpf.GetMapRoot()),
+			bpf.TCGlobalsPath(), ciliumLinkPrefix, tunnel.MapName),
+		fmt.Sprintf("mounted bpffs at %s", bpf.BPFFSRoot()),
 	}
 }
 
@@ -228,8 +229,8 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		defaults.LibraryPath))
 	toBeRemoved = append(toBeRemoved, fmt.Sprintf("endpoint state in %s",
 		defaults.RuntimePath))
-	toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s, %s",
-		cniConfigV1, cniConfigV2, cniConfigV3, cniConfigV4))
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s, %s, %s",
+		cniConfigV1, cniConfigV2, cniConfigV3, cniConfigV4, cniConfigV5))
 	return toBeRemoved
 }
 
@@ -338,8 +339,9 @@ func removeCNI() error {
 	os.Remove(cniConfigV1)
 	os.Remove(cniConfigV2)
 	os.Remove(cniConfigV3)
+	os.Remove(cniConfigV4)
 
-	err := os.Remove(cniConfigV4)
+	err := os.Remove(cniConfigV5)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -399,7 +401,7 @@ func removeDirs() error {
 }
 
 func removeAllMaps() error {
-	mapDir := bpf.MapPrefixPath()
+	mapDir := bpf.TCGlobalsPath()
 	maps, err := os.ReadDir(mapDir)
 	if err != nil {
 		if os.IsNotExist(err) {

@@ -11,7 +11,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -22,9 +21,9 @@ type FakeCiliumEgressGatewayPolicies struct {
 	Fake *FakeCiliumV2
 }
 
-var ciliumegressgatewaypoliciesResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumegressgatewaypolicies"}
+var ciliumegressgatewaypoliciesResource = v2.SchemeGroupVersion.WithResource("ciliumegressgatewaypolicies")
 
-var ciliumegressgatewaypoliciesKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumEgressGatewayPolicy"}
+var ciliumegressgatewaypoliciesKind = v2.SchemeGroupVersion.WithKind("CiliumEgressGatewayPolicy")
 
 // Get takes name of the ciliumEgressGatewayPolicy, and returns the corresponding ciliumEgressGatewayPolicy object, and an error if there is any.
 func (c *FakeCiliumEgressGatewayPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumEgressGatewayPolicy, err error) {
