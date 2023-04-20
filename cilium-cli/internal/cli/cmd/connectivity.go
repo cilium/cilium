@@ -24,14 +24,14 @@ import (
 
 var errInternal = errors.New("encountered internal error, exiting")
 
-func newCmdConnectivity() *cobra.Command {
+func newCmdConnectivity(hooks Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connectivity",
 		Short: "Connectivity troubleshooting",
 		Long:  ``,
 	}
 
-	cmd.AddCommand(newCmdConnectivityTest())
+	cmd.AddCommand(newCmdConnectivityTest(hooks))
 
 	return cmd
 }
@@ -46,7 +46,7 @@ var params = check.Parameters{
 }
 var tests []string
 
-func newCmdConnectivityTest() *cobra.Command {
+func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "test",
 		Short: "Validate connectivity in cluster",
@@ -90,7 +90,7 @@ func newCmdConnectivityTest() *cobra.Command {
 			// and end the goroutine without returning.
 			go func() {
 				defer func() { done <- struct{}{} }()
-				err = connectivity.Run(ctx, cc)
+				err = connectivity.Run(ctx, cc, hooks.AddConnectivityTests)
 
 				// If Fatal() was called in the test suite, the statement below won't fire.
 				finished = true
@@ -165,7 +165,9 @@ func newCmdConnectivityTest() *cobra.Command {
 
 	cmd.Flags().BoolVar(&params.CollectSysdumpOnFailure, "collect-sysdump-on-failure", false, "Collect sysdump after a test fails")
 
-	initSysdumpFlags(cmd, &params.SysdumpOptions, "sysdump-")
+	initSysdumpFlags(cmd, &params.SysdumpOptions, "sysdump-", hooks)
+
+	hooks.AddConnectivityTestFlags(cmd.Flags())
 
 	return cmd
 }

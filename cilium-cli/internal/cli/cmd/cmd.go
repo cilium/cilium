@@ -20,7 +20,7 @@ var (
 	k8sClient *k8s.Client
 )
 
-func NewDefaultCiliumCommand() *cobra.Command {
+func NewCiliumCommand(hooks Hooks) *cobra.Command {
 	cmd := &cobra.Command{
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// return early for commands that don't require the kubernetes client
@@ -73,11 +73,11 @@ cilium connectivity test`,
 		newCmdBgp(),
 		newCmdClusterMesh(),
 		newCmdConfig(),
-		newCmdConnectivity(),
+		newCmdConnectivity(hooks),
 		newCmdContext(),
 		newCmdHubble(),
 		newCmdStatus(),
-		newCmdSysdump(),
+		newCmdSysdump(hooks),
 		newCmdVersion(),
 	)
 	if utils.IsInHelmMode() {
