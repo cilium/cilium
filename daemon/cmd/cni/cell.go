@@ -72,6 +72,10 @@ func newConfigManager(log logrus.FieldLogger, cfg Config, debug bool) *cniConfig
 		cfg.CNIChainingMode = "generic-veth"
 	}
 
+	if cfg.CNIChainingMode == "" {
+		cfg.CNIChainingMode = "none"
+	}
+
 	c := &cniConfigManager{
 		config:     cfg,
 		debug:      debug,

@@ -290,11 +290,7 @@ func (c *cniConfigManager) renderCNIConf() (cniConfig []byte, err error) {
 			return nil, err
 		}
 	} else {
-		mode := c.config.CNIChainingMode
-		if mode == "" {
-			mode = "none"
-		}
-		c.log.Infof("Generating CNI configuration file with mode %s", mode)
+		c.log.Infof("Generating CNI configuration file with mode %s", c.config.CNIChainingMode)
 		tmpl := cniConfigs[c.config.CNIChainingMode]
 		cniConfig = []byte(c.renderCNITemplate(tmpl))
 	}
