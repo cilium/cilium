@@ -289,7 +289,7 @@ var badLogMessages = map[string][]string{
 	segmentationFault:   nil,
 	NACKreceived:        nil,
 	RunInitFailed:       {"signal: terminated", "signal: killed"},
-	sizeMismatch:        nil,
+	sizeMismatch:        {"globals/cilium_policy"},
 	emptyBPFInitArg:     nil,
 	RemovingMapMsg:      nil,
 	logBufferMessage:    nil,
