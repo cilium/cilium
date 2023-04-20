@@ -7,6 +7,7 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -16,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -29,10 +31,8 @@ var Cell = cell.Module(
 	"datapath",
 	"Datapath",
 
-	cell.Provide(
-		newWireguardAgent,
-		newDatapath,
-	),
+	// Provides all BPF Map which are already provided by via hive cell.
+	maps.Cell,
 
 	// Provides the auth.Map which contains the authentication state between Cilium security identities.
 	authmap.Cell,
@@ -42,6 +42,11 @@ var Cell = cell.Module(
 
 	// Utime synchronizes utime from userspace to datapath via configmap.Map.
 	utime.Cell,
+
+	cell.Provide(
+		newWireguardAgent,
+		newDatapath,
+	),
 
 	cell.Provide(func(dp types.Datapath) ipcache.NodeHandler {
 		return dp.Node()
@@ -76,7 +81,7 @@ func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
 	return wgAgent
 }
 
-func newDatapath(lc hive.Lifecycle, wgAgent *wg.Agent) types.Datapath {
+func newDatapath(params datapathParams) types.Datapath {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
 		ProcFs:     option.Config.ProcFs,
@@ -84,7 +89,7 @@ func newDatapath(lc hive.Lifecycle, wgAgent *wg.Agent) types.Datapath {
 
 	iptablesManager := &iptables.IptablesManager{}
 
-	lc.Append(hive.Hook{
+	params.LC.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
 			// FIXME enableIPForwarding should not live here
 			if err := enableIPForwarding(); err != nil {
@@ -95,5 +100,15 @@ func newDatapath(lc hive.Lifecycle, wgAgent *wg.Agent) types.Datapath {
 			return nil
 		}})
 
-	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent)
+	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent)
+}
+
+type datapathParams struct {
+	cell.In
+
+	LC      hive.Lifecycle
+	WgAgent *wg.Agent
+
+	// Force map initialisation before loader
+	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
 }
