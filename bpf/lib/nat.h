@@ -364,10 +364,18 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       __u32 off,
 			       const struct ipv4_nat_target *target)
 {
+	struct ipv4_ct_tuple tuple_revsnat;
 	int ret;
 
 	*state = snat_v4_lookup(tuple);
-	ret = snat_v4_track_connection(ctx, tuple, *state, has_l4_header, ct_action,
+
+	memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
+	if (*state) {
+		tuple_revsnat.daddr = (*state)->to_daddr;
+		tuple_revsnat.dport = (*state)->to_dport;
+	}
+
+	ret = snat_v4_track_connection(ctx, &tuple_revsnat, *state, has_l4_header, ct_action,
 				       NAT_DIR_INGRESS, off, target);
 	if (ret < 0)
 		return ret;
@@ -1135,10 +1143,18 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       __u32 off,
 			       const struct ipv6_nat_target *target)
 {
+	struct ipv6_ct_tuple tuple_revsnat;
 	int ret;
 
 	*state = snat_v6_lookup(tuple);
-	ret = snat_v6_track_connection(ctx, tuple, *state, ct_action,
+
+	memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
+	if (*state) {
+		ipv6_addr_copy(&tuple_revsnat.daddr, &(*state)->to_daddr);
+		tuple_revsnat.dport = (*state)->to_dport;
+	}
+
+	ret = snat_v6_track_connection(ctx, &tuple_revsnat, *state, ct_action,
 				       NAT_DIR_INGRESS, off, target);
 	if (ret < 0)
 		return ret;
