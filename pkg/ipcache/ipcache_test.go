@@ -6,10 +6,13 @@
 package ipcache
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
+	"strconv"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -529,6 +532,65 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	c.Assert(namedPortsChanged, Equals, true)
 	npm = IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, HasLen, 0)
+}
+
+func BenchmarkIPCacheUpsert10(b *testing.B) {
+	benchmarkIPCacheUpsert(b, 10)
+}
+
+func BenchmarkIPCacheUpsert100(b *testing.B) {
+	benchmarkIPCacheUpsert(b, 100)
+}
+
+func BenchmarkIPCacheUpsert1000(b *testing.B) {
+	benchmarkIPCacheUpsert(b, 1000)
+}
+
+func BenchmarkIPCacheUpsert10000(b *testing.B) {
+	benchmarkIPCacheUpsert(b, 10000)
+}
+
+func benchmarkIPCacheUpsert(b *testing.B, num int) {
+	meta := K8sMetadata{
+		Namespace: "default",
+		PodName:   "app",
+		NamedPorts: policy.NamedPortMap{
+			"http": policy.PortProto{Port: 80, Proto: uint8(u8proto.TCP)},
+			"dns":  policy.PortProto{Port: 53},
+		},
+	}
+
+	buf := make([]byte, 4)
+	ips := make([]string, num)
+	nms := make([]string, num)
+	for i := range nms {
+		binary.BigEndian.PutUint32(buf, uint32(i+2<<26))
+		ip, _ := netip.AddrFromSlice(buf)
+		ips[i] = ip.String()
+		nms[i] = strconv.Itoa(i)
+	}
+
+	b.StopTimer()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ipcache := NewIPCache(&Configuration{
+			NodeHandler: &mockNodeHandler{},
+		})
+
+		// We only want to measure the calls to upsert.
+		b.StartTimer()
+		for j := 0; j < num; j++ {
+			meta.PodName = nms[j]
+			_, err := ipcache.Upsert(ips[j], nil, 0, &meta, Identity{
+				ID:     identityPkg.NumericIdentity(j),
+				Source: source.Kubernetes,
+			})
+			if err != nil {
+				b.Fatalf("failed to upsert: %v", err)
+			}
+		}
+		b.StopTimer()
+	}
 }
 
 type dummyListener struct {
