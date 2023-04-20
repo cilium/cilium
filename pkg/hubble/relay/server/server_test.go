@@ -9,16 +9,17 @@ import (
 	"io"
 	"net"
 	"net/netip"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/cilium/fake"
 	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
@@ -74,28 +75,25 @@ func noopParser(t testing.TB) *parser.Parser {
 
 var endpoints map[string]*testutils.FakeEndpointInfo
 
-func genStringSlice(prefix string, n int) (ret []string) {
-	for i := 0; i < n; i++ {
-		ret = append(ret, fmt.Sprintf("%s-%d", prefix, i))
-	}
-	return
-}
-
 func init() {
 	endpoints = make(map[string]*testutils.FakeEndpointInfo, 254)
-	namespaces := genStringSlice("namespace", 10)
-	pods := genStringSlice("very-long-pod-name", 50)
-	labels := genStringSlice("quite-long-label", 60)
 	for i := 0; i < 254; i++ {
-		ip := fmt.Sprintf("192.0.2.%d", i)
+		ip := fake.IP(fake.WithIPv4())
 		endpoints[ip] = &testutils.FakeEndpointInfo{
 			ID:           uint64(i),
 			IPv4:         net.ParseIP(ip),
-			PodNamespace: namespaces[i%len(namespaces)],
-			PodName:      pods[i%len(pods)],
-			Labels:       labels[i%(len(labels)-10) : i%(len(labels)-10)+10],
+			PodNamespace: fake.K8sNamespace(),
+			PodName:      fake.K8sPodName(),
+			Labels:       fake.K8sLabels(),
 		}
 	}
+}
+
+func getRandomEndpoint() *testutils.FakeEndpointInfo {
+	for _, v := range endpoints {
+		return v
+	}
+	return nil
 }
 
 func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.LocalObserverServer {
@@ -112,10 +110,10 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
-		srcIP := fmt.Sprintf("192.0.2.%d", i%len(endpoints))
-		dstIP := fmt.Sprintf("192.0.2.%d", (i+10)%len(endpoints))
-		srcMAC, _ := net.ParseMAC("00:00:5e:00:53:01")
-		dstMAC, _ := net.ParseMAC("00:00:5e:00:53:02")
+		src := getRandomEndpoint()
+		dst := getRandomEndpoint()
+		srcMAC, _ := net.ParseMAC(fake.MAC())
+		dstMAC, _ := net.ParseMAC(fake.MAC())
 		data := testutils.MustCreateL3L4Payload(tn,
 			&layers.Ethernet{
 				SrcMAC:       srcMAC,
@@ -123,13 +121,13 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 				EthernetType: layers.EthernetTypeIPv4,
 			},
 			&layers.IPv4{
-				SrcIP:    endpoints[srcIP].IPv4,
-				DstIP:    endpoints[dstIP].IPv4,
+				SrcIP:    src.IPv4,
+				DstIP:    dst.IPv4,
 				Protocol: layers.IPProtocolTCP,
 			},
 			&layers.TCP{
-				SrcPort: 123,
-				DstPort: 456,
+				SrcPort: layers.TCPPort(fake.Port()),
+				DstPort: layers.TCPPort(fake.Port()),
 				ACK:     true,
 				PSH:     i%4 == 0,
 			})
@@ -173,9 +171,7 @@ func newHubblePeer(t testing.TB, ctx context.Context, address string, hubbleObse
 }
 
 func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
-	tmp, err := os.MkdirTemp("", "hubble")
-	require.NoError(b, err)
-	defer os.RemoveAll(tmp)
+	tmp := b.TempDir()
 	root := "unix://" + filepath.Join(tmp, "peer-")
 	ctx := context.Background()
 	numFlows := b.N
@@ -196,7 +192,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 	flowsScheduled := 0
 	for i := range peers {
 		address := fmt.Sprintf("%s%d.sock", root, i)
-		name := fmt.Sprintf("node-with-a-very-long-name-%d", i)
+		name := fake.K8sNodeName()
 		numFlowsPerPeer := numFlows / len(peers)
 		if i == len(peers)-1 {
 			numFlowsPerPeer = numFlows - flowsScheduled
@@ -213,7 +209,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 	ccb := pool.GRPCClientConnBuilder{
 		DialTimeout: defaults.DialTimeout,
 		Options: []grpc.DialOption{
-			grpc.WithInsecure(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithBlock(),
 			grpc.FailOnNonTempDialError(true),
 			grpc.WithReturnConnectionError(),

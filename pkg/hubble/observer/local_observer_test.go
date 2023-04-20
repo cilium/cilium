@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/fake"
 	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -109,10 +110,13 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
-		macOnly := func(m net.HardwareAddr, _ error) net.HardwareAddr { return m }
+		macOnly := func(mac string) net.HardwareAddr {
+			m, _ := net.ParseMAC(mac)
+			return m
+		}
 		data := testutils.MustCreateL3L4Payload(tn, &layers.Ethernet{
-			SrcMAC: macOnly(net.ParseMAC("00:00:5e:00:53:01")),
-			DstMAC: macOnly(net.ParseMAC("00:00:5e:00:53:02")),
+			SrcMAC: macOnly(fake.MAC()),
+			DstMAC: macOnly(fake.MAC()),
 		})
 
 		event := &observerTypes.MonitorEvent{
