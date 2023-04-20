@@ -225,6 +225,7 @@ func initEnv() {
 	}
 
 	option.LogRegisteredOptions(vp, log)
+	log.Infof("Cilium Operator %s", version.Version)
 }
 
 func doCleanup() {
@@ -239,8 +240,6 @@ func doCleanup() {
 // built-in leader election capbility in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
 func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
-	log.Infof("Cilium Operator %s", version.Version)
-
 	isLeader.Store(false)
 
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
