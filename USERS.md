@@ -359,8 +359,8 @@ Users (Alphabetically)
     * N: New York Times (the)
       D: The New York Times is using Cilium on EKS to build multi-region multi-tenant shared clusters
       U: Networking (CNI, EKS IPAM, Maglev, kube-proxy replacement, Direct Routing),  Observability (Network metrics with Hubble, policy troubleshooting) and Security (Network Policy)
-      L: https://www.nytimes.com/
-      Q: @prune
+      L: https://www.nytimes.com/, https://youtu.be/9FDpMNvPrCw
+      Q: @abebars
 
     * N: Nexxiot
       D: Nexxiot is an IoT SaaS provider using Cilium as the main CNI plugin on AWS EKS clusters
