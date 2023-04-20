@@ -20,9 +20,6 @@ const (
 
 	// Cilium Endpoint Slice (CES)
 
-	// CESSingularName is the singular name of Cilium Endpoint Slice
-	CESSingularName = "ciliumendpointslice"
-
 	// CESPluralName is the plural name of Cilium Endpoint Slice
 	CESPluralName = "ciliumendpointslices"
 
@@ -34,9 +31,6 @@ const (
 
 	// Cilium BGP Peering Policy (BGPP)
 
-	// BGPPSingularName is the singular name of Cilium BGP Peering Policy
-	BGPPSingularName = "ciliumbgppeeringpolicy"
-
 	// BGPPPluralName is the plural name of Cilium BGP Peering Policy
 	BGPPPluralName = "ciliumbgppeeringpolicies"
 
@@ -47,9 +41,6 @@ const (
 	BGPPName = BGPPPluralName + "." + CustomResourceDefinitionGroup
 
 	// Cilium Load Balancer IP Pool (IPPool)
-
-	// PoolSingularName is the singular name of Cilium Load Balancer IP Pool
-	PoolSingularName = "ciliumloadbalancerippool"
 
 	// PoolPluralName is the plural name of Cilium Load Balancer IP Pool
 	PoolPluralName = "ciliumloadbalancerippools"
