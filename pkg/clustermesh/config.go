@@ -5,6 +5,7 @@ package clustermesh
 
 import (
 	"crypto/sha256"
+	"errors"
 	"os"
 	"path"
 	"strings"
@@ -98,9 +99,19 @@ func (cdw *configDirectoryWatcher) handle(abspath string) {
 		// when the underlying file gets updated, if path points to a symbolic link.
 		// This is required to correctly detect file modifications when the folder
 		// is mounted from a Kubernetes ConfigMap/Secret.
-		if err := cdw.watcher.Add(abspath); err != nil {
+		if err := cdw.watcher.Add(abspath); err != nil && !errors.Is(err, os.ErrNotExist) {
 			log.WithError(err).WithField(fieldConfig, abspath).
 				Warning("Failed adding explicit path watch for config")
+		} else {
+			// There is a small chance that the file content changed in the time
+			// window from reading it at the beginning of the function to establishing
+			// the watcher. To avoid missing that possible update, let's re-read the
+			// file, so that we are sure to process the most up-to-date version.
+			// This prevents issues when modifying the same file twice back-to-back.
+			// We don't recurse in case a failure occurred when registering the
+			// watcher (except for NotFound) to prevent an infinite loop if
+			// something wrong happened.
+			cdw.handle(abspath)
 		}
 	}
 
