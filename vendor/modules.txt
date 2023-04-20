@@ -196,6 +196,9 @@ github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/link
 github.com/cilium/ebpf/perf
 github.com/cilium/ebpf/rlimit
+# github.com/cilium/fake v0.4.0
+## explicit; go 1.19
+github.com/cilium/fake
 # github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 ## explicit
 github.com/cilium/kafka/proto
