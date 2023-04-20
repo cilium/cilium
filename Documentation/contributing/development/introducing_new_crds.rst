@@ -246,9 +246,10 @@ client.
     
     var (
    @@ -86,6 +92,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
-                   synced.CRDResourceName(k8sconstv2.CLRPName):       createCLRPCRD,
-                   synced.CRDResourceName(k8sconstv2alpha1.CESName):  createCESCRD,
-   +               synced.CRDResourceName(k8sconstv2alpha1.BGPPName): createCESCRD,
+                   synced.CRDResourceName(k8sconstv2.CLRPName):       createCRD(CLRPCRDName, k8sconstv2.CLRPName),
+                   synced.CRDResourceName(k8sconstv2.CEGPName):       createCRD(CEGPCRDName, k8sconstv2.CEGPName),
+                   synced.CRDResourceName(k8sconstv2alpha1.CESName):  createCRD(CESCRDName, k8sconstv2alpha1.CESName),
+   +               synced.CRDResourceName(k8sconstv2alpha1.BGPPName): createCRD(BGPPCRDName, k8sconstv2alpha1.BGPPName),
            }
            for _, r := range synced.AllCiliumCRDResourceNames() {
                    fn, ok := resourceToCreateFnMapping[r]
@@ -265,39 +266,6 @@ client.
     )
     
     // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
-   @@ -286,6 +299,32 @@ func createCESCRD(clientset apiextensionsclient.Interface) error {
-           )
-    }
-    
-   +// createBGPPCRD creates and updates the CiliumBGPPeeringPolicy CRD. It should be
-   +// called on agent startup but is idempotent and safe to call again.
-   +func createBGPPCRD(clientset apiextensionsclient.Interface) error {
-   +       ciliumCRD := GetPregeneratedCRD(BGPPCRDName)
-   +
-   +       return createUpdateCRD(
-   +               clientset,
-   +               BGPPCRDName,
-   +               constructV1CRD(k8sconstv2alpha1.BGPPName, ciliumCRD),
-   +               newDefaultPoller(),
-   +       )
-   +}
-   +
-   +// createBGPPoolCRD creates and updates the CiliumLoadBalancerIPPool CRD. It should be
-   +// called on agent startup but is idempotent and safe to call again.
-   +func createBGPPoolCRD(clientset apiextensionsclient.Interface) error {
-   +       ciliumCRD := GetPregeneratedCRD(BGPPoolCRDName)
-   +
-   +       return createUpdateCRD(
-   +               clientset,
-   +               BGPPoolCRDName,
-   +               constructV1CRD(k8sconstv2alpha1.BGPPName, ciliumCRD),
-   +               newDefaultPoller(),
-   +       )
-   +}
-   +
-    // createUpdateCRD ensures the CRD object is installed into the K8s cluster. It
-    // will create or update the CRD and its validation schema as necessary. This
-    // function only accepts v1 CRD objects, and defers to its v1beta1 variant if
 
 
 ``pkg/k8s/watchers/watcher.go``
