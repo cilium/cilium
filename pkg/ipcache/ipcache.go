@@ -244,32 +244,9 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 	return nil
 }
 
-// updateNamedPortsRLocked accumulates named ports from all K8sMetadata entries
-// to a single map. It is required to hold _at least_ the read lock when calling
-// this function, holding the write lock is also allowed.
-func (ipc *IPCache) updateNamedPortsRLocked() (namedPortsChanged bool) {
-	// Collect new named Ports
-	var oldLen = 0
-	var old types.NamedPortMultiMap
-	if m := ipc.namedPorts.Load(); m != nil {
-		old = *m
-		oldLen = len(old)
-	}
-
-	npm := make(types.NamedPortMultiMap, oldLen)
-	for _, km := range ipc.ipToK8sMetadata {
-		for name, port := range km.NamedPorts {
-			if npm[name] == nil {
-				npm[name] = make(types.PortProtoSet)
-			}
-			npm[name][port] = struct{}{}
-		}
-	}
-	namedPortsChanged = !npm.Equal(old)
-	if namedPortsChanged {
-		// atomically swap the new map in
-		ipc.namedPorts.Store(&npm)
-	}
+// updateNamedPorts updates the ipc.namedPorts map
+func (ipc *IPCache) updateNamedPorts(newNamedPorts, oldNamedPorts types.NamedPortMap) (namedPortsChanged bool) {
+	return ipc.namedPorts.Update(newNamedPorts, oldNamedPorts)
 
 	// Set namedPortsChanged to false if they have not (yet) been requested.
 	// This avoids triggering policy updates if named ports changed, but no
@@ -458,25 +435,12 @@ func (ipc *IPCache) upsertLocked(
 		}
 
 		// Update named ports, first check for deleted values
-		for k := range oldK8sMeta.NamedPorts {
-			if _, ok := newNamedPorts[k]; !ok {
-				namedPortsChanged = true
-				break
-			}
-		}
-		if !namedPortsChanged {
-			// Check for added new or changed entries
-			for k, v := range newNamedPorts {
-				if v2, ok := oldK8sMeta.NamedPorts[k]; !ok || v2 != v {
-					namedPortsChanged = true
-					break
-				}
-			}
-		}
+		namedPortsChanged = oldK8sMeta.NamedPorts.Equal(newNamedPorts)
+
 		if namedPortsChanged {
 			// It is possible that some other POD defines same values, check if
 			// anything changes over all the PODs.
-			namedPortsChanged = ipc.updateNamedPortsRLocked()
+			namedPortsChanged = ipc.updateNamedPorts()
 		}
 	}
 

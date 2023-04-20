@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/iana"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -27,13 +29,16 @@ type PortProto struct {
 	Proto uint8  // 0 for any
 }
 
+// http -> {80, TCP}
+// ftp -> {21, TCP}
+
 // NamedPortMap maps port names to port numbers and protocols.
 type NamedPortMap map[string]PortProto
 
 // PortProtoSet is a set of unique PortProto values.
-type PortProtoSet map[PortProto]struct{}
+type PortProtoSet counter.Counter[PortProto]
 
-// Equal returns true if the PortProtoSets are equal.
+// Equal returns true if the PortProtoSets are semantically equal.
 func (pps PortProtoSet) Equal(other PortProtoSet) bool {
 	if len(pps) != len(other) {
 		return false
@@ -49,7 +54,24 @@ func (pps PortProtoSet) Equal(other PortProtoSet) bool {
 
 // NamedPortMultiMap may have multiple entries for a name if multiple PODs
 // define the same name with different values.
-type NamedPortMultiMap map[string]PortProtoSet
+type NamedPortMultiMap struct {
+	mutex lock.RWMutex
+	m     map[string]PortProtoSet
+}
+
+func (npm *NamedPortMultiMap) Update(old, new NamedPortMap) (namedPortsChanged bool) {
+	for name, port := range new {
+		if counter.Counter[PortProto](npm.m[name]).Add(port) {
+			namedPortsChanged = true
+		}
+	}
+	for name, port := range old {
+		if counter.Counter[PortProto](npm.m[name]).Delete(port) {
+			namedPortsChanged = true
+		}
+	}
+	return namedPortsChanged
+}
 
 // Equal returns true if the NamedPortMultiMaps are equal.
 func (npm NamedPortMultiMap) Equal(other NamedPortMultiMap) bool {
@@ -160,4 +182,17 @@ func (npm NamedPortMultiMap) GetNamedPort(name string, proto uint8) (uint16, err
 		return 0, err
 	}
 	return port, nil
+}
+
+func (npm NamedPortMap) Equal(other NamedPortMap) bool {
+	if len(npm) != len(other) {
+		return false
+	}
+
+	for port := range npm {
+		if _, exists := other[port]; !exists {
+			return false
+		}
+	}
+	return true
 }
