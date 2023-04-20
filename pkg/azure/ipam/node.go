@@ -136,7 +136,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	return 0, "", fmt.Errorf("not implemented")
 }
 
-// ResyncInterfacesAndIPs is called to retrieve and interfaces and IPs as known
+// ResyncInterfacesAndIPs is called to retrieve interfaces and IPs known
 // to the Azure API and return them
 func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (
 	available ipamTypes.AllocationMap,
