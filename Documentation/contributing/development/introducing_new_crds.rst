@@ -181,9 +181,6 @@ scheme.
    +
    +       // Cilium BGP Peering Policy (BGPP)
    +
-   +       // BGPPSingularName is the singular name of Cilium BGP Peering Policy
-   +       BGPPSingularName = "ciliumbgppeeringpolicy"
-   +
    +       // BGPPPluralName is the plural name of Cilium BGP Peering Policy
    +       BGPPPluralName = "ciliumbgppeeringpolicies"
    +
@@ -194,9 +191,6 @@ scheme.
    +       BGPPName = BGPPPluralName + "." + CustomResourceDefinitionGroup
    +
    +       // Cilium BGP Load Balancer IP Pool (BGPPool)
-   +
-   +       // BGPPoolSingularName is the singular name of Cilium BGP Load Balancer IP Pool
-   +       BGPPoolSingularName = "ciliumbgploadbalancerippool"
    +
    +       // BGPPoolPluralName is the plural name of Cilium BGP Load Balancer IP Pool
    +       BGPPoolPluralName = "ciliumbgploadbalancerippools"
