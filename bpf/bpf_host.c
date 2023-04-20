@@ -111,28 +111,6 @@ derive_src_id(const union v6addr *node_ip, struct ipv6hdr *ip6, __u32 *identity)
 	return 0;
 }
 
-# ifdef ENABLE_HOST_FIREWALL
-static __always_inline __u32
-ipcache_lookup_srcid6(struct __ctx_buff *ctx)
-{
-	struct remote_endpoint_info *info = NULL;
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
-	__u32 srcid = 0;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-
-	info = lookup_ip6_remote_endpoint((union v6addr *) &ip6->saddr);
-	if (info != NULL)
-		srcid = info->sec_label;
-	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-		   ip6->saddr.s6_addr32[3], srcid);
-
-	return srcid;
-}
-# endif /* ENABLE_HOST_FIREWALL */
-
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 		   const bool from_host)
@@ -391,8 +369,8 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int hdrlen, ret;
 	__u32 src_id = 0;
+	int hdrlen, ret;
 	__u8 nexthdr;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
@@ -411,8 +389,11 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 			return ret;
 	}
 
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
+		src_id = HOST_ID;
+	src_id = resolve_srcid_ipv6(ctx, src_id, true);
+
 	/* to-netdev is attached to the egress path of the native device. */
-	src_id = ipcache_lookup_srcid6(ctx);
 	return ipv6_host_policy_egress(ctx, src_id, trace, ext_err);
 }
 #endif /* ENABLE_HOST_FIREWALL */
