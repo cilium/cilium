@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/maps"
-	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -33,9 +32,6 @@ var Cell = cell.Module(
 
 	// Provides all BPF Map which are already provided by via hive cell.
 	maps.Cell,
-
-	// Provides the auth.Map which contains the authentication state between Cilium security identities.
-	authmap.Cell,
 
 	// ConfigMap stores runtime configuration state for the Cilium datapath.
 	configmap.Cell,
