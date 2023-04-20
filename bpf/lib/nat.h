@@ -29,7 +29,7 @@ enum  nat_dir {
 
 struct nat_entry {
 	__u64 created;
-	__u64 host_local;	/* Only single bit used. */
+	__u64 needs_ct;		/* Only single bit used. */
 	__u64 pad1;		/* Future use. */
 	__u64 pad2;		/* Future use. */
 };
@@ -236,8 +236,9 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 	rtuple.daddr = target->addr;
 
 	if (otuple->saddr == target->addr) {
-		ostate->common.host_local = 1;
-		rstate.common.host_local = ostate->common.host_local;
+		/* Host-local connection. */
+		ostate->common.needs_ct = 1;
+		rstate.common.needs_ct = ostate->common.needs_ct;
 	}
 
 #pragma unroll
@@ -277,7 +278,7 @@ static __always_inline int snat_v4_track_connection(struct __ctx_buff *ctx,
 	enum ct_dir where;
 	int ret;
 
-	if (state && state->common.host_local) {
+	if (state && state->common.needs_ct) {
 		needs_ct = true;
 #if defined(ENABLE_EGRESS_GATEWAY)
 	/* Track egress gateway connections, but only if they are related to a
@@ -1016,8 +1017,9 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	rtuple.daddr = target->addr;
 
 	if (!ipv6_addrcmp(&otuple->saddr, &rtuple.daddr)) {
-		ostate->common.host_local = 1;
-		rstate.common.host_local = ostate->common.host_local;
+		/* Host-local connection. */
+		ostate->common.needs_ct = 1;
+		rstate.common.needs_ct = ostate->common.needs_ct;
 	}
 
 #pragma unroll
@@ -1057,7 +1059,7 @@ static __always_inline int snat_v6_track_connection(struct __ctx_buff *ctx,
 	enum ct_dir where;
 	int ret;
 
-	if (state && state->common.host_local) {
+	if (state && state->common.needs_ct) {
 		needs_ct = true;
 	} else if (!state && dir == NAT_DIR_EGRESS) {
 		if (!ipv6_addrcmp(&tuple->saddr, (void *)&target->addr))
