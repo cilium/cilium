@@ -407,6 +407,9 @@ Helm Options
   values are kept, ``ipam.operator.clusterPoolIPv4PodCIDRList`` now defaults to
   a singleton containing the default CIDR value for the removed value
   ``ipam.operator.clusterPoolIPv4PodCIDR`` (and similarly for IPv6).
+* Values ``clustermesh.apiserver.tls.ca.cert`` and ``clustermesh.apiserver.tls.ca.key``
+  are deprecated in favor of ``tls.ca.cert`` and ``tls.ca.key`` respectively, and
+  will be removed in v1.15.
 
 .. _earlier_upgrade_notes:
 
