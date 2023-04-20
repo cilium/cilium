@@ -9,10 +9,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
-)
 
-const (
-	BGPVRouterAnnoPrefix = "cilium.io/bgp-virtual-router."
+	"github.com/cilium/cilium/pkg/annotation"
 )
 
 // ErrNotVRouterAnno is an error returned from parseAnnotation() when the
@@ -137,7 +135,7 @@ func NewAnnotationMap(a map[string]string) (AnnotationMap, error) {
 func parseAnnotation(key string, value string) (int, Attributes, error) {
 	var out Attributes
 	// is this an annotation we care about?
-	if !strings.HasPrefix(key, BGPVRouterAnnoPrefix) {
+	if !strings.HasPrefix(key, annotation.BGPVRouterAnnoPrefix) {
 		return 0, out, ErrNotVRouterAnno{key}
 	}
 
