@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/maps"
-	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -32,9 +31,6 @@ var Cell = cell.Module(
 
 	// Provides all BPF Map which are already provided by via hive cell.
 	maps.Cell,
-
-	// ConfigMap stores runtime configuration state for the Cilium datapath.
-	configmap.Cell,
 
 	// Utime synchronizes utime from userspace to datapath via configmap.Map.
 	utime.Cell,
