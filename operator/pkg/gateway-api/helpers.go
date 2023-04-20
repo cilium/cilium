@@ -139,20 +139,20 @@ func toStringSlice[T ~string](s []T) []string {
 	return res
 }
 
-func getSupportedKind(protocol gatewayv1beta1.ProtocolType) gatewayv1beta1.Kind {
+func getSupportedGroupKind(protocol gatewayv1beta1.ProtocolType) (*gatewayv1beta1.Group, gatewayv1beta1.Kind) {
 	switch protocol {
 	case gatewayv1beta1.TLSProtocolType:
-		return kindTLSRoute
+		return GroupPtr(gatewayv1alpha2.GroupName), kindTLSRoute
 	case gatewayv1beta1.HTTPSProtocolType:
-		return kindHTTPRoute
+		return GroupPtr(gatewayv1beta1.GroupName), kindHTTPRoute
 	case gatewayv1beta1.HTTPProtocolType:
-		return kindHTTPRoute
+		return GroupPtr(gatewayv1beta1.GroupName), kindHTTPRoute
 	case gatewayv1beta1.TCPProtocolType:
-		return kindTCPRoute
+		return GroupPtr(gatewayv1alpha2.GroupName), kindTCPRoute
 	case gatewayv1beta1.UDPProtocolType:
-		return kindUDPRoute
+		return GroupPtr(gatewayv1alpha2.GroupName), kindUDPRoute
 	default:
-		return "Unknown"
+		return GroupPtr("Unknown"), "Unknown"
 	}
 }
 func getGatewayKindForObject(obj metav1.Object) gatewayv1beta1.Kind {

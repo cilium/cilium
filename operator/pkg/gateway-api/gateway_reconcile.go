@@ -296,20 +296,23 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		// SupportedKinds is a required field, so we can't declare it as nil.
 		supportedKinds := []gatewayv1beta1.RouteGroupKind{}
 		invalidRouteKinds := false
+		protoGroup, protoKind := getSupportedGroupKind(l.Protocol)
+
 		if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) != 0 {
 			for _, k := range l.AllowedRoutes.Kinds {
-				if groupDerefOr(k.Group, gatewayv1beta1.GroupName) == gatewayv1beta1.GroupName &&
-					k.Kind == getSupportedKind(l.Protocol) {
+				if groupDerefOr(k.Group, gatewayv1beta1.GroupName) == string(*protoGroup) &&
+					k.Kind == protoKind {
 					supportedKinds = append(supportedKinds, k)
 				} else {
 					invalidRouteKinds = true
 				}
 			}
 		} else {
+			g, k := getSupportedGroupKind(l.Protocol)
 			supportedKinds = []gatewayv1beta1.RouteGroupKind{
 				{
-					Group: GroupPtr(gatewayv1beta1.GroupName),
-					Kind:  getSupportedKind(l.Protocol),
+					Group: g,
+					Kind:  k,
 				},
 			}
 		}
