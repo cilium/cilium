@@ -474,6 +474,10 @@ static __always_inline int snat_v4_icmp_rewrite_embedded(struct __ctx_buff *ctx,
 		return DROP_WRITE_ERROR;
 	if (ipv4_csum_update_by_diff(ctx, l4_off + sizeof(struct icmphdr), sum) < 0)
 		return DROP_CSUM_L3;
+	/* Applying L3 pseudo-header csum diff into TCP/UDP header. */
+	if (tuple->nexthdr == IPPROTO_TCP || tuple->nexthdr == IPPROTO_UDP)
+		if (csum_l4_replace(ctx, inner_l4_off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
 	return 0;
 }
 
