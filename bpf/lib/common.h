@@ -722,7 +722,9 @@ enum metric_dir {
 
 /* Shouldn't interfere with MARK_MAGIC_TO_PROXY. Lower 8bits carries cluster_id */
 #define MARK_MAGIC_CLUSTER_ID		MARK_MAGIC_TO_PROXY
-#define MARK_MAGIC_CLUSTER_ID_MASK	0x00FF
+#define CLUSTER_ID_LOWER_MASK 0x000000FF
+#define CLUSTER_ID_UPPER_MASK (CLUSTER_ID_MAX & ~CLUSTER_ID_LOWER_MASK) << (8 + IDENTITY_LEN)
+#define MARK_MAGIC_CLUSTER_ID_MASK	CLUSTER_ID_LOWER_MASK | CLUSTER_ID_UPPER_MASK
 
 /* IPv4 option used to carry service addr and port for DSR.
  *

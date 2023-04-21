@@ -98,6 +98,48 @@ func writeIncludes(w io.Writer) (int, error) {
 	return fmt.Fprintf(w, "#include \"lib/utils.h\"\n\n")
 }
 
+// WriteClusterConfig writes the configuration of cluster-wide options into the
+// specified writer.
+func (h *HeaderfileWriter) WriteClusterConfig(w io.Writer) error {
+	cDefinesMap := make(map[string]string)
+
+	fw := bufio.NewWriter(w)
+
+	cDefinesMap["CLUSTER_ID_MAX"] = fmt.Sprintf("%d", option.Config.MaxConnectedClusters)
+	cDefinesMap["CLUSTER_ID_LEN"] = fmt.Sprintf("%d", identity.ClusterIDLen)
+
+	identityMax := (1 << identity.ClusterIDShift) - 1
+	cDefinesMap["IDENTITY_MAX"] = fmt.Sprintf("%d", identityMax)
+	cDefinesMap["IDENTITY_LEN"] = fmt.Sprintf("%d", identity.ClusterIDShift)
+
+	// Since golang maps are unordered, we sort the keys in the map
+	// to get a consistent written format to the writer. This maintains
+	// the consistency when we try to calculate hash for a datapath after
+	// writing the config.
+	keys := make([]string, 0, len(cDefinesMap))
+	for key := range cDefinesMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		fmt.Fprintf(fw, "#define %s %s\n", key, cDefinesMap[key])
+	}
+
+	// Write the JSON encoded config as base64 encoded commented string to
+	// the header file.
+	jsonBytes, err := json.Marshal(cDefinesMap)
+	if err == nil {
+		// We don't care if some error occurs while marshaling the map.
+		// In such cases we skip embedding the base64 encoded JSON configuration
+		// to the writer.
+		encodedConfig := base64.StdEncoding.EncodeToString(jsonBytes)
+		fmt.Fprintf(fw, "\n// JSON_OUTPUT: %s\n", encodedConfig)
+	}
+
+	return fw.Flush()
+}
+
 // WriteNodeConfig writes the local node configuration to the specified writer.
 func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
 	extraMacrosMap := make(dpdef.Map)

@@ -109,6 +109,10 @@ type ConfigWriter interface {
 	// WriteEndpointConfig writes the implementation-specific configuration
 	// of configurable options for the endpoint to the specified writer.
 	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
+
+	// WriteClusterConfig writes the implementation-specific configuration of
+	// cluster-wide options into the specified writer.
+	WriteClusterConfig(w io.Writer) error
 }
 
 // RemoteSNATDstAddrExclusionCIDRv4 returns a CIDR for SNAT exclusion. Any
