@@ -192,8 +192,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 	}, "IPv6 masquerading", func() {
 		var (
 			k8s1EndpointIPs map[string]string
+			testDSK8s1IPv6  string = "fd03::310"
 
-			testDSK8s1IPv6 string = "fd03::310"
+			demoYAML string
 		)
 
 		BeforeAll(func() {
@@ -202,6 +203,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"autoDirectNodeRoutes":  "true",
 				"ipv6NativeRoutingCIDR": helpers.IPv6NativeRoutingCIDR,
 			}, DeployCiliumOptionsAndDNS)
+
+			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
+			res := kubectl.ApplyDefault(demoYAML)
+			Expect(res).Should(helpers.CMDSuccess(), "Unable to apply %s", demoYAML)
+			waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
 
 			pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			Expect(err).Should(BeNil(), "Cannot get cilium pod on node %s", helpers.K8s1)
@@ -262,6 +268,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		AfterAll(func() {
 			ciliumDelService(kubectl, 31080)
+			_ = kubectl.Delete(demoYAML)
 		})
 	})
 
