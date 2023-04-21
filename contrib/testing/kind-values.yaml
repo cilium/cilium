@@ -11,6 +11,11 @@ operator:
   nodeSelector:
     kubernetes.io/os: linux
     kubernetes.io/hostname: kind-worker
+proxy:
+  enabled: false
+  image:
+    override: "localhost:5000/cilium/proxy:local"
+    pullPolicy: Never
 ipam:
   mode: kubernetes
 ipv6:
