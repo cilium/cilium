@@ -526,6 +526,11 @@ kind-install-cilium: kind-ready ## Install a local Cilium version into the clust
 		--version= \
 		>/dev/null 2>&1 &
 
+.PHONY: kind-uninstall-cilium
+kind-uninstall-cilium: ## Uninstall Cilium from the cluster.
+	@echo "  UNINSTALL cilium"
+	-$(CILIUM_CLI) uninstall
+
 .PHONY: kind-check-cilium
 kind-check-cilium:
 	@echo "  CHECK  cilium is ready..."
