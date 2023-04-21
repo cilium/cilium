@@ -359,18 +359,18 @@ snat_v4_icmp_rewrite_ingress_embedded(struct __ctx_buff *ctx,
 				      struct ipv4_nat_entry *state,
 				      __u32 l4_off, __u32 inner_l4_off)
 {
+	int ret;
+	int flags = BPF_F_PSEUDO_HDR;
 	struct csum_offset csum = {};
 	__be32 sum;
 
 	if (state->to_daddr == tuple->daddr &&
 	    state->to_dport == tuple->dport)
 		return 0;
-
 	sum = csum_diff(&tuple->daddr, 4, &state->to_daddr, 4, 0);
 	csum_l4_offset_and_flags(tuple->nexthdr, &csum);
-	if (state->to_dport != tuple->dport) {
-		__be32 suml4 = 0;
 
+	if (state->to_dport != tuple->dport) {
 		switch (tuple->nexthdr) {
 		case IPPROTO_TCP:
 		case IPPROTO_UDP:
@@ -378,11 +378,11 @@ snat_v4_icmp_rewrite_ingress_embedded(struct __ctx_buff *ctx,
 			 * target to dest. We want the embedded packet which
 			 * should refer to endpoint dest going back to original.
 			 */
-			if (ctx_store_bytes(ctx, inner_l4_off +
-					    offsetof(struct tcphdr, source),
-					    &state->to_dport,
-					    sizeof(state->to_dport), 0) < 0)
-				return DROP_WRITE_ERROR;
+			ret = l4_modify_port(ctx, inner_l4_off,
+					     offsetof(struct tcphdr, source),
+					     &csum, state->to_dport, tuple->dport);
+			if (IS_ERR(ret))
+				return ret;
 			break;
 #ifdef ENABLE_SCTP
 		case IPPROTO_SCTP:
@@ -395,23 +395,17 @@ snat_v4_icmp_rewrite_ingress_embedded(struct __ctx_buff *ctx,
 			 * original.
 			 */
 			if (ctx_store_bytes(ctx, inner_l4_off +
-					    offsetof(struct icmphdr, un.echo.id),
-					    &state->to_dport,
-					    sizeof(state->to_dport), 0) < 0)
+						offsetof(struct icmphdr, un.echo.id),
+						&state->to_dport,
+						sizeof(state->to_dport), 0) < 0)
 				return DROP_WRITE_ERROR;
-			csum.offset = offsetof(struct icmphdr, checksum);
-			csum.flags = 0;
+			if (l4_csum_replace(ctx, inner_l4_off + offsetof(struct icmphdr, checksum),
+					    tuple->dport,
+					    state->to_dport,
+					    sizeof(tuple->dport)) < 0)
+				return DROP_CSUM_L4;
 			break;
-		}
-		default:
-			return DROP_UNKNOWN_L4;
-		}
-		/* By recomputing L4 checksum of inner packet we avoid having
-		 * to recompute L4 of the ICMP Error.
-		 */
-		suml4 = csum_diff(&tuple->dport, 4, &state->to_dport, 4, 0);
-		if (csum_l4_replace(ctx, inner_l4_off, &csum, 0, suml4, 0) < 0)
-			return DROP_CSUM_L4;
+		}}
 	}
 	/* Change IP of source address of inner packet to refer the
 	 * endpoint and update csum accordinly.
@@ -421,6 +415,9 @@ snat_v4_icmp_rewrite_ingress_embedded(struct __ctx_buff *ctx,
 		return DROP_WRITE_ERROR;
 	if (ipv4_csum_update_by_diff(ctx, l4_off + sizeof(struct icmphdr), sum) < 0)
 		return DROP_CSUM_L3;
+	if (csum.offset &&
+	    csum_l4_replace(ctx, inner_l4_off, &csum, 0, sum, flags) < 0)
+		return DROP_CSUM_L4;
 	return 0;
 }
 
