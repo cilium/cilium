@@ -457,27 +457,27 @@ $(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
 kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
 	kubectl config use kind-clustermesh1
-	-cilium uninstall >/dev/null
-	cilium install \
+	-$(CILIUM_CLI) uninstall >/dev/null
+	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
 		--version=
 	@echo "  INSTALL cilium on clustermesh2 cluster"
 	kubectl config use kind-clustermesh2
-	-cilium uninstall >/dev/null
-	cilium install \
+	-$(CILIUM_CLI) uninstall >/dev/null
+	$(CILIUM_CLI) install \
 		--inherit-ca kind-clustermesh1 \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
 		--version=
 	@echo "  Enabling clustermesh"
-	cilium clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
-	cilium clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
-	cilium clustermesh status --context kind-clustermesh1 --wait
-	cilium clustermesh status --context kind-clustermesh2 --wait
-	cilium clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
-	cilium clustermesh status --context kind-clustermesh1 --wait
-	cilium clustermesh status --context kind-clustermesh2 --wait
+	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
+	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
+	$(CILIUM_CLI) clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
 
 
 .PHONY: kind-ready
@@ -516,11 +516,11 @@ kind-install-cilium: kind-ready ## Install a local Cilium version into the clust
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
-	-cilium uninstall >/dev/null
+	-$(CILIUM_CLI) uninstall >/dev/null
 	# cilium-cli's --wait flag doesn't work, so we just force it to run
 	# in the background instead and wait for the resources to be available.
 	# https://github.com/cilium/cilium-cli/issues/1070
-	cilium install \
+	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-values.yaml \
 		--version= \
@@ -529,7 +529,7 @@ kind-install-cilium: kind-ready ## Install a local Cilium version into the clust
 .PHONY: kind-check-cilium
 kind-check-cilium:
 	@echo "  CHECK  cilium is ready..."
-	cilium status --wait --wait-duration 1s >/dev/null 2>/dev/null
+	$(CILIUM_CLI) status --wait --wait-duration 1s >/dev/null 2>/dev/null
 
 # Template for kind debug targets. Parameters are:
 # $(1) agent target
