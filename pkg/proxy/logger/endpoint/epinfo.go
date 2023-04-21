@@ -73,7 +73,7 @@ func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ip
 		}
 		// Default to WORLD if still unknown
 		if id == 0 {
-			id = identity.ReservedIdentityWorld
+			id = identity.GetWorldIdentityFromIP(ipAddr)
 		}
 	}
 	info.Identity = uint64(id)

@@ -35,6 +35,14 @@
 #define SECLABEL 0xfffff
 #endif
 
+#ifndef SECLABEL_IPV4
+#define SECLABEL_IPV4 0xfffff
+#endif
+
+#ifndef SECLABEL_IPV6
+#define SECLABEL_IPV6 0xfffff
+#endif
+
 #ifndef SECLABEL_NB
 #define SECLABEL_NB 0xfffff
 #endif

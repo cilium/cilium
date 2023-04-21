@@ -196,10 +196,10 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 
 #ifdef ENABLE_VTEP
 	if (vni != NOT_VTEP_DST)
-		key.tunnel_id = vni;
+		key.tunnel_id = get_tunnel_id(vni);
 	else
 #endif /* ENABLE_VTEP */
-		key.tunnel_id = seclabel;
+		key.tunnel_id = get_tunnel_id(seclabel);
 
 	if (src_ip != 0) {
 		key.local_ipv4 = bpf_ntohl(src_ip);

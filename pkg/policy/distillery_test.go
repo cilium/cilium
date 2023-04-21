@@ -1376,6 +1376,8 @@ var (
 	cpyRule                   = *ruleL3DenyWorld
 	ruleL3DenyWorldWithLabels = (&cpyRule).WithLabels(labels.LabelWorld.LabelArray())
 	worldReservedID           = identity.ReservedIdentityWorld.Uint32()
+	worldReservedIPv4ID       = identity.ReservedIdentityWorldIPv4.Uint32()
+	worldReservedIPv6ID       = identity.ReservedIdentityWorldIPv6.Uint32()
 	mapKeyL3WorldIngress      = Key{worldReservedID, 0, 0, trafficdirection.Ingress.Uint8()}
 	mapKeyL3WorldEgress       = Key{worldReservedID, 0, 0, trafficdirection.Egress.Uint8()}
 	mapEntryDeny              = MapStateEntry{
@@ -1484,12 +1486,24 @@ var (
 			},
 		},
 	}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL3L4Port8080ProtoTCPWorldIngress  = Key{worldReservedID, 8080, 6, trafficdirection.Ingress.Uint8()}
-	mapKeyL3L4Port8080ProtoTCPWorldEgress   = Key{worldReservedID, 8080, 6, trafficdirection.Egress.Uint8()}
-	mapKeyL3L4Port8080ProtoUDPWorldIngress  = Key{worldReservedID, 8080, 17, trafficdirection.Ingress.Uint8()}
-	mapKeyL3L4Port8080ProtoUDPWorldEgress   = Key{worldReservedID, 8080, 17, trafficdirection.Egress.Uint8()}
-	mapKeyL3L4Port8080ProtoSCTPWorldIngress = Key{worldReservedID, 8080, 132, trafficdirection.Ingress.Uint8()}
-	mapKeyL3L4Port8080ProtoSCTPWorldEgress  = Key{worldReservedID, 8080, 132, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoTCPWorldIngress      = Key{worldReservedID, 8080, 6, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoTCPWorldEgress       = Key{worldReservedID, 8080, 6, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoTCPWorldIPv4Ingress  = Key{worldReservedIPv4ID, 8080, 6, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoTCPWorldIPv4Egress   = Key{worldReservedIPv4ID, 8080, 6, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoTCPWorldIPv6Ingress  = Key{worldReservedIPv6ID, 8080, 6, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoTCPWorldIPv6Egress   = Key{worldReservedIPv6ID, 8080, 6, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoUDPWorldIngress      = Key{worldReservedID, 8080, 17, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoUDPWorldEgress       = Key{worldReservedID, 8080, 17, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoUDPWorldIPv4Ingress  = Key{worldReservedIPv4ID, 8080, 17, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoUDPWorldIPv4Egress   = Key{worldReservedIPv4ID, 8080, 17, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoUDPWorldIPv6Ingress  = Key{worldReservedIPv6ID, 8080, 17, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoUDPWorldIPv6Egress   = Key{worldReservedIPv6ID, 8080, 17, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoSCTPWorldIngress     = Key{worldReservedID, 8080, 132, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoSCTPWorldEgress      = Key{worldReservedID, 8080, 132, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv4Ingress = Key{worldReservedIPv4ID, 8080, 132, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv4Egress  = Key{worldReservedIPv4ID, 8080, 132, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv6Ingress = Key{worldReservedIPv6ID, 8080, 132, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv6Egress  = Key{worldReservedIPv6ID, 8080, 132, trafficdirection.Egress.Uint8()}
 
 	mapKeyL3L4Port8080ProtoTCPWorldSNIngress  = Key{worldSubnetIdentity.Uint32(), 8080, 6, trafficdirection.Ingress.Uint8()}
 	mapKeyL3L4Port8080ProtoTCPWorldSNEgress   = Key{worldSubnetIdentity.Uint32(), 8080, 6, trafficdirection.Egress.Uint8()}
@@ -1606,20 +1620,26 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3SubnetIngress:        mapEntryAllow,
 			mapKeyL3SubnetEgress:         mapEntryAllow,
 		}}, {"broad_deny_is_a_portproto_subset_of_a_specific_allow", api.Rules{ruleL3L4Port8080ProtoAnyDenyWorld, ruleL3AllowWorldIP}, MapState{
-			mapKeyL3L4Port8080ProtoTCPWorldIngress:    mapEntryDeny,
-			mapKeyL3L4Port8080ProtoTCPWorldEgress:     mapEntryDeny,
-			mapKeyL3L4Port8080ProtoUDPWorldIngress:    mapEntryDeny,
-			mapKeyL3L4Port8080ProtoUDPWorldEgress:     mapEntryDeny,
-			mapKeyL3L4Port8080ProtoSCTPWorldIngress:   mapEntryDeny,
-			mapKeyL3L4Port8080ProtoSCTPWorldEgress:    mapEntryDeny,
-			mapKeyL3SmallerSubnetIngress:              mapEntryAllow,
-			mapKeyL3SmallerSubnetEgress:               mapEntryAllow,
-			mapKeyL3L4Port8080ProtoTCPWorldSNIngress:  mapEntryDeny,
-			mapKeyL3L4Port8080ProtoTCPWorldSNEgress:   mapEntryDeny,
-			mapKeyL3L4Port8080ProtoUDPWorldSNIngress:  mapEntryDeny,
-			mapKeyL3L4Port8080ProtoUDPWorldSNEgress:   mapEntryDeny,
-			mapKeyL3L4Port8080ProtoSCTPWorldSNIngress: mapEntryDeny,
-			mapKeyL3L4Port8080ProtoSCTPWorldSNEgress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIngress:      mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldEgress:       mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPv4Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPv4Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPv6Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPv6Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIngress:      mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldEgress:       mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv4Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv4Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv6Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv6Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIngress:     mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldEgress:      mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv4Ingress: mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv4Egress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv6Ingress: mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv6Egress:  mapEntryDeny,
+			mapKeyL3SmallerSubnetIngress:                mapEntryAllow,
+			mapKeyL3SmallerSubnetEgress:                 mapEntryAllow,
 		}},
 		{"broad_allow_is_a_portproto_subset_of_a_specific_deny", api.Rules{ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, MapState{
 

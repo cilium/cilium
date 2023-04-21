@@ -199,9 +199,20 @@ func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNe
 		return e.cachedNets
 	}
 	id := identity.NumericIdentity(ident)
-	if id == identity.ReservedIdentityWorld {
+	switch id {
+	case identity.ReservedIdentityWorld:
 		e.cachedNets = []*net.IPNet{
 			{IP: net.IPv4zero, Mask: net.CIDRMask(0, net.IPv4len*8)},
+			{IP: net.IPv6zero, Mask: net.CIDRMask(0, net.IPv6len*8)},
+		}
+		return e.cachedNets
+	case identity.ReservedIdentityWorldIPv4:
+		e.cachedNets = []*net.IPNet{
+			{IP: net.IPv4zero, Mask: net.CIDRMask(0, net.IPv4len*8)},
+		}
+		return e.cachedNets
+	case identity.ReservedIdentityWorldIPv6:
+		e.cachedNets = []*net.IPNet{
 			{IP: net.IPv6zero, Mask: net.CIDRMask(0, net.IPv6len*8)},
 		}
 		return e.cachedNets

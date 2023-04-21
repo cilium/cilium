@@ -219,6 +219,13 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, encapProto string) err
 	if option.Config.EnableNodePort {
 		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
 	}
+	if option.Config.IsDualStack() {
+		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV4=%d", identity.ReservedIdentityWorldIPv4))
+		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorldIPv6))
+	} else {
+		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV4=%d", identity.ReservedIdentityWorld))
+		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorld))
+	}
 
 	if err := l.replaceOverlayDatapath(ctx, opts, iface); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)

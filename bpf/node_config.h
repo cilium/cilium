@@ -49,6 +49,13 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 
 #define HOST_ID 1
 #define WORLD_ID 2
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+# define WORLD_IPV4_ID 9
+# define WORLD_IPV6_ID 10
+#else
+# define WORLD_IPV4_ID 2
+# define WORLD_IPV6_ID 2
+#endif
 #define UNMANAGED_ID 3
 #define HEALTH_ID 4
 #define INIT_ID 5
