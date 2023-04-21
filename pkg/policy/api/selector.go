@@ -234,6 +234,8 @@ var (
 		labels.IDNameHost:       newReservedEndpointSelector(labels.IDNameHost),
 		labels.IDNameRemoteNode: newReservedEndpointSelector(labels.IDNameRemoteNode),
 		labels.IDNameWorld:      newReservedEndpointSelector(labels.IDNameWorld),
+		labels.IDNameWorldIPv4:  newReservedEndpointSelector(labels.IDNameWorldIPv4),
+		labels.IDNameWorldIPv6:  newReservedEndpointSelector(labels.IDNameWorldIPv6),
 	}
 )
 

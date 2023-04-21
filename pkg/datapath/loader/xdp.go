@@ -86,6 +86,13 @@ func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 			"-DDISABLE_LOOPBACK_LB",
 		}...)
 	}
+	if option.Config.IsDualStack() {
+		args = append(args, fmt.Sprintf("-DSECLABEL_IPV4=%d", identity.ReservedIdentityWorldIPv4))
+		args = append(args, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorldIPv6))
+	} else {
+		args = append(args, fmt.Sprintf("-DSECLABEL_IPV4=%d", identity.ReservedIdentityWorld))
+		args = append(args, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorld))
+	}
 
 	return args, nil
 }

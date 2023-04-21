@@ -128,7 +128,7 @@ static __always_inline bool
 ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				struct ct_buffer6 *ct_buffer)
 {
-	__u32 dst_sec_identity = WORLD_ID;
+	__u32 dst_sec_identity = WORLD_IPV6_ID;
 	struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	int hdrlen;
@@ -401,7 +401,7 @@ static __always_inline bool
 ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 				struct ct_buffer4 *ct_buffer)
 {
-	__u32 dst_sec_identity = WORLD_ID;
+	__u32 dst_sec_identity = WORLD_IPV4_ID;
 	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	int l3_off = ETH_HLEN;

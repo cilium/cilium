@@ -850,7 +850,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 
-	targetServerID := identity.ReservedIdentityWorld
+	targetServerID := identity.GetWorldIdentityFromIP(targetServerIP)
 	// Ignore invalid IP - getter will handle invalid value.
 	targetServerAddr, _ := ippkg.AddrFromIP(targetServerIP)
 	if serverSecID, exists := p.LookupSecIDByIP(targetServerAddr); !exists {
