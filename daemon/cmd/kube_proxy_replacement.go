@@ -453,7 +453,7 @@ func finishKubeProxyReplacementInit() error {
 		}
 	}
 
-	option.Config.NodePortNat46X64 = option.Config.EnableIPv4 && option.Config.EnableIPv6 &&
+	option.Config.NodePortNat46X64 = option.Config.IsDualStack() &&
 		option.Config.NodePortMode == option.NodePortModeSNAT &&
 		probes.HaveLargeInstructionLimit() == nil
 

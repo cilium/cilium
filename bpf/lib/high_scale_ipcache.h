@@ -129,6 +129,21 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 
 	if (ctx_adjust_hroom(ctx, -shrink, BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags()))
 		return DROP_INVALID;
+
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	/* If dual-stack mode is enabled then world identity must be specific to its protocol. */
+	if (*src_id == WORLD_ID) {
+		switch (proto) {
+		case bpf_htons(ETH_P_IP):
+			*src_id = WORLD_IPV4_ID;
+			break;
+		case bpf_htons(ETH_P_IPV6):
+			*src_id = WORLD_IPV6_ID;
+			break;
+		}
+		ctx_store_meta(ctx, CB_SRC_LABEL, *src_id);
+	}
+#endif
 	return ctx_redirect(ctx, ENCAP_IFINDEX, BPF_F_INGRESS);
 }
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */

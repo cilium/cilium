@@ -183,6 +183,15 @@ static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_SNAT_DONE;
 }
 
+static __always_inline __u32 get_tunnel_id(__u32 identity)
+{
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if (identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
+		return WORLD_ID;
+#endif
+	return identity;
+}
+
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
@@ -196,10 +205,10 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 
 #ifdef ENABLE_VTEP
 	if (vni != NOT_VTEP_DST)
-		key.tunnel_id = vni;
+		key.tunnel_id = get_tunnel_id(vni);
 	else
 #endif /* ENABLE_VTEP */
-		key.tunnel_id = seclabel;
+		key.tunnel_id = get_tunnel_id(seclabel);
 
 	if (src_ip != 0) {
 		key.local_ipv4 = bpf_ntohl(src_ip);

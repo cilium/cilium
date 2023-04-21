@@ -550,17 +550,17 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 
 	ret = srv6_handling(ctx, vrf_id, &dst_sid);
 	if (ret < 0)
-		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 
 #ifdef ENABLE_IPV6
 	ret = srv6_refib(ctx, &ext_err);
 	if (ret < 0)
-		return send_drop_notify_ext(ctx, SECLABEL, 0, 0, ret, ext_err,
+		return send_drop_notify_ext(ctx, SECLABEL_IPV6, 0, 0, ret, ext_err,
 					   CTX_ACT_DROP, METRIC_EGRESS);
 #endif
 
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, 0, 0, 0,
 			  TRACE_REASON_UNKNOWN, 0);
 
 	return ret;
@@ -579,11 +579,11 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 	if (ret < 0)
 		goto error_drop;
 
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, 0, 0, 0,
 			  TRACE_REASON_UNKNOWN, 0);
 	return CTX_ACT_OK;
 error_drop:
-		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 }
 
@@ -594,7 +594,7 @@ int tail_srv6_reply(struct __ctx_buff *ctx)
 
 	ret = srv6_reply(ctx);
 	if (ret < 0)
-		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 	return CTX_ACT_OK;
 }
