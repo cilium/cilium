@@ -425,7 +425,7 @@
      - string
      - ``nil``
    * - clustermesh.apiserver.service.nodePort
-     - Optional port to use as the node port for apiserver access.
+     - Optional port to use as the node port for apiserver access.  WARNING: make sure to configure a different NodePort in each cluster if kube-proxy replacement is enabled, as Cilium is currently affected by a known bug (#24692) when NodePorts are handled by the KPR implementation. If a service with the same NodePort exists both in the local and the remote cluster, all traffic originating from inside the cluster and targeting the corresponding NodePort will be redirected to a local backend, regardless of whether the destination node belongs to the local or the remote cluster.
      - int
      - ``32379``
    * - clustermesh.apiserver.service.type
