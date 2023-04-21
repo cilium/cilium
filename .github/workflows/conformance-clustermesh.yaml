@@ -65,6 +65,7 @@ concurrency:
 
 env:
   kind_version: v0.17.0
+  k8s_version: v1.27.1
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.13.1
   clusterName1: cluster1-${{ github.run_id }}
@@ -354,13 +355,15 @@ jobs:
 
     - name: Generate Kind configuration files
       run: |
-        PODCIDR=${{ steps.vars.outputs.kind_pod_cidr_1 }} \
+        K8S_VERSION=${{ env.k8s_version }} \
+          PODCIDR=${{ steps.vars.outputs.kind_pod_cidr_1 }} \
           SVCCIDR=${{ steps.vars.outputs.kind_svc_cidr_1 }} \
           IPFAMILY=${{ matrix.ipFamily }} \
           KUBEPROXYMODE=${{ matrix.kube-proxy }} \
           envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-cluster1.yaml
 
-        PODCIDR=${{ steps.vars.outputs.kind_pod_cidr_2 }} \
+        K8S_VERSION=${{ env.k8s_version }} \
+          PODCIDR=${{ steps.vars.outputs.kind_pod_cidr_2 }} \
           SVCCIDR=${{ steps.vars.outputs.kind_svc_cidr_2 }} \
           IPFAMILY=${{ matrix.ipFamily }} \
           KUBEPROXYMODE=${{ matrix.kube-proxy }} \
