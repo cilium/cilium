@@ -4,6 +4,7 @@
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
 
+#include <node_config.h>
 #include "lib/common.h"
 
 #define TO_STRING(X) #X

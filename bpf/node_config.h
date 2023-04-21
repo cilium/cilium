@@ -307,4 +307,11 @@ return false;
 # define NAT_46X64_PREFIX_3 0
 #endif
 
+#ifndef __CLUSTERMESH_IDENTITY__
+#define __CLUSTERMESH_IDENTITY__
+#define CLUSTER_ID_MAX 255
+#define IDENTITY_LEN 16
+#define IDENTITY_MAX 65535
+#endif
+
 #endif /* __NODE_CONFIG__ */
