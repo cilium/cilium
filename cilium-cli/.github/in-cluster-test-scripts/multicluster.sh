@@ -19,6 +19,13 @@ cilium install \
   --helm-set bpf.monitorAggregation=none \
   --helm-set ipv4NativeRoutingCIDR=10.0.0.0/9
 
+# Copy the CA cert from cluster1 to cluster2
+kubectl --context ${CONTEXT1} get secrets -n kube-system cilium-ca -oyaml \
+  | kubectl --context ${CONTEXT2} apply -f -
+
+# This seeds all CAs in cluster2 due to logic in the helm chart found here, e.g. for Hubble
+# https://github.com/cilium/cilium/blob/8b6aa6eda91927275ae722ac020deeb5a9ce479d/install/kubernetes/cilium/templates/hubble/tls-helm/_helpers.tpl#L24-L33
+
 # Install Cilium in cluster2
 cilium install \
   --version "${CILIUM_VERSION}" \
@@ -28,8 +35,7 @@ cilium install \
   --cluster-name "${CLUSTER_NAME_2}" \
   --helm-set cluster.id=2 \
   --helm-set bpf.monitorAggregation=none \
-  --helm-set ipv4NativeRoutingCIDR=10.0.0.0/9 \
-  --inherit-ca "${CONTEXT1}"
+  --helm-set ipv4NativeRoutingCIDR=10.0.0.0/9
 
 # Enable Relay
 cilium --context "${CONTEXT1}" hubble enable
@@ -43,6 +49,20 @@ cilium --context "${CONTEXT2}" status --wait
 # Enable cluster mesh
 cilium --context "${CONTEXT1}" clustermesh enable
 cilium --context "${CONTEXT2}" clustermesh enable
+
+# Copy the clustermesh secrets
+# TODO(ajs): Patch the connect command to expect the Helm secret name
+echo "CILIUM_CLI_MODE: $CILIUM_CLI_MODE"
+if [ "$CILIUM_CLI_MODE" == "helm" ]; then
+  kubectl get secrets --context ${CONTEXT1} \
+    -n kube-system clustermesh-apiserver-remote-cert -oyaml \
+    | sed 's/name: .*/name: clustermesh-apiserver-client-cert/' \
+    | kubectl apply --context ${CONTEXT1} -f -
+  kubectl get secrets --context ${CONTEXT2} \
+    -n kube-system clustermesh-apiserver-remote-cert -oyaml \
+    | sed 's/name: .*/name: clustermesh-apiserver-client-cert/' \
+    | kubectl apply --context ${CONTEXT2} -f -
+fi
 
 # Wait for cluster mesh status to be ready
 cilium --context "${CONTEXT1}" clustermesh status --wait
