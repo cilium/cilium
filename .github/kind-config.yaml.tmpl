@@ -2,7 +2,7 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
-    image: kindest/node:v1.27.0
+    image: kindest/node:${K8S_VERSION}
     kubeadmConfigPatches:
       # To make sure that there is no taint for master node.
       # Otherwise additional worker node might be required for conformance testing.
@@ -12,7 +12,7 @@ nodes:
         nodeRegistration:
           taints: []
   - role: worker
-    image: kindest/node:v1.27.0
+    image: kindest/node:${K8S_VERSION}
 networking:
   disableDefaultCNI: true
   ipFamily: ${IPFAMILY}
