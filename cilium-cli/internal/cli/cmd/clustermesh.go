@@ -26,13 +26,23 @@ func newCmdClusterMesh() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newCmdClusterMeshEnable(),
-		newCmdClusterMeshDisable(),
 		newCmdClusterMeshConnect(),
 		newCmdClusterMeshDisconnect(),
 		newCmdClusterMeshStatus(),
 		newCmdClusterMeshExternalWorkload(),
 	)
+
+	if os.Getenv("CILIUM_CLI_MODE") == "helm" {
+		cmd.AddCommand(
+			newCmdClusterMeshEnableWithHelm(),
+			newCmdClusterMeshDisableWithHelm(),
+		)
+	} else {
+		cmd.AddCommand(
+			newCmdClusterMeshEnable(),
+			newCmdClusterMeshDisable(),
+		)
+	}
 
 	return cmd
 }
@@ -333,6 +343,52 @@ func newCmdExternalWorkloadStatus() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
+
+	return cmd
+}
+
+func newCmdClusterMeshEnableWithHelm() *cobra.Command {
+	var params = clustermesh.Parameters{
+		Writer: os.Stdout,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "enable",
+		Short: "Enable ClusterMesh ability in a cluster using Helm",
+		Long:  ``,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+			ctx := context.Background()
+			if err := clustermesh.EnableWithHelm(ctx, k8sClient, params); err != nil {
+				fatalf("Unable to enable ClusterMesh: %s", err)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&params.ServiceType, "service-type", "LoadBalancer", "Type of Kubernetes service to expose control plane { ClusterIP | LoadBalancer | NodePort }")
+
+	return cmd
+}
+
+func newCmdClusterMeshDisableWithHelm() *cobra.Command {
+	var params = clustermesh.Parameters{
+		Writer: os.Stdout,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "disable",
+		Short: "Disable ClusterMesh ability in a cluster using Helm",
+		Long:  ``,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			params.Namespace = namespace
+			ctx := context.Background()
+			if err := clustermesh.DisableWithHelm(ctx, k8sClient, params); err != nil {
+				fatalf("Unable to disable ClusterMesh: %s", err)
+			}
+			return nil
+		},
+	}
 
 	return cmd
 }

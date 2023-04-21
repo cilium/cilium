@@ -1762,3 +1762,42 @@ func (k *K8sClusterMesh) ExternalWorkloadStatus(ctx context.Context, names []str
 	fmt.Println(buf.String())
 	return err
 }
+
+func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameters) error {
+	helmStrValues := []string{
+		"clustermesh.useAPIServer=true",
+		fmt.Sprintf("clustermesh.apiserver.service.type=%s", params.ServiceType),
+	}
+	vals, err := helm.ParseVals(helmStrValues)
+	if err != nil {
+		return err
+	}
+	upgradeParams := helm.UpgradeParameters{
+		Namespace:   params.Namespace,
+		Name:        defaults.HelmReleaseName,
+		Values:      vals,
+		ResetValues: false,
+		ReuseValues: true,
+	}
+	_, err = helm.Upgrade(ctx, k8sClient.RESTClientGetter, upgradeParams)
+	return err
+}
+
+func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameters) error {
+	helmStrValues := []string{
+		"clustermesh.useAPIServer=false",
+	}
+	vals, err := helm.ParseVals(helmStrValues)
+	if err != nil {
+		return err
+	}
+	upgradeParams := helm.UpgradeParameters{
+		Namespace:   params.Namespace,
+		Name:        defaults.HelmReleaseName,
+		Values:      vals,
+		ResetValues: false,
+		ReuseValues: true,
+	}
+	_, err = helm.Upgrade(ctx, k8sClient.RESTClientGetter, upgradeParams)
+	return err
+}
