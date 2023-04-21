@@ -877,4 +877,150 @@ See also the runnable example in `pkg/k8s/resource/example <https://github.com/c
         }
     }
 
+Job groups
+^^^^^^^^^^
 
+The `job package <https://pkg.go.dev/github.com/cilium/cilium/pkg/hive/job>`_ contains logic that 
+makes it easy to manage units of work that the package refers to as "jobs". These jobs are 
+scheduled as part of a job group. These jobs themselves come in a variety of flavors.
+
+Every job, fundamentally is a callback function provided by the user with additional logic which
+is slightly different for each job type. The jobs and groups manage a lot of the boilerplate
+surrounding lifecycle management. The callbacks are called from the job to perform the actual
+work.
+
+Take the following somewhat contrived example:
+
+.. code-block:: go
+
+    package job_example
+
+    import (
+        "context"
+        "fmt"
+        "math/rand"
+        "runtime/pprof"
+        "time"
+
+        "github.com/cilium/cilium/pkg/hive"
+        "github.com/cilium/cilium/pkg/hive/cell"
+        "github.com/cilium/cilium/pkg/hive/job"
+        "github.com/cilium/cilium/pkg/stream"
+        "github.com/sirupsen/logrus"
+        "k8s.io/client-go/util/workqueue"
+    )
+
+    var Cell = cell.Provide(newExampleCell)
+
+    type exampleCell struct {
+        jobGroup job.Group
+        workChan chan struct{}
+        trigger  job.Trigger
+        logger   logrus.FieldLogger
+    }
+
+    func newExampleCell(
+        lifecycle hive.Lifecycle, 
+        logger logrus.FieldLogger, 
+        registry job.Registry,
+    ) *exampleCell {
+        ex := exampleCell{
+            jobGroup: registry.NewGroup(
+                job.WithLogger(logger),
+                job.WithPprofLabels(pprof.Labels("cell", "example")),
+            ),
+            workChan: make(chan struct{}, 3),
+            trigger:  job.NewTrigger(),
+            logger:   logger,
+        }
+
+        ex.jobGroup.Add(
+            job.OneShot(
+                "sync-on-startup",
+                ex.sync,
+                job.WithRetry(3, workqueue.DefaultControllerRateLimiter()),
+                job.WithShutdown(), // if the retries fail, shutdown the hive
+            ),
+            job.OneShot("daemon", ex.daemon),
+            job.Timer("timer", ex.timer, 5*time.Second, job.WithTrigger(ex.trigger)),
+            job.Observer("observer", ex.observer, stream.FromChannel(ex.workChan)),
+        )
+
+        lifecycle.Append(ex.jobGroup)
+
+        return &ex
+    }
+
+    func (ex *exampleCell) sync(ctx context.Context) error {
+        for i := 0; i < 3; i++ {
+            if err := ex.doSomeWork(); err != nil {
+                return fmt.Errorf("doSomeWork: %w", err)
+            }
+        }
+
+        return nil
+    }
+
+    func (ex *exampleCell) daemon(ctx context.Context) error {
+        for {
+            randomTimeout := time.NewTimer(time.Duration(rand.Intn(3000)) * time.Millisecond)
+            select {
+            case <-ctx.Done():
+                return nil
+
+            case <-randomTimeout.C:
+                ex.doSomeWork()
+            }
+        }
+    }
+
+    func (ex *exampleCell) timer(ctx context.Context) error {
+        if err := ex.doSomeWork(); err != nil {
+            return fmt.Errorf("doSomeWork: %w", err)
+        }
+
+        return nil
+    }
+
+    func (ex *exampleCell) Trigger() {
+        ex.trigger.Trigger()
+    }
+
+    func (ex *exampleCell) observer(ctx context.Context, event struct{}) error {
+        ex.logger.Info("Observed event")
+        return nil
+    }
+
+    func (ex *exampleCell) HeavyLifting() {
+        ex.jobGroup.Add(job.OneShot("long-running-job", func(ctx context.Context) error {
+            for i := 0; i < 1_000_000; i++ {
+                // Do some heavy lifting
+            }
+            return nil
+        }))
+    }
+
+    func (ex *exampleCell) doSomeWork() error {
+        ex.workChan <- struct{}{}
+        return nil
+    }
+
+
+The above example shows a number of use-cases in one cell. We start by requesting the job.Registry
+via the constructor. We can use the registry to create job groups, in most cases one will be enough.
+To this group we can add our jobs in the constructor. Any jobs added in the constructor are queued
+until the lifecycle of our cell starts. The group is added to the lifecycle and manages this 
+internally. Jobs can also be added at runtime which can be handy for dynamic workloads while still
+guaranteeing a clean shutdown.
+
+A job group will cancel the context to all jobs when the lifecycle ends. Any job callbacks are 
+expected to exit as soon as possible when the ``ctx`` is "Done". The group will make sure that all
+jobs are properly shutdown before the cell stops. If callbacks that do not stop within reasonable 
+amount of time may cause hive to perform a hard shutdown.
+
+There are 3 job types: one-shot jobs, timer jobs, and observer jobs. One shot jobs run a limited 
+amount of times, they can be used for short running jobs or jobs that span the entire lifecycle.
+Once the callback exits without error, its never called again. A one-shot can optionally have retry
+logic and/or trigger hive shutdown if it fails. Timers are called on a specified interval but they
+can also be externally triggered. Lastly, we have observer jobs which are invoked for every event
+on a ``stream.Observable``.
