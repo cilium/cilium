@@ -361,6 +361,16 @@ func MergeVals(
 	return vals, nil
 }
 
+func ParseVals(helmStrValues []string) (map[string]interface{}, error) {
+	helmValStr := strings.Join(helmStrValues, ",")
+	helmValues := map[string]interface{}{}
+	err := strvals.ParseInto(helmValStr, helmValues)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing helm options %q: %w", helmValStr, err)
+	}
+	return helmValues, nil
+}
+
 // PrintHelmTemplateCommand will log a message so that users can replicate
 // the same behavior as the CLI. The log message will be slightly different
 // depending on if 'helmChartDirectory' is set or not.
