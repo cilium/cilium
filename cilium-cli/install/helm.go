@@ -159,7 +159,7 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 			// TODO(gandro): Future versions of Cilium will remove the following
 			// two limitations, we will need to have set the config map values
 			// based on the installed Cilium version
-			if versioncheck.MustCompile("<=1.13.0")(k.chartVersion) {
+			if versioncheck.MustCompile("<1.14.0")(k.chartVersion) {
 				helmMapOpts["l7Proxy"] = "false"
 				k.Log("ℹ️  L7 proxy disabled due to Wireguard encryption")
 
