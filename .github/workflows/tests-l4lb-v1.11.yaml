@@ -219,7 +219,7 @@ jobs:
 
       - name: Run LoadBalancing test
         run: |
-          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
+          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}

@@ -222,11 +222,11 @@ jobs:
 
       - name: Run LoadBalancing test
         run: |
-          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }}
+          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
 
       - name: Run NAT46x64 test
         run: |
-          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }}
+          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
