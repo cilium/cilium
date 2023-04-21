@@ -481,10 +481,12 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 		PolicyMapState: MapState{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
-			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          allowEgressMapStateEntry,
-			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry,
-			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry,
+			{TrafficDirection: trafficdirection.Egress.Uint8()}:                              allowEgressMapStateEntry,
+			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}:     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
+			{Identity: uint32(identity.ReservedIdentityWorldIPv4), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
+			{Identity: uint32(identity.ReservedIdentityWorldIPv6), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
+			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                        rule1MapStateEntry,
+			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                        rule1MapStateEntry,
 		},
 	}
 

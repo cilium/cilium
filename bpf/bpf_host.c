@@ -95,7 +95,7 @@ static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		   __u32 srcid_from_proxy, const bool from_host)
 {
-	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
+	__u32 src_id = WORLD_IPV6_ID, srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
 	union v6addr *src;
 
@@ -244,7 +244,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
 		struct ct_buffer6 *ct_buffer;
 		__u32 zero = 0;
-		__u32 remote_id = WORLD_ID;
+		__u32 remote_id = WORLD_IPV6_ID;
 
 		ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
 		if (!ct_buffer)
@@ -357,7 +357,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	}
 #endif
 
-	if (!info || info->sec_identity == WORLD_ID) {
+	if (!info || identity_is_world_ipv6(info->sec_identity)) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
@@ -478,7 +478,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 		   __u32 srcid_from_proxy, __u32 *sec_identity,
 		   const bool from_host)
 {
-	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
+	__u32 src_id = WORLD_IPV4_ID, srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
 
 	/* Packets from the proxy will already have a real identity. */
@@ -736,7 +736,8 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
 			return __encap_and_redirect_with_nodeid(ctx, 0, vtep->tunnel_endpoint,
-								secctx, WORLD_ID, WORLD_ID, &trace);
+								secctx, WORLD_IPV4_ID,
+								WORLD_IPV4_ID, &trace);
 		}
 	}
 skip_vtep:
@@ -763,7 +764,7 @@ skip_vtep:
 	}
 #endif
 
-	if (!info || info->sec_identity == WORLD_ID) {
+	if (!info || identity_is_world_ipv4(info->sec_identity)) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
 		 *
@@ -1191,12 +1192,24 @@ static __always_inline int
 handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 {
 	__u16 proto;
-
 	if (!validate_ethertype(ctx, &proto)) {
 #ifdef ENABLE_HOST_FIREWALL
 		int ret = DROP_UNSUPPORTED_L2;
-
-		return send_drop_notify(ctx, SECLABEL, WORLD_ID, 0, ret,
+		__u32 id = WORLD_ID;
+		__u32 sec_label = SECLABEL;
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+		switch (proto) {
+		case bpf_htons(ETH_P_IP):
+			id = WORLD_IPV4_ID;
+			sec_label = SECLABEL_IPV4;
+			break;
+		case bpf_htons(ETH_P_IPV6):
+			id = WORLD_IPV6_ID;
+			sec_label = SECLABEL_IPV6;
+			break;
+		}
+#endif
+		return send_drop_notify(ctx, sec_label, id, 0, ret,
 					CTX_ACT_DROP, METRIC_EGRESS);
 #else
 		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
@@ -1240,7 +1253,7 @@ handle_srv6(struct __ctx_buff *ctx)
 		if (ep) {
 			dst_sec_identity = ep->sec_identity;
 		} else {
-			dst_sec_identity = WORLD_ID;
+			dst_sec_identity = WORLD_IPV6_ID;
 		}
 
 		if (identity_is_cluster(dst_sec_identity))
@@ -1273,7 +1286,7 @@ handle_srv6(struct __ctx_buff *ctx)
 		if (ep) {
 			dst_sec_identity = ep->sec_identity;
 		} else {
-			dst_sec_identity = WORLD_ID;
+			dst_sec_identity = WORLD_IPV6_ID;
 		}
 
 		if (identity_is_cluster(dst_sec_identity))

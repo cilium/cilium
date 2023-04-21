@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -25,6 +26,7 @@ var _ = Suite(&CIDRLabelsSuite{})
 // TestGetCIDRLabels checks that GetCIDRLabels returns a sane set of labels for
 // given CIDRs.
 func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
+	option.Config.EnableIPv6 = false
 	prefix := netip.MustParsePrefix("192.0.2.3/32")
 	expected := labels.ParseLabelArray(
 		"cidr:0.0.0.0/0",
@@ -68,6 +70,8 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 	// Note that we convert the colons in IPv6 addresses into dashes when
 	// translating into labels, because endpointSelectors don't support
 	// colons.
+	option.Config.EnableIPv6 = true
+	option.Config.EnableIPv4 = false
 	prefix = netip.MustParsePrefix("2001:DB8::1/128")
 	expected = labels.ParseLabelArray(
 		"cidr:0--0/0",
@@ -84,16 +88,113 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
 	// IPs should be masked as the labels are generated
 	c.Assert(lblArray.Has("cidr.2001-db8--1/24"), Equals, false)
+	option.Config.EnableIPv4 = true
+}
+
+// TestGetCIDRLabelsDualStack checks that GetCIDRLabels returns a sane set of labels for
+// given CIDRs in dual stack mode.
+func (s *CIDRLabelsSuite) TestGetCIDRLabelsDualStack(c *C) {
+	prefix := netip.MustParsePrefix("192.0.2.3/32")
+	expected := labels.ParseLabelArray(
+		"cidr:0.0.0.0/0",
+		"cidr:128.0.0.0/1",
+		"cidr:192.0.0.0/8",
+		"cidr:192.0.2.0/24",
+		"cidr:192.0.2.3/32",
+		"reserved:world-ipv4",
+	)
+
+	lbls := GetCIDRLabels(prefix)
+	lblArray := lbls.LabelArray()
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
+	// IPs should be masked as the labels are generated
+	c.Assert(lblArray.Has("cidr:192.0.2.3/24"), Equals, false)
+
+	prefix = netip.MustParsePrefix("192.0.2.0/24")
+	expected = labels.ParseLabelArray(
+		"cidr:0.0.0.0/0",
+		"cidr:192.0.2.0/24",
+		"reserved:world-ipv4",
+	)
+
+	lbls = GetCIDRLabels(prefix)
+	lblArray = lbls.LabelArray()
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
+	// CIDRs that are covered by the prefix should not be in the labels
+	c.Assert(lblArray.Has("cidr.192.0.2.3/32"), Equals, false)
+
+	// Zero-length prefix / default route should become reserved:world.
+	prefix = netip.MustParsePrefix("0.0.0.0/0")
+	expected = labels.ParseLabelArray(
+		"reserved:world-ipv4",
+	)
+
+	lbls = GetCIDRLabels(prefix)
+	lblArray = lbls.LabelArray()
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
+	c.Assert(lblArray.Has("cidr.0.0.0.0/0"), Equals, false)
+
+	// Note that we convert the colons in IPv6 addresses into dashes when
+	// translating into labels, because endpointSelectors don't support
+	// colons.
+	prefix = netip.MustParsePrefix("2001:DB8::1/128")
+	expected = labels.ParseLabelArray(
+		"cidr:0--0/0",
+		"cidr:2000--0/3",
+		"cidr:2001--0/16",
+		"cidr:2001-d00--0/24",
+		"cidr:2001-db8--0/32",
+		"cidr:2001-db8--1/128",
+		"reserved:world-ipv6",
+	)
+
+	lbls = GetCIDRLabels(prefix)
+	lblArray = lbls.LabelArray()
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
+	// IPs should be masked as the labels are generated
+	c.Assert(lblArray.Has("cidr.2001-db8--1/24"), Equals, false)
 }
 
 // TestGetCIDRLabelsInCluster checks that the cluster label is properly added
 // when getting labels for CIDRs that are equal to or within the cluster range.
 func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
+	option.Config.EnableIPv6 = false
 	prefix := netip.MustParsePrefix("10.0.0.0/16")
 	expected := labels.ParseLabelArray(
 		"cidr:0.0.0.0/0",
 		"cidr:10.0.0.0/16",
 		"reserved:world",
+	)
+	lbls := GetCIDRLabels(prefix)
+	lblArray := lbls.LabelArray()
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
+
+	option.Config.EnableIPv6 = true
+	option.Config.EnableIPv4 = false
+	// This case is firmly within the cluster range
+	prefix = netip.MustParsePrefix("2001:db8:cafe::cab:4:b0b:0/112")
+	expected = labels.ParseLabelArray(
+		"cidr:0--0/0",
+		"cidr:2001-db8-cafe--0/64",
+		"cidr:2001-db8-cafe-0-cab-4--0/96",
+		"cidr:2001-db8-cafe-0-cab-4-b0b-0/112",
+		"reserved:world",
+	)
+	lbls = GetCIDRLabels(prefix)
+	lblArray = lbls.LabelArray()
+	c.Assert(lblArray.Lacks(expected), checker.DeepEquals, labels.LabelArray{})
+	option.Config.EnableIPv4 = true
+}
+
+// TestGetCIDRLabelsInClusterDualStack checks that the cluster label is properly added
+// when getting labels for CIDRs that are equal to or within the cluster range in dual
+// stack mode.
+func (s *CIDRLabelsSuite) TestGetCIDRLabelsInClusterDualStack(c *C) {
+	prefix := netip.MustParsePrefix("10.0.0.0/16")
+	expected := labels.ParseLabelArray(
+		"cidr:0.0.0.0/0",
+		"cidr:10.0.0.0/16",
+		"reserved:world-ipv4",
 	)
 	lbls := GetCIDRLabels(prefix)
 	lblArray := lbls.LabelArray()
@@ -106,7 +207,7 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabelsInCluster(c *C) {
 		"cidr:2001-db8-cafe--0/64",
 		"cidr:2001-db8-cafe-0-cab-4--0/96",
 		"cidr:2001-db8-cafe-0-cab-4-b0b-0/112",
-		"reserved:world",
+		"reserved:world-ipv6",
 	)
 	lbls = GetCIDRLabels(prefix)
 	lblArray = lbls.LabelArray()

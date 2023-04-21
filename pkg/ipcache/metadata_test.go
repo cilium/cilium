@@ -17,16 +17,23 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
+const (
+	ipv4All = "0.0.0.0/0"
+	ipv6All = "::/0"
+)
+
 var (
-	worldPrefix      = netip.MustParsePrefix("1.1.1.1/32")
-	inClusterPrefix  = netip.MustParsePrefix("10.0.0.4/32")
-	inClusterPrefix2 = netip.MustParsePrefix("10.0.0.5/32")
-	aPrefix          = netip.MustParsePrefix("100.4.16.32/32")
-	allCIDRsPrefix   = netip.MustParsePrefix("0.0.0.0/0")
+	worldPrefix        = netip.MustParsePrefix("1.1.1.1/32")
+	inClusterPrefix    = netip.MustParsePrefix("10.0.0.4/32")
+	inClusterPrefix2   = netip.MustParsePrefix("10.0.0.5/32")
+	aPrefix            = netip.MustParsePrefix("100.4.16.32/32")
+	allIPv4CIDRsPrefix = netip.MustParsePrefix(ipv4All)
+	allIPv6CIDRsPrefix = netip.MustParsePrefix(ipv6All)
 )
 
 func TestInjectLabels(t *testing.T) {
@@ -115,16 +122,40 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["100.4.16.32/32"].ID.HasLocalScope())
 
-	// Assert that an upsert for reserved:world label results in only the
-	// reserved world ID.
-	IPIdentityCache.metadata.upsertLocked(allCIDRsPrefix, source.Local, "daemon-uid", labels.LabelWorld)
+	// Assert that, in dual stack mode, an upsert for reserved:world-ipv4 label results in only the
+	// reserved world-ipv4 ID.
+	IPIdentityCache.metadata.upsertLocked(allIPv4CIDRsPrefix, source.Local, "daemon-uid", labels.LabelWorldIPv4)
 	assert.Len(t, IPIdentityCache.metadata.m, 4)
-	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{allCIDRsPrefix})
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{allIPv4CIDRsPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 4)
-	assert.False(t, IPIdentityCache.ipToIdentityCache["0.0.0.0/0"].ID.HasLocalScope())
-	assert.Equal(t, identity.ReservedIdentityWorld, IPIdentityCache.ipToIdentityCache["0.0.0.0/0"].ID)
+	assert.False(t, IPIdentityCache.ipToIdentityCache[ipv4All].ID.HasLocalScope())
+	assert.Equal(t, identity.ReservedIdentityWorldIPv4, IPIdentityCache.ipToIdentityCache[ipv4All].ID)
+
+	// Assert that, in dual stack mode, an upsert for reserved:world-ipv6 label results in only the
+	// reserved world-ipv6 ID.
+	IPIdentityCache.metadata.upsertLocked(allIPv6CIDRsPrefix, source.Local, "daemon-uid", labels.LabelWorldIPv6)
+	assert.Len(t, IPIdentityCache.metadata.m, 5)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{allIPv6CIDRsPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.ipToIdentityCache, 5)
+	assert.False(t, IPIdentityCache.ipToIdentityCache[ipv6All].ID.HasLocalScope())
+	assert.Equal(t, identity.ReservedIdentityWorldIPv6, IPIdentityCache.ipToIdentityCache[ipv6All].ID)
+
+	// Assert that, in ipv4-only mode, an upsert for reserved:world label results in only the
+	// reserved world ID.
+	option.Config.EnableIPv6 = false
+	IPIdentityCache.metadata.upsertLocked(allIPv4CIDRsPrefix, source.Local, "daemon-uid", labels.LabelWorld)
+	assert.Len(t, IPIdentityCache.metadata.m, 5)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{allIPv4CIDRsPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.ipToIdentityCache, 5)
+	assert.False(t, IPIdentityCache.ipToIdentityCache[ipv4All].ID.HasLocalScope())
+	assert.Equal(t, identity.ReservedIdentityWorld, IPIdentityCache.ipToIdentityCache[ipv4All].ID)
+	option.Config.EnableIPv6 = true
 }
 
 // TestInjectExisting tests "upgrading" an existing identity to the apiserver.

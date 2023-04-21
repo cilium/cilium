@@ -420,7 +420,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						     IPV4_DIRECT_ROUTING,
 						     src_port,
 						     tunnel_endpoint,
-						     WORLD_ID,
+						     WORLD_IPV6_ID,
 						     dst_sec_identity,
 						     &gopt,
 						     sizeof(gopt),
@@ -432,7 +432,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 					 IPV4_DIRECT_ROUTING,
 					 src_port,
 					 tunnel_endpoint,
-					 WORLD_ID,
+					 WORLD_IPV6_ID,
 					 dst_sec_identity,
 					 (enum trace_reason)CT_NEW,
 					 TRACE_PAYLOAD_LEN,
@@ -791,7 +791,7 @@ create_ct:
 		if (port == 0)
 			return DROP_INVALID;
 
-		ct_state_new.src_sec_id = WORLD_ID;
+		ct_state_new.src_sec_id = WORLD_IPV6_ID;
 		ct_state_new.dsr = 1;
 		ret = ct_create6(get_ct_map6(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, false, false, ext_err);
@@ -1216,7 +1216,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 						IPV4_DIRECT_ROUTING,
 						src_port,
 						tunnel_endpoint,
-						WORLD_ID,
+						WORLD_IPV6_ID,
 						dst_sec_identity,
 						trace.reason,
 						trace.monitor,
@@ -1391,7 +1391,7 @@ skip_service_lookup:
 		switch (ret) {
 		case CT_NEW:
 redo:
-			ct_state_new.src_sec_id = WORLD_ID;
+			ct_state_new.src_sec_id = WORLD_IPV6_ID;
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
@@ -1826,7 +1826,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 	__u16 encap_len = sizeof(struct iphdr) + sizeof(struct udphdr) +
 		sizeof(struct genevehdr) + ETH_HLEN;
 	__u16 total_len = bpf_ntohs(ip4->tot_len);
-	__u32 src_sec_identity = WORLD_ID;
+	__u32 src_sec_identity = WORLD_IPV4_ID;
 	__u32 dst_sec_identity;
 	__be32 tunnel_endpoint;
 	__be16 src_port = 0;
@@ -2290,7 +2290,7 @@ create_ct:
 			 */
 			return DROP_INVALID;
 
-		ct_state_new.src_sec_id = WORLD_ID;
+		ct_state_new.src_sec_id = WORLD_IPV4_ID;
 		ct_state_new.dsr = 1;
 		ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, false, false, ext_err);
@@ -2685,7 +2685,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 						IPV4_DIRECT_ROUTING,
 						src_port,
 						tunnel_endpoint,
-						WORLD_ID,
+						WORLD_IPV4_ID,
 						dst_sec_identity,
 						trace.reason,
 						trace.monitor,
@@ -2885,7 +2885,7 @@ skip_service_lookup:
 		switch (ret) {
 		case CT_NEW:
 redo:
-			ct_state_new.src_sec_id = WORLD_ID;
+			ct_state_new.src_sec_id = WORLD_IPV4_ID;
 			ct_state_new.node_port = 1;
 			ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
@@ -3139,7 +3139,7 @@ health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
 	 * as it is being received.
 	 */
 	memset(&key, 0, sizeof(key));
-	key.tunnel_id = seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel;
+	key.tunnel_id = get_tunnel_id(seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel);
 	key.remote_ipv4 = bpf_htonl(tunnel_ep);
 	key.tunnel_ttl = IPDEFTTL;
 
@@ -3157,7 +3157,7 @@ health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 	struct bpf_tunnel_key key;
 
 	memset(&key, 0, sizeof(key));
-	key.tunnel_id = seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel;
+	key.tunnel_id = get_tunnel_id(seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel);
 	key.remote_ipv6[0] = tunnel_ep->p1;
 	key.remote_ipv6[1] = tunnel_ep->p2;
 	key.remote_ipv6[2] = tunnel_ep->p3;

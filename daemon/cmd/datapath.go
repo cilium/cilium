@@ -195,13 +195,19 @@ func (d *Daemon) syncHostIPs() error {
 			}
 		}
 
+		ipv4Ident := identity.ReservedIdentityWorldIPv4
+		ipv4Label := labels.LabelWorldIPv4
+		if !option.Config.EnableIPv6 {
+			ipv4Ident = identity.ReservedIdentityWorld
+			ipv4Label = labels.LabelWorld
+		}
 		specialIdentities = append(specialIdentities, ipIDLabel{
 			identity.IPIdentityPair{
 				IP:   net.IPv4zero,
 				Mask: net.CIDRMask(0, net.IPv4len*8),
-				ID:   identity.ReservedIdentityWorld,
+				ID:   ipv4Ident,
 			},
-			labels.LabelWorld,
+			ipv4Label,
 		})
 	}
 
@@ -228,13 +234,19 @@ func (d *Daemon) syncHostIPs() error {
 			}
 		}
 
+		ipv6Ident := identity.ReservedIdentityWorldIPv6
+		ipv6Label := labels.LabelWorldIPv6
+		if !option.Config.EnableIPv4 {
+			ipv6Ident = identity.ReservedIdentityWorld
+			ipv6Label = labels.LabelWorld
+		}
 		specialIdentities = append(specialIdentities, ipIDLabel{
 			identity.IPIdentityPair{
 				IP:   net.IPv6zero,
 				Mask: net.CIDRMask(0, net.IPv6len*8),
-				ID:   identity.ReservedIdentityWorld,
+				ID:   ipv6Ident,
 			},
-			labels.LabelWorld,
+			ipv6Label,
 		})
 	}
 
@@ -259,7 +271,7 @@ func (d *Daemon) syncHostIPs() error {
 		delete(existingEndpoints, ipIDLblsPair.IP.String())
 
 		lbls := ipIDLblsPair.Labels
-		if ipIDLblsPair.ID == identity.ReservedIdentityWorld {
+		if ipIDLblsPair.ID.IsWorld() {
 			p := netip.PrefixFrom(ippkg.MustAddrFromIP(ipIDLblsPair.IP), 0)
 			d.ipcache.OverrideIdentity(p, lbls, source.Local, daemonResourceID)
 		} else {
