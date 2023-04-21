@@ -143,35 +143,3 @@ func (g *PoolGroupAllocator) getAllocator(poolID types.PoolID) *PoolAllocator {
 
 	return g.allocators[poolID]
 }
-
-// FirstPoolWithAvailableQuota returns the first pool ID in the list of pools
-// with available addresses. If any of the preferred pool IDs have available
-// addresses, the first pool in that list is returned.
-func (g *PoolGroupAllocator) FirstPoolWithAvailableQuota(preferredPoolIDs []types.PoolID) (types.PoolID, int) {
-	g.mutex.RLock()
-	defer g.mutex.RUnlock()
-
-	for _, p := range preferredPoolIDs {
-		if allocator := g.allocators[p]; allocator != nil {
-			if available := allocator.Free(); available > 0 {
-				return p, available
-			}
-		}
-	}
-
-	for poolID, allocator := range g.allocators {
-		if available := allocator.Free(); available > 0 {
-			return poolID, available
-		}
-	}
-
-	return types.PoolNotExists, 0
-}
-
-// PoolExists returns true if an allocation pool exists.
-func (g *PoolGroupAllocator) PoolExists(poolID types.PoolID) bool {
-	g.mutex.RLock()
-	_, ok := g.allocators[poolID]
-	g.mutex.RUnlock()
-	return ok
-}
