@@ -326,7 +326,7 @@ func (d *Daemon) GetEndpointInfo(ip netip.Addr) (endpoint v1.EndpointInfo, ok bo
 	return ep, true
 }
 
-// GetEndpointInfo returns endpoint info for a given Cilium endpoint id. Used by Hubble.
+// GetEndpointInfoByID returns endpoint info for a given Cilium endpoint id. Used by Hubble.
 func (d *Daemon) GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool) {
 	ep := d.endpointManager.LookupCiliumID(id)
 	if ep == nil {
