@@ -27,12 +27,27 @@ type CidrSlice []string
 // If a cidr cannot be parsed it is omitted from the array of Advertisements
 // returned an an error is logged.
 func (cs CidrSlice) ToAdvertisements() []*metallbbgp.Advertisement {
+	var (
+		l = log.WithFields(logrus.Fields{
+			"component": "CidrSlice.ToAdvertisements",
+		})
+	)
+
 	adverts := make([]*metallbbgp.Advertisement, 0, len(cs))
 	for _, c := range cs {
 		parsed, err := cidr.ParseCIDR(c)
 		if err != nil {
 			continue
 		}
+
+		// only advertise ipv4 addresses
+		if parsed.IP.To4() == nil {
+			// log error and continue
+			l.WithField("advertisement", parsed.IP.String()).
+				Error("cannot advertise non-v4 prefix")
+			continue
+		}
+
 		adverts = append(adverts, &metallbbgp.Advertisement{
 			Prefix: parsed.IPNet,
 		})
