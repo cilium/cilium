@@ -477,7 +477,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("Iptables", func() {
 		SkipItIf(func() bool {
-			return helpers.IsIntegration(helpers.CIIntegrationGKE) || helpers.DoesNotRunWithKubeProxyReplacement() || helpers.SkipQuarantined()
+			return helpers.IsIntegration(helpers.CIIntegrationGKE) || helpers.DoesNotRunWithKubeProxyReplacement()
 		}, "Skip conntrack for pod traffic", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"routingMode":                     "native",
