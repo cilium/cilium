@@ -11,6 +11,7 @@ import (
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -21,9 +22,9 @@ type FakeCiliumCIDRGroups struct {
 	Fake *FakeCiliumV2alpha1
 }
 
-var ciliumcidrgroupsResource = v2alpha1.SchemeGroupVersion.WithResource("ciliumcidrgroups")
+var ciliumcidrgroupsResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumcidrgroups"}
 
-var ciliumcidrgroupsKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumCIDRGroup")
+var ciliumcidrgroupsKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2alpha1", Kind: "CiliumCIDRGroup"}
 
 // Get takes name of the ciliumCIDRGroup, and returns the corresponding ciliumCIDRGroup object, and an error if there is any.
 func (c *FakeCiliumCIDRGroups) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumCIDRGroup, err error) {

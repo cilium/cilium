@@ -11,6 +11,7 @@ import (
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -21,9 +22,9 @@ type FakeCiliumEndpointSlices struct {
 	Fake *FakeCiliumV2alpha1
 }
 
-var ciliumendpointslicesResource = v2alpha1.SchemeGroupVersion.WithResource("ciliumendpointslices")
+var ciliumendpointslicesResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumendpointslices"}
 
-var ciliumendpointslicesKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumEndpointSlice")
+var ciliumendpointslicesKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2alpha1", Kind: "CiliumEndpointSlice"}
 
 // Get takes name of the ciliumEndpointSlice, and returns the corresponding ciliumEndpointSlice object, and an error if there is any.
 func (c *FakeCiliumEndpointSlices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumEndpointSlice, err error) {

@@ -1,35 +1,3 @@
-## 1.27.6
-
-### Fixes
-- Allow collections matchers to work correctly when expected has nil elements [60e7cf3]
-
-### Maintenance
-- updates MatchError godoc comment to also accept a Gomega matcher (#654) [67b869d]
-
-## 1.27.5
-
-### Maintenance
-- Bump github.com/onsi/ginkgo/v2 from 2.9.1 to 2.9.2 (#653) [a215021]
-- Bump github.com/go-task/slim-sprig (#652) [a26fed8]
-
-## 1.27.4
-
-### Fixes
-- improve error formatting and remove duplication of error message in Eventually/Consistently [854f075]
-
-### Maintenance
-- Bump github.com/onsi/ginkgo/v2 from 2.9.0 to 2.9.1 (#650) [ccebd9b]
-
-## 1.27.3
-
-### Fixes
-- format.Object now always includes err.Error() when passed an error [86d97ef]
-- Fix HaveExactElements to work inside ContainElement or other collection matchers (#648) [636757e]
-
-### Maintenance
-- Bump github.com/golang/protobuf from 1.5.2 to 1.5.3 (#649) [cc16689]
-- Bump github.com/onsi/ginkgo/v2 from 2.8.4 to 2.9.0 (#646) [e783366]
-
 ## 1.27.2
 
 ### Fixes

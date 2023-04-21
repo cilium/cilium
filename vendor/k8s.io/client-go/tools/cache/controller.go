@@ -18,7 +18,6 @@ package cache
 
 import (
 	"errors"
-	"os"
 	"sync"
 	"time"
 
@@ -51,11 +50,10 @@ type Config struct {
 	Process ProcessFunc
 
 	// ObjectType is an example object of the type this controller is
-	// expected to handle.
+	// expected to handle.  Only the type needs to be right, except
+	// that when that is `unstructured.Unstructured` the object's
+	// `"apiVersion"` and `"kind"` must also be right.
 	ObjectType runtime.Object
-
-	// ObjectDescription is the description to use when logging type-specific information about this controller.
-	ObjectDescription string
 
 	// FullResyncPeriod is the period at which ShouldResync is considered.
 	FullResyncPeriod time.Duration
@@ -86,7 +84,7 @@ type Config struct {
 type ShouldResyncFunc func() bool
 
 // ProcessFunc processes a single object.
-type ProcessFunc func(obj interface{}, isInInitialList bool) error
+type ProcessFunc func(obj interface{}) error
 
 // `*controller` implements Controller
 type controller struct {
@@ -133,23 +131,17 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 		<-stopCh
 		c.config.Queue.Close()
 	}()
-	r := NewReflectorWithOptions(
+	r := NewReflector(
 		c.config.ListerWatcher,
 		c.config.ObjectType,
 		c.config.Queue,
-		ReflectorOptions{
-			ResyncPeriod:    c.config.FullResyncPeriod,
-			TypeDescription: c.config.ObjectDescription,
-			Clock:           c.clock,
-		},
+		c.config.FullResyncPeriod,
 	)
 	r.ShouldResync = c.config.ShouldResync
 	r.WatchListPageSize = c.config.WatchListPageSize
+	r.clock = c.clock
 	if c.config.WatchErrorHandler != nil {
 		r.watchErrorHandler = c.config.WatchErrorHandler
-	}
-	if s := os.Getenv("ENABLE_CLIENT_GO_WATCH_LIST_ALPHA"); len(s) > 0 {
-		r.UseWatchList = true
 	}
 
 	c.reflectorMutex.Lock()
@@ -219,7 +211,7 @@ func (c *controller) processLoop() {
 //     happen if the watch is closed and misses the delete event and we don't
 //     notice the deletion until the subsequent re-list.
 type ResourceEventHandler interface {
-	OnAdd(obj interface{}, isInInitialList bool)
+	OnAdd(obj interface{})
 	OnUpdate(oldObj, newObj interface{})
 	OnDelete(obj interface{})
 }
@@ -228,9 +220,6 @@ type ResourceEventHandler interface {
 // as few of the notification functions as you want while still implementing
 // ResourceEventHandler.  This adapter does not remove the prohibition against
 // modifying the objects.
-//
-// See ResourceEventHandlerDetailedFuncs if your use needs to propagate
-// HasSynced.
 type ResourceEventHandlerFuncs struct {
 	AddFunc    func(obj interface{})
 	UpdateFunc func(oldObj, newObj interface{})
@@ -238,7 +227,7 @@ type ResourceEventHandlerFuncs struct {
 }
 
 // OnAdd calls AddFunc if it's not nil.
-func (r ResourceEventHandlerFuncs) OnAdd(obj interface{}, isInInitialList bool) {
+func (r ResourceEventHandlerFuncs) OnAdd(obj interface{}) {
 	if r.AddFunc != nil {
 		r.AddFunc(obj)
 	}
@@ -258,36 +247,6 @@ func (r ResourceEventHandlerFuncs) OnDelete(obj interface{}) {
 	}
 }
 
-// ResourceEventHandlerDetailedFuncs is exactly like ResourceEventHandlerFuncs
-// except its AddFunc accepts the isInInitialList parameter, for propagating
-// HasSynced.
-type ResourceEventHandlerDetailedFuncs struct {
-	AddFunc    func(obj interface{}, isInInitialList bool)
-	UpdateFunc func(oldObj, newObj interface{})
-	DeleteFunc func(obj interface{})
-}
-
-// OnAdd calls AddFunc if it's not nil.
-func (r ResourceEventHandlerDetailedFuncs) OnAdd(obj interface{}, isInInitialList bool) {
-	if r.AddFunc != nil {
-		r.AddFunc(obj, isInInitialList)
-	}
-}
-
-// OnUpdate calls UpdateFunc if it's not nil.
-func (r ResourceEventHandlerDetailedFuncs) OnUpdate(oldObj, newObj interface{}) {
-	if r.UpdateFunc != nil {
-		r.UpdateFunc(oldObj, newObj)
-	}
-}
-
-// OnDelete calls DeleteFunc if it's not nil.
-func (r ResourceEventHandlerDetailedFuncs) OnDelete(obj interface{}) {
-	if r.DeleteFunc != nil {
-		r.DeleteFunc(obj)
-	}
-}
-
 // FilteringResourceEventHandler applies the provided filter to all events coming
 // in, ensuring the appropriate nested handler method is invoked. An object
 // that starts passing the filter after an update is considered an add, and an
@@ -299,11 +258,11 @@ type FilteringResourceEventHandler struct {
 }
 
 // OnAdd calls the nested handler only if the filter succeeds
-func (r FilteringResourceEventHandler) OnAdd(obj interface{}, isInInitialList bool) {
+func (r FilteringResourceEventHandler) OnAdd(obj interface{}) {
 	if !r.FilterFunc(obj) {
 		return
 	}
-	r.Handler.OnAdd(obj, isInInitialList)
+	r.Handler.OnAdd(obj)
 }
 
 // OnUpdate ensures the proper handler is called depending on whether the filter matches
@@ -314,7 +273,7 @@ func (r FilteringResourceEventHandler) OnUpdate(oldObj, newObj interface{}) {
 	case newer && older:
 		r.Handler.OnUpdate(oldObj, newObj)
 	case newer && !older:
-		r.Handler.OnAdd(newObj, false)
+		r.Handler.OnAdd(newObj)
 	case !newer && older:
 		r.Handler.OnDelete(oldObj)
 	default:
@@ -394,6 +353,17 @@ func NewIndexerInformer(
 	return clientState, newInformer(lw, objType, resyncPeriod, h, clientState, nil)
 }
 
+// TransformFunc allows for transforming an object before it will be processed
+// and put into the controller cache and before the corresponding handlers will
+// be called on it.
+// TransformFunc (similarly to ResourceEventHandler functions) should be able
+// to correctly handle the tombstone of type cache.DeletedFinalStateUnknown
+//
+// The most common usage pattern is to clean-up some parts of the object to
+// reduce component memory usage if a given component doesn't care about them.
+// given controller doesn't care for them
+type TransformFunc func(interface{}) (interface{}, error)
+
 // NewTransformingInformer returns a Store and a controller for populating
 // the store while also providing event notifications. You should only used
 // the returned Store for Get/List operations; Add/Modify/Deletes will cause
@@ -441,12 +411,19 @@ func processDeltas(
 	// Object which receives event notifications from the given deltas
 	handler ResourceEventHandler,
 	clientState Store,
+	transformer TransformFunc,
 	deltas Deltas,
-	isInInitialList bool,
 ) error {
 	// from oldest to newest
 	for _, d := range deltas {
 		obj := d.Object
+		if transformer != nil {
+			var err error
+			obj, err = transformer(obj)
+			if err != nil {
+				return err
+			}
+		}
 
 		switch d.Type {
 		case Sync, Replaced, Added, Updated:
@@ -459,7 +436,7 @@ func processDeltas(
 				if err := clientState.Add(obj); err != nil {
 					return err
 				}
-				handler.OnAdd(obj, isInInitialList)
+				handler.OnAdd(obj)
 			}
 		case Deleted:
 			if err := clientState.Delete(obj); err != nil {
@@ -498,7 +475,6 @@ func newInformer(
 	fifo := NewDeltaFIFOWithOptions(DeltaFIFOOptions{
 		KnownObjects:          clientState,
 		EmitDeltaTypeReplaced: true,
-		Transformer:           transformer,
 	})
 
 	cfg := &Config{
@@ -508,9 +484,9 @@ func newInformer(
 		FullResyncPeriod: resyncPeriod,
 		RetryOnError:     false,
 
-		Process: func(obj interface{}, isInInitialList bool) error {
+		Process: func(obj interface{}) error {
 			if deltas, ok := obj.(Deltas); ok {
-				return processDeltas(h, clientState, deltas, isInInitialList)
+				return processDeltas(h, clientState, transformer, deltas)
 			}
 			return errors.New("object given as Process argument is not Deltas")
 		},

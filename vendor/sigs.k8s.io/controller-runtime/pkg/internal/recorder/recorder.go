@@ -19,7 +19,6 @@ package recorder
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -111,12 +110,8 @@ func (p *Provider) getBroadcaster() record.EventBroadcaster {
 }
 
 // NewProvider create a new Provider instance.
-func NewProvider(config *rest.Config, httpClient *http.Client, scheme *runtime.Scheme, logger logr.Logger, makeBroadcaster EventBroadcasterProducer) (*Provider, error) {
-	if httpClient == nil {
-		panic("httpClient must not be nil")
-	}
-
-	corev1Client, err := corev1client.NewForConfigAndClient(config, httpClient)
+func NewProvider(config *rest.Config, scheme *runtime.Scheme, logger logr.Logger, makeBroadcaster EventBroadcasterProducer) (*Provider, error) {
+	corev1Client, err := corev1client.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init client: %w", err)
 	}

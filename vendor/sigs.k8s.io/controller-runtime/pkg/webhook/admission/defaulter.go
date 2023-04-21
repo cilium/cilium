@@ -33,9 +33,9 @@ type Defaulter interface {
 }
 
 // DefaultingWebhookFor creates a new Webhook for Defaulting the provided type.
-func DefaultingWebhookFor(scheme *runtime.Scheme, defaulter Defaulter) *Webhook {
+func DefaultingWebhookFor(defaulter Defaulter) *Webhook {
 	return &Webhook{
-		Handler: &mutatingHandler{defaulter: defaulter, decoder: NewDecoder(scheme)},
+		Handler: &mutatingHandler{defaulter: defaulter},
 	}
 }
 
@@ -44,11 +44,16 @@ type mutatingHandler struct {
 	decoder   *Decoder
 }
 
+var _ DecoderInjector = &mutatingHandler{}
+
+// InjectDecoder injects the decoder into a mutatingHandler.
+func (h *mutatingHandler) InjectDecoder(d *Decoder) error {
+	h.decoder = d
+	return nil
+}
+
 // Handle handles admission requests.
 func (h *mutatingHandler) Handle(ctx context.Context, req Request) Response {
-	if h.decoder == nil {
-		panic("decoder should never be nil")
-	}
 	if h.defaulter == nil {
 		panic("defaulter should never be nil")
 	}

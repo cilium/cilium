@@ -35,9 +35,9 @@ type Validator interface {
 }
 
 // ValidatingWebhookFor creates a new Webhook for validating the provided type.
-func ValidatingWebhookFor(scheme *runtime.Scheme, validator Validator) *Webhook {
+func ValidatingWebhookFor(validator Validator) *Webhook {
 	return &Webhook{
-		Handler: &validatingHandler{validator: validator, decoder: NewDecoder(scheme)},
+		Handler: &validatingHandler{validator: validator},
 	}
 }
 
@@ -46,11 +46,16 @@ type validatingHandler struct {
 	decoder   *Decoder
 }
 
+var _ DecoderInjector = &validatingHandler{}
+
+// InjectDecoder injects the decoder into a validatingHandler.
+func (h *validatingHandler) InjectDecoder(d *Decoder) error {
+	h.decoder = d
+	return nil
+}
+
 // Handle handles admission requests.
 func (h *validatingHandler) Handle(ctx context.Context, req Request) Response {
-	if h.decoder == nil {
-		panic("decoder should never be nil")
-	}
 	if h.validator == nil {
 		panic("validator should never be nil")
 	}

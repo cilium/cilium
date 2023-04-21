@@ -17,6 +17,4 @@ limitations under the License.
 // Package v1alpha1 provides the ControllerManagerConfiguration used for
 // configuring ctrl.Manager
 // +kubebuilder:object:generate=true
-//
-// Deprecated: The component config package has been deprecated and will be removed in a future release. Users should migrate to their own config implementation, please share feedback in https://github.com/kubernetes-sigs/controller-runtime/issues/895.
 package v1alpha1

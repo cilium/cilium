@@ -1,5 +1,5 @@
 # File source with modifications to the coredns corefile
-# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.27/cluster/addons/dns/coredns/coredns.yaml.base
+# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.26/cluster/addons/dns/coredns/coredns.yaml.base
 # __MACHINE_GENERATED_WARNING__
 
 apiVersion: apps/v1
@@ -52,7 +52,7 @@ spec:
         kubernetes.io/os: linux
       containers:
       - name: coredns
-        image: registry.k8s.io/coredns/coredns:v1.10.1
+        image: registry.k8s.io/coredns/coredns:v1.9.3
         imagePullPolicy: IfNotPresent
         resources:
           limits:

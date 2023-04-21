@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -45,11 +46,11 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&gatewayv1beta1.Gateway{},
 			builder.WithPredicates(predicate.NewPredicateFuncs(hasMatchingControllerFn))).
 		// Watch GatewayClass resources, which are linked to Gateway
-		Watches(&gatewayv1beta1.GatewayClass{},
+		Watches(&source.Kind{Type: &gatewayv1beta1.GatewayClass{}},
 			r.enqueueRequestForOwningGatewayClass(),
 			builder.WithPredicates(predicate.NewPredicateFuncs(hasMatchingControllerFn))).
 		// Watch related LB service for status
-		Watches(&corev1.Service{},
+		Watches(&source.Kind{Type: &corev1.Service{}},
 			r.enqueueRequestForOwningResource(),
 			builder.WithPredicates(predicate.NewPredicateFuncs(func(object client.Object) bool {
 				_, found := object.GetLabels()[owningGatewayLabel]
@@ -57,30 +58,28 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}))).
 		// Watch HTTP Route status changes, there is one assumption that any change in spec will
 		// always update status always at least for observedGeneration value.
-		Watches(&gatewayv1beta1.HTTPRoute{},
+		Watches(&source.Kind{Type: &gatewayv1beta1.HTTPRoute{}},
 			r.enqueueRequestForOwningHTTPRoute(),
 			builder.WithPredicates(onlyStatusChanged())).
 		// Watch related secrets used to configure TLS
-		Watches(&corev1.Secret{},
-			r.enqueueRequestForTLSSecret(),
+		Watches(&source.Kind{Type: &corev1.Secret{}}, r.enqueueRequestForTLSSecret(),
 			builder.WithPredicates(predicate.NewPredicateFuncs(r.usedInGateway))).
 		// Watch related namespace in allowed namespaces
-		Watches(&corev1.Namespace{},
-			r.enqueueRequestForAllowedNamespace()).
+		Watches(&source.Kind{Type: &corev1.Namespace{}}, r.enqueueRequestForAllowedNamespace()).
 		Complete(r)
 }
 
 // enqueueRequestForOwningGatewayClass returns an event handler for all Gateway objects
 // belonging to the given GatewayClass.
 func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+	return handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.Controller: gateway,
 			logfields.Resource:   a.GetName(),
 		})
 		var reqs []reconcile.Request
 		gwList := &gatewayv1beta1.GatewayList{}
-		if err := r.Client.List(ctx, gwList); err != nil {
+		if err := r.Client.List(context.Background(), gwList); err != nil {
 			scopedLog.Error("Unable to list Gateways")
 			return nil
 		}
@@ -108,7 +107,7 @@ func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventH
 // enqueueRequestForOwningResource returns an event handler for all Gateway objects having
 // owningGatewayLabel
 func (r *gatewayReconciler) enqueueRequestForOwningResource() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+	return handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.Controller: "gateway",
 			logfields.Resource:   a.GetName(),
@@ -139,7 +138,7 @@ func (r *gatewayReconciler) enqueueRequestForOwningResource() handler.EventHandl
 // enqueueRequestForOwningHTTPRoute returns an event handler for any changes with HTTP Routes
 // belonging to the given Gateway
 func (r *gatewayReconciler) enqueueRequestForOwningHTTPRoute() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+	return handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.Controller: gateway,
 			logfields.Resource:   a.GetName(),
@@ -177,8 +176,8 @@ func (r *gatewayReconciler) enqueueRequestForOwningHTTPRoute() handler.EventHand
 
 // enqueueRequestForOwningTLSCertificate returns an event handler for any changes with TLS secrets
 func (r *gatewayReconciler) enqueueRequestForTLSSecret() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
-		gateways := getGatewaysForSecret(ctx, r.Client, a)
+	return handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+		gateways := getGatewaysForSecret(context.Background(), r.Client, a)
 		reqs := make([]reconcile.Request, 0, len(gateways))
 		for _, gw := range gateways {
 			reqs = append(reqs, reconcile.Request{
@@ -192,8 +191,8 @@ func (r *gatewayReconciler) enqueueRequestForTLSSecret() handler.EventHandler {
 // enqueueRequestForAllowedNamespace returns an event handler for any changes
 // with allowed namespaces
 func (r *gatewayReconciler) enqueueRequestForAllowedNamespace() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, ns client.Object) []reconcile.Request {
-		gateways := getGatewaysForNamespace(ctx, r.Client, ns)
+	return handler.EnqueueRequestsFromMapFunc(func(ns client.Object) []reconcile.Request {
+		gateways := getGatewaysForNamespace(context.Background(), r.Client, ns)
 		reqs := make([]reconcile.Request, 0, len(gateways))
 		for _, gw := range gateways {
 			reqs = append(reqs, reconcile.Request{

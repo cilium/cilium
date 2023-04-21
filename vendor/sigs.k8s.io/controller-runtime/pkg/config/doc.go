@@ -14,6 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package config contains functionality for interacting with
-// configuration for controller-runtime components.
+// Package config contains functionality for interacting with ComponentConfig
+// files
+//
+// # DeferredFileLoader
+//
+// This uses a deferred file decoding allowing you to chain your configuration
+// setup. You can pass this into manager.Options#File and it will load your
+// config.
 package config
