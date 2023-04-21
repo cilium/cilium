@@ -28,7 +28,7 @@ spec:
         - "10000"
         command:
         - sleep
-        image: quay.io/cilium/log-gatherer:v1.1
+        image: quay.io/cilium/log-gatherer:v1.2
         imagePullPolicy: IfNotPresent
         name: log-gatherer
         securityContext:
