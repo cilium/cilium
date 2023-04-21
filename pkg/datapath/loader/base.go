@@ -43,6 +43,8 @@ const (
 	netdevHeaderFileName = "netdev_config.h"
 	// preFilterHeaderFileName is the name of the header file used for bpf_xdp.c.
 	preFilterHeaderFileName = "filter_config.h"
+	// clusterConfigHeaderFileName is the name of the header file used for cluster-wide configuration.
+	clusterConfigHeaderFileName = "cluster_config.h"
 )
 
 func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) error {
@@ -72,6 +74,22 @@ func (l *Loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
 
 	if err = l.templateCache.WriteNodeConfig(f, o.LocalConfig()); err != nil {
 		return fmt.Errorf("failed to write node configuration file at %s: %w", nodeConfigPath, err)
+	}
+	return nil
+}
+
+func (l *Loader) writeClusterConfigHeader(dir string, o datapath.BaseProgramOwner) error {
+	clusterConfigPath := filepath.Join(dir, clusterConfigHeaderFileName)
+	log.WithField(logfields.Path, clusterConfigPath).Debug("writing configuration")
+
+	f, err := os.Create(clusterConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to create cluster configuration file at %s: %w", clusterConfigPath, err)
+	}
+	defer f.Close()
+
+	if err = l.templateCache.WriteClusterConfig(f); err != nil {
+		return fmt.Errorf("failed to write cluster configuration file at %s: %w", clusterConfigPath, err)
 	}
 	return nil
 }
@@ -358,6 +376,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if err := l.writeNetdevHeader("./", o); err != nil {
 		log.WithError(err).Warn("Unable to write netdev header")
+		return err
+	}
+
+	if err := l.writeClusterConfigHeader("./", o); err != nil {
+		log.WithError(err).Warn("Unable to write cluster config header")
 		return err
 	}
 

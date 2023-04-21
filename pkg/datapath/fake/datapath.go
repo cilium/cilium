@@ -74,6 +74,11 @@ func (f *FakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfigura
 	return nil
 }
 
+// WriteClusterConfig pretends to write the cluster configuration to a writer.
+func (f *FakeDatapath) WriteClusterConfig(w io.Writer) error {
+	return nil
+}
+
 func (f *FakeDatapath) InstallProxyRules(context.Context, uint16, bool, bool, string) error {
 	return nil
 }

@@ -6,6 +6,7 @@
 
 #include "lib/common.h"
 #include "linux/ip.h"
+#include <cluster_config.h>
 
 static __always_inline __maybe_unused void
 bpf_clear_meta(struct __sk_buff *ctx)
@@ -25,7 +26,11 @@ bpf_clear_meta(struct __sk_buff *ctx)
 static __always_inline __maybe_unused int
 get_identity(const struct __sk_buff *ctx)
 {
-	return ((ctx->mark & 0xFF) << 16) | ctx->mark >> 16;
+	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
+	__u32 cluster_id_upper = (ctx->mark & CLUSTER_ID_UPPER_MASK) >> (8 + IDENTITY_LEN);
+	__u32 identity = (ctx->mark >> 16) & IDENTITY_MAX;
+
+	return (cluster_id_lower | cluster_id_upper) << IDENTITY_LEN | identity;
 }
 
 /**
@@ -43,8 +48,12 @@ get_epid(const struct __sk_buff *ctx)
 static __always_inline __maybe_unused void
 set_identity_mark(struct __sk_buff *ctx, __u32 identity)
 {
-	ctx->mark = ctx->mark & MARK_MAGIC_KEY_MASK;
-	ctx->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
+	__u32 cluster_id = (identity >> IDENTITY_LEN) & CLUSTER_ID_MAX;
+	__u32 cluster_id_lower = cluster_id & 0xFF;
+	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
+
+	ctx->mark &= MARK_MAGIC_KEY_MASK;
+	ctx->mark |= (identity & IDENTITY_MAX) << 16 | cluster_id_lower | cluster_id_upper;
 }
 
 static __always_inline __maybe_unused void
@@ -68,18 +77,23 @@ set_encrypt_key_mark(struct __sk_buff *ctx, __u8 key, __u32 node_id)
 static __always_inline __maybe_unused void
 ctx_set_cluster_id_mark(struct __sk_buff *ctx, __u32 cluster_id)
 {
-	ctx->mark |= cluster_id | MARK_MAGIC_CLUSTER_ID;
+	__u32 cluster_id_lower = (cluster_id & 0xFF);
+	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
+
+	ctx->mark |=  cluster_id_lower | cluster_id_upper | MARK_MAGIC_CLUSTER_ID;
 }
 
 static __always_inline __maybe_unused __u32
 ctx_get_cluster_id_mark(struct __sk_buff *ctx)
 {
 	__u32 ret = 0;
+	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
+	__u32 cluster_id_upper = (ctx->mark & CLUSTER_ID_UPPER_MASK) >> (8 + IDENTITY_LEN);
 
 	if ((ctx->mark & MARK_MAGIC_CLUSTER_ID) != MARK_MAGIC_CLUSTER_ID)
 		return ret;
 
-	ret = ctx->mark & MARK_MAGIC_CLUSTER_ID_MASK;
+	ret = (cluster_id_upper | cluster_id_lower) & CLUSTER_ID_MAX;
 	ctx->mark &= ~(__u32)(MARK_MAGIC_CLUSTER_ID | MARK_MAGIC_CLUSTER_ID_MASK);
 
 	return ret;
