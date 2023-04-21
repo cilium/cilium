@@ -39,7 +39,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 sh 'env'
-                Status("PENDING", "${env.JOB_NAME}")
                 checkout scm
                 sh 'mkdir -p ${PROJ_PATH}'
                 sh 'ls -A | grep -v src | xargs mv -t ${PROJ_PATH}'
@@ -128,12 +127,6 @@ pipeline {
             sh 'cd ${TESTDIR}; K8S_VERSION=${K8S_VERSION} vagrant destroy -f || true'
             cleanWs()
             sh '/usr/local/bin/cleanup || true'
-        }
-        success {
-            Status("SUCCESS", "$JOB_BASE_NAME")
-        }
-        failure {
-            Status("FAILURE", "$JOB_BASE_NAME")
         }
     }
 }
