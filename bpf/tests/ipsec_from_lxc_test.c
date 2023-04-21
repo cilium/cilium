@@ -168,7 +168,7 @@ int ipv4_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
 	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL);
+	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV4);
 
 	l2 = data + sizeof(*status_code);
 
@@ -254,7 +254,7 @@ int ipv4_from_lxc_new_local_key_check(__maybe_unused const struct __ctx_buff *ct
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
 	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL);
+	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV4);
 
 	test_finish();
 }
@@ -299,7 +299,7 @@ int ipv4_from_lxc_new_remote_key_check(__maybe_unused const struct __ctx_buff *c
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
 	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL);
+	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV4);
 
 	test_finish();
 }
@@ -387,7 +387,7 @@ int ipv6_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
 	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL);
+	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV6);
 
 	l2 = data + sizeof(*status_code);
 

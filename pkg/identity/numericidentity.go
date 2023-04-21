@@ -105,6 +105,14 @@ const (
 	// ReservedIdentityIngress is the identity given to the IP used as the source
 	// address for connections from Ingress proxies.
 	ReservedIdentityIngress
+
+	// ReservedIdentityWorldIPv4 represents any endpoint outside of the cluster
+	// for IPv4 address only.
+	ReservedIdentityWorldIPv4
+
+	// ReservedIdentityWorldIPv6 represents any endpoint outside of the cluster
+	// for IPv6 address only.
+	ReservedIdentityWorldIPv6
 )
 
 // Special identities for well-known cluster components
@@ -373,6 +381,8 @@ var (
 	reservedIdentities = map[string]NumericIdentity{
 		labels.IDNameHost:          ReservedIdentityHost,
 		labels.IDNameWorld:         ReservedIdentityWorld,
+		labels.IDNameWorldIPv4:     ReservedIdentityWorldIPv4,
+		labels.IDNameWorldIPv6:     ReservedIdentityWorldIPv6,
 		labels.IDNameUnmanaged:     ReservedIdentityUnmanaged,
 		labels.IDNameHealth:        ReservedIdentityHealth,
 		labels.IDNameInit:          ReservedIdentityInit,
@@ -384,6 +394,8 @@ var (
 		IdentityUnknown:               "unknown",
 		ReservedIdentityHost:          labels.IDNameHost,
 		ReservedIdentityWorld:         labels.IDNameWorld,
+		ReservedIdentityWorldIPv4:     labels.IDNameWorldIPv4,
+		ReservedIdentityWorldIPv6:     labels.IDNameWorldIPv6,
 		ReservedIdentityUnmanaged:     labels.IDNameUnmanaged,
 		ReservedIdentityHealth:        labels.IDNameHealth,
 		ReservedIdentityInit:          labels.IDNameInit,
@@ -394,6 +406,8 @@ var (
 	reservedIdentityLabels = map[NumericIdentity]labels.Labels{
 		ReservedIdentityHost:       labels.LabelHost,
 		ReservedIdentityWorld:      labels.LabelWorld,
+		ReservedIdentityWorldIPv4:  labels.LabelWorldIPv4,
+		ReservedIdentityWorldIPv6:  labels.LabelWorldIPv6,
 		ReservedIdentityUnmanaged:  labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameUnmanaged}),
 		ReservedIdentityHealth:     labels.LabelHealth,
 		ReservedIdentityInit:       labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameInit}),
@@ -555,4 +569,13 @@ func iterateReservedIdentityLabels(f func(_ NumericIdentity, _ labels.Labels)) {
 // HasLocalScope returns true if the identity has a local scope
 func (id NumericIdentity) HasLocalScope() bool {
 	return (id & LocalIdentityFlag) != 0
+}
+
+// IsWorld returns true if the identity is one of the world identities
+func (id NumericIdentity) IsWorld() bool {
+	if id == ReservedIdentityWorld {
+		return true
+	}
+	return option.Config.IsDualStack() &&
+		(id == ReservedIdentityWorldIPv4 || id == ReservedIdentityWorldIPv6)
 }

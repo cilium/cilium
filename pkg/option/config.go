@@ -4050,6 +4050,10 @@ func (c *DaemonConfig) BGPControlPlaneEnabled() bool {
 	return c.EnableBGPControlPlane
 }
 
+func (c *DaemonConfig) IsDualStack() bool {
+	return c.EnableIPv4 && c.EnableIPv6
+}
+
 // StoreViperInFile stores viper's configuration in a the given directory under
 // the file name 'viper-config.yaml'. If this file already exists, it is renamed
 // to 'viper-config-1.yaml', if 'viper-config-1.yaml' also exists,

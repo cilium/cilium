@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )
@@ -73,7 +74,15 @@ func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ip
 		}
 		// Default to WORLD if still unknown
 		if id == 0 {
-			id = identity.ReservedIdentityWorld
+			if option.Config.IsDualStack() {
+				if ipAddr.To4() == nil {
+					id = identity.ReservedIdentityWorldIPv6
+				} else {
+					id = identity.ReservedIdentityWorldIPv4
+				}
+			} else {
+				id = identity.ReservedIdentityWorld
+			}
 		}
 	}
 	info.Identity = uint64(id)

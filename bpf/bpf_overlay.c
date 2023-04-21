@@ -344,7 +344,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			if (!vtep)
 				goto skip_vtep;
 			if (vtep->tunnel_endpoint) {
-				if (*identity != WORLD_ID)
+				if (identity_is_world_ipv4(*identity))
 					return DROP_INVALID_VNI;
 			}
 		}
@@ -487,8 +487,8 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 	if (info->tunnel_endpoint) {
 		ret = __encap_and_redirect_with_nodeid(ctx, 0, info->tunnel_endpoint,
-						       LOCAL_NODE_ID, WORLD_ID,
-						       WORLD_ID, &trace);
+						       LOCAL_NODE_ID, WORLD_IPV4_ID,
+						       WORLD_IPV4_ID, &trace);
 		if (IS_ERR(ret))
 			goto drop_err;
 
