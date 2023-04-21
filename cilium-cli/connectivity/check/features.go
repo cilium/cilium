@@ -64,6 +64,8 @@ const (
 	FeatureAuthMTLSSpiffe Feature = "auth-mtls-spiffe"
 
 	FeatureIngressController Feature = "ingress-controller"
+
+	FeatureEgressGateway Feature = "enable-ipv4-egress-gateway"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -210,6 +212,10 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 
 	result[FeatureIngressController] = FeatureStatus{
 		Enabled: cm.Data["enable-ingress-controller"] == "true",
+	}
+
+	result[FeatureEgressGateway] = FeatureStatus{
+		Enabled: cm.Data["enable-ipv4-egress-gateway"] == "true",
 	}
 
 	return nil
