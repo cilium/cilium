@@ -816,7 +816,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
 
-			res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "sh -c 'apt update && apt install -y conntrack && conntrack -F'")
+			res := kubectl.ExecInHostNetNS(context.TODO(), helpers.K8s1, "conntrack -F")
 			Expect(res.WasSuccessful()).Should(BeTrue(), "Cannot flush conntrack table")
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
@@ -838,7 +838,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(res.WasSuccessful()).Should(BeTrue(), "Missing '-j CT --notrack' iptables rule")
 
 			cmd = fmt.Sprintf("conntrack -L -s %s -d %s | wc -l", helpers.IPv4NativeRoutingCIDR, helpers.IPv4NativeRoutingCIDR)
-			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
+			res = kubectl.ExecInHostNetNS(context.TODO(), helpers.K8s1, cmd)
 			Expect(res.WasSuccessful()).Should(BeTrue(), "Cannot list conntrack entries")
 			Expect(strings.TrimSpace(res.Stdout())).To(Equal("0"), "Unexpected conntrack entries")
 		})
