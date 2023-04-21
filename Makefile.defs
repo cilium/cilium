@@ -64,6 +64,7 @@ endif
 
 CONSUL_IMAGE=consul:1.7.2
 
+export CILIUM_CLI ?= cilium
 export GO ?= go
 
 # go build/test/clean flags
