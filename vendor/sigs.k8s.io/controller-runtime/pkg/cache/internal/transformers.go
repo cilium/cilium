@@ -8,9 +8,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-// TransformFuncByGVK provides access to the correct transform function for
+// TransformFuncByObject provides access to the correct transform function for
 // any given GVK.
-type TransformFuncByGVK interface {
+type TransformFuncByObject interface {
 	Set(runtime.Object, *runtime.Scheme, cache.TransformFunc) error
 	Get(schema.GroupVersionKind) cache.TransformFunc
 	SetDefault(transformer cache.TransformFunc)
@@ -21,9 +21,9 @@ type transformFuncByGVK struct {
 	transformers     map[schema.GroupVersionKind]cache.TransformFunc
 }
 
-// TransformFuncByGVKFromMap creates a TransformFuncByGVK from a map that
+// TransformFuncByObjectFromMap creates a TransformFuncByObject from a map that
 // maps GVKs to TransformFuncs.
-func TransformFuncByGVKFromMap(in map[schema.GroupVersionKind]cache.TransformFunc) TransformFuncByGVK {
+func TransformFuncByObjectFromMap(in map[schema.GroupVersionKind]cache.TransformFunc) TransformFuncByObject {
 	byGVK := &transformFuncByGVK{}
 	if defaultFunc, hasDefault := in[schema.GroupVersionKind{}]; hasDefault {
 		byGVK.defaultTransform = defaultFunc

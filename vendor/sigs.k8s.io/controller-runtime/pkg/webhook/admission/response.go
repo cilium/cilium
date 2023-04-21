@@ -26,21 +26,21 @@ import (
 
 // Allowed constructs a response indicating that the given operation
 // is allowed (without any patches).
-func Allowed(message string) Response {
-	return ValidationResponse(true, message)
+func Allowed(reason string) Response {
+	return ValidationResponse(true, reason)
 }
 
 // Denied constructs a response indicating that the given operation
 // is not allowed.
-func Denied(message string) Response {
-	return ValidationResponse(false, message)
+func Denied(reason string) Response {
+	return ValidationResponse(false, reason)
 }
 
 // Patched constructs a response indicating that the given operation is
 // allowed, and that the target object should be modified by the given
 // JSONPatch operations.
-func Patched(message string, patches ...jsonpatch.JsonPatchOperation) Response {
-	resp := Allowed(message)
+func Patched(reason string, patches ...jsonpatch.JsonPatchOperation) Response {
+	resp := Allowed(reason)
 	resp.Patches = patches
 
 	return resp
@@ -60,24 +60,21 @@ func Errored(code int32, err error) Response {
 }
 
 // ValidationResponse returns a response for admitting a request.
-func ValidationResponse(allowed bool, message string) Response {
+func ValidationResponse(allowed bool, reason string) Response {
 	code := http.StatusForbidden
-	reason := metav1.StatusReasonForbidden
 	if allowed {
 		code = http.StatusOK
-		reason = ""
 	}
 	resp := Response{
 		AdmissionResponse: admissionv1.AdmissionResponse{
 			Allowed: allowed,
 			Result: &metav1.Status{
-				Code:   int32(code),
-				Reason: reason,
+				Code: int32(code),
 			},
 		},
 	}
-	if len(message) > 0 {
-		resp.Result.Message = message
+	if len(reason) > 0 {
+		resp.Result.Reason = metav1.StatusReason(reason)
 	}
 	return resp
 }

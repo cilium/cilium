@@ -87,17 +87,14 @@ func Succeed() types.GomegaMatcher {
 	return &matchers.SucceedMatcher{}
 }
 
-// MatchError succeeds if actual is a non-nil error that matches the passed in
-// string, error, or matcher.
+// MatchError succeeds if actual is a non-nil error that matches the passed in string/error.
 //
 // These are valid use-cases:
 //
-//  Expect(err).Should(MatchError("an error")) //asserts that err.Error() == "an error"
-//  Expect(err).Should(MatchError(SomeError)) //asserts that err == SomeError (via reflect.DeepEqual)
-//  Expect(err).Should(MatchError(ContainsSubstring("sprocket not found"))) // asserts that edrr.Error() contains substring "sprocket not found"
+//	Expect(err).Should(MatchError("an error")) //asserts that err.Error() == "an error"
+//	Expect(err).Should(MatchError(SomeError)) //asserts that err == SomeError (via reflect.DeepEqual)
 //
-// It is an error for err to be nil or an object that does not implement the
-// Error interface
+// It is an error for err to be nil or an object that does not implement the Error interface
 func MatchError(expected interface{}) types.GomegaMatcher {
 	return &matchers.MatchErrorMatcher{
 		Expected: expected,

@@ -78,15 +78,14 @@ func (meta *ObjectMeta) SetLabels(labels map[string]string)           { meta.Lab
 func (meta *ObjectMeta) GetAnnotations() map[string]string            { return meta.Annotations }
 func (meta *ObjectMeta) SetAnnotations(annotations map[string]string) { meta.Annotations = annotations }
 func (meta *ObjectMeta) GetFinalizers() []string                      { panic("not implemented") }
-func (meta *ObjectMeta) SetFinalizers([]string)                       { panic("not implemented") }
+func (meta *ObjectMeta) SetFinalizers(_ []string)                     { panic("not implemented") }
 func (meta *ObjectMeta) GetOwnerReferences() []metav1.OwnerReference {
 	return FullOwnerReferences(meta.OwnerReferences)
 }
 func (meta *ObjectMeta) SetOwnerReferences(references []metav1.OwnerReference) {
 	meta.OwnerReferences = SlimOwnerReferences(references)
 }
-
-func (meta *ObjectMeta) GetManagedFields() []metav1.ManagedFieldsEntry { panic("not implemented") }
-func (meta *ObjectMeta) SetManagedFields([]metav1.ManagedFieldsEntry) {
-	panic("not implemented")
-}
+func (meta *ObjectMeta) GetZZZ_DeprecatedClusterName() string           { panic("not implemented") }
+func (meta *ObjectMeta) SetZZZ_DeprecatedClusterName(_ string)          { panic("not implemented") }
+func (meta *ObjectMeta) GetManagedFields() []metav1.ManagedFieldsEntry  { panic("not implemented") }
+func (meta *ObjectMeta) SetManagedFields(_ []metav1.ManagedFieldsEntry) { panic("not implemented") }

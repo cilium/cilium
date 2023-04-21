@@ -21,8 +21,9 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
 
@@ -32,16 +33,21 @@ func NewWithWatch(config *rest.Config, options Options) (WithWatch, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &watchingClient{client: client}, nil
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return &watchingClient{client: client, dynamic: dynamicClient}, nil
 }
 
 type watchingClient struct {
 	*client
+	dynamic dynamic.Interface
 }
 
 func (w *watchingClient) Watch(ctx context.Context, list ObjectList, opts ...ListOption) (watch.Interface, error) {
 	switch l := list.(type) {
-	case runtime.Unstructured:
+	case *unstructured.UnstructuredList:
 		return w.unstructuredWatch(ctx, l, opts...)
 	case *metav1.PartialObjectMetadataList:
 		return w.metadataWatch(ctx, l, opts...)
@@ -75,23 +81,25 @@ func (w *watchingClient) metadataWatch(ctx context.Context, obj *metav1.PartialO
 	return resInt.Watch(ctx, *listOpts.AsListOptions())
 }
 
-func (w *watchingClient) unstructuredWatch(ctx context.Context, obj runtime.Unstructured, opts ...ListOption) (watch.Interface, error) {
-	r, err := w.client.unstructuredClient.resources.getResource(obj)
+func (w *watchingClient) unstructuredWatch(ctx context.Context, obj *unstructured.UnstructuredList, opts ...ListOption) (watch.Interface, error) {
+	gvk := obj.GroupVersionKind()
+	gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
+
+	r, err := w.client.unstructuredClient.cache.getResource(obj)
 	if err != nil {
 		return nil, err
 	}
 
 	listOpts := w.listOpts(opts...)
 
-	return r.Get().
-		NamespaceIfScoped(listOpts.Namespace, r.isNamespaced()).
-		Resource(r.resource()).
-		VersionedParams(listOpts.AsListOptions(), w.client.unstructuredClient.paramCodec).
-		Watch(ctx)
+	if listOpts.Namespace != "" && r.isNamespaced() {
+		return w.dynamic.Resource(r.mapping.Resource).Namespace(listOpts.Namespace).Watch(ctx, *listOpts.AsListOptions())
+	}
+	return w.dynamic.Resource(r.mapping.Resource).Watch(ctx, *listOpts.AsListOptions())
 }
 
 func (w *watchingClient) typedWatch(ctx context.Context, obj ObjectList, opts ...ListOption) (watch.Interface, error) {
-	r, err := w.client.typedClient.resources.getResource(obj)
+	r, err := w.client.typedClient.cache.getResource(obj)
 	if err != nil {
 		return nil, err
 	}

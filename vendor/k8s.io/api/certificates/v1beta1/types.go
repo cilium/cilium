@@ -89,10 +89,8 @@ type CertificateSigningRequestSpec struct {
 
 	// allowedUsages specifies a set of usage contexts the key will be
 	// valid for.
-	// See:
-	//	https://tools.ietf.org/html/rfc5280#section-4.2.1.3
-	//	https://tools.ietf.org/html/rfc5280#section-4.2.1.12
-	//
+	// See: https://tools.ietf.org/html/rfc5280#section-4.2.1.3
+	//      https://tools.ietf.org/html/rfc5280#section-4.2.1.12
 	// Valid values are:
 	//  "signing",
 	//  "digital signature",
@@ -231,9 +229,8 @@ type CertificateSigningRequestList struct {
 }
 
 // KeyUsages specifies valid usage contexts for keys.
-// See:
+// See: https://tools.ietf.org/html/rfc5280#section-4.2.1.3
 //
-//	https://tools.ietf.org/html/rfc5280#section-4.2.1.3
 //	https://tools.ietf.org/html/rfc5280#section-4.2.1.12
 type KeyUsage string
 

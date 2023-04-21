@@ -19,14 +19,9 @@ package certwatcher
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"sync"
-	"time"
 
 	"github.com/fsnotify/fsnotify"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher/metrics"
 	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 )
@@ -77,24 +72,11 @@ func (cw *CertWatcher) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate,
 
 // Start starts the watch on the certificate and key files.
 func (cw *CertWatcher) Start(ctx context.Context) error {
-	files := sets.New(cw.certPath, cw.keyPath)
+	files := []string{cw.certPath, cw.keyPath}
 
-	{
-		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-		var watchErr error
-		if err := wait.PollImmediateUntilWithContext(ctx, 1*time.Second, func(ctx context.Context) (done bool, err error) {
-			for _, f := range files.UnsortedList() {
-				if err := cw.watcher.Add(f); err != nil {
-					watchErr = err
-					return false, nil //nolint:nilerr // We want to keep trying.
-				}
-				// We've added the watch, remove it from the set.
-				files.Delete(f)
-			}
-			return true, nil
-		}); err != nil {
-			return fmt.Errorf("failed to add watches: %w", kerrors.NewAggregate([]error{err, watchErr}))
+	for _, f := range files {
+		if err := cw.watcher.Add(f); err != nil {
+			return err
 		}
 	}
 
@@ -172,13 +154,13 @@ func (cw *CertWatcher) handleEvent(event fsnotify.Event) {
 }
 
 func isWrite(event fsnotify.Event) bool {
-	return event.Op.Has(fsnotify.Write)
+	return event.Op&fsnotify.Write == fsnotify.Write
 }
 
 func isCreate(event fsnotify.Event) bool {
-	return event.Op.Has(fsnotify.Create)
+	return event.Op&fsnotify.Create == fsnotify.Create
 }
 
 func isRemove(event fsnotify.Event) bool {
-	return event.Op.Has(fsnotify.Remove)
+	return event.Op&fsnotify.Remove == fsnotify.Remove
 }

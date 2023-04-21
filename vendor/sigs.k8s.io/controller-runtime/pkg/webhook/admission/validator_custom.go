@@ -35,9 +35,9 @@ type CustomValidator interface {
 }
 
 // WithCustomValidator creates a new Webhook for validating the provided type.
-func WithCustomValidator(scheme *runtime.Scheme, obj runtime.Object, validator CustomValidator) *Webhook {
+func WithCustomValidator(obj runtime.Object, validator CustomValidator) *Webhook {
 	return &Webhook{
-		Handler: &validatorForType{object: obj, validator: validator, decoder: NewDecoder(scheme)},
+		Handler: &validatorForType{object: obj, validator: validator},
 	}
 }
 
@@ -47,11 +47,16 @@ type validatorForType struct {
 	decoder   *Decoder
 }
 
+var _ DecoderInjector = &validatorForType{}
+
+// InjectDecoder injects the decoder into a validatingHandler.
+func (h *validatorForType) InjectDecoder(d *Decoder) error {
+	h.decoder = d
+	return nil
+}
+
 // Handle handles admission requests.
 func (h *validatorForType) Handle(ctx context.Context, req Request) Response {
-	if h.decoder == nil {
-		panic("decoder should never be nil")
-	}
 	if h.validator == nil {
 		panic("validator should never be nil")
 	}
@@ -66,9 +71,6 @@ func (h *validatorForType) Handle(ctx context.Context, req Request) Response {
 
 	var err error
 	switch req.Operation {
-	case v1.Connect:
-		// No validation for connect requests.
-		// TODO(vincepri): Should we validate CONNECT requests? In what cases?
 	case v1.Create:
 		if err := h.decoder.Decode(req, obj); err != nil {
 			return Errored(http.StatusBadRequest, err)

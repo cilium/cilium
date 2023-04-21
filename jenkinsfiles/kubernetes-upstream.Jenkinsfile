@@ -9,7 +9,7 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         VM_MEMORY = "5120"
-        K8S_VERSION="1.27"
+        K8S_VERSION="1.26"
         KERNEL="419"
         SERVER_BOX = "cilium/ubuntu-4-19"
     }

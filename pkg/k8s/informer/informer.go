@@ -94,7 +94,7 @@ func NewInformerWithStore(
 		FullResyncPeriod: resyncPeriod,
 		RetryOnError:     false,
 
-		Process: func(obj interface{}, isInInitialList bool) error {
+		Process: func(obj interface{}) error {
 			// from oldest to newest
 			for _, d := range obj.(cache.Deltas) {
 
@@ -120,7 +120,7 @@ func NewInformerWithStore(
 						if err := clientState.Add(obj); err != nil {
 							return err
 						}
-						h.OnAdd(obj, isInInitialList)
+						h.OnAdd(obj)
 					}
 				case cache.Deleted:
 					if err := clientState.Delete(obj); err != nil {

@@ -20,7 +20,6 @@ import (
 	"context"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -170,10 +169,6 @@ type Client interface {
 	Scheme() *runtime.Scheme
 	// RESTMapper returns the rest this client is using.
 	RESTMapper() meta.RESTMapper
-	// GroupVersionKindFor returns the GroupVersionKind for the given object.
-	GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error)
-	// IsObjectNamespaced returns true if the GroupVersionKind of the object is namespaced.
-	IsObjectNamespaced(obj runtime.Object) (bool, error)
 }
 
 // WithWatch supports Watch on top of the CRUD operations supported by

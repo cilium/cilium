@@ -11,6 +11,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -21,9 +22,9 @@ type FakeCiliumIdentities struct {
 	Fake *FakeCiliumV2
 }
 
-var ciliumidentitiesResource = v2.SchemeGroupVersion.WithResource("ciliumidentities")
+var ciliumidentitiesResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumidentities"}
 
-var ciliumidentitiesKind = v2.SchemeGroupVersion.WithKind("CiliumIdentity")
+var ciliumidentitiesKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumIdentity"}
 
 // Get takes name of the ciliumIdentity, and returns the corresponding ciliumIdentity object, and an error if there is any.
 func (c *FakeCiliumIdentities) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumIdentity, err error) {
