@@ -5,7 +5,7 @@
 static __always_inline __u32
 extract_cluster_id_from_identity(__u32 identity)
 {
-	return (__u32)(identity >> 16);
+	return (__u32)(identity >> IDENTITY_LEN);
 }
 
 #endif
