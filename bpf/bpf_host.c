@@ -1000,7 +1000,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 
 			ctx->mark = 0;
 			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
-			return DROP_MISSED_TAIL_CALL;
+			return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
+						      CTX_ACT_DROP, METRIC_EGRESS);
 		}
 	}
 #endif
