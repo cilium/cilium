@@ -1091,6 +1091,61 @@ func (s *DNSProxyTestSuite) TestProxyRequestContext_IsTimeout(c *C) {
 	c.Assert(p.IsTimeout(), Equals, true)
 }
 
+func (s *DNSProxyTestSuite) TestFrequentIPChangesWithLowTTL(c *C) {
+	name := "cilium.io."
+	pattern := "*.cilium.com."
+	l7map := policy.L7DataMap{
+		cachedDstID1Selector: &policy.PerSelectorPolicy{
+			L7Rules: api.L7Rules{
+				DNS: []api.PortRuleDNS{{MatchName: name}, {MatchPattern: pattern}},
+			},
+		},
+	}
+	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
+	query := name
+	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
+
+	// Generate IPs for testing
+	ipds := []string{}
+	for i := 0; i < 10; i++ {
+		ipds = append(ipds, fmt.Sprintf("192.168.1.%d", i))
+	}
+
+	// Create handle function for dnsServer
+	counter := 0
+	s.dnsServer.Handler = dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Authoritative = true
+
+		// Generate an IP with a low TTL (e.g., 5 seconds)
+		rr := &dns.A{
+			Hdr: dns.RR_Header{
+				Name:   r.Question[0].Name,
+				Rrtype: dns.TypeA,
+				Class:  dns.ClassINET,
+				Ttl:    5,
+			},
+			A: net.ParseIP(fmt.Sprintf("192.168.1.%d", counter)),
+		}
+		m.Answer = append(m.Answer, rr)
+		counter++
+
+		w.WriteMsg(m)
+	})
+
+	for i := 0; i < 10; i++ {
+		request := new(dns.Msg)
+		request.SetQuestion(query, dns.TypeA)
+		response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+		c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed"))
+		c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s", response))
+		c.Assert(response.Answer[0].Header().Ttl, Equals, uint32(5))
+
+		c.Assert(response.Answer[0].(*dns.A).A.String(), Equals, ipds[i], Commentf("Proxy returned incorrect IP on iteration %d", i))
+	}
+}
+
 type selectorMock struct {
 	key string
 }
