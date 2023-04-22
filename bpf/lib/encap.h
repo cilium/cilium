@@ -98,11 +98,8 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 	 * VXLAN/Geneve encapsulation when the WG feature was on.
 	 */
 	ret = wg_maybe_redirect_to_encrypt(ctx);
-	if (ret == CTX_ACT_REDIRECT)
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 		return ret;
-	else if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, seclabel, ret, CTX_ACT_DROP,
-					      METRIC_EGRESS);
 #endif /* ENABLE_WIREGUARD */
 
 	ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid,
