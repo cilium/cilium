@@ -145,7 +145,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	cache_key.family = ENDPOINT_KEY_IPV4;
 	cache_key.ip4 = v4_pod_one;
 	/* a random sec id for the pod */
-	cache_value.sec_label = 112233;
+	cache_value.sec_identity = 112233;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 
 	ep_key.ip4 = v4_pod_one;

@@ -163,7 +163,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 		.ip4 = BACKEND_IP,
 	};
 	struct remote_endpoint_info cache_value = {
-		.sec_label = 112233,
+		.sec_identity = 112233,
 	};
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 

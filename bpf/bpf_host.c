@@ -66,7 +66,7 @@ static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __may
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
-						__u32 src_identity)
+						__u32 src_sec_identity)
 {
 	/* When attached to cilium_host, we rewrite the DMAC to the mac of
 	 * cilium_host (peer) to ensure the packet is being considered to be
@@ -76,7 +76,7 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
 
 	/* Rewrite to destination MAC of cilium_net (remote peer) */
 	if (eth_store_daddr(ctx, (__u8 *) &cilium_net_mac.addr, 0) < 0)
-		return send_drop_notify_error(ctx, src_identity, DROP_WRITE_ERROR,
+		return send_drop_notify_error(ctx, src_sec_identity, DROP_WRITE_ERROR,
 					      CTX_ACT_OK, METRIC_INGRESS);
 
 	return CTX_ACT_OK;
@@ -112,7 +112,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 		src = (union v6addr *) &ip6->saddr;
 		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info) {
-			if (info->sec_label) {
+			if (info->sec_identity) {
 				/* When SNAT is enabled on traffic ingressing
 				 * into Cilium, all traffic from the world will
 				 * have a source IP of the host. It will only
@@ -121,8 +121,8 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 				 * the host. So we can ignore the ipcache if it
 				 * reports the source as HOST_ID.
 				 */
-				if (info->sec_label != HOST_ID)
-					srcid_from_ipcache = info->sec_label;
+				if (info->sec_identity != HOST_ID)
+					srcid_from_ipcache = info->sec_identity;
 			}
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -282,7 +282,7 @@ skip_host_firewall:
 		 */
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      info->key, info->node_id,
-						      secctx, info->sec_label,
+						      secctx, info->sec_identity,
 						      &trace);
 	} else {
 		struct tunnel_key key = {};
@@ -300,7 +300,7 @@ skip_host_firewall:
 	}
 #endif
 
-	if (info == NULL || info->sec_label == WORLD_ID) {
+	if (!info || info->sec_identity == WORLD_ID) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
@@ -383,7 +383,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 #ifdef ENABLE_IPV4
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
-		   __u32 *sec_label, const bool from_host)
+		   __u32 *sec_identity, const bool from_host)
 {
 	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
@@ -402,9 +402,9 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	if (identity_is_reserved(srcid_from_ipcache)) {
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info != NULL) {
-			*sec_label = info->sec_label;
+			*sec_identity = info->sec_identity;
 
-			if (*sec_label) {
+			if (*sec_identity) {
 				/* When SNAT is enabled on traffic ingressing
 				 * into Cilium, all traffic from the world will
 				 * have a source IP of the host. It will only
@@ -413,8 +413,8 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 				 * the host. So we can ignore the ipcache if it
 				 * reports the source as HOST_ID.
 				 */
-				if (*sec_label != HOST_ID)
-					srcid_from_ipcache = *sec_label;
+				if (*sec_identity != HOST_ID)
+					srcid_from_ipcache = *sec_identity;
 			}
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
@@ -595,7 +595,7 @@ skip_vtep:
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      info->key, info->node_id,
-						      secctx, info->sec_label,
+						      secctx, info->sec_identity,
 						      &trace);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
@@ -611,7 +611,7 @@ skip_vtep:
 	}
 #endif
 
-	if (info == NULL || info->sec_label == WORLD_ID) {
+	if (!info || info->sec_identity == WORLD_ID) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
 		 *
@@ -898,7 +898,7 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 static __always_inline int
 handle_srv6(struct __ctx_buff *ctx)
 {
-	__u32 *vrf_id, dst_id;
+	__u32 *vrf_id, dst_sec_identity;
 	struct srv6_ipv6_2tuple *outer_ips;
 	struct iphdr *ip4 __maybe_unused;
 	struct remote_endpoint_info *ep;
@@ -923,12 +923,12 @@ handle_srv6(struct __ctx_buff *ctx)
 
 		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 		if (ep) {
-			dst_id = ep->sec_label;
+			dst_sec_identity = ep->sec_identity;
 		} else {
-			dst_id = WORLD_ID;
+			dst_sec_identity = WORLD_ID;
 		}
 
-		if (identity_is_cluster(dst_id))
+		if (identity_is_cluster(dst_sec_identity))
 			return CTX_ACT_OK;
 
 		vrf_id = srv6_lookup_vrf6(&ip6->saddr, &ip6->daddr);
@@ -956,12 +956,12 @@ handle_srv6(struct __ctx_buff *ctx)
 
 		ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		if (ep) {
-			dst_id = ep->sec_label;
+			dst_sec_identity = ep->sec_identity;
 		} else {
-			dst_id = WORLD_ID;
+			dst_sec_identity = WORLD_ID;
 		}
 
-		if (identity_is_cluster(dst_id))
+		if (identity_is_cluster(dst_sec_identity))
 			return CTX_ACT_OK;
 
 		vrf_id = srv6_lookup_vrf4(ip4->saddr, ip4->daddr);

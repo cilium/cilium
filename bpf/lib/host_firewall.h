@@ -16,7 +16,7 @@
 
 # ifdef ENABLE_IPV6
 static __always_inline int
-ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
+ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			struct trace_ctx *trace, __s8 *ext_err)
 {
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, hdrlen;
@@ -25,14 +25,14 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	__u8 audited = 0;
 	struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple tuple = {};
-	__u32 dst_id = 0;
+	__u32 dst_sec_identity = 0;
 	__u16 node_id = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u16 proxy_port = 0;
 
 	/* Only enforce host policies for packets from host IPs. */
-	if (src_id != HOST_ID)
+	if (src_sec_identity != HOST_ID)
 		return CTX_ACT_OK;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -55,22 +55,22 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 
 	/* Retrieve destination identity. */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-	if (info && info->sec_label) {
-		dst_id = info->sec_label;
+	if (info && info->sec_identity) {
+		dst_sec_identity = info->sec_identity;
 		node_id = info->node_id;
 	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-		   ip6->daddr.s6_addr32[3], dst_id);
+		   ip6->daddr.s6_addr32[3], dst_sec_identity);
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret == CT_REPLY || ret == CT_RELATED)
 		return CTX_ACT_OK;
 
 	/* Perform policy lookup. */
-	verdict = policy_can_egress6(ctx, &tuple, src_id, dst_id,
+	verdict = policy_can_egress6(ctx, &tuple, src_sec_identity, dst_sec_identity,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(src_id, dst_id, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(src_sec_identity, dst_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -90,20 +90,20 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-		send_policy_verdict_notify(ctx, dst_id, tuple.dport,
+		send_policy_verdict_notify(ctx, dst_sec_identity, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 1,
 					   verdict, proxy_port, policy_match_type, audited);
 	return verdict;
 }
 
 static __always_inline int
-ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
+ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u32 dst_id = WORLD_ID;
+	__u32 dst_sec_identity = WORLD_ID;
 	__u16 node_id = 0;
 	struct remote_endpoint_info *info;
 	int ret, verdict = CTX_ACT_OK, l4_off, hdrlen;
@@ -118,13 +118,13 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 	/* Retrieve destination identity. */
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
 	info = lookup_ip6_remote_endpoint(&tuple.daddr, 0);
-	if (info && info->sec_label)
-		dst_id = info->sec_label;
+	if (info && info->sec_identity)
+		dst_sec_identity = info->sec_identity;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-		   tuple.daddr.p4, dst_id);
+		   tuple.daddr.p4, dst_sec_identity);
 
 	/* Only enforce host policies for packets to host IPs. */
-	if (dst_id != HOST_ID)
+	if (dst_sec_identity != HOST_ID)
 		return CTX_ACT_OK;
 
 	/* Lookup connection in conntrack map. */
@@ -143,28 +143,28 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 
 	/* Retrieve source identity. */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
-	if (info && info->sec_label) {
-		*src_id = info->sec_label;
+	if (info && info->sec_identity) {
+		*src_sec_identity = info->sec_identity;
 		node_id = info->node_id;
 	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-		   ip6->saddr.s6_addr32[3], *src_id);
+		   ip6->saddr.s6_addr32[3], *src_sec_identity);
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret == CT_REPLY || ret == CT_RELATED)
 		goto out;
 
 	/* Perform policy lookup */
-	verdict = policy_can_access_ingress(ctx, *src_id, dst_id, tuple.dport,
+	verdict = policy_can_access_ingress(ctx, *src_sec_identity, dst_sec_identity, tuple.dport,
 					    tuple.nexthdr, false,
 					    &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(dst_id, *src_id, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(dst_sec_identity, *src_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		/* Create new entry for connection in conntrack map. */
-		ct_state_new.src_sec_id = *src_id;
+		ct_state_new.src_sec_id = *src_sec_identity;
 		ct_state_new.node_port = ct_state.node_port;
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create6 overwrites it only if it returns an error itself.
@@ -181,7 +181,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-		send_policy_verdict_notify(ctx, *src_id, tuple.dport,
+		send_policy_verdict_notify(ctx, *src_sec_identity, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 1,
 					   verdict, proxy_port, policy_match_type, audited);
 out:
@@ -244,7 +244,7 @@ whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid,
 #   endif
 
 static __always_inline int
-ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
+ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			__u32 ipcache_srcid __maybe_unused,
 			struct trace_ctx *trace, __s8 *ext_err)
 {
@@ -254,13 +254,13 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	__u8 audited = 0;
 	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple tuple = {};
-	__u32 dst_id = 0;
+	__u32 dst_sec_identity = 0;
 	__u16 node_id = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u16 proxy_port = 0;
 
-	if (src_id != HOST_ID) {
+	if (src_sec_identity != HOST_ID) {
 #  ifndef ENABLE_MASQUERADE
 		return whitelist_snated_egress_connections(ctx, ipcache_srcid,
 							   trace, ext_err);
@@ -287,22 +287,22 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 
 	/* Retrieve destination identity. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-	if (info && info->sec_label) {
-		dst_id = info->sec_label;
+	if (info && info->sec_identity) {
+		dst_sec_identity = info->sec_identity;
 		node_id = info->node_id;
 	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-		   ip4->daddr, dst_id);
+		   ip4->daddr, dst_sec_identity);
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret == CT_REPLY || ret == CT_RELATED)
 		return CTX_ACT_OK;
 
 	/* Perform policy lookup. */
-	verdict = policy_can_egress4(ctx, &tuple, src_id, dst_id,
+	verdict = policy_can_egress4(ctx, &tuple, src_sec_identity, dst_sec_identity,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(src_id, dst_id, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(src_sec_identity, dst_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -322,21 +322,21 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-		send_policy_verdict_notify(ctx, dst_id, tuple.dport,
+		send_policy_verdict_notify(ctx, dst_sec_identity, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited);
 	return verdict;
 }
 
 static __always_inline int
-ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
+ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict = CTX_ACT_OK, l4_off, l3_off = ETH_HLEN;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u32 dst_id = WORLD_ID;
+	__u32 dst_sec_identity = WORLD_ID;
 	__u16 node_id = 0;
 	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple tuple = {};
@@ -350,13 +350,13 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 
 	/* Retrieve destination identity. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-	if (info && info->sec_label)
-		dst_id = info->sec_label;
+	if (info && info->sec_identity)
+		dst_sec_identity = info->sec_identity;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-		   ip4->daddr, dst_id);
+		   ip4->daddr, dst_sec_identity);
 
 	/* Only enforce host policies for packets to host IPs. */
-	if (dst_id != HOST_ID)
+	if (dst_sec_identity != HOST_ID)
 		return CTX_ACT_OK;
 
 	/* Lookup connection in conntrack map. */
@@ -379,29 +379,29 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 
 	/* Retrieve source identity. */
 	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-	if (info && info->sec_label) {
-		*src_id = info->sec_label;
+	if (info && info->sec_identity) {
+		*src_sec_identity = info->sec_identity;
 		node_id = info->node_id;
 	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-		   ip4->saddr, *src_id);
+		   ip4->saddr, *src_sec_identity);
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret == CT_REPLY || ret == CT_RELATED)
 		goto out;
 
 	/* Perform policy lookup */
-	verdict = policy_can_access_ingress(ctx, *src_id, dst_id, tuple.dport,
+	verdict = policy_can_access_ingress(ctx, *src_sec_identity, dst_sec_identity, tuple.dport,
 					    tuple.nexthdr,
 					    is_untracked_fragment,
 					    &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(dst_id, *src_id, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(dst_sec_identity, *src_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		/* Create new entry for connection in conntrack map. */
-		ct_state_new.src_sec_id = *src_id;
+		ct_state_new.src_sec_id = *src_sec_identity;
 		ct_state_new.node_port = ct_state.node_port;
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create4 overwrites it only if it returns an error itself.
@@ -418,7 +418,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-		send_policy_verdict_notify(ctx, *src_id, tuple.dport,
+		send_policy_verdict_notify(ctx, *src_sec_identity, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited);
 out:

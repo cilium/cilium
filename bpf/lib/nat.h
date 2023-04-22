@@ -771,7 +771,7 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 	 * to be masqueraded with an egress IP.
 	 */
 	if (remote_ep &&
-	    identity_is_cluster(remote_ep->sec_label))
+	    identity_is_cluster(remote_ep->sec_identity))
 		goto skip_egress_gateway;
 
 	/* If the packet is a reply it means that outside has initiated the
@@ -826,7 +826,7 @@ skip_egress_gateway:
 		 * by the remote node if its native dev's
 		 * rp_filter=1.
 		 */
-		if (identity_is_remote_node(remote_ep->sec_label))
+		if (identity_is_remote_node(remote_ep->sec_identity))
 			return false;
 #endif
 

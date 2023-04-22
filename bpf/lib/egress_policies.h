@@ -86,7 +86,7 @@ bool egress_gw_snat_needed(struct iphdr *ip4, __be32 *snat_addr)
 
 static __always_inline
 bool egress_gw_reply_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint,
-				    __u32 *dst_id)
+				    __u32 *dst_sec_identity)
 {
 	struct egress_gw_policy_entry *egress_policy;
 	struct remote_endpoint_info *info;
@@ -105,7 +105,7 @@ bool egress_gw_reply_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint,
 		return false;
 
 	*tunnel_endpoint = info->tunnel_endpoint;
-	*dst_id = info->sec_label;
+	*dst_sec_identity = info->sec_identity;
 	return true;
 }
 
