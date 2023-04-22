@@ -999,6 +999,7 @@ __section("from-netdev")
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
 	__u32 __maybe_unused vlan_id;
+	int ret;
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
 #ifdef HAVE_ENCAP
@@ -1014,10 +1015,15 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (flags & XFER_PKT_ENCAP) {
 		edt_set_aggregate(ctx, 0);
 
-		return __encap_and_redirect_with_nodeid(ctx, ctx_get_xfer(ctx, XFER_ENCAP_NODEID),
+		ret = __encap_and_redirect_with_nodeid(ctx, ctx_get_xfer(ctx, XFER_ENCAP_NODEID),
 							ctx_get_xfer(ctx, XFER_ENCAP_SECLABEL),
 							ctx_get_xfer(ctx, XFER_ENCAP_DSTID),
 							NOT_VTEP_DST, &trace);
+
+		if (IS_ERR(ret))
+			goto drop_err;
+
+		return ret;
 	}
 #endif
 #endif
@@ -1029,13 +1035,16 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		if (vlan_id) {
 			if (allow_vlan(ctx->ifindex, vlan_id))
 				return CTX_ACT_OK;
-			else
-				return send_drop_notify_error(ctx, 0, DROP_VLAN_FILTERED,
-							      CTX_ACT_DROP, METRIC_INGRESS);
+
+			ret = DROP_VLAN_FILTERED;
+			goto drop_err;
 		}
 	}
 
 	return handle_netdev(ctx, false);
+
+drop_err:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
 }
 
 /*
