@@ -477,15 +477,19 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	ret = arp_prepare_response(ctx, &mac, tip, &smac, sip);
 	if (unlikely(ret != 0))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
-	if (info->tunnel_endpoint)
-		return __encap_and_redirect_with_nodeid(ctx,
-							info->tunnel_endpoint,
-							LOCAL_NODE_ID,
-							WORLD_ID,
-							WORLD_ID,
-							&trace);
+	if (info->tunnel_endpoint) {
+		ret = __encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
+						       LOCAL_NODE_ID, WORLD_ID,
+						       WORLD_ID, &trace);
+		if (IS_ERR(ret))
+			goto drop_err;
 
-	return send_drop_notify_error(ctx, 0, DROP_UNKNOWN_L3, CTX_ACT_DROP, METRIC_EGRESS);
+		return ret;
+	}
+
+	ret = DROP_UNKNOWN_L3;
+drop_err:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
 pass_to_stack:
 	send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0, ctx->ingress_ifindex,
