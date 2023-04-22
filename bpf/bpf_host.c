@@ -956,7 +956,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 		break;
 # endif /* ENABLE_IPV4 */
 	}
-	if (!ep)
+	if (!ep || !ep->tunnel_endpoint)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 	ctx->mark = 0;
