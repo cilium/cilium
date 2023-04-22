@@ -291,7 +291,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 			set_geneve_dsr_opt6(svc_port, svc_addr, &gopt);
 			return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
 							WORLD_ID,
-							info->sec_label,
+							info->sec_identity,
 							NOT_VTEP_DST,
 							&gopt,
 							sizeof(gopt),
@@ -303,7 +303,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 
 		return __encap_with_nodeid(ctx, info->tunnel_endpoint,
 					  WORLD_ID,
-					  info->sec_label,
+					  info->sec_identity,
 					  NOT_VTEP_DST,
 					  (enum trace_reason)CT_NEW,
 					  TRACE_PAYLOAD_LEN,
@@ -835,7 +835,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	if (info && info->tunnel_endpoint != 0) {
 		ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 					  WORLD_ID,
-					  info->sec_label,
+					  info->sec_identity,
 					  NOT_VTEP_DST,
 					  (enum trace_reason)CT_NEW,
 					  TRACE_PAYLOAD_LEN, &oif);
@@ -896,7 +896,7 @@ drop_err:
 
 /* See nodeport_lb4(). */
 static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
-					__u32 src_identity,
+					__u32 src_sec_identity,
 					__s8 *ext_err)
 {
 	int ret, l3_off = ETH_HLEN, l4_off;
@@ -939,7 +939,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 #if __ctx_is == __ctx_xdp
 			return CTX_ACT_OK;
 #endif
-			send_trace_notify(ctx, TRACE_TO_PROXY, src_identity, 0,
+			send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, 0,
 					  bpf_ntohs((__u16)svc->l7_lb_proxy_port), 0,
 					  TRACE_REASON_POLICY, monitor);
 			return ctx_redirect_to_proxy_hairpin_ipv6(ctx,
@@ -982,7 +982,7 @@ skip_service_lookup:
 						      &key.address,
 						      &key.dport, &dsr);
 			if (dsr) {
-				ctx_store_meta(ctx, CB_SRC_LABEL, src_identity);
+				ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 				ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS);
 				return DROP_MISSED_TAIL_CALL;
 			}
@@ -995,7 +995,7 @@ skip_service_lookup:
 #endif /* ENABLE_DSR */
 
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
-		ctx_store_meta(ctx, CB_SRC_LABEL, src_identity);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
 		return DROP_MISSED_TAIL_CALL;
 	}
@@ -1141,7 +1141,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 	struct ipv6hdr *ip6;
 	__u32 monitor = TRACE_PAYLOAD_LEN;
 	__u32 tunnel_endpoint __maybe_unused = 0;
-	__u32 dst_id __maybe_unused = 0;
+	__u32 dst_sec_identity __maybe_unused = 0;
 	int ifindex = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1179,7 +1179,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 			info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 			if (info != NULL && info->tunnel_endpoint != 0) {
 				tunnel_endpoint = info->tunnel_endpoint;
-				dst_id = info->sec_label;
+				dst_sec_identity = info->sec_identity;
 				goto encap_redirect;
 			}
 		}
@@ -1215,7 +1215,7 @@ out:
 	return DROP_MISSED_TAIL_CALL;
 #ifdef TUNNEL_MODE
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
+	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_sec_identity,
 				  NOT_VTEP_DST, reason, monitor, &ifindex);
 	if (ret == CTX_ACT_REDIRECT)
 		ctx_redirect(ctx, ifindex, 0);
@@ -1551,7 +1551,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 			set_geneve_dsr_opt4(svc_port, svc_addr, &gopt);
 			return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
 							 WORLD_ID,
-							 info->sec_label,
+							 info->sec_identity,
 							 NOT_VTEP_DST,
 							 &gopt,
 							 sizeof(gopt),
@@ -1563,7 +1563,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 
 		return __encap_with_nodeid(ctx, info->tunnel_endpoint,
 					  WORLD_ID,
-					  info->sec_label,
+					  info->sec_identity,
 					  NOT_VTEP_DST,
 					  (enum trace_reason)CT_NEW,
 					  TRACE_PAYLOAD_LEN,
@@ -2042,7 +2042,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		 */
 		ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
 					  WORLD_ID,
-					  info->sec_label,
+					  info->sec_identity,
 					  NOT_VTEP_DST,
 					  (enum trace_reason)CT_NEW,
 					  TRACE_PAYLOAD_LEN, &oif);
@@ -2089,7 +2089,7 @@ drop_err:
  * iii) reply from remote backend EP.
  */
 static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
-					__u32 src_identity,
+					__u32 src_sec_identity,
 					__s8 *ext_err)
 {
 	bool backend_local, has_l4_header;
@@ -2141,7 +2141,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			 */
 			return CTX_ACT_OK;
 #endif
-			send_trace_notify(ctx, TRACE_TO_PROXY, src_identity, 0,
+			send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, 0,
 					  bpf_ntohs((__u16)svc->l7_lb_proxy_port), 0,
 					  TRACE_REASON_POLICY, monitor);
 			return ctx_redirect_to_proxy_hairpin_ipv4(ctx,
@@ -2190,7 +2190,7 @@ skip_service_lookup:
 						      l4_off, &key.address,
 						      &key.dport, &dsr);
 			if (dsr) {
-				ctx_store_meta(ctx, CB_SRC_LABEL, src_identity);
+				ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 				ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS);
 				return DROP_MISSED_TAIL_CALL;
 			}
@@ -2209,7 +2209,7 @@ skip_service_lookup:
 		}
 #endif /* ENABLE_DSR */
 
-		ctx_store_meta(ctx, CB_SRC_LABEL, src_identity);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		/* For NAT64 we might see an IPv4 reply from the backend to
 		 * the LB entering this path. Thus, transform back to IPv6.
 		 */
@@ -2378,7 +2378,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 	struct iphdr *ip4;
 	__u32 monitor = TRACE_PAYLOAD_LEN;
 	__u32 tunnel_endpoint __maybe_unused = 0;
-	__u32 dst_id __maybe_unused = 0;
+	__u32 dst_sec_identity __maybe_unused = 0;
 	bool has_l4_header;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -2388,7 +2388,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 	 * any reply traffic for a remote pod into the tunnel (to avoid iptables
 	 * potentially dropping the packets).
 	 */
-	if (egress_gw_reply_needs_redirect(ip4, &tunnel_endpoint, &dst_id))
+	if (egress_gw_reply_needs_redirect(ip4, &tunnel_endpoint, &dst_sec_identity))
 		goto encap_redirect;
 #endif /* ENABLE_EGRESS_GATEWAY */
 
@@ -2424,7 +2424,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 			if (info != NULL && info->tunnel_endpoint != 0) {
 				tunnel_endpoint = info->tunnel_endpoint;
-				dst_id = info->sec_label;
+				dst_sec_identity = info->sec_identity;
 				goto encap_redirect;
 			}
 		}
@@ -2441,7 +2441,7 @@ out:
 	return DROP_MISSED_TAIL_CALL;
 #if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
+	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_sec_identity,
 				  NOT_VTEP_DST, reason, monitor, &ifindex);
 	if (ret == CTX_ACT_REDIRECT)
 		ctx_redirect(ctx, ifindex, 0);

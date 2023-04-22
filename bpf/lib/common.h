@@ -310,7 +310,7 @@ struct edt_info {
 };
 
 struct remote_endpoint_info {
-	__u32		sec_label;
+	__u32		sec_identity;
 	__u32		tunnel_endpoint;
 	__u16		node_id;
 	__u8		key;

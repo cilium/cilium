@@ -79,7 +79,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (decrypted) {
 		if (info)
-			*identity = key.tunnel_id = info->sec_label;
+			*identity = key.tunnel_id = info->sec_identity;
 	} else {
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
@@ -97,7 +97,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 * this should be removed.
 		 */
 		if (info && identity_is_remote_node(*identity))
-			*identity = info->sec_label;
+			*identity = info->sec_identity;
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -179,12 +179,12 @@ to_host:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_OVERLAY)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
-	__u32 src_identity = 0;
+	__u32 src_sec_identity = 0;
 	__s8 ext_err = 0;
-	int ret = handle_ipv6(ctx, &src_identity, &ext_err);
+	int ret = handle_ipv6(ctx, &src_sec_identity, &ext_err);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_identity, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
@@ -214,7 +214,7 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iph
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
-							__u32 *src_identity,
+							__u32 *src_sec_identity,
 							__s8 *ext_err)
 {
 	int ret;
@@ -233,7 +233,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	*src_identity = identity;
+	*src_sec_identity = identity;
 
 	ret = snat_v4_rev_nat(ctx, &target, ext_err);
 	if (ret != NAT_PUNT_TO_STACK && ret != DROP_NAT_NO_MAPPING) {
@@ -275,12 +275,12 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT)
 int tail_handle_inter_cluster_revsnat(struct __ctx_buff *ctx)
 {
 	int ret;
-	__u32 src_identity;
+	__u32 src_sec_identity;
 	__s8 ext_err = 0;
 
-	ret = handle_inter_cluster_revsnat(ctx, &src_identity, &ext_err);
+	ret = handle_inter_cluster_revsnat(ctx, &src_sec_identity, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_identity, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
@@ -330,7 +330,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	/* If packets are decrypted the key has already been pushed into metadata. */
 	if (decrypted) {
 		if (info)
-			*identity = key.tunnel_id = info->sec_label;
+			*identity = key.tunnel_id = info->sec_identity;
 	} else {
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
@@ -377,7 +377,7 @@ skip_vtep:
 #endif
 		/* See comment at equivalent code in handle_ipv6() */
 		if (info && identity_is_remote_node(*identity))
-			*identity = info->sec_label;
+			*identity = info->sec_identity;
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -437,12 +437,12 @@ to_host:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_OVERLAY)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
-	__u32 src_identity = 0;
+	__u32 src_sec_identity = 0;
 	__s8 ext_err = 0;
-	int ret = handle_ipv4(ctx, &src_identity, &ext_err);
+	int ret = handle_ipv4(ctx, &src_sec_identity, &ext_err);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_identity, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
