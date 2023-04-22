@@ -1106,9 +1106,9 @@ func (s *DNSProxyTestSuite) TestFrequentIPChangesWithLowTTL(c *C) {
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
 
 	// Generate IPs for testing
-	ipds := []string{}
+	ips := []string{}
 	for i := 0; i < 10; i++ {
-		ipds = append(ipds, fmt.Sprintf("192.168.1.%d", i))
+		ips = append(ips, fmt.Sprintf("192.168.1.%d", i))
 	}
 
 	// Create handle function for dnsServer
@@ -1142,7 +1142,7 @@ func (s *DNSProxyTestSuite) TestFrequentIPChangesWithLowTTL(c *C) {
 		c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s", response))
 		c.Assert(response.Answer[0].Header().Ttl, Equals, uint32(5))
 
-		c.Assert(response.Answer[0].(*dns.A).A.String(), Equals, ipds[i], Commentf("Proxy returned incorrect IP on iteration %d", i))
+		c.Assert(response.Answer[0].(*dns.A).A.String(), Equals, ips[i], Commentf("Proxy returned incorrect IP on iteration %d", i))
 	}
 }
 
