@@ -1226,7 +1226,7 @@ encap_redirect:
 	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
 				  NOT_VTEP_DST, reason, monitor, &ifindex);
 	if (ret == CTX_ACT_REDIRECT)
-		ctx_redirect(ctx, ifindex, 0);
+		ret = ctx_redirect(ctx, ifindex, 0);
 	return ret;
 #endif
 }
@@ -2458,7 +2458,7 @@ encap_redirect:
 	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
 				  NOT_VTEP_DST, reason, monitor, &ifindex);
 	if (ret == CTX_ACT_REDIRECT)
-		ctx_redirect(ctx, ifindex, 0);
+		ret = ctx_redirect(ctx, ifindex, 0);
 	return ret;
 #endif
 }
