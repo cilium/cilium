@@ -957,9 +957,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 # endif /* ENABLE_IPV4 */
 	}
 	if (!ep)
-		return send_drop_notify_error(ctx, src_id,
-					      DROP_NO_TUNNEL_ENDPOINT,
-					      CTX_ACT_DROP, METRIC_EGRESS);
+		return DROP_NO_TUNNEL_ENDPOINT;
 
 	ctx->mark = 0;
 	bpf_clear_meta(ctx);
@@ -1018,7 +1016,11 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			send_trace_notify(ctx, TRACE_FROM_STACK, identity, 0, 0,
 					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
 					  TRACE_PAYLOAD_LEN);
-			return do_netdev_encrypt(ctx, identity);
+			ret = do_netdev_encrypt(ctx, identity);
+			if (IS_ERR(ret))
+				return send_drop_notify_error(ctx, identity, ret,
+							      CTX_ACT_DROP, METRIC_EGRESS);
+			return ret;
 		}
 #endif
 
