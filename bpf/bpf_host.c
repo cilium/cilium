@@ -1280,7 +1280,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 			if (port && addr) {
 				set_geneve_dsr_opt4(port, addr, &gopt);
 
-				return encap_and_redirect_with_nodeid_opt(ctx,
+				ret = encap_and_redirect_with_nodeid_opt(ctx,
 								  ctx_get_xfer(ctx,
 									       XFER_ENCAP_NODEID),
 								  ctx_get_xfer(ctx,
@@ -1292,6 +1292,10 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 								  sizeof(gopt),
 								  false,
 								  &trace);
+				if (IS_ERR(ret))
+					goto drop_err;
+
+				return ret;
 			}
 		}
 #endif
