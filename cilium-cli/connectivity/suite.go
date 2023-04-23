@@ -62,6 +62,9 @@ var (
 	//go:embed manifests/client-with-service-account-egress-to-echo.yaml
 	clientWithServiceAccountEgressToEchoPolicyYAML string
 
+	//go:embed manifests/client-egress-to-echo-service-account.yaml
+	clientEgressToEchoServiceAccountPolicyYAML string
+
 	//go:embed manifests/client-egress-to-echo-expression.yaml
 	clientEgressToEchoExpressionPolicyYAML string
 
@@ -76,6 +79,9 @@ var (
 
 	//go:embed manifests/client-with-service-account-egress-to-echo-deny.yaml
 	clientWithServiceAccountEgressToEchoDenyPolicyYAML string
+
+	//go:embed manifests/client-egress-to-echo-service-account-deny.yaml
+	clientEgressToEchoServiceAccountDenyPolicyYAML string
 
 	//go:embed manifests/client-egress-to-echo-named-port-deny.yaml
 	clientEgressToEchoDenyNamedPortPolicyYAML string
@@ -461,6 +467,19 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"kind": "client"})),
 		)
 
+	// This policy allows port 8080 from client to endpoint with service account label as echo-same-node
+	ct.NewTest("client-egress-to-echo-service-account").WithCiliumPolicy(clientEgressToEchoServiceAccountPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(
+				tests.WithSourceLabelsOption(map[string]string{"kind": "client"}),
+			)).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().HasLabel("name", "echo-same-node") {
+				return check.ResultOK, check.ResultOK
+			}
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
 	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
 	ct.NewTest("to-entities-world").WithCiliumPolicy(clientEgressToEntitiesWorldPolicyYAML).
 		WithScenarios(
@@ -615,6 +634,21 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().HasLabel("kind", "echo") &&
 				a.Source().HasLabel("name", "client") {
+				return check.ResultPolicyDenyEgressDrop, check.ResultNone
+			}
+			return check.ResultOK, check.ResultOK
+		})
+
+	// This policy denies port 8080 from client to endpoint with service account, but not from client2
+	ct.NewTest("client-egress-to-echo-service-account-deny").
+		WithCiliumPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
+		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
+		WithCiliumPolicy(clientEgressToEchoServiceAccountDenyPolicyYAML).
+		WithScenarios(
+			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client"})),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().HasLabel("name", "echo-same-node") {
 				return check.ResultPolicyDenyEgressDrop, check.ResultNone
 			}
 			return check.ResultOK, check.ResultOK
