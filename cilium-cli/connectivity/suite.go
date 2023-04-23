@@ -59,8 +59,8 @@ var (
 	//go:embed manifests/client-egress-to-echo-knp.yaml
 	clientEgressToEchoPolicyKNPYAML string
 
-	//go:embed manifests/client-egress-to-echo-service-account.yaml
-	clientEgressToEchoServiceAccountPolicyYAML string
+	//go:embed manifests/client-with-service-account-egress-to-echo.yaml
+	clientWithServiceAccountEgressToEchoPolicyYAML string
 
 	//go:embed manifests/client-egress-to-echo-expression.yaml
 	clientEgressToEchoExpressionPolicyYAML string
@@ -74,8 +74,8 @@ var (
 	//go:embed manifests/client-egress-to-echo-expression-deny.yaml
 	clientEgressToEchoExpressionDenyPolicyYAML string
 
-	//go:embed manifests/client-egress-to-echo-service-account-deny.yaml
-	clientEgressToEchoServiceAccountDenyPolicyYAML string
+	//go:embed manifests/client-with-service-account-egress-to-echo-deny.yaml
+	clientWithServiceAccountEgressToEchoDenyPolicyYAML string
 
 	//go:embed manifests/client-egress-to-echo-named-port-deny.yaml
 	clientEgressToEchoDenyNamedPortPolicyYAML string
@@ -455,8 +455,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToPod(),
 		)
 
-	// This policy allows port 8080 from client to echo (using service account)
-	ct.NewTest("client-egress-to-echo-service-account").WithCiliumPolicy(clientEgressToEchoServiceAccountPolicyYAML).
+	// This policy allows port 8080 from client with service account label to echo
+	ct.NewTest("client-with-service-account-egress-to-echo").WithCiliumPolicy(clientWithServiceAccountEgressToEchoPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"kind": "client"})),
 		)
@@ -603,11 +603,11 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			return check.ResultOK, check.ResultOK
 		})
 
-	// This policy denies port 8080 from client to echo, but not from client2
-	ct.NewTest("client-egress-to-echo-service-account-deny").
+	// This policy denies port 8080 from client with service account selector to echo, but not from client2
+	ct.NewTest("client-with-service-account-egress-to-echo-deny").
 		WithCiliumPolicy(allowAllEgressPolicyYAML).  // Allow all egress traffic
 		WithCiliumPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
-		WithCiliumPolicy(clientEgressToEchoServiceAccountDenyPolicyYAML).
+		WithCiliumPolicy(clientWithServiceAccountEgressToEchoDenyPolicyYAML).
 		WithScenarios(
 			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client"})),  // Client to echo should be denied
 			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client2"})), // Client2 to echo should be allowed
