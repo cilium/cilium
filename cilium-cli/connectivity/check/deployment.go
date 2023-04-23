@@ -14,6 +14,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -46,6 +47,10 @@ const (
 	kindHostNetNS           = "host-netns"
 
 	EchoServerHostPort = 40000
+
+	IngressServiceName         = "ingress-service"
+	ingressServiceInsecurePort = "31000"
+	ingressServiceSecurePort   = "31001"
 )
 
 // perfDeploymentNameManager provides methods for building deployment names
@@ -319,6 +324,50 @@ func newLocalReadinessProbe(port int, path string) *corev1.Probe {
 		PeriodSeconds:       int32(1),
 		InitialDelaySeconds: int32(1),
 		FailureThreshold:    int32(3),
+	}
+}
+
+func newIngress() *networkingv1.Ingress {
+	return &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: IngressServiceName,
+			Annotations: map[string]string{
+				"ingress.cilium.io/loadbalancer-mode":  "dedicated",
+				"ingress.cilium.io/service-type":       "NodePort",
+				"ingress.cilium.io/insecure-node-port": ingressServiceInsecurePort,
+				"ingress.cilium.io/secure-node-port":   ingressServiceSecurePort,
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: func(in string) *string {
+				return &in
+			}(defaults.IngressClassName),
+			Rules: []networkingv1.IngressRule{
+				{
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path: "/",
+									PathType: func() *networkingv1.PathType {
+										pt := networkingv1.PathTypeImplementationSpecific
+										return &pt
+									}(),
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: echoSameNodeDeploymentName,
+											Port: networkingv1.ServiceBackendPort{
+												Number: 8080,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -771,6 +820,40 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
+	// Create one Ingress service for echo deployment
+	if ct.features[FeatureIngressController].Enabled {
+		_, err = ct.clients.src.GetIngress(ctx, ct.params.TestNamespace, IngressServiceName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying Ingress resource...", ct.clients.src.ClusterName())
+			_, err = ct.clients.src.CreateIngress(ctx, ct.params.TestNamespace, newIngress(), metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+
+			ingressServiceName := fmt.Sprintf("cilium-ingress-%s", IngressServiceName)
+			ct.ingressService[ingressServiceName] = Service{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: ingressServiceName,
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "http",
+								Protocol: corev1.ProtocolTCP,
+								Port:     80,
+							},
+							{
+								Name:     "https",
+								Protocol: corev1.ProtocolTCP,
+								Port:     443,
+							},
+						},
+					},
+				},
+			}
+		}
+	}
 	return nil
 }
 
@@ -992,6 +1075,19 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	for _, s := range ct.echoServices {
 		if err := ct.waitForService(ctx, s); err != nil {
 			return err
+		}
+	}
+
+	if ct.features[FeatureIngressController].Enabled {
+		ingressServices, err := ct.clients.src.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "cilium.io/ingress=true"})
+		if err != nil {
+			return fmt.Errorf("unable to list ingress services: %w", err)
+		}
+
+		for _, ingressService := range ingressServices.Items {
+			ct.ingressService[ingressService.Name] = Service{
+				Service: ingressService.DeepCopy(),
+			}
 		}
 	}
 
