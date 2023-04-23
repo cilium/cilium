@@ -262,6 +262,8 @@ type k8sInstallerImplementation interface {
 	GetPlatform(ctx context.Context) (*k8s.Platform, error)
 	GetServerVersion() (*semver.Version, error)
 	CreateIngressClass(ctx context.Context, r *networkingv1.IngressClass, opts metav1.CreateOptions) (*networkingv1.IngressClass, error)
+	GetIngress(ctx context.Context, namespace string, ingressName string, opts metav1.GetOptions) (*networkingv1.Ingress, error)
+	CreateIngress(ctx context.Context, namespace string, ingress *networkingv1.Ingress, opts metav1.CreateOptions) (*networkingv1.Ingress, error)
 	DeleteIngressClass(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
 	ListAPIResources(ctx context.Context) ([]string, error)
