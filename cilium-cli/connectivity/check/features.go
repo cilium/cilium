@@ -62,6 +62,8 @@ const (
 	FeatureKNP Feature = "k8s-network-policy"
 
 	FeatureAuthMTLSSpiffe Feature = "auth-mtls-spiffe"
+
+	FeatureIngressController Feature = "ingress-controller"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -204,6 +206,10 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 
 	result[FeatureAuthMTLSSpiffe] = FeatureStatus{
 		Enabled: cm.Data["mesh-auth-mtls-enabled"] == "true",
+	}
+
+	result[FeatureIngressController] = FeatureStatus{
+		Enabled: cm.Data["enable-ingress-controller"] == "true",
 	}
 
 	return nil
