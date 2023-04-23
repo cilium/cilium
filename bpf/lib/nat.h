@@ -1194,7 +1194,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target, __
 			}
 			break;
 		default:
-			return DROP_NAT_UNSUPP_PROTO;
+			return NAT_PUNT_TO_STACK;
 		}
 		break;
 	default:
@@ -1960,7 +1960,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target, __
 			goto rewrite_ingress;
 		}
 		default:
-			return DROP_NAT_UNSUPP_PROTO;
+			return NAT_PUNT_TO_STACK;
 		}
 		break;
 	default:
