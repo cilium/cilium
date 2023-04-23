@@ -73,6 +73,8 @@ jobs:
             --helm-set kubeProxyReplacement=strict \
             --helm-set=securityContext.privileged=true \
             --helm-set=gatewayAPI.enabled=true \
+            --helm-set=debug.enabled=true \
+            --helm-set=debug.verbose=flow \
             --rollback=false \
             --version="
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
