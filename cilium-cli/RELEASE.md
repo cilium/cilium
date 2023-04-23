@@ -12,6 +12,7 @@ table](https://github.com/cilium/cilium-cli#releases) for the most recent suppor
   merge](https://github.com/cilium/cilium-cli/labels/ready-to-merge)
 - Make sure there are no [open issues or PRs labeled as release
   blocker](https://github.com/cilium/cilium-cli/labels/priority%2Frelease-blocker)
+- Make sure there are no [Dependabot alerts](https://github.com/cilium/cilium-cli/security/dependabot)
 
 ## Prepare environment variables
 
