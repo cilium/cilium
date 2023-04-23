@@ -17,6 +17,7 @@ import (
 	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 // cacheEntry objects hold data passed in via DNSCache.Update, nominally
@@ -254,7 +255,7 @@ func (c *DNSCache) cleanupExpiredEntries(expires time.Time) (affectedNames []str
 	}
 
 	removed = make(map[netip.Addr][]*cacheEntry)
-	for _, name := range KeepUniqueNames(toCleanNames) {
+	for _, name := range slices.Unique(toCleanNames) {
 		if entries, exists := c.forward[name]; exists {
 			affectedNames = append(affectedNames, name)
 			for ip, entry := range c.removeExpired(entries, c.lastCleanup, time.Time{}) {
@@ -337,7 +338,7 @@ func (c *DNSCache) GC(now time.Time, zombies *DNSZombieMappings) (affectedNames 
 		}
 	}
 
-	return KeepUniqueNames(append(expiredNames, overLimitNames...))
+	return slices.Unique(append(expiredNames, overLimitNames...))
 }
 
 // UpdateFromCache is a utility function that allows updating a DNSCache
@@ -591,7 +592,7 @@ func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.
 		}
 	}
 
-	return KeepUniqueNames(namesAffected)
+	return slices.Unique(namesAffected)
 }
 
 func (c *DNSCache) forceExpireByNames(expireLookupsBefore time.Time, names []string) (namesAffected []string) {
@@ -780,13 +781,13 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, ipStr string, qna
 	zombie, updatedExisting := zombies.deletes[addr]
 	if !updatedExisting {
 		zombie = &DNSZombieMapping{
-			Names:           KeepUniqueNames(qname),
+			Names:           slices.Unique(qname),
 			IP:              netip.MustParseAddr(ipStr),
 			DeletePendingAt: expiryTime,
 		}
 		zombies.deletes[addr] = zombie
 	} else {
-		zombie.Names = KeepUniqueNames(append(zombie.Names, qname...))
+		zombie.Names = slices.Unique(append(zombie.Names, qname...))
 		// Keep the latest expiry time
 		if expiryTime.After(zombie.DeletePendingAt) {
 			zombie.DeletePendingAt = expiryTime

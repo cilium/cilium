@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -240,7 +241,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				//
 				lookupTime := time.Now()
 				for _, zombie := range alive {
-					namesToClean = fqdn.KeepUniqueNames(append(namesToClean, zombie.Names...))
+					namesToClean = slices.Unique(append(namesToClean, zombie.Names...))
 					for _, name := range zombie.Names {
 						activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, activeConnectionsTTL)
 					}
@@ -250,11 +251,11 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				// Entries here have been evicted from the DNS cache (via .GC due to
 				// TTL expiration or overlimit) and are no longer active connections.
 				for _, zombie := range dead {
-					namesToClean = fqdn.KeepUniqueNames(append(namesToClean, zombie.Names...))
+					namesToClean = slices.Unique(append(namesToClean, zombie.Names...))
 				}
 			}
 
-			namesToClean = fqdn.KeepUniqueNames(namesToClean)
+			namesToClean = slices.Unique(namesToClean)
 			if len(namesToClean) == 0 {
 				return nil
 			}
