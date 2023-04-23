@@ -996,6 +996,14 @@ func (c *Client) CreateIngressClass(ctx context.Context, ingressClass *networkin
 	return c.Clientset.NetworkingV1().IngressClasses().Create(ctx, ingressClass, opts)
 }
 
+func (c *Client) GetIngress(ctx context.Context, namespace string, name string, opts metav1.GetOptions) (*networkingv1.Ingress, error) {
+	return c.Clientset.NetworkingV1().Ingresses(namespace).Get(ctx, name, opts)
+}
+
+func (c *Client) CreateIngress(ctx context.Context, namespace string, ingress *networkingv1.Ingress, opts metav1.CreateOptions) (*networkingv1.Ingress, error) {
+	return c.Clientset.NetworkingV1().Ingresses(namespace).Create(ctx, ingress, opts)
+}
+
 func (c *Client) DeleteIngressClass(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.NetworkingV1().IngressClasses().Delete(ctx, name, opts)
 }
