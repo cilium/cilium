@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
@@ -523,7 +524,8 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// Delete the old node IP addresses if they have changed in this node.
 		var oldNodeIPAddrs []string
 		for _, address := range oldNode.IPAddresses {
-			if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
+			if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP &&
+				!slices.Contains(ipsAdded, address.IP.String()) {
 				iptables.RemoveFromNodeIpset(address.IP)
 			}
 			if skipIPCache(address) {
