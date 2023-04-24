@@ -102,18 +102,22 @@ To install Cilium while automatically detected:
 
     cilium status
         /¯¯\
-     /¯¯\__/¯¯\    Cilium:      OK
-     \__/¯¯\__/    Operator:    OK
-     /¯¯\__/¯¯\    Hubble:      OK
-     \__/¯¯\__/
-        \__/
+     /¯¯\__/¯¯\    Cilium:             OK
+     \__/¯¯\__/    Operator:           OK
+     /¯¯\__/¯¯\    Envoy DaemonSet:    OK
+     \__/¯¯\__/    Hubble Relay:       OK
+        \__/       ClusterMesh:        disabled
+
     DaemonSet         cilium             Desired: 1, Ready: 1/1, Available: 1/1
+    DaemonSet         cilium-envoy       Desired: 1, Ready: 1/1, Available: 1/1
     Deployment        cilium-operator    Desired: 1, Ready: 1/1, Available: 1/1
     Deployment        hubble-relay       Desired: 1, Ready: 1/1, Available: 1/1
     Containers:       cilium             Running: 1
+                      cilium-envoy       Running: 1
                       cilium-operator    Running: 1
                       hubble-relay       Running: 1
     Image versions    cilium             quay.io/cilium/cilium:v1.9.1: 1
+                      cilium-envoy       quay.io/cilium/cilium-envoy:v1.25.5-37a98693f069413c82bef1724dd75dcf1b564fd9@sha256:d10841c9cc5b0822eeca4e3654929418b6424c978fd818868b429023f6cc215d: 1
                       cilium-operator    quay.io/cilium/operator-generic:v1.9.1: 1
                       hubble-relay       quay.io/cilium/hubble-relay:v1.9.1: 1
 
