@@ -63,6 +63,56 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 	}
 }
 
+// PodToIngress sends an HTTP request from all client Pods
+// to all Ingress service in the test context.
+func PodToIngress(opts ...Option) check.Scenario {
+	options := &labelsOption{}
+	for _, opt := range opts {
+		opt(options)
+	}
+	return &podToIngress{
+		sourceLabels:      options.sourceLabels,
+		destinationLabels: options.destinationLabels,
+	}
+}
+
+// podToIngress implements a Scenario.
+type podToIngress struct {
+	sourceLabels      map[string]string
+	destinationLabels map[string]string
+}
+
+func (s *podToIngress) Name() string {
+	return "pod-to-ingress-service"
+}
+
+func (s *podToIngress) Run(ctx context.Context, t *check.Test) {
+	var i int
+	ct := t.Context()
+
+	for _, pod := range ct.ClientPods() {
+		pod := pod // copy to avoid memory aliasing when using reference
+		if !hasAllLabels(pod, s.sourceLabels) {
+			continue
+		}
+		for _, svc := range ct.IngressService() {
+			if !hasAllLabels(svc, s.destinationLabels) {
+				continue
+			}
+
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, check.IPFamilyAny).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(svc, check.IPFamilyAny))
+
+				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
+					DNSRequired: true,
+					AltDstPort:  svc.Port(),
+				}))
+			})
+			i++
+		}
+	}
+}
+
 // PodToRemoteNodePort sends an HTTP request from all client Pods
 // to all echo Services' NodePorts, but only to other nodes.
 func PodToRemoteNodePort() check.Scenario {
