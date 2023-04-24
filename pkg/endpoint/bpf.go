@@ -1351,7 +1351,7 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
 		policyEntry := policy.MapStateEntry{
 			ProxyPort: policymapEntry.GetProxyPort(),
-			IsDeny:    policymap.PolicyEntryFlags(policymapEntry.GetFlags()).IsDeny(),
+			IsDeny:    policymapEntry.IsDeny(),
 		}
 		currentMap[policyKey] = policyEntry
 	}

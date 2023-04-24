@@ -162,7 +162,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 			proxyPort = strconv.FormatUint(uint64(pp), 10)
 		}
 		var policyStr string
-		if policymap.PolicyEntryFlags(stat.Flags).IsDeny() {
+		if stat.IsDeny() {
 			policyStr = "Deny"
 		} else {
 			policyStr = "Allow"
