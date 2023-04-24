@@ -97,6 +97,17 @@ func tlsInvalidKindRouteCondition(tr *gatewayv1alpha2.TLSRoute, msg string) meta
 	}
 }
 
+func RouteReasonNotAllowedByListeners(tr *gatewayv1alpha2.TLSRoute, msg string) metav1.Condition {
+	return metav1.Condition{
+		Type:               string(gatewayv1alpha2.RouteConditionResolvedRefs),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(gatewayv1alpha2.RouteReasonNotAllowedByListeners),
+		Message:            msg,
+		ObservedGeneration: tr.GetGeneration(),
+		LastTransitionTime: metav1.NewTime(time.Now()),
+	}
+}
+
 func mergeTLSRouteStatusConditions(tr *gatewayv1alpha2.TLSRoute, parentRef gatewayv1alpha2.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range tr.Status.RouteStatus.Parents {
