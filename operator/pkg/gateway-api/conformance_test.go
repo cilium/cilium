@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -56,7 +57,7 @@ func TestConformance(t *testing.T) {
 	supportedFeatures := parseSupportedFeatures(*flags.SupportedFeatures)
 	exemptFeatures := parseSupportedFeatures(*flags.ExemptFeatures)
 	for feature := range exemptFeatures {
-		supportedFeatures[feature] = false
+		supportedFeatures.Delete(feature)
 	}
 
 	cSuite := suite.New(suite.Options{
@@ -72,10 +73,10 @@ func TestConformance(t *testing.T) {
 
 // parseSupportedFeatures parses flag arguments and converts the string to
 // map[suite.SupportedFeature]bool
-func parseSupportedFeatures(f string) map[suite.SupportedFeature]bool {
-	res := map[suite.SupportedFeature]bool{}
+func parseSupportedFeatures(f string) sets.Set[suite.SupportedFeature] {
+	res := sets.New[suite.SupportedFeature]()
 	for _, value := range strings.Split(f, ",") {
-		res[suite.SupportedFeature(value)] = true
+		res.Insert(suite.SupportedFeature(value))
 	}
 	return res
 }
