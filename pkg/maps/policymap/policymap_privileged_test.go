@@ -102,7 +102,7 @@ func (pm *PolicyMapPrivilegedTestSuite) TestDenyPolicyMapDumpToSlice(c *C) {
 	c.Assert(testMap, NotNil)
 
 	fooEntry := newKey(1, 1, 1, 1)
-	fooValue := newEntry(0, 0, NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true}))
+	fooValue := newEntry(0, 0, getPolicyEntryFlags(policyEntryFlagParams{IsDeny: true}))
 	err := testMap.DenyKey(fooEntry)
 	c.Assert(err, IsNil)
 
