@@ -16,7 +16,8 @@
     "Makefile.defs",
     ".travis.yml",
     "test/kubernetes-test.sh",
-    "test/packet/scripts/install.sh"
+    "test/packet/scripts/install.sh",
+    "install/kubernetes/cilium/templates/spire/**",
   ],
   postUpdateOptions: [
     "gomodTidy"
@@ -180,6 +181,15 @@
         "v1.12",
         "v1.11"
       ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/busybox"
+      ],
+      "allowedVersions": "<=1.35",
+      "matchPaths": [
+        "install/kubernetes/cilium/templates/spire/**"
+      ],
     },
     {
       "matchPackageNames": [
