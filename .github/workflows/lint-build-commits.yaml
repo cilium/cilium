@@ -43,7 +43,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends libtinfo5
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@ef175530927af66c61e4e8da4fea4e15de63f780 # v1.7.0
+        uses: KyleMayes/install-llvm-action@13d5d77cbf0bd7e35cb02a8f9ed4bb85bed3393b # v1.8.0
         with:
           version: "10.0"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
@@ -54,7 +54,7 @@ jobs:
           go install github.com/onsi/ginkgo/ginkgo@cc0216944b25a88d3259699a029d4e601fb8a222 # v1.12.1
 
       - name: Checkout code
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}

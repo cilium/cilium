@@ -24,7 +24,7 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.20.3
       - name: Checkout code
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           persist-credentials: false
       - name: Check module vendoring
@@ -43,7 +43,7 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.20.3
       - name: Checkout code
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           persist-credentials: false
       - name: Run golangci-lint
@@ -62,7 +62,7 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.20.3
       - name: Checkout code
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -81,7 +81,7 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.20.3
       - name: Checkout code
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
@@ -100,7 +100,7 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.20.3
       - name: Checkout code
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
