@@ -353,12 +353,6 @@ jobs:
         echo kind_pod_cidr_2=${KIND_POD_CIDR_2} >> $GITHUB_OUTPUT
         echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
 
-    - name: Checkout code
-      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-      with:
-        ref: ${{ needs.setup-report.outputs.sha }}
-        persist-credentials: false
-
     - name: Install Cilium CLI
       run: |
         curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
@@ -425,6 +419,18 @@ jobs:
         for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci ; do
           until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.setup-report.outputs.sha }} &> /dev/null; do sleep 45s; done
         done
+
+    # We need to checkout the SHA to retrieve the Helm chart
+    # Warning: since this is a privileged workflow, we should be careful NOT to
+    # use anything coming from an external contributor in a privileged
+    # environment. Here it's fine because we pass the Helm chart to be installed
+    # in a Kubernetes cluster, so it won't have access to the privileged
+    # environment from there.
+    - name: Checkout SHA
+      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      with:
+        ref: ${{ needs.setup-report.outputs.sha }}
+        persist-credentials: false
 
     - name: Install Cilium in cluster1
       run: |
