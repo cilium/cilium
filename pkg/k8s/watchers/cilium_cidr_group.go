@@ -127,7 +127,7 @@ func resolveCIDRGroupRef(cnp *types.SlimCNP, cidrGroupCache map[string]*cilium_v
 			logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 			logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
 			logfields.CIDRGroupRef:            refs,
-		}).WithError(err).Warning("Unable to translate all cidr groups to cidrs")
+		}).WithError(err).Warning("Unable to translate all CIDR groups to CIDRs")
 	}
 
 	translated := translateCIDRGroupRefs(cnp, cidrsSets)
@@ -175,7 +175,12 @@ func getCIDRGroupRefs(cnp *types.SlimCNP) []string {
 	for _, spec := range specs {
 		for _, ingress := range spec.Ingress {
 			for _, rule := range ingress.FromCIDRSet {
-				cidrGroupRefs = append(cidrGroupRefs, string(rule.CIDRGroupRef))
+				// If CIDR is not set, then we assume CIDRGroupRef is set due
+				// to OneOf, even if CIDRGroupRef is empty, as that's still a
+				// valid reference (although useless from a user perspective).
+				if len(rule.Cidr) == 0 {
+					cidrGroupRefs = append(cidrGroupRefs, string(rule.CIDRGroupRef))
+				}
 			}
 		}
 	}
