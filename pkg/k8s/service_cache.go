@@ -495,7 +495,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 
 		for ip, e := range localEndpoints.Backends {
 			e.Preferred = svcFound && svc.IncludeExternal && svc.ServiceAffinity == serviceAffinityLocal
-			endpoints.Backends[ip] = e
+			endpoints.Backends[ip] = e.DeepCopy()
 		}
 	}
 
@@ -518,7 +518,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 						}).Warning("Conflicting service backend IP")
 					} else {
 						e.Preferred = svc.ServiceAffinity == serviceAffinityRemote
-						endpoints.Backends[ip] = e
+						endpoints.Backends[ip] = e.DeepCopy()
 					}
 				}
 			}

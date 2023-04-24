@@ -429,7 +429,21 @@ func (es *EndpointSlices) GetEndpoints() *Endpoints {
 	allEps := newEndpoints()
 	for _, eps := range es.epSlices {
 		for backend, ep := range eps.Backends {
-			allEps.Backends[backend] = ep
+			// EndpointSlices may have duplicate addresses on different slices.
+			// kubectl get endpointslices -n endpointslicemirroring-4896
+			// NAME                             ADDRESSTYPE   PORTS   ENDPOINTS     AGE
+			// example-custom-endpoints-f6z84   IPv4          9090    10.244.1.49   28s
+			// example-custom-endpoints-g6r6v   IPv4          8090    10.244.1.49   28s
+			b, ok := allEps.Backends[backend]
+			if !ok {
+				allEps.Backends[backend] = ep.DeepCopy()
+			} else {
+				clone := b.DeepCopy()
+				for k, v := range ep.Ports {
+					clone.Ports[k] = v
+				}
+				allEps.Backends[backend] = clone
+			}
 		}
 	}
 	return allEps
