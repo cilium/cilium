@@ -247,7 +247,8 @@ static __always_inline void snat_v4_delete_tuples(struct ipv4_ct_tuple *otuple)
 static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv4_ct_tuple *otuple,
 					       struct ipv4_nat_entry *ostate,
-					       const struct ipv4_nat_target *target)
+					       const struct ipv4_nat_target *target,
+					       bool needs_ct)
 {
 	int ret = DROP_NAT_NO_MAPPING, retries;
 	struct ipv4_nat_entry rstate;
@@ -271,21 +272,8 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 	rtuple.dport = ostate->to_sport = bpf_htons(port);
 	rtuple.daddr = target->addr;
 
-	if (otuple->saddr == target->addr) {
-		/* Host-local connection. */
-		ostate->common.needs_ct = 1;
-		rstate.common.needs_ct = ostate->common.needs_ct;
-	}
-
-#if defined(ENABLE_EGRESS_GATEWAY)
-	if (target->egress_gateway && !target->from_local_endpoint) {
-		/* Track established egress gateway connections to extend the
-		 * CT entry expiration timeout.
-		 */
-		ostate->common.needs_ct = 1;
-		rstate.common.needs_ct = ostate->common.needs_ct;
-	}
-#endif
+	ostate->common.needs_ct = needs_ct;
+	rstate.common.needs_ct = needs_ct;
 
 	map = get_cluster_snat_map_v4(target->cluster_id);
 	if (!map)
@@ -314,40 +302,42 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 	return !ret ? 0 : DROP_NAT_NO_MAPPING;
 }
 
+static __always_inline bool
+snat_v4_needs_ct(const struct ipv4_ct_tuple *tuple,
+		 const struct ipv4_nat_target *target)
+{
+	if (tuple->saddr == target->addr) {
+		/* Host-local connection. */
+		return true;
+	}
+
+#if defined(ENABLE_EGRESS_GATEWAY)
+	/* Track egress gateway connections, but only if they are related to a
+	 * remote endpoint (if the endpoint is local then the connection is
+	 * already tracked).
+	 */
+	if (target->egress_gateway && !target->from_local_endpoint) {
+		/* Track established egress gateway connections to extend the
+		 * CT entry expiration timeout.
+		 */
+		return true;
+	}
+#endif
+
+	return false;
+}
+
 static __always_inline int snat_v4_track_connection(struct __ctx_buff *ctx,
 						    const struct ipv4_ct_tuple *tuple,
-						    const struct ipv4_nat_entry *state,
 						    bool has_l4_header, int ct_action,
 						    enum nat_dir dir, __u32 off,
-						    const struct ipv4_nat_target *target,
 						    __s8 *ext_err)
 {
 	struct ct_state ct_state;
 	struct ipv4_ct_tuple tmp;
-	bool needs_ct = false;
 	__u32 monitor = 0;
 	enum ct_dir where;
 	int ret;
-
-	if (state && state->common.needs_ct) {
-		needs_ct = true;
-#if defined(ENABLE_EGRESS_GATEWAY)
-	/* Track egress gateway connections, but only if they are related to a
-	 * remote endpoint (if the endpoint is local then the connection is
-	 * already tracked). NAT_DIR_EGRESS is implied.
-	 * This check is only relevant for the first packet; the subsequent ones
-	 * will have state->common.needs_ct set, therefore, both egress and
-	 * ingress packets will trigger ct_lookup4 and extend the expiration
-	 * timeout.
-	 */
-	} else if (target->egress_gateway && !target->from_local_endpoint) {
-		needs_ct = true;
-#endif
-	} else if (!state && dir == NAT_DIR_EGRESS && tuple->saddr == target->addr) {
-		needs_ct = true;
-	}
-	if (!needs_ct)
-		return 0;
 
 	memset(&ct_state, 0, sizeof(ct_state));
 	memcpy(&tmp, tuple, sizeof(tmp));
@@ -384,6 +374,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 			   const struct ipv4_nat_target *target,
 			   __s8 *ext_err)
 {
+	bool needs_ct;
 	int ret;
 	void *map;
 
@@ -392,14 +383,17 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		return DROP_SNAT_NO_MAP_FOUND;
 
 	*state = __snat_lookup(map, tuple);
-	ret = snat_v4_track_connection(ctx, tuple, *state, has_l4_header, ct_action,
-				       NAT_DIR_EGRESS, off, target, ext_err);
-	if (ret < 0)
-		return ret;
-	else if (*state)
+	needs_ct = *state ? (*state)->common.needs_ct : snat_v4_needs_ct(tuple, target);
+	if (needs_ct) {
+		ret = snat_v4_track_connection(ctx, tuple, has_l4_header, ct_action,
+					       NAT_DIR_EGRESS, off, ext_err);
+		if (ret < 0)
+			return ret;
+	}
+	if (*state)
 		return NAT_CONTINUE_XLATE;
 	else
-		return snat_v4_new_mapping(ctx, tuple, (*state = tmp), target);
+		return snat_v4_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct);
 }
 
 static __always_inline int
@@ -412,7 +406,6 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       const struct ipv4_nat_target *target,
 			       __s8 *ext_err)
 {
-	struct ipv4_ct_tuple tuple_revsnat;
 	int ret;
 	void *map;
 
@@ -421,18 +414,19 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		return DROP_SNAT_NO_MAP_FOUND;
 
 	*state = __snat_lookup(map, tuple);
+	if (*state && (*state)->common.needs_ct) {
+		struct ipv4_ct_tuple tuple_revsnat;
 
-	memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
-	if (*state) {
+		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
 		tuple_revsnat.daddr = (*state)->to_daddr;
 		tuple_revsnat.dport = (*state)->to_dport;
-	}
 
-	ret = snat_v4_track_connection(ctx, &tuple_revsnat, *state, has_l4_header, ct_action,
-				       NAT_DIR_INGRESS, off, target, ext_err);
-	if (ret < 0)
-		return ret;
-	else if (*state)
+		ret = snat_v4_track_connection(ctx, &tuple_revsnat, has_l4_header, ct_action,
+					       NAT_DIR_INGRESS, off, ext_err);
+		if (ret < 0)
+			return ret;
+	}
+	if (*state)
 		return NAT_CONTINUE_XLATE;
 	else
 		return tuple->nexthdr != IPPROTO_ICMP &&
@@ -1406,7 +1400,8 @@ static __always_inline void snat_v6_delete_tuples(struct ipv6_ct_tuple *otuple)
 static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv6_ct_tuple *otuple,
 					       struct ipv6_nat_entry *ostate,
-					       const struct ipv6_nat_target *target)
+					       const struct ipv6_nat_target *target,
+					       bool needs_ct)
 {
 	int ret = DROP_NAT_NO_MAPPING, retries;
 	struct ipv6_nat_entry rstate;
@@ -1429,11 +1424,8 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	rtuple.dport = ostate->to_sport = bpf_htons(port);
 	rtuple.daddr = target->addr;
 
-	if (!ipv6_addrcmp(&otuple->saddr, &rtuple.daddr)) {
-		/* Host-local connection. */
-		ostate->common.needs_ct = 1;
-		rstate.common.needs_ct = ostate->common.needs_ct;
-	}
+	ostate->common.needs_ct = needs_ct;
+	rstate.common.needs_ct = needs_ct;
 
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
@@ -1458,29 +1450,29 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	return !ret ? 0 : DROP_NAT_NO_MAPPING;
 }
 
+static __always_inline bool
+snat_v6_needs_ct(struct ipv6_ct_tuple *tuple,
+		 const struct ipv6_nat_target *target)
+{
+	if (!ipv6_addrcmp(&tuple->saddr, &target->addr)) {
+		/* Host-local connection. */
+		return true;
+	}
+
+	return false;
+}
+
 static __always_inline int snat_v6_track_connection(struct __ctx_buff *ctx,
 						    struct ipv6_ct_tuple *tuple,
-						    const struct ipv6_nat_entry *state,
 						    int ct_action,
 						    enum nat_dir dir, __u32 off,
-						    const struct ipv6_nat_target *target,
 						    __s8 *ext_err)
 {
 	struct ct_state ct_state;
 	struct ipv6_ct_tuple tmp;
-	bool needs_ct = false;
 	__u32 monitor = 0;
 	enum ct_dir where;
 	int ret;
-
-	if (state && state->common.needs_ct) {
-		needs_ct = true;
-	} else if (!state && dir == NAT_DIR_EGRESS) {
-		if (!ipv6_addrcmp(&tuple->saddr, (void *)&target->addr))
-			needs_ct = true;
-	}
-	if (!needs_ct)
-		return 0;
 
 	memset(&ct_state, 0, sizeof(ct_state));
 	memcpy(&tmp, tuple, sizeof(tmp));
@@ -1516,17 +1508,21 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 			   const struct ipv6_nat_target *target,
 			   __s8 *ext_err)
 {
+	bool needs_ct;
 	int ret;
 
 	*state = snat_v6_lookup(tuple);
-	ret = snat_v6_track_connection(ctx, tuple, *state, ct_action,
-				       NAT_DIR_EGRESS, off, target, ext_err);
-	if (ret < 0)
-		return ret;
-	else if (*state)
+	needs_ct = *state ? (*state)->common.needs_ct : snat_v6_needs_ct(tuple, target);
+	if (needs_ct) {
+		ret = snat_v6_track_connection(ctx, tuple, ct_action,
+					       NAT_DIR_EGRESS, off, ext_err);
+		if (ret < 0)
+			return ret;
+	}
+	if (*state)
 		return NAT_CONTINUE_XLATE;
 	else
-		return snat_v6_new_mapping(ctx, tuple, (*state = tmp), target);
+		return snat_v6_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct);
 }
 
 static __always_inline int
@@ -1538,22 +1534,22 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       const struct ipv6_nat_target *target,
 			       __s8 *ext_err)
 {
-	struct ipv6_ct_tuple tuple_revsnat;
 	int ret;
 
 	*state = snat_v6_lookup(tuple);
+	if (*state && (*state)->common.needs_ct) {
+		struct ipv6_ct_tuple tuple_revsnat;
 
-	memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
-	if (*state) {
+		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
 		ipv6_addr_copy(&tuple_revsnat.daddr, &(*state)->to_daddr);
 		tuple_revsnat.dport = (*state)->to_dport;
-	}
 
-	ret = snat_v6_track_connection(ctx, &tuple_revsnat, *state, ct_action,
-				       NAT_DIR_INGRESS, off, target, ext_err);
-	if (ret < 0)
-		return ret;
-	else if (*state)
+		ret = snat_v6_track_connection(ctx, &tuple_revsnat, ct_action,
+					       NAT_DIR_INGRESS, off, ext_err);
+		if (ret < 0)
+			return ret;
+	}
+	if (*state)
 		return NAT_CONTINUE_XLATE;
 	else
 		return tuple->nexthdr != IPPROTO_ICMPV6 &&
