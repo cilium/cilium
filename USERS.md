@@ -567,6 +567,12 @@ Users (Alphabetically)
       U: ClusterMesh, CNI-Chaining (with amazon-vpc-cni-k8s)
       Q: @jirving
 
+    * N: United Cloud
+      D: United Cloud is using Cilium for all non-production and production clusters (on-premises)
+      U: CNI, Hubble, CiliumNetworkPolicy, CiliumClusterwideNetworkPolicy, ClusterMesh, Encryption
+      L: https://united.cloud
+      Q: @boris
+
     * N: Utmost Software, Inc
       D: Utmost is using Cilium in all tiers of its Kubernetes ecosystem to implement zero trust
       U: CNI, DefaultDeny(Zero Trust), Hubble, CiliumNetworkPolicy, CiliumClusterwideNetworkPolicy
