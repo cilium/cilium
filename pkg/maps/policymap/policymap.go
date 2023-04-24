@@ -44,27 +44,20 @@ const (
 	PressureMetricThreshold = 0.1
 )
 
-type policyFlag uint8
+// policyEntryFlags is a new type used to define the flags used in the policy
+// entry.
+type policyEntryFlags uint8
 
 const (
-	policyFlagDeny = 1 << iota
+	policyFlagDeny policyEntryFlags = 1 << iota
 )
 
-// PolicyEntryFlags is a new type used to define the flags used in the policy
-// entry.
-type PolicyEntryFlags uint8
-
-// UInt8 returns the UInt8 representation of the PolicyEntryFlags.
-func (pef PolicyEntryFlags) UInt8() uint8 {
-	return uint8(pef)
+func (pef policyEntryFlags) is(pf policyEntryFlags) bool {
+	return pef&pf == pf
 }
 
-func (pef PolicyEntryFlags) is(pf policyFlag) bool {
-	return uint8(pef)&uint8(pf) != 0
-}
-
-// String returns the string implementation of PolicyEntryFlags.
-func (pef PolicyEntryFlags) String() string {
+// String returns the string implementation of policyEntryFlags.
+func (pef policyEntryFlags) String() string {
 	if pef.is(policyFlagDeny) {
 		return "Deny"
 	}
@@ -85,7 +78,7 @@ type PolicyMap struct {
 }
 
 func (pe PolicyEntry) IsDeny() bool {
-	return PolicyEntryFlags(pe.Flags).is(policyFlagDeny)
+	return pe.Flags.is(policyFlagDeny)
 }
 
 func (pe *PolicyEntry) String() string {
@@ -116,13 +109,13 @@ const SizeofPolicyKey = int(unsafe.Sizeof(PolicyKey{}))
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type PolicyEntry struct {
-	ProxyPortNetwork uint16 `align:"proxy_port"` // In network byte-order
-	Flags            uint8  `align:"deny"`
-	AuthType         uint8  `align:"auth_type"`
-	Pad1             uint16 `align:"pad1"`
-	Pad2             uint16 `align:"pad2"`
-	Packets          uint64 `align:"packets"`
-	Bytes            uint64 `align:"bytes"`
+	ProxyPortNetwork uint16           `align:"proxy_port"` // In network byte-order
+	Flags            policyEntryFlags `align:"deny"`
+	AuthType         uint8            `align:"auth_type"`
+	Pad1             uint16           `align:"pad1"`
+	Pad2             uint16           `align:"pad2"`
+	Packets          uint64           `align:"packets"`
+	Bytes            uint64           `align:"bytes"`
 }
 
 // GetProxyPort returns the ProxyPortNetwork in host byte order
@@ -130,21 +123,13 @@ func (pe *PolicyEntry) GetProxyPort() uint16 {
 	return byteorder.NetworkToHost16(pe.ProxyPortNetwork)
 }
 
-func (pe *PolicyEntry) SetFlags(flags uint8) {
-	pe.Flags = flags
-}
-
-func (pe *PolicyEntry) GetFlags() uint8 {
-	return pe.Flags
-}
-
-type PolicyEntryFlagParam struct {
+type policyEntryFlagParams struct {
 	IsDeny bool
 }
 
-// NewPolicyEntryFlag returns a PolicyEntryFlags from the PolicyEntryFlagParam.
-func NewPolicyEntryFlag(p *PolicyEntryFlagParam) PolicyEntryFlags {
-	var flags PolicyEntryFlags
+// getPolicyEntryFlags returns a policyEntryFlags from the policyEntryFlagParams.
+func getPolicyEntryFlags(p policyEntryFlagParams) policyEntryFlags {
+	var flags policyEntryFlags
 
 	if p.IsDeny {
 		flags |= policyFlagDeny
@@ -262,10 +247,10 @@ func newKey(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection tra
 
 // newEntry returns a PolicyEntry representing the specified parameters in
 // network byte-order.
-func newEntry(authType uint8, proxyPort uint16, flags PolicyEntryFlags) PolicyEntry {
+func newEntry(authType uint8, proxyPort uint16, flags policyEntryFlags) PolicyEntry {
 	return PolicyEntry{
 		ProxyPortNetwork: byteorder.HostToNetwork16(proxyPort),
-		Flags:            flags.UInt8(),
+		Flags:            flags,
 		AuthType:         authType,
 	}
 }
@@ -273,7 +258,7 @@ func newEntry(authType uint8, proxyPort uint16, flags PolicyEntryFlags) PolicyEn
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
 func (pm *PolicyMap) AllowKey(key PolicyKey, authType uint8, proxyPort uint16) error {
-	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{})
+	pef := getPolicyEntryFlags(policyEntryFlagParams{})
 	entry := newEntry(authType, proxyPort, pef)
 	return pm.Update(&key, &entry)
 }
@@ -289,7 +274,7 @@ func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, traff
 // DenyKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
 func (pm *PolicyMap) DenyKey(key PolicyKey) error {
-	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{
+	pef := getPolicyEntryFlags(policyEntryFlagParams{
 		IsDeny: true,
 	})
 	entry := newEntry(0, 0, pef)
