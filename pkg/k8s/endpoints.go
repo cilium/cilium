@@ -436,7 +436,7 @@ func (es *EndpointSlices) GetEndpoints() *Endpoints {
 			// example-custom-endpoints-g6r6v   IPv4          8090    10.244.1.49   28s
 			b, ok := allEps.Backends[backend]
 			if !ok {
-				allEps.Backends[backend] = ep
+				allEps.Backends[backend] = ep.DeepCopy()
 			} else {
 				clone := b.DeepCopy()
 				for k, v := range ep.Ports {
