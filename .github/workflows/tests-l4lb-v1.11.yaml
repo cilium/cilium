@@ -128,6 +128,9 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
           SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+        elif [ "${{ github.event_name }}" = "schedule" ]; then
+          curl https://api.github.com/repos/cilium/cilium/branches/v1.11 > branch.json
+          SHA=$(jq -r '.commit.sha' branch.json)
         else
           SHA=${{ github.sha }}
         fi
