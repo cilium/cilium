@@ -25,7 +25,7 @@ env:
   cilium_cli_version: v0.13.1
   kind_version: v0.17.0
   kind_config: .github/kind-config.yaml
-  gateway_api_version: v0.6.0
+  gateway_api_version: v0.6.1
   metallb_version: 0.12.1
   timeout: 5m
 
@@ -167,7 +167,9 @@ jobs:
             --gateway-class cilium \
             --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching,GatewayClassObservedGenerationBump,HTTPResponseHeaderModification \
             -test.run "TestConformance" \
-            -test.skip "TestConformance/HTTPRouteListenerHostnameMatching" # Enable once #24217 is fixed
+            -test.skip "TestConformance/HTTPRouteListenerHostnameMatching|TestConformance/HTTPRouteRedirectHostAndStatus" 
+            # Enable once HTTPRouteListenerHostnameMatchings #24217 is fixed
+            # Enable HTTPRouteRedirectHostAndStatus once https://github.com/kubernetes-sigs/gateway-api/issues/1805 is fixed upstream
 
       - name: Post-test information gathering
         if: ${{ !success() }}

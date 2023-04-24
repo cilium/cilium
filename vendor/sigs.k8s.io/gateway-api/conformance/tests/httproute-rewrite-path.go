@@ -23,61 +23,49 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
-	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, HTTPRouteRequestRedirect)
+	ConformanceTests = append(ConformanceTests, HTTPRouteRewritePath)
 }
 
-var HTTPRouteRequestRedirect = suite.ConformanceTest{
-	ShortName:   "HTTPRouteRequestRedirect",
-	Description: "An HTTPRoute with hostname and statusCode redirect filters",
-	Manifests:   []string{"tests/httproute-request-redirect.yaml"},
+var HTTPRouteRewritePath = suite.ConformanceTest{
+	ShortName:   "HTTPRouteRewritePath",
+	Description: "An HTTPRoute with path rewrite filter",
+	Manifests:   []string{"tests/httproute-rewrite-path.yaml"},
+	Features:    []suite.SupportedFeature{suite.SupportHTTPRoutePathRewrite},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
-		routeNN := types.NamespacedName{Name: "request-redirect", Namespace: ns}
+		routeNN := types.NamespacedName{Name: "rewrite-path", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 
-		testCases := []http.ExpectedResponse{{
-			Request: http.Request{
-				Path:             "/hostname-redirect",
-				UnfollowRedirect: true,
+		testCases := []http.ExpectedResponse{
+			{
+				Request: http.Request{
+					Path: "/prefix/one/two",
+				},
+				ExpectedRequest: &http.ExpectedRequest{
+					Request: http.Request{
+						Path: "/one/two",
+					},
+				},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
 			},
-			Response: http.Response{
-				StatusCode: 302,
+			{
+				Request: http.Request{
+					Path: "/full/one/two",
+				},
+				ExpectedRequest: &http.ExpectedRequest{
+					Request: http.Request{
+						Path: "/one",
+					},
+				},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
 			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Hostname: "example.org",
-			},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/status-code-301",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 301,
-			},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/host-and-status",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 301,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Hostname: "example.org",
-			},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		},
 		}
 		for i := range testCases {
 			// Declare tc here to avoid loop variable

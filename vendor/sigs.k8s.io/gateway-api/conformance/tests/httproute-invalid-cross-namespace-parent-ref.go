@@ -34,15 +34,15 @@ var HTTPRouteInvalidCrossNamespaceParentRef = suite.ConformanceTest{
 	Description: "A single HTTPRoute in the gateway-conformance-web-backend namespace should fail to attach to a Gateway in another namespace that it is not allowed to",
 	Manifests:   []string{"tests/httproute-invalid-cross-namespace-parent-ref.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		routeName := types.NamespacedName{Name: "invalid-cross-namespace-parent-ref", Namespace: "gateway-conformance-web-backend"}
-		gwName := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+		routeNN := types.NamespacedName{Name: "invalid-cross-namespace-parent-ref", Namespace: "gateway-conformance-web-backend"}
 
 		t.Run("Route should not have Parents set in status", func(t *testing.T) {
-			kubernetes.HTTPRouteMustHaveNoAcceptedParents(t, suite.Client, suite.TimeoutConfig, routeName)
+			kubernetes.HTTPRouteMustHaveNoAcceptedParents(t, suite.Client, suite.TimeoutConfig, routeNN)
 		})
 
 		t.Run("Gateway should have 0 Routes attached", func(t *testing.T) {
-			kubernetes.GatewayMustHaveZeroRoutes(t, suite.Client, suite.TimeoutConfig, gwName)
+			kubernetes.GatewayMustHaveZeroRoutes(t, suite.Client, suite.TimeoutConfig, gwNN)
 		})
 	},
 }
