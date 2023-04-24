@@ -140,6 +140,23 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			}
 		}
 
+		resHTTP = append(resHTTP, model.HTTPListener{
+			Name: string(l.Name),
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      input.Gateway.GetName(),
+					Namespace: input.Gateway.GetNamespace(),
+					Group:     input.Gateway.GroupVersionKind().Group,
+					Version:   input.Gateway.GroupVersionKind().Version,
+					Kind:      input.Gateway.GroupVersionKind().Kind,
+					UID:       string(input.Gateway.GetUID()),
+				},
+			},
+			Port:     uint32(l.Port),
+			Hostname: toHostname(l.Hostname),
+			Routes:   httpRoutes,
+		})
+
 		for _, r := range input.TLSRoutes {
 			isListener := false
 			for _, parent := range r.Spec.ParentRefs {
