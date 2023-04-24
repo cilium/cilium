@@ -220,12 +220,14 @@ func (key *PolicyKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(key) }
 func (key *PolicyKey) NewValue() bpf.MapValue    { return &PolicyEntry{} }
 
 func (key *PolicyKey) String() string {
-
 	trafficDirectionString := (trafficdirection.TrafficDirection)(key.TrafficDirection).String()
-	if key.DestPortNetwork != 0 {
-		return fmt.Sprintf("%s: %d %d/%d", trafficDirectionString, key.Identity, key.GetDestPort(), key.Nexthdr)
+	dport := key.GetDestPort()
+	protoStr := u8proto.U8proto(key.Nexthdr).String()
+
+	if dport != 0 {
+		return fmt.Sprintf("%s: %d %d/%s", trafficDirectionString, key.Identity, dport, protoStr)
 	}
-	return fmt.Sprintf("%s: %d", trafficDirectionString, key.Identity)
+	return fmt.Sprintf("%s: %d %s", trafficDirectionString, key.Identity, protoStr)
 }
 
 // NewKey returns a PolicyKey representing the specified parameters in network
