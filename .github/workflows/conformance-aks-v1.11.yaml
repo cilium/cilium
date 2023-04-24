@@ -71,7 +71,7 @@ env:
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
   k8s_version: 1.23
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.1
+  cilium_cli_version: v0.13.2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
