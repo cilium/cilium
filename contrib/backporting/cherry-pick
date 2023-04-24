@@ -7,7 +7,7 @@ require_linux
 
 ORG=${ORG:-"cilium"}
 REPO=${REPO:-"cilium"}
-BRANCH=${BRANCH:-"master"}
+BRANCH=${BRANCH:-"main"}
 
 cleanup () {
   if [ -n "$TMPF" ]; then
