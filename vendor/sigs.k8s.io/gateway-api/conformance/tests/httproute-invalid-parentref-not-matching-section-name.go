@@ -28,28 +28,26 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, HTTPRouteInvalidParentRefNotMatchingListenerPort)
+	ConformanceTests = append(ConformanceTests, HTTPRouteInvalidParentRefNotMatchingSectionName)
 }
 
-var HTTPRouteInvalidParentRefNotMatchingListenerPort = suite.ConformanceTest{
-	ShortName:   "HTTPRouteInvalidParentRefNotMatchingListenerPort",
-	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set the Accepted status to False with reason NoMatchingParent when attempting to bind to a Gateway that does not have a matching ListenerPort.",
-	Features:    []suite.SupportedFeature{suite.SupportRouteDestinationPortMatching},
-	Manifests:   []string{"tests/httproute-invalid-parentref-not-matching-listener-port.yaml"},
+var HTTPRouteInvalidParentRefNotMatchingSectionName = suite.ConformanceTest{
+	ShortName:   "HTTPRouteInvalidParentRefNotMatchingSectionName",
+	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set the Accepted status to False with reason NoMatchingParent when attempting to bind to a Gateway that does not have a matching SectionName.",
+	Manifests:   []string{"tests/httproute-invalid-parentref-not-matching-section-name.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		routeNN := types.NamespacedName{Name: "httproute-listener-not-matching-route-port", Namespace: "gateway-conformance-infra"}
+		routeNN := types.NamespacedName{Name: "httproute-listener-not-matching-section-name", Namespace: "gateway-conformance-infra"}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
-		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		// The Route must have an Accepted Condition with a NoMatchingParent Reason.
-		t.Run("HTTPRoute with no matching port in ParentRef has an Accepted Condition with status False and Reason NoMatchingParent", func(t *testing.T) {
-			acceptedCond := metav1.Condition{
+		t.Run("HTTPRoute with no matching sectionName in ParentRef has an Accepted Condition with status False and Reason NoMatchingParent", func(t *testing.T) {
+			resolvedRefsCond := metav1.Condition{
 				Type:   string(v1beta1.RouteConditionAccepted),
 				Status: metav1.ConditionFalse,
 				Reason: string(v1beta1.RouteReasonNoMatchingParent),
 			}
 
-			kubernetes.HTTPRouteMustHaveCondition(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN, acceptedCond)
+			kubernetes.HTTPRouteMustHaveCondition(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN, resolvedRefsCond)
 		})
 
 		t.Run("Route should not have Parents accepted in status", func(t *testing.T) {

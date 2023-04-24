@@ -39,3 +39,44 @@ type PolicyTargetReference struct {
 	// +optional
 	Namespace *Namespace `json:"namespace,omitempty"`
 }
+
+// PolicyConditionType is a type of condition for a policy. This type should be
+// used with a Policy resource Status.Conditions field.
+type PolicyConditionType string
+
+// PolicyConditionReason is a reason for a policy condition.
+type PolicyConditionReason string
+
+const (
+	// PolicyConditionAccepted indicates whether the policy has been accepted or
+	// rejected by a targeted resource, and why.
+	//
+	// Possible reasons for this condition to be True are:
+	//
+	// * "Accepted"
+	//
+	// Possible reasons for this condition to be False are:
+	//
+	// * "Conflicted"
+	// * "Invalid"
+	// * "TargetNotFound"
+	//
+	PolicyConditionAccepted PolicyConditionType = "Accepted"
+
+	// PolicyReasonAccepted is used with the "Accepted" condition when the policy
+	// has been accepted by the targeted resource.
+	PolicyReasonAccepted PolicyConditionReason = "Accepted"
+
+	// PolicyReasonConflicted is used with the "Accepted" condition when the
+	// policy has not been accepted by a targeted resource because there is
+	// another policy that targets the same resource and a merge is not possible.
+	PolicyReasonConflicted PolicyConditionReason = "Conflicted"
+
+	// PolicyReasonInvalid is used with the "Accepted" condition when the policy
+	// is syntactically or semantically invalid.
+	PolicyReasonInvalid PolicyConditionReason = "Invalid"
+
+	// PolicyReasonTargetNotFound is used with the "Accepted" condition when the
+	// policy is attached to an invalid target resource.
+	PolicyReasonTargetNotFound PolicyConditionReason = "TargetNotFound"
+)

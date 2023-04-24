@@ -52,6 +52,9 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 				{Namespace: ns, Name: "wildcard-host-matches-listener-wildcard-host"},
 			}
 			gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routes...)
+			for _, routeNN := range routes {
+				kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
+			}
 
 			var testCases []http.ExpectedResponse
 
@@ -190,8 +193,8 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 
 		t.Run("HTTPRoutes that do not intersect with listener hostnames", func(t *testing.T) {
 			gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN))
+			routeNN := types.NamespacedName{Namespace: ns, Name: "no-intersecting-hosts"}
 
-			routeName := types.NamespacedName{Namespace: ns, Name: "no-intersecting-hosts"}
 			parents := []v1beta1.RouteParentStatus{{
 				ParentRef:      parentRefTo(gwNN),
 				ControllerName: v1beta1.GatewayController(suite.ControllerName),
@@ -204,7 +207,7 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 				},
 			}}
 
-			kubernetes.HTTPRouteMustHaveParents(t, suite.Client, suite.TimeoutConfig, routeName, parents, true)
+			kubernetes.HTTPRouteMustHaveParents(t, suite.Client, suite.TimeoutConfig, routeNN, parents, true)
 
 			testCases := []http.ExpectedResponse{
 				{

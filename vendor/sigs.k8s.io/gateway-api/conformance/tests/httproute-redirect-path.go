@@ -28,54 +28,94 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, HTTPRouteRequestRedirect)
+	ConformanceTests = append(ConformanceTests, HTTPRouteRedirectPath)
 }
 
-var HTTPRouteRequestRedirect = suite.ConformanceTest{
-	ShortName:   "HTTPRouteRequestRedirect",
-	Description: "An HTTPRoute with hostname and statusCode redirect filters",
-	Manifests:   []string{"tests/httproute-request-redirect.yaml"},
+var HTTPRouteRedirectPath = suite.ConformanceTest{
+	ShortName:   "HTTPRouteRedirectPath",
+	Description: "An HTTPRoute with scheme redirect filter",
+	Manifests:   []string{"tests/httproute-redirect-path.yaml"},
+	Features:    []suite.SupportedFeature{suite.SupportHTTPRoutePathRedirect},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
-		routeNN := types.NamespacedName{Name: "request-redirect", Namespace: ns}
+		routeNN := types.NamespacedName{Name: "redirect-path", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
+		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		testCases := []http.ExpectedResponse{{
 			Request: http.Request{
-				Path:             "/hostname-redirect",
+				Path:             "/original-prefix/lemon",
 				UnfollowRedirect: true,
 			},
 			Response: http.Response{
 				StatusCode: 302,
 			},
 			RedirectRequest: &roundtripper.RedirectRequest{
-				Hostname: "example.org",
+				Path: "/replacement-prefix/lemon",
 			},
-			Backend:   "infra-backend-v1",
 			Namespace: ns,
 		}, {
 			Request: http.Request{
-				Path:             "/status-code-301",
+				Path:             "/full/path/original",
 				UnfollowRedirect: true,
 			},
 			Response: http.Response{
-				StatusCode: 301,
+				StatusCode: 302,
 			},
-			Backend:   "infra-backend-v1",
+			RedirectRequest: &roundtripper.RedirectRequest{
+				Path: "/full-path-replacement",
+			},
 			Namespace: ns,
 		}, {
 			Request: http.Request{
-				Path:             "/host-and-status",
+				Path:             "/path-and-host",
+				UnfollowRedirect: true,
+			},
+			Response: http.Response{
+				StatusCode: 302,
+			},
+			RedirectRequest: &roundtripper.RedirectRequest{
+				Host: "example.org",
+				Path: "/replacement-prefix",
+			},
+			Namespace: ns,
+		}, {
+			Request: http.Request{
+				Path:             "/path-and-status",
 				UnfollowRedirect: true,
 			},
 			Response: http.Response{
 				StatusCode: 301,
 			},
 			RedirectRequest: &roundtripper.RedirectRequest{
-				Hostname: "example.org",
+				Path: "/replacement-prefix",
 			},
-			Backend:   "infra-backend-v1",
+			Namespace: ns,
+		}, {
+			Request: http.Request{
+				Path:             "/full-path-and-host",
+				UnfollowRedirect: true,
+			},
+			Response: http.Response{
+				StatusCode: 302,
+			},
+			RedirectRequest: &roundtripper.RedirectRequest{
+				Host: "example.org",
+				Path: "/replacement-full",
+			},
+			Namespace: ns,
+		}, {
+			Request: http.Request{
+				Path:             "/full-path-and-status",
+				UnfollowRedirect: true,
+			},
+			Response: http.Response{
+				StatusCode: 301,
+			},
+			RedirectRequest: &roundtripper.RedirectRequest{
+				Path: "/replacement-full",
+			},
 			Namespace: ns,
 		},
 		}

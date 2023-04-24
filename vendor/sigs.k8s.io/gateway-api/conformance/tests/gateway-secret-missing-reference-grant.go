@@ -51,6 +51,7 @@ var GatewaySecretMissingReferenceGrant = suite.ConformanceTest{
 					Status: metav1.ConditionFalse,
 					Reason: string(v1beta1.ListenerReasonRefNotPermitted),
 				}},
+				AttachedRoutes: 0,
 			}}
 
 			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)

@@ -41,17 +41,19 @@ var HTTPRouteListenerHostnameMatching = suite.ConformanceTest{
 		// namespace so we have to wait for it to be ready.
 		kubernetes.NamespacesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, []string{ns})
 
+		routeNN1 := types.NamespacedName{Name: "backend-v1", Namespace: ns}
+		routeNN2 := types.NamespacedName{Name: "backend-v2", Namespace: ns}
+		routeNN3 := types.NamespacedName{Name: "backend-v3", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "httproute-listener-hostname-matching", Namespace: ns}
 
-		_ = kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-1"),
-			types.NamespacedName{Namespace: ns, Name: "backend-v1"},
-		)
-		_ = kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-2"),
-			types.NamespacedName{Namespace: ns, Name: "backend-v2"},
-		)
-		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-3", "listener-4"),
-			types.NamespacedName{Namespace: ns, Name: "backend-v3"},
-		)
+		kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-1"), routeNN1)
+		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN1, gwNN)
+
+		kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-2"), routeNN2)
+		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN2, gwNN)
+
+		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN, "listener-3", "listener-4"), routeNN3)
+		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN3, gwNN)
 
 		testCases := []http.ExpectedResponse{{
 			Request:   http.Request{Host: "bar.com", Path: "/"},

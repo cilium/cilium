@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
@@ -45,7 +46,7 @@ var GatewayClassObservedGenerationBump = suite.ConformanceTest{
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
-			kubernetes.GWCMustBeAccepted(t, s.Client, s.TimeoutConfig, gwc.Name)
+			kubernetes.GWCMustHaveAcceptedConditionAny(t, s.Client, s.TimeoutConfig, gwc.Name)
 
 			original := &v1beta1.GatewayClass{}
 			err := s.Client.Get(ctx, gwc, original)
@@ -58,11 +59,11 @@ var GatewayClassObservedGenerationBump = suite.ConformanceTest{
 			desc := "new"
 			mutate.Spec.Description = &desc
 
-			err = s.Client.Update(ctx, mutate)
-			require.NoErrorf(t, err, "error updating the GatewayClass: %v", err)
+			err = s.Client.Patch(ctx, mutate, client.MergeFrom(original))
+			require.NoErrorf(t, err, "error patching the GatewayClass: %v", err)
 
 			// Ensure the generation and observedGeneration sync up
-			kubernetes.GWCMustBeAccepted(t, s.Client, s.TimeoutConfig, gwc.Name)
+			kubernetes.GWCMustHaveAcceptedConditionAny(t, s.Client, s.TimeoutConfig, gwc.Name)
 
 			updated := &v1beta1.GatewayClass{}
 			err = s.Client.Get(ctx, gwc, updated)

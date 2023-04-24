@@ -23,63 +23,78 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
+	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, HTTPRouteMatching)
+	ConformanceTests = append(ConformanceTests, HTTPRouteRedirectPort)
 }
 
-var HTTPRouteMatching = suite.ConformanceTest{
-	ShortName:   "HTTPRouteMatching",
-	Description: "A single HTTPRoute with path and header matching for different backends",
-	Manifests:   []string{"tests/httproute-matching.yaml"},
+var HTTPRouteRedirectPort = suite.ConformanceTest{
+	ShortName:   "HTTPRouteRedirectPort",
+	Description: "An HTTPRoute with a port redirect filter",
+	Manifests:   []string{"tests/httproute-redirect-port.yaml"},
+	Features:    []suite.SupportedFeature{suite.SupportHTTPRoutePortRedirect},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
-		routeNN := types.NamespacedName{Name: "matching", Namespace: ns}
+		routeNN := types.NamespacedName{Name: "redirect-port", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		testCases := []http.ExpectedResponse{{
-			Request:   http.Request{Path: "/"},
-			Backend:   "infra-backend-v1",
+			Request: http.Request{
+				Path:             "/port",
+				UnfollowRedirect: true,
+			},
+			Response: http.Response{
+				StatusCode: 302,
+			},
+			RedirectRequest: &roundtripper.RedirectRequest{
+				Port: "8083",
+			},
 			Namespace: ns,
 		}, {
-			Request:   http.Request{Path: "/example"},
-			Backend:   "infra-backend-v1",
+			Request: http.Request{
+				Path:             "/port-and-host",
+				UnfollowRedirect: true,
+			},
+			Response: http.Response{
+				StatusCode: 302,
+			},
+			RedirectRequest: &roundtripper.RedirectRequest{
+				Host: "example.org",
+				Port: "8083",
+			},
 			Namespace: ns,
 		}, {
-			Request:   http.Request{Path: "/", Headers: map[string]string{"Version": "one"}},
-			Backend:   "infra-backend-v1",
+			Request: http.Request{
+				Path:             "/port-and-status",
+				UnfollowRedirect: true,
+			},
+			Response: http.Response{
+				StatusCode: 301,
+			},
+			RedirectRequest: &roundtripper.RedirectRequest{
+				Port: "8083",
+			},
 			Namespace: ns,
 		}, {
-			Request:   http.Request{Path: "/v2"},
-			Backend:   "infra-backend-v2",
+			Request: http.Request{
+				Path:             "/port-and-host-and-status",
+				UnfollowRedirect: true,
+			},
+			Response: http.Response{
+				StatusCode: 302,
+			},
+			RedirectRequest: &roundtripper.RedirectRequest{
+				Port: "8083",
+				Host: "example.org",
+			},
 			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/v2/example"},
-			Backend:   "infra-backend-v2",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/", Headers: map[string]string{"Version": "two"}},
-			Backend:   "infra-backend-v2",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/v2/"},
-			Backend:   "infra-backend-v2",
-			Namespace: ns,
-		}, {
-			// Not a path segment prefix so should not match /v2.
-			Request:   http.Request{Path: "/v2example"},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/foo/v2/example"},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}}
-
+		},
+		}
 		for i := range testCases {
 			// Declare tc here to avoid loop variable
 			// reuse issues across parallel tests.

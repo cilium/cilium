@@ -27,59 +27,47 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, HTTPRouteMatching)
+	ConformanceTests = append(ConformanceTests, HTTPRouteRewritePath)
 }
 
-var HTTPRouteMatching = suite.ConformanceTest{
-	ShortName:   "HTTPRouteMatching",
-	Description: "A single HTTPRoute with path and header matching for different backends",
-	Manifests:   []string{"tests/httproute-matching.yaml"},
+var HTTPRouteRewritePath = suite.ConformanceTest{
+	ShortName:   "HTTPRouteRewritePath",
+	Description: "An HTTPRoute with path rewrite filter",
+	Manifests:   []string{"tests/httproute-rewrite-path.yaml"},
+	Features:    []suite.SupportedFeature{suite.SupportHTTPRoutePathRewrite},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
-		routeNN := types.NamespacedName{Name: "matching", Namespace: ns}
+		routeNN := types.NamespacedName{Name: "rewrite-path", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
-		testCases := []http.ExpectedResponse{{
-			Request:   http.Request{Path: "/"},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/example"},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/", Headers: map[string]string{"Version": "one"}},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/v2"},
-			Backend:   "infra-backend-v2",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/v2/example"},
-			Backend:   "infra-backend-v2",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/", Headers: map[string]string{"Version": "two"}},
-			Backend:   "infra-backend-v2",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/v2/"},
-			Backend:   "infra-backend-v2",
-			Namespace: ns,
-		}, {
-			// Not a path segment prefix so should not match /v2.
-			Request:   http.Request{Path: "/v2example"},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/foo/v2/example"},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}}
-
+		testCases := []http.ExpectedResponse{
+			{
+				Request: http.Request{
+					Path: "/prefix/one/two",
+				},
+				ExpectedRequest: &http.ExpectedRequest{
+					Request: http.Request{
+						Path: "/one/two",
+					},
+				},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+			{
+				Request: http.Request{
+					Path: "/full/one/two",
+				},
+				ExpectedRequest: &http.ExpectedRequest{
+					Request: http.Request{
+						Path: "/one",
+					},
+				},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+		}
 		for i := range testCases {
 			// Declare tc here to avoid loop variable
 			// reuse issues across parallel tests.
