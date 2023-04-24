@@ -1,13 +1,13 @@
-name: ClusterMesh (ci-multicluster)
+name: ClusterMesh (ci-multicluster-1.12)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   issue_comment:
     types:
       - created
-  # Run every 6 hours
+  # Run once a day
   schedule:
-    - cron:  '0 3/6 * * *'
+    - cron:  '0 5 * * *'
   ### FOR TESTING PURPOSES
   # This workflow runs in the context of `main`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
@@ -56,8 +56,8 @@ concurrency:
     ${{
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-multicluster' ||
-        github.event.comment.body == '/test'
+        github.event.comment.body == '/ci-multicluster-1.12' ||
+        github.event.comment.body == '/test-backport-1.12'
       ) && github.event.issue.number) ||
       (github.event_name == 'pull_request' && github.event.pull_request.number)
     }}
@@ -65,7 +65,7 @@ concurrency:
 
 env:
   kind_version: v0.17.0
-  k8s_version: v1.27.1
+  k8s_version: v1.24.12
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.13.1
   clusterName1: cluster1-${{ github.run_id }}
@@ -79,8 +79,8 @@ jobs:
     name: Deduce required tests from code changes
     if: |
       (github.event_name == 'issue_comment' &&
-        (github.event.comment.body == '/ci-multicluster' ||
-         github.event.comment.body == '/test')) ||
+        (github.event.comment.body == '/ci-multicluster-1.12' ||
+         github.event.comment.body == '/test-backport-1.12')) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -146,7 +146,7 @@ jobs:
   skip-test-run:
     # If the modified files are not relevant for this test then we can skip
     # this test and mark it as successful.
-    if: github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'false'
+    if: github.event.comment.body == '/test-backport-1.12' && needs.check_changes.outputs.tested == 'false'
     runs-on: ubuntu-latest
     needs: setup-report
     name: Set commit status to success (skipped)
@@ -161,15 +161,15 @@ jobs:
         state: success
         target_url: ${{ env.check_url }}
 
-  # This job is skipped when the workflow was triggered with the generic `/test`
+  # This job is skipped when the workflow was triggered with the generic `/test-backport-1.12`
   # trigger if the only modified files were under `test/` or `Documentation/`.
   installation-and-connectivity:
     needs: setup-report
     name: Setup & Test
     if: |
       ((github.event_name == 'issue_comment' &&
-        ((github.event.comment.body == '/ci-multicluster') ||
-         (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true'))) ||
+        ((github.event.comment.body == '/ci-multicluster-1.12') ||
+         (github.event.comment.body == '/test-backport-1.12' && needs.check_changes.outputs.tested == 'true'))) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request')
     runs-on: ubuntu-latest
@@ -276,7 +276,7 @@ jobs:
 
         CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
         if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-          CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
+          CILIUM_INSTALL_TUNNEL="--helm-set-string=tunnel=disabled \
             --helm-set=autoDirectNodeRoutes=true \
             --helm-set=ipv4NativeRoutingCIDR=10.240.0.0/12 \
             --helm-set=ipv6NativeRoutingCIDR=fd00:10:240::/44"
@@ -309,6 +309,12 @@ jobs:
             ;;
         esac
 
+        CILIUM_INSTALL_L7_PROXY="--helm-set=l7Proxy=true"
+        if [ "${{ matrix.encryption }}" == "wireguard" ]; then
+          # Wireguard (--enable-wireguard) is not compatible with L7 proxy (--enable-l7-proxy)
+          CILIUM_INSTALL_L7_PROXY="--helm-set=l7Proxy=false"
+        fi
+
         HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
           --helm-set=hubble.relay.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
           --helm-set=hubble.relay.image.useDigest=false"
@@ -329,7 +335,7 @@ jobs:
             --test='!/pod-to-cidr'"
         fi
 
-        echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_IPFAMILY}" >> $GITHUB_OUTPUT
+        echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_L7_PROXY}" >> $GITHUB_OUTPUT
         echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
         echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
         echo clustermesh_enable_defaults=${CLUSTERMESH_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT

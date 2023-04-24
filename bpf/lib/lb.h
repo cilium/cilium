@@ -423,10 +423,10 @@ lb_l4_xlate(struct __ctx_buff *ctx, __u8 nexthdr __maybe_unused, int l4_off,
 
 #ifdef ENABLE_IPV6
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-					 struct csum_offset *csum_off,
 					 struct ipv6_ct_tuple *tuple, int flags,
 					 struct lb6_reverse_nat *nat)
 {
+	struct csum_offset csum_off = {};
 	union v6addr old_saddr;
 	union v6addr tmp;
 	__u8 *new_saddr;
@@ -435,8 +435,10 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 
 	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT, nat->address.p4, nat->port);
 
+	csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
 	if (nat->port) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, csum_off);
+		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, &csum_off);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -458,8 +460,8 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 		return DROP_WRITE_ERROR;
 
 	sum = csum_diff(old_saddr.addr, 16, new_saddr, 16, 0);
-	if (csum_off->offset &&
-	    csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+	if (csum_off.offset &&
+	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
 	return 0;
@@ -468,15 +470,12 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 /** Perform IPv6 reverse NAT based on reverse NAT index
  * @arg ctx		packet
  * @arg l4_off		offset to L4
- * @arg csum_off	offset to L4 checksum field
- * @arg csum_flags	checksum flags
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  * @arg saddr_tuple	If set, tuple address will be updated with new source address
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-				       struct csum_offset *csum_off, __u16 index,
-				       struct ipv6_ct_tuple *tuple, int flags)
+				       __u16 index, struct ipv6_ct_tuple *tuple, int flags)
 {
 	struct lb6_reverse_nat *nat;
 
@@ -485,7 +484,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (nat == NULL)
 		return 0;
 
-	return __lb6_rev_nat(ctx, l4_off, csum_off, tuple, flags, nat);
+	return __lb6_rev_nat(ctx, l4_off, tuple, flags, nat);
 }
 
 static __always_inline void
@@ -883,11 +882,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		 * service lookup.
 		 */
 		if (IS_ERR(ret))
-			goto drop_no_service;
+			goto drop_err;
 		goto update_state;
-	case CT_REOPENED:
-	case CT_ESTABLISHED:
-	case CT_RELATED:
 	case CT_REPLY:
 		/* See lb4_local comment */
 		if (state->rev_nat_index == 0) {
@@ -896,7 +892,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 		break;
 	default:
-		goto drop_no_service;
+		ret = DROP_UNKNOWN_CT;
+		goto drop_err;
 	}
 
 	/* See lb4_local comment */
@@ -962,8 +959,10 @@ update_state:
 	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off,
 			 key, backend, skip_l3_xlate);
 drop_no_service:
+	ret = DROP_NO_SERVICE;
+drop_err:
 	tuple->flags = flags;
-	return DROP_NO_SERVICE;
+	return ret;
 }
 
 /* lb6_ctx_store_state() stores per packet load balancing state to be picked
@@ -1033,18 +1032,21 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 
 #ifdef ENABLE_IPV4
 static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
 					 const struct lb4_reverse_nat *nat,
 					 const struct ct_state *ct_state, bool has_l4_header)
 {
+	struct csum_offset csum_off = {};
 	__be32 old_sip, new_sip, sum = 0;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
 
+	if (has_l4_header)
+		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
 	if (nat->port && has_l4_header) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, csum_off);
+		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, &csum_off);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -1094,8 +1096,8 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 
-	if (csum_off->offset &&
-	    csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+	if (csum_off.offset &&
+	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
 	return 0;
@@ -1106,13 +1108,10 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
  * @arg ctx		packet
  * @arg l3_off		offset to L3
  * @arg l4_off		offset to L4
- * @arg csum_off	offset to L4 checksum field
- * @arg csum_flags	checksum flags
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  */
 static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-				       struct csum_offset *csum_off,
 				       struct ct_state *ct_state,
 				       struct ipv4_ct_tuple *tuple, int flags, bool has_l4_header)
 {
@@ -1123,7 +1122,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 	if (nat == NULL)
 		return 0;
 
-	return __lb4_rev_nat(ctx, l3_off, l4_off, csum_off, tuple, flags, nat,
+	return __lb4_rev_nat(ctx, l3_off, l4_off, tuple, flags, nat,
 			     ct_state, has_l4_header);
 }
 
@@ -1209,27 +1208,6 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 #else
 	return true;
 #endif /* ENABLE_SRC_RANGE_CHECK */
-}
-
-static __always_inline int
-lb4_populate_ports(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off)
-{
-	if (tuple->nexthdr == IPPROTO_TCP ||
-#ifdef ENABLE_SCTP
-	    tuple->nexthdr == IPPROTO_SCTP ||
-#endif  /* ENABLE_SCTP */
-	    tuple->nexthdr == IPPROTO_UDP) {
-		struct {
-			__be16 sport;
-			__be16 dport;
-		} l4hdr;
-		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
-			return -EFAULT;
-		tuple->sport = l4hdr.sport;
-		tuple->dport = l4hdr.dport;
-		return 0;
-	}
-	return -ENOTSUP;
 }
 
 static __always_inline bool
@@ -1577,11 +1555,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		 * service lookup.
 		 */
 		if (IS_ERR(ret))
-			goto drop_no_service;
+			goto drop_err;
 		goto update_state;
-	case CT_REOPENED:
-	case CT_ESTABLISHED:
-	case CT_RELATED:
 	case CT_REPLY:
 		/* For backward-compatibility we need to update reverse NAT
 		 * index in the CT_SERVICE entry for old connections, as later
@@ -1595,7 +1570,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		}
 		break;
 	default:
-		goto drop_no_service;
+		ret = DROP_UNKNOWN_CT;
+		goto drop_err;
 	}
 
 	/* If the CT_SERVICE entry is from a non-related connection (e.g.
@@ -1690,8 +1666,10 @@ update_state:
 			 tuple->nexthdr, l3_off, l4_off, key,
 			 backend, has_l4_header, skip_l3_xlate);
 drop_no_service:
+	ret = DROP_NO_SERVICE;
+drop_err:
 	tuple->flags = flags;
-	return DROP_NO_SERVICE;
+	return ret;
 }
 
 /* lb4_ctx_store_state() stores per packet load balancing state to be picked
