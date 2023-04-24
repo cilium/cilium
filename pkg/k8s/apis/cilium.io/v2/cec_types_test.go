@@ -8,7 +8,6 @@ package v2
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"sigs.k8s.io/yaml"
 
@@ -53,7 +52,6 @@ func (s *CiliumV2Suite) TestParseEnvoySpec(c *C) {
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(envoySpec))
 	c.Assert(err, IsNil)
-	fmt.Printf("\nJSON spec:\n%s\n", string(jsonBytes))
 	cec := &CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, &cec.Spec)
 	c.Assert(err, IsNil)
