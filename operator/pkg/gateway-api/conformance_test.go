@@ -20,7 +20,7 @@ import (
 
 // TestConformance runs the conformance tests for Gateway API
 // Adapted from https://github.com/kubernetes-sigs/gateway-api/blob/v0.6.1/conformance/conformance_test.go
-// Some features are not supported by Cilium (e.g. TLSRoute), so we skip them.
+// Some features are not supported by Cilium, so we skip them.
 // This test should be adjusted as new features are added to the Gateway API.
 //
 // The below command can be used to run the conformance tests locally, you can also run directly from
