@@ -4,7 +4,6 @@
 package envoy
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -157,9 +156,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfig))
 	c.Assert(err, IsNil)
-	// var buf bytes.Buffer
-	// json.Indent(&buf, jsonBytes, "", "\t")
-	// fmt.Printf("JSON spec:\n%s\n", buf.String())
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
@@ -248,9 +244,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigInvalid))
 	c.Assert(err, IsNil)
-	// var buf bytes.Buffer
-	// json.Indent(&buf, jsonBytes, "", "\t")
-	// fmt.Printf("JSON spec:\n%s\n", buf.String())
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
@@ -321,9 +314,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigNoAddress))
 	c.Assert(err, IsNil)
-	// var buf bytes.Buffer
-	// json.Indent(&buf, jsonBytes, "", "\t")
-	// fmt.Printf("JSON spec:\n%s\n", buf.String())
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
@@ -436,9 +426,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
 	c.Assert(err, IsNil)
-	// var buf bytes.Buffer
-	// json.Indent(&buf, jsonBytes, "", "\t")
-	// fmt.Printf("JSON spec:\n%s\n", buf.String())
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
@@ -599,10 +586,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigTCPProxy))
 	c.Assert(err, IsNil)
 
-	var buf bytes.Buffer
-	json.Indent(&buf, jsonBytes, "", "\t")
-	fmt.Printf("JSON spec:\n%s\n", buf.String())
-
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
@@ -730,10 +713,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
 	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigTCPProxyTermination))
 	c.Assert(err, IsNil)
-
-	var buf bytes.Buffer
-	json.Indent(&buf, jsonBytes, "", "\t")
-	fmt.Printf("JSON spec:\n%s\n", buf.String())
 
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
