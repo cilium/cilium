@@ -213,6 +213,7 @@ const (
 	//
 	// * "NotAllowedByListeners"
 	// * "NoMatchingListenerHostname"
+	// * "NoMatchingParent"
 	// * "UnsupportedValue"
 	//
 	// Possible reasons for this condition to be Unknown are:

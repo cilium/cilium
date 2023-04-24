@@ -82,18 +82,20 @@ type Response struct {
 	AbsentHeaders []string
 }
 
-// requiredConsecutiveSuccesses is the number of requests that must succeed in a row
-// for MakeRequestAndExpectEventuallyConsistentResponse to consider the response "consistent"
-// before making additional assertions on the response body. If this number is not reached within
-// maxTimeToConsistency, the test will fail.
-const requiredConsecutiveSuccesses = 3
-
 // MakeRequestAndExpectEventuallyConsistentResponse makes a request with the given parameters,
 // understanding that the request may fail for some amount of time.
 //
 // Once the request succeeds consistently with the response having the expected status code, make
 // additional assertions on the response body using the provided ExpectedResponse.
 func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, r roundtripper.RoundTripper, timeoutConfig config.TimeoutConfig, gwAddr string, expected ExpectedResponse) {
+	t.Helper()
+
+	req := MakeRequest(t, &expected, gwAddr, "HTTP", "http")
+
+	WaitForConsistentResponse(t, r, req, expected, timeoutConfig.RequiredConsecutiveSuccesses, timeoutConfig.MaxTimeToConsistency)
+}
+
+func MakeRequest(t *testing.T, expected *ExpectedResponse, gwAddr, protocol, scheme string) roundtripper.Request {
 	t.Helper()
 
 	if expected.Request.Method == "" {
@@ -104,15 +106,15 @@ func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, r roundtripp
 		expected.Response.StatusCode = 200
 	}
 
-	t.Logf("Making %s request to http://%s%s", expected.Request.Method, gwAddr, expected.Request.Path)
+	t.Logf("Making %s request to %s://%s%s", expected.Request.Method, scheme, gwAddr, expected.Request.Path)
 
 	path, query, _ := strings.Cut(expected.Request.Path, "?")
 
 	req := roundtripper.Request{
 		Method:           expected.Request.Method,
 		Host:             expected.Request.Host,
-		URL:              url.URL{Scheme: "http", Host: gwAddr, Path: path, RawQuery: query},
-		Protocol:         "HTTP",
+		URL:              url.URL{Scheme: scheme, Host: gwAddr, Path: path, RawQuery: query},
+		Protocol:         protocol,
 		Headers:          map[string][]string{},
 		UnfollowRedirect: expected.Request.UnfollowRedirect,
 	}
@@ -129,12 +131,12 @@ func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, r roundtripp
 	}
 	req.Headers["X-Echo-Set-Header"] = []string{strings.Join(backendSetHeaders, ",")}
 
-	WaitForConsistentResponse(t, r, req, expected, requiredConsecutiveSuccesses, timeoutConfig.MaxTimeToConsistency)
+	return req
 }
 
-// awaitConvergence runs the given function until it returns 'true' `threshold` times in a row.
+// AwaitConvergence runs the given function until it returns 'true' `threshold` times in a row.
 // Each failed attempt has a 1s delay; successful attempts have no delay.
-func awaitConvergence(t *testing.T, threshold int, maxTimeToConsistency time.Duration, fn func(elapsed time.Duration) bool) {
+func AwaitConvergence(t *testing.T, threshold int, maxTimeToConsistency time.Duration, fn func(elapsed time.Duration) bool) {
 	successes := 0
 	attempts := 0
 	start := time.Now()
@@ -162,7 +164,7 @@ func awaitConvergence(t *testing.T, threshold int, maxTimeToConsistency time.Dur
 		select {
 		// Capture the overall timeout
 		case <-to:
-			t.Fatalf("timeout while waiting after %d attempts, %d/%d sucessess", attempts, successes, threshold)
+			t.Fatalf("timeout while waiting after %d attempts, %d/%d successes", attempts, successes, threshold)
 			// And the per-try delay
 		case <-time.After(delay):
 		}
@@ -173,14 +175,14 @@ func awaitConvergence(t *testing.T, threshold int, maxTimeToConsistency time.Dur
 // the expected response consistently. The provided threshold determines how many times in
 // a row this must occur to be considered "consistent".
 func WaitForConsistentResponse(t *testing.T, r roundtripper.RoundTripper, req roundtripper.Request, expected ExpectedResponse, threshold int, maxTimeToConsistency time.Duration) {
-	awaitConvergence(t, threshold, maxTimeToConsistency, func(elapsed time.Duration) bool {
+	AwaitConvergence(t, threshold, maxTimeToConsistency, func(elapsed time.Duration) bool {
 		cReq, cRes, err := r.CaptureRoundTrip(req)
 		if err != nil {
 			t.Logf("Request failed, not ready yet: %v (after %v)", err.Error(), elapsed)
 			return false
 		}
 
-		if err := CompareRequest(cReq, cRes, expected); err != nil {
+		if err := CompareRequest(&req, cReq, cRes, expected); err != nil {
 			t.Logf("Response expectation failed for request: %v  not ready yet: %v (after %v)", req, err, elapsed)
 			return false
 		}
@@ -190,7 +192,7 @@ func WaitForConsistentResponse(t *testing.T, r roundtripper.RoundTripper, req ro
 	t.Logf("Request passed")
 }
 
-func CompareRequest(cReq *roundtripper.CapturedRequest, cRes *roundtripper.CapturedResponse, expected ExpectedResponse) error {
+func CompareRequest(req *roundtripper.Request, cReq *roundtripper.CapturedRequest, cRes *roundtripper.CapturedResponse, expected ExpectedResponse) error {
 	if expected.Response.StatusCode != cRes.StatusCode {
 		return fmt.Errorf("expected status code to be %d, got %d", expected.Response.StatusCode, cRes.StatusCode)
 	}
@@ -204,6 +206,10 @@ func CompareRequest(cReq *roundtripper.CapturedRequest, cRes *roundtripper.Captu
 
 		if expected.ExpectedRequest.Method == "" {
 			expected.ExpectedRequest.Method = "GET"
+		}
+
+		if expected.ExpectedRequest.Host != "" && expected.ExpectedRequest.Host != cReq.Host {
+			return fmt.Errorf("expected host to be %s, got %s", expected.ExpectedRequest.Host, cReq.Host)
 		}
 
 		if expected.ExpectedRequest.Path != cReq.Path {
@@ -286,14 +292,29 @@ func CompareRequest(cReq *roundtripper.CapturedRequest, cRes *roundtripper.Captu
 		if expected.RedirectRequest == nil {
 			return nil
 		}
-		if expected.RedirectRequest.Hostname != cRes.RedirectRequest.Hostname {
-			return fmt.Errorf("expected redirected hostname to be %s, got %s", expected.RedirectRequest.Hostname, cRes.RedirectRequest.Hostname)
+
+		setRedirectRequestDefaults(req, cRes, &expected)
+
+		if expected.RedirectRequest.Host != cRes.RedirectRequest.Host {
+			return fmt.Errorf("expected redirected hostname to be %s, got %s", expected.RedirectRequest.Host, cRes.RedirectRequest.Host)
+		}
+
+		if expected.RedirectRequest.Port != cRes.RedirectRequest.Port {
+			return fmt.Errorf("expected redirected port to be %s, got %s", expected.RedirectRequest.Port, cRes.RedirectRequest.Port)
+		}
+
+		if expected.RedirectRequest.Scheme != cRes.RedirectRequest.Scheme {
+			return fmt.Errorf("expected redirected scheme to be %s, got %s", expected.RedirectRequest.Scheme, cRes.RedirectRequest.Scheme)
+		}
+
+		if expected.RedirectRequest.Path != cRes.RedirectRequest.Path {
+			return fmt.Errorf("expected redirected path to be %s, got %s", expected.RedirectRequest.Path, cRes.RedirectRequest.Path)
 		}
 	}
 	return nil
 }
 
-// Get User-defined test case name or generate from expected response to a given request.
+// GetTestCaseName gets the user-defined test case name or generates one from expected response to a given request.
 func (er *ExpectedResponse) GetTestCaseName(i int) string {
 
 	// If TestCase name is provided then use that or else generate one.
@@ -314,4 +335,24 @@ func (er *ExpectedResponse) GetTestCaseName(i int) string {
 		return fmt.Sprintf("%s should go to %s", reqStr, er.Backend)
 	}
 	return fmt.Sprintf("%s should receive a %d", reqStr, er.Response.StatusCode)
+}
+
+func setRedirectRequestDefaults(req *roundtripper.Request, cRes *roundtripper.CapturedResponse, expected *ExpectedResponse) {
+	// If the expected host is nil it means we do not test host redirect.
+	// In that case we are setting it to the one we got from the response because we do not know the ip/host of the gateway.
+	if expected.RedirectRequest.Host == "" {
+		expected.RedirectRequest.Host = cRes.RedirectRequest.Host
+	}
+
+	if expected.RedirectRequest.Port == "" {
+		expected.RedirectRequest.Port = req.URL.Port()
+	}
+
+	if expected.RedirectRequest.Scheme == "" {
+		expected.RedirectRequest.Scheme = req.URL.Scheme
+	}
+
+	if expected.RedirectRequest.Path == "" {
+		expected.RedirectRequest.Path = req.URL.Path
+	}
 }
