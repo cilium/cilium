@@ -315,14 +315,33 @@ func newEntry(authType uint8, proxyPort uint16, flags policyEntryFlags) PolicyEn
 	}
 }
 
-// AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
-// Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) AllowKey(key PolicyKey, authType uint8, proxyPort uint16) error {
+// newAllowEntry returns an allow PolicyEntry for the specified parameters in
+// network byte-order.
+// This is separated out to be used in unit testing.
+func newAllowEntry(key PolicyKey, authType uint8, proxyPort uint16) PolicyEntry {
 	pef := getPolicyEntryFlags(policyEntryFlagParams{
 		IsWildcardNexthdr:  key.Nexthdr == 0,
 		IsWildcardDestPort: key.DestPortNetwork == 0,
 	})
-	entry := newEntry(authType, proxyPort, pef)
+	return newEntry(authType, proxyPort, pef)
+}
+
+// newDenyEntry returns a deny PolicyEntry for the specified parameters in
+// network byte-order.
+// This is separated out to be used in unit testing.
+func newDenyEntry(key PolicyKey) PolicyEntry {
+	pef := getPolicyEntryFlags(policyEntryFlagParams{
+		IsDeny:             true,
+		IsWildcardNexthdr:  key.Nexthdr == 0,
+		IsWildcardDestPort: key.DestPortNetwork == 0,
+	})
+	return newEntry(0, 0, pef)
+}
+
+// AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
+// Returns an error if the update of the PolicyMap fails.
+func (pm *PolicyMap) AllowKey(key PolicyKey, authType uint8, proxyPort uint16) error {
+	entry := newAllowEntry(key, authType, proxyPort)
 	return pm.Update(&key, &entry)
 }
 
@@ -337,12 +356,7 @@ func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, traff
 // DenyKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
 func (pm *PolicyMap) DenyKey(key PolicyKey) error {
-	pef := getPolicyEntryFlags(policyEntryFlagParams{
-		IsDeny:             true,
-		IsWildcardNexthdr:  key.Nexthdr == 0,
-		IsWildcardDestPort: key.DestPortNetwork == 0,
-	})
-	entry := newEntry(0, 0, pef)
+	entry := newDenyEntry(key)
 	return pm.Update(&key, &entry)
 }
 

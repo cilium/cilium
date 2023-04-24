@@ -101,21 +101,21 @@ func (pm *PolicyMapPrivilegedTestSuite) TestDeleteNonexistentKey(c *C) {
 func (pm *PolicyMapPrivilegedTestSuite) TestDenyPolicyMapDumpToSlice(c *C) {
 	c.Assert(testMap, NotNil)
 
-	fooEntry := newKey(1, 1, 1, 1)
-	fooValue := newEntry(0, 0, getPolicyEntryFlags(policyEntryFlagParams{IsDeny: true}))
-	err := testMap.DenyKey(fooEntry)
+	fooKey := newKey(1, 1, 1, 1)
+	fooEntry := newDenyEntry(fooKey)
+	err := testMap.DenyKey(fooKey)
 	c.Assert(err, IsNil)
 
 	dump, err := testMap.DumpToSlice()
 	c.Assert(err, IsNil)
 	c.Assert(len(dump), Equals, 1)
 
-	c.Assert(dump[0].Key, checker.DeepEquals, fooEntry)
-	c.Assert(dump[0].PolicyEntry, checker.DeepEquals, fooValue)
+	c.Assert(dump[0].Key, checker.DeepEquals, fooKey)
+	c.Assert(dump[0].PolicyEntry, checker.DeepEquals, fooEntry)
 
 	// Special case: deny-all entry
-	barEntry := newKey(0, 0, 0, 0)
-	err = testMap.DenyKey(barEntry)
+	barKey := newKey(0, 0, 0, 0)
+	err = testMap.DenyKey(barKey)
 	c.Assert(err, IsNil)
 
 	dump, err = testMap.DumpToSlice()
