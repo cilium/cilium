@@ -116,7 +116,7 @@ func mergeHTTPRouteStatusConditions(hr *gatewayv1beta1.HTTPRoute, parentRef gate
 
 func httpRouteNotAllowedByListenersCondition(hr *gatewayv1beta1.HTTPRoute, msg string) metav1.Condition {
 	return metav1.Condition{
-		Type:               string(gatewayv1alpha2.RouteConditionResolvedRefs),
+		Type:               string(gatewayv1alpha2.RouteConditionAccepted),
 		Status:             metav1.ConditionFalse,
 		Reason:             string(gatewayv1alpha2.RouteReasonNotAllowedByListeners),
 		Message:            msg,
