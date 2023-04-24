@@ -4328,8 +4328,18 @@ func (kub *Kubectl) HubbleObserve(pod string, args string) *CmdRes {
 
 // HubbleObserveFollow runs `hubble observe --follow --output=jsonpb <args>` on
 // the Cilium pod 'ns/pod' in the background. The process is stopped when ctx is cancelled.
-func (kub *Kubectl) HubbleObserveFollow(ctx context.Context, pod string, args string) *CmdRes {
-	return kub.ExecPodCmdBackground(ctx, CiliumNamespace, pod, "cilium-agent", fmt.Sprintf("hubble observe --follow --output=jsonpb %s", args))
+func (kub *Kubectl) HubbleObserveFollow(ctx context.Context, pod string, args string) (*CmdRes, error) {
+	hubbleRes := kub.ExecPodCmdBackground(ctx, CiliumNamespace, pod, "cilium-agent",
+		fmt.Sprintf("hubble observe --debug --follow --output=jsonpb %s", args))
+	// Wait until we see the following debug log message. This is to ensure
+	// hubble observe is fully ready before returning from HubbleObserveFollow.
+	// We only need to wait for 6s because if the Hubble client can't connect
+	// to the server after 5s, it will error out anyway.
+	err := hubbleRes.WaitUntilMatchTimeout("Sending GetFlows request", 6*time.Second)
+	if err != nil {
+		return hubbleRes, fmt.Errorf("no flows received after timeout: %w", err)
+	}
+	return hubbleRes, nil
 }
 
 // WaitForIPCacheEntry waits until the given ipAddr appears in "cilium bpf ipcache list"
