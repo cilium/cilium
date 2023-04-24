@@ -423,7 +423,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 1)
 		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
 		require.Equal(t, metav1.ConditionStatus("False"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
-		require.Equal(t, "InvalidHTTPRoute", route.Status.RouteStatus.Parents[0].Conditions[0].Reason)
+		require.Equal(t, "NotAllowedByListeners", route.Status.RouteStatus.Parents[0].Conditions[0].Reason)
 		require.Equal(t, "HTTPRoute is not allowed", route.Status.RouteStatus.Parents[0].Conditions[0].Message)
 	})
 

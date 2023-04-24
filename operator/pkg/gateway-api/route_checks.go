@@ -160,7 +160,7 @@ func checkGatewayRouteKindAllowed(ctx context.Context, log *logrus.Entry, c clie
 
 		if !allowed {
 			mergeTLSRouteStatusConditions(route, parentRef, []metav1.Condition{
-				tlsRouteAcceptedCondition(route, false, "TLSRoute is not allowed to attach to this Gateway due to route kind restrictions"),
+				RouteReasonNotAllowedByListeners(route, "TLSRoute is not allowed to attach to this Gateway due to route kind restrictions"),
 			})
 			return ctrl.Result{}, false, nil
 		}
