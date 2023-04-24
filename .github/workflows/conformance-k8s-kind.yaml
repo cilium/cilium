@@ -204,8 +204,7 @@ jobs:
           export KUBERNETES_CONFORMANCE_TEST='y'
           export E2E_REPORT_DIR=${PWD}/_artifacts
           /usr/local/bin/ginkgo --nodes=25                \
-            --focus="\[Conformance\]|\[sig-network\]"     \
-            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|Aggregator|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols|same.port.number.and.different.protocols"   \
+            --focus="Netpol|NetworkPolicy"     \
             /usr/local/bin/e2e.test                       \
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
