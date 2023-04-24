@@ -91,7 +91,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -247,7 +247,7 @@ jobs:
 
     steps:
     - name: Checkout GitHub main
-      uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       with:
         ref: ${{ github.event.repository.default_branch }}
         persist-credentials: false
@@ -346,7 +346,7 @@ jobs:
         echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
 
     - name: Checkout code
-      uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       with:
         ref: ${{ needs.setup-report.outputs.sha }}
         persist-credentials: false
