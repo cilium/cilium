@@ -149,6 +149,10 @@ func (i *defaultTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSRe
 		}
 	}
 
+	if len(backendsMap) == 0 {
+		return nil
+	}
+
 	l, _ := NewSNIListenerWithDefaults("listener", backendsMap)
 	return []ciliumv2.XDSResource{l}
 }

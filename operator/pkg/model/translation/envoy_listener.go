@@ -195,7 +195,6 @@ func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFun
 	var filterChains []*envoy_config_listener.FilterChain
 
 	for backed, hostNames := range backendsForHost {
-
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
 			FilterChainMatch: &envoy_config_listener.FilterChainMatch{
 				ServerNames:       sortAndUnique(hostNames),
