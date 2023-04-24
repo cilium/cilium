@@ -62,3 +62,74 @@ func TestResolveHelmChartVersion(t *testing.T) {
 		})
 	}
 }
+
+func TestParseVals(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []string
+		want    map[string]interface{}
+		wantErr bool
+	}{
+		{
+			name:    "simple-val",
+			input:   []string{"simple=true"},
+			want:    map[string]interface{}{"simple": true},
+			wantErr: false,
+		},
+		{
+			name:    "two-levels",
+			input:   []string{"two.levels=true"},
+			want:    map[string]interface{}{"two": map[string]interface{}{"levels": true}},
+			wantErr: false,
+		},
+		{
+			name:    "multiple-keys",
+			input:   []string{"multiple=true", "keys=true"},
+			want:    map[string]interface{}{"multiple": true, "keys": true},
+			wantErr: false,
+		},
+		{
+			name:    "string-type",
+			input:   []string{"string=testval"},
+			want:    map[string]interface{}{"string": "testval"},
+			wantErr: false,
+		},
+		{
+			name:    "mixed-type",
+			input:   []string{"string=testval", "bool=false"},
+			want:    map[string]interface{}{"string": "testval", "bool": false},
+			wantErr: false,
+		},
+		{
+			name:  "mixed-levels",
+			input: []string{"two.levels=true", "three.levels.deep=true"},
+			want: map[string]interface{}{
+				"two":   map[string]interface{}{"levels": true},
+				"three": map[string]interface{}{"levels": map[string]interface{}{"deep": true}},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "invalid-input",
+			input:   []string{"invalid"},
+			wantErr: true,
+		},
+		{
+			name:    "mixed-invalid",
+			input:   []string{"testkey=val", "invalid"},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseVals(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseVals() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseVals() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
