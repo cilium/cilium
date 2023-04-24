@@ -141,7 +141,7 @@ func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 		if !isAllowed(ctx, c, gw, hr) {
 			// Gateway is not attachable, update the status for this HTTPRoute
 			mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
-				httpRouteAcceptedCondition(hr, false, "HTTPRoute is not allowed"),
+				httpRouteNotAllowedByListenersCondition(hr, "HTTPRoute is not allowed"),
 			})
 			continue
 		}

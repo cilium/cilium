@@ -113,3 +113,14 @@ func mergeHTTPRouteStatusConditions(hr *gatewayv1beta1.HTTPRoute, parentRef gate
 		Conditions:     updates,
 	})
 }
+
+func httpRouteNotAllowedByListenersCondition(hr *gatewayv1beta1.HTTPRoute, msg string) metav1.Condition {
+	return metav1.Condition{
+		Type:               string(gatewayv1alpha2.RouteConditionResolvedRefs),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(gatewayv1alpha2.RouteReasonNotAllowedByListeners),
+		Message:            msg,
+		ObservedGeneration: hr.GetGeneration(),
+		LastTransitionTime: metav1.NewTime(time.Now()),
+	}
+}

@@ -164,7 +164,7 @@ jobs:
             --gateway-class cilium \
             --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching,GatewayClassObservedGenerationBump,HTTPResponseHeaderModification \
             -test.run "TestConformance" \
-            -test.skip "TestConformance/HTTPRouteListenerHostnameMatching,TestConformance/HTTPRouteDisallowedKind/Route_should_not_have_been_accepted_with_reason_NotAllowedByListeners" # Enable once HTTPRouteListenerHostnameMatching #24217 is fixed, enable Route_should_not_have_been_accepted_with_reason_NotAllowedByListeners once http route isAllowed is refactored
+            -test.skip "TestConformance/HTTPRouteListenerHostnameMatchings" # Enable once #24217 is fixed
 
       - name: Post-test information gathering
         if: ${{ !success() }}
