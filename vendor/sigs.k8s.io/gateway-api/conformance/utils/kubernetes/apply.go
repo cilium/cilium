@@ -218,9 +218,7 @@ func (a Applier) MustApplyWithCleanup(t *testing.T, c client.Client, timeoutConf
 					defer cancel()
 					t.Logf("Deleting %s %s", uObj.GetName(), uObj.GetKind())
 					err = c.Delete(ctx, uObj)
-					if !apierrors.IsNotFound(err) {
-						require.NoErrorf(t, err, "error deleting resource")
-					}
+					require.NoErrorf(t, err, "error deleting resource")
 				})
 			}
 			continue
@@ -236,9 +234,7 @@ func (a Applier) MustApplyWithCleanup(t *testing.T, c client.Client, timeoutConf
 				defer cancel()
 				t.Logf("Deleting %s %s", uObj.GetName(), uObj.GetKind())
 				err = c.Delete(ctx, uObj)
-				if !apierrors.IsNotFound(err) {
-					require.NoErrorf(t, err, "error deleting resource")
-				}
+				require.NoErrorf(t, err, "error deleting resource")
 			})
 		}
 		require.NoErrorf(t, err, "error updating resource")

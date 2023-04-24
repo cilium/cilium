@@ -53,7 +53,6 @@ var GatewaySecretReferenceGrantSpecific = suite.ConformanceTest{
 						Reason: string(v1beta1.ListenerReasonProgrammed),
 					},
 				},
-				AttachedRoutes: 0,
 			}}
 
 			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)

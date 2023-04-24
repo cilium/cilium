@@ -19,10 +19,8 @@ package tests
 import (
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -38,21 +36,6 @@ var HTTPRouteInvalidCrossNamespaceParentRef = suite.ConformanceTest{
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
 		routeNN := types.NamespacedName{Name: "invalid-cross-namespace-parent-ref", Namespace: "gateway-conformance-web-backend"}
-		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
-
-		// When running conformance tests, implementations are expected to have visibility across all namespaces, and
-		// must be setting this condition on routes that are not allowed. However, outside of conformance testing,
-		// it's also valid for implementations to run in modes where they only have access to a limited subset of
-		// namespaces, in which case they are not obligated to populate this condition on routes they cannot access.
-		t.Run("HTTPRoute should have an Accepted: false condition with reason NotAllowedByListeners", func(t *testing.T) {
-			acceptedCond := metav1.Condition{
-				Type:   string(v1beta1.RouteConditionAccepted),
-				Status: metav1.ConditionFalse,
-				Reason: string(v1beta1.RouteReasonNotAllowedByListeners),
-			}
-
-			kubernetes.HTTPRouteMustHaveCondition(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN, acceptedCond)
-		})
 
 		t.Run("Route should not have Parents set in status", func(t *testing.T) {
 			kubernetes.HTTPRouteMustHaveNoAcceptedParents(t, suite.Client, suite.TimeoutConfig, routeNN)

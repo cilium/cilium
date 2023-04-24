@@ -24,7 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
@@ -39,19 +38,26 @@ var HTTPRouteObservedGenerationBump = suite.ConformanceTest{
 	ShortName:   "HTTPRouteObservedGenerationBump",
 	Description: "A HTTPRoute in the gateway-conformance-infra namespace should update the observedGeneration in all of it's Status.Conditions after an update to the spec",
 	Manifests:   []string{"tests/httproute-observed-generation-bump.yaml"},
-	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
+	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
+
 		routeNN := types.NamespacedName{Name: "observed-generation-bump", Namespace: "gateway-conformance-infra"}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+
+		acceptedCondition := metav1.Condition{
+			Type:   string(v1beta1.RouteConditionAccepted),
+			Status: metav1.ConditionTrue,
+			Reason: "", // any reason
+		}
 
 		t.Run("observedGeneration should increment", func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
 			namespaces := []string{"gateway-conformance-infra"}
-			kubernetes.NamespacesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, namespaces)
+			kubernetes.NamespacesMustBeAccepted(t, s.Client, s.TimeoutConfig, namespaces)
 
 			original := &v1beta1.HTTPRoute{}
-			err := suite.Client.Get(ctx, routeNN, original)
+			err := s.Client.Get(ctx, routeNN, original)
 			require.NoErrorf(t, err, "error getting HTTPRoute: %v", err)
 
 			// Sanity check
@@ -59,18 +65,13 @@ var HTTPRouteObservedGenerationBump = suite.ConformanceTest{
 
 			mutate := original.DeepCopy()
 			mutate.Spec.Rules[0].BackendRefs[0].Name = "infra-backend-v2"
-			err = suite.Client.Patch(ctx, mutate, client.MergeFrom(original))
-			require.NoErrorf(t, err, "error patching the HTTPRoute: %v", err)
+			err = s.Client.Update(ctx, mutate)
+			require.NoErrorf(t, err, "error updating the HTTPRoute: %v", err)
 
-			kubernetes.HTTPRouteMustHaveCondition(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN, metav1.Condition{
-				Type:   string(v1beta1.RouteConditionAccepted),
-				Status: metav1.ConditionTrue,
-				Reason: "", // any reason
-			})
-			kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
+			kubernetes.HTTPRouteMustHaveCondition(t, s.Client, s.TimeoutConfig, routeNN, gwNN, acceptedCondition)
 
 			updated := &v1beta1.HTTPRoute{}
-			err = suite.Client.Get(ctx, routeNN, updated)
+			err = s.Client.Get(ctx, routeNN, updated)
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)
 
 			// Sanity check

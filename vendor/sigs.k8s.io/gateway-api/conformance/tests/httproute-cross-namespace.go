@@ -38,7 +38,6 @@ var HTTPRouteCrossNamespace = suite.ConformanceTest{
 		routeNN := types.NamespacedName{Name: "cross-namespace", Namespace: "gateway-conformance-web-backend"}
 		gwNN := types.NamespacedName{Name: "backend-namespaces", Namespace: "gateway-conformance-infra"}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
-		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		t.Run("Simple HTTP request should reach web-backend", func(t *testing.T) {
 			http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, http.ExpectedResponse{

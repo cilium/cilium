@@ -1727,7 +1727,7 @@ sigs.k8s.io/controller-tools/pkg/schemapatcher
 sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml
 sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
-# sigs.k8s.io/gateway-api v0.6.2
+# sigs.k8s.io/gateway-api v0.6.1
 ## explicit; go 1.18
 sigs.k8s.io/gateway-api/apis/v1alpha2
 sigs.k8s.io/gateway-api/apis/v1beta1

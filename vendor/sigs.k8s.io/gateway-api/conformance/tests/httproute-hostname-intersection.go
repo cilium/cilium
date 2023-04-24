@@ -52,9 +52,6 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 				{Namespace: ns, Name: "wildcard-host-matches-listener-wildcard-host"},
 			}
 			gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routes...)
-			for _, routeNN := range routes {
-				kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
-			}
 
 			var testCases []http.ExpectedResponse
 

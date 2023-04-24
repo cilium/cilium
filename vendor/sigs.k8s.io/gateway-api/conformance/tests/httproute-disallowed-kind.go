@@ -43,7 +43,6 @@ var HTTPRouteDisallowedKind = suite.ConformanceTest{
 
 		routeNN := types.NamespacedName{Name: "disallowed-kind", Namespace: "gateway-conformance-infra"}
 		gwNN := types.NamespacedName{Name: "tlsroutes-only", Namespace: "gateway-conformance-infra"}
-		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		t.Run("Route should not have been accepted with reason NotAllowedByListeners", func(t *testing.T) {
 			kubernetes.HTTPRouteMustHaveCondition(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN, metav1.Condition{

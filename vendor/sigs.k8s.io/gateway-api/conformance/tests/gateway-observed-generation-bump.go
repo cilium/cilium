@@ -23,7 +23,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
@@ -70,8 +69,8 @@ var GatewayObservedGenerationBump = suite.ConformanceTest{
 				},
 			})
 
-			err = s.Client.Patch(ctx, mutate, client.MergeFrom(original))
-			require.NoErrorf(t, err, "error patching the Gateway: %v", err)
+			err = s.Client.Update(ctx, mutate)
+			require.NoErrorf(t, err, "error updating the Gateway: %v", err)
 
 			// Ensure the generation and observedGeneration sync up
 			kubernetes.NamespacesMustBeAccepted(t, s.Client, s.TimeoutConfig, namespaces)
