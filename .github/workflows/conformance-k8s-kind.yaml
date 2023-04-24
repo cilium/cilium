@@ -1,18 +1,10 @@
-name: ConformanceK8sKind
+name: ConformanceK8sKind - Test
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request:
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
   push:
     branches:
-      - main
-      - ft/main/**
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
+      - pr/aanm-update-k8s-conformance
 
 permissions: read-all
 
@@ -21,11 +13,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  kind_version: v0.17.0
+  kind_version: v0.18.0
   cluster_name: cilium-testing
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.13.0
-  k8s_version: v1.26.0
+  k8s_version: v1.27.1
 
 jobs:
   kubernetes-e2e:
@@ -36,6 +28,7 @@ jobs:
       matrix:
         # TODO add "dual" and "ipv6", "ipv6" fails to install cilium
         ipFamily: ["ipv4"]
+
     env:
       IP_FAMILY: ${{ matrix.ipFamily }}
 
@@ -125,7 +118,7 @@ jobs:
           if [ ${{ github.event.pull_request }} ]; then
             SHA=${{ github.event.pull_request.head.sha }}
           else
-            SHA=${{ github.sha }}
+            SHA=89d170067448dfc2045d4b7fa858b40570264a6d
           fi
 
           # Note: On Kind, we install Cilium with HostPort (portmap CNI chaining) enabled,
@@ -203,7 +196,7 @@ jobs:
           # LoadBalancer|GCE|ExternalIP : require a cloud provider, some of them are GCE specifics
           # Netpol|NetworkPolicy : network policies, demand significant resources and use to be slow, better to run in a different job
           # Aggregator : Flaky, https://github.com/cilium/cilium/issues/24622.
-          # same.port.number.but.different.protocols|HostPort : #9207
+          # same.port.number.and.different.protocols|same.port.number.but.different.protocols|HostPort : #9207
           # rejected : Kubernetes expect Services without endpoints associated to REJECT the connection to notify the client, Cilium silently drops the packet
           # externalTrafficPolicy : needs investigation
 
@@ -212,7 +205,7 @@ jobs:
           export E2E_REPORT_DIR=${PWD}/_artifacts
           /usr/local/bin/ginkgo --nodes=25                \
             --focus="\[Conformance\]|\[sig-network\]"     \
-            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|Aggregator|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols"   \
+            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|Aggregator|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols|same.port.number.and.different.protocols"   \
             /usr/local/bin/e2e.test                       \
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
