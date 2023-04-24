@@ -63,13 +63,9 @@ func (pef PolicyEntryFlags) is(pf policyFlag) bool {
 	return uint8(pef)&uint8(pf) != 0
 }
 
-func (pef PolicyEntryFlags) IsDeny() bool {
-	return pef.is(policyFlagDeny)
-}
-
 // String returns the string implementation of PolicyEntryFlags.
 func (pef PolicyEntryFlags) String() string {
-	if pef.IsDeny() {
+	if pef.is(policyFlagDeny) {
 		return "Deny"
 	}
 	return "Allow"
@@ -86,6 +82,10 @@ var (
 
 type PolicyMap struct {
 	*bpf.Map
+}
+
+func (pe PolicyEntry) IsDeny() bool {
+	return PolicyEntryFlags(pe.Flags).is(policyFlagDeny)
 }
 
 func (pe *PolicyEntry) String() string {
@@ -216,8 +216,8 @@ func (p PolicyEntriesDump) String() string {
 // (Deny / Allow), TrafficDirection (Ingress / Egress) and Identity
 // (ascending order).
 func (p PolicyEntriesDump) Less(i, j int) bool {
-	iDeny := PolicyEntryFlags(p[i].PolicyEntry.GetFlags()).IsDeny()
-	jDeny := PolicyEntryFlags(p[j].PolicyEntry.GetFlags()).IsDeny()
+	iDeny := p[i].PolicyEntry.IsDeny()
+	jDeny := p[j].PolicyEntry.IsDeny()
 	switch {
 	case iDeny && !jDeny:
 		return true
