@@ -106,8 +106,6 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 
 	struct __ctx_buff ctx_buff;
 	struct ipv4_ct_tuple tuple;
-	struct ipv4_nat_entry state;
-	struct ipv4_nat_target target;
 
 	/* If there is an error in ct_lazy_lookup4, it will return a negative value. We */
 	/* can simply assume it to be -1 because the actually value does not matter. */
@@ -116,8 +114,8 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* So snat_v4_track_connection will return exactly the same value which means */
 	/* an error occurs when snat_v4_track_connection is looking for the ipv4_ct_tuple. */
 	TEST("return -1 on error", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, true, ACTION_CREATE,
-					     NAT_DIR_EGRESS, 0, &target, NULL) != -1) {
+		if (snat_v4_track_connection(&ctx_buff, &tuple, true, ACTION_CREATE,
+					     NAT_DIR_EGRESS, 0, NULL) != -1) {
 			test_fail();
 		}
 	});
@@ -129,8 +127,8 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* So snat_v4_track_connection will return 0 which means snat_v4_track_connection */
 	/* successfully tracks ipv4_ct_tuple. */
 	TEST("return 0 on track", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, true, ACTION_CREATE,
-					     NAT_DIR_EGRESS, 0, &target, NULL) != 0) {
+		if (snat_v4_track_connection(&ctx_buff, &tuple, true, ACTION_CREATE,
+					     NAT_DIR_EGRESS, 0, NULL) != 0) {
 			test_fail();
 		}
 	});
@@ -145,8 +143,8 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* So snat_v4_track_connection will return that value which means an error occurs */
 	/* when snat_v4_track_connection is trying to create the ipv4_ct_tuple. */
 	TEST("return -1 on create error", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, true, ACTION_CREATE,
-					     NAT_DIR_EGRESS, 0, &target, NULL) != -1) {
+		if (snat_v4_track_connection(&ctx_buff, &tuple, true, ACTION_CREATE,
+					     NAT_DIR_EGRESS, 0, NULL) != -1) {
 			test_fail();
 		}
 	});
@@ -160,8 +158,8 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* So snat_v4_track_connection will return 0 which means snat_v4_track_connection */
 	/* successfully creates the ipv4_ct_tuple. */
 	TEST("return 0 on create success", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, true, ACTION_CREATE,
-					     NAT_DIR_EGRESS, 0, &target, NULL) != 0) {
+		if (snat_v4_track_connection(&ctx_buff, &tuple, true, ACTION_CREATE,
+					     NAT_DIR_EGRESS, 0, NULL) != 0) {
 			test_fail();
 		}
 	});
