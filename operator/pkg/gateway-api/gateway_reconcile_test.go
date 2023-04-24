@@ -97,7 +97,7 @@ var gwFixture = []client.Object{
 		},
 	},
 
-	// Valid HTTPRoute
+	// Valid TLSRoute
 	&gatewayv1alpha2.TLSRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "tls-route",
@@ -207,8 +207,8 @@ var gwFixture = []client.Object{
 			GatewayClassName: "cilium",
 			Listeners: []gatewayv1beta1.Listener{
 				{
-					Name:     "http",
-					Port:     80,
+					Name:     "tls",
+					Port:     443,
 					Hostname: model.AddressOf[gatewayv1beta1.Hostname]("*.cilium.rocks"),
 					Protocol: "TLS",
 				},
@@ -346,7 +346,7 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 				IP: "10.10.10.11",
 				Ports: []corev1.PortStatus{
 					{
-						Port:     80,
+						Port:     443,
 						Protocol: "TCP",
 					},
 				},
