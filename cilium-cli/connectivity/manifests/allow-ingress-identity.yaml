@@ -1,0 +1,11 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-from-cilium-ingress
+spec:
+  description: Allow cilium ingress to access any pod
+  endpointSelector: {}
+  ingress:
+  - fromEntities:
+    - ingress
