@@ -164,7 +164,7 @@ jobs:
             --gateway-class cilium \
             --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching,GatewayClassObservedGenerationBump,HTTPResponseHeaderModification \
             -test.run "TestConformance" \
-            -test.skip "TestConformance/HTTPRouteListenerHostnameMatching,TestConformance/GatewayWithAttachedRoutes" # Enable once #24217 is fixed
+            -test.skip "TestConformance/HTTPRouteListenerHostnameMatching" # Enable once #24217 is fixed
 
       - name: Post-test information gathering
         if: ${{ !success() }}
