@@ -47,6 +47,9 @@ var (
 	//go:embed manifests/allow-all-except-world.yaml
 	allowAllExceptWorldPolicyYAML string
 
+	//go:embed manifests/allow-ingress-identity.yaml
+	allowIngressIdentityPolicyYAML string
+
 	//go:embed manifests/client-egress-only-dns.yaml
 	clientEgressOnlyDNSPolicyYAML string
 
@@ -852,6 +855,31 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToPodWithEndpoints(),
+		)
+
+	// Test Ingress controller
+	ct.NewTest("pod-to-ingress-service").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureIngressController)).
+		WithScenarios(
+			tests.PodToIngress(),
+		)
+
+	ct.NewTest("pod-to-ingress-service-deny-all").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureIngressController)).
+		WithCiliumPolicy(denyAllIngressPolicyYAML).
+		WithScenarios(
+			tests.PodToIngress(),
+		).
+		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
+	ct.NewTest("pod-to-ingress-service-allow-ingress-identity").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureIngressController)).
+		WithCiliumPolicy(denyAllIngressPolicyYAML).
+		WithCiliumPolicy(allowIngressIdentityPolicyYAML).
+		WithScenarios(
+			tests.PodToIngress(),
 		)
 
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
