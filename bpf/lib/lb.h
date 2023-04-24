@@ -883,7 +883,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		 * service lookup.
 		 */
 		if (IS_ERR(ret))
-			goto drop_no_service;
+			goto drop_err;
 		goto update_state;
 	case CT_REOPENED:
 	case CT_ESTABLISHED:
@@ -896,7 +896,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 		break;
 	default:
-		goto drop_no_service;
+		ret = DROP_UNKNOWN_CT;
+		goto drop_err;
 	}
 
 	/* See lb4_local comment */
@@ -962,8 +963,10 @@ update_state:
 	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off,
 			 key, backend, skip_l3_xlate);
 drop_no_service:
+	ret = DROP_NO_SERVICE;
+drop_err:
 	tuple->flags = flags;
-	return DROP_NO_SERVICE;
+	return ret;
 }
 
 /* lb6_ctx_store_state() stores per packet load balancing state to be picked
@@ -1556,7 +1559,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		 * service lookup.
 		 */
 		if (IS_ERR(ret))
-			goto drop_no_service;
+			goto drop_err;
 		goto update_state;
 	case CT_REOPENED:
 	case CT_ESTABLISHED:
@@ -1574,7 +1577,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		}
 		break;
 	default:
-		goto drop_no_service;
+		ret = DROP_UNKNOWN_CT;
+		goto drop_err;
 	}
 
 	/* If the CT_SERVICE entry is from a non-related connection (e.g.
@@ -1669,8 +1673,10 @@ update_state:
 			 tuple->nexthdr, l3_off, l4_off, key,
 			 backend, has_l4_header, skip_l3_xlate);
 drop_no_service:
+	ret = DROP_NO_SERVICE;
+drop_err:
 	tuple->flags = flags;
-	return DROP_NO_SERVICE;
+	return ret;
 }
 
 /* lb4_ctx_store_state() stores per packet load balancing state to be picked
