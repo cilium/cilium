@@ -177,6 +177,51 @@ func TestHasCIDRGroupRef(t *testing.T) {
 			expected:  true,
 		},
 		{
+			name: "CIDR in Spec",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Ingress: []api.IngressRule{
+							{
+								IngressCommonRule: api.IngressCommonRule{
+									FromCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1",
+										},
+									},
+								},
+							},
+						},
+					},
+					Specs: api.Rules{
+						{
+							Ingress: []api.IngressRule{
+								{
+									IngressCommonRule: api.IngressCommonRule{
+										FromCIDRSet: api.CIDRRuleSlice{
+											{
+												Cidr: "1.1.1.1/32",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			cidrGroup: "cidr-group-1",
+			expected:  true,
+		},
+		{
 			name: "CIDRGroupRef in Specs",
 			cnp: &types.SlimCNP{
 				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
@@ -373,6 +418,50 @@ func TestCIDRGroupRefsGet(t *testing.T) {
 				},
 			},
 			expected: []string{"cidr-group-1", "cidr-group-2"},
+		},
+		{
+			name: "single FromCidrSet rule with only CIDR",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2",
+						Kind:       "CiliumNetworkPolicy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-policy",
+						Namespace: "test-namespace",
+					},
+					Spec: &api.Rule{
+						Ingress: []api.IngressRule{
+							{
+								IngressCommonRule: api.IngressCommonRule{
+									FromCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-1",
+										},
+									},
+								},
+							},
+						},
+					},
+					Specs: api.Rules{
+						{
+							Ingress: []api.IngressRule{
+								{
+									IngressCommonRule: api.IngressCommonRule{
+										FromCIDRSet: api.CIDRRuleSlice{
+											{
+												Cidr: "1.1.1.1/32",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []string{"cidr-group-1"},
 		},
 		{
 			name: "multiple FromCidrSet rules",
