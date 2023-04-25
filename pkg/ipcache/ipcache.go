@@ -211,14 +211,12 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 // this function, holding the write lock is also allowed.
 func (ipc *IPCache) updateNamedPortsRLocked() (namedPortsChanged bool) {
 	// Collect new named Ports
-	var oldLen = 0
 	var old policy.NamedPortMultiMap
 	if m, ok := ipc.namedPorts.Load().(policy.NamedPortMultiMap); ok {
 		old = m
-		oldLen = len(old)
 	}
 
-	npm := make(policy.NamedPortMultiMap, oldLen)
+	npm := policy.NewNamedPortMultiMap()
 	for _, km := range ipc.ipToK8sMetadata {
 		for name, port := range km.NamedPorts {
 			if npm[name] == nil {

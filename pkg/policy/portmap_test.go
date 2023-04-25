@@ -101,7 +101,7 @@ func (ds *PolicyTestSuite) TestPolicyPortProtoSet(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestPolicyNamedPortMultiMap(c *C) {
-	a := NamedPortMultiMap{
+	a := namedPortMultiMap{
 		"http": PortProtoSet{
 			PortProto{Port: 80, Proto: 6}:   struct{}{},
 			PortProto{Port: 8080, Proto: 6}: struct{}{},
@@ -118,7 +118,7 @@ func (ds *PolicyTestSuite) TestPolicyNamedPortMultiMap(c *C) {
 			PortProto{Port: 53, Proto: 6}:  struct{}{},
 		},
 	}
-	b := NamedPortMultiMap{
+	b := namedPortMultiMap{
 		"http": PortProtoSet{
 			PortProto{Port: 80, Proto: 6}:   struct{}{},
 			PortProto{Port: 8080, Proto: 6}: struct{}{},
@@ -159,7 +159,8 @@ func (ds *PolicyTestSuite) TestPolicyNamedPortMultiMap(c *C) {
 	c.Assert(err, Equals, ErrUnknownNamedPort)
 	c.Assert(port, Equals, uint16(0))
 
-	port, err = NamedPortMultiMap(nil).GetNamedPort("unknown", 6)
+	var nilvalued namedPortMultiMap
+	port, err = NamedPortMultiMap(nilvalued).GetNamedPort("unknown", 6)
 	c.Assert(err, Equals, ErrNilMap)
 	c.Assert(port, Equals, uint16(0))
 
