@@ -42,10 +42,10 @@ binary releases.
 
 ## Releases
 
-| Release                                                              | Release Date | Maintained | Supported Cilium Versions |
-|----------------------------------------------------------------------|--------------|------------|---------------------------|
-| [v0.14.0](https://github.com/cilium/cilium-cli/releases/tag/v0.14.0) | 2023-04-22   | Yes        | Cilium 1.11 and newer     |
-| [v0.10.7](https://github.com/cilium/cilium-cli/releases/tag/v0.10.7) | 2022-05-31   | No         | Cilium 1.10               |
+| Release                                                              | Maintained | Supported Cilium Versions |
+|----------------------------------------------------------------------|------------|---------------------------|
+| [v0.14.0](https://github.com/cilium/cilium-cli/releases/tag/v0.14.0) | Yes        | Cilium 1.11 and newer     |
+| [v0.10.7](https://github.com/cilium/cilium-cli/releases/tag/v0.10.7) | No         | Cilium 1.10               |
 
 Please see [Experimental `helm` installation mode](#experimental-helm-installation-mode)
 section regarding our plan to migrate to the new `helm` installation mode and deprecate
