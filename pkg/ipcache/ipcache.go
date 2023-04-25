@@ -207,14 +207,6 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 	return nil
 }
 
-// updateNamedPortsRLocked accumulates named ports from all K8sMetadata entries
-// to a single map. It is required to hold _at least_ the read lock when calling
-// this function, holding the write lock is also allowed.
-func (ipc *IPCache) updateNamedPortsRLocked(old, new policy.NamedPortMap) (namedPortsChanged bool) {
-	namedPortsChanged = ipc.namedPorts.Update(old, new)
-	return namedPortsChanged && atomic.LoadInt32(&ipc.needNamedPorts) == 1
-}
-
 // Upsert adds / updates the provided IP (endpoint or CIDR prefix) and identity
 // into the IPCache.
 //
@@ -372,28 +364,10 @@ func (ipc *IPCache) upsertLocked(
 		} else {
 			ipc.ipToK8sMetadata[ip] = *k8sMeta
 		}
-
-		// Update named ports, first check for deleted values
-		for k := range oldK8sMeta.NamedPorts {
-			if _, ok := newNamedPorts[k]; !ok {
-				namedPortsChanged = true
-				break
-			}
-		}
-		if !namedPortsChanged {
-			// Check for added new or changed entries
-			for k, v := range newNamedPorts {
-				if v2, ok := oldK8sMeta.NamedPorts[k]; !ok || v2 != v {
-					namedPortsChanged = true
-					break
-				}
-			}
-		}
-		if namedPortsChanged {
-			// It is possible that some other POD defines same values, check if
-			// anything changes over all the PODs.
-			namedPortsChanged = ipc.updateNamedPortsRLocked(oldK8sMeta.NamedPorts, newNamedPorts)
-		}
+		// Update the named ports reference counting, but don't cause policy
+		// updates if no policy uses named ports.
+		namedPortsChanged = ipc.namedPorts.Update(oldK8sMeta.NamedPorts, newNamedPorts)
+		namedPortsChanged = namedPortsChanged && atomic.LoadInt32(&ipc.needNamedPorts) == 1
 	}
 
 	if hostIP != nil {
@@ -531,7 +505,9 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	// Update named ports
 	namedPortsChanged = false
 	if oldK8sMeta != nil && len(oldK8sMeta.NamedPorts) > 0 {
-		namedPortsChanged = ipc.updateNamedPortsRLocked(oldK8sMeta.NamedPorts, nil)
+		namedPortsChanged = ipc.namedPorts.Update(oldK8sMeta.NamedPorts, nil)
+		// Only trigger policy updates if named ports are used in policy.
+		namedPortsChanged = namedPortsChanged && atomic.LoadInt32(&ipc.needNamedPorts) == 1
 	}
 
 	if newHostIP != nil {
