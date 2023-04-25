@@ -4,13 +4,9 @@
 package nat
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"unsafe"
-
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/ebpf"
 
@@ -193,9 +189,7 @@ func (om *PerClusterNATMap) getClusterNATMap(clusterID uint32) (*Map, error) {
 	im := om.newInnerMap(om.getInnerMapName(clusterID))
 
 	if err := im.Open(); err != nil {
-		if pathErr, ok := err.(*os.PathError); ok && errors.Is(pathErr.Err, unix.ENOENT) {
-			return nil, nil
-		}
+		return nil, fmt.Errorf("open inner map: %w", err)
 	}
 
 	return im, nil
