@@ -5,6 +5,7 @@ package node
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -39,9 +40,21 @@ var (
 	// This is defined here until all uses of the getters and
 	// setters in this file have been migrated to use LocalNodeStore
 	// directly.
-	// Initialized to proper instance via an invoke function in LocalNodeStoreCell.
-	localNode *LocalNodeStore = newTestLocalNodeStore()
+	// Initialized to proper instance via an invoke function in LocalNodeStoreCell,
+	// or temporarily in tests with 'WithTestLocalNodeStore'.
+	localNode *LocalNodeStore
 )
+
+func getLocalNode() LocalNode {
+	n, err := localNode.Get(context.TODO())
+	if err != nil {
+		// Only expecting errors if we're called after LocalNodeStore has stopped, e.g.
+		// we have a component that uses the legacy getters and setters here and does
+		// not depend on LocalNodeStore.
+		log.WithError(err).Fatal("getLocalNode: unexpected error")
+	}
+	return n
+}
 
 type addresses struct {
 	ipv4Loopback      net.IP
@@ -264,12 +277,12 @@ func SetIPv4Loopback(ip net.IP) {
 
 // GetIPv4AllocRange returns the IPv4 allocation prefix of this node
 func GetIPv4AllocRange() *cidr.CIDR {
-	return localNode.Get().IPv4AllocCIDR.DeepCopy()
+	return getLocalNode().IPv4AllocCIDR.DeepCopy()
 }
 
 // GetIPv6AllocRange returns the IPv6 allocation prefix of this node
 func GetIPv6AllocRange() *cidr.CIDR {
-	return localNode.Get().IPv6AllocCIDR.DeepCopy()
+	return getLocalNode().IPv6AllocCIDR.DeepCopy()
 }
 
 // GetIPv4 returns one of the IPv4 node address available with the following
@@ -279,7 +292,7 @@ func GetIPv6AllocRange() *cidr.CIDR {
 // - other IP address type.
 // It must be reachable on the network.
 func GetIPv4() net.IP {
-	n := localNode.Get()
+	n := getLocalNode()
 	return clone(n.GetNodeIP(false))
 }
 
@@ -306,14 +319,14 @@ func SetInternalIPv4Router(ip net.IP) {
 // k8s internal IP as this IP address is only relevant within the Cilium-managed network (this means
 // within the node for direct routing mode and on the overlay for tunnel mode).
 func GetInternalIPv4Router() net.IP {
-	n := localNode.Get()
+	n := getLocalNode()
 	return n.GetCiliumInternalIP(false)
 }
 
 // GetK8sExternalIPv4 returns the external IPv4 node address. It must be a public IP that is routable
 // on the network as well as the internet. It can return nil if no External IPv4 address is assigned.
 func GetK8sExternalIPv4() net.IP {
-	n := localNode.Get()
+	n := getLocalNode()
 	return n.GetExternalIP(false)
 }
 
@@ -548,7 +561,7 @@ func ValidatePostInit() error {
 
 // GetIPv6 returns the IPv6 address of the node
 func GetIPv6() net.IP {
-	n := localNode.Get()
+	n := getLocalNode()
 	return clone(n.GetNodeIP(true))
 }
 
@@ -561,7 +574,7 @@ func GetHostMasqueradeIPv6() net.IP {
 // GetIPv6Router returns the IPv6 address of the router, e.g. address
 // of cilium_host device.
 func GetIPv6Router() net.IP {
-	n := localNode.Get()
+	n := getLocalNode()
 	return clone(n.GetCiliumInternalIP(true))
 }
 
@@ -575,7 +588,7 @@ func SetIPv6Router(ip net.IP) {
 
 // GetK8sExternalIPv6 returns the external IPv6 node address.
 func GetK8sExternalIPv6() net.IP {
-	n := localNode.Get()
+	n := getLocalNode()
 	return clone(n.GetExternalIP(false))
 }
 
@@ -703,12 +716,12 @@ func SetIPsecKeyIdentity(id uint8) {
 
 // GetIPsecKeyIdentity returns the IPsec key identity of the node
 func GetIPsecKeyIdentity() uint8 {
-	return localNode.Get().EncryptionKey
+	return getLocalNode().EncryptionKey
 }
 
 // GetK8sNodeIPs returns k8s Node IP addr.
 func GetK8sNodeIP() net.IP {
-	n := localNode.Get()
+	n := getLocalNode()
 	return n.GetK8sNodeIP()
 }
 
@@ -719,11 +732,11 @@ func SetWireguardPubKey(key string) {
 }
 
 func GetWireguardPubKey() string {
-	return localNode.Get().WireguardPubKey
+	return getLocalNode().WireguardPubKey
 }
 
 func GetOptOutNodeEncryption() bool {
-	return localNode.Get().OptOutNodeEncryption
+	return getLocalNode().OptOutNodeEncryption
 }
 
 func SetOptOutNodeEncryption(b bool) {
@@ -741,7 +754,7 @@ func SetEndpointHealthIPv4(ip net.IP) {
 
 // GetEndpointHealthIPv4 returns the IPv4 cilium-health endpoint address.
 func GetEndpointHealthIPv4() net.IP {
-	return localNode.Get().IPv4HealthIP
+	return getLocalNode().IPv4HealthIP
 }
 
 // SetEndpointHealthIPv6 sets the IPv6 cilium-health endpoint address.
@@ -753,7 +766,7 @@ func SetEndpointHealthIPv6(ip net.IP) {
 
 // GetEndpointHealthIPv6 returns the IPv6 cilium-health endpoint address.
 func GetEndpointHealthIPv6() net.IP {
-	return localNode.Get().IPv6HealthIP
+	return getLocalNode().IPv6HealthIP
 }
 
 // SetIngressIPv4 sets the local IPv4 source address for Cilium Ingress.
@@ -765,7 +778,7 @@ func SetIngressIPv4(ip net.IP) {
 
 // GetIngressIPv4 returns the local IPv4 source address for Cilium Ingress.
 func GetIngressIPv4() net.IP {
-	return localNode.Get().IPv4IngressIP
+	return getLocalNode().IPv4IngressIP
 }
 
 // SetIngressIPv6 sets the local IPv6 source address for Cilium Ingress.
@@ -777,7 +790,7 @@ func SetIngressIPv6(ip net.IP) {
 
 // GetIngressIPv6 returns the local IPv6 source address for Cilium Ingress.
 func GetIngressIPv6() net.IP {
-	return localNode.Get().IPv6IngressIP
+	return getLocalNode().IPv6IngressIP
 }
 
 // GetEncryptKeyIndex returns the encryption key value for the local node.
@@ -806,8 +819,35 @@ func copyStringToNetIPMap(in map[string]net.IP) map[string]net.IP {
 	return out
 }
 
+// WithTestLocalNodeStore sets the 'localNode' to a temporary instance and
+// runs the given test. Afterwards the 'localNode' is restored to nil.
+// This is a temporary workaround for tests until the LocalNodeStoreCell can be
+// used.
+func WithTestLocalNodeStore(runTest func()) {
+	SetTestLocalNodeStore()
+	defer UnsetTestLocalNodeStore()
+	runTest()
+}
+
+func SetTestLocalNodeStore() {
+	if localNode != nil {
+		panic("localNode already set")
+	}
+
+	// Set the localNode global variable temporarily so that the legacy getters
+	// and setters can access it.
+	localNode = newTestLocalNodeStore()
+}
+
+func UnsetTestLocalNodeStore() {
+	localNode = nil
+}
+
 // UpdateLocalNodeInTest provides access to modifying the local node
 // information from tests that are not yet using hive and the LocalNodeStoreCell.
 func UpdateLocalNodeInTest(mod func(n *LocalNode)) {
+	if localNode == nil {
+		panic("localNode not set, use node.LocalNodeStoreCell or WithTestLocalNodeStore()?")
+	}
 	localNode.Update(mod)
 }

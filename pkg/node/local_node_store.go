@@ -111,11 +111,9 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 // Get retrieves the current local node. Use Get() only for inspecting the state,
 // e.g. in API handlers. Do not assume the value does not change over time.
 // Blocks until the store has been initialized.
-func (s *LocalNodeStore) Get() LocalNode {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	n, _ := stream.First[LocalNode](context.Background(), s)
-	return n
+func (s *LocalNodeStore) Get(ctx context.Context) (LocalNode, error) {
+	// Subscribe to the stream of updates and take the first (latest) state.
+	return stream.First[LocalNode](ctx, s)
 }
 
 // Update modifies the local node with a mutator. The updated value

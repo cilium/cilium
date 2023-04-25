@@ -50,14 +50,14 @@ func (s *ConfigSuite) SetUpSuite(c *C) {
 func (s *ConfigSuite) SetUpTest(c *C) {
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
+	node.SetTestLocalNodeStore()
 	node.InitDefaultPrefix("")
 	node.SetInternalIPv4Router(ipv4DummyAddr.AsSlice())
 	node.SetIPv4Loopback(ipv4DummyAddr.AsSlice())
 }
 
 func (s *ConfigSuite) TearDownTest(c *C) {
-	node.SetInternalIPv4Router(nil)
-	node.SetIPv4Loopback(nil)
+	node.UnsetTestLocalNodeStore()
 }
 
 type badWriter struct{}

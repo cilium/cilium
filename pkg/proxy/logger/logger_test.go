@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -27,42 +28,44 @@ import (
 
 // mockLogRecord is a log entry similar to the one used in fqdn.go for
 // DNS related events notification.
-var mockLogRecord = NewLogRecord(
-	accesslog.TypeResponse,
-	false,
-	func(lr *LogRecord) {
-		lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(
-			u8proto.ProtoIDs[strings.ToLower("udp")],
-		)
-	},
-	LogTags.Verdict(
-		accesslog.VerdictForwarded,
-		"just a benchmark",
-	),
-	LogTags.Addressing(AddressingInfo{
-		DstIPPort:   "15478",
-		DstIdentity: 16,
-		SrcIPPort:   "53",
-		SrcIdentity: 1,
-	}),
-	LogTags.DNS(&accesslog.LogRecordDNS{
-		Query: "data.test.svc.cluster.local",
-		IPs: []net.IP{
-			net.IPv4(1, 1, 1, 1),
-			net.IPv4(2, 2, 2, 2),
-			net.IPv4(3, 3, 3, 3),
+func mockLogRecord() *LogRecord {
+	return NewLogRecord(
+		accesslog.TypeResponse,
+		false,
+		func(lr *LogRecord) {
+			lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(
+				u8proto.ProtoIDs[strings.ToLower("udp")],
+			)
 		},
-		TTL: 43200,
-		CNAMEs: []string{
-			"alt1.test.svc.cluster.local",
-			"alt2.test.svc.cluster.local",
-		},
-		ObservationSource: accesslog.DNSSourceProxy,
-		RCode:             dns.RcodeSuccess,
-		QTypes:            []uint16{dns.TypeA, dns.TypeAAAA},
-		AnswerTypes:       []uint16{dns.TypeA, dns.TypeAAAA},
-	}),
-)
+		LogTags.Verdict(
+			accesslog.VerdictForwarded,
+			"just a benchmark",
+		),
+		LogTags.Addressing(AddressingInfo{
+			DstIPPort:   "15478",
+			DstIdentity: 16,
+			SrcIPPort:   "53",
+			SrcIdentity: 1,
+		}),
+		LogTags.DNS(&accesslog.LogRecordDNS{
+			Query: "data.test.svc.cluster.local",
+			IPs: []net.IP{
+				net.IPv4(1, 1, 1, 1),
+				net.IPv4(2, 2, 2, 2),
+				net.IPv4(3, 3, 3, 3),
+			},
+			TTL: 43200,
+			CNAMEs: []string{
+				"alt1.test.svc.cluster.local",
+				"alt2.test.svc.cluster.local",
+			},
+			ObservationSource: accesslog.DNSSourceProxy,
+			RCode:             dns.RcodeSuccess,
+			QTypes:            []uint16{dns.TypeA, dns.TypeAAAA},
+			AnswerTypes:       []uint16{dns.TypeA, dns.TypeAAAA},
+		}),
+	)
+}
 
 // MockMonitorListener is a mock type used to implement the listener.MonitorListener interface
 // for benchmarking purposes.
@@ -159,61 +162,67 @@ var benchCases = []struct {
 }
 
 func benchWithoutListeners(b *testing.B) {
-	for _, bm := range benchCases {
-		b.Run(bm.name, func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				// Each goroutine will deliver a single notification concurrently.
-				// This is done to simulate what happens when a high rate of DNS
-				// related events trigger one `notifyOnDNSMsg` callback each and
-				// consequently the event logging.
-				var wg sync.WaitGroup
-				for j := 0; j < bm.nRecords; j++ {
-					wg.Add(1)
-					go func() {
-						defer wg.Done()
-						mockLogRecord.Log()
-					}()
+	node.WithTestLocalNodeStore(func() {
+		record := mockLogRecord()
+		for _, bm := range benchCases {
+			b.Run(bm.name, func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					// Each goroutine will deliver a single notification concurrently.
+					// This is done to simulate what happens when a high rate of DNS
+					// related events trigger one `notifyOnDNSMsg` callback each and
+					// consequently the event logging.
+					var wg sync.WaitGroup
+					for j := 0; j < bm.nRecords; j++ {
+						wg.Add(1)
+						go func() {
+							defer wg.Done()
+							record.Log()
+						}()
+					}
+					wg.Wait()
 				}
-				wg.Wait()
-			}
-		})
-	}
+			})
+		}
+	})
 }
 
 func benchWithListeners(listener *MockMonitorListener, b *testing.B) {
-	for _, bm := range benchCases {
-		b.Run(bm.name, func(b *testing.B) {
-			ctx, cancel := context.WithCancel(context.Background())
+	node.WithTestLocalNodeStore(func() {
+		record := mockLogRecord()
+		for _, bm := range benchCases {
+			b.Run(bm.name, func(b *testing.B) {
+				ctx, cancel := context.WithCancel(context.Background())
 
-			var wg sync.WaitGroup
-			wg.Add(1)
-			listener.Drain(ctx, &wg)
+				var wg sync.WaitGroup
+				wg.Add(1)
+				listener.Drain(ctx, &wg)
 
-			b.ReportAllocs()
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				// Each goroutine will deliver a single notification concurrently.
-				// This is done to simulate what happens when a high rate of DNS
-				// related events trigger one `notifyOnDNSMsg` callback each and
-				// consequently the event logging.
-				var logWg sync.WaitGroup
-				for j := 0; j < bm.nRecords; j++ {
-					logWg.Add(1)
-					go func() {
-						defer logWg.Done()
-						mockLogRecord.Log()
-					}()
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					// Each goroutine will deliver a single notification concurrently.
+					// This is done to simulate what happens when a high rate of DNS
+					// related events trigger one `notifyOnDNSMsg` callback each and
+					// consequently the event logging.
+					var logWg sync.WaitGroup
+					for j := 0; j < bm.nRecords; j++ {
+						logWg.Add(1)
+						go func() {
+							defer logWg.Done()
+							record.Log()
+						}()
+					}
+					logWg.Wait()
 				}
-				logWg.Wait()
-			}
-			b.StopTimer()
+				b.StopTimer()
 
-			// wait for listener cleanup
-			cancel()
-			wg.Wait()
-		})
-	}
+				// wait for listener cleanup
+				cancel()
+				wg.Wait()
+			})
+		}
+	})
 }
 
 func BenchmarkLogNotifierWithNoListeners(b *testing.B) {

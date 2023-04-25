@@ -1155,11 +1155,14 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			logfields.V6CiliumHostIP: node.GetIPv6Router(),
 		}).Info("Annotating k8s node")
 
-		_, err := k8s.AnnotateNode(
-			params.Clientset,
-			nodeTypes.GetName(),
-			d.nodeLocalStore.Get().Node,
-			encryptKeyID)
+		latestLocalNode, err := d.nodeLocalStore.Get(ctx)
+		if err == nil {
+			_, err = k8s.AnnotateNode(
+				params.Clientset,
+				nodeTypes.GetName(),
+				latestLocalNode.Node,
+				encryptKeyID)
+		}
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}

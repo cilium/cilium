@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -177,6 +178,14 @@ func (n *signalNodeHandler) NodeConfigurationChanged(config datapath.LocalNodeCo
 }
 
 func (s *managerTestSuite) SetUpSuite(c *check.C) {
+}
+
+func (s *managerTestSuite) SetUpTest(c *check.C) {
+	node.SetTestLocalNodeStore()
+}
+
+func (s *managerTestSuite) TearDownTest(c *check.C) {
+	node.UnsetTestLocalNodeStore()
 }
 
 func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {

@@ -308,28 +308,30 @@ func TestControllerSanity(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			nodeaddr.UpdateLocalNodeInTest(func(n *nodeaddr.LocalNode) { n.SetNodeInternalIP(nodeIPv4.AsSlice()) })
-			nodetypes.SetName(nodeName)
-			nodeSpecer := &fakeNodeSpecer{
-				Annotations_: tt.annotations,
-				Labels_:      tt.labels,
-				PodCIDRs_:    tt.podCIDRs,
-			}
-			policyLister := &agent.MockCiliumBGPPeeringPolicyLister{
-				List_: tt.plist,
-			}
-			rtmgr := &mock.MockBGPRouterManager{
-				ConfigurePeers_: tt.configurePeers,
-			}
-			c := agent.Controller{
-				NodeSpec:     nodeSpecer,
-				PolicyLister: policyLister,
-				BGPMgr:       rtmgr,
-			}
-			err := c.Reconcile(context.Background())
-			if (tt.err == nil) != (err == nil) {
-				t.Fatalf("want: %v, got: %v", tt.err, err)
-			}
+			nodeaddr.WithTestLocalNodeStore(func() {
+				nodeaddr.UpdateLocalNodeInTest(func(n *nodeaddr.LocalNode) { n.SetNodeInternalIP(nodeIPv4.AsSlice()) })
+				nodetypes.SetName(nodeName)
+				nodeSpecer := &fakeNodeSpecer{
+					Annotations_: tt.annotations,
+					Labels_:      tt.labels,
+					PodCIDRs_:    tt.podCIDRs,
+				}
+				policyLister := &agent.MockCiliumBGPPeeringPolicyLister{
+					List_: tt.plist,
+				}
+				rtmgr := &mock.MockBGPRouterManager{
+					ConfigurePeers_: tt.configurePeers,
+				}
+				c := agent.Controller{
+					NodeSpec:     nodeSpecer,
+					PolicyLister: policyLister,
+					BGPMgr:       rtmgr,
+				}
+				err := c.Reconcile(context.Background())
+				if (tt.err == nil) != (err == nil) {
+					t.Fatalf("want: %v, got: %v", tt.err, err)
+				}
+			})
 		})
 	}
 }
@@ -477,31 +479,33 @@ func TestPolicySelection(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			// expand anon policies into CiliumBGPPeeringPolicy, make note of wanted
-			var policies []*v2alpha1api.CiliumBGPPeeringPolicy
-			var want *v2alpha1api.CiliumBGPPeeringPolicy
-			for _, p := range tt.policies {
-				policy := &v2alpha1api.CiliumBGPPeeringPolicy{
-					Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
-						NodeSelector: p.selector,
-					},
+			nodeaddr.WithTestLocalNodeStore(func() {
+				// expand anon policies into CiliumBGPPeeringPolicy, make note of wanted
+				var policies []*v2alpha1api.CiliumBGPPeeringPolicy
+				var want *v2alpha1api.CiliumBGPPeeringPolicy
+				for _, p := range tt.policies {
+					policy := &v2alpha1api.CiliumBGPPeeringPolicy{
+						Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
+							NodeSelector: p.selector,
+						},
+					}
+					policies = append(policies, policy)
+					if p.want {
+						want = policy
+					}
 				}
-				policies = append(policies, policy)
-				if p.want {
-					want = policy
+				// call function under test
+				policy, err := agent.PolicySelection(context.Background(), tt.nodeLabels, policies)
+				if (tt.err == nil) != (err == nil) {
+					t.Fatalf("expected err: %v", (tt.err == nil))
 				}
-			}
-			// call function under test
-			policy, err := agent.PolicySelection(context.Background(), tt.nodeLabels, policies)
-			if (tt.err == nil) != (err == nil) {
-				t.Fatalf("expected err: %v", (tt.err == nil))
-			}
-			if want != nil {
-				// pointer comparison, not a deep equal.
-				if policy != want {
-					t.Fatalf("got: %+v, want: %+v", *policy, *want)
+				if want != nil {
+					// pointer comparison, not a deep equal.
+					if policy != want {
+						t.Fatalf("got: %+v, want: %+v", *policy, *want)
+					}
 				}
-			}
+			})
 		})
 	}
 }
