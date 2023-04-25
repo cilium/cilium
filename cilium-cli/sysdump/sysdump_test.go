@@ -342,6 +342,10 @@ func (c *fakeClient) GetVersion(_ context.Context) (string, error) {
 	panic("implement me")
 }
 
+func (c *fakeClient) ListCiliumCIDRGroups(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumCIDRGroupList, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) ListCiliumClusterwideNetworkPolicies(_ context.Context, _ metav1.ListOptions) (*ciliumv2.CiliumClusterwideNetworkPolicyList, error) {
 	panic("implement me")
 }
