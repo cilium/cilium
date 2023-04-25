@@ -168,23 +168,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, true)).
 				Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
 		})
-
-		// TODO(brb) Enable IPv6 masq in ci-datapath, and then drop this test case
-		It("Check iptables masquerading without random-fully", func() {
-			options := map[string]string{
-				"bpf.masquerade":       "false",
-				"enableIPv6Masquerade": "true",
-			}
-			enableVXLANTunneling(options)
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-
-			By("Test iptables masquerading")
-			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
-				Should(BeTrue(), "IPv4 connectivity test to http://google.com failed")
-			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, true)).
-				Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
-		})
 	})
 
 	SkipContextIf(func() bool {
