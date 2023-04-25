@@ -164,8 +164,9 @@ jobs:
             --gateway-class cilium \
             --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching,GatewayClassObservedGenerationBump,HTTPResponseHeaderModification \
             -test.run "TestConformance" \
-            -test.skip "TestConformance/HTTPRouteListenerHostnameMatchings" \ # Enable once HTTPRouteListenerHostnameMatchings #24217 is fixed
-            -test.skip "TestConformance/HTTPRouteRedirectHostAndStatus" # Enable HTTPRouteRedirectHostAndStatus once https://github.com/kubernetes-sigs/gateway-api/issues/1805 is fixed upstream
+            -test.skip "TestConformance/HTTPRouteListenerHostnameMatching,TestConformance/HTTPRouteRedirectHostAndStatus" 
+            # Enable once HTTPRouteListenerHostnameMatchings #24217 is fixed
+            # Enable HTTPRouteRedirectHostAndStatus once https://github.com/kubernetes-sigs/gateway-api/issues/1805 is fixed upstream
 
       - name: Post-test information gathering
         if: ${{ !success() }}
