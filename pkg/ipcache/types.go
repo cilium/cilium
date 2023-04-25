@@ -4,16 +4,17 @@
 package ipcache
 
 import (
-	"github.com/cilium/cilium/pkg/ipcache/types"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 // prefixInfo holds all of the information (labels, etc.) about a given prefix
 // independently based on the ResourceID of the origin of that information, and
 // provides convenient accessors to consistently merge the stored information
 // to generate ipcache output based on a range of inputs.
-type prefixInfo map[types.ResourceID]*resourceInfo
+type prefixInfo map[ipcacheTypes.ResourceID]*resourceInfo
 
 // resourceInfo is all of the information that has been collected from a given
 // resource (types.ResourceID) about this IP. Each field must have a 'zero'
@@ -33,6 +34,13 @@ type resourceInfo struct {
 // cannot be used in conjunction with methods, which is how the information
 // gets injected into the IPCache.
 type IPMetadata any
+
+// namedPortMultiMapUpdater allows for mutation of the NamedPortMultiMap, which
+// is otherwise read-only.
+type namedPortMultiMapUpdater interface {
+	types.NamedPortMultiMap
+	Update(old, new types.NamedPortMap) (namedPortChanged bool)
+}
 
 // merge overwrites the field in 'resourceInfo' corresponding to 'info'. This
 // associates the new information with the prefix and ResourceID that this
