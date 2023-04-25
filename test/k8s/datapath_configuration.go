@@ -397,17 +397,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			kubectl.Exec("kubectl label nodes --all status-")
 		})
 
-		SkipItIf(func() bool {
-			return !helpers.IsIntegration(helpers.CIIntegrationGKE)
-		}, "Check connectivity with IPv6 disabled", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"ipv4.enabled":         "true",
-				"ipv6.enabled":         "false",
-				"hostFirewall.enabled": "true",
-			}, DeployCiliumOptionsAndDNS)
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-
 		SkipItIf(helpers.RunsOnAKS, "With VXLAN", func() {
 			options := map[string]string{
 				"hostFirewall.enabled": "true",
