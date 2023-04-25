@@ -112,20 +112,19 @@ func (k *PerClusterCTMapPrivilegedTestSuite) TestPerClusterCTMap(c *C) {
 
 	// Basic Get
 	im, err := om.getClusterMap(1)
-	c.Assert(im, NotNil)
 	c.Assert(err, IsNil)
+	c.Assert(im, NotNil)
 
 	im.Close()
 
-	// Getting unexisting entry returns nil, nil
-	im, err = om.getClusterMap(2)
-	c.Assert(im, IsNil)
-	c.Assert(err, IsNil)
+	// Getting nonexistent entry returns an error
+	_, err = om.getClusterMap(2)
+	c.Assert(err, NotNil)
 
 	// Basic all get
 	ims, err := om.getAllClusterMaps()
-	c.Assert(len(ims), Equals, 1)
 	c.Assert(err, IsNil)
+	c.Assert(len(ims), Equals, 1)
 
 	for _, im := range ims {
 		im.Close()
