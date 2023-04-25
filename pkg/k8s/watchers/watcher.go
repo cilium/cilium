@@ -681,11 +681,6 @@ func (k *K8sWatcher) StopK8sServiceHandler() {
 }
 
 func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
-	// Headless services do not need any datapath implementation
-	if svcInfo.IsHeadless {
-		return nil
-	}
-
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:   svc.Name,
 		logfields.K8sNamespace: svc.Namespace,
@@ -785,7 +780,10 @@ func genCartesianProduct(
 			}
 		}
 
-		addrCluster := cmtypes.MustAddrClusterFromIP(fe)
+		var addrCluster cmtypes.AddrCluster
+		if fe != nil {
+			addrCluster = cmtypes.MustAddrClusterFromIP(fe)
+		}
 
 		// External scoped entry - when external and internal policies are the same.
 		svcs = append(svcs,
@@ -848,6 +846,11 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 		svcs = append(svcs, dpSVC...)
 	}
 
+	if svc.IsHeadless {
+		dpSVC := genCartesianProduct(nil, twoScopes, loadbalancer.SVCTypeClusterIP, clusterIPPorts, endpoints)
+		svcs = append(svcs, dpSVC...)
+	}
+
 	for _, ip := range svc.LoadBalancerIPs {
 		dpSVC := genCartesianProduct(ip, twoScopes, loadbalancer.SVCTypeLoadBalancer, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
@@ -899,11 +902,6 @@ func hashSVCMap(svcs []loadbalancer.SVC) map[string]loadbalancer.L3n4Addr {
 }
 
 func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) error {
-	// Headless services do not need any datapath implementation
-	if svc.IsHeadless {
-		return nil
-	}
-
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:   svcID.Name,
 		logfields.K8sNamespace: svcID.Namespace,

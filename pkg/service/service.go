@@ -684,7 +684,12 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 		}
 	}
 
-	// Update lbmaps (BPF service maps)
+	// If there are no frontend IP (i.e. headless service), we should return immediately
+	// and avoid plumbing into BPF lb maps
+	if params.Frontend.AddrCluster.IsEmpty() {
+		return false, lb.ID(0), nil
+	}
+
 	if err = s.upsertServiceIntoLBMaps(svc, svc.isExtLocal(), svc.isIntLocal(), prevBackendCount,
 		newBackends, obsoleteBackendIDs, prevSessionAffinity, prevLoadBalancerSourceRanges,
 		obsoleteSVCBackendIDs, scopedLog); err != nil {

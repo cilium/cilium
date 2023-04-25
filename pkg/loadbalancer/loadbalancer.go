@@ -403,7 +403,7 @@ func (s *SVC) GetModel() *models.Service {
 		id  BackendID
 	}
 
-	if s == nil {
+	if s == nil || s.Frontend.AddrCluster.IsEmpty() {
 		return nil
 	}
 

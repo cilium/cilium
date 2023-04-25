@@ -198,6 +198,11 @@ func (ac AddrCluster) IsUnspecified() bool {
 	return ac.addr.IsUnspecified()
 }
 
+// IsEmpty returns true if AddrCluster is empty
+func (ac AddrCluster) IsEmpty() bool {
+	return ac.Equal(AddrCluster{})
+}
+
 // As20 returns the AddrCluster in its 20-byte representation which consists
 // of 16-byte IP address part from netip.Addr.As16 and 4-byte ClusterID part.
 func (ac AddrCluster) As20() (ac20 [20]byte) {

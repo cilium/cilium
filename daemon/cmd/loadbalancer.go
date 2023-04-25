@@ -200,7 +200,9 @@ func getServiceList(svc *service.Service) []*models.Service {
 	svcs := svc.GetDeepCopyServices()
 	list := make([]*models.Service, 0, len(svcs))
 	for _, v := range svcs {
-		list = append(list, v.GetModel())
+		if m := v.GetModel(); m != nil {
+			list = append(list, m)
+		}
 	}
 	return list
 }
