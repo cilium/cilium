@@ -122,11 +122,27 @@ func (p *podCIDRPool) hasAvailableIPs() bool {
 	return false
 }
 
-func (p *podCIDRPool) inUsePodCIDRsLocked() []string {
-	podCIDRs := make([]string, 0, len(p.ipAllocators))
+func (p *podCIDRPool) inUseIPCount() (count int) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	for _, ipAllocator := range p.ipAllocators {
+		count += ipAllocator.Used()
+	}
+	return count
+}
+
+func (p *podCIDRPool) inUsePodCIDRs() []types.IPAMPodCIDR {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	return p.inUsePodCIDRsLocked()
+}
+
+func (p *podCIDRPool) inUsePodCIDRsLocked() []types.IPAMPodCIDR {
+	podCIDRs := make([]types.IPAMPodCIDR, 0, len(p.ipAllocators))
 	for _, ipAllocator := range p.ipAllocators {
 		ipnet := ipAllocator.CIDR()
-		podCIDRs = append(podCIDRs, ipnet.String())
+		podCIDRs = append(podCIDRs, types.IPAMPodCIDR(ipnet.String()))
 	}
 	return podCIDRs
 }
@@ -169,6 +185,39 @@ func (p *podCIDRPool) calculateIPsLocked() (totalUsed, totalFree int) {
 	}
 
 	return totalUsed, totalFree
+}
+
+// releaseExcessCIDRsMultiPool implements the logic for multi-pool IPAM
+func (p *podCIDRPool) releaseExcessCIDRsMultiPool(neededIPs int) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	totalFree := 0
+	for _, ipAllocator := range p.ipAllocators {
+		totalFree += ipAllocator.Free()
+	}
+
+	// Iterate over pod CIDRs in reverse order, so we prioritize releasing
+	// later pod CIDRs.
+	retainedAllocators := []*ipallocator.Range{}
+	for i := len(p.ipAllocators) - 1; i >= 0; i-- {
+		ipAllocator := p.ipAllocators[i]
+		cidrNet := ipAllocator.CIDR()
+		cidrStr := cidrNet.String()
+
+		// If the pod CIDR is not used and releasing it would
+		// not take us below the release threshold, then release it immediately
+		free := ipAllocator.Free()
+		if ipAllocator.Used() == 0 && totalFree-free >= neededIPs {
+			p.released[cidrStr] = struct{}{}
+			totalFree -= free
+			log.WithField(logfields.CIDR, cidrStr).Debug("releasing pod CIDR")
+		} else {
+			retainedAllocators = append(retainedAllocators, ipAllocator)
+		}
+	}
+
+	p.ipAllocators = retainedAllocators
 }
 
 // releaseExcessCIDRsLocked implements the logic for clusterpool-v2-beta
