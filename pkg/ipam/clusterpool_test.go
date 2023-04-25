@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
@@ -38,6 +39,12 @@ func (f *fakeK8sCiliumNodeAPI) UpdateStatus(_ context.Context, ciliumNode *ciliu
 	return ciliumNode, err
 }
 
+// UpdateStatus implements nodeUpdater
+func (f *fakeK8sCiliumNodeAPI) Update(_ context.Context, ciliumNode *ciliumv2.CiliumNode, _ v1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
+	err := f.updateNode(ciliumNode)
+	return ciliumNode, err
+}
+
 // currentNode returns a the current snapshot of the node
 func (f *fakeK8sCiliumNodeAPI) currentNode() *ciliumv2.CiliumNode {
 	f.mutex.Lock()
@@ -54,7 +61,7 @@ func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
 		f.mutex.Unlock()
 		return fmt.Errorf("failed to update CiliumNode %q: node not found", newNode.Name)
 	}
-	f.node = newNode
+	f.node = newNode.DeepCopy()
 
 	sub := f.sub
 	onUpsertEvent := f.onUpsertEvent
@@ -117,7 +124,7 @@ func TestPodCIDRPool(t *testing.T) {
 		t.Run(string(tc.family), func(t *testing.T) {
 			RegisterTestingT(t)
 
-			p := newPodCIDRPool(0, 0, nil)
+			p := newPodCIDRPool(nil)
 
 			// Test behavior when empty.
 			ip, err := p.allocateNext()
@@ -130,12 +137,12 @@ func TestPodCIDRPool(t *testing.T) {
 			Expect(availableIPs).To(BeZero())
 			Expect(numPodCIDRs).To(BeZero())
 			Expect(p.hasAvailableIPs()).To(BeFalse())
-			Expect(p.status()).To(Equal(types.PodCIDRMap{}))
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{}))
 
 			// Add pod CIDRs.
 			p.updatePool([]string{tc.podCIDR})
 			Expect(p.hasAvailableIPs()).To(BeTrue())
-			Expect(p.status()).To(Equal(types.PodCIDRMap{
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 				tc.podCIDR: {
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -165,7 +172,7 @@ func TestPodCIDRPool(t *testing.T) {
 			ip, err = p.allocateNext()
 			Expect(err).To(HaveOccurred())
 			Expect(ip).To(BeNil())
-			Expect(p.status()).To(Equal(types.PodCIDRMap{
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 				tc.podCIDR: {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -176,10 +183,10 @@ func TestPodCIDRPool(t *testing.T) {
 				Expect(p.release(ip)).To(Succeed())
 				Expect(p.hasAvailableIPs()).To(BeTrue())
 				expectedStatus := types.PodCIDRStatusInUse
-				if i+1 < p.allocationThreshold {
+				if i+1 < defaults.IPAMPodCIDRAllocationThreshold {
 					expectedStatus = types.PodCIDRStatusDepleted
 				}
-				Expect(p.status()).To(Equal(types.PodCIDRMap{
+				Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 					tc.podCIDR: {
 						Status: expectedStatus,
 					},
@@ -192,7 +199,7 @@ func TestPodCIDRPool(t *testing.T) {
 			Expect(err).To(HaveOccurred())
 			Expect(ip).To(BeNil())
 			Expect(p.hasAvailableIPs()).To(BeFalse())
-			Expect(p.status()).To(Equal(types.PodCIDRMap{}))
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{}))
 		})
 	}
 }
@@ -223,11 +230,11 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 		t.Run(string(tc.family), func(t *testing.T) {
 			RegisterTestingT(t)
 
-			p := newPodCIDRPool(0, 0, nil)
+			p := newPodCIDRPool(nil)
 			p.updatePool([]string{tc.podCIDR1})
 
 			// Test behavior with no allocations.
-			Expect(p.status()).To(Equal(types.PodCIDRMap{
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -247,7 +254,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Test fully allocating the first pod CIDR.
 			ips1 := allocateNextN(p, tc.capacity1, podCIDR1)
-			Expect(p.status()).To(Equal(types.PodCIDRMap{
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -255,7 +262,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Allocate the second pod CIDR.
 			p.updatePool([]string{tc.podCIDR1, tc.podCIDR2})
-			Expect(p.status()).To(Equal(types.PodCIDRMap{
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -266,7 +273,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Test fully allocating the second pod CIDR.
 			ips2 := allocateNextN(p, tc.capacity2, podCIDR2)
-			Expect(p.status()).To(Equal(types.PodCIDRMap{
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -288,7 +295,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Test fully releasing the second pod CIDR.
 			releaseAll(p, ips2)
-			Expect(p.status()).To(Equal(types.PodCIDRMap{
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusDepleted,
 				},
@@ -309,12 +316,12 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 				Expect(numPodCIDRs).To(Equal(2))
 
 				var expectedStatus2 types.PodCIDRStatus
-				if i+1 < p.releaseThreshold {
+				if i+1 < defaults.IPAMPodCIDRReleaseThreshold {
 					expectedStatus2 = types.PodCIDRStatusInUse
 				} else {
 					expectedStatus2 = types.PodCIDRStatusReleased
 				}
-				Expect(p.status()).To(Equal(types.PodCIDRMap{
+				Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 					tc.podCIDR1: {
 						Status: types.PodCIDRStatusInUse,
 					},
@@ -323,7 +330,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 					},
 				}))
 			}
-			Expect(p.status()).To(Equal(types.PodCIDRMap{
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -334,7 +341,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Release the second pod CIDR.
 			p.updatePool([]string{tc.podCIDR1})
-			Expect(p.status()).To(Equal(types.PodCIDRMap{
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 				tc.podCIDR1: {
 					Status: types.PodCIDRStatusInUse,
 				},
@@ -417,11 +424,11 @@ func TestPodCIDRPoolRemoveInUse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			RegisterTestingT(t)
 
-			p := newPodCIDRPool(0, 0, nil)
+			p := newPodCIDRPool(nil)
 			p.updatePool(tc.podCIDRs)
 			_ = allocateNextN(p, tc.allocate, nil)
 			p.updatePool(tc.afterPodCIDRs)
-			Expect(p.status()).To(Equal(tc.expectedStatus))
+			Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(tc.expectedStatus))
 		})
 	}
 }
@@ -429,7 +436,7 @@ func TestPodCIDRPoolRemoveInUse(t *testing.T) {
 func TestPodCIDRPoolRemoveInUseWithRelease(t *testing.T) {
 	RegisterTestingT(t)
 
-	p := newPodCIDRPool(0, 0, nil)
+	p := newPodCIDRPool(nil)
 
 	// Allocate IP from all pod CIDRs.
 	p.updatePool([]string{
@@ -440,7 +447,7 @@ func TestPodCIDRPoolRemoveInUseWithRelease(t *testing.T) {
 	_ = allocateNextN(p, 30, mustParseCIDR("192.168.0.0/27"))
 	ip2s := allocateNextN(p, 30, mustParseCIDR("192.168.1.0/27"))
 	_ = allocateNextN(p, 1, mustParseCIDR("192.168.2.0/27"))
-	Expect(p.status()).To(Equal(types.PodCIDRMap{
+	Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/27": {
 			Status: types.PodCIDRStatusDepleted,
 		},
@@ -457,7 +464,7 @@ func TestPodCIDRPoolRemoveInUseWithRelease(t *testing.T) {
 		"192.168.0.0/27",
 		"192.168.2.0/27",
 	})
-	Expect(p.status()).To(Equal(types.PodCIDRMap{
+	Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/27": {
 			Status: types.PodCIDRStatusDepleted,
 		},
@@ -479,7 +486,7 @@ func TestPodCIDRPoolRemoveInUseWithRelease(t *testing.T) {
 
 	// Remove all remaining IPs from the second pod CIDR.
 	releaseAll(p, ip2s[1:])
-	Expect(p.status()).To(Equal(types.PodCIDRMap{
+	Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/27": {
 			Status: types.PodCIDRStatusDepleted,
 		},
@@ -496,12 +503,12 @@ func TestPodCIDRPoolDuplicatePodCIDRs(t *testing.T) {
 	RegisterTestingT(t)
 
 	// Test that duplicate pod CIDRs are ignored.
-	p := newPodCIDRPool(0, 0, nil)
+	p := newPodCIDRPool(nil)
 	p.updatePool([]string{
 		"192.168.0.0/27",
 		"192.168.0.0/27",
 	})
-	Expect(p.status()).To(Equal(types.PodCIDRMap{
+	Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/27": {
 			Status: types.PodCIDRStatusInUse,
 		},
@@ -511,14 +518,14 @@ func TestPodCIDRPoolDuplicatePodCIDRs(t *testing.T) {
 func TestPodCIDRPoolSmallAlloc(t *testing.T) {
 	RegisterTestingT(t)
 
-	p := newPodCIDRPool(0, 0, nil)
+	p := newPodCIDRPool(nil)
 
 	// Test that when only a small CIDR is allocated, the CIDR is marked as
 	// depleted.
 	p.updatePool([]string{
 		"192.168.0.0/30", // Add 2 IPs.
 	})
-	Expect(p.status()).To(Equal(types.PodCIDRMap{
+	Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/30": {
 			Status: types.PodCIDRStatusDepleted,
 		},
@@ -530,7 +537,7 @@ func TestPodCIDRPoolSmallAlloc(t *testing.T) {
 		"192.168.0.0/30", // Add 2 IPs.
 		"192.168.1.0/30", // Add 2 IPs.
 	})
-	Expect(p.status()).To(Equal(types.PodCIDRMap{
+	Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/30": {
 			Status: types.PodCIDRStatusDepleted,
 		},
@@ -547,7 +554,7 @@ func TestPodCIDRPoolSmallAlloc(t *testing.T) {
 		"192.168.2.0/30", // Add 2 IPs.
 		"192.168.3.0/30", // Add 2 IPs.
 	})
-	Expect(p.status()).To(Equal(types.PodCIDRMap{
+	Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/30": {
 			Status: types.PodCIDRStatusInUse,
 		},
@@ -570,7 +577,7 @@ func TestPodCIDRPoolSmallAlloc(t *testing.T) {
 		"192.168.3.0/30", // Add 2 IPs.
 		"192.168.4.0/27", // Add 30 IPs.
 	})
-	Expect(p.status()).To(Equal(types.PodCIDRMap{
+	Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/30": {
 			Status: types.PodCIDRStatusReleased,
 		},
@@ -592,14 +599,14 @@ func TestPodCIDRPoolSmallAlloc(t *testing.T) {
 func TestPodCIDRPoolTooSmallAlloc(t *testing.T) {
 	RegisterTestingT(t)
 
-	p := newPodCIDRPool(0, 0, nil)
+	p := newPodCIDRPool(nil)
 
 	// Test that when only a small CIDR is allocated, the CIDR is immediately
 	// released.
 	p.updatePool([]string{
 		"192.168.0.0/32", // 0 IPs.
 	})
-	Expect(p.status()).To(Equal(types.PodCIDRMap{
+	Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/32": {
 			Status: types.PodCIDRStatusReleased,
 		},
@@ -607,7 +614,7 @@ func TestPodCIDRPoolTooSmallAlloc(t *testing.T) {
 	p.updatePool([]string{
 		"192.168.0.0/31", // 0 IPs.
 	})
-	Expect(p.status()).To(Equal(types.PodCIDRMap{
+	Expect(p.clusterPoolV2Beta1Status(0, 0)).To(Equal(types.PodCIDRMap{
 		"192.168.0.0/31": {
 			Status: types.PodCIDRStatusReleased,
 		},
