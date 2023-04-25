@@ -115,6 +115,11 @@ Users (Alphabetically)
       L: https://www.youtube.com/watch?v=yXm7yZE2rk4
       Q: @rmaika @mohahmed13
 
+    * N: Cistec
+      D: Cistec is a clinical information system provider and uses Cilium as the CNI plugin.
+      U: Networking and network policy
+      L: https://www.cistec.com/
+      
     * N: Civo
       D: Civo is offering Cilium as the CNI option for Civo users to choose it for their Civo Kubernetes clusters.
       U: Networking and network policy
