@@ -86,14 +86,14 @@ func (ds *PolicyTestSuite) TestPolicyNamedPortMap(c *C) {
 
 func (ds *PolicyTestSuite) TestPolicyPortProtoSet(c *C) {
 	a := PortProtoSet{
-		PortProto{Port: 80, Proto: 6}:  struct{}{},
-		PortProto{Port: 443, Proto: 6}: struct{}{},
-		PortProto{Port: 53, Proto: 17}: struct{}{},
+		PortProto{Port: 80, Proto: 6}:  1,
+		PortProto{Port: 443, Proto: 6}: 1,
+		PortProto{Port: 53, Proto: 17}: 1,
 	}
 	b := PortProtoSet{
-		PortProto{Port: 80, Proto: 6}:  struct{}{},
-		PortProto{Port: 443, Proto: 6}: struct{}{},
-		PortProto{Port: 53, Proto: 6}:  struct{}{},
+		PortProto{Port: 80, Proto: 6}:  1,
+		PortProto{Port: 443, Proto: 6}: 1,
+		PortProto{Port: 53, Proto: 6}:  1,
 	}
 	c.Assert(a.Equal(a), Equals, true)
 	c.Assert(a.Equal(b), Equals, false)
@@ -101,43 +101,43 @@ func (ds *PolicyTestSuite) TestPolicyPortProtoSet(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestPolicyNamedPortMultiMap(c *C) {
-	a := namedPortMultiMap{
-		"http": PortProtoSet{
-			PortProto{Port: 80, Proto: 6}:   struct{}{},
-			PortProto{Port: 8080, Proto: 6}: struct{}{},
-		},
-		"https": PortProtoSet{
-			PortProto{Port: 443, Proto: 6}: struct{}{},
-		},
-		"zero": PortProtoSet{
-			PortProto{Port: 0, Proto: 6}: struct{}{},
-		},
-		"none": PortProtoSet{},
-		"dns": PortProtoSet{
-			PortProto{Port: 53, Proto: 17}: struct{}{},
-			PortProto{Port: 53, Proto: 6}:  struct{}{},
-		},
-	}
-	b := namedPortMultiMap{
-		"http": PortProtoSet{
-			PortProto{Port: 80, Proto: 6}:   struct{}{},
-			PortProto{Port: 8080, Proto: 6}: struct{}{},
-		},
-		"https": PortProtoSet{
-			PortProto{Port: 443, Proto: 6}: struct{}{},
-		},
-		"zero": PortProtoSet{
-			PortProto{Port: 0, Proto: 6}: struct{}{},
-		},
-		"none": PortProtoSet{},
-		"dns": PortProtoSet{
-			PortProto{Port: 53, Proto: 0}: struct{}{},
+	a := &namedPortMultiMap{
+		m: map[string]PortProtoSet{
+			"http": {
+				PortProto{Port: 80, Proto: 6}:   1,
+				PortProto{Port: 8080, Proto: 6}: 1,
+			},
+			"https": {
+				PortProto{Port: 443, Proto: 6}: 1,
+			},
+			"zero": {
+				PortProto{Port: 0, Proto: 6}: 1,
+			},
+			"none": {},
+			"dns": {
+				PortProto{Port: 53, Proto: 17}: 1,
+				PortProto{Port: 53, Proto: 6}:  1,
+			},
 		},
 	}
-
-	c.Assert(a.Equal(a), Equals, true)
-	c.Assert(a.Equal(b), Equals, false)
-	c.Assert(b.Equal(b), Equals, true)
+	b := &namedPortMultiMap{
+		m: map[string]PortProtoSet{
+			"http": {
+				PortProto{Port: 80, Proto: 6}:   1,
+				PortProto{Port: 8080, Proto: 6}: 1,
+			},
+			"https": {
+				PortProto{Port: 443, Proto: 6}: 1,
+			},
+			"zero": {
+				PortProto{Port: 0, Proto: 6}: 1,
+			},
+			"none": {},
+			"dns": {
+				PortProto{Port: 53, Proto: 0}: 1,
+			},
+		},
+	}
 
 	port, err := a.GetNamedPort("http", 6)
 	c.Assert(err, Equals, ErrDuplicateNamedPorts)
@@ -159,7 +159,7 @@ func (ds *PolicyTestSuite) TestPolicyNamedPortMultiMap(c *C) {
 	c.Assert(err, Equals, ErrUnknownNamedPort)
 	c.Assert(port, Equals, uint16(0))
 
-	var nilvalued namedPortMultiMap
+	var nilvalued *namedPortMultiMap
 	port, err = NamedPortMultiMap(nilvalued).GetNamedPort("unknown", 6)
 	c.Assert(err, Equals, ErrNilMap)
 	c.Assert(port, Equals, uint16(0))
@@ -183,4 +183,54 @@ func (ds *PolicyTestSuite) TestPolicyNamedPortMultiMap(c *C) {
 	port, err = b.GetNamedPort("dns", 17)
 	c.Assert(err, IsNil)
 	c.Assert(port, Equals, uint16(53))
+}
+
+func (ds *PolicyTestSuite) TestPolicyNamedPortMultiMapUpdate(c *C) {
+	npm := NewNamedPortMultiMap()
+
+	pod1PortsOld := map[string]PortProto{}
+	pod1PortsNew := map[string]PortProto{
+		"http": {80, uint8(u8proto.TCP)},
+	}
+
+	// Insert http=80/TCP from pod1
+	changed := npm.Update(pod1PortsOld, pod1PortsNew)
+	c.Assert(changed, Equals, true)
+
+	// No changes
+	changed = npm.Update(pod1PortsNew, pod1PortsNew)
+	c.Assert(changed, Equals, false)
+
+	// Assert http=80/TCP
+	port, err := npm.GetNamedPort("http", uint8(u8proto.TCP))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(80))
+
+	pod2PortsOld := map[string]PortProto{}
+	pod2PortsNew := map[string]PortProto{
+		"http": {8080, uint8(u8proto.UDP)},
+	}
+
+	// Insert http=8080/UDP from pod2, retain http=80/TCP from pod1
+	changed = npm.Update(pod2PortsOld, pod2PortsNew)
+	c.Assert(changed, Equals, true)
+
+	port, err = npm.GetNamedPort("http", uint8(u8proto.TCP))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(80))
+	port, err = npm.GetNamedPort("http", uint8(u8proto.UDP))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(8080))
+
+	// Delete http=80/TCP from pod1, retain http=8080/UDP from pod2
+	pod1PortsOld = pod1PortsNew
+	pod1PortsNew = map[string]PortProto{}
+
+	// Delete http=80/TCP from pod1
+	changed = npm.Update(pod1PortsOld, pod1PortsNew)
+	c.Assert(changed, Equals, true)
+
+	port, err = npm.GetNamedPort("http", uint8(u8proto.UDP))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(8080))
 }
