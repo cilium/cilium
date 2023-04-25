@@ -206,6 +206,7 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 		return
 	}
 
+	logger.Debug("Adding EP")
 	manager.epDataStore[epData.id] = epData
 
 	manager.reconcile(eventUpdateEndpoint)
@@ -254,6 +255,8 @@ func (manager *Manager) onChangeNodeLocked(e eventType) {
 }
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
+	log.Debug("Updating policies' matched endpoint ID")
+
 	for _, policy := range manager.policyConfigs {
 		policy.updateMatchedEndpointIDs(manager.epDataStore)
 	}
@@ -443,6 +446,8 @@ func (manager *Manager) reconcile(e eventType) {
 	if !manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
 		return
 	}
+
+	log.Debug("Running reconciliation")
 
 	switch e {
 	case eventUpdateEndpoint, eventDeleteEndpoint:

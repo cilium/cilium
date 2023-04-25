@@ -85,9 +85,16 @@ func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata
 func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) {
 	config.matchedEndpointIDs = make(map[endpointID]struct{})
 
+	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, config.id.String())
+
 	for _, endpoint := range epDataStore {
+		logger = logger.WithField(logfields.EndpointID, endpoint.id.String())
+
 		if config.matchesEndpointLabels(endpoint) {
+			logger.Debug("Policy matches endpoint")
 			config.matchedEndpointIDs[endpoint.id] = struct{}{}
+		} else {
+			logger.Debug("Policy does not match endpoint")
 		}
 	}
 }
@@ -181,10 +188,17 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 func (config *PolicyConfig) forEachEndpointAndDestination(epDataStore map[endpointID]*endpointMetadata,
 	f func(net.IP, *net.IPNet, *gatewayConfig)) {
 
+	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, config.id.String())
+
 	for _, endpoint := range epDataStore {
+		logger = logger.WithField(logfields.EndpointID, endpoint.id.String())
+
 		if !config.selectsEndpoint(endpoint) {
+			logger.Debug("Policy does not select endpoint")
 			continue
 		}
+
+		logger.Debug("Policy selects endpoint")
 
 		for _, endpointIP := range endpoint.ips {
 			for _, dstCIDR := range config.dstCIDRs {
