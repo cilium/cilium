@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 var (
@@ -126,66 +127,68 @@ func Test_cleanStaleCEP(t *testing.T) {
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			assert := assert.New(t)
-			d := Daemon{
-				k8sWatcher: &watchers.K8sWatcher{},
-			}
-
-			fakeClient := fake.NewSimpleClientset()
-			fakeClient.PrependReactor("create", "ciliumendpoints", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
-				cep := action.(k8stesting.CreateAction).GetObject().(*ciliumv2.CiliumEndpoint)
-				return true, cep, nil
-			}))
-			fakeClient.PrependReactor("get", "ciliumendpoints", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
-				if !test.enableCES {
-					assert.Fail("unexpected get on ciliumendpoints in CEP mode, expected only in CES mode")
+			node.WithTestLocalNodeStore(func() {
+				assert := assert.New(t)
+				d := Daemon{
+					k8sWatcher: &watchers.K8sWatcher{},
 				}
-				name := action.(k8stesting.GetAction).GetName()
-				ns := action.(k8stesting.GetActionImpl).Namespace
-				cep, ok := test.apiserverCEPs[ns+"/"+name]
-				if !ok {
-					return true, nil, fmt.Errorf("not found")
-				}
-				return true, cep, nil
-			}))
-			cepStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
-				"localNode": watchers.CreateCiliumEndpointLocalPodIndexFunc(), // empty nodeIP means this will index all nodes.
-			})
-			ciliumEndpointSlicesStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
-				"localNode": watchers.CreateCiliumEndpointSliceLocalPodIndexFunc(), // empty nodeIP means this will index all nodes.
-			})
 
-			for _, ces := range test.ciliumEndpointSlices {
-				ciliumEndpointSlicesStore.Add(ces.DeepCopy())
-			}
-			for _, cep := range test.ciliumEndpoints {
-				_, err := fakeClient.CiliumV2().CiliumEndpoints(cep.Namespace).Create(context.Background(), &ciliumv2.CiliumEndpoint{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      cep.Name,
-						Namespace: cep.Namespace,
-					},
-				}, metav1.CreateOptions{})
+				fakeClient := fake.NewSimpleClientset()
+				fakeClient.PrependReactor("create", "ciliumendpoints", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
+					cep := action.(k8stesting.CreateAction).GetObject().(*ciliumv2.CiliumEndpoint)
+					return true, cep, nil
+				}))
+				fakeClient.PrependReactor("get", "ciliumendpoints", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
+					if !test.enableCES {
+						assert.Fail("unexpected get on ciliumendpoints in CEP mode, expected only in CES mode")
+					}
+					name := action.(k8stesting.GetAction).GetName()
+					ns := action.(k8stesting.GetActionImpl).Namespace
+					cep, ok := test.apiserverCEPs[ns+"/"+name]
+					if !ok {
+						return true, nil, fmt.Errorf("not found")
+					}
+					return true, cep, nil
+				}))
+				cepStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
+					"localNode": watchers.CreateCiliumEndpointLocalPodIndexFunc(), // empty nodeIP means this will index all nodes.
+				})
+				ciliumEndpointSlicesStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
+					"localNode": watchers.CreateCiliumEndpointSliceLocalPodIndexFunc(), // empty nodeIP means this will index all nodes.
+				})
+
+				for _, ces := range test.ciliumEndpointSlices {
+					ciliumEndpointSlicesStore.Add(ces.DeepCopy())
+				}
+				for _, cep := range test.ciliumEndpoints {
+					_, err := fakeClient.CiliumV2().CiliumEndpoints(cep.Namespace).Create(context.Background(), &ciliumv2.CiliumEndpoint{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      cep.Name,
+							Namespace: cep.Namespace,
+						},
+					}, metav1.CreateOptions{})
+					assert.NoError(err)
+					cepStore.Add(cep.DeepCopy())
+				}
+				d.k8sWatcher.SetIndexer("ciliumendpoint", cepStore)
+				d.k8sWatcher.SetIndexer("ciliumendpointslice", ciliumEndpointSlicesStore)
+				l := &lock.Mutex{}
+				var deletedSet []string
+				fakeClient.PrependReactor("delete", "ciliumendpoints", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
+					l.Lock()
+					defer l.Unlock()
+					a := action.(k8stesting.DeleteAction)
+					deletedSet = append(deletedSet, fmt.Sprintf("%s/%s", a.GetNamespace(), a.GetName()))
+					return true, nil, nil
+				}))
+
+				epm := &fakeEPManager{test.managedEndpoints}
+
+				err := d.cleanStaleCEPs(context.Background(), epm, fakeClient.CiliumV2(), test.enableCES)
+
 				assert.NoError(err)
-				cepStore.Add(cep.DeepCopy())
-			}
-			d.k8sWatcher.SetIndexer("ciliumendpoint", cepStore)
-			d.k8sWatcher.SetIndexer("ciliumendpointslice", ciliumEndpointSlicesStore)
-			l := &lock.Mutex{}
-			var deletedSet []string
-			fakeClient.PrependReactor("delete", "ciliumendpoints", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
-				l.Lock()
-				defer l.Unlock()
-				a := action.(k8stesting.DeleteAction)
-				deletedSet = append(deletedSet, fmt.Sprintf("%s/%s", a.GetNamespace(), a.GetName()))
-				return true, nil, nil
-			}))
-
-			epm := &fakeEPManager{test.managedEndpoints}
-
-			err := d.cleanStaleCEPs(context.Background(), epm, fakeClient.CiliumV2(), test.enableCES)
-
-			assert.NoError(err)
-			assert.ElementsMatch(test.expectedDeletedSet, deletedSet)
+				assert.ElementsMatch(test.expectedDeletedSet, deletedSet)
+			})
 		})
 	}
 }

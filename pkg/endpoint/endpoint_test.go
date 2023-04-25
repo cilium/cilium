@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/policy"
@@ -146,11 +147,13 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	mgr := NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	<-mgr.InitIdentityAllocator(nil)
 	s.mgr = mgr
+	node.SetTestLocalNodeStore()
 }
 
 func (s *EndpointSuite) TearDownTest(c *C) {
 	s.mgr.Close()
 	kvstore.Client().Close(context.TODO())
+	node.UnsetTestLocalNodeStore()
 }
 
 func (s *EndpointSuite) TestEndpointStatus(c *C) {

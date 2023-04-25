@@ -67,7 +67,10 @@ func validateLocalNodeInit(lns *node.LocalNodeStore) error {
 	// This is called before Daemon is started.
 
 	errs := &errorer{}
-	node := lns.Get()
+	node, err := lns.Get(context.TODO())
+	if err != nil {
+		return err
+	}
 
 	// These things we expect to be populated right after
 	// LocalNodeStore has started:
@@ -93,7 +96,10 @@ func validateLocalNodeAgent(cs client.Clientset, lns *node.LocalNodeStore) error
 	}
 
 	errs := &errorer{}
-	node := lns.Get()
+	node, err := lns.Get(context.TODO())
+	if err != nil {
+		return err
+	}
 
 	// PodCIDR has been populated from the node object.
 	assert.Equal(errs, podCIDR.String(), node.IPv4AllocCIDR.String())

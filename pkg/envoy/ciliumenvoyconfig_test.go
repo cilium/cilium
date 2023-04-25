@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/node"
 
 	. "github.com/cilium/checkmate"
 )
@@ -74,6 +75,14 @@ func (m *MockPortAllocator) ReleaseProxyPort(name string) error {
 }
 
 var _ = Suite(&JSONSuite{})
+
+func (*JSONSuite) SetUpTest(*C) {
+	node.SetTestLocalNodeStore()
+}
+
+func (*JSONSuite) TearDownTest(*C) {
+	node.UnsetTestLocalNodeStore()
+}
 
 var xds1 = `version_info: "0"
 resources:

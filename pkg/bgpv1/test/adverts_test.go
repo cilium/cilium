@@ -11,6 +11,7 @@ import (
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/stretchr/testify/require"
@@ -25,6 +26,9 @@ var (
 // Test_PodCIDRAdvert validates pod IPv4/v6 subnet is advertised, withdrawn and modified on node addresses change.
 func Test_PodCIDRAdvert(t *testing.T) {
 	testutils.PrivilegedTest(t)
+
+	node.SetTestLocalNodeStore()
+	defer node.UnsetTestLocalNodeStore()
 
 	// steps define order in which test is run. Note, this is different from table tests, in which each unit is
 	// independent. In this case, tests are run sequentially and there is dependency on previous test step.
@@ -168,6 +172,9 @@ func Test_PodCIDRAdvert(t *testing.T) {
 // Test_LBEgressAdvertisement validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
 func Test_LBEgressAdvertisement(t *testing.T) {
 	testutils.PrivilegedTest(t)
+
+	node.SetTestLocalNodeStore()
+	defer node.UnsetTestLocalNodeStore()
 
 	var steps = []struct {
 		description         string

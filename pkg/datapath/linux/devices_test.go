@@ -33,8 +33,6 @@ type DevicesSuite struct {
 	prevConfigNodePortAcceleration string
 	prevConfigRoutingMode          string
 	prevConfigEnableIPv6NDP        bool
-	prevK8sNodeIP                  net.IP
-	prevK8sNodeIPv6                net.IP
 }
 
 var _ = Suite(&DevicesSuite{})
@@ -53,8 +51,6 @@ func (s *DevicesSuite) SetUpSuite(c *C) {
 	s.prevConfigRoutingMode = option.Config.RoutingMode
 	s.prevConfigEnableIPv6NDP = option.Config.EnableIPv6NDP
 	s.prevConfigIPv6MCastDevice = option.Config.IPv6MCastDevice
-	s.prevK8sNodeIP = node.GetIPv4()
-	s.prevK8sNodeIPv6 = node.GetIPv6()
 	s.currentNetNS, err = netns.Get()
 	c.Assert(err, IsNil)
 }
@@ -75,13 +71,10 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 	option.Config.RoutingMode = s.prevConfigRoutingMode
 	option.Config.EnableIPv6NDP = s.prevConfigEnableIPv6NDP
 	option.Config.IPv6MCastDevice = s.prevConfigIPv6MCastDevice
-	nodeSetIP(s.prevK8sNodeIP)
-	nodeSetIP(s.prevK8sNodeIPv6)
 }
 
 func (s *DevicesSuite) TestDetect(c *C) {
-
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		dm, err := NewDeviceManager()
 		c.Assert(err, IsNil)
 
@@ -220,7 +213,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 }
 
 func (s *DevicesSuite) TestExpandDevices(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
 		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
 		c.Assert(createDummy("other0", "192.168.2.3/24", false), IsNil)
@@ -242,7 +235,7 @@ func (s *DevicesSuite) TestExpandDevices(c *C) {
 }
 
 func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
 		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
 		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
@@ -262,7 +255,7 @@ func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
 }
 
 func (s *DevicesSuite) TestListenForNewDevices(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -321,7 +314,7 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 }
 
 func (s *DevicesSuite) TestListenForNewDevicesFiltered(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -356,7 +349,7 @@ func (s *DevicesSuite) TestListenForNewDevicesFiltered(c *C) {
 }
 
 func (s *DevicesSuite) TestListenAfterDelete(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -397,7 +390,7 @@ func (s *DevicesSuite) TestListenAfterDelete(c *C) {
 	})
 }
 
-func (s *DevicesSuite) withFreshNetNS(c *C, test func()) {
+func (s *DevicesSuite) withFixture(c *C, test func()) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -406,7 +399,7 @@ func (s *DevicesSuite) withFreshNetNS(c *C, test func()) {
 	defer func() { c.Assert(testNetNS.Close(), IsNil) }()
 	defer func() { c.Assert(netns.Set(s.currentNetNS), IsNil) }()
 
-	test()
+	node.WithTestLocalNodeStore(test)
 }
 
 func createLink(linkTemplate netlink.Link, iface, ipAddr string, flagMulticast bool) error {

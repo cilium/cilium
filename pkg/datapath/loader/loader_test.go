@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -54,6 +55,8 @@ func Test(t *testing.T) {
 
 func (s *LoaderTestSuite) SetUpSuite(c *C) {
 	testutils.PrivilegedTest(c)
+
+	node.SetTestLocalNodeStore()
 
 	tmpDir, err := os.MkdirTemp("/tmp/", "cilium_")
 	if err != nil {
@@ -101,6 +104,7 @@ func (s *LoaderTestSuite) TearDownSuite(c *C) {
 			c.Fatal(err)
 		}
 	}
+	node.UnsetTestLocalNodeStore()
 }
 
 func (s *LoaderTestSuite) TearDownTest(c *C) {
