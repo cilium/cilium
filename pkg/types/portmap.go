@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/iana"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -30,8 +32,8 @@ type PortProto struct {
 // NamedPortMap maps port names to port numbers and protocols.
 type NamedPortMap map[string]PortProto
 
-// PortProtoSet is a set of unique PortProto values.
-type PortProtoSet map[PortProto]struct{}
+// PortProtoSet is a reference-counted set of unique PortProto values.
+type PortProtoSet counter.Counter[PortProto]
 
 // Equal returns true if the PortProtoSets are equal.
 func (pps PortProtoSet) Equal(other PortProtoSet) bool {
@@ -47,6 +49,16 @@ func (pps PortProtoSet) Equal(other PortProtoSet) bool {
 	return true
 }
 
+// Add increments the reference count for the specified key.
+func (pps PortProtoSet) Add(pp PortProto) bool {
+	return counter.Counter[PortProto](pps).Add(pp)
+}
+
+// Delete decrements the reference count for the specified key.
+func (pps PortProtoSet) Delete(pp PortProto) bool {
+	return counter.Counter[PortProto](pps).Delete(pp)
+}
+
 // NamedPortMultiMap may have multiple entries for a name if multiple PODs
 // define the same name with different values.
 type NamedPortMultiMap interface {
@@ -54,31 +66,53 @@ type NamedPortMultiMap interface {
 	GetNamedPort(name string, proto uint8) (uint16, error)
 	// Len returns the number of Name->PortProtoSet mappings known.
 	Len() int
-	Equal(other NamedPortMultiMap) bool
 }
 
-func NewNamedPortMultiMap() namedPortMultiMap {
-	return make(namedPortMultiMap)
-}
-
-type namedPortMultiMap map[string]PortProtoSet
-
-// Equal returns true if the NamedPortMultiMaps are equal.
-func (npm namedPortMultiMap) Equal(other NamedPortMultiMap) bool {
-	o, ok := other.(namedPortMultiMap)
-	if !ok || len(npm) != len(o) {
-		return false
+func NewNamedPortMultiMap() *namedPortMultiMap {
+	return &namedPortMultiMap{
+		m: make(map[string]PortProtoSet),
 	}
-	for name, ports := range npm {
-		if otherPorts, exists := o[name]; !exists || !ports.Equal(otherPorts) {
-			return false
+}
+
+// Implements NamedPortMultiMap and allows changes through Update. All accesses
+// must be protected by its RW mutex.
+type namedPortMultiMap struct {
+	lock.RWMutex
+	m map[string]PortProtoSet
+}
+
+func (npm *namedPortMultiMap) Len() int {
+	npm.RLock()
+	defer npm.RUnlock()
+	return len(npm.m)
+}
+
+// Update applies potential changes in named ports, and returns whether there were any.
+func (npm *namedPortMultiMap) Update(old, new NamedPortMap) (namedPortsChanged bool) {
+	npm.Lock()
+	defer npm.Unlock()
+	// The order is important here. Increment the refcount first, and then
+	// decrement it again for old ports, so that we don't hit zero if there are
+	// no changes.
+	for name, port := range new {
+		c, ok := npm.m[name]
+		if !ok {
+			c = make(PortProtoSet)
+			npm.m[name] = c
+		}
+		if c.Add(port) {
+			namedPortsChanged = true
 		}
 	}
-	return true
-}
-
-func (npm namedPortMultiMap) Len() int {
-	return len(npm)
+	for name, port := range old {
+		if npm.m[name].Delete(port) {
+			namedPortsChanged = true
+			if len(npm.m[name]) == 0 {
+				delete(npm.m, name)
+			}
+		}
+	}
+	return namedPortsChanged
 }
 
 // ValidatePortName checks that the port name conforms to the IANA Service Names spec
@@ -146,11 +180,16 @@ func (npm NamedPortMap) GetNamedPort(name string, proto uint8) (uint16, error) {
 }
 
 // GetNamedPort returns the port number for the named port, if any.
-func (npm namedPortMultiMap) GetNamedPort(name string, proto uint8) (uint16, error) {
+func (npm *namedPortMultiMap) GetNamedPort(name string, proto uint8) (uint16, error) {
 	if npm == nil {
 		return 0, ErrNilMap
 	}
-	pps, ok := npm[name]
+	npm.RLock()
+	defer npm.RUnlock()
+	if npm.m == nil {
+		return 0, ErrNilMap
+	}
+	pps, ok := npm.m[name]
 	if !ok {
 		// Return an error the caller can filter out as this happens only for egress policy
 		// and it is likely the destination POD with the port name is simply not scheduled yet.
