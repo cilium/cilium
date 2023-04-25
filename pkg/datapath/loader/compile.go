@@ -162,7 +162,9 @@ func GetBPFCPU() string {
 			// We want to enable v3 only on kernels 5.10+ where we have
 			// tested it and need it to work around complexity issues.
 			if h := manager.GetHelpers("sched_cls"); h != nil {
+				log.Warning("@@@@@@@ GetBPFCPU")
 				if _, ok := h["bpf_redirect_neigh"]; ok {
+					log.Warning("@@@@@@@@ Found it!")
 					nameBPFCPU = "v3"
 					return
 				}

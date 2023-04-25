@@ -158,6 +158,7 @@ func NewProbeManager() *ProbeManager {
 // Probe probes the underlying kernel for features.
 func (*ProbeManager) Probe() Features {
 	var features Features
+
 	out, err := exec.WithTimeout(
 		defaults.ExecTimeout,
 		"bpftool", "-j", "feature", "probe",
@@ -168,6 +169,30 @@ func (*ProbeManager) Probe() Features {
 	if err := json.Unmarshal(out, &features); err != nil {
 		log.WithError(err).Fatal("could not parse bpftool output")
 	}
+
+	if schedh, ok := features.Helpers["sched_cls_available_helpers"]; ok {
+		for _, helper := range schedh {
+			if helper != "bpf_redirect_neigh" {
+				continue
+			}
+
+			ouut, eerr := exec.WithTimeout(
+				defaults.ExecTimeout,
+				"apt-get", "update",
+			).CombinedOutput(log, true)
+			ouut, eerr = exec.WithTimeout(
+				defaults.ExecTimeout,
+				"apt-get", "install", "-y", "strace",
+			).CombinedOutput(log, true)
+			ouut, eerr = exec.WithTimeout(
+				defaults.ExecTimeout,
+				"bash", "-c", "strace -e bpf bpftool feature probe 2>&1 | grep '\\(program_type", "sched_cls\\|BPF_PROG_TYPE_SCHED_CLS.*log_size=0\\|map_type=BPF_MAP_TYPE_ARRAY,\\)'",
+			).CombinedOutput(log, true)
+			log.Warningf("@@@@@@@@@@ strace -e bpf bpftool -j feature probe: %v, %v", string(ouut), eerr)
+			break
+		}
+	}
+
 	return features
 }
 
