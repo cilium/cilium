@@ -322,13 +322,18 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	c.Assert(cachedIdentity.ID, Equals, identity)
 	c.Assert(cachedIdentity.Source, Equals, source.Kubernetes)
 
-	// Named ports have been updated
-	c.Assert(namedPortsChanged, Equals, false) // not before GetNamedPorts() has been called once
+	// Named ports have been updated, but no policy uses them, hence don't
+	// trigger policy regen until GetNamedPorts has been called at least once.
+	c.Assert(namedPortsChanged, Equals, false)
 	npm := IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
-	c.Assert(len(npm), Equals, 2)
-	c.Assert(npm["http"], checker.HasKey, policy.PortProto{Port: uint16(80), Proto: uint8(6)})
-	c.Assert(npm["dns"], checker.HasKey, policy.PortProto{Port: uint16(53), Proto: uint8(0)})
+	c.Assert(npm.Len(), Equals, 2)
+	port, err := npm.GetNamedPort("http", uint8(6))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(80))
+	port, err = npm.GetNamedPort("dns", uint8(0))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(53))
 
 	// No duplicates.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
@@ -375,18 +380,29 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	c.Assert(namedPortsChanged, Equals, true)
 	npm = IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
-	c.Assert(len(npm), Equals, 3)
-	c.Assert(npm["http"], checker.HasKey, policy.PortProto{Port: uint16(80), Proto: uint8(6)})
-	c.Assert(npm["dns"], checker.HasKey, policy.PortProto{Port: uint16(53), Proto: uint8(0)})
-	c.Assert(npm["https"], checker.HasKey, policy.PortProto{Port: uint16(443), Proto: uint8(6)})
+	c.Assert(npm.Len(), Equals, 3)
+	port, err = npm.GetNamedPort("http", uint8(6))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(80))
+	port, err = npm.GetNamedPort("dns", uint8(0))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(53))
+	port, err = npm.GetNamedPort("https", uint8(6))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(443))
 
 	namedPortsChanged = IPIdentityCache.Delete(endpointIP, source.Kubernetes)
 	c.Assert(namedPortsChanged, Equals, true)
 	npm = IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
-	c.Assert(len(npm), Equals, 2)
-	c.Assert(npm["dns"], checker.HasKey, policy.PortProto{Port: uint16(53), Proto: uint8(0)})
-	c.Assert(npm["https"], checker.HasKey, policy.PortProto{Port: uint16(443), Proto: uint8(6)})
+	c.Assert(npm.Len(), Equals, 2)
+
+	port, err = npm.GetNamedPort("dns", uint8(0))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(53))
+	port, err = npm.GetNamedPort("https", uint8(6))
+	c.Assert(err, IsNil)
+	c.Assert(port, Equals, uint16(443))
 
 	// Assure deletion occurs across all mappings.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
@@ -472,7 +488,9 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 		c.Assert(err, IsNil)
 		npm = IPIdentityCache.GetNamedPorts()
 		c.Assert(npm, NotNil)
-		c.Assert(npm["http2"], checker.HasKey, policy.PortProto{Port: uint16(8080), Proto: uint8(6)})
+		port, err := npm.GetNamedPort("http2", uint8(6))
+		c.Assert(err, IsNil)
+		c.Assert(port, Equals, uint16(8080))
 		// only the first changes named ports, as they are all the same
 		c.Assert(namedPortsChanged, Equals, index == 0)
 		cachedIdentity, _ := IPIdentityCache.LookupByIP(endpointIPs[index])
@@ -531,7 +549,7 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	namedPortsChanged = IPIdentityCache.Delete(endpointIP2, source.Kubernetes)
 	c.Assert(namedPortsChanged, Equals, true)
 	npm = IPIdentityCache.GetNamedPorts()
-	c.Assert(npm, HasLen, 0)
+	c.Assert(npm.Len(), Equals, 0)
 }
 
 func BenchmarkIPCacheUpsert10(b *testing.B) {
