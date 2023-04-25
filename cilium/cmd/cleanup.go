@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/ebpf"
@@ -543,7 +544,11 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 
 func removeXDPs(links []netlink.Link) error {
 	for _, link := range links {
-		err := netlink.LinkSetXdpFd(link, -1)
+		err := netlink.LinkSetXdpFdWithFlags(link, -1, int(nl.XDP_FLAGS_DRV_MODE))
+		if err != nil {
+			return err
+		}
+		err = netlink.LinkSetXdpFdWithFlags(link, -1, int(nl.XDP_FLAGS_SKB_MODE))
 		if err != nil {
 			return err
 		}
