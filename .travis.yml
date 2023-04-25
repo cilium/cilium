@@ -12,7 +12,7 @@ jobs:
       virt: vm
       group: edge
 
-if: branch = master OR type = pull_request
+if: branch = main OR type = pull_request
 
 addons:
   apt:
