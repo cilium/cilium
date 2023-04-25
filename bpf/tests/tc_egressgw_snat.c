@@ -309,5 +309,16 @@ int egressgw_snat3_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_snat3")
 int egressgw_snat3_check(struct __ctx_buff *ctx)
 {
-	return egressgw_snat_check(ctx, false, 2, 1);
+	int ret = egressgw_snat_check(ctx, false, 2, 1);
+
+	struct egress_gw_policy_key in_key = {
+		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
+		.saddr   = CLIENT_IP,
+		.daddr   = EXTERNAL_SVC_IP & 0Xffffff,
+	};
+
+	/* Remove the policy to eliminate interference with other tests. */
+	map_delete_elem(&EGRESS_POLICY_MAP, &in_key);
+
+	return ret;
 }
