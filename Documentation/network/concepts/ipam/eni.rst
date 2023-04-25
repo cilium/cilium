@@ -480,6 +480,10 @@ perform ENI creation and IP allocation:
  * ``AssignPrivateIpAddresses``
  * ``CreateTags``
 
+If ENI GC is enabled (which is the default), and ``--cluster-name`` and ``--eni-gc-tags`` are not set to custom values:
+
+ * ``DescribeTags``
+
 If release excess IP enabled:
 
  * ``UnassignPrivateIpAddresses``
