@@ -1716,6 +1716,10 @@
      - The maximum queries per second when rate limiting access to external APIs. Also known as the bucket refill rate, which is used to refill the bucket up to the burst size capacity.
      - string
      - ``4.0``
+   * - ipam.operator.multiPoolMap
+     - IP pools defined for the multi-pool IPAM mode.
+     - object
+     - ``{}``
    * - ipv4.enabled
      - Enable IPv4 support.
      - bool

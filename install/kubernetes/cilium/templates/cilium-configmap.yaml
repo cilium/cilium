@@ -864,6 +864,22 @@ data:
   cluster-pool-ipv6-mask-size: {{ .Values.ipam.operator.clusterPoolIPv6MaskSize | quote }}
 {{- end }}
 {{- end }}
+{{- if (eq $ipam "multi-pool") }}
+  {{- $pools := list }}
+  {{- range $pool, $cidrs := .Values.ipam.operator.multiPoolMap }}
+    {{- $attrs := list }}
+    {{- if hasKey $cidrs "ipv4CIDRs" }}
+    {{- $attrs = append $attrs (printf "ipv4-cidrs:%s" (join "," $cidrs.ipv4CIDRs)) }}
+    {{- $attrs = append $attrs (printf "ipv4-mask-size:%s" (toString $cidrs.ipv4MaskSize)) }}
+    {{- end }}
+    {{- if hasKey $cidrs "ipv6CIDRs" }}
+    {{- $attrs = append $attrs (printf "ipv6-cidrs:%s" (join "," $cidrs.ipv6CIDRs)) }}
+    {{- $attrs = append $attrs (printf "ipv6-mask-size:%s" (toString $cidrs.ipv6MaskSize)) }}
+    {{- end }}
+    {{- $pools = append $pools (printf "%s=%s" $pool (join ";" $attrs)) }}
+  {{- end }}
+  multi-pool-map: {{ join "," $pools | quote }}
+{{- end }}
 
 {{- if .Values.ipam.operator.externalAPILimitBurstSize }}
   limit-ipam-api-burst: {{ .Values.ipam.operator.externalAPILimitBurstSize | quote }}

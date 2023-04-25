@@ -736,6 +736,7 @@ mov
 mtls
 mul
 multi
+multiPoolMap
 multicore
 multihoming
 multinode
