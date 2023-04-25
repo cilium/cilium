@@ -3124,6 +3124,7 @@ definitions:
             - HostPort
             - LoadBalancer
             - LocalRedirect
+            - Headless
           trafficPolicy:
             description: Service external traffic policy (deprecated in favor of extTrafficPolicy)
             type: string

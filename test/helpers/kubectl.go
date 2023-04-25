@@ -4263,13 +4263,17 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 				strings.Join(notFoundServices, ", "), pod)
 		}
 
+		headlessService := 0
 		for _, cSvc := range pod.services {
-			err := validateCiliumSvcLB(cSvc, pod.loadBalancers)
-			if err != nil {
+			if cSvc.Spec.Flags.Type == models.ServiceSpecFlagsTypeHeadless {
+				headlessService++
+			}
+			if err := validateCiliumSvcLB(cSvc, pod.loadBalancers); err != nil {
 				return fmt.Errorf("Error validating Cilium service on pod %v: %s", pod, err.Error())
 			}
 		}
-		if len(pod.services) != len(pod.loadBalancers) {
+
+		if len(pod.services) != len(pod.loadBalancers)+headlessService {
 			return fmt.Errorf("Length of Cilium services doesn't match length of bpf LB map on pod %v", pod)
 		}
 	}
@@ -4470,9 +4474,9 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 		switch cSvc.Status.Realized.Flags.Type {
 		case models.ServiceSpecFlagsTypeNodePort,
 			models.ServiceSpecFlagsTypeHostPort,
-			models.ServiceSpecFlagsTypeExternalIPs:
-			return nil
-		case "LoadBalancer":
+			models.ServiceSpecFlagsTypeExternalIPs,
+			models.ServiceSpecFlagsTypeLoadBalancer,
+			models.ServiceSpecFlagsTypeHeadless:
 			return nil
 		}
 	}
@@ -4528,6 +4532,9 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 }
 
 func validateCiliumSvcLB(cSvc models.Service, lbMap map[string][]string) error {
+	if cSvc.Spec.Flags.Type == models.ServiceSpecFlagsTypeHeadless {
+		return nil
+	}
 	scope := ""
 	if cSvc.Status.Realized.FrontendAddress.Scope == models.FrontendAddressScopeInternal {
 		scope = "/i"

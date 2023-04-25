@@ -257,6 +257,65 @@ jobs:
           fi
           docker exec -i chart-testing-control-plane curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1 
 
+      - name: Run Sanity check (headless service)
+        if: ${{ matrix.loadbalancer-mode == 'dedicated' }}
+        timeout-minutes: 5
+        run: |
+          BACKEND_IP=$(kubectl get pod -l app=details -o jsonpath="{.items[*].status.podIP}")
+          cat << EOF > ingress-with-headless-service.yaml
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: details-headless
+          spec:
+            ports:
+            - name: http
+              port: 9080
+              protocol: TCP
+              targetPort: 9080
+            clusterIP: None
+            ipFamilies:
+            - IPv4
+            ipFamilyPolicy: SingleStack
+          ---
+          apiVersion: v1
+          kind: Endpoints
+          metadata:
+            name: details-headless
+          subsets:
+          - addresses:
+            - ip: ${BACKEND_IP}
+            ports:
+            - name: http
+              port: 9080
+              protocol: TCP
+          ---
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: basic-ingress-headless
+          spec:
+            ingressClassName: cilium
+            rules:
+            - http:
+                paths:
+                - backend:
+                    service:
+                      name: details-headless
+                      port:
+                        number: 9080
+                  path: /details
+                  pathType: Prefix
+          EOF
+
+          kubectl apply -n default -f ingress-with-headless-service.yaml
+          until [ -n "$(kubectl get ingress basic-ingress-headless -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" ]; do
+            sleep 3
+          done
+
+          lb=$(kubectl get ingress basic-ingress-headless -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/1      
+
       - name: Cleanup Sanity check
         timeout-minutes: 5
         run: |

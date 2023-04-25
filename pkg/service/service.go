@@ -714,7 +714,12 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 		}
 	}
 
-	// Update lbmaps (BPF service maps)
+	// If there are no frontend IP (i.e. headless service), we should return immediately
+	// and avoid plumbing into BPF lb maps
+	if params.Type == lb.SVCTypeHeadless {
+		return false, lb.ID(0), nil
+	}
+
 	if err = s.upsertServiceIntoLBMaps(svc, svc.isExtLocal(), svc.isIntLocal(), prevBackendCount,
 		newBackends, obsoleteBackends, prevSessionAffinity, prevLoadBalancerSourceRanges,
 		obsoleteSVCBackendIDs, getScopedLog, debugLogsEnabled); err != nil {
@@ -1775,6 +1780,7 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	ipv6 := svc.frontend.L3n4Addr.IsIPv6() || svc.svcNatPolicy == lb.SVCNatPolicyNat46
 	obsoleteBackendIDs := s.deleteBackendsFromCacheLocked(svc)
+	headless := svc.svcType == lb.SVCTypeHeadless
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceID: svc.frontend.ID,
 		logfields.ServiceIP: svc.frontend.L3n4Addr,
@@ -1782,18 +1788,20 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	})
 	scopedLog.Debug("Deleting service")
 
-	if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends),
-		svc.useMaglev(), svc.svcNatPolicy); err != nil {
-		return err
-	}
-
-	// Delete affinity matches
-	if option.Config.EnableSessionAffinity && svc.sessionAffinity {
-		backendIDs := make([]lb.BackendID, 0, len(svc.backends))
-		for _, b := range svc.backends {
-			backendIDs = append(backendIDs, b.ID)
+	if !headless {
+		if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends),
+			svc.useMaglev(), svc.svcNatPolicy); err != nil {
+			return err
 		}
-		s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, backendIDs)
+
+		// Delete affinity matches
+		if option.Config.EnableSessionAffinity && svc.sessionAffinity {
+			backendIDs := make([]lb.BackendID, 0, len(svc.backends))
+			for _, b := range svc.backends {
+				backendIDs = append(backendIDs, b.ID)
+			}
+			s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, backendIDs)
+		}
 	}
 
 	if option.Config.EnableSVCSourceRangeCheck &&
@@ -1807,11 +1815,13 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	delete(s.svcByHash, svc.hash)
 	delete(s.svcByID, svc.frontend.ID)
 
-	for _, id := range obsoleteBackendIDs {
-		scopedLog.WithField(logfields.BackendID, id).
-			Debug("Deleting obsolete backend")
-		s.lbmap.DeleteBackendByID(id)
+	if !headless {
+		for _, id := range obsoleteBackendIDs {
+			scopedLog.WithField(logfields.BackendID, id).Debug("Deleting obsolete backend")
+			s.lbmap.DeleteBackendByID(id)
+		}
 	}
+
 	if err := DeleteID(uint32(svc.frontend.ID)); err != nil {
 		return fmt.Errorf("Unable to release service ID %d: %s", svc.frontend.ID, err)
 	}
@@ -1824,7 +1834,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	}
 
 	if option.Config.EnableHealthCheckNodePort {
-		s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
+		s.healthServer.DeleteService(svc.frontend.ID)
 	}
 
 	metrics.ServicesEventsCount.WithLabelValues("delete").Inc()

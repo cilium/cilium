@@ -732,11 +732,6 @@ func (k *K8sWatcher) StopK8sServiceHandler() {
 }
 
 func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
-	// Headless services do not need any datapath implementation
-	if svcInfo.IsHeadless {
-		return nil
-	}
-
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:   svc.Name,
 		logfields.K8sNamespace: svc.Namespace,
@@ -775,6 +770,15 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeExternal))
 			if svcInfo.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal || svcInfo.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
 				frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeInternal))
+			}
+		}
+
+		if svcInfo.IsHeadless {
+			for addr := range se.Backends {
+				frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addr, svcPort.Port, loadbalancer.ScopeExternal))
+				if svcInfo.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal || svcInfo.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+					frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addr, svcPort.Port, loadbalancer.ScopeInternal))
+				}
 			}
 		}
 	}
@@ -817,6 +821,18 @@ func genCartesianProduct(
 	for fePortName, fePort := range ports {
 		var besValues []*loadbalancer.Backend
 		for addrCluster, backend := range bes.Backends {
+			// Skip backends that are not having the same IP as frontend IP for headless service.
+			// The main reason is to make sure that no load balancing is done for a given FrontEnd IP.
+			// Other Frontend IP will have its own entry in cilium service list.
+			//
+			// For example:
+			// $ cilium service list
+			//   ...
+			//   24   10.244.0.129:9080     HeadLess       1 => 10.244.0.129:9080 (active)
+			//   25   10.244.0.195:9080     HeadLess       1 => 10.244.0.195:9080 (active)
+			if svcType == loadbalancer.SVCTypeHeadless && addrCluster.AsNetIP().String() != fe.String() {
+				continue
+			}
 			if backendPort := backend.Ports[string(fePortName)]; backendPort != nil && feFamilyIPv6 == addrCluster.Is6() {
 				backendState := loadbalancer.BackendStateActive
 				if backend.Terminating {
@@ -836,7 +852,10 @@ func genCartesianProduct(
 			}
 		}
 
-		addrCluster := cmtypes.MustAddrClusterFromIP(fe)
+		var addrCluster cmtypes.AddrCluster
+		if fe != nil {
+			addrCluster = cmtypes.MustAddrClusterFromIP(fe)
+		}
 
 		// External scoped entry - when external and internal policies are the same.
 		svcs = append(svcs,
@@ -899,6 +918,13 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 		svcs = append(svcs, dpSVC...)
 	}
 
+	if svc.IsHeadless {
+		for addr := range endpoints.Backends {
+			dpSVC := genCartesianProduct(addr.AsNetIP(), twoScopes, loadbalancer.SVCTypeHeadless, clusterIPPorts, endpoints)
+			svcs = append(svcs, dpSVC...)
+		}
+	}
+
 	for _, ip := range svc.LoadBalancerIPs {
 		dpSVC := genCartesianProduct(ip, twoScopes, loadbalancer.SVCTypeLoadBalancer, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
@@ -950,11 +976,6 @@ func hashSVCMap(svcs []loadbalancer.SVC) map[string]loadbalancer.L3n4Addr {
 }
 
 func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) error {
-	// Headless services do not need any datapath implementation
-	if svc.IsHeadless {
-		return nil
-	}
-
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:   svcID.Name,
 		logfields.K8sNamespace: svcID.Namespace,

@@ -4808,7 +4808,8 @@ func init() {
                 "ExternalIPs",
                 "HostPort",
                 "LoadBalancer",
-                "LocalRedirect"
+                "LocalRedirect",
+                "Headless"
               ]
             }
           }
@@ -10871,7 +10872,8 @@ func init() {
                 "ExternalIPs",
                 "HostPort",
                 "LoadBalancer",
-                "LocalRedirect"
+                "LocalRedirect",
+                "Headless"
               ]
             }
           }
@@ -10953,7 +10955,8 @@ func init() {
             "ExternalIPs",
             "HostPort",
             "LoadBalancer",
-            "LocalRedirect"
+            "LocalRedirect",
+            "Headless"
           ]
         }
       }

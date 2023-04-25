@@ -27,6 +27,7 @@ const (
 	SVCTypeExternalIPs   = SVCType("ExternalIPs")
 	SVCTypeLoadBalancer  = SVCType("LoadBalancer")
 	SVCTypeLocalRedirect = SVCType("LocalRedirect")
+	SVCTypeHeadless      = SVCType("Headless")
 )
 
 // SVCTrafficPolicy defines which backends are chosen
