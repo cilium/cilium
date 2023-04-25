@@ -16,7 +16,8 @@ import (
 var _ = Describe("K8sDatapathHostFirewall", func() {
 	Context("Host firewall", func() {
 		var (
-			kubectl    *helpers.Kubectl
+			kubectl          *helpers.Kubectl
+			demoHostPolicies string
 		)
 
 		BeforeAll(func() {
@@ -47,6 +48,17 @@ var _ = Describe("K8sDatapathHostFirewall", func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		})
 
+		BeforeEach(func() {
+			demoHostPolicies = ""
+		})
+
+		AfterEach(func() {
+			if demoHostPolicies != "" {
+				_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlDelete, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", demoHostPolicies, err))
+			}
+		})
+
 		testHostFirewallWithPath := func(kubectl *helpers.Kubectl, randomNs, client, server string, crossNodes bool) {
 			srcPod, srcPodJSON := fetchPodsWithOffset(kubectl, randomNs, "client", client, "", crossNodes, 3)
 			srcHost, err := srcPodJSON.Filter("{.status.hostIP}")
@@ -70,14 +82,10 @@ var _ = Describe("K8sDatapathHostFirewall", func() {
 			randomNs := deploymentManager.DeployRandomNamespaceShared(DemoHostFirewall)
 			deploymentManager.WaitUntilReady()
 
-			demoHostPolicies := helpers.ManifestGet(kubectl.BasePath(), "host-policies.yaml")
+			demoHostPolicies = helpers.ManifestGet(kubectl.BasePath(), "host-policies.yaml")
 			By(fmt.Sprintf("Applying policies %s", demoHostPolicies))
 			_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoHostPolicies, err))
-			defer func() {
-				_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlDelete, helpers.HelperTimeout)
-				ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", demoHostPolicies, err))
-			}()
 
 			var wg sync.WaitGroup
 			wg.Add(1)
