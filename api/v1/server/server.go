@@ -56,6 +56,7 @@ type serverParams struct {
 	Lifecycle  hive.Lifecycle
 	Shutdowner hive.Shutdowner
 	Logger     logrus.FieldLogger
+	Spec       *Spec
 
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
 	PolicyDeleteFqdnCacheHandler         policy.DeleteFqdnCacheHandler
@@ -111,11 +112,7 @@ type serverParams struct {
 }
 
 func newForCell(p serverParams) (*Server, error) {
-	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to swagger spec: %w", err)
-	}
-	api := restapi.NewCiliumAPIAPI(swaggerSpec)
+	api := restapi.NewCiliumAPIAPI(p.Spec.Document)
 
 	// Construct the API from the provided handlers
 
