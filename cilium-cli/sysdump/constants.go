@@ -46,6 +46,7 @@ const (
 	ciliumEtcdSecretFileName                 = "cilium-etcd-secrets-secret-<ts>.yaml"
 	ciliumExternalWorkloadFileName           = "ciliumexternalworkload-<ts>.yaml"
 	ciliumIdentitiesFileName                 = "ciliumidentities-<ts>.yaml"
+	ciliumCIDRGroupsFileName                 = "ciliumcidrgroups-<ts>.yaml"
 	ciliumLocalRedirectPoliciesFileName      = "ciliumlocalredirectpolicies-<ts>.yaml"
 	ciliumLoadBalancerIPPoolsFileName        = "ciliumloadbalancerippools-<ts>.yaml"
 	ciliumLogsFileName                       = "logs-%s-%s-<ts>.log"

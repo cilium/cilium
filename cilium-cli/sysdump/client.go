@@ -41,6 +41,7 @@ type KubernetesClient interface {
 	GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.Version, error)
 	GetVersion(ctx context.Context) (string, error)
 	ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error)
+	ListCiliumCIDRGroups(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumCIDRGroupList, error)
 	ListCiliumClusterwideNetworkPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideNetworkPolicyList, error)
 	ListCiliumClusterwideEnvoyConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideEnvoyConfigList, error)
 	ListCiliumIdentities(ctx context.Context) (*ciliumv2.CiliumIdentityList, error)
