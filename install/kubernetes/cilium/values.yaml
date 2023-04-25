@@ -1432,6 +1432,8 @@ ipam:
     clusterPoolIPv6PodCIDRList: ["fd00::/104"]
     # -- IPv6 CIDR mask size to delegate to individual nodes for IPAM.
     clusterPoolIPv6MaskSize: 120
+    # -- IP pools defined for the multi-pool IPAM mode.
+    multiPoolMap: {}
     # -- The maximum burst size when rate limiting access to external APIs.
     # Also known as the token bucket capacity.
     # @default -- `20`
