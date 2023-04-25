@@ -737,6 +737,10 @@ func (c *Client) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.L
 	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies().List(ctx, opts)
 }
 
+func (c *Client) ListCiliumCIDRGroups(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumCIDRGroupList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumCIDRGroups().List(ctx, opts)
+}
+
 func (c *Client) ListCiliumClusterwideNetworkPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideNetworkPolicyList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx, opts)
 }
