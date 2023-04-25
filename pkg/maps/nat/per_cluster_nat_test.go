@@ -83,10 +83,9 @@ func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterCtMap(c *C) {
 
 	im.Close()
 
-	// Getting unexisting entry returns nil, nil
-	im, err = om.getClusterNATMap(2)
-	c.Assert(im, IsNil)
-	c.Assert(err, IsNil)
+	// Getting nonexistent entry returns error
+	_, err = om.getClusterNATMap(2)
+	c.Assert(err, NotNil)
 
 	// Basic delete
 	err = om.deleteClusterNATMap(1)
