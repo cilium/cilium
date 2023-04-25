@@ -49,17 +49,14 @@ type serverParams struct {
 	Lifecycle  hive.Lifecycle
 	Shutdowner hive.Shutdowner
 	Logger     logrus.FieldLogger
+	Spec       *Spec
 
 	OperatorGetHealthzHandler operator.GetHealthzHandler
 	MetricsGetMetricsHandler  metrics.GetMetricsHandler
 }
 
 func newForCell(p serverParams) (*Server, error) {
-	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to swagger spec: %w", err)
-	}
-	api := restapi.NewCiliumOperatorAPI(swaggerSpec)
+	api := restapi.NewCiliumOperatorAPI(p.Spec.Document)
 
 	// Construct the API from the provided handlers
 
