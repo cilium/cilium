@@ -9,17 +9,18 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/ipcache/types"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 // prefixInfo holds all of the information (labels, etc.) about a given prefix
 // independently based on the ResourceID of the origin of that information, and
 // provides convenient accessors to consistently merge the stored information
 // to generate ipcache output based on a range of inputs.
-type prefixInfo map[types.ResourceID]*resourceInfo
+type prefixInfo map[ipcacheTypes.ResourceID]*resourceInfo
 
 // IdentityOverride can be used to override the identity of a given prefix.
 // Must be provided together with a set of labels. Any other labels associated
@@ -46,6 +47,13 @@ type resourceInfo struct {
 // cannot be used in conjunction with methods, which is how the information
 // gets injected into the IPCache.
 type IPMetadata any
+
+// namedPortMultiMapUpdater allows for mutation of the NamedPortMultiMap, which
+// is otherwise read-only.
+type namedPortMultiMapUpdater interface {
+	types.NamedPortMultiMap
+	Update(old, new types.NamedPortMap) (namedPortChanged bool)
+}
 
 // merge overwrites the field in 'resourceInfo' corresponding to 'info'. This
 // associates the new information with the prefix and ResourceID that this
@@ -149,7 +157,7 @@ func (s prefixInfo) identityOverride() (lbls labels.Labels, hasOverride bool) {
 func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 	var (
 		override           labels.Labels
-		overrideResourceID types.ResourceID
+		overrideResourceID ipcacheTypes.ResourceID
 	)
 
 	for resourceID, info := range s {
