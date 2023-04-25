@@ -281,7 +281,7 @@ jobs:
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'false'
-            lb-mode: 'snat' # https://github.com/cilium/cilium/issues/23328
+            lb-mode: 'dsr'
             endpoint-routes: 'true'
             egress-gateway: 'true'
 
@@ -292,7 +292,7 @@ jobs:
             tunnel: 'vxlan'
             encryption: 'wireguard'
             encryption-node: 'true'
-            lb-mode: 'snat' # https://github.com/cilium/cilium/issues/23328
+            lb-mode: 'snat'
             egress-gateway: 'true'
 
           - name: '15'
