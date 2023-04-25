@@ -49,19 +49,36 @@ func (pps PortProtoSet) Equal(other PortProtoSet) bool {
 
 // NamedPortMultiMap may have multiple entries for a name if multiple PODs
 // define the same name with different values.
-type NamedPortMultiMap map[string]PortProtoSet
+type NamedPortMultiMap interface {
+	// GetNamedPort returns the port number for the named port, if any.
+	GetNamedPort(name string, proto uint8) (uint16, error)
+	// Len returns the number of Name->PortProtoSet mappings known.
+	Len() int
+	Equal(other NamedPortMultiMap) bool
+}
+
+func NewNamedPortMultiMap() namedPortMultiMap {
+	return make(namedPortMultiMap)
+}
+
+type namedPortMultiMap map[string]PortProtoSet
 
 // Equal returns true if the NamedPortMultiMaps are equal.
-func (npm NamedPortMultiMap) Equal(other NamedPortMultiMap) bool {
-	if len(npm) != len(other) {
+func (npm namedPortMultiMap) Equal(other NamedPortMultiMap) bool {
+	o, ok := other.(namedPortMultiMap)
+	if !ok || len(npm) != len(o) {
 		return false
 	}
 	for name, ports := range npm {
-		if otherPorts, exists := other[name]; !exists || !ports.Equal(otherPorts) {
+		if otherPorts, exists := o[name]; !exists || !ports.Equal(otherPorts) {
 			return false
 		}
 	}
 	return true
+}
+
+func (npm namedPortMultiMap) Len() int {
+	return len(npm)
 }
 
 // ValidatePortName checks that the port name conforms to the IANA Service Names spec
@@ -129,7 +146,7 @@ func (npm NamedPortMap) GetNamedPort(name string, proto uint8) (uint16, error) {
 }
 
 // GetNamedPort returns the port number for the named port, if any.
-func (npm NamedPortMultiMap) GetNamedPort(name string, proto uint8) (uint16, error) {
+func (npm namedPortMultiMap) GetNamedPort(name string, proto uint8) (uint16, error) {
 	if npm == nil {
 		return 0, ErrNilMap
 	}
