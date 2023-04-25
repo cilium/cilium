@@ -245,7 +245,6 @@ jobs:
             tunnel: 'vxlan'
             encryption: 'ipsec'
             encryption-node: 'false'
-            ipv6: 'false' # until https://github.com/cilium/cilium/issues/23461 has been fixed
 
           - name: '10'
             kernel: '5.4-main'
