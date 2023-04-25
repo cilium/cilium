@@ -290,6 +290,11 @@ func initializeFlags() {
 	flags.StringSlice(option.IPv6PodSubnets, []string{}, "List of IPv6 pod subnets to preconfigure for encryption")
 	option.BindEnv(Vp, option.IPv6PodSubnets)
 
+	flags.Var(option.NewNamedMapOptions(option.IPAMMultiPoolNodePreAlloc, &option.Config.IPAMMultiPoolNodePreAlloc, nil),
+		option.IPAMMultiPoolNodePreAlloc, "List of IP pools which should be pre-allocated on this node")
+	flags.MarkHidden(option.IPAMMultiPoolNodePreAlloc)
+	option.BindEnv(Vp, option.IPAMMultiPoolNodePreAlloc)
+
 	flags.StringSlice(option.ExcludeLocalAddress, []string{}, "Exclude CIDR from being recognized as local address")
 	option.BindEnv(Vp, option.ExcludeLocalAddress)
 
@@ -1473,12 +1478,12 @@ func initEnv() {
 		)
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
+	if option.Config.IPAM == ipamOption.IPAMClusterPoolV2 || option.Config.IPAM == ipamOption.IPAMMultiPool {
 		if option.Config.TunnelingEnabled() {
-			log.Fatalf("Cannot specify IPAM mode %s in tunnel mode.", ipamOption.IPAMClusterPoolV2)
+			log.Fatalf("Cannot specify IPAM mode %s in tunnel mode.", option.Config.IPAM)
 		}
 		if option.Config.EnableIPSec {
-			log.Fatalf("Cannot specify IPAM mode %s with %s.", ipamOption.IPAMClusterPoolV2, option.EnableIPSecName)
+			log.Fatalf("Cannot specify IPAM mode %s with %s.", option.Config.IPAM, option.EnableIPSecName)
 		}
 	}
 
