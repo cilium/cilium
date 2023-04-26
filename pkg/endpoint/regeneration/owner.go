@@ -23,10 +23,6 @@ type Owner interface {
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex
 
-	// GetCIDRPrefixLengths returns the sorted list of unique prefix lengths used
-	// by CIDR policies.
-	GetCIDRPrefixLengths() (s6, s4 []int)
-
 	// SendNotification is called to emit an agent notification
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 
