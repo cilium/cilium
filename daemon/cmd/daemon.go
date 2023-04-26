@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
@@ -141,10 +140,6 @@ type Daemon struct {
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
 	compilationMutex *lock.RWMutex
-
-	// prefixLengths tracks a mapping from CIDR prefix length to the count
-	// of rules that refer to that prefix length.
-	prefixLengths *counter.PrefixLengthCounter
 
 	clustermesh *clustermesh.ClusterMesh
 
@@ -258,12 +253,6 @@ func (d *Daemon) DebugEnabled() bool {
 	return option.Config.Opts.IsEnabled(option.Debug)
 }
 
-// GetCIDRPrefixLengths returns the sorted list of unique prefix lengths used
-// by CIDR policies.
-func (d *Daemon) GetCIDRPrefixLengths() (s6, s4 []int) {
-	return d.prefixLengths.ToBPFData()
-}
-
 // GetOptions returns the datapath configuration options of the daemon.
 func (d *Daemon) GetOptions() *option.IntOptions {
 	return option.Config.Opts
@@ -300,12 +289,6 @@ func (d *Daemon) init() error {
 	}
 
 	return nil
-}
-
-// createPrefixLengthCounter wraps around the counter library, providing
-// references to prefix lengths that will always be present.
-func createPrefixLengthCounter() *counter.PrefixLengthCounter {
-	return counter.DefaultPrefixLengthCounter()
 }
 
 // restoreCiliumHostIPs completes the `cilium_host` IP restoration process
@@ -500,7 +483,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	d := Daemon{
 		ctx:               ctx,
 		clientset:         params.Clientset,
-		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
 		mtuConfig:         mtuConfig,
