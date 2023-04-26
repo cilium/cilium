@@ -92,7 +92,7 @@ func StartEmbeddedEnvoy(runDir, logPath string, baseID uint64) *EmbeddedEnvoy {
 	// Use the same structure as Istio's pilot-agent for the node ID:
 	// nodeType~ipAddress~proxyId~domain
 	nodeId := "host~127.0.0.1~no-id~localdomain"
-	bootstrapPath := filepath.Join(runDir, "bootstrap.pb")
+	bootstrapPath := filepath.Join(runDir, "envoy", "bootstrap.pb")
 	xdsSocketPath := getXDSSocketPath(GetSocketDir(runDir))
 
 	// Create static configuration
