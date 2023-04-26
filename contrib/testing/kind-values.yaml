@@ -1,5 +1,6 @@
 debug:
   enabled: true
+  verbose: "flow, envoy"
 image:
   override: "localhost:5000/cilium/cilium-dev:local"
   pullPolicy: Never
@@ -25,3 +26,11 @@ readinessProbe:
   failureThreshold: 9999
 startupProbe:
   failureThreshold: 9999
+loadBalancer:
+  l7: 
+    backend: envoy
+tls:
+  secretsBackend: k8s
+gatewayAPI:
+  enabled: true
+kubeProxyReplacement: strict

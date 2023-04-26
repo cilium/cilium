@@ -67,8 +67,8 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   zone: us-west2-a
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.2
-  cilium_cli_ci_version:
+  cilium_cli_version: v0.14.1
+  CILIUM_CLI_MODE: helm
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   k8s_version: 1.24
@@ -163,20 +163,18 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.enabled=true \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
-            --wait=false \
-            --rollback=false \
-            --config monitor-aggregation=none \
+            --helm-set auth.mTLS.spire.enabled=true \
+            --helm-set auth.mTLS.spire.install.enabled=true \
+            --helm-set bpf.monitorAggregation=none \
+            --wait=true \
             --version="
-          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
-            --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target google.com --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
-          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
@@ -256,9 +254,10 @@ jobs:
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
-      - name: Enable Relay
+      - name: Wait for SPIRE to be ready
         run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
       - name: Port forward Relay
         run: |
@@ -273,16 +272,17 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
+          cilium uninstall --wait
 
       - name: Install Cilium with tunnel datapath
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
             --datapath-mode=tunnel
 
-      - name: Enable Relay
+      - name: Wait for SPIRE to be ready
         run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
       - name: Port forward Relay
         run: |
@@ -298,21 +298,17 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --chart-directory=install/kubernetes/cilium --test-namespace cilium-test-tunnel
+          cilium uninstall --test-namespace cilium-test-tunnel
         # --wait removed and --test-namespace cilium-test-tunnel added for mitigating test flake until the issue is solved https://github.com/cilium/cilium/issues/22368
 
       - name: Create custom IPsec secret
         run: |
           kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
-      - name: Install Cilium with encryption
+      - name: Wait for SPIRE to be ready
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --encryption=ipsec
-
-      - name: Enable Relay
-        run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
       - name: Port forward Relay
         run: |
@@ -327,17 +323,23 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
+          cilium uninstall --wait
 
       - name: Install Cilium with encryption and tunnel datapath
         run: |
+          kubectl create -n kube-system secret generic cilium-ipsec-keys \
+            --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --encryption=ipsec \
+            --helm-set encryption.enabled=true \
+            --helm-set encryption.type=ipsec \
+            --helm-set kubeProxyReplacement=disabled
             --datapath-mode=tunnel
+            
 
-      - name: Enable Relay
+      - name: Wait for SPIRE to be ready
         run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
       - name: Port forward Relay
         run: |

@@ -67,8 +67,8 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.2
-  cilium_cli_ci_version:
+  cilium_cli_version: v0.14.1
+  CILIUM_CLI_MODE: helm
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.122.0
   kubectl_version: v1.23.6
@@ -166,19 +166,19 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.enabled=true \
             --helm-set=enableIPv4Masquerade=false \
             --helm-set=cni.chainingMode=aws-cni \
             --helm-set=eni.enabled=false \
             --helm-set=ipam.mode=cluster-pool \
             --helm-set=routingMode=native \
             --helm-set=bandwidthManager.enabled=false \
+            --helm-set auth.mTLS.spire.enabled=true \
+            --helm-set auth.mTLS.spire.install.enabled=true \
+            --helm-set auth.mTLS.spire.install.server.dataStorage.enabled=false \
+            --helm-set bpf.monitorAggregation=none \
             --wait=false \
-            --rollback=false \
-            --config monitor-aggregation=none \
             --version="
-          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
-            --relay-version=${SHA}"
           # L7 policies are not supported in chaining mode.
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --test '!fqdn,!l7' --external-target amazon.com --external-ip 1.0.0.1 --external-other-ip 1.1.1.1"
@@ -255,9 +255,10 @@ jobs:
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
-      - name: Enable Relay
+      - name: Wait for SPIRE to be ready
         run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
       - name: Wait for Cilium status to be ready
         run: |
