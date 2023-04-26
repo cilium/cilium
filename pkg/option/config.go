@@ -1261,14 +1261,14 @@ const (
 	// NodePortModeDSR is for performing DSR for requests to remote nodes
 	NodePortModeDSR = "dsr"
 
+	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
+	NodePortModeHybrid = "hybrid"
+
 	// NodePortAlgRandom is for randomly selecting a backend
 	NodePortAlgRandom = "random"
 
 	// NodePortAlgMaglev is for using maglev consistent hashing for backend selection
 	NodePortAlgMaglev = "maglev"
-
-	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
-	NodePortModeHybrid = "hybrid"
 
 	// DSR dispatch mode to encode service into IP option or extension header
 	DSRDispatchOption = "opt"
