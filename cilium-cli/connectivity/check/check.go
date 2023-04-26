@@ -64,6 +64,9 @@ type Parameters struct {
 
 	DeleteCiliumOnNodes []string
 
+	Retry      uint
+	RetryDelay time.Duration
+
 	ConnectTimeout time.Duration
 	RequestTimeout time.Duration
 

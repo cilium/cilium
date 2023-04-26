@@ -85,6 +85,9 @@ const (
 
 	PolicyWaitTimeout = 15 * time.Second
 
+	ConnectRetry      = 3
+	ConnectRetryDelay = 3 * time.Second
+
 	ConnectTimeout = 2 * time.Second
 	RequestTimeout = 10 * time.Second
 

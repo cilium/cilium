@@ -225,10 +225,10 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		tests.ClientToClient(),
 		tests.PodToService(),
 		tests.PodToHostPort(),
-		tests.PodToWorld(),
+		tests.PodToWorld(tests.WithRetryAll()),
 		tests.PodToHost(),
 		tests.PodToExternalWorkload(),
-		tests.PodToCIDR(),
+		tests.PodToCIDR(tests.WithRetryAll()),
 	}
 	if s, ok := ct.Feature(check.FeatureNodeWithoutCilium); ok && s.Enabled {
 		noPoliciesScenarios = append(noPoliciesScenarios, tests.FromCIDRToPod())
@@ -295,7 +295,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// 2. Egress to world works because there is no egress policy (so egress traffic originating from a pod is allowed),
 	//    then when replies come back, they are considered as "replies" to the outbound connection.
 	//    so they are not subject to ingress policy.
-	allIngressDenyScenarios := []check.Scenario{tests.PodToPod(), tests.PodToCIDR()}
+	allIngressDenyScenarios := []check.Scenario{tests.PodToPod(), tests.PodToCIDR(tests.WithRetryAll())}
 	if s, ok := ct.Feature(check.FeatureNodeWithoutCilium); ok && s.Enabled {
 		allIngressDenyScenarios = append(allIngressDenyScenarios, tests.FromCIDRToPod())
 	}
@@ -318,7 +318,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			// Egress to world works because there is no egress policy (so egress traffic originating from a pod is allowed),
 			// then when replies come back, they are considered as "replies" to the outbound connection.
 			// so they are not subject to ingress policy.
-			tests.PodToCIDR(),
+			tests.PodToCIDR(tests.WithRetryAll()),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP ||
@@ -464,7 +464,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// This policy allows UDP to kube-dns and port 80 TCP to all 'world' endpoints.
 	ct.NewTest("to-entities-world").WithCiliumPolicy(clientEgressToEntitiesWorldPolicyYAML).
 		WithScenarios(
-			tests.PodToWorld(),
+			tests.PodToWorld(tests.WithRetryDestPort(80)),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 80 {
@@ -479,7 +479,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.NewTest("to-cidr-external").
 		WithCiliumPolicy(renderedTemplates["clientEgressToCIDRExternalPolicyYAML"]).
 		WithScenarios(
-			tests.PodToCIDR(),
+			tests.PodToCIDR(tests.WithRetryDestIP(ct.Params().ExternalIP)),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(check.IPFamilyV4) == ct.Params().ExternalOtherIP {
@@ -494,7 +494,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.NewTest("to-cidr-external-knp").
 		WithK8SPolicy(renderedTemplates["clientEgressToCIDRExternalPolicyKNPYAML"]).
 		WithScenarios(
-			tests.PodToCIDR(),
+			tests.PodToCIDR(tests.WithRetryDestIP(ct.Params().ExternalIP)),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(check.IPFamilyV4) == ct.Params().ExternalOtherIP {
@@ -625,7 +625,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
 		WithCiliumPolicy(renderedTemplates["clientEgressToCIDRExternalDenyPolicyYAML"]).
 		WithScenarios(
-			tests.PodToCIDR(), // Denies all traffic to ExternalOtherIP, but allow ExternalIP
+			tests.PodToCIDR(tests.WithRetryDestIP(ct.Params().ExternalIP)), // Denies all traffic to ExternalOtherIP, but allow ExternalIP
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP {
@@ -742,7 +742,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithCiliumPolicy(renderedTemplates["clientEgressL7HTTPPolicyYAML"]). // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPod(),
-			tests.PodToWorld(),
+			tests.PodToWorld(tests.WithRetryDestPort(80), tests.WithRetryPodLabel("other", "client")),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
@@ -770,7 +770,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithCiliumPolicy(renderedTemplates["clientEgressL7HTTPNamedPortPolicyYAML"]). // L7 allow policy with HTTP introspection (named port)
 		WithScenarios(
 			tests.PodToPod(),
-			tests.PodToWorld(),
+			tests.PodToWorld(tests.WithRetryDestPort(80), tests.WithRetryPodLabel("other", "client")),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
@@ -906,7 +906,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	ct.NewTest("to-fqdns").WithCiliumPolicy(renderedTemplates["clientEgressToFQDNsCiliumIOPolicyYAML"]).
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithScenarios(
-			tests.PodToWorld(),
+			tests.PodToWorld(tests.WithRetryDestPort(80)),
 			tests.PodToWorld2(), // resolves cilium.io
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {

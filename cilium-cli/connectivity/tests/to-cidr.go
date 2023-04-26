@@ -11,14 +11,20 @@ import (
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
-// PodToCIDR sends an ICMP packet from each client Pod
-// to ExternalIP and ExternalOtherIP.
-func PodToCIDR() check.Scenario {
-	return &podToCIDR{}
+// PodToCIDR sends an HTTPS request from each client Pod
+// to ExternalIP and ExternalOtherIP
+func PodToCIDR(opts ...RetryOption) check.Scenario {
+	cond := &retryCondition{}
+	for _, op := range opts {
+		op(cond)
+	}
+	return &podToCIDR{rc: cond}
 }
 
 // podToCIDR implements a Scenario.
-type podToCIDR struct{}
+type podToCIDR struct {
+	rc *retryCondition
+}
 
 func (s *podToCIDR) Name() string {
 	return "pod-to-cidr"
@@ -35,7 +41,8 @@ func (s *podToCIDR) Run(ctx context.Context, t *check.Test) {
 			src := src // copy to avoid memory aliasing when using reference
 
 			t.NewAction(s, fmt.Sprintf("%s-%d", ep.Name(), i), &src, ep, check.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(ep, check.IPFamilyAny))
+				opts := s.rc.CurlOptions(ep, check.IPFamilyAny, src, ct.Params())
+				a.ExecInPod(ctx, ct.CurlCommand(ep, check.IPFamilyAny, opts...))
 
 				a.ValidateFlows(ctx, src, a.GetEgressRequirements(check.FlowParameters{
 					RSTAllowed: true,
