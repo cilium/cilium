@@ -4,6 +4,7 @@
 package check
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -26,6 +27,10 @@ import (
 
 	"github.com/cilium/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium-cli/defaults"
+)
+
+const (
+	testCommandRetries = 3
 )
 
 // Action represents an individual action (e.g. a curl call) in a Scenario
@@ -236,13 +241,33 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	pod := a.src
 
 	a.Debug("Executing command", cmd)
-
-	output, err := pod.K8sClient.ExecInPod(ctx,
-		pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"], cmd)
-
 	cmdName := cmd[0]
 	cmdStr := strings.Join(cmd, " ")
-	a.cmdOutput = output.String()
+
+	var output bytes.Buffer
+	var err error
+	// We retry the command in case of inconclusive results. The result is
+	// deemed inconclusive when the command succeeded, but we don't have any
+	// output. We've seen this happen when there are connectivity blips on the
+	// k8s side.
+	// This check currently only works because all our test commands expect an
+	// output.
+	for i := 1; i <= testCommandRetries; i++ {
+		output, err = pod.K8sClient.ExecInPod(ctx,
+			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"], cmd)
+		a.cmdOutput = output.String()
+		// Check for inconclusive results.
+		if err == nil && strings.TrimSpace(a.cmdOutput) == "" {
+			a.Debugf("retrying command %s due to inconclusive results", cmdStr)
+			continue
+		}
+		break
+	}
+	// Check for inconclusive results.
+	if err == nil && strings.TrimSpace(a.cmdOutput) == "" {
+		a.Failf("inconclusive results: command %q was successful but without output", cmdStr)
+	}
+
 	showOutput := false
 	expectedExitCode := a.expectedExitCode()
 	if err != nil {
