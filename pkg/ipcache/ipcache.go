@@ -13,6 +13,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -127,6 +128,10 @@ type IPCache struct {
 	// references to identities and removing the corresponding IPCache
 	// entries if unused.
 	deferredPrefixRelease *asyncPrefixReleaser
+
+	// prefixLengths tracks the unique set of prefix lengths for IPv4 and
+	// IPv6 addresses in order to optimize longest prefix match lookups.
+	prefixLengths *counter.PrefixLengthCounter
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -141,6 +146,7 @@ func NewIPCache(c *Configuration) *IPCache {
 		controllers:       controller.NewManager(),
 		namedPorts:        types.NewNamedPortMultiMap(),
 		metadata:          newMetadata(),
+		prefixLengths:     counter.DefaultPrefixLengthCounter(),
 		Configuration:     c,
 	}
 	ipc.deferredPrefixRelease = newAsyncPrefixReleaser(c.Context, ipc, 1*time.Millisecond)
@@ -408,6 +414,7 @@ func (ipc *IPCache) upsertLocked(
 		ipc.identityToIPCache[newIdentity.ID] = map[string]struct{}{}
 	}
 	ipc.identityToIPCache[newIdentity.ID][ip] = struct{}{}
+	ipc.prefixLengths.Add([]netip.Prefix{cidrCluster.AsPrefix()})
 
 	if hostIP == nil {
 		delete(ipc.ipToHostIPCache, ip)
@@ -651,6 +658,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	}
 	delete(ipc.ipToHostIPCache, ip)
 	delete(ipc.ipToK8sMetadata, ip)
+	ipc.prefixLengths.Delete([]netip.Prefix{cidrCluster.AsPrefix()})
 
 	// Update named ports
 	namedPortsChanged = false
