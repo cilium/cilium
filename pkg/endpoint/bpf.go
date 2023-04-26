@@ -1084,10 +1084,7 @@ func (e *Endpoint) updatePolicyMapPressureMetric() {
 	e.policyMapPressureGauge.Set(value)
 }
 
-// The bool pointed by hadProxy, if not nil, will be set to 'true' if
-// the deleted entry had a proxy port assigned to it.  *hadProxy is
-// not otherwise changed (e.g., it is never set to 'false').
-func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, hadProxy *bool) bool {
+func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) bool {
 	// Convert from policy.Key to policymap.Key
 	policymapKey := policymap.NewKey(keyToDelete.Identity, keyToDelete.DestPort,
 		keyToDelete.Nexthdr, keyToDelete.TrafficDirection)
@@ -1106,11 +1103,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, had
 		return false
 	}
 
-	var entry policy.MapStateEntry
-	var ok bool
-	if entry, ok = e.realizedPolicy.PolicyMapState[keyToDelete]; ok && entry.ProxyPort != 0 && hadProxy != nil {
-		*hadProxy = true
-	}
+	entry := e.realizedPolicy.PolicyMapState[keyToDelete]
 
 	// Operation was successful, remove from realized state.
 	delete(e.realizedPolicy.PolicyMapState, keyToDelete)
@@ -1168,25 +1161,20 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 
 	e.PolicyDebug(nil, "ApplyPolicyMapChanges")
 
-	proxyChanges, err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}
 
-	if proxyChanges {
-		// Ignoring the revertFunc; keep all successful changes even if some fail.
-		err, _ = e.updateNetworkPolicy(proxyWaitGroup)
-	} else {
-		// Allow caller to wait for the current network policy to be acked
-		e.useCurrentNetworkPolicy(proxyWaitGroup)
-	}
+	// Ignoring the revertFunc; keep all successful changes even if some fail.
+	err, _ = e.updateNetworkPolicy(proxyWaitGroup)
 
 	return err
 }
 
 // applyPolicyMapChanges applies any incremental policy map changes
 // collected on the desired policy.
-func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
+func (e *Endpoint) applyPolicyMapChanges() error {
 	errors := 0
 
 	e.PolicyDebug(nil, "applyPolicyMapChanges")
@@ -1238,9 +1226,6 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 		// policy is first instantiated.
 		if entry.IsRedirectEntry() {
 			entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
-			if entry.ProxyPort != 0 {
-				proxyChanges = true
-			}
 		}
 		if !e.addPolicyKey(keyToAdd, entry, true) {
 			errors++
@@ -1248,21 +1233,22 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 	}
 
 	for keyToDelete := range deletes {
-		if !e.deletePolicyKey(keyToDelete, true, &proxyChanges) {
+		if !e.deletePolicyKey(keyToDelete, true) {
 			errors++
 		}
 	}
 
 	if errors > 0 {
-		return proxyChanges, fmt.Errorf("updating desired PolicyMap state failed")
-	} else if len(adds)+len(deletes) > 0 {
+		return fmt.Errorf("updating desired PolicyMap state failed")
+	}
+	if len(adds)+len(deletes) > 0 {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.AddedPolicyID:   adds,
 			logfields.DeletedPolicyID: deletes,
 		}).Debug("Applied policy map updates due identity changes")
 	}
 
-	return proxyChanges, nil
+	return nil
 }
 
 // syncPolicyMap updates the bpf policy map state based on the
@@ -1271,7 +1257,7 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 func (e *Endpoint) syncPolicyMap() error {
 	// Apply pending policy map changes first so that desired map is up-to-date before
 	// we diff the maps below.
-	_, err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}
@@ -1319,7 +1305,7 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 	for keyToDelete := range realized {
 		// If key that is in realized state is not in desired state, just remove it.
 		if entry, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-			if !e.deletePolicyKey(keyToDelete, false, nil) {
+			if !e.deletePolicyKey(keyToDelete, false) {
 				errors++
 			}
 			diffCount++
@@ -1376,7 +1362,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 
 	// Apply pending policy map changes first so that desired map is up-to-date before
 	// we diff the maps below.
-	_, err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}
