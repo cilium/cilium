@@ -10,14 +10,19 @@ import (
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
-// PodToWorld sends multiple HTTP(S) requests to one.one.one.one
-// from random client Pods.
-func PodToWorld() check.Scenario {
-	return &podToWorld{}
+// PodToWorld sends multiple HTTP(S) requests to ExternalTarget
+// from each client Pods.
+func PodToWorld(opts ...RetryOption) check.Scenario {
+	cond := &retryCondition{}
+	for _, op := range opts {
+		op(cond)
+	}
+	return &podToWorld{rc: cond}
 }
 
 // podToWorld implements a Scenario.
 type podToWorld struct {
+	rc *retryCondition
 }
 
 func (s *podToWorld) Name() string {
@@ -42,20 +47,23 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 		client := client // copy to avoid memory aliasing when using reference
 
 		// With http, over port 80.
+		httpOpts := s.rc.CurlOptions(http, check.IPFamilyAny, client, ct.Params())
 		t.NewAction(s, fmt.Sprintf("http-to-%s-%d", extTarget, i), &client, http, check.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(http, check.IPFamilyAny))
+			a.ExecInPod(ctx, ct.CurlCommand(http, check.IPFamilyAny, httpOpts...))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
 		// With https, over port 443.
+		httpsOpts := s.rc.CurlOptions(https, check.IPFamilyAny, client, ct.Params())
 		t.NewAction(s, fmt.Sprintf("https-to-%s-%d", extTarget, i), &client, https, check.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyAny))
+			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyAny, httpsOpts...))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
 		// With https, over port 443, index.html.
+		httpsindexOpts := s.rc.CurlOptions(httpsindex, check.IPFamilyAny, client, ct.Params())
 		t.NewAction(s, fmt.Sprintf("https-to-%s-index-%d", extTarget, i), &client, httpsindex, check.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(httpsindex, check.IPFamilyAny))
+			a.ExecInPod(ctx, ct.CurlCommand(httpsindex, check.IPFamilyAny, httpsindexOpts...))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
