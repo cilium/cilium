@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -154,7 +153,7 @@ func (d *Daemon) launchHubble() {
 	}
 
 	d.linkCache = link.NewLinkCache()
-	payloadParser, err := parser.New(logger, d, d, d, d, d, d.linkCache, d.cgroupManager, parserOpts...)
+	payloadParser, err := parser.New(logger, d, d, d, d.ipcache, d, d.linkCache, d.cgroupManager, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
@@ -406,44 +405,6 @@ func (d *Daemon) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
 		Namespace: namespace,
 		Name:      name,
 	}
-}
-
-// GetK8sMetadata returns the Kubernetes metadata for the given IP address.
-// It implements hubble parser's IPGetter.GetK8sMetadata.
-func (d *Daemon) GetK8sMetadata(ip netip.Addr) *ipcache.K8sMetadata {
-	if !ip.IsValid() {
-		return nil
-	}
-	return d.ipcache.GetK8sMetadata(ip.String())
-}
-
-// LookupSecIDByIP returns the security ID for the given IP. If the security ID
-// cannot be found, ok is false.
-// It implements hubble parser's IPGetter.LookupSecIDByIP.
-func (d *Daemon) LookupSecIDByIP(ip netip.Addr) (id ipcache.Identity, ok bool) {
-	if !ip.IsValid() {
-		return ipcache.Identity{}, false
-	}
-
-	if id, ok = d.ipcache.LookupByIP(ip.String()); ok {
-		return id, ok
-	}
-
-	ipv6Prefixes, ipv4Prefixes := d.GetCIDRPrefixLengths()
-	prefixes := ipv4Prefixes
-	if ip.Is6() {
-		prefixes = ipv6Prefixes
-	}
-	for _, prefixLen := range prefixes {
-		// note: we perform a lookup even when `prefixLen == bits`, as some
-		// entries derived by a single address cidr-range will not have been
-		// found by the above lookup
-		cidr, _ := ip.Prefix(prefixLen)
-		if id, ok = d.ipcache.LookupByPrefix(cidr.String()); ok {
-			return id, ok
-		}
-	}
-	return id, false
 }
 
 // GetK8sStore returns the k8s watcher cache store for the given resource name.

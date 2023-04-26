@@ -235,10 +235,13 @@ func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 
 // GetK8sMetadata returns Kubernetes metadata for the given IP address.
 // The returned pointer should *never* be modified.
-func (ipc *IPCache) GetK8sMetadata(ip string) *K8sMetadata {
+func (ipc *IPCache) GetK8sMetadata(ip netip.Addr) *K8sMetadata {
+	if !ip.IsValid() {
+		return nil
+	}
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
-	return ipc.getK8sMetadata(ip)
+	return ipc.getK8sMetadata(ip.String())
 }
 
 // getK8sMetadata returns Kubernetes metadata for the given IP address.
@@ -764,6 +767,39 @@ func (ipc *IPCache) LookupByPrefix(IP string) (Identity, bool) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
 	return ipc.LookupByPrefixRLocked(IP)
+}
+
+// LookupSecIDByIP performs a longest prefix match lookup in the IPCache for
+// the identity corresponding to the specified address (or, in the case of no
+// direct match, any shorter prefix). Returns the corresponding identity and
+// whether a match was found.
+func (ipc *IPCache) LookupSecIDByIP(ip netip.Addr) (id Identity, ok bool) {
+	if !ip.IsValid() {
+		return Identity{}, false
+	}
+
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+
+	if id, ok = ipc.LookupByIPRLocked(ip.String()); ok {
+		return id, ok
+	}
+
+	ipv6Prefixes, ipv4Prefixes := ipc.prefixLengths.ToBPFData()
+	prefixes := ipv4Prefixes
+	if ip.Is6() {
+		prefixes = ipv6Prefixes
+	}
+	for _, prefixLen := range prefixes {
+		// note: we perform a lookup even when `prefixLen == bits`, as some
+		// entries derived by a single address cidr-range will not have been
+		// found by the above lookup
+		cidr, _ := ip.Prefix(prefixLen)
+		if id, ok = ipc.LookupByPrefixRLocked(cidr.String()); ok {
+			return id, ok
+		}
+	}
+	return id, false
 }
 
 // LookupByIdentity returns the set of IPs (endpoint or CIDR prefix) that have
