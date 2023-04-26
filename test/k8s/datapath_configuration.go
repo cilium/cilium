@@ -467,6 +467,41 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
+	SkipContextIf(helpers.DoesNotRunOnNetNextKernel, "High-scale IPcache", func() {
+		const hsIPcacheFile = "high-scale-ipcache.yaml"
+
+		AfterAll(func() {
+			hsIPcacheYAML := helpers.ManifestGet(kubectl.BasePath(), hsIPcacheFile)
+			_ = kubectl.Delete(hsIPcacheYAML)
+		})
+
+		It("Test ingress policy enforcement", func() {
+			options := map[string]string{
+				"highScaleIPcache.enabled":    "true",
+				"routingMode":                 "native",
+				"bpf.monitorAggregation":      "none",
+				"devices":                     "",
+				"ipv6.enabled":                "false",
+				"wellKnownIdentities.enabled": "true",
+			}
+			if !helpers.RunsOnGKE() {
+				options["autoDirectNodeRoutes"] = "true"
+			}
+			if helpers.RunsWithKubeProxy() {
+				options["kubeProxyReplacement"] = "disabled"
+			}
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+
+			hsIPcacheYAML := helpers.ManifestGet(kubectl.BasePath(), hsIPcacheFile)
+			kubectl.Create(hsIPcacheYAML).ExpectSuccess("Unable to create resource %q", hsIPcacheYAML)
+
+			// We need a longer timeout here because of the larger number of
+			// pods that need to be deployed.
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l type=client", 2*helpers.HelperTimeout)
+			Expect(err).ToNot(HaveOccurred(), "Client pods not ready after timeout")
+		})
+	})
+
 	Context("Iptables", func() {
 		SkipItIf(func() bool {
 			return helpers.IsIntegration(helpers.CIIntegrationGKE) || helpers.DoesNotRunWithKubeProxyReplacement()
