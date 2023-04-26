@@ -29,20 +29,19 @@ type epInfoCache struct {
 	ifName string
 
 	// For datapath.EndpointConfiguration
-	identity                               identity.NumericIdentity
-	mac                                    mac.MAC
-	ipv4                                   netip.Addr
-	ipv6                                   netip.Addr
-	conntrackLocal                         bool
-	requireARPPassthrough                  bool
-	requireEgressProg                      bool
-	requireRouting                         bool
-	requireEndpointRoute                   bool
-	policyVerdictLogFilter                 uint32
-	cidr4PrefixLengths, cidr6PrefixLengths []int
-	options                                *option.IntOptions
-	lxcMAC                                 mac.MAC
-	ifIndex                                int
+	identity               identity.NumericIdentity
+	mac                    mac.MAC
+	ipv4                   netip.Addr
+	ipv6                   netip.Addr
+	conntrackLocal         bool
+	requireARPPassthrough  bool
+	requireEgressProg      bool
+	requireRouting         bool
+	requireEndpointRoute   bool
+	policyVerdictLogFilter uint32
+	options                *option.IntOptions
+	lxcMAC                 mac.MAC
+	ifIndex                int
 
 	// endpoint is used to get the endpoint's logger.
 	//
@@ -55,8 +54,6 @@ type epInfoCache struct {
 
 // Must be called when endpoint is still locked.
 func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
-	cidr6, cidr4 := e.GetCIDRPrefixLengths()
-
 	ep := &epInfoCache{
 		revision: e.nextPolicyRevision,
 
@@ -73,8 +70,6 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		requireRouting:         e.RequireRouting(),
 		requireEndpointRoute:   e.RequireEndpointRoute(),
 		policyVerdictLogFilter: e.GetPolicyVerdictLogFilter(),
-		cidr4PrefixLengths:     cidr4,
-		cidr6PrefixLengths:     cidr6,
 		options:                e.Options.DeepCopy(),
 		lxcMAC:                 e.mac,
 		ifIndex:                e.ifIndex,
@@ -139,10 +134,6 @@ func (ep *epInfoCache) GetNodeMAC() mac.MAC { return ep.mac }
 
 func (ep *epInfoCache) ConntrackLocalLocked() bool {
 	return ep.conntrackLocal
-}
-
-func (ep *epInfoCache) GetCIDRPrefixLengths() ([]int, []int) {
-	return ep.cidr6PrefixLengths, ep.cidr4PrefixLengths
 }
 
 func (ep *epInfoCache) GetOptions() *option.IntOptions {

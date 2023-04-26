@@ -910,12 +910,6 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	})
 }
 
-// GetCIDRPrefixLengths returns the sorted list of unique prefix lengths used
-// for CIDR policy or IPcache lookup from this endpoint.
-func (e *Endpoint) GetCIDRPrefixLengths() (s6, s4 []int) {
-	return e.owner.GetCIDRPrefixLengths()
-}
-
 // AnnotationsResolverCB provides an implementation for resolving the pod
 // annotations.
 type AnnotationsResolverCB func(ns, podName string) (proxyVisibility string, err error)
