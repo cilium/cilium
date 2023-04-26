@@ -1743,23 +1743,6 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 	}
 }
 
-// UseCurrentNetworkPolicy inserts a Completion to the WaitGroup if the current network policy has not yet been acked.
-// 'wg' may not be nil.
-func (s *XDSServer) UseCurrentNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	// If there are no listeners configured, the local node's Envoy proxy won't
-	// query for network policies and therefore will never ACK them, and we'd
-	// wait forever.
-	if !ep.HasSidecarProxy() && s.proxyListeners == 0 {
-		return
-	}
-
-	nodeIDs := getNodeIDs(ep, policy)
-	s.NetworkPolicyMutator.UseCurrent(NetworkPolicyTypeURL, nodeIDs, wg)
-}
-
 // RemoveNetworkPolicy removes network policies relevant to the specified
 // endpoint from the set published to L7 proxies, and stops listening for
 // acks for policies on this endpoint.
