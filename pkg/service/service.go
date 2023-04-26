@@ -696,7 +696,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	// defer filtering the backends list (thereby defer redirecting traffic)
 	// in such cases. GH #12859
 	// Update backends cache and allocate/release backend IDs
-	newBackends, obsoleteBackendIDs, obsoleteSVCBackendIDs, err :=
+	newBackends, obsoleteBackends, obsoleteSVCBackendIDs, err :=
 		s.updateBackendsCacheLocked(svc, backendsCopy)
 	if err != nil {
 		return false, lb.ID(0), err
@@ -716,7 +716,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	// Update lbmaps (BPF service maps)
 	if err = s.upsertServiceIntoLBMaps(svc, svc.isExtLocal(), svc.isIntLocal(), prevBackendCount,
-		newBackends, obsoleteBackendIDs, prevSessionAffinity, prevLoadBalancerSourceRanges,
+		newBackends, obsoleteBackends, prevSessionAffinity, prevLoadBalancerSourceRanges,
 		obsoleteSVCBackendIDs, getScopedLog, debugLogsEnabled); err != nil {
 
 		return false, lb.ID(0), err
@@ -1402,7 +1402,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 }
 
 func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal bool,
-	prevBackendCount int, newBackends []*lb.Backend, obsoleteBackendIDs []lb.BackendID,
+	prevBackendCount int, newBackends []*lb.Backend, obsoleteBackends []*lb.Backend,
 	prevSessionAffinity bool, prevLoadBalancerSourceRanges []*cidr.CIDR,
 	obsoleteSVCBackendIDs []lb.BackendID, getScopedLog func() *logrus.Entry,
 	debugLogsEnabled bool,
@@ -1534,7 +1534,8 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 	}
 
 	// Remove backends not used by any service from BPF maps
-	for _, id := range obsoleteBackendIDs {
+	for _, be := range obsoleteBackends {
+		id := be.ID
 		if debugLogsEnabled {
 			getScopedLog().WithField(logfields.BackendID, id).
 				Debug("Removing obsolete backend")
@@ -1823,9 +1824,9 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 }
 
 func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend) (
-	[]*lb.Backend, []lb.BackendID, []lb.BackendID, error) {
+	[]*lb.Backend, []*lb.Backend, []lb.BackendID, error) {
 
-	obsoleteBackendIDs := []lb.BackendID{}    // not used by any svc
+	obsoleteBackends := []*lb.Backend{}       // not used by any svc
 	obsoleteSVCBackendIDs := []lb.BackendID{} // removed from the svc, but might be used by other svc
 	newBackends := []*lb.Backend{}            // previously not used by any svc
 	backendSet := map[string]struct{}{}
@@ -1899,14 +1900,14 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 			if s.backendRefCount.Delete(hash) {
 				DeleteBackendID(backend.ID)
 				delete(s.backendByHash, hash)
-				obsoleteBackendIDs = append(obsoleteBackendIDs, backend.ID)
+				obsoleteBackends = append(obsoleteBackends, backend)
 			}
 			delete(svc.backendByHash, hash)
 		}
 	}
 
 	svc.backends = backends
-	return newBackends, obsoleteBackendIDs, obsoleteSVCBackendIDs, nil
+	return newBackends, obsoleteBackends, obsoleteSVCBackendIDs, nil
 }
 
 func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) []lb.BackendID {
