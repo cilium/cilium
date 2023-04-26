@@ -158,12 +158,6 @@ func NewMap(name string) *Map {
 	}
 }
 
-// GetMaxPrefixLengths determines how many unique prefix lengths are supported
-// simultaneously based on the underlying BPF map type in use.
-func (m *Map) GetMaxPrefixLengths() (ipv6, ipv4 int) {
-	return net.IPv6len*8 + 1, net.IPv4len*8 + 1
-}
-
 var (
 	// IPCache is a mapping of all endpoint IPs in the cluster which this
 	// Cilium agent is a part of to their corresponding security identities.

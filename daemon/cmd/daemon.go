@@ -305,8 +305,7 @@ func (d *Daemon) init() error {
 // createPrefixLengthCounter wraps around the counter library, providing
 // references to prefix lengths that will always be present.
 func createPrefixLengthCounter() *counter.PrefixLengthCounter {
-	max6, max4 := ipcachemap.IPCacheMap().GetMaxPrefixLengths()
-	return counter.DefaultPrefixLengthCounter(max6, max4)
+	return counter.DefaultPrefixLengthCounter()
 }
 
 // restoreCiliumHostIPs completes the `cilium_host` IP restoration process
