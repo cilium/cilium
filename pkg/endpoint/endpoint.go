@@ -2139,7 +2139,6 @@ func (e *Endpoint) SyncEndpointHeaderFile() {
 // * removal from the endpointmanager, resulting in new events not taking effect
 // on this endpoint
 // * cleanup of datapath state (BPF maps, proxy configuration, directories)
-// * releasing IP addresses allocated for the endpoint
 // * releasing of the reference to its allocated security identity
 func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	errs := []error{}
