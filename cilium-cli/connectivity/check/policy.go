@@ -32,6 +32,13 @@ const (
 
 	ExitCurlHTTPError ExitCode = 22
 	ExitCurlTimeout   ExitCode = 28
+
+	/* How many times we should retry getting the policy revisions before
+	 * giving up. We want to reduce the likelihood that a connectivity blip
+	 * will prevent us from removing policies (dependent on revisions today)
+	 * because that may then cause subsequent tests to fail.
+	 */
+	getPolicyRevisionRetries = 3
 )
 
 func (e ExitCode) String() string {
@@ -59,7 +66,15 @@ func (e ExitCode) Check(code uint8) bool {
 func (ct *ConnectivityTest) getCiliumPolicyRevisions(ctx context.Context) (map[Pod]int, error) {
 	revisions := make(map[Pod]int)
 	for _, cp := range ct.ciliumPods {
-		revision, err := getCiliumPolicyRevision(ctx, cp)
+		var revision int
+		var err error
+		for i := 1; i <= getPolicyRevisionRetries; i++ {
+			revision, err = getCiliumPolicyRevision(ctx, cp)
+			if err == nil {
+				break
+			}
+			ct.Debugf("Failed to get policy revision from pod %s (%d/%d): %w", cp, i, getPolicyRevisionRetries, err)
+		}
 		if err != nil {
 			return revisions, err
 		}
