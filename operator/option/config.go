@@ -117,6 +117,9 @@ const (
 	// IPAMInstanceTagFilter are optional tags used to filter instances for ENI discovery ; only used with AWS IPAM mode for now
 	IPAMInstanceTags = "instance-tags-filter"
 
+	// IPAMMultiPoolMap are IP pool definitions used for the multi-pool IPAM mode.
+	IPAMMultiPoolMap = "multi-pool-map"
+
 	// ClusterPoolIPv4CIDR is the cluster's IPv4 CIDR to allocate
 	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
 	ClusterPoolIPv4CIDR = "cluster-pool-ipv4-cidr"
@@ -399,6 +402,9 @@ type OperatorConfig struct {
 	// per node.
 	NodeCIDRMaskSizeIPv6 int
 
+	// IPAMMultiPoolMap are IP pool definitions used for the multi-pool IPAM mode.
+	IPAMMultiPoolMap map[string]string
+
 	// AWS options
 
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
@@ -671,6 +677,12 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	} else {
 		c.ENIGarbageCollectionTags = m
 	}
+
+	if m, err := command.GetStringMapStringE(vp, IPAMMultiPoolMap); err != nil {
+		log.Fatalf("unable to parse %s: %s", IPAMMultiPoolMap, err)
+	} else {
+		c.IPAMMultiPoolMap = m
+	}
 }
 
 // Config represents the operator configuration.
@@ -678,6 +690,7 @@ var Config = &OperatorConfig{
 	IPAMSubnetsIDs:           make([]string, 0),
 	IPAMSubnetsTags:          make(map[string]string),
 	IPAMInstanceTags:         make(map[string]string),
+	IPAMMultiPoolMap:         make(map[string]string),
 	AWSInstanceLimitMapping:  make(map[string]string),
 	ENITags:                  make(map[string]string),
 	ENIGarbageCollectionTags: make(map[string]string),
