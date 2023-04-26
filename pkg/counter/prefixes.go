@@ -50,10 +50,12 @@ func createIPNet(ones, bits int) netip.Prefix {
 
 // DefaultPrefixLengthCounter creates a default prefix length counter that
 // already counts the minimum and maximum prefix lengths for IP hosts and
-// default routes (ie, /32 and /0). As with NewPrefixLengthCounter, inesrtions
+// default routes (ie, /32 and /0). As with NewPrefixLengthCounter, insertions
 // are limited to the specified maximum number of unique prefix lengths.
-func DefaultPrefixLengthCounter(maxUniquePrefixes6, maxUniquePrefixes4 int) *PrefixLengthCounter {
-	counter := NewPrefixLengthCounter(maxUniquePrefixes6, maxUniquePrefixes4)
+func DefaultPrefixLengthCounter() *PrefixLengthCounter {
+	maxIPv4 := net.IPv4len*8 + 1
+	maxIPv6 := net.IPv6len*8 + 1
+	counter := NewPrefixLengthCounter(maxIPv6, maxIPv4)
 
 	defaultPrefixes := []netip.Prefix{
 		// IPv4

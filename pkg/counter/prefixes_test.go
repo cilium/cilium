@@ -183,7 +183,7 @@ func (cs *CounterTestSuite) TestToBPFData(c *C) {
 }
 
 func (cs *CounterTestSuite) TestDefaultPrefixLengthCounter(c *C) {
-	result := DefaultPrefixLengthCounter(net.IPv6len*8, net.IPv4len*8)
+	result := DefaultPrefixLengthCounter()
 	c.Assert(result.v4[0], Equals, 1)
 	c.Assert(result.v6[0], Equals, 1)
 	c.Assert(result.v4[net.IPv4len*8], Equals, 1)
