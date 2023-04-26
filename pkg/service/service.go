@@ -20,6 +20,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/counter"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -255,6 +256,8 @@ type Service struct {
 	lastUpdatedTs atomic.Value
 
 	l7lbSvcs map[lb.ServiceName]*L7LBInfo
+
+	backendConnectionHandler sockets.SocketDestroyer
 }
 
 // NewService creates a new instance of the service handler.
@@ -266,15 +269,16 @@ func NewService(monitorNotify monitorNotify, envoyCache envoyCache, lbmap datapa
 	}
 
 	svc := &Service{
-		svcByHash:       map[string]*svcInfo{},
-		svcByID:         map[lb.ID]*svcInfo{},
-		backendRefCount: counter.StringCounter{},
-		backendByHash:   map[string]*lb.Backend{},
-		monitorNotify:   monitorNotify,
-		envoyCache:      envoyCache,
-		healthServer:    localHealthServer,
-		lbmap:           lbmap,
-		l7lbSvcs:        map[lb.ServiceName]*L7LBInfo{},
+		svcByHash:                map[string]*svcInfo{},
+		svcByID:                  map[lb.ID]*svcInfo{},
+		backendRefCount:          counter.StringCounter{},
+		backendByHash:            map[string]*lb.Backend{},
+		monitorNotify:            monitorNotify,
+		envoyCache:               envoyCache,
+		healthServer:             localHealthServer,
+		lbmap:                    lbmap,
+		l7lbSvcs:                 map[lb.ServiceName]*L7LBInfo{},
+		backendConnectionHandler: backendConnectionHandler{},
 	}
 	svc.lastUpdatedTs.Store(time.Now())
 
@@ -1541,6 +1545,11 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 				Debug("Removing obsolete backend")
 		}
 		s.lbmap.DeleteBackendByID(id)
+		// With socket-lb, existing client applications can continue to connect to
+		// deleted backends. Destroy any client sockets connected to the backend.
+		if option.Config.EnableSocketLB || option.Config.BPFSocketLBHostnsOnly {
+			s.destroyConnectionsToBackend(be)
+		}
 	}
 
 	return nil
