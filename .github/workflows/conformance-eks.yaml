@@ -68,7 +68,7 @@ env:
   region: us-east-2
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.2
-  cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.122.0
   kubectl_version: v1.23.6
@@ -163,19 +163,18 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.enabled=true \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
+            --helm-set auth.mTLS.spire.enabled=true \
+            --helm-set auth.mTLS.spire.install.enabled=true \
+            --helm-set auth.mTLS.spire.install.server.dataStorage.enabled=false \
+            --helm-set bpf.monitorAggregation=none \
             --wait=false \
-            --rollback=false \
-            --config monitor-aggregation=none \
             --version="
-          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
-            --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target amazon.com"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
-          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
@@ -248,11 +247,10 @@ jobs:
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
-      - name: Enable Relay
+      - name: Wait for SPIRE to be ready
         run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
-          # NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
-          cilium status --wait
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
       - name: Port forward Relay
         run: |
@@ -267,7 +265,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
+          cilium uninstall --wait
 
       - name: Create custom IPsec secret
         run: |
@@ -275,14 +273,22 @@ jobs:
 
       - name: Install Cilium with encryption
         run: |
+          kubectl create -n kube-system secret generic cilium-ipsec-keys \
+            --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --encryption=ipsec
+            --helm-set encryption.enabled=true \
+            --helm-set encryption.type=ipsec \
+            --helm-set kubeProxyReplacement=disabled
 
-      - name: Enable Relay
+      - name: Wait for Cilium
         run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
           # NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
           cilium status --wait
+
+      - name: Wait for SPIRE to be ready
+        run: |
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
       - name: Port forward Relay
         run: |
