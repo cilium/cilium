@@ -155,18 +155,18 @@ type BackendOperations interface {
 	// Set sets value of key
 	Set(ctx context.Context, key string, value []byte) error
 
-	// Delete deletes a key
+	// Delete deletes a key. It does not return an error if the key does not exist.
 	Delete(ctx context.Context, key string) error
 
-	// DeleteIfLocked deletes a key if the client is still holding the given lock.
+	// DeleteIfLocked deletes a key if the client is still holding the given lock. It does not return an error if the key does not exist.
 	DeleteIfLocked(ctx context.Context, key string, lock KVLocker) error
 
 	DeletePrefix(ctx context.Context, path string) error
 
-	// Update atomically creates a key or fails if it already exists
+	// Update creates or updates a key.
 	Update(ctx context.Context, key string, value []byte, lease bool) error
 
-	// UpdateIfLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
+	// UpdateIfLocked updates a key if the client is still holding the given lock.
 	UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) error
 
 	// UpdateIfDifferent updates a key if the value is different
