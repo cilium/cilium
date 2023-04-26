@@ -59,10 +59,6 @@ func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis 
 	return nil, nil
 }
 
-// UseCurrentNetworkPolicy does nothing.
-func (r *RedirectSuiteProxy) UseCurrentNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
-}
-
 // RemoveNetworkPolicy does nothing.
 func (r *RedirectSuiteProxy) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {}
 
