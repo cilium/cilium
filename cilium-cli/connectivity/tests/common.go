@@ -3,6 +3,12 @@
 
 package tests
 
+import (
+	"strconv"
+
+	"github.com/cilium/cilium-cli/connectivity/check"
+)
+
 type labelsContainer interface {
 	HasLabel(key, value string) bool
 }
@@ -47,4 +53,80 @@ func hasAllLabels(labelsContainer labelsContainer, filters map[string]string) bo
 		}
 	}
 	return true
+}
+
+type retryCondition struct {
+	podLabels map[string]string
+	all       bool
+	destPort  uint32
+	destIP    string
+}
+
+// CurlOptions returns curl retry option or empty slice depending on retry conditions
+func (rc *retryCondition) CurlOptions(peer check.TestPeer, ipFam check.IPFamily, pod check.Pod, params check.Parameters) []string {
+	if params.Retry == 0 {
+		return []string{}
+	}
+	if !rc.all && rc.destIP == "" && rc.destPort == 0 {
+		return []string{}
+	}
+
+	opts := []string{
+		"--retry", strconv.FormatInt(int64(params.Retry), 10),
+		"--retry-all-errors", // add --retry-all-errors to retry on all possible errors
+	}
+
+	if retryDelay := params.RetryDelay.Seconds(); retryDelay > 0.0 {
+		opts = append(opts, "--retry-delay", strconv.FormatFloat(retryDelay, 'f', -1, 64))
+	}
+
+	if rc.all {
+		return opts
+	}
+	if rc.destIP != "" && peer.Address(ipFam) != rc.destIP {
+		return []string{}
+	}
+	if rc.destPort != 0 && peer.Port() != rc.destPort {
+		return []string{}
+	}
+	for n, v := range rc.podLabels {
+		if !pod.HasLabel(n, v) {
+			return []string{}
+		}
+	}
+
+	return opts
+}
+
+type RetryOption func(*retryCondition)
+
+// WithRetryAll sets all condition, returns retry options in every case
+func WithRetryAll() RetryOption {
+	return func(rc *retryCondition) {
+		rc.all = true
+	}
+}
+
+// WithRetryDestIP sets ip address condition
+func WithRetryDestIP(ip string) RetryOption {
+	return func(rc *retryCondition) {
+		rc.destIP = ip
+	}
+}
+
+// WithRetryDestPort sets port condition
+func WithRetryDestPort(port uint32) RetryOption {
+	return func(rc *retryCondition) {
+		rc.destPort = port
+	}
+}
+
+// WithRetryPodLabel sets pod label condition
+func WithRetryPodLabel(name, val string) RetryOption {
+	return func(rc *retryCondition) {
+		if rc.podLabels == nil {
+			rc.podLabels = map[string]string{}
+		}
+		rc.podLabels[name] = val
+	}
 }
