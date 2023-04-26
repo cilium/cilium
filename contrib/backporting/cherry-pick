@@ -18,8 +18,8 @@ trap cleanup EXIT
 
 cherry_pick () {
   CID=$1
-  if ! commit_in_upstream "$CID" "master" "${ORG}" "${REPO}"; then
-    echo "Commit $CID not in $REM/master!"
+  if ! commit_in_upstream "$CID" "main" "${ORG}" "${REPO}"; then
+    echo "Commit $CID not in $REM/main!"
     exit 1
   fi
   TMPF=`mktemp cp.XXXXXX`
