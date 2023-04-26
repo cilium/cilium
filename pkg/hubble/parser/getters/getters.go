@@ -42,7 +42,7 @@ type IPGetter interface {
 	// GetK8sMetadata returns Kubernetes metadata for the given IP address.
 	GetK8sMetadata(ip netip.Addr) *ipcache.K8sMetadata
 	// LookupSecIDByIP returns the corresponding security identity that
-	// endpoint IP maps to as well as if the corresponding entry exists.
+	// the specified IP maps to as well as if the corresponding entry exists.
 	LookupSecIDByIP(ip netip.Addr) (ipcache.Identity, bool)
 }
 
