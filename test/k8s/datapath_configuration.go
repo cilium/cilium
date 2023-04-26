@@ -188,7 +188,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	SkipContextIf(func() bool {
-		return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != "" || helpers.SkipQuarantined()
+		return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != ""
 	}, "IPv6 masquerading", func() {
 		var (
 			k8s1EndpointIPs map[string]string
