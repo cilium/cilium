@@ -366,7 +366,7 @@ func newCmdClusterMeshEnableWithHelm() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&params.ServiceType, "service-type", "LoadBalancer", "Type of Kubernetes service to expose control plane { ClusterIP | LoadBalancer | NodePort }")
+	cmd.Flags().StringVar(&params.ServiceType, "service-type", "NodePort", "Type of Kubernetes service to expose control plane { LoadBalancer | NodePort | ClusterIP }")
 
 	return cmd
 }
