@@ -510,7 +510,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	struct iphdr *ip4;
 
 	/* This is the first time revalidate_data() is going to be called in
-	 * the "to-netdev" path. Make sure that we don't legitimately drop
+	 * the "from-netdev" path. Make sure that we don't legitimately drop
 	 * the packet if the skb arrived with the header not being not in the
 	 * linear data.
 	 */
@@ -916,10 +916,10 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
 		src_id = HOST_ID;
 
-	src_id = resolve_srcid_ipv4(ctx, src_id, &ipcache_srcid, true);
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+	src_id = resolve_srcid_ipv4(ctx, src_id, &ipcache_srcid, true);
 
 	/* We need to pass the srcid from ipcache to host firewall. See
 	 * comment in ipv4_host_policy_egress() for details.
