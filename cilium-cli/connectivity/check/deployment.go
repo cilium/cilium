@@ -402,10 +402,10 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			if _, ok := zones[l.GetLabels()["topology.kubernetes.io/zone"]]; ok {
 				zone = l.GetLabels()["topology.kubernetes.io/zone"]
 				break
-			} else {
-				zones[l.GetLabels()["topology.kubernetes.io/zone"]] = 1
-				lz = l.GetLabels()["topology.kubernetes.io/zone"]
 			}
+
+			zones[l.GetLabels()["topology.kubernetes.io/zone"]] = 1
+			lz = l.GetLabels()["topology.kubernetes.io/zone"]
 		}
 		// No zone had > 1, use the last zone.
 		if zone == "" {
