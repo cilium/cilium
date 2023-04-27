@@ -6,12 +6,13 @@ package tests
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
 // PodToCIDR sends an ICMP packet from each client Pod
-// to 1.1.1.1 and 1.0.0.1.
+// to ExternalIP and ExternalOtherIP.
 func PodToCIDR() check.Scenario {
 	return &podToCIDR{}
 }
@@ -24,13 +25,11 @@ func (s *podToCIDR) Name() string {
 }
 
 func (s *podToCIDR) Run(ctx context.Context, t *check.Test) {
-	eps := []check.TestPeer{
-		check.HTTPEndpoint("cloudflare-1001", "https://"+t.Context().Params().ExternalOtherIP),
-		check.HTTPEndpoint("cloudflare-1111", "https://"+t.Context().Params().ExternalIP),
-	}
 	ct := t.Context()
 
-	for _, ep := range eps {
+	for _, ip := range []string{ct.Params().ExternalIP, ct.Params().ExternalOtherIP} {
+		ep := check.HTTPEndpoint(fmt.Sprintf("external-%s", strings.ReplaceAll(ip, ".", "")), "https://"+ip)
+
 		var i int
 		for _, src := range ct.ClientPods() {
 			src := src // copy to avoid memory aliasing when using reference
