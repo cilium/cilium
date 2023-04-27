@@ -381,7 +381,7 @@ func (a *Action) printFlows(peer TestPeer) {
 	a.Log()
 }
 
-func (a *Action) matchFlowRequirements(ctx context.Context, flows flowsSet, req *filters.FlowSetRequirement) FlowRequirementResults {
+func (a *Action) matchFlowRequirements(flows flowsSet, req *filters.FlowSetRequirement) FlowRequirementResults {
 	var offset int
 	r := FlowRequirementResults{Failures: -1} // -1 to get the loop started
 
@@ -840,7 +840,7 @@ func (a *Action) followFlows(ctx context.Context, ready chan bool) error {
 // matchAllFlowRequirements takes a list of flow requirements and matches each
 // of them against the flows logged against the Action up to this point.
 // Returns the merged verdict of all matcher operations using all requirements.
-func (a *Action) matchAllFlowRequirements(ctx context.Context, reqs []filters.FlowSetRequirement) FlowRequirementResults {
+func (a *Action) matchAllFlowRequirements(reqs []filters.FlowSetRequirement) FlowRequirementResults {
 	//TODO(timo): Reduce complexity of matcher output to make the surrounding logic
 	// easier to comprehend and modify. Different properties of the verdict should
 	// be exposed as methods, otherwise subtle bugs slip into the surrounding code
@@ -865,7 +865,7 @@ func (a *Action) matchAllFlowRequirements(ctx context.Context, reqs []filters.Fl
 	defer a.flowsMu.Unlock()
 
 	for i := range reqs {
-		res := a.matchFlowRequirements(ctx, a.flows, &reqs[i])
+		res := a.matchFlowRequirements(a.flows, &reqs[i])
 		//TODO(timo): The matcher should probably take in all requirements
 		// and return its verdict in a single struct.
 		out.Merge(&res)
@@ -931,7 +931,7 @@ func (a *Action) validateFlowsForPeer(ctx context.Context, reqs []filters.FlowSe
 			}
 			a.Debugf("Validating %d flows against %d requirements", len(a.flows), len(reqs))
 
-			res = a.matchAllFlowRequirements(ctx, reqs)
+			res = a.matchAllFlowRequirements(reqs)
 			if !res.NeedMoreFlows && res.FirstMatch != -1 {
 				// TODO(timo): This success condition should be a method on FlowRequirementResults.
 				return res

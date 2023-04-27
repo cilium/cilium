@@ -21,7 +21,7 @@ func (m *kindVersionValidation) Name() string {
 	return "minimum-version"
 }
 
-func (m *kindVersionValidation) Check(ctx context.Context, k *K8sInstaller) error {
+func (m *kindVersionValidation) Check(_ context.Context, k *K8sInstaller) error {
 	bytes, err := k.Exec("kind", "version")
 	if err != nil {
 		return err

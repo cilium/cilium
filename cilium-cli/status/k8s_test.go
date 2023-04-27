@@ -128,27 +128,27 @@ func (c *k8sStatusMockClient) setDaemonSet(namespace, name, filter string, desir
 	}
 }
 
-func (c *k8sStatusMockClient) GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error) {
+func (c *k8sStatusMockClient) GetDaemonSet(_ context.Context, namespace, name string, _ metav1.GetOptions) (*appsv1.DaemonSet, error) {
 	return c.daemonSet[namespace+"/"+name], nil
 }
 
-func (c *k8sStatusMockClient) GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error) {
+func (c *k8sStatusMockClient) GetDeployment(_ context.Context, namespace, name string, _ metav1.GetOptions) (*appsv1.Deployment, error) {
 	return c.deployment[namespace+"/"+name], nil
 }
 
-func (c *k8sStatusMockClient) ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error) {
+func (c *k8sStatusMockClient) ListPods(_ context.Context, _ string, options metav1.ListOptions) (*corev1.PodList, error) {
 	return c.podList[options.LabelSelector], nil
 }
 
-func (c *k8sStatusMockClient) ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error) {
+func (c *k8sStatusMockClient) ListCiliumEndpoints(_ context.Context, _ string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error) {
 	return c.ciliumEndpointList[options.LabelSelector], nil
 }
 
-func (c *k8sStatusMockClient) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error) {
+func (c *k8sStatusMockClient) CiliumLogs(_ context.Context, _, _ string, _ time.Time, _ *regexp.Regexp) (string, error) {
 	return "[error] a sample cilium-agent error message", nil
 }
 
-func (c *k8sStatusMockClient) CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error) {
+func (c *k8sStatusMockClient) CiliumStatus(_ context.Context, _, pod string) (*models.StatusResponse, error) {
 	s, ok := c.status[pod]
 	if !ok {
 		return nil, fmt.Errorf("pod %s not found", pod)

@@ -115,10 +115,10 @@ func (k *K8sHubble) disableUI(ctx context.Context) error {
 	}
 	k.client.DeleteConfigMap(ctx, hubbleUICM.GetNamespace(), hubbleUICM.GetName(), metav1.DeleteOptions{})
 
-	return k.deleteUICertificates(ctx)
+	return k.deleteUICertificates()
 }
 
-func (k *K8sHubble) deleteUICertificates(ctx context.Context) error {
+func (k *K8sHubble) deleteUICertificates() error {
 	// TODO we won't generate hubble-ui certificates because we don't want
 	//  to give a bad UX for hubble-cli (which connects to hubble-relay)
 	// k.Log("🔥 Deleting Hubble UI certificates...")
@@ -231,7 +231,7 @@ func (k *K8sHubble) enableUI(ctx context.Context) (string, error) {
 // 	return secret, nil
 // }
 
-func (p *Parameters) UIPortForwardCommand(ctx context.Context) error {
+func (p *Parameters) UIPortForwardCommand() error {
 	args := []string{
 		"port-forward",
 		"-n", p.Namespace,

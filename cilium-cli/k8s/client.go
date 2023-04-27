@@ -407,23 +407,6 @@ func (c *Client) ListServices(ctx context.Context, namespace string, options met
 	return c.Clientset.CoreV1().Services(namespace).List(ctx, options)
 }
 
-func (c *Client) WriteFileToPod(ctx context.Context, namespace, pod, container, path string, content []byte, mode int32) error {
-	result, err := c.execInPod(ctx, ExecParameters{
-		Namespace: namespace,
-		Pod:       pod,
-		Container: container,
-	})
-	if err != nil {
-		return fmt.Errorf("error executing cat in pod: %s", err)
-	}
-
-	if errString := result.Stderr.String(); errString != "" {
-		return fmt.Errorf("error writing file to pod: %s", errString)
-	}
-
-	return nil
-}
-
 func (c *Client) ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error) {
 	result, err := c.execInPod(ctx, ExecParameters{
 		Namespace: namespace,
@@ -774,7 +757,7 @@ func (c *Client) ListNamespaces(ctx context.Context, o metav1.ListOptions) (*cor
 	return c.Clientset.CoreV1().Namespaces().List(ctx, o)
 }
 
-func (c *Client) GetPodsTable(ctx context.Context) (*metav1.Table, error) {
+func (c *Client) GetPodsTable(_ context.Context) (*metav1.Table, error) {
 	r := resource.NewBuilder(c.RESTClientGetter).
 		Unstructured().
 		AllNamespaces(true).
@@ -952,7 +935,7 @@ func (c *Client) ListCiliumLocalRedirectPolicies(ctx context.Context, namespace 
 	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).List(ctx, opts)
 }
 
-func (c *Client) GetPlatform(ctx context.Context) (*Platform, error) {
+func (c *Client) GetPlatform(_ context.Context) (*Platform, error) {
 	v, err := c.Clientset.Discovery().ServerVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Kubernetes version: %w", err)
@@ -1041,7 +1024,7 @@ func (c *Client) GetHelmState(ctx context.Context, namespace string, secretName 
 	}, nil
 }
 
-func (c *Client) ListAPIResources(ctx context.Context) ([]string, error) {
+func (c *Client) ListAPIResources(_ context.Context) ([]string, error) {
 	lists, err := c.Clientset.Discovery().ServerPreferredResources()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list api resources: %w", err)

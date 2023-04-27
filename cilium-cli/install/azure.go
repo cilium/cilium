@@ -22,7 +22,7 @@ func (m *azureVersionValidation) Name() string {
 	return "az-binary"
 }
 
-func (m *azureVersionValidation) Check(ctx context.Context, k *K8sInstaller) error {
+func (m *azureVersionValidation) Check(_ context.Context, k *K8sInstaller) error {
 	_, err := k.azExec("version")
 	if err != nil {
 		return err
@@ -56,12 +56,12 @@ type aksClusterInfo struct {
 // For the global auto-detection mechanism to properly work when on AKS, we need
 // to determine if the cluster is in BYOCNI mode before determining which
 // DatapathMode to use.
-func (k *K8sInstaller) azureAutodetect(ctx context.Context) error {
-	if err := k.azureRetrieveSubscriptionID(ctx); err != nil {
+func (k *K8sInstaller) azureAutodetect() error {
+	if err := k.azureRetrieveSubscriptionID(); err != nil {
 		return err
 	}
 
-	return k.azureRetrieveAKSClusterInfo(ctx)
+	return k.azureRetrieveAKSClusterInfo()
 }
 
 // Retrieve subscription ID to pass to other `az` commands:
@@ -72,7 +72,7 @@ func (k *K8sInstaller) azureAutodetect(ctx context.Context) error {
 // which is currently a hidden feature not advertised to the users and intended
 // for development purposes, notably CI usage where `az` CLI is not available.
 // If provided, it bypasses auto-detection and `--azure-subscription`.
-func (k *K8sInstaller) azureRetrieveSubscriptionID(ctx context.Context) error {
+func (k *K8sInstaller) azureRetrieveSubscriptionID() error {
 	if k.params.Azure.SubscriptionID != "" {
 		k.Log("ℹ️  Using manually configured Azure subscription ID %s", k.params.Azure.SubscriptionID)
 		return nil
@@ -118,7 +118,7 @@ func (k *K8sInstaller) azureRetrieveSubscriptionID(ctx context.Context) error {
 // When using AKS BYOCNI, the CLI does not need any other Azure flags as it does
 // not use Azure IPAM. We can detect if the cluster has been created in BYOCNI
 // mode by also using `az aks show`.
-func (k *K8sInstaller) azureRetrieveAKSClusterInfo(ctx context.Context) error {
+func (k *K8sInstaller) azureRetrieveAKSClusterInfo() error {
 	// If the hidden `--azure-node-resource-group` flag is provided, we assume the
 	// user know what they're doing and we are not in BYOCNI mode because this
 	// flag is not necessary for BYOCNI, so we skip auto-detection.
@@ -168,12 +168,12 @@ func (k *K8sInstaller) azureRetrieveAKSClusterInfo(ctx context.Context) error {
 //   - Specifying a name (--name) when creating a SP creates a new SP on first call, but then
 //     overwrites the existing SP with a new ClientSecret on subsequent calls, which potentially
 //     interferes with existing installations.
-func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
+func (k *K8sInstaller) azureSetupServicePrincipal() error {
 	// Since we depend on SubscriptionID and AKSNodeResourceGroup being properly
 	// set to create the Service Principal, we run the auto-detection mechanism if
 	// it was skipped due to the user manually setting `--datapath-mode=azure`.
 	if k.params.Azure.SubscriptionID == "" || k.params.Azure.AKSNodeResourceGroup == "" {
-		if err := k.azureAutodetect(ctx); err != nil {
+		if err := k.azureAutodetect(); err != nil {
 			return err
 		}
 	}
