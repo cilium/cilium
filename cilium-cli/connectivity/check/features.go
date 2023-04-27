@@ -246,7 +246,7 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 		Enabled: cfg.EncryptNode,
 	}
 
-	isFeatureKNPEnabled, err := ct.isFeatureKNPEnabled(namespace, cfg.EnableK8sNetworkPolicy)
+	isFeatureKNPEnabled, err := ct.isFeatureKNPEnabled(cfg.EnableK8sNetworkPolicy)
 	if err != nil {
 		return fmt.Errorf("unable to determine if KNP feature is enabled: %w", err)
 	}
@@ -520,7 +520,7 @@ func (ct *ConnectivityTest) ForceDisableFeature(feature Feature) {
 
 // isFeatureKNPEnabled checks if the Kubernetes Network Policy feature is enabled from the configuration.
 // Note that the flag appears in Cilium version 1.14, before that it was unable even thought KNPs were present.
-func (ct *ConnectivityTest) isFeatureKNPEnabled(namespace string, enableK8SNetworkPolicy bool) (bool, error) {
+func (ct *ConnectivityTest) isFeatureKNPEnabled(enableK8SNetworkPolicy bool) (bool, error) {
 	switch {
 	case enableK8SNetworkPolicy:
 		// Flag is enabled, means the flag exists.

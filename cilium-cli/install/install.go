@@ -639,7 +639,7 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 			return err
 		}
 		if k.params.IPv4NativeRoutingCIDR == "" && helmValues["ipv4NativeRoutingCIDR"] == nil {
-			cidr, err := k.gkeNativeRoutingCIDR(ctx, k.client.ContextName())
+			cidr, err := k.gkeNativeRoutingCIDR(k.client.ContextName())
 			if err != nil {
 				k.Log("❌ Unable to auto-detect GKE native routing CIDR. Is \"gcloud\" installed?")
 				k.Log("ℹ️  You can set the native routing CIDR manually with --helm-set ipv4NativeRoutingCIDR=x.x.x.x/x")
@@ -651,7 +651,7 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 	case k8s.KindAKS:
 		if k.params.DatapathMode == DatapathAzure {
 			// The Azure Service Principal is only needed when using Azure IPAM
-			if err := k.azureSetupServicePrincipal(ctx); err != nil {
+			if err := k.azureSetupServicePrincipal(); err != nil {
 				return err
 			}
 		}

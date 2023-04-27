@@ -251,7 +251,7 @@ func (ie icmpEndpoint) Port() uint32 {
 }
 
 // HasLabel checks if given label exists and value matches.
-func (ie icmpEndpoint) HasLabel(name, value string) bool {
+func (ie icmpEndpoint) HasLabel(_, _ string) bool {
 	return false
 }
 
