@@ -44,6 +44,11 @@ minor release, corresponding image pull tags and their release notes:
 | `v1.9 <https://github.com/cilium/cilium/tree/v1.9>`__   | 2022-06-11 | ``quay.io/cilium/cilium:v1.9.17``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.9.17>`__  | `General Announcement <https://cilium.io/blog/2020/11/10/cilium-19>`__         |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
 
+Architectures
+-------------
+
+Cilium images are distributed for AMD64 and AArch64 architectures.
+
 Functionality Overview
 ======================
 
