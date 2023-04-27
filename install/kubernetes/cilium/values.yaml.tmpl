@@ -2669,7 +2669,7 @@ auth:
           # -- SPIRE agent labels
           labels: { }
           # -- SPIRE Workload Attestor kubelet verification.
-          skipKubeletVerification: false
+          skipKubeletVerification: true
         server:
           # -- SPIRE server image
           image: ghcr.io/spiffe/spire-server:1.5.1@sha256:4851ec8c71a8fbe230d87be78dfed0e908800c2342cf192289c7885bb2f7a870
@@ -2703,7 +2703,7 @@ auth:
             subject:
               country: "US"
               organization: "SPIRE"
-              commonName: ""
+              commonName: "Cilium SPIRE CA"
       # -- SPIRE server address
       serverAddress: spire-server.cilium-spire.svc.cluster.local:8081
       # -- SPIFFE trust domain to use for fetching certificates
