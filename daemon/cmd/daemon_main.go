@@ -1993,12 +1993,12 @@ func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI 
 	msg := "Required API option %s is disabled. This may prevent Cilium from operating correctly"
 	hint := "Consider enabling this API in " + server.AdminEnableFlag
 	for _, requiredAPI := range []string{
-		"GetConfig",
-		"GetHealthz",
-		"PutEndpointID",
-		"DeleteEndpointID",
-		"PostIPAM",
-		"DeleteIPAMIP",
+		"GetConfig",        // CNI: Used to detect detect IPAM mode
+		"GetHealthz",       // Kubelet: daemon health checks
+		"PutEndpointID",    // CNI: Provision the network for a new Pod
+		"DeleteEndpointID", // CNI: Clean up networking for a deleted Pod
+		"PostIPAM",         // CNI: Reserve IPs for new Pods
+		"DeleteIPAMIP",     // CNI: Release IPs for deleted Pods
 	} {
 		if _, denied := swaggerSpec.DeniedAPIs[requiredAPI]; denied {
 			log.WithFields(logrus.Fields{
