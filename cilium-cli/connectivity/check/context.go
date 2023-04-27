@@ -218,6 +218,7 @@ func (ct *ConnectivityTest) NewTest(name string) *Test {
 		scenarios: make(map[Scenario][]*Action),
 		cnps:      make(map[string]*ciliumv2.CiliumNetworkPolicy),
 		knps:      make(map[string]*networkingv1.NetworkPolicy),
+		cegps:     make(map[string]*ciliumv2.CiliumEgressGatewayPolicy),
 		verbose:   ct.verbose(),
 		logBuf:    &bytes.Buffer{}, // maintain internal buffer by default
 		warnBuf:   &bytes.Buffer{},

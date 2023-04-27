@@ -187,6 +187,40 @@ func createOrUpdateKNP(ctx context.Context, client *k8s.Client, knp *networkingv
 	return mod, nil
 }
 
+// createOrUpdateCEGP creates the CEGP and updates it if it already exists.
+func createOrUpdateCEGP(ctx context.Context, client *k8s.Client, cegp *ciliumv2.CiliumEgressGatewayPolicy) error {
+	// Creating, so a resource will definitely be modified.
+	_, err := client.CreateCiliumEgressGatewayPolicy(ctx, cegp, metav1.CreateOptions{})
+	if err == nil {
+		// Early exit.
+		return nil
+	}
+
+	if !k8serrors.IsAlreadyExists(err) {
+		// A real error happened.
+		return err
+	}
+
+	// Policy already exists, let's retrieve it.
+	policy, err := client.GetCiliumEgressGatewayPolicy(ctx, cegp.Name, metav1.GetOptions{})
+	if err != nil {
+		// A real error happened.
+		return fmt.Errorf("failed to retrieve k8s network policy %s: %w", cegp.Name, err)
+	}
+
+	// Overload the field that should stay unchanged.
+	policy.ObjectMeta.Labels = cegp.ObjectMeta.Labels
+	policy.Spec = cegp.Spec
+
+	// Let's update the policy.
+	_, err = client.UpdateCiliumEgressGatewayPolicy(ctx, policy, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update k8s network policy %s: %w", cegp.Name, err)
+	}
+
+	return nil
+}
+
 // deleteCNP deletes a CiliumNetworkPolicy from the cluster.
 func deleteCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetworkPolicy) error {
 	if err := client.DeleteCiliumNetworkPolicy(ctx, cnp.Namespace, cnp.Name, metav1.DeleteOptions{}); err != nil {
@@ -475,9 +509,28 @@ func (t *Test) addKNPs(policies ...*networkingv1.NetworkPolicy) error {
 	return nil
 }
 
+// addCEGPs adds one or more CiliumEgressGatewayPolicy resources to the Test.
+func (t *Test) addCEGPs(cegps ...*ciliumv2.CiliumEgressGatewayPolicy) error {
+	for _, p := range cegps {
+		if p == nil {
+			return errors.New("cannot add nil CiliumEgressGatewayPolicy to test")
+		}
+		if p.Name == "" {
+			return fmt.Errorf("adding CiliumEgressGatewayPolicy with empty name to test: %v", p)
+		}
+		if _, ok := t.cnps[p.Name]; ok {
+			return fmt.Errorf("CiliumEgressGatewayPolicy with name %s already in test scope", p.Name)
+		}
+
+		t.cegps[p.Name] = p
+	}
+
+	return nil
+}
+
 // applyPolicies applies all the Test's registered network policies.
 func (t *Test) applyPolicies(ctx context.Context) error {
-	if len(t.cnps) == 0 && len(t.knps) == 0 {
+	if len(t.cnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 {
 		return nil
 	}
 
@@ -520,6 +573,16 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 		}
 	}
 
+	// Apply all given Cilium Egress Gateway Policies.
+	for _, cegp := range t.cegps {
+		for _, client := range t.Context().clients.clients() {
+			t.Infof("📜 Applying CiliumEgressGatewayPolicy '%s' to namespace '%s'..", cegp.Name, cegp.Namespace)
+			if err := createOrUpdateCEGP(ctx, client, cegp); err != nil {
+				return fmt.Errorf("policy application failed: %w", err)
+			}
+		}
+	}
+
 	// Register a finalizer with the Test immediately to enable cleanup.
 	// If we return a cleanup closure from this function, cleanup cannot be
 	// performed if the user cancels during the policy revision wait time.
@@ -537,6 +600,10 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 
 	// Wait for policies to take effect on all Cilium nodes if we think policies
 	// were modified on the API server.
+	//
+	// Note that this doesn't wait for CiliumEgressGatewayPolicies, so it will
+	// be up the individual tests to ensure that policies are actually
+	// enforced (i.e. BPF entries in the policy map are set).
 	if mod {
 		t.Debug("Policy difference detected, waiting for Cilium agents to increment policy revisions..")
 		if err := t.waitCiliumPolicyRevisions(ctx, revisions); err != nil {
@@ -549,6 +616,9 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 	}
 	if len(t.knps) > 0 {
 		t.Debugf("📜 Successfully applied %d K8S NetworkPolicies", len(t.knps))
+	}
+	if len(t.cegps) > 0 {
+		t.Debugf("📜 Successfully applied %d CiliumEgressGatewayPolicies", len(t.cegps))
 	}
 
 	return nil
@@ -673,4 +743,34 @@ func parseK8SPolicyYAML(policy string) (policies []*networkingv1.NetworkPolicy, 
 	}
 
 	return policies, nil
+}
+
+// parseCiliumEgressGatewayPolicyYAML decodes policy yaml into a slice of
+// CiliumEgressGatewayPolicies.
+func parseCiliumEgressGatewayPolicyYAML(policy string) (cegps []*ciliumv2.CiliumEgressGatewayPolicy, err error) {
+	if policy == "" {
+		return nil, nil
+	}
+
+	yamls := strings.Split(policy, "\n---")
+
+	for _, yaml := range yamls {
+		if strings.TrimSpace(yaml) == "" {
+			continue
+		}
+
+		obj, kind, err := serializer.NewCodecFactory(scheme.Scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("decoding policy yaml: %s\nerror: %w", yaml, err)
+		}
+
+		switch policy := obj.(type) {
+		case *ciliumv2.CiliumEgressGatewayPolicy:
+			cegps = append(cegps, policy)
+		default:
+			return nil, fmt.Errorf("unknown policy type '%s' in: %s", kind.Kind, yaml)
+		}
+	}
+
+	return cegps, nil
 }
