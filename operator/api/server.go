@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/api/v1/operator/server/restapi"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
@@ -35,8 +36,9 @@ type params struct {
 
 	Cfg Config
 
-	HealthHandler  operator.GetHealthzHandler
-	MetricsHandler metrics.GetMetricsHandler
+	HealthHandler   operator.GetHealthzHandler
+	MetricsHandler  metrics.GetMetricsHandler
+	OperatorAPISpec *operatorApi.Spec
 
 	Logger     logrus.FieldLogger
 	Lifecycle  hive.Lifecycle
@@ -54,6 +56,7 @@ type server struct {
 
 	healthHandler  operator.GetHealthzHandler
 	metricsHandler metrics.GetMetricsHandler
+	apiSpec        *operatorApi.Spec
 }
 
 type httpServer struct {
@@ -71,6 +74,7 @@ func newServer(
 		address:        p.Cfg.OperatorAPIServeAddr,
 		healthHandler:  p.HealthHandler,
 		metricsHandler: p.MetricsHandler,
+		apiSpec:        p.OperatorAPISpec,
 	}
 	p.Lifecycle.Append(server)
 
@@ -83,12 +87,13 @@ func (s *server) Start(ctx hive.HookContext) error {
 		return err
 	}
 
-	api := restapi.NewCiliumOperatorAPI(spec)
-	api.Logger = s.logger.Debugf
-	api.OperatorGetHealthzHandler = s.healthHandler
-	api.MetricsGetMetricsHandler = s.metricsHandler
+	restAPI := restapi.NewCiliumOperatorAPI(spec)
+	restAPI.Logger = s.logger.Debugf
+	restAPI.OperatorGetHealthzHandler = s.healthHandler
+	restAPI.MetricsGetMetricsHandler = s.metricsHandler
 
-	srv := operatorApi.NewServer(api)
+	api.DisableAPIs(s.apiSpec.DeniedAPIs, restAPI.AddMiddlewareFor)
+	srv := operatorApi.NewServer(restAPI)
 	srv.EnabledListeners = []string{"http"}
 	srv.ConfigureAPI()
 	s.Server = srv

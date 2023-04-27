@@ -101,10 +101,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// | ACK       |    ->     |    Y    | monitorAggregation=medium
 			egressPktCount := 3
 			ingressPktCount := 2
-			Eventually(func() bool {
+			Eventually(func() error {
 				monitorOutput = monitorRes.CombineOutput().Bytes()
 				return checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
-			}, helpers.HelperTimeout, time.Second).Should(BeTrue(), "Monitor log did not contain %d ingress and %d egress TCP notifications\n%s",
+			}, helpers.HelperTimeout, time.Second).Should(BeNil(), "Monitor log did not contain %d ingress and %d egress TCP notifications\n%s",
 				ingressPktCount, egressPktCount, monitorOutput)
 
 			helpers.WriteToReportFile(monitorOutput, monitorLog)
@@ -134,10 +134,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// | ACK       |    ->     |    Y    | monitorAggregation=medium
 			egressPktCount := 4
 			ingressPktCount := 3
-			Eventually(func() bool {
+			Eventually(func() error {
 				monitorOutput = monitorRes.CombineOutput().Bytes()
 				return checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
-			}, helpers.HelperTimeout, time.Second).Should(BeTrue(), "monitor aggregation did not result in correct number of TCP notifications\n%s", monitorOutput)
+			}, helpers.HelperTimeout, time.Second).Should(BeNil(), "monitor aggregation did not result in correct number of TCP notifications\n%s", monitorOutput)
 			helpers.WriteToReportFile(monitorOutput, monitorLog)
 		})
 	})
@@ -790,7 +790,7 @@ func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl) (monitorRes *helpe
 	return monitorRes, monitorCancel, targetIP
 }
 
-func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount int) bool {
+func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount int) error {
 	// Multiple connection attempts may be made, we need to
 	// narrow down to the last connection close, then match
 	// the ephemeral port + flags to ensure that the
@@ -798,9 +798,8 @@ func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount in
 	egressTCPExpr := `TCP.*DstPort=80.*FIN=true`
 	egressTCPRegex := regexp.MustCompile(egressTCPExpr)
 	egressTCPMatches := egressTCPRegex.FindAll(monitorOutput, -1)
-	if len(egressTCPMatches) <= 0 {
-		GinkgoPrint("Could not locate final FIN notification in monitor log: egressTCPMatches %+v", egressTCPMatches)
-		return false
+	if len(egressTCPMatches) == 0 {
+		return fmt.Errorf("could not locate TCP FIN in monitor log")
 	}
 	finalMatch := egressTCPMatches[len(egressTCPMatches)-1]
 	portRegex := regexp.MustCompile(`SrcPort=([0-9]*)`)
@@ -810,25 +809,25 @@ func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount in
 	By("Looking for TCP notifications using the ephemeral port %q", portBytes)
 	port, err := strconv.Atoi(string(portBytes))
 	if err != nil {
-		GinkgoPrint("ephemeral port %q could not be converted to integer: %s", string(portBytes), err)
-		return false
+		return fmt.Errorf("ephemeral port %q could not be converted to integer: %s",
+			string(portBytes), err)
 	}
 
 	expEgress := fmt.Sprintf("SrcPort=%d", port)
 	expEgressRegex := regexp.MustCompile(expEgress)
 	egressMatches := expEgressRegex.FindAllIndex(monitorOutput, -1)
 	if len(egressMatches) != egressPktCount {
-		GinkgoPrint("Could not locate final FIN notification in monitor log: egressTCPMatches %+v", egressTCPMatches)
-		return false
+		return fmt.Errorf("monitor logs contained unexpected number (%d) of egress notifications matching %q",
+			len(egressMatches), expEgress)
 	}
 
 	expIngress := fmt.Sprintf("DstPort=%d", port)
 	expIngressRegex := regexp.MustCompile(expIngress)
 	ingressMatches := expIngressRegex.FindAllIndex(monitorOutput, -1)
 	if len(ingressMatches) != ingressPktCount {
-		GinkgoPrint("Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
-		return false
+		return fmt.Errorf("monitor log contained unexpected number (%d) of ingress notifications matching %q",
+			len(ingressMatches), expIngress)
 	}
 
-	return true
+	return nil
 }

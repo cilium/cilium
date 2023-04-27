@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
 	ciliumPkg "github.com/cilium/cilium/pkg/client"
@@ -38,7 +39,7 @@ const (
 )
 
 // Launch starts the cilium-health server and returns a handle to obtain its status
-func Launch() (*CiliumHealth, error) {
+func Launch(spec *healthApi.Spec) (*CiliumHealth, error) {
 	var (
 		err error
 		ch  = &CiliumHealth{}
@@ -49,6 +50,7 @@ func Launch() (*CiliumHealth, error) {
 		ProbeInterval: serverProbeInterval,
 		ProbeDeadline: serverProbeDeadline,
 		HTTPPathPort:  option.Config.ClusterHealthPort,
+		HealthAPISpec: spec,
 	}
 
 	ch.server, err = server.NewServer(config)
