@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/maps"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -34,6 +35,9 @@ var Cell = cell.Module(
 
 	// Utime synchronizes utime from userspace to datapath via configmap.Map.
 	utime.Cell,
+
+	// The cilium events map, used by the monitor agent.
+	eventsmap.Cell,
 
 	cell.Provide(
 		newWireguardAgent,

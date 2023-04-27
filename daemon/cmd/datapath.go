@@ -14,7 +14,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -29,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
@@ -360,12 +358,6 @@ func (d *Daemon) initMaps() error {
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
 		option.Config.EnableSocketLB, option.Config.RestoreState); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
-	}
-
-	possibleCPUs := common.GetNumPossibleCPUs(log)
-
-	if err := eventsmap.InitMap(possibleCPUs); err != nil {
-		return fmt.Errorf("initializing events map: %w", err)
 	}
 
 	if err := policymap.InitCallMaps(option.Config.EnableEnvoyConfig); err != nil {

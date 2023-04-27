@@ -11,10 +11,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var (
-	MaxEntries int
-)
-
 const (
 	// MapName is the BPF map name.
 	MapName = "cilium_events"
@@ -50,18 +46,21 @@ func (v *Value) String() string { return fmt.Sprintf("%d", v.progID) }
 // map value.
 func (k Key) NewValue() bpf.MapValue { return &Value{} }
 
-// InitMap creates the events map in the kernel.
-func InitMap(maxEntries int) error {
-	MaxEntries = maxEntries
-	eventsMap := bpf.NewMap(MapName,
+type eventsMap struct {
+	m *bpf.Map
+}
+
+// init creates the events map in the kernel.
+func (e *eventsMap) init(maxEntries int) error {
+	e.m = bpf.NewMap(MapName,
 		bpf.MapTypePerfEventArray,
 		&Key{},
 		int(unsafe.Sizeof(Key{})),
 		&Value{},
 		int(unsafe.Sizeof(Value{})),
-		MaxEntries,
+		maxEntries,
 		0,
 		bpf.ConvertKeyValue).
 		WithEvents(option.Config.GetEventBufferConfig(MapName))
-	return eventsMap.Create()
+	return e.m.Create()
 }

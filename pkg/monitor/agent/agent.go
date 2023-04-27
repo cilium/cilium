@@ -21,13 +21,12 @@ import (
 	oldBPF "github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 )
-
-const eventsMapName = "cilium_events"
 
 // isCtxDone is a utility function that returns true when the context's Done()
 // channel is closed. It is intended to simplify goroutines that need to check
@@ -99,7 +98,7 @@ func (a *Agent) AttachToEventsMap(nPages int) error {
 	}
 
 	// assert that we can actually connect the monitor
-	path := oldBPF.MapPath(eventsMapName)
+	path := oldBPF.MapPath(eventsmap.MapName)
 	eventsMap, err := ebpf.LoadPinnedMap(path, nil)
 	if err != nil {
 		return err
