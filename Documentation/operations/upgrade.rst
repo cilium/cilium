@@ -357,6 +357,9 @@ Added Metrics
 * ``cilium_operator_ces_sync_total``
 * ``cilium_policy_change_total``
 * ``go_sched_latencies_seconds``
+* ``cilium_operator_ipam_available_ips``
+* ``cilium_operator_ipam_used_ips``
+* ``cilium_operator_ipam_needed_ips``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
@@ -365,6 +368,7 @@ Deprecated Metrics
 * ``cilium_policy_import_errors_total`` is deprecated. Please use
   ``cilium_policy_change_total``, which counts all policy changes (Add, Update, Delete)
   based on outcome ("success" or "failure").
+* ``cilium_operator_ipam_ips`` is deprecated. Use ``cilium_operator_ipam_{available,used,needed}_ips`` instead.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
