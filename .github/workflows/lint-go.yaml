@@ -52,6 +52,7 @@ jobs:
           # renovate: datasource=docker depName=golangci/golangci-lint
           version: v1.52.2
           skip-cache: true
+          args: "--out-${NO_FUTURE}format colored-line-number"
 
   precheck:
     runs-on: ubuntu-latest
