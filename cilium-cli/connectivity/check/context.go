@@ -51,6 +51,7 @@ type ConnectivityTest struct {
 
 	ciliumPods        map[string]Pod
 	echoPods          map[string]Pod
+	echoExternalPods  map[string]Pod
 	clientPods        map[string]Pod
 	perfClientPods    map[string]Pod
 	perfServerPod     map[string]Pod
@@ -179,6 +180,7 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*Con
 		version:             version,
 		ciliumPods:          make(map[string]Pod),
 		echoPods:            make(map[string]Pod),
+		echoExternalPods:    make(map[string]Pod),
 		clientPods:          make(map[string]Pod),
 		perfClientPods:      make(map[string]Pod),
 		perfServerPod:       make(map[string]Pod),
@@ -685,6 +687,10 @@ func (ct *ConnectivityTest) EchoPods() map[string]Pod {
 
 func (ct *ConnectivityTest) EchoServices() map[string]Service {
 	return ct.echoServices
+}
+
+func (ct *ConnectivityTest) ExternalEchoPods() map[string]Pod {
+	return ct.echoExternalPods
 }
 
 func (ct *ConnectivityTest) IngressService() map[string]Service {
