@@ -101,14 +101,14 @@ var (
 	//go:embed manifests/client-egress-to-entities-world.yaml
 	clientEgressToEntitiesWorldPolicyYAML string
 
-	//go:embed manifests/client-egress-to-cidr-1111.yaml
-	clientEgressToCIDR1111PolicyYAML string
+	//go:embed manifests/client-egress-to-cidr-external.yaml
+	clientEgressToCIDRExternalPolicyYAML string
 
-	//go:embed manifests/client-egress-to-cidr-1111-knp.yaml
-	clientEgressToCIDR1111PolicyKNPYAML string
+	//go:embed manifests/client-egress-to-cidr-external-knp.yaml
+	clientEgressToCIDRExternalPolicyKNPYAML string
 
-	//go:embed manifests/client-egress-to-cidr-1111-deny.yaml
-	clientEgressToCIDR1111DenyPolicyYAML string
+	//go:embed manifests/client-egress-to-cidr-external-deny.yaml
+	clientEgressToCIDRExternalDenyPolicyYAML string
 
 	//go:embed manifests/client-egress-l7-http.yaml
 	clientEgressL7HTTPPolicyYAML string
@@ -161,15 +161,15 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// render templates, if any problems fail early
 	for key, temp := range map[string]string{
-		"clientEgressToCIDR1111PolicyYAML":        clientEgressToCIDR1111PolicyYAML,
-		"clientEgressToCIDR1111PolicyKNPYAML":     clientEgressToCIDR1111PolicyKNPYAML,
-		"clientEgressToCIDR1111DenyPolicyYAML":    clientEgressToCIDR1111DenyPolicyYAML,
-		"clientEgressL7HTTPPolicyYAML":            clientEgressL7HTTPPolicyYAML,
-		"clientEgressL7HTTPNamedPortPolicyYAML":   clientEgressL7HTTPNamedPortPolicyYAML,
-		"clientEgressToFQDNsCiliumIOPolicyYAML":   clientEgressToFQDNsCiliumIOPolicyYAML,
-		"clientEgressL7TLSPolicyYAML":             clientEgressL7TLSPolicyYAML,
-		"clientEgressL7HTTPMatchheaderSecretYAML": clientEgressL7HTTPMatchheaderSecretYAML,
-		"echoIngressFromCIDRYAML":                 echoIngressFromCIDRYAML,
+		"clientEgressToCIDRExternalPolicyYAML":     clientEgressToCIDRExternalPolicyYAML,
+		"clientEgressToCIDRExternalPolicyKNPYAML":  clientEgressToCIDRExternalPolicyKNPYAML,
+		"clientEgressToCIDRExternalDenyPolicyYAML": clientEgressToCIDRExternalDenyPolicyYAML,
+		"clientEgressL7HTTPPolicyYAML":             clientEgressL7HTTPPolicyYAML,
+		"clientEgressL7HTTPNamedPortPolicyYAML":    clientEgressL7HTTPNamedPortPolicyYAML,
+		"clientEgressToFQDNsCiliumIOPolicyYAML":    clientEgressToFQDNsCiliumIOPolicyYAML,
+		"clientEgressL7TLSPolicyYAML":              clientEgressL7TLSPolicyYAML,
+		"clientEgressL7HTTPMatchheaderSecretYAML":  clientEgressL7HTTPMatchheaderSecretYAML,
+		"echoIngressFromCIDRYAML":                  echoIngressFromCIDRYAML,
 	} {
 		val, err := utils.RenderTemplate(temp, ct.Params())
 		if err != nil {
@@ -465,31 +465,31 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			return check.ResultDropCurlTimeout, check.ResultNone
 		})
 
-	// This policy allows L3 traffic to 1.0.0.0/24 (including 1.1.1.1), with the
-	// exception of 1.0.0.1.
-	ct.NewTest("to-cidr-1111").
-		WithCiliumPolicy(renderedTemplates["clientEgressToCIDR1111PolicyYAML"]).
+	// This policy allows L3 traffic to ExternalCIDR/24 (including ExternalIP), with the
+	// exception of ExternalOtherIP.
+	ct.NewTest("to-cidr-external").
+		WithCiliumPolicy(renderedTemplates["clientEgressToCIDRExternalPolicyYAML"]).
 		WithScenarios(
 			tests.PodToCIDR(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(check.IPFamilyV4) == ct.Params().ExternalOtherIP {
-				// Expect packets for 1.0.0.1 to be dropped.
+				// Expect packets for ExternalOtherIP to be dropped.
 				return check.ResultDropCurlTimeout, check.ResultNone
 			}
 			return check.ResultOK, check.ResultNone
 		})
 
-	// This policy allows L3 traffic to 1.0.0.0/24 (including 1.1.1.1), with the
-	// exception of 1.0.0.1.
-	ct.NewTest("to-cidr-1111-knp").
-		WithK8SPolicy(renderedTemplates["clientEgressToCIDR1111PolicyKNPYAML"]).
+	// This policy allows L3 traffic to ExternalCIDR/24 (including ExternalIP), with the
+	// exception of ExternalOtherIP.
+	ct.NewTest("to-cidr-external-knp").
+		WithK8SPolicy(renderedTemplates["clientEgressToCIDRExternalPolicyKNPYAML"]).
 		WithScenarios(
 			tests.PodToCIDR(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(check.IPFamilyV4) == ct.Params().ExternalOtherIP {
-				// Expect packets for 1.0.0.1 to be dropped.
+				// Expect packets for ExternalOtherIP to be dropped.
 				return check.ResultDropCurlTimeout, check.ResultNone
 			}
 			return check.ResultOK, check.ResultNone
@@ -611,12 +611,12 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			return check.ResultOK, check.ResultOK
 		})
 
-	// This policy denies L3 traffic to 1.0.0.1/8 CIDR except 1.1.1.1/32
+	// This policy denies L3 traffic to ExternalCIDR except ExternalIP/32
 	ct.NewTest("client-egress-to-cidr-deny").
 		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
-		WithCiliumPolicy(renderedTemplates["clientEgressToCIDR1111DenyPolicyYAML"]).
+		WithCiliumPolicy(renderedTemplates["clientEgressToCIDRExternalDenyPolicyYAML"]).
 		WithScenarios(
-			tests.PodToCIDR(), // Denies all traffic to 1.0.0.1, but allow 1.1.1.1
+			tests.PodToCIDR(), // Denies all traffic to ExternalOtherIP, but allow ExternalIP
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP {
@@ -631,9 +631,9 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// This test is same as the previous one, but there is no allowed policy.
 	// The goal is to test default deny policy
 	ct.NewTest("client-egress-to-cidr-deny-default").
-		WithCiliumPolicy(renderedTemplates["clientEgressToCIDR1111DenyPolicyYAML"]).
+		WithCiliumPolicy(renderedTemplates["clientEgressToCIDRExternalDenyPolicyYAML"]).
 		WithScenarios(
-			tests.PodToCIDR(), // Denies all traffic to 1.0.0.1, but allow 1.1.1.1
+			tests.PodToCIDR(), // Denies all traffic to ExternalOtherIP, but allow ExternalIP
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP {
