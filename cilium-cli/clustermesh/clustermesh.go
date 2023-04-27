@@ -662,6 +662,8 @@ func (ai *accessInformation) validate() bool {
 
 func getDeprecatedName(secretName string) string {
 	switch secretName {
+	case defaults.ClusterMeshRemoteSecretName:
+		return defaults.ClusterMeshClientSecretName
 	case defaults.ClusterMeshServerSecretName,
 		defaults.ClusterMeshAdminSecretName,
 		defaults.ClusterMeshClientSecretName,
@@ -672,6 +674,27 @@ func getDeprecatedName(secretName string) string {
 	}
 }
 
+// getDeprecatedSecret attempts to retrieve a secret using one or more deprecated names
+// There are now multiple "layers" of deprecated secret names, so we call this function recursively if needed
+func (k *K8sClusterMesh) getDeprecatedSecret(ctx context.Context, client k8sClusterMeshImplementation, secretName string, defaultName string) (*corev1.Secret, error) {
+
+	deprecatedSecretName := getDeprecatedName(secretName)
+	if deprecatedSecretName == "" {
+		return nil, fmt.Errorf("unable to get secret %q and no deprecated names to try", secretName)
+	}
+
+	k.Log("Trying to get secret %s by deprecated name %s", secretName, deprecatedSecretName)
+
+	secret, err := client.GetSecret(ctx, k.params.Namespace, deprecatedSecretName, metav1.GetOptions{})
+	if err != nil {
+		return k.getDeprecatedSecret(ctx, client, deprecatedSecretName, defaultName)
+	}
+
+	k.Log("⚠️ Deprecated secret name %q, should be changed to %q", secret.Name, defaultName)
+
+	return secret, err
+}
+
 // We had inconsistency in naming clustermesh secrets between Helm installation and Cilium CLI installation
 // Cilium CLI was naming clustermesh secrets with trailing 's'. eg. 'clustermesh-apiserver-client-certs' instead of `clustermesh-apiserver-client-cert`
 // This caused Cilium CLI 'clustermesh status' command to fail when Cilium is installed using Helm
@@ -680,22 +703,8 @@ func (k *K8sClusterMesh) getSecret(ctx context.Context, client k8sClusterMeshImp
 
 	secret, err := client.GetSecret(ctx, k.params.Namespace, secretName, metav1.GetOptions{})
 	if err != nil {
-		deprecatedSecretName := getDeprecatedName(secretName)
-		if deprecatedSecretName == "" {
-			return nil, fmt.Errorf("unable to get secret %q: %w", secretName, err)
-		}
-
-		k.Log("Trying to get secret %s by deprecated name %s", secretName, deprecatedSecretName)
-
-		secret, err = client.GetSecret(ctx, k.params.Namespace, deprecatedSecretName, metav1.GetOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("unable to get secret %q: %w", deprecatedSecretName, err)
-		}
-
-		k.Log("⚠️ Deprecated secret name %q, should be changed to %q", secret.Name, secretName)
-
+		return k.getDeprecatedSecret(ctx, client, secretName, secretName)
 	}
-
 	return secret, err
 }
 
@@ -733,7 +742,7 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		return nil, fmt.Errorf("secret %q does not contain CA cert %q", defaults.CASecretName, defaults.CASecretCertName)
 	}
 
-	meshSecret, err := k.getSecret(ctx, client, defaults.ClusterMeshClientSecretName)
+	meshSecret, err := k.getSecret(ctx, client, defaults.ClusterMeshRemoteSecretName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get client secret to access clustermesh service: %w", err)
 	}
