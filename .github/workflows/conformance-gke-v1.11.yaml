@@ -146,7 +146,7 @@ jobs:
           elif [ "${{ github.event_name }}" = "schedule" ]; then
             curl https://api.github.com/repos/cilium/cilium/branches/v1.11 > branch.json
             SHA=$(jq -r '.commit.sha' branch.json)
-            OWNER=v1.11
+            OWNER=v1-11
           else
             SHA=${{ github.sha }}
             OWNER=${{ github.sha }}
