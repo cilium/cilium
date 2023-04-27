@@ -713,6 +713,26 @@ func (c *Client) DeleteCiliumNetworkPolicy(ctx context.Context, namespace, name 
 	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(namespace).Delete(ctx, name, opts)
 }
 
+func (c *Client) ListCiliumEgressGatewayPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumEgressGatewayPolicyList, error) {
+	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().List(ctx, opts)
+}
+
+func (c *Client) GetCiliumEgressGatewayPolicy(ctx context.Context, name string, opts metav1.GetOptions) (*ciliumv2.CiliumEgressGatewayPolicy, error) {
+	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().Get(ctx, name, opts)
+}
+
+func (c *Client) CreateCiliumEgressGatewayPolicy(ctx context.Context, cegp *ciliumv2.CiliumEgressGatewayPolicy, opts metav1.CreateOptions) (*ciliumv2.CiliumEgressGatewayPolicy, error) {
+	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().Create(ctx, cegp, opts)
+}
+
+func (c *Client) UpdateCiliumEgressGatewayPolicy(ctx context.Context, cegp *ciliumv2.CiliumEgressGatewayPolicy, opts metav1.UpdateOptions) (*ciliumv2.CiliumEgressGatewayPolicy, error) {
+	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().Update(ctx, cegp, opts)
+}
+
+func (c *Client) DeleteCiliumEgressGatewayPolicy(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().Delete(ctx, name, opts)
+}
+
 func (c *Client) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {
 	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies().List(ctx, opts)
 }
@@ -921,10 +941,6 @@ func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) 
 		return "", errors.New("unable to obtain cilium version: no cilium container found")
 	}
 	return "", errors.New("unable to obtain cilium version: no cilium pods found")
-}
-
-func (c *Client) ListCiliumEgressGatewayPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumEgressGatewayPolicyList, error) {
-	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().List(ctx, opts)
 }
 
 func (c *Client) ListCiliumLoadBalancerIPPools(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumLoadBalancerIPPoolList, error) {
