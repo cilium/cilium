@@ -356,6 +356,10 @@ func (m *manager) nodeAddressHasEncryptKey(address nodeTypes.Address) bool {
 		!node.GetOptOutNodeEncryption()
 }
 
+func (m *manager) nodeAddressSkipsIPCache(address nodeTypes.Address) bool {
+	return m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP
+}
+
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
@@ -379,17 +383,12 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 	var ipsAdded, healthIPsAdded, ingressIPsAdded []string
 
-	// helper function with the required logic to skip IPCache interactions
-	skipIPCache := func(address nodeTypes.Address) bool {
-		return m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP
-	}
-
 	for _, address := range n.IPAddresses {
 		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			iptables.AddToNodeIpset(address.IP)
 		}
 
-		if skipIPCache(address) {
+		if m.nodeAddressSkipsIPCache(address) {
 			continue
 		}
 
@@ -492,7 +491,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 				!slices.Contains(ipsAdded, address.IP.String()) {
 				iptables.RemoveFromNodeIpset(address.IP)
 			}
-			if skipIPCache(address) {
+			if m.nodeAddressSkipsIPCache(address) {
 				continue
 			}
 			var prefix netip.Prefix
@@ -606,7 +605,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 			iptables.RemoveFromNodeIpset(address.IP)
 		}
 
-		if m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP {
+		if m.nodeAddressSkipsIPCache(address) {
 			continue
 		}
 
