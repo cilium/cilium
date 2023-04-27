@@ -40,6 +40,16 @@ func isCtxDone(ctx context.Context) bool {
 	}
 }
 
+type Agent interface {
+	AttachToEventsMap(nPages int) error
+	SendEvent(typ int, event interface{}) error
+	RegisterNewListener(newListener listener.MonitorListener)
+	RemoveListener(ml listener.MonitorListener)
+	RegisterNewConsumer(newConsumer consumer.MonitorConsumer)
+	RemoveConsumer(mc consumer.MonitorConsumer)
+	State() *models.MonitorStatus
+}
+
 // Agent structure for centralizing the responsibilities of the main events
 // reader.
 // There is some racey-ness around perfReaderCancel since it replaces on every
@@ -50,7 +60,7 @@ func isCtxDone(ctx context.Context) bool {
 // must have at least one MonitorListener (since it started) so no cancel is called.
 // If it doesn't, the cancel is the correct behavior (the older generation
 // cancel must have been called for us to get this far anyway).
-type Agent struct {
+type agent struct {
 	lock.Mutex
 	models.MonitorStatus
 
@@ -67,7 +77,7 @@ type Agent struct {
 	monitorEvents *perf.Reader
 }
 
-// NewAgent starts a new monitor agent instance which distributes monitor events
+// newAgent starts a new monitor agent instance which distributes monitor events
 // to registered listeners. Once the datapath is set up, AttachToEventsMap needs
 // to be called to receive events from the perf ring buffer. Otherwise, only
 // user space events received via SendEvent are distributed registered listeners.
@@ -77,8 +87,8 @@ type Agent struct {
 // goroutine and close all registered listeners.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func NewAgent(ctx context.Context) *Agent {
-	return &Agent{
+func newAgent(ctx context.Context) *agent {
+	return &agent{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),
 		consumers:        make(map[consumer.MonitorConsumer]struct{}),
@@ -89,7 +99,7 @@ func NewAgent(ctx context.Context) *Agent {
 // AttachToEventsMap opens the events perf ring buffer and makes it ready for
 // consumption, such that any subscribed consumers may receive events
 // from it. This function is to be called once the events map has been set up.
-func (a *Agent) AttachToEventsMap(nPages int) error {
+func (a *agent) AttachToEventsMap(nPages int) error {
 	a.Lock()
 	defer a.Unlock()
 
@@ -120,7 +130,7 @@ func (a *Agent) AttachToEventsMap(nPages int) error {
 }
 
 // SendEvent distributes an event to all monitor listeners
-func (a *Agent) SendEvent(typ int, event interface{}) error {
+func (a *agent) SendEvent(typ int, event interface{}) error {
 	if a == nil {
 		return fmt.Errorf("monitor agent is not set up")
 	}
@@ -167,23 +177,16 @@ func (a *Agent) SendEvent(typ int, event interface{}) error {
 	return nil
 }
 
-// Context returns the underlying context of this monitor instance. It can be
-// used to derive other contexts which should be stopped when the monitor is
-// stopped.
-func (a *Agent) Context() context.Context {
-	return a.ctx
-}
-
 // hasSubscribersLocked returns true if there are listeners or consumers
 // subscribed to the agent right now.
 // Note: it is critical to hold the lock for this operation.
-func (a *Agent) hasSubscribersLocked() bool {
+func (a *agent) hasSubscribersLocked() bool {
 	return len(a.listeners)+len(a.consumers) != 0
 }
 
 // hasListeners returns true if there are listeners subscribed to the
 // agent right now.
-func (a *Agent) hasListeners() bool {
+func (a *agent) hasListeners() bool {
 	a.Lock()
 	defer a.Unlock()
 	return len(a.listeners) != 0
@@ -195,7 +198,7 @@ func (a *Agent) hasListeners() bool {
 // cancelFunc is assigned to perfReaderCancel. Note that cancelling m.Context()
 // (e.g. on program shutdown) will also cancel the derived context.
 // Note: it is critical to hold the lock for this operation.
-func (a *Agent) startPerfReaderLocked() {
+func (a *agent) startPerfReaderLocked() {
 	if a.events == nil {
 		return // not attached to events map yet
 	}
@@ -208,7 +211,7 @@ func (a *Agent) startPerfReaderLocked() {
 
 // RegisterNewListener adds the new MonitorListener to the global list.
 // It also spawns a singleton goroutine to read and distribute the events.
-func (a *Agent) RegisterNewListener(newListener listener.MonitorListener) {
+func (a *agent) RegisterNewListener(newListener listener.MonitorListener) {
 	if a == nil {
 		return
 	}
@@ -245,7 +248,7 @@ func (a *Agent) RegisterNewListener(newListener listener.MonitorListener) {
 
 // RemoveListener deletes the MonitorListener from the list, closes its queue,
 // and stops perfReader if this is the last subscriber
-func (a *Agent) RemoveListener(ml listener.MonitorListener) {
+func (a *agent) RemoveListener(ml listener.MonitorListener) {
 	if a == nil {
 		return
 	}
@@ -273,7 +276,7 @@ func (a *Agent) RemoveListener(ml listener.MonitorListener) {
 
 // RegisterNewConsumer adds the new MonitorConsumer to the global list.
 // It also spawns a singleton goroutine to read and distribute the events.
-func (a *Agent) RegisterNewConsumer(newConsumer consumer.MonitorConsumer) {
+func (a *agent) RegisterNewConsumer(newConsumer consumer.MonitorConsumer) {
 	if a == nil {
 		return
 	}
@@ -294,7 +297,7 @@ func (a *Agent) RegisterNewConsumer(newConsumer consumer.MonitorConsumer) {
 
 // RemoveConsumer deletes the MonitorConsumer from the list, closes its queue,
 // and stops perfReader if this is the last subscriber
-func (a *Agent) RemoveConsumer(mc consumer.MonitorConsumer) {
+func (a *agent) RemoveConsumer(mc consumer.MonitorConsumer) {
 	if a == nil {
 		return
 	}
@@ -312,7 +315,7 @@ func (a *Agent) RemoveConsumer(mc consumer.MonitorConsumer) {
 // will exit when stopCtx is done. Note, however, that it will block in the
 // Poll call but assumes enough events are generated that these blocks are
 // short.
-func (a *Agent) handleEvents(stopCtx context.Context) {
+func (a *agent) handleEvents(stopCtx context.Context) {
 	scopedLog := log.WithField(logfields.StartTime, time.Now())
 	scopedLog.Info("Beginning to read perf buffer")
 	defer scopedLog.Info("Stopped reading perf buffer")
@@ -358,7 +361,7 @@ func (a *Agent) handleEvents(stopCtx context.Context) {
 
 // processPerfRecord processes a record from the datapath and sends it to any
 // registered subscribers
-func (a *Agent) processPerfRecord(scopedLog *logrus.Entry, record perf.Record) {
+func (a *agent) processPerfRecord(scopedLog *logrus.Entry, record perf.Record) {
 	a.Lock()
 	defer a.Unlock()
 
@@ -382,7 +385,7 @@ func (a *Agent) processPerfRecord(scopedLog *logrus.Entry, record perf.Record) {
 }
 
 // State returns the current status of the monitor
-func (a *Agent) State() *models.MonitorStatus {
+func (a *agent) State() *models.MonitorStatus {
 	if a == nil {
 		return nil
 	}
@@ -400,7 +403,7 @@ func (a *Agent) State() *models.MonitorStatus {
 }
 
 // notifyAgentEvent notifies all consumers about an agent event.
-func (a *Agent) notifyAgentEvent(typ int, message interface{}) {
+func (a *agent) notifyAgentEvent(typ int, message interface{}) {
 	a.Lock()
 	defer a.Unlock()
 	for mc := range a.consumers {
@@ -410,7 +413,7 @@ func (a *Agent) notifyAgentEvent(typ int, message interface{}) {
 
 // notifyPerfEventLocked notifies all consumers about a perf event.
 // The caller must hold the monitor lock.
-func (a *Agent) notifyPerfEventLocked(data []byte, cpu int) {
+func (a *agent) notifyPerfEventLocked(data []byte, cpu int) {
 	for mc := range a.consumers {
 		mc.NotifyPerfEvent(data, cpu)
 	}
@@ -418,21 +421,21 @@ func (a *Agent) notifyPerfEventLocked(data []byte, cpu int) {
 
 // notifyEventToConsumersLocked notifies all consumers about lost events.
 // The caller must hold the monitor lock.
-func (a *Agent) notifyPerfEventLostLocked(numLostEvents uint64, cpu int) {
+func (a *agent) notifyPerfEventLostLocked(numLostEvents uint64, cpu int) {
 	for mc := range a.consumers {
 		mc.NotifyPerfEventLost(numLostEvents, cpu)
 	}
 }
 
 // sendToListeners enqueues the payload to all listeners.
-func (a *Agent) sendToListeners(pl *payload.Payload) {
+func (a *agent) sendToListeners(pl *payload.Payload) {
 	a.Lock()
 	defer a.Unlock()
 	a.sendToListenersLocked(pl)
 }
 
 // sendToListenersLocked enqueues the payload to all listeners while holding the monitor lock.
-func (a *Agent) sendToListenersLocked(pl *payload.Payload) {
+func (a *agent) sendToListenersLocked(pl *payload.Payload) {
 	for ml := range a.listeners {
 		ml.Enqueue(pl)
 	}

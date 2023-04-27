@@ -76,6 +76,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
+	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
@@ -695,15 +696,9 @@ func initializeFlags() {
 	flags.StringSlice(option.Metrics, []string{}, "Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)")
 	option.BindEnv(Vp, option.Metrics)
 
-	flags.Bool(option.EnableMonitorName, true, "Enable the monitor unix domain socket server")
-	option.BindEnv(Vp, option.EnableMonitorName)
-
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
-
-	flags.Int(option.MonitorQueueSizeName, 0, "Size of the event queue when reading monitor events")
-	option.BindEnv(Vp, option.MonitorQueueSizeName)
 
 	flags.Int(option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
 	option.BindEnv(Vp, option.MTUName)
@@ -1158,9 +1153,6 @@ func initEnv() {
 	defer bootstrapStats.earlyInit.End(true)
 
 	var debugDatapath bool
-
-	// Not running tests -> enable the monitor agent.
-	option.Config.RunMonitorAgent = true
 
 	option.LogRegisteredOptions(Vp, log)
 
@@ -1629,6 +1621,7 @@ type daemonParams struct {
 	HealthAPISpec        *healthApi.Spec
 	ServiceCache         *k8s.ServiceCache
 	ClusterMesh          *clustermesh.ClusterMesh
+	MonitorAgent         monitorAgent.Agent
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

@@ -22,6 +22,7 @@ cilium-agent hive [flags]
       --enable-cilium-health-api-server-access strings   List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-k8s                                       Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                         Enable discovery of Kubernetes API groups and resources with the discovery API
+      --enable-monitor                                   Enable the monitor unix domain socket server (default true)
       --gops-port uint16                                 Port for gops server to listen on (default 9890)
   -h, --help                                             help for hive
       --install-egress-gateway-routes                    Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
@@ -35,6 +36,7 @@ cilium-agent hive [flags]
       --mesh-auth-rotated-identities-queue-size int      The size of the queue for signaling rotated identities. (default 1024)
       --mesh-auth-spiffe-trust-domain string             The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-admin-socket string              The path for the SPIRE admin agent Unix socket.
+      --monitor-queue-size int                           Size of the event queue when reading monitor events
       --pprof                                            Enable serving pprof debugging API
       --pprof-address string                             Address that pprof listens on (default "localhost")
       --pprof-port uint16                                Port that pprof listens on (default 6060)

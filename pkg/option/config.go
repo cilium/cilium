@@ -710,12 +710,6 @@ const (
 	// IPv6MCastDevice is the name of the option to select IPv6 multicast device
 	IPv6MCastDevice = "ipv6-mcast-device"
 
-	// EnableMonitor is the name of the option to enable the monitor socket
-	EnableMonitorName = "enable-monitor"
-
-	// MonitorQueueSizeName is the name of the option MonitorQueueSize
-	MonitorQueueSizeName = "monitor-queue-size"
-
 	// FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
 	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
 
@@ -1497,9 +1491,6 @@ type DaemonConfig struct {
 	CTMapEntriesTimeoutSYN         time.Duration
 	CTMapEntriesTimeoutFIN         time.Duration
 
-	// EnableMonitor enables the monitor unix domain socket server
-	EnableMonitor bool
-
 	// MonitorAggregationInterval configures the interval between monitor
 	// messages when monitor aggregation is enabled.
 	MonitorAggregationInterval time.Duration
@@ -1683,9 +1674,6 @@ type DaemonConfig struct {
 	// NodeEncryptionOptOutLabelsString is the string is used to construct
 	// the label selector in the above field.
 	NodeEncryptionOptOutLabelsString string
-
-	// MonitorQueueSize is the size of the monitor event queue
-	MonitorQueueSize int
 
 	// CLI options
 
@@ -1914,9 +1902,6 @@ type DaemonConfig struct {
 
 	// Specifies wheather to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
-
-	// RunMonitorAgent indicates whether to run the monitor agent
-	RunMonitorAgent bool
 
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
@@ -3042,10 +3027,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPTablesRandomFully = vp.GetBool(IPTablesRandomFully)
 	c.IPSecKeyFile = vp.GetString(IPSecKeyFileName)
 	c.IPsecKeyRotationDuration = vp.GetDuration(IPsecKeyRotationDuration)
-	c.EnableMonitor = vp.GetBool(EnableMonitorName)
 	c.MonitorAggregation = vp.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
-	c.MonitorQueueSize = vp.GetInt(MonitorQueueSizeName)
 	c.MTU = vp.GetInt(MTUName)
 	c.PreAllocateMaps = vp.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = vp.GetBool(PrependIptablesChainsName)
@@ -3322,10 +3305,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	for _, option := range vp.GetStringSlice(EndpointStatus) {
 		c.EndpointStatus[option] = struct{}{}
-	}
-
-	if c.MonitorQueueSize == 0 {
-		c.MonitorQueueSize = getDefaultMonitorQueueSize(runtime.NumCPU())
 	}
 
 	// Metrics Setup
