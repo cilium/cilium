@@ -21,7 +21,7 @@ func (m *minikubeVersionValidation) Name() string {
 	return "minimum-version"
 }
 
-func (m *minikubeVersionValidation) Check(ctx context.Context, k *K8sInstaller) error {
+func (m *minikubeVersionValidation) Check(_ context.Context, k *K8sInstaller) error {
 	bytes, err := k.Exec("minikube", "version")
 	if err != nil {
 		return err

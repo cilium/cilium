@@ -118,7 +118,7 @@ type dropFilter struct {
 	dropReasonFunc   func(flow *flowpb.Flow) bool
 }
 
-func (d *dropFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
+func (d *dropFilter) Match(flow *flowpb.Flow, _ *FlowContext) bool {
 	if d.trafficDirection != nil && d.dropReasonFunc != nil {
 		return flow.GetTrafficDirection() == *d.trafficDirection && d.dropReasonFunc(flow)
 	}
@@ -128,7 +128,7 @@ func (d *dropFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	return flow.GetDropReasonDesc() != flowpb.DropReason_DROP_REASON_UNKNOWN
 }
 
-func (d *dropFilter) String(fc *FlowContext) string {
+func (d *dropFilter) String(_ *FlowContext) string {
 	return "drop"
 }
 
@@ -172,7 +172,7 @@ func Drop(opts ...Option) FlowFilterImplementation {
 
 type l7DropFilter struct{}
 
-func (d *l7DropFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
+func (d *l7DropFilter) Match(flow *flowpb.Flow, _ *FlowContext) bool {
 	l7 := flow.GetL7()
 	if l7 == nil {
 		return false
@@ -180,7 +180,7 @@ func (d *l7DropFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	return flow.GetVerdict() == flowpb.Verdict_DROPPED
 }
 
-func (d *l7DropFilter) String(fc *FlowContext) string {
+func (d *l7DropFilter) String(_ *FlowContext) string {
 	return "l7 drop"
 }
 
@@ -193,7 +193,7 @@ type icmpFilter struct {
 	typ uint32
 }
 
-func (i *icmpFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
+func (i *icmpFilter) Match(flow *flowpb.Flow, _ *FlowContext) bool {
 	l4 := flow.GetL4()
 	if l4 == nil {
 		return false
@@ -211,7 +211,7 @@ func (i *icmpFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	return true
 }
 
-func (i *icmpFilter) String(fc *FlowContext) string {
+func (i *icmpFilter) String(_ *FlowContext) string {
 	return fmt.Sprintf("icmp(%d)", i.typ)
 }
 
@@ -224,7 +224,7 @@ type icmpv6Filter struct {
 	typ uint32
 }
 
-func (i *icmpv6Filter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
+func (i *icmpv6Filter) Match(flow *flowpb.Flow, _ *FlowContext) bool {
 	l4 := flow.GetL4()
 	if l4 == nil {
 		return false
@@ -242,7 +242,7 @@ func (i *icmpv6Filter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	return true
 }
 
-func (i *icmpv6Filter) String(fc *FlowContext) string {
+func (i *icmpv6Filter) String(_ *FlowContext) string {
 	return fmt.Sprintf("icmpv6(%d)", i.typ)
 }
 
@@ -314,7 +314,7 @@ type tcpFlagsFilter struct {
 	syn, ack, fin, rst bool
 }
 
-func (t *tcpFlagsFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
+func (t *tcpFlagsFilter) Match(flow *flowpb.Flow, _ *FlowContext) bool {
 	l4 := flow.GetL4()
 	if l4 == nil {
 		return false
@@ -332,7 +332,7 @@ func (t *tcpFlagsFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	return true
 }
 
-func (t *tcpFlagsFilter) String(fc *FlowContext) string {
+func (t *tcpFlagsFilter) String(_ *FlowContext) string {
 	var s []string
 	if t.syn {
 		s = append(s, "syn")
@@ -403,7 +403,7 @@ func (i *ipFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	return true
 }
 
-func (i *ipFilter) String(fc *FlowContext) string {
+func (i *ipFilter) String(_ *FlowContext) string {
 	var s []string
 	if i.srcIP != "" {
 		s = append(s, "src="+i.srcIP)
@@ -466,7 +466,7 @@ func (t *tcpFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	return true
 }
 
-func (t *tcpFilter) String(fc *FlowContext) string {
+func (t *tcpFilter) String(_ *FlowContext) string {
 	var s []string
 	if t.srcPort != 0 {
 		s = append(s, fmt.Sprintf("srcPort=%d", t.srcPort))
@@ -487,7 +487,7 @@ type dnsFilter struct {
 	rcode uint32
 }
 
-func (d *dnsFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
+func (d *dnsFilter) Match(flow *flowpb.Flow, _ *FlowContext) bool {
 	l7 := flow.GetL7()
 	if l7 == nil {
 		return false
@@ -509,7 +509,7 @@ func (d *dnsFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	return true
 }
 
-func (d *dnsFilter) String(fc *FlowContext) string {
+func (d *dnsFilter) String(_ *FlowContext) string {
 	var s []string
 	if d.query != "" {
 		s = append(s, fmt.Sprintf("query=%s", d.query))
@@ -533,7 +533,7 @@ type httpFilter struct {
 	headers  map[string]string
 }
 
-func (h *httpFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
+func (h *httpFilter) Match(flow *flowpb.Flow, _ *FlowContext) bool {
 	l7 := flow.GetL7()
 	if l7 == nil {
 		return false
@@ -574,7 +574,7 @@ func (h *httpFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
 	return true
 }
 
-func (h *httpFilter) String(fc *FlowContext) string {
+func (h *httpFilter) String(_ *FlowContext) string {
 	var s []string
 	if h.code != math.MaxUint32 {
 		s = append(s, fmt.Sprintf("code=%d", h.code))
