@@ -14,6 +14,7 @@ import (
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/sysdump"
@@ -77,6 +78,9 @@ type Test struct {
 
 	// Kubernetes Network Policies active during this test.
 	knps map[string]*networkingv1.NetworkPolicy
+
+	// Cilium Egress Gateway Policies active during this test.
+	cegps map[string]*v2.CiliumEgressGatewayPolicy
 
 	// Secrets that have to be present during the test.
 	secrets map[string]*corev1.Secret
@@ -371,6 +375,42 @@ func (t *Test) WithK8SPolicy(policy string) *Test {
 
 	// It is implicit that KNP should be enabled.
 	t.WithFeatureRequirements(RequireFeatureEnabled(FeatureKNP))
+
+	return t
+}
+
+// WithCiliumEgressGatewayPolicy takes a string containing a YAML policy
+// document and adds the cilium egress gateway polic(y)(ies) to the scope of the
+// Test, to be applied when the test starts running. When calling this method,
+// note that the egress gateway enabled feature requirement is applied directly
+// here.
+func (t *Test) WithCiliumEgressGatewayPolicy(policy string) *Test {
+	pl, err := parseCiliumEgressGatewayPolicyYAML(policy)
+	if err != nil {
+		t.Fatalf("Parsing policy YAML: %s", err)
+	}
+
+	// Change the default test namespace as required.
+	for i := range pl {
+		for _, k := range []string{
+			k8sConst.PodNamespaceLabel,
+			kubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
+			anySourceLabelPrefix + k8sConst.PodNamespaceLabel,
+		} {
+			for _, e := range pl[i].Spec.Selectors {
+				ps := e.PodSelector
+				if n, ok := ps.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+					ps.MatchLabels[k] = t.ctx.params.TestNamespace
+				}
+			}
+		}
+	}
+
+	if err := t.addCEGPs(pl...); err != nil {
+		t.Fatalf("Adding CEGPs to cilium egress gateway policy context: %s", err)
+	}
+
+	t.WithFeatureRequirements(RequireFeatureEnabled(FeatureEgressGateway))
 
 	return t
 }
