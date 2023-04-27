@@ -243,47 +243,47 @@ type fakeClient struct {
 	execs    map[execRequest]execResult
 }
 
-func (c *fakeClient) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {
+func (c *fakeClient) ListCiliumBGPPeeringPolicies(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumLoadBalancerIPPools(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumLoadBalancerIPPoolList, error) {
+func (c *fakeClient) ListCiliumLoadBalancerIPPools(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumLoadBalancerIPPoolList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumNodeConfigs(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumNodeConfigList, error) {
+func (c *fakeClient) ListCiliumNodeConfigs(_ context.Context, _ string, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumNodeConfigList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumClusterwideEnvoyConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideEnvoyConfigList, error) {
+func (c *fakeClient) ListCiliumClusterwideEnvoyConfigs(_ context.Context, _ metav1.ListOptions) (*ciliumv2.CiliumClusterwideEnvoyConfigList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumEnvoyConfigs(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEnvoyConfigList, error) {
+func (c *fakeClient) ListCiliumEnvoyConfigs(_ context.Context, _ string, _ metav1.ListOptions) (*ciliumv2.CiliumEnvoyConfigList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListIngresses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressList, error) {
+func (c *fakeClient) ListIngresses(_ context.Context, _ metav1.ListOptions) (*networkingv1.IngressList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) CopyFromPod(ctx context.Context, namespace, pod, container, fromFile, destFile string, retryLimit int) error {
+func (c *fakeClient) CopyFromPod(_ context.Context, _, _, _, _, _ string, _ int) error {
 	panic("implement me")
 }
 
-func (c *fakeClient) AutodetectFlavor(ctx context.Context) k8s.Flavor {
+func (c *fakeClient) AutodetectFlavor(_ context.Context) k8s.Flavor {
 	panic("implement me")
 }
 
-func (c *fakeClient) GetPod(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Pod, error) {
+func (c *fakeClient) GetPod(_ context.Context, _, _ string, _ metav1.GetOptions) (*corev1.Pod, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) CreatePod(ctx context.Context, namespace string, pod *corev1.Pod, opts metav1.CreateOptions) (*corev1.Pod, error) {
+func (c *fakeClient) CreatePod(_ context.Context, _ string, _ *corev1.Pod, _ metav1.CreateOptions) (*corev1.Pod, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) DeletePod(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+func (c *fakeClient) DeletePod(_ context.Context, _, _ string, _ metav1.DeleteOptions) error {
 	panic("implement me")
 }
 
@@ -301,7 +301,7 @@ func (c *fakeClient) ExecInPod(ctx context.Context, namespace, pod, container st
 	return stdout, err
 }
 
-func (c *fakeClient) ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error) {
+func (c *fakeClient) ExecInPodWithStderr(_ context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error) {
 	r := execRequest{namespace, pod, container, strings.Join(command, " ")}
 	out, ok := c.execs[r]
 	if !ok {
@@ -310,55 +310,55 @@ func (c *fakeClient) ExecInPodWithStderr(ctx context.Context, namespace, pod, co
 	return *bytes.NewBuffer(out.stdout), *bytes.NewBuffer(out.stderr), out.err
 }
 
-func (c *fakeClient) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.Version, error) {
+func (c *fakeClient) GetCiliumVersion(_ context.Context, _ *corev1.Pod) (*semver.Version, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error) {
+func (c *fakeClient) GetConfigMap(_ context.Context, _, _ string, _ metav1.GetOptions) (*corev1.ConfigMap, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error) {
+func (c *fakeClient) GetDaemonSet(_ context.Context, _, _ string, _ metav1.GetOptions) (*appsv1.DaemonSet, error) {
 	return nil, nil
 }
 
-func (c *fakeClient) GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error) {
+func (c *fakeClient) GetDeployment(_ context.Context, _, _ string, _ metav1.GetOptions) (*appsv1.Deployment, error) {
 	return nil, nil
 }
 
-func (c *fakeClient) GetLogs(ctx context.Context, namespace, name, container string, sinceTime time.Time, limitBytes int64, previous bool) (string, error) {
+func (c *fakeClient) GetLogs(_ context.Context, _, _, _ string, _ time.Time, _ int64, _ bool) (string, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) GetPodsTable(ctx context.Context) (*metav1.Table, error) {
+func (c *fakeClient) GetPodsTable(_ context.Context) (*metav1.Table, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Secret, error) {
+func (c *fakeClient) GetSecret(_ context.Context, _, _ string, _ metav1.GetOptions) (*corev1.Secret, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) GetVersion(ctx context.Context) (string, error) {
+func (c *fakeClient) GetVersion(_ context.Context) (string, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumClusterwideNetworkPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideNetworkPolicyList, error) {
+func (c *fakeClient) ListCiliumClusterwideNetworkPolicies(_ context.Context, _ metav1.ListOptions) (*ciliumv2.CiliumClusterwideNetworkPolicyList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumIdentities(ctx context.Context) (*ciliumv2.CiliumIdentityList, error) {
+func (c *fakeClient) ListCiliumIdentities(_ context.Context) (*ciliumv2.CiliumIdentityList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumEgressGatewayPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumEgressGatewayPolicyList, error) {
+func (c *fakeClient) ListCiliumEgressGatewayPolicies(_ context.Context, _ metav1.ListOptions) (*ciliumv2.CiliumEgressGatewayPolicyList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error) {
+func (c *fakeClient) ListCiliumEndpoints(_ context.Context, _ string, _ metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumEndpointSlices(ctx context.Context, options metav1.ListOptions) (*ciliumv2alpha1.CiliumEndpointSliceList, error) {
+func (c *fakeClient) ListCiliumEndpointSlices(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumEndpointSliceList, error) {
 	ciliumEndpointSliceList := ciliumv2alpha1.CiliumEndpointSliceList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "List",
@@ -395,7 +395,7 @@ func (c *fakeClient) ListCiliumEndpointSlices(ctx context.Context, options metav
 	return &ciliumEndpointSliceList, nil
 }
 
-func (c *fakeClient) ListCiliumExternalWorkloads(ctx context.Context, options metav1.ListOptions) (*ciliumv2.CiliumExternalWorkloadList, error) {
+func (c *fakeClient) ListCiliumExternalWorkloads(_ context.Context, _ metav1.ListOptions) (*ciliumv2.CiliumExternalWorkloadList, error) {
 	ciliumExternalWorkloadList := ciliumv2.CiliumExternalWorkloadList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "List",
@@ -420,55 +420,55 @@ func (c *fakeClient) ListCiliumExternalWorkloads(ctx context.Context, options me
 	return &ciliumExternalWorkloadList, nil
 }
 
-func (c *fakeClient) ListCiliumLocalRedirectPolicies(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error) {
+func (c *fakeClient) ListCiliumLocalRedirectPolicies(_ context.Context, _ string, _ metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumNetworkPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumNetworkPolicyList, error) {
+func (c *fakeClient) ListCiliumNetworkPolicies(_ context.Context, _ string, _ metav1.ListOptions) (*ciliumv2.CiliumNetworkPolicyList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListCiliumNodes(ctx context.Context) (*ciliumv2.CiliumNodeList, error) {
+func (c *fakeClient) ListCiliumNodes(_ context.Context) (*ciliumv2.CiliumNodeList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error) {
+func (c *fakeClient) ListDaemonSet(_ context.Context, _ string, _ metav1.ListOptions) (*appsv1.DaemonSetList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListEvents(ctx context.Context, o metav1.ListOptions) (*corev1.EventList, error) {
+func (c *fakeClient) ListEvents(_ context.Context, _ metav1.ListOptions) (*corev1.EventList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListNamespaces(ctx context.Context, o metav1.ListOptions) (*corev1.NamespaceList, error) {
+func (c *fakeClient) ListNamespaces(_ context.Context, _ metav1.ListOptions) (*corev1.NamespaceList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListEndpoints(ctx context.Context, o metav1.ListOptions) (*corev1.EndpointsList, error) {
+func (c *fakeClient) ListEndpoints(_ context.Context, _ metav1.ListOptions) (*corev1.EndpointsList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListNetworkPolicies(ctx context.Context, o metav1.ListOptions) (*networkingv1.NetworkPolicyList, error) {
+func (c *fakeClient) ListNetworkPolicies(_ context.Context, _ metav1.ListOptions) (*networkingv1.NetworkPolicyList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error) {
+func (c *fakeClient) ListNodes(_ context.Context, _ metav1.ListOptions) (*corev1.NodeList, error) {
 	return c.nodeList, nil
 }
 
-func (c *fakeClient) ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error) {
+func (c *fakeClient) ListPods(_ context.Context, _ string, _ metav1.ListOptions) (*corev1.PodList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListServices(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.ServiceList, error) {
+func (c *fakeClient) ListServices(_ context.Context, _ string, _ metav1.ListOptions) (*corev1.ServiceList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListUnstructured(ctx context.Context, gvr schema.GroupVersionResource, namespace *string, o metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+func (c *fakeClient) ListUnstructured(_ context.Context, _ schema.GroupVersionResource, _ *string, _ metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	panic("implement me")
 }
 
-func (c *fakeClient) ListTetragonTracingPolicies(ctx context.Context, options metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyList, error) {
+func (c *fakeClient) ListTetragonTracingPolicies(_ context.Context, _ metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyList, error) {
 	tetragonTracingPolicy := tetragonv1alpha1.TracingPolicyList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "List",
@@ -495,7 +495,7 @@ func (c *fakeClient) ListTetragonTracingPolicies(ctx context.Context, options me
 	return &tetragonTracingPolicy, nil
 }
 
-func (c *fakeClient) CreateEphemeralContainer(ctx context.Context, pod *corev1.Pod, container *corev1.EphemeralContainer) (*corev1.Pod, error) {
+func (c *fakeClient) CreateEphemeralContainer(_ context.Context, _ *corev1.Pod, _ *corev1.EphemeralContainer) (*corev1.Pod, error) {
 	panic("implement me")
 }
 

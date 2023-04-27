@@ -4,12 +4,11 @@
 package install
 
 import (
-	"context"
 	"fmt"
 	"strings"
 )
 
-func (k *K8sInstaller) gkeNativeRoutingCIDR(ctx context.Context, contextName string) (string, error) {
+func (k *K8sInstaller) gkeNativeRoutingCIDR(contextName string) (string, error) {
 	// Example: gke_cilium-dev_us-west2-a_tgraf-cluster1
 	parts := strings.Split(contextName, "_")
 	if len(parts) < 4 {

@@ -625,7 +625,7 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 	}
 
 	if caSecret != nil {
-		err = k.certManager.LoadCAFromK8s(ctx, caSecret)
+		err = k.certManager.LoadCAFromK8s(caSecret)
 		if err != nil {
 			k.Log("❌ Unable to load Cilium CA: %s", err)
 			return err

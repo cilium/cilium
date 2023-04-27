@@ -174,7 +174,7 @@ func newCmdUI() *cobra.Command {
 			params.Context = contextName
 			params.Namespace = namespace
 
-			if err := params.UIPortForwardCommand(context.Background()); err != nil {
+			if err := params.UIPortForwardCommand(); err != nil {
 				fatalf("Unable to port forward: %s", err)
 			}
 			return nil

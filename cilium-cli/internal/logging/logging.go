@@ -15,19 +15,19 @@ func init() {
 type noopLogger struct{}
 
 // Debug implements cfsslLog.SyslogWriter.
-func (s *noopLogger) Debug(msg string) {}
+func (s *noopLogger) Debug(_ string) {}
 
 // Info implements cfsslLog.SyslogWriter.
-func (s *noopLogger) Info(msg string) {}
+func (s *noopLogger) Info(_ string) {}
 
 // Warning implements cfsslLog.SyslogWriter.
-func (s *noopLogger) Warning(msg string) {}
+func (s *noopLogger) Warning(_ string) {}
 
 // Error implements cfsslLog.SyslogWriter.
-func (s *noopLogger) Err(msg string) {}
+func (s *noopLogger) Err(_ string) {}
 
 // Crit implements cfsslLog.SyslogWriter.
-func (s *noopLogger) Crit(msg string) {}
+func (s *noopLogger) Crit(_ string) {}
 
 // Emerg implements cfsslLog.SyslogWriter.
-func (s *noopLogger) Emerg(msg string) {}
+func (s *noopLogger) Emerg(_ string) {}

@@ -70,7 +70,7 @@ func (c *CertManager) GetOrCreateCASecret(ctx context.Context, caSecretName stri
 	return s, true, nil
 }
 
-func (c *CertManager) LoadCAFromK8s(ctx context.Context, secret *corev1.Secret) error {
+func (c *CertManager) LoadCAFromK8s(secret *corev1.Secret) error {
 	if key, ok := secret.Data[defaults.CASecretKeyName]; ok {
 		c.caKey = make([]byte, len(key))
 		copy(c.caKey, key)
