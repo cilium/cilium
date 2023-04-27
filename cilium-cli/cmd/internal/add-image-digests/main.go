@@ -109,11 +109,7 @@ func run() error {
 		return err
 	}
 	//nolint:gosec
-	if err := os.WriteFile(filename, imageDigestsJSON, 0o644); err != nil {
-		return err
-	}
-
-	return nil
+	return os.WriteFile(filename, imageDigestsJSON, 0o644)
 }
 
 func main() {
