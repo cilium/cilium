@@ -1205,11 +1205,7 @@ func (c *Collector) Run() error {
 
 	// Create the zip file in the current directory.
 	c.log("🗳 Compiling sysdump")
-	p, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-	f := filepath.Join(p, c.replaceTimestamp(c.Options.OutputFileName)+".zip")
+	f := c.replaceTimestamp(c.Options.OutputFileName) + ".zip"
 	if err := archiver.Archive([]string{c.sysdumpDir}, f); err != nil {
 		return fmt.Errorf("failed to create zip file: %w", err)
 	}
