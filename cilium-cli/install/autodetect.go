@@ -53,7 +53,7 @@ func (k *K8sUninstaller) autodetect(ctx context.Context) {
 	}
 }
 
-func (k *K8sInstaller) detectDatapathMode(ctx context.Context, withKPR bool) error {
+func (k *K8sInstaller) detectDatapathMode(withKPR bool) error {
 	if k.params.DatapathMode != "" {
 		k.Log("ℹ️  Custom datapath mode: %s", k.params.DatapathMode)
 		return nil
@@ -76,7 +76,7 @@ func (k *K8sInstaller) detectDatapathMode(ctx context.Context, withKPR bool) err
 	case k8s.KindAKS:
 		// When on AKS, we need to determine if the cluster is in BYOCNI mode before
 		// determining which DatapathMode to use.
-		if err := k.azureAutodetect(ctx); err != nil {
+		if err := k.azureAutodetect(); err != nil {
 			return err
 		}
 
@@ -139,7 +139,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		}
 	}
 
-	if err := k.detectDatapathMode(ctx, true); err != nil {
+	if err := k.detectDatapathMode(true); err != nil {
 		return err
 	}
 

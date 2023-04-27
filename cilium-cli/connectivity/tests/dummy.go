@@ -26,7 +26,7 @@ func (s *dummy) Name() string {
 	return fmt.Sprintf("%s:%s", tn, s.name)
 }
 
-func (s *dummy) Run(ctx context.Context, t *check.Test) {
+func (s *dummy) Run(_ context.Context, t *check.Test) {
 	t.NewAction(s, "action-1", nil, nil, check.IPFamilyAny).Run(func(a *check.Action) {
 		a.Log("logging")
 		a.Debug("debugging")

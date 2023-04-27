@@ -790,7 +790,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to list Cilium pods: %w", err)
 				}
-				if err := c.SubmitCniConflistSubtask(ctx, FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+				if err := c.SubmitCniConflistSubtask(FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect CNI configuration files: %w", err)
 				}
 				return nil
@@ -825,7 +825,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Cilium pods: %w", err)
 				}
-				if err := c.SubmitGopsSubtasks(ctx, FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+				if err := c.SubmitGopsSubtasks(FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect Cilium gops: %w", err)
 				}
 				return nil
@@ -842,7 +842,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Hubble pods: %w", err)
 				}
-				if err := c.SubmitGopsSubtasks(ctx, FilterPods(p, c.NodeList), hubbleContainerName); err != nil {
+				if err := c.SubmitGopsSubtasks(FilterPods(p, c.NodeList), hubbleContainerName); err != nil {
 					return fmt.Errorf("failed to collect Hubble gops: %w", err)
 				}
 				return nil
@@ -859,7 +859,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Hubble Relay pods: %w", err)
 				}
-				if err := c.SubmitGopsSubtasks(ctx, FilterPods(p, c.NodeList), hubbleRelayContainerName); err != nil {
+				if err := c.SubmitGopsSubtasks(FilterPods(p, c.NodeList), hubbleRelayContainerName); err != nil {
 					return fmt.Errorf("failed to collect Hubble Relay gops: %w", err)
 				}
 				return nil
@@ -876,7 +876,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Cilium pods: %w", err)
 				}
-				if err := c.submitCiliumBugtoolTasks(ctx, FilterPods(p, c.NodeList)); err != nil {
+				if err := c.submitCiliumBugtoolTasks(FilterPods(p, c.NodeList)); err != nil {
 					return fmt.Errorf("failed to collect 'cilium-bugtool': %w", err)
 				}
 				return nil
@@ -896,7 +896,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get profiling from Cilium pods: %w", err)
 				}
-				if err := c.SubmitProfilingGopsSubtasks(ctx, FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+				if err := c.SubmitProfilingGopsSubtasks(FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect profiling data from Cilium pods: %w", err)
 				}
 				return nil
@@ -913,7 +913,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Cilium pods")
 				}
-				if err := c.SubmitLogsTasks(ctx, FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium pods")
 				}
 				return nil
@@ -930,7 +930,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Cilium operator pods")
 				}
-				if err := c.SubmitLogsTasks(ctx, FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium operator pods")
 				}
 				return nil
@@ -947,7 +947,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from 'clustermesh-apiserver' pods")
 				}
-				if err := c.SubmitLogsTasks(ctx, FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from 'clustermesh-apiserver' pods")
 				}
 				return nil
@@ -964,7 +964,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble pods")
 				}
-				if err := c.SubmitLogsTasks(ctx, FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble pods")
 				}
 				return nil
@@ -981,7 +981,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble Relay pods")
 				}
-				if err := c.SubmitLogsTasks(ctx, FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble Relay pods")
 				}
 				return nil
@@ -998,7 +998,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from Hubble UI pods")
 				}
-				if err := c.SubmitLogsTasks(ctx, FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Hubble UI pods")
 				}
 				return nil
@@ -1015,7 +1015,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Tetragon pods: %w", err)
 				}
-				if err := c.submitTetragonBugtoolTasks(ctx, FilterPods(p, c.NodeList)); err != nil {
+				if err := c.submitTetragonBugtoolTasks(FilterPods(p, c.NodeList)); err != nil {
 					return fmt.Errorf("failed to collect 'tetragon-bugtool': %w", err)
 				}
 				return nil
@@ -1028,7 +1028,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				f := c.Client.AutodetectFlavor(ctx)
 				c.logDebug("Detected flavor %q", f.Kind)
-				if err := c.submitFlavorSpecificTasks(ctx, f); err != nil {
+				if err := c.submitFlavorSpecificTasks(f); err != nil {
 					return fmt.Errorf("failed to collect platform-specific data: %w", err)
 				}
 				return nil
@@ -1108,7 +1108,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get logs from pods matching selector %q", selector)
 				}
-				if err := c.SubmitLogsTasks(ctx, FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from pods matching selector %q", selector)
 				}
 				return nil
@@ -1241,7 +1241,7 @@ func (c *Collector) shouldSkipTask(t Task) bool {
 	return c.Options.Quick && !t.Quick
 }
 
-func (c *Collector) submitTetragonBugtoolTasks(ctx context.Context, pods []*corev1.Pod) error {
+func (c *Collector) submitTetragonBugtoolTasks(pods []*corev1.Pod) error {
 	for _, p := range pods {
 		p := p
 		workerID := fmt.Sprintf("%s-%s", tetragonBugtoolPrefix, p.Name)
@@ -1300,7 +1300,7 @@ func (c *Collector) submitTetragonBugtoolTasks(ctx context.Context, pods []*core
 	return nil
 }
 
-func (c *Collector) submitCiliumBugtoolTasks(ctx context.Context, pods []*corev1.Pod) error {
+func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 	for _, p := range pods {
 		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("cilium-bugtool-"+p.Name), func(ctx context.Context) error {
@@ -1439,7 +1439,7 @@ func extractGopsProfileData(output string) (string, error) {
 
 }
 
-func (c *Collector) SubmitCniConflistSubtask(ctx context.Context, pods []*corev1.Pod, containerName string) error {
+func (c *Collector) SubmitCniConflistSubtask(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("cniconflist-%s", p.GetName()), func(ctx context.Context) error {
@@ -1493,7 +1493,7 @@ func (c *Collector) getGopsPID(ctx context.Context, pod *corev1.Pod, containerNa
 }
 
 // SubmitGopsSubtasks submits tasks to collect gops statistics from pods.
-func (c *Collector) SubmitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, containerName string) error {
+func (c *Collector) SubmitGopsSubtasks(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		p := p
 		for _, g := range gopsStats {
@@ -1525,7 +1525,7 @@ func (c *Collector) SubmitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, 
 }
 
 // SubmitProfilingGopsSubtasks submits tasks to collect profiling data from pods.
-func (c *Collector) SubmitProfilingGopsSubtasks(ctx context.Context, pods []*corev1.Pod, containerName string) error {
+func (c *Collector) SubmitProfilingGopsSubtasks(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		p := p
 		for _, g := range gopsProfiling {
@@ -1566,7 +1566,7 @@ func (c *Collector) SubmitProfilingGopsSubtasks(ctx context.Context, pods []*cor
 }
 
 // SubmitLogsTasks submits tasks to collect kubernetes logs from pods.
-func (c *Collector) SubmitLogsTasks(ctx context.Context, pods []*corev1.Pod, since time.Duration, limitBytes int64) error {
+func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, limitBytes int64) error {
 	t := time.Now().Add(-since)
 	for _, p := range pods {
 		p := p
@@ -1608,7 +1608,7 @@ func (c *Collector) SubmitLogsTasks(ctx context.Context, pods []*corev1.Pod, sin
 	return nil
 }
 
-func (c *Collector) submitFlavorSpecificTasks(ctx context.Context, f k8s.Flavor) error {
+func (c *Collector) submitFlavorSpecificTasks(f k8s.Flavor) error {
 	switch f.Kind {
 	case k8s.KindEKS:
 		if err := c.Pool.Submit(awsNodeDaemonSetName, func(ctx context.Context) error {

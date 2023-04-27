@@ -286,7 +286,7 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 		}
 	}
 	if ct.features.MatchRequirements(RequireFeatureEnabled(FeatureNodeWithoutCilium)) {
-		if err := ct.validateExternalFromCIDRsWithNodesWithoutCilium(ctx); err != nil {
+		if err := ct.validateExternalFromCIDRsWithNodesWithoutCilium(); err != nil {
 			return fmt.Errorf("invalid configuration for nodes without Cilium: %w", err)
 		}
 	}
@@ -446,7 +446,7 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 	return nil
 }
 
-func (ct *ConnectivityTest) validateExternalFromCIDRsWithNodesWithoutCilium(ctx context.Context) error {
+func (ct *ConnectivityTest) validateExternalFromCIDRsWithNodesWithoutCilium() error {
 	if len(ct.params.ExternalFromCIDRs) == 0 {
 		ct.Fatalf("--%s must not be empty if Cilium was install with --%s set", "external-from-cidrs", "nodes-without-cilium")
 	}

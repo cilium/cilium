@@ -101,7 +101,7 @@ func (k *K8sInstaller) installCerts(ctx context.Context) error {
 	}
 
 	if caSecret != nil {
-		err = k.certManager.LoadCAFromK8s(ctx, caSecret)
+		err = k.certManager.LoadCAFromK8s(caSecret)
 		if err != nil {
 			k.pushRollbackStep(func(ctx context.Context) {
 				if err := k.client.DeleteSecret(ctx, k.params.Namespace, caSecret.Name, metav1.DeleteOptions{}); err != nil {
