@@ -745,6 +745,10 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 			ProxyPort: int64(redirect.listener.rulesPort),
 		})
 	}
+	result.EnvoyDeploymentMode = "embedded"
+	if option.Config.ExternalEnvoyProxy {
+		result.EnvoyDeploymentMode = "external"
+	}
 	return result
 }
 

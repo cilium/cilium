@@ -2908,6 +2908,12 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/ProxyRedirect"
+      envoy-deployment-mode:
+        description: Deployment mode of Envoy L7 proxy
+        type: string
+        enum:
+          - embedded
+          - external
   IdentityRange:
     description: |-
       Status of identity range of the cluster
