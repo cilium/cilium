@@ -35,13 +35,15 @@ const (
 
 	DNSTestServerContainerName = "dns-test-server"
 
-	echoSameNodeDeploymentName  = "echo-same-node"
-	echoOtherNodeDeploymentName = "echo-other-node"
-	corednsConfigMapName        = "coredns-configmap"
-	corednsConfigVolumeName     = "coredns-config-volume"
-	kindEchoName                = "echo"
-	kindClientName              = "client"
-	kindPerfName                = "perf"
+	echoSameNodeDeploymentName     = "echo-same-node"
+	echoOtherNodeDeploymentName    = "echo-other-node"
+	echoExternalNodeDeploymentName = "echo-external-node"
+	corednsConfigMapName           = "coredns-configmap"
+	corednsConfigVolumeName        = "coredns-config-volume"
+	kindEchoName                   = "echo"
+	kindEchoExternalNodeName       = "echo-external-node"
+	kindClientName                 = "client"
+	kindPerfName                   = "perf"
 
 	hostNetNSDeploymentName = "host-netns"
 	kindHostNetNS           = "host-netns"
@@ -102,6 +104,7 @@ type deploymentParameters struct {
 	ReadinessProbe *corev1.Probe
 	Labels         map[string]string
 	HostNetwork    bool
+	Tolerations    []corev1.Toleration
 }
 
 func newDeployment(p deploymentParameters) *appsv1.Deployment {
@@ -154,6 +157,7 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 					Affinity:           p.Affinity,
 					NodeSelector:       p.NodeSelector,
 					HostNetwork:        p.HostNetwork,
+					Tolerations:        p.Tolerations,
 					ServiceAccountName: p.Name,
 				},
 			},
@@ -816,6 +820,35 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					return fmt.Errorf("unable to create daemonset %s: %w", hostNetNSDeploymentName, err)
 				}
 			}
+
+			_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoExternalNodeDeploymentName, metav1.GetOptions{})
+			if err != nil {
+				ct.Logf("✨ [%s] Deploying echo-external-node deployment...", ct.clients.src.ClusterName())
+				containerPort := 8080
+				echoExternalDeployment := newDeployment(deploymentParameters{
+					Name:           echoExternalNodeDeploymentName,
+					Kind:           kindEchoExternalNodeName,
+					Port:           containerPort,
+					NamedPort:      "http-8080",
+					HostPort:       8080,
+					Image:          ct.params.JSONMockImage,
+					Labels:         map[string]string{"external": "echo"},
+					NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
+					ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+					HostNetwork:    true,
+					Tolerations: []corev1.Toleration{
+						{Operator: corev1.TolerationOpExists},
+					},
+				})
+				_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoExternalNodeDeploymentName), metav1.CreateOptions{})
+				if err != nil {
+					return fmt.Errorf("unable to create service account %s: %s", echoExternalNodeDeploymentName, err)
+				}
+				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoExternalDeployment, metav1.CreateOptions{})
+				if err != nil {
+					return fmt.Errorf("unable to create deployment %s: %s", echoExternalNodeDeploymentName, err)
+				}
+			}
 		}
 	}
 
@@ -870,6 +903,10 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 
 	if (ct.params.MultiCluster != "" || !ct.params.SingleNode) && !ct.params.Perf {
 		dstList = append(dstList, echoOtherNodeDeploymentName)
+	}
+
+	if ct.features[FeatureNodeWithoutCilium].Enabled {
+		dstList = append(dstList, echoExternalNodeDeploymentName)
 	}
 
 	return srcList, dstList
@@ -1014,6 +1051,22 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			err := ct.waitForPodDNS(otherNodeDNSCtx, cp, otherNodePod)
 			if err != nil {
 				return err
+			}
+		}
+	}
+
+	if ct.features[FeatureNodeWithoutCilium].Enabled {
+		echoExternalNodePods, err := ct.clients.dst.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "name=" + echoExternalNodeDeploymentName})
+		if err != nil {
+			return fmt.Errorf("unable to list other node pods: %w", err)
+		}
+
+		for _, pod := range echoExternalNodePods.Items {
+			ct.echoExternalPods[pod.Name] = Pod{
+				K8sClient: ct.client,
+				Pod:       pod.DeepCopy(),
+				scheme:    "http",
+				port:      8080, // listen port of the echo server inside the container
 			}
 		}
 	}
