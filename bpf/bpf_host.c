@@ -122,7 +122,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	union v6addr *src;
 	int ret;
 
-	if (!revalidate_data_maybe_pull(ctx, &data, &data_end, &ip6, !from_host))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	if (!from_host) {
@@ -410,11 +410,11 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	struct iphdr *ip4;
 
 	/* This is the first time revalidate_data() is going to be called in
-	 * the "from-netdev" path. Make sure that we don't legitimately drop
-	 * the packet if the skb arrived with the header not being not in the
-	 * linear data.
+	 * the "from-netdev" and "from-host" paths. Make sure that we don't
+	 * legitimately drop the packet if the skb arrived with the header
+	 * not being not in the linear data.
 	 */
-	if (!revalidate_data_maybe_pull(ctx, &data, &data_end, &ip4, !from_host))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	/* Packets from the proxy will already have a real identity. */
