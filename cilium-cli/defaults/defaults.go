@@ -88,6 +88,8 @@ const (
 	ConnectTimeout = 2 * time.Second
 	RequestTimeout = 10 * time.Second
 
+	UninstallTimeout = 5 * time.Minute
+
 	IngressClassName        = "cilium"
 	IngressService          = "cilium-ingress"
 	IngressControllerName   = "cilium.io/ingress-controller"
