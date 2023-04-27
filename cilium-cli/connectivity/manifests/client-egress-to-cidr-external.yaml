@@ -1,5 +1,4 @@
 # This policy allows packets towards {{.ExternalIP}}, but not {{.ExternalOtherIP}}.
-# Both addresses are owned by CloudFlare/APNIC.
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
