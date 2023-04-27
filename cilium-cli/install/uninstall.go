@@ -30,6 +30,7 @@ type UninstallParameters struct {
 	RedactHelmCertKeys   bool
 	HelmChartDirectory   string
 	WorkerCount          int
+	Timeout              time.Duration
 }
 
 type K8sUninstaller struct {
@@ -60,6 +61,7 @@ func (k *K8sUninstaller) UninstallWithHelm(k8sClient genericclioptions.RESTClien
 	}
 	helmClient := action.NewUninstall(&actionConfig)
 	helmClient.Wait = k.params.Wait
+	helmClient.Timeout = k.params.Timeout
 	_, err := helmClient.Run(defaults.HelmReleaseName)
 	return err
 }
