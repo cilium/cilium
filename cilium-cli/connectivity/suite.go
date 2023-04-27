@@ -128,6 +128,9 @@ var (
 	//go:embed manifests/echo-ingress-l7-http.yaml
 	echoIngressL7HTTPPolicyYAML string
 
+	//go:embed manifests/echo-ingress-l7-http-from-anywhere.yaml
+	echoIngressL7HTTPFromAnywherePolicyYAML string
+
 	//go:embed manifests/echo-ingress-l7-http-named-port.yaml
 	echoIngressL7HTTPNamedPortPolicyYAML string
 
@@ -192,6 +195,12 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	if ct.Params().Datapath {
 		ct.NewTest("north-south-loadbalancing").
 			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithScenarios(
+				tests.OutsideToNodePort(),
+			)
+		ct.NewTest("north-south-loadbalancing-with-l7-policy").
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).
 			WithScenarios(
 				tests.OutsideToNodePort(),
 			)
