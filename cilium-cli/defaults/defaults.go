@@ -63,6 +63,7 @@ const (
 	ClusterMeshServerSecretName           = "clustermesh-apiserver-server-cert"
 	ClusterMeshAdminSecretName            = "clustermesh-apiserver-admin-cert"
 	ClusterMeshClientSecretName           = "clustermesh-apiserver-client-cert"
+	ClusterMeshRemoteSecretName           = "clustermesh-apiserver-remote-cert"
 	ClusterMeshExternalWorkloadSecretName = "clustermesh-apiserver-external-workload-cert"
 
 	ConnectivityCheckNamespace = "cilium-test"
