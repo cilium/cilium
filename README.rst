@@ -31,15 +31,15 @@ and flexible. To learn more about eBPF, visit `eBPF.io`_.
 Stable Releases
 ===============
 
-The Cilium community maintains minor stable releases for the last three major
-Cilium versions. Older Cilium stable versions from major releases prior to that
+The Cilium community maintains minor stable releases for the last three minor
+Cilium versions. Older Cilium stable versions from minor releases prior to that
 are considered EOL.
 
-For upgrades to new major releases please consult the `Cilium Upgrade Guide
+For upgrades to new minor releases please consult the `Cilium Upgrade Guide
 <https://docs.cilium.io/en/stable/operations/upgrade/>`_.
 
 Listed below are the actively maintained release branches along with their latest
-minor release, corresponding image pull tags and their release notes:
+patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
 | `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2022-11-16 | ``quay.io/cilium/cilium:v1.12.4``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.4>`__  | `General Announcement <https://isovalent.com/blog/post/cilium-release-112>`__  |
