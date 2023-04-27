@@ -1,13 +1,13 @@
-name: Cilium Datapath (ci-datapath)
+name: Cilium Conformance E2E (ci-e2e-1.13)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   issue_comment:
     types:
       - created
-  # Run every 6 hours
+  # Run once a day
   schedule:
-    - cron:  '0 5/6 * * *'
+    - cron:  '0 10 * * *'
   ### FOR TESTING PURPOSES
   # This workflow runs in the context of `main`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
@@ -56,8 +56,8 @@ concurrency:
     ${{
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-datapath' ||
-        github.event.comment.body == '/test'
+        github.event.comment.body == '/ci-e2e-1.13' ||
+        github.event.comment.body == '/test-backport-1.13'
       ) && github.event.issue.number) ||
       (github.event_name == 'pull_request' && github.event.pull_request.number)
     }}
@@ -73,8 +73,8 @@ jobs:
     name: Deduce required tests from code changes
     if: |
       (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-datapath' ||
-        github.event.comment.body == '/test'
+        github.event.comment.body == '/ci-e2e-1.13' ||
+        github.event.comment.body == '/test-backport-1.13'
       )) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
@@ -123,6 +123,9 @@ jobs:
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
             SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            curl https://api.github.com/repos/cilium/cilium/branches/v1.13 > branch.json
+            SHA=$(jq -r '.commit.sha' branch.json)
           else
             SHA=${{ github.sha }}
           fi
@@ -134,7 +137,7 @@ jobs:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ steps.vars.outputs.sha }}
           context: ${{ github.workflow }}
-          description: Datapath tests in progress...
+          description: E2E conformance tests in progress...
           state: pending
           target_url: ${{ env.check_url }}
 
@@ -152,7 +155,7 @@ jobs:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
-          description: Datapath tests skipped
+          description: E2E conformance tests skipped
           state: success
           target_url: ${{ env.check_url }}
 
@@ -162,35 +165,37 @@ jobs:
     name: Setup & Test
     if: |
       (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-datapath' ||
-        (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
+        github.event.comment.body == '/ci-e2e-1.13' ||
+        (github.event.comment.body == '/test-backport-1.13' && needs.check_changes.outputs.tested == 'true')
       )) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     strategy:
       fail-fast: false
-      max-parallel: 8
       matrix:
         include:
           # See https://github.com/cilium/cilium/issues/20606 for configuration table
-
           - name: '1'
             kernel: '4.19-main'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
+            encryption: 'ipsec'
+            ipv6: 'false' # until https://github.com/cilium/cilium/issues/23461 has been fixed
 
           - name: '2'
             kernel: '5.4-main'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
+            encryption: 'ipsec'
 
           - name: '3'
             kernel: '5.10-main'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
+            encryption: 'ipsec'
             endpoint-routes: 'true'
 
           - name: '4'
@@ -198,120 +203,41 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
+            encryption: 'disabled'
             lb-mode: 'snat'
             endpoint-routes: 'true'
-            egress-gateway: 'true'
 
           - name: '5'
             kernel: '5.15-main'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
-            lb-mode: 'dsr'
+            encryption: 'disabled'
+            lb-mode: 'snat'
             endpoint-routes: 'true'
-            egress-gateway: 'true'
-            host-fw: 'true'
 
           - name: '6'
             kernel: '6.0-main'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
+            encryption: 'disabled'
             lb-mode: 'snat'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            lb-acceleration: 'testing-only'
 
           - name: '7'
             kernel: 'bpf-next-main'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
+            encryption: 'disabled'
             lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
 
           - name: '8'
             kernel: 'bpf-next-main'
             kube-proxy: 'iptables'
             kpr: 'disabled'
-            tunnel: 'geneve'
-            endpoint-routes: 'true'
-
-          - name: '9'
-            kernel: '4.19-main'
-            kube-proxy: 'iptables'
-            kpr: 'disabled'
             tunnel: 'vxlan'
             encryption: 'ipsec'
-            encryption-node: 'false'
-
-          - name: '10'
-            kernel: '5.4-main'
-            kube-proxy: 'iptables'
-            kpr: 'disabled'
-            tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-
-          - name: '11'
-            kernel: '5.10-main'
-            kube-proxy: 'iptables'
-            kpr: 'disabled'
-            tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-            endpoint-routes: 'true'
-
-          - name: '12'
-            kernel: '5.10-main'
-            kube-proxy: 'iptables'
-            kpr: 'strict'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '13'
-            kernel: '5.15-main'
-            kube-proxy: 'iptables'
-            kpr: 'strict'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '14'
-            kernel: '6.0-main'
-            kube-proxy: 'none'
-            kpr: 'strict'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-
-          - name: '15'
-            kernel: 'bpf-next-main'
-            kube-proxy: 'none'
-            kpr: 'strict'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-
-          - name: '16'
-            kernel: 'bpf-next-main'
-            kube-proxy: 'iptables'
-            kpr: 'disabled'
-            tunnel: 'geneve'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             endpoint-routes: 'true'
 
     timeout-minutes: 60
@@ -342,10 +268,11 @@ jobs:
             --rollback=false \
             --config monitor-aggregation=none \
             --nodes-without-cilium=kind-worker3 \
-            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
-          TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
+            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }} \
+            --helm-set=bpf.masquerade=false"
+          TUNNEL="--helm-set-string=tunnel=vxlan"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
+            TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
             TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
           fi
           LB_MODE=""
@@ -360,35 +287,8 @@ jobs:
           if [ "${{ matrix.ipv6 }}" != "false" ]; then
             IPV6="--helm-set=ipv6.enabled=true"
           fi
-          MASQ=""
-          if [ "${{ matrix.kpr }}" == "strict" ]; then
-            # BPF-masq requires KPR=strict.
-            # Disable IPv6 until https://github.com/cilium/cilium/issues/14350 has been resolved
-            MASQ="--helm-set=bpf.masquerade=true --helm-set=enableIPv6Masquerade=false"
-          fi
-          EGRESS_GATEWAY=""
-          if [ "${{ matrix.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true"
-          fi
-          LB_ACCELERATION=""
-          if [ "${{ matrix.lb-acceleration }}" != "" ]; then
-            LB_ACCELERATION="--helm-set=loadBalancer.acceleration=${{ matrix.lb-acceleration }}"
-          fi
 
-          ENCRYPT=""
-          if [ "${{ matrix.encryption }}" != "" ]; then
-            ENCRYPT="--encryption=${{ matrix.encryption }}"
-            if [ "${{ matrix.encryption-node }}" != "" ]; then
-              ENCRYPT+=" --node-encryption=${{ matrix.encryption-node }}"
-            fi
-          fi
-
-          HOST_FW=""
-          if [ "${{ matrix.host-fw }}" == "true" ]; then
-            HOST_FW="--helm-set=hostFirewall.enabled=true"
-          fi
-
-          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6}"
           echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
 
       - name: Checkout pull request for Helm chart
@@ -412,7 +312,7 @@ jobs:
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
         with:
-          test-name: datapath-conformance
+          test-name: e2e-conformance
           image-version: ${{ matrix.kernel }}
           host-mount: ./
           cpu: 4
@@ -429,23 +329,38 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.setup-report.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Run tests
+      - name: Run kube-proxy tests
         uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
         with:
           provision: 'false'
           cmd: |
             cd /host/
-            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+            ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
-            kubectl -n kube-system exec daemonset/cilium -- cilium status
-
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
             ./cilium-cli connectivity test --collect-sysdump-on-failure \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
-            ./contrib/scripts/kind-down.sh
+            kind delete cluster
+
+      - name: Run encryption tests
+        if: ${{ matrix.encryption != 'disabled' }}
+        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+            ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
+              --encryption=${{ matrix.encryption }}
+
+            ./cilium-cli status --wait
+            ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+            ./cilium-cli connectivity test --collect-sysdump-on-failure \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
 
       - name: Fetch artifacts
         if: ${{ !success() }}
@@ -478,7 +393,7 @@ jobs:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
-          description: Datapath tests successful
+          description: E2E conformance tests successful
           state: success
           target_url: ${{ env.check_url }}
 
