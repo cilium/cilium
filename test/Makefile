@@ -3,6 +3,14 @@
 
 include ../Makefile.defs
 
+# Determines if the eBPF unit tests are ran with `sudo`
+RUN_WITH_SUDO ?= true
+ifeq ($(RUN_WITH_SUDO), true)
+	RUN_WITH_SUDO=-exec sudo
+else
+	RUN_WITH_SUDO=
+endif
+
 PROVISION ?= true
 # If you set provision to false the test will run without bootstrapping the
 # cluster again.
@@ -92,4 +100,4 @@ endif
 
 run_bpf_tests:
 	$(QUIET)$(MAKE) -C ../bpf/tests all
-	$(QUIET)$(GO) test ./bpf_tests -exec sudo -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)
+	$(QUIET)$(GO) test ./bpf_tests $(RUN_WITH_SUDO) -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)

@@ -674,3 +674,9 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 
 .PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean check-sources
 force :;
+
+# this top level run_bpf_tests target will run the bpf unit tests inside the Cilium Builder container.
+# it exists here so the entire source code repo can be mounted into the container.
+CILIUM_BUILDER_IMAGE=$(shell cat images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
+run_bpf_tests:
+	docker run -v $$(pwd):/src --privileged -w /src -e RUN_WITH_SUDO=false $(CILIUM_BUILDER_IMAGE) "make" "-C" "test/" "run_bpf_tests"
