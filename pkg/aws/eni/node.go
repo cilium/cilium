@@ -728,11 +728,18 @@ func (n *Node) GetMinimumAllocatableIPv4() int {
 	return math.IntMin(minimum, (limits.Adapters-index)*maxPerInterface)
 }
 
+func (n *Node) isPrefixDelegationEnabled() bool {
+	if n.node == nil {
+		return false
+	}
+	return n.node.IsPrefixDelegationEnabled()
+}
+
 // IsPrefixDelegated indicates whether prefix delegation can be enabled on a node.
 // Currently, mixed usage of secondary IPs and prefixes is not supported. n.mutex
 // read lock must be held before calling this method.
 func (n *Node) IsPrefixDelegated() bool {
-	if !n.node.IsPrefixDelegationEnabled() {
+	if !n.isPrefixDelegationEnabled() {
 		return false
 	}
 	// Verify if this node is nitro based

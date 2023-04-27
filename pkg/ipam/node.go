@@ -205,9 +205,6 @@ func (n *Node) Ops() NodeOperations {
 }
 
 func (n *Node) IsPrefixDelegationEnabled() bool {
-	if n == nil || n.manager == nil {
-		return false
-	}
 	return n.manager.prefixDelegation
 }
 
