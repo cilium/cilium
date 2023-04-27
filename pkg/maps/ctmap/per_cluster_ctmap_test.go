@@ -24,7 +24,6 @@ const (
 func (k *PerClusterCTMapPrivilegedTestSuite) SetUpSuite(c *C) {
 	testutils.PrivilegedCheck(c)
 
-	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 }

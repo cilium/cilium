@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/ebpf/rlimit"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -29,7 +28,6 @@ func Test(t *testing.T) {
 func (k *EgressMapTestSuite) SetUpSuite(c *C) {
 	testutils.PrivilegedCheck(c)
 
-	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 }

@@ -30,8 +30,6 @@ var _ = Suite(&PolicyMapPrivilegedTestSuite{})
 func (pm *PolicyMapPrivilegedTestSuite) SetUpSuite(c *C) {
 	testutils.PrivilegedCheck(c)
 
-	bpf.CheckOrMountFS("")
-
 	if err := rlimit.RemoveMemlock(); err != nil {
 		c.Fatal(err)
 	}

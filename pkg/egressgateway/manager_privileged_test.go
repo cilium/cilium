@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/hive"
@@ -121,7 +120,6 @@ func Test(t *testing.T) {
 func (k *EgressGatewayTestSuite) SetUpSuite(c *C) {
 	testutils.PrivilegedCheck(c)
 
-	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 
