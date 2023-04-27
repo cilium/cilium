@@ -19,6 +19,7 @@ import (
 	ipcache "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
+	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -38,6 +39,9 @@ var Cell = cell.Module(
 
 	// The cilium events map, used by the monitor agent.
 	eventsmap.Cell,
+
+	// The monitor agent, which multicasts cilium and agent events to its subscribers.
+	monitorAgent.Cell,
 
 	cell.Provide(
 		newWireguardAgent,

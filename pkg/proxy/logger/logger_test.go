@@ -12,11 +12,13 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -116,12 +118,12 @@ func (ml *MockMonitorListener) Close() {
 // Specifically, it mimics the behavior of the Daemon and its implementation of the
 // NewProxyLogRecord method.
 type MockLogNotifier struct {
-	monitorAgent *agent.Agent
+	monitorAgent agent.Agent
 }
 
 // NewMockLogNotifier returns a MockLogNotifier ready to be used in the benchmarks below.
-func NewMockLogNotifier() *MockLogNotifier {
-	return &MockLogNotifier{agent.NewAgent(context.Background())}
+func NewMockLogNotifier(monitor agent.Agent) *MockLogNotifier {
+	return &MockLogNotifier{monitor}
 }
 
 // NewProxyLogRecord sends the event to the monitor agent to notify the listeners.
@@ -156,9 +158,7 @@ var benchCases = []struct {
 	},
 }
 
-func BenchmarkLogNotifierWithNoListeners(b *testing.B) {
-	SetNotifier(NewMockLogNotifier())
-
+func benchWithoutListeners(b *testing.B) {
 	for _, bm := range benchCases {
 		b.Run(bm.name, func(b *testing.B) {
 			b.ReportAllocs()
@@ -181,12 +181,7 @@ func BenchmarkLogNotifierWithNoListeners(b *testing.B) {
 	}
 }
 
-func BenchmarkLogNotifierWithListeners(b *testing.B) {
-	listener := NewMockMonitorListener(option.Config.MonitorQueueSize)
-	notifier := NewMockLogNotifier()
-	notifier.RegisterNewListener(listener)
-	SetNotifier(notifier)
-
+func benchWithListeners(listener *MockMonitorListener, b *testing.B) {
 	for _, bm := range benchCases {
 		b.Run(bm.name, func(b *testing.B) {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -218,5 +213,67 @@ func BenchmarkLogNotifierWithListeners(b *testing.B) {
 			cancel()
 			wg.Wait()
 		})
+	}
+}
+
+func BenchmarkLogNotifierWithNoListeners(b *testing.B) {
+	bench := cell.Invoke(func(lc hive.Lifecycle, monitor agent.Agent) error {
+		notifier := NewMockLogNotifier(monitor)
+		SetNotifier(notifier)
+
+		lc.Append(hive.Hook{
+			OnStart: func(ctx hive.HookContext) error {
+				benchWithoutListeners(b)
+				return nil
+			},
+			OnStop: func(ctx hive.HookContext) error { return nil },
+		})
+
+		return nil
+	})
+
+	h := hive.New(
+		cell.Provide(func() eventsmap.Map { return nil }),
+		agent.Cell,
+		bench,
+	)
+
+	if err := h.Start(context.TODO()); err != nil {
+		b.Fatalf("failed to start hive: %v", err)
+	}
+	if err := h.Stop(context.TODO()); err != nil {
+		b.Fatalf("failed to stop hive: %v", err)
+	}
+}
+
+func BenchmarkLogNotifierWithListeners(b *testing.B) {
+	bench := cell.Invoke(func(lc hive.Lifecycle, monitor agent.Agent, cfg agent.AgentConfig, em eventsmap.Map) error {
+		listener := NewMockMonitorListener(cfg.MonitorQueueSize)
+		notifier := NewMockLogNotifier(monitor)
+		notifier.RegisterNewListener(listener)
+		SetNotifier(notifier)
+
+		lc.Append(hive.Hook{
+			OnStart: func(ctx hive.HookContext) error {
+				benchWithListeners(listener, b)
+				return nil
+			},
+			OnStop: func(ctx hive.HookContext) error { return nil },
+		})
+
+		return nil
+	})
+
+	h := hive.New(
+		cell.Provide(func() eventsmap.Map { return nil }),
+		agent.Cell,
+		bench,
+	)
+
+	if err := h.Start(context.TODO()); err != nil {
+		b.Fatalf("failed to start hive: %v", err)
+	}
+	if err := h.Stop(context.TODO()); err != nil {
+		b.Fatalf("failed to stop hive: %v", err)
 	}
 }

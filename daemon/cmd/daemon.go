@@ -120,7 +120,7 @@ type Daemon struct {
 	statusResponse     models.StatusResponse
 	statusCollector    *status.Collector
 
-	monitorAgent *monitoragent.Agent
+	monitorAgent monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
 	deviceManager *linuxdatapath.DeviceManager
@@ -536,10 +536,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		egressGatewayManager: params.EgressGatewayManager,
 		cniConfigManager:     params.CNIConfigManager,
 		clustermesh:          params.ClusterMesh,
-	}
-
-	if option.Config.RunMonitorAgent {
-		d.monitorAgent = monitoragent.NewAgent(ctx)
+		monitorAgent:         params.MonitorAgent,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -1195,23 +1192,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if err != nil {
 		log.WithError(err).Error("error encountered while updating DNS datapath rules.")
 		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)
-	}
-
-	// We can only attach the monitor agent once cilium_event has been set up.
-	if option.Config.RunMonitorAgent {
-		err = d.monitorAgent.AttachToEventsMap(defaults.MonitorBufferPages)
-		if err != nil {
-			log.WithError(err).Error("encountered error configuring run monitor agent")
-			return nil, nil, fmt.Errorf("encountered error configuring run monitor agent: %w", err)
-		}
-
-		if option.Config.EnableMonitor {
-			err = monitoragent.ServeMonitorAPI(d.monitorAgent)
-			if err != nil {
-				log.WithError(err).Error("encountered error configuring run monitor agent")
-				return nil, nil, fmt.Errorf("encountered error configuring run monitor agent: %w", err)
-			}
-		}
 	}
 
 	// Start the controller for periodic sync. The purpose of the
