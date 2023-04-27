@@ -20,6 +20,7 @@ When running Cilium using the container image ``cilium/cilium``, the host
 system must meet these requirements:
 
 - `Linux kernel`_ >= 4.9.17
+- Hosts with either AMD64 or AArch64 architecture
 
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
@@ -46,6 +47,14 @@ iproute2                 >= 5.9.0 [#iproute2_foot]_ yes
 
 .. [#iproute2_foot] Requires support for eBPF templating as documented
    :ref:`below <iproute2_requirements>`.
+
+Architecture Support
+====================
+
+Cilium images are built for the following platforms:
+
+- AMD64
+- AArch64
 
 Linux Distribution Compatibility & Considerations 
 =================================================
