@@ -63,38 +63,40 @@ func NewMonitorFilter(logger logrus.FieldLogger, monitorEventFilters []string) (
 	return &monitorFilter, nil
 }
 
+// OnMonitorEvent implements observeroption.OnMonitorEvent interface
+// It returns true if an event is to be dropped, false otherwise.
 func (m *monitorFilter) OnMonitorEvent(ctx context.Context, event *observerTypes.MonitorEvent) (bool, error) {
 	switch payload := event.Payload.(type) {
 	case *observerTypes.PerfEvent:
 		if len(payload.Data) == 0 {
-			return false, errors.ErrEmptyData
+			return true, errors.ErrEmptyData
 		}
 
 		switch payload.Data[0] {
 		case monitorAPI.MessageTypeDrop:
-			return m.drop, nil
+			return !m.drop, nil
 		case monitorAPI.MessageTypeDebug:
-			return m.debug, nil
+			return !m.debug, nil
 		case monitorAPI.MessageTypeCapture:
-			return m.capture, nil
+			return !m.capture, nil
 		case monitorAPI.MessageTypeTrace:
-			return m.trace, nil
+			return !m.trace, nil
 		case monitorAPI.MessageTypeAccessLog: // MessageTypeAccessLog maps to MessageTypeNameL7
-			return m.l7, nil
+			return !m.l7, nil
 		case monitorAPI.MessageTypePolicyVerdict:
-			return m.policyVerdict, nil
+			return !m.policyVerdict, nil
 		case monitorAPI.MessageTypeRecCapture:
-			return m.recCapture, nil
+			return !m.recCapture, nil
 		case monitorAPI.MessageTypeTraceSock:
-			return m.traceSock, nil
+			return !m.traceSock, nil
 		default:
-			return false, errors.ErrUnknownEventType
+			return true, errors.ErrUnknownEventType
 		}
 	case *observerTypes.AgentEvent:
-		return m.agent, nil
+		return !m.agent, nil
 	case nil:
-		return false, errors.ErrEmptyData
+		return true, errors.ErrEmptyData
 	default:
-		return false, errors.ErrUnknownEventType
+		return true, errors.ErrUnknownEventType
 	}
 }

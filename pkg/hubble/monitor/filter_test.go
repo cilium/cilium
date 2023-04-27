@@ -82,7 +82,7 @@ func TestNewMonitorFilter(t *testing.T) {
 
 type testEvent struct {
 	event       *observerTypes.MonitorEvent
-	allowed     bool
+	stop        bool
 	expectedErr error
 }
 
@@ -102,7 +102,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 					event: &observerTypes.MonitorEvent{
 						Payload: nil,
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: errors.ErrEmptyData,
 				},
 			},
@@ -115,7 +115,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 					event: &observerTypes.MonitorEvent{
 						Payload: &struct{}{},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: errors.ErrUnknownEventType,
 				},
 			},
@@ -130,7 +130,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{0xff},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: errors.ErrUnknownEventType,
 				},
 			},
@@ -145,7 +145,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Type: monitorAPI.MessageTypeAgent,
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 			},
@@ -160,7 +160,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeAccessLog},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 			},
@@ -175,7 +175,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: errors.ErrEmptyData,
 				},
 			},
@@ -190,7 +190,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeDrop},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 			},
@@ -205,7 +205,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeDebug},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 			},
@@ -220,7 +220,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeCapture},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 			},
@@ -235,7 +235,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeTrace},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 			},
@@ -250,7 +250,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypePolicyVerdict},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 			},
@@ -265,7 +265,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeRecCapture},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 			},
@@ -280,7 +280,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeTraceSock},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 			},
@@ -295,7 +295,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeTrace},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 				{
@@ -304,7 +304,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeDebug},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 				{
@@ -313,7 +313,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeCapture},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 			},
@@ -328,7 +328,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeDebug},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 				{
@@ -337,7 +337,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypePolicyVerdict},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 				{
@@ -346,7 +346,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeTrace},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 				{
@@ -355,7 +355,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeDrop},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 			},
@@ -370,7 +370,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeCapture},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 				{
@@ -379,7 +379,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeTrace},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 				{
@@ -388,7 +388,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeDrop},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 				{
@@ -397,7 +397,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeDebug},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 			},
@@ -412,7 +412,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeDrop},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 				{
@@ -421,7 +421,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeDebug},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 				{
@@ -430,7 +430,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeCapture},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 				{
@@ -439,7 +439,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeTrace},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 				{
@@ -448,7 +448,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypePolicyVerdict},
 						},
 					},
-					allowed:     true,
+					stop:        false,
 					expectedErr: nil,
 				},
 				{
@@ -457,7 +457,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Data: []byte{monitorAPI.MessageTypeTraceSock},
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 				{
@@ -466,7 +466,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Type: monitorAPI.MessageTypeAccessLog,
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 				{
@@ -475,7 +475,7 @@ func Test_OnMonitorEvent(t *testing.T) {
 							Type: monitorAPI.MessageTypeAgent,
 						},
 					},
-					allowed:     false,
+					stop:        true,
 					expectedErr: nil,
 				},
 			},
@@ -488,9 +488,9 @@ func Test_OnMonitorEvent(t *testing.T) {
 			assert.NoError(t, err)
 
 			for _, event := range tc.events {
-				allowed, err := mf.OnMonitorEvent(context.Background(), event.event)
+				stop, err := mf.OnMonitorEvent(context.Background(), event.event)
 				assert.Equal(t, event.expectedErr, err)
-				assert.Equal(t, event.allowed, allowed)
+				assert.Equal(t, event.stop, stop)
 			}
 		})
 	}
