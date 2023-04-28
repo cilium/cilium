@@ -73,6 +73,7 @@ type CreateVpcGatewayEndpointRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string           `position:"Query" name:"ClientToken"`
+	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
 	ServiceName          string           `position:"Query" name:"ServiceName"`
 	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
@@ -87,11 +88,12 @@ type CreateVpcGatewayEndpointRequest struct {
 // CreateVpcGatewayEndpointResponse is the response struct for api CreateVpcGatewayEndpoint
 type CreateVpcGatewayEndpointResponse struct {
 	*responses.BaseResponse
-	RequestId    string `json:"RequestId" xml:"RequestId"`
-	EndpointId   string `json:"EndpointId" xml:"EndpointId"`
-	ServiceName  string `json:"ServiceName" xml:"ServiceName"`
-	EndpointName string `json:"EndpointName" xml:"EndpointName"`
-	CreationTime string `json:"CreationTime" xml:"CreationTime"`
+	RequestId       string `json:"RequestId" xml:"RequestId"`
+	EndpointId      string `json:"EndpointId" xml:"EndpointId"`
+	ServiceName     string `json:"ServiceName" xml:"ServiceName"`
+	EndpointName    string `json:"EndpointName" xml:"EndpointName"`
+	CreationTime    string `json:"CreationTime" xml:"CreationTime"`
+	ResourceGroupId string `json:"ResourceGroupId" xml:"ResourceGroupId"`
 }
 
 // CreateCreateVpcGatewayEndpointRequest creates a request to invoke CreateVpcGatewayEndpoint API

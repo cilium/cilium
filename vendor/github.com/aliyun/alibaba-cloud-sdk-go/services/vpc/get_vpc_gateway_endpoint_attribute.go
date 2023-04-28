@@ -90,7 +90,9 @@ type GetVpcGatewayEndpointAttributeResponse struct {
 	PolicyDocument      string   `json:"PolicyDocument" xml:"PolicyDocument"`
 	CreationTime        string   `json:"CreationTime" xml:"CreationTime"`
 	EndpointStatus      string   `json:"EndpointStatus" xml:"EndpointStatus"`
+	ResourceGroupId     string   `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	RouteTables         []string `json:"RouteTables" xml:"RouteTables"`
+	Tags                []Tag    `json:"Tags" xml:"Tags"`
 }
 
 // CreateGetVpcGatewayEndpointAttributeRequest creates a request to invoke GetVpcGatewayEndpointAttribute API

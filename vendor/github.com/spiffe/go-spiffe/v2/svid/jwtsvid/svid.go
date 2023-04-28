@@ -28,6 +28,9 @@ type SVID struct {
 	Expiry time.Time
 	// Claims is the parsed claims from token
 	Claims map[string]interface{}
+	// Hint is an operator-specified string used to provide guidance on how this
+	// identity should be used by a workload when more than one SVID is returned.
+	Hint string
 
 	// token is the serialized JWT token
 	token string

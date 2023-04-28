@@ -54,6 +54,7 @@ type Instance struct {
 	OsVersion                       string                               `json:"OsVersion" xml:"OsVersion"`
 	SpotPriceLimit                  float64                              `json:"SpotPriceLimit" xml:"SpotPriceLimit"`
 	OSName                          string                               `json:"OSName" xml:"OSName"`
+	InstanceOwnerId                 int64                                `json:"InstanceOwnerId" xml:"InstanceOwnerId"`
 	OSNameEn                        string                               `json:"OSNameEn" xml:"OSNameEn"`
 	SerialNumber                    string                               `json:"SerialNumber" xml:"SerialNumber"`
 	RegionId                        string                               `json:"RegionId" xml:"RegionId"`

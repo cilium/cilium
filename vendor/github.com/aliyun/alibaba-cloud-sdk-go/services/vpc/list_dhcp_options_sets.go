@@ -71,15 +71,23 @@ func (client *Client) ListDhcpOptionsSetsWithCallback(request *ListDhcpOptionsSe
 // ListDhcpOptionsSetsRequest is the request struct for api ListDhcpOptionsSets
 type ListDhcpOptionsSetsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	NextToken            string           `position:"Query" name:"NextToken"`
-	DhcpOptionsSetId     *[]string        `position:"Query" name:"DhcpOptionsSetId"  type:"Repeated"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	DomainName           string           `position:"Query" name:"DomainName"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	DhcpOptionsSetName   string           `position:"Query" name:"DhcpOptionsSetName"`
-	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
+	ResourceOwnerId      requests.Integer           `position:"Query" name:"ResourceOwnerId"`
+	ResourceGroupId      string                     `position:"Query" name:"ResourceGroupId"`
+	NextToken            string                     `position:"Query" name:"NextToken"`
+	DhcpOptionsSetId     *[]string                  `position:"Query" name:"DhcpOptionsSetId"  type:"Repeated"`
+	ResourceOwnerAccount string                     `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                     `position:"Query" name:"OwnerAccount"`
+	DomainName           string                     `position:"Query" name:"DomainName"`
+	OwnerId              requests.Integer           `position:"Query" name:"OwnerId"`
+	Tags                 *[]ListDhcpOptionsSetsTags `position:"Query" name:"Tags"  type:"Repeated"`
+	DhcpOptionsSetName   string                     `position:"Query" name:"DhcpOptionsSetName"`
+	MaxResults           requests.Integer           `position:"Query" name:"MaxResults"`
+}
+
+// ListDhcpOptionsSetsTags is a repeated param struct in ListDhcpOptionsSetsRequest
+type ListDhcpOptionsSetsTags struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // ListDhcpOptionsSetsResponse is the response struct for api ListDhcpOptionsSets
@@ -87,6 +95,7 @@ type ListDhcpOptionsSetsResponse struct {
 	*responses.BaseResponse
 	NextToken       string           `json:"NextToken" xml:"NextToken"`
 	RequestId       string           `json:"RequestId" xml:"RequestId"`
+	TotalCount      string           `json:"TotalCount" xml:"TotalCount"`
 	DhcpOptionsSets []DhcpOptionsSet `json:"DhcpOptionsSets" xml:"DhcpOptionsSets"`
 }
 
