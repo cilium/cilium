@@ -144,6 +144,9 @@ int ipv6_with_hop_auth_tcp_pktgen(struct __ctx_buff *ctx)
 		return TEST_ERROR;
 
 	authhdr = (struct ipv6_authhdr *)l3_next;
+	if ((void *) authhdr + sizeof(struct ipv6_authhdr) > ctx_data_end(ctx))
+		return TEST_ERROR;
+
 	authhdr->spi = 0x222;
 	authhdr->seq = 1;
 
