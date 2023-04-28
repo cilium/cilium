@@ -325,8 +325,8 @@ func newCmdUninstallWithHelm() *cobra.Command {
 	}
 
 	addCommonUninstallFlags(cmd, &params)
+	cmd.Flags().DurationVar(&params.Timeout, "timeout", defaults.UninstallTimeout, "Maximum time to wait for resources to be deleted")
 
-	cmd.Flags().DurationVar(&params.Timeout, "timeout", defaults.UninstallTimeout, "Maximum time to wait resources to be deleted")
 	return cmd
 }
 
