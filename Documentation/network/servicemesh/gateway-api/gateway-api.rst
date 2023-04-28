@@ -32,5 +32,7 @@ Cilium's Gateway API features:
 
    http
    https
+   splitting
+   header
 
 More examples can be found `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v0.6.1/examples/standard>`_.
