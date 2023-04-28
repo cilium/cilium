@@ -228,7 +228,6 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, encapProto string) err
 		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
 		fmt.Sprintf("-DNODE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
-		"-DFROM_ENCAP_DEV=1",
 	}
 	if option.Config.EnableNodePort {
 		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
