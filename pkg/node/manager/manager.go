@@ -33,6 +33,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
+	"github.com/cilium/cilium/pkg/set"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -554,19 +555,9 @@ func (m *manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentit
 // deleteIPCache deletes the IP addresses from the IPCache with the 'oldSource'
 // if they are not found in the newIPs slice.
 func (m *manager) deleteIPCache(oldSource source.Source, oldIPs []string, newIPs []string) {
-	for _, address := range oldIPs {
-		var found bool
-		for _, ipAdded := range newIPs {
-			if ipAdded == address {
-				found = true
-				break
-			}
-		}
-		// Delete from the IPCache if the node's IP addresses was not
-		// added in this update.
-		if !found {
-			m.ipcache.Delete(address, oldSource)
-		}
+	_, diff := set.SliceSubsetOf(oldIPs, newIPs)
+	for _, address := range diff {
+		m.ipcache.Delete(address, oldSource)
 	}
 }
 
@@ -603,6 +594,11 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
+	extraIPs := []net.IP{
+		entry.node.IPv4HealthIP, entry.node.IPv6HealthIP,
+		entry.node.IPv4IngressIP, entry.node.IPv6IngressIP,
+	}
+	toDelete := make([]string, 0, len(entry.node.IPAddresses)+len(extraIPs))
 	for _, address := range entry.node.IPAddresses {
 		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			iptables.RemoveFromNodeIpset(address.IP)
@@ -618,17 +614,14 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		} else {
 			prefix = ip.IPToNetPrefix(address.IP.To16())
 		}
-		m.ipcache.Delete(prefix.String(), n.Source)
+		toDelete = append(toDelete, prefix.String())
 	}
-
-	for _, address := range []net.IP{
-		entry.node.IPv4HealthIP, entry.node.IPv6HealthIP,
-		entry.node.IPv4IngressIP, entry.node.IPv6IngressIP,
-	} {
+	for _, address := range extraIPs {
 		if address != nil {
-			m.ipcache.Delete(address.String(), n.Source)
+			toDelete = append(toDelete, address.String())
 		}
 	}
+	m.deleteIPCache(n.Source, toDelete, nil)
 
 	m.metricNumNodes.Dec()
 
