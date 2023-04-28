@@ -69,7 +69,7 @@ func (c *Collector) ensureExecTarget(ctx context.Context, pod *corev1.Pod, conta
 		c.logDebug("Created EphemeralContainer %q on pod %q in namespace %q", ec.Name, pod.Name, pod.Namespace)
 
 		// Ephemeral container created, wait for it to enter Running status.
-		err = wait.PollWithContext(ctx, 10*time.Second, 30*time.Second, func(ctx context.Context) (bool, error) {
+		err = wait.PollUntilContextTimeout(ctx, 10*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
 			var err error
 			targetPod, err = c.Client.GetPod(ctx, targetPod.Namespace, targetPod.Name, metav1.GetOptions{})
 			if err != nil {
@@ -141,7 +141,7 @@ func (c *Collector) ensureExecTarget(ctx context.Context, pod *corev1.Pod, conta
 	}
 
 	// Wait up to 2 minutes for pod to be available
-	err = wait.PollWithContext(ctx, 10*time.Second, 2*time.Minute, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, 10*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
 		var err error
 		targetPod, err = c.Client.GetPod(ctx, targetPod.Namespace, targetPod.Name, metav1.GetOptions{})
 		if err != nil {
