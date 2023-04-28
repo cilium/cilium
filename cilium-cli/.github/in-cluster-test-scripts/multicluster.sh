@@ -47,8 +47,8 @@ cilium --context "${CONTEXT1}" status --wait
 cilium --context "${CONTEXT2}" status --wait
 
 # Enable cluster mesh
-cilium --context "${CONTEXT1}" clustermesh enable
-cilium --context "${CONTEXT2}" clustermesh enable
+cilium --context "${CONTEXT1}" clustermesh enable --service-type=LoadBalancer
+cilium --context "${CONTEXT2}" clustermesh enable --service-type=LoadBalancer
 
 # Copy the clustermesh secrets
 # TODO(ajs): Patch the connect command to expect the Helm secret name
