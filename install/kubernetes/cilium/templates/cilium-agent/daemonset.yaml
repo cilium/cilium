@@ -234,10 +234,10 @@ spec:
           containerPort: {{ .Values.prometheus.port }}
           hostPort: {{ .Values.prometheus.port }}
           protocol: TCP
-        {{- if and .Values.envoy.prometheus.enabled (not .Values.envoy.enabled) }}
+        {{- if and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled (not .Values.envoy.enabled) }}
         - name: envoy-metrics
-          containerPort: {{ .Values.envoy.prometheus.port }}
-          hostPort: {{ .Values.envoy.prometheus.port }}
+          containerPort: {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
+          hostPort: {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
           protocol: TCP
         {{- end }}
         {{- end }}

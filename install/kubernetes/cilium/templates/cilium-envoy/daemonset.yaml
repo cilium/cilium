@@ -22,8 +22,8 @@ spec:
   template:
     metadata:
       annotations:
-        {{- if and .Values.envoy.prometheus.enabled (not .Values.envoy.prometheus.serviceMonitor.enabled) }}
-        prometheus.io/port: "{{ .Values.envoy.prometheus.port }}"
+        {{- if and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled (not .Values.envoy.prometheus.serviceMonitor.enabled) }}
+        prometheus.io/port: "{{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}"
         prometheus.io/scrape: "true"
         {{- end }}
         {{- if .Values.envoy.rollOutPods }}
@@ -147,11 +147,11 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
-        {{- if .Values.envoy.prometheus.enabled }}
+        {{- if and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled }}
         ports:
         - name: envoy-metrics
-          containerPort: {{ .Values.envoy.prometheus.port }}
-          hostPort: {{ .Values.envoy.prometheus.port }}
+          containerPort: {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
+          hostPort: {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
           protocol: TCP
         {{- end }}
         securityContext:
