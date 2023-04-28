@@ -14,9 +14,9 @@ on:
         required: true
 
   # To test: uncomment this and update it to your branch name and push to the branch.
-  # push:
-  #   branches:
-  #     - ft/main/<your_branch>
+  push:
+    branches:
+      - ft/main/chancez/push-dev-charts
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
