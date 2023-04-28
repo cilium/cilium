@@ -24,27 +24,18 @@ type EnvoyAdminClient struct {
 }
 
 func NewEnvoyAdminClientForSocket(envoySocketDir string) *EnvoyAdminClient {
-	// Have to use a fake IP address:port even when we Dial to a Unix domain socket.
-	// The address:port will be visible to Envoy as ':authority', but its value is
-	// not meaningful.
-	// Not using the normal localhost address to make it obvious that we are not
-	// connecting to Envoy's admin interface via the IP stack.
-	adminAddress := "192.0.2.34:56"
-	adminSocketPath := getAdminSocketPath(envoySocketDir)
-
-	envoyAdmin := &EnvoyAdminClient{
-		adminURL: fmt.Sprintf("http://%s/", adminAddress),
-		unixPath: adminSocketPath,
+	return &EnvoyAdminClient{
+		// Needs to be provided to envoy (received as ':authority') - even though we Dial to a Unix domain socket.
+		adminURL: fmt.Sprintf("http://%s/", "envoy-admin"),
+		unixPath: getAdminSocketPath(envoySocketDir),
 	}
-
-	return envoyAdmin
 }
 
 func (a *EnvoyAdminClient) transact(query string) error {
-	// Use a custom dialer to use a Unix domain socket for a HTTP connection.
+	// Use a custom dialer to use a Unix domain socket for an HTTP connection.
 	client := &http.Client{
 		Transport: &http.Transport{
-			Dial: func(_, _ string) (net.Conn, error) { return net.Dial("unix", a.unixPath) },
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) { return net.Dial("unix", a.unixPath) },
 		},
 	}
 
