@@ -306,6 +306,16 @@ Annotations:
 
 1.15 Upgrade Notes
 ------------------
+* If you configured Cilium with both IPv4 and IPv6 support enabled, and you have
+  a network policy with a ``ToCIDR`` or ``ToCIDRSet`` rule matching a full
+  IP range such as ``0.0.0.0/0`` or ``::/0``, then you may experience
+  connection breakage when switching Cilium versions. When this problem
+  occurs, existing connections allowed by the network policy may be denied
+  until the application reconnects. New connections are not impacted.
+  Upgrading from Cilium 1.14.x or earlier to 1.15.y or later does not
+  trigger this problem. Downgrading from Cilium 1.15.y or later to Cilium
+  1.14.x or earlier may trigger this problem.
+  
 .. _upgrade_cilium_cli_helm_mode:
 
 Cilium CLI
