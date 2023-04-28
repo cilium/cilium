@@ -97,15 +97,6 @@ func LocalMapPath(name string, id uint16) string {
 	return MapPath(LocalMapName(name, id))
 }
 
-// Environment returns a list of environment variables which are needed to make
-// BPF programs and tc aware of the actual BPFFS mount path.
-func Environment() []string {
-	return append(
-		os.Environ(),
-		fmt.Sprintf("TC_BPF_MNT=%s", BPFFSRoot()),
-	)
-}
-
 var (
 	mountOnce sync.Once
 )
