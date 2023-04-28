@@ -6,9 +6,9 @@
 
 .. _gs_gateway_splitting:
 
-************
+*************************
 Traffic Splitting Example
-************
+*************************
 
 HTTP traffic splitting is the process of sending incoming traffic to multiple backend services, based on predefined weights or other criteria. 
 The Cilium Gateway API includes built-in support for traffic splitting, allowing users to easily distribute incoming traffic across multiple backend services. 

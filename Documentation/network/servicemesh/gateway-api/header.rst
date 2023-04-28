@@ -6,9 +6,9 @@
 
 .. _gs_gateway_header:
 
-************
+*****************************
 HTTP Header Modifier Examples
-************
+*****************************
 
 The Gateway can modify the headers of HTTP requests from clients. 
 
