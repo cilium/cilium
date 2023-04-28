@@ -190,6 +190,10 @@ static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
 	      snat_v6_process(ctx, NAT_DIR_EGRESS, &target) : CTX_ACT_OK;
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
+
+	/* See the equivalent v4 path for comment */
+	bpf_mark_snat_done(ctx);
+
 	return ret;
 }
 
@@ -1112,6 +1116,12 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
 		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
+
+	/* If multiple netdevs process an outgoing packet, then this packets will
+	 * be handled multiple times by the "to-netdev" section. This can lead
+	 * to multiple SNATs. To prevent from that, set the SNAT done flag.
+	 */
+	bpf_mark_snat_done(ctx);
 
 	return ret;
 }
