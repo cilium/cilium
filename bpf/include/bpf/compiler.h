@@ -54,7 +54,7 @@
 #endif
 
 #ifndef __fetch
-# define __fetch(X)		(__u32)(__u64)(&(X))
+# define __fetch(X)		(__u64)(&(X))
 #endif
 
 #ifndef __aligned

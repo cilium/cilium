@@ -208,6 +208,24 @@ func sliceToBe32(input []byte) uint32 {
 	return byteorder.HostToNetwork32(sliceToU32(input))
 }
 
+// sliceToU64 converts the input slice of eight bytes to a uint64.
+func sliceToU64(input []byte) uint64 {
+	result := uint64(input[0]) << 56
+	result |= uint64(input[1]) << 48
+	result |= uint64(input[2]) << 40
+	result |= uint64(input[3]) << 32
+	result |= uint64(input[4]) << 24
+	result |= uint64(input[5]) << 16
+	result |= uint64(input[6]) << 8
+	result |= uint64(input[7])
+	return result
+}
+
+// sliceToBe64 converts the input slice of eight bytes to a big-endian uint64.
+func sliceToBe64(input []byte) uint64 {
+	return byteorder.HostToNetwork64(sliceToU64(input))
+}
+
 // elfVariableSubstitutions returns the set of data substitutions that must
 // occur in an ELF template object file to update static data for the specified
 // endpoint.
@@ -216,10 +234,8 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 
 	if ipv6 := ep.IPv6Address().AsSlice(); ipv6 != nil {
 		// Corresponds to DEFINE_IPV6() in bpf/lib/utils.h
-		result["LXC_IP_1"] = uint64(sliceToBe32(ipv6[0:4]))
-		result["LXC_IP_2"] = uint64(sliceToBe32(ipv6[4:8]))
-		result["LXC_IP_3"] = uint64(sliceToBe32(ipv6[8:12]))
-		result["LXC_IP_4"] = uint64(sliceToBe32(ipv6[12:16]))
+		result["LXC_IP_1"] = sliceToBe64(ipv6[0:8])
+		result["LXC_IP_2"] = sliceToBe64(ipv6[8:16])
 	}
 	if ipv4 := ep.IPv4Address().AsSlice(); ipv4 != nil {
 		result["LXC_IPV4"] = uint64(byteorder.NetIPv4ToHost32(net.IP(ipv4)))

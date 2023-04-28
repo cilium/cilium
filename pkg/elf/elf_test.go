@@ -128,7 +128,7 @@ func (s *ELFTestSuite) TestWrite(c *C) {
 		},
 	}
 
-	for i := 1; i <= 4; i++ {
+	for i := 1; i <= 2; i++ {
 		testOptions = append(testOptions, testOption{
 			description:  fmt.Sprintf("test ipv6 substitution %d", i),
 			key:          fmt.Sprintf("GLOBAL_IPV6_%d", i),
