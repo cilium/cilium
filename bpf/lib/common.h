@@ -232,13 +232,11 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
-#define BPF_V6_1(dst, ...)	BPF_V6_4(dst, __VA_ARGS__)
-#define BPF_V6_4(dst, a1, a2, a3, a4)		\
+#define BPF_V6_1(dst, ...)	BPF_V6_2(dst, __VA_ARGS__)
+#define BPF_V6_2(dst, a1, a2)		\
 	({					\
-		dst.p1 = a1;			\
-		dst.p2 = a2;			\
-		dst.p3 = a3;			\
-		dst.p4 = a4;			\
+		dst.d1 = a1;			\
+		dst.d2 = a2;			\
 	})
 
 #define ENDPOINT_KEY_IPV4 1

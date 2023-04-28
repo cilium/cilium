@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/btf"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -63,9 +64,21 @@ func TestInlineGlobalData(t *testing.T) {
 		ByteOrder: binary.LittleEndian,
 		Maps: map[string]*ebpf.MapSpec{
 			globalDataMap: {
+				Value: &btf.Datasec{
+					Vars: []btf.VarSecinfo{
+						{Offset: 0, Size: 4},
+						{Offset: 4, Size: 2},
+						{Offset: 8, Size: 8},
+					},
+				},
 				Contents: []ebpf.MapKV{{Value: []byte{
+					// var 1
 					0x0, 0x0, 0x0, 0x80,
-					0x1, 0x0, 0x0, 0x0,
+					// var 2 has padding since var 3 aligns to 64 bits. Fill the padding
+					// with garbage to test if it gets masked correctly by the inliner.
+					0x1, 0x0, 0xff, 0xff,
+					// var 3
+					0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x7f,
 				}}},
 			},
 		},
@@ -78,6 +91,8 @@ func TestInlineGlobalData(t *testing.T) {
 					asm.LoadMapValue(asm.R0, 0, 0).WithReference(globalDataMap).WithSymbol("func1"),
 					// Pseudo-load at offset 4.
 					asm.LoadMapValue(asm.R0, 0, 4).WithReference(globalDataMap),
+					// Pseudo-load at offset 8, pointing at a u64.
+					asm.LoadMapValue(asm.R0, 0, 8).WithReference(globalDataMap),
 					asm.Return(),
 				},
 			},
@@ -88,17 +103,20 @@ func TestInlineGlobalData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ins := spec.Programs["prog1"].Instructions[0]
-	if want, got := 0x80000000, int(ins.Constant); want != got {
+	insns := spec.Programs["prog1"].Instructions
+	if want, got := 0x80000000, int(insns[0].Constant); want != got {
 		t.Errorf("unexpected Instruction constant: want: 0x%x, got: 0x%x", want, got)
 	}
 
-	if want, got := "func1", ins.Symbol(); want != got {
+	if want, got := "func1", insns[0].Symbol(); want != got {
 		t.Errorf("unexpected Symbol value of Instruction: want: %s, got: %s", want, got)
 	}
 
-	ins = spec.Programs["prog1"].Instructions[1]
-	if want, got := 0x1, int(ins.Constant); want != got {
+	if want, got := 0x1, int(insns[1].Constant); want != got {
+		t.Errorf("unexpected Instruction constant: want: 0x%x, got: 0x%x", want, got)
+	}
+
+	if want, got := 0x7f00000000000000, int(insns[2].Constant); want != got {
 		t.Errorf("unexpected Instruction constant: want: 0x%x, got: 0x%x", want, got)
 	}
 }

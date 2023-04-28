@@ -128,7 +128,7 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 		return buf.Bytes(), varSub, stringSub
 	}
 
-	lxcIPs := []string{"LXC_IP_1", "LXC_IP_2", "LXC_IP_3", "LXC_IP_4"}
+	lxcIPs := []string{"LXC_IP_1", "LXC_IP_2"}
 
 	tests := []struct {
 		description string
@@ -211,9 +211,9 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	cfg.writeStaticData(&buf, ep)
 	b := buf.Bytes()
 	for k := range varSub {
-		for _, suffix := range []string{"_1", "_2", "_3", "_4"} {
+		for _, suffix := range []string{"_1", "_2"} {
 			// Variables with these suffixes are implemented via
-			// multiple 32-bit values. The header define doesn't
+			// multiple 64-bit values. The header define doesn't
 			// include these numbers though, so strip them.
 			if strings.HasSuffix(k, suffix) {
 				k = strings.TrimSuffix(k, suffix)
