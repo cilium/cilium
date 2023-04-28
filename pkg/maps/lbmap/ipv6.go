@@ -443,9 +443,9 @@ func (b *Backend6) GetValue() BackendValue { return b.Value }
 // SockRevNat6Key is the tuple with address, port and cookie used as key in
 // the reverse NAT sock map.
 type SockRevNat6Key struct {
-	cookie  uint64     `align:"cookie"`
-	address types.IPv6 `align:"address"`
-	port    int16      `align:"port"`
+	Cookie  uint64     `align:"cookie"`
+	Address types.IPv6 `align:"address"`
+	Port    int16      `align:"port"`
 	_       [6]byte
 }
 
@@ -462,9 +462,22 @@ type SockRevNat6Value struct {
 // SizeofSockRevNat6Value is the size of type SockRevNat6Value.
 const SizeofSockRevNat6Value = int(unsafe.Sizeof(SockRevNat6Value{}))
 
+func (k *SockRevNat6Key) Map() *bpf.Map { return SockRevNat6Map }
+
+func NewSockRevNat6Key(cookie uint64, addr net.IP, port uint16) *SockRevNat6Key {
+	var key SockRevNat6Key
+
+	key.Cookie = cookie
+	key.Port = int16(byteorder.NetworkToHost16(port))
+	ipv6Array := addr.To16()
+	copy(key.Address[:], ipv6Array[:])
+
+	return &key
+}
+
 // String converts the key into a human readable string format.
 func (k *SockRevNat6Key) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", k.address, k.port, k.cookie)
+	return fmt.Sprintf("[%s]:%d, %d", k.Address, k.Port, k.Cookie)
 }
 
 func (k *SockRevNat6Key) New() bpf.MapKey { return &SockRevNat6Key{} }
