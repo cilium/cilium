@@ -399,13 +399,12 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			return fmt.Errorf("unable to query nodes")
 		}
 		for _, l := range n.Items {
-			if _, ok := zones[l.GetLabels()["topology.kubernetes.io/zone"]]; ok {
-				zone = l.GetLabels()["topology.kubernetes.io/zone"]
+			if _, ok := zones[l.GetLabels()[corev1.LabelTopologyZone]]; ok {
+				zone = l.GetLabels()[corev1.LabelTopologyZone]
 				break
 			}
-
-			zones[l.GetLabels()["topology.kubernetes.io/zone"]] = 1
-			lz = l.GetLabels()["topology.kubernetes.io/zone"]
+			zones[l.GetLabels()[corev1.LabelTopologyZone]] = 1
+			lz = l.GetLabels()[corev1.LabelTopologyZone]
 		}
 		// No zone had > 1, use the last zone.
 		if zone == "" {
@@ -440,7 +439,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 								Weight: 100,
 								Preference: corev1.NodeSelectorTerm{
 									MatchExpressions: []corev1.NodeSelectorRequirement{
-										{Key: "topology.kubernetes.io/zone", Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
+										{Key: corev1.LabelTopologyZone, Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
 									},
 								},
 							},
@@ -479,7 +478,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 								Weight: 100,
 								Preference: corev1.NodeSelectorTerm{
 									MatchExpressions: []corev1.NodeSelectorRequirement{
-										{Key: "topology.kubernetes.io/zone", Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
+										{Key: corev1.LabelTopologyZone, Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
 									},
 								},
 							},
@@ -493,7 +492,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{nm.ClientName()}},
 									},
 								},
-								TopologyKey: "kubernetes.io/hostname",
+								TopologyKey: corev1.LabelHostname,
 							},
 						},
 					},
@@ -533,7 +532,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 									Weight: 100,
 									Preference: corev1.NodeSelectorTerm{
 										MatchExpressions: []corev1.NodeSelectorRequirement{
-											{Key: "topology.kubernetes.io/zone", Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
+											{Key: corev1.LabelTopologyZone, Operator: corev1.NodeSelectorOpIn, Values: []string{zone}},
 										},
 									},
 								},
@@ -544,7 +543,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 								{Weight: 100, PodAffinityTerm: corev1.PodAffinityTerm{
 									LabelSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{nm.ClientName()}}}},
-									TopologyKey: "kubernetes.io/hostname"}}}},
+									TopologyKey: corev1.LabelHostname}}}},
 					},
 					NodeSelector: ct.params.NodeSelector,
 					HostNetwork:  ct.params.PerfHostNet,
@@ -662,7 +661,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
 								},
 							},
-							TopologyKey: "kubernetes.io/hostname",
+							TopologyKey: corev1.LabelHostname,
 						},
 					},
 				},
@@ -722,7 +721,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
 								},
 							},
-							TopologyKey: "kubernetes.io/hostname",
+							TopologyKey: corev1.LabelHostname,
 						},
 					},
 				},
@@ -778,7 +777,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
 									},
 								},
-								TopologyKey: "kubernetes.io/hostname",
+								TopologyKey: corev1.LabelHostname,
 							},
 						},
 					},
