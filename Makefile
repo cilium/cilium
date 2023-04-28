@@ -291,7 +291,7 @@ build-rpm: ## Build rpm package of cilium.
 ##@ API targets
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
-	$(eval TMPDIR := $(shell mktemp -d))
+	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
 	cd "./vendor/sigs.k8s.io/controller-tools/cmd/controller-gen" && \
 	$(QUIET)$(GO) run ./... $(CRD_OPTIONS) paths="$(PWD)/pkg/k8s/apis/cilium.io/v2;$(PWD)/pkg/k8s/apis/cilium.io/v2alpha1" output:crd:artifacts:config="$(TMPDIR)";
 	$(QUIET)$(GO) run ./tools/crdcheck "$(TMPDIR)"
