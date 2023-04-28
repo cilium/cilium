@@ -1711,10 +1711,12 @@ dashboards:
 
 # -- Configure Istio proxy options.
 proxy:
-  # Deprecated: use envoy.prometheus instead
+
   prometheus:
+    # -- Deprecated in favor of envoy.prometheus.enabled
     enabled: true
-    port: "9964"
+    # -- Deprecated in favor of envoy.prometheus.port
+    port: ~
   # -- Regular expression matching compatible Istio sidecar istio-proxy
   # container image names
   sidecarImageRegex: "cilium/istio_proxy"

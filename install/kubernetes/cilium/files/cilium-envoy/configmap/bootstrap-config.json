@@ -5,13 +5,13 @@
   },
   "staticResources": {
     "listeners": [
-      {{- if and .Values.prometheus.enabled .Values.envoy.prometheus.enabled }}
+      {{- if and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled }}
       {
         "name": "envoy-prometheus-metrics-listener",
         "address": {
           "socket_address": {
             "address": "0.0.0.0",
-            "port_value": {{ .Values.envoy.prometheus.port }}
+            "port_value": {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
           }
         },
         "filter_chains": [

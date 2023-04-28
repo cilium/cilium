@@ -182,8 +182,8 @@ data:
   prometheus-serve-addr: ":{{ .Values.prometheus.port }}"
   # Port to expose Envoy metrics (e.g. "9964"). Envoy metrics listener will be disabled if this
   # field is not set.
-  {{- if .Values.envoy.prometheus.enabled }}
-  proxy-prometheus-port: "{{ .Values.envoy.prometheus.port }}"
+  {{- if and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled }}
+  proxy-prometheus-port: "{{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}"
   {{- end }}
   {{- if .Values.prometheus.metrics }}
   # Metrics that should be enabled or disabled from the default metric

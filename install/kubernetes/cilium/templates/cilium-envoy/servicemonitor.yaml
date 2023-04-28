@@ -1,4 +1,4 @@
-{{- if and .Values.envoy.enabled (not .Values.preflight.enabled) .Values.envoy.prometheus.enabled .Values.envoy.prometheus.serviceMonitor.enabled }}
+{{- if and .Values.envoy.enabled (not .Values.preflight.enabled) .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled .Values.envoy.prometheus.serviceMonitor.enabled }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

@@ -2259,7 +2259,15 @@
    * - proxy
      - Configure Istio proxy options.
      - object
-     - ``{"prometheus":{"enabled":true,"port":"9964"},"sidecarImageRegex":"cilium/istio_proxy"}``
+     - ``{"prometheus":{"enabled":true,"port":null},"sidecarImageRegex":"cilium/istio_proxy"}``
+   * - proxy.prometheus.enabled
+     - Deprecated in favor of envoy.prometheus.enabled
+     - bool
+     - ``true``
+   * - proxy.prometheus.port
+     - Deprecated in favor of envoy.prometheus.port
+     - string
+     - ``nil``
    * - proxy.sidecarImageRegex
      - Regular expression matching compatible Istio sidecar istio-proxy container image names
      - string
