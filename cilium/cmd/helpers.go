@@ -123,10 +123,13 @@ func TablePrinter(firstTitle, secondTitle string, data map[string][]string) {
 	w.Flush()
 }
 
+var (
+	reStringWithJSON = regexp.MustCompile(`"[^"\\{]*{.*[^\\]"`)
+	reJSON           = regexp.MustCompile(`{(.|\n)*}`)
+)
+
 // Search 'result' for strings with escaped JSON inside, and expand the JSON.
 func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
-	reStringWithJSON := regexp.MustCompile(`"[^"\\{]*{.*[^\\]"`)
-	reJSON := regexp.MustCompile(`{(.|\n)*}`)
 	for {
 		var (
 			loc    []int

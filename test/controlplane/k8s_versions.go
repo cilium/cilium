@@ -12,6 +12,7 @@ import (
 var (
 	//go:embed k8s_versions.txt
 	k8sVersionsData []byte
+	versionRegex    = regexp.MustCompile(`\d\.\d{2}`)
 )
 
 func K8sVersions() (k8sVersions []string) {
@@ -19,7 +20,7 @@ func K8sVersions() (k8sVersions []string) {
 
 	for _, w := range words {
 		if len(w) != 0 {
-			version := regexp.MustCompile(`\d\.\d{2}`).Find(w)
+			version := versionRegex.Find(w)
 			k8sVersions = append(k8sVersions, string(version))
 		}
 	}

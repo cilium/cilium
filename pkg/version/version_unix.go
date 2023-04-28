@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
+var versionRegex = regexp.MustCompilePOSIX(`^[0-9]+`)
+
 func parseKernelVersion(ver string) (semver.Version, error) {
 	verStrs := strings.Split(ver, ".")
 	switch {
@@ -29,7 +31,7 @@ func parseKernelVersion(ver string) (semver.Version, error) {
 
 	// If verStrs is []string{ "4", "9", "17-040917-generic" }
 	// then we need to retrieve patch number.
-	patch := regexp.MustCompilePOSIX(`^[0-9]+`).FindString(verStrs[2])
+	patch := versionRegex.FindString(verStrs[2])
 	if patch == "" {
 		verStrs[2] = "0"
 	} else {

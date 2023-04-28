@@ -773,19 +773,21 @@ func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl) (monitorRes *helpe
 	return monitorRes, monitorCancel, targetIP
 }
 
+var (
+	egressTCPRegex = regexp.MustCompile(`TCP.*DstPort=80.*FIN=true`)
+	portRegex      = regexp.MustCompile(`SrcPort=([0-9]*)`)
+)
+
 func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount int) error {
 	// Multiple connection attempts may be made, we need to
 	// narrow down to the last connection close, then match
 	// the ephemeral port + flags to ensure that the
 	// notifications match the table above.
-	egressTCPExpr := `TCP.*DstPort=80.*FIN=true`
-	egressTCPRegex := regexp.MustCompile(egressTCPExpr)
 	egressTCPMatches := egressTCPRegex.FindAll(monitorOutput, -1)
 	if len(egressTCPMatches) == 0 {
 		return fmt.Errorf("could not locate TCP FIN in monitor log")
 	}
 	finalMatch := egressTCPMatches[len(egressTCPMatches)-1]
-	portRegex := regexp.MustCompile(`SrcPort=([0-9]*)`)
 	// FindSubmatch should return ["SrcPort=12345" "12345"]
 	portBytes := portRegex.FindSubmatch(finalMatch)[1]
 

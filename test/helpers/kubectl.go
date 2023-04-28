@@ -3882,13 +3882,14 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 	return nil
 }
 
+var reNoQuorum = regexp.MustCompile(`^.*KVStore:.*has-quorum=false.*$`)
+
 func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 	ginkgoext.By("Performing Cilium status preflight check")
 	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
-	reNoQuorum := regexp.MustCompile(`^.*KVStore:.*has-quorum=false.*$`)
 	for _, pod := range ciliumPods {
 		status := kub.CiliumExecContext(context.TODO(), pod, "cilium status --all-health --all-nodes")
 		if !status.WasSuccessful() {

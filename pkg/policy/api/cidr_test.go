@@ -17,12 +17,12 @@ func (s *PolicyAPITestSuite) TestCIDRMatchesAll(c *C) {
 	cidr := CIDR("0.0.0.0/0")
 	c.Assert(cidr.MatchesAll(), Equals, true)
 
-	cidr = CIDR("::/0")
+	cidr = "::/0"
 	c.Assert(cidr.MatchesAll(), Equals, true)
 
-	cidr = CIDR("192.0.2.0/24")
+	cidr = "192.0.2.0/24"
 	c.Assert(cidr.MatchesAll(), Equals, false)
-	cidr = CIDR("192.0.2.3/32")
+	cidr = "192.0.2.3/32"
 	c.Assert(cidr.MatchesAll(), Equals, false)
 }
 
@@ -83,11 +83,9 @@ func (s *PolicyAPITestSuite) TestGetAsEndpointSelectors(c *C) {
 	c.Assert(result, checker.DeepEquals, expectedSelectors)
 }
 
-const CIDRRegex = `^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$`
+var cidrRegex = regexp.MustCompile(`^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4})?):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:)(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$`)
 
 func (s *PolicyAPITestSuite) TestCIDRRegex(c *C) {
-	reg := regexp.MustCompile(CIDRRegex)
-
 	goodCIDRs := []string{
 		"192.0.2.3/32",
 		"192.0.2.0/24",
@@ -106,7 +104,7 @@ func (s *PolicyAPITestSuite) TestCIDRRegex(c *C) {
 
 continueTest:
 	for _, input := range goodCIDRs {
-		if matched := reg.MatchString(input); matched {
+		if matched := cidrRegex.MatchString(input); matched {
 			continue continueTest
 		}
 		// The below is always false, valid CIDR prefixes should
@@ -142,7 +140,7 @@ continueTest:
 	}
 
 	for _, input := range badCIDRs {
-		if matched := reg.MatchString(input); matched {
+		if matched := cidrRegex.MatchString(input); matched {
 			// The below is always false, invalid CIDR
 			// prefixes are not supposed to match the regex.
 			c.Assert(input, Equals, "unexpectedly matched CIDR.OneOf[*].Pattern")

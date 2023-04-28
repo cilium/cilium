@@ -118,13 +118,14 @@ func (ipt *ipt) getIpset() string {
 	return ipt.ipset
 }
 
+var versionRegex = regexp.MustCompile(`v([0-9]+(\\.[0-9]+)+)`)
+
 func (ipt *ipt) getVersion() (semver.Version, error) {
 	b, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, "--version").CombinedOutput(log, false)
 	if err != nil {
 		return semver.Version{}, err
 	}
-	v := regexp.MustCompile("v([0-9]+(\\.[0-9]+)+)")
-	vString := v.FindStringSubmatch(string(b))
+	vString := versionRegex.FindStringSubmatch(string(b))
 	if vString == nil {
 		return semver.Version{}, fmt.Errorf("no iptables version found in string: %s", string(b))
 	}

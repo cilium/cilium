@@ -98,6 +98,8 @@ func (o LogOptions) GetLogLevel() (level logrus.Level) {
 	return
 }
 
+var logFmtRegex = regexp.MustCompile(`^(text|json|json-ts)$`)
+
 // GetLogFormat returns the log format specified in the provided LogOptions. If
 // it is not set in the options or is invalid, it will return the default format.
 func (o LogOptions) GetLogFormat() LogFormat {
@@ -107,8 +109,7 @@ func (o LogOptions) GetLogFormat() LogFormat {
 	}
 
 	formatOpt = strings.ToLower(formatOpt)
-	re := regexp.MustCompile(`^(text|json|json-ts)$`)
-	if !re.MatchString(formatOpt) {
+	if !logFmtRegex.MatchString(formatOpt) {
 		logrus.WithError(
 			fmt.Errorf("incorrect log format configured '%s', expected 'text', 'json' or 'json-ts'", formatOpt),
 		).Warning("Ignoring user-configured log format")

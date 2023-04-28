@@ -84,11 +84,13 @@ func getErrorWarningMsgs(logs string, n int) []string {
 	return result
 }
 
+var (
+	msgRegex = regexp.MustCompile(`msg=".*?"`)
+	errRegex = regexp.MustCompile(`error=".*?"`)
+)
+
 // getMsg extracts message from log line
 func getMsg(logLine string) string {
-	msgRegex := regexp.MustCompile(`msg=".*?"`)
-	errRegex := regexp.MustCompile(`error=".*?"`)
-
 	msg := msgRegex.FindString(logLine)
 	offset := 5
 	if len(msg) == 0 {

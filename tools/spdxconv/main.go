@@ -27,7 +27,7 @@ Usage:
 )
 
 var (
-	// RegexMap maps an identifying regexp expression
+	// RegexpMap maps an identifying regexp expression
 	// with the SPDX string that replaces it.
 	RegexpMap = map[*regexp.Regexp]string{
 		regexp.MustCompile(`(?m)Apache License, Version 2.0`): "// SPDX-License-Identifier: Apache-2.0",
