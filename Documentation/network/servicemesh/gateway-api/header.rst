@@ -47,7 +47,7 @@ The above example creates a Gateway named ``cilium-gw`` that listens on port 80.
     Some providers e.g. EKS use a fully-qualified domain name rather than an IP address.
 
 Modify incoming HTTP Requests 
-==================
+=============================
 
 Now that the Gateway is ready, you can make HTTP requests.
 
