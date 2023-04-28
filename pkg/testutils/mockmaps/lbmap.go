@@ -5,6 +5,7 @@ package mockmaps
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -12,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 )
 
 type LBMockMap struct {
@@ -22,6 +24,8 @@ type LBMockMap struct {
 	SourceRanges           datapathTypes.SourceRangeSetByServiceID
 	DummyMaglevTable       map[uint16]int // svcID => backends count
 	SvcActiveBackendsCount map[uint16]int
+	SockRevNat4            map[lbmap.SockRevNat4Key]lbmap.SockRevNat4Value
+	SockRevNat6            map[lbmap.SockRevNat6Key]lbmap.SockRevNat6Value
 }
 
 func NewLBMockMap() *LBMockMap {
@@ -32,6 +36,8 @@ func NewLBMockMap() *LBMockMap {
 		SourceRanges:           datapathTypes.SourceRangeSetByServiceID{},
 		DummyMaglevTable:       map[uint16]int{},
 		SvcActiveBackendsCount: map[uint16]int{},
+		SockRevNat4:            map[lbmap.SockRevNat4Key]lbmap.SockRevNat4Value{},
+		SockRevNat6:            map[lbmap.SockRevNat6Key]lbmap.SockRevNat6Value{},
 	}
 }
 
@@ -237,4 +243,20 @@ func (m *LBMockMap) UpdateSourceRanges(revNATID uint16, prevRanges []*cidr.CIDR,
 
 func (m *LBMockMap) DumpSourceRanges(ipv6 bool) (datapathTypes.SourceRangeSetByServiceID, error) {
 	return m.SourceRanges, nil
+}
+
+func (m *LBMockMap) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
+	if addr.To4() != nil {
+		key := lbmap.NewSockRevNat4Key(cookie, addr, port)
+		if _, ok := m.SockRevNat4[*key]; ok {
+			return true
+		}
+	} else {
+		key := lbmap.NewSockRevNat6Key(cookie, addr, port)
+		if _, ok := m.SockRevNat6[*key]; ok {
+			return true
+		}
+	}
+
+	return false
 }

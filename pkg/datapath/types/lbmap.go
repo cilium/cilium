@@ -27,6 +27,7 @@ type LBMap interface {
 	DumpBackendMaps() ([]*loadbalancer.Backend, error)
 	DumpAffinityMatches() (BackendIDByServiceIDSet, error)
 	DumpSourceRanges(bool) (SourceRangeSetByServiceID, error)
+	ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool
 }
 
 type UpsertServiceParams struct {
