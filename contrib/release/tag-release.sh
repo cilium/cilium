@@ -27,8 +27,8 @@ handle_args() {
         common::exit 1 "VERSION file not found. Is this directory a Cilium repository?"
     fi
 
-    if ! which hub >/dev/null; then
-        echo "This tool relies on 'hub' from https://github.com/github/hub ." 1>&2
+    if ! which gh >/dev/null; then
+        echo "This tool relies on 'gh' from https://cli.github.com/ ." 1>&2
         common::exit 1 "Please install this tool first."
     fi
 

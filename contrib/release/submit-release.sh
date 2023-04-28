@@ -29,8 +29,8 @@ if ! git branch -a | grep -q "$REMOTE/$BRANCH$" || [ ! -e $SUMMARY ]; then
     exit 1
 fi
 
-if ! hub help | grep -q "pull-request"; then
-    echo "This tool relies on 'hub' from https://github.com/github/hub." 1>&2
+if ! gh help | grep -q "pr"; then
+    echo "This tool relies on 'gh' from https://cli.github.com/." 1>&2
     echo "Please install this tool first." 1>&2
     exit 1
 fi
@@ -67,4 +67,4 @@ LABELS="kind/release"
 if [ "$BRANCH" != "main" ]; then
     LABELS="$LABELS,backport/$(echo $BRANCH | sed 's/^v//')"
 fi
-hub pull-request -b "$BRANCH" -l "$LABELS" -F $SUMMARY
+gh pr create -b "$BRANCH" -l "$LABELS" -F $SUMMARY -t "$(head -n 1 $SUMMARY)"
