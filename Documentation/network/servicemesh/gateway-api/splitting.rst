@@ -109,7 +109,7 @@ Verify that the responses have been (more or less) evenly spread.
     1162
 
 Uneven (99/1) traffic split
-==================
+===========================
 
 Update the HTTPRoute weights (either by using ``kubectl edit httproute`` or by updating the value in the original manifest before reapplying it) to, for example, ``99`` for echo-1 and ``1`` for echo-2:
 
