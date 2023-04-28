@@ -25,4 +25,5 @@ type EipSegment struct {
 	Name         string `json:"Name" xml:"Name"`
 	Segment      string `json:"Segment" xml:"Segment"`
 	RegionId     string `json:"RegionId" xml:"RegionId"`
+	Zone         string `json:"Zone" xml:"Zone"`
 }

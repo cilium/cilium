@@ -69,7 +69,13 @@ func (p *Process) CwdWithContext(ctx context.Context) (string, error) {
 }
 
 func (p *Process) ExeWithContext(ctx context.Context) (string, error) {
-	return "", common.ErrNotImplementedError
+	mib := []int32{CTLKern, KernProc, KernProcPathname, p.Pid}
+	buf, _, err := common.CallSyscall(mib)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.Trim(string(buf), "\x00"), nil
 }
 
 func (p *Process) CmdlineWithContext(ctx context.Context) (string, error) {

@@ -87,8 +87,10 @@ type GetDhcpOptionsSetResponse struct {
 	DhcpOptionsSetId          string         `json:"DhcpOptionsSetId" xml:"DhcpOptionsSetId"`
 	DhcpOptionsSetName        string         `json:"DhcpOptionsSetName" xml:"DhcpOptionsSetName"`
 	OwnerId                   int64          `json:"OwnerId" xml:"OwnerId"`
+	ResourceGroupId           string         `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	DhcpOptions               DhcpOptions    `json:"DhcpOptions" xml:"DhcpOptions"`
 	AssociateVpcs             []AssociateVpc `json:"AssociateVpcs" xml:"AssociateVpcs"`
+	Tags                      []Tag          `json:"Tags" xml:"Tags"`
 }
 
 // CreateGetDhcpOptionsSetRequest creates a request to invoke GetDhcpOptionsSet API

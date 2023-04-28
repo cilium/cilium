@@ -85,6 +85,7 @@ type UpdateTrafficMirrorSessionAttributeRequest struct {
 	OwnerId                         requests.Integer `position:"Query" name:"OwnerId"`
 	TrafficMirrorTargetId           string           `position:"Query" name:"TrafficMirrorTargetId"`
 	TrafficMirrorFilterId           string           `position:"Query" name:"TrafficMirrorFilterId"`
+	PacketLength                    requests.Integer `position:"Query" name:"PacketLength"`
 	VirtualNetworkId                requests.Integer `position:"Query" name:"VirtualNetworkId"`
 }
 
