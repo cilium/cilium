@@ -57,6 +57,8 @@ var (
 	Backend6MapV3 *bpf.Map
 	// RevNat6Map is the IPv6 LB reverse NAT BPF map.
 	RevNat6Map *bpf.Map
+	// SockRevNat6Map is the IPv6 LB sock reverse NAT BPF map.
+	SockRevNat6Map *bpf.Map
 )
 
 // The compile-time check for whether the structs implement the interfaces
@@ -476,12 +478,12 @@ func (v *SockRevNat6Value) New() bpf.MapValue { return &SockRevNat6Value{} }
 
 // CreateSockRevNat6Map creates the reverse NAT sock map.
 func CreateSockRevNat6Map() error {
-	sockRevNat6Map := bpf.NewMap(SockRevNat6MapName,
+	SockRevNat6Map = bpf.NewMap(SockRevNat6MapName,
 		ebpf.LRUHash,
 		&SockRevNat6Key{},
 		&SockRevNat6Value{},
 		MaxSockRevNat6MapEntries,
 		0,
 	).WithPressureMetric()
-	return sockRevNat6Map.Create()
+	return SockRevNat6Map.OpenOrCreate()
 }

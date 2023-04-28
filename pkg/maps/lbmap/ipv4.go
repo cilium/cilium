@@ -57,6 +57,8 @@ var (
 	Backend4MapV3 *bpf.Map
 	// RevNat4Map is the IPv4 LB reverse NAT BPF map.
 	RevNat4Map *bpf.Map
+	// SockRevNat4Map is the IPv4 LB sock reverse NAT BPF map.
+	SockRevNat4Map *bpf.Map
 )
 
 // initSVC constructs the IPv4 & IPv6 LB BPF maps used for Services. The maps
@@ -575,12 +577,12 @@ func (v *SockRevNat4Value) New() bpf.MapValue { return &SockRevNat4Value{} }
 
 // CreateSockRevNat4Map creates the reverse NAT sock map.
 func CreateSockRevNat4Map() error {
-	sockRevNat4Map := bpf.NewMap(SockRevNat4MapName,
+	SockRevNat4Map = bpf.NewMap(SockRevNat4MapName,
 		ebpf.LRUHash,
 		&SockRevNat4Key{},
 		&SockRevNat4Value{},
 		MaxSockRevNat4MapEntries,
 		0,
 	).WithPressureMetric()
-	return sockRevNat4Map.Create()
+	return SockRevNat4Map.OpenOrCreate()
 }
