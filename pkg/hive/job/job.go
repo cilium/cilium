@@ -400,6 +400,12 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, options optio
 				jt.shutdown.Shutdown(hive.ShutdownWithError(err))
 			}
 		}
+
+		// If we exited due to the ctx closing we do not guaranteed return.
+		// The select can pick the timer or trigger signals over ctx.Done due to fair scheduling, so this guarantees it.
+		if ctx.Err() != nil {
+			return
+		}
 	}
 }
 
