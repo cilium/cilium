@@ -574,7 +574,10 @@ func TestTimer_ExitOnCloseFnCtx(t *testing.T) {
 		g.Add(
 			Timer("on-interval", func(ctx context.Context) error {
 				i++
-				close(started)
+				if started != nil {
+					close(started)
+					started = nil
+				}
 				<-ctx.Done()
 				return nil
 			}, 1*time.Millisecond),
