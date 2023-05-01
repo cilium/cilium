@@ -76,6 +76,19 @@ func TestParseCiliumVersion(t *testing.T) {
 			version: "v1.9.99",
 			want:    semver.Version{Major: 1, Minor: 9, Patch: 99},
 		},
+		{
+			name:    "valid-pre-release-version",
+			version: "1.13.90-dev.1234-main-5678abcd",
+			want: semver.Version{
+				Major: 1,
+				Minor: 13,
+				Patch: 90,
+				Pre: []semver.PRVersion{
+					{VersionStr: "dev", IsNum: false},
+					{VersionStr: "1234-main-5678abcd", IsNum: false},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
