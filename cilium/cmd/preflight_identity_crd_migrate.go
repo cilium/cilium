@@ -90,7 +90,7 @@ func migrateIdentityCmd() *cobra.Command {
 // 3- Iterate over each identity in the kvstore
 //
 //	a- Attempt to allocate the same numeric ID to this key
-//	b- Already allocated identies that match ID->key are skipped
+//	b- Already allocated identities that match ID->key are skipped
 //	c- kvstore IDs with conflicting CRDs are allocated with a different ID
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The

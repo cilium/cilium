@@ -964,7 +964,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 	if option.Config.EnableIPv4EgressGateway {
-		// datapath code depends on remote node identities to distinguish between cluser-local and
+		// datapath code depends on remote node identities to distinguish between cluster-local and
 		// cluster-egress traffic
 		if !option.Config.EnableRemoteNodeIdentity {
 			log.WithError(err).Errorf("egress gateway requires remote node identities (--%s=\"true\").",

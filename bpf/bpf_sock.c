@@ -786,7 +786,7 @@ sock6_wildcard_lookup_full(struct lb6_key *key __maybe_unused,
 	if (svc && lb6_svc_is_nodeport(svc))
 		return svc;
 
-	/* See a corresponding commment in sock4_wildcard_lookup_full */
+	/* See a corresponding comment in sock4_wildcard_lookup_full */
 	memcpy(&key->address, &orig_address, sizeof(orig_address));
 	svc = sock6_wildcard_lookup(key, false, true, in_hostns);
 	if (svc && lb6_svc_is_hostport(svc) && (!lb6_svc_is_loopback(svc) || loopback))

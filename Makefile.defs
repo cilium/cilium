@@ -37,7 +37,7 @@ CONTAINER_ENGINE?=docker
 DOCKER_FLAGS?=
 DOCKER_BUILD_FLAGS?=
 
-# use gsed if avaiable, otherwise use sed.
+# use gsed if available, otherwise use sed.
 # gsed is needed for MacOS to make in-place replacement work correctly.
 SED ?= $(if $(shell command -v gsed), gsed, sed)
 

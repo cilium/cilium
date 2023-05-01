@@ -4068,7 +4068,7 @@ func init() {
           "type": "integer"
         },
         "ready": {
-          "description": "Indicates readiness of the remote cluser",
+          "description": "Indicates readiness of the remote cluster",
           "type": "boolean"
         },
         "status": {
@@ -9356,7 +9356,7 @@ func init() {
           "type": "integer"
         },
         "ready": {
-          "description": "Indicates readiness of the remote cluser",
+          "description": "Indicates readiness of the remote cluster",
           "type": "boolean"
         },
         "status": {

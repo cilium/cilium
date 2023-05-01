@@ -54,7 +54,7 @@ func (s *OperatorTestSuite) TestIdentityHeartbeatStore(c *check.C) {
 	store.mutex.RUnlock()
 	c.Assert(ok, check.Equals, false)
 
-	// identtity foo now doesn't exist, simulate start time of operator way
+	// identity foo now doesn't exist, simulate start time of operator way
 	// in the past to check if an old, stale identity will be deleeted
 	store.firstRun = time.Now().Add(-24 * time.Hour)
 	c.Assert(store.isAlive("foo"), check.Equals, false)

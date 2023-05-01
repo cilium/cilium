@@ -2276,7 +2276,7 @@ definitions:
         description: Name of the cluster
         type: string
       ready:
-        description: Indicates readiness of the remote cluser
+        description: Indicates readiness of the remote cluster
         type: boolean
       num-nodes:
         description: Number of nodes in the cluster
