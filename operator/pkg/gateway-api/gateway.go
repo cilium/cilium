@@ -34,10 +34,12 @@ const (
 // gatewayReconciler reconciles a Gateway object
 type gatewayReconciler struct {
 	client.Client
-	Scheme           *runtime.Scheme
-	SecretsNamespace string
-	controllerName   string
-	Model            *internalModel
+	Scheme             *runtime.Scheme
+	SecretsNamespace   string
+	IdleTimeoutSeconds int
+
+	controllerName string
+	Model          *internalModel
 }
 
 // SetupWithManager sets up the controller with the Manager.

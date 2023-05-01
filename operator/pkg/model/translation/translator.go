@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 
+	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,16 +42,19 @@ type defaultTranslator struct {
 	// as a suffix match. That means that a match for `*.example.com` would match
 	// both `test.example.com`, and `foo.test.example.com`, but not `example.com`.
 	hostNameSuffixMatch bool
+
+	idleTimeoutSeconds int
 }
 
 // NewTranslator returns a new translator
-func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, hostNameSuffixMatch bool) Translator {
+func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, hostNameSuffixMatch bool, idleTimeoutSeconds int) Translator {
 	return &defaultTranslator{
 		name:                name,
 		namespace:           namespace,
 		secretsNamespace:    secretsNamespace,
 		enforceHTTPs:        enforceHTTPs,
 		hostNameSuffixMatch: hostNameSuffixMatch,
+		idleTimeoutSeconds:  idleTimeoutSeconds,
 	}
 }
 
@@ -255,7 +259,11 @@ func (i *defaultTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
 			for _, port := range ports {
 				b := getBackendName(ns, name, port)
 				sortedClusterNames = append(sortedClusterNames, b)
-				envoyClusters[b], _ = NewHTTPClusterWithDefaults(b)
+				envoyClusters[b], _ = NewHTTPCluster(b,
+					WithConnectionTimeout(5),
+					WithIdleTimeout(i.idleTimeoutSeconds),
+					WithClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
+					WithOutlierDetection(true))
 			}
 		}
 	}

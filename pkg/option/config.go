@@ -169,6 +169,10 @@ const (
 	// ProxyMaxConnectionDuration specifies the max_connection_duration setting for the proxy in seconds
 	ProxyMaxConnectionDuration = "proxy-max-connection-duration-seconds"
 
+	// ProxyIdleTimeout specifies the idle_timeout setting (in seconds), which applies
+	// for the connection from proxy to upstream cluster
+	ProxyIdleTimeout = "proxy-idle-timeout-seconds"
+
 	// FixedIdentityMapping is the key-value for the fixed identity mapping
 	// which allows to use reserved label for fixed identities
 	FixedIdentityMapping = "fixed-identity-mapping"
@@ -1584,6 +1588,10 @@ type DaemonConfig struct {
 
 	// ProxyMaxConnectionDuration specifies the max_connection_duration setting for the proxy
 	ProxyMaxConnectionDuration time.Duration
+
+	// ProxyIdleTimeout specifies the idle_timeout setting (in seconds), which applies
+	// for the connection from proxy to upstream cluster
+	ProxyIdleTimeout time.Duration
 
 	// EnvoyLogPath specifies where to store the Envoy proxy logs when Envoy
 	// runs in the same container as Cilium.
@@ -3041,6 +3049,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ProxyPrometheusPort = vp.GetInt(ProxyPrometheusPort)
 	c.ProxyMaxRequestsPerConnection = vp.GetInt(ProxyMaxRequestsPerConnection)
 	c.ProxyMaxConnectionDuration = time.Duration(vp.GetInt64(ProxyMaxConnectionDuration))
+	c.ProxyIdleTimeout = time.Duration(vp.GetInt64(ProxyIdleTimeout))
 	c.RestoreState = vp.GetBool(Restore)
 	c.RouteMetric = vp.GetInt(RouteMetric)
 	c.RunDir = vp.GetString(StateDir)
