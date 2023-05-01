@@ -75,7 +75,7 @@ requirements have been met:
    bisecting of commits in the event of a bug affecting the tree.
 #. All code is covered by unit and/or runtime tests where feasible.
 #. All changes have been tested and checked for regressions by running the
-   existing testsuite against your changes. See the :ref:`testsuite` section
+   existing testsuite against your changes. See the :ref:`testsuite-legacy` section
    for additional details.
 #. All commits contain a well written commit description including a title,
    description and a ``Fixes: #XXX`` line if the commit addresses a particular
