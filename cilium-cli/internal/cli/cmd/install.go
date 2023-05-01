@@ -291,6 +291,7 @@ cilium install --context kind-cluster1 --helm-set cluster.id=1 --helm-set cluste
 	addCommonHelmFlags(cmd, &params)
 	cmd.Flags().BoolVar(&params.DryRun, "dry-run", false, "Write resources to be installed to stdout without actually installing them")
 	cmd.Flags().BoolVar(&params.DryRunHelmValues, "dry-run-helm-values", false, "Write non-default Helm values to stdout without performing the actual installation")
+	cmd.Flags().StringVar(&params.HelmRepository, "repository", defaults.HelmRepository, "Helm chart repository to download Cilium charts from")
 	return cmd
 }
 
@@ -374,5 +375,6 @@ cilium upgrade --helm-set cluster.id=1 --helm-set cluster.name=cluster1
 		"Write resources to be installed to stdout without actually installing them")
 	cmd.Flags().BoolVar(&params.DryRunHelmValues, "dry-run-helm-values", false,
 		"Write non-default Helm values to stdout; without performing the actual upgrade")
+	cmd.Flags().StringVar(&params.HelmRepository, "repository", defaults.HelmRepository, "Helm chart repository to download Cilium charts from")
 	return cmd
 }
