@@ -24,6 +24,7 @@ information about Cilium's CI infrastructure.
    :glob:
 
    ci
+   e2e
    e2e_legacy
    unit
    bpf
