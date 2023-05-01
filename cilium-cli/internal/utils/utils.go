@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 )
@@ -26,8 +25,7 @@ func CheckVersion(version string) error {
 }
 
 func ParseCiliumVersion(version string) (semver.Version, error) {
-	ersion := strings.TrimPrefix(version, "v")
-	return versioncheck.Version(ersion)
+	return semver.ParseTolerant(version)
 }
 
 type ImagePathMode int
