@@ -102,6 +102,9 @@ const (
 	HelmChartVersionSecretKeyName = "io.cilium.chart-version"
 
 	CiliumNoScheduleLabel = "cilium.io/no-schedule"
+
+	// HelmRepository specifies Helm repository to download Cilium charts from.
+	HelmRepository = "https://helm.cilium.io"
 )
 
 var (
