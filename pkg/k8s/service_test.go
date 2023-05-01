@@ -107,52 +107,6 @@ func (s *K8sSuite) TestGetAnnotationServiceAffinity(c *check.C) {
 	c.Assert(getAnnotationServiceAffinity(svc), check.Equals, serviceAffinityNone)
 }
 
-func (s *K8sSuite) TestGetAnnotationTopologyAwareHints(c *check.C) {
-	svc := &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{},
-	}}
-	c.Assert(getAnnotationTopologyAwareHints(svc), check.Equals, false)
-
-	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{
-			corev1.DeprecatedAnnotationTopologyAwareHints: "auto",
-		},
-	}}
-	c.Assert(getAnnotationTopologyAwareHints(svc), check.Equals, true)
-
-	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{
-			corev1.DeprecatedAnnotationTopologyAwareHints: "Auto",
-		},
-	}}
-	c.Assert(getAnnotationTopologyAwareHints(svc), check.Equals, true)
-
-	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{
-			corev1.AnnotationTopologyMode: "auto",
-		},
-	}}
-	c.Assert(getAnnotationTopologyAwareHints(svc), check.Equals, true)
-
-	// v1.DeprecatedAnnotationTopologyAwareHints has precedence over v1.AnnotationTopologyMode.
-	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{
-			corev1.DeprecatedAnnotationTopologyAwareHints: "disabled",
-			corev1.AnnotationTopologyMode:                 "auto",
-		},
-	}}
-	c.Assert(getAnnotationTopologyAwareHints(svc), check.Equals, false)
-
-	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{
-			corev1.DeprecatedAnnotationTopologyAwareHints: "auto",
-			corev1.AnnotationTopologyMode:                 "deprecated",
-		},
-	}}
-	c.Assert(getAnnotationTopologyAwareHints(svc), check.Equals, true)
-
-}
-
 func (s *K8sSuite) TestParseServiceID(c *check.C) {
 	svc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -219,14 +173,13 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Type:                     loadbalancer.SVCTypeClusterIP,
 	})
 
-	serviceInternalTrafficPolicyLocal := slim_corev1.ServiceInternalTrafficPolicyLocal
 	k8sSvc = &slim_corev1.Service{
 		ObjectMeta: objMeta,
 		Spec: slim_corev1.ServiceSpec{
 			ClusterIP:             "127.0.0.1",
 			Type:                  slim_corev1.ServiceTypeNodePort,
-			ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyLocal,
-			InternalTrafficPolicy: &serviceInternalTrafficPolicyLocal,
+			ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyTypeLocal,
+			InternalTrafficPolicy: slim_corev1.ServiceInternalTrafficPolicyTypeLocal,
 		},
 	}
 
@@ -249,7 +202,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		option.Config.EnableNodePort = oldNodePort
 	}()
 	objMeta.Annotations = map[string]string{
-		corev1.DeprecatedAnnotationTopologyAwareHints: "auto",
+		corev1.AnnotationTopologyAwareHints: "auto",
 	}
 	k8sSvc = &slim_corev1.Service{
 		ObjectMeta: objMeta,

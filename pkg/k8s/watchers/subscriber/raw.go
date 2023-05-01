@@ -34,11 +34,11 @@ func (l *RawChain) Register(cb cache.ResourceEventHandler) {
 }
 
 // NotifyAdd notifies all the subscribers of an add event to an object.
-func (l *RawChain) OnAdd(obj interface{}, isInInitialList bool) {
+func (l *RawChain) OnAdd(obj interface{}) {
 	l.RLock()
 	defer l.RUnlock()
 	for _, s := range l.subs {
-		s.OnAdd(obj, isInInitialList)
+		s.OnAdd(obj)
 	}
 }
 

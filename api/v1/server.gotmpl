@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-openapi/loads"
   "github.com/go-openapi/swag"
   {{ if .UsePFlags }}flag "github.com/spf13/pflag"
   {{ end -}}
@@ -48,6 +49,7 @@ type serverParams struct {
 	Lifecycle  hive.Lifecycle
 	Shutdowner hive.Shutdowner
 	Logger     logrus.FieldLogger
+	Spec       *Spec
 
 	{{- $package := .Package }}
 	{{ range .Operations }}
@@ -56,11 +58,7 @@ type serverParams struct {
 }
 
 func newForCell(p serverParams) (*Server, error) {
-	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to swagger spec: %w", err)
-	}
-	api := {{ .Package }}.New{{pascalize .Name}}API(swaggerSpec)
+	api := {{ .Package }}.New{{pascalize .Name}}API(p.Spec.Document)
 
 	// Construct the API from the provided handlers
 	{{- $package := .Package }}
@@ -121,6 +119,55 @@ var (
   tlsCertificateKey string
   tlsCACertificate  string
 )
+
+type ServerConfig struct {
+	Enable{{ pascalize .Name }}ServerAccess []string
+}
+
+var (
+	defaultServerConfig = ServerConfig{
+		Enable{{ pascalize .Name }}ServerAccess: []string{"*"},
+	}
+	AdminEnableFlag = "enable-{{ dasherize .Name }}-server-access"
+)
+
+func (cfg ServerConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringSlice(AdminEnableFlag, cfg.Enable{{ pascalize .Name }}ServerAccess,
+		"List of {{ humanize .Name }} APIs which are administratively enabled. Supports '*'.")
+}
+
+var SpecCell = cell.Module(
+	"{{ dasherize .Name }}-spec",
+	"{{ humanize .Name }} Specification",
+
+	cell.Config(defaultServerConfig),
+	cell.Provide(newSpec),
+)
+
+type Spec struct {
+	*loads.Document
+
+	// DeniedAPIs is a set of APIs that are administratively disabled.
+	DeniedAPIs api.PathSet
+}
+
+func newSpec(cfg ServerConfig) (*Spec, error) {
+	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load swagger spec: %w", err)
+	}
+
+	deniedAPIs, err := api.AllowedFlagsToDeniedPaths(swaggerSpec, cfg.Enable{{ pascalize .Name }}ServerAccess)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %q flag: %w",
+				       AdminEnableFlag, err)
+	}
+
+	return &Spec{
+		Document:   swaggerSpec,
+		DeniedAPIs: deniedAPIs,
+	}, nil
+}
 
 // NewServer creates a new api {{ humanize .Name }} server but does not configure it
 func NewServer(api *{{ .Package }}.{{ pascalize .Name }}API) *Server {

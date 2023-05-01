@@ -22,6 +22,7 @@ import (
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/swag"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"golang.org/x/net/netutil"
 
 	"github.com/cilium/cilium/api/v1/health/server/restapi"
@@ -47,6 +48,7 @@ type serverParams struct {
 	Lifecycle  hive.Lifecycle
 	Shutdowner hive.Shutdowner
 	Logger     logrus.FieldLogger
+	Spec       *Spec
 
 	GetHealthzHandler                 restapi.GetHealthzHandler
 	ConnectivityGetStatusHandler      connectivity.GetStatusHandler
@@ -54,11 +56,7 @@ type serverParams struct {
 }
 
 func newForCell(p serverParams) (*Server, error) {
-	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to swagger spec: %w", err)
-	}
-	api := restapi.NewCiliumHealthAPIAPI(swaggerSpec)
+	api := restapi.NewCiliumHealthAPIAPI(p.Spec.Document)
 
 	// Construct the API from the provided handlers
 
@@ -112,6 +110,55 @@ var (
 	tlsCertificateKey string
 	tlsCACertificate  string
 )
+
+type ServerConfig struct {
+	EnableCiliumHealthAPIServerAccess []string
+}
+
+var (
+	defaultServerConfig = ServerConfig{
+		EnableCiliumHealthAPIServerAccess: []string{"*"},
+	}
+	AdminEnableFlag = "enable-cilium-health-api-server-access"
+)
+
+func (cfg ServerConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringSlice(AdminEnableFlag, cfg.EnableCiliumHealthAPIServerAccess,
+		"List of cilium health API APIs which are administratively enabled. Supports '*'.")
+}
+
+var SpecCell = cell.Module(
+	"cilium-health-api-spec",
+	"cilium health API Specification",
+
+	cell.Config(defaultServerConfig),
+	cell.Provide(newSpec),
+)
+
+type Spec struct {
+	*loads.Document
+
+	// DeniedAPIs is a set of APIs that are administratively disabled.
+	DeniedAPIs api.PathSet
+}
+
+func newSpec(cfg ServerConfig) (*Spec, error) {
+	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load swagger spec: %w", err)
+	}
+
+	deniedAPIs, err := api.AllowedFlagsToDeniedPaths(swaggerSpec, cfg.EnableCiliumHealthAPIServerAccess)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %q flag: %w",
+			AdminEnableFlag, err)
+	}
+
+	return &Spec{
+		Document:   swaggerSpec,
+		DeniedAPIs: deniedAPIs,
+	}, nil
+}
 
 // NewServer creates a new api cilium health API server but does not configure it
 func NewServer(api *restapi.CiliumHealthAPIAPI) *Server {

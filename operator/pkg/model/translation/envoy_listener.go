@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 const (
@@ -131,7 +132,7 @@ func NewListener(name string, ciliumSecretNamespace string, tls map[model.TLSSec
 
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
 			FilterChainMatch: &envoy_config_listener.FilterChainMatch{
-				ServerNames:       sortAndUnique(hostNames),
+				ServerNames:       slices.SortedUnique(hostNames),
 				TransportProtocol: tlsTransportProtocol,
 			},
 			Filters: []*envoy_config_listener.Filter{

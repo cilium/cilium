@@ -11,7 +11,7 @@ import (
 	"net/netip"
 	"sort"
 
-	"golang.org/x/exp/slices"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 const (
@@ -743,27 +743,16 @@ func PartitionCIDR(targetCIDR net.IPNet, excludeCIDR net.IPNet) ([]*net.IPNet, [
 // lexicographically sorted via a byte-wise comparison of the IP slices (i.e.
 // IPv4 addresses show up before IPv6).
 // The slice is manipulated in-place destructively.
-//
-// 1- Sort the slice by comparing the IPs as bytes
-// 2- For every unseen unique IP in the sorted slice, move it to the end of
-// the return slice.
-// Note that the slice is always large enough and, because it is sorted, we
-// will not overwrite a valid element with another. To overwrite an element i
-// with j, i must have come before j AND we decided it was a duplicate of the
-// element at i-1.
 func KeepUniqueIPs(ips []net.IP) []net.IP {
-	sort.Slice(ips, func(i, j int) bool {
-		return bytes.Compare(ips[i], ips[j]) == -1
-	})
-
-	returnIPs := ips[:0] // len==0 but cap==cap(ips)
-	for readIdx, ip := range ips {
-		if len(returnIPs) == 0 || !returnIPs[len(returnIPs)-1].Equal(ips[readIdx]) {
-			returnIPs = append(returnIPs, ip)
-		}
-	}
-
-	return returnIPs
+	return slices.SortedUniqueFunc(
+		ips,
+		func(i, j int) bool {
+			return bytes.Compare(ips[i], ips[j]) == -1
+		},
+		func(a, b net.IP) bool {
+			return a.Equal(b)
+		},
+	)
 }
 
 // KeepUniqueAddrs transforms the provided multiset of IP addresses into a
@@ -771,13 +760,15 @@ func KeepUniqueIPs(ips []net.IP) []net.IP {
 // netip.Addr.Compare (i.e. IPv4 addresses show up before IPv6).
 // The slice is manipulated in-place destructively; it does not create a new slice.
 func KeepUniqueAddrs(addrs []netip.Addr) []netip.Addr {
-	if len(addrs) == 0 {
-		return addrs
-	}
-	sort.Slice(addrs, func(i, j int) bool {
-		return addrs[i].Compare(addrs[j]) < 0
-	})
-	return slices.Compact(addrs)
+	return slices.SortedUniqueFunc(
+		addrs,
+		func(i, j int) bool {
+			return addrs[i].Compare(addrs[j]) < 0
+		},
+		func(a, b netip.Addr) bool {
+			return a == b
+		},
+	)
 }
 
 var privateIPBlocks []*net.IPNet

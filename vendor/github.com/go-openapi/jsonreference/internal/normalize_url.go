@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	defaultHTTPPort  = ":80"
-	defaultHTTPSPort = ":443"
+	defaultHttpPort  = ":80"
+	defaultHttpsPort = ":443"
 )
 
 // Regular expressions used by the normalizations
@@ -18,14 +18,13 @@ var rxDupSlashes = regexp.MustCompile(`/{2,}`)
 // NormalizeURL will normalize the specified URL
 // This was added to replace a previous call to the no longer maintained purell library:
 // The call that was used looked like the following:
-//
-//	url.Parse(purell.NormalizeURL(parsed, purell.FlagsSafe|purell.FlagRemoveDuplicateSlashes))
+//   url.Parse(purell.NormalizeURL(parsed, purell.FlagsSafe|purell.FlagRemoveDuplicateSlashes))
 //
 // To explain all that was included in the call above, purell.FlagsSafe was really just the following:
-//   - FlagLowercaseScheme
-//   - FlagLowercaseHost
-//   - FlagRemoveDefaultPort
-//   - FlagRemoveDuplicateSlashes (and this was mixed in with the |)
+//	  - FlagLowercaseScheme
+//	  - FlagLowercaseHost
+//	  - FlagRemoveDefaultPort
+//	  - FlagRemoveDuplicateSlashes (and this was mixed in with the |)
 func NormalizeURL(u *url.URL) {
 	lowercaseScheme(u)
 	lowercaseHost(u)
@@ -49,7 +48,7 @@ func removeDefaultPort(u *url.URL) {
 	if len(u.Host) > 0 {
 		scheme := strings.ToLower(u.Scheme)
 		u.Host = rxPort.ReplaceAllStringFunc(u.Host, func(val string) string {
-			if (scheme == "http" && val == defaultHTTPPort) || (scheme == "https" && val == defaultHTTPSPort) {
+			if (scheme == "http" && val == defaultHttpPort) || (scheme == "https" && val == defaultHttpsPort) {
 				return ""
 			}
 			return val

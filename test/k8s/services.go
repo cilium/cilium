@@ -607,7 +607,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			testIPv4FragmentSupport(kubectl, ni)
 		})
 
-		SkipContextIf(func() bool { return helpers.RunsOnGKE() || helpers.SkipQuarantined() }, "With host policy", func() {
+		SkipContextIf(func() bool { return helpers.RunsOnGKE() }, "With host policy", func() {
 			var ccnpHostPolicy string
 
 			BeforeAll(func() {
@@ -618,7 +618,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				originalCCNPHostPolicy := helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
 				res := kubectl.ExecMiddle("mktemp")
 				res.ExpectSuccess()
-				ccnpHostPolicy := strings.Trim(res.Stdout(), "\n")
+				ccnpHostPolicy = strings.Trim(res.Stdout(), "\n")
 				nodeIP, err := kubectl.GetNodeIPByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
 				Expect(err).Should(BeNil())
 				kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM_IP/%s/' %s > %s",

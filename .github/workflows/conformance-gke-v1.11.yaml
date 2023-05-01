@@ -68,7 +68,7 @@ env:
   zone: us-west2-a
   k8s_version: 1.23
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.1
+  cilium_cli_version: v0.13.2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
@@ -146,7 +146,7 @@ jobs:
           elif [ "${{ github.event_name }}" = "schedule" ]; then
             curl https://api.github.com/repos/cilium/cilium/branches/v1.11 > branch.json
             SHA=$(jq -r '.commit.sha' branch.json)
-            OWNER=v1.11
+            OWNER=v1-11
           else
             SHA=${{ github.sha }}
             OWNER=${{ github.sha }}

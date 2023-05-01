@@ -304,13 +304,6 @@ encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
 #endif
 
 #ifdef ENABLE_IPV6
-struct ct_buffer6 {
-	struct ipv6_ct_tuple tuple;
-	struct ct_state ct_state;
-	__u32 monitor;
-	int ret;
-};
-
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);
@@ -713,15 +706,11 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	/* Handle special ICMPv6 messages. This includes echo requests to the
-	 * logical router address, neighbour advertisements to the router.
-	 * All remaining packets are subjected to forwarding into the container.
+	/* Handle special ICMPv6 NDP messages, and all remaining packets
+	 * are subjected to forwarding into the container.
 	 */
-	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
-		if (data + sizeof(*ip6) + ETH_HLEN + sizeof(struct icmp6hdr) > data_end)
-			return DROP_INVALID;
-
-		ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_EGRESS);
+	if (unlikely(is_icmp6_ndp(ctx, ip6, ETH_HLEN))) {
+		ret = icmp6_ndp_handle(ctx, ETH_HLEN, METRIC_EGRESS);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -752,13 +741,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-struct ct_buffer4 {
-	struct ipv4_ct_tuple tuple;
-	struct ct_state ct_state;
-	__u32 monitor;
-	int ret;
-};
-
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);

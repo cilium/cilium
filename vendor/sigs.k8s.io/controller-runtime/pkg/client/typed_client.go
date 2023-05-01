@@ -25,14 +25,16 @@ import (
 var _ Reader = &typedClient{}
 var _ Writer = &typedClient{}
 
+// client is a client.Client that reads and writes directly from/to an API server.  It lazily initializes
+// new clients at the time they are used, and caches the client.
 type typedClient struct {
-	resources  *clientRestResources
+	cache      *clientCache
 	paramCodec runtime.ParameterCodec
 }
 
 // Create implements client.Client.
 func (c *typedClient) Create(ctx context.Context, obj Object, opts ...CreateOption) error {
-	o, err := c.resources.getObjMeta(obj)
+	o, err := c.cache.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -51,7 +53,7 @@ func (c *typedClient) Create(ctx context.Context, obj Object, opts ...CreateOpti
 
 // Update implements client.Client.
 func (c *typedClient) Update(ctx context.Context, obj Object, opts ...UpdateOption) error {
-	o, err := c.resources.getObjMeta(obj)
+	o, err := c.cache.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -71,7 +73,7 @@ func (c *typedClient) Update(ctx context.Context, obj Object, opts ...UpdateOpti
 
 // Delete implements client.Client.
 func (c *typedClient) Delete(ctx context.Context, obj Object, opts ...DeleteOption) error {
-	o, err := c.resources.getObjMeta(obj)
+	o, err := c.cache.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -90,7 +92,7 @@ func (c *typedClient) Delete(ctx context.Context, obj Object, opts ...DeleteOpti
 
 // DeleteAllOf implements client.Client.
 func (c *typedClient) DeleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error {
-	o, err := c.resources.getObjMeta(obj)
+	o, err := c.cache.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -109,7 +111,7 @@ func (c *typedClient) DeleteAllOf(ctx context.Context, obj Object, opts ...Delet
 
 // Patch implements client.Client.
 func (c *typedClient) Patch(ctx context.Context, obj Object, patch Patch, opts ...PatchOption) error {
-	o, err := c.resources.getObjMeta(obj)
+	o, err := c.cache.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -134,7 +136,7 @@ func (c *typedClient) Patch(ctx context.Context, obj Object, patch Patch, opts .
 
 // Get implements client.Client.
 func (c *typedClient) Get(ctx context.Context, key ObjectKey, obj Object, opts ...GetOption) error {
-	r, err := c.resources.getResource(obj)
+	r, err := c.cache.getResource(obj)
 	if err != nil {
 		return err
 	}
@@ -149,7 +151,7 @@ func (c *typedClient) Get(ctx context.Context, key ObjectKey, obj Object, opts .
 
 // List implements client.Client.
 func (c *typedClient) List(ctx context.Context, obj ObjectList, opts ...ListOption) error {
-	r, err := c.resources.getResource(obj)
+	r, err := c.cache.getResource(obj)
 	if err != nil {
 		return err
 	}
@@ -166,7 +168,7 @@ func (c *typedClient) List(ctx context.Context, obj ObjectList, opts ...ListOpti
 }
 
 func (c *typedClient) GetSubResource(ctx context.Context, obj, subResourceObj Object, subResource string, opts ...SubResourceGetOption) error {
-	o, err := c.resources.getObjMeta(obj)
+	o, err := c.cache.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -189,7 +191,7 @@ func (c *typedClient) GetSubResource(ctx context.Context, obj, subResourceObj Ob
 }
 
 func (c *typedClient) CreateSubResource(ctx context.Context, obj Object, subResourceObj Object, subResource string, opts ...SubResourceCreateOption) error {
-	o, err := c.resources.getObjMeta(obj)
+	o, err := c.cache.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -214,7 +216,7 @@ func (c *typedClient) CreateSubResource(ctx context.Context, obj Object, subReso
 
 // UpdateSubResource used by SubResourceWriter to write status.
 func (c *typedClient) UpdateSubResource(ctx context.Context, obj Object, subResource string, opts ...SubResourceUpdateOption) error {
-	o, err := c.resources.getObjMeta(obj)
+	o, err := c.cache.getObjMeta(obj)
 	if err != nil {
 		return err
 	}
@@ -249,7 +251,7 @@ func (c *typedClient) UpdateSubResource(ctx context.Context, obj Object, subReso
 
 // PatchSubResource used by SubResourceWriter to write subresource.
 func (c *typedClient) PatchSubResource(ctx context.Context, obj Object, subResource string, patch Patch, opts ...SubResourcePatchOption) error {
-	o, err := c.resources.getObjMeta(obj)
+	o, err := c.cache.getObjMeta(obj)
 	if err != nil {
 		return err
 	}

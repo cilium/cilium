@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -27,6 +28,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -125,12 +127,17 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Cl
 					},
 				}
 
+				resourceID := ipcacheTypes.NewResourceID(
+					ipcacheTypes.ResourceKindCNP,
+					slimCNP.ObjectMeta.Namespace,
+					slimCNP.ObjectMeta.Name,
+				)
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = k.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, cs, k8sAPIGroupCiliumNetworkPolicyV2, resources.MetricCNP, cidrGroupPolicies)
+					err = k.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, cs, k8sAPIGroupCiliumNetworkPolicyV2, resources.MetricCNP, cidrGroupPolicies, resourceID)
 				case resource.Delete:
-					err = k.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resources.MetricCNP, cidrGroupPolicies)
+					err = k.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resources.MetricCNP, cidrGroupPolicies, resourceID)
 				}
 				reportCNPChangeMetrics(err)
 				event.Done(err)
@@ -155,12 +162,17 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Cl
 					},
 				}
 
+				resourceID := ipcacheTypes.NewResourceID(
+					ipcacheTypes.ResourceKindCCNP,
+					slimCNP.ObjectMeta.Namespace,
+					slimCNP.ObjectMeta.Name,
+				)
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = k.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, cs, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resources.MetricCCNP, cidrGroupPolicies)
+					err = k.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, cs, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resources.MetricCCNP, cidrGroupPolicies, resourceID)
 				case resource.Delete:
-					err = k.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resources.MetricCCNP, cidrGroupPolicies)
+					err = k.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resources.MetricCCNP, cidrGroupPolicies, resourceID)
 				}
 				reportCNPChangeMetrics(err)
 				event.Done(err)
@@ -211,6 +223,7 @@ func (k *K8sWatcher) onUpsert(
 	apiGroup string,
 	metricLabel string,
 	cidrGroupPolicies map[resource.Key]struct{},
+	resourceID ipcacheTypes.ResourceID,
 ) error {
 	initialRecvTime := time.Now()
 
@@ -259,9 +272,9 @@ func (k *K8sWatcher) onUpsert(
 
 	var err error
 	if ok {
-		err = k.updateCiliumNetworkPolicyV2(cs, oldCNP, translatedCNP, initialRecvTime)
+		err = k.updateCiliumNetworkPolicyV2(cs, oldCNP, translatedCNP, initialRecvTime, resourceID)
 	} else {
-		err = k.addCiliumNetworkPolicyV2(cs, translatedCNP, initialRecvTime)
+		err = k.addCiliumNetworkPolicyV2(cs, translatedCNP, initialRecvTime, resourceID)
 	}
 	if err == nil {
 		cnpCache[key] = cnpCpy
@@ -279,8 +292,9 @@ func (k *K8sWatcher) onDelete(
 	apiGroup string,
 	metricLabel string,
 	cidrGroupPolicies map[resource.Key]struct{},
+	resourceID ipcacheTypes.ResourceID,
 ) error {
-	err := k.deleteCiliumNetworkPolicyV2(cnp)
+	err := k.deleteCiliumNetworkPolicyV2(cnp, resourceID)
 	delete(cache, key)
 
 	delete(cidrGroupPolicies, key)
@@ -292,7 +306,7 @@ func (k *K8sWatcher) onDelete(
 	return err
 }
 
-func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, cnp *types.SlimCNP, initialRecvTime time.Time) error {
+func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -311,8 +325,9 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 		if policyImportErr == nil {
 			rev, policyImportErr = k.policyManager.PolicyAdd(rules, &policy.AddOptions{
 				ReplaceWithLabels:   cnp.GetIdentityLabels(),
-				Source:              metrics.LabelEventSourceK8s,
+				Source:              source.CustomResource,
 				ProcessingStartTime: initialRecvTime,
+				Resource:            resourceID,
 			})
 		}
 	}
@@ -351,7 +366,7 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 	return policyImportErr
 }
 
-func (k *K8sWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
+func (k *K8sWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resourceID ipcacheTypes.ResourceID) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -367,7 +382,10 @@ func (k *K8sWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
 		log.WithError(err).Debugf("Unable to remove controller %s", ctrlName)
 	}
 
-	_, err = k.policyManager.PolicyDelete(cnp.GetIdentityLabels())
+	_, err = k.policyManager.PolicyDelete(cnp.GetIdentityLabels(), &policy.DeleteOptions{
+		Source:   source.CustomResource,
+		Resource: resourceID,
+	})
 	if err == nil {
 		scopedLog.Info("Deleted CiliumNetworkPolicy")
 	} else {
@@ -377,7 +395,7 @@ func (k *K8sWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
 }
 
 func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
-	oldRuleCpy, newRuleCpy *types.SlimCNP, initialRecvTime time.Time) error {
+	oldRuleCpy, newRuleCpy *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
 
 	_, err := oldRuleCpy.Parse()
 	if err != nil {
@@ -444,7 +462,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 		}
 	}
 
-	return k.addCiliumNetworkPolicyV2(ciliumNPClient, newRuleCpy, initialRecvTime)
+	return k.addCiliumNetworkPolicyV2(ciliumNPClient, newRuleCpy, initialRecvTime, resourceID)
 }
 
 func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, cnp *types.SlimCNP) {

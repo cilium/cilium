@@ -20,3 +20,9 @@ Package admission provides implementation for admission webhook and methods to i
 See examples/mutatingwebhook.go and examples/validatingwebhook.go for examples of admission webhooks.
 */
 package admission
+
+import (
+	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
+)
+
+var log = logf.RuntimeLog.WithName("admission")

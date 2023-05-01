@@ -19,7 +19,7 @@ on:
   # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
-  # 
+  #
   # pull_request: {}
   ###
 
@@ -68,7 +68,7 @@ env:
   region: us-east-2
   k8s_version: 1.24
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.1
+  cilium_cli_version: v0.13.2
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.122.0
   kubectl_version: v1.23.6
@@ -147,7 +147,7 @@ jobs:
           elif [ "${{ github.event_name }}" = "schedule" ]; then
             curl https://api.github.com/repos/cilium/cilium/branches/v1.12 > branch.json
             SHA=$(jq -r '.commit.sha' branch.json)
-            OWNER=v1.12
+            OWNER=v1-12
           else
             SHA=${{ github.sha }}
             OWNER=${{ github.sha }}
@@ -232,36 +232,12 @@ jobs:
           aws-region: ${{ env.region }}
 
       - name: Create EKS cluster
-        run: |
-          cat <<EOF > eks-config.yaml
-            apiVersion: eksctl.io/v1alpha5
-            kind: ClusterConfig
-
-            metadata:
-              name: ${{ env.clusterName }}
-              region: ${{ env.region }}
-              version: "${{ env.k8s_version }}"
-              tags:
-               usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
-               owner: "${{ steps.vars.outputs.owner }}"
-
-            managedNodeGroups:
-            - name: ng-1
-              instanceTypes:
-               - t3.medium
-               - t3a.medium
-              desiredCapacity: 2
-              spot: true
-              privateNetworking: true
-              volumeType: "gp3"
-              volumeSize: 10
-              taints:
-               - key: "node.cilium.io/agent-not-ready"
-                 value: "true"
-                 effect: "NoExecute"
-          EOF
-
-          eksctl create cluster -f ./eks-config.yaml
+        uses: ./.github/actions/setup-eks-cluster
+        with:
+          cluster_name: ${{ env.clusterName }}
+          region: ${{ env.region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: ${{ env.k8s_version }}
 
       - name: Update AWS VPC CNI plugin
         run: |

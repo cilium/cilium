@@ -351,7 +351,7 @@ func (c *cniConfigManager) renderCNITemplate(in string) []byte {
 	return out.Bytes()
 }
 
-// cleanupOldCNI renames any existing CNI configuration files with the suffix
+// cleanupOtherCNI renames any existing CNI configuration files with the suffix
 // ".cilium_bak", excepting files in keep
 func (c *cniConfigManager) cleanupOtherCNI() error {
 	// remove the old 05-cilium.conf, now that we write 05-cilium.conflist

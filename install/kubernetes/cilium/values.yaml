@@ -1750,7 +1750,8 @@ tls:
   secretsBackend: local
 
   # -- Base64 encoded PEM values for the CA certificate and private key.
-  # This can be used as common CA to generate certificates used by hubble and clustermesh components
+  # This can be used as common CA to generate certificates used by hubble and clustermesh components.
+  # It is neither required nor used when cert-manager is used to generate the certificates.
   ca:
     # -- Optional CA cert. If it is provided, it will be used by cilium to
     # generate all other certificates. Otherwise, an ephemeral CA is generated.
@@ -1762,6 +1763,30 @@ tls:
 
     # -- Generated certificates validity duration in days. This will be used for auto generated CA.
     certValidityDuration: 1095
+
+  # -- Configure the CA trust bundle used for the validation of the certificates
+  # leveraged by hubble and clustermesh. When enabled, it overrides the content of the
+  # 'ca.crt' field of the respective certificates, allowing for CA rotation with no down-time.
+  caBundle:
+    # -- Enable the use of the CA trust bundle.
+    enabled: false
+
+    # -- Name of the ConfigMap containing the CA trust bundle.
+    name: cilium-root-ca.crt
+
+    # -- Entry of the ConfigMap containing the CA trust bundle.
+    key: ca.crt
+
+    # If uncommented, creates the ConfigMap and fills it with the specified content.
+    # Otherwise, the ConfigMap is assumed to be already present in .Release.Namespace.
+    #
+    # content: |
+    #   -----BEGIN CERTIFICATE-----
+    #   ...
+    #   -----END CERTIFICATE-----
+    #   -----BEGIN CERTIFICATE-----
+    #   ...
+    #   -----END CERTIFICATE-----
 
 # -- Configure the encapsulation configuration for communication between nodes.
 # Possible values:
@@ -2384,6 +2409,14 @@ clustermesh:
       # -- The type of service used for apiserver access.
       type: NodePort
       # -- Optional port to use as the node port for apiserver access.
+      #
+      # WARNING: make sure to configure a different NodePort in each cluster if
+      # kube-proxy replacement is enabled, as Cilium is currently affected by a known
+      # bug (#24692) when NodePorts are handled by the KPR implementation. If a service
+      # with the same NodePort exists both in the local and the remote cluster, all
+      # traffic originating from inside the cluster and targeting the corresponding
+      # NodePort will be redirected to a local backend, regardless of whether the
+      # destination node belongs to the local or the remote cluster.
       nodePort: 32379
       # -- Optional loadBalancer IP address to use with type LoadBalancer.
       # loadBalancerIP:
@@ -2672,7 +2705,7 @@ auth:
           # -- SPIRE agent labels
           labels: { }
           # -- SPIRE Workload Attestor kubelet verification.
-          skipKubeletVerification: false
+          skipKubeletVerification: true
         server:
           # -- SPIRE server image
           image: ghcr.io/spiffe/spire-server:1.5.1@sha256:4851ec8c71a8fbe230d87be78dfed0e908800c2342cf192289c7885bb2f7a870
@@ -2706,7 +2739,7 @@ auth:
             subject:
               country: "US"
               organization: "SPIRE"
-              commonName: ""
+              commonName: "Cilium SPIRE CA"
       # -- SPIRE server address
       serverAddress: spire-server.cilium-spire.svc.cluster.local:8081
       # -- SPIFFE trust domain to use for fetching certificates

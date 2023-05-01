@@ -26,12 +26,16 @@ const (
 	// system state such as Kubernetes.
 	KVStore Source = "kvstore"
 
-	// Kubernetes is the source used for state derived from Kubernetes
-	Kubernetes Source = "k8s"
-
 	// CustomResource is the source used for state derived from Kubernetes
 	// custom resources
 	CustomResource Source = "custom-resource"
+
+	// Kubernetes is the source used for state derived from Kubernetes
+	Kubernetes Source = "k8s"
+
+	// LocalAPI is the source used for state derived from the API served
+	// locally on the node.
+	LocalAPI Source = "api"
 
 	// Generated is the source used for generated state which can be
 	// overwritten by all other sources, except for restored (and unspec).
@@ -63,15 +67,20 @@ func AllowOverwrite(existing, new Source) bool {
 	case KVStore:
 		return new == KVStore || new == Local || new == KubeAPIServer
 
-	// Custom-resource state can be overwritten by everything except
-	// restored, generated, unspecified and Kubernetes (non-CRD) state
+	// Custom-resource state can be overwritten by other CRD, kvstore,
+	// local or kube-apiserver state.
 	case CustomResource:
-		return new != Restored && new != Generated && new != Unspec && new != Kubernetes
+		return new == CustomResource || new == KVStore || new == Local || new == KubeAPIServer
 
-	// Kubernetes state can be overwritten by everything except restored,
-	// generated and unspecified state
+	// Kubernetes state can be overwritten by everything except local API,
+	// generated, restored and unspecified state.
 	case Kubernetes:
-		return new != Restored && new != Generated && new != Unspec
+		return new != LocalAPI && new != Generated && new != Restored && new != Unspec
+
+	// Local API state can be overwritten by everything except restored,
+	// generated and unspecified state
+	case LocalAPI:
+		return new != Generated && new != Restored && new != Unspec
 
 	// Generated can be overwritten by everything except by Restored and
 	// Unspecified

@@ -69,12 +69,11 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 }
 
 func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
-	// v1.DeprecatedAnnotationTopologyAwareHints has precedence over v1.AnnotationTopologyMode.
-	value, ok := svc.ObjectMeta.Annotations[v1.DeprecatedAnnotationTopologyAwareHints]
-	if !ok {
-		value = svc.ObjectMeta.Annotations[v1.AnnotationTopologyMode]
+	if value, ok := svc.ObjectMeta.Annotations[v1.AnnotationTopologyAwareHints]; ok {
+		return strings.ToLower(value) == "auto"
 	}
-	return strings.ToLower(value) == "auto"
+
+	return false
 }
 
 // isValidServiceFrontendIP returns true if the provided service frontend IP address type
@@ -156,16 +155,17 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 
 	var extTrafficPolicy loadbalancer.SVCTrafficPolicy
 	switch svc.Spec.ExternalTrafficPolicy {
-	case slim_corev1.ServiceExternalTrafficPolicyLocal:
+	case slim_corev1.ServiceExternalTrafficPolicyTypeLocal:
 		extTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
 	default:
 		extTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
 	}
 
 	var intTrafficPolicy loadbalancer.SVCTrafficPolicy
-	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal {
+	switch svc.Spec.InternalTrafficPolicy {
+	case slim_corev1.ServiceInternalTrafficPolicyTypeLocal:
 		intTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
-	} else {
+	default:
 		intTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
 	}
 

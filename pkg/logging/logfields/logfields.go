@@ -652,6 +652,13 @@ const (
 	// Number of Backends failed while restoration.
 	FailedBackends = "failedBackends"
 
+	// SkippedBackends is the number of Backends that were skipped during restore
+	// as duplicates.
+	SkippedBackends = "skippedBackends"
+
+	// OrphanBackends is the number Backends that are not associated with any services.
+	OrphanBackends = "orphanBackends"
+
 	// Number of Services failed while restoration.
 	RestoredSVCs = "restoredServices"
 

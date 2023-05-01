@@ -78,7 +78,11 @@ enum {
 
 #define CILIUM_CALL_DROP_NOTIFY			1
 #define CILIUM_CALL_ERROR_NOTIFY		2
-#define CILIUM_CALL_SEND_ICMP6_ECHO_REPLY	3
+/*
+ * A gap in the macro numbering sequence was created by #24921.
+ * It can be reused for a new macro in the future, but caution is needed when
+ * backporting changes as it may conflict with older versions of the code.
+ */
 #define CILIUM_CALL_HANDLE_ICMP6_NS		4
 #define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
 #define CILIUM_CALL_ARP				6
@@ -124,7 +128,11 @@ enum {
 #define CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS	40
 #define CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS	41
 #define CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT	42
-#define CILIUM_CALL_SIZE			43
+#define CILIUM_CALL_IPV4_CONT_FROM_HOST		43
+#define CILIUM_CALL_IPV4_CONT_FROM_NETDEV	44
+#define CILIUM_CALL_IPV6_CONT_FROM_HOST		45
+#define CILIUM_CALL_IPV6_CONT_FROM_NETDEV	46
+#define CILIUM_CALL_SIZE			47
 
 typedef __u64 mac_t;
 

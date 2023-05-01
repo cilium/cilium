@@ -30,11 +30,8 @@ type Decoder struct {
 }
 
 // NewDecoder creates a Decoder given the runtime.Scheme
-func NewDecoder(scheme *runtime.Scheme) *Decoder {
-	if scheme == nil {
-		panic("scheme should never be nil")
-	}
-	return &Decoder{codecs: serializer.NewCodecFactory(scheme)}
+func NewDecoder(scheme *runtime.Scheme) (*Decoder, error) {
+	return &Decoder{codecs: serializer.NewCodecFactory(scheme)}, nil
 }
 
 // Decode decodes the inlined object.

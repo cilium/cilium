@@ -22,6 +22,7 @@ import (
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/swag"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"golang.org/x/net/netutil"
 
 	"github.com/cilium/cilium/api/v1/operator/server/restapi"
@@ -48,17 +49,14 @@ type serverParams struct {
 	Lifecycle  hive.Lifecycle
 	Shutdowner hive.Shutdowner
 	Logger     logrus.FieldLogger
+	Spec       *Spec
 
 	OperatorGetHealthzHandler operator.GetHealthzHandler
 	MetricsGetMetricsHandler  metrics.GetMetricsHandler
 }
 
 func newForCell(p serverParams) (*Server, error) {
-	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to swagger spec: %w", err)
-	}
-	api := restapi.NewCiliumOperatorAPI(swaggerSpec)
+	api := restapi.NewCiliumOperatorAPI(p.Spec.Document)
 
 	// Construct the API from the provided handlers
 
@@ -112,6 +110,55 @@ var (
 	tlsCertificateKey string
 	tlsCACertificate  string
 )
+
+type ServerConfig struct {
+	EnableCiliumOperatorServerAccess []string
+}
+
+var (
+	defaultServerConfig = ServerConfig{
+		EnableCiliumOperatorServerAccess: []string{"*"},
+	}
+	AdminEnableFlag = "enable-cilium-operator-server-access"
+)
+
+func (cfg ServerConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringSlice(AdminEnableFlag, cfg.EnableCiliumOperatorServerAccess,
+		"List of cilium operator APIs which are administratively enabled. Supports '*'.")
+}
+
+var SpecCell = cell.Module(
+	"cilium-operator-spec",
+	"cilium operator Specification",
+
+	cell.Config(defaultServerConfig),
+	cell.Provide(newSpec),
+)
+
+type Spec struct {
+	*loads.Document
+
+	// DeniedAPIs is a set of APIs that are administratively disabled.
+	DeniedAPIs api.PathSet
+}
+
+func newSpec(cfg ServerConfig) (*Spec, error) {
+	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load swagger spec: %w", err)
+	}
+
+	deniedAPIs, err := api.AllowedFlagsToDeniedPaths(swaggerSpec, cfg.EnableCiliumOperatorServerAccess)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %q flag: %w",
+			AdminEnableFlag, err)
+	}
+
+	return &Spec{
+		Document:   swaggerSpec,
+		DeniedAPIs: deniedAPIs,
+	}, nil
+}
 
 // NewServer creates a new api cilium operator server but does not configure it
 func NewServer(api *restapi.CiliumOperatorAPI) *Server {

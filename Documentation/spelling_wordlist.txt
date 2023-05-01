@@ -253,6 +253,7 @@ buildx
 busybox
 bytecode
 cBPF
+caBundle
 callee
 cancelled
 cardinality

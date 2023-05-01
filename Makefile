@@ -202,7 +202,7 @@ CRDS_CILIUM_V2ALPHA1 := ciliumendpointslices \
                         ciliumnodeconfigs \
                         ciliumcidrgroups
 manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
-	$(eval TMPDIR := $(shell mktemp -d))
+	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
 	$(QUIET)$(GO) run sigs.k8s.io/controller-tools/cmd/controller-gen $(CRD_OPTIONS) paths=$(CRD_PATHS) output:crd:artifacts:config="$(TMPDIR)"
 	$(QUIET)$(GO) run ./tools/crdcheck "$(TMPDIR)"
 
@@ -326,7 +326,7 @@ GEN_CRD_GROUPS := "cilium.io:v2\
 generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
 	$(ASSERT_CILIUM_MODULE)
 
-	$(eval TMPDIR := $(shell mktemp -d))
+	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
 
 	$(QUIET) $(call generate_k8s_protobuf,${K8S_PROTO_PACKAGES},"$(TMPDIR)")
 

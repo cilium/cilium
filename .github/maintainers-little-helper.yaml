@@ -61,10 +61,9 @@ flake-tracker:
     - cilium-main-k8s-1.22-kernel-4.19
     - cilium-main-k8s-1.23-kernel-4.19
     - cilium-main-k8s-1.24-kernel-4.19
+    - cilium-main-k8s-1.24-kernel-5.4
     - cilium-main-k8s-1.25-kernel-4.19
-    - cilium-main-k8s-1.25-kernel-5.4
-    - cilium-main-k8s-1.26-kernel-4.19
-    - cilium-main-k8s-1.27-kernel-net-next
+    - cilium-main-k8s-1.26-kernel-net-next
     - cilium-main-k8s-upstream
     pr-jobs:
       Cilium-PR-K8s-1.16-kernel-4.19:
@@ -79,7 +78,6 @@ flake-tracker:
         - cilium-main-k8s-1.23-kernel-4.19
         - cilium-main-k8s-1.24-kernel-4.19
         - cilium-main-k8s-1.25-kernel-4.19
-        - cilium-main-k8s-1.26-kernel-4.19
       Cilium-PR-K8s-1.17-kernel-4.19:
         correlate-with-stable-jobs:
         - cilium-main-k8s-1.16-kernel-4.19
@@ -92,7 +90,6 @@ flake-tracker:
         - cilium-main-k8s-1.23-kernel-4.19
         - cilium-main-k8s-1.24-kernel-4.19
         - cilium-main-k8s-1.25-kernel-4.19
-        - cilium-main-k8s-1.26-kernel-4.19
       Cilium-PR-K8s-1.18-kernel-4.19:
         correlate-with-stable-jobs:
         - cilium-main-k8s-1.16-kernel-4.19
@@ -105,7 +102,6 @@ flake-tracker:
         - cilium-main-k8s-1.23-kernel-4.19
         - cilium-main-k8s-1.24-kernel-4.19
         - cilium-main-k8s-1.25-kernel-4.19
-        - cilium-main-k8s-1.26-kernel-4.19
       Cilium-PR-K8s-1.19-kernel-4.19:
         correlate-with-stable-jobs:
         - cilium-main-k8s-1.16-kernel-4.19
@@ -118,7 +114,6 @@ flake-tracker:
         - cilium-main-k8s-1.23-kernel-4.19
         - cilium-main-k8s-1.24-kernel-4.19
         - cilium-main-k8s-1.25-kernel-4.19
-        - cilium-main-k8s-1.26-kernel-4.19
       Cilium-PR-K8s-1.20-kernel-4.19:
         correlate-with-stable-jobs:
         - cilium-main-k8s-1.16-kernel-4.19
@@ -131,7 +126,6 @@ flake-tracker:
         - cilium-main-k8s-1.23-kernel-4.19
         - cilium-main-k8s-1.24-kernel-4.19
         - cilium-main-k8s-1.25-kernel-4.19
-        - cilium-main-k8s-1.26-kernel-4.19
       Cilium-PR-K8s-1.21-kernel-4.19:
         correlate-with-stable-jobs:
         - cilium-main-k8s-1.16-kernel-4.19
@@ -144,7 +138,6 @@ flake-tracker:
         - cilium-main-k8s-1.23-kernel-4.19
         - cilium-main-k8s-1.24-kernel-4.19
         - cilium-main-k8s-1.25-kernel-4.19
-        - cilium-main-k8s-1.26-kernel-4.19
       Cilium-PR-K8s-1.22-kernel-4.19:
         correlate-with-stable-jobs:
         - cilium-main-k8s-1.16-kernel-4.19
@@ -157,7 +150,6 @@ flake-tracker:
         - cilium-main-k8s-1.23-kernel-4.19
         - cilium-main-k8s-1.24-kernel-4.19
         - cilium-main-k8s-1.25-kernel-4.19
-        - cilium-main-k8s-1.26-kernel-4.19
       Cilium-PR-K8s-1.23-kernel-4.19:
         correlate-with-stable-jobs:
         - cilium-main-k8s-1.16-kernel-4.19
@@ -170,7 +162,6 @@ flake-tracker:
         - cilium-main-k8s-1.23-kernel-4.19
         - cilium-main-k8s-1.24-kernel-4.19
         - cilium-main-k8s-1.25-kernel-4.19
-        - cilium-main-k8s-1.26-kernel-4.19
       Cilium-PR-K8s-1.24-kernel-4.19:
         correlate-with-stable-jobs:
         - cilium-main-k8s-1.16-kernel-4.19
@@ -183,7 +174,9 @@ flake-tracker:
         - cilium-main-k8s-1.23-kernel-4.19
         - cilium-main-k8s-1.24-kernel-4.19
         - cilium-main-k8s-1.25-kernel-4.19
-        - cilium-main-k8s-1.26-kernel-4.19
+      Cilium-PR-K8s-1.24-kernel-5.4:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.24-kernel-5.4
       Cilium-PR-K8s-1.25-kernel-4.19:
         correlate-with-stable-jobs:
         - cilium-main-k8s-1.16-kernel-4.19
@@ -196,25 +189,9 @@ flake-tracker:
         - cilium-main-k8s-1.23-kernel-4.19
         - cilium-main-k8s-1.24-kernel-4.19
         - cilium-main-k8s-1.25-kernel-4.19
-      Cilium-PR-K8s-1.25-kernel-5.4:
+      Cilium-PR-K8s-1.26-kernel-net-next:
         correlate-with-stable-jobs:
-        - cilium-main-k8s-1.25-kernel-5.4
-      Cilium-PR-K8s-1.26-kernel-4.19:
-        correlate-with-stable-jobs:
-        - cilium-main-k8s-1.16-kernel-4.19
-        - cilium-main-k8s-1.17-kernel-4.19
-        - cilium-main-k8s-1.18-kernel-4.19
-        - cilium-main-k8s-1.19-kernel-4.19
-        - cilium-main-k8s-1.20-kernel-4.19
-        - cilium-main-k8s-1.21-kernel-4.19
-        - cilium-main-k8s-1.22-kernel-4.19
-        - cilium-main-k8s-1.23-kernel-4.19
-        - cilium-main-k8s-1.24-kernel-4.19
-        - cilium-main-k8s-1.25-kernel-4.19
-        - cilium-main-k8s-1.26-kernel-4.19
-      Cilium-PR-K8s-1.27-kernel-net-next:
-        correlate-with-stable-jobs:
-        - cilium-main-k8s-1.27-kernel-net-next
+        - cilium-main-k8s-1.26-kernel-net-next
       Cilium-PR-K8s-Upstream:
         correlate-with-stable-jobs:
         - cilium-main-k8s-upstream

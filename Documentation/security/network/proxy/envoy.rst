@@ -10,6 +10,12 @@
 Envoy
 =====
 
+Envoy proxy shipped with Cilium is built with minimal Envoy extensions and custom policy enforcement filters.
+Cilium uses this minimal distribution as its host proxy for enforcing HTTP and other L7 policies as specified in network policies
+for the cluster. Cilium proxy is distributed within the Cilium images.
+
+For more information on the version compatibility matrix, see `Cilium Proxy documentation <https://github.com/cilium/proxy#version-compatibility-matrix>`_.
+
 *************
 Go Extensions
 *************

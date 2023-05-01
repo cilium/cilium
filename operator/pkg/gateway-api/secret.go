@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -40,7 +41,7 @@ func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
 	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, r.controllerName)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}, builder.WithPredicates(predicate.NewPredicateFuncs(r.usedInGateway))).
-		Watches(&gatewayv1beta1.Gateway{},
+		Watches(&source.Kind{Type: &gatewayv1beta1.Gateway{}},
 			r.enqueueRequestForGatewayTLS(),
 			builder.WithPredicates(predicate.NewPredicateFuncs(hasMatchingControllerFn))).
 		Complete(r)
@@ -51,7 +52,7 @@ func (r *secretSyncer) usedInGateway(obj client.Object) bool {
 }
 
 func (r *secretSyncer) enqueueRequestForGatewayTLS() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+	return handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.Controller: "secrets",
 			logfields.Resource:   obj.GetName(),
