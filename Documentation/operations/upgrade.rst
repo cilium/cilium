@@ -410,6 +410,8 @@ Helm Options
 * Values ``clustermesh.apiserver.tls.ca.cert`` and ``clustermesh.apiserver.tls.ca.key``
   are deprecated in favor of ``tls.ca.cert`` and ``tls.ca.key`` respectively, and
   will be removed in v1.15.
+* Values ``proxy.prometheus.enabled`` and ``proxy.prometheus.port`` are deprecated in favor of
+  their ``envoy.prometheus.*`` counterparts.
 
 .. _earlier_upgrade_notes:
 

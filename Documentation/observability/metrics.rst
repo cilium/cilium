@@ -48,7 +48,7 @@ use ``operator.prometheus.enabled=true``.
      --set operator.prometheus.enabled=true
 
 The ports can be configured via ``prometheus.port``,
-``proxy.prometheus.port``, or ``operator.prometheus.port`` respectively.
+``envoy.prometheus.port``, or ``operator.prometheus.port`` respectively.
 
 When metrics are enabled, all Cilium components will have the following
 annotations. They can be used to signal Prometheus whether to scrape metrics:
