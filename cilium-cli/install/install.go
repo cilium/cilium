@@ -400,6 +400,9 @@ type Parameters struct {
 	// DryRunHelmValues writes non-default Helm values to stdout without performing the actual installation.
 	// For Helm installation mode only.
 	DryRunHelmValues bool
+
+	// HelmRepository specifies the Helm repository to download Cilium Helm charts from.
+	HelmRepository string
 }
 
 type rollbackStep func(context.Context)
@@ -453,7 +456,7 @@ func NewK8sInstaller(client k8sInstallerImplementation, p Parameters) (*K8sInsta
 	}
 
 	cm := certs.NewCertManager(client, certs.Parameters{Namespace: p.Namespace})
-	chartVersion, helmChart, err := helm.ResolveHelmChartVersion(p.Version, p.HelmChartDirectory)
+	chartVersion, helmChart, err := helm.ResolveHelmChartVersion(p.Version, p.HelmChartDirectory, p.HelmRepository)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/cilium-cli/defaults"
+
 	"github.com/blang/semver/v4"
 )
 
@@ -51,7 +53,7 @@ func TestResolveHelmChartVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _, err := ResolveHelmChartVersion(tt.args.versionFlag, tt.args.chartDirectoryFlag)
+			got, _, err := ResolveHelmChartVersion(tt.args.versionFlag, tt.args.chartDirectoryFlag, defaults.HelmRepository)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ResolveHelmChartVersion() error = %v, wantErr %v", err, tt.wantErr)
 				return
