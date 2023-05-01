@@ -26,10 +26,18 @@ func TestTimerHardReset(t *testing.T) {
 	tr, done := New()
 	defer done()
 	for i := 0; i < 100; i++ {
+		ch := tr.After(time.Millisecond)
 		select {
-		case <-tr.After(time.Millisecond):
+		case <-ch:
+		// Under CPU constrained environments, there may be a delay
+		// between the timer firing and the goroutine being scheduled,
 		case <-time.After(time.Millisecond * 2):
-			t.Fatal("`IncTimer`, after being reset, did not fire")
+			select {
+			case <-ch:
+				t.Log("Warning: `IncTimer` eventually fired, but was delayed (this is likely caused by constrained CPU resources and GC)")
+			case <-time.After(time.Millisecond * 2):
+				t.Fatal("`IncTimer` did not fire after being reset")
+			}
 		}
 	}
 }
