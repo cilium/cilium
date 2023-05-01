@@ -1,3 +1,4 @@
+
 # upgradeCompatibility helps users upgrading to ensure that the configMap for
 # Cilium will not change critical values to ensure continued operation
 # This is flag is not required for new installations.
@@ -1747,6 +1748,9 @@ envoy:
   maxRequestsPerConnection: 0
   # Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
   maxConnectionDurationSeconds: 0
+  # Set Envoy upstream HTTP idle connection timeout seconds.
+  # Does not apply to connections with pending requests. Default 60s
+  idleTimeoutDurationSeconds: 60
 
   # -- Envoy container image.
   image:

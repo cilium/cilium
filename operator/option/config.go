@@ -43,6 +43,9 @@ const (
 
 	// PprofPortOperator is the default value for pprof in the operator
 	PprofPortOperator = 6061
+
+	// DefaultProxyIdleTimeoutSeconds is the default value for the proxy idle timeout
+	DefaultProxyIdleTimeoutSeconds = 60
 )
 
 const (
@@ -261,6 +264,9 @@ const (
 
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by GatewayAPI and CEC.
 	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
+
+	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
+	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
 
 	// EnableGatewayAPI enables support of Gateway API
 	// This must be enabled along with enable-envoy-config in cilium agent.
@@ -518,6 +524,9 @@ type OperatorConfig struct {
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC for Gateway API.
 	GatewayAPISecretsNamespace string
 
+	// ProxyIdleTimeoutSeconds is the idle timeout for the proxy to upstream cluster
+	ProxyIdleTimeoutSeconds int
+
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace string
 
@@ -583,6 +592,10 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
 	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
 	c.GatewayAPISecretsNamespace = vp.GetString(GatewayAPISecretsNamespace)
+	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
+	if c.ProxyIdleTimeoutSeconds == 0 {
+		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds
+	}
 	c.EnableIngressSecretsSync = vp.GetBool(EnableIngressSecretsSync)
 	c.EnableGatewayAPISecretsSync = vp.GetBool(EnableGatewayAPISecretsSync)
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)

@@ -33,16 +33,18 @@ import (
 )
 
 type envoyConfigManager struct {
-	client     client.Clientset
-	informer   cache.Controller
-	store      cache.Store
-	maxRetries int
+	client             client.Clientset
+	informer           cache.Controller
+	store              cache.Store
+	maxRetries         int
+	idleTimeoutSeconds int
 }
 
-func newEnvoyConfigManager(ctx context.Context, client client.Clientset, maxRetries int) (*envoyConfigManager, error) {
+func newEnvoyConfigManager(ctx context.Context, client client.Clientset, maxRetries int, idleTimeoutSeconds int) (*envoyConfigManager, error) {
 	manager := &envoyConfigManager{
-		client:     client,
-		maxRetries: maxRetries,
+		client:             client,
+		maxRetries:         maxRetries,
+		idleTimeoutSeconds: idleTimeoutSeconds,
 	}
 
 	manager.store, manager.informer = informer.NewInformer(
@@ -144,6 +146,9 @@ func (m *Manager) getClusterResources(svc *slim_corev1.Service) ([]ciliumv2.XDSR
 		LbPolicy:       envoy_config_cluster_v3.Cluster_LbPolicy(lbPolicy),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{Seconds: int64(m.idleTimeoutSeconds)},
+				},
 				UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
 					UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{
 						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
