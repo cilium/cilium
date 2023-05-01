@@ -73,6 +73,11 @@ func NewCluster(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResour
 		Name: name,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			httpProtocolOptionsType: toAny(&envoy_upstreams_http_v3.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 60,
+					},
+				},
 				UpstreamProtocolOptions: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamProtocolConfig{
 					UseDownstreamProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamHttpConfig{
 						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
