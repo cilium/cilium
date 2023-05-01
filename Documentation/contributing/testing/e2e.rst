@@ -65,7 +65,7 @@ Assuming that Cilium was built and pushed to a local registry with:
 
 You can install Cilium with the following:
 
-.. code_block:: shell-session
+.. code-block:: shell-session
 
     $ cilium install --wait --rollback=false \
         --chart-directory=$GOPATH/src/github.com/cilium/cilium/install/kubernetes/cilium \
@@ -81,7 +81,7 @@ You can install Cilium with the following:
 
 Finally, to run tests:
 
-.. code_block:: shell-session
+.. code-block:: shell-session
 
     $ cilium connectivity test
     ...
@@ -89,14 +89,79 @@ Finally, to run tests:
 
 Alternatively, you can select which tests to run:
 
-.. code_block:: shell-session
+.. code-block:: shell-session
    
     $ cilium connectivity test --test north-south-loadbalancing
     ...
     [=] Test [north-south-loadbalancing]
-    ......
 
 Running tests in VM
 ^^^^^^^^^^^^^^^^^^^
 
-TODO
+To run Cilium and the connectivity tests in a virtual machine, one can use
+`little-vm-helper (LVH) <https://github.com/cilium/little-vm-helper>`_. The
+project provides a runner of qemu-based VMs, a builder of VM images,
+and a registry containing pre-built VM images.
+
+First, install the LVH cli tool:
+
+.. code-block:: shell-session
+
+     $ go install github.com/cilium/little-vm-helper/cmd/lvh@latest
+     $ lvh --help
+     ...
+     Use "lvh [command] --help" for more information about a command.
+
+Second, fetch a VM image:
+
+.. code-block:: shell-session
+
+    $ mkdir images/
+    $ docker run -v $(pwd)/images:/mnt/images \
+        quay.io/lvh-images/kind:6.0-main \
+        cp /data/images/kind_6.0.qcow2.zst /mnt/images
+    $ cd images/
+    $ zstd -d kind_6.0.qcow2.zst
+
+Alternatively, you can use the ``scripts/pull_image.sh``:
+
+.. code-block:: shell-session
+
+    $ mkdir images/
+    $ git clone https://github.com/cilium/little-vm-helper
+    $ IMAGE_DIR=./images ./little-vm-helper/scripts/pull_image.sh quay.io/lvh-images/kind:6.0-main
+
+See `<https://quay.io/organization/lvh-images/kind?tab=tags>`_ for all available
+images. To build a new VM image (or to update any existing) please refer to
+`little-vm-helper-images <https://github.com/cilium/little-vm-helper-images>`_.
+
+Next, start a VM:
+
+.. code-block:: shell-session
+
+    $ lvh run --image ./images/kind_6.0.qcow2 --host-mount $GOPATH/src/github.com/cilium/ --daemonize -p 2222:22 --cpu=3 --mem=6G
+
+Finally, you can SSH into the VM to start a K8s cluster, install Cilium, and finally run the connectivity tests:
+
+.. code-block:: shell-session
+
+    $ ssh -p 2222 -o "StrictHostKeyChecking=no" root@localhost
+    # echo "nameserver 1.1.1.1" > /etc/resolv.conf
+    # cd /host/cilium
+    # git config --global --add safe.directory /host/cilium
+    # ./contrib/scripts/kind.sh "" 3 "" "" "none" "dual"
+    # cd /host/cilium-cli
+    # ./cilium install --wait --rollback=false \
+        --chart-directory=../cilium/install/kubernetes/cilium \
+        --version=v1.13.2 \
+        --helm-set-string=tunnel=vxlan \
+        --nodes-without-cilium=kind-worker3
+    # ./cilium connectivity test
+    ...
+    ✅ All 32 tests (263 actions) successful, 2 tests skipped, 1 scenarios skipped.
+
+To stop the VM, run from the host:
+
+.. code-block:: shell-session
+
+    $ pkill qemu-system-x86
