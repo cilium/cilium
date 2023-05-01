@@ -419,6 +419,7 @@ Port Range / Protocol    Description
 6060/tcp                 cilium-agent pprof server (listening on 127.0.0.1)
 6061/tcp                 cilium-operator pprof server (listening on 127.0.0.1)
 6062/tcp                 Hubble Relay pprof server (listening on 127.0.0.1)
+9878/tcp                 cilium-envoy health listener (listening on 127.0.0.1)
 9879/tcp                 cilium-agent health status API (listening on 127.0.0.1 and/or ::1)
 9890/tcp                 cilium-agent gops server (listening on 127.0.0.1)
 9891/tcp                 operator gops server (listening on 127.0.0.1)
@@ -426,7 +427,7 @@ Port Range / Protocol    Description
 9893/tcp                 Hubble Relay gops server (listening on 127.0.0.1)
 9962/tcp                 cilium-agent Prometheus metrics
 9963/tcp                 cilium-operator Prometheus metrics
-9964/tcp                 cilium-proxy Prometheus metrics
+9964/tcp                 cilium-envoy Prometheus metrics
 51871/udp                WireGuard encryption tunnel endpoint
 ======================== ==================================================================
 
