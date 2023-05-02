@@ -589,7 +589,7 @@ static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 
 static __always_inline int
 ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
-		  struct ipv4_ct_tuple *tuple)
+		  struct ipv4_ct_tuple *tuple, bool *has_l4_header)
 {
 	int err;
 
@@ -623,7 +623,7 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 				tuple->dport = identifier;
 				/* fall through */
 			default:
-				break;
+				return ACTION_CREATE;
 			}
 		}
 		break;
@@ -634,18 +634,18 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
+		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, has_l4_header);
 		if (err < 0)
 			return err;
 
-		break;
+		return ACTION_CREATE;
 
 	default:
 		/* Can't handle extension headers yet */
 		return DROP_CT_UNKNOWN_PROTO;
 	}
 
-	return 0;
+	return ACTION_UNSPEC;
 }
 
 /* The function determines whether an egress flow identified by the given
@@ -662,7 +662,7 @@ ct_is_reply4(const void *map, struct __ctx_buff *ctx, int off,
 {
 	int err = 0;
 
-	err = ct_extract_ports4(ctx, off, CT_EGRESS, tuple);
+	err = ct_extract_ports4(ctx, off, CT_EGRESS, tuple, NULL);
 	if (err < 0)
 		return err;
 
@@ -769,7 +769,7 @@ static __always_inline int ct_lookup4(const void *map,
 				      struct __ctx_buff *ctx, int off, enum ct_dir dir,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
-	int err, action = ACTION_UNSPEC;
+	int action;
 	bool has_l4_header = true;
 
 	/* The tuple is created in reverse order initially to find a
@@ -788,57 +788,9 @@ static __always_inline int ct_lookup4(const void *map,
 	else
 		return DROP_CT_INVALID_HDR;
 
-	switch (tuple->nexthdr) {
-	case IPPROTO_ICMP:
-		if (1) {
-			__be16 identifier = 0;
-			__u8 type;
-
-			if (ctx_load_bytes(ctx, off, &type, 1) < 0)
-				return DROP_CT_INVALID_HDR;
-			if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
-			     ctx_load_bytes(ctx, off + offsetof(struct icmphdr, un.echo.id),
-					    &identifier, 2) < 0)
-				return DROP_CT_INVALID_HDR;
-
-			tuple->sport = 0;
-			tuple->dport = 0;
-
-			switch (type) {
-			case ICMP_DEST_UNREACH:
-			case ICMP_TIME_EXCEEDED:
-			case ICMP_PARAMETERPROB:
-				tuple->flags |= TUPLE_F_RELATED;
-				break;
-
-			case ICMP_ECHOREPLY:
-				tuple->sport = identifier;
-				break;
-			case ICMP_ECHO:
-				tuple->dport = identifier;
-				/* fall through */
-			default:
-				action = ACTION_CREATE;
-				break;
-			}
-		}
-		break;
-
-	case IPPROTO_TCP:
-	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
-		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, &has_l4_header);
-		if (err < 0)
-			return err;
-
-		action = ACTION_CREATE;
-		break;
-	default:
-		/* Can't handle extension headers yet */
-		return DROP_CT_UNKNOWN_PROTO;
-	}
+	action = ct_extract_ports4(ctx, off, dir, tuple, &has_l4_header);
+	if (action < 0)
+		return action;
 
 	return __ct_lookup4(map, tuple, ctx, off, has_l4_header,
 			    action, dir, ct_state, monitor);
