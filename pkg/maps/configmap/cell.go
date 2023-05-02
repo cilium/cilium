@@ -17,7 +17,7 @@ var Cell = cell.Module(
 	cell.Provide(newMap),
 )
 
-func newMap(lifecycle hive.Lifecycle) MapOut {
+func newMap(lifecycle hive.Lifecycle) bpf.MapOut[Map] {
 	configmap := newConfigMap()
 
 	lifecycle.Append(hive.Hook{
@@ -29,15 +29,5 @@ func newMap(lifecycle hive.Lifecycle) MapOut {
 		},
 	})
 
-	return MapOut{
-		ConfigMap: configmap,
-		BpfMap:    configmap,
-	}
-}
-
-type MapOut struct {
-	cell.Out
-
-	ConfigMap Map
-	BpfMap    bpf.BpfMap `group:"bpf-maps"`
+	return bpf.NewMapOut(Map(configmap))
 }
