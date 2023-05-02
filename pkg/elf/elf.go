@@ -115,7 +115,7 @@ func (elf *ELF) writeValue(w io.WriteSeeker, offset uint64, value []byte) error 
 // strings specified in 'strOptions' with their corresponding values.
 //
 // Keys in the 'intOptions' / 'strOptions' maps are case-sensitive.
-func (elf *ELF) copy(w io.WriteSeeker, r *io.SectionReader, intOptions map[string]uint32, strOptions map[string]string) error {
+func (elf *ELF) copy(w io.WriteSeeker, r *io.SectionReader, intOptions map[string]uint64, strOptions map[string]string) error {
 	if len(intOptions) == 0 && len(strOptions) == 0 {
 		// Copy the remaining portion of the file
 		if _, err := io.Copy(w, r); err != nil {
@@ -142,10 +142,14 @@ processSymbols:
 			if v, exists := intOptions[symbol.name]; exists {
 				value = make([]byte, symbol.size)
 				switch uintptr(symbol.size) {
+				case unsafe.Sizeof(uint64(0)):
+					elf.metadata.ByteOrder.PutUint64(value, v)
 				case unsafe.Sizeof(uint32(0)):
-					elf.metadata.ByteOrder.PutUint32(value, v)
+					elf.metadata.ByteOrder.PutUint32(value, uint32(v))
 				case unsafe.Sizeof(uint16(0)):
 					elf.metadata.ByteOrder.PutUint16(value, uint16(v))
+				default:
+					return fmt.Errorf("substitute symbol %s: unsupported size %d", symbol.name, symbol.size)
 				}
 			}
 
@@ -208,7 +212,7 @@ processSymbols:
 //
 // On success, writes the new file to the specified path.
 // On failure, returns an error and no file is left on the filesystem.
-func (elf *ELF) Write(path string, intOptions map[string]uint32, strOptions map[string]string) error {
+func (elf *ELF) Write(path string, intOptions map[string]uint64, strOptions map[string]string) error {
 	elf.Lock()
 	defer elf.Unlock()
 

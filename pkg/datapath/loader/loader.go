@@ -151,10 +151,10 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	if mac == nil {
 		// L2-less device
 		mac = make([]byte, 6)
-		opts["ETH_HLEN"] = uint32(0)
+		opts["ETH_HLEN"] = uint64(0)
 	}
-	opts["NODE_MAC_1"] = sliceToBe32(mac[0:4])
-	opts["NODE_MAC_2"] = uint32(sliceToBe16(mac[4:6]))
+	opts["NODE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
+	opts["NODE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
 
 	ifIndex, err := link.GetIfIndex(ifName)
 	if err != nil {
@@ -162,18 +162,18 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	}
 
 	if !option.Config.EnableHostLegacyRouting {
-		opts["SECCTX_FROM_IPCACHE"] = uint32(SecctxFromIpcacheEnabled)
+		opts["SECCTX_FROM_IPCACHE"] = uint64(SecctxFromIpcacheEnabled)
 	} else {
-		opts["SECCTX_FROM_IPCACHE"] = uint32(SecctxFromIpcacheDisabled)
+		opts["SECCTX_FROM_IPCACHE"] = uint64(SecctxFromIpcacheDisabled)
 	}
 
 	if option.Config.EnableNodePort {
-		opts["NATIVE_DEV_IFINDEX"] = ifIndex
+		opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
 	}
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade && bpfMasqIPv4Addrs != nil {
 		if option.Config.EnableIPv4 {
 			ipv4 := bpfMasqIPv4Addrs[ifName]
-			opts["IPV4_MASQUERADE"] = byteorder.NetIPv4ToHost32(ipv4)
+			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4))
 		}
 	}
 

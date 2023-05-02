@@ -118,7 +118,7 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 		option.Config.EnableIPv6 = oldEnableIPv6
 	}()
 
-	testRun := func(t *testutils.TestEndpoint) ([]byte, map[string]uint32, map[string]string) {
+	testRun := func(t *testutils.TestEndpoint) ([]byte, map[string]uint64, map[string]string) {
 		cfg := &HeaderfileWriter{}
 		varSub, stringSub := loader.ELFSubstitutions(t)
 
@@ -232,7 +232,7 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	}
 }
 
-func assertKeysInsideMap(c *C, m map[string]uint32, keys []string, want bool) {
+func assertKeysInsideMap(c *C, m map[string]uint64, keys []string, want bool) {
 	for _, v := range keys {
 		_, ok := m[v]
 		c.Assert(ok, Equals, want)
