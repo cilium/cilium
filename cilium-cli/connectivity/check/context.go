@@ -765,6 +765,9 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam IPFamily, opts ...s
 	if requestTimeout := ct.params.RequestTimeout.Seconds(); requestTimeout > 0.0 {
 		cmd = append(cmd, "--max-time", strconv.FormatFloat(requestTimeout, 'f', -1, 64))
 	}
+	if ct.params.CurlInsecure {
+		cmd = append(cmd, "--insecure")
+	}
 
 	cmd = append(cmd, opts...)
 	cmd = append(cmd, fmt.Sprintf("%s://%s%s",
