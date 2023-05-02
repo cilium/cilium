@@ -368,6 +368,7 @@ jobs:
       with:
         cluster_name: ${{ env.clusterName1 }}
         version: ${{ env.kind_version }}
+        kubectl_version: ${{ env.k8s_version }}
         config: ./.github/kind-config-cluster1.yaml
         wait: 0 # The control-plane never becomes ready, since no CNI is present
 
@@ -376,6 +377,7 @@ jobs:
       with:
         cluster_name: ${{ env.clusterName2 }}
         version: ${{ env.kind_version }}
+        kubectl_version: ${{ env.k8s_version }}
         config: ./.github/kind-config-cluster2.yaml
         wait: 0 # The control-plane never becomes ready, since no CNI is present
 
