@@ -645,7 +645,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 		})
 
 		SkipContextIf(func() bool {
-			return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.RunsOnAKS() || helpers.DoesNotExistNodeWithoutCilium()
+			return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.RunsOnAKS() || helpers.DoesNotExistNodeWithoutCilium() ||
+				helpers.SkipQuarantined()
 		}, "with L7 policy", func() {
 			var demoPolicyL7 string
 
