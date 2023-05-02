@@ -543,6 +543,21 @@ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 	ct_flip_tuple_dir4(tuple);
 }
 
+static __always_inline void
+ipv4_ct_tuple_swap_ports(struct ipv4_ct_tuple *tuple)
+{
+	__be16 tmp;
+
+	/* Conntrack code uses tuples that have source and destination ports in
+	 * the reversed order. Other code, such as BPF helpers and NAT, requires
+	 * normal tuples that match the actual packet contents. This function
+	 * converts between these two formats.
+	 */
+	tmp = tuple->sport;
+	tuple->sport = tuple->dport;
+	tuple->dport = tmp;
+}
+
 static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 						    int off,
 						    enum ct_dir dir __maybe_unused,
