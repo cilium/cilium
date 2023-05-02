@@ -35,7 +35,7 @@ func listLocalAddresses(family int) ([]net.IP, error) {
 		if ip.ListContainsIP(ipsToExclude, addr.IP) {
 			continue
 		}
-		if addr.IP.IsLoopback() || addr.IP.IsLinkLocalUnicast() {
+		if addr.IP.IsLoopback() {
 			continue
 		}
 
