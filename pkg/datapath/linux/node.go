@@ -1104,11 +1104,13 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if option.Config.EnableWireguard && newNode.WireguardPubKey != "" {
-		if err := n.wgAgent.UpdatePeer(newNode.Fullname(), newNode.WireguardPubKey, newIP4, newIP6); err != nil {
-			log.WithError(err).
-				WithField(logfields.NodeName, newNode.Fullname()).
-				Warning("Failed to update wireguard configuration for peer")
-		}
+		go func() {
+			if err := n.wgAgent.UpdatePeer(newNode.Fullname(), newNode.WireguardPubKey, newIP4, newIP6); err != nil {
+				log.WithError(err).
+					WithField(logfields.NodeName, newNode.Fullname()).
+					Warning("Failed to update wireguard configuration for peer")
+			}
+		}()
 	}
 
 	if n.nodeConfig.EnableAutoDirectRouting {
@@ -1222,9 +1224,13 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	}
 
 	if option.Config.EnableWireguard {
-		if err := n.wgAgent.DeletePeer(oldNode.Fullname()); err != nil {
-			return err
-		}
+		go func() {
+			if err := n.wgAgent.DeletePeer(oldNode.Name); err != nil {
+				log.WithError(err).
+					WithField(logfields.NodeName, oldNode.Name).
+					Warning("Failed to delete wireguard configuration for peer")
+			}
+		}()
 	}
 
 	n.deallocateIDForNode(oldNode)
