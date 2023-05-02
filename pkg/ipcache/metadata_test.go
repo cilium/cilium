@@ -32,11 +32,19 @@ func TestInjectLabels(t *testing.T) {
 
 	ctx := context.Background()
 
+	updater := IPIdentityCache.PolicyHandler.(*mockUpdater)
+	allocator := IPIdentityCache.IdentityAllocator.(*testidentity.MockIdentityAllocator)
+
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
 	remaining, err := IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.Len(t, remaining, 0)
 	assert.NoError(t, err)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
+
+	id := IPIdentityCache.ipToIdentityCache[worldPrefix.String()].ID
+	assert.Len(t, updater.added, 1)
+	assert.Equal(t, allocator.LookupIdentityByID(ctx, id).LabelArray, updater.added[id])
+	assert.Len(t, updater.removed, 0)
 
 	// Insert kube-apiserver IP from outside of the cluster. This should create
 	// a CIDR ID for this IP.
@@ -48,6 +56,11 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.True(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
 
+	id = IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID
+	assert.Len(t, updater.added, 1)
+	assert.Equal(t, allocator.LookupIdentityByID(ctx, id).Labels.LabelArray(), updater.added[id])
+	assert.Len(t, updater.removed, 0)
+
 	// Upsert node labels to the kube-apiserver to validate that the CIDR ID is
 	// deallocated and the kube-apiserver reserved ID is associated with this
 	// IP now.
@@ -58,6 +71,10 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
+
+	assert.Len(t, updater.added, 0)
+	assert.Len(t, updater.removed, 1)
+	assert.Contains(t, updater.removed, id)
 
 	// Assert that a CIDR identity can be overridden automatically (without
 	// overrideIdentity=true) when the prefix becomes associated with an entity
@@ -212,9 +229,14 @@ type mockK8sSyncedChecker struct{}
 
 func (m *mockK8sSyncedChecker) K8sCacheIsSynced() bool { return true }
 
-type mockUpdater struct{}
+type mockUpdater struct {
+	added, removed cache.IdentityCache
+}
 
-func (m *mockUpdater) UpdateIdentities(_, _ cache.IdentityCache, _ *sync.WaitGroup) {}
+func (m *mockUpdater) UpdateIdentities(added, removed cache.IdentityCache, _ *sync.WaitGroup) {
+	m.added = added
+	m.removed = removed
+}
 
 type mockTriggerer struct{}
 

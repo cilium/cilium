@@ -195,10 +195,8 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			oldIDs[prefix] = id
 			var newID *identity.Identity
 
-			lbls := prefixInfo.ToLabels()
-
 			// Insert to propagate the updated set of labels after removal.
-			newID, _, err = ipc.injectLabels(ctx, prefix, lbls)
+			newID, _, err = ipc.injectLabels(ctx, prefix, prefixInfo.ToLabels())
 			if err != nil {
 				// NOTE: This may fail during a 2nd or later
 				// iteration of the loop. To handle this, break
@@ -213,7 +211,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.IPAddr:   prefix,
 					logfields.Identity: id,
-					logfields.Labels:   lbls, // new labels
+					logfields.Labels:   newID.Labels, // new labels
 				}).Warning(
 					"Failed to allocate new identity while handling change in labels associated with a prefix.",
 				)
@@ -229,7 +227,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				goto releaseIdentity
 			}
 
-			idsToAdd[newID.ID] = lbls.LabelArray()
+			idsToAdd[newID.ID] = newID.Labels.LabelArray()
 			entriesToReplace[prefix] = Identity{
 				ID:     newID.ID,
 				Source: prefixInfo.Source(),
