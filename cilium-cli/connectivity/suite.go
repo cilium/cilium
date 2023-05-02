@@ -154,6 +154,9 @@ var (
 
 	//go:embed manifests/echo-ingress-mtls.yaml
 	echoIngressMTLSPolicyYAML string
+
+	//go:embed manifests/egress-gateway-policy.yaml
+	egressGatewayPolicyYAML string
 )
 
 var (
@@ -220,6 +223,14 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				check.RequireFeatureEnabled(check.FeatureEncryptionNode)).
 			WithScenarios(
 				tests.NodeToNodeEncryption(),
+			)
+
+		ct.NewTest("egress-gateway").
+			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML).
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEgressGateway),
+				check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithScenarios(
+				tests.EgressGateway(),
 			)
 
 		return ct.Run(ctx)
