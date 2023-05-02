@@ -164,6 +164,14 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
+	// Attempting to remove a label for a ResourceID which does not exist
+	// should not remove anything.
+	IPIdentityCache.RemoveLabelsExcluded(
+		labels.LabelKubeAPIServer, map[netip.Prefix]struct{}{},
+		"foo")
+	assert.Len(t, IPIdentityCache.metadata.m, 1)
+	assert.Contains(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels(), labels.IDNameKubeAPIServer)
+
 	IPIdentityCache.RemoveLabelsExcluded(
 		labels.LabelKubeAPIServer, map[netip.Prefix]struct{}{},
 		"kube-uid")
