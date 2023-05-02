@@ -384,6 +384,10 @@ To see all the non-default Helm values without actually performing the installat
 
     cilium install --dry-run-helm-values
 
+To install using Cilium's [OCI dev chart repository](https://quay.io/repository/cilium-charts-dev/cilium):
+
+    cilium install --repository oci://quay.io/cilium-charts-dev/cilium --version 1.14.0-dev-dev.4-main-797347707c
+
 #### `upgrade` examples
 
 To upgrade to a specific version of Cilium:
@@ -393,6 +397,10 @@ To upgrade to a specific version of Cilium:
 To upgrade using a local Helm chart:
 
     cilium upgrade --chart-directory ./install/kubernetes/cilium
+
+To upgrade using Cilium's [OCI dev chart repository](https://quay.io/repository/cilium-charts-dev/cilium):
+
+    cilium upgrade --repository oci://quay.io/cilium-charts-dev/cilium --version 1.14.0-dev-dev.4-main-797347707c
 
 When upgrading Cilium, please refer to [the upgrade guide](https://docs.cilium.io/en/stable/operations/upgrade/)
 and adjust non-default Helm values accordingly. `cilium-cli` does not automatically modify
