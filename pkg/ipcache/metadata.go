@@ -483,7 +483,7 @@ func (m *metadata) filterByLabels(filter labels.Labels) []netip.Prefix {
 // This function assumes that the ipcache metadata lock is held for writing.
 func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ...IPMetadata) {
 	info, ok := m.m[prefix]
-	if !ok {
+	if !ok || info[resource] == nil {
 		return
 	}
 	for _, a := range aux {
