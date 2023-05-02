@@ -394,6 +394,9 @@ out:
 	return ret;
 }
 
+/* Like an IPv6 version of ct_lazy_lookup4, but also assumes that the L4
+ * protocol is a service protocol (SCTP, UDP or TCP).
+ */
 static __always_inline int
 ct_lb_lookup6(const void *map, struct ipv6_ct_tuple *tuple,
 	      struct __ctx_buff *ctx, int l4_off, enum ct_dir dir,
@@ -733,15 +736,21 @@ out:
  * @arg dir		lookup direction
  * @arg ct_state	returned CT entry
  * @arg monitor		monitor feedback for trace aggregation
+ * @arg action          ACTION_CREATE or ACTION_UNSPEC for __ct_lookup
  *
- * This differs from ct_lookup4(), as here we expect that
- * - the CT tuple has its L4 ports populated,
- * - the L4 protocol is a SVC protocol (ie SCTP / UDP / TCP)
+ * This differs from ct_lookup4(), as here we expect that the CT tuple has its
+ * L4 ports populated.
+ *
+ * Note that certain ICMP types are not supported by this function (see cases
+ * where ct_extract_ports4 sets tuple->flags), because it overwrites
+ * tuple->flags, but this works well in LB and NAT flows that don't pass these
+ * ICMP types to ct_lazy_lookup4.
  */
 static __always_inline int
-ct_lb_lookup4(const void *map, struct ipv4_ct_tuple *tuple,
-	      struct __ctx_buff *ctx, int l4_off, bool has_l4_header,
-	      enum ct_dir dir, struct ct_state *ct_state, __u32 *monitor)
+ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple,
+		struct __ctx_buff *ctx, int l4_off, bool has_l4_header,
+		int action, enum ct_dir dir, struct ct_state *ct_state,
+		__u32 *monitor)
 {
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -760,7 +769,7 @@ ct_lb_lookup4(const void *map, struct ipv4_ct_tuple *tuple,
 		return DROP_CT_INVALID_HDR;
 
 	return __ct_lookup4(map, tuple, ctx, l4_off, has_l4_header,
-			    ACTION_CREATE, dir, ct_state, monitor);
+			    action, dir, ct_state, monitor);
 }
 
 /* Offset must point to IPv4 header */

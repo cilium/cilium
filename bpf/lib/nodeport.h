@@ -1908,8 +1908,8 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
-			    has_l4_header, CT_EGRESS, &ct_state, &monitor);
+	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
+			      has_l4_header, ACTION_CREATE, CT_EGRESS, &ct_state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 	/* Maybe we can be a bit more selective about CT_REOPENED?
@@ -2275,8 +2275,8 @@ skip_service_lookup:
 	if (backend_local || !nodeport_uses_dsr4(&tuple)) {
 		struct ct_state ct_state = {};
 
-		ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
-				    has_l4_header, CT_EGRESS, &ct_state, &monitor);
+		ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
+				      ACTION_CREATE, CT_EGRESS, &ct_state, &monitor);
 		switch (ret) {
 		case CT_REPLY:
 			/* SVC request should never be considered a reply, so this
@@ -2363,8 +2363,8 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 					   is_defined(ENABLE_DSR)))
 		return CTX_ACT_OK;
 
-	ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
-			    has_l4_header, CT_INGRESS, &ct_state, &trace->monitor);
+	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
+			      ACTION_CREATE, CT_INGRESS, &ct_state, &trace->monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 
@@ -2437,8 +2437,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple, false))
 		goto out;
 
-	ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
-			    has_l4_header, CT_INGRESS, &ct_state, &monitor);
+	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
+			      ACTION_CREATE, CT_INGRESS, &ct_state, &monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		reason = TRACE_REASON_CT_REPLY;
 		ret = lb4_rev_nat(ctx, l3_off, l4_off, &ct_state, &tuple,
