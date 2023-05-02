@@ -31,6 +31,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
@@ -228,13 +229,26 @@ func newChartFromRemoteWithCache(ciliumVersion semver2.Version, repository strin
 		}
 
 		// Download the chart from remote repository
-		pull := action.NewPullWithOpts(action.WithConfig(new(action.Configuration)))
+		actionConfig := new(action.Configuration)
+		pull := action.NewPullWithOpts(action.WithConfig(actionConfig))
 		pull.Settings = settings
-		pull.RepoURL = repository
 		pull.Version = ciliumVersion.String()
 		pull.DestDir = cacheDir
-
-		if _, err = pull.Run("cilium"); err != nil {
+		chartRef := "cilium"
+		if registry.IsOCI(repository) {
+			// For OCI repositories, Pull action expects the full repository name as the
+			// chartRef argument, and RepoURL must be kept unspecified.
+			chartRef = repository
+			// OCI repos need RegistryClient for some reason. Set it here.
+			registryClient, err := registry.NewClient()
+			if err != nil {
+				return nil, err
+			}
+			actionConfig.RegistryClient = registryClient
+		} else {
+			pull.RepoURL = repository
+		}
+		if _, err = pull.Run(chartRef); err != nil {
 			return nil, err
 		}
 	}
