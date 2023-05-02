@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -359,12 +358,6 @@ func (d *Daemon) initMaps() error {
 
 	if option.Config.TunnelingEnabled() {
 		if _, err := tunnel.TunnelMap().OpenOrCreate(); err != nil {
-			return err
-		}
-	}
-
-	if option.Config.EnableIPv4EgressGateway {
-		if err := egressmap.InitEgressMaps(option.Config.EgressGatewayPolicyMapEntries); err != nil {
 			return err
 		}
 	}

@@ -125,14 +125,13 @@ func (k *EgressGatewayTestSuite) SetUpSuite(c *C) {
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 
-	egressmap.InitEgressMaps(egressmap.MaxPolicyEntries)
-
 	nodeTypes.SetName(node1)
 }
 
 func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 	k.cacheStatus = make(k8s.CacheStatus)
 	k.hive = hive.New(
+		egressmap.Cell,
 		cell.Provide(NewEgressGatewayManager),
 		cell.Provide(
 			func() Config { return Config{true} },
@@ -157,7 +156,8 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	defer destroyTestInterface(testInterface1)
 
-	defer cleanupPolicies()
+	policyMap := k.manager.policyMap
+	defer cleanupPolicies(policyMap)
 
 	egressGatewayManager := k.manager
 	assertIPRules(c, []ipRule{})
@@ -174,14 +174,14 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	policy1 := newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
-	assertEgressRules(c, []egressRule{})
+	assertEgressRules(c, policyMap, []egressRule{})
 	assertIPRules(c, []ipRule{})
 
 	// Add a new endpoint & ID which matches policy-1
 	ep1, id1 := newEndpointAndIdentity("ep-1", ep1IP, ep1Labels)
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
-	assertEgressRules(c, []egressRule{
+	assertEgressRules(c, policyMap, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
 	})
 	assertIPRules(c, []ipRule{
@@ -192,14 +192,14 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	id1 = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
-	assertEgressRules(c, []egressRule{})
+	assertEgressRules(c, policyMap, []egressRule{})
 	assertIPRules(c, []ipRule{})
 
 	// Restore the old endpoint lables in order for it to be a match
 	id1 = updateEndpointAndIdentity(&ep1, id1, ep1Labels)
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
-	assertEgressRules(c, []egressRule{
+	assertEgressRules(c, policyMap, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
 	})
 	assertIPRules(c, []ipRule{
@@ -210,7 +210,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	policy2 := newEgressPolicyConfigWithNodeSelector("policy-2", ep2Labels, destCIDR, []string{}, nodeGroup2Selector, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy2)
 
-	assertEgressRules(c, []egressRule{
+	assertEgressRules(c, policyMap, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
 	})
 	assertIPRules(c, []ipRule{
@@ -221,7 +221,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	ep2, _ := newEndpointAndIdentity("ep-2", ep2IP, ep2Labels)
 	egressGatewayManager.OnUpdateEndpoint(&ep2)
 
-	assertEgressRules(c, []egressRule{
+	assertEgressRules(c, policyMap, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
 		{ep2IP, destCIDR, zeroIP4, node2IP},
 	})
@@ -249,7 +249,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR1}, nodeGroup1Selector, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
-	assertEgressRules(c, []egressRule{
+	assertEgressRules(c, policyMap, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
 		{ep1IP, excludedCIDR1, egressIP1, gatewayExcludedCIDRValue},
 		{ep2IP, destCIDR, zeroIP4, node2IP},
@@ -283,7 +283,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR1, excludedCIDR2}, nodeGroup1Selector, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
-	assertEgressRules(c, []egressRule{
+	assertEgressRules(c, policyMap, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
 		{ep1IP, excludedCIDR1, egressIP1, gatewayExcludedCIDRValue},
 		{ep1IP, excludedCIDR2, egressIP1, gatewayExcludedCIDRValue},
@@ -324,7 +324,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR2}, nodeGroup1Selector, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
-	assertEgressRules(c, []egressRule{
+	assertEgressRules(c, policyMap, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
 		{ep1IP, excludedCIDR2, egressIP1, gatewayExcludedCIDRValue},
 		{ep2IP, destCIDR, zeroIP4, node2IP},
@@ -350,7 +350,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
-	assertEgressRules(c, []egressRule{
+	assertEgressRules(c, policyMap, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
 		{ep2IP, destCIDR, zeroIP4, node2IP},
 	})
@@ -363,7 +363,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroupNotFoundSelector, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
-	assertEgressRules(c, []egressRule{
+	assertEgressRules(c, policyMap, []egressRule{
 		{ep1IP, destCIDR, zeroIP4, gatewayNotFoundValue},
 		{ep2IP, destCIDR, zeroIP4, node2IP},
 	})
@@ -374,10 +374,17 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	_ = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
-	assertEgressRules(c, []egressRule{
+	assertEgressRules(c, policyMap, []egressRule{
 		{ep2IP, destCIDR, zeroIP4, node2IP},
 	})
 	assertIPRules(c, []ipRule{})
+}
+
+func TestCell(t *testing.T) {
+	err := hive.New(Cell).Populate()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func createTestInterface(iface string, addr string) int {
@@ -416,10 +423,10 @@ func destroyTestInterface(iface string) error {
 	return nil
 }
 
-func cleanupPolicies() {
+func cleanupPolicies(policyMap egressmap.PolicyMap) {
 	for _, ep := range []string{ep1IP, ep2IP} {
 		pr := parseEgressRule(ep, destCIDR, zeroIP4, zeroIP4)
-		egressmap.EgressPolicyMap.Delete(pr.sourceIP, pr.destCIDR)
+		policyMap.Delete(pr.sourceIP, pr.destCIDR)
 	}
 }
 
@@ -612,21 +619,21 @@ func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string) parsedEgres
 	}
 }
 
-func assertEgressRules(c *C, rules []egressRule) {
+func assertEgressRules(c *C, policyMap egressmap.PolicyMap, rules []egressRule) {
 	parsedRules := []parsedEgressRule{}
 	for _, r := range rules {
 		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP))
 	}
 
 	for _, r := range parsedRules {
-		policyVal, err := egressmap.EgressPolicyMap.Lookup(r.sourceIP, r.destCIDR)
+		policyVal, err := policyMap.Lookup(r.sourceIP, r.destCIDR)
 		c.Assert(err, IsNil)
 
 		c.Assert(policyVal.GetEgressIP().Equal(r.egressIP), Equals, true)
 		c.Assert(policyVal.GetGatewayIP().Equal(r.gatewayIP), Equals, true)
 	}
 
-	egressmap.EgressPolicyMap.IterateWithCallback(
+	policyMap.IterateWithCallback(
 		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
 			for _, r := range parsedRules {
 				if key.Match(r.sourceIP, &r.destCIDR) && val.Match(r.egressIP, r.gatewayIP) {

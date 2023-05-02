@@ -18,6 +18,8 @@ import (
 
 type MapSpec = ciliumebpf.MapSpec
 
+type PinType = ciliumebpf.PinType
+
 const (
 	Hash       = ciliumebpf.Hash
 	PerCPUHash = ciliumebpf.PerCPUHash
@@ -25,6 +27,7 @@ const (
 	HashOfMaps = ciliumebpf.HashOfMaps
 	LPMTrie    = ciliumebpf.LPMTrie
 
+	PinNone   = ciliumebpf.PinNone
 	PinByName = ciliumebpf.PinByName
 )
 

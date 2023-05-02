@@ -68,7 +68,6 @@ import (
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
-	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
@@ -658,9 +657,6 @@ func initializeFlags() {
 
 	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
 	option.BindEnv(Vp, option.EnableIPv4EgressGateway)
-
-	flags.Int(option.EgressGatewayPolicyMapEntriesName, egressmap.MaxPolicyEntries, "Maximum number of entries in egress gateway policy map")
-	option.BindEnv(Vp, option.EgressGatewayPolicyMapEntriesName)
 
 	flags.Bool(option.EnableEnvoyConfig, false, "Enable Envoy Config CRDs")
 	option.BindEnv(Vp, option.EnableEnvoyConfig)

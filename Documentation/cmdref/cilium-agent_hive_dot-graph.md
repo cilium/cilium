@@ -21,6 +21,7 @@ cilium-agent hive dot-graph [flags]
       --cni-chaining-mode string                         Enable CNI chaining with the specified plugin (default "none")
       --cni-exclusive                                    Whether to remove other CNI configurations
       --cni-log-file string                              Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")
+      --egress-gateway-policy-map-max int                Maximum number of entries in egress gateway policy map (default 16384)
       --enable-cilium-api-server-access strings          List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-health-api-server-access strings   List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-k8s                                       Enable the k8s clientset (default true)

@@ -101,6 +101,7 @@ type datapathParams struct {
 	LC      hive.Lifecycle
 	WgAgent *wg.Agent
 
-	// Force map initialisation before loader
+	// Force map initialisation before loader. You should not use these otherwise.
+	// Some of the entries in this slice may be nil.
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
 }
