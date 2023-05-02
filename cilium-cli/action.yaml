@@ -1,0 +1,47 @@
+name: 'install-cilium-cli'
+description: 'Install Cilium CLI'
+inputs:
+  release-version:
+    description: 'Cilium CLI release version'
+  ci-version:
+    description: 'Cilium CLI CI build version'
+  binary-dir:
+    description: 'Directory to store Cilium CLI executable'
+    required: true
+    default: '/usr/local/bin'
+  binary-name:
+    description: 'Cilium CLI executable name'
+    required: true
+    default: 'cilium'
+runs:
+  using: "composite"
+  steps:
+    - name: Check Required Version
+      if: ${{ inputs.release-version == '' && inputs.ci-version == '' }}
+      shell: bash
+      run: |
+        echo "'release-version' or 'ci-version' has to be specified!"
+        exit 42
+
+    - name: Install Released Cilium CLI 
+      if: ${{ inputs.release-version != '' }}
+      shell: bash
+      run: |
+        curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ inputs.release-version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+        sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+        tar xzvfC cilium-linux-amd64.tar.gz /tmp
+        sudo mv /tmp/cilium ${{ inputs.binary-dir }}/${{ inputs.binary-name }}
+        rm cilium-linux-amd64.tar.gz{,.sha256sum}
+
+    - name: Install Cilium CLI from CI
+      if: ${{ inputs.ci-version != '' }}
+      shell: bash
+      run: |
+        cid=$(docker create quay.io/cilium/cilium-cli-ci:${{ inputs.ci-version }} ls)
+        docker cp $cid:/usr/local/bin/cilium ${{ inputs.binary-dir }}/${{ inputs.binary-name }}
+        docker rm $cid
+
+    - name: Run Cilium CLI Version
+      shell: bash
+      run: |
+        ${{ inputs.binary-dir }}/${{ inputs.binary-name }} version
