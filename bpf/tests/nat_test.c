@@ -45,7 +45,7 @@
 
 #include "lib/conntrack.h"
 
-#define ct_lookup4 mock_ct_lookup4
+#define ct_lazy_lookup4 mock_ct_lazy_lookup4
 #define ct_create4 mock_ct_create4
 
 #include "lib/common.h"
@@ -54,16 +54,18 @@
 
 #define __LIB_CONNTRACK_H_
 
-static int mock_ct_lookup4_response = -1;
-static __always_inline int mock_ct_lookup4(__maybe_unused const void *map,
-					   __maybe_unused struct ipv4_ct_tuple *tuple,
-					   __maybe_unused struct __ctx_buff *ctx,
-					   __maybe_unused int off,
-					   __maybe_unused enum ct_dir dir,
-					   __maybe_unused struct ct_state *ct_state,
-					   __maybe_unused __u32 *monitor)
+static int mock_ct_lazy_lookup4_response = -1;
+static __always_inline int mock_ct_lazy_lookup4(__maybe_unused const void *map,
+						__maybe_unused struct ipv4_ct_tuple *tuple,
+						__maybe_unused struct __ctx_buff *ctx,
+						__maybe_unused int off,
+						__maybe_unused bool has_l4_header,
+						__maybe_unused int action,
+						__maybe_unused enum ct_dir dir,
+						__maybe_unused struct ct_state *ct_state,
+						__maybe_unused __u32 *monitor)
 {
-	return mock_ct_lookup4_response;
+	return mock_ct_lazy_lookup4_response;
 }
 
 static int mock_ct_create4_response = 1;
@@ -107,59 +109,59 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	struct ipv4_nat_entry state;
 	struct ipv4_nat_target target;
 
-	/* If there is an error in ct_lookup4, it will return a negative value. We */
+	/* If there is an error in ct_lazy_lookup4, it will return a negative value. We */
 	/* can simply assume it to be -1 because the actually value does not matter. */
-	mock_ct_lookup4_response = -1;
+	mock_ct_lazy_lookup4_response = -1;
 
 	/* So snat_v4_track_connection will return exactly the same value which means */
 	/* an error occurs when snat_v4_track_connection is looking for the ipv4_ct_tuple. */
 	TEST("return -1 on error", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS,
-					     0, &target, NULL) != -1) {
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, true, ACTION_CREATE,
+					     NAT_DIR_EGRESS, 0, &target, NULL) != -1) {
 			test_fail();
 		}
 	});
 
-	/* If ct_lookup4 finds an entry, it will return a positive value. We can */
+	/* If ct_lazy_lookup4 finds an entry, it will return a positive value. We can */
 	/* also assume it to be 1 because the actually value does not matter. */
-	mock_ct_lookup4_response = 1;
+	mock_ct_lazy_lookup4_response = 1;
 
 	/* So snat_v4_track_connection will return 0 which means snat_v4_track_connection */
 	/* successfully tracks ipv4_ct_tuple. */
 	TEST("return 0 on track", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS,
-					     0, &target, NULL) != 0) {
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, true, ACTION_CREATE,
+					     NAT_DIR_EGRESS, 0, &target, NULL) != 0) {
 			test_fail();
 		}
 	});
 
-	/* If ct_lookup4 does not find an entry, it will return CT_NEW which equals */
+	/* If ct_lazy_lookup4 does not find an entry, it will return CT_NEW which equals */
 	/* to zero. Then if ct_create4 fails creating the entry, it will return a */
 	/* negative value which is assumed as -1 since the actual value does not */
 	/* matter. */
-	mock_ct_lookup4_response = CT_NEW;
+	mock_ct_lazy_lookup4_response = CT_NEW;
 	mock_ct_create4_response = -1;
 
 	/* So snat_v4_track_connection will return that value which means an error occurs */
 	/* when snat_v4_track_connection is trying to create the ipv4_ct_tuple. */
 	TEST("return -1 on create error", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS,
-					     0, &target, NULL) != -1) {
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, true, ACTION_CREATE,
+					     NAT_DIR_EGRESS, 0, &target, NULL) != -1) {
 			test_fail();
 		}
 	});
 
-	/* If ct_lookup4 does not find an entry, it will return CT_NEW which equals */
+	/* If ct_lazy_lookup4 does not find an entry, it will return CT_NEW which equals */
 	/* to zero. Then if ct_create4 successfully creates the entry, it will */
 	/* return 0. */
-	mock_ct_lookup4_response = CT_NEW;
+	mock_ct_lazy_lookup4_response = CT_NEW;
 	mock_ct_create4_response = 0;
 
 	/* So snat_v4_track_connection will return 0 which means snat_v4_track_connection */
 	/* successfully creates the ipv4_ct_tuple. */
 	TEST("return 0 on create success", {
-		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS,
-					     0, &target, NULL) != 0) {
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, true, ACTION_CREATE,
+					     NAT_DIR_EGRESS, 0, &target, NULL) != 0) {
 			test_fail();
 		}
 	});
