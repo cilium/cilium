@@ -24,6 +24,9 @@ type mockMetrics struct {
 	availableIPsPerSubnet map[string]int
 	nodes                 map[string]int
 	resyncCount           int64
+	nodeIPAvailable       map[string]int
+	nodeIPUsed            map[string]int
+	nodeIPNeeded          map[string]int
 }
 
 type histogram struct {
@@ -42,6 +45,9 @@ func NewMockMetrics() *mockMetrics {
 		allocatedIPs:          map[string]int{},
 		nodes:                 map[string]int{},
 		availableIPsPerSubnet: map[string]int{},
+		nodeIPAvailable:       map[string]int{},
+		nodeIPUsed:            map[string]int{},
+		nodeIPNeeded:          map[string]int{},
 	}
 }
 
@@ -170,6 +176,24 @@ func (m *mockMetrics) ResyncCount() int64 {
 func (m *mockMetrics) IncResyncCount() {
 	m.mutex.Lock()
 	m.resyncCount++
+	m.mutex.Unlock()
+}
+
+func (m *mockMetrics) SetIPAvailable(s string, n int) {
+	m.mutex.Lock()
+	m.nodeIPAvailable[s] = n
+	m.mutex.Unlock()
+}
+
+func (m *mockMetrics) SetIPUsed(s string, n int) {
+	m.mutex.Lock()
+	m.nodeIPUsed[s] = n
+	m.mutex.Unlock()
+}
+
+func (m *mockMetrics) SetIPNeeded(s string, n int) {
+	m.mutex.Lock()
+	m.nodeIPNeeded[s] = n
 	m.mutex.Unlock()
 }
 

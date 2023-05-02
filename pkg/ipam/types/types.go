@@ -397,7 +397,7 @@ func (m *InstanceMap) ForeachAddress(instanceID string, fn AddressIterator) erro
 		if instance := m.data[instanceID]; instance != nil {
 			return foreachAddress(instanceID, instance, fn)
 		}
-		return fmt.Errorf("instance does not exist")
+		return fmt.Errorf("instance does not exist: %q", instanceID)
 	}
 
 	for instanceID, instance := range m.data {
@@ -438,7 +438,7 @@ func (m *InstanceMap) ForeachInterface(instanceID string, fn InterfaceIterator) 
 		if instance := m.data[instanceID]; instance != nil {
 			return foreachInterface(instanceID, instance, fn)
 		}
-		return fmt.Errorf("instance does not exist")
+		return fmt.Errorf("instance does not exist: %q", instanceID)
 	}
 	for instanceID, instance := range m.data {
 		if err := foreachInterface(instanceID, instance, fn); err != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/alibabacloud/utils"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -41,9 +42,13 @@ const (
 	maxENIPerNode = 50
 )
 
+type ipamNodeActions interface {
+	InstanceID() string
+}
+
 type Node struct {
 	// node contains the general purpose fields of a node
-	node *ipam.Node
+	node ipamNodeActions
 
 	// mutex protects members below this field
 	mutex lock.RWMutex
@@ -183,11 +188,16 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 // ResyncInterfacesAndIPs is called to retrieve and ENIs and IPs as known to
 // the AlibabaCloud API and return them
-func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (available ipamTypes.AllocationMap, remainAvailableENIsCount int, err error) {
+func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (available ipamTypes.AllocationMap, stats stats.InterfaceStats, err error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return nil, -1, fmt.Errorf(errUnableToDetermineLimits)
+		return nil, stats, fmt.Errorf(errUnableToDetermineLimits)
 	}
+
+	// During preparation of IP allocations, the primary NIC is not considered
+	// for allocation, so we don't need to consider it for capacity calculation.
+	stats.NodeCapacity = limits.IPv4 * (limits.Adapters - 1)
+
 	instanceID := n.node.InstanceID()
 	available = ipamTypes.AllocationMap{}
 
@@ -207,9 +217,18 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 				return nil
 			}
 
+			// We exclude all "primary" IPs from the capacity.
+			primaryAllocated := 0
+			for _, ip := range e.PrivateIPSets {
+				if ip.Primary {
+					primaryAllocated++
+				}
+			}
+			stats.NodeCapacity -= primaryAllocated
+
 			availableOnENI := math.IntMax(limits.IPv4-len(e.PrivateIPSets), 0)
 			if availableOnENI > 0 {
-				remainAvailableENIsCount++
+				stats.RemainingAvailableInterfaceCount++
 			}
 
 			for _, ip := range e.PrivateIPSets {
@@ -222,11 +241,11 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	// An ECS instance has at least one ENI attached, no ENI found implies instance not found.
 	if enis == 0 {
 		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
-		return nil, -1, fmt.Errorf("unable to retrieve ENIs")
+		return nil, stats, fmt.Errorf("unable to retrieve ENIs")
 	}
 
-	remainAvailableENIsCount += limits.Adapters - len(n.enis)
-	return available, remainAvailableENIsCount, nil
+	stats.RemainingAvailableInterfaceCount += limits.Adapters - len(n.enis)
+	return available, stats, nil
 }
 
 // PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
@@ -251,6 +270,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAct
 			"allocated": len(e.PrivateIPSets),
 		}).Debug("Considering ENI for allocation")
 
+		// limit
 		availableOnENI := math.IntMax(l.IPv4-len(e.PrivateIPSets), 0)
 		if availableOnENI <= 0 {
 			continue

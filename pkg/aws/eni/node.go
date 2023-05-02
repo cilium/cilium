@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -40,11 +41,19 @@ const (
 		" this could lead to ip allocation overflows if the max-allocate flag is not set"
 )
 
+type ipamNodeActions interface {
+	IsPrefixDelegationEnabled() bool
+	InstanceID() string
+	Ops() ipam.NodeOperations
+	SetRunning(bool)
+	UpdatedResource(*v2.CiliumNode) bool
+}
+
 // Node represents a Kubernetes node running Cilium with an associated
 // CiliumNode custom resource
 type Node struct {
 	// node contains the general purpose fields of a node
-	node *ipam.Node
+	node ipamNodeActions
 
 	// mutex protects members below this field
 	mutex lock.RWMutex
@@ -221,7 +230,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 			continue
 		}
 
-		effectiveLimits := n.getEffectiveIPLimits(&e, limits.IPv4)
+		_, effectiveLimits := n.getEffectiveIPLimits(&e, limits.IPv4)
 		availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
 		if availableOnENI <= 0 {
 			continue
@@ -531,11 +540,15 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 // ResyncInterfacesAndIPs is called to retrieve and ENIs and IPs as known to
 // the EC2 API and return them
-func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (available ipamTypes.AllocationMap, remainAvailableENIsCount int, err error) {
+func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (
+	available ipamTypes.AllocationMap,
+	stats stats.InterfaceStats,
+	err error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return nil, -1, fmt.Errorf(errUnableToDetermineLimits)
+		return nil, stats, fmt.Errorf(errUnableToDetermineLimits)
 	}
+
 	// n.node does not need to be protected by n.mutex as it is only written to
 	// upon creation of `n`
 	instanceID := n.node.InstanceID()
@@ -543,6 +556,19 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 
 	n.mutex.Lock()
 	n.enis = map[string]eniTypes.ENI{}
+
+	// 1. This calculates the base interface effective limit on this Node, given:
+	// 		* IPAM Prefix Delegation
+	// 		* Node Spec usePrimaryAddress being enabled
+	//
+	_, stats.NodeCapacity = n.getEffectiveIPLimits(nil, limits.IPv4)
+
+	// 2. The base node limit is the number of adapters multiplied by the instances IP limit.
+	//
+	// Note: This may be modified in step(s) 3, where:
+	// * Any leftover additional prefix delegated room will be added to this total.
+	// * Any excluded interfaces will be subtracted from this total.
+	stats.NodeCapacity *= limits.Adapters
 
 	n.manager.ForeachInstance(instanceID,
 		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
@@ -552,14 +578,22 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 			}
 
 			n.enis[e.ID] = *e
+
+			// 3. Finally, we iterate any already existing interfaces and add on any extra
+			//		capacity to account for leftover prefix delegated /28 ip slots.
+			leftoverPrefixCapcity, effectiveLimits := n.getEffectiveIPLimits(e, limits.IPv4)
 			if e.IsExcludedBySpec(n.k8sObj.Spec.ENI) {
+				// If this ENI is excluded by the CN Spec, we remove it from the total
+				// capacity.
+				stats.NodeCapacity -= effectiveLimits
 				return nil
+			} else {
+				stats.NodeCapacity += leftoverPrefixCapcity
 			}
 
-			effectiveLimits := n.getEffectiveIPLimits(e, limits.IPv4)
 			availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
 			if availableOnENI > 0 {
-				remainAvailableENIsCount++
+				stats.RemainingAvailableInterfaceCount++
 			}
 
 			for _, ip := range e.Addresses {
@@ -573,11 +607,11 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
 	if enis == 0 {
 		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
-		return nil, -1, fmt.Errorf("unable to retrieve ENIs")
+		return nil, stats, fmt.Errorf("unable to retrieve ENIs")
 	}
 
-	remainAvailableENIsCount += limits.Adapters - len(n.enis)
-	return available, remainAvailableENIsCount, nil
+	stats.RemainingAvailableInterfaceCount += limits.Adapters - len(n.enis)
+	return available, stats, nil
 }
 
 // GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
@@ -694,11 +728,18 @@ func (n *Node) GetMinimumAllocatableIPv4() int {
 	return math.IntMin(minimum, (limits.Adapters-index)*maxPerInterface)
 }
 
+func (n *Node) isPrefixDelegationEnabled() bool {
+	if n.node == nil {
+		return false
+	}
+	return n.node.IsPrefixDelegationEnabled()
+}
+
 // IsPrefixDelegated indicates whether prefix delegation can be enabled on a node.
 // Currently, mixed usage of secondary IPs and prefixes is not supported. n.mutex
 // read lock must be held before calling this method.
 func (n *Node) IsPrefixDelegated() bool {
-	if !n.node.IsPrefixDelegationEnabled() {
+	if !n.isPrefixDelegationEnabled() {
 		return false
 	}
 	// Verify if this node is nitro based
@@ -780,8 +821,9 @@ func (n *Node) GetUsedIPWithPrefixes() int {
 }
 
 // getEffectiveIPLimits computing the effective number of available addresses on the ENI
-// based on limits
-func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (effectiveLimits int) {
+// based on limits (which includes any left over prefix delegation capacity), as well as
+// just the left over prefix delegation capacity.
+func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (leftoverPrefixCapacity, effectiveLimits int) {
 	// The limits include the primary IP, so we need to take it into account
 	// when computing the effective number of available addresses on the ENI.
 	effectiveLimits = limits - 1
@@ -790,13 +832,15 @@ func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (effectiveLim
 	if n.k8sObj.Spec.ENI.UsePrimaryAddress != nil && *n.k8sObj.Spec.ENI.UsePrimaryAddress {
 		effectiveLimits++
 	}
-	if n.node.Ops().IsPrefixDelegated() {
+
+	if n.IsPrefixDelegated() {
 		effectiveLimits = effectiveLimits * option.ENIPDBlockSizeIPv4
-	} else if len(eni.Prefixes) > 0 {
+	} else if eni != nil && len(eni.Prefixes) > 0 {
 		// If prefix delegation was previously enabled on this node, account for IPs from prefixes
-		effectiveLimits += len(eni.Prefixes) * (option.ENIPDBlockSizeIPv4 - 1)
+		leftoverPrefixCapacity = len(eni.Prefixes) * (option.ENIPDBlockSizeIPv4 - 1)
+		effectiveLimits += leftoverPrefixCapacity
 	}
-	return effectiveLimits
+	return leftoverPrefixCapacity, effectiveLimits
 }
 
 // findSuitableSubnet attempts to find a subnet to allocate an ENI in according to the following heuristic.

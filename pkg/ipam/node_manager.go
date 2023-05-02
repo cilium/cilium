@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
+	ipamStats "github.com/cilium/cilium/pkg/ipam/stats"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -63,7 +64,7 @@ type NodeOperations interface {
 	// It returns all available ip in node and remaining available interfaces
 	// that can either be allocated or have not yet exhausted the instance specific quota of addresses
 	// and error occurred during execution.
-	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, int, error)
+	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, ipamStats.InterfaceStats, error)
 
 	// PrepareIPAllocation is called to calculate the number of IPs that
 	// can be allocated on the node and whether a new network interface
@@ -127,6 +128,8 @@ type AllocationImplementation interface {
 
 // MetricsAPI represents the metrics being maintained by a NodeManager
 type MetricsAPI interface {
+	MetricsNodeAPI
+
 	AllocationAttempt(typ, status, subnetID string, observe float64)
 	ReleaseAttempt(typ, status, subnetID string, observe float64)
 	IncInterfaceAllocation(subnetID string)
@@ -142,6 +145,12 @@ type MetricsAPI interface {
 	PoolMaintainerTrigger() trigger.MetricsObserver
 	K8sSyncTrigger() trigger.MetricsObserver
 	ResyncTrigger() trigger.MetricsObserver
+}
+
+type MetricsNodeAPI interface {
+	SetIPAvailable(node string, cap int)
+	SetIPUsed(node string, used int)
+	SetIPNeeded(node string, needed int)
 }
 
 // nodeMap is a mapping of node names to ENI nodes
@@ -278,6 +287,8 @@ func (n *NodeManager) Create(resource *v2.CiliumNode) bool {
 
 // Update is called whenever a CiliumNode resource has been updated in the
 // Kubernetes apiserver
+//
+// This is only used for testing.
 func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 	nodeSynced = true
 	n.mutex.Lock()
@@ -444,6 +455,7 @@ type resyncStats struct {
 	nodes               int
 	nodesAtCapacity     int
 	nodesInDeficit      int
+	nodeCapacity        int
 }
 
 func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time) {
@@ -460,6 +472,9 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 
 	stats.mutex.Lock()
 	stats.totalUsed += nodeStats.UsedIPs
+	// availableOnNode is the number of available IPs on the node at this
+	// current moment. It does not take into account the number of IPs that
+	// can be allocated in the future.
 	availableOnNode := nodeStats.AvailableIPs - nodeStats.UsedIPs
 	stats.totalAvailable += availableOnNode
 	stats.totalNeeded += nodeStats.NeededIPs
@@ -467,6 +482,13 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 	stats.interfaceCandidates += nodeStats.InterfaceCandidates
 	stats.emptyInterfaceSlots += nodeStats.EmptyInterfaceSlots
 	stats.nodes++
+
+	stats.nodeCapacity = nodeStats.Capacity
+
+	// Set per Node metrics.
+	n.metricsAPI.SetIPAvailable(node.name, stats.nodeCapacity)
+	n.metricsAPI.SetIPUsed(node.name, nodeStats.UsedIPs)
+	n.metricsAPI.SetIPNeeded(node.name, nodeStats.NeededIPs)
 
 	if allocationNeeded {
 		stats.nodesInDeficit++
