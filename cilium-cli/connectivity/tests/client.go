@@ -50,6 +50,9 @@ func (s *clientToClient) Run(ctx context.Context, t *check.Test) {
 					a.ValidateFlows(ctx, dst, a.GetIngressRequirements(check.FlowParameters{
 						Protocol: check.ICMP,
 					}))
+
+					a.ValidateMetrics(ctx, src, a.GetEgressMetricsRequirements())
+					a.ValidateMetrics(ctx, dst, a.GetIngressMetricsRequirements())
 				})
 			})
 

@@ -58,6 +58,8 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 					DNSRequired: true,
 					AltDstPort:  svc.Port(),
 				}))
+
+				a.ValidateMetrics(ctx, pod, a.GetEgressMetricsRequirements())
 			})
 
 			i++
