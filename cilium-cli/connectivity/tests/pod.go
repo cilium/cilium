@@ -59,6 +59,9 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 
 					a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 					a.ValidateFlows(ctx, echo, a.GetIngressRequirements(check.FlowParameters{}))
+
+					a.ValidateMetrics(ctx, echo, a.GetIngressMetricsRequirements())
+					a.ValidateMetrics(ctx, echo, a.GetEgressMetricsRequirements())
 				})
 			})
 
