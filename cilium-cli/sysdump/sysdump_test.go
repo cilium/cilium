@@ -472,6 +472,10 @@ func (c *fakeClient) ListUnstructured(_ context.Context, _ schema.GroupVersionRe
 	panic("implement me")
 }
 
+func (c *fakeClient) ListIngressClasses(_ context.Context, _ metav1.ListOptions) (*networkingv1.IngressClassList, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) ListTetragonTracingPolicies(_ context.Context, _ metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyList, error) {
 	tetragonTracingPolicy := tetragonv1alpha1.TracingPolicyList{
 		TypeMeta: metav1.TypeMeta{

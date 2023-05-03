@@ -83,6 +83,15 @@ const (
 	kubernetesVersionInfoFileName            = "k8s-version-<ts>.txt"
 	securityGroupPoliciesFileName            = "aws-securitygrouppolicies-<ts>.yaml"
 	timestampPlaceholderFileName             = "<ts>"
+	gatewayClassesFileName                   = "gatewayapi-gatewayclasses-<ts>.yaml"
+	gatewaysFileName                         = "gatewayapi-gateways-<ts>.yaml"
+	httpRoutesFileName                       = "gatewayapi-httproutes-<ts>.yaml"
+	tlsRoutesFileName                        = "gatewayapi-tlsroutes-<ts>.yaml"
+	grpcRoutesFileName                       = "gatewayapi-grpcroutes-<ts>.yaml"
+	tcpRoutesFileName                        = "gatewayapi-tcroutes-<ts>.yaml"
+	udpRoutesFileName                        = "gatewayapi-udproutes-<ts>.yaml"
+	referenceGrantsFileName                  = "gatewayapi-referencegrants-<ts>.yaml"
+	ingressClassesFileName                   = "ingressclasses-<ts>.yaml"
 )
 
 const (
@@ -123,6 +132,55 @@ var (
 	gopsProfiling = []string{
 		"pprof-heap",
 		"pprof-cpu",
+	}
+
+	// Gateway API resource group versions used for sysdumping these
+	gatewayClass = schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Resource: "gatewayclasses",
+		Version:  "v1beta1",
+	}
+
+	gateway = schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Resource: "gateways",
+		Version:  "v1beta1",
+	}
+
+	referenceGrant = schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Resource: "referencegrants",
+		Version:  "v1alpha2",
+	}
+
+	httpRoute = schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Resource: "httproutes",
+		Version:  "v1beta1",
+	}
+
+	tlsRoute = schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Resource: "tlsroutes",
+		Version:  "v1alpha2",
+	}
+
+	tcpRoute = schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Resource: "tcproutes",
+		Version:  "v1alpha2",
+	}
+
+	udpRoute = schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Resource: "udproutes",
+		Version:  "v1alpha2",
+	}
+
+	grpcRoute = schema.GroupVersionResource{
+		Group:    "gateway.networking.k8s.io",
+		Resource: "grpcroutes",
+		Version:  "v1alpha2",
 	}
 )
 

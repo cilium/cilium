@@ -822,6 +822,10 @@ func (c *Client) ListEndpoints(ctx context.Context, o metav1.ListOptions) (*core
 	return c.Clientset.CoreV1().Endpoints(corev1.NamespaceAll).List(ctx, o)
 }
 
+func (c *Client) ListIngressClasses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressClassList, error) {
+	return c.Clientset.NetworkingV1().IngressClasses().List(ctx, o)
+}
+
 func (c *Client) ListIngresses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressList, error) {
 	return c.Clientset.NetworkingV1().Ingresses(corev1.NamespaceAll).List(ctx, o)
 }
