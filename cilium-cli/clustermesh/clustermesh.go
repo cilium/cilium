@@ -51,9 +51,10 @@ const (
 	configNameClusterID   = "cluster-id"
 	configNameClusterName = "cluster-name"
 
-	configNameTunnelLegacy   = "tunnel"
-	configNameTunnelProtocol = "tunnel-protocol"
-	configNameRoutingMode    = "routing-mode"
+	configNameTunnelLegacy         = "tunnel"
+	configNameTunnelProtocol       = "tunnel-protocol"
+	configNameRoutingMode          = "routing-mode"
+	configNameMaxConnectedClusters = "max-connected-clusters"
 
 	caSuffix   = ".etcd-client-ca.crt"
 	keySuffix  = ".etcd-client.key"
@@ -65,6 +66,9 @@ var (
 	deploymentMaxSurge       = intstr.FromInt(1)
 	deploymentMaxUnavailable = intstr.FromInt(1)
 	secretDefaultMode        = int32(0400)
+	// This can be replaced with cilium/pkg/defaults.MaxConnectedClusters once
+	// changes are merged there.
+	maxConnectedClusters = defaults.ClustermeshMaxConnectedClusters
 )
 
 var clusterRole = &rbacv1.ClusterRole{
@@ -664,6 +668,7 @@ type accessInformation struct {
 	ExternalWorkloadCert []byte             `json:"external_workload_cert,omitempty"`
 	ExternalWorkloadKey  []byte             `json:"external_workload_key,omitempty"`
 	Tunnel               string             `json:"tunnel,omitempty"`
+	MaxConnectedClusters int                `json:"max_connected_clusters,omitempty"`
 }
 
 func (ai *accessInformation) etcdConfiguration() string {
@@ -774,6 +779,13 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 	clusterID := cm.Data[configNameClusterID]
 	clusterName := cm.Data[configNameClusterName]
 
+	if mcc, ok := cm.Data[configNameMaxConnectedClusters]; ok {
+		maxConnectedClusters, err = strconv.Atoi(mcc)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse %s: %w", configNameMaxConnectedClusters, err)
+		}
+	}
+
 	if verbose {
 		k.Log("✨ Extracting access information of cluster %s...", clusterName)
 	}
@@ -853,6 +865,7 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		ServiceType:          svc.Spec.Type,
 		ServiceIPs:           []string{},
 		Tunnel:               tunnelProtocol,
+		MaxConnectedClusters: maxConnectedClusters,
 	}
 
 	switch {
@@ -1079,8 +1092,12 @@ func (k *K8sClusterMesh) validateInfoForConnect(aiLocal, aiRemote *accessInforma
 			"remote cluster has non-numeric cluster ID %s. Only numeric values 1-255 are allowed",
 			aiRemote.ClusterID)
 	}
-	if cid < 1 || cid > 255 {
-		return fmt.Errorf("remote cluster has cluster ID %d out of acceptable range (1-255)", cid)
+	if cid < 1 || cid > aiLocal.MaxConnectedClusters {
+		return fmt.Errorf("remote cluster has cluster ID %d out of acceptable range (1-%d)", cid, aiLocal.MaxConnectedClusters)
+	}
+
+	if aiRemote.MaxConnectedClusters != aiLocal.MaxConnectedClusters {
+		return fmt.Errorf("remote and local clusters have different max connected clusters: %d != %d", aiRemote.MaxConnectedClusters, aiLocal.MaxConnectedClusters)
 	}
 
 	if aiRemote.ClusterName == aiLocal.ClusterName {
