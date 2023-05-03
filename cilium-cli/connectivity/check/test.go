@@ -390,8 +390,8 @@ func (t *Test) WithCiliumEgressGatewayPolicy(policy string) *Test {
 		t.Fatalf("Parsing policy YAML: %s", err)
 	}
 
-	// Change the default test namespace as required.
 	for i := range pl {
+		// Change the default test namespace as required.
 		for _, k := range []string{
 			k8sConst.PodNamespaceLabel,
 			kubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
@@ -404,6 +404,14 @@ func (t *Test) WithCiliumEgressGatewayPolicy(policy string) *Test {
 				}
 			}
 		}
+
+		egressGatewayNode := t.EgressGatewayNode()
+		if egressGatewayNode == "" {
+			t.Fatalf("Cannot find egress gateway node")
+		}
+
+		// Set the egress gateway node
+		pl[i].Spec.EgressGateway.NodeSelector.MatchLabels["kubernetes.io/hostname"] = egressGatewayNode
 	}
 
 	if err := t.addCEGPs(pl...); err != nil {
@@ -581,6 +589,20 @@ func (t *Test) failedActions() []*Action {
 
 func (t *Test) NodesWithoutCilium() []string {
 	return t.ctx.NodesWithoutCilium()
+}
+
+// EgressGatewayNode returns the name of the node that is supposed to act as
+// egress gateway in the egress gateway tests.
+//
+// Currently the designated node is the one running the other=client client pod.
+func (t *Test) EgressGatewayNode() string {
+	for _, clientPod := range t.ctx.clientPods {
+		if clientPod.Pod.Labels["other"] == "client" {
+			return clientPod.Pod.Spec.NodeName
+		}
+	}
+
+	return ""
 }
 
 func (t *Test) collectSysdump() {

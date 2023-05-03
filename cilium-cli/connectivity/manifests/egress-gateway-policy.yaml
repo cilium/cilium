@@ -13,4 +13,4 @@ spec:
   egressGateway:
     nodeSelector:
       matchLabels:
-        kubernetes.io/hostname: kind-worker2
+        kubernetes.io/hostname: NODE_NAME_PLACEHOLDER
