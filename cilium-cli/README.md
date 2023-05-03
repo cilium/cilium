@@ -362,6 +362,8 @@ To opt in to use the `helm` installation mode:
 
     export CILIUM_CLI_MODE=helm
 
+#### `install` examples
+
 To install the default version of Cilium:
 
     cilium install
@@ -381,6 +383,35 @@ To see all the Cilium-related resources without installing them to your cluster:
 To see all the non-default Helm values without actually performing the installation:
 
     cilium install --dry-run-helm-values
+
+#### `upgrade` examples
+
+To upgrade to a specific version of Cilium:
+
+    cilium upgrade --version v1.13.2
+
+To upgrade using a local Helm chart:
+
+    cilium upgrade --chart-directory ./install/kubernetes/cilium
+
+When upgrading Cilium, please refer to [the upgrade guide](https://docs.cilium.io/en/stable/operations/upgrade/)
+and adjust non-default Helm values accordingly. `cilium-cli` does not automatically modify
+non-default Helm values during upgrade. You can use `--dry-run` and `--dry-run-helm-values`
+flags to review Kubernetes resources and non-default Helm values without actually performing
+upgrade:
+
+To see the difference between the current Kubernetes resources in a live cluster and what would
+be applied:
+
+    cilium upgrade --version v1.13.2 --dry-run | kubectl diff -f -
+
+To see the non-default Helm values that would be used during upgrade:
+
+    cilium upgrade --version v1.13.2 --dry-run-helm-values
+
+> **Note**
+> You can use external diff tools such as [dyff](https://github.com/homeport/dyff) to make
+> `kubectl diff` output more readable.
 
 ### Supported commands as of v0.14
 
