@@ -16,10 +16,6 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 )
 
-const (
-	gatewayNodeName = "kind-worker2"
-)
-
 // EgressGateway is a test case which, given the cegp-sample
 // CiliumEgressGatewayPolicy targeting:
 // - a couple of client pods (kind=client) as source
@@ -32,7 +28,9 @@ func EgressGateway() check.Scenario {
 	return &egressGateway{}
 }
 
-type egressGateway struct{}
+type egressGateway struct {
+	egressGatewayNode string
+}
 
 func (s *egressGateway) Name() string {
 	return "egress-gateway"
@@ -40,9 +38,15 @@ func (s *egressGateway) Name() string {
 
 func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
-	egressIP := getGatewayNodeInternalIP(ct)
 
-	waitForBpfPolicyEntries(ctx, t)
+	s.egressGatewayNode = t.EgressGatewayNode()
+	if s.egressGatewayNode == "" {
+		t.Fatal("Cannot get egress gateway node")
+	}
+
+	egressIP := s.getGatewayNodeInternalIP(ct)
+
+	s.waitForBpfPolicyEntries(ctx, t)
 
 	i := 0
 	for _, client := range ct.ClientPods() {
@@ -64,8 +68,8 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 
 // getGatewayNodeInternalIP returns the k8s internal IP of the node acting as
 // gateway for this test
-func getGatewayNodeInternalIP(ct *check.ConnectivityTest) net.IP {
-	gatewayNode, ok := ct.Nodes()[gatewayNodeName]
+func (s *egressGateway) getGatewayNodeInternalIP(ct *check.ConnectivityTest) net.IP {
+	gatewayNode, ok := ct.Nodes()[s.egressGatewayNode]
 	if !ok {
 		return nil
 	}
@@ -106,21 +110,21 @@ func (e *bpfEgressGatewayPolicyEntry) matches(t bpfEgressGatewayPolicyEntry) boo
 
 // waitForBpfPolicyEntries waits for the egress gateway policy maps on each node
 // to be populated with the entries for the cegp-sample CiliumEgressGatewayPolicy
-func waitForBpfPolicyEntries(ctx context.Context, t *check.Test) {
+func (s *egressGateway) waitForBpfPolicyEntries(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Timeout: 10 * time.Second})
 	defer w.Cancel()
 
 	ensureBpfPolicyEntries := func() error {
-		gatewayNodeInternalIP := getGatewayNodeInternalIP(ct)
+		gatewayNodeInternalIP := s.getGatewayNodeInternalIP(ct)
 		if gatewayNodeInternalIP == nil {
 			t.Fatalf("Cannot retrieve internal IP of gateway node")
 		}
 
 		for _, ciliumPod := range ct.CiliumPods() {
 			egressIP := "0.0.0.0"
-			if ciliumPod.Pod.Spec.NodeName == gatewayNodeName {
+			if ciliumPod.Pod.Spec.NodeName == s.egressGatewayNode {
 				egressIP = gatewayNodeInternalIP.String()
 			}
 
