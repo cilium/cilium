@@ -547,12 +547,12 @@ func (r *eventsReader) Next(ctx context.Context) (*v1.Event, error) {
 		}
 		var e *v1.Event
 		var err error
+		if r.maxEvents > 0 && (r.eventCount >= r.maxEvents) {
+			return nil, io.EOF
+		}
 		if r.follow {
 			e = r.ringReader.NextFollow(ctx)
 		} else {
-			if r.maxEvents > 0 && (r.eventCount >= r.maxEvents) {
-				return nil, io.EOF
-			}
 			e, err = r.ringReader.Next()
 			if err != nil {
 				return nil, err
@@ -595,9 +595,6 @@ func (r *eventsReader) Next(ctx context.Context) (*v1.Event, error) {
 }
 
 func validateRequest(req genericRequest) error {
-	if req.GetFirst() && req.GetFollow() {
-		return status.Errorf(codes.InvalidArgument, "first cannot be specified with follow")
-	}
 	return nil
 }
 
