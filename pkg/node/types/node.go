@@ -34,6 +34,25 @@ func (nn Identity) String() string {
 	return path.Join(nn.Cluster, nn.Name)
 }
 
+// appendAllocCDIR sets or appends the given podCIDR to the node.
+// If the IPv4/IPv6AllocCIDR is already set, we add the podCIDR as a secondary
+// alloc CIDR.
+func (n *Node) appendAllocCDIR(podCIDR *cidr.CIDR) {
+	if podCIDR.IP.To4() != nil {
+		if n.IPv4AllocCIDR == nil {
+			n.IPv4AllocCIDR = podCIDR
+		} else {
+			n.IPv4SecondaryAllocCIDRs = append(n.IPv4SecondaryAllocCIDRs, podCIDR)
+		}
+	} else {
+		if n.IPv6AllocCIDR == nil {
+			n.IPv6AllocCIDR = podCIDR
+		} else {
+			n.IPv6SecondaryAllocCIDRs = append(n.IPv6SecondaryAllocCIDRs, podCIDR)
+		}
+	}
+}
+
 // ParseCiliumNode parses a CiliumNode custom resource and returns a Node
 // instance. Invalid IP and CIDRs are silently ignored
 func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
@@ -53,18 +72,15 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 	for _, cidrString := range n.Spec.IPAM.PodCIDRs {
 		ipnet, err := cidr.ParseCIDR(cidrString)
 		if err == nil {
-			if ipnet.IP.To4() != nil {
-				if node.IPv4AllocCIDR == nil {
-					node.IPv4AllocCIDR = ipnet
-				} else {
-					node.IPv4SecondaryAllocCIDRs = append(node.IPv4SecondaryAllocCIDRs, ipnet)
-				}
-			} else {
-				if node.IPv6AllocCIDR == nil {
-					node.IPv6AllocCIDR = ipnet
-				} else {
-					node.IPv6SecondaryAllocCIDRs = append(node.IPv6SecondaryAllocCIDRs, ipnet)
-				}
+			node.appendAllocCDIR(ipnet)
+		}
+	}
+
+	for _, pool := range n.Spec.IPAM.Pools.Allocated {
+		for _, podCIDR := range pool.CIDRs {
+			ipnet, err := cidr.ParseCIDR(string(podCIDR))
+			if err == nil {
+				node.appendAllocCDIR(ipnet)
 			}
 		}
 	}
