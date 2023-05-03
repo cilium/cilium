@@ -349,16 +349,16 @@ require review in the `filter <https://github.com/cilium/cilium/pulls?q=is%3Apr+
    :scale: 50%
 
 When all review objectives for all ``CODEOWNERS`` are met, all required CI
-tests have passed and a proper release label as been set, you may set the
-``ready-to-merge`` label to indicate that all criteria have been met.
-Maintainer's little helper might set this label automatically if the previous
-requirements were met.
+tests have passed and a proper release label as been set, Maintainer's little
+helper sets ``ready-to-merge`` label automatically to indicate that all criteria
+have been met. Pull requests with ``ready-to-merge`` label may be merged by
+by any `Cilium committers <https://github.com/cilium/cilium/blob/main/MAINTAINERS.md#cilium-committers>`_.
 
-+--------------------------+---------------------------+
-| Labels                   | When to set               |
-+==========================+===========================+
-| ``ready-to-merge``       | PR is ready to be merged  |
-+--------------------------+---------------------------+
++--------------------------+-------------------------------------------------+
+| Labels                   | When to set                                     |
++==========================+=================================================+
+| ``ready-to-merge``       | Automatically set by Maintainer's little helper |
++--------------------------+-------------------------------------------------+
 
 Code Owners
 -----------
