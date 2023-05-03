@@ -126,6 +126,7 @@ Zhou
 aarch
 alibabacloud
 allocateLoadBalancerNodePorts
+allocatable
 allocator
 allocators
 allowedConfigOverrides

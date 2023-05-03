@@ -74,3 +74,8 @@
     {{ fail "if Cilium Endpoint Slice is enabled (.Values.enableCiliumEndpointSlice=true), it requires .Values.disableEndpointCRD=false" }}
   {{- end }}
 {{- end }}
+
+{{/*validate ClusterMesh */}}
+{{- if and (ne (int .Values.clustermesh.maxConnectedClusters) 255) (ne (int .Values.clustermesh.maxConnectedClusters) 511) }}
+  {{- fail "max-connected-clusters must be set to 255 or 511" }}
+{{- end }}
