@@ -646,10 +646,10 @@ github.com/mattn/go-shellwords
 # github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/mdlayher/arp v0.0.0-20191213142603-f72070a231fc
+# github.com/mdlayher/arp v0.0.0-20220221190821-c37aaafac7f9
 ## explicit; go 1.12
 github.com/mdlayher/arp
-# github.com/mdlayher/ethernet v0.0.0-20190606142754-0394541c37b7
+# github.com/mdlayher/ethernet v0.0.0-20220221185849-529eae5b6118
 ## explicit; go 1.12
 github.com/mdlayher/ethernet
 # github.com/mdlayher/genetlink v1.3.2
@@ -662,9 +662,9 @@ github.com/mdlayher/ndp
 ## explicit; go 1.18
 github.com/mdlayher/netlink
 github.com/mdlayher/netlink/nlenc
-# github.com/mdlayher/raw v0.0.0-20210412142147-51b895745faf
-## explicit; go 1.12
-github.com/mdlayher/raw
+# github.com/mdlayher/packet v1.1.2
+## explicit; go 1.20
+github.com/mdlayher/packet
 # github.com/mdlayher/socket v0.4.1
 ## explicit; go 1.20
 github.com/mdlayher/socket

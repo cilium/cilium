@@ -59,6 +59,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0
 	github.com/kr/pretty v0.3.1
 	github.com/mattn/go-shellwords v1.0.12
+	github.com/mdlayher/arp v0.0.0-20220221190821-c37aaafac7f9
 	github.com/miekg/dns v1.1.43
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo v1.16.5
@@ -201,12 +202,11 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
-	github.com/mdlayher/arp v0.0.0-20191213142603-f72070a231fc // indirect
-	github.com/mdlayher/ethernet v0.0.0-20190606142754-0394541c37b7 // indirect
+	github.com/mdlayher/ethernet v0.0.0-20220221185849-529eae5b6118 // indirect
 	github.com/mdlayher/genetlink v1.3.2 // indirect
 	github.com/mdlayher/ndp v0.0.0-20200602162440-17ab9e3e5567 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect
-	github.com/mdlayher/raw v0.0.0-20210412142147-51b895745faf // indirect
+	github.com/mdlayher/packet v1.1.2 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
 	github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
