@@ -47,6 +47,21 @@ func (a *Action) collectPrometheusMetrics(source MetricsSource) (promMetricsPerN
 	return m, nil
 }
 
+// collectPrometheusMetricsForNode retrieves all the metrics for a source on a particular node.
+func (a *Action) collectPrometheusMetricsForNode(source MetricsSource, node string) (promMetricsFamily, error) {
+	for _, pod := range source.Pods {
+		if pod.NodeName() == node {
+			metrics, err := a.collectMetricsForPod(pod, source.Port)
+			if err != nil {
+				return nil, fmt.Errorf("failed to retrieve prometheus metrics for pod %s on node %s: %w", pod.Name(), pod.NodeName(), err)
+			}
+			return metrics, nil
+		}
+	}
+
+	return promMetricsFamily{}, nil
+}
+
 // collectMetricsForPod retrieves the metrics for one pod.
 func (a *Action) collectMetricsForPod(pod Pod, port string) (promMetricsFamily, error) {
 	// The context is in charge if closing the port-forward when it is cancelled.

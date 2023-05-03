@@ -78,21 +78,25 @@ type Action struct {
 
 	// Output from action if there is any
 	cmdOutput string
+
+	// metricsPerSource collected at the initialisation of an Action.
+	metricsPerSource promMetricsPerSource
 }
 
 func newAction(t *Test, name string, s Scenario, src *Pod, dst TestPeer, ipFam IPFamily) *Action {
 	return &Action{
-		name:         name,
-		test:         t,
-		scenario:     s,
-		src:          src,
-		dst:          dst,
-		ipFam:        ipFam,
-		CollectFlows: true,
-		flowResults:  map[TestPeer]FlowRequirementResults{},
-		started:      time.Now(),
-		failed:       false,
-		cmdOutput:    "",
+		name:             name,
+		test:             t,
+		scenario:         s,
+		src:              src,
+		dst:              dst,
+		ipFam:            ipFam,
+		CollectFlows:     true,
+		flowResults:      map[TestPeer]FlowRequirementResults{},
+		started:          time.Now(),
+		failed:           false,
+		cmdOutput:        "",
+		metricsPerSource: make(promMetricsPerSource),
 	}
 }
 
@@ -138,6 +142,21 @@ func (a *Action) Run(f func(*Action)) {
 
 	// Emit unbuffered progress indicator.
 	a.test.progress()
+
+	// Retrieve Prometheus metrics only if there are expectations.
+	for _, m := range a.expIngress.Metrics {
+		err := a.collectMetricsPerSource(m)
+		if err != nil {
+			a.Logf("❌ Failed to collect metrics for ingress from source %s: %w", m.Source, err)
+		}
+
+	}
+	for _, m := range a.expEgress.Metrics {
+		err := a.collectMetricsPerSource(m)
+		if err != nil {
+			a.Logf("❌ Failed to collect metrics for egress from source %s: %w", m.Source, err)
+		}
+	}
 
 	// Only perform flow validation if a Hubble Relay connection is available.
 	if a.test.ctx.params.Hubble && a.CollectFlows {
@@ -198,6 +217,18 @@ func (a *Action) Run(f func(*Action)) {
 			a.test.collectSysdump()
 		}
 	}
+}
+
+// collectMetricsPerSource retrieves metrics for the given source.
+func (a *Action) collectMetricsPerSource(m MetricsResult) error {
+	if _, ok := a.metricsPerSource[m.Source.Name]; !ok {
+		metrics, err := a.collectPrometheusMetrics(m.Source)
+		if err != nil {
+			return err
+		}
+		a.metricsPerSource[m.Source.Name] = metrics
+	}
+	return nil
 }
 
 // fail marks the Action as failed.
@@ -960,6 +991,76 @@ func (a *Action) validateFlowsForPeer(ctx context.Context, reqs []filters.FlowSe
 		case <-ctx.Done():
 			a.Fail("Aborting flow matching:", ctx.Err())
 			return res
+		}
+	}
+}
+func (a *Action) GetEgressMetricsRequirements() []MetricsResult {
+	return a.expEgress.Metrics
+}
+func (a *Action) GetIngressMetricsRequirements() []MetricsResult {
+	return a.expIngress.Metrics
+}
+
+const (
+	metricsCollectionTimeout      = time.Second * 30
+	metricCollectionIntervalRetry = time.Second * 5
+)
+
+// ValidateMetrics confronts the expected metrics against the last ones retrieves.
+func (a *Action) ValidateMetrics(ctx context.Context, pod Pod, results []MetricsResult) {
+	node := pod.NodeName()
+
+	if len(results) == 0 {
+		// Early exit.
+		a.Debugf("no metrics requirements to validate for this node %s", node)
+		return
+	}
+
+	for _, r := range results {
+		a.validateMetric(ctx, node, r)
+	}
+}
+
+func (a *Action) validateMetric(ctx context.Context, node string, result MetricsResult) {
+	if result.IsEmpty() {
+		a.Debugf("there is no source configured to retrieve metrics for node %s", node)
+		return
+	}
+
+	// ctx is used here as the duration of the retries to collect metrics.
+	ctx, cancel := context.WithTimeout(ctx, metricsCollectionTimeout)
+	defer cancel()
+
+	// ticker here is used as the interval duration before the next retry.
+	ticker := time.NewTicker(metricCollectionIntervalRetry)
+	defer ticker.Stop()
+
+	for {
+		// Collect the new metrics.
+		newMetrics, err := a.collectPrometheusMetricsForNode(result.Source, node)
+		if err != nil {
+			a.Failf("failed to collect new metrics on node %s: %w", node, err)
+			return
+		}
+
+		// Check the metrics comparing the first retrieved metrics and the new ones.
+		err = result.Assert(a.metricsPerSource[result.Source.Name][node], newMetrics)
+		if err != nil {
+			a.Debugf("failed to check metrics on node %s: %s\n", node, err)
+		} else {
+			// Metrics check succeed, let's exit.
+			a.Debugf("checked metrics properly on node %s: %s\n", node)
+			return
+
+		}
+
+		select {
+		case <-ctx.Done():
+			// Context timeout is reached, let's exit.
+			a.Failf("failed to collect metrics on node %s, context timeout: %w", node, ctx.Err().Error())
+			return
+		case <-ticker.C:
+			// Ticker is delivered, let's retry.
 		}
 	}
 }
