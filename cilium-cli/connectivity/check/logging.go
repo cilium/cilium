@@ -361,3 +361,21 @@ func (a *Action) Fatalf(format string, s ...interface{}) {
 func timestamp() string {
 	return fmt.Sprintf("[%s] ", time.Now().Format(time.RFC3339))
 }
+
+type debugWriter struct {
+	ct *ConnectivityTest
+}
+
+func (d *debugWriter) Write(b []byte) (int, error) {
+	d.ct.Debug(string(b))
+	return len(b), nil
+}
+
+type warnWriter struct {
+	ct *ConnectivityTest
+}
+
+func (w *warnWriter) Write(b []byte) (int, error) {
+	w.ct.Warn(string(b))
+	return len(b), nil
+}
