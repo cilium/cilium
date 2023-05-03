@@ -115,9 +115,11 @@ jobs:
       - name: Checkout ingress-controller-conformance
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
-          repository: kubernetes-sigs/ingress-controller-conformance
+          # Use the forked repo with retry mechanism
+          # Please refer to https://github.com/kubernetes-sigs/ingress-controller-conformance/pull/101 for more details.
+          repository: cilium/ingress-controller-conformance
           path: ingress-controller-conformance
-          ref: a38bfcddfc7b10a7b479c1f274b87380c7390c96
+          ref: 010bbae21b71d9785660b87908dfe2ba8cd2f25d
           persist-credentials: false
 
       - name: Install Ingress conformance test tool
