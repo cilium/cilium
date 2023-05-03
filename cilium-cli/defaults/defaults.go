@@ -131,6 +131,10 @@ const (
 
 	// HelmRepository specifies Helm repository to download Cilium charts from.
 	HelmRepository = "https://helm.cilium.io"
+
+	// ClustermeshMaxConnectedClusters is the default number of the maximum
+	// number of clusters that should be allowed to connect to the Clustermesh.
+	ClustermeshMaxConnectedClusters = 255
 )
 
 var (
