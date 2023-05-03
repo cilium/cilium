@@ -427,11 +427,8 @@ func removeStalePolicies(family int) {
 				continue
 			}
 		case netlink.XFRM_DIR_IN:
-			if p.Src.String() != wildcardCIDRv4.String() ||
-				p.Mark.Mask != linux_defaults.IPsecMarkMaskIn {
-				// This XFRM IN policy was not installed by a previous version of Cilium.
-				continue
-			}
+			// The XFRM IN policies didn't change so we don't want to remove them.
+			continue
 		default:
 			continue
 		}
@@ -458,19 +455,11 @@ func removeStaleStates(family int) {
 
 		if s.Mark.Mask == linux_defaults.IPsecOldMarkMaskOut &&
 			s.Mark.Value == ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(s.Spi)) {
-			// This XFRM state was installed by Cilium.
+			// This XFRM state was installed by a previous version of Cilium.
 			if err := netlink.XfrmStateDel(&s); err == nil {
 				scopedLog.Info("Removed stale XFRM OUT state")
 			} else {
 				scopedLog.WithError(err).Error("Failed to remove stale XFRM OUT state")
-			}
-		} else if s.Mark.Mask == linux_defaults.IPsecMarkMaskIn &&
-			s.Mark.Value == linux_defaults.RouteMarkDecrypt {
-			// This XFRM state was installed by Cilium.
-			if err := netlink.XfrmStateDel(&s); err == nil {
-				scopedLog.Info("Removed stale XFRM IN state")
-			} else {
-				scopedLog.WithError(err).Error("Failed to remove stale XFRM IN state")
 			}
 		}
 	}
