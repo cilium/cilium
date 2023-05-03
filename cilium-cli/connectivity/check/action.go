@@ -334,7 +334,7 @@ func (a *Action) expectedExitCode() ExitCode {
 
 func (a *Action) printFlows(peer TestPeer) {
 	if len(a.flows) == 0 {
-		a.Logf("📄 No flows recorded during action %s", a.name)
+		a.Logf("📄 No flows recorded for peer %s during action %s", peer.Name(), a.name)
 		return
 	}
 
