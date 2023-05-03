@@ -251,7 +251,6 @@ func (d *Daemon) syncHostIPs() error {
 	}
 
 	for _, ipIDPair := range specialIdentities {
-		hostKey := node.GetIPsecKeyIdentity()
 		isHost := ipIDPair.ID == identity.ReservedIdentityHost
 		if isHost {
 			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
@@ -271,7 +270,7 @@ func (d *Daemon) syncHostIPs() error {
 		// This upsert will fail with ErrOverwrite continuously as long as the
 		// EP / CN watcher have found an apiserver IP and upserted it into the
 		// ipcache. Until then, it is expected to succeed.
-		d.ipcache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
+		d.ipcache.Upsert(ipIDPair.PrefixString(), nil, 0, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
 			Source: d.sourceByIP(ipIDPair.IP, source.Local),
 		})
