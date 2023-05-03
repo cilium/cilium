@@ -88,6 +88,9 @@ type Test struct {
 	// CA certificates of the certificates that have to be present during the test.
 	certificateCAs map[string][]byte
 
+	// List of callbacks to be executed before the test run as additional setup.
+	before []SetupFunc
+
 	expectFunc ExpectationsFunc
 
 	// Start time of the test.
@@ -231,6 +234,12 @@ func (t *Test) Run(ctx context.Context) error {
 
 	if err := t.setup(ctx); err != nil {
 		return fmt.Errorf("setting up test: %w", err)
+	}
+
+	for _, cb := range t.before {
+		if err := cb(ctx, t, t.ctx); err != nil {
+			return fmt.Errorf("additional test setup callback: %w", err)
+		}
 	}
 
 	if t.logBuf != nil {
@@ -561,6 +570,17 @@ func (t *Test) WithCertificate(name, hostname string) *Test {
 			corev1.TLSPrivateKeyKey: keyBytes,
 		},
 	})
+}
+
+// SetupFunc is a callback meant to be called before running the test.
+// It performs additional setup needed to run tests.
+type SetupFunc func(ctx context.Context, t *Test, testCtx *ConnectivityTest) error
+
+// WithSetupFunc registers a SetupFunc callback to be executed just before
+// the test runs.
+func (t *Test) WithSetupFunc(f SetupFunc) *Test {
+	t.before = append(t.before, f)
+	return t
 }
 
 // NewAction creates a new Action. s must be the Scenario the Action is created
