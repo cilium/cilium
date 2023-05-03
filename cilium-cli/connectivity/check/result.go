@@ -4,6 +4,7 @@
 package check
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -144,4 +145,46 @@ func displayMetricsSources(metrics []MetricsResult) string {
 	ret += ")"
 
 	return ret
+}
+
+// ExpectMetricsIncrease compares metrics retrieved before any action were run and after;
+// may return an error if metrics did not increase.
+func (r Result) ExpectMetricsIncrease(source MetricsSource, metrics ...string) Result {
+	if source.IsEmpty() {
+		return r
+	}
+
+	res := MetricsResult{
+		Source: source,
+		Assert: assertMetricsIncrease(metrics...),
+	}
+	r.Metrics = append(r.Metrics, res)
+	return r
+}
+
+// assertMetricsIncrease returns the function used to check the metrics increase between and after an action.
+func assertMetricsIncrease(metrics ...string) assertMetricsFunc {
+	return func(before, after map[string]*dto.MetricFamily) error {
+		var err error
+		for _, metricName := range metrics {
+			bValue, ok := before[metricName]
+			if !ok {
+				err = errors.Join(err, fmt.Errorf("metric %s has not been retrieved before action", metricName))
+			}
+
+			aValue, ok := after[metricName]
+			if !ok {
+				err = errors.Join(err, fmt.Errorf("metric %s has not been retrieved after action", metricName))
+			}
+
+			// Additional check needed because previously we do not return in case of error, otherwise we will panic!
+			if bValue != nil && aValue != nil {
+				errM := metricsIncrease(*bValue, *aValue)
+				if errM != nil {
+					err = errors.Join(err, errM)
+				}
+			}
+		}
+		return err
+	}
 }

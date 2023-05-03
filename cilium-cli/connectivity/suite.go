@@ -305,6 +305,16 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			return check.ResultOK, check.ResultDefaultDenyIngressDrop
 		})
 
+	// This policy allows traffic pod to pod and checks if the metric cilium_forward_count_total increases on cilium agent.
+	ct.NewTest("allow-all-with-metrics-check").
+		WithScenarios(
+			tests.PodToPod(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			return check.ResultOK.ExpectMetricsIncrease(ct.CiliumAgentMetrics(), "cilium_forward_count_total"),
+				check.ResultOK.ExpectMetricsIncrease(ct.CiliumAgentMetrics(), "cilium_forward_count_total")
+		})
+
 	// This policy denies all ingresses by default.
 	//
 	// 1. Pod to Pod fails because there is no egress policy (so egress traffic originating from a pod is allowed),
