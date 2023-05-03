@@ -50,6 +50,8 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 						a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 							Protocol: check.ICMP,
 						}))
+
+						a.ValidateMetrics(ctx, pod, a.GetEgressMetricsRequirements())
 					})
 
 					i++

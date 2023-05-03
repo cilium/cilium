@@ -102,6 +102,7 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 		t.NewAction(s, fmt.Sprintf("https-cilium-io-%d", i), &client, https, check.IPFamilyAny).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyAny))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
+			a.ValidateMetrics(ctx, client, a.GetEgressMetricsRequirements())
 		})
 
 		i++
