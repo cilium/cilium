@@ -267,8 +267,9 @@ func (s *DNSProxyTestSuite) TearDownTest(c *C) {
 	}
 	s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
 	s.dnsServer.Listener.Close()
-	s.proxy.UDPServer.Shutdown()
-	s.proxy.TCPServer.Shutdown()
+	for _, s := range s.proxy.DNSServers {
+		s.Shutdown()
+	}
 }
 
 func (s *DNSProxyTestSuite) TestRejectFromDifferentEndpoint(c *C) {
@@ -374,7 +375,7 @@ func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponseWithNameError(c 
 
 	// reject a query with NXDomain
 	s.proxy.SetRejectReply(option.FQDNProxyDenyWithNameError)
-	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed"))
 	c.Assert(response.Rcode, Equals, dns.RcodeNameError, Commentf("DNS request from test client was not rejected when it should be blocked"))
 }
@@ -384,7 +385,7 @@ func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponseWithRefused(c *C
 
 	// reject a query with Refused
 	s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
-	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed"))
 	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked"))
 
@@ -413,7 +414,7 @@ func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
 
 	request := new(dns.Msg)
 	request.SetQuestion(query, dns.TypeA)
-	response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v)", rtt))
 	c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s", response))
 	c.Assert(response.Answer[0].String(), Equals, "cilium.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
@@ -442,13 +443,13 @@ func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequestResponse(c *C) {
 
 	request := new(dns.Msg)
 	request.SetQuestion(query, dns.TypeA)
-	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed"))
 	c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s", response))
 	c.Assert(response.Answer[0].String(), Equals, "CILIUM.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
 
 	request.SetQuestion("ciliuM.io.", dns.TypeA)
-	response, _, err = s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	response, _, err = s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed"))
 	c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %+v", response.Answer))
 	c.Assert(response.Answer[0].String(), Equals, "ciliuM.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
@@ -979,7 +980,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	for _, query := range queries {
 		request := new(dns.Msg)
 		request.SetQuestion(query, dns.TypeA)
-		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 		c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query))
 		c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s (query: %q)", response, query))
 		c.Assert(response.Answer[0].String(), Equals, query+"\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
@@ -988,7 +989,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	for _, query := range queries {
 		request := new(dns.Msg)
 		request.SetQuestion(query, dns.TypeA)
-		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 		c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query))
 		c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s (query: %q)", response, query))
 		c.Assert(response.Answer[0].String(), Equals, query+"\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
@@ -1006,7 +1007,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	for _, query := range queries {
 		request := new(dns.Msg)
 		request.SetQuestion(query, dns.TypeA)
-		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 		c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query))
 		c.Assert(len(response.Answer), Equals, 0, Commentf("Proxy returned incorrect number of answer RRs %s (query: %q)", response, query))
 		c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked (query: %q)", query))
@@ -1026,7 +1027,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	for _, query := range queries {
 		request := new(dns.Msg)
 		request.SetQuestion(query, dns.TypeA)
-		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 		c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query))
 		c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s (query: %q)", response, query))
 		c.Assert(response.Answer[0].String(), Equals, query+"\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
@@ -1059,7 +1060,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	for _, query := range append(queries, "this.domain.com.") {
 		request := new(dns.Msg)
 		request.SetQuestion(query, dns.TypeA)
-		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 		c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query))
 		c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s (query: %q)", response, query))
 		c.Assert(response.Answer[0].String(), Equals, query+"\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))

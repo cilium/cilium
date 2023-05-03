@@ -206,6 +206,7 @@ var (
 		DNSProxyName: {
 			proxyType: ProxyTypeDNS,
 			ingress:   false,
+			localOnly: true,
 		},
 		"cilium-proxylib-egress": {
 			proxyType: ProxyTypeAny,

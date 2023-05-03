@@ -59,12 +59,6 @@ const (
 // A singleton is always running inside cilium-agent.
 // Note: All public fields are read only and do not require locking
 type DNSProxy struct {
-	// BindAddr is the local address the server is using to listen for DNS
-	// requests. This is a read-only value and reflects the actual value. Passing
-	// ":0" to StartDNSProxy will allow the kernel to set the port, and that can
-	// be read here.
-	BindAddr string
-
 	// BindPort is the port in BindAddr.
 	BindPort uint16
 
@@ -94,9 +88,11 @@ type DNSProxy struct {
 	// design now.
 	NotifyOnDNSMsg NotifyOnDNSMsgFunc
 
-	// UDPServer, TCPServer are the miekg/dns server instances. They handle DNS
-	// parsing etc. for us.
-	UDPServer, TCPServer *dns.Server
+	// DNSServers are the miekg/dns server instances.
+	// Depending on the configuration, these might be
+	// TCPv4, UDPv4, TCPv6 and/or UDPv4.
+	// They handle DNS parsing etc. for us.
+	DNSServers []*dns.Server
 
 	// EnableDNSCompression allows the DNS proxy to compress responses to
 	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
@@ -638,18 +634,16 @@ func StartDNSProxy(
 	}
 	atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 
-	// Start the DNS listeners on UDP and TCP
+	// Start the DNS listeners on UDP and TCP for IPv4 and/or IPv6
 	var (
-		UDPConn     *net.UDPConn
-		TCPListener *net.TCPListener
-		err         error
-
-		EnableIPv4, EnableIPv6 = option.Config.EnableIPv4, option.Config.EnableIPv6
+		dnsServers []*dns.Server
+		bindPort   uint16
+		err        error
 	)
 
 	start := time.Now()
 	for time.Since(start) < ProxyBindTimeout {
-		UDPConn, TCPListener, err = bindToAddr(address, port, EnableIPv4, EnableIPv6)
+		dnsServers, bindPort, err = bindToAddr(address, port, p, option.Config.EnableIPv4, option.Config.EnableIPv6)
 		if err == nil {
 			break
 		}
@@ -657,39 +651,43 @@ func StartDNSProxy(
 		time.Sleep(ProxyBindRetryInterval)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to bind DNS proxy: %w", err)
 	}
 
-	p.BindAddr = UDPConn.LocalAddr().String()
-	p.BindPort = uint16(UDPConn.LocalAddr().(*net.UDPAddr).Port)
-	p.UDPServer = &dns.Server{PacketConn: UDPConn, Addr: p.BindAddr, Net: "udp", Handler: p,
-		SessionUDPFactory: &sessionUDPFactory{ipv4Enabled: EnableIPv4, ipv6Enabled: EnableIPv6},
-	}
-	p.TCPServer = &dns.Server{Listener: TCPListener, Addr: p.BindAddr, Net: "tcp", Handler: p}
-	log.WithField("address", p.BindAddr).Debug("DNS Proxy bound to address")
+	p.BindPort = bindPort
+	p.DNSServers = dnsServers
 
-	for _, s := range []*dns.Server{p.UDPServer, p.TCPServer} {
+	log.WithField("port", bindPort).WithField("addresses", len(dnsServers)).Debug("DNS Proxy bound to addresses")
+
+	for _, s := range p.DNSServers {
 		go func(server *dns.Server) {
 			// try 5 times during a single ProxyBindTimeout period. We fatal here
 			// because we have no other way to indicate failure this late.
 			start := time.Now()
 			for time.Since(start) < ProxyBindTimeout {
+				log.Debugf("Trying to start the %s DNS proxy on %s", server.Net, server.Addr)
+
 				if err := server.ActivateAndServe(); err != nil {
 					log.WithError(err).Errorf("Failed to start the %s DNS proxy on %s", server.Net, server.Addr)
 				}
 				time.Sleep(ProxyBindRetryInterval)
 			}
-			log.Fatalf("Failed to start %s DNS Proxy on %s", server.Net, server.Addr)
+			log.Fatalf("Failed to start the %s DNS proxy on %s", server.Net, server.Addr)
 		}(s)
 	}
 
 	// This function is called in proxy.Cleanup, which is added to Daemon cleanup module in bootstrapFQDN
-	p.unbindAddress = func() {
-		UDPConn.Close()
-		TCPListener.Close()
-	}
+	p.unbindAddress = func() { shutdownServers(p.DNSServers) }
 
 	return p, nil
+}
+
+func shutdownServers(dnsServers []*dns.Server) {
+	for _, s := range dnsServers {
+		if err := s.Shutdown(); err != nil {
+			log.WithError(err).Errorf("Failed to stop the %s DNS proxy on %s", s.Net, s.Addr)
+		}
+	}
 }
 
 // LookupEndpointByIP wraps LookupRegisteredEndpoint by falling back to an restored EP, if available
@@ -1083,42 +1081,93 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL ui
 	return qname, responseIPs, TTL, CNAMEs, msg.Rcode, answerTypes, qTypes, nil
 }
 
-// bindToAddr attempts to bind to address and port for both UDP and TCP. If
-// port is 0 a random open port is assigned and the same one is used for UDP
-// and TCP.
+// bindToAddr attempts to bind to address and port for both UDP and TCP on IPv4 and/or IPv6.
+// If address is empty it automatically binds to the loopback interfaces on IPv4 and/or IPv6.
+// If port is 0 a random open port is assigned and the same one is used for UDP and TCP.
 // Note: This mimics what the dns package does EXCEPT for setting reuseport.
 // This is ok for now but it would simplify proxy management in the future to
 // have it set.
-func bindToAddr(address string, port uint16, ipv4, ipv6 bool) (*net.UDPConn, *net.TCPListener, error) {
-	var err error
-	var listener net.Listener
-	var conn net.PacketConn
+func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 bool) (dnsServers []*dns.Server, bindPort uint16, err error) {
 	defer func() {
 		if err != nil {
-			if listener != nil {
-				listener.Close()
-			}
-			if conn != nil {
-				conn.Close()
-			}
+			shutdownServers(dnsServers)
 		}
 	}()
 
-	bindAddr := net.JoinHostPort(address, strconv.Itoa(int(port)))
+	// Global singleton sessionUDPFactory which is used for IPv4 & IPv6
+	sessUdpFactory := &sessionUDPFactory{ipv4Enabled: ipv4, ipv6Enabled: ipv6}
 
-	listener, err = listenConfig(linux_defaults.MagicMarkEgress, ipv4, ipv6).Listen(context.Background(),
-		"tcp", bindAddr)
-	if err != nil {
-		return nil, nil, err
+	if ipv4 {
+		lc := listenConfig(linux_defaults.MagicMarkEgress, true, false)
+
+		tcpListener, err := lc.Listen(context.Background(), "tcp4", evaluateAddress(address, port, bindPort, false))
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to listen on TCPv4: %w", err)
+		}
+		dnsServers = append(dnsServers, &dns.Server{
+			Listener: tcpListener, Handler: handler,
+			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
+			Net: "TCP", Addr: tcpListener.Addr().String(),
+		})
+
+		bindPort = uint16(tcpListener.Addr().(*net.TCPAddr).Port)
+
+		udpConn, err := lc.ListenPacket(context.Background(), "udp4", evaluateAddress(address, port, bindPort, false))
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to listen on UDPv4: %w", err)
+		}
+		dnsServers = append(dnsServers, &dns.Server{
+			PacketConn: udpConn, Handler: handler, SessionUDPFactory: sessUdpFactory,
+			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
+			Net: "UDP", Addr: udpConn.LocalAddr().String(),
+		})
 	}
 
-	conn, err = listenConfig(linux_defaults.MagicMarkEgress, ipv4, ipv6).ListenPacket(context.Background(),
-		"udp", listener.Addr().String())
-	if err != nil {
-		return nil, nil, err
+	if ipv6 {
+		lc := listenConfig(linux_defaults.MagicMarkEgress, false, true)
+
+		tcpListener, err := lc.Listen(context.Background(), "tcp6", evaluateAddress(address, port, bindPort, true))
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to listen on TCPv6: %w", err)
+		}
+		dnsServers = append(dnsServers, &dns.Server{
+			Listener: tcpListener, Handler: handler,
+			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
+			Net: "TCP", Addr: tcpListener.Addr().String(),
+		})
+
+		bindPort = uint16(tcpListener.Addr().(*net.TCPAddr).Port)
+
+		udpConn, err := lc.ListenPacket(context.Background(), "udp6", evaluateAddress(address, port, bindPort, true))
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to listen on UDPv6: %w", err)
+		}
+		dnsServers = append(dnsServers, &dns.Server{
+			PacketConn: udpConn, Handler: handler, SessionUDPFactory: sessUdpFactory,
+			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
+			Net: "UDP", Addr: udpConn.LocalAddr().String(),
+		})
 	}
 
-	return conn.(*net.UDPConn), listener.(*net.TCPListener), nil
+	return dnsServers, bindPort, nil
+}
+
+func evaluateAddress(address string, port uint16, bindPort uint16, ipv6 bool) string {
+	addr := "127.0.0.1"
+	if ipv6 {
+		addr = "::1"
+	}
+
+	if address != "" {
+		addr = address
+	}
+
+	if bindPort == 0 {
+		return net.JoinHostPort(addr, strconv.Itoa(int(port)))
+	} else {
+		// Already bound to a port by a previous server -> reuse same port
+		return net.JoinHostPort(addr, strconv.Itoa(int(bindPort)))
+	}
 }
 
 // shouldCompressResponse returns true when the response needs to be compressed
