@@ -71,6 +71,21 @@ func (p Pod) Name() string {
 	return p.Pod.Namespace + "/" + p.Pod.Name
 }
 
+// NameWithoutNamespace returns only the name of the Pod.
+func (p Pod) NameWithoutNamespace() string {
+	return p.Pod.Name
+}
+
+// NodeName returns the node name a pod belongs to.
+func (p Pod) NodeName() string {
+	return p.Pod.Spec.NodeName
+}
+
+// Namespace returns the namespace the pod belongs to.
+func (p Pod) Namespace() string {
+	return p.Pod.Namespace
+}
+
 func (p Pod) Scheme() string {
 	return p.scheme
 }
