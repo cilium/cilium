@@ -163,6 +163,9 @@ spec:
         - --cluster-id=$(CLUSTER_ID)
         - --kvstore-opt
         - etcd.config=/var/lib/cilium/etcd-config.yaml
+        {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
+        - --max-connected-clusters={{ .Values.clustermesh.maxConnectedClusters }}
+        {{- end }}
         {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
         - --cluster-users-enabled
         - --cluster-users-config-path=/var/lib/cilium/etcd-config/users.yaml
@@ -249,6 +252,9 @@ spec:
         - --kvstore-opt=etcd.qps=100
         - --kvstore-opt=etcd.maxInflight=10
         - --clustermesh-config=/var/lib/cilium/clustermesh
+        {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
+        - --max-connected-clusters={{ .Values.clustermesh.maxConnectedClusters }}
+        {{- end }}
         {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
         - --controller-group-metrics=all
