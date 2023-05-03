@@ -61,7 +61,7 @@ require (
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/miekg/dns v1.1.43
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.2
 	github.com/osrg/gobgp/v3 v3.13.0
 	github.com/pmezard/go-difflib v1.0.0
