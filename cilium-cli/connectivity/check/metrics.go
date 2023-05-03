@@ -110,3 +110,30 @@ func parseMetrics(reader io.Reader) (promMetricsFamily, error) {
 	}
 	return mf, nil
 }
+
+// metricsIncrease verifies for all the metrics that the values increased.
+func metricsIncrease(mf1, mf2 dto.MetricFamily) error {
+	metrics1 := mf1.GetMetric()
+	metrics2 := mf2.GetMetric()
+
+	if len(metrics1) != len(metrics2) {
+		return fmt.Errorf("metric %s has different length metrics 1: %d and metrics 2: %d", mf1.GetName(), len(metrics1), len(metrics2))
+	}
+
+	for i := range metrics1 {
+		if metrics1[i].GetCounter() == nil {
+			return fmt.Errorf("metric %s is not a Counter: %v", mf1.GetName(), metrics1[i])
+		}
+		if metrics2[i].GetCounter() == nil {
+			return fmt.Errorf("metric %s is not a Counter: %v", mf1.GetName(), metrics2[i])
+		}
+
+		value1 := metrics1[i].GetCounter().GetValue() // Here we assume that metrics are of Counter type.
+		value2 := metrics2[i].GetCounter().GetValue()
+		if value1 >= value2 {
+			return fmt.Errorf("metric %s did not increase as expected, value 1: %f and value 2: %f", mf1.GetName(), value1, value2)
+		}
+	}
+
+	return nil
+}
