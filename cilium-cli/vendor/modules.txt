@@ -1307,6 +1307,7 @@ k8s.io/client-go/tools/clientcmd/api/latest
 k8s.io/client-go/tools/clientcmd/api/v1
 k8s.io/client-go/tools/metrics
 k8s.io/client-go/tools/pager
+k8s.io/client-go/tools/portforward
 k8s.io/client-go/tools/reference
 k8s.io/client-go/tools/remotecommand
 k8s.io/client-go/tools/watch
