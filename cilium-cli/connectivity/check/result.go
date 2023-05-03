@@ -6,8 +6,10 @@ package check
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	dto "github.com/prometheus/client_model/go"
 )
 
 type Result struct {
@@ -23,6 +25,9 @@ type Result struct {
 	// DropReasonFunc
 	DropReasonFunc func(flow *flowpb.Flow) bool
 
+	// Metrics holds the function to compare/check metrics.
+	Metrics []MetricsResult
+
 	// No flows are to be expected. Used for ingress when egress drops
 	None bool
 
@@ -37,6 +42,20 @@ type Result struct {
 
 	// ExitCode is the expected shell exit code
 	ExitCode ExitCode
+}
+
+// MetricsResult holds the source of metrics we want to assert and its assertion method.
+type MetricsResult struct {
+	Source MetricsSource
+	Assert assertMetricsFunc
+}
+
+type assertMetricsFunc func(map[string]*dto.MetricFamily, map[string]*dto.MetricFamily) error
+
+// IsEmpty returns true if MetricsResult does not have any source.
+// Assuming it corresponds to its zero value.
+func (m MetricsResult) IsEmpty() bool {
+	return m.Source.Name == ""
 }
 
 type HTTP struct {
@@ -105,8 +124,24 @@ func (r Result) String() string {
 		ret += "-"
 		ret += r.HTTP.Status
 	}
+	if r.Metrics != nil {
+		ret += displayMetricsSources(r.Metrics)
+	}
 	if r.ExitCode >= 0 && r.ExitCode <= 255 {
 		ret += fmt.Sprintf("-exit(%d)", r.ExitCode)
 	}
+	return ret
+}
+
+func displayMetricsSources(metrics []MetricsResult) string {
+	var ret string
+	ret += "-MetricsSources("
+	sources := make([]string, 0)
+	for _, m := range metrics {
+		sources = append(sources, m.Source.Name)
+	}
+	ret += strings.Join(sources, ",")
+	ret += ")"
+
 	return ret
 }
