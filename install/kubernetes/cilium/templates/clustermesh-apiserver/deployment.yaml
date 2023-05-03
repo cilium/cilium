@@ -170,6 +170,9 @@ spec:
         {{- with .Values.clustermesh.apiserver.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
+        {{- if hasKey .Values.clustermesh.config "maxConnectedClusters" }}
+        - --max-connected-clusters={{ .Values.clustermesh.config.maxConnectedClusters }}
+        {{- end }}
         env:
         - name: CLUSTER_NAME
           valueFrom:
@@ -249,6 +252,9 @@ spec:
         {{- end }}
         {{- with .Values.clustermesh.apiserver.kvstoremesh.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        {{- if hasKey .Values.clustermesh.config "maxConnectedClusters" }}
+        - --max-connected-clusters={{ .Values.clustermesh.config.maxConnectedClusters }}
         {{- end }}
         env:
         - name: CLUSTER_NAME

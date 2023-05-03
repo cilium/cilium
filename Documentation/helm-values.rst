@@ -663,7 +663,7 @@
    * - :spelling:ignore:`clustermesh.config`
      - Clustermesh explicit configuration.
      - object
-     - ``{"clusters":[],"domain":"mesh.cilium.io","enabled":false}``
+     - ``{"clusters":[],"domain":"mesh.cilium.io","enabled":false,"maxConnectedClusters":255}``
    * - :spelling:ignore:`clustermesh.config.clusters`
      - List of clusters to be peered in the mesh.
      - list
@@ -676,6 +676,10 @@
      - Enable the Clustermesh explicit configuration.
      - bool
      - ``false``
+   * - :spelling:ignore:`clustermesh.config.maxConnectedClusters`
+     - The maximum number of clusters to support in a clustermesh. Values > 255 will decrease maximum allocatable identities per cluster.
+     - int
+     - ``255``
    * - :spelling:ignore:`clustermesh.useAPIServer`
      - Deploy clustermesh-apiserver for clustermesh
      - bool

@@ -2711,6 +2711,9 @@ clustermesh:
     #     cert: ""
     #     key: ""
     #     caCert: ""
+    # -- The maximum number of clusters to support in a clustermesh.
+    # Values > 255 will decrease maximum allocatable identities per cluster.
+    maxConnectedClusters: 255
 
   apiserver:
     # -- Clustermesh API server image.

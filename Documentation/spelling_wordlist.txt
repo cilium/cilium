@@ -125,6 +125,7 @@ Zhou
 aarch
 alibabacloud
 allocateLoadBalancerNodePorts
+allocatable
 allocator
 allocators
 allowedConfigOverrides
@@ -451,6 +452,7 @@ mainboard
 makefile
 masq
 matchPattern
+maxConnectedClusters
 maxUnavailable
 mc
 mediabot

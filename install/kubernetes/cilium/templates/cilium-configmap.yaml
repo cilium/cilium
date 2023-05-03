@@ -1180,6 +1180,10 @@ data:
   {{ toYaml .Values.extraConfig | nindent 2 }}
 {{- end }}
 
+{{- if hasKey .Values.clustermesh.config "maxConnectedClusters" }}
+  max-connected-clusters: {{ .Values.clustermesh.config.maxConnectedClusters | quote }}
+{{- end }}
+
 {{- end }}
 ---
 {{- if and .Values.ipMasqAgent.enabled .Values.ipMasqAgent.config }}
