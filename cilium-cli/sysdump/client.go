@@ -59,6 +59,7 @@ type KubernetesClient interface {
 	ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error)
 	ListEvents(ctx context.Context, o metav1.ListOptions) (*corev1.EventList, error)
 	ListEndpoints(ctx context.Context, o metav1.ListOptions) (*corev1.EndpointsList, error)
+	ListIngressClasses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressClassList, error)
 	ListIngresses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressList, error)
 	ListNamespaces(ctx context.Context, o metav1.ListOptions) (*corev1.NamespaceList, error)
 	ListNetworkPolicies(ctx context.Context, o metav1.ListOptions) (*networkingv1.NetworkPolicyList, error)
