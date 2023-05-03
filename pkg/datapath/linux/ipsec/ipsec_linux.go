@@ -7,6 +7,7 @@ package ipsec
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -266,7 +267,14 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 	for _, s := range states {
 		if xfrmIPEqual(s.Src, new.Src) && xfrmIPEqual(s.Dst, new.Dst) &&
 			xfrmMarkEqual(s.Mark, new.Mark) && s.Spi == new.Spi {
-			if xfrmMarkEqual(s.OutputMark, new.OutputMark) {
+			if !xfrmKeyEqual(&s, new) {
+				// The states are the same, including the SPI, but the
+				// encryption key changed. This is expected on upgrade because
+				// we changed the way we compute the per-node-pair key.
+				scopedLog.Info("Removing XFRM state with old IPsec key")
+				netlink.XfrmStateDel(&s)
+				break
+			} else if xfrmMarkEqual(s.OutputMark, new.OutputMark) {
 				return nil
 			} else {
 				// If only the output-marks differ, then we should be able
@@ -387,6 +395,20 @@ func xfrmMarkEqual(mark1, mark2 *netlink.XfrmMark) bool {
 		return false
 	}
 	return mark1 == nil || (mark1.Value == mark2.Value && mark1.Mask == mark2.Mask)
+}
+
+// Returns true if the two XFRM states have the same encryption key.
+func xfrmKeyEqual(s1, s2 *netlink.XfrmState) bool {
+	if (s1.Aead == nil) != (s2.Aead == nil) ||
+		(s1.Crypt == nil) != (s2.Crypt == nil) ||
+		(s1.Auth == nil) != (s2.Auth == nil) {
+		return false
+	}
+	if s1.Aead != nil {
+		return bytes.Equal(s1.Aead.Key, s2.Aead.Key)
+	}
+	return bytes.Equal(s1.Crypt.Key, s2.Crypt.Key) &&
+		bytes.Equal(s1.Auth.Key, s2.Auth.Key)
 }
 
 func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error) {
