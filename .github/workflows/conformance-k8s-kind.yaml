@@ -21,12 +21,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  kind_version: v0.17.0
+  kind_version: v0.19.0
   cluster_name: cilium-testing
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.2
   cilium_cli_ci_version:
-  k8s_version: v1.26.0
+  k8s_version: v1.27.1
 
 jobs:
   kubernetes-e2e:
@@ -202,7 +202,7 @@ jobs:
           # LoadBalancer|GCE|ExternalIP : require a cloud provider, some of them are GCE specifics
           # Netpol|NetworkPolicy : network policies, demand significant resources and use to be slow, better to run in a different job
           # Aggregator : Flaky, https://github.com/cilium/cilium/issues/24622.
-          # same.port.number.but.different.protocols|HostPort : #9207
+          # same.port.number.but.different.protocols|HostPort|should.serve.endpoints.on.same.port.and.different.protocols : #9207
           # rejected : Kubernetes expect Services without endpoints associated to REJECT the connection to notify the client, Cilium silently drops the packet
           # externalTrafficPolicy : needs investigation
 
@@ -211,7 +211,7 @@ jobs:
           export E2E_REPORT_DIR=${PWD}/_artifacts
           /usr/local/bin/ginkgo --nodes=25                \
             --focus="\[Conformance\]|\[sig-network\]"     \
-            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|Aggregator|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols"   \
+            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|Aggregator|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols|should.serve.endpoints.on.same.port.and.different.protocols"   \
             /usr/local/bin/e2e.test                       \
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
