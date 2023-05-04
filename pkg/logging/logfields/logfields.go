@@ -694,4 +694,7 @@ const (
 
 	// CIDRGroupRef is a references to a CiliumCIDRGroup object.
 	CIDRGroupRef = "cidrGroupRef"
+
+	// Workers represents the number of workers.
+	Workers = "workers"
 )
