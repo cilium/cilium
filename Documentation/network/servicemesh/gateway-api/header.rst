@@ -34,7 +34,7 @@ Deploy the Gateway and the HTTPRoute:
 
     $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/gateway/request-header.yaml
 
-The above example creates a Gateway named ``cilium-gw`` that listens on port 80.
+The preceding kubectl command creates a Gateway named ``cilium-gw`` that listens on port 80.
 
 .. code-block:: shell-session
 
@@ -44,7 +44,7 @@ The above example creates a Gateway named ``cilium-gw`` that listens on port 80.
 
 .. Note::
 
-    Some providers e.g. EKS use a fully-qualified domain name rather than an IP address.
+    Some providers like EKS use a fully-qualified domain name rather than an IP address.
 
 Modify incoming HTTP Requests 
 =============================
@@ -62,10 +62,9 @@ Now that the Gateway is ready, you can make HTTP requests.
         x-forwarded-proto=http
         x-request-id=61a72702-3dfa-4bc3-a21c-7544ef36af7b
 
-A curl is successful and in the body of the response sent back from the echo server, you can see the HTTP Header from the incoming request.
-Note how the header had been added by the Gateway.
+If the curl succeeds, you can see the HTTP Header from the incoming request in the body of the response sent back from the echo server. You can also see that the Gateway added the header.
 
-Headers can also be removed, by using the ``remove`` keyword and a list of header names.
+You can also remove headers with the ``remove`` keyword and a list of header names.
 
 .. code-block:: shell-session
 
@@ -74,7 +73,7 @@ Headers can also be removed, by using the ``remove`` keyword and a list of heade
       requestHeaderModifier:
         remove: ["x-request-id"]
 
-Note how the ``x-request-id`` header has been removed (using this filter with the ``remove-a-request-header`` prefix match):
+Notice that the ``x-request-id`` header is removed when you add the ``remove-a-request-header`` prefix match to the filter:
 
 .. code-block:: shell-session
 
@@ -85,7 +84,7 @@ Note how the ``x-request-id`` header has been removed (using this filter with th
         user-agent=curl/7.81.0  
         x-forwarded-proto=http  
 
-To edit an existing header, use the ``set`` action and specify the value of the header to be modified and the new header value to be set.
+To edit an existing header, use the ``set`` action to specify the value of the header to modify as well as the new header value to set.
 
 .. code-block:: shell-session
 
@@ -96,7 +95,7 @@ To edit an existing header, use the ``set`` action and specify the value of the 
         - name: x-request-id
           value: set-cilium-header-value
 
-Note how the ``x-request-id`` header value has been modified (using this filter with the ``edit-a-request-header`` prefix match).
+Notice that the ``x-request-id`` header is changed when you add the ``edit-a-request-header`` prefix match to the filter:
 
 .. code-block:: shell-session
 
