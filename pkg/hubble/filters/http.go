@@ -124,6 +124,33 @@ func filterByHTTPPaths(pathRegexpStrs []string) (FilterFunc, error) {
 	}, nil
 }
 
+func filterByHTTPUrl(urlRegexpStrs []string) (FilterFunc, error) {
+	urlRegexps := make([]*regexp.Regexp, 0, len(urlRegexpStrs))
+	for _, urlRegexpStr := range urlRegexpStrs {
+		urlRegexp, err := regexp.Compile(urlRegexpStr)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", urlRegexpStr, err)
+		}
+		urlRegexps = append(urlRegexps, urlRegexp)
+	}
+
+	return func(ev *v1.Event) bool {
+		http := ev.GetFlow().GetL7().GetHttp()
+
+		if http == nil || http.Url == "" {
+			return false
+		}
+
+		for _, urlRegexp := range urlRegexps {
+			if urlRegexp.MatchString(http.Url) {
+				return true
+			}
+		}
+
+		return false
+	}, nil
+}
+
 // HTTPFilter implements filtering based on HTTP metadata
 type HTTPFilter struct{}
 

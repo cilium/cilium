@@ -502,6 +502,8 @@ message FlowFilter {
     repeated string http_method = 21;
     // http_path is a list of regular expressions to filter on the HTTP path.
     repeated string http_path = 22;
+    // http_url is a list of regular expressions to filter on the HTTP url.
+    repeated string http_url = 31;
 
     // tcp_flags filters flows based on TCP header flags
     repeated TCPFlags tcp_flags = 23;

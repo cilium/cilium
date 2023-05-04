@@ -371,6 +371,69 @@ func TestHTTPFilters(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		// url filters
+		{
+			name: "url full",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpUrl:  []string{"https?://cilium.com/docs/[a-z]+", "http://cilium.com/post/\\d+"},
+						EventType: []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.com/docs/"}),
+					httpFlow(&flowpb.HTTP{Url: "https://cilium.com/docs/tutorial/"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.com/docs/start/"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.com/post/"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.com/post/0"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.com/post/slug"}),
+					httpFlow(&flowpb.HTTP{Url: "https://cilium.com/post/123?key=value"}),
+					httpFlow(&flowpb.HTTP{Url: "http://slug"}),
+				},
+			},
+			want: []bool{
+				false,
+				true,
+				true,
+				false,
+				true,
+				false,
+				false,
+				false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty url",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpUrl:  []string{"http://cilium.com/post/\\d+"},
+						EventType: []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Url: ""}),
+				},
+			},
+			want: []bool{
+				false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid url filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpUrl:  []string{"("},
+						EventType: []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
