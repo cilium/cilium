@@ -140,7 +140,6 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventChan) {
 		for {
 			added := IdentityCache{}
 			deleted := IdentityCache{}
-
 		First:
 			for {
 				// Wait for one identity add or delete or stop

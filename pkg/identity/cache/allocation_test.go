@@ -398,3 +398,26 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	mgr.IdentityAllocator.DeleteAllKeys()
 	c.Assert(owner.WaitUntilID(id.ID), Not(Equals), 0)
 }
+
+// Test that we can close and reopen the allocator successfully.
+func (s *IdentityCacheTestSuite) TestAllocatorReset(c *C) {
+	labels := labels.NewLabelsFromSortedList("id=bar;user=anna")
+	owner := newDummyOwner()
+	mgr := NewCachingIdentityAllocator(owner)
+	testAlloc := func() {
+		id1a, _, err := mgr.AllocateIdentity(context.Background(), labels, false, identity.InvalidIdentity)
+		c.Assert(id1a, Not(IsNil))
+		c.Assert(err, IsNil)
+
+		queued, ok := <-owner.updated
+		c.Assert(ok, Equals, true)
+		c.Assert(queued, Equals, id1a.ID)
+	}
+
+	<-mgr.InitIdentityAllocator(nil, nil)
+	testAlloc()
+	mgr.Close()
+	<-mgr.InitIdentityAllocator(nil, nil)
+	testAlloc()
+	mgr.Close()
+}
