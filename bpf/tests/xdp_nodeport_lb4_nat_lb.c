@@ -194,7 +194,9 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	struct ipcache_key cache_key = {
 		.lpm_key.prefixlen = 32,
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP_LOCAL,
+		.ip = {
+			.ip4 = BACKEND_IP_LOCAL,
+		}
 	};
 	struct remote_endpoint_info cache_value = {
 		.sec_identity = 112233,
@@ -368,7 +370,9 @@ int nodeport_nat_fwd_setup(struct __ctx_buff *ctx)
 	struct ipcache_key cache_key = {
 		.lpm_key.prefixlen = 32,
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP_REMOTE,
+		.ip = {
+			.ip4 = BACKEND_IP_REMOTE,
+		}
 	};
 	struct remote_endpoint_info cache_value = {
 		.sec_identity = 112233,

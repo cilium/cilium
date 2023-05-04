@@ -290,7 +290,9 @@ int lxc_to_overlay_synack_setup(struct __ctx_buff *ctx)
 	struct ipcache_key cache_key = {
 		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(V4_CACHE_KEY_LEN),
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = CLIENT_NODE_IP,
+		.ip = {
+			.ip4 = CLIENT_NODE_IP,
+		}
 	};
 
 	struct remote_endpoint_info cache_value = {

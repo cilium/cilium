@@ -96,7 +96,7 @@ static inline void __setup_v4(void)
 
 	cache_key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(32);
 	cache_key.family = ENDPOINT_KEY_IPV4;
-	cache_key.ip4 = bpf_htonl(HOST_IP);
+	cache_key.ip.ip4 = bpf_htonl(HOST_IP);
 	cache_value.sec_identity = HOST_ID;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 
@@ -281,7 +281,7 @@ static inline void __setup_v6_ipcache(const union v6addr *HOST_IP6)
 
 	cache_key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(128);
 	cache_key.family = ENDPOINT_KEY_IPV6;
-	cache_key.ip6 = *HOST_IP6;
+	cache_key.ip.ip6 = *HOST_IP6;
 	cache_value.sec_identity = HOST_ID;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 }

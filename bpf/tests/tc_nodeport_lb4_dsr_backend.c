@@ -168,7 +168,9 @@ int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 	struct ipcache_key cache_key = {
 		.lpm_key.prefixlen = 32,
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP,
+		.ip = {
+			.ip4 = BACKEND_IP,
+		}
 	};
 	struct remote_endpoint_info cache_value = {
 		.sec_identity = 112233,

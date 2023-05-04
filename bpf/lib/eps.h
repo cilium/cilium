@@ -58,7 +58,7 @@ ipcache_lookup6(const void *map, const union v6addr *addr,
 	struct ipcache_key key = {
 		.lpm_key = { IPCACHE_PREFIX_LEN(prefix), {} },
 		.family = ENDPOINT_KEY_IPV6,
-		.ip6 = *addr,
+		.ip.ip6 = *addr,
 	};
 
 	/* Check overflow */
@@ -67,7 +67,7 @@ ipcache_lookup6(const void *map, const union v6addr *addr,
 
 	key.cluster_id = (__u8)cluster_id;
 
-	ipv6_addr_clear_suffix(&key.ip6, prefix);
+	ipv6_addr_clear_suffix(&key.ip.ip6, prefix);
 	return map_lookup_elem(map, &key);
 }
 
@@ -79,7 +79,9 @@ ipcache_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 	struct ipcache_key key = {
 		.lpm_key = { IPCACHE_PREFIX_LEN(prefix), {} },
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = addr,
+		.ip = {
+			.ip4 = addr,
+		},
 	};
 
 	/* Check overflow */
@@ -88,7 +90,8 @@ ipcache_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 
 	key.cluster_id = (__u8)cluster_id;
 
-	key.ip4 &= GET_PREFIX(prefix);
+	key.ip.ip4 &= GET_PREFIX(prefix);
+	
 	return map_lookup_elem(map, &key);
 }
 

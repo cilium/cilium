@@ -215,7 +215,9 @@ int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 	struct ipcache_key cache_key = {
 		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(V4_CACHE_KEY_LEN),
 		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP,
+		.ip = {
+			.ip4 = BACKEND_IP,
+		},
 
 		/* Encode cluster_id into ipcache key. So that we can lookup
 		 * for the IP/Prefix located in the different clusters, but

@@ -512,7 +512,7 @@ Users (Alphabetically)
     * N: Solo.io
       D: Cilium is part of Gloo Application Networking platform, with a “batteries included but swappable” manner
       U: CNI, Network Policies
-      Q: @linsun
+      Q: @linsun, @EItanya
       
     * N: S&P Global
       D: S&P Global uses Cilium as their multi-cloud CNI
