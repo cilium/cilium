@@ -949,11 +949,11 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 		wildcardIP := net.ParseIP(wildcardIPv4)
 		wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
 
+		err = ipsec.IPsecDefaultDropPolicy(false)
+		upsertIPsecLog(err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi)
+
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new4Net)
-
-			err = ipsec.IPsecDefaultDropPolicy(false)
-			upsertIPsecLog(err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi)
 
 			if localIP := newNode.GetCiliumInternalIP(false); localIP != nil {
 				if n.subnetEncryption() {
@@ -1003,11 +1003,11 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 		wildcardIP := net.ParseIP(wildcardIPv6)
 		wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 128)}
 
+		err = ipsec.IPsecDefaultDropPolicy(true)
+		upsertIPsecLog(err, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi)
+
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new6Net)
-
-			err = ipsec.IPsecDefaultDropPolicy(true)
-			upsertIPsecLog(err, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi)
 
 			if localIP := newNode.GetCiliumInternalIP(true); localIP != nil {
 				if n.subnetEncryption() {
