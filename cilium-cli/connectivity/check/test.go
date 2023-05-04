@@ -583,6 +583,12 @@ func (t *Test) WithSetupFunc(f SetupFunc) *Test {
 	return t
 }
 
+// WithFinalizer registers a finalizer to be executed when Run() returns.
+func (t *Test) WithFinalizer(f func() error) *Test {
+	t.finalizers = append(t.finalizers, f)
+	return t
+}
+
 // NewAction creates a new Action. s must be the Scenario the Action is created
 // for, name should be a visually-distinguishable name, src is the execution
 // Pod of the action, and dst is the network target the Action will connect to.
