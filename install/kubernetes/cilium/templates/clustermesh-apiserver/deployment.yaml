@@ -140,6 +140,7 @@ spec:
         - --cluster-users-enabled
         - --cluster-users-config-path=/var/lib/cilium/etcd-config/users.yaml
         {{- end }}
+        - --enable-external-workloads={{ .Values.externalWorkloads.enabled }}
         env:
         - name: CLUSTER_NAME
           valueFrom:
