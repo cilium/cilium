@@ -14,24 +14,26 @@ HTTP traffic splitting is the process of sending incoming traffic to multiple ba
 The Cilium Gateway API includes built-in support for traffic splitting, allowing users to easily distribute incoming traffic across multiple backend services. 
 This is very useful for canary testing or A/B scenarios.
 
-For this particular use case, we're going to use Gateway API to load-balance incoming traffic to different backends, starting with the same weights before testing with a 99/1 weight distribution.
+This particular example uses the Gateway API to load balance incoming traffic to different backends, starting with the same weights before testing with a 99/1 weight distribution.
 
 .. include:: ../echo-app.rst
 
 Deploy the Cilium Gateway
 =========================
 
-You'll find the example Gateway and HTTPRoute definition in ``splitting.yaml``.
+You can find an example Gateway and HTTPRoute definition in ``splitting.yaml``:
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/splitting.yaml
 
-Note the even 50/50 split between the two Services. Deploy the Gateway and the HTTPRoute:
+Notice the even 50/50 split between the two Services.
+
+Deploy the Gateway and the HTTPRoute:
 
 .. parsed-literal::
 
     $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/gateway/splitting.yaml
 
-The above example creates a Gateway named ``cilium-gw`` that listens on port 80.
+The preceding example creates a Gateway named ``cilium-gw`` that listens on port 80.
 A single route is defined and includes two different ``backendRefs`` (``echo-1`` and ``echo-2``) and weights associated with them.
 
 .. code-block:: shell-session
@@ -42,7 +44,7 @@ A single route is defined and includes two different ``backendRefs`` (``echo-1``
 
 .. Note::
 
-    Some providers e.g. EKS use a fully-qualified domain name rather than an IP address.
+    Some providers like EKS use a fully-qualified domain name rather than an IP address.
 
 Even traffic split
 ==================
@@ -84,22 +86,22 @@ Now that the Gateway is ready, you can make HTTP requests to the services.
     Request Body:
         -no body in request-
 
-Notice that, in the reply, you get the name of the pod that received the query. For example:
+Notice that the reply includes the name of the pod that received the query. For example:
 
 .. code-block:: shell-session
 
     Hostname: echo-2-5bfb6668b4-2rl4t
 
 Repeat the command several times.
-You should see the reply being balanced evenly across both pods/nodes.
-Let's double check that traffic is evenly split across multiple Pods by running a loop and counting the requests:
+You should see the reply balanced evenly across both pods and nodes.
+Verify that traffic is evenly split across multiple Pods by running a loop and counting the requests:
 
 .. code-block:: shell-session
 
     while true; do curl -s -k "http://$GATEWAY/echo" >> curlresponses.txt ;done
 
-Stop with ``Ctrl+C``.
-Verify that the responses have been (more or less) evenly spread.
+Stop the loop with ``Ctrl+C``.
+Verify that the responses are more or less evenly distributed.
 
 .. code-block:: shell-session
 
@@ -111,7 +113,7 @@ Verify that the responses have been (more or less) evenly spread.
 Uneven (99/1) traffic split
 ===========================
 
-Update the HTTPRoute weights (either by using ``kubectl edit httproute`` or by updating the value in the original manifest before reapplying it) to, for example, ``99`` for echo-1 and ``1`` for echo-2:
+Update the HTTPRoute weights, either by using ``kubectl edit httproute`` or by updating the value in the original manifest before reapplying it to. For example, set ``99`` for echo-1 and ``1`` for echo-2:
 
 .. code-block:: shell-session
 
@@ -126,14 +128,14 @@ Update the HTTPRoute weights (either by using ``kubectl edit httproute`` or by u
       weight: 1
 
 
-Let's double check that traffic has been unevenly split across multiple Pods by running a loop and counting the requests:
+Verify that traffic is unevenly split across multiple Pods by running a loop and counting the requests:
 
 .. code-block:: shell-session
 
     while true; do curl -s -k "http://$GATEWAY/echo" >> curlresponses991.txt ;done
 
-Stop with ``Ctrl+C``.
-Verify that the responses have been (more or less) evenly spread.
+Stop the loop with ``Ctrl+C``.
+Verify that responses are more or less evenly distributed.
 
 .. code-block:: shell-session
 
