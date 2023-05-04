@@ -17,19 +17,13 @@ certificate would be signed by a different CA.
     {{- if and $crt $key }}
       {{- $ca = buildCustomCert $crt $key -}}
     {{- else }}
-      {{- with lookup "v1" "Secret" .Release.Namespace "hubble-ca-secret" }}
+      {{- $_ := include "cilium.ca.setup" . -}}
+      {{- with lookup "v1" "Secret" .Release.Namespace .commonCASecretName }}
         {{- $crt := index .data "ca.crt" }}
         {{- $key := index .data "ca.key" }}
         {{- $ca = buildCustomCert $crt $key -}}
       {{- else }}
-        {{- $_ := include "cilium.ca.setup" . -}}
-        {{- with lookup "v1" "Secret" .Release.Namespace .commonCASecretName }}
-          {{- $crt := index .data "ca.crt" }}
-          {{- $key := index .data "ca.key" }}
-          {{- $ca = buildCustomCert $crt $key -}}
-        {{- else }}
-          {{- $ca = .commonCA -}}
-        {{- end }}
+        {{- $ca = .commonCA -}}
       {{- end }}
     {{- end }}
     {{- $_ := set . "ca" $ca -}}
