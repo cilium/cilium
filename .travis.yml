@@ -4,7 +4,7 @@ dist: focal
 sudo: required
 
 # renovate: datasource=golang-version depName=go
-go: "1.20.3"
+go: "1.20.4"
 
 jobs:
   include:
