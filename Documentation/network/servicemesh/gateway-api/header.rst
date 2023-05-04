@@ -26,7 +26,7 @@ You can find an example Gateway and HTTPRoute definition in ``request-header.yam
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/request-header.yaml
 
-In this example, we will add a header named ``my-header-name`` with the ``my-header-value`` value.
+This example adds a header named ``my-header-name`` with the ``my-header-value`` value.
 
 Deploy the Gateway and the HTTPRoute:
 
