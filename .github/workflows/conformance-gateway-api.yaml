@@ -93,7 +93,7 @@ jobs:
         uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.20.3
+          go-version: 1.20.4
 
       - name: Wait for images to be available
         timeout-minutes: 30
