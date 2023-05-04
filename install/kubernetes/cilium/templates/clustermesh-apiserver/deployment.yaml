@@ -134,6 +134,7 @@ spec:
         - --cluster-id=$(CLUSTER_ID)
         - --kvstore-opt
         - etcd.config=/var/lib/cilium/etcd-config.yaml
+        - --enable-external-workloads={{ .Values.externalWorkloads.enabled }}
         env:
         - name: CLUSTER_NAME
           valueFrom:

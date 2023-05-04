@@ -61,8 +61,9 @@ import (
 )
 
 type configuration struct {
-	clusterName      string
-	serviceProxyName string
+	clusterName             string
+	serviceProxyName        string
+	enableExternalWorkloads bool
 }
 
 func (c configuration) LocalClusterName() string {
@@ -272,6 +273,11 @@ func runApiserver() error {
 
 	flags.Int(option.PProfPort, defaults.PprofPortAPIServer, "Port that pprof listens on")
 	option.BindEnv(vp, option.PProfPort)
+
+	// The default values is set to true to match the existing behavior in case
+	// the flag is not configured (for instance by the legacy cilium CLI).
+	flags.BoolVar(&cfg.enableExternalWorkloads, option.EnableExternalWorkloads, true, "Enable support for external workloads")
+	option.BindEnv(vp, option.EnableExternalWorkloads)
 
 	vp.BindPFlags(flags)
 
@@ -589,8 +595,6 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 		synced.SyncCRDs(startCtx, clientset, synced.AllCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 	}
 
-	mgr := NewVMManager(clientset)
-
 	var err error
 	if err = kvstore.Setup(context.Background(), "etcd", option.Config.KVStoreOpt, nil); err != nil {
 		log.WithError(err).Fatal("Unable to connect to etcd")
@@ -604,14 +608,17 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}
 
-	_, err = store.JoinSharedStore(store.Configuration{
-		Prefix:               nodeStore.NodeRegisterStorePrefix,
-		KeyCreator:           nodeStore.RegisterKeyCreator,
-		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
-		Observer:             mgr,
-	})
-	if err != nil {
-		log.WithError(err).Fatal("Unable to set up node register store in etcd")
+	if cfg.enableExternalWorkloads {
+		mgr := NewVMManager(clientset)
+		_, err = store.JoinSharedStore(store.Configuration{
+			Prefix:               nodeStore.NodeRegisterStorePrefix,
+			KeyCreator:           nodeStore.RegisterKeyCreator,
+			SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
+			Observer:             mgr,
+		})
+		if err != nil {
+			log.WithError(err).Fatal("Unable to set up node register store in etcd")
+		}
 	}
 
 	ciliumNodeStore, err = store.JoinSharedStore(store.Configuration{
@@ -630,7 +637,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 		synchronizeIdentities(clientset)
 		synchronizeNodes(clientset)
 		synchronizeCiliumEndpoints(clientset)
-		operatorWatchers.StartSynchronizingServices(context.Background(), &sync.WaitGroup{}, clientset, services, false, cfg)
+		operatorWatchers.StartSynchronizingServices(context.Background(), &sync.WaitGroup{}, clientset, services, !cfg.enableExternalWorkloads, cfg)
 	}
 
 	go func() {
