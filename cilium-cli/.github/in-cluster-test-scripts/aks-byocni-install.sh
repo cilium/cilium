@@ -10,4 +10,4 @@ cilium install \
   --wait=false \
   --helm-set loadBalancer.l7.backend=envoy \
   --helm-set tls.secretsBackend=k8s \
-  --config monitor-aggregation=none
+  --helm-set bpf.monitorAggregation=none
