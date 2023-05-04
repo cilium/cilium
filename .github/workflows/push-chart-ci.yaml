@@ -44,6 +44,7 @@ jobs:
     - name: Get triggering event ref
       id: get-ref
       run: |
+        echo repository="${{ github.event.repository.organization }}/${{ github.event.repository.name }}" >> $GITHUB_OUTPUT
         if [[ "${{ github.event_name }}" == "workflow_dispatch"  ]]; then
           echo ref="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
           echo sha="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
@@ -72,6 +73,7 @@ jobs:
       uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       with:
         persist-credentials: false
+        repository: ${{ steps.get-ref.outputs.repository }}
         # checkout ref not SHA so we can get useful branch names (see previous comments)
         ref: ${{ steps.get-ref.outputs.ref }}
         # required for git describe
