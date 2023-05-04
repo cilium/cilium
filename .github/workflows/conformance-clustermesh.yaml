@@ -93,6 +93,7 @@ jobs:
             kvstoremesh: true
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'legacy'
+            maxConnectedClusters: '255'
 
           - name: '2'
             tunnel: 'disabled'
@@ -102,6 +103,7 @@ jobs:
             kvstoremesh: false
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'migration'
+            maxConnectedClusters: '511'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '3'
@@ -112,6 +114,7 @@ jobs:
             kvstoremesh: true
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
 
           # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
           # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
@@ -123,6 +126,7 @@ jobs:
             kvstoremesh: false
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'migration'
+            maxConnectedClusters: '255'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '5'
@@ -133,6 +137,7 @@ jobs:
             kvstoremesh: true
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
 
           - name: '6'
             tunnel: 'vxlan'
@@ -142,6 +147,7 @@ jobs:
             kvstoremesh: false
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '511'
 
           - name: '7'
             tunnel: 'vxlan'
@@ -151,6 +157,7 @@ jobs:
             kvstoremesh: true
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '8'
@@ -161,6 +168,7 @@ jobs:
             kvstoremesh: false
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
 
         # Tunneling is currently not supported in case of ipv6-only clusters (#17240)
         #  - name: '9'
@@ -180,6 +188,7 @@ jobs:
             kvstoremesh: false
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
+            maxConnectedClusters: '255'
 
     steps:
       - name: Checkout context ref (trusted)
@@ -222,6 +231,7 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=clustermesh.apiserver.kvstoremesh.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/kvstoremesh-ci:${SHA} \
             --helm-set=clustermesh.apiserver.kvstoremesh.image.useDigest=false \
+            --helm-set=clustermesh.config.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
             "
 
           CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
