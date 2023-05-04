@@ -194,7 +194,7 @@ jobs:
 
       - name: Connectivity test
         run: |
-          cilium connectivity test --debug --force-deploy --all-flows --test-namespace another-test-namespace \
+          cilium connectivity test --debug --force-deploy --all-flows --test-namespace test-namespace \
             --external-from-cidrs="${EXTERNAL_NODE_IPS_PARAM}" \
             --collect-sysdump-on-failure
 
