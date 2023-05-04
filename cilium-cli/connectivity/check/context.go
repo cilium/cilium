@@ -831,3 +831,7 @@ func (ct *ConnectivityTest) Feature(f Feature) (FeatureStatus, bool) {
 	s, ok := ct.features[f]
 	return s, ok
 }
+
+func (ct *ConnectivityTest) Clients() []*k8s.Client {
+	return ct.clients.clients()
+}
