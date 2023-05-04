@@ -22,7 +22,7 @@ To configure HTTP header modification, define a Gateway object with one or more 
 
 To add a header to a HTTP request, use a filter of the type ``RequestHeaderModifier`` with the ``add`` action and the name and value of the header.
 
-You'll find the example Gateway and HTTPRoute definition in ``request-header.yaml``.
+You can find an example Gateway and HTTPRoute definition in ``request-header.yaml``:
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/request-header.yaml
 
