@@ -48,7 +48,12 @@ jobs:
           echo ref="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
           echo sha="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
         elif [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-          echo ref="${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event.workflow_run.head_repository.fork }}" == "true"  ]]; then
+            # use the SHA on forks since the head_branch won't exist in the upstream repository
+            echo ref="${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+          else
+            echo ref="${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          fi
           echo sha="${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
         elif [[ "${{ github.event_name }}" == "push" ]]; then
           echo ref="${{ github.ref }}" >> $GITHUB_OUTPUT
