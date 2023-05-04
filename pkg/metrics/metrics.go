@@ -31,6 +31,11 @@ const (
 	// ErrorProxy is the value used to notify errors on Proxy.
 	ErrorProxy = "proxy"
 
+	// HistogramFactor configures the factor used for exponential/native histogram in Prometheus client
+	HistogramFactor = 1.1
+	// HistogramMaxBuckets configures the maximum number of buckets that will be exported in Prometheus client
+	HistogramMaxBuckets = 128
+
 	// L7DNS is the value used to report DNS label on metrics
 	L7DNS = "dns"
 
@@ -711,10 +716,12 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_" + SubsystemAgent + "_bootstrap_seconds":
 			BootstrapTimes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemAgent,
-				Name:      "bootstrap_seconds",
-				Help:      "Duration of bootstrap sequence",
+				Namespace:                      Namespace,
+				Subsystem:                      SubsystemAgent,
+				Name:                           "bootstrap_seconds",
+				Help:                           "Duration of bootstrap sequence",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelScope, LabelOutcome})
 
 			collectors = append(collectors, BootstrapTimes)
@@ -722,10 +729,12 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":
 			APIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemAgent,
-				Name:      "api_process_time_seconds",
-				Help:      "Duration of processed API calls labeled by path, method and return code.",
+				Namespace:                      Namespace,
+				Subsystem:                      SubsystemAgent,
+				Name:                           "api_process_time_seconds",
+				Help:                           "Duration of processed API calls labeled by path, method and return code.",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelPath, LabelMethod, LabelAPIReturnCode})
 
 			collectors = append(collectors, APIInteractions)
@@ -756,9 +765,11 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_endpoint_regeneration_time_stats_seconds":
 			EndpointRegenerationTimeStats = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Name:      "endpoint_regeneration_time_stats_seconds",
-				Help:      "Endpoint regeneration time stats labeled by the scope",
+				Namespace:                      Namespace,
+				Name:                           "endpoint_regeneration_time_stats_seconds",
+				Help:                           "Endpoint regeneration time stats labeled by the scope",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelScope, LabelStatus})
 
 			collectors = append(collectors, EndpointRegenerationTimeStats)
@@ -786,9 +797,11 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_policy_regeneration_time_stats_seconds":
 			PolicyRegenerationTimeStats = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Name:      "policy_regeneration_time_stats_seconds",
-				Help:      "Policy regeneration time stats labeled by the scope",
+				Namespace:                      Namespace,
+				Name:                           "policy_regeneration_time_stats_seconds",
+				Help:                           "Policy regeneration time stats labeled by the scope",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelScope, LabelStatus})
 
 			collectors = append(collectors, PolicyRegenerationTimeStats)
@@ -836,9 +849,11 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_policy_implementation_delay":
 			PolicyImplementationDelay = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Name:      "policy_implementation_delay",
-				Help:      "Time between a policy change and it being fully deployed into the datapath",
+				Namespace:                      Namespace,
+				Name:                           "policy_implementation_delay",
+				Help:                           "Time between a policy change and it being fully deployed into the datapath",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelPolicySource})
 
 			collectors = append(collectors, PolicyImplementationDelay)
@@ -846,9 +861,11 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_cidrgroup_translation_time_stats_seconds":
 			CIDRGroupTranslationTimeStats = prometheus.NewHistogram(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Name:      "cidrgroup_translation_time_stats_seconds",
-				Help:      "CIDRGroup translation time stats",
+				Namespace:                      Namespace,
+				Name:                           "cidrgroup_translation_time_stats_seconds",
+				Help:                           "CIDRGroup translation time stats",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			})
 
 			collectors = append(collectors, CIDRGroupTranslationTimeStats)
@@ -956,9 +973,11 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_proxy_upstream_reply_seconds":
 			ProxyUpstreamTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Name:      "proxy_upstream_reply_seconds",
-				Help:      "Seconds waited to get a reply from a upstream server",
+				Namespace:                      Namespace,
+				Name:                           "proxy_upstream_reply_seconds",
+				Help:                           "Seconds waited to get a reply from a upstream server",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{"error", LabelProtocolL7, LabelScope})
 
 			collectors = append(collectors, ProxyUpstreamTime)
@@ -1070,6 +1089,8 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Name:      "conntrack_gc_duration_seconds",
 				Help: "Duration in seconds of the garbage collector process " +
 					"labeled by datapath family and completion status",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelDatapathFamily, LabelProtocol, LabelStatus})
 
 			collectors = append(collectors, ConntrackGCDuration)
@@ -1130,9 +1151,11 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_controllers_runs_duration_seconds":
 			ControllerRunsDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Name:      "controllers_runs_duration_seconds",
-				Help:      "Duration in seconds of the controller process labeled by completion status",
+				Namespace:                      Namespace,
+				Name:                           "controllers_runs_duration_seconds",
+				Help:                           "Duration in seconds of the controller process labeled by completion status",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelStatus})
 
 			collectors = append(collectors, ControllerRunsDuration)
@@ -1170,10 +1193,12 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_" + SubsystemK8sClient + "_api_latency_time_seconds":
 			KubernetesAPIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemK8sClient,
-				Name:      "api_latency_time_seconds",
-				Help:      "Duration of processed API calls labeled by path and method.",
+				Namespace:                      Namespace,
+				Subsystem:                      SubsystemK8sClient,
+				Name:                           "api_latency_time_seconds",
+				Help:                           "Duration of processed API calls labeled by path and method.",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelPath, LabelMethod})
 
 			collectors = append(collectors, KubernetesAPIInteractions)
@@ -1192,10 +1217,12 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_" + SubsystemK8s + "_cnp_status_completion_seconds":
 			KubernetesCNPStatusCompletion = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemK8s,
-				Name:      "cnp_status_completion_seconds",
-				Help:      "Duration in seconds in how long it took to complete a CNP status update",
+				Namespace:                      Namespace,
+				Subsystem:                      SubsystemK8s,
+				Name:                           "cnp_status_completion_seconds",
+				Help:                           "Duration in seconds in how long it took to complete a CNP status update",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelAttempts, LabelOutcome})
 
 			collectors = append(collectors, KubernetesCNPStatusCompletion)
@@ -1224,10 +1251,12 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":
 			KVStoreOperationsDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemKVStore,
-				Name:      "operations_duration_seconds",
-				Help:      "Duration in seconds of kvstore operations",
+				Namespace:                      Namespace,
+				Subsystem:                      SubsystemKVStore,
+				Name:                           "operations_duration_seconds",
+				Help:                           "Duration in seconds of kvstore operations",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelScope, LabelKind, LabelAction, LabelOutcome})
 
 			collectors = append(collectors, KVStoreOperationsDuration)
@@ -1235,11 +1264,13 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":
 			KVStoreEventsQueueDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemKVStore,
-				Name:      "events_queue_seconds",
-				Help:      "Duration in seconds of time received event was blocked before it could be queued",
-				Buckets:   []float64{.002, .005, .01, .015, .025, .05, .1, .25, .5, .75, 1},
+				Namespace:                      Namespace,
+				Subsystem:                      SubsystemKVStore,
+				Name:                           "events_queue_seconds",
+				Help:                           "Duration in seconds of time received event was blocked before it could be queued",
+				Buckets:                        []float64{.002, .005, .01, .015, .025, .05, .1, .25, .5, .75, 1},
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelScope, LabelAction})
 
 			collectors = append(collectors, KVStoreEventsQueueDuration)
@@ -1335,10 +1366,12 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_" + SubsystemBPF + "_syscall_duration_seconds":
 			BPFSyscallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemBPF,
-				Name:      "syscall_duration_seconds",
-				Help:      "Duration of BPF system calls",
+				Namespace:                      Namespace,
+				Subsystem:                      SubsystemBPF,
+				Name:                           "syscall_duration_seconds",
+				Help:                           "Duration of BPF system calls",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelOperation, LabelOutcome})
 
 			collectors = append(collectors, BPFSyscallDuration)
@@ -1382,10 +1415,12 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_" + SubsystemTriggers + "_policy_update_call_duration_seconds":
 			TriggerPolicyUpdateCallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemTriggers,
-				Name:      "policy_update_call_duration_seconds",
-				Help:      "Duration of policy update trigger",
+				Namespace:                      Namespace,
+				Subsystem:                      SubsystemTriggers,
+				Name:                           "policy_update_call_duration_seconds",
+				Help:                           "Duration of policy update trigger",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelType})
 
 			collectors = append(collectors, TriggerPolicyUpdateCallDuration)
@@ -1406,10 +1441,12 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_" + SubsystemAPILimiter + "_wait_history_duration_seconds":
 			APILimiterWaitHistoryDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Subsystem: SubsystemAPILimiter,
-				Name:      "wait_history_duration_seconds",
-				Help:      "Histogram over duration of waiting period for API calls subjects to rate limiting",
+				Namespace:                      Namespace,
+				Subsystem:                      SubsystemAPILimiter,
+				Name:                           "wait_history_duration_seconds",
+				Help:                           "Histogram over duration of waiting period for API calls subjects to rate limiting",
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{"api_call"})
 
 			collectors = append(collectors, APILimiterWaitHistoryDuration)
@@ -1483,10 +1520,12 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 		case Namespace + "_endpoint_propagation_delay_seconds":
 			EndpointPropagationDelay = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace: Namespace,
-				Name:      "endpoint_propagation_delay_seconds",
-				Help:      "CiliumEndpoint roundtrip propagation delay in seconds",
-				Buckets:   []float64{.05, .1, 1, 5, 30, 60, 120, 240, 300, 600},
+				Namespace:                      Namespace,
+				Name:                           "endpoint_propagation_delay_seconds",
+				Help:                           "CiliumEndpoint roundtrip propagation delay in seconds",
+				Buckets:                        []float64{.05, .1, 1, 5, 30, 60, 120, 240, 300, 600},
+				NativeHistogramBucketFactor:    HistogramFactor,
+				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{})
 
 			collectors = append(collectors, EndpointPropagationDelay)
