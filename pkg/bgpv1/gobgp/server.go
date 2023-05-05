@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"time"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
@@ -14,6 +15,12 @@ import (
 	apb "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+)
+
+const (
+	wildcardIPv4Addr = "0.0.0.0"
+	wildcardIPv6Addr = "::"
 )
 
 var (
@@ -95,17 +102,66 @@ func NewGoBGPServerWithConfig(ctx context.Context, log *logrus.Entry, params typ
 // AddNeighbor will add the CiliumBGPNeighbor to the gobgp.BgpServer, creating
 // a BGP peering connection.
 func (g *GoBGPServer) AddNeighbor(ctx context.Context, n types.NeighborRequest) error {
-	// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
-	prefix, err := netip.ParsePrefix(n.Neighbor.PeerAddress)
+	peer, err := g.getPeerConfig(ctx, n.Neighbor, false)
 	if err != nil {
-		// unlikely, we validate this on CR write to k8s api.
-		return fmt.Errorf("failed to parse PeerAddress: %w", err)
+		return err
 	}
 	peerReq := &gobgp.AddPeerRequest{
-		Peer: &gobgp.Peer{
+		Peer: peer,
+	}
+	if err = g.server.AddPeer(ctx, peerReq); err != nil {
+		return fmt.Errorf("failed while adding peer %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
+	}
+	return nil
+}
+
+// UpdateNeighbor will update the existing CiliumBGPNeighbor in the gobgp.BgpServer.
+func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n types.NeighborRequest) error {
+	peer, err := g.getPeerConfig(ctx, n.Neighbor, true)
+	if err != nil {
+		return err
+	}
+	peerReq := &gobgp.UpdatePeerRequest{
+		DoSoftResetIn: true, // should perform soft reset only if needed
+		Peer:          peer,
+	}
+	if _, err = g.server.UpdatePeer(ctx, peerReq); err != nil {
+		return fmt.Errorf("failed while updating peer %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
+	}
+	return nil
+}
+
+// getPeerConfig returns GoBGP Peer configuration for the provided CiliumBGPNeighbor.
+func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBGPNeighbor, isUpdate bool) (*gobgp.Peer, error) {
+	// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
+	prefix, err := netip.ParsePrefix(n.PeerAddress)
+	if err != nil {
+		// unlikely, we validate this on CR write to k8s api.
+		return nil, fmt.Errorf("failed to parse PeerAddress: %w", err)
+	}
+	peerAddr := prefix.Addr()
+
+	var peer *gobgp.Peer
+	if isUpdate {
+		// If this is an update, try retrieving the existing Peer.
+		// This is necessary as many Peer fields are defaulted internally in GoBGP,
+		// and if they were not set, the update would always cause BGP peer reset.
+		// This will not fail if the peer is not found for whatever reason.
+		existingPeer, err := g.getExistingPeer(ctx, peerAddr, uint32(n.PeerASN))
+		if err != nil {
+			return nil, fmt.Errorf("failed retrieving peer: %w", err)
+		}
+		// use only necessary parts of the existing peer struct
+		peer = &gobgp.Peer{
+			Conf:     existingPeer.Conf,
+			AfiSafis: existingPeer.AfiSafis,
+		}
+	} else {
+		// Create a new peer
+		peer = &gobgp.Peer{
 			Conf: &gobgp.PeerConf{
-				NeighborAddress: prefix.Addr().String(),
-				PeerAsn:         uint32(n.Neighbor.PeerASN),
+				NeighborAddress: peerAddr.String(),
+				PeerAsn:         uint32(n.PeerASN),
 			},
 			// tells the peer we are capable of unicast IPv4 and IPv6
 			// advertisements.
@@ -121,12 +177,50 @@ func (g *GoBGPServer) AddNeighbor(ctx context.Context, n types.NeighborRequest) 
 					},
 				},
 			},
-		},
+		}
 	}
-	if err = g.server.AddPeer(ctx, peerReq); err != nil {
-		return fmt.Errorf("failed while adding peer %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
+
+	// As GoBGP defaulting of peer's Transport.LocalAddress follows different paths
+	// when calling AddPeer / UpdatePeer / ListPeer, we set it explicitly to a wildcard address
+	// based on peer's address family, to not cause unnecessary connection resets upon update.
+	if peerAddr.Is4() {
+		peer.Transport = &gobgp.Transport{LocalAddress: wildcardIPv4Addr}
+	} else {
+		peer.Transport = &gobgp.Transport{LocalAddress: wildcardIPv6Addr}
 	}
-	return nil
+
+	if peer.Timers == nil {
+		peer.Timers = &gobgp.Timers{}
+	}
+	peer.Timers.Config = &gobgp.TimersConfig{
+		// If any of the timers is not set (zero), it will be defaulted at the gobgp level.
+		// However, they should be already defaulted at this point.
+		ConnectRetry:      uint64(n.ConnectRetryTime.Round(time.Second).Seconds()),
+		HoldTime:          uint64(n.HoldTime.Round(time.Second).Seconds()),
+		KeepaliveInterval: uint64(n.KeepAliveTime.Round(time.Second).Seconds()),
+	}
+	return peer, nil
+}
+
+// getExistingPeer returns the existing GoBGP Peer matching provided peer address and ASN.
+// If no such peer can be found, error is returned.
+func (g *GoBGPServer) getExistingPeer(ctx context.Context, peerAddr netip.Addr, peerASN uint32) (*gobgp.Peer, error) {
+	var res *gobgp.Peer
+	fn := func(peer *gobgp.Peer) {
+		pIP, err := netip.ParseAddr(peer.Conf.NeighborAddress)
+		if err == nil && pIP == peerAddr && peer.Conf.PeerAsn == peerASN {
+			res = peer
+		}
+	}
+
+	err := g.server.ListPeer(ctx, &gobgp.ListPeerRequest{Address: peerAddr.String()}, fn)
+	if err != nil {
+		return nil, fmt.Errorf("listing peers failed: %w", err)
+	}
+	if res == nil {
+		return nil, fmt.Errorf("could not find existing peer with ASN: %d and IP: %s", peerASN, peerAddr)
+	}
+	return res, nil
 }
 
 // RemoveNeighbor will remove the CiliumBGPNeighbor from the gobgp.BgpServer,

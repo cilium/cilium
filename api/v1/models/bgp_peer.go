@@ -24,6 +24,29 @@ import (
 // swagger:model BgpPeer
 type BgpPeer struct {
 
+	// Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.
+	// The applied value holds the value that is in effect on the current BGP session.
+	//
+	AppliedHoldTimeSeconds int64 `json:"applied-hold-time-seconds,omitempty"`
+
+	// Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.
+	// The applied value holds the value that is in effect on the current BGP session.
+	//
+	AppliedKeepAliveTimeSeconds int64 `json:"applied-keep-alive-time-seconds,omitempty"`
+
+	// Configured initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.
+	// The configured value will be used for negotiation with the peer during the BGP session establishment.
+	//
+	ConfiguredHoldTimeSeconds int64 `json:"configured-hold-time-seconds,omitempty"`
+
+	// Configured initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.
+	// The applied value may be different than the configured value, as it depends on the negotiated hold time interval.
+	//
+	ConfiguredKeepAliveTimeSeconds int64 `json:"configured-keep-alive-time-seconds,omitempty"`
+
+	// Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8) in seconds
+	ConnectRetryTimeSeconds int64 `json:"connect-retry-time-seconds,omitempty"`
+
 	// BGP peer address family state
 	Families []*BgpPeerFamilies `json:"families"`
 

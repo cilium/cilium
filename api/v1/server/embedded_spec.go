@@ -1739,6 +1739,26 @@ func init() {
     "BgpPeer": {
       "description": "State of a BGP Peer\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "applied-hold-time-seconds": {
+          "description": "Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.\nThe applied value holds the value that is in effect on the current BGP session.\n",
+          "type": "integer"
+        },
+        "applied-keep-alive-time-seconds": {
+          "description": "Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.\nThe applied value holds the value that is in effect on the current BGP session.\n",
+          "type": "integer"
+        },
+        "configured-hold-time-seconds": {
+          "description": "Configured initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.\nThe configured value will be used for negotiation with the peer during the BGP session establishment.\n",
+          "type": "integer"
+        },
+        "configured-keep-alive-time-seconds": {
+          "description": "Configured initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.\nThe applied value may be different than the configured value, as it depends on the negotiated hold time interval.\n",
+          "type": "integer"
+        },
+        "connect-retry-time-seconds": {
+          "description": "Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8) in seconds",
+          "type": "integer"
+        },
         "families": {
           "description": "BGP peer address family state",
           "type": "array",
@@ -6584,6 +6604,26 @@ func init() {
     "BgpPeer": {
       "description": "State of a BGP Peer\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "applied-hold-time-seconds": {
+          "description": "Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.\nThe applied value holds the value that is in effect on the current BGP session.\n",
+          "type": "integer"
+        },
+        "applied-keep-alive-time-seconds": {
+          "description": "Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.\nThe applied value holds the value that is in effect on the current BGP session.\n",
+          "type": "integer"
+        },
+        "configured-hold-time-seconds": {
+          "description": "Configured initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.\nThe configured value will be used for negotiation with the peer during the BGP session establishment.\n",
+          "type": "integer"
+        },
+        "configured-keep-alive-time-seconds": {
+          "description": "Configured initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.\nThe applied value may be different than the configured value, as it depends on the negotiated hold time interval.\n",
+          "type": "integer"
+        },
+        "connect-retry-time-seconds": {
+          "description": "Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8) in seconds",
+          "type": "integer"
+        },
         "families": {
           "description": "BGP peer address family state",
           "type": "array",
