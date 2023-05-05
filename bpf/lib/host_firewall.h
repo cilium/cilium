@@ -54,6 +54,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	int verdict;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	__u8 auth_type = 0;
 	struct remote_endpoint_info *info;
 	__u32 dst_sec_identity = 0;
 	__u16 proxy_port = 0;
@@ -77,8 +78,10 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* Perform policy lookup. */
 	verdict = policy_can_egress6(ctx, tuple, HOST_ID, dst_sec_identity,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
-	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity, node_id, (__u8)*ext_err);
+	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+		auth_type = (__u8)*ext_err;
+		verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity, node_id, auth_type);
+	}
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -100,7 +103,8 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, dst_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 1,
-					   verdict, proxy_port, policy_match_type, audited);
+					   verdict, proxy_port, policy_match_type, audited,
+					   auth_type);
 	return verdict;
 }
 
@@ -168,6 +172,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	__u8 auth_type = 0;
 	struct remote_endpoint_info *info;
 	__u16 proxy_port = 0;
 
@@ -191,8 +196,10 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	verdict = policy_can_access_ingress(ctx, *src_sec_identity, HOST_ID, tuple->dport,
 					    tuple->nexthdr, false,
 					    &policy_match_type, &audited, ext_err, &proxy_port);
-	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, node_id, (__u8)*ext_err);
+	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+		auth_type = (__u8)*ext_err;
+		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, node_id, auth_type);
+	}
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -216,7 +223,8 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 1,
-					   verdict, proxy_port, policy_match_type, audited);
+					   verdict, proxy_port, policy_match_type, audited,
+					   auth_type);
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.
@@ -314,6 +322,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	int verdict;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	__u8 auth_type = 0;
 	struct remote_endpoint_info *info;
 	__u32 dst_sec_identity = 0;
 	__u16 proxy_port = 0;
@@ -344,8 +353,10 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	/* Perform policy lookup. */
 	verdict = policy_can_egress4(ctx, tuple, HOST_ID, dst_sec_identity,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
-	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity, node_id, (__u8)*ext_err);
+	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+		auth_type = (__u8)*ext_err;
+		verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity, node_id, auth_type);
+	}
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -367,7 +378,8 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, dst_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 0,
-					   verdict, proxy_port, policy_match_type, audited);
+					   verdict, proxy_port, policy_match_type, audited,
+					   auth_type);
 	return verdict;
 }
 
@@ -430,6 +442,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	__u8 auth_type = 0;
 	struct remote_endpoint_info *info;
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
@@ -462,8 +475,10 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 					    tuple->nexthdr,
 					    is_untracked_fragment,
 					    &policy_match_type, &audited, ext_err, &proxy_port);
-	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, node_id, (__u8)*ext_err);
+	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+		auth_type = (__u8)*ext_err;
+		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, node_id, auth_type);
+	}
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -487,7 +502,8 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 0,
-					   verdict, proxy_port, policy_match_type, audited);
+					   verdict, proxy_port, policy_match_type, audited,
+					   auth_type);
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.

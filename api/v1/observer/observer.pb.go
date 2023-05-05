@@ -40,6 +40,16 @@ const FlowType_SOCK = flow.FlowType_SOCK
 var FlowType_name = flow.FlowType_name
 var FlowType_value = flow.FlowType_value
 
+type AuthType = flow.AuthType
+
+const AuthType_NONE = flow.AuthType_NONE
+const AuthType_NULL = flow.AuthType_NULL
+const AuthType_MTLS_SPIFFE = flow.AuthType_MTLS_SPIFFE
+const AuthType_ALWAYS_FAIL = flow.AuthType_ALWAYS_FAIL
+
+var AuthType_name = flow.AuthType_name
+var AuthType_value = flow.AuthType_value
+
 type TraceObservationPoint = flow.TraceObservationPoint
 
 const TraceObservationPoint_UNKNOWN_POINT = flow.TraceObservationPoint_UNKNOWN_POINT

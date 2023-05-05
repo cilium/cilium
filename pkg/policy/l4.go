@@ -252,10 +252,11 @@ func (a AuthType) Uint8() uint8 {
 }
 
 // String returns AuthType as a string
+// This must return the strings accepted for api.AuthType
 func (a AuthType) String() string {
 	switch a {
 	case AuthTypeNone:
-		return "none"
+		return ""
 	case AuthTypeNull:
 		return "null"
 	case AuthTypeMTLSSpiffe:

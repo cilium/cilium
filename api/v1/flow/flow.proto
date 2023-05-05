@@ -21,6 +21,10 @@ message Flow {
     // deprecated in favor of drop_reason_desc.
     uint32 drop_reason = 3 [deprecated=true];
 
+    // auth_type is the authentication type specified for the flow in Cilium Network Policy.
+    // Only set on policy verdict events.
+    AuthType auth_type = 35;
+
     // l2
     Ethernet ethernet = 4;
     // l3
@@ -117,6 +121,14 @@ enum FlowType {
     L3_L4 = 1; // not sure about the underscore here, but `L34` also reads strange
     L7 = 2;
     SOCK = 3;
+}
+
+// These types correspond to definitions in pkg/policy/l4.go
+enum AuthType {
+    NONE = 0;
+    NULL = 1;
+    MTLS_SPIFFE = 2;
+    ALWAYS_FAIL = 3;
 }
 
 enum TraceObservationPoint {
