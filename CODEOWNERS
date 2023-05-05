@@ -435,6 +435,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/kafka/ @cilium/proxy
 /pkg/kvstore/ @cilium/kvstore
 /pkg/labels @cilium/sig-policy @cilium/api
+/pkg/labelsfilter @cilium/sig-policy
 /pkg/launcher @cilium/sig-agent
 /pkg/loadbalancer @cilium/sig-lb
 /pkg/lock @cilium/sig-agent
