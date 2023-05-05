@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/viper"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
@@ -581,6 +582,24 @@ func synchronizeCiliumEndpoints(clientset k8sClient.Clientset) {
 	)
 
 	go ciliumEndpointsInformer.Run(wait.NeverStop)
+}
+
+type synchronizer interface {
+	upsert(ctx context.Context, key resource.Key, obj runtime.Object) error
+	delete(ctx context.Context, key resource.Key) error
+}
+
+func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], sync synchronizer) {
+	for event := range r.Events(ctx) {
+		switch event.Kind {
+		case resource.Upsert:
+			event.Done(sync.upsert(ctx, event.Key, event.Object))
+		case resource.Delete:
+			event.Done(sync.delete(ctx, event.Key))
+		case resource.Sync:
+			event.Done(nil)
+		}
+	}
 }
 
 func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], endpoints resource.Resource[*k8s.Endpoints]) {
