@@ -4,6 +4,8 @@
 package k8s
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
@@ -916,6 +918,18 @@ func ObjToCiliumNode(obj interface{}) *cilium_v2.CiliumNode {
 // If the given obj can't be cast into either *cilium_v2.CiliumEndpoint nor
 // cache.DeletedFinalStateUnknown, the original obj is returned.
 func ConvertToCiliumEndpoint(obj interface{}) interface{} {
+	if out, err := ConvertToCiliumEndpointOrError(obj); err == nil {
+		return out
+	}
+	return obj
+}
+
+// ConvertToCiliumEndpointOrError converts a *cilium_v2.CiliumEndpoint into a
+// *types.CiliumEndpoint or a cache.DeletedFinalStateUnknown into a
+// cache.DeletedFinalStateUnknown with a *types.CiliumEndpoint in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumEndpoint nor
+// cache.DeletedFinalStateUnknown, an error is returned.
+func ConvertToCiliumEndpointOrError(obj interface{}) (interface{}, error) {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumEndpoint:
 		p := &types.CiliumEndpoint{
@@ -941,11 +955,11 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 			Networking: concreteObj.Status.Networking,
 			NamedPorts: concreteObj.Status.NamedPorts,
 		}
-		return p
+		return p, nil
 	case cache.DeletedFinalStateUnknown:
 		ciliumEndpoint, ok := concreteObj.Obj.(*cilium_v2.CiliumEndpoint)
 		if !ok {
-			return obj
+			return nil, fmt.Errorf("unexpected DFSU object type %T", concreteObj.Obj)
 		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
@@ -973,9 +987,9 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 				NamedPorts: ciliumEndpoint.Status.NamedPorts,
 			},
 		}
-		return dfsu
+		return dfsu, nil
 	default:
-		return obj
+		return nil, fmt.Errorf("unexpected object type %T", obj)
 	}
 }
 
