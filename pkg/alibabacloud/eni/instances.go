@@ -205,7 +205,7 @@ func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 	m.instances.Update(instanceID, eniRevision)
 }
 
-// FindOneVSwitch returns the vSwitch with the fewest available addresses, matching vpc and az.
+// FindOneVSwitch returns the vSwitch with the most available addresses, matching vpc and az.
 // If we have explicit ID or tag constraints, chose a matching vSwitch. ID constraints take
 // precedence.
 func (m *InstancesManager) FindOneVSwitch(spec eniTypes.Spec, toAllocate int) *ipamTypes.Subnet {
@@ -226,14 +226,14 @@ func (m *InstancesManager) FindOneVSwitch(spec eniTypes.Spec, toAllocate int) *i
 		if !vSwitch.Tags.Match(spec.VSwitchTags) {
 			continue
 		}
-		if bestSubnet == nil || bestSubnet.AvailableAddresses > vSwitch.AvailableAddresses {
+		if bestSubnet == nil || bestSubnet.AvailableAddresses < vSwitch.AvailableAddresses {
 			bestSubnet = vSwitch
 		}
 	}
 	return bestSubnet
 }
 
-// FindVSwitchByIDs returns the vSwitch within a provided list of vSwitch IDs with the fewest available addresses,
+// FindVSwitchByIDs returns the vSwitch within a provided list of vSwitch IDs with the most available addresses,
 // matching vpc and az.
 func (m *InstancesManager) FindVSwitchByIDs(spec eniTypes.Spec, toAllocate int) *ipamTypes.Subnet {
 	m.mutex.RLock()
@@ -251,7 +251,7 @@ func (m *InstancesManager) FindVSwitchByIDs(spec eniTypes.Spec, toAllocate int) 
 			if vSwitch.ID != vSwitchID {
 				continue
 			}
-			if bestSubnet == nil || bestSubnet.AvailableAddresses > vSwitch.AvailableAddresses {
+			if bestSubnet == nil || bestSubnet.AvailableAddresses < vSwitch.AvailableAddresses {
 				bestSubnet = vSwitch
 			}
 		}
