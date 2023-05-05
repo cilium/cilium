@@ -51,13 +51,13 @@ func autoDetect() (int, error) {
 		}
 	}
 
-	if routes[0].Gw == nil {
-		return 0, fmt.Errorf("unable to find default gateway from the routes: %s", routes)
-	}
-
 	link, err := netlink.LinkByIndex(routes[0].LinkIndex)
 	if err != nil {
 		return 0, fmt.Errorf("unable to find interface of default route: %w", err)
+	}
+
+	if attr := link.Attrs(); attr != nil && attr.Flags|net.FlagLoopback != 0 {
+		return 0, fmt.Errorf("interface for default route is a loopback device")
 	}
 
 	if mtu := link.Attrs().MTU; mtu != 0 {
