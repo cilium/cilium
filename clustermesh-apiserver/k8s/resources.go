@@ -9,6 +9,7 @@ import (
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
 )
 
 var (
@@ -26,6 +27,7 @@ var (
 			k8s.EndpointsResource,
 			k8s.CiliumNodeResource,
 			k8s.CiliumIdentityResource,
+			k8s.CiliumSlimEndpointResource,
 		),
 	)
 )
@@ -34,8 +36,9 @@ var (
 type Resources struct {
 	cell.In
 
-	Services         resource.Resource[*slim_corev1.Service]
-	Endpoints        resource.Resource[*k8s.Endpoints]
-	CiliumNodes      resource.Resource[*cilium_api_v2.CiliumNode]
-	CiliumIdentities resource.Resource[*cilium_api_v2.CiliumIdentity]
+	Services            resource.Resource[*slim_corev1.Service]
+	Endpoints           resource.Resource[*k8s.Endpoints]
+	CiliumNodes         resource.Resource[*cilium_api_v2.CiliumNode]
+	CiliumIdentities    resource.Resource[*cilium_api_v2.CiliumIdentity]
+	CiliumSlimEndpoints resource.Resource[*types.CiliumEndpoint]
 }
