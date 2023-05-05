@@ -592,7 +592,7 @@ func GetMtime() (uint64, error) {
 }
 
 const (
-	timerInfoFilepath = "/proc/timer_list"
+	TimerInfoFilepath = "/proc/timer_list"
 )
 
 // GetJtime returns a close-enough approximation of kernel jiffies
@@ -602,7 +602,7 @@ const (
 func GetJtime() (uint64, error) {
 	jiffies := uint64(0)
 	scaler := uint64(8)
-	timers, err := os.Open(timerInfoFilepath)
+	timers, err := os.Open(TimerInfoFilepath)
 	if err != nil {
 		return 0, err
 	}
