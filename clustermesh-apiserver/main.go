@@ -108,8 +108,6 @@ var (
 	mockFile string
 	cfg      configuration
 
-	ciliumNodeStore *store.SharedStore
-
 	identityStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	// Holds the backend retrieved from the promise. This global variable is used
@@ -153,8 +151,7 @@ type parameters struct {
 	cell.In
 
 	Clientset      k8sClient.Clientset
-	Services       resource.Resource[*slim_corev1.Service]
-	Endpoints      resource.Resource[*k8s.Endpoints]
+	Resources      apiserverK8s.Resources
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 }
 
@@ -171,19 +168,21 @@ func registerHooks(lc hive.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.Clientset, params.Services, params.Endpoints)
+			startServer(ctx, params.Clientset, params.Resources)
 			return nil
 		},
 	})
 	return nil
 }
 
-func readMockFile(path string) error {
+func readMockFile(ctx context.Context, path string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("unable to open file %s: %s", path, err)
 	}
 	defer f.Close()
+
+	nodes := newNodeSynchronizer(ctx, backend)
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -204,7 +203,7 @@ func readMockFile(path string) error {
 			if err != nil {
 				log.WithError(err).WithField("line", line).Warning("Unable to unmarshal CiliumNode")
 			} else {
-				updateNode(&node)
+				nodes.upsert(ctx, resource.NewKey(&node), &node)
 			}
 		case strings.Contains(line, "\"CiliumEndpoint\""):
 			var endpoint types.CiliumEndpoint
@@ -389,58 +388,48 @@ func (n *nodeStub) GetKeyName() string {
 	return nodeTypes.GetKeyNodeName(n.cluster, n.name)
 }
 
-func updateNode(obj interface{}) {
-	if ciliumNode, ok := obj.(*ciliumv2.CiliumNode); ok {
-		n := nodeTypes.ParseCiliumNode(ciliumNode)
-		n.Cluster = cfg.clusterName
-		n.ClusterID = cfg.clusterID
-		if err := ciliumNodeStore.UpdateLocalKeySync(context.Background(), &n); err != nil {
-			log.WithError(err).Warning("Unable to insert node into etcd")
-		} else {
-			log.Infof("Inserted node into etcd: %v", n)
-		}
-	} else {
-		log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
-	}
+type nodeSynchronizer struct {
+	store store.SyncStore
 }
 
-func deleteNode(obj interface{}) {
-	n, ok := obj.(*ciliumv2.CiliumNode)
-	if ok {
-		n := nodeStub{
-			cluster: cfg.clusterName,
-			name:    n.Name,
-		}
-		ciliumNodeStore.DeleteLocalKey(context.Background(), &n)
-	} else {
-		log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
-	}
+func newNodeSynchronizer(ctx context.Context, backend kvstore.BackendOperations) synchronizer {
+	nodesStore := store.NewWorkqueueSyncStore(cfg.LocalClusterName(), backend, nodeStore.NodeStorePrefix)
+	go nodesStore.Run(ctx)
+
+	return &nodeSynchronizer{store: nodesStore}
 }
 
-func synchronizeNodes(clientset k8sClient.Clientset) {
-	_, ciliumNodeInformer := informer.NewInformer(
-		cache.NewListWatchFromClient(clientset.CiliumV2().RESTClient(),
-			"ciliumnodes", k8sv1.NamespaceAll, fields.Everything()),
-		&ciliumv2.CiliumNode{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: updateNode,
-			UpdateFunc: func(_, newObj interface{}) {
-				updateNode(newObj)
-			},
-			DeleteFunc: func(obj interface{}) {
-				deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-				if ok {
-					deleteNode(deletedObj.Obj)
-				} else {
-					deleteNode(obj)
-				}
-			},
-		},
-		k8s.ConvertToCiliumNode,
-	)
+func (ns *nodeSynchronizer) upsert(ctx context.Context, _ resource.Key, obj runtime.Object) error {
+	n := nodeTypes.ParseCiliumNode(obj.(*ciliumv2.CiliumNode))
+	n.Cluster = cfg.clusterName
+	n.ClusterID = cfg.clusterID
 
-	go ciliumNodeInformer.Run(wait.NeverStop)
+	scopedLog := log.WithField(logfields.Node, n.Name)
+	scopedLog.Info("Upserting node in etcd")
+
+	if err := ns.store.UpsertKey(ctx, &n); err != nil {
+		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
+		log.WithError(err).Warning("Unable to upsert node in etcd")
+	}
+
+	return nil
+}
+
+func (ns *nodeSynchronizer) delete(ctx context.Context, key resource.Key) error {
+	n := nodeStub{
+		cluster: cfg.clusterName,
+		name:    key.Name,
+	}
+
+	scopedLog := log.WithFields(logrus.Fields{logfields.Node: key.Name})
+	scopedLog.Info("Deleting node from etcd")
+
+	if err := ns.store.DeleteKey(ctx, &n); err != nil {
+		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
+		scopedLog.WithError(err).Warning("Unable to delete node from etcd")
+	}
+
+	return nil
 }
 
 func updateEndpoint(oldEp, newEp *types.CiliumEndpoint) {
@@ -602,7 +591,7 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 	}
 }
 
-func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], endpoints resource.Resource[*k8s.Endpoints]) {
+func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, resources apiserverK8s.Resources) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cfg.clusterName,
 		"cluster-id":   cfg.clusterID,
@@ -636,28 +625,20 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 		}
 	}
 
-	ciliumNodeStore, err = store.JoinSharedStore(store.Configuration{
-		Backend:    backend,
-		Prefix:     nodeStore.NodeStorePrefix,
-		KeyCreator: nodeStore.KeyCreator,
-	})
-	if err != nil {
-		log.WithError(err).Fatal("Unable to set up node store in etcd")
-	}
-
+	ctx := context.Background()
 	if mockFile != "" {
-		if err := readMockFile(mockFile); err != nil {
+		if err := readMockFile(ctx, mockFile); err != nil {
 			log.WithError(err).Fatal("Unable to read mock file")
 		}
 	} else {
 		synchronizeIdentities(clientset)
-		synchronizeNodes(clientset)
+		go synchronize(ctx, resources.CiliumNodes, newNodeSynchronizer(ctx, backend))
 		synchronizeCiliumEndpoints(clientset)
-		operatorWatchers.StartSynchronizingServices(context.Background(), &sync.WaitGroup{}, operatorWatchers.ServiceSyncParameters{
+		operatorWatchers.StartSynchronizingServices(ctx, &sync.WaitGroup{}, operatorWatchers.ServiceSyncParameters{
 			ServiceSyncConfiguration: cfg,
 			Clientset:                clientset,
-			Services:                 services,
-			Endpoints:                endpoints,
+			Services:                 resources.Services,
+			Endpoints:                resources.Endpoints,
 			Backend:                  backend,
 			SharedOnly:               !cfg.enableExternalWorkloads,
 		})
