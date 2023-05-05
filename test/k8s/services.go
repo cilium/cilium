@@ -603,6 +603,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				options["gke.enabled"] = "false"
 				options["routingMode"] = "native"
 			}
+			options["hostFirewall.enabled"] = "true"
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 			testIPv4FragmentSupport(kubectl, ni)
 		})
