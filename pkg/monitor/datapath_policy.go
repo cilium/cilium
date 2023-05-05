@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 const (
@@ -54,7 +55,9 @@ type PolicyVerdictNotify struct {
 	DstPort     uint16
 	Proto       uint8
 	Flags       uint8
-	Pad1        uint32
+	AuthType    uint8
+	Pad1        uint8
+	Pad2        uint16
 	// data
 }
 
@@ -94,6 +97,12 @@ func GetPolicyActionString(verdict int32, audit bool) string {
 	return "allow"
 }
 
+// GetAuthType returns string for the authentication method applied (for success verdict)
+// or required (for drops).
+func (n *PolicyVerdictNotify) GetAuthType() policy.AuthType {
+	return policy.AuthType(n.AuthType)
+}
+
 // DumpInfo prints a summary of the policy notify messages.
 func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
@@ -107,9 +116,9 @@ func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	} else {
 		fmt.Fprintf(buf, ", remote ID %s", n.RemoteLabel)
 	}
-	fmt.Fprintf(buf, ", proto %d, %s, action %s, match %s, %s\n", n.Proto, dir,
+	fmt.Fprintf(buf, ", proto %d, %s, action %s, auth: %s, match %s, %s\n", n.Proto, dir,
 		GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
-		n.GetPolicyMatchType(),
+		n.GetAuthType(), n.GetPolicyMatchType(),
 		GetConnectionSummary(data[PolicyVerdictNotifyLen:]))
 	buf.Flush()
 }

@@ -52,7 +52,7 @@ func Test_authManager_authenticate(t *testing.T) {
 				RemoteNodeID:   2,
 				AuthType:       0,
 			},
-			wantErr: assertErrorString("unknown requested auth type: none"),
+			wantErr: assertErrorString("unknown requested auth type: "),
 		},
 		{
 			name: "missing node IP for node ID",
