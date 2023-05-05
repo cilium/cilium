@@ -5,14 +5,18 @@ package gobgp
 
 import (
 	"context"
+	"net/netip"
 	"testing"
+	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -21,31 +25,127 @@ var (
 
 // TestGetPeerState confirms the parsing of go bgp ListPeers to cilium modes work as intended
 func TestGetPeerState(t *testing.T) {
-	type neighbor struct {
-		peerASN     int
-		peerAddress string
-	}
-
 	var table = []struct {
 		// name of the test
 		name string
 		// neighbors to configure
-		neighbors []neighbor
+		neighbors []*v2alpha1api.CiliumBGPNeighbor
+		// neighbors to update
+		neighborsAfterUpdate []*v2alpha1api.CiliumBGPNeighbor
 		// localASN is local autonomous number
 		localASN uint32
-		// error provided or nil
-		err error
+		// expected error message on AddNeighbor() or empty string for no error
+		errStr string
+		// expected error message  on UpdateNeighbor() or empty string for no error
+		updateErrStr string
 	}{
 		{
-			name: "basic config parsing",
-			neighbors: []neighbor{
+			name: "test add neighbor",
+			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
 				{
-					peerASN:     64125,
-					peerAddress: "192.168.0.1/32",
+					PeerASN:          64125,
+					PeerAddress:      "192.168.0.1/32",
+					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
 				},
 			},
 			localASN: 64124,
-			err:      nil,
+			errStr:   "",
+		},
+		{
+			name: "test add + update neighbors",
+			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
+				{
+					PeerASN:          64125,
+					PeerAddress:      "192.168.0.1/32",
+					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+				},
+				{
+					PeerASN:          64126,
+					PeerAddress:      "192.168.66.1/32",
+					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+				},
+				{
+					PeerASN:          64127,
+					PeerAddress:      "192.168.77.1/32",
+					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+				},
+			},
+			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
+				// changed ConnectRetryTime
+				{
+					PeerASN:          64125,
+					PeerAddress:      "192.168.0.1/32",
+					ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 30 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+				},
+				// changed HoldTime & KeepAliveTime
+				{
+					PeerASN:          64126,
+					PeerAddress:      "192.168.66.1/32",
+					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 12 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 4 * time.Second},
+				},
+				// no change
+				{
+					PeerASN:          64127,
+					PeerAddress:      "192.168.77.1/32",
+					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+				},
+			},
+			localASN: 64124,
+			errStr:   "",
+		},
+		{
+			name: "test add invalid neighbor",
+			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
+				// invalid PeerAddress
+				{
+					PeerASN:          64125,
+					PeerAddress:      "192.168.0.XYZ",
+					ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 30 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+				},
+			},
+			localASN: 64124,
+			errStr:   "failed to parse PeerAddress: netip.ParsePrefix(\"192.168.0.XYZ\"): no '/'",
+		},
+		{
+			name: "test invalid neighbor update",
+			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
+				{
+					PeerASN:          64125,
+					PeerAddress:      "192.168.0.1/32",
+					ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 30 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+				},
+			},
+			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
+				// different ASN
+				{
+					PeerASN:          64999,
+					PeerAddress:      "192.168.0.1/32",
+					ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 30 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+				},
+			},
+			localASN:     64124,
+			errStr:       "",
+			updateErrStr: "failed retrieving peer: could not find existing peer with ASN: 64999 and IP: 192.168.0.1",
 		},
 	}
 	for _, tt := range table {
@@ -63,37 +163,79 @@ func TestGetPeerState(t *testing.T) {
 			t.Cleanup(func() {
 				testSC.Stop()
 			})
-			// create current vRouter config and add neighbors
-			router := &v2alpha1api.CiliumBGPVirtualRouter{
-				LocalASN:  int(tt.localASN),
-				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
-			}
 
+			// add neighbours
 			for _, n := range tt.neighbors {
-				router.Neighbors = append(router.Neighbors, v2alpha1api.CiliumBGPNeighbor{
-					PeerAddress: n.peerAddress,
-					PeerASN:     n.peerASN,
+				err = testSC.AddNeighbor(context.Background(), types.NeighborRequest{
+					Neighbor: n,
 				})
-				testSC.AddNeighbor(context.Background(), types.NeighborRequest{
-					Neighbor: &v2alpha1api.CiliumBGPNeighbor{
-						PeerAddress: n.peerAddress,
-						PeerASN:     n.peerASN,
-					},
-				})
+				if tt.errStr != "" {
+					require.EqualError(t, err, tt.errStr)
+					return // no more checks
+				} else {
+					require.NoError(t, err)
+				}
 			}
 
 			res, err := testSC.GetPeerState(context.Background())
 			require.NoError(t, err)
 
-			// total neighbors should be 1
-			require.Len(t, res.Peers, 1)
+			// validate neighbors count
+			require.Len(t, res.Peers, len(tt.neighbors))
 
-			// validate basic data is returned correctly
-			require.Equal(t, int64(tt.localASN), res.Peers[0].LocalAsn)
-			require.Equal(t, int64(tt.neighbors[0].peerASN), res.Peers[0].PeerAsn)
+			// validate peers
+			validatePeers(t, tt.localASN, tt.neighbors, res.Peers)
 
-			// since there is no real neighbor, bgp session state will be either idle or active.
-			require.Contains(t, []string{"idle", "active"}, res.Peers[0].SessionState)
+			// update neighbours
+			for _, n := range tt.neighborsAfterUpdate {
+				err = testSC.UpdateNeighbor(context.Background(), types.NeighborRequest{
+					Neighbor: n,
+				})
+				if tt.updateErrStr != "" {
+					require.EqualError(t, err, tt.updateErrStr)
+					return // no more checks
+				} else {
+					require.NoError(t, err)
+				}
+			}
+
+			res, err = testSC.GetPeerState(context.Background())
+			require.NoError(t, err)
+
+			// validate peers
+			validatePeers(t, tt.localASN, tt.neighborsAfterUpdate, res.Peers)
 		})
 	}
+}
+
+// validatePeers validates that peers returned from GoBGP GetPeerState match expected list of CiliumBGPNeighbors
+func validatePeers(t *testing.T, localASN uint32, neighbors []*v2alpha1api.CiliumBGPNeighbor, peers []*models.BgpPeer) {
+	for _, n := range neighbors {
+		p := findMatchingPeer(t, peers, n)
+		require.NotNilf(t, p, "no matching peer for PeerASN %d and PeerAddress %s", n.PeerASN, n.PeerAddress)
+
+		// validate basic data is returned correctly
+		require.Equal(t, int64(localASN), p.LocalAsn)
+		require.EqualValues(t, n.ConnectRetryTime.Seconds(), p.ConnectRetryTimeSeconds)
+		require.EqualValues(t, n.HoldTime.Seconds(), p.ConfiguredHoldTimeSeconds)
+		require.EqualValues(t, n.KeepAliveTime.Seconds(), p.ConfiguredKeepAliveTimeSeconds)
+
+		// since there is no real neighbor, bgp session state will be either idle or active.
+		require.Contains(t, []string{"idle", "active"}, p.SessionState)
+	}
+}
+
+// findMatchingPeer finds models.BgpPeer matching to the provided v2alpha1api.CiliumBGPNeighbor based on the peer ASN and IP
+func findMatchingPeer(t *testing.T, peers []*models.BgpPeer, n *v2alpha1api.CiliumBGPNeighbor) *models.BgpPeer {
+	for _, p := range peers {
+		nPrefix, err := netip.ParsePrefix(n.PeerAddress)
+		require.NoError(t, err)
+		pIP, err := netip.ParseAddr(p.PeerAddress)
+		require.NoError(t, err)
+
+		if p.PeerAsn == int64(n.PeerASN) && pIP.Compare(nPrefix.Addr()) == 0 {
+			return p
+		}
+	}
+	return nil
 }
