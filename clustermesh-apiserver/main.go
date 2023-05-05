@@ -19,11 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 
 	apiserverK8s "github.com/cilium/cilium/clustermesh-apiserver/k8s"
 	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
@@ -38,10 +34,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
@@ -181,6 +175,7 @@ func readMockFile(ctx context.Context, path string) error {
 
 	identities := newIdentitySynchronizer(ctx, backend)
 	nodes := newNodeSynchronizer(ctx, backend)
+	endpoints := newEndpointSynchronizer(ctx, backend)
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -209,7 +204,7 @@ func readMockFile(ctx context.Context, path string) error {
 			if err != nil {
 				log.WithError(err).WithField("line", line).Warning("Unable to unmarshal CiliumEndpoint")
 			} else {
-				updateEndpoint(nil, &endpoint)
+				endpoints.upsert(ctx, resource.NewKey(&endpoint), &endpoint)
 			}
 		case strings.Contains(line, "\"Service\""):
 			var service slim_corev1.Service
@@ -404,145 +399,89 @@ func (ns *nodeSynchronizer) delete(ctx context.Context, key resource.Key) error 
 	return nil
 }
 
-func updateEndpoint(oldEp, newEp *types.CiliumEndpoint) {
-	var ipsAdded []string
-	if n := newEp.Networking; n != nil {
+type ipmap map[string]struct{}
+
+type endpointSynchronizer struct {
+	store store.SyncStore
+	cache map[string]ipmap
+}
+
+func newEndpointSynchronizer(ctx context.Context, backend kvstore.BackendOperations) synchronizer {
+	endpointsStore := store.NewWorkqueueSyncStore(cfg.LocalClusterName(), backend,
+		path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace))
+	go endpointsStore.Run(ctx)
+
+	return &endpointSynchronizer{
+		store: endpointsStore,
+		cache: make(map[string]ipmap),
+	}
+}
+
+func (es *endpointSynchronizer) upsert(ctx context.Context, key resource.Key, obj runtime.Object) error {
+	endpoint := obj.(*types.CiliumEndpoint)
+	ips := make(ipmap)
+	stale := es.cache[key.String()]
+
+	if n := endpoint.Networking; n != nil {
 		for _, address := range n.Addressing {
 			for _, ip := range []string{address.IPV4, address.IPV6} {
 				if ip == "" {
 					continue
 				}
 
-				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace, ip)
+				scopedLog := log.WithFields(logrus.Fields{logfields.Endpoint: key.String(), logfields.IPAddr: ip})
 				entry := identity.IPIdentityPair{
 					IP:           net.ParseIP(ip),
-					Metadata:     "",
 					HostIP:       net.ParseIP(n.NodeIP),
-					K8sNamespace: newEp.Namespace,
-					K8sPodName:   newEp.Name,
+					K8sNamespace: endpoint.Namespace,
+					K8sPodName:   endpoint.Name,
 				}
 
-				if newEp.Identity != nil {
-					entry.ID = identity.NumericIdentity(newEp.Identity.ID)
+				if endpoint.Identity != nil {
+					entry.ID = identity.NumericIdentity(endpoint.Identity.ID)
 				}
 
-				if newEp.Encryption != nil {
-					entry.Key = uint8(newEp.Encryption.Key)
+				if endpoint.Encryption != nil {
+					entry.Key = uint8(endpoint.Encryption.Key)
 				}
 
-				marshaledEntry, err := json.Marshal(entry)
-				if err != nil {
-					log.WithError(err).Warningf("Unable to JSON marshal entry %#v", entry)
+				scopedLog.Info("Upserting endpoint in etcd")
+				if err := es.store.UpsertKey(ctx, &entry); err != nil {
+					// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
+					scopedLog.WithError(err).Warning("Unable to upsert endpoint in etcd")
 					continue
 				}
 
-				_, err = backend.UpdateIfDifferent(context.Background(), keyPath, marshaledEntry, true)
-				if err != nil {
-					log.WithError(err).Warningf("Unable to update endpoint %s in etcd", keyPath)
-				} else {
-					ipsAdded = append(ipsAdded, ip)
-					log.Infof("Inserted endpoint into etcd: %v", entry)
-				}
+				ips[ip] = struct{}{}
+				delete(stale, ip)
 			}
 		}
 	}
 
-	// Delete the old endpoint IPs from the KVStore in case the endpoint
-	// changed its IP addresses.
-	if oldEp == nil {
-		return
-	}
-	oldNet := oldEp.Networking
-	if oldNet == nil {
-		return
-	}
-	for _, address := range oldNet.Addressing {
-		for _, oldIP := range []string{address.IPV4, address.IPV6} {
-			var found bool
-			for _, newIP := range ipsAdded {
-				if newIP == oldIP {
-					found = true
-					break
-				}
-			}
-			if !found {
-				// Delete the old IPs from the kvstore:
-				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace, oldIP)
-				if err := backend.Delete(context.Background(), keyPath); err != nil {
-					log.WithError(err).
-						WithFields(logrus.Fields{
-							"path": keyPath,
-						}).Warningf("Unable to delete endpoint in etcd")
-				}
-			}
-		}
-	}
+	// Delete the stale endpoint IPs from the KVStore.
+	es.deleteEndpoints(ctx, key, stale)
+	es.cache[key.String()] = ips
+
+	return nil
 }
 
-func deleteEndpoint(obj interface{}) {
-	e, ok := obj.(*types.CiliumEndpoint)
-	if !ok {
-		log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", obj, obj)
-		return
-	}
-
-	if n := e.Networking; n != nil {
-		for _, address := range n.Addressing {
-			for _, ip := range []string{address.IPV4, address.IPV6} {
-				if ip == "" {
-					continue
-				}
-
-				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace, ip)
-				if err := backend.Delete(context.Background(), keyPath); err != nil {
-					log.WithError(err).Warningf("Unable to delete endpoint %s in etcd", keyPath)
-				}
-			}
-		}
-	}
+func (es *endpointSynchronizer) delete(ctx context.Context, key resource.Key) error {
+	es.deleteEndpoints(ctx, key, es.cache[key.String()])
+	delete(es.cache, key.String())
+	return nil
 }
 
-func synchronizeCiliumEndpoints(clientset k8sClient.Clientset) {
-	_, ciliumEndpointsInformer := informer.NewInformer(
-		cache.NewListWatchFromClient(clientset.CiliumV2().RESTClient(),
-			"ciliumendpoints", k8sv1.NamespaceAll, fields.Everything()),
-		&ciliumv2.CiliumEndpoint{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				e, ok := obj.(*types.CiliumEndpoint)
-				if !ok {
-					log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", obj, obj)
-					return
-				}
-				updateEndpoint(nil, e)
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldEp, ok := oldObj.(*types.CiliumEndpoint)
-				if !ok {
-					log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", oldObj, oldObj)
-					return
-				}
-				newEp, ok := newObj.(*types.CiliumEndpoint)
-				if !ok {
-					log.Warningf("Unknown CiliumEndpoint object type %T received: %+v", newObj, newObj)
-					return
-				}
-				updateEndpoint(oldEp, newEp)
-			},
-			DeleteFunc: func(obj interface{}) {
-				deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-				if ok {
-					deleteEndpoint(deletedObj.Obj)
-				} else {
-					deleteEndpoint(obj)
-				}
-			},
-		},
-		k8s.ConvertToCiliumEndpoint,
-	)
+func (es *endpointSynchronizer) deleteEndpoints(ctx context.Context, key resource.Key, ips ipmap) {
+	for ip := range ips {
+		scopedLog := log.WithFields(logrus.Fields{logfields.Endpoint: key.String(), logfields.IPAddr: ip})
+		scopedLog.Info("Deleting endpoint from etcd")
 
-	go ciliumEndpointsInformer.Run(wait.NeverStop)
+		entry := identity.IPIdentityPair{IP: net.ParseIP(ip)}
+		if err := es.store.DeleteKey(ctx, &entry); err != nil {
+			// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
+			scopedLog.WithError(err).Warning("Unable to delete endpoint from etcd")
+		}
+	}
 }
 
 type synchronizer interface {
@@ -605,7 +544,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, resou
 	} else {
 		go synchronize(ctx, resources.CiliumIdentities, newIdentitySynchronizer(ctx, backend))
 		go synchronize(ctx, resources.CiliumNodes, newNodeSynchronizer(ctx, backend))
-		synchronizeCiliumEndpoints(clientset)
+		go synchronize(ctx, resources.CiliumSlimEndpoints, newEndpointSynchronizer(ctx, backend))
 		operatorWatchers.StartSynchronizingServices(ctx, &sync.WaitGroup{}, operatorWatchers.ServiceSyncParameters{
 			ServiceSyncConfiguration: cfg,
 			Clientset:                clientset,
