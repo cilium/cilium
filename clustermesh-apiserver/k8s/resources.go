@@ -6,6 +6,9 @@ package k8s
 import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 var (
@@ -21,6 +24,16 @@ var (
 		cell.Provide(
 			k8s.ServiceResource,
 			k8s.EndpointsResource,
+			k8s.CiliumNodeResource,
 		),
 	)
 )
+
+// Resources is a convenience struct to group all the agent k8s resources as cell constructor parameters.
+type Resources struct {
+	cell.In
+
+	Services    resource.Resource[*slim_corev1.Service]
+	Endpoints   resource.Resource[*k8s.Endpoints]
+	CiliumNodes resource.Resource[*cilium_api_v2.CiliumNode]
+}
