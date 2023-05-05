@@ -312,12 +312,9 @@ func TestOneShot_RetryRecoverNoShutdown(t *testing.T) {
 		g.Add(
 			OneShot("retry-recover-no-shutdown", func(ctx context.Context) error {
 				defer func() { i++ }()
-				if started != nil {
-					close(started)
-					started = nil
-				}
 
 				if i == 0 {
+					close(started)
 					return errors.New("First try error")
 				}
 
@@ -676,6 +673,7 @@ func TestObserver_LongStream(t *testing.T) {
 // stops even if there are still pending items in the stream.
 func TestObserver_CtxClose(t *testing.T) {
 	started := make(chan struct{})
+	i := 0
 	streamSlice := []string{"a", "b", "c"}
 
 	h := fixture(func(r Registry, l hive.Lifecycle) {
@@ -683,9 +681,9 @@ func TestObserver_CtxClose(t *testing.T) {
 
 		g.Add(
 			Observer("retry-fail", func(ctx context.Context, event string) error {
-				if started != nil {
+				if i == 0 {
 					close(started)
-					started = nil
+					i++
 				}
 				<-ctx.Done()
 				return nil
