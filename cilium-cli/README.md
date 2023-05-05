@@ -6,7 +6,6 @@
 [![EKS (tunnel)](https://github.com/cilium/cilium-cli/actions/workflows/eks-tunnel.yaml/badge.svg)](https://github.com/cilium/cilium-cli/actions/workflows/eks-tunnel.yaml)
 [![GKE](https://github.com/cilium/cilium-cli/workflows/GKE/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AGKE)
 [![AKS (BYOCNI)](https://github.com/cilium/cilium-cli/actions/workflows/aks-byocni.yaml/badge.svg)](https://github.com/cilium/cilium-cli/actions/workflows/aks-byocni.yaml)
-[![AKS (Azure IPAM)](https://github.com/cilium/cilium-cli/actions/workflows/aks-azure-ipam.yaml/badge.svg)](https://github.com/cilium/cilium-cli/actions/workflows/aks-azure-ipam.yaml)
 [![Multicluster](https://github.com/cilium/cilium-cli/workflows/Multicluster/badge.svg)](https://github.com/cilium/cilium-cli/actions?query=workflow%3AMulticluster)
 [![External Workloads](https://github.com/cilium/cilium-cli/actions/workflows/externalworkloads.yaml/badge.svg)](https://github.com/cilium/cilium-cli/actions/workflows/externalworkloads.yaml)
 
@@ -79,7 +78,7 @@ To install Cilium while automatically detected:
  - [x] EKS
  - [x] self-managed
  - [x] GKE
- - [x] AKS
+ - [x] AKS BYOCNI
  - [x] k3s
  - [ ] Rancher
 
