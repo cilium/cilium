@@ -37,6 +37,14 @@ spec:
       serviceAccount: {{ .Values.serviceAccounts.ui.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.ui.name | quote }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.ui.automount }}
+      {{- with .Values.hubble.ui.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.ui.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
