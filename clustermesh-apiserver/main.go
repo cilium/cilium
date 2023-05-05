@@ -12,7 +12,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -108,8 +107,6 @@ var (
 	mockFile string
 	cfg      configuration
 
-	identityStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-
 	// Holds the backend retrieved from the promise. This global variable is used
 	// temporarily while the refactoring of the clustermesh-apiserver is in progress
 	// to reduce the amount of modifications required in this first step.
@@ -182,6 +179,7 @@ func readMockFile(ctx context.Context, path string) error {
 	}
 	defer f.Close()
 
+	identities := newIdentitySynchronizer(ctx, backend)
 	nodes := newNodeSynchronizer(ctx, backend)
 
 	scanner := bufio.NewScanner(f)
@@ -195,7 +193,7 @@ func readMockFile(ctx context.Context, path string) error {
 			if err != nil {
 				log.WithError(err).WithField("line", line).Warning("Unable to unmarshal CiliumIdentity")
 			} else {
-				updateIdentity(&identity)
+				identities.upsert(ctx, resource.NewKey(&identity), &identity)
 			}
 		case strings.Contains(line, "\"CiliumNode\""):
 			var node ciliumv2.CiliumNode
@@ -292,6 +290,20 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+type identitySynchronizer struct {
+	store   store.SyncStore
+	encoder func([]byte) string
+}
+
+func newIdentitySynchronizer(ctx context.Context, backend kvstore.BackendOperations) synchronizer {
+	identitiesStore := store.NewWorkqueueSyncStore(cfg.LocalClusterName(), backend,
+		path.Join(identityCache.IdentitiesPath, "id"))
+	go identitiesStore.Run(ctx)
+
+	return &identitySynchronizer{store: identitiesStore, encoder: backend.Encode}
+}
+
 func parseLabelArrayFromMap(base map[string]string) labels.LabelArray {
 	array := make(labels.LabelArray, 0, len(base))
 	for sourceAndKey, value := range base {
@@ -300,83 +312,43 @@ func parseLabelArrayFromMap(base map[string]string) labels.LabelArray {
 	return array.Sort()
 }
 
-func updateIdentity(obj interface{}) {
-	identity, ok := obj.(*ciliumv2.CiliumIdentity)
-	if !ok {
-		log.Warningf("Unknown CiliumIdentity object type %s received: %+v", reflect.TypeOf(obj), obj)
-		return
+func (is *identitySynchronizer) upsert(ctx context.Context, _ resource.Key, obj runtime.Object) error {
+	identity := obj.(*ciliumv2.CiliumIdentity)
+	scopedLog := log.WithField(logfields.Identity, identity.Name)
+	if len(identity.SecurityLabels) == 0 {
+		scopedLog.WithError(errors.New("missing security labels")).Warning("Ignoring invalid identity")
+		// Do not return an error, since it is pointless to retry.
+		// We will receive a new update event if the security labels change.
+		return nil
 	}
 
-	if identity == nil || identity.SecurityLabels == nil {
-		log.Warningf("Ignoring invalid identity %+v", identity)
-		return
-	}
-
-	keyPath := path.Join(identityCache.IdentitiesPath, "id", identity.Name)
 	labelArray := parseLabelArrayFromMap(identity.SecurityLabels)
 
-	var key []byte
+	var labels []byte
 	for _, l := range labelArray {
-		key = append(key, l.FormatForKVStore()...)
+		labels = append(labels, l.FormatForKVStore()...)
 	}
 
-	if len(key) == 0 {
-		return
+	scopedLog.Info("Upserting identity in etcd")
+	kv := store.NewKVPair(identity.Name, is.encoder(labels))
+	if err := is.store.UpsertKey(ctx, kv); err != nil {
+		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
+		log.WithError(err).Warning("Unable to upsert identity in etcd")
 	}
 
-	keyEncoded := []byte(backend.Encode(key))
-	log.WithFields(logrus.Fields{"key": keyPath, "value": string(keyEncoded)}).Info("Updating identity in etcd")
-
-	_, err := backend.UpdateIfDifferent(context.Background(), keyPath, keyEncoded, true)
-	if err != nil {
-		log.WithError(err).Warningf("Unable to update identity %s in etcd", keyPath)
-	}
+	return nil
 }
 
-func deleteIdentity(obj interface{}) {
-	identity, ok := obj.(*ciliumv2.CiliumIdentity)
-	if !ok {
-		log.Warningf("Unknown CiliumIdentity object type %s received: %+v", reflect.TypeOf(obj), obj)
-		return
+func (is *identitySynchronizer) delete(ctx context.Context, key resource.Key) error {
+	scopedLog := log.WithField(logfields.Identity, key.Name)
+	scopedLog.Info("Deleting identity from etcd")
+
+	if err := is.store.DeleteKey(ctx, store.NewKVPair(key.Name, "")); err != nil {
+		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
+		scopedLog.WithError(err).Warning("Unable to delete node from etcd")
 	}
 
-	if identity == nil {
-		log.Warningf("Igoring invalid identity %+v", identity)
-		return
-	}
-
-	keyPath := path.Join(identityCache.IdentitiesPath, "id", identity.Name)
-	err := backend.Delete(context.Background(), keyPath)
-	if err != nil {
-		log.WithError(err).Warningf("Unable to delete identity %s in etcd", keyPath)
-	}
-}
-
-func synchronizeIdentities(clientset k8sClient.Clientset) {
-	identityInformer := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(clientset.CiliumV2().RESTClient(),
-			"ciliumidentities", k8sv1.NamespaceAll, fields.Everything()),
-		&ciliumv2.CiliumIdentity{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: updateIdentity,
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				updateIdentity(newObj)
-			},
-			DeleteFunc: func(obj interface{}) {
-				deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-				if ok {
-					deleteIdentity(deletedObj.Obj)
-				} else {
-					deleteIdentity(obj)
-				}
-			},
-		},
-		nil,
-		identityStore,
-	)
-
-	go identityInformer.Run(wait.NeverStop)
+	return nil
 }
 
 type nodeStub struct {
@@ -631,7 +603,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, resou
 			log.WithError(err).Fatal("Unable to read mock file")
 		}
 	} else {
-		synchronizeIdentities(clientset)
+		go synchronize(ctx, resources.CiliumIdentities, newIdentitySynchronizer(ctx, backend))
 		go synchronize(ctx, resources.CiliumNodes, newNodeSynchronizer(ctx, backend))
 		synchronizeCiliumEndpoints(clientset)
 		operatorWatchers.StartSynchronizingServices(ctx, &sync.WaitGroup{}, operatorWatchers.ServiceSyncParameters{

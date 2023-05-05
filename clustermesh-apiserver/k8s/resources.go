@@ -25,6 +25,7 @@ var (
 			k8s.ServiceResource,
 			k8s.EndpointsResource,
 			k8s.CiliumNodeResource,
+			k8s.CiliumIdentityResource,
 		),
 	)
 )
@@ -33,7 +34,8 @@ var (
 type Resources struct {
 	cell.In
 
-	Services    resource.Resource[*slim_corev1.Service]
-	Endpoints   resource.Resource[*k8s.Endpoints]
-	CiliumNodes resource.Resource[*cilium_api_v2.CiliumNode]
+	Services         resource.Resource[*slim_corev1.Service]
+	Endpoints        resource.Resource[*k8s.Endpoints]
+	CiliumNodes      resource.Resource[*cilium_api_v2.CiliumNode]
+	CiliumIdentities resource.Resource[*cilium_api_v2.CiliumIdentity]
 }
