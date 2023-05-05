@@ -217,6 +217,7 @@ func neighborReconciler(
 		)
 		toCreate []*v2alpha1api.CiliumBGPNeighbor
 		toRemove []*v2alpha1api.CiliumBGPNeighbor
+		toUpdate []*v2alpha1api.CiliumBGPNeighbor
 		curNeigh []v2alpha1api.CiliumBGPNeighbor = nil
 	)
 	newNeigh := newc.Neighbors
@@ -229,14 +230,13 @@ func neighborReconciler(
 
 	// an nset member which book keeps which universe it exists in.
 	type member struct {
-		a bool
-		b bool
-		n *v2alpha1api.CiliumBGPNeighbor
+		new *v2alpha1api.CiliumBGPNeighbor
+		cur *v2alpha1api.CiliumBGPNeighbor
 	}
 
 	nset := map[string]*member{}
 
-	// populate set from universe a, new neighbors
+	// populate set from universe of new neighbors
 	for i, n := range newNeigh {
 		var (
 			key = fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
@@ -245,15 +245,14 @@ func neighborReconciler(
 		)
 		if h, ok = nset[key]; !ok {
 			nset[key] = &member{
-				a: true,
-				n: &newNeigh[i],
+				new: &newNeigh[i],
 			}
 			continue
 		}
-		h.a = true
+		h.new = &newNeigh[i]
 	}
 
-	// populate set from universe b, current neighbors
+	// populate set from universe of current neighbors
 	for i, n := range curNeigh {
 		var (
 			key = fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
@@ -262,26 +261,31 @@ func neighborReconciler(
 		)
 		if h, ok = nset[key]; !ok {
 			nset[key] = &member{
-				b: true,
-				n: &curNeigh[i],
+				cur: &curNeigh[i],
 			}
 			continue
 		}
-		h.b = true
+		h.cur = &curNeigh[i]
 	}
 
 	for _, m := range nset {
-		// present in new neighbors (set a) but not in current neighbors (set b)
-		if m.a && !m.b {
-			toCreate = append(toCreate, m.n)
+		// present in new neighbors (set new) but not in current neighbors (set cur)
+		if m.new != nil && m.cur == nil {
+			toCreate = append(toCreate, m.new)
 		}
-		// present in current neighbors (set b) but not in new neighbors (set a)
-		if m.b && !m.a {
-			toRemove = append(toRemove, m.n)
+		// present in current neighbors (set cur) but not in new neighbors (set new)
+		if m.cur != nil && m.new == nil {
+			toRemove = append(toRemove, m.cur)
+		}
+		// present in both new neighbors (set new) and current neighbors (set cur), update if they are not equal
+		if m.cur != nil && m.new != nil {
+			if !m.cur.DeepEqual(m.new) {
+				toUpdate = append(toUpdate, m.new)
+			}
 		}
 	}
 
-	if len(toCreate) > 0 || len(toRemove) > 0 {
+	if len(toCreate) > 0 || len(toRemove) > 0 || len(toUpdate) > 0 {
 		l.Infof("Reconciling peers for virtual router with local ASN %v", newc.LocalASN)
 	} else {
 		l.Debugf("No peer changes necessary for virtual router with local ASN %v", newc.LocalASN)
@@ -295,9 +299,17 @@ func neighborReconciler(
 		}
 	}
 
+	// update neighbors
+	for _, n := range toUpdate {
+		l.Infof("Updating peer %v %v in local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
+		if err := sc.Server.UpdateNeighbor(ctx, types.NeighborRequest{Neighbor: n}); err != nil {
+			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
+		}
+	}
+
 	// remove neighbors
 	for _, n := range toRemove {
-		l.Infof("Removing peer %v %v to local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
+		l.Infof("Removing peer %v %v from local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
 		if err := sc.Server.RemoveNeighbor(ctx, types.NeighborRequest{Neighbor: n}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}

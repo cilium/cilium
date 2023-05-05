@@ -7,8 +7,10 @@ import (
 	"context"
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -147,60 +149,74 @@ func TestNeighborReconciler(t *testing.T) {
 		// name of the test
 		name string
 		// existing neighbors, expanded to CiliumBGPNeighbor during test
-		neighbors []string
+		neighbors []v2alpha1api.CiliumBGPNeighbor
 		// new neighbors to configure, expanded into CiliumBGPNeighbor.
 		//
 		// this is the resulting neighbors we expect on the BgpServer.
-		newNeighbors []string
+		newNeighbors []v2alpha1api.CiliumBGPNeighbor
 		// error provided or nil
 		err error
 	}{
 		{
 			name: "no change",
-			neighbors: []string{
-				"192.168.0.1/32",
-				"192.168.0.2/32",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
-			newNeighbors: []string{
-				"192.168.0.1/32",
-				"192.168.0.2/32",
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
 			err: nil,
 		},
 		{
 			name: "additional neighbor",
-			neighbors: []string{
-				"192.168.0.1/32",
-				"192.168.0.2/32",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
-			newNeighbors: []string{
-				"192.168.0.1/32",
-				"192.168.0.2/32",
-				"192.168.0.3/32",
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32"},
 			},
 			err: nil,
 		},
 		{
 			name: "remove neighbor",
-			neighbors: []string{
-				"192.168.0.1/32",
-				"192.168.0.2/32",
-				"192.168.0.3/32",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32"},
 			},
-			newNeighbors: []string{
-				"192.168.0.1/32",
-				"192.168.0.2/32",
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
 			err: nil,
 		},
 		{
-			name: "remove all neighbor",
-			neighbors: []string{
-				"192.168.0.1/32",
-				"192.168.0.2/32",
-				"192.168.0.3/32",
+			name: "update neighbor",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
 			},
-			newNeighbors: []string{},
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
+			},
+			err: nil,
+		},
+		{
+			name: "remove all neighbors",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32"},
+			},
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{},
 			err:          nil,
 		},
 	}
@@ -227,15 +243,9 @@ func TestNeighborReconciler(t *testing.T) {
 				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
 			}
 			for _, n := range tt.neighbors {
-				oldc.Neighbors = append(oldc.Neighbors, v2alpha1api.CiliumBGPNeighbor{
-					PeerAddress: n,
-					PeerASN:     64124,
-				})
+				oldc.Neighbors = append(oldc.Neighbors, n)
 				testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
-					Neighbor: &v2alpha1api.CiliumBGPNeighbor{
-						PeerAddress: n,
-						PeerASN:     64124,
-					},
+					Neighbor: &n,
 				})
 			}
 			testSC.Config = oldc
@@ -246,10 +256,7 @@ func TestNeighborReconciler(t *testing.T) {
 				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
 			}
 			for _, n := range tt.newNeighbors {
-				newc.Neighbors = append(newc.Neighbors, v2alpha1api.CiliumBGPNeighbor{
-					PeerAddress: n,
-					PeerASN:     64124,
-				})
+				newc.Neighbors = append(newc.Neighbors, n)
 			}
 
 			err = neighborReconciler(context.Background(), testSC, newc, nil)
@@ -270,12 +277,15 @@ func TestNeighborReconciler(t *testing.T) {
 			}
 
 			for _, n := range tt.newNeighbors {
-				prefix := netip.MustParsePrefix(n)
+				prefix := netip.MustParsePrefix(n.PeerAddress)
 				var seen bool
 				for _, p := range peers {
 					addr := netip.MustParseAddr(p.PeerAddress)
 					if prefix.Addr() == addr {
 						seen = true
+						if n.ConnectRetryTime.Duration != 0 && int64(n.ConnectRetryTime.Seconds()) != p.ConnectRetryTimeSeconds {
+							t.Fatalf("ConnectRetryTime does not match: wanted: %d, got: %d", int64(n.ConnectRetryTime.Seconds()), p.ConnectRetryTimeSeconds)
+						}
 					}
 				}
 				if !seen {
@@ -287,9 +297,12 @@ func TestNeighborReconciler(t *testing.T) {
 				paddr := netip.MustParseAddr(p.PeerAddress)
 				var seen bool
 				for _, n := range tt.newNeighbors {
-					addr := netip.MustParsePrefix(n)
+					addr := netip.MustParsePrefix(n.PeerAddress)
 					if paddr == addr.Addr() {
 						seen = true
+						if n.ConnectRetryTime.Duration != 0 && int64(n.ConnectRetryTime.Seconds()) != p.ConnectRetryTimeSeconds {
+							t.Fatalf("ConnectRetryTime does not match: wanted: %d, got: %d", int64(n.ConnectRetryTime.Seconds()), p.ConnectRetryTimeSeconds)
+						}
 					}
 				}
 				if !seen {

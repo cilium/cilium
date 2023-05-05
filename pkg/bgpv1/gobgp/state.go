@@ -74,6 +74,24 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateRespo
 			peerState.Families = append(peerState.Families, toAgentAfiSafiState(afiSafi.State))
 		}
 
+		if peer.Timers != nil {
+			tConfig := peer.Timers.Config
+			tState := peer.Timers.State
+			if tConfig != nil {
+				peerState.ConnectRetryTimeSeconds = int64(tConfig.ConnectRetry)
+				peerState.ConfiguredHoldTimeSeconds = int64(tConfig.HoldTime)
+				peerState.ConfiguredKeepAliveTimeSeconds = int64(tConfig.KeepaliveInterval)
+			}
+			if tState != nil {
+				if tState.NegotiatedHoldTime != 0 {
+					peerState.AppliedHoldTimeSeconds = int64(tState.NegotiatedHoldTime)
+				}
+				if tState.KeepaliveInterval != 0 {
+					peerState.AppliedKeepAliveTimeSeconds = int64(tState.KeepaliveInterval)
+				}
+			}
+		}
+
 		data = append(data, peerState)
 	}
 

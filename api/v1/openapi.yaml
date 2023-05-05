@@ -3552,6 +3552,29 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/BgpPeerFamilies"
+      connect-retry-time-seconds:
+        description: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8) in seconds
+        type: integer
+      configured-hold-time-seconds:
+        description: |
+          Configured initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.
+          The configured value will be used for negotiation with the peer during the BGP session establishment.
+        type: integer
+      applied-hold-time-seconds:
+        description: |
+          Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.
+          The applied value holds the value that is in effect on the current BGP session.
+        type: integer
+      configured-keep-alive-time-seconds:
+        description: |
+          Configured initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.
+          The applied value may be different than the configured value, as it depends on the negotiated hold time interval.
+        type: integer
+      applied-keep-alive-time-seconds:
+        description: |
+          Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.
+          The applied value holds the value that is in effect on the current BGP session.
+        type: integer
   BgpPeerFamilies:
     description: |-
       BGP AFI SAFI state of the peer
