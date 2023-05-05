@@ -1570,7 +1570,7 @@ The fixes to clean up leaked duplicate backend entries were backported to older
 releases, and are available as part of Cilium versions v1.11.16, v1.12.9 and v1.13.2.
 Fresh clusters deploying Cilium versions 1.11.15 or later don't experience this leak issue.
 
-For more information, see `this GitHub issue <https://github.com/cilium/cilium/issues/235514>`__.
+For more information, see `this GitHub issue <https://github.com/cilium/cilium/issues/23551>`__.
 
 Limitations
 ###########
