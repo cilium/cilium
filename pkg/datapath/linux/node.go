@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -74,6 +75,7 @@ type linuxNodeHandler struct {
 	nodeIDsByIPs map[string]uint16
 
 	ipsecMetricCollector prometheus.Collector
+	ipsecMetricOnce      sync.Once
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
@@ -493,6 +495,12 @@ func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8) {
 	} else {
 		scopedLog.Debug("IPsec enable succeeded")
 	}
+}
+
+func (n *linuxNodeHandler) registerIpsecMetricOnce() {
+	n.ipsecMetricOnce.Do(func() {
+		metrics.Register(n.ipsecMetricCollector)
+	})
 }
 
 func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
@@ -1098,7 +1106,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			n.enableSubnetIPsec(n.nodeConfig.IPv4PodSubnets, n.nodeConfig.IPv6PodSubnets)
 		}
 		if firstAddition && n.nodeConfig.EnableIPSec {
-			metrics.Register(n.ipsecMetricCollector)
+			n.registerIpsecMetricOnce()
 		}
 		return nil
 	}
@@ -1187,9 +1195,6 @@ func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	if oldNode.IsLocal() {
-		if n.nodeConfig.EnableIPSec {
-			metrics.Unregister(n.ipsecMetricCollector)
-		}
 		return nil
 	}
 
@@ -1583,14 +1588,13 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if err := n.replaceHostRules(); err != nil {
 			log.WithError(err).Warning("Cannot replace Host rules")
 		}
-		metrics.Register(n.ipsecMetricCollector)
+		n.registerIpsecMetricOnce()
 	} else {
 		err := n.removeEncryptRules()
 		if err != nil {
 			log.WithError(err).Warning("Cannot cleanup previous encryption rule state.")
 		}
 		ipsec.DeleteXfrm()
-		metrics.Unregister(n.ipsecMetricCollector)
 	}
 
 	if newConfig.UseSingleClusterRoute {
