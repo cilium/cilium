@@ -2024,7 +2024,13 @@ func initClockSourceOption() {
 			t, err := bpf.GetJtime()
 			if err == nil && t > 0 {
 				option.Config.ClockSource = option.ClockSourceJiffies
+			} else {
+				log.WithError(err).Warningf("Auto-disabling %q feature since kernel doesn't expose %q.", option.EnableBPFClockProbe, bpf.TimerInfoFilepath)
+				option.Config.EnableBPFClockProbe = false
 			}
+		} else {
+			log.WithError(err).Warningf("Auto-disabling %q feature since kernel support is missing (Linux 5.5 or later required).", option.EnableBPFClockProbe)
+			option.Config.EnableBPFClockProbe = false
 		}
 	}
 }
