@@ -820,7 +820,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		// Use templating for ETH_HLEN only if there is any L2-less device
 		if !mac.HaveMACAddrs(option.Config.GetDevices()) {
 			// L2 hdr len (for L2-less devices it will be replaced with "0")
-			fmt.Fprint(fw, defineUint32("ETH_HLEN", mac.EthHdrLen))
+			fmt.Fprint(fw, defineUint16("ETH_HLEN", mac.EthHdrLen))
 		}
 	} else {
 		// We want to ensure that the template BPF program always has "LXC_IP"
