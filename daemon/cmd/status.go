@@ -26,13 +26,11 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	ipmasqmap "github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
-	"github.com/cilium/cilium/pkg/maps/signalmap"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -331,10 +329,6 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Size: int64(lxcmap.MaxEntries),
 			},
 			{
-				Name: "Events",
-				Size: int64(eventsmap.MaxEntries),
-			},
-			{
 				Name: "IP cache",
 				Size: int64(ipcachemap.MaxEntries),
 			},
@@ -389,10 +383,6 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			{
 				Name: "Session affinity",
 				Size: int64(lbmap.AffinityMapMaxEntries),
-			},
-			{
-				Name: "Signal",
-				Size: int64(signalmap.MaxEntries),
 			},
 			{
 				Name: "Sock reverse NAT",
