@@ -14,6 +14,7 @@ import (
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 	"gopkg.in/check.v1"
 
 	"github.com/cilium/ebpf/rlimit"
@@ -80,6 +81,12 @@ const (
 )
 
 func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
+	// We've been seeing potential further issues with netlink not responding
+	// to messages, lower the timeout to 10 seconds and enable error message
+	// reporting to see if we can get more information in the future.
+	nl.EnableErrorMessageReporting = true
+	netlink.SetSocketTimeout(10 * time.Second)
+
 	rlimit.RemoveMemlock()
 	s.nodeAddressing = addressing
 	s.mtuConfig = mtu.NewConfiguration(0, false, false, false, 1500, nil)
