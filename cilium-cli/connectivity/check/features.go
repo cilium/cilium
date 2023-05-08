@@ -380,7 +380,7 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	mode = "Disabled"
 	if kpr := st.KubeProxyReplacement; kpr != nil {
 		mode = kpr.Mode
-		if f := kpr.Features; f != nil {
+		if f := kpr.Features; kpr.Mode != "Disabled" && f != nil {
 			if f.ExternalIPs != nil {
 				result[FeatureKPRExternalIPs] = FeatureStatus{Enabled: f.ExternalIPs.Enabled}
 			}
