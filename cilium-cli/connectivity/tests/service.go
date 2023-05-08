@@ -214,15 +214,6 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 				}
 			}
 
-			// TODO(brb):
-			// Disable outside to nodeport via IPv6 when IPsec is enabled until
-			// https://github.com/cilium/cilium/issues/23461 has been resolved.
-			if check.GetIPFamily(addr.Address) == check.IPFamilyV6 {
-				if f, ok := t.Context().Feature(check.FeatureEncryptionPod); ok && f.Enabled && f.Mode == "ipsec" {
-					continue
-				}
-			}
-
 			// Manually construct an HTTP endpoint to override the destination IP
 			// and port of the request.
 			ep := check.HTTPEndpoint(name, fmt.Sprintf("%s://%s:%d%s", svc.Scheme(), addr.Address, np, svc.Path()))
