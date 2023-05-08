@@ -30,7 +30,7 @@ jobs:
         run: |
           echo "CILIUM_CLI_MODE=${{ matrix.mode }}" >> $GITHUB_ENV
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
       - name: Install kubectl
         run: |
@@ -41,7 +41,7 @@ jobs:
           kubectl version --client
 
       - name: Set up Go
-        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.20.2
@@ -55,7 +55,7 @@ jobs:
         run: sudo make install
 
       - name: Create kind cluster
-        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
@@ -217,7 +217,7 @@ jobs:
 
       - name: Upload Artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
@@ -240,7 +240,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
       - name: Install kubectl
         run: |
@@ -251,7 +251,7 @@ jobs:
           kubectl version --client
 
       - name: Set up Go
-        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.20.2
@@ -265,7 +265,7 @@ jobs:
         run: sudo make install
 
       - name: Create kind cluster 1
-        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG_1 }}
@@ -282,7 +282,7 @@ jobs:
             --helm-set cluster.name=cluster1
 
       - name: Create kind cluster 2
-        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG_2 }}
@@ -353,7 +353,7 @@ jobs:
 
       - name: Upload sysdump from cluster 1
         if: ${{ !success() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-sysdump-out-c1.zip
           path: cilium-sysdump-out-c1.zip
@@ -361,7 +361,7 @@ jobs:
 
       - name: Upload sysdump from cluster 2
         if: ${{ !success() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-sysdump-out-c2.zip
           path: cilium-sysdump-out-c2.zip

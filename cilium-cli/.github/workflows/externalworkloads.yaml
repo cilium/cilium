@@ -41,7 +41,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
       - name: Install kubectl
         run: |
@@ -53,12 +53,12 @@ jobs:
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: 'google-github-actions/auth@e8df18b60c5dd38ba618c121b779307266153fbf'
+        uses: google-github-actions/auth@e8df18b60c5dd38ba618c121b779307266153fbf # v1.1.0
         with:
           credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587
+        uses: google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587 # v1.1.0
         with:
           project_id: ${{ secrets.GCP_PR_PROJECT_ID }}
           version: "405.0.0"
@@ -90,7 +90,7 @@ jobs:
           echo "owner=${OWNER}" >> $GITHUB_OUTPUT
 
       - name: Create GCP VM
-        uses: nick-invision/retry@943e742917ac94714d2f408a0e8320f2d1fcafcd
+        uses: nick-invision/retry@943e742917ac94714d2f408a0e8320f2d1fcafcd # v2.8.3
         with:
           retry_on: error
           timeout_minutes: 1
@@ -263,7 +263,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
