@@ -28,9 +28,6 @@ var (
 		k8s.KindKind: {
 			&kindVersionValidation{},
 		},
-		k8s.KindAKS: {
-			&azureVersionValidation{},
-		},
 	}
 
 	clusterNameValidation = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])$`)
