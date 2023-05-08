@@ -1,0 +1,135 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    ":gitSignOff",
+    "helpers:pinGitHubActionDigests"
+  ],
+  // This ensures that the gitAuthor and gitSignOff fields match
+  "gitAuthor": "renovate[bot] <bot@renovateapp.com>",
+  "includePaths": [
+    ".github/workflows/**",
+    "go.mod",
+    "go.sum",
+    "Dockerfile",
+    "Makefile",
+  ],
+  postUpdateOptions: [
+    "gomodTidy"
+  ],
+  "pinDigests": true,
+  "ignorePresets": [":prHourlyLimit2"],
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "separateMinorPatch": true,
+  "pruneStaleBranches": true,
+  "baseBranches": [
+    "main"
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
+  "labels": [
+    "kind/enhancement",
+    "priority/release-blocker"
+  ],
+  "stopUpdatingLabel": "renovate/stop-updating",
+  "packageRules": [
+    {
+      "groupName": "all github action dependencies",
+      "groupSlug": "all-github-action",
+      "matchPaths": [
+        ".github/workflows/**"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ]
+    },
+    {
+      "groupName": "all go dependencies main",
+      "groupSlug": "all-go-deps-main",
+      "matchFiles": [
+        "go.mod",
+        "go.sum"
+      ],
+      "postUpdateOptions": [
+        // update source import paths on major updates
+        "gomodUpdateImportPaths",
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ]
+      matchBaseBranches: [
+        "main"
+      ]
+    },
+    {
+      // Images that directly use docker.io/library/golang for building.
+      "groupName": "golang-images",
+      "matchFiles": [
+        "Dockerfile",
+        "Makefile"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/busybox"
+      ],
+      "matchPaths": [
+        "Dockerfile"
+      ],
+    },
+    {
+      "groupName": "Go",
+      "matchDepNames": [
+        "go",
+        "docker.io/library/golang"
+      ],
+      "schedule": [
+        "on friday"
+      ]
+    },
+    {
+      // Group golangci-lint updates to overrule grouping of version updates in the GHA files.
+      // Without this, golangci-lint updates are not in sync for GHA files and other usages.
+      "groupName": "golangci-lint",
+      "matchDepNames": [
+        "golangci/golangci-lint"
+      ]
+    }
+  ],
+  "regexManagers": [
+    {
+      "fileMatch": [
+        "^\\.github/workflows/[^/]+\\.yaml$"
+      ],
+      // This regex manages version strings in GitHub actions workflow files,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)"
+      ]
+    },
+    {
+￼     "fileMatch": [
+￼       "^Makefile$"
+￼     ],
+￼     // This regex manages version strings in the Makefile,
+￼     // similar to the examples shown here:
+￼     //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+￼     "matchStrings": [
+￼       "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION = (?<currentValue>.*)\\s+.+_SHA = (?<currentDigest>sha256:[a-f0-9]+)"
+￼     ]
+￼   }
+  ]
+}
