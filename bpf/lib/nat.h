@@ -1656,8 +1656,7 @@ static __always_inline int snat_v6_rewrite_egress(struct __ctx_buff *ctx,
 			break;
 		}}
 	}
-	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct ipv6hdr, saddr),
-			    &state->to_saddr, 16, 0) < 0)
+	if (ipv6_store_saddr(ctx, (__u8 *)&state->to_saddr, ETH_HLEN) < 0)
 		return DROP_WRITE_ERROR;
 	if (csum.offset &&
 	    csum_l4_replace(ctx, off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
@@ -1714,8 +1713,7 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 			break;
 		}}
 	}
-	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct ipv6hdr, daddr),
-			    &state->to_daddr, 16, 0) < 0)
+	if (ipv6_store_daddr(ctx, (__u8 *)&state->to_daddr, ETH_HLEN) < 0)
 		return DROP_WRITE_ERROR;
 	if (csum.offset &&
 	    csum_l4_replace(ctx, off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
