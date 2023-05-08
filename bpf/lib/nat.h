@@ -1648,7 +1648,7 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 
 			if (ctx_load_bytes(ctx, off, &type, 1) < 0)
 				return DROP_INVALID;
-			if (type == ICMP_ECHO || type == ICMP_ECHOREPLY) {
+			if (type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY) {
 				if (ctx_store_bytes(ctx, off +
 						    offsetof(struct icmp6hdr,
 							     icmp6_dataun.u_echo.identifier),
