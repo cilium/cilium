@@ -71,6 +71,10 @@ const (
 	// CiliumAgentNamespace is used to scope metrics from the Cilium Agent
 	CiliumAgentNamespace = "cilium"
 
+	// CiliumClusterMeshAPIServerNamespace is used to scope metrics from the
+	// Cilium Cluster Mesh API Server
+	CiliumClusterMeshAPIServerNamespace = "cilium_clustermesh_apiserver"
+
 	// LabelError indicates the type of error (string)
 	LabelError = "error"
 

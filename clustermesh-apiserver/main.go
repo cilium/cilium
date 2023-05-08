@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
+	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
 	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -50,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -90,6 +92,8 @@ var (
 			}
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
+			// Overwrite the metrics namespace with the one specific for the ClusterMesh API Server
+			metrics.Namespace = metrics.CiliumClusterMeshAPIServerNamespace
 			option.Config.Populate(vp)
 			if option.Config.Debug {
 				log.Logger.SetLevel(logrus.DebugLevel)
@@ -118,6 +122,7 @@ func init() {
 		k8sClient.Cell,
 		k8s.SharedResourcesCell,
 		healthAPIServerCell,
+		cmmetrics.Cell,
 		usersManagementCell,
 
 		cell.Invoke(registerHooks),
