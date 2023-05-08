@@ -27,7 +27,8 @@ NODE_PORT=${18}
 # NR_CPUS=${21}
 ENDPOINT_ROUTES=${22}
 PROXY_RULE=${23}
-# FILTER_PRIO=${24}
+FILTER_PRIO=${24}
+DEFAULT_RTPROTO=${25}
 
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
@@ -74,14 +75,14 @@ function move_local_rules_af()
 	# otherwise local addresses will not be reachable for a short period of
 	# time.
 	$IP rule list | grep 100 | grep "lookup local" || {
-		$IP rule add from all lookup local pref 100
+		$IP rule add from all lookup local pref 100 proto $DEFAULT_RTPROTO
 	}
 	$IP rule del from all lookup local pref 0 2> /dev/null || true
 
 	# check if the move of the local table move was successful and restore
 	# it otherwise
 	if [ "$($IP rule list | grep "lookup local" | wc -l)" -eq "0" ]; then
-		$IP rule add from all lookup local pref 0
+		$IP rule add from all lookup local pref 0 proto $DEFAULT_RTPROTO
 		$IP rule del from all lookup local pref 100
 		echo "Error: The kernel does not support moving the local table routing rule"
 		echo "Local routing rules:"
@@ -104,13 +105,13 @@ function move_local_rules()
 function setup_proxy_rules()
 {
 	# TODO(brb): remove $PROXY_RT_TABLE -related code in v1.15
-	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
+	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE proto $DEFAULT_RTPROTO"
 
 	# Any packet to an ingress or egress proxy uses a separate routing table
 	# that routes the packet to the loopback device regardless of the destination
 	# address in the packet. For this to work the ctx must have a socket set
 	# (e.g., via TPROXY).
-	to_proxy_rulespec="fwmark 0x200/0xF00 pref 9 lookup $TO_PROXY_RT_TABLE"
+	to_proxy_rulespec="fwmark 0x200/0xF00 pref 9 lookup $TO_PROXY_RT_TABLE proto $DEFAULT_RTPROTO"
 
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		if [ -n "$(ip -4 rule list)" ]; then
@@ -122,7 +123,7 @@ function setup_proxy_rules()
 		fi
 
 		# Traffic to the host proxy is local
-		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo
+		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo proto $DEFAULT_RTPROTO
 
 		# The $PROXY_RT_TABLE is no longer in use, so delete it
 		ip route delete table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 2>/dev/null || true
@@ -144,7 +145,7 @@ function setup_proxy_rules()
 		IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
 		if [ -n "$IP6_LLADDR" ]; then
 			# Traffic to the host proxy is local
-			ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo
+			ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo proto $DEFAULT_RTPROTO
 			# The $PROXY_RT_TABLE is no longer in use, so delete it
 			ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
 			ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
