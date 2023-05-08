@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 )
 
@@ -79,7 +80,7 @@ cilium connectivity test`,
 		newCmdSysdump(),
 		newCmdVersion(),
 	)
-	if os.Getenv("CILIUM_CLI_MODE") == "helm" {
+	if utils.IsInHelmMode() {
 		cmd.AddCommand(
 			newCmdInstallWithHelm(),
 			newCmdUninstallWithHelm(),
