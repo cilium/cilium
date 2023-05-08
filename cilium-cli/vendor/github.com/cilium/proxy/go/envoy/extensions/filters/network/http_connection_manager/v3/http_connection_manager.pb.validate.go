@@ -598,6 +598,40 @@ func (m *HttpConnectionManager) validate(all bool) error {
 
 	}
 
+	for idx, item := range m.GetEarlyHeaderMutationExtensions() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  fmt.Sprintf("EarlyHeaderMutationExtensions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManagerValidationError{
+						field:  fmt.Sprintf("EarlyHeaderMutationExtensions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpConnectionManagerValidationError{
+					field:  fmt.Sprintf("EarlyHeaderMutationExtensions[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if all {
 		switch v := interface{}(m.GetInternalAddressConfig()).(type) {
 		case interface{ ValidateAll() error }:
@@ -961,6 +995,8 @@ func (m *HttpConnectionManager) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for AppendXForwardedPort
 
 	switch m.RouteSpecifier.(type) {
 

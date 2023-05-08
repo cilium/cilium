@@ -58,7 +58,7 @@ func (c *Iterator) Node() *Node {
 //   - Table and ArrayTable's children represent a dotted key (same as
 //     KeyValue, but without the first node being the value).
 //
-// When relevant, Raw describes the range of bytes this node is refering to in
+// When relevant, Raw describes the range of bytes this node is referring to in
 // the input document. Use Parser.Raw() to retrieve the actual bytes.
 type Node struct {
 	Kind Kind

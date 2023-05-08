@@ -89,6 +89,7 @@ var errors = map[uint8]string{
 	191: "No nat map found",
 	192: "Invalid ClusterID",
 	193: "Unsupported packet protocol for DSR encapsulation",
+	194: "No egress gateway found",
 }
 
 func extendedReason(reason uint8, extError int8) string {
