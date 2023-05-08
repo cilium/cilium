@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -60,6 +61,7 @@ const (
 	initArgEndpointRoutes
 	initArgProxyRule
 	initTCFilterPriority
+	initDefaultRTProto
 	initArgMax
 )
 
@@ -433,6 +435,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	args[initTCFilterPriority] = "<nil>"
+	args[initDefaultRTProto] = strconv.Itoa(linux_defaults.RTProto)
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
