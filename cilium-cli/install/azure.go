@@ -16,23 +16,6 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 )
 
-type azureVersionValidation struct{}
-
-func (m *azureVersionValidation) Name() string {
-	return "az-binary"
-}
-
-func (m *azureVersionValidation) Check(_ context.Context, k *K8sInstaller) error {
-	_, err := k.azExec("version")
-	if err != nil {
-		return err
-	}
-
-	k.Log("✅ Detected az binary")
-
-	return nil
-}
-
 type accountInfo struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
