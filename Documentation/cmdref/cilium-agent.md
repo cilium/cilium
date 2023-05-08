@@ -148,7 +148,7 @@ cilium-agent [flags]
       --enable-xdp-prefilter                                    Enable XDP prefiltering
       --enable-xt-socket-fallback                               Enable fallback for missing xt_socket module (default true)
       --encrypt-interface string                                Transparent encryption interface
-      --encrypt-node                                            Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard)
+      --encrypt-node                                            Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)
       --endpoint-queue-size int                                 Size of EventQueue per-endpoint (default 25)
       --endpoint-status strings                                 Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
       --envoy-config-timeout duration                           Timeout duration for Envoy Config acknowledgements (default 2m0s)

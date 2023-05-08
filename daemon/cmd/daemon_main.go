@@ -279,7 +279,7 @@ func initializeFlags() {
 	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
 	option.BindEnv(Vp, option.EncryptInterface)
 
-	flags.Bool(option.EncryptNode, defaults.EncryptNode, "Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard)")
+	flags.Bool(option.EncryptNode, defaults.EncryptNode, "Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)")
 	option.BindEnv(Vp, option.EncryptNode)
 
 	flags.StringSlice(option.IPv4PodSubnets, []string{}, "List of IPv4 pod subnets to preconfigure for encryption")
