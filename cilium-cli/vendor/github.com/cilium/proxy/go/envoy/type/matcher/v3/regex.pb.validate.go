@@ -252,7 +252,16 @@ func (m *RegexMatchAndSubstitute) validate(all bool) error {
 		}
 	}
 
-	// no validation rules for Substitution
+	if !_RegexMatchAndSubstitute_Substitution_Pattern.MatchString(m.GetSubstitution()) {
+		err := RegexMatchAndSubstituteValidationError{
+			field:  "Substitution",
+			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
 		return RegexMatchAndSubstituteMultiError(errors)
@@ -332,6 +341,8 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RegexMatchAndSubstituteValidationError{}
+
+var _RegexMatchAndSubstitute_Substitution_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
 
 // Validate checks the field values on RegexMatcher_GoogleRE2 with the rules
 // defined in the proto definition for this message. If any rules are

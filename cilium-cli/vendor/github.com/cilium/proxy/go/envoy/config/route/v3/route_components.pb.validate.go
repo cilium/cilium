@@ -551,6 +551,8 @@ func (m *VirtualHost) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for IncludeIsTimeoutRetryHeader
+
 	if all {
 		switch v := interface{}(m.GetPerRequestBufferLimitBytes()).(type) {
 		case interface{ ValidateAll() error }:
@@ -822,6 +824,138 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = FilterActionValidationError{}
+
+// Validate checks the field values on RouteList with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *RouteList) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RouteList with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in RouteListMultiError, or nil
+// if none found.
+func (m *RouteList) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RouteList) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetRoutes() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RouteListValidationError{
+						field:  fmt.Sprintf("Routes[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RouteListValidationError{
+						field:  fmt.Sprintf("Routes[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteListValidationError{
+					field:  fmt.Sprintf("Routes[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return RouteListMultiError(errors)
+	}
+	return nil
+}
+
+// RouteListMultiError is an error wrapping multiple validation errors returned
+// by RouteList.ValidateAll() if the designated constraints aren't met.
+type RouteListMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RouteListMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RouteListMultiError) AllErrors() []error { return m }
+
+// RouteListValidationError is the validation error returned by
+// RouteList.Validate if the designated constraints aren't met.
+type RouteListValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RouteListValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RouteListValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RouteListValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RouteListValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RouteListValidationError) ErrorName() string { return "RouteListValidationError" }
+
+// Error satisfies the builtin error interface
+func (e RouteListValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRouteList.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RouteListValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RouteListValidationError{}
 
 // Validate checks the field values on Route with the rules defined in the
 // proto definition for this message. If any rules are violated, the first
@@ -9324,6 +9458,37 @@ func (m *RateLimit_Action) validate(all bool) error {
 			}
 		}
 
+	case *RateLimit_Action_QueryParameterValueMatch_:
+
+		if all {
+			switch v := interface{}(m.GetQueryParameterValueMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RateLimit_ActionValidationError{
+						field:  "QueryParameterValueMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RateLimit_ActionValidationError{
+						field:  "QueryParameterValueMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetQueryParameterValueMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RateLimit_ActionValidationError{
+					field:  "QueryParameterValueMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		err := RateLimit_ActionValidationError{
 			field:  "ActionSpecifier",
@@ -10767,6 +10932,198 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RateLimit_Action_MetaDataValidationError{}
+
+// Validate checks the field values on
+// RateLimit_Action_QueryParameterValueMatch with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *RateLimit_Action_QueryParameterValueMatch) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// RateLimit_Action_QueryParameterValueMatch with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// RateLimit_Action_QueryParameterValueMatchMultiError, or nil if none found.
+func (m *RateLimit_Action_QueryParameterValueMatch) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RateLimit_Action_QueryParameterValueMatch) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for DescriptorKey
+
+	if utf8.RuneCountInString(m.GetDescriptorValue()) < 1 {
+		err := RateLimit_Action_QueryParameterValueMatchValidationError{
+			field:  "DescriptorValue",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetExpectMatch()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RateLimit_Action_QueryParameterValueMatchValidationError{
+					field:  "ExpectMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RateLimit_Action_QueryParameterValueMatchValidationError{
+					field:  "ExpectMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetExpectMatch()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RateLimit_Action_QueryParameterValueMatchValidationError{
+				field:  "ExpectMatch",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(m.GetQueryParameters()) < 1 {
+		err := RateLimit_Action_QueryParameterValueMatchValidationError{
+			field:  "QueryParameters",
+			reason: "value must contain at least 1 item(s)",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	for idx, item := range m.GetQueryParameters() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RateLimit_Action_QueryParameterValueMatchValidationError{
+						field:  fmt.Sprintf("QueryParameters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RateLimit_Action_QueryParameterValueMatchValidationError{
+						field:  fmt.Sprintf("QueryParameters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RateLimit_Action_QueryParameterValueMatchValidationError{
+					field:  fmt.Sprintf("QueryParameters[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return RateLimit_Action_QueryParameterValueMatchMultiError(errors)
+	}
+	return nil
+}
+
+// RateLimit_Action_QueryParameterValueMatchMultiError is an error wrapping
+// multiple validation errors returned by
+// RateLimit_Action_QueryParameterValueMatch.ValidateAll() if the designated
+// constraints aren't met.
+type RateLimit_Action_QueryParameterValueMatchMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RateLimit_Action_QueryParameterValueMatchMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RateLimit_Action_QueryParameterValueMatchMultiError) AllErrors() []error { return m }
+
+// RateLimit_Action_QueryParameterValueMatchValidationError is the validation
+// error returned by RateLimit_Action_QueryParameterValueMatch.Validate if the
+// designated constraints aren't met.
+type RateLimit_Action_QueryParameterValueMatchValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RateLimit_Action_QueryParameterValueMatchValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RateLimit_Action_QueryParameterValueMatchValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RateLimit_Action_QueryParameterValueMatchValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RateLimit_Action_QueryParameterValueMatchValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RateLimit_Action_QueryParameterValueMatchValidationError) ErrorName() string {
+	return "RateLimit_Action_QueryParameterValueMatchValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RateLimit_Action_QueryParameterValueMatchValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRateLimit_Action_QueryParameterValueMatch.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RateLimit_Action_QueryParameterValueMatchValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RateLimit_Action_QueryParameterValueMatchValidationError{}
 
 // Validate checks the field values on RateLimit_Override_DynamicMetadata with
 // the rules defined in the proto definition for this message. If any rules

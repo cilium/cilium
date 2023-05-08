@@ -255,7 +255,7 @@ type CiliumIdentityList struct {
 
 // +k8s:deepcopy-gen=false
 
-// AddressPair is is a par of IPv4 and/or IPv6 address.
+// AddressPair is a pair of IPv4 and/or IPv6 address.
 type AddressPair struct {
 	IPV4 string `json:"ipv4,omitempty"`
 	IPV6 string `json:"ipv6,omitempty"`
