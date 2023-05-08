@@ -40,12 +40,9 @@
 #define ACTION_UNKNOWN_ICMP6_NS DROP_UNKNOWN_TARGET
 #endif
 
-static __always_inline __u8 icmp6_load_type(struct __ctx_buff *ctx, int nh_off)
+static __always_inline int icmp6_load_type(struct __ctx_buff *ctx, int nh_off, __u8 *type)
 {
-	__u8 type;
-
-	ctx_load_bytes(ctx, nh_off + ICMP6_TYPE_OFFSET, &type, sizeof(type));
-	return type;
+	return ctx_load_bytes(ctx, nh_off + ICMP6_TYPE_OFFSET, type, sizeof(*type));
 }
 
 static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
@@ -370,7 +367,10 @@ static __always_inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
 static __always_inline bool
 is_icmp6_ndp(struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int nh_off)
 {
-	__u8 type = icmp6_load_type(ctx, nh_off);
+	__u8 type;
+
+	if (icmp6_load_type(ctx, nh_off, &type) < 0)
+		return false;
 
 	return ip6->nexthdr == IPPROTO_ICMPV6 &&
 	       (type == ICMP6_NS_MSG_TYPE || type == ICMP6_NA_MSG_TYPE);
@@ -379,9 +379,12 @@ is_icmp6_ndp(struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int nh_off)
 static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
 					    enum metric_dir direction)
 {
-	__u8 type = icmp6_load_type(ctx, nh_off);
-	cilium_dbg(ctx, DBG_ICMP6_HANDLE, type, 0);
+	__u8 type;
 
+	if (icmp6_load_type(ctx, nh_off, &type) < 0)
+		return DROP_INVALID;
+
+	cilium_dbg(ctx, DBG_ICMP6_HANDLE, type, 0);
 	if (type == ICMP6_NS_MSG_TYPE)
 		return icmp6_handle_ns(ctx, nh_off, direction);
 
@@ -394,9 +397,10 @@ static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
 static __always_inline int
 icmp6_host_handle(struct __ctx_buff *ctx __maybe_unused)
 {
-	__u8 type __maybe_unused;
+	__u8 type;
 
-	type = icmp6_load_type(ctx, ETH_HLEN);
+	if (icmp6_load_type(ctx, ETH_HLEN, &type) < 0)
+		return DROP_INVALID;
 
 	/* When the host firewall is enabled, we drop and allow ICMPv6 messages
 	 * according to RFC4890, except for echo request and reply messages which
