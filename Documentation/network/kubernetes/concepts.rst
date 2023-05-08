@@ -30,7 +30,7 @@ several Kubernetes resources:
   the identity and permissions used by cilium-agent to access the Kubernetes
   API server when Kubernetes RBAC is enabled.
 
-* A ``Secret`` resource: describes the credentials use access the etcd kvstore,
+* A ``Secret`` resource: describes the credentials used to access the etcd kvstore,
   if required.
 
 Networking For Existing Pods
