@@ -10,10 +10,14 @@ import (
 	"path"
 	"sync"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // SyncStore abstracts the operations allowing to synchronize key/value pairs
@@ -43,6 +47,7 @@ type SyncStoreBackend interface {
 type wqSyncStore struct {
 	backend SyncStoreBackend
 	prefix  string
+	source  string
 
 	workers   uint
 	withLease bool
@@ -51,10 +56,19 @@ type wqSyncStore struct {
 	workqueue workqueue.RateLimitingInterface
 	state     sync.Map /* map[string][]byte --- map[NamedKey.GetKeyName()]Key.Marshal() */
 
-	log *logrus.Entry
+	log          *logrus.Entry
+	queuedMetric prometheus.Gauge
 }
 
 type WSSOpt func(*wqSyncStore)
+
+// WSSWithSourceClusterName configures the name of the source cluster the information
+// is synchronized from, which is used to enrich the metrics.
+func WSSWithSourceClusterName(cluster string) WSSOpt {
+	return func(wss *wqSyncStore) {
+		wss.source = cluster
+	}
+}
 
 // WSSWithRateLimiter sets the rate limiting algorithm to be used when requeueing failed events.
 func WSSWithRateLimiter(limiter workqueue.RateLimiter) WSSOpt {
@@ -83,6 +97,7 @@ func NewWorkqueueSyncStore(backend SyncStoreBackend, prefix string, opts ...WSSO
 	wss := &wqSyncStore{
 		backend: backend,
 		prefix:  prefix,
+		source:  option.Config.ClusterName,
 
 		workers:   1,
 		withLease: true,
@@ -96,6 +111,7 @@ func NewWorkqueueSyncStore(backend SyncStoreBackend, prefix string, opts ...WSSO
 	}
 
 	wss.workqueue = workqueue.NewRateLimitingQueue(wss.limiter)
+	wss.queuedMetric = metrics.KVStoreSyncQueueSize.WithLabelValues(kvstore.GetScopeFromKey(prefix), wss.source)
 	return wss
 }
 
@@ -136,6 +152,7 @@ func (wss *wqSyncStore) UpsertKey(_ context.Context, k Key) error {
 		wss.log.WithField(logfields.Key, k).Debug("ignoring upsert request for already up-to-date key")
 	} else {
 		wss.workqueue.Add(key)
+		wss.queuedMetric.Set(float64(wss.workqueue.Len()))
 	}
 
 	return nil
@@ -148,6 +165,7 @@ func (wss *wqSyncStore) DeleteKey(_ context.Context, k NamedKey) error {
 	key := k.GetKeyName()
 	if _, loaded := wss.state.LoadAndDelete(key); loaded {
 		wss.workqueue.Add(key)
+		wss.queuedMetric.Set(float64(wss.workqueue.Len()))
 	} else {
 		wss.log.WithField(logfields.Key, key).Debug("ignoring delete request for non-existing key")
 	}
@@ -158,13 +176,18 @@ func (wss *wqSyncStore) DeleteKey(_ context.Context, k NamedKey) error {
 func (wss *wqSyncStore) processNextItem(ctx context.Context) bool {
 	// Retrieve the next key to process from the workqueue.
 	key, shutdown := wss.workqueue.Get()
+	wss.queuedMetric.Set(float64(wss.workqueue.Len()))
 	if shutdown {
 		return false
 	}
 
 	// We call Done here so the workqueue knows we have finished
 	// processing this item.
-	defer wss.workqueue.Done(key)
+	defer func() {
+		wss.workqueue.Done(key)
+		// This ensures that the metric is correctly updated in case of requeues.
+		wss.queuedMetric.Set(float64(wss.workqueue.Len()))
+	}()
 
 	// Run the handler, passing it the key to be processed as parameter.
 	if err := wss.handle(ctx, key.(string)); err != nil {

@@ -463,6 +463,10 @@ var (
 	// KVStoreQuorumErrors records the number of kvstore quorum errors
 	KVStoreQuorumErrors = NoOpCounterVec
 
+	// KVStoreSyncQueueSize records the number of elements queued for
+	// synchronization in the kvstore.
+	KVStoreSyncQueueSize = NoOpGaugeVec
+
 	// FQDNGarbageCollectorCleanedTotal is the number of domains cleaned by the
 	// GC job.
 	FQDNGarbageCollectorCleanedTotal = NoOpCounter
@@ -605,6 +609,7 @@ type Configuration struct {
 	KVStoreOperationsDurationEnabled        bool
 	KVStoreEventsQueueDurationEnabled       bool
 	KVStoreQuorumErrorsEnabled              bool
+	KVStoreSyncQueueSizeEnabled             bool
 	FQDNGarbageCollectorCleanedTotalEnabled bool
 	FQDNActiveNames                         bool
 	FQDNActiveIPs                           bool
@@ -679,6 +684,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":          {},
 		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":                 {},
 		Namespace + "_" + SubsystemKVStore + "_quorum_errors_total":                  {},
+		Namespace + "_" + SubsystemKVStore + "_sync_queue_size":                      {},
 		Namespace + "_" + SubsystemIPCache + "_errors_total":                         {},
 		Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":                      {},
 		Namespace + "_" + SubsystemBPF + "_map_ops_total":                            {},
@@ -1255,6 +1261,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, KVStoreQuorumErrors)
 			c.KVStoreQuorumErrorsEnabled = true
+
+		case Namespace + "_" + SubsystemKVStore + "_sync_queue_size":
+			KVStoreSyncQueueSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemKVStore,
+				Name:      "sync_queue_size",
+				Help:      "Number of elements queued for synchronization in the kvstore",
+			}, []string{LabelScope, LabelSourceCluster})
+
+			collectors = append(collectors, KVStoreSyncQueueSize)
+			c.KVStoreSyncQueueSizeEnabled = true
 
 		case Namespace + "_" + SubsystemIPCache + "_errors_total":
 			IPCacheErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
