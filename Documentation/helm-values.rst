@@ -364,6 +364,62 @@
      - Clustermesh API server image.
      - object
      - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/clustermesh-apiserver-ci","tag":"latest","useDigest":false}``
+   * - clustermesh.apiserver.metrics.enabled
+     - Enables exporting apiserver metrics in OpenMetrics format.
+     - bool
+     - ``false``
+   * - clustermesh.apiserver.metrics.etcd.enabled
+     - Enables exporting etcd metrics in OpenMetrics format.
+     - bool
+     - ``false``
+   * - clustermesh.apiserver.metrics.etcd.mode
+     - Set level of detail for etcd metrics; specify 'extensive' to include server side gRPC histogram metrics.
+     - string
+     - ``"basic"``
+   * - clustermesh.apiserver.metrics.etcd.port
+     - Configure the port the etcd metric server listens on.
+     - int
+     - ``9963``
+   * - clustermesh.apiserver.metrics.port
+     - Configure the port the apiserver metric server listens on.
+     - int
+     - ``9962``
+   * - clustermesh.apiserver.metrics.serviceMonitor.annotations
+     - Annotations to add to ServiceMonitor clustermesh-apiserver
+     - object
+     - ``{}``
+   * - clustermesh.apiserver.metrics.serviceMonitor.enabled
+     - Enable service monitor. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+     - bool
+     - ``false``
+   * - clustermesh.apiserver.metrics.serviceMonitor.etcd.interval
+     - Interval for scrape metrics (etcd metrics)
+     - string
+     - ``"10s"``
+   * - clustermesh.apiserver.metrics.serviceMonitor.etcd.metricRelabelings
+     - Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.metrics.serviceMonitor.etcd.relabelings
+     - Relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.metrics.serviceMonitor.interval
+     - Interval for scrape metrics (apiserver metrics)
+     - string
+     - ``"10s"``
+   * - clustermesh.apiserver.metrics.serviceMonitor.labels
+     - Labels to add to ServiceMonitor clustermesh-apiserver
+     - object
+     - ``{}``
+   * - clustermesh.apiserver.metrics.serviceMonitor.metricRelabelings
+     - Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.metrics.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
+     - string
+     - ``nil``
    * - clustermesh.apiserver.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -2361,7 +2417,7 @@
      - object
      - ``{"annotations":{},"automount":true,"create":true,"name":"hubble-generate-certs"}``
    * - serviceAccounts.nodeinit.enabled
-     - Enabled is temporary until https://github.com/cilium/cilium-cli/issues/1396 is implemented. Cilium CLI doesn't create the SAs for node-init, thus the workaround. Helm is not affected by this issue. Name and automount can be configured, if enabled is set to true.  Otherwise, they are ignored. Enabled can be removed once the issue is fixed. Cilium-nodeinit DS must also be fixed.
+     - Enabled is temporary until https://github.com/cilium/cilium-cli/issues/1396 is implemented. Cilium CLI doesn't create the SAs for node-init, thus the workaround. Helm is not affected by this issue. Name and automount can be configured, if enabled is set to true. Otherwise, they are ignored. Enabled can be removed once the issue is fixed. Cilium-nodeinit DS must also be fixed.
      - bool
      - ``false``
    * - sleepAfterInit
