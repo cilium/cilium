@@ -110,6 +110,7 @@ var _ = Describe("K8sDatapathVerifier", func() {
 	}
 
 	BeforeAll(func() {
+		Skip("Quarantining due to https://github.com/cilium/cilium/issues/25255")
 		SkipIfIntegration(helpers.CIIntegrationGKE)
 		SkipIfIntegration(helpers.CIIntegrationAKS)
 
