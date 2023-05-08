@@ -882,14 +882,14 @@ Job groups
 
 The `job package <https://pkg.go.dev/github.com/cilium/cilium/pkg/hive/job>`_ contains logic that 
 makes it easy to manage units of work that the package refers to as "jobs". These jobs are 
-scheduled as part of a job group. These jobs themselves come in a variety of flavors.
+scheduled as part of a job group. These jobs themselves come in several varieties.
 
-Every job, fundamentally is a callback function provided by the user with additional logic which
-is slightly different for each job type. The jobs and groups manage a lot of the boilerplate
+Every job is a callback function provided by the user with additional logic which
+differs slightly for each job type. The jobs and groups manage a lot of the boilerplate
 surrounding lifecycle management. The callbacks are called from the job to perform the actual
 work.
 
-Take the following somewhat contrived example:
+Consider the following example:
 
 .. code-block:: go
 
@@ -1006,21 +1006,21 @@ Take the following somewhat contrived example:
     }
 
 
-The above example shows a number of use-cases in one cell. We start by requesting the job.Registry
-via the constructor. We can use the registry to create job groups, in most cases one will be enough.
-To this group we can add our jobs in the constructor. Any jobs added in the constructor are queued
-until the lifecycle of our cell starts. The group is added to the lifecycle and manages this 
-internally. Jobs can also be added at runtime which can be handy for dynamic workloads while still
+The preceding example shows a number of use cases in one cell. The cell starts by requesting the job.Registry
+by way of the constructor. The registry can create job groups; in most cases, one is enough.
+You can add jobs in the constructor to this group. Any jobs added in the constructor are queued
+until the lifecycle of the cell starts. The group is added to the lifecycle and manages jobs 
+internally. You can also add jobs at runtime, which can be handy for dynamic workloads while still
 guaranteeing a clean shutdown.
 
-A job group will cancel the context to all jobs when the lifecycle ends. Any job callbacks are 
-expected to exit as soon as possible when the ``ctx`` is "Done". The group will make sure that all
-jobs are properly shutdown before the cell stops. If callbacks that do not stop within reasonable 
-amount of time may cause hive to perform a hard shutdown.
+A job group cancels the context to all jobs when the lifecycle ends. Any job callbacks are 
+expected to exit as soon as the ``ctx`` is "Done". The group makes sure that all
+jobs are properly shut down before the cell stops. Callbacks that do not stop within a reasonable 
+amount of time may cause the hive to perform a hard shutdown.
 
-There are 3 job types: one-shot jobs, timer jobs, and observer jobs. One shot jobs run a limited 
-amount of times, they can be used for short running jobs or jobs that span the entire lifecycle.
-Once the callback exits without error, its never called again. A one-shot can optionally have retry
+There are 3 job types: one-shot jobs, timer jobs, and observer jobs. One-shot jobs run a limited 
+number of times: use them for brief jobs, or for jobs that span the entire lifecycle.
+Once the callback exits without error, it is never called again. Optionally, a one-shot job can include retry
 logic and/or trigger hive shutdown if it fails. Timers are called on a specified interval but they
-can also be externally triggered. Lastly, we have observer jobs which are invoked for every event
+can also be externally triggered. Lastly, observer jobs are invoked for every event
 on a ``stream.Observable``.
