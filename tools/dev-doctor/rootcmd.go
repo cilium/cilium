@@ -57,6 +57,13 @@ func readGoModGoVersion(rootDir string) (*semver.Version, error) {
 func rootCmdRun(cmd *cobra.Command, args []string) {
 	rootDir := goPath() + "/src/github.com/cilium/cilium"
 
+	// $GOPATH is optional to set with a module-based Go setup
+	// If we cannot find src path via `$GOPATH`, just look in
+	// the `make` dir for `go.mod`
+	if _, err := os.Stat(rootDir); os.IsNotExist(err) {
+		rootDir, _ = os.Getwd()
+	}
+
 	minGoVersion, err := readGoModGoVersion(rootDir)
 	if err != nil {
 		panic(fmt.Sprintf("cannot read go version from go.mod: %v", err))
