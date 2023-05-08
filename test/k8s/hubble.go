@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/asaskevich/govalidator"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -139,7 +138,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 			ExpectHubbleRelayReady(kubectl, hubbleRelayNamespace)
 			hubbleRelayIP, hubbleRelayPort, err := kubectl.GetServiceHostPort(hubbleRelayNamespace, hubbleRelayService)
 			Expect(err).Should(BeNil(), "Cannot get service %s", hubbleRelayService)
-			Expect(govalidator.IsIP(hubbleRelayIP)).Should(BeTrue(), "hubbleRelayIP is not an IP")
+			Expect(net.ParseIP(hubbleRelayIP) != nil).Should(BeTrue(), "hubbleRelayIP is not an IP")
 			hubbleRelayAddress = net.JoinHostPort(hubbleRelayIP, strconv.Itoa(hubbleRelayPort))
 
 			namespaceForTest = helpers.GenerateNamespaceForTest("")

@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asaskevich/govalidator"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 
@@ -146,7 +145,7 @@ func testCurlFromPodsFail(kubectl *helpers.Kubectl, clientPodLabel, url string) 
 func curlClusterIPFromExternalHost(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) *helpers.CmdRes {
 	clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appServiceName)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get service %s", appServiceName)
-	ExpectWithOffset(1, govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+	ExpectWithOffset(1, net.ParseIP(clusterIP) != nil).Should(BeTrue(), "ClusterIP is not an IP")
 	httpSVCURL := fmt.Sprintf("http://%s/", net.JoinHostPort(clusterIP, "80"))
 
 	By("testing external connectivity via cluster IP %s", clusterIP)
