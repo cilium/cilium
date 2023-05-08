@@ -185,21 +185,21 @@ func (p *RouteSuitePrivileged) TestRule_String(c *C) {
 				From: fakeIP,
 				To:   fakeIP2,
 			},
-			wantStr: "0: from 10.10.10.10/32 to 1.1.1.1/32 lookup 0",
+			wantStr: "0: from 10.10.10.10/32 to 1.1.1.1/32 lookup 0 proto unspec",
 		},
 		{
 			name: "contains priority",
 			rule: Rule{
 				Priority: 1,
 			},
-			wantStr: "1: from all to all lookup 0",
+			wantStr: "1: from all to all lookup 0 proto unspec",
 		},
 		{
 			name: "contains table",
 			rule: Rule{
 				Table: 1,
 			},
-			wantStr: "0: from all to all lookup 1",
+			wantStr: "0: from all to all lookup 1 proto unspec",
 		},
 		{
 			name: "contains mark and mask",
@@ -207,14 +207,14 @@ func (p *RouteSuitePrivileged) TestRule_String(c *C) {
 				Mark: 1,
 				Mask: 1,
 			},
-			wantStr: "0: from all to all lookup 0 mark 0x1 mask 0x1",
+			wantStr: "0: from all to all lookup 0 mark 0x1 mask 0x1 proto unspec",
 		},
 		{
 			name: "main table",
 			rule: Rule{
 				Table: unix.RT_TABLE_MAIN,
 			},
-			wantStr: "0: from all to all lookup main",
+			wantStr: "0: from all to all lookup main proto unspec",
 		},
 	}
 	for _, tt := range tests {
