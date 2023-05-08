@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -58,8 +59,8 @@ func registerHealthAPIServer(lc hive.Lifecycle, clientset k8sClient.Clientset, c
 		OnStart: func(hive.HookContext) error {
 			go func() {
 				log.Info("Started health API")
-				if err := srv.ListenAndServe(); err != nil {
-					log.WithError(err).Fatalf("Unable to start health API")
+				if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+					log.WithError(err).Fatal("Unable to start health API")
 				}
 			}()
 			return nil
