@@ -367,7 +367,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			updated: []string{"192.168.0.0/24", "192.168.1.0/24"},
 		},
 		{
-			name:         "removal of network",
+			name:         "removal of both networks",
 			enabled:      true,
 			shouldEnable: true,
 			advertised: []*net.IPNet{
@@ -380,7 +380,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 					Mask: net.IPv4Mask(255, 255, 255, 0),
 				},
 			},
-			updated: []string{"192.168.0.0/24"},
+			updated: []string{},
 		},
 	}
 

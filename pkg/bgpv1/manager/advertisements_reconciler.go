@@ -102,8 +102,11 @@ func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]t
 		key := advrt.Net.String()
 		if m, ok = aset[key]; !ok {
 			aset[key] = &member{
-				b:     true,
-				advrt: &advrt,
+				b: true,
+				advrt: &types.Advertisement{
+					Net:           advrt.Net,
+					GoBGPPathUUID: advrt.GoBGPPathUUID,
+				},
 			}
 			continue
 		}
