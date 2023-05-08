@@ -6,7 +6,6 @@ package manager
 import (
 	"context"
 	"fmt"
-	"net"
 	"sort"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -211,22 +210,9 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 		}
 	}
 
-	// resolve router ID, if we have an annotation and it can be parsed into
-	// a valid ipv4 address use this,
-	//
-	// if not determine if Cilium is configured with an IPv4 address, if so use
-	// this.
-	//
-	// if neither, return an error, we cannot assign an router ID.
-	var routerID string
-	_, ok := cstate.Annotations[c.LocalASN]
-	switch {
-	case ok && !net.ParseIP(cstate.Annotations[c.LocalASN].RouterID).IsUnspecified():
-		routerID = cstate.Annotations[c.LocalASN].RouterID
-	case !cstate.IPv4.IsUnspecified():
-		routerID = cstate.IPv4.String()
-	default:
-		return fmt.Errorf("router id not specified by annotation and no IPv4 address assigned by cilium, cannot resolve router id for virtual router with local ASN %v", c.LocalASN)
+	routerID, err := cstate.ResolveRouterID(c.LocalASN)
+	if err != nil {
+		return err
 	}
 
 	globalConfig := types.ServerParameters{

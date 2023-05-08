@@ -5,7 +5,7 @@ package manager
 
 import (
 	"context"
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -270,14 +270,11 @@ func TestNeighborReconciler(t *testing.T) {
 			}
 
 			for _, n := range tt.newNeighbors {
-				ip, _, err := net.ParseCIDR(n)
-				if err != nil {
-					t.Fatalf("failed to parse neighbor ip: %v", err)
-				}
+				prefix := netip.MustParsePrefix(n)
 				var seen bool
 				for _, p := range peers {
-					ipp := net.ParseIP(p.PeerAddress)
-					if ip.Equal(ipp) {
+					addr := netip.MustParseAddr(p.PeerAddress)
+					if prefix.Addr() == addr {
 						seen = true
 					}
 				}
@@ -287,14 +284,11 @@ func TestNeighborReconciler(t *testing.T) {
 			}
 
 			for _, p := range peers {
-				ip := net.ParseIP(p.PeerAddress)
+				paddr := netip.MustParseAddr(p.PeerAddress)
 				var seen bool
 				for _, n := range tt.newNeighbors {
-					ipp, _, err := net.ParseCIDR(n)
-					if err != nil {
-						t.Fatalf("failed to parse peer ip: %v", err)
-					}
-					if ip.Equal(ipp) {
+					addr := netip.MustParsePrefix(n)
+					if paddr == addr.Addr() {
 						seen = true
 					}
 				}
@@ -317,7 +311,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 		// the advertised PodCIDR blocks the test begins with, these are encoded
 		// into Golang structs for the convenience of passing directly to the
 		// ServerWithConfig.AdvertisePath() method.
-		advertised []*net.IPNet
+		advertised []netip.Prefix
 		// the updated PodCIDR blocks to reconcile, these are string encoded
 		// for the convenience of attaching directly to the NodeSpec.PodCIDRs
 		// field.
@@ -329,11 +323,8 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			name:         "disable",
 			enabled:      true,
 			shouldEnable: false,
-			advertised: []*net.IPNet{
-				{
-					IP:   net.ParseIP("192.168.0.0"),
-					Mask: net.IPv4Mask(255, 255, 255, 0),
-				},
+			advertised: []netip.Prefix{
+				netip.MustParsePrefix("192.168.0.0/24"),
 			},
 		},
 		{
@@ -346,11 +337,8 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			name:         "no change",
 			enabled:      true,
 			shouldEnable: true,
-			advertised: []*net.IPNet{
-				{
-					IP:   net.ParseIP("192.168.0.0"),
-					Mask: net.IPv4Mask(255, 255, 255, 0),
-				},
+			advertised: []netip.Prefix{
+				netip.MustParsePrefix("192.168.0.0/24"),
 			},
 			updated: []string{"192.168.0.0/24"},
 		},
@@ -358,11 +346,8 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			name:         "additional network",
 			enabled:      true,
 			shouldEnable: true,
-			advertised: []*net.IPNet{
-				{
-					IP:   net.ParseIP("192.168.0.0"),
-					Mask: net.IPv4Mask(255, 255, 255, 0),
-				},
+			advertised: []netip.Prefix{
+				netip.MustParsePrefix("192.168.0.0/24"),
 			},
 			updated: []string{"192.168.0.0/24", "192.168.1.0/24"},
 		},
@@ -370,15 +355,9 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			name:         "removal of both networks",
 			enabled:      true,
 			shouldEnable: true,
-			advertised: []*net.IPNet{
-				{
-					IP:   net.ParseIP("192.168.0.0"),
-					Mask: net.IPv4Mask(255, 255, 255, 0),
-				},
-				{
-					IP:   net.ParseIP("192.168.1.0"),
-					Mask: net.IPv4Mask(255, 255, 255, 0),
-				},
+			advertised: []netip.Prefix{
+				netip.MustParsePrefix("192.168.0.0/24"),
+				netip.MustParsePrefix("192.168.1.0/24"),
 			},
 			updated: []string{},
 		},
@@ -408,7 +387,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			for _, cidr := range tt.advertised {
 				advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
 					Advert: types.Advertisement{
-						Net: cidr,
+						Prefix: cidr,
 					},
 				})
 				if err != nil {
@@ -424,7 +403,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			}
 			newcstate := agent.ControlPlaneState{
 				PodCIDRs: tt.updated,
-				IPv4:     net.ParseIP("127.0.0.1"),
+				IPv4:     netip.MustParseAddr("127.0.0.1"),
 			}
 
 			err = exportPodCIDRReconciler(context.Background(), testSC, newc, &newcstate)
@@ -444,13 +423,10 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 
 			// ensure we see tt.updated in testSC.PodCIDRAnnoucements
 			for _, cidr := range tt.updated {
-				_, parsed, err := net.ParseCIDR(cidr)
-				if err != nil {
-					t.Fatalf("failed to parse updated cidr: %v", err)
-				}
+				prefix := netip.MustParsePrefix(cidr)
 				var seen bool
 				for _, advrt := range testSC.PodCIDRAnnouncements {
-					if advrt.Net.String() == parsed.String() {
+					if advrt.Prefix == prefix {
 						seen = true
 					}
 				}
@@ -464,11 +440,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			for _, advrt := range testSC.PodCIDRAnnouncements {
 				var seen bool
 				for _, cidr := range tt.updated {
-					_, parsed, err := net.ParseCIDR(cidr)
-					if err != nil {
-						t.Fatalf("failed to parse updated cidr: %v", err)
-					}
-					if advrt.Net.String() == parsed.String() {
+					if advrt.Prefix == netip.MustParsePrefix(cidr) {
 						seen = true
 					}
 				}
@@ -905,13 +877,10 @@ func TestLBServiceReconciler(t *testing.T) {
 			testSC.Config = oldc
 			for svcKey, cidrs := range tt.advertised {
 				for _, cidr := range cidrs {
-					_, net, err := net.ParseCIDR(cidr)
-					if err != nil {
-						t.Fatalf("bad cidr '%s': %s", cidr, err)
-					}
+					prefix := netip.MustParsePrefix(cidr)
 					advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
 						Advert: types.Advertisement{
-							Net: net,
+							Prefix: prefix,
 						},
 					})
 					if err != nil {
@@ -928,7 +897,7 @@ func TestLBServiceReconciler(t *testing.T) {
 				ServiceSelector: tt.newServiceSelector,
 			}
 			newcstate := agent.ControlPlaneState{
-				IPv4: net.ParseIP("127.0.0.1"),
+				IPv4: netip.MustParseAddr("127.0.0.1"),
 			}
 
 			diffstore := newFakeDiffStore[*slim_corev1.Service]()
@@ -962,13 +931,10 @@ func TestLBServiceReconciler(t *testing.T) {
 			// ensure we see tt.updated in testSC.ServiceAnnouncements
 			for svcKey, cidrs := range tt.updated {
 				for _, cidr := range cidrs {
-					_, parsed, err := net.ParseCIDR(cidr)
-					if err != nil {
-						t.Fatalf("failed to parse updated cidr: %v", err)
-					}
+					prefix := netip.MustParsePrefix(cidr)
 					var seen bool
 					for _, advrt := range testSC.ServiceAnnouncements[svcKey] {
-						if advrt.Net.String() == parsed.String() {
+						if advrt.Prefix == prefix {
 							seen = true
 						}
 					}
@@ -984,11 +950,7 @@ func TestLBServiceReconciler(t *testing.T) {
 				for _, advrt := range advrts {
 					var seen bool
 					for _, cidr := range tt.updated[svcKey] {
-						_, parsed, err := net.ParseCIDR(cidr)
-						if err != nil {
-							t.Fatalf("failed to parse updated cidr: %v", err)
-						}
-						if advrt.Net.String() == parsed.String() {
+						if advrt.Prefix == netip.MustParsePrefix(cidr) {
 							seen = true
 						}
 					}

@@ -6,7 +6,7 @@ package manager
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -118,22 +118,9 @@ func preflightReconciler(
 		}
 	}
 
-	// resolve router ID, if we have an annotation and it can be parsed into
-	// a valid ipv4 address use this,
-	//
-	// if not determine if Cilium is configured with an IPv4 address, if so use
-	// this.
-	//
-	// if neither, return an error, we cannot assign an router ID.
-	var routerID string
-	_, ok := cstate.Annotations[newc.LocalASN]
-	switch {
-	case ok && !net.ParseIP(cstate.Annotations[newc.LocalASN].RouterID).IsUnspecified():
-		routerID = cstate.Annotations[newc.LocalASN].RouterID
-	case !cstate.IPv4.IsUnspecified():
-		routerID = cstate.IPv4.String()
-	default:
-		return fmt.Errorf("router id not specified by annotation and no IPv4 address assigned by cilium, cannot resolve router id for virtual router with local ASN %v", newc.LocalASN)
+	routerID, err := cstate.ResolveRouterID(newc.LocalASN)
+	if err != nil {
+		return err
 	}
 
 	var shouldRecreate bool
@@ -360,13 +347,13 @@ func exportPodCIDRReconciler(
 		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil ControlPlaneState")
 	}
 
-	toAdvertise := []*net.IPNet{}
+	toAdvertise := []netip.Prefix{}
 	for _, cidr := range cstate.PodCIDRs {
-		_, ipNet, err := net.ParseCIDR(cidr)
+		prefix, err := netip.ParsePrefix(cidr)
 		if err != nil {
-			return fmt.Errorf("failed to parse cidr %s: %w", cidr, err)
+			return fmt.Errorf("failed to parse prefix %s: %w", cidr, err)
 		}
-		toAdvertise = append(toAdvertise, ipNet)
+		toAdvertise = append(toAdvertise, prefix)
 	}
 
 	advertisements, err := exportAdvertisementsReconciler(&advertisementsReconcilerParams{
@@ -518,7 +505,7 @@ func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *Ser
 
 // svcDesiredRoutes determines which, if any routes should be announced for the given service. This determines the
 // desired state.
-func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service) ([]*net.IPNet, error) {
+func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service) ([]netip.Prefix, error) {
 	if newc.ServiceSelector == nil {
 		// If the vRouter has no service selector, there are no desired routes
 		return nil, nil
@@ -539,22 +526,18 @@ func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtua
 		return nil, nil
 	}
 
-	var desiredRoutes []*net.IPNet
+	var desiredRoutes []netip.Prefix
 	for _, ingress := range svc.Status.LoadBalancer.Ingress {
 		if ingress.IP == "" {
 			continue
 		}
 
-		cidr := &net.IPNet{
-			IP: net.ParseIP(ingress.IP),
-		}
-		if cidr.IP.To4() == nil {
-			cidr.Mask = net.CIDRMask(128, 128)
-		} else {
-			cidr.Mask = net.CIDRMask(32, 32)
+		addr, err := netip.ParseAddr(ingress.IP)
+		if err != nil {
+			continue
 		}
 
-		desiredRoutes = append(desiredRoutes, cidr)
+		desiredRoutes = append(desiredRoutes, netip.PrefixFrom(addr, addr.BitLen()))
 	}
 
 	return desiredRoutes, err
@@ -573,7 +556,7 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 	for _, desiredCidr := range desiredCidrs {
 		// If this route has already been announced, don't add it again
 		if slices.IndexFunc(sc.ServiceAnnouncements[svcKey], func(existing types.Advertisement) bool {
-			return cidrEqual(desiredCidr, existing.Net)
+			return desiredCidr == existing.Prefix
 		}) != -1 {
 			continue
 		}
@@ -581,7 +564,7 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 		// Advertise the new cidr
 		advertPathResp, err := sc.Server.AdvertisePath(ctx, types.PathRequest{
 			Advert: types.Advertisement{
-				Net: desiredCidr,
+				Prefix: desiredCidr,
 			},
 		})
 		if err != nil {
@@ -594,8 +577,8 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 	for i := len(sc.ServiceAnnouncements[svcKey]) - 1; i >= 0; i-- {
 		announcement := sc.ServiceAnnouncements[svcKey][i]
 		// If the announcement is within the list of desired routes, don't remove it
-		if slices.IndexFunc(desiredCidrs, func(existing *net.IPNet) bool {
-			return cidrEqual(existing, announcement.Net)
+		if slices.IndexFunc(desiredCidrs, func(existing netip.Prefix) bool {
+			return existing == announcement.Prefix
 		}) != -1 {
 			continue
 		}
@@ -620,7 +603,7 @@ func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *ServerWit
 		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Advert: advertisement}); err != nil {
 			// Persist remaining advertisements
 			sc.ServiceAnnouncements[key] = advertisements
-			return fmt.Errorf("failed to withdraw deleted service route: %v: %w", advertisement.Net, err)
+			return fmt.Errorf("failed to withdraw deleted service route: %v: %w", advertisement.Prefix, err)
 		}
 
 		// Delete the advertisement after each withdraw in case we error half way through
@@ -631,12 +614,6 @@ func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *ServerWit
 	delete(sc.ServiceAnnouncements, key)
 
 	return nil
-}
-
-func cidrEqual(a, b *net.IPNet) bool {
-	aOnes, aSize := a.Mask.Size()
-	bOnes, bSize := b.Mask.Size()
-	return a.IP.Equal(b.IP) && aOnes == bOnes && aSize == bSize
 }
 
 func serviceLabelSet(svc *slim_corev1.Service) labels.Labels {

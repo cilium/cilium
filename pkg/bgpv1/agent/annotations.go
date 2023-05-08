@@ -6,7 +6,7 @@ package agent
 import (
 	"errors"
 	"math"
-	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -165,8 +165,8 @@ func parseAnnotation(key string, value string) (int, Attributes, error) {
 		}
 		switch kv[0] {
 		case "router-id":
-			ip := net.ParseIP(kv[1])
-			if ip.IsUnspecified() {
+			addr, _ := netip.ParseAddr(kv[1])
+			if addr.IsUnspecified() {
 				return 0, out, ErrAttrib{key, kv[0], "could not parse in an IPv4 address"}
 			}
 			out.RouterID = kv[1]

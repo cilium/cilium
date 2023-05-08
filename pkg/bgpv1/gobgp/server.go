@@ -6,7 +6,7 @@ package gobgp
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
@@ -91,17 +91,16 @@ func NewGoBGPServerWithConfig(ctx context.Context, log *logrus.Entry, params typ
 // AddNeighbor will add the CiliumBGPNeighbor to the gobgp.BgpServer, creating
 // a BGP peering connection.
 func (g *GoBGPServer) AddNeighbor(ctx context.Context, n types.NeighborRequest) error {
-	// cilium neighbor uses CIDR string, gobgp neighbor uses IP string, convert.
-	var ip net.IP
-	var err error
-	if ip, _, err = net.ParseCIDR(n.Neighbor.PeerAddress); err != nil {
+	// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
+	prefix, err := netip.ParsePrefix(n.Neighbor.PeerAddress)
+	if err != nil {
 		// unlikely, we validate this on CR write to k8s api.
 		return fmt.Errorf("failed to parse PeerAddress: %w", err)
 	}
 	peerReq := &gobgp.AddPeerRequest{
 		Peer: &gobgp.Peer{
 			Conf: &gobgp.PeerConf{
-				NeighborAddress: ip.String(),
+				NeighborAddress: prefix.Addr().String(),
 				PeerAsn:         uint32(n.Neighbor.PeerASN),
 			},
 			// tells the peer we are capable of unicast IPv4 and IPv6
@@ -129,15 +128,14 @@ func (g *GoBGPServer) AddNeighbor(ctx context.Context, n types.NeighborRequest) 
 // RemoveNeighbor will remove the CiliumBGPNeighbor from the gobgp.BgpServer,
 // disconnecting the BGP peering connection.
 func (g *GoBGPServer) RemoveNeighbor(ctx context.Context, n types.NeighborRequest) error {
-	// cilium neighbor uses CIDR string, gobgp neighbor uses IP string, convert.
-	var ip net.IP
-	var err error
-	if ip, _, err = net.ParseCIDR(n.Neighbor.PeerAddress); err != nil {
+	// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
+	prefix, err := netip.ParsePrefix(n.Neighbor.PeerAddress)
+	if err != nil {
 		// unlikely, we validate this on CR write to k8s api.
 		return fmt.Errorf("failed to parse PeerAddress: %w", err)
 	}
 	peerReq := &gobgp.DeletePeerRequest{
-		Address: ip.String(),
+		Address: prefix.Addr().String(),
 	}
 	if err := g.server.DeletePeer(ctx, peerReq); err != nil {
 		return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
@@ -163,17 +161,16 @@ func (g *GoBGPServer) AdvertisePath(ctx context.Context, p types.PathRequest) (t
 	var err error
 	var path *gobgp.Path
 	var resp *gobgp.AddPathResponse
-	ip := p.Advert.Net
+	prefix := p.Advert.Prefix
 
 	origin, _ := apb.New(&gobgp.OriginAttribute{
 		Origin: 0,
 	})
 	switch {
-	case ip.IP.To4() != nil:
-		prefixLen, _ := ip.Mask.Size()
+	case prefix.Addr().Is4():
 		nlri, _ := apb.New(&gobgp.IPAddressPrefix{
-			PrefixLen: uint32(prefixLen),
-			Prefix:    ip.IP.String(),
+			PrefixLen: uint32(prefix.Bits()),
+			Prefix:    prefix.Addr().String(),
 		})
 		// Currently, we only support advertising locally originated paths (the paths generated in Cilium
 		// node itself, not the paths received from another BGP Peer or redistributed from another routing
@@ -201,11 +198,10 @@ func (g *GoBGPServer) AdvertisePath(ctx context.Context, p types.PathRequest) (t
 		resp, err = g.server.AddPath(ctx, &gobgp.AddPathRequest{
 			Path: path,
 		})
-	case ip.IP.To16() != nil:
-		prefixLen, _ := ip.Mask.Size()
+	case prefix.Addr().Is6():
 		nlri, _ := apb.New(&gobgp.IPAddressPrefix{
-			PrefixLen: uint32(prefixLen),
-			Prefix:    ip.IP.String(),
+			PrefixLen: uint32(prefix.Bits()),
+			Prefix:    prefix.Addr().String(),
 		})
 		nlriAttrs, _ := apb.New(&gobgp.MpReachNLRIAttribute{ // MP BGP NLRI
 			Family: GoBGPIPv6Family,
@@ -222,14 +218,14 @@ func (g *GoBGPServer) AdvertisePath(ctx context.Context, p types.PathRequest) (t
 			Path: path,
 		})
 	default:
-		return types.PathResponse{}, fmt.Errorf("provided IP returned nil for both IPv4 and IPv6 lengths: %v", len(ip.IP))
+		return types.PathResponse{}, fmt.Errorf("unknown address family for prefix %s", prefix.String())
 	}
 	if err != nil {
 		return types.PathResponse{}, err
 	}
 	return types.PathResponse{
 		Advert: types.Advertisement{
-			Net:           ip,
+			Prefix:        prefix,
 			GoBGPPathUUID: resp.Uuid,
 		},
 	}, err
