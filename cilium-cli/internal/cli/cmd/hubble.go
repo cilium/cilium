@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/hubble"
+	"github.com/cilium/cilium-cli/internal/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -24,7 +25,7 @@ func newCmdHubble() *cobra.Command {
 		newCmdPortForwardCommand(),
 		newCmdUI(),
 	)
-	if os.Getenv("CILIUM_CLI_MODE") == "helm" {
+	if utils.IsInHelmMode() {
 		cmd.AddCommand(
 			newCmdHubbleEnableWithHelm(),
 			newCmdHubbleDisableWithHelm(),

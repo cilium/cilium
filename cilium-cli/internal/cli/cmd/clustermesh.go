@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium-cli/clustermesh"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/status"
 )
 
@@ -32,7 +33,7 @@ func newCmdClusterMesh() *cobra.Command {
 		newCmdClusterMeshExternalWorkload(),
 	)
 
-	if os.Getenv("CILIUM_CLI_MODE") == "helm" {
+	if utils.IsInHelmMode() {
 		cmd.AddCommand(
 			newCmdClusterMeshEnableWithHelm(),
 			newCmdClusterMeshDisableWithHelm(),
