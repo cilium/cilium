@@ -295,9 +295,6 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// Run a simple test with k8s Network Policy.
 	ct.NewTest("client-ingress-knp").WithK8SPolicy(clientIngressFromClient2PolicyKNPYAML).
-		// disabled with endpoint routes and IPv6 until #1585 is fixed
-		WithFeatureRequirements(check.RequireFeatureDisabled(check.FeatureEndpointRoutes),
-			check.RequireFeatureDisabled(check.FeatureIPv6)).
 		WithScenarios(
 			tests.ClientToClient(),
 		).
@@ -426,9 +423,6 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This k8s policy allows ingress to echo only from client with a label 'other:client'.
 	ct.NewTest("echo-ingress-knp").WithK8SPolicy(echoIngressFromOtherClientPolicyKNPYAML).
-		// disabled with endpoint routes and IPv6 until #1585 is fixed
-		WithFeatureRequirements(check.RequireFeatureDisabled(check.FeatureEndpointRoutes),
-			check.RequireFeatureDisabled(check.FeatureIPv6)).
 		WithScenarios(
 			tests.PodToPod(),
 		).
@@ -462,9 +456,6 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy allows port 8080 from client to echo, so this should succeed
 	ct.NewTest("client-egress-knp").WithK8SPolicy(clientEgressToEchoPolicyKNPYAML).
-		// disabled with endpoint routes and IPv6 until #1585 is fixed
-		WithFeatureRequirements(check.RequireFeatureDisabled(check.FeatureEndpointRoutes),
-			check.RequireFeatureDisabled(check.FeatureIPv6)).
 		WithScenarios(
 			tests.PodToPod(),
 		)
@@ -477,9 +468,6 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// This policy allows port 8080 from client to echo (using label match expression, so this should succeed
 	ct.NewTest("client-egress-expression-knp").WithK8SPolicy(clientEgressToEchoExpressionPolicyKNPYAML).
-		// disabled with endpoint routes and IPv6 until #1585 is fixed
-		WithFeatureRequirements(check.RequireFeatureDisabled(check.FeatureEndpointRoutes),
-			check.RequireFeatureDisabled(check.FeatureIPv6)).
 		WithScenarios(
 			tests.PodToPod(),
 		)
