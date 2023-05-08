@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
-	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -328,7 +327,7 @@ func (n *NodeDiscovery) UpdateLocalNode() {
 
 // LocalNode syncs the localNode object with the information stored in the node
 // package and then returns a copy of the localNode object
-func (n *NodeDiscovery) LocalNode() *types.Node {
+func (n *NodeDiscovery) LocalNode() *nodeTypes.Node {
 	n.localNodeLock.Lock()
 	defer n.localNodeLock.Unlock()
 
@@ -454,8 +453,9 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 	nodeResource.ObjectMeta.Labels = k8sNodeParsed.Labels
 
-	localCN := n.localNode.ToCiliumNode()
-	nodeResource.ObjectMeta.Annotations = localCN.Annotations
+	// This is for syncing relevant node annotations from the k8s node to the
+	// CiliumNode object
+	nodeResource.ObjectMeta.Annotations = k8sNodeParsed.GetCiliumAnnotations()
 
 	for _, k8sAddress := range k8sNodeAddresses {
 		// Do not add CiliumNodeInternalIP from the k8sNodeAddress. The source
