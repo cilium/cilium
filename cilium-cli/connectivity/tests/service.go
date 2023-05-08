@@ -152,7 +152,7 @@ func (s *podToRemoteNodePort) Run(ctx context.Context, t *check.Test) {
 
 				// If src and dst pod are running on different nodes,
 				// call the Cilium Pod's host IP on the service's NodePort.
-				curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node)
+				curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node, true)
 
 				i++
 			}
@@ -188,7 +188,7 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 					if pod.Pod.Status.HostIP == addr.Address {
 						// If src and dst pod are running on the same node,
 						// call the Cilium Pod's host IP on the service's NodePort.
-						curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node)
+						curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node, true)
 
 						i++
 					}
@@ -199,7 +199,8 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 }
 
 func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
-	name string, pod *check.Pod, svc check.Service, node *corev1.Node) {
+	name string, pod *check.Pod, svc check.Service, node *corev1.Node,
+	validateFlows bool) {
 
 	// Get the NodePort allocated to the Service.
 	np := uint32(svc.Service.Spec.Ports[0].NodePort)
@@ -234,12 +235,14 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 			t.NewAction(s, name, pod, svc, check.IPFamilyAny).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, t.Context().CurlCommand(ep, check.IPFamilyAny))
 
-				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
-					// The fact that curl is hitting the NodePort instead of the
-					// backend Pod's port is specified here. This will cause the matcher
-					// to accept both the NodePort and the ClusterIP (container) port.
-					AltDstPort: np,
-				}))
+				if validateFlows {
+					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
+						// The fact that curl is hitting the NodePort instead of the
+						// backend Pod's port is specified here. This will cause the matcher
+						// to accept both the NodePort and the ClusterIP (container) port.
+						AltDstPort: np,
+					}))
+				}
 			})
 		}
 	})
@@ -261,11 +264,16 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 	clientPod := t.Context().HostNetNSPodsByNode()[t.NodesWithoutCilium()[0]]
 	i := 0
 
+	// With kube-proxy doing N/S LB it is not possible to see the original client
+	// IP, as iptables rules do the LB SNAT/DNAT before the packet hits any
+	// of Cilium's datapath BPF progs. So, skip the flow validation in that case.
+	_, validateFlows := t.Context().Feature(check.FeatureKPRNodePort)
+
 	for _, svc := range t.Context().EchoServices() {
 		for _, node := range t.Context().Nodes() {
 			node := node // copy to avoid memory aliasing when using reference
 
-			curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &clientPod, svc, node)
+			curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &clientPod, svc, node, validateFlows)
 			i++
 		}
 	}
