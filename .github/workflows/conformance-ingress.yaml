@@ -166,24 +166,6 @@ jobs:
             --values metallb_values.yaml \
             --wait
 
-      # Remove this step once https://github.com/cilium/cilium-cli/pull/1432 is merged.
-      - name: Create Ingress Endpoint
-        if: ${{ matrix.loadbalancer-mode == 'shared' }}
-        timeout-minutes: 5
-        run: |
-          cat << EOF | kubectl apply -f -
-          apiVersion: v1
-          kind: Endpoints
-          metadata:
-            name: cilium-ingress
-            namespace: kube-system
-          subsets:
-          - addresses:
-            - ip: "192.192.192.192"
-            ports:
-            - port: 9999
-          EOF
-
       - name: Create sample workload
         timeout-minutes: 5
         run: |
