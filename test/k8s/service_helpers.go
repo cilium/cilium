@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -122,8 +123,11 @@ func testCurlFromPodWithSourceIPCheck(kubectl *helpers.Kubectl, clientPodLabel, 
 				"Can not connect to url %q from pod(%s)", url, pod)
 			if sourceIP != "" {
 				// Parse the IPs to avoid issues with 4-in-6 formats
-				outIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
-				srcIP := net.ParseIP(sourceIP)
+				ipStr := strings.TrimSpace(strings.Split(res.Stdout(), "=")[1])
+				outIP, err := netip.ParseAddr(ipStr)
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IP %q", ipStr)
+				srcIP, err := netip.ParseAddr(sourceIP)
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IP %q", sourceIP)
 				ExpectWithOffset(1, outIP).To(Equal(srcIP))
 			}
 		}
@@ -145,7 +149,8 @@ func testCurlFromPodsFail(kubectl *helpers.Kubectl, clientPodLabel, url string) 
 func curlClusterIPFromExternalHost(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) *helpers.CmdRes {
 	clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appServiceName)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get service %s", appServiceName)
-	ExpectWithOffset(1, net.ParseIP(clusterIP) != nil).Should(BeTrue(), "ClusterIP is not an IP")
+	_, err = netip.ParseAddr(clusterIP)
+	ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IP %q", clusterIP)
 	httpSVCURL := fmt.Sprintf("http://%s/", net.JoinHostPort(clusterIP, "80"))
 
 	By("testing external connectivity via cluster IP %s", clusterIP)
@@ -217,12 +222,20 @@ func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, ni *helpers.Node
 			"Can not connect to service %q from outside cluster (%d/%d)", url, i, count)
 		if checkSourceIP {
 			// Parse the IPs to avoid issues with 4-in-6 formats
-			sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
-			var outIP net.IP
-			if sourceIP.To4() != nil {
-				outIP = net.ParseIP(ni.OutsideIP)
-			} else {
-				outIP = net.ParseIP(ni.OutsideIPv6)
+			ipStr := strings.TrimSpace(strings.Split(res.Stdout(), "=")[1])
+			sourceIP, err := netip.ParseAddr(ipStr)
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IP %q", ipStr)
+			var outIP netip.Addr
+			switch {
+			case sourceIP.Is4():
+				outIP, err = netip.ParseAddr(ni.OutsideIP)
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IPv4 address %q", ni.OutsideIP)
+			case sourceIP.Is4In6():
+				outIP, err = netip.ParseAddr(ni.OutsideIP)
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IPv4-mapped IPv6 address %q", ni.OutsideIP)
+			default:
+				outIP, err = netip.ParseAddr(ni.OutsideIPv6)
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IPv6 address %q", ni.OutsideIP)
 			}
 			ExpectWithOffset(1, sourceIP).To(Equal(outIP))
 		}
