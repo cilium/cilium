@@ -820,8 +820,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
 	struct remote_endpoint_info *info;
-	int verdict = CTX_ACT_REDIRECT;
-	bool use_tunnel = false;
+	__be32 tunnel_endpoint = 0;
+	__u32 dst_sec_identity = 0;
 	union v6addr *dst;
 #endif
 
@@ -837,18 +837,10 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	dst = (union v6addr *)&ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 	if (info && info->tunnel_endpoint != 0) {
-		ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-					  WORLD_ID,
-					  info->sec_identity,
-					  NOT_VTEP_DST,
-					  (enum trace_reason)CT_NEW,
-					  TRACE_PAYLOAD_LEN, &oif);
-		if (IS_ERR(ret))
-			goto drop_err;
+		tunnel_endpoint = info->tunnel_endpoint;
+		dst_sec_identity = info->sec_identity;
 
 		BPF_V6(target.addr, ROUTER_IP);
-		use_tunnel = true;
-		verdict = ret;
 	}
 #endif
 	ret = snat_v6_nat(ctx, &target, &ext_err);
@@ -857,12 +849,21 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 #ifdef TUNNEL_MODE
-	if (use_tunnel) {
+	if (tunnel_endpoint) {
+		ret = __encap_with_nodeid(ctx, tunnel_endpoint,
+					  WORLD_ID,
+					  dst_sec_identity,
+					  NOT_VTEP_DST,
+					  (enum trace_reason)CT_NEW,
+					  TRACE_PAYLOAD_LEN, &oif);
+		if (IS_ERR(ret))
+			goto drop_err;
+
 		cilium_capture_out(ctx);
-		if (verdict == CTX_ACT_REDIRECT)
+		if (ret == CTX_ACT_REDIRECT)
 			return ctx_redirect(ctx, oif, 0);
 		ctx_move_xfer(ctx);
-		return verdict;
+		return ret;
 	}
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -2033,8 +2034,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
 	struct remote_endpoint_info *info;
-	int verdict = CTX_ACT_REDIRECT;
-	bool use_tunnel = false;
+	__be32 tunnel_endpoint = 0;
+	__u32 dst_sec_identity = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -2043,25 +2044,10 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info && info->tunnel_endpoint != 0) {
-		/* The request came from outside, so we need to
-		 * set the security id in the tunnel header to WORLD_ID.
-		 * Otherwise, the remote node will assume, that the
-		 * request originated from a cluster node which will
-		 * bypass any netpol which disallows LB requests from
-		 * outside.
-		 */
-		ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-					  WORLD_ID,
-					  info->sec_identity,
-					  NOT_VTEP_DST,
-					  (enum trace_reason)CT_NEW,
-					  TRACE_PAYLOAD_LEN, &oif);
-		if (IS_ERR(ret))
-			goto drop_err;
+		tunnel_endpoint = info->tunnel_endpoint;
+		dst_sec_identity = info->sec_identity;
 
 		target.addr = IPV4_GATEWAY;
-		use_tunnel = true;
-		verdict = ret;
 	}
 #endif
 	ret = snat_v4_nat(ctx, &target, &ext_err);
@@ -2070,12 +2056,28 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 #ifdef TUNNEL_MODE
-	if (use_tunnel) {
+	if (tunnel_endpoint) {
+		/* The request came from outside, so we need to
+		 * set the security id in the tunnel header to WORLD_ID.
+		 * Otherwise, the remote node will assume, that the
+		 * request originated from a cluster node which will
+		 * bypass any netpol which disallows LB requests from
+		 * outside.
+		 */
+		ret = __encap_with_nodeid(ctx, tunnel_endpoint,
+					  WORLD_ID,
+					  dst_sec_identity,
+					  NOT_VTEP_DST,
+					  (enum trace_reason)CT_NEW,
+					  TRACE_PAYLOAD_LEN, &oif);
+		if (IS_ERR(ret))
+			goto drop_err;
+
 		cilium_capture_out(ctx);
-		if (verdict == CTX_ACT_REDIRECT)
+		if (ret == CTX_ACT_REDIRECT)
 			return ctx_redirect(ctx, oif, 0);
 		ctx_move_xfer(ctx);
-		return verdict;
+		return ret;
 	}
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
