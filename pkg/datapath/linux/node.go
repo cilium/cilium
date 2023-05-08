@@ -1893,3 +1893,90 @@ func NodeDeviceNameWithDefaultRoute() (string, error) {
 	}
 	return link.Attrs().Name, nil
 }
+
+func deleteOldLocalRule(family int, rule route.Rule) error {
+	var familyStr string
+
+	// sanity check, nothing to do if the rule is the same
+	if linux_defaults.RTProto == unix.RTPROT_UNSPEC {
+		return nil
+	}
+
+	if family == netlink.FAMILY_V4 {
+		familyStr = "IPv4"
+	} else {
+		familyStr = "IPv6"
+	}
+
+	localRules, err := route.ListRules(family, &rule)
+	if err != nil {
+		return fmt.Errorf("could not list local %s rules: %w", familyStr, err)
+	}
+
+	// we need to check for the old rule and make sure it's before the new one
+	oldPos := -1
+	found := false
+	for pos, rule := range localRules {
+		// mark the first unspec rule that matches
+		if oldPos == -1 && rule.Protocol == unix.RTPROT_UNSPEC {
+			oldPos = pos
+		}
+
+		if rule.Protocol == linux_defaults.RTProto {
+			// mark it as found only if it's before the new one
+			if oldPos != -1 {
+				found = true
+			}
+			break
+		}
+	}
+
+	if found == true {
+		err := route.DeleteRule(family, rule)
+		if err != nil {
+			return fmt.Errorf("could not delete old %s local rule: %w", familyStr, err)
+		}
+		log.WithFields(logrus.Fields{"family": familyStr}).Info("Deleting old local lookup rule")
+	}
+
+	return nil
+}
+
+// NodeEnsureLocalIPRule checks if Cilium local lookup rule (usually 100)
+// was installed and has proper protocol
+func NodeEnsureLocalIPRule() error {
+	// we have the Cilium local lookup rule only if the proxy rule is present
+	if !option.Config.InstallIptRules || !option.Config.EnableL7Proxy {
+		return nil
+	}
+
+	localRule := route.Rule{Priority: linux_defaults.RulePriorityLocalLookup, Table: unix.RT_TABLE_LOCAL, Mark: -1, Mask: -1, Protocol: linux_defaults.RTProto}
+	oldRule := localRule
+	oldRule.Protocol = unix.RTPROT_UNSPEC
+
+	if option.Config.EnableIPv4 {
+		err := route.ReplaceRule(localRule)
+		if err != nil {
+			return fmt.Errorf("could not replace IPv4 local rule: %w", err)
+		}
+
+		err = deleteOldLocalRule(netlink.FAMILY_V4, oldRule)
+		if err != nil {
+			return err
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		err := route.ReplaceRuleIPv6(localRule)
+		if err != nil {
+			return fmt.Errorf("could not replace IPv6 local rule: %w", err)
+		}
+
+		err = deleteOldLocalRule(netlink.FAMILY_V6, oldRule)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
