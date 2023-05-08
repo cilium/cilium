@@ -6,6 +6,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -33,6 +34,7 @@ type ImagePathMode int
 const (
 	ImagePathExcludeDigest ImagePathMode = iota
 	ImagePathIncludeDigest
+	CLIModeVariableName = "CILIUM_CLI_MODE"
 )
 
 var imageRegexp = regexp.MustCompile(`\A(.*?)(?:(:.*?)(@sha256:[0-9a-f]{64})?)?\z`)
@@ -171,4 +173,9 @@ func Contains(l []string, v string) bool {
 		}
 	}
 	return false
+}
+
+// IsInHelmMode returns true if cilium-cli is in "helm" mode. Otherwise, it returns false.
+func IsInHelmMode() bool {
+	return os.Getenv(CLIModeVariableName) == "helm"
 }
