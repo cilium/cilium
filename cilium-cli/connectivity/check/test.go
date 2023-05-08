@@ -625,7 +625,7 @@ func (t *Test) ForEachIPFamily(do func(IPFamily)) {
 	// netpols installed (tracked in https://github.com/cilium/cilium/issues/23852
 	// and https://github.com/cilium/cilium/issues/23910). Once both issues
 	// are resolved, we can start testing IPv6 with netpols.
-	if f, ok := t.Context().Feature(FeatureEndpointRoutes); ok && f.Enabled && len(t.cnps) > 0 {
+	if f, ok := t.Context().Feature(FeatureEndpointRoutes); ok && f.Enabled && (len(t.cnps) > 0 || len(t.knps) > 0) {
 		ipFams = []IPFamily{IPFamilyV4}
 	}
 
