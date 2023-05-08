@@ -21,7 +21,7 @@ env:
 jobs:
   installation-and-connectivity:
     runs-on: ubuntu-22.04
-    timeout-minutes: 40
+    timeout-minutes: 50
     strategy:
       matrix:
         mode: ["classic", "helm"]
@@ -187,7 +187,7 @@ jobs:
 
   helm-upgrade-clustermesh:
     runs-on: ubuntu-22.04
-    timeout-minutes: 40
+    timeout-minutes: 50
 
     env:
       CILIUM_CLI_MODE: helm
