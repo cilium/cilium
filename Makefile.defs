@@ -39,7 +39,7 @@ DOCKER_BUILD_FLAGS?=
 
 # use gsed if avaiable, otherwise use sed.
 # gsed is needed for MacOS to make in-place replacement work correctly.
-SED ?= $(if $(shell command -v gsed), gsed, sed)
+SED ?= $(if $(shell command -v gsed),gsed,sed)
 
 # Set DOCKER_DEV_ACCOUNT with "cilium" by default
 ifeq ($(DOCKER_DEV_ACCOUNT),)
