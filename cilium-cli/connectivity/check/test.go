@@ -93,6 +93,9 @@ type Test struct {
 	// Start time of the test.
 	startTime time.Time
 
+	// Completion time of the test.
+	completionTime time.Time
+
 	// Buffer to store output until it's flushed by a failure.
 	// Unused when run in verbose or debug mode.
 	logMu   sync.RWMutex
@@ -219,6 +222,10 @@ func (t *Test) Run(ctx context.Context) error {
 
 	// Store start time of the Test.
 	t.startTime = time.Now()
+	// Store completion of the Test when function is returned
+	defer func() {
+		t.completionTime = time.Now()
+	}()
 
 	t.ctx.Logf("[=] Test [%s]", t.Name())
 
