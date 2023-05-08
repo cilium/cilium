@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Push to Loki
-        uses: michi-covalent/push-to-loki@v0.2.2
+        uses: michi-covalent/push-to-loki@d23647451078d19828deaa27a45e83437fd4a17c # v0.2.2
         with:
           endpoint: https://logs-prod3.grafana.net/loki/api/v1/push
           username: ${{ secrets.LOKI_USERNAME }}

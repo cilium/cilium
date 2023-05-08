@@ -49,7 +49,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
       - name: Install kubectl
         run: |
@@ -60,7 +60,7 @@ jobs:
           kubectl version --client
 
       - name: Login to Azure
-        uses: azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2
+        uses: azure/login@92a5484dfaf04ca78a94597f4f19fea633851fa2 # v1.4.6
         with:
           client-id: ${{ secrets.AZURE_PR_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_PR_TENANT_ID }}
@@ -210,7 +210,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
