@@ -1097,66 +1097,45 @@ func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 boo
 	// Global singleton sessionUDPFactory which is used for IPv4 & IPv6
 	sessUdpFactory := &sessionUDPFactory{ipv4Enabled: ipv4, ipv6Enabled: ipv6}
 
+	var ipFamilies []ipFamily
 	if ipv4 {
-		lc := listenConfig(linux_defaults.MagicMarkEgress, true, false)
-
-		tcpListener, err := lc.Listen(context.Background(), "tcp4", evaluateAddress(address, port, bindPort, false))
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to listen on TCPv4: %w", err)
-		}
-		dnsServers = append(dnsServers, &dns.Server{
-			Listener: tcpListener, Handler: handler,
-			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
-			Net: "TCP", Addr: tcpListener.Addr().String(),
-		})
-
-		bindPort = uint16(tcpListener.Addr().(*net.TCPAddr).Port)
-
-		udpConn, err := lc.ListenPacket(context.Background(), "udp4", evaluateAddress(address, port, bindPort, false))
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to listen on UDPv4: %w", err)
-		}
-		dnsServers = append(dnsServers, &dns.Server{
-			PacketConn: udpConn, Handler: handler, SessionUDPFactory: sessUdpFactory,
-			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
-			Net: "UDP", Addr: udpConn.LocalAddr().String(),
-		})
+		ipFamilies = append(ipFamilies, ipv4Family())
+	}
+	if ipv6 {
+		ipFamilies = append(ipFamilies, ipv6Family())
 	}
 
-	if ipv6 {
-		lc := listenConfig(linux_defaults.MagicMarkEgress, false, true)
+	for _, ipf := range ipFamilies {
+		lc := listenConfig(linux_defaults.MagicMarkEgress, ipf.IPv4Enabled, ipf.IPv6Enabled)
 
-		tcpListener, err := lc.Listen(context.Background(), "tcp6", evaluateAddress(address, port, bindPort, true))
+		tcpListener, err := lc.Listen(context.Background(), ipf.TCPAddress, evaluateAddress(address, port, bindPort, ipf))
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to listen on TCPv6: %w", err)
+			return nil, 0, fmt.Errorf("failed to listen on %s: %w", ipf.TCPAddress, err)
 		}
 		dnsServers = append(dnsServers, &dns.Server{
 			Listener: tcpListener, Handler: handler,
 			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
-			Net: "TCP", Addr: tcpListener.Addr().String(),
+			Net: ipf.TCPAddress, Addr: tcpListener.Addr().String(),
 		})
 
 		bindPort = uint16(tcpListener.Addr().(*net.TCPAddr).Port)
 
-		udpConn, err := lc.ListenPacket(context.Background(), "udp6", evaluateAddress(address, port, bindPort, true))
+		udpConn, err := lc.ListenPacket(context.Background(), ipf.UDPAddress, evaluateAddress(address, port, bindPort, ipf))
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to listen on UDPv6: %w", err)
+			return nil, 0, fmt.Errorf("failed to listen on %s: %w", ipf.UDPAddress, err)
 		}
 		dnsServers = append(dnsServers, &dns.Server{
 			PacketConn: udpConn, Handler: handler, SessionUDPFactory: sessUdpFactory,
 			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
-			Net: "UDP", Addr: udpConn.LocalAddr().String(),
+			Net: ipf.UDPAddress, Addr: udpConn.LocalAddr().String(),
 		})
 	}
 
 	return dnsServers, bindPort, nil
 }
 
-func evaluateAddress(address string, port uint16, bindPort uint16, ipv6 bool) string {
-	addr := "127.0.0.1"
-	if ipv6 {
-		addr = "::1"
-	}
+func evaluateAddress(address string, port uint16, bindPort uint16, ipFamily ipFamily) string {
+	addr := ipFamily.Localhost
 
 	if address != "" {
 		addr = address
