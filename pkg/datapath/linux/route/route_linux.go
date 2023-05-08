@@ -13,6 +13,8 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 )
 
 const (
@@ -174,6 +176,7 @@ func createNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) *n
 		LinkIndex: link.Attrs().Index,
 		Dst:       routerNet,
 		Table:     route.Table,
+		Protocol:  linux_defaults.RTProto,
 	}
 
 	// Known issue: scope for IPv6 routes is not propagated correctly. If
