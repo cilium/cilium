@@ -29,6 +29,7 @@ ENDPOINT_ROUTES=${22}
 PROXY_RULE=${23}
 FILTER_PRIO=${24}
 DEFAULT_RTPROTO=${25}
+LOCAL_RULE_PRIO=${26}
 
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
@@ -69,13 +70,13 @@ function move_local_rules_af()
 		return
 	fi
 
-	# move the local table lookup rule from pref 0 to pref 100 so we can
-	# insert the cilium ip rules before the local table. It is strictly
+	# move the local table lookup rule from pref 0 to pref LOCAL_RULE_PRIO so we
+	# can insert the cilium ip rules before the local table. It is strictly
 	# required to add the new local rule before deleting the old one as
 	# otherwise local addresses will not be reachable for a short period of
 	# time.
-	$IP rule list | grep 100 | grep "lookup local" || {
-		$IP rule add from all lookup local pref 100 proto $DEFAULT_RTPROTO
+	$IP rule list | grep "${LOCAL_RULE_PRIO}" | grep "lookup local" || {
+		$IP rule add from all lookup local pref ${LOCAL_RULE_PRIO} proto $DEFAULT_RTPROTO
 	}
 	$IP rule del from all lookup local pref 0 2> /dev/null || true
 
@@ -83,7 +84,7 @@ function move_local_rules_af()
 	# it otherwise
 	if [ "$($IP rule list | grep "lookup local" | wc -l)" -eq "0" ]; then
 		$IP rule add from all lookup local pref 0 proto $DEFAULT_RTPROTO
-		$IP rule del from all lookup local pref 100
+		$IP rule del from all lookup local pref ${LOCAL_RULE_PRIO}
 		echo "Error: The kernel does not support moving the local table routing rule"
 		echo "Local routing rules:"
 		$IP rule list lookup local
