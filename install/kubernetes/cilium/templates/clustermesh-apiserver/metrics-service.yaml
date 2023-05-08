@@ -1,0 +1,32 @@
+{{- if and
+  (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer)
+  (or .Values.clustermesh.apiserver.metrics.enabled .Values.clustermesh.apiserver.metrics.etcd.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: clustermesh-apiserver-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: clustermesh-apiserver
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: clustermesh-apiserver
+    app.kubernetes.io/component: metrics
+spec:
+  clusterIP: None
+  type: ClusterIP
+  ports:
+  {{- if .Values.clustermesh.apiserver.metrics.enabled }}
+  - name: apiserv-metrics
+    port: {{ .Values.clustermesh.apiserver.metrics.port }}
+    protocol: TCP
+    targetPort: apiserv-metrics
+  {{- end }}
+  {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
+  - name: etcd-metrics
+    port: {{ .Values.clustermesh.apiserver.metrics.etcd.port }}
+    protocol: TCP
+    targetPort: etcd-metrics
+  {{- end }}
+  selector:
+    k8s-app: clustermesh-apiserver
+{{- end }}

@@ -59,9 +59,9 @@ serviceAccounts:
     create: true
     # -- Enabled is temporary until https://github.com/cilium/cilium-cli/issues/1396 is implemented.
     # Cilium CLI doesn't create the SAs for node-init, thus the workaround. Helm is not affected by
-    # this issue. Name and automount can be configured, if enabled is set to true. 
+    # this issue. Name and automount can be configured, if enabled is set to true.
     # Otherwise, they are ignored. Enabled can be removed once the issue is fixed.
-    # Cilium-nodeinit DS must also be fixed. 
+    # Cilium-nodeinit DS must also be fixed.
     enabled: false
     name: cilium-nodeinit
     automount: true
@@ -2814,6 +2814,48 @@ clustermesh:
       remote:
         cert: ""
         key: ""
+
+    # clustermesh-apiserver Prometheus metrics configuration
+    metrics:
+      # -- Enables exporting apiserver metrics in OpenMetrics format.
+      enabled: false
+      # -- Configure the port the apiserver metric server listens on.
+      port: 9962
+
+      etcd:
+        # -- Enables exporting etcd metrics in OpenMetrics format.
+        enabled: false
+        # -- Set level of detail for etcd metrics; specify 'extensive' to include server side gRPC histogram metrics.
+        mode: basic
+        # -- Configure the port the etcd metric server listens on.
+        port: 9963
+
+      serviceMonitor:
+        # -- Enable service monitor.
+        # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+        enabled: false
+        # -- Labels to add to ServiceMonitor clustermesh-apiserver
+        labels: {}
+        # -- Annotations to add to ServiceMonitor clustermesh-apiserver
+        annotations: {}
+        # -- Specify the Kubernetes namespace where Prometheus expects to find
+        # service monitors configured.
+        # namespace: ""
+
+        # -- Interval for scrape metrics (apiserver metrics)
+        interval: "10s"
+        # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
+        relabelings: ~
+        # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
+        metricRelabelings: ~
+
+        etcd:
+          # -- Interval for scrape metrics (etcd metrics)
+          interval: "10s"
+          # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
+          relabelings: ~
+          # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
+          metricRelabelings: ~
 
 # -- Configure external workloads support
 externalWorkloads:
