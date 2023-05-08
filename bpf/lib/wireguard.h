@@ -22,7 +22,6 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	__u16 proto = 0;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	__u8 __maybe_unused icmp_type = 0;
 
 	if (!validate_ethertype(ctx, &proto))
 		return DROP_UNSUPPORTED_L2;
@@ -39,10 +38,15 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		 * NA should not be sent over WG.
 		 */
 		if (ip6->nexthdr == IPPROTO_ICMPV6) {
+			__u8 icmp_type;
+
 			if (data + sizeof(*ip6) + ETH_HLEN +
 			    sizeof(struct icmp6hdr) > data_end)
 				return DROP_INVALID;
-			icmp_type = icmp6_load_type(ctx, ETH_HLEN);
+
+			if (icmp6_load_type(ctx, ETH_HLEN, &icmp_type) < 0)
+				return DROP_INVALID;
+
 			if (icmp_type == ICMP6_NA_MSG_TYPE)
 				goto out;
 		}
