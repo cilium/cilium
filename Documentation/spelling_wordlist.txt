@@ -480,6 +480,7 @@ functionalities
 fwmark
 gRPC
 gVNIC
+gVisor
 gatewayAPI
 gcInterval
 gcTags

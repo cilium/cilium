@@ -600,7 +600,8 @@ therefore no additional lower layer NAT is required.
 Cilium has built-in support for bypassing the socket-level loadbalancer and falling back
 to the tc loadbalancer at the veth interface when a custom redirection/operation relies
 on the original ClusterIP within pod namespace (e.g., Istio side-car) or due to the Pod's
-nature the socket-level loadbalancer is ineffective (e.g., KubeVirt, Kata Containers).
+nature the socket-level loadbalancer is ineffective (e.g., KubeVirt, Kata Containers,
+gVisor).
 
 Setting ``socketLB.hostNamespaceOnly=true`` enables this bypassing mode. When enabled,
 this circumvents socket rewrite in the ``connect()`` and ``sendmsg()`` syscall bpf hook and
