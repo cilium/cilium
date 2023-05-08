@@ -400,6 +400,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 	Context("Host firewall", func() {
 		BeforeAll(func() {
 			kubectl.Exec("kubectl label nodes --all status=lockdown")
+
+			prepareHostPolicyEnforcement(kubectl)
 		})
 
 		AfterAll(func() {
@@ -515,6 +517,51 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 })
+
+// To avoid flakes, we need to perform some prep work before we enable host
+// policy enforcement.
+//
+// When we first enable the host firewall, Cilium will for the first time track
+// all hostns connections on all nodes. Because those connections are already
+// established, the first packet we see from them may be a reply packet. For
+// that reason, it's possible for Cilium to create conntrack entries in the
+// wrong direction. As a consequence, once host policies are enforced, we will
+// allow the forward path through and enforce policies on replies.
+// For example, consider a connection to the kube-apiserver, a:52483 -> b:6443.
+// If the first packet we track is the SYN+ACK, we will create a conntrack
+// entry TCP OUT b:6443 -> a:52483. All traffic a:52483 -> b:6443 will be
+// considered reply traffic and we will enforce policies on b:6443 -> a:52483.
+// If there are any L4 policy rules, this 52483 destination port is unlikely to
+// be allowed through.
+//
+// That situation unfortunately doesn't resolve on its own because Linux will
+// consider the connections to be in LAST-ACK state on the server side and will
+// keep them around indefinitely.
+//
+// To fix that, we need to force the termination of those connections. One way
+// to do that is to enforce policies just long enough that all such connections
+// will end up in a closing state (LAST-ACK or TIME-WAIT). Once that is the
+// case, we remove the policies to allow everything through and enable proper
+// termination of those connections.
+// This function implements that process.
+func prepareHostPolicyEnforcement(kubectl *helpers.Kubectl) {
+	deploymentManager.DeployCilium(map[string]string{
+		"hostFirewall.enabled": "true",
+	}, DeployCiliumOptionsAndDNS)
+
+	demoHostPolicies := helpers.ManifestGet(kubectl.BasePath(), "host-policies.yaml")
+	By(fmt.Sprintf("Applying policies %s for 1min", demoHostPolicies))
+	_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoHostPolicies, err))
+
+	time.Sleep(1 * time.Minute)
+
+	_, err = kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlDelete, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", demoHostPolicies, err))
+
+	By("Deleted the policies, waiting for connection terminations")
+	time.Sleep(30 * time.Second)
+}
 
 func testHostFirewall(kubectl *helpers.Kubectl) {
 	randomNs := deploymentManager.DeployRandomNamespaceShared(DemoHostFirewall)
