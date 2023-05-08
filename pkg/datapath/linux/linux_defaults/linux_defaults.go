@@ -3,6 +3,10 @@
 
 package linux_defaults
 
+import (
+	"golang.org/x/sys/unix"
+)
+
 // Linux specific constants used in Linux datapath
 const (
 	// RouteTableIPSec is the default table ID to use for IPSec routing rules
@@ -59,6 +63,9 @@ const (
 
 	// IPSecProtocolID IP protocol ID for IPSec defined in RFC4303
 	RouteProtocolIPSec = 50
+
+	// RTProto is the default protocol we install our fib rules and routes with
+	RTProto = unix.RTPROT_KERNEL
 
 	// RulePriorityWireguard is the priority of the rule used for routing packets to Wireguard device for encryption
 	RulePriorityWireguard = 1
