@@ -74,6 +74,26 @@
       ]
     },
     {
+      "enabled": false,
+      "matchPackageNames": [
+        // All of these packages are maintained on a Cilium fork. Thus, we don't
+        // want to update them automatically.
+        "go.universe.tf/metallb",
+        "github.com/cilium/metallb",
+        "github.com/miekg/dns",
+        "github.com/cilium/dns",
+        "sigs.k8s.io/controller-tools",
+        "github.com/cilium/controller-tools",
+        // We update this dependency manually together with envoy proxy updates
+        "github.com/cilium/proxy",
+      ],
+      "matchPackagePatterns": [
+        // k8s dependencies will be updated manually in lockstep.
+        "k8s.io/*",
+        "sigs.k8s.io/*"
+      ]
+    },
+    {
       // Images that directly use docker.io/library/golang for building.
       "groupName": "golang-images",
       "matchFiles": [
