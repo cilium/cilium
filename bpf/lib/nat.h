@@ -427,10 +427,6 @@ snat_v4_icmp_rewrite_ingress_embedded(struct __ctx_buff *ctx,
 		switch (tuple->nexthdr) {
 		case IPPROTO_TCP:
 		case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-		case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
-		{
 			/* In case that the destination port has been NATed from
 			 * target to dest. We want the embedded packet which
 			 * should refer to endpoint dest going back to original.
@@ -441,7 +437,10 @@ snat_v4_icmp_rewrite_ingress_embedded(struct __ctx_buff *ctx,
 					    sizeof(state->to_dport), 0) < 0)
 				return DROP_WRITE_ERROR;
 			break;
-		}
+#ifdef ENABLE_SCTP
+		case IPPROTO_SCTP:
+			return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
 		case IPPROTO_ICMP: {
 			/* In case that the ID has been used as source port during
 			 * NAT from target to dest. We want the embedded packet
@@ -1517,10 +1516,6 @@ static __always_inline int snat_v6_icmp_rewrite_embedded(struct __ctx_buff *ctx,
 		switch (tuple->nexthdr) {
 		case IPPROTO_TCP:
 		case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-		case IPPROTO_SCTP:
-
-#endif  /* ENABLE_SCTP */
 			/* In case that the destination port has been NATed from
 			 * target to dest. We want the embedded packet which
 			 * should refer to endpoint dest going back to original.
@@ -1529,6 +1524,10 @@ static __always_inline int snat_v6_icmp_rewrite_embedded(struct __ctx_buff *ctx,
 					    &state->to_dport, sizeof(state->to_dport), 0) < 0)
 				return DROP_WRITE_ERROR;
 			break;
+#ifdef ENABLE_SCTP
+		case IPPROTO_SCTP:
+			return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
 		case IPPROTO_ICMPV6: {
 			/* In case that the ID has been used as source port during
 			 * NAT from target to dest. We want the embedded packet

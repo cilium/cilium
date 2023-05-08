@@ -506,7 +506,7 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 	 * snat_v4_rev_nat().
 	 */
 	ret = snat_v4_rev_nat(ctx, &target, NULL);
-	assert(ret == 0);
+	assert(ret == DROP_CSUM_L4);
 
 	/* nothing really change with udp/tcp */
 	test_finish();
