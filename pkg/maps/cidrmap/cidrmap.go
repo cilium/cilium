@@ -42,7 +42,12 @@ const (
 
 type cidrKey struct {
 	Prefixlen uint32
-	Net       [16]byte
+
+	// v4 LPM maps have 8-byte key sizes even though the 20-byte cidrKey is used
+	// for map ops. This hack relies on passing unsafe.Pointers to the cidrKey so
+	// the kernel only accesses Prefixlen (4 bytes) and the first 4 bytes of Net.
+	// v4 net.IPNets are packed into those 4 first bytes.
+	Net [16]byte
 }
 
 func (cm *CIDRMap) cidrKeyInit(cidr net.IPNet) (key cidrKey) {
@@ -92,7 +97,7 @@ func (cm *CIDRMap) DeleteCIDR(cidr net.IPNet) error {
 		return err
 	}
 	log.WithField(logfields.Path, cm.path).Debugf("Removing CIDR entry %s", cidr.String())
-	return bpf.DeleteElement(cm.m.FD(), unsafe.Pointer(&key))
+	return cm.m.Delete(unsafe.Pointer(&key))
 }
 
 // CIDRExists returns true if 'cidr' exists in map 'cm'

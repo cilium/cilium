@@ -329,7 +329,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(len(buf), Equals, 2)
 
 	// Now remove the CT entry which should remove both NAT entries
-	err = bpf.DeleteElement(ctMapAny.Map.FD(), unsafe.Pointer(ctKey))
+	err = ctMapAny.Map.Delete(ctKey)
 	c.Assert(err, IsNil)
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 	c.Assert(stats.IngressDeleted, Equals, uint32(1))
@@ -417,7 +417,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(len(buf), Equals, 1)
 
 	// Now remove the CT entry which should remove the NAT entry
-	err = bpf.DeleteElement(ctMapTCP.Map.FD(), unsafe.Pointer(ctKey))
+	err = ctMapTCP.Map.Delete(ctKey)
 	c.Assert(err, IsNil)
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
 	c.Assert(stats.IngressAlive, Equals, uint32(0))
@@ -492,7 +492,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(len(buf), Equals, 1)
 
 	// Now remove the CT entry which should remove the NAT entry
-	err = bpf.DeleteElement(ctMapTCP.Map.FD(), unsafe.Pointer(ctKey))
+	err = ctMapTCP.Map.Delete(ctKey)
 	c.Assert(err, IsNil)
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
 	c.Assert(stats.IngressAlive, Equals, uint32(0))
