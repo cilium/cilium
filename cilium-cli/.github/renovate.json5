@@ -121,15 +121,15 @@
       ]
     },
     {
-￼     "fileMatch": [
-￼       "^Makefile$"
-￼     ],
-￼     // This regex manages version strings in the Makefile,
-￼     // similar to the examples shown here:
-￼     //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
-￼     "matchStrings": [
-￼       "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION = (?<currentValue>.*)\\s+.+_SHA = (?<currentDigest>sha256:[a-f0-9]+)"
-￼     ]
-￼   }
+      "fileMatch": [
+        "^Makefile$"
+      ],
+      // This regex manages version strings in the Makefile,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION = (?<currentValue>.*)\\s+.+_SHA = (?<currentDigest>sha256:[a-f0-9]+)"
+      ]
+    }
   ]
 }
