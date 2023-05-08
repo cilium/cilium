@@ -25,6 +25,7 @@ import (
 	xrate "golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -41,6 +42,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
+	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -574,13 +576,28 @@ func onOperatorStartLeading(ctx context.Context) {
 		}
 	}
 
-	if operatorOption.Config.EndpointGCInterval != 0 {
+	// Conditionally start the CiliumEndpoint garbage collector.
+	// The GC needs to continually run long-term if EndpointGCInterval is non-zero and if CiliumEndpoint CRDs
+	// are enabled. Otherwise, the GC still needs to run once to account for the case in which a user transitions
+	// from CiliumEndpoint CRD mode to kvstore mode, and to check if there are any stale CEPs that need to be
+	// purged.
+	if operatorOption.Config.EndpointGCInterval != 0 && !option.Config.DisableCiliumEndpointCRD {
 		enableCiliumEndpointSyncGC(false)
 	} else {
-		// Even if the EndpointGC is disabled we still want it to run at least
-		// once. This is to prevent leftover CEPs from populating ipcache with
-		// stale entries.
-		enableCiliumEndpointSyncGC(true)
+		// Check if CEP CRD is available, as it could be missing if CEPs are not enabled.
+		// If the CRD is not available, then no garbage collection needs to be done.
+		_, err := k8s.APIExtClient().ApiextensionsV1().CustomResourceDefinitions().Get(
+			ctx, k8sconstv2.CEPName, metav1.GetOptions{ResourceVersion: "0"},
+		)
+		if err == nil {
+			enableCiliumEndpointSyncGC(true)
+		} else if k8sErrors.IsNotFound(err) {
+			log.WithError(err).Info("CiliumEndpoint CRD cannot be found, skipping garbage collection")
+		} else {
+			log.WithError(err).Error(
+				"Unable to determine if CiliumEndpoint CRD is installed, cannot start garbage collector",
+			)
+		}
 	}
 
 	err = enableCNPWatcher()
