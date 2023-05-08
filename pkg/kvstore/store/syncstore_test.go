@@ -11,7 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type KVPair struct{ Key, Value string }
@@ -235,4 +239,72 @@ func TestWorkqueueSyncStoreWithWorkers(t *testing.T) {
 	store.UpsertKey(ctx, NewKVPair("key2", "value2"))
 	require.Equal(t, NewKVPair("/foo/bar/key2", "value2"), eventually(backend.updated, 100*time.Millisecond))
 	require.Equal(t, NewKVPair("/foo/bar/key1", ""), eventually(backend.deleted, 100*time.Millisecond))
+}
+
+func TestWorkqueueSyncStoreMetrics(t *testing.T) {
+	defer func(name string, metric metrics.GaugeVec) {
+		option.Config.ClusterName = name
+		metrics.KVStoreSyncQueueSize = metric
+	}(option.Config.ClusterName, metrics.KVStoreSyncQueueSize)
+
+	option.Config.ClusterName = "foo"
+	cfg, collectors := metrics.CreateConfiguration([]string{"cilium_kvstore_sync_queue_size"})
+	require.True(t, cfg.KVStoreSyncQueueSizeEnabled)
+	require.Len(t, collectors, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	backend := NewFakeBackend(t, true)
+	store := NewWorkqueueSyncStore(backend, "cilium/state/nodes/v1")
+
+	// The queue size should be initially zero.
+	require.Equal(t, float64(0), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+
+	// We are not reading from the store, hence the queue size should reflect the number of upsertions
+	store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+	store.UpsertKey(ctx, NewKVPair("key2", "value2"))
+	require.Equal(t, float64(2), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+
+	// Upserting a different key shall increse the metric
+	store.UpsertKey(ctx, NewKVPair("key3", "value3"))
+	require.Equal(t, float64(3), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+
+	// Upserting an already upserted key (although with a different value) shall not increase the metric
+	store.UpsertKey(ctx, NewKVPair("key1", "valueA"))
+	require.Equal(t, float64(3), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+
+	// Start the store
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		store.Run(ctx)
+	}()
+
+	defer func() {
+		cancel()
+		wg.Wait()
+	}()
+
+	// The metric should reflect the updated queue size (one in this case, since one element has been processed, and
+	// another is being processed --- stuck performing Update()).
+	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key1", "valueA"), eventually(backend.updated, 100*time.Millisecond))
+	require.Equal(t, float64(1), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+
+	// Deleting one element, the queue size should grow by one (the worker is still stuck in the Update() call).
+	store.DeleteKey(ctx, NewKVPair("key1", ""))
+	require.Equal(t, float64(2), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+
+	backend.errorsOnUpdate["cilium/state/nodes/v1/key3"] = 1
+	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key2", "value2"), eventually(backend.updated, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key3", "value3"), eventually(backend.updated, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key1", ""), eventually(backend.deleted, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key3", "value3"), eventually(backend.updated, 250*time.Millisecond))
+
+	// Once all elements have been processed, the metric should be zero.
+	require.Equal(t, float64(0), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+
+	// The metric should reflect the specified cluster name if overwritten.
+	storeWithClusterName := NewWorkqueueSyncStore(backend, "cilium/state/nodes/v1", WSSWithSourceClusterName("bar"))
+	storeWithClusterName.UpsertKey(ctx, NewKVPair("key2", "value2"))
+	require.Equal(t, float64(1), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "bar")))
 }

@@ -428,6 +428,7 @@ Name                                     Labels                                 
 ``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Enabled    Duration of kvstore operation
 ``kvstore_events_queue_seconds``         ``action``, ``scope``                        Enabled    Duration of seconds of time received event was blocked before it could be queued
 ``kvstore_quorum_errors_total``          ``error``                                    Enabled    Number of quorum errors
+``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Enabled    Number of elements queued for synchronization in the kvstore
 ======================================== ============================================ ========== ========================================================
 
 Agent
