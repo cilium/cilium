@@ -65,22 +65,29 @@ the token returned by ``kubeadm init``
     name on each node.
 
 For existing installations with ``kube-proxy`` running as a DaemonSet, remove it
-by using the following commands below. **Careful:** Be aware that this will break
-existing service connections. It will also stop service related traffic until the
-Cilium replacement has been installed:
+by using the following commands below.
+
+.. warning::
+   Be aware that removing ``kube-proxy`` will break existing service connections. It will also stop service related traffic
+   until the Cilium replacement has been installed.
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system delete ds kube-proxy
-    $ # Delete the configmap as well to avoid kube-proxy being reinstalled during a Kubeadm upgrade (works only for K8s 1.19 and newer)
-    $ kubectl -n kube-system delete cm kube-proxy
-    $ # Run on each node with root permissions:
-    $ iptables-save | grep -v KUBE | iptables-restore
+   $ kubectl -n kube-system delete ds kube-proxy
+   $ # Delete the configmap as well to avoid kube-proxy being reinstalled during a Kubeadm upgrade (works only for K8s 1.19 and newer)
+   $ kubectl -n kube-system delete cm kube-proxy
+   $ # Run on each node with root permissions:
+   $ iptables-save | grep -v KUBE | iptables-restore
 
 .. include:: ../../installation/k8s-install-download-release.rst
 
-Next, generate the required YAML files and deploy them. **Important:** Make sure you correctly set your
-``API_SERVER_IP`` and ``API_SERVER_PORT`` below with the control-plane node IP address and the kube-apiserver port number reported by ``kubeadm init`` (Kubeadm will use port ``6443`` by default).
+Next, generate the required YAML files and deploy them. 
+
+.. important::
+
+   Make sure you correctly set your ``API_SERVER_IP`` and ``API_SERVER_PORT``
+   below with the control-plane node IP address and the kube-apiserver port
+   number reported by ``kubeadm init`` (Kubeadm will use port ``6443`` by default).
 
 Specifying this is necessary as ``kubeadm init`` is run explicitly without setting
 up kube-proxy and as a consequence, although it exports ``KUBERNETES_SERVICE_HOST``
@@ -178,7 +185,7 @@ Use ``--verbose`` for full details:
 As an optional next step, we will create an Nginx Deployment. Then we'll create a new NodePort service and
 validate that Cilium installed the service correctly.
 
-The following yaml is used for the backend pods:
+The following YAML is used for the backend pods:
 
 .. code-block:: yaml
 
@@ -359,8 +366,8 @@ Maglev Consistent Hashing (Beta)
 ********************************
 
 Cilium's eBPF kube-proxy replacement supports consistent hashing by implementing a variant
-of `The Maglev paper <https://storage.googleapis.com/pub-tools-public-publication-data/pdf/44824.pdf>`_
-hashing in its load balancer for backend selection. This improves resiliency in case of
+of `The Maglev hashing <https://storage.googleapis.com/pub-tools-public-publication-data/pdf/44824.pdf>`_
+in its load balancer for backend selection. This improves resiliency in case of
 failures. As well, it provides better load balancing properties since Nodes added to the cluster will
 make consistent backend selection throughout the cluster for a given 5-tuple without
 having to synchronize state with the other Nodes. Similarly, upon backend removal the backend
@@ -599,7 +606,7 @@ therefore no additional lower layer NAT is required.
 
 Cilium has built-in support for bypassing the socket-level loadbalancer and falling back
 to the tc loadbalancer at the veth interface when a custom redirection/operation relies
-on the original ClusterIP within pod namespace (e.g., Istio side-car) or due to the Pod's
+on the original ClusterIP within pod namespace (e.g., Istio sidecar) or due to the Pod's
 nature the socket-level loadbalancer is ineffective (e.g., KubeVirt, Kata Containers,
 gVisor).
 
@@ -631,14 +638,14 @@ in Cilium version `1.8 <https://cilium.io/blog/2020/06/22/cilium-18/#kube-proxy-
 the XDP (eXpress Data Path) layer where eBPF is operating directly in the networking
 driver instead of a higher layer.
 
-The mode setting ``loadBalancer.acceleration`` allows to enable this acceleration
-through the option ``native``. The option ``disabled`` is the default and disables the
-acceleration. The majority of drivers supporting 10G or higher rates also support
-``native`` XDP on a recent kernel. For cloud based deployments most of these drivers
-have SR-IOV variants that support native XDP as well. For on-prem deployments the
-Cilium XDP acceleration can be used in combination with LoadBalancer service
-implementations for Kubernetes such as `MetalLB <https://metallb.universe.tf/>`_. The
-acceleration can be enabled only on a single device which is used for direct routing.
+Setting ``loadBalancer.acceleration`` to option ``native`` enables this acceleration.
+The option ``disabled`` is the default and disables the acceleration. The majority
+of drivers supporting 10G or higher rates also support ``native`` XDP on a recent
+kernel. For cloud based deployments most of these drivers have SR-IOV variants that
+support native XDP as well. For on-prem deployments the Cilium XDP acceleration can
+be used in combination with LoadBalancer service implementations for Kubernetes such
+as `MetalLB <https://metallb.universe.tf/>`_. The acceleration can be enabled only
+on a single device which is used for direct routing.
 
 For high-scale environments, also consider tweaking the default map sizes to a larger
 number of entries e.g. through setting a higher ``config.bpfMapDynamicSizeRatio``.
@@ -669,7 +676,7 @@ the multi-device XDP acceleration.
 NodePort acceleration can be used with either direct routing (``routingMode=native``)
 or tunnel mode. Direct routing is recommended to achieve optimal performance.
 
-A list of drivers supporting XDP can be found in :ref:`the documentation for XDP<xdp_drivers>`.
+A list of drivers supporting XDP can be found in :ref:`the XDP documentation<xdp_drivers>`.
 
 The current Cilium kube-proxy XDP acceleration mode can also be introspected through
 the ``cilium status`` CLI command. If it has been enabled successfully, ``Native``
@@ -895,7 +902,7 @@ When multiple devices are used, only one device can be used for direct routing
 between Cilium nodes. By default, if a single device was detected or specified
 via ``devices`` then Cilium will use that device for direct routing.
 Otherwise, Cilium will use a device with Kubernetes InternalIP or ExternalIP
-being set. InternalIP is preferred over ExternalIP if both exist. To change
+set. InternalIP is preferred over ExternalIP if both exist. To change
 the direct routing device, set the ``nodePort.directRoutingDevice`` Helm
 option, e.g. ``nodePort.directRoutingDevice=eth1``. The wildcard option can be
 used as well as the devices option, e.g. ``directRoutingDevice=eth+``.
@@ -1086,14 +1093,15 @@ Cilium's eBPF kube-proxy replacement can be configured in several modes, i.e. it
 replace kube-proxy entirely or it can co-exist with kube-proxy on the system if the
 underlying Linux kernel requirements do not support a full kube-proxy replacement.
 
-**Careful:** When deploying the eBPF kube-proxy replacement under co-existence with
-kube-proxy on the system, be aware that both mechanisms operate independent of each
-other. Meaning, if the eBPF kube-proxy replacement is added or removed on an already
-*running* cluster in order to delegate operation from respectively back to kube-proxy,
-then it must be expected that existing connections will break since, for example,
-both NAT tables are not aware of each other. If deployed in co-existence on a newly
-spawned up node/cluster which does not yet serve user traffic, then this is not an
-issue.
+.. warning::
+   When deploying the eBPF kube-proxy replacement under co-existence with
+   kube-proxy on the system, be aware that both mechanisms operate independent of each
+   other. Meaning, if the eBPF kube-proxy replacement is added or removed on an already
+   *running* cluster in order to delegate operation from respectively back to kube-proxy,
+   then it must be expected that existing connections will break since, for example,
+   both NAT tables are not aware of each other. If deployed in co-existence on a newly
+   spawned up node/cluster which does not yet serve user traffic, then this is not an
+   issue.
 
 This section elaborates on the various ``kubeProxyReplacement`` options:
 
