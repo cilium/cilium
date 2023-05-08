@@ -1075,7 +1075,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		 */
 		__be32 old_dip;
 
-		ret = ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);
+		ret = ipv4_load_daddr(ctx, l3_off, &old_dip);
 		if (IS_ERR(ret))
 			return ret;
 
