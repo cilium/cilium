@@ -2297,14 +2297,15 @@ func (kub *Kubectl) WaitTerminatingPodsInNs(ns string, timeout time.Duration) er
 // given timeout (in seconds) it returns an error.
 func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout time.Duration) error {
 	var innerErr error
+	var podsTerminating []string
+	where := ns
+	if where == "" {
+		where = "--all-namespaces"
+	} else {
+		where = "-n " + where
+	}
 
 	body := func() bool {
-		where := ns
-		if where == "" {
-			where = "--all-namespaces"
-		} else {
-			where = "-n " + where
-		}
 		res := kub.ExecShort(fmt.Sprintf(
 			"%s get pods %s %s -o jsonpath='{.items[?(.metadata.deletionTimestamp!=\"\")].metadata.name}'",
 			KubectlCmd, filter, where))
@@ -2318,7 +2319,7 @@ func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout
 			return true
 		}
 
-		podsTerminating := strings.Split(res.Stdout(), " ")
+		podsTerminating = strings.Split(res.Stdout(), " ")
 		nTerminating := len(podsTerminating)
 		kub.Logger().WithField("Terminating pods", nTerminating).Info("List of pods terminating")
 		if nTerminating > 0 {
@@ -2333,6 +2334,15 @@ func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout
 		"Pods are still not deleted after a timeout",
 		&TimeoutConfig{Timeout: timeout})
 	if err != nil {
+		if len(podsTerminating) > 0 {
+			res := kub.ExecShort(fmt.Sprintf(
+				"%s get pods %s %s -o jsonpath='{.items[?(.metadata.deletionTimestamp!=\"\")].status}'",
+				KubectlCmd, filter, where))
+			if res.WasSuccessful() {
+				kub.Logger().WithField("podsStatus", res.Stdout()).Info("Timed out while waiting for Pods to terminate")
+			}
+		}
+
 		return fmt.Errorf("%s: %w", err, innerErr)
 	}
 	return nil
