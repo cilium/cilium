@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/asaskevich/govalidator"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 
@@ -134,7 +133,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			for _, svcName := range serviceNames {
 				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, svcName)
 				Expect(err).Should(BeNil(), "Cannot get service %q ClusterIP", svcName)
-				Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+				Expect(net.ParseIP(clusterIP) != nil).Should(BeTrue(), "ClusterIP is not an IP")
 
 				url := fmt.Sprintf("http://%s/", net.JoinHostPort(clusterIP, "80"))
 				testCurlFromPods(kubectl, echoPodLabel, url, 10, 0)
