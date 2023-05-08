@@ -57,6 +57,7 @@ type Parameters struct {
 	ExternalOtherIP       string
 	ExternalFromCIDRs     []string
 	ExternalFromCIDRMasks []int // Derived from ExternalFromCIDRs
+	JunitFile             string
 
 	K8sVersion           string
 	HelmChartDirectory   string

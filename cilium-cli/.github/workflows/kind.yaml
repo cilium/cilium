@@ -154,7 +154,15 @@ jobs:
           # Run the connectivity test in non-default namespace (i.e. not cilium-test)
           cilium connectivity test --debug --all-flows --test-namespace test-namespace \
             --external-from-cidrs="${EXTERNAL_NODE_IPS_PARAM}" \
-            --collect-sysdump-on-failure
+            --collect-sysdump-on-failure --junit-file connectivity-${{ matrix.mode }}.xml
+
+      - name: Upload junit output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        with:
+          name: connectivity-${{ matrix.mode }}.xml
+          path: connectivity-${{ matrix.mode }}.xml
+          retention-days: 5
 
       - name: Uninstall cilium
         run: |
@@ -197,7 +205,15 @@ jobs:
         run: |
           cilium connectivity test --debug --force-deploy --all-flows --test-namespace test-namespace \
             --external-from-cidrs="${EXTERNAL_NODE_IPS_PARAM}" \
-            --collect-sysdump-on-failure
+            --collect-sysdump-on-failure --junit-file connectivity-ipsec-${{ matrix.mode }}.xml
+
+      - name: Upload junit output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        with:
+          name: connectivity-ipsec-${{ matrix.mode }}.xml
+          path: connectivity-ipsec-${{ matrix.mode }}.xml
+          retention-days: 5
 
       - name: Cleanup
         if: ${{ always() }}
@@ -215,7 +231,7 @@ jobs:
             kubectl label nodes "${node}" cilium.io/no-schedule-
           done
 
-      - name: Upload Artifacts
+      - name: Upload sysdump
         if: ${{ !success() }}
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
@@ -338,7 +354,16 @@ jobs:
 
       - name: Run the multicluster connectivity tests
         run: |
-          cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug --collect-sysdump-on-failure
+          cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug \
+          --collect-sysdump-on-failure --junit-file connectivity-clustermesh.xml
+      
+      - name: Upload junit output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        with:
+          name: connectivity-clustermesh.xml
+          path: connectivity-clustermesh.xml
+          retention-days: 5
 
       - name: Cleanup
         if: ${{ always() }}
