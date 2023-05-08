@@ -38,14 +38,22 @@ func (c CIDR) MatchesAll() bool {
 type CIDRRule struct {
 	// CIDR is a CIDR prefix / IP Block.
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:OneOf
 	Cidr CIDR `json:"cidr"`
+
+	// CIDRGroupRef is a reference to a CiliumCIDRGroup object.
+	// A CiliumCIDRGroup contains a list of CIDRs that the endpoint, subject to
+	// the rule, can (Ingress) or cannot (IngressDeny) receive connections from.
+	//
+	// +kubebuilder:validation:OneOf
+	CIDRGroupRef CIDRGroupRef `json:"cidrGroupRef,omitempty"`
 
 	// ExceptCIDRs is a list of IP blocks which the endpoint subject to the rule
 	// is not allowed to initiate connections to. These CIDR prefixes should be
-	// contained within Cidr. These exceptions are only applied to the Cidr in
-	// this CIDRRule, and do not apply to any other CIDR prefixes in any other
-	// CIDRRules.
+	// contained within Cidr, using ExceptCIDRs together with CIDRGroupRef is not
+	// supported yet.
+	// These exceptions are only applied to the Cidr in this CIDRRule, and do not
+	// apply to any other CIDR prefixes in any other CIDRRules.
 	//
 	// +kubebuilder:validation:Optional
 	ExceptCIDRs []CIDR `json:"except,omitempty"`
@@ -171,3 +179,11 @@ func addrsToCIDRRules(addrs []netip.Addr) []CIDRRule {
 	}
 	return cidrRules
 }
+
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+//
+// CIDRGroupRef is a reference to a CIDR Group.
+// A CIDR Group is a list of CIDRs whose IP addresses should be considered as a
+// same entity when applying fromCIDRGroupRefs policies on incoming network traffic.
+type CIDRGroupRef string

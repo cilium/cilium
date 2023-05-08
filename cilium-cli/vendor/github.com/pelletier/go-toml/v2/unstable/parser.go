@@ -132,12 +132,12 @@ func (p *Parser) NextExpression() bool {
 }
 
 // Expression returns a pointer to the node representing the last successfully
-// parsed expresion.
+// parsed expression.
 func (p *Parser) Expression() *Node {
 	return p.builder.NodeAt(p.ref)
 }
 
-// Error returns any error that has occured during parsing.
+// Error returns any error that has occurred during parsing.
 func (p *Parser) Error() error {
 	return p.err
 }
@@ -402,6 +402,7 @@ func (p *Parser) parseInlineTable(b []byte) (reference, []byte, error) {
 	// inline-table-keyvals = keyval [ inline-table-sep inline-table-keyvals ]
 	parent := p.builder.Push(Node{
 		Kind: InlineTable,
+		Raw:  p.Range(b[:1]),
 	})
 
 	first := true

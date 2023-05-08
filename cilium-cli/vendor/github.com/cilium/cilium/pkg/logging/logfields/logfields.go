@@ -232,6 +232,9 @@ const (
 	// Hash is a hash of something
 	Hash = "hash"
 
+	// ServerNames is the list of TLS SNIs
+	ServerNames = "serverNames"
+
 	// ServiceName is the orchestration framework name for a service
 	ServiceName = "serviceName"
 
@@ -630,6 +633,10 @@ const (
 	// SourceIP is a source IP
 	SourceIP = "sourceIP"
 
+	DestinationIP = "destinationIP"
+
+	SourceCIDR = "sourceCIDR"
+
 	// DestinationCIDR is a destination CIDR
 	DestinationCIDR = "destinationCIDR"
 
@@ -644,6 +651,13 @@ const (
 
 	// Number of Backends failed while restoration.
 	FailedBackends = "failedBackends"
+
+	// SkippedBackends is the number of Backends that were skipped during restore
+	// as duplicates.
+	SkippedBackends = "skippedBackends"
+
+	// OrphanBackends is the number Backends that are not associated with any services.
+	OrphanBackends = "orphanBackends"
 
 	// Number of Services failed while restoration.
 	RestoredSVCs = "restoredServices"
@@ -677,4 +691,7 @@ const (
 
 	// User identifies a given user
 	User = "user"
+
+	// CIDRGroupRef is a references to a CiliumCIDRGroup object.
+	CIDRGroupRef = "cidrGroupRef"
 )

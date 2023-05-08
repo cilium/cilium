@@ -12,6 +12,7 @@ package metrics
 
 import (
 	"net/http"
+	"regexp"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -219,6 +220,9 @@ const (
 )
 
 var (
+	// goCustomCollectorsRX tracks enabled go runtime metrics.
+	goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
+
 	registry = prometheus.NewPedanticRegistry()
 
 	// BootstrapTimes is the durations of cilium-agent bootstrap sequence.
@@ -292,6 +296,15 @@ var (
 	// through the datapath. The longest times will roughly correlate with the
 	// time taken to fully deploy an endpoint.
 	PolicyImplementationDelay = NoOpObserverVec
+
+	// CIDRGroup
+
+	// CIDRGroupTranslationTimeStats is the time taken to translate the policy field `FromCIDRGroupRef`
+	// after the referenced CIDRGroups have been updated or deleted.
+	CIDRGroupTranslationTimeStats = NoOpHistogram
+
+	// CIDRGroupPolicies is the number of CNPs and CCNPs referencing at least one CiliumCIDRGroup.
+	CIDRGroupPolicies = NoOpGauge
 
 	// Identity
 
@@ -549,6 +562,8 @@ type Configuration struct {
 	PolicyChangeTotalEnabled                bool
 	PolicyEndpointStatusEnabled             bool
 	PolicyImplementationDelayEnabled        bool
+	CIDRGroupTranslationTimeStatsEnabled    bool
+	CIDRGroupPoliciesCountEnabled           bool
 	IdentityCountEnabled                    bool
 	EventTSEnabled                          bool
 	EventLagK8sEnabled                      bool
@@ -626,6 +641,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_policy_change_total":                                           {},
 		Namespace + "_policy_endpoint_enforcement_status":                            {},
 		Namespace + "_policy_implementation_delay":                                   {},
+		Namespace + "_cidrgroup_policies":                                            {},
 		Namespace + "_identity":                                                      {},
 		Namespace + "_event_ts":                                                      {},
 		Namespace + "_proxy_redirects":                                               {},
@@ -666,6 +682,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemIPCache + "_errors_total":                         {},
 		Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":                      {},
 		Namespace + "_" + SubsystemBPF + "_map_ops_total":                            {},
+		Namespace + "_" + SubsystemBPF + "_map_pressure":                             {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_total":                 {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_folds":                 {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_call_duration_seconds": {},
@@ -826,6 +843,26 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, PolicyImplementationDelay)
 			c.PolicyImplementationDelayEnabled = true
+
+		case Namespace + "_cidrgroup_translation_time_stats_seconds":
+			CIDRGroupTranslationTimeStats = prometheus.NewHistogram(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Name:      "cidrgroup_translation_time_stats_seconds",
+				Help:      "CIDRGroup translation time stats",
+			})
+
+			collectors = append(collectors, CIDRGroupTranslationTimeStats)
+			c.CIDRGroupTranslationTimeStatsEnabled = true
+
+		case Namespace + "_cidrgroup_policies":
+			CIDRGroupPolicies = prometheus.NewGauge(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "cidrgroup_policies",
+				Help:      "Number of CNPs and CCNPs referencing at least one CiliumCIDRGroup",
+			})
+
+			collectors = append(collectors, CIDRGroupPolicies)
+			c.CIDRGroupPoliciesCountEnabled = true
 
 		case Namespace + "_identity":
 			Identity = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -1560,7 +1597,10 @@ func init() {
 
 func registerDefaultMetrics() {
 	MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
-	MustRegister(collectors.NewGoCollector())
+	MustRegister(collectors.NewGoCollector(
+		collectors.WithGoCollectorRuntimeMetrics(
+			collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
+		)))
 	MustRegister(newStatusCollector())
 	MustRegister(newbpfCollector())
 }

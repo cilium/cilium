@@ -198,6 +198,10 @@ const (
 	// should watch for.
 	K8sWatcherEndpointSelector = "k8s-watcher-endpoint-selector"
 
+	// EnableK8s operation of Kubernetes-related services/controllers.
+	// Intended for operating cilium with CNI-compatible orchestrators other than Kubernetes. (default is true)
+	EnableK8s = "enable-k8s"
+
 	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
 	K8sAPIServer = "k8s-api-server"
 
@@ -498,6 +502,13 @@ const (
 
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
+
+	// RoutingMode is the name of the option to choose between native routing and tunneling mode
+	RoutingMode = "routing-mode"
+
+	// TunnelProtocol is the name of the option to select the tunneling protocol
+	TunnelProtocol = "tunnel-protocol"
+
 	// TunnelPortName is the name of the TunnelPort option
 	TunnelPortName = "tunnel-port"
 
@@ -727,6 +738,10 @@ const (
 	// EnableIPSecName is the name of the option to enable IPSec
 	EnableIPSecName = "enable-ipsec"
 
+	// Duration of the IPsec key rotation. After that time, we will clean the
+	// previous IPsec key from the node.
+	IPsecKeyRotationDuration = "ipsec-key-rotation-duration"
+
 	// IPSecKeyFileName is the name of the option for ipsec key file
 	IPSecKeyFileName = "ipsec-key-file"
 
@@ -799,10 +814,6 @@ const (
 
 	// LocalRouterIPv6 is the link-local IPv6 address to use for Cilium router device
 	LocalRouterIPv6 = "local-router-ipv6"
-
-	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
-	// endpoint for all local communication
-	ForceLocalPolicyEvalAtSource = "force-local-policy-eval-at-source"
 
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes = "enable-endpoint-routes"
@@ -968,6 +979,10 @@ const (
 
 	// HubbleSkipUnknownCGroupIDs specifies if events with unknown cgroup ids should be skipped
 	HubbleSkipUnknownCGroupIDs = "hubble-skip-unknown-cgroup-ids"
+
+	// HubbleMonitorEvents specifies Cilium monitor events for Hubble to observe.
+	// By default, Hubble observes all monitor events.
+	HubbleMonitorEvents = "hubble-monitor-events"
 
 	// DisableIptablesFeederRules specifies which chains will be excluded
 	// when installing the feeder rules
@@ -1147,6 +1162,15 @@ const (
 
 	// TunnelDisabled specifies to disable encapsulation
 	TunnelDisabled = "disabled"
+)
+
+// Available options for DaemonConfig.RoutingMode
+const (
+	// RoutingModeNative specifies native routing mode
+	RoutingModeNative = "native"
+
+	// RoutingModeTunnel specifies tunneling mode
+	RoutingModeTunnel = "tunnel"
 )
 
 // Envoy option names
@@ -1345,9 +1369,11 @@ type DaemonConfig struct {
 	// devices.
 	EnableRuntimeDeviceDetection bool
 
-	DatapathMode string // Datapath mode
-	Tunnel       string // Tunnel mode
-	TunnelPort   int    // Tunnel port
+	DatapathMode   string // Datapath mode
+	Tunnel         string // Tunnel mode
+	RoutingMode    string // Routing mode
+	TunnelProtocol string // Tunneling protocol
+	TunnelPort     int    // Tunnel port
 
 	DryMode bool // Do not create BPF maps, devices, ..
 
@@ -1618,6 +1644,10 @@ type DaemonConfig struct {
 	// IPSec key file for stored keys
 	IPSecKeyFile string
 
+	// Duration of the IPsec key rotation. After that time, we will clean the
+	// previous IPsec key from the node.
+	IPsecKeyRotationDuration time.Duration
+
 	// EnableWireguard enables Wireguard encryption
 	EnableWireguard bool
 
@@ -1858,10 +1888,6 @@ type DaemonConfig struct {
 
 	// LocalRouterIPv6 is the link-local IPv6 address used for Cilium's router device
 	LocalRouterIPv6 string
-
-	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
-	// endpoint for all local communication
-	ForceLocalPolicyEvalAtSource bool
 
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes bool
@@ -2131,6 +2157,10 @@ type DaemonConfig struct {
 	// HubbleSkipUnknownCGroupIDs specifies if events with unknown cgroup ids should be skipped
 	HubbleSkipUnknownCGroupIDs bool
 
+	// HubbleMonitorEvents specifies Cilium monitor events for Hubble to observe.
+	// By default, Hubble observes all monitor events.
+	HubbleMonitorEvents []string
+
 	// EndpointStatus enables population of information in the
 	// CiliumEndpoint.Status resource
 	EndpointStatus map[string]struct{}
@@ -2331,7 +2361,6 @@ var (
 		KVStoreOpt:                   make(map[string]string),
 		LogOpt:                       make(map[string]string),
 		LoopbackIPv4:                 defaults.LoopbackIPv4,
-		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 		K8sServiceCacheSize:          defaults.K8sServiceCacheSize,
@@ -2445,15 +2474,19 @@ func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 	}
 }
 
-// TunnelingEnabled returns true if tunneling is enabled, i.e. not set to "disabled".
+// TunnelingEnabled returns true if tunneling is enabled.
 func (c *DaemonConfig) TunnelingEnabled() bool {
-	return c.Tunnel != TunnelDisabled
+	// We check if routing mode is not native rather than checking if it's
+	// tunneling because, in unit tests, RoutingMode is usually not set and we
+	// would like for TunnelingEnabled to default to the actual default
+	// (tunneling is enabled) in that case.
+	return c.RoutingMode != RoutingModeNative
 }
 
 // TunnelDevice returns cilium_{vxlan,geneve} depending on the config or "" if disabled.
 func (c *DaemonConfig) TunnelDevice() string {
 	if c.TunnelingEnabled() {
-		return fmt.Sprintf("cilium_%s", c.Tunnel)
+		return fmt.Sprintf("cilium_%s", c.TunnelProtocol)
 	} else {
 		return ""
 	}
@@ -2502,7 +2535,7 @@ func (c *DaemonConfig) IptablesMasqueradingEnabled() bool {
 // NodeIpsetNeeded returns true if a node ipsets should be used to skip
 // masquerading for traffic to cluster nodes.
 func (c *DaemonConfig) NodeIpsetNeeded() bool {
-	return c.Tunnel == TunnelDisabled && c.IptablesMasqueradingEnabled()
+	return !c.TunnelingEnabled() && c.IptablesMasqueradingEnabled()
 }
 
 // RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
@@ -2687,15 +2720,22 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 		}
 	}
 
-	switch c.Tunnel {
-	case TunnelVXLAN, TunnelGeneve, "":
-	case TunnelDisabled:
-		if c.UseSingleClusterRoute {
-			return fmt.Errorf("option --%s cannot be used in combination with --%s=%s",
-				SingleClusterRouteName, TunnelName, TunnelDisabled)
-		}
+	switch c.RoutingMode {
+	case RoutingModeNative, RoutingModeTunnel:
 	default:
-		return fmt.Errorf("invalid tunnel mode '%s', valid modes = {%s}", c.Tunnel, GetTunnelModes())
+		return fmt.Errorf("invalid routing mode %q, valid modes = {%q, %q}",
+			c.RoutingMode, RoutingModeTunnel, RoutingModeNative)
+	}
+
+	switch c.TunnelProtocol {
+	case TunnelVXLAN, TunnelGeneve:
+	default:
+		return fmt.Errorf("invalid tunnel protocol %q", c.TunnelProtocol)
+	}
+
+	if c.RoutingMode == RoutingModeNative && c.UseSingleClusterRoute {
+		return fmt.Errorf("option --%s cannot be used in combination with --%s=%s",
+			SingleClusterRouteName, RoutingMode, RoutingModeNative)
 	}
 
 	if c.ClusterID < clustermeshTypes.ClusterIDMin || c.ClusterID > clustermeshTypes.ClusterIDMax {
@@ -2915,7 +2955,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
 	c.EnvoyLogPath = vp.GetString(EnvoyLog)
-	c.ForceLocalPolicyEvalAtSource = vp.GetBool(ForceLocalPolicyEvalAtSource)
 	c.HTTPNormalizePath = vp.GetBool(HTTPNormalizePath)
 	c.HTTPIdleTimeout = vp.GetInt(HTTPIdleTimeout)
 	c.HTTPMaxGRPCTimeout = vp.GetInt(HTTPMaxGRPCTimeout)
@@ -2971,6 +3010,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPTablesLockTimeout = vp.GetDuration(IPTablesLockTimeout)
 	c.IPTablesRandomFully = vp.GetBool(IPTablesRandomFully)
 	c.IPSecKeyFile = vp.GetString(IPSecKeyFileName)
+	c.IPsecKeyRotationDuration = vp.GetDuration(IPsecKeyRotationDuration)
 	c.EnableMonitor = vp.GetBool(EnableMonitorName)
 	c.MonitorAggregation = vp.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
@@ -3047,10 +3087,23 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.TCFilterPriority = uint16(tcFilterPrio)
 
 	c.Tunnel = vp.GetString(TunnelName)
+	c.RoutingMode = vp.GetString(RoutingMode)
+	c.TunnelProtocol = vp.GetString(TunnelProtocol)
 	c.TunnelPort = vp.GetInt(TunnelPortName)
 
+	if c.Tunnel != "" && c.RoutingMode != defaults.RoutingMode {
+		log.Fatalf("Option --%s cannot be used in combination with --%s", RoutingMode, TunnelName)
+	}
+
+	if c.Tunnel == "disabled" {
+		c.RoutingMode = RoutingModeNative
+	} else if c.Tunnel != "" {
+		c.TunnelProtocol = c.Tunnel
+	}
+	c.Tunnel = ""
+
 	if c.TunnelPort == 0 {
-		switch c.Tunnel {
+		switch c.TunnelProtocol {
 		case TunnelDisabled:
 			// tunnel might still be used by eg. DSR with Geneve dispatch or EgressGW
 			if (c.EnableNodePort || c.KubeProxyReplacement == KubeProxyReplacementStrict) &&
@@ -3328,6 +3381,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.HubbleRecorderStoragePath = vp.GetString(HubbleRecorderStoragePath)
 	c.HubbleRecorderSinkQueueSize = vp.GetInt(HubbleRecorderSinkQueueSize)
 	c.HubbleSkipUnknownCGroupIDs = vp.GetBool(HubbleSkipUnknownCGroupIDs)
+	c.HubbleMonitorEvents = vp.GetStringSlice(HubbleMonitorEvents)
 
 	c.DisableIptablesFeederRules = vp.GetStringSlice(DisableIptablesFeederRules)
 	c.EnableCiliumEndpointSlice = vp.GetBool(EnableCiliumEndpointSlice)
@@ -3553,12 +3607,12 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 }
 
 func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
-	if c.GetIPv4NativeRoutingCIDR() == nil && c.EnableIPv4Masquerade && c.Tunnel == TunnelDisabled &&
+	if c.GetIPv4NativeRoutingCIDR() == nil && c.EnableIPv4Masquerade && !c.TunnelingEnabled() &&
 		c.IPAMMode() != ipamOption.IPAMENI && c.EnableIPv4 && c.IPAMMode() != ipamOption.IPAMAlibabaCloud {
 		return fmt.Errorf(
 			"native routing cidr must be configured with option --%s "+
 				"in combination with --%s --%s=%s --%s=%s --%s=true",
-			IPv4NativeRoutingCIDR, EnableIPv4Masquerade, TunnelName, c.Tunnel,
+			IPv4NativeRoutingCIDR, EnableIPv4Masquerade, RoutingMode, RoutingModeNative,
 			IPAM, c.IPAMMode(), EnableIPv4Name)
 	}
 
@@ -3566,12 +3620,12 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 }
 
 func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
-	if c.GetIPv6NativeRoutingCIDR() == nil && c.EnableIPv6Masquerade && c.Tunnel == TunnelDisabled &&
+	if c.GetIPv6NativeRoutingCIDR() == nil && c.EnableIPv6Masquerade && !c.TunnelingEnabled() &&
 		c.EnableIPv6 {
 		return fmt.Errorf(
 			"native routing cidr must be configured with option --%s "+
 				"in combination with --%s --%s=%s --%s=true",
-			IPv6NativeRoutingCIDR, EnableIPv6Masquerade, TunnelName, c.Tunnel,
+			IPv6NativeRoutingCIDR, EnableIPv6Masquerade, RoutingMode, RoutingModeNative,
 			EnableIPv6Name)
 	}
 
