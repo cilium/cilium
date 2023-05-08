@@ -146,6 +146,16 @@ func RequireFeatureEnabled(feature Feature) FeatureRequirement {
 	}
 }
 
+// RequireFeatureDisabled constructs a FeatureRequirement which expects the
+// feature to be disabled
+func RequireFeatureDisabled(feature Feature) FeatureRequirement {
+	return FeatureRequirement{
+		feature:         feature,
+		requiresEnabled: true,
+		enabled:         false,
+	}
+}
+
 // RequireFeatureMode constructs a FeatureRequirement which expects the feature
 // to be in the given mode
 func RequireFeatureMode(feature Feature, mode string) FeatureRequirement {
