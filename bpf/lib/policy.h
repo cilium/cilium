@@ -103,7 +103,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 
 		nexthdr = ip6->nexthdr;
 		off = ((void *)ip6 - data) + ipv6_hdrlen(ctx, &nexthdr);
-		if (ctx_load_bytes(ctx, off, &icmp_type, sizeof(icmp_type)) < 0)
+		if (icmp6_load_type(ctx, off, &icmp_type) < 0)
 			return DROP_INVALID;
 
 		/* Convert from unsigned char to unsigned short considering byte order(little-endian).

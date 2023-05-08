@@ -1698,7 +1698,7 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 			__u8 type = 0;
 			__be32 from, to;
 
-			if (ctx_load_bytes(ctx, off, &type, 1) < 0)
+			if (icmp6_load_type(ctx, off, &type) < 0)
 				return DROP_INVALID;
 			if (type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY) {
 				if (ctx_store_bytes(ctx, off +
@@ -1936,7 +1936,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx, __u32 off)
 		/* No reasons to see a packet different than
 		 * ICMPV6_ECHO_REQUEST.
 		 */
-		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0 ||
+		if (icmp6_load_type(ctx, icmpoff, &type) < 0 ||
 		    type != ICMPV6_ECHO_REQUEST)
 			return DROP_INVALID;
 		if (ctx_load_bytes(ctx, icmpoff +
