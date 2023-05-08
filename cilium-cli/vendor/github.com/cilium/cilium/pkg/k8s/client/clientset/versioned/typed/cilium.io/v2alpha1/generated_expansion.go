@@ -7,6 +7,8 @@ package v2alpha1
 
 type CiliumBGPPeeringPolicyExpansion interface{}
 
+type CiliumCIDRGroupExpansion interface{}
+
 type CiliumEndpointSliceExpansion interface{}
 
 type CiliumLoadBalancerIPPoolExpansion interface{}

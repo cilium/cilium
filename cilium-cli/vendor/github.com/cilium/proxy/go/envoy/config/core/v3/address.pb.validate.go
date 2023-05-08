@@ -806,17 +806,6 @@ func (m *BindConfig) validate(all bool) error {
 
 	var errors []error
 
-	if m.GetSourceAddress() == nil {
-		err := BindConfigValidationError{
-			field:  "SourceAddress",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if all {
 		switch v := interface{}(m.GetSourceAddress()).(type) {
 		case interface{ ValidateAll() error }:

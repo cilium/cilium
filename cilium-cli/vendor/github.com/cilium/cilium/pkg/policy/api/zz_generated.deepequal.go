@@ -101,6 +101,9 @@ func (in *CIDRRule) DeepEqual(other *CIDRRule) bool {
 	if in.Cidr != other.Cidr {
 		return false
 	}
+	if in.CIDRGroupRef != other.CIDRGroupRef {
+		return false
+	}
 	if ((in.ExceptCIDRs != nil) && (other.ExceptCIDRs != nil)) || ((in.ExceptCIDRs == nil) != (other.ExceptCIDRs == nil)) {
 		in, other := &in.ExceptCIDRs, &other.ExceptCIDRs
 		if other == nil {
