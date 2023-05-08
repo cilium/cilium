@@ -81,6 +81,10 @@ const (
 	// before the local table priority.
 	RulePriorityIngress = 20
 
+	// RulePriorityLocalLookup is the priority for the local lookup rule which is
+	// moved on init from 0
+	RulePriorityLocalLookup = 100
+
 	// RulePriorityEgress is the priority of the rule used for egress routing
 	// of endpoints. This priority is after the local table priority.
 	RulePriorityEgress = 110
