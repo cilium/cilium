@@ -68,7 +68,7 @@
         "patch",
         "pin",
         "pinDigest"
-      ]
+      ],
       matchBaseBranches: [
         "main"
       ]
