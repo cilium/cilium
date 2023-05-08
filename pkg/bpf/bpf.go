@@ -21,7 +21,6 @@ const (
 	// Deprecated: don't implement syscalls directly, use cilium/ebpf.
 	BPF_MAP_LOOKUP_ELEM  = 1
 	BPF_MAP_UPDATE_ELEM  = 2
-	BPF_MAP_DELETE_ELEM  = 3
 	BPF_MAP_GET_NEXT_KEY = 4
 	BPF_PROG_LOAD        = 5
 	BPF_PROG_ATTACH      = 8

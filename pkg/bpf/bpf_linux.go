@@ -149,41 +149,6 @@ func LookupElement(fd int, key, value unsafe.Pointer) error {
 	return ret
 }
 
-func deleteElement(fd int, key unsafe.Pointer) (uintptr, unix.Errno) {
-	uba := bpfAttrMapOpElem{
-		mapFd: uint32(fd),
-		key:   uint64(uintptr(key)),
-	}
-	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		duration = spanstat.Start()
-	}
-	ret, _, err := unix.Syscall(
-		unix.SYS_BPF,
-		BPF_MAP_DELETE_ELEM,
-		uintptr(unsafe.Pointer(&uba)),
-		unsafe.Sizeof(uba),
-	)
-	runtime.KeepAlive(key)
-	runtime.KeepAlive(&uba)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		metrics.BPFSyscallDuration.WithLabelValues(metricOpDelete, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
-	}
-
-	return ret, err
-}
-
-// DeleteElement deletes the map element with the given key.
-func DeleteElement(fd int, key unsafe.Pointer) error {
-	ret, err := deleteElement(fd, key)
-
-	if ret != 0 || err != 0 {
-		return fmt.Errorf("Unable to delete element from map with file descriptor %d: %s", fd, err)
-	}
-
-	return nil
-}
-
 // GetNextKeyFromPointers stores, in nextKey, the next key after the key of the
 // map in fd. When there are no more keys, io.EOF is returned.
 func GetNextKeyFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintptr) error {

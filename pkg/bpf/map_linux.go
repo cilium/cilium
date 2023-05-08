@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf/binary"
@@ -31,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 // ErrMaxLookup is returned when the maximum number of map element lookups has
@@ -923,13 +923,10 @@ func (m *Map) deleteCacheEntry(key MapKey, err error) {
 	}
 }
 
-// deleteMapEntry deletes the map entry corresponding to the given key.
-// If ignoreMissing is set to true and the entry is not found, then
-// the error metric is not incremented for missing entries and nil error is returned.
-func (m *Map) deleteMapEntry(key MapKey, ignoreMissing bool) (deleted bool, err error) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
+// delete deletes the map entry corresponding to the given key. If ignoreMissing
+// is set to true and the entry was not found, the error metric is not
+// incremented for missing entries and nil error is returned.
+func (m *Map) delete(key MapKey, ignoreMissing bool) (_ bool, err error) {
 	defer func() {
 		m.deleteMapEvent(key, err)
 		if err != nil {
@@ -941,34 +938,53 @@ func (m *Map) deleteMapEntry(key MapKey, ignoreMissing bool) (deleted bool, err 
 		return false, err
 	}
 
-	_, errno := deleteElement(m.FD(), key.GetKeyPtr())
-	deleted = errno == 0
-
-	// Error handling is skipped in the case ignoreMissing is set and the
-	// error is ENOENT. This removes false positives in the delete metrics
-	// and skips the deferred cleanup of non-existing entries. This situation
-	// occurs at least in the context of cleanup of NAT mappings from CT GC.
-	handleError := errno != unix.ENOENT || !ignoreMissing
-
-	if option.Config.MetricsConfig.BPFMapOps && handleError {
-		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
+	var duration *spanstat.SpanStat
+	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+		duration = spanstat.Start()
 	}
 
-	if errno != 0 && handleError {
-		err = fmt.Errorf("unable to delete element %s from map %s: %w", key, m.name, errno)
+	err = m.m.Delete(key.GetKeyPtr())
+
+	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+		metrics.BPFSyscallDuration.WithLabelValues(metricOpDelete, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
 	}
-	return
+
+	if errors.Is(err, ebpf.ErrKeyNotExist) && ignoreMissing {
+		// Error and metrics handling is skipped in case ignoreMissing is set and
+		// the map key did not exist. This removes false positives in the delete
+		// metrics and skips the deferred cleanup of nonexistent entries. This
+		// situation occurs at least in the context of cleanup of NAT mappings from
+		// CT GC.
+		return false, nil
+	}
+
+	if option.Config.MetricsConfig.BPFMapOps {
+		// err can be nil or any error other than ebpf.ErrKeyNotExist.
+		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("unable to delete element %s from map %s: %w", key, m.name, err)
+	}
+
+	return true, nil
 }
 
 // SilentDelete deletes the map entry corresponding to the given key.
-// If a map entry is not found this returns (true, nil).
+// If a map entry is not found this returns (false, nil).
 func (m *Map) SilentDelete(key MapKey) (deleted bool, err error) {
-	return m.deleteMapEntry(key, true)
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	return m.delete(key, true)
 }
 
 // Delete deletes the map entry corresponding to the given key.
 func (m *Map) Delete(key MapKey) error {
-	_, err := m.deleteMapEntry(key, false)
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	_, err := m.delete(key, false)
 	return err
 }
 
@@ -1015,7 +1031,7 @@ func (m *Map) DeleteAll() error {
 			return err
 		}
 
-		err := DeleteElement(m.FD(), unsafe.Pointer(&nextKey[0]))
+		err := m.m.Delete(nextKey)
 
 		mk, _, err2 := m.DumpParser(nextKey, []byte{}, mk, mv)
 		if err2 == nil {
@@ -1132,7 +1148,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 
 	resolved := 0
 	scanned := 0
-	errors := 0
+	nerr := 0
 	for k, e := range m.cache {
 		scanned++
 
@@ -1150,22 +1166,23 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 				m.outstandingErrors--
 			} else {
 				e.LastError = err
-				errors++
+				nerr++
 			}
 			m.cache[k] = e
 			m.addToEventsLocked(MapUpdate, *e)
 		case Delete:
-			_, err := deleteElement(m.FD(), e.Key.GetKeyPtr())
+			// Holding lock, issue direct delete on map.
+			err := m.m.Delete(e.Key.GetKeyPtr())
 			if option.Config.MetricsConfig.BPFMapOps {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
 			}
-			if err == 0 || err == unix.ENOENT {
+			if err == nil || errors.Is(err, ebpf.ErrKeyNotExist) {
 				delete(m.cache, k)
 				resolved++
 				m.outstandingErrors--
 			} else {
 				e.LastError = err
-				errors++
+				nerr++
 				m.cache[k] = e
 			}
 
@@ -1173,7 +1190,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		}
 
 		// bail out if maximum errors are reached to relax the map lock
-		if errors > maxSyncErrors {
+		if nerr > maxSyncErrors {
 			break
 		}
 	}
