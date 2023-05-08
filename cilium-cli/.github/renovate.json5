@@ -12,7 +12,7 @@
     "go.mod",
     "go.sum",
     "Dockerfile",
-    "Makefile",
+    "Makefile"
   ],
   postUpdateOptions: [
     "gomodTidy"
