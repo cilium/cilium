@@ -24,13 +24,6 @@ var (
 	timeout = 5 * time.Second
 )
 
-type KVPair struct{ Key, Value string }
-
-func NewKVPair(key, value string) *KVPair      { return &KVPair{Key: key, Value: value} }
-func (kv *KVPair) GetKeyName() string          { return kv.Key }
-func (kv *KVPair) Marshal() ([]byte, error)    { return []byte(kv.Value), nil }
-func (kv *KVPair) Unmarshal(data []byte) error { return nil /* not used */ }
-
 type fakeBackend struct {
 	t           *testing.T
 	expectLease bool

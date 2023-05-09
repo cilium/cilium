@@ -182,6 +182,24 @@ type LocalKey interface {
 	DeepKeyCopy() LocalKey
 }
 
+// KVPair represents a basic implementation of the LocalKey interface
+type KVPair struct{ Key, Value string }
+
+func NewKVPair(key, value string) *KVPair { return &KVPair{Key: key, Value: value} }
+func KVPairCreator() Key                  { return &KVPair{} }
+
+func (kv *KVPair) GetKeyName() string       { return kv.Key }
+func (kv *KVPair) Marshal() ([]byte, error) { return []byte(kv.Value), nil }
+
+func (kv *KVPair) Unmarshal(key string, data []byte) error {
+	kv.Key, kv.Value = key, string(data)
+	return nil
+}
+
+func (kv *KVPair) DeepKeyCopy() LocalKey {
+	return NewKVPair(kv.Key, kv.Value)
+}
+
 // JoinSharedStore creates a new shared store based on the provided
 // configuration. An error is returned if the configuration is invalid. The
 // store is initialized with the contents of the kvstore. An error is returned
