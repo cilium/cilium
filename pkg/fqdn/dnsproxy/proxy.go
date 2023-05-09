@@ -664,15 +664,20 @@ func StartDNSProxy(
 			// try 5 times during a single ProxyBindTimeout period. We fatal here
 			// because we have no other way to indicate failure this late.
 			start := time.Now()
+			var err error
 			for time.Since(start) < ProxyBindTimeout {
 				log.Debugf("Trying to start the %s DNS proxy on %s", server.Net, server.Addr)
 
-				if err := server.ActivateAndServe(); err != nil {
+				if err = server.ActivateAndServe(); err != nil {
 					log.WithError(err).Errorf("Failed to start the %s DNS proxy on %s", server.Net, server.Addr)
+					time.Sleep(ProxyBindRetryInterval)
+					continue
 				}
-				time.Sleep(ProxyBindRetryInterval)
+				break // successful shutdown before timeout
 			}
-			log.Fatalf("Failed to start the %s DNS proxy on %s", server.Net, server.Addr)
+			if err != nil {
+				log.WithError(err).Fatalf("Failed to start the %s DNS proxy on %s", server.Net, server.Addr)
+			}
 		}(s)
 	}
 
