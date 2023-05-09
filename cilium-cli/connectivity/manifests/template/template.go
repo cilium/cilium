@@ -1,12 +1,15 @@
-package utils
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package template
 
 import (
 	"bytes"
-	"text/template"
+	"html/template"
 )
 
-// RenderTemplate executes temp with data and returns the result
-func RenderTemplate(temp string, data any) (string, error) {
+// Render executes temp template with data and returns the result
+func Render(temp string, data any) (string, error) {
 	tm, err := template.New("template").Parse(temp)
 	if err != nil {
 		return "", err

@@ -12,8 +12,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/connectivity/manifests/template"
 	"github.com/cilium/cilium-cli/connectivity/tests"
-	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 var (
@@ -183,7 +183,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		"clientEgressL7HTTPMatchheaderSecretYAML":  clientEgressL7HTTPMatchheaderSecretYAML,
 		"echoIngressFromCIDRYAML":                  echoIngressFromCIDRYAML,
 	} {
-		val, err := utils.RenderTemplate(temp, ct.Params())
+		val, err := template.Render(temp, ct.Params())
 		if err != nil {
 			return err
 		}
