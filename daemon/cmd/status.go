@@ -532,6 +532,11 @@ func (c *clusterNodesClient) AllocateNodeID(_ net.IP) uint16 {
 	return 0
 }
 
+func (c *clusterNodesClient) GetNodeIP(_ uint16) string {
+	// no-op
+	return ""
+}
+
 func (c *clusterNodesClient) DumpNodeIDs() []*models.NodeID {
 	// no-op
 	return nil

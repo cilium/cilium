@@ -140,6 +140,9 @@ type NodeHandler interface {
 	// already assigned.
 	AllocateNodeID(net.IP) uint16
 
+	// GetNodeIP returns the string node IP that was previously registered as the given node ID.
+	GetNodeIP(uint16) string
+
 	// DumpNodeIDs returns all node IDs and their associated IP addresses.
 	DumpNodeIDs() []*models.NodeID
 

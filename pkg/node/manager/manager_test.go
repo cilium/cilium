@@ -193,6 +193,10 @@ func (n *signalNodeHandler) AllocateNodeID(_ net.IP) uint16 {
 	return 0
 }
 
+func (n *signalNodeHandler) GetNodeIP(_ uint16) string {
+	return ""
+}
+
 func (n *signalNodeHandler) DumpNodeIDs() []*models.NodeID {
 	return nil
 }
