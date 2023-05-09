@@ -713,17 +713,13 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
  * error code (distinct from NAT_PUNT_TO_STACK).
  */
 static __always_inline int
-snat_v4_prepare_state(struct __ctx_buff *ctx, struct ipv4_nat_target *target)
+snat_v4_prepare_state(struct __ctx_buff *ctx, struct iphdr *ip4,
+		      struct ipv4_nat_target *target)
 {
-	void *data, *data_end;
-	struct iphdr *ip4;
 	struct endpoint_info *local_ep __maybe_unused;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
 	struct egress_gw_policy_entry *egress_gw_policy __maybe_unused;
 	bool is_reply = false;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
 
 	/* Basic minimum is to only NAT when there is a potential of
 	 * overlapping tuples, e.g. applications in hostns reusing
@@ -986,13 +982,12 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target, __s8 *ext_err)
+snat_v4_nat(struct __ctx_buff *ctx, struct iphdr *ip4,
+	    const struct ipv4_nat_target *target, __s8 *ext_err)
 {
 	enum ct_action ct_action = ACTION_UNSPEC;
 	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_ct_tuple tuple = {};
-	void *data, *data_end;
-	struct iphdr *ip4;
 	struct {
 		__be16 sport;
 		__be16 dport;
@@ -1003,13 +998,10 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target, __s8 *
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
 	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
+	off = ETH_HLEN + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
@@ -1701,18 +1693,14 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 }
 
 static __always_inline int
-snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
+snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+		      struct ipv6_nat_target *target)
 {
 	union v6addr masq_addr __maybe_unused, router_ip __maybe_unused;
 	const union v6addr dr_addr __maybe_unused = IPV6_DIRECT_ROUTING;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
 	struct endpoint_info *local_ep;
 	bool is_reply = false;
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	BPF_V6(router_ip, ROUTER_IP);
@@ -1851,13 +1839,12 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 }
 
 static __always_inline __maybe_unused int
-snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target, __s8 *ext_err)
+snat_v6_nat(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+	    const struct ipv6_nat_target *target, __s8 *ext_err)
 {
 	enum ct_action ct_action = ACTION_UNSPEC;
 	struct icmp6hdr icmp6hdr __align_stack_8;
 	struct ipv6_ct_tuple tuple = {};
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
 	int hdrlen;
 	struct {
 		__be16 sport;
@@ -1868,9 +1855,6 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target, __s8 *
 
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-
 	tuple.nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
@@ -1878,7 +1862,7 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target, __s8 *
 
 	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, &tuple);
 
-	off = ((void *)ip6 - data) + hdrlen;
+	off = ETH_HLEN + hdrlen;
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:

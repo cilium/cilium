@@ -572,19 +572,21 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 				  NULL);
 	assert(ret == 0);
 
+	void *data;
+	void *data_end;
+	struct iphdr *ip4;
+
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &target, NULL);
+	ret = snat_v4_nat(ctx, ip4, &target, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
-	void *data;
-	void *data_end;
-
 	int l3_off;
 	int l4_off;
-	struct iphdr *ip4;
 	struct icmphdr icmphdr __align_stack_8;
 
 	assert(validate_ethertype(ctx, &proto));
@@ -682,19 +684,21 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 				  NULL);
 	assert(ret == 0);
 
+	void *data;
+	void *data_end;
+	struct iphdr *ip4;
+
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &target, NULL);
+	ret = snat_v4_nat(ctx, ip4, &target, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
-	void *data;
-	void *data_end;
-
 	int l3_off;
 	int l4_off;
-	struct iphdr *ip4;
 	struct icmphdr icmphdr __align_stack_8;
 
 	assert(validate_ethertype(ctx, &proto));
@@ -791,19 +795,21 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 				  NULL);
 	assert(ret == 0);
 
+	void *data;
+	void *data_end;
+	struct iphdr *ip4;
+
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &target, NULL);
+	ret = snat_v4_nat(ctx, ip4, &target, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
-	void *data;
-	void *data_end;
-
 	int l3_off;
 	int l4_off;
-	struct iphdr *ip4;
 	struct icmphdr icmphdr __align_stack_8;
 
 	assert(validate_ethertype(ctx, &proto));
@@ -889,19 +895,21 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 				  NULL);
 	assert(ret == 0);
 
+	void *data;
+	void *data_end;
+	struct iphdr *ip4;
+
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &target, NULL);
+	ret = snat_v4_nat(ctx, ip4, &target, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
-	void *data;
-	void *data_end;
-
 	int l3_off;
 	int l4_off;
-	struct iphdr *ip4;
 	struct icmphdr icmphdr __align_stack_8;
 
 	assert(validate_ethertype(ctx, &proto));
