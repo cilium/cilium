@@ -9,7 +9,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"runtime"
@@ -146,66 +145,6 @@ func LookupElement(fd int, key, value unsafe.Pointer) error {
 	ret := LookupElementFromPointers(fd, unsafe.Pointer(&uba), unsafe.Sizeof(uba))
 	runtime.KeepAlive(key)
 	runtime.KeepAlive(value)
-	return ret
-}
-
-// GetNextKeyFromPointers stores, in nextKey, the next key after the key of the
-// map in fd. When there are no more keys, io.EOF is returned.
-func GetNextKeyFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintptr) error {
-	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		duration = spanstat.Start()
-	}
-	ret, _, err := unix.Syscall(
-		unix.SYS_BPF,
-		BPF_MAP_GET_NEXT_KEY,
-		uintptr(structPtr),
-		sizeOfStruct,
-	)
-	runtime.KeepAlive(structPtr)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		metrics.BPFSyscallDuration.WithLabelValues(metricOpGetNextKey, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
-	}
-
-	// BPF_MAP_GET_NEXT_KEY returns ENOENT when all keys have been iterated
-	// translate that to io.EOF to signify there are no next keys
-	if errors.Is(err, unix.ENOENT) {
-		return io.EOF
-	}
-
-	if ret != 0 || err != 0 {
-		return fmt.Errorf("Unable to get next key from map with file descriptor %d: %s", fd, err)
-	}
-
-	return nil
-}
-
-// GetNextKey stores, in nextKey, the next key after the key of the map in fd.
-// Deprecated, use GetNextKeyFromPointers
-func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
-	uba := bpfAttrMapOpElem{
-		mapFd: uint32(fd),
-		key:   uint64(uintptr(key)),
-		value: uint64(uintptr(nextKey)),
-	}
-
-	ret := GetNextKeyFromPointers(fd, unsafe.Pointer(&uba), unsafe.Sizeof(uba))
-	runtime.KeepAlive(key)
-	runtime.KeepAlive(nextKey)
-	return ret
-}
-
-// GetFirstKey fetches the first key in the map. If there are no keys in the
-// map, io.EOF is returned.
-func GetFirstKey(fd int, nextKey unsafe.Pointer) error {
-	uba := bpfAttrMapOpElem{
-		mapFd: uint32(fd),
-		key:   0, // NULL -> Get first element
-		value: uint64(uintptr(nextKey)),
-	}
-
-	ret := GetNextKeyFromPointers(fd, unsafe.Pointer(&uba), unsafe.Sizeof(uba))
-	runtime.KeepAlive(nextKey)
 	return ret
 }
 

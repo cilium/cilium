@@ -113,8 +113,7 @@ func (cm *CIDRMap) CIDRNext(cidr *net.IPNet) *net.IPNet {
 	if cidr != nil {
 		key = cm.cidrKeyInit(*cidr)
 	}
-	err := bpf.GetNextKey(cm.m.FD(), unsafe.Pointer(&key), unsafe.Pointer(&keyNext))
-	if err != nil {
+	if err := cm.m.NextKey(unsafe.Pointer(&key), unsafe.Pointer(&keyNext)); err != nil {
 		return nil
 	}
 	out := cm.keyCidrInit(keyNext)
