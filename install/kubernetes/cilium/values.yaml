@@ -1729,13 +1729,6 @@ envoy:
   # Enable Envoy Proxy in standalone DaemonSet.
   enabled: false
 
-  # Location of unix sockets for communication between Agent & Envoy.
-  socketDir:
-    # Socket directory within the envoy & agent containers
-    containers: "/var/run/cilium/envoy/sockets"
-    # Socket directory on the host
-    host: "/var/run/cilium/envoy/sockets"
-
   log:
     # The format string to use for laying out the log message metadata of Envoy.
     format: "[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"

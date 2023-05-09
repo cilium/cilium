@@ -173,7 +173,7 @@ spec:
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - name: envoy-sockets
-          mountPath: {{ .Values.envoy.socketDir.containers }}
+          mountPath: /var/run/cilium/envoy/sockets
           readOnly: false
         - name: envoy-config
           mountPath: /var/run/cilium/envoy/
@@ -222,7 +222,7 @@ spec:
       volumes:
       - name: envoy-sockets
         hostPath:
-          path: {{ .Values.envoy.socketDir.host }}
+          path: "{{ .Values.daemon.runPath }}/envoy/sockets"
           type: DirectoryOrCreate
       - name: envoy-config
         configMap:

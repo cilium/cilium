@@ -222,7 +222,7 @@
                   "endpoint": {
                     "address": {
                       "pipe": {
-                        "path": "{{ .Values.envoy.socketDir.containers }}/xds.sock"
+                        "path": "/var/run/cilium/envoy/sockets/xds.sock"
                       }
                     }
                   }
@@ -253,7 +253,7 @@
                   "endpoint": {
                     "address": {
                       "pipe": {
-                        "path": "{{ .Values.envoy.socketDir.containers }}/admin.sock"
+                        "path": "/var/run/cilium/envoy/sockets/admin.sock"
                       }
                     }
                   }
@@ -312,7 +312,7 @@
   "admin": {
     "address": {
       "pipe": {
-        "path": "{{ .Values.envoy.socketDir.containers }}/admin.sock"
+        "path": "/var/run/cilium/envoy/sockets/admin.sock"
       }
     }
   }
