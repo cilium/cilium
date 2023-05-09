@@ -104,11 +104,16 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	int ret;
 
-	ret = snat_v6_prepare_state(ctx, &target);
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	ret = snat_v6_prepare_state(ctx, ip6, &target);
 	if (ret == NAT_NEEDED)
-		ret = snat_v6_nat(ctx, &target, ext_err);
+		ret = snat_v6_nat(ctx, ip6, &target, ext_err);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -1437,11 +1442,16 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		.cluster_id = cluster_id,
 #endif
 	};
+	void *data, *data_end;
+	struct iphdr *ip4;
 	int ret;
 
-	ret = snat_v4_prepare_state(ctx, &target);
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	ret = snat_v4_prepare_state(ctx, ip4, &target);
 	if (ret == NAT_NEEDED)
-		ret = snat_v4_nat(ctx, &target, ext_err);
+		ret = snat_v4_nat(ctx, ip4, &target, ext_err);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
