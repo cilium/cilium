@@ -69,6 +69,7 @@ func (t *signalSuite) TestSignalSet(c *C) {
 	c.Assert(sm.isMuted(), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, true)
+	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
 
 	// invalid signal, nothing changes
 	err := sm.UnmuteSignals(SignalType(16))
@@ -77,6 +78,7 @@ func (t *signalSuite) TestSignalSet(c *C) {
 	c.Assert(sm.isMuted(), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, true)
+	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
 
 	// 2 active signals
 	err = sm.UnmuteSignals(SignalNatFillUp, SignalCTFillUp)
@@ -84,6 +86,7 @@ func (t *signalSuite) TestSignalSet(c *C) {
 	c.Assert(sm.isMuted(), Equals, false)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, false)
 	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, false)
+	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
 
 	c.Assert(events.paused, Equals, false)
 	c.Assert(events.closed, Equals, false)
@@ -94,16 +97,40 @@ func (t *signalSuite) TestSignalSet(c *C) {
 	c.Assert(sm.isMuted(), Equals, false)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, false)
+	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
 
 	c.Assert(events.paused, Equals, false)
 	c.Assert(events.closed, Equals, false)
 
-	// Last signal is muted
-	err = sm.MuteSignals(SignalNatFillUp, SignalCTFillUp)
+	// Nothing happens if the signal is already muted
+	err = sm.MuteSignals(SignalNatFillUp)
+	c.Assert(err, IsNil)
+	c.Assert(sm.isMuted(), Equals, false)
+	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
+	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, false)
+	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
+
+	c.Assert(events.paused, Equals, false)
+	c.Assert(events.closed, Equals, false)
+
+	// Unmute one more
+	err = sm.UnmuteSignals(SignalAuthRequired)
+	c.Assert(err, IsNil)
+	c.Assert(sm.isMuted(), Equals, false)
+	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
+	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, false)
+	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, false)
+
+	c.Assert(events.paused, Equals, false)
+	c.Assert(events.closed, Equals, false)
+
+	// Last signala are muted
+	err = sm.MuteSignals(SignalCTFillUp, SignalAuthRequired)
 	c.Assert(err, IsNil)
 	c.Assert(sm.isMuted(), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, true)
+	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
 
 	c.Assert(events.paused, Equals, true)
 	c.Assert(events.closed, Equals, false)
@@ -114,6 +141,7 @@ func (t *signalSuite) TestSignalSet(c *C) {
 	c.Assert(sm.isMuted(), Equals, false)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, false)
+	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
 
 	c.Assert(events.paused, Equals, false)
 	c.Assert(events.closed, Equals, false)

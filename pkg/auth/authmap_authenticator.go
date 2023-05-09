@@ -4,6 +4,8 @@
 package auth
 
 import (
+	"time"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 )
@@ -18,7 +20,11 @@ func newAuthMapAuthenticator(authMap authmap.Map) datapathAuthenticator {
 	}
 }
 
-func (r *authMapAuthenticator) markAuthenticated(result *authResult) error {
-	return r.authMap.Update(result.localIdentity, result.remoteIdentity,
-		result.remoteNodeID, result.authType, utime.TimeToUTime(result.expirationTime))
+func (r *authMapAuthenticator) markAuthenticated(key AuthKey, expiration time.Time) error {
+	return r.authMap.Update(authmap.AuthKey(key), utime.TimeToUTime(expiration))
+}
+
+func (r *authMapAuthenticator) checkAuthenticated(key AuthKey) bool {
+	info, err := r.authMap.Lookup(authmap.AuthKey(key))
+	return err == nil && info.Expiration.Time().After(time.Now())
 }

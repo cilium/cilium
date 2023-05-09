@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -1613,7 +1612,6 @@ type daemonParams struct {
 	EndpointManager      endpointmanager.EndpointManager
 	CertManager          certificatemanager.CertificateManager
 	SecretManager        certificatemanager.SecretManager
-	AuthManager          auth.Manager
 	IdentityAllocator    CachingIdentityAllocator
 	Policy               *policy.Repository
 	PolicyUpdater        *policy.Updater

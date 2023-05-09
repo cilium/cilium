@@ -363,7 +363,7 @@ struct policy_entry {
 struct auth_key {
 	__u32       local_sec_label;
 	__u32       remote_sec_label;
-	__u16       remote_node_id;
+	__u16       remote_node_id; /* zero for local node */
 	__u8        auth_type;
 	__u8        pad;
 };

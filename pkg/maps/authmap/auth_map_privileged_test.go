@@ -14,8 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -42,26 +40,33 @@ func (k *AuthMapTestSuite) TestAuthMap(c *C) {
 	c.Assert(err, IsNil)
 	defer authMap.bpfMap.Unpin()
 
-	_, err = authMap.Lookup(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull)
+	testKey := AuthKey{
+		LocalIdentity:  1,
+		RemoteIdentity: 2,
+		RemoteNodeID:   1,
+		AuthType:       1, // policy.AuthTypeNull
+	}
+
+	_, err = authMap.Lookup(testKey)
 	c.Assert(errors.Is(err, ebpf.ErrKeyNotExist), Equals, true)
 
-	err = authMap.Update(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull, 10)
+	err = authMap.Update(testKey, 10)
 	c.Assert(err, IsNil)
 
-	info, err := authMap.Lookup(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull)
+	info, err := authMap.Lookup(testKey)
 	c.Assert(err, IsNil)
 	c.Assert(info.Expiration, Equals, utime.UTime(10))
 
-	err = authMap.Update(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull, 20)
+	err = authMap.Update(testKey, 20)
 	c.Assert(err, IsNil)
 
-	info, err = authMap.Lookup(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull)
+	info, err = authMap.Lookup(testKey)
 	c.Assert(err, IsNil)
 	c.Assert(info.Expiration, Equals, utime.UTime(20))
 
-	err = authMap.Delete(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull)
+	err = authMap.Delete(testKey)
 	c.Assert(err, IsNil)
 
-	_, err = authMap.Lookup(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull)
+	_, err = authMap.Lookup(testKey)
 	c.Assert(errors.Is(err, ebpf.ErrKeyNotExist), Equals, true)
 }

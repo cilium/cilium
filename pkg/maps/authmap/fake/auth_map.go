@@ -4,59 +4,40 @@
 package fake
 
 import (
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/authmap"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
+type AuthKey = authmap.AuthKey
+type AuthInfo = authmap.AuthInfo
+
 type fakeAuthMap struct {
-	Entries map[authmap.AuthKey]authmap.AuthInfo
+	Entries map[AuthKey]AuthInfo
 }
 
 func NewFakeAuthMap() *fakeAuthMap {
 	return &fakeAuthMap{
-		Entries: map[authmap.AuthKey]authmap.AuthInfo{},
+		Entries: map[AuthKey]AuthInfo{},
 	}
 }
 
-func (f fakeAuthMap) Lookup(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) (*authmap.AuthInfo, error) {
-	key := &authmap.AuthKey{
-		LocalIdentity:  localIdentity.Uint32(),
-		RemoteIdentity: remoteIdentity.Uint32(),
-		RemoteNodeID:   remoteNodeID,
-		AuthType:       authType.Uint8(),
+func (f fakeAuthMap) Lookup(key AuthKey) (AuthInfo, error) {
+	info, exists := f.Entries[key]
+	if exists {
+		return info, nil
 	}
-
-	info := f.Entries[*key]
-	return &info, nil
+	return info, ebpf.ErrKeyNotExist
 }
 
-func (f fakeAuthMap) Update(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType, expiration utime.UTime) error {
-	key := &authmap.AuthKey{
-		LocalIdentity:  localIdentity.Uint32(),
-		RemoteIdentity: remoteIdentity.Uint32(),
-		RemoteNodeID:   remoteNodeID,
-		AuthType:       authType.Uint8(),
-	}
-	value := &authmap.AuthInfo{
-		Expiration: expiration,
-	}
-
-	f.Entries[*key] = *value
-
+func (f fakeAuthMap) Update(key AuthKey, expiration utime.UTime) error {
+	f.Entries[key] = AuthInfo{Expiration: expiration}
 	return nil
 }
 
-func (f fakeAuthMap) Delete(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) error {
-	key := &authmap.AuthKey{
-		LocalIdentity:  localIdentity.Uint32(),
-		RemoteIdentity: remoteIdentity.Uint32(),
-		RemoteNodeID:   remoteNodeID,
-		AuthType:       authType.Uint8(),
-	}
-	delete(f.Entries, *key)
-
+func (f fakeAuthMap) Delete(key AuthKey) error {
+	delete(f.Entries, key)
 	return nil
 }
 
