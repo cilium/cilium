@@ -412,6 +412,32 @@ spec:
                   for the node, if any.
                 format: int64
                 type: integer
+              openstack:
+                description: OpenStack is the OpenStack IPAM specific configuration.
+                properties:
+                  availability-zone:
+                    description: AvailabilityZone is the availability zone to use
+                      when allocating ENIs.
+                    type: string
+                  cidr:
+                    description: CIDR is vpc ipv4 CIDR
+                    type: string
+                  instance-type:
+                    description: InstanceType is the ECS instance type, e.g. "ecs.g6.2xlarge"
+                    type: string
+                  security-groups:
+                    description: SecurityGroups is the list of security groups to
+                      attach to any ENI that is created and attached to the instance.
+                    items:
+                      type: string
+                    type: array
+                  vpc-id:
+                    description: VPCID is the VPC ID to use when allocating ENIs.
+                    type: string
+                  subnet-id:
+                    description: SubnetID is the ID of subnet id of ENI
+                    type: string
+                type: object
             type: object
           status:
             description: Status defines the realized specification/configuration and
@@ -708,6 +734,73 @@ spec:
                       type: object
                     description: Used lists all IPs out of Spec.IPAM.Pool which have
                       been allocated and are in use.
+                    type: object
+                type: object
+              openstack:
+                description: OpenStack is the OpenStack specific status of the node.
+                properties:
+                  enis:
+                    additionalProperties:
+                      description: ENI represents an OpenStack Elastic Network Interface
+                      properties:
+                        addresses:
+                          description: Addresses is the list of all secondary IPs
+                            associated with the ENI
+                          items:
+                            type: string
+                          type: array
+                        id:
+                          description: ID is the ENI ID
+                          type: string
+                        ip:
+                          description: IP is the primary IP of the ENI
+                          type: string
+                        type:
+                          description: Type is the ENI type Primary or Secondary
+                          type: string
+                        mac:
+                          description: MAC is the mac address of the ENI
+                          type: string
+                        secondary-ipsets:
+                          description: SecondaryIPSets is the list of all secondaryIPs on the ENI
+                          items:
+                            description: SecondaryIPSets is a nested struct in ecs response
+                            properties:
+                              ip-address:
+                                type: string
+                              eni-id:
+                                type: string
+                            type: object
+                          type: array
+                        security-groups:
+                          description: SecurityGroups are the security groups associated with the ENI
+                          items:
+                            type: string
+                          type: array
+                        subnet:
+                          description: Subnet is the subnet the ENI is associated
+                            with
+                          properties:
+                            cidr:
+                              description: CIDR is the CIDR range associated with
+                                the subnet
+                              type: string
+                            id:
+                              description: ID is the ID of the subnet
+                              type: string
+                          type: object
+                        vpc:
+                          description: VPC is the VPC information to which the ENI is attached to
+                          properties:
+                            cidr:
+                              description: CIDR is the CIDR range associated with the VPC
+                              type: string
+                            id:
+                              description: ID is the ID of a VPC
+                              type: string
+                          type: object
+                      type: object
+                    description: ENIs is the list of ENIs on the node
                     type: object
                 type: object
             type: object

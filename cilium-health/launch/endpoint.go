@@ -319,7 +319,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		return nil, fmt.Errorf("Error while configuring routes: %s", err)
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
+	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud || option.Config.IPAM == ipamOption.IPAMOpenStack {
 		// ENI mode does not support IPv6.
 		if err := routingConfig.Configure(
 			healthIP,

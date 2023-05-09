@@ -150,6 +150,6 @@ docker-images-all: docker-cilium-image docker-plugin-image docker-hubble-relay-i
 
 docker-images-all-unstripped: docker-cilium-image-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped docker-clustermesh-apiserver-image-unstripped docker-operator-images-all-unstripped ## Build all Cilium related unstripped docker images.
 
-docker-operator-images-all: docker-operator-image docker-operator-aws-image docker-operator-azure-image docker-operator-alibabacloud-image docker-operator-generic-image ## Build all variants of cilium-operator images.
+docker-operator-images-all: docker-operator-image docker-operator-aws-image docker-operator-azure-image docker-operator-alibabacloud-image docker-operator-openstack-image docker-operator-generic-image ## Build all variants of cilium-operator images.
 
-docker-operator-images-all-unstripped: docker-operator-image-unstripped docker-operator-aws-image-unstripped docker-operator-azure-image-unstripped docker-operator-alibabacloud-image-unstripped docker-operator-generic-image-unstripped ## Build all variants of unstripped cilium-operator images.
+docker-operator-images-all-unstripped: docker-operator-image-unstripped docker-operator-aws-image-unstripped docker-operator-azure-image-unstripped docker-operator-alibabacloud-image-unstripped docker-operator-openstack-image-unstripped docker-operator-generic-image-unstripped ## Build all variants of unstripped cilium-operator images.

@@ -538,6 +538,23 @@ github.com/google/renameio/v2
 # github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
+# github.com/gophercloud/gophercloud v1.2.0
+## explicit; go 1.14
+github.com/gophercloud/gophercloud
+github.com/gophercloud/gophercloud/openstack
+github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/attachinterfaces
+github.com/gophercloud/gophercloud/openstack/identity/v2/tenants
+github.com/gophercloud/gophercloud/openstack/identity/v2/tokens
+github.com/gophercloud/gophercloud/openstack/identity/v3/extensions/ec2tokens
+github.com/gophercloud/gophercloud/openstack/identity/v3/extensions/oauth1
+github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
+github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/security/groups
+github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/security/rules
+github.com/gophercloud/gophercloud/openstack/networking/v2/networks
+github.com/gophercloud/gophercloud/openstack/networking/v2/ports
+github.com/gophercloud/gophercloud/openstack/networking/v2/subnets
+github.com/gophercloud/gophercloud/openstack/utils
+github.com/gophercloud/gophercloud/pagination
 # github.com/gorilla/mux v1.8.0
 ## explicit; go 1.12
 github.com/gorilla/mux

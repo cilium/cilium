@@ -41,6 +41,8 @@ import (
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	openStackTypes "github.com/cilium/cilium/pkg/openstack/eni/types"
+	openStackdMetadata "github.com/cilium/cilium/pkg/openstack/metadata"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -79,7 +81,8 @@ func enableLocalNodeRoute() bool {
 	return option.Config.EnableLocalNodeRoute &&
 		option.Config.IPAM != ipamOption.IPAMENI &&
 		option.Config.IPAM != ipamOption.IPAMAzure &&
-		option.Config.IPAM != ipamOption.IPAMAlibabaCloud
+		option.Config.IPAM != ipamOption.IPAMAlibabaCloud &&
+		option.Config.IPAM != ipamOption.IPAMOpenStack
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
@@ -706,6 +709,38 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 			if len(c.AlibabaCloud.SecurityGroupTags) > 0 {
 				nodeResource.Spec.AlibabaCloud.SecurityGroupTags = c.AlibabaCloud.SecurityGroupTags
+			}
+
+			if c.IPAM.PreAllocate != 0 {
+				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+			}
+		}
+
+	case ipamOption.IPAMOpenStack:
+		nodeResource.Spec.OpenStack = openStackTypes.Spec{}
+
+		nodeInfo, err := openStackdMetadata.GetMetadata(context.TODO())
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve InstanceID of own ECS instance")
+		}
+		nodeResource.Spec.InstanceID = nodeInfo.UUID
+		nodeResource.Spec.OpenStack.AvailabilityZone = nodeInfo.AvailabilityZone
+
+		if c := n.NetConf; c != nil {
+			if len(c.OpenStack.SecurityGroups) > 0 {
+				nodeResource.Spec.OpenStack.SecurityGroups = c.OpenStack.SecurityGroups
+			}
+
+			if c.OpenStack.SubnetID != "" {
+				nodeResource.Spec.OpenStack.SubnetID = c.OpenStack.SubnetID
+			}
+
+			if c.OpenStack.VPCID != "" {
+				nodeResource.Spec.OpenStack.VPCID = c.OpenStack.VPCID
+			}
+
+			if c.OpenStack.CIDR != "" {
+				nodeResource.Spec.OpenStack.CIDR = c.OpenStack.CIDR
 			}
 
 			if c.IPAM.PreAllocate != 0 {

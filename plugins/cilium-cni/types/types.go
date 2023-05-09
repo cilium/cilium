@@ -17,6 +17,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	openStackTypes "github.com/cilium/cilium/pkg/openstack/eni/types"
 )
 
 // NetConf is the Cilium specific CNI network configuration
@@ -28,6 +29,7 @@ type NetConf struct {
 	Azure        azureTypes.AzureSpec   `json:"azure,omitempty"`
 	IPAM         IPAM                   `json:"ipam,omitempty"` // Shadows the JSON field "ipam" in cniTypes.NetConf.
 	AlibabaCloud alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
+	OpenStack    openStackTypes.Spec    `json:"openstack,omitempty"`
 	EnableDebug  bool                   `json:"enable-debug"`
 	LogFormat    string                 `json:"log-format"`
 	LogFile      string                 `json:"log-file"`

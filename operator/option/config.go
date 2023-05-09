@@ -225,6 +225,22 @@ const (
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs = "alibaba-cloud-release-excess-ips"
 
+	// OpenStack options
+
+	// OpenStackNetworkID allows user to specific vpc
+	OpenStackNetworkID = "openstack-network-id"
+
+	// OpenStackSubnetID allows user to specific subnet
+	OpenStackSubnetID = "openstack-subnet-id"
+
+	// OpenStackProjectID allows user to specific project
+	OpenStackProjectID = "openstack-project-id"
+
+	// OpenStackReleaseExcessIPs allows releasing excess free IP addresses from ENI.
+	// Enabling this option reduces waste of IP addresses but may increase
+	// the number of API calls to OpenStack ECS service.
+	OpenStackReleaseExcessIPs = "openstack-release-excess-ips"
+
 	// CiliumEndpointSlice options
 
 	// CESMaxCEPsInCES is the maximum number of cilium endpoints allowed in single
@@ -484,6 +500,22 @@ type OperatorConfig struct {
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs bool
 
+	// OpenStack options
+
+	// OpenStack allow user to specific network
+	OpenStackNetworkID string
+
+	// OpenStack allow user to specific subnet
+	OpenStackSubnetID string
+
+	// OpenStack allow user to specific project
+	OpenStackProjectID string
+
+	// OpenStackReleaseExcessIPs allows releasing excess free IP addresses from ENI.
+	// Enabling this option reduces waste of IP addresses but may increase
+	// the number of API calls to openstack service.
+	OpenStackReleaseExcessIPs bool
+
 	// CiliumEndpointSlice options
 
 	// CESMaxCEPsInCES is the maximum number of CiliumEndpoints allowed in single
@@ -650,6 +682,13 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 
 	c.AlibabaCloudVPCID = vp.GetString(AlibabaCloudVPCID)
 	c.AlibabaCloudReleaseExcessIPs = vp.GetBool(AlibabaCloudReleaseExcessIPs)
+
+	// OpenStack options
+
+	c.OpenStackNetworkID = vp.GetString(OpenStackNetworkID)
+	c.OpenStackSubnetID = vp.GetString(OpenStackSubnetID)
+	c.OpenStackProjectID = vp.GetString(OpenStackProjectID)
+	c.OpenStackReleaseExcessIPs = vp.GetBool(OpenStackReleaseExcessIPs)
 
 	// CiliumEndpointSlice options
 	c.CESMaxCEPsInCES = vp.GetInt(CESMaxCEPsInCES)

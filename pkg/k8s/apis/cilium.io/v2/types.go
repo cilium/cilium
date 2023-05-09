@@ -4,6 +4,7 @@
 package v2
 
 import (
+	openStackTypes "github.com/cilium/cilium/pkg/openstack/eni/types"
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -383,6 +384,11 @@ type NodeSpec struct {
 	// +kubebuilder:validation:Optional
 	AlibabaCloud alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
 
+	// OpenStack is the OpenStack IPAM specific configuration.
+	//
+	// +kubebuilder:validation:Optional
+	OpenStack openStackTypes.Spec `json:"openstack,omitempty"`
+
 	// IPAM is the address management specification. This section can be
 	// populated by a user or it can be automatically populated by an IPAM
 	// operator.
@@ -440,6 +446,11 @@ type NodeStatus struct {
 	//
 	// +kubebuilder:validation:Optional
 	AlibabaCloud alibabaCloudTypes.ENIStatus `json:"alibaba-cloud,omitempty"`
+
+	// OpenStack is the OpenStack specific status of the node.
+	//
+	// +kubebuilder:validation:Optional
+	OpenStack openStackTypes.ENIStatus `json:"openstack,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

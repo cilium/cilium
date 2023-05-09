@@ -145,7 +145,7 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		if c.IPv4Enabled() {
 			ipam.IPv4Allocator = manager.Allocator(IPv4)
 		}
-	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
+	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud, ipamOption.IPAMOpenStack:
 		log.Info("Initializing CRD-based IPAM")
 		if c.IPv6Enabled() {
 			ipam.IPv6Allocator = newCRDAllocator(IPv6, c, owner, clientset, k8sEventReg, mtuConfig)

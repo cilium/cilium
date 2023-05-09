@@ -448,7 +448,8 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		ipamOption.IPAMClusterPool,
 		ipamOption.IPAMClusterPoolV2,
 		ipamOption.IPAMMultiPool,
-		ipamOption.IPAMAlibabaCloud:
+		ipamOption.IPAMAlibabaCloud,
+		ipamOption.IPAMOpenStack:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
 		if !providerBuiltin {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)

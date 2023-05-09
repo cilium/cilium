@@ -331,19 +331,19 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
 
 	$(QUIET) $(call generate_k8s_protobuf,${K8S_PROTO_PACKAGES},"$(TMPDIR)")
-
 	$(eval DEEPEQUAL_PACKAGES := $(shell grep "\+deepequal-gen" -l -r --include \*.go --exclude-dir 'vendor' . | xargs dirname {} | sort | uniq | grep -x -v '.' | sed 's|\.\/|github.com/cilium/cilium\/|g'))
 	$(QUIET) $(call generate_deepequal,${DEEPEQUAL_PACKAGES},"$(TMPDIR)")
-
 	$(eval DEEPCOPY_PACKAGES := $(shell grep "\+k8s:deepcopy-gen" -l -r --include \*.go --exclude-dir 'vendor' . | xargs dirname {} | sort | uniq | grep -x -v '.' | sed 's|\.\/|github.com/cilium/cilium\/|g'))
 	$(QUIET) $(call generate_deepcopy,${DEEPCOPY_PACKAGES},"$(TMPDIR)")
+
+
 
 	$(QUIET) $(call generate_k8s_api,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/client,github.com/cilium/cilium/pkg/k8s/slim/k8s/api,"discovery:v1beta1 discovery:v1 networking:v1 core:v1","$(TMPDIR)")
 	$(QUIET) $(call generate_k8s_api,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"apiextensions:v1","$(TMPDIR)")
 	$(QUIET) $(call generate_k8s_api,client$(comma)lister$(comma)informer,github.com/cilium/cilium/pkg/k8s/client,github.com/cilium/cilium/pkg/k8s/apis,$(GEN_CRD_GROUPS),"$(TMPDIR)")
-
 	$(QUIET) cp -r "$(TMPDIR)/github.com/cilium/cilium/." ./
 	$(QUIET) rm -rf "$(TMPDIR)"
+
 
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
 	./contrib/scripts/check-preflight-clusterrole.sh
@@ -676,7 +676,7 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-hubble-relay-image","Build hubble-relay docker image")
 	$(call print_help_line,"docker-clustermesh-apiserver-image","Build docker image for Cilium clustermesh APIServer")
 	$(call print_help_line,"docker-operator-image","Build cilium-operator docker image")
-	$(call print_help_line,"docker-operator-*-image","Build platform specific cilium-operator images(alibabacloud, aws, azure, generic)")
+	$(call print_help_line,"docker-operator-*-image","Build platform specific cilium-operator images(alibabacloud, aws, azure, openstack, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 
 .PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean check-sources
