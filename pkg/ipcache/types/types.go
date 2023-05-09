@@ -65,6 +65,7 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 // NodeHandler is responsible for the management of node identities.
 type NodeHandler interface {
 	AllocateNodeID(net.IP) uint16
+	GetNodeIP(uint16) string
 }
 
 // TunnelPeer is the IP address of the host associated with this prefix. This is
