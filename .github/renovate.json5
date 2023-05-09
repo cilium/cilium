@@ -153,6 +153,7 @@
       // Images that directly use docker.io/library/golang for building.
       "groupName": "golang-images",
       "matchFiles": [
+        "contrib/backporting/Dockerfile",
         "images/cilium-docker-plugin/Dockerfile",
         "images/clustermesh-apiserver/Dockerfile",
         "images/hubble-relay/Dockerfile",
