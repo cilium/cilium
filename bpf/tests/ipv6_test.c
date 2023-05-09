@@ -75,6 +75,7 @@ int ipv6_without_extension_header_setup(__maybe_unused struct __ctx_buff *ctx)
 CHECK("xdp", "ipv6_without_extension_header")
 int ipv6_without_extension_header_check(struct __ctx_buff *ctx)
 {
+	void *data, *data_end;
 	struct ethhdr *l2;
 	struct ipv6hdr *l3;
 	__u32 *status_code;
@@ -82,21 +83,28 @@ int ipv6_without_extension_header_check(struct __ctx_buff *ctx)
 
 	test_init();
 
-	if (ctx_data(ctx) + sizeof(__u32) > ctx_data_end(ctx))
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+
+	if (data + sizeof(__u32) > data_end)
 		test_fatal("status code out of bounds");
 
-	status_code = ctx_data(ctx);
+	status_code = data;
 	assert(*status_code == 123);
 
 	xdp_adjust_head(ctx, 4);
-	l2 = ctx_data(ctx);
-	if ((void *)(l2 + 1) > ctx_data_end(ctx))
+
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+
+	l2 = data;
+	if ((void *)(l2 + 1) > data_end)
 		test_fatal("l2 out of bounds");
 
 	assert(l2->h_proto == __bpf_htons(ETH_P_IPV6));
 
 	l3 = (void *)l2 + ETH_HLEN;
-	if ((void *)(l3 + 1) > ctx_data_end(ctx))
+	if ((void *)(l3 + 1) > data_end)
 		test_fatal("l3 out of bounds");
 
 	nexthdr = l3->nexthdr;
@@ -175,6 +183,7 @@ int ipv6_with_hop_auth_tcp_setup(__maybe_unused struct __ctx_buff *ctx)
 CHECK("xdp", "ipv6_with_auth_hop_tcp")
 int ipv6_with_hop_auth_tcp_check(struct __ctx_buff *ctx)
 {
+	void *data, *data_end;
 	struct ethhdr *l2;
 	struct ipv6hdr *l3;
 	__u32 *status_code;
@@ -182,21 +191,28 @@ int ipv6_with_hop_auth_tcp_check(struct __ctx_buff *ctx)
 
 	test_init();
 
-	if (ctx_data(ctx) + sizeof(__u32) > ctx_data_end(ctx))
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+
+	if (data + sizeof(__u32) > data_end)
 		test_fatal("status code out of bounds");
 
-	status_code = ctx_data(ctx);
+	status_code = data;
 	assert(*status_code == 1234);
 
 	xdp_adjust_head(ctx, 4);
-	l2 = ctx_data(ctx);
-	if ((void *)(l2 + 1) > ctx_data_end(ctx))
+
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+
+	l2 = data;
+	if ((void *)(l2 + 1) > data_end)
 		test_fatal("l2 out of bounds");
 
 	assert(l2->h_proto == __bpf_htons(ETH_P_IPV6));
 
 	l3 = (void *)l2 + ETH_HLEN;
-	if ((void *)(l3 + 1) > ctx_data_end(ctx))
+	if ((void *)(l3 + 1) > data_end)
 		test_fatal("l3 out of bounds");
 
 	nexthdr = l3->nexthdr;

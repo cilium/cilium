@@ -184,10 +184,12 @@ struct ethhdr *pktgen__push_ethhdr(struct pktgen *builder)
 	struct __ctx_buff *ctx = builder->ctx;
 	struct ethhdr *layer;
 	int layer_idx;
+	void *data;
 
 	/* Request additional tailroom, and check that we got it. */
 	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ethhdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct ethhdr) > ctx_data_end(ctx))
+	data = ctx_data(ctx);
+	if (data + builder->cur_off + sizeof(struct ethhdr) > ctx_data_end(ctx))
 		return 0;
 
 	/* Check that any value within the struct will not exceed a u16 which
@@ -196,7 +198,7 @@ struct ethhdr *pktgen__push_ethhdr(struct pktgen *builder)
 	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct ethhdr))
 		return 0;
 
-	layer = ctx_data(ctx) + builder->cur_off;
+	layer = data + builder->cur_off;
 	layer_idx = pktgen__free_layer(builder);
 
 	if (layer_idx < 0)
@@ -224,6 +226,7 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 {
 	__u32 length = sizeof(struct iphdr) + option_bytes;
 	struct __ctx_buff *ctx = builder->ctx;
+	void *data, *data_end;
 	struct iphdr *layer;
 	int layer_idx;
 
@@ -232,7 +235,9 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 
 	/* Request additional tailroom, and check that we got it. */
 	ctx_adjust_troom(ctx, builder->cur_off + length - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + length > ctx_data_end(ctx))
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+	if (data + builder->cur_off + length > data_end)
 		return 0;
 
 	/* Check that any value within the struct will not exceed a u16 which
@@ -241,7 +246,7 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 	if (builder->cur_off >= MAX_PACKET_OFF - length)
 		return 0;
 
-	layer = ctx_data(ctx) + builder->cur_off;
+	layer = data + builder->cur_off;
 	layer_idx = pktgen__free_layer(builder);
 
 	if (layer_idx < 0)
