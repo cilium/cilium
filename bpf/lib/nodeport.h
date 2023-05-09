@@ -104,12 +104,18 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
+	void *data, *data_end;
 	int ret = CTX_ACT_OK;
+	struct ipv6hdr *ip6;
 	bool snat_needed;
 
-	snat_needed = snat_v6_prepare_state(ctx, &target);
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	snat_needed = snat_v6_prepare_state(ctx, ip6, &target);
 	if (snat_needed)
-		ret = snat_v6_nat(ctx, &target, ext_err);
+		ret = snat_v6_nat(ctx, ip6, &target, ext_err);
+
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -865,12 +871,12 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	if (nat_46x64)
 		build_v4_in_v6(&target.addr, IPV4_DIRECT_ROUTING);
 
-#ifdef TUNNEL_MODE
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
 
+#ifdef TUNNEL_MODE
 	dst = (union v6addr *)&ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 	if (info && info->tunnel_endpoint != 0) {
@@ -880,7 +886,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		BPF_V6(target.addr, ROUTER_IP);
 	}
 #endif
-	ret = snat_v6_nat(ctx, &target, &ext_err);
+	ret = snat_v6_nat(ctx, ip6, &target, &ext_err);
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
@@ -1437,12 +1443,17 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		.cluster_id = cluster_id,
 #endif
 	};
+	void *data, *data_end;
 	int ret = CTX_ACT_OK;
+	struct iphdr *ip4;
 	bool snat_needed;
 
-	snat_needed = snat_v4_prepare_state(ctx, &target);
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	snat_needed = snat_v4_prepare_state(ctx, ip4, &target);
 	if (snat_needed)
-		ret = snat_v4_nat(ctx, &target, ext_err);
+		ret = snat_v4_nat(ctx, ip4, &target, ext_err);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -2196,12 +2207,14 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	struct remote_endpoint_info *info;
 	__be32 tunnel_endpoint = 0;
 	__u32 dst_sec_identity = 0;
+#endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
 
+#ifdef TUNNEL_MODE
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info && info->tunnel_endpoint != 0) {
 		tunnel_endpoint = info->tunnel_endpoint;
@@ -2210,7 +2223,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		target.addr = IPV4_GATEWAY;
 	}
 #endif
-	ret = snat_v4_nat(ctx, &target, &ext_err);
+	ret = snat_v4_nat(ctx, ip4, &target, &ext_err);
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
