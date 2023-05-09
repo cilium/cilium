@@ -34,8 +34,8 @@ cilium-agent hive dot-graph [flags]
       --k8s-client-qps float32                           Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration                   Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                       Absolute path of the kubernetes kubeconfig file
-      --mesh-auth-monitor-queue-size int                 Queue size for the auth monitor (default 1024)
       --mesh-auth-mtls-listener-port int                 Port on which the Cilium Agent will perfom mTLS handshakes between other Agents
+      --mesh-auth-queue-size int                         Queue size for the auth manager (default 1024)
       --mesh-auth-rotated-identities-queue-size int      The size of the queue for signaling rotated identities. (default 1024)
       --mesh-auth-spiffe-trust-domain string             The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-admin-socket string              The path for the SPIRE admin agent Unix socket.

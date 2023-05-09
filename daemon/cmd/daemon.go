@@ -584,7 +584,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		ipcachemap.IPCacheMap().Close()
 	}
 
-	if err := d.initPolicy(params.AuthManager); err != nil {
+	if err := d.initPolicy(); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
 

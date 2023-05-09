@@ -5,6 +5,7 @@
 #define __LIB_SIGNAL_H_
 
 #include <bpf/api.h>
+#include <lib/common.h>
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
@@ -17,6 +18,7 @@ struct {
 enum {
 	SIGNAL_NAT_FILL_UP = 0,
 	SIGNAL_CT_FILL_UP,
+	SIGNAL_AUTH_REQUIRED,
 };
 
 enum {
@@ -30,36 +32,41 @@ struct signal_msg {
 		struct {
 			__u32 proto;
 		};
+		struct auth_key auth;
 	};
 };
 
-static __always_inline void send_signal(struct __ctx_buff *ctx,
-					struct signal_msg *msg)
-{
-	ctx_event_output(ctx, &SIGNAL_MAP, BPF_F_CURRENT_CPU,
-			 msg, sizeof(*msg));
-}
+/**
+ * SEND_SIGNAL sets a single union MEMBER to VALUE and only includes that
+ * member (and signal_nr) in message size. Used to avoid referencing
+ * uninitialized memory if trying to send the whole msg.
+ */
+#define SEND_SIGNAL(CTX, SIGNAL, MEMBER, VALUE)				\
+  {									\
+	struct signal_msg msg = {					\
+		.signal_nr	= (SIGNAL),				\
+		.MEMBER		= (VALUE),				\
+	};								\
+	ctx_event_output((CTX), &SIGNAL_MAP, BPF_F_CURRENT_CPU, &msg,	\
+			 sizeof(msg.signal_nr) + sizeof(msg.MEMBER));	\
+  }
 
 static __always_inline void send_signal_nat_fill_up(struct __ctx_buff *ctx,
 						    __u32 proto)
 {
-	struct signal_msg msg = {
-		.signal_nr	= SIGNAL_NAT_FILL_UP,
-		.proto		= proto,
-	};
-
-	send_signal(ctx, &msg);
+	SEND_SIGNAL(ctx, SIGNAL_NAT_FILL_UP, proto, proto);
 }
 
 static __always_inline void send_signal_ct_fill_up(struct __ctx_buff *ctx,
 						   __u32 proto)
 {
-	struct signal_msg msg = {
-		.signal_nr	= SIGNAL_CT_FILL_UP,
-		.proto		= proto,
-	};
+	SEND_SIGNAL(ctx, SIGNAL_CT_FILL_UP, proto, proto);
+}
 
-	send_signal(ctx, &msg);
+static __always_inline void send_signal_auth_required(struct __ctx_buff *ctx,
+						      const struct auth_key *auth)
+{
+	SEND_SIGNAL(ctx, SIGNAL_AUTH_REQUIRED, auth, *auth);
 }
 
 #endif /* __LIB_SIGNAL_H_ */

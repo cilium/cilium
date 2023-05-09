@@ -4,15 +4,12 @@
 package auth
 
 import (
-	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/auth/certs"
-	"github.com/cilium/cilium/pkg/monitor"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -22,7 +19,7 @@ func Test_newAuthManager_clashingAuthHandlers(t *testing.T) {
 		&nullAuthHandler{},
 	}
 
-	am, err := newAuthManager(authHandlers, nil, nil)
+	am, err := newAuthManager(nil, authHandlers, nil, nil)
 	assert.ErrorContains(t, err, "multiple handlers for auth type: null")
 	assert.Nil(t, am)
 }
@@ -33,71 +30,47 @@ func Test_newAuthManager(t *testing.T) {
 		&fakeAuthHandler{},
 	}
 
-	am, err := newAuthManager(authHandlers, nil, nil)
+	am, err := newAuthManager(make(<-chan AuthKey, 100), authHandlers, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
 	assert.Len(t, am.authHandlers, 2)
 }
 
-func Test_authManager_authRequired(t *testing.T) {
-	type args struct {
-		dn *monitor.DropNotify
-		ci *monitor.ConnectionInfo
-	}
+func Test_authManager_authenticate(t *testing.T) {
 	tests := []struct {
 		name              string
-		args              args
+		args              AuthKey
 		wantErr           assert.ErrorAssertionFunc
 		wantAuthenticated bool
 	}{
 		{
 			name: "missing handler for auth type",
-			args: args{
-				dn: testDropNotify(0, true),
-				ci: testConnInfo("10.244.1.1", "10.244.2.1"),
+			args: AuthKey{
+				LocalIdentity:  1,
+				RemoteIdentity: 2,
+				RemoteNodeID:   2,
+				AuthType:       0,
 			},
 			wantErr: assertErrorString("unknown requested auth type: none"),
 		},
 		{
-			name: "missing node IP for source IP in case of ingress policy",
-			args: args{
-				dn: testDropNotify(1, true),
-				ci: testConnInfo("10.244.1.2", "10.244.2.1"),
+			name: "missing node IP for node ID",
+			args: AuthKey{
+				LocalIdentity:  1,
+				RemoteIdentity: 2,
+				RemoteNodeID:   1,
+				AuthType:       1,
 			},
-			wantErr: assertErrorString("failed to gather auth request information: failed to get host IP of connection source IP 10.244.1.2"),
-		},
-		{
-			name: "missing node IP for destination IP in case of egress policy",
-			args: args{
-				dn: testDropNotify(1, false),
-				ci: testConnInfo("10.244.1.1", "10.244.2.2"),
-			},
-			wantErr: assertErrorString("failed to gather auth request information: failed to get host IP of connection destination IP 10.244.2.2"),
+			wantErr: assertErrorString("remote node IP not available for node ID 1"),
 		},
 		{
 			name: "successful auth",
-			args: args{
-				dn: testDropNotify(1, true),
-				ci: testConnInfo("10.244.1.1", "10.244.2.1"),
-			},
-			wantErr:           assert.NoError,
-			wantAuthenticated: true,
-		},
-		{
-			name: "successful auth with lookup of cilium host IP v4 with /32 when getting host IP",
-			args: args{
-				dn: testDropNotify(1, true),
-				ci: testConnInfo("10.244.1.170", "10.244.2.1"),
-			},
-			wantErr:           assert.NoError,
-			wantAuthenticated: true,
-		},
-		{
-			name: "successful auth with lookup of cilium host IP v6 with /128 when getting host IP",
-			args: args{
-				dn: testDropNotify(1, true),
-				ci: testConnInfo("ff00::101", "10.244.2.1"),
+			args: AuthKey{
+				LocalIdentity:  1,
+				RemoteIdentity: 2,
+				RemoteNodeID:   2,
+				AuthType:       1,
 			},
 			wantErr:           assert.NoError,
 			wantAuthenticated: true,
@@ -107,18 +80,17 @@ func Test_authManager_authRequired(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dpAuth := &fakeDatapathAuthenticator{}
 			am, err := newAuthManager(
+				make(<-chan AuthKey, 100),
 				[]authHandler{&nullAuthHandler{}},
 				dpAuth,
-				newFakeIPCache(map[string]string{
-					"10.244.1.1":      "172.18.0.2",
-					"10.244.2.1":      "172.18.0.3",
-					"10.244.1.170/32": "172.18.0.3",
-					"ff00::101/128":   "172.18.0.3",
+				newFakeIPCache(map[uint16]string{
+					2: "172.18.0.2",
+					3: "172.18.0.3",
 				}),
 			)
 			assert.NoError(t, err)
 
-			err = am.authRequired(tt.args.dn, tt.args.ci)
+			err = am.authenticate(tt.args)
 			tt.wantErr(t, err)
 
 			assert.Equal(t, tt.wantAuthenticated, dpAuth.authenticated)
@@ -128,26 +100,17 @@ func Test_authManager_authRequired(t *testing.T) {
 
 // Fake IPCache
 type fakeIPCache struct {
-	ipHostMappings map[string]net.IP
+	nodeIdMappings map[uint16]string
 }
 
-func newFakeIPCache(mappings map[string]string) *fakeIPCache {
-	m := map[string]net.IP{}
-	for ip, hostIP := range mappings {
-		m[ip] = net.ParseIP(hostIP)
-	}
-
+func newFakeIPCache(mappings map[uint16]string) *fakeIPCache {
 	return &fakeIPCache{
-		ipHostMappings: m,
+		nodeIdMappings: mappings,
 	}
 }
 
-func (r *fakeIPCache) GetHostIP(ip string) net.IP {
-	return r.ipHostMappings[ip]
-}
-
-func (r *fakeIPCache) AllocateNodeID(net.IP) uint16 {
-	return 0
+func (r *fakeIPCache) GetNodeIP(id uint16) string {
+	return r.nodeIdMappings[id]
 }
 
 // Fake AuthHandler
@@ -173,32 +136,13 @@ type fakeDatapathAuthenticator struct {
 	authenticated bool
 }
 
-func (r *fakeDatapathAuthenticator) markAuthenticated(result *authResult) error {
+func (r *fakeDatapathAuthenticator) markAuthenticated(key AuthKey, expiration time.Time) error {
 	r.authenticated = true
 	return nil
 }
-func testConnInfo(srcIP string, dstIP string) *monitor.ConnectionInfo {
-	return &monitor.ConnectionInfo{
-		SrcIP: net.ParseIP(srcIP),
-		DstIP: net.ParseIP(dstIP),
-	}
-}
 
-func testDropNotify(authType int8, ingress bool) *monitor.DropNotify {
-	var dstID uint32
-	if ingress {
-		dstID = 1
-	}
-
-	return &monitor.DropNotify{
-		Type:     monitorAPI.MessageTypeDrop,
-		SubType:  uint8(flow.DropReason_AUTH_REQUIRED),
-		Source:   1,
-		SrcLabel: 1,
-		DstLabel: 2,
-		DstID:    dstID,
-		ExtError: authType, // Auth Type
-	}
+func (r *fakeDatapathAuthenticator) checkAuthenticated(AuthKey) bool {
+	return false
 }
 
 func assertErrorString(errString string) assert.ErrorAssertionFunc {
