@@ -272,7 +272,7 @@ spec:
           readOnly: false
         {{- end }}
         - name: envoy-sockets
-          mountPath: {{ .Values.envoy.socketDir.containers }}
+          mountPath: /var/run/cilium/envoy/sockets
           readOnly: false
         {{- if not .Values.securityContext.privileged }}
         # Unprivileged containers need to mount /proc/sys/net from the host
@@ -781,7 +781,7 @@ spec:
       {{- if .Values.envoy.enabled }}
         # Sharing socket with Cilium Envoy on the same node by using a host path
         hostPath:
-          path: {{ .Values.envoy.socketDir.host }}
+          path: "{{ .Values.daemon.runPath }}/envoy/sockets"
           type: DirectoryOrCreate
       {{- else }}
         emptyDir: {}
