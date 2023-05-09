@@ -166,11 +166,12 @@ type Key interface {
 	Marshal() ([]byte, error)
 
 	// Unmarshal is called when an update from the kvstore is received. The
+	// prefix configured for the store is removed from the key, and the
 	// byte slice passed to the function is coming from the Marshal
 	// function from another collaborator. The function must unmarshal and
 	// update the underlying data type. It is typically a good idea to use
 	// json.Unmarshal to implement this function.
-	Unmarshal(data []byte) error
+	Unmarshal(key string, data []byte) error
 }
 
 // LocalKey is a Key owned by the local store instance
@@ -391,7 +392,7 @@ func (s *SharedStore) getLogger() *logrus.Entry {
 
 func (s *SharedStore) updateKey(name string, value []byte) error {
 	newKey := s.conf.KeyCreator()
-	if err := newKey.Unmarshal(value); err != nil {
+	if err := newKey.Unmarshal(name, value); err != nil {
 		return err
 	}
 

@@ -304,7 +304,7 @@ func (c *CNPNSWithMeta) Marshal() ([]byte, error) {
 }
 
 // Unmarshal unmarshals the CNPNSWithMeta from JSON form.
-func (c *CNPNSWithMeta) Unmarshal(data []byte) error {
+func (c *CNPNSWithMeta) Unmarshal(_ string, data []byte) error {
 	newCNPNS := CNPNSWithMeta{}
 	if err := json.Unmarshal(data, &newCNPNS); err != nil {
 		return err

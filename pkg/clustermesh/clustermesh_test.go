@@ -68,7 +68,7 @@ func (n *testNode) Marshal() ([]byte, error) {
 	return json.Marshal(n)
 }
 
-func (n *testNode) Unmarshal(data []byte) error {
+func (n *testNode) Unmarshal(_ string, data []byte) error {
 	return json.Unmarshal(data, n)
 }
 

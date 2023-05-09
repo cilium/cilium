@@ -609,7 +609,7 @@ func (n *Node) Marshal() ([]byte, error) {
 }
 
 // Unmarshal parses the JSON byte slice and updates the node receiver
-func (n *Node) Unmarshal(data []byte) error {
+func (n *Node) Unmarshal(_ string, data []byte) error {
 	newNode := Node{}
 	if err := json.Unmarshal(data, &newNode); err != nil {
 		return err
