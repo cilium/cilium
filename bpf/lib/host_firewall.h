@@ -78,7 +78,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	verdict = policy_can_egress6(ctx, tuple, HOST_ID, dst_sec_identity,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(HOST_ID, dst_sec_identity, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -192,7 +192,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 					    tuple->nexthdr, false,
 					    &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(HOST_ID, *src_sec_identity, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -345,7 +345,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	verdict = policy_can_egress4(ctx, tuple, HOST_ID, dst_sec_identity,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(HOST_ID, dst_sec_identity, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -463,7 +463,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 					    is_untracked_fragment,
 					    &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(HOST_ID, *src_sec_identity, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {

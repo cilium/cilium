@@ -59,14 +59,19 @@ force:
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} $(LLC_FLAGS) -filetype=asm -o $@ $(patsubst %.s,%.ll,$@)
 
+#
+# TODO: revert addition of ignore MACRO_ARG_REUSE below once cilium-checkpatch
+# image is updated to ignore it.
+#
 CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:a8f73eced11c29d8c5003ba75071fb9ff91251e4@sha256:9fba31c924b0e675ee45dada3788ded045cd63c979fae3cddcb08636ed2e00da
 ifneq ($(CHECKPATCH_DEBUG),)
   # Run script with "bash -x"
   CHECKPATCH_IMAGE_AND_ENTRY := \
-	--entrypoint /bin/bash $(CHECKPATCH_IMAGE) -x /checkpatch/checkpatch.sh
+	--entrypoint /bin/bash $(CHECKPATCH_IMAGE) -x /checkpatch/checkpatch.sh -- --ignore MACRO_ARG_REUSE
 else
   # Use default entrypoint
-  CHECKPATCH_IMAGE_AND_ENTRY := $(CHECKPATCH_IMAGE)
+  CHECKPATCH_IMAGE_AND_ENTRY := \
+	--entrypoint /bin/bash $(CHECKPATCH_IMAGE) /checkpatch/checkpatch.sh -- --ignore MACRO_ARG_REUSE
 endif
 checkpatch:
 	@$(ECHO_CHECK) "(checkpatch)"

@@ -463,7 +463,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(SECLABEL, *dst_sec_identity, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(ctx, SECLABEL, *dst_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
@@ -895,7 +895,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(SECLABEL, *dst_sec_identity, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(ctx, SECLABEL, *dst_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
@@ -1487,7 +1487,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 		struct remote_endpoint_info *sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
 
 		if (sep)
-			verdict = auth_lookup(SECLABEL, src_label, sep->node_id, (__u8)*ext_err);
+			verdict = auth_lookup(ctx, SECLABEL, src_label, sep->node_id,
+					      (__u8)*ext_err);
 	}
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
@@ -1810,7 +1811,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 		struct remote_endpoint_info *sep = lookup_ip4_remote_endpoint(orig_sip, 0);
 
 		if (sep)
-			verdict = auth_lookup(SECLABEL, src_label, sep->node_id, (__u8)*ext_err);
+			verdict = auth_lookup(ctx, SECLABEL, src_label, sep->node_id,
+					      (__u8)*ext_err);
 	}
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)

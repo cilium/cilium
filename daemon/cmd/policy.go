@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -46,9 +45,7 @@ import (
 )
 
 // initPolicy initializes the core policy components of the daemon.
-func (d *Daemon) initPolicy(
-	authManager auth.Manager,
-) error {
+func (d *Daemon) initPolicy() error {
 	// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
 	// this is only triggered by agent configuration changes for now and
 	// should be counted in pol.TriggerMetrics.
@@ -63,7 +60,6 @@ func (d *Daemon) initPolicy(
 	}
 	d.datapathRegenTrigger = rt
 
-	d.monitorAgent.RegisterNewConsumer(authManager)
 	return nil
 }
 

@@ -4,7 +4,6 @@
 package auth
 
 import (
-	"net"
 	"reflect"
 	"testing"
 )
@@ -27,7 +26,7 @@ func Test_alwaysFailAuthHandler_authenticate(t *testing.T) {
 			got, err := r.authenticate(&authRequest{
 				localIdentity:  1000,
 				remoteIdentity: 1001,
-				remoteHostIP:   net.ParseIP("::1"),
+				remoteNodeIP:   "::1",
 			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("alwaysFailAuthHandler.authenticate() error = %v, wantErr %v", err, tt.wantErr)
