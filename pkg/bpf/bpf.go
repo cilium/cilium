@@ -19,11 +19,11 @@ var (
 const (
 	// BPF syscall command constants. Must match enum bpf_cmd from linux/bpf.h
 	// Deprecated: don't implement syscalls directly, use cilium/ebpf.
-	BPF_MAP_LOOKUP_ELEM  = 1
-	BPF_MAP_UPDATE_ELEM  = 2
-	BPF_MAP_GET_NEXT_KEY = 4
-	BPF_PROG_LOAD        = 5
-	BPF_PROG_ATTACH      = 8
+
+	BPF_MAP_LOOKUP_ELEM = 1
+	BPF_MAP_UPDATE_ELEM = 2
+	BPF_PROG_LOAD       = 5
+	BPF_PROG_ATTACH     = 8
 
 	// BPF syscall attach types
 	BPF_CGROUP_INET_INGRESS      = 0
