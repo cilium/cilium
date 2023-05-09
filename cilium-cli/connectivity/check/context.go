@@ -239,6 +239,22 @@ func (ct *ConnectivityTest) NewTest(name string) *Test {
 	return t
 }
 
+// GetTest returns the test scope for test named "name" if found,
+// a non-nil error otherwise.
+func (ct *ConnectivityTest) GetTest(name string) (*Test, error) {
+	if _, ok := ct.testNames[name]; !ok {
+		return nil, fmt.Errorf("test %s not found", name)
+	}
+
+	for _, t := range ct.tests {
+		if t.name == name {
+			return t, nil
+		}
+	}
+
+	panic("missing test descriptor for a registered name")
+}
+
 // SetupAndValidate sets up and validates the connectivity test infrastructure
 // such as the client pods and validates the deployment of them along with
 // Cilium. This must be run before Run() is called.
