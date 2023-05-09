@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -89,9 +90,19 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 		})
 
 		AfterAll(func() {
+			wg := sync.WaitGroup{}
 			for _, yaml := range yamls {
-				kubectl.Delete(yaml)
+				wg.Add(1)
+				go func(yaml string) {
+					defer wg.Done()
+					// Ensure that all deployments are fully cleaned up before
+					// proceeding to the next test.
+					res := kubectl.DeleteAndWait(yaml, true)
+
+					Expect(res.WasSuccessful()).Should(BeTrue(), "Unable to cleanup yaml: %s", yaml)
+				}(yaml)
 			}
+			wg.Wait()
 			ExpectAllPodsTerminated(kubectl)
 		})
 
