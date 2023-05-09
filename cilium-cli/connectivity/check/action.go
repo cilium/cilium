@@ -720,19 +720,40 @@ func (a *Action) GetIngressRequirements(p FlowParameters) []filters.FlowSetRequi
 	return []filters.FlowSetRequirement{ingress}
 }
 
-// waitForRelay polls the server status from Relay until either it's connected to all the Hubble
-// instances (success) or the context is cancelled (failure).
+func (a *Action) isRelayServerStatusOk(ctx context.Context, client observer.ObserverClient) bool {
+	// Sometimes ServerStatus request just gets stuck until the context gets cancelled. Call
+	// ServerStatus with a shorter timeout than ctx so that we get to try it multiple times.
+	timeoutContext, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	res, err := client.ServerStatus(timeoutContext, &observer.ServerStatusRequest{})
+	if err == nil {
+		a.Debugf("hubble relay server status %+v", res)
+		if (res.NumUnavailableNodes == nil || res.NumUnavailableNodes.Value == 0) && res.NumFlows > 0 {
+			// This means all the nodes are available, and Hubble Relay started receiving flows.
+			// Ideally we should check res.NumConnectedNodes matches the expected number of Cilium
+			// nodes instead of relying on res.NumUnavailableNodes, but I don't know if that information
+			// is available to us.
+			return true
+		}
+	} else {
+		a.Debugf("hubble relay server status failed: %v", err)
+	}
+	return false
+}
+
+// waitForRelay polls the server status from Relay until it indicates that there are no unavailable
+// nodes and num_flows is greater than zero (success), or the context is cancelled (failure).
 func (a *Action) waitForRelay(ctx context.Context, client observer.ObserverClient) error {
 	for {
-		res, err := client.ServerStatus(ctx, &observer.ServerStatusRequest{})
-		if err == nil && (res.NumUnavailableNodes == nil || res.NumUnavailableNodes.Value == 0) {
-			// This means all the nodes are available.
+		if a.isRelayServerStatusOk(ctx, client) {
+			a.Debug("hubble relay is ready")
 			return nil
 		}
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("hubble server status failure: %w", ctx.Err())
 		case <-time.After(time.Second):
+			a.Debug("retrying hubble relay server status request")
 		}
 	}
 }
