@@ -164,6 +164,19 @@
       ]
     },
     {
+      // Images that directly use docker.io/library/alpine for building.
+      "groupName": "alpine-images",
+      "matchFiles": [
+        "contrib/coccinelle/Dockerfile",
+        "images/cache/Dockerfile",
+        "images/clustermesh-apiserver/Dockerfile",
+        "images/operator/Dockerfile"
+      ],
+      "schedule": [
+        "on friday"
+      ]
+    },
+    {
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
