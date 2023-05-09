@@ -311,7 +311,7 @@
     },
     {
       "fileMatch": [
-        "^\\.github/workflows/[^/]+\\.yaml$"
+        "^\\.github/workflows/[^/]+\\.ya?ml$"
       ],
       // This regex manages version strings in GitHub actions workflow files,
       // similar to the examples shown here:
@@ -341,8 +341,8 @@
     },
     {
       "fileMatch": [
-	"^test/kubernetes-test\\.sh$",
-	"^test/packet/scripts/install\\.sh$"
+        "^test/kubernetes-test\\.sh$",
+        "^test/packet/scripts/install\\.sh$"
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\""
