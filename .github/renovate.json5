@@ -241,9 +241,17 @@
       "matchPackageNames": [
         "docker.io/library/alpine"
       ],
-      "allowedVersions": "<3.17",
+      "allowedVersions": "<3.18",
       "matchBaseBranches": [
         "v1.13",
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.17",
+      "matchBaseBranches": [
         "v1.12",
         "v1.11"
       ]
