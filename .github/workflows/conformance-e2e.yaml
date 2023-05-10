@@ -399,7 +399,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Cilium CLI-cli
-        uses: cilium/cilium-cli@b5af8b2ce225699954dd5204e6e65e500711973e
+        uses: cilium/cilium-cli@148f953bd73d103ba1324d59d6cc3204d2258af3
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
