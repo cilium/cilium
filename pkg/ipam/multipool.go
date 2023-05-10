@@ -193,7 +193,22 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	m.node = newNode
 }
 
+// neededIPCeil rounds up numIPs to the next but one multiple of preAlloc.
+// Example for preAlloc=16:
+//
+//	numIP  0 -> 16
+//	numIP  1 -> 32
+//	numIP 15 -> 32
+//	numIP 16 -> 32
+//	numIP 17 -> 48
+//
+// This always ensures that there we always have a buffer of at least preAlloc
+// IPs.
 func neededIPCeil(numIP int, preAlloc int) int {
+	if preAlloc == 0 {
+		return numIP
+	}
+
 	quotient := numIP / preAlloc
 	rem := numIP % preAlloc
 	if rem > 0 {

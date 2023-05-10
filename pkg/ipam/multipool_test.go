@@ -229,3 +229,28 @@ func Test_MultiPoolManager(t *testing.T) {
 	}, ipv4Dump)
 	assert.Equal(t, "2 IPAM pool(s) available", ipv4Summary)
 }
+
+func Test_neededIPCeil(t *testing.T) {
+	tests := []struct {
+		numIP    int
+		preAlloc int
+		want     int
+	}{
+		{0, 0, 0},
+		{1, 0, 1},
+		{3, 0, 3},
+		{0, 1, 1},
+		{1, 1, 2},
+		{3, 1, 4},
+		{0, 16, 16},
+		{1, 16, 32},
+		{15, 16, 32},
+		{16, 16, 32},
+		{17, 16, 48},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("numIP=%d_preAlloc=%d", tt.numIP, tt.preAlloc), func(t *testing.T) {
+			assert.Equalf(t, tt.want, neededIPCeil(tt.numIP, tt.preAlloc), "neededIPCeil(%v, %v)", tt.numIP, tt.preAlloc)
+		})
+	}
+}
