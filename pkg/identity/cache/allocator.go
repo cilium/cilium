@@ -49,6 +49,9 @@ type CachingIdentityAllocator struct {
 
 	identitiesPath string
 
+	// This field exists is to hand out references that are either for sending
+	// and receiving. It should not be used directly without converting it first
+	// to a AllocatorEventSendChan or AllocatorEventRecvChan.
 	events  allocator.AllocatorEventChan
 	watcher identityWatcher
 
@@ -167,7 +170,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 	// Asynchronously set up the global identity allocator since it connects
 	// to the kvstore.
-	go func(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan, minID, maxID idpool.ID) {
+	go func(owner IdentityAllocatorOwner, events allocator.AllocatorEventSendChan, minID, maxID idpool.ID) {
 		m.setupMutex.Lock()
 		defer m.setupMutex.Unlock()
 
@@ -273,7 +276,9 @@ func (m *CachingIdentityAllocator) Close() {
 
 	m.IdentityAllocator.Delete()
 	if m.events != nil {
-		close(m.events)
+		// Have the now only remaining writing party close the events channel,
+		// to ensure we don't panic with 'send on closed channel'.
+		m.localIdentities.close()
 		m.events = nil
 	}
 
