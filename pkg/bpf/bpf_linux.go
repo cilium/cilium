@@ -44,69 +44,6 @@ func createMap(spec *ebpf.MapSpec, opts *ebpf.MapOptions) (*ebpf.Map, error) {
 	return m, err
 }
 
-// This struct must be in sync with union bpf_attr's anonymous struct used by
-// BPF_MAP_*_ELEM commands
-type bpfAttrMapOpElem struct {
-	mapFd uint32
-	pad0  [4]byte
-	key   uint64
-	value uint64 // union: value or next_key
-	flags uint64
-}
-
-// UpdateElementFromPointers updates the map in fd with the given value in the given key.
-func UpdateElementFromPointers(fd int, mapName string, structPtr unsafe.Pointer, sizeOfStruct uintptr) error {
-	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		duration = spanstat.Start()
-	}
-	ret, _, err := unix.Syscall(
-		unix.SYS_BPF,
-		BPF_MAP_UPDATE_ELEM,
-		uintptr(structPtr),
-		sizeOfStruct,
-	)
-	runtime.KeepAlive(structPtr)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		metrics.BPFSyscallDuration.WithLabelValues(metricOpUpdate, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
-	}
-
-	if ret != 0 || err != 0 {
-		switch err {
-		case unix.E2BIG:
-			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: the map is full, please consider resizing it. %w", mapName, fd, err)
-		case unix.EEXIST:
-			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: specified key already exists. %w", mapName, fd, err)
-		case unix.ENOENT:
-			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: key does not exist. %w", mapName, fd, err)
-		default:
-			return fmt.Errorf("Unable to update element for %s map with file descriptor %d: %w", mapName, fd, err)
-		}
-	}
-
-	return nil
-}
-
-// UpdateElement updates the map in fd with the given value in the given key.
-// The flags can have the following values:
-// bpf.BPF_ANY to create new element or update existing;
-// bpf.BPF_NOEXIST to create new element if it didn't exist;
-// bpf.BPF_EXIST to update existing element.
-// Deprecated, use UpdateElementFromPointers
-func UpdateElement(fd int, mapName string, key, value unsafe.Pointer, flags uint64) error {
-	uba := bpfAttrMapOpElem{
-		mapFd: uint32(fd),
-		key:   uint64(uintptr(key)),
-		value: uint64(uintptr(value)),
-		flags: uint64(flags),
-	}
-
-	ret := UpdateElementFromPointers(fd, mapName, unsafe.Pointer(&uba), unsafe.Sizeof(uba))
-	runtime.KeepAlive(key)
-	runtime.KeepAlive(value)
-	return ret
-}
-
 func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32) bool {
 	info, err := GetMapInfo(os.Getpid(), fd)
 	if err != nil {
