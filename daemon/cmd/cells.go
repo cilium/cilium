@@ -22,6 +22,7 @@ import (
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/signal"
 )
 
 var (
@@ -96,6 +97,9 @@ var (
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
+
+		// Brokers datapath signals from signalmap
+		signal.Cell,
 
 		// Auth is responsible for authenticating a request if required by a policy.
 		auth.Cell,
