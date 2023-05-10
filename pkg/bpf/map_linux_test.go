@@ -765,13 +765,12 @@ func (s *BPFPrivilegedTestSuite) TestCreateUnpinned(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(exist, Equals, false)
 
-	key1 := &TestKey{Key: 105}
-	value1 := &TestValue{Value: 205}
-	err = m.Update(key1, value1)
+	k := &TestKey{Key: 105}
+	v := &TestValue{Value: 205}
+	err = m.Update(k, v)
 	c.Assert(err, IsNil)
 
-	var value2 TestValue
-	err = LookupElement(m.FD(), unsafe.Pointer(key1), unsafe.Pointer(&value2))
+	got, err := m.Lookup(k)
 	c.Assert(err, IsNil)
-	c.Assert(*value1, Equals, value2)
+	c.Assert(got, checker.DeepEquals, v)
 }
