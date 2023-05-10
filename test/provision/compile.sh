@@ -5,7 +5,7 @@ export CILIUM_DS_TAG="k8s-app=cilium"
 export KUBE_SYSTEM_NAMESPACE="kube-system"
 export KUBECTL="/usr/bin/kubectl"
 export VMUSER=${VMUSER:-vagrant}
-export PROVISIONSRC="/tmp/provision"
+export PROVISIONSRC=${PROVISIONSRC:-/tmp/provision}
 export GOPATH="/home/${VMUSER}/go"
 export REGISTRY="k8s1:5000"
 export DOCKER_REGISTRY="docker.io"
@@ -118,7 +118,7 @@ then
 else
     echo "Installing docker-plugin..."
     make -C plugins/cilium-docker
-    make -C plugins/cilium-docker install
+    sudo make -C plugins/cilium-docker install
     
     if [[ "${CILIUM_IMAGE}" == "" ]]; then
 	export CILIUM_IMAGE=cilium/cilium:latest
@@ -127,20 +127,24 @@ else
     fi
     sudo cp ${PROVISIONSRC}/docker-run-cilium.sh /usr/bin/docker-run-cilium
 
-    mkdir -p /etc/sysconfig/
-    sed "s|CILIUM_IMAGE[^[:space:]]*$|CILIUM_IMAGE=${CILIUM_IMAGE}|" contrib/systemd/cilium > /etc/sysconfig/cilium
+    sudo mkdir -p /etc/sysconfig/
+    sed -e "s|CILIUM_IMAGE[^[:space:]]*$|CILIUM_IMAGE=${CILIUM_IMAGE}|" -e "s|HOME=/home/vagrant|HOME=/home/${VMUSER}|" contrib/systemd/cilium | sudo tee /etc/sysconfig/cilium
 
-    cp -f contrib/systemd/*.* /etc/systemd/system/
+    sudo cp -f contrib/systemd/*.* /etc/systemd/system/
     # Use dockerized Cilium with runtime tests
-    cp -f contrib/systemd/cilium.service-with-docker /etc/systemd/system/cilium.service
+    sudo cp -f contrib/systemd/cilium.service-with-docker /etc/systemd/system/cilium.service
     # Do not run cilium-operator with runtime tests, as it fails to connect to k8s api-server
-    rm -f /etc/systemd/system/cilium-operator.service
+    sudo rm -f /etc/systemd/system/cilium-operator.service
 
-    services=$(cd /etc/systemd/system; ls -1 cilium*.service sys-fs-bpf.mount)
+    services_pattern="cilium*.service"
+    if ! mount | grep /sys/fs/bpf; then
+	services_pattern+=" sys-fs-bpf.mount"
+    fi
+    services=$(cd /etc/systemd/system; ls -1 ${services_pattern})
     for service in ${services}; do
         echo "installing service $service"
-        systemctl enable $service || echo "service $service failed"
-        systemctl restart $service || echo "service $service failed to restart"
+        sudo systemctl enable $service || echo "service $service failed"
+        sudo systemctl restart $service || echo "service $service failed to restart"
     done
 
     echo "running \"sudo adduser ${VMUSER} cilium\" "
@@ -149,5 +153,7 @@ else
     sudo adduser ${VMUSER} cilium
 
     # Download all images needed for runtime tests.
-    ./test/provision/container-images.sh test_images test/helpers
+    if [ -z "${SKIP_TEST_IMAGE_DOWNLOAD}" ]; then
+	./test/provision/container-images.sh test_images test/helpers
+    fi
 fi
