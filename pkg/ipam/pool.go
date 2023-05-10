@@ -351,8 +351,8 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 	// newIPAllocators is the new slice of IP allocators.
 	newIPAllocators := make([]*ipallocator.Range, 0, len(podCIDRs))
 
-	// addedCIDRs is the set of pod CIDRs that have been added to newIPAllocators.
-	addedCIDRs := make(map[string]struct{}, len(p.ipAllocators))
+	// addedCIDRs is the set of pod CIDRs that have a corresponding allocator
+	existingAllocators := make(map[string]struct{}, len(p.ipAllocators))
 
 	// Add existing IP allocators to newIPAllocators in order.
 	for _, ipAllocator := range p.ipAllocators {
@@ -366,13 +366,13 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 			p.removed[cidrStr] = struct{}{}
 		}
 		newIPAllocators = append(newIPAllocators, ipAllocator)
-		addedCIDRs[cidrStr] = struct{}{}
+		existingAllocators[cidrStr] = struct{}{}
 	}
 
 	// Create and add new IP allocators to newIPAllocators.
 	for _, cidrNet := range cidrNets {
 		cidrStr := cidrNet.String()
-		if _, ok := addedCIDRs[cidrStr]; ok {
+		if _, ok := existingAllocators[cidrStr]; ok {
 			continue
 		}
 		ipAllocator, err := ipallocator.NewCIDRRange(cidrNet)
@@ -387,7 +387,7 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 		}
 		log.WithField(logfields.CIDR, cidrStr).Debug("created new pod CIDR allocator")
 		newIPAllocators = append(newIPAllocators, ipAllocator)
-		addedCIDRs[cidrStr] = struct{}{} // Protect against duplicate CIDRs.
+		existingAllocators[cidrStr] = struct{}{} // Protect against duplicate CIDRs.
 	}
 
 	if len(p.ipAllocators) > 0 && len(newIPAllocators) == 0 {
