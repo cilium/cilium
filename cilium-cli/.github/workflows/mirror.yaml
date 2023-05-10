@@ -13,7 +13,7 @@ jobs:
     steps:
     - name: Mirror action step
       id: mirror
-      uses: google/mirror-branch-action@c6b07e441a7ffc5ae15860c1d0a8107a3a151db8
+      uses: google/mirror-branch-action@884625cd18fadb1bdb646df951a7b486a5d9f3fc
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         source: 'main'
