@@ -17,14 +17,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
-	"github.com/cilium/ebpf/features"
-	"github.com/cilium/ebpf/rlimit"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/rlimit"
+
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 )
 
 var (
@@ -149,7 +148,7 @@ func TestVerifier(t *testing.T) {
 
 				// Delete unsupported programs from the spec.
 				for n, p := range spec.Programs {
-					err := haveAttachType(p.Type, p.AttachType)
+					err := probes.HaveAttachType(p.Type, p.AttachType)
 					if errors.Is(err, ebpf.ErrNotSupported) {
 						t.Logf("%s: skipped unsupported program/attach type (%s/%s)", n, p.Type, p.AttachType)
 						delete(spec.Programs, n)
@@ -209,59 +208,3 @@ func TestVerifier(t *testing.T) {
 		}
 	}
 }
-
-// haveAttachType returns nil if the given program/attach type combination is
-// supported by the underlying kernel. Returns ErrNotSupported if loading a
-// program with the given Program/AttachType fails.
-func haveAttachType(pt ebpf.ProgramType, at ebpf.AttachType) (err error) {
-	if err := features.HaveProgramType(pt); err != nil {
-		return err
-	}
-
-	probesMu.Lock()
-	defer probesMu.Unlock()
-	if err, ok := probes[probe{pt, at}]; ok {
-		return err
-	}
-
-	defer func() {
-		// Closes over named return variable err to cache any returned errors.
-		probes[probe{pt, at}] = err
-	}()
-
-	spec := &ebpf.ProgramSpec{
-		Type:       pt,
-		AttachType: at,
-		Instructions: asm.Instructions{
-			// recvmsg and peername require a return value of 1, use it for all probes.
-			asm.LoadImm(asm.R0, 1, asm.DWord),
-			asm.Return(),
-		},
-	}
-
-	prog, err := ebpf.NewProgramWithOptions(spec, ebpf.ProgramOptions{
-		LogDisabled: true,
-	})
-	if err == nil {
-		prog.Close()
-	}
-
-	switch {
-	// EINVAL occurs when attempting to create a program with an unknown type.
-	// E2BIG occurs when ProgLoadAttr contains non-zero bytes past the end
-	// of the struct known by the running kernel, meaning the kernel is too old
-	// to support the given prog type.
-	case errors.Is(err, unix.EINVAL), errors.Is(err, unix.E2BIG):
-		err = ebpf.ErrNotSupported
-	}
-
-	return err
-}
-
-type probe struct {
-	pt ebpf.ProgramType
-	at ebpf.AttachType
-}
-
-var probesMu lock.Mutex
-var probes map[probe]error = make(map[probe]error)
