@@ -305,12 +305,12 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 		}
 
 		return __encap_with_nodeid(ctx, 0, info->tunnel_endpoint,
-					  WORLD_ID,
-					  info->sec_identity,
-					  NOT_VTEP_DST,
-					  (enum trace_reason)CT_NEW,
-					  TRACE_PAYLOAD_LEN,
-					  ifindex);
+					   WORLD_ID,
+					   info->sec_identity,
+					   NOT_VTEP_DST,
+					   (enum trace_reason)CT_NEW,
+					   TRACE_PAYLOAD_LEN,
+					   ifindex);
 	}
 
 	return DROP_NO_TUNNEL_ENDPOINT;
@@ -1570,24 +1570,24 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 
 			set_geneve_dsr_opt4(svc_port, svc_addr, &gopt);
 			return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
-							 WORLD_ID,
-							 info->sec_identity,
-							 NOT_VTEP_DST,
-							 &gopt,
-							 sizeof(gopt),
-							 false,
-							 (enum trace_reason)CT_NEW,
-							 TRACE_PAYLOAD_LEN,
-							 ifindex);
+							WORLD_ID,
+							info->sec_identity,
+							NOT_VTEP_DST,
+							&gopt,
+							sizeof(gopt),
+							false,
+							(enum trace_reason)CT_NEW,
+							TRACE_PAYLOAD_LEN,
+							ifindex);
 		}
 
 		return __encap_with_nodeid(ctx, 0, info->tunnel_endpoint,
-					  WORLD_ID,
-					  info->sec_identity,
-					  NOT_VTEP_DST,
-					  (enum trace_reason)CT_NEW,
-					  TRACE_PAYLOAD_LEN,
-					  ifindex);
+					   WORLD_ID,
+					   info->sec_identity,
+					   NOT_VTEP_DST,
+					   (enum trace_reason)CT_NEW,
+					   TRACE_PAYLOAD_LEN,
+					   ifindex);
 	}
 
 	return DROP_NO_TUNNEL_ENDPOINT;
