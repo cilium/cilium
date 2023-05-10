@@ -9,6 +9,7 @@
 package v1alpha1
 
 import (
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -447,6 +448,11 @@ func (in *TracingPolicySpec) DeepCopyInto(out *TracingPolicySpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.PodSelector != nil {
+		in, out := &in.PodSelector, &out.PodSelector
+		*out = new(v1.LabelSelector)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }
