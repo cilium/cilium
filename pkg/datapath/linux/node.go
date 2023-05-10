@@ -1292,14 +1292,14 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 	}
 
 	rule.Mark = linux_defaults.RouteMarkDecrypt
-	if err := route.DeleteRule(rule); err != nil {
+	if err := route.DeleteRule(netlink.FAMILY_V4, rule); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("Delete previous IPv4 decrypt rule failed: %s", err)
 		}
 	}
 
 	rule.Mark = linux_defaults.RouteMarkEncrypt
-	if err := route.DeleteRule(rule); err != nil {
+	if err := route.DeleteRule(netlink.FAMILY_V4, rule); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("Delete previousa IPv4 encrypt rule failed: %s", err)
 		}
@@ -1310,14 +1310,14 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 	}
 
 	rule.Mark = linux_defaults.RouteMarkDecrypt
-	if err := route.DeleteRuleIPv6(rule); err != nil {
+	if err := route.DeleteRule(netlink.FAMILY_V6, rule); err != nil {
 		if !os.IsNotExist(err) && !errors.Is(err, unix.EAFNOSUPPORT) {
 			return fmt.Errorf("Delete previous IPv6 decrypt rule failed: %s", err)
 		}
 	}
 
 	rule.Mark = linux_defaults.RouteMarkEncrypt
-	if err := route.DeleteRuleIPv6(rule); err != nil {
+	if err := route.DeleteRule(netlink.FAMILY_V6, rule); err != nil {
 		if !os.IsNotExist(err) && !errors.Is(err, unix.EAFNOSUPPORT) {
 			return fmt.Errorf("Delete previous IPv6 encrypt rule failed: %s", err)
 		}

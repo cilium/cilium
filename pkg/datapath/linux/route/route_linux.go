@@ -475,16 +475,7 @@ func replaceRule(spec Rule, family int) error {
 }
 
 // DeleteRule delete a mark based rule from the routing table.
-func DeleteRule(spec Rule) error {
-	return deleteRule(spec, netlink.FAMILY_V4)
-}
-
-// DeleteRuleIPv6 delete a mark based IPv6 rule from the routing table.
-func DeleteRuleIPv6(spec Rule) error {
-	return deleteRule(spec, netlink.FAMILY_V6)
-}
-
-func deleteRule(spec Rule, family int) error {
+func DeleteRule(family int, spec Rule) error {
 	rule := netlink.NewRule()
 	rule.Mark = spec.Mark
 	rule.Mask = spec.Mask
