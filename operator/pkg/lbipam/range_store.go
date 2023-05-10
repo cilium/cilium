@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/ipam/service/ipallocator"
 	"golang.org/x/exp/slices"
 
+	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 

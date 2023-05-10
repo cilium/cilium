@@ -1,27 +1,16 @@
-/*
-Copyright 2015 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+// Copyright The Kubernetes Authors.
 
 package allocator
 
 import (
 	"errors"
 	"math/big"
-	"math/rand"
-	"sync"
 	"time"
+
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/rand"
 )
 
 // AllocationBitmap is a contiguous block of resources that can be allocated atomically.
@@ -42,7 +31,7 @@ type AllocationBitmap struct {
 	rangeSpec string
 
 	// lock guards the following members
-	lock sync.Mutex
+	lock lock.Mutex
 	// count is the number of currently allocated elements in the range
 	count int
 	// allocated is a bit array of the allocated items in the range
@@ -62,7 +51,7 @@ type bitAllocator interface {
 func NewAllocationMap(max int, rangeSpec string) *AllocationBitmap {
 	a := AllocationBitmap{
 		strategy: randomScanStrategy{
-			rand: rand.New(rand.NewSource(time.Now().UnixNano())),
+			rand: rand.NewSafeRand(time.Now().UnixNano()),
 		},
 		allocated: big.NewInt(0),
 		count:     0,
@@ -199,7 +188,7 @@ func (r *AllocationBitmap) Restore(rangeSpec string, data []byte) error {
 // scans forward looking for the next available address (it will wrap the range if
 // necessary).
 type randomScanStrategy struct {
-	rand *rand.Rand
+	rand *rand.SafeRand
 }
 
 func (rss randomScanStrategy) AllocateBit(allocated *big.Int, max, count int) (int, bool) {

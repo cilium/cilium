@@ -8,9 +8,8 @@ import (
 	"math/big"
 	"net"
 
-	"github.com/cilium/ipam/service/ipallocator"
-
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 )
 
 type hostScopeAllocator struct {

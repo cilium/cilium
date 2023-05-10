@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/ipam/service/ipallocator"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/job"
+	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"

@@ -9,12 +9,12 @@ import (
 	"net"
 	"testing"
 
-	"github.com/cilium/ipam/cidrset"
 	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 

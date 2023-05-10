@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/ipam/service/ipallocator"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
