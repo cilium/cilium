@@ -290,7 +290,7 @@ func deleteRule(r route.Rule) error {
 		}).Warning("Found too many rules matching, skipping deletion")
 		return errors.New("unexpected number of rules found to delete")
 	case length == 1:
-		return route.DeleteRule(r)
+		return route.DeleteRule(netlink.FAMILY_V4, r)
 	}
 
 	log.WithFields(logrus.Fields{
