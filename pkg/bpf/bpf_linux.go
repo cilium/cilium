@@ -107,47 +107,6 @@ func UpdateElement(fd int, mapName string, key, value unsafe.Pointer, flags uint
 	return ret
 }
 
-// LookupElement looks up for the map value stored in fd with the given key. The value
-// is stored in the value unsafe.Pointer.
-func LookupElementFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintptr) error {
-	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		duration = spanstat.Start()
-	}
-	ret, _, err := unix.Syscall(
-		unix.SYS_BPF,
-		BPF_MAP_LOOKUP_ELEM,
-		uintptr(structPtr),
-		sizeOfStruct,
-	)
-	runtime.KeepAlive(structPtr)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		metrics.BPFSyscallDuration.WithLabelValues(metricOpLookup, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
-	}
-
-	if ret != 0 || err != 0 {
-		return fmt.Errorf("Unable to lookup element in map with file descriptor %d: %w", fd, err)
-	}
-
-	return nil
-}
-
-// LookupElement looks up for the map value stored in fd with the given key. The value
-// is stored in the value unsafe.Pointer.
-// Deprecated, use LookupElementFromPointers
-func LookupElement(fd int, key, value unsafe.Pointer) error {
-	uba := bpfAttrMapOpElem{
-		mapFd: uint32(fd),
-		key:   uint64(uintptr(key)),
-		value: uint64(uintptr(value)),
-	}
-
-	ret := LookupElementFromPointers(fd, unsafe.Pointer(&uba), unsafe.Sizeof(uba))
-	runtime.KeepAlive(key)
-	runtime.KeepAlive(value)
-	return ret
-}
-
 func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32) bool {
 	info, err := GetMapInfo(os.Getpid(), fd)
 	if err != nil {

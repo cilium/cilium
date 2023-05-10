@@ -778,15 +778,25 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 		return nil, err
 	}
 
-	value := key.NewValue()
-
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
-	err := LookupElement(m.FD(), key.GetKeyPtr(), value.GetValuePtr())
+	var duration *spanstat.SpanStat
+	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+		duration = spanstat.Start()
+	}
+
+	value := key.NewValue()
+	err := m.m.Lookup(key.GetKeyPtr(), value.GetValuePtr())
+
+	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+		metrics.BPFSyscallDuration.WithLabelValues(metricOpLookup, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
+	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	return value, nil
 }
 

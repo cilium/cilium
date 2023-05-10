@@ -104,7 +104,7 @@ func (cm *CIDRMap) DeleteCIDR(cidr net.IPNet) error {
 func (cm *CIDRMap) CIDRExists(cidr net.IPNet) bool {
 	key := cm.cidrKeyInit(cidr)
 	var entry [LPM_MAP_VALUE_SIZE]byte
-	return bpf.LookupElement(cm.m.FD(), unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
+	return cm.m.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
 }
 
 // CIDRNext returns next CIDR entry in map 'cm'
