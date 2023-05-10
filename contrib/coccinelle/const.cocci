@@ -17,7 +17,7 @@ cnt = 0
 identifier f, fn, x, z;
 assignment operator op;
 expression e;
-type T0, T;
+type T0, T1, T;
 position p;
 @@
 
@@ -45,6 +45,7 @@ position p;
       when != WRITE_ONCE(x->z, ...)
       when != WRITE_ONCE(x->z[...], ...)
       when != f(..., x, ...)
+      when != f(..., (T1)x, ...)
       when != f(..., x->z, ...)
   }
 )
