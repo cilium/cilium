@@ -1224,6 +1224,12 @@ func initEnv() {
 		scopedLog.WithError(err).Fatal("Unable to restore agent asset permissions")
 	}
 
+	// Creating Envoy sockets directory for cases which doesn't provide a volume mount
+	// (e.g. embedded Envoy, external workload in ClusterMesh scenario)
+	if err := os.MkdirAll(envoy.GetSocketDir(option.Config.RunDir), defaults.RuntimePathRights); err != nil {
+		scopedLog.WithError(err).Fatal("Could not create envoy sockets directory")
+	}
+
 	if option.Config.MaxControllerInterval < 0 {
 		scopedLog.Fatalf("Invalid %s value %d", option.MaxCtrlIntervalName, option.Config.MaxControllerInterval)
 	}
