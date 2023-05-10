@@ -158,7 +158,7 @@ jobs:
 
       - name: Upload junit output
         if: ${{ always() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: connectivity-${{ matrix.mode }}.xml
           path: connectivity-${{ matrix.mode }}.xml
@@ -209,7 +209,7 @@ jobs:
 
       - name: Upload junit output
         if: ${{ always() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: connectivity-ipsec-${{ matrix.mode }}.xml
           path: connectivity-ipsec-${{ matrix.mode }}.xml
@@ -356,10 +356,10 @@ jobs:
         run: |
           cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug \
           --collect-sysdump-on-failure --junit-file connectivity-clustermesh.xml
-      
+
       - name: Upload junit output
         if: ${{ always() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: connectivity-clustermesh.xml
           path: connectivity-clustermesh.xml
