@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
@@ -386,10 +385,6 @@ func (d *Daemon) initMaps() error {
 	possibleCPUs := common.GetNumPossibleCPUs(log)
 
 	if err := eventsmap.InitMap(possibleCPUs); err != nil {
-		return err
-	}
-
-	if err := signalmap.InitMap(possibleCPUs); err != nil {
 		return err
 	}
 
