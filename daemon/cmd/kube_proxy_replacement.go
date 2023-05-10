@@ -19,9 +19,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -272,6 +270,10 @@ func probeKubeProxyReplacementOptions() error {
 	}
 
 	if option.Config.EnableSocketLB {
+		if err := probes.HaveAttachCgroup(); err != nil {
+			return fmt.Errorf("socketlb enabled, but kernel does not support attaching bpf programs to cgroups: %w", err)
+		}
+
 		// Try to auto-load IPv6 module if it hasn't been done yet as there can
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
 		probes.HaveIPv6Support()
@@ -285,39 +287,29 @@ func probeKubeProxyReplacementOptions() error {
 
 		option.Config.EnableSocketLBPeer = true
 		if option.Config.EnableIPv4 {
-			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_GETPEERNAME); err != nil {
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCgroupInet4GetPeername); err != nil {
 				option.Config.EnableSocketLBPeer = false
 			}
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupInet4Connect); err != nil {
+				return fmt.Errorf("BPF host-reachable services for TCP needs kernel 4.17.0 or newer: %w", err)
+			}
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupUDP4Recvmsg); err != nil {
+				return fmt.Errorf("BPF host-reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer: %w", err)
+			}
 		}
+
 		if option.Config.EnableIPv6 {
-			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_GETPEERNAME); err != nil {
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCgroupInet6GetPeername); err != nil {
 				option.Config.EnableSocketLBPeer = false
 			}
-		}
-		if option.Config.EnableIPv4 {
-			err := probeCgroupSupportTCP(true)
-			if err != nil {
-				return err
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupInet6Connect); err != nil {
+				return fmt.Errorf("BPF host-reachable services for TCP needs kernel 4.17.0 or newer: %w", err)
+			}
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupUDP6Recvmsg); err != nil {
+				return fmt.Errorf("BPF host-reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer: %w", err)
 			}
 		}
-		if option.Config.EnableIPv6 {
-			err := probeCgroupSupportTCP(false)
-			if err != nil {
-				return err
-			}
-		}
-		if option.Config.EnableIPv4 {
-			err := probeCgroupSupportUDP(true)
-			if err != nil {
-				return err
-			}
-		}
-		if option.Config.EnableIPv6 {
-			err := probeCgroupSupportUDP(false)
-			if err != nil {
-				return err
-			}
-		}
+
 		if !option.Config.EnableSocketLB {
 			option.Config.EnableSocketLBTracing = false
 		}
@@ -351,44 +343,6 @@ func probeKubeProxyReplacementOptions() error {
 		}
 	}
 
-	return nil
-}
-
-func probeCgroupSupportTCP(ipv4 bool) error {
-	var err error
-
-	if ipv4 {
-		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT)
-	} else {
-		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT)
-	}
-	if err != nil {
-		msg := "BPF host reachable services for TCP needs kernel 4.17.0 or newer."
-		if errors.Is(err, unix.EPERM) {
-			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
-		}
-
-		return fmt.Errorf(msg)
-	}
-	return nil
-}
-
-func probeCgroupSupportUDP(ipv4 bool) error {
-	var err error
-
-	if ipv4 {
-		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG)
-	} else {
-		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG)
-	}
-	if err != nil {
-		msg := "BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer"
-		if errors.Is(err, unix.EPERM) {
-			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
-		}
-
-		return fmt.Errorf(msg)
-	}
 	return nil
 }
 
