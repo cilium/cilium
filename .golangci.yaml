@@ -79,6 +79,11 @@ issues:
     - path: \\.(generated\\.deepcopy|pb)\\.go$
       linters:
         - goimports
+    # Skip goheader check on files imported and modified from upstream k8s
+    - path: "pkg/ipam/(cidrset|service)/.+\\.go"
+      linters:
+        - goheader
+
 linters:
   disable-all: true
   enable:
