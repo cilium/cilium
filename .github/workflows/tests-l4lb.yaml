@@ -106,8 +106,8 @@ jobs:
           ref: ${{ steps.pr.outputs.head }}
           filters: |
             src:
-              - 'pkg/**'
-              - 'daemon/**'
+              - 'pkg/**/!(*_test.go)'
+              - 'daemon/**/!(*_test.go)'
               - 'bpf/**'
               - 'test/l4lb/**'
               - 'test/nat46x64/**'
@@ -144,7 +144,8 @@ jobs:
         target_url: ${{ env.check_url }}
 
   # This job is skipped when the workflow was triggered with the generic `/test`
-  # trigger if the only modified files were under `test/` or `Documentation/`.
+  # trigger if the there are no modified files in 'pkg/', 'daemon/', 'bpf/', 'test/l4lb/',
+  # 'test/nat46x64/', or 'images/', or if the modified files therein are Go test files.
   setup-and-test:
     needs: check_changes
     name: Setup & Test

@@ -46,7 +46,7 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             src:
-              - '!(test|Documentation)/**'
+              - '!(test|Documentation)/**/!(*_test.go)'
 
   preflight-clusterrole:
     runs-on: ubuntu-latest

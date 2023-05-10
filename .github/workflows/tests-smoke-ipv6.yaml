@@ -46,7 +46,7 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             src:
-              - '!(test|Documentation)/**'
+              - '!(test|Documentation)/**/!(*_test.go)'
 
   conformance-test-ipv6:
     needs: check_changes

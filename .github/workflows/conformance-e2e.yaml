@@ -106,7 +106,7 @@ jobs:
           ref: ${{ steps.pr.outputs.head }}
           filters: |
             src:
-              - '!(test|Documentation)/**'
+              - '!(test|Documentation)/**/!(*_test.go)'
 
   setup-report:
     runs-on: ubuntu-latest

@@ -111,7 +111,7 @@ jobs:
           ref: ${{ steps.pr.outputs.head }}
           filters: |
             src:
-              - '!(test|Documentation)/**'
+              - '!(test|Documentation)/**/!(*_test.go)'
 
   setup-report:
     runs-on: ubuntu-latest
@@ -166,7 +166,8 @@ jobs:
         target_url: ${{ env.check_url }}
 
   # This job is skipped when the workflow was triggered with the generic `/test-backport-1.13`
-  # trigger if the only modified files were under `test/` or `Documentation/`.
+  # trigger if the only modified files were under `test/` or `Documentation/`,
+  # or of the only modified files are all Go test files.
   installation-and-connectivity:
     needs: setup-report
     name: Setup & Test
