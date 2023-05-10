@@ -623,7 +623,7 @@ func setupRouteToVtepCidr() error {
 			To:       prefix.IPNet,
 			Table:    linux_defaults.RouteTableVtep,
 		}
-		if err := route.DeleteRule(rule); err != nil {
+		if err := route.DeleteRule(netlink.FAMILY_V4, rule); err != nil {
 			return fmt.Errorf("Delete VTEP CIDR rule error: %w", err)
 		}
 	}

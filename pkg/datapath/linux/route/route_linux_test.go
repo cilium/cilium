@@ -112,7 +112,7 @@ func testReplaceRule(c *C, mark int, from, to *net.IPNet, table int) {
 	rule := Rule{Mark: mark, From: from, To: to, Table: table}
 
 	// delete rule in case it exists from a previous failed run
-	DeleteRule(rule)
+	DeleteRule(netlink.FAMILY_V4, rule)
 
 	rule.Priority = 1
 	err := ReplaceRule(rule)
@@ -122,7 +122,7 @@ func testReplaceRule(c *C, mark int, from, to *net.IPNet, table int) {
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, true)
 
-	err = DeleteRule(rule)
+	err = DeleteRule(netlink.FAMILY_V4, rule)
 	c.Assert(err, IsNil)
 
 	exists, err = lookupRule(rule, netlink.FAMILY_V4)
@@ -134,7 +134,7 @@ func testReplaceRuleIPv6(c *C, mark int, from, to *net.IPNet, table int) {
 	rule := Rule{Mark: mark, From: from, To: to, Table: table}
 
 	// delete rule in case it exists from a previous failed run
-	DeleteRuleIPv6(rule)
+	DeleteRule(netlink.FAMILY_V6, rule)
 
 	rule.Priority = 1
 	err := ReplaceRuleIPv6(rule)
@@ -144,7 +144,7 @@ func testReplaceRuleIPv6(c *C, mark int, from, to *net.IPNet, table int) {
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, true)
 
-	err = DeleteRuleIPv6(rule)
+	err = DeleteRule(netlink.FAMILY_V6, rule)
 	c.Assert(err, IsNil)
 
 	exists, err = lookupRule(rule, netlink.FAMILY_V6)

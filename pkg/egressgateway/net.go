@@ -149,13 +149,14 @@ func deleteIpRule(ipRule netlink.Rule) {
 	logger := log.WithFields(logrus.Fields{})
 
 	logger.Debug("Removing IP rule")
-	route.DeleteRule(route.Rule{
-		Priority: linux_defaults.RulePriorityEgressGateway,
-		From:     ipRule.Src,
-		To:       ipRule.Dst,
-		Table:    ipRule.Table,
-		Protocol: linux_defaults.RTProto,
-	})
+	route.DeleteRule(netlink.FAMILY_V4,
+		route.Rule{
+			Priority: linux_defaults.RulePriorityEgressGateway,
+			From:     ipRule.Src,
+			To:       ipRule.Dst,
+			Table:    ipRule.Table,
+			Protocol: linux_defaults.RTProto,
+		})
 }
 
 func deleteIpRouteTable(tableIndex int) {
