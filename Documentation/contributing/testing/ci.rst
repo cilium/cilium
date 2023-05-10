@@ -242,9 +242,12 @@ This box will need to be updated when a new developer needs a new dependency
 that is not installed in the current version of the box, or if a dependency that
 is cached within the box becomes stale.
 
+After the pull request to packer-ci-build is merged, builds for master boxes
+have to be triggered `here <https://jenkins.cilium.io/view/Packer%20builds/>`_.
+
 Make sure that you update vagrant box versions in `vagrant_box_defaults.rb
 <https://github.com/cilium/cilium/blob/main/vagrant_box_defaults.rb>`__ after
-new box is built and tested.
+new boxes are built and tested.
 
 Once you change the image versions locally, create a branch named
 ``pr/update-packer-ci-build`` and open a PR ``github.com/cilium/cilium``.
