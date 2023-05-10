@@ -53,7 +53,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	__u32 key_size;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data_first(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
@@ -296,7 +296,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	bool decrypted;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+	if (!revalidate_data_first(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 /* If IPv4 fragmentation is disabled
@@ -527,14 +527,14 @@ static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+		if (!revalidate_data_first(ctx, &data, &data_end, &ip6))
 			return false;
 		protocol = ip6->nexthdr;
 		break;
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+		if (!revalidate_data_first(ctx, &data, &data_end, &ip4))
 			return false;
 		protocol = ip4->protocol;
 		break;

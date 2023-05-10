@@ -1605,7 +1605,8 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 
 	if (has_encap) {
 		/* point at the inner IPv4 header */
-		if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip4, encap_len + ETH_HLEN))
+		if (!revalidate_data_first_l3_off(ctx, &data, &data_end, &ip4,
+						  encap_len + ETH_HLEN))
 			return DROP_INVALID;
 
 		encap_len = 0;

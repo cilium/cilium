@@ -97,7 +97,7 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 #define ctx_change_type			xdp_change_type__stub
 #define ctx_change_tail			xdp_change_tail__stub
 
-#define ctx_pull_data(ctx, ...)		do { /* Already linear. */ } while (0)
+#define ctx_pull_data(ctx, ...)		({ 0; })
 
 #define ctx_get_tunnel_key		xdp_get_tunnel_key__stub
 #define ctx_set_tunnel_key		xdp_set_tunnel_key__stub

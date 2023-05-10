@@ -446,7 +446,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 	int hdrlen, ret;
 	__u8 nexthdr;
 
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data_first(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	nexthdr = ip6->nexthdr;
@@ -701,9 +701,9 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		if (l2_hdr_required && ETH_HLEN == 0) {
 			/* l2 header is added */
 			l3_off += __ETH_HLEN;
-			if (!____revalidate_data_pull(ctx, &data, &data_end,
-						      (void **)&ip4, sizeof(*ip4),
-						      false, l3_off))
+			if (!__revalidate_data(ctx, &data, &data_end,
+					       (void **)&ip4, sizeof(*ip4),
+					       l3_off))
 				return DROP_INVALID;
 		}
 #endif
@@ -869,7 +869,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
 		src_id = HOST_ID;
 
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+	if (!revalidate_data_first(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	src_id = resolve_srcid_ipv4(ctx, ip4, src_id, &ipcache_srcid, true);
@@ -1120,7 +1120,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 # endif
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+		if (!revalidate_data_first(ctx, &data, &data_end, &ip6))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 						      CTX_ACT_DROP, METRIC_INGRESS);
 
@@ -1140,7 +1140,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		 * Make sure that we don't legitimately drop the packet if the skb
 		 * arrived with the header not being not in the linear data.
 		 */
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+		if (!revalidate_data_first(ctx, &data, &data_end, &ip4))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 						      CTX_ACT_DROP, METRIC_INGRESS);
 

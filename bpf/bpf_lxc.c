@@ -744,7 +744,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data_first(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	/* Handle special ICMPv6 NDP messages, and all remaining packets
@@ -1278,7 +1278,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct iphdr *ip4;
 
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+	if (!revalidate_data_first(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 /* If IPv4 fragmentation is disabled

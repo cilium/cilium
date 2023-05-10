@@ -186,17 +186,13 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 }
 
 static __always_inline __maybe_unused bool
-____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
-			 void **l3, const __u32 l3_len, const bool pull,
-			 __u32 l3_off)
+__revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
+		  void **l3, const __u32 l3_len, __u32 l3_off)
 {
 	const __u64 tot_len = l3_off + l3_len;
 	void *data_end;
 	void *data;
 
-	/* Verifier workaround, do this unconditionally: invalid size of register spill. */
-	if (pull)
-		ctx_pull_data(ctx, tot_len);
 	data_end = ctx_data_end(ctx);
 	data = ctx_data(ctx);
 	if (data + tot_len > data_end)
@@ -211,33 +207,38 @@ ____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 }
 
 static __always_inline __maybe_unused bool
-__revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
-		       void **l3, const __u32 l3_off, const __u32 l3_len,
-		       const bool pull)
+__revalidate_data_first(struct __ctx_buff *ctx, void **data, void **data_end,
+			void **l3, const __u32 l3_len, const __u32 l3_off)
 {
-	return ____revalidate_data_pull(ctx, data, data_end, l3, l3_len, pull,
-					l3_off);
+	if (!__revalidate_data(ctx, data, data_end, l3, l3_len, l3_off)) {
+		int err = ctx_pull_data(ctx, l3_off + l3_len);
+
+		if (err || !__revalidate_data(ctx, data, data_end, l3, l3_len, l3_off))
+			return false;
+	}
+
+	return true;
 }
 
-/* revalidate_data_pull() initializes the provided pointers from the ctx and
+/* revalidate_data_first() initializes the provided pointers from the ctx and
  * ensures that the data is pulled in for access. Should be used the first
  * time that the ctx data is accessed, subsequent calls can be made to
  * revalidate_data() which is cheaper.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise.
  */
-#define revalidate_data_pull(ctx, data, data_end, ip)			\
-	__revalidate_data_pull(ctx, data, data_end, (void **)ip, ETH_HLEN, sizeof(**ip), true)
+#define revalidate_data_first(ctx, data, data_end, ip)			\
+	__revalidate_data_first(ctx, data, data_end, (void **)ip, sizeof(**ip), ETH_HLEN)
 
-#define revalidate_data_l3_off(ctx, data, data_end, ip, l3_off)		\
-	__revalidate_data_pull(ctx, data, data_end, (void **)ip, l3_off, sizeof(**ip), false)
+#define revalidate_data_first_l3_off(ctx, data, data_end, ip, l3_off)	\
+	__revalidate_data_first(ctx, data, data_end, (void **)ip, sizeof(**ip), l3_off)
 
 /* revalidate_data() initializes the provided pointers from the ctx.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise.
  */
 #define revalidate_data(ctx, data, data_end, ip)			\
-	revalidate_data_l3_off(ctx, data, data_end, ip, ETH_HLEN)
+	revalidate_data_first_l3_off(ctx, data, data_end, ip, ETH_HLEN)
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))

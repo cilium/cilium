@@ -176,7 +176,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 
 			l3_off = inner_l2_off + ETH_HLEN;
 
-			if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip4, l3_off)) {
+			if (!revalidate_data_first_l3_off(ctx, &data, &data_end, &ip4, l3_off)) {
 				ret = DROP_INVALID;
 				goto out;
 			}
