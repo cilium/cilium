@@ -844,11 +844,17 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 		return err
 	}
 
-	err = UpdateElement(m.FD(), m.name, key.GetKeyPtr(), value.GetValuePtr(), 0)
+	err = m.m.Update(key.GetKeyPtr(), value.GetValuePtr(), ebpf.UpdateAny)
+
 	if option.Config.MetricsConfig.BPFMapOps {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 	}
-	return err
+
+	if err != nil {
+		return fmt.Errorf("update map %s: %w", m.Name(), err)
+	}
+
+	return nil
 }
 
 // deleteMapEvent is run at every delete map event.
@@ -1114,7 +1120,8 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		switch e.DesiredAction {
 		case OK:
 		case Insert:
-			err := UpdateElement(m.FD(), m.name, e.Key.GetKeyPtr(), e.Value.GetValuePtr(), 0)
+			// Call into ebpf-go's Map.Update() directly, don't go through the cache.
+			err := m.m.Update(e.Key.GetKeyPtr(), e.Value.GetValuePtr(), ebpf.UpdateAny)
 			if option.Config.MetricsConfig.BPFMapOps {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 			}
