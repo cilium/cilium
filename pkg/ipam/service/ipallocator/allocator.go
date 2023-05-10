@@ -1,19 +1,6 @@
-/*
-Copyright 2020 Authors of Cilium.
-Copyright 2015 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+// Copyright The Kubernetes Authors.
 
 package ipallocator
 
@@ -23,7 +10,7 @@ import (
 	"math/big"
 	"net"
 
-	"github.com/cilium/ipam/service/allocator"
+	"github.com/cilium/cilium/pkg/ipam/service/allocator"
 )
 
 // Interface manages the allocation of IP addresses out of a range. Interface
@@ -57,18 +44,18 @@ func (e *ErrNotInRange) Error() string {
 //
 // The internal structure of the range is:
 //
-//   For CIDR 10.0.0.0/24
-//   254 addresses usable out of 256 total (minus base and broadcast IPs)
-//     The number of usable addresses is r.max
+//	For CIDR 10.0.0.0/24
+//	254 addresses usable out of 256 total (minus base and broadcast IPs)
+//	  The number of usable addresses is r.max
 //
-//   CIDR base IP          CIDR broadcast IP
-//   10.0.0.0                     10.0.0.255
-//   |                                     |
-//   0 1 2 3 4 5 ...         ... 253 254 255
-//     |                              |
-//   r.base                     r.base + r.max
-//     |                              |
-//   offset #0 of r.allocated   last offset of r.allocated
+//	CIDR base IP          CIDR broadcast IP
+//	10.0.0.0                     10.0.0.255
+//	|                                     |
+//	0 1 2 3 4 5 ...         ... 253 254 255
+//	  |                              |
+//	r.base                     r.base + r.max
+//	  |                              |
+//	offset #0 of r.allocated   last offset of r.allocated
 type Range struct {
 	net *net.IPNet
 	// base is a cached version of the start IP in the CIDR range as a *big.Int
