@@ -175,6 +175,39 @@ OpenMetrics imposes a few additional requirements on metrics names and labels,
 so this functionality is currently opt-in, though we believe all of the Hubble
 metrics conform to the OpenMetrics requirements.
 
+
+Cluster Mesh API Server Metrics
+===============================
+
+Cluster Mesh API Server metrics provide insights into both the state of the
+``clustermesh-apiserver`` process and the sidecar etcd instance.
+Cluster Mesh API Server metrics are exported under the ``cilium_clustermesh_apiserver_``
+Prometheus namespace. Etcd metrics are exported under the ``etcd_`` Prometheus namespace.
+
+
+Installation
+------------
+
+You can enable metrics for ``clustermesh-apiserver`` with the Helm value
+``clustermesh.apiserver.metrics.enabled=true``.
+To enable metrics for the sidecar etcd instance, use
+``clustermesh.apiserver.metrics.etcd.enabled=true``.
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set clustermesh.useAPIServer=true \\
+     --set clustermesh.apiserver.metrics.enabled=true \\
+     --set clustermesh.apiserver.metrics.etcd.enabled=true
+
+The ports can be configured via ``clustermesh.apiserver.metrics.port`` and
+``clustermesh.apiserver.metrics.etcd.port`` respectively.
+
+You can automatically create a
+`Prometheus Operator <https://github.com/prometheus-operator/prometheus-operator>`_
+``ServiceMonitor`` by setting ``clustermesh.apiserver.metrics.serviceMonitor.enabled=true``.
+
 Example Prometheus & Grafana Deployment
 =======================================
 
@@ -856,3 +889,32 @@ Options
 """""""
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
+
+clustermesh-apiserver
+---------------------
+
+Configuration
+^^^^^^^^^^^^^
+
+To expose any metrics, invoke ``clustermesh-apiserver`` with the
+``--prometheus-serve-addr`` option. This option takes a ``IP:Port`` pair but
+passing an empty IP (e.g. ``:9962``) will bind the server to all available
+interfaces (there is usually only one in a container).
+
+Exported Metrics
+^^^^^^^^^^^^^^^^
+
+All metrics are exported under the ``cilium_clustermesh_apiserver_``
+Prometheus namespace.
+
+KVstore
+~~~~~~~
+
+======================================== ============================================ ========================================================
+Name                                     Labels                                       Description
+======================================== ============================================ ========================================================
+``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Duration of kvstore operation
+``kvstore_events_queue_seconds``         ``action``, ``scope``                        Seconds waited before a received event was queued
+``kvstore_quorum_errors_total``          ``error``                                    Number of quorum errors
+``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Number of elements queued for synchronization in the kvstore
+======================================== ============================================ ========================================================
