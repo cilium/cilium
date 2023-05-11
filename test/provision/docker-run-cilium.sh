@@ -57,3 +57,11 @@ ${SUDO} docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE /bin/bash -c "groupa
 # Copy Cilium CLI
 ${SUDO} docker cp cilium:/usr/bin/cilium /usr/bin/
 ${SUDO} docker cp cilium:/usr/bin/cilium-bugtool /usr/bin/
+${SUDO} docker cp cilium:/usr/bin/hubble /usr/bin/
+# These programs are not statically linked so they might break in the case
+# of GHA runners are upgraded.
+if ! command -v "clang" >/dev/null 2>&1; then
+  ${SUDO} docker cp cilium:/usr/local/bin/clang /usr/bin/
+  ${SUDO} docker cp cilium:/usr/local/bin/llc /usr/bin/
+  ${SUDO} docker cp cilium:/usr/local/bin/tc /usr/bin/
+fi
