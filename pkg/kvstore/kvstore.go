@@ -42,6 +42,10 @@ const (
 	// ClusterConfigPrefix is the kvstore prefix to cluster configuration
 	ClusterConfigPrefix = BaseKeyPrefix + "/cluster-config"
 
+	// SyncedPrefix is the kvstore prefix used to convey whether
+	// synchronization from an external source has completed for a given prefix
+	SyncedPrefix = BaseKeyPrefix + "/synced"
+
 	// HeartbeatWriteInterval is the interval in which the heartbeat key at
 	// HeartbeatPath is updated
 	HeartbeatWriteInterval = time.Minute
