@@ -474,6 +474,10 @@ var (
 	// synchronization in the kvstore.
 	KVStoreSyncQueueSize = NoOpGaugeVec
 
+	// KVStoreInitialSyncCompleted records whether the initial synchronization
+	// from/to the kvstore has completed.
+	KVStoreInitialSyncCompleted = NoOpGaugeVec
+
 	// FQDNGarbageCollectorCleanedTotal is the number of domains cleaned by the
 	// GC job.
 	FQDNGarbageCollectorCleanedTotal = NoOpCounter
@@ -617,6 +621,7 @@ type Configuration struct {
 	KVStoreEventsQueueDurationEnabled       bool
 	KVStoreQuorumErrorsEnabled              bool
 	KVStoreSyncQueueSizeEnabled             bool
+	KVStoreInitialSyncCompletedEnabled      bool
 	FQDNGarbageCollectorCleanedTotalEnabled bool
 	FQDNActiveNames                         bool
 	FQDNActiveIPs                           bool
@@ -692,6 +697,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":                 {},
 		Namespace + "_" + SubsystemKVStore + "_quorum_errors_total":                  {},
 		Namespace + "_" + SubsystemKVStore + "_sync_queue_size":                      {},
+		Namespace + "_" + SubsystemKVStore + "_initial_sync_completed":               {},
 		Namespace + "_" + SubsystemIPCache + "_errors_total":                         {},
 		Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":                      {},
 		Namespace + "_" + SubsystemBPF + "_map_ops_total":                            {},
@@ -1279,6 +1285,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, KVStoreSyncQueueSize)
 			c.KVStoreSyncQueueSizeEnabled = true
+
+		case Namespace + "_" + SubsystemKVStore + "_initial_sync_completed":
+			KVStoreInitialSyncCompleted = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemKVStore,
+				Name:      "initial_sync_completed",
+				Help:      "Whether the initial synchronization from/to the kvstore has completed",
+			}, []string{LabelScope, LabelSourceCluster, LabelAction})
+
+			collectors = append(collectors, KVStoreInitialSyncCompleted)
+			c.KVStoreInitialSyncCompletedEnabled = true
 
 		case Namespace + "_" + SubsystemIPCache + "_errors_total":
 			IPCacheErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
