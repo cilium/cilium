@@ -1817,6 +1817,98 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target, __s8 *
 }
 
 static __always_inline __maybe_unused int
+snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx, __u32 off)
+{
+	struct ipv6_nat_entry *state;
+	struct ipv6_ct_tuple tuple = {};
+	struct ipv6hdr iphdr;
+	__be16 identifier;
+	__u8 type;
+	__u32 icmpoff = off;
+	int ret, hdrlen;
+
+	/* According to the RFC 5508, any networking
+	 * equipment that is responding with an ICMP Error
+	 * packet should embed the original packet in its
+	 * response.
+	 */
+
+	/* Note related to how is computed the offset. The
+	 * ICMPV6_PKT_TOOBIG does not include identifer and
+	 * sequence in its headers.
+	 */
+	icmpoff += sizeof(struct icmp6hdr) - field_sizeof(struct icmp6hdr, icmp6_dataun.u_echo);
+
+	if (ctx_load_bytes(ctx, icmpoff, &iphdr,
+			   sizeof(iphdr)) < 0)
+		return DROP_INVALID;
+
+	/* From the embedded IP headers we should be able
+	 * to determine corresponding protocol, IP src/dst
+	 * of the packet sent to resolve the NAT session.
+	 */
+
+	tuple.nexthdr = iphdr.nexthdr;
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&iphdr.daddr);
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&iphdr.saddr);
+	tuple.flags = NAT_DIR_INGRESS;
+
+	hdrlen = ipv6_hdrlen_offset(ctx, &tuple.nexthdr, icmpoff);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	icmpoff += hdrlen;
+
+	switch (tuple.nexthdr) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
+		/* No reasons to handle IP fragmentation for this case
+		 * as it is expected that DF isn't set for this particular
+		 * context.
+		 */
+		if (l4_load_ports(ctx, icmpoff, &tuple.dport) < 0)
+			return DROP_INVALID;
+		break;
+	case IPPROTO_ICMPV6:
+		/* No reasons to see a packet different than
+		 * ICMPV6_ECHO_REQUEST.
+		 */
+		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0 ||
+		    type != ICMPV6_ECHO_REQUEST)
+			return DROP_INVALID;
+		if (ctx_load_bytes(ctx, icmpoff +
+				   offsetof(struct icmp6hdr,
+					    icmp6_dataun.u_echo.identifier),
+				   &identifier, sizeof(identifier)) < 0)
+			return DROP_INVALID;
+		tuple.sport = 0;
+		tuple.dport = identifier;
+		break;
+	default:
+		return DROP_UNKNOWN_L4;
+	}
+	state = snat_v6_lookup(&tuple);
+	if (!state)
+		return NAT_PUNT_TO_STACK;
+
+	/* We found SNAT entry to rev-NAT embedded packet. The source addr
+	 * should point to endpoint that initiated the packet, as-well if
+	 * dest port had been NATed.
+	 */
+	ret = snat_v6_icmp_rewrite_embedded(ctx, &tuple, state, off, icmpoff);
+	if (IS_ERR(ret))
+		return ret;
+
+	/* Switch back to the outer header. */
+	tuple.nexthdr = IPPROTO_ICMPV6;
+
+	return snat_v6_rewrite_ingress(ctx, &tuple, state, off);
+}
+
+static __always_inline __maybe_unused int
 snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target, __s8 *ext_err)
 {
 	struct icmp6hdr icmp6hdr __align_stack_8;
@@ -1871,90 +1963,8 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target, __
 			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			tuple.sport = 0;
 			break;
-		case ICMPV6_PKT_TOOBIG: {
-			struct ipv6hdr iphdr;
-			__be16 identifier;
-			__u8 type;
-			__u32 icmpoff = off;
-
-			/* According to the RFC 5508, any networking
-			 * equipment that is responding with an ICMP Error
-			 * packet should embed the original packet in its
-			 * response.
-			 */
-
-			/* Note related to how is computed the offset. The
-			 * ICMPV6_PKT_TOOBIG does not include identifer and
-			 * sequence in its headers.
-			 */
-			icmpoff += sizeof(icmp6hdr) - sizeof(icmp6hdr.icmp6_dataun.u_echo);
-
-			if (ctx_load_bytes(ctx, icmpoff, &iphdr,
-					   sizeof(iphdr)) < 0)
-				return DROP_INVALID;
-
-			/* From the embedded IP headers we should be able
-			 * to determine corresponding protocol, IP src/dst
-			 * of the packet sent to resolve the NAT session.
-			 */
-
-			tuple.nexthdr = iphdr.nexthdr;
-			ipv6_addr_copy(&tuple.saddr, (union v6addr *)&iphdr.daddr);
-			ipv6_addr_copy(&tuple.daddr, (union v6addr *)&iphdr.saddr);
-
-			hdrlen = ipv6_hdrlen_offset(ctx, &tuple.nexthdr, icmpoff);
-			if (hdrlen < 0)
-				return hdrlen;
-
-			icmpoff += hdrlen;
-
-			switch (tuple.nexthdr) {
-			case IPPROTO_TCP:
-			case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-			case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
-				/* No reasons to handle IP fragmentation for this case
-				 * as it is expected that DF isn't set for this particular
-				 * context.
-				 */
-				if (l4_load_ports(ctx, icmpoff, &tuple.dport) < 0)
-					return DROP_INVALID;
-				break;
-			case IPPROTO_ICMPV6:
-				/* No reasons to see a packet different than
-				 * ICMPV6_ECHO_REQUEST.
-				 */
-				if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0 ||
-				    type != ICMPV6_ECHO_REQUEST)
-					return DROP_INVALID;
-				if (ctx_load_bytes(ctx, icmpoff +
-						   offsetof(struct icmp6hdr,
-							    icmp6_dataun.u_echo.identifier),
-						   &identifier, sizeof(identifier)) < 0)
-					return DROP_INVALID;
-				tuple.sport = 0;
-				tuple.dport = identifier;
-				break;
-			default:
-				return DROP_UNKNOWN_L4;
-			}
-			state = snat_v6_lookup(&tuple);
-			if (!state)
-				return NAT_PUNT_TO_STACK;
-
-			/* We found SNAT entry to rev-NAT embedded packet. The source addr
-			 * should point to endpoint that initiated the packet, as-well if
-			 * dest port had been NATed.
-			 */
-			ret = snat_v6_icmp_rewrite_embedded(ctx, &tuple, state, off, icmpoff);
-			if (IS_ERR(ret))
-				return ret;
-
-			/* Switch back to the outer header. */
-			tuple.nexthdr = IPPROTO_ICMPV6;
-			goto rewrite_ingress;
-		}
+		case ICMPV6_PKT_TOOBIG:
+			return snat_v6_rev_nat_handle_icmp_pkt_toobig(ctx, off);
 		default:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
@@ -1971,7 +1981,6 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target, __
 	if (ret < 0)
 		return ret;
 
-rewrite_ingress:
 	return snat_v6_rewrite_ingress(ctx, &tuple, state, off);
 }
 #else
