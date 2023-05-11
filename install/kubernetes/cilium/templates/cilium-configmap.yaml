@@ -236,6 +236,8 @@ data:
   loadbalancer-l7: "envoy"
   loadbalancer-l7-ports: {{ .Values.loadBalancer.l7.ports | join " " | quote }}
   loadbalancer-l7-algorithm: {{ .Values.loadBalancer.l7.algorithm | quote }}
+  policy-secrets-namespace: {{ .Values.loadBalancer.l7.secretsNamespace.name | quote }}
+  enable-policy-secrets-sync: {{ .Values.loadBalancer.l7.secretsNamespace.sync | quote }}
 {{- end }}
 {{- end }}
 

@@ -494,11 +494,15 @@ contributors across the globe, there is almost always someone available to help.
 | l7Proxy | bool | `true` | Enable Layer 7 network policy. |
 | livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
-| loadBalancer | object | `{"l7":{"algorithm":"round_robin","backend":"disabled","ports":[]}}` | Configure service load balancing |
-| loadBalancer.l7 | object | `{"algorithm":"round_robin","backend":"disabled","ports":[]}` | L7 LoadBalancer |
+| loadBalancer | object | `{"l7":{"algorithm":"round_robin","backend":"disabled","ports":[],"secretsNamespace":{"create":true,"name":"cilium-secrets","sync":true}}}` | Configure service load balancing |
+| loadBalancer.l7 | object | `{"algorithm":"round_robin","backend":"disabled","ports":[],"secretsNamespace":{"create":true,"name":"cilium-secrets","sync":true}}` | L7 LoadBalancer |
 | loadBalancer.l7.algorithm | string | `"round_robin"` | Default LB algorithm The default LB algorithm to be used for services, which can be overridden by the service annotation (e.g. service.cilium.io/lb-l7-algorithm) Applicable values: round_robin, least_request, random |
 | loadBalancer.l7.backend | string | `"disabled"` | Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. service.cilium.io/lb-l7, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration.  Applicable values:   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.   - disabled: Disable L7 load balancing. |
 | loadBalancer.l7.ports | list | `[]` | List of ports from service to be automatically redirected to above backend. Any service exposing one of these ports will be automatically redirected. Fine-grained control can be achieved by using the service annotation. |
+| loadBalancer.l7.secretsNamespace | object | `{"create":true,"name":"cilium-secrets","sync":true}` | SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from. |
+| loadBalancer.l7.secretsNamespace.create | bool | `true` | Create secrets namespace for Ingress. |
+| loadBalancer.l7.secretsNamespace.name | string | `"cilium-secrets"` | Name of L7 network policy secret namespace. |
+| loadBalancer.l7.secretsNamespace.sync | bool | `true` | Enable secret sync, which will make sure all TLS secrets used by network policies are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally. |
 | localRedirectPolicy | bool | `false` | Enable Local Redirect Policy. |
 | logSystemLoad | bool | `false` | Enables periodic logging of system load |
 | maglev | object | `{}` | Configure maglev consistent hashing |

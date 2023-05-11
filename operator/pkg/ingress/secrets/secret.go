@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package ingress
+package secrets
 
 import (
 	"context"
@@ -16,20 +16,29 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	cnphelpers "github.com/cilium/cilium/operator/pkg/ciliumnetworkpolicy/helpers"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/policy/api"
+)
+
+var (
+	// Key for CA certificate is fixed as 'ca.crt' even though is not as "standard"
+	// as 'tls.crt' and 'tls.key' are defined in core v1.
+	caCrtAttribute = "ca.crt"
 )
 
 const (
 	tlsFieldSelector = "type=kubernetes.io/tls"
 )
 
-type secretManager interface {
+type SecretManager interface {
 	// Run kicks off the control loop for queue processing
 	Run()
 
@@ -50,6 +59,30 @@ type secretDeletedEvent struct {
 	secret *slim_corev1.Secret
 }
 
+type IngressAddedEvent struct {
+	Ingress *slim_networkingv1.Ingress
+}
+type IngressUpdatedEvent struct {
+	OldIngress *slim_networkingv1.Ingress
+	NewIngress *slim_networkingv1.Ingress
+}
+
+type IngressDeletedEvent struct {
+	Ingress *slim_networkingv1.Ingress
+}
+
+type CNPAddedEvent struct {
+	CNP *types.SlimCNP
+}
+type CNPUpdatedEvent struct {
+	OldCNP *types.SlimCNP
+	NewCNP *types.SlimCNP
+}
+
+type CNPDeletedEvent struct {
+	CNP *types.SlimCNP
+}
+
 type syncSecretManager struct {
 	informer cache.Controller
 	store    cache.Store
@@ -64,12 +97,15 @@ type syncSecretManager struct {
 
 	// watchedSecretMap contains mappings for original and synced TLS secrets.
 	watchedSecretMap map[string]string
+
+	// if a secret is used in a CNP, it has more context this is stored here to re-map fields
+	watchedTLSContexts map[string]*api.TLSContext
 }
 
 type noOpsSecretManager struct{}
 
-// newNoOpsSecretManager returns new no-ops instance of secret manager
-func newNoOpsSecretManager() secretManager {
+// NewNoOpsSecretManager returns new no-ops instance of secret manager
+func NewNoOpsSecretManager() SecretManager {
 	return noOpsSecretManager{}
 }
 
@@ -78,13 +114,14 @@ func (n noOpsSecretManager) Run() {}
 func (n noOpsSecretManager) Add(event interface{}) {}
 
 // newSyncSecretsManager constructs a new secret manager instance
-func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxRetries int) (secretManager, error) {
+func NewSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxRetries int, tlsOnly bool) (SecretManager, error) {
 	manager := &syncSecretManager{
-		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		namespace:        namespace,
-		maxRetries:       maxRetries,
-		client:           clientset.CoreV1().Secrets(namespace),
-		watchedSecretMap: map[string]string{},
+		queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		namespace:          namespace,
+		maxRetries:         maxRetries,
+		client:             clientset.CoreV1().Secrets(namespace),
+		watchedSecretMap:   map[string]string{},
+		watchedTLSContexts: map[string]*api.TLSContext{},
 	}
 
 	manager.store, manager.informer = informer.NewInformer(
@@ -92,7 +129,9 @@ func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxR
 			utils.ListerWatcherFromTyped[*slim_corev1.SecretList](clientset.Slim().CoreV1().Secrets(corev1.NamespaceAll)),
 			// only watch TLS secret
 			func(options *metav1.ListOptions) {
-				options.FieldSelector = tlsFieldSelector
+				if tlsOnly {
+					options.FieldSelector = tlsFieldSelector
+				}
 			}),
 		&slim_corev1.Secret{},
 		0,
@@ -172,7 +211,7 @@ func (sm *syncSecretManager) processEvent() bool {
 	} else if sm.queue.NumRequeues(event) < sm.maxRetries {
 		sm.queue.AddRateLimited(event)
 	} else {
-		log.Errorf("Failed to process Ingress event, skipping: %+v", event)
+		log.WithField("error", err).Errorf("Failed to process Ingress event, skipping: %+v", event)
 		sm.queue.Forget(event)
 	}
 	return true
@@ -187,12 +226,21 @@ func (sm *syncSecretManager) handleEvent(event interface{}) interface{} {
 		err = sm.handleSecretUpdatedEvent(ev)
 	case secretDeletedEvent:
 		err = sm.handleSecretDeletedEvent(ev)
-	case ingressAddedEvent:
+
+	case IngressAddedEvent:
 		err = sm.handleIngressAddedEvent(ev)
-	case ingressUpdatedEvent:
+	case IngressUpdatedEvent:
 		err = sm.handleIngressUpdatedEvent(ev)
-	case ingressDeletedEvent:
+	case IngressDeletedEvent:
 		err = sm.handleIngressDeletedEvent(ev)
+
+	case CNPAddedEvent:
+		err = sm.handleCNPAddedEvent(ev)
+	case CNPUpdatedEvent:
+		err = sm.handleCNPUpdatedEvent(ev)
+	case CNPDeletedEvent:
+		err = sm.handleCNPDeletedEvent(ev)
+
 	default:
 		err = fmt.Errorf("received an unknown event: %t", ev)
 	}
@@ -220,18 +268,18 @@ func (sm *syncSecretManager) handleSecretDeletedEvent(ev secretDeletedEvent) err
 	return sm.deleteSecret(ev.secret)
 }
 
-func (sm *syncSecretManager) handleIngressAddedEvent(ev ingressAddedEvent) error {
-	return sm.handleIngressUpsertedEvent(ev.ingress)
+func (sm *syncSecretManager) handleIngressAddedEvent(ev IngressAddedEvent) error {
+	return sm.handleIngressUpsertedEvent(ev.Ingress)
 }
 
-func (sm *syncSecretManager) handleIngressUpdatedEvent(ev ingressUpdatedEvent) error {
-	return sm.handleIngressUpsertedEvent(ev.newIngress)
+func (sm *syncSecretManager) handleIngressUpdatedEvent(ev IngressUpdatedEvent) error {
+	return sm.handleIngressUpsertedEvent(ev.NewIngress)
 }
 
 // handleIngressDeletedEvent is doing nothing right now as the underlying secrets could be
 // referenced in other Ingress resources, which is common use case for wildcard secrets (e.g
 // *.foo.com)
-func (sm *syncSecretManager) handleIngressDeletedEvent(ev ingressDeletedEvent) error {
+func (sm *syncSecretManager) handleIngressDeletedEvent(ev IngressDeletedEvent) error {
 	return nil
 }
 
@@ -260,11 +308,67 @@ func (sm *syncSecretManager) handleIngressUpsertedEvent(ingress *slim_networking
 	return nil
 }
 
+func (sm *syncSecretManager) handleCNPAddedEvent(ev CNPAddedEvent) error {
+	tlsContexts := cnphelpers.GetReferencedTLSContext(ev.CNP)
+	headerSecrets := cnphelpers.GetReferencedHeaderMatchSecrets(ev.CNP)
+	return sm.handleCNPUpsertedEvent(ev.CNP, tlsContexts, headerSecrets)
+}
+
+func (sm *syncSecretManager) handleCNPUpdatedEvent(ev CNPUpdatedEvent) error {
+	tlsContexts := cnphelpers.GetReferencedTLSContext(ev.NewCNP)
+	headerSecrets := cnphelpers.GetReferencedHeaderMatchSecrets(ev.NewCNP)
+	return sm.handleCNPUpsertedEvent(ev.NewCNP, tlsContexts, headerSecrets)
+}
+
+func (sm *syncSecretManager) handleCNPDeletedEvent(ev CNPDeletedEvent) error {
+	return nil
+}
+
+func (sm *syncSecretManager) handleCNPUpsertedEvent(cnp *types.SlimCNP, tlsContexts []*api.TLSContext, secrets []*api.Secret) error {
+	for _, t := range tlsContexts {
+		if t.Secret == nil {
+			continue
+		}
+
+		secrets = append(secrets, t.Secret)
+
+		sm.lock.Lock()
+		sm.watchedTLSContexts[getSecretKey(t.Secret.Namespace, t.Secret.Name)] = t
+		sm.lock.Unlock()
+	}
+
+	for _, s := range secrets {
+		key := getSecretKey(s.Namespace, s.Name)
+
+		sm.lock.Lock()
+		sm.watchedSecretMap[key] = getSyncedSecretKey(sm.namespace, s.Namespace, s.Name)
+		sm.lock.Unlock()
+
+		// check if the secret is available
+		secret, exists, err := sm.getByKey(key)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return fmt.Errorf("secret does not exist: %s", key)
+		}
+
+		// proceed to sync secret
+		err = sm.syncSecret(secret)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // syncSecret performs an upsert to make sure that secret in secret namespace is in synced with original secret
 func (sm *syncSecretManager) syncSecret(original *slim_corev1.Secret) error {
 	key := getSecretKey(original.GetNamespace(), original.GetName())
 	sm.lock.RLock()
 	_, exists := sm.watchedSecretMap[key]
+	tlsContext, tcExists := sm.watchedTLSContexts[key]
 	sm.lock.RUnlock()
 	if !exists {
 		// the secret is not used in TLS, ignoring.
@@ -285,6 +389,21 @@ func (sm *syncSecretManager) syncSecret(original *slim_corev1.Secret) error {
 		newSecret := original.DeepCopy()
 		newSecret.Name = getSyncedSecretName(original.GetNamespace(), original.GetName())
 		newSecret.Namespace = sm.namespace
+
+		if tcExists {
+			// TLSContext allows users to re-name the keys, SDS cannot handle this.
+			// This is why we re-name the keys to match the k8s TLS secret format.
+
+			if _, ok := original.Data[tlsContext.Certificate]; ok {
+				newSecret.Data[corev1.TLSCertKey] = original.Data[tlsContext.Certificate]
+			}
+			if _, ok := original.Data[tlsContext.PrivateKey]; ok {
+				newSecret.Data[corev1.TLSPrivateKeyKey] = original.Data[tlsContext.PrivateKey]
+			}
+			if _, ok := original.Data[tlsContext.TrustedCA]; ok {
+				newSecret.Data[caCrtAttribute] = original.Data[tlsContext.TrustedCA]
+			}
+		}
 
 		// create a new secret
 		_, err = sm.client.Create(context.TODO(), toV1Secret(newSecret), metav1.CreateOptions{})

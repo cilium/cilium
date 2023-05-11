@@ -30,6 +30,7 @@ import (
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
+	"github.com/cilium/cilium/operator/pkg/ciliumnetworkpolicy"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
@@ -120,6 +121,8 @@ var (
 
 		// Provides a global job registry which cells can use to spawn job groups.
 		job.Cell,
+
+		ciliumnetworkpolicy.Cell,
 
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(

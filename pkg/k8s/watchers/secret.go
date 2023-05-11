@@ -9,6 +9,7 @@ import (
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_entensions_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	"golang.org/x/exp/maps"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -157,6 +158,20 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_entensions_tls_v3.Secre
 					},
 				},
 				// TODO: Consider support for other ValidationContext config.
+			},
+		}
+	} else if len(maps.Keys(secret.Data)) == 1 {
+		// if it has nothing to do with TLS, but has a single key, we assume it's a generic secret
+		// this is used for HTTP header replacement
+		key := maps.Keys(secret.Data)[0]
+
+		envoySecret.Type = &envoy_entensions_tls_v3.Secret_GenericSecret{
+			GenericSecret: &envoy_entensions_tls_v3.GenericSecret{
+				Secret: &envoy_config_core_v3.DataSource{
+					Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
+						InlineBytes: secret.Data[key],
+					},
+				},
 			},
 		}
 	}

@@ -1126,6 +1126,9 @@ const (
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API.
 	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
 
+	// PolicySecretsNamespace is the namespace having tls secrets used by CNP
+	PolicySecretsNamespace = "policy-secrets-namespace"
+
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
@@ -2337,6 +2340,9 @@ type DaemonConfig struct {
 
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy bool
+
+	// PolicySecretsNamespace is the namespace where secrets used in CNPs are stored.
+	PolicySecretsNamespace string
 }
 
 var (
@@ -3421,7 +3427,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
 
 	// Envoy secrets namespaces to watch
-	params := []string{IngressSecretsNamespace, GatewayAPISecretsNamespace}
+	params := []string{IngressSecretsNamespace, GatewayAPISecretsNamespace, PolicySecretsNamespace}
 	var nsList = make([]string, 0, len(params))
 	for _, param := range params {
 		ns := vp.GetString(param)
@@ -3430,6 +3436,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		}
 	}
 	c.EnvoySecretNamespaces = nsList
+
+	c.PolicySecretsNamespace = vp.GetString(PolicySecretsNamespace)
 
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)

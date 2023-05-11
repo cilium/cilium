@@ -1638,6 +1638,18 @@ loadBalancer:
     # Applicable values: round_robin, least_request, random
     algorithm: round_robin
 
+    # -- SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
+    secretsNamespace:
+    # -- Create secrets namespace for Ingress.
+      create: true
+
+    # -- Name of L7 network policy secret namespace.
+      name: cilium-secrets
+
+    # -- Enable secret sync, which will make sure all TLS secrets used by network policies are synced to secretsNamespace.name.
+    # If disabled, TLS secrets must be maintained externally.
+      sync: true
+
 # -- Configure N-S k8s service loadbalancing
 nodePort:
   # -- Enable the Cilium NodePort service implementation.

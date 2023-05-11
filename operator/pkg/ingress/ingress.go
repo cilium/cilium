@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/operator/pkg/ingress/annotations"
+	"github.com/cilium/cilium/operator/pkg/ingress/secrets"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
@@ -77,7 +78,7 @@ type Controller struct {
 	endpointManager     *endpointManager
 	envoyConfigManager  *envoyConfigManager
 	ingressClassManager *ingressClassManager
-	secretManager       secretManager
+	secretManager       secrets.SecretManager
 
 	queue      workqueue.RateLimitingInterface
 	maxRetries int
@@ -177,9 +178,9 @@ func NewController(clientset k8sClient.Clientset, options ...Option) (*Controlle
 	}
 	ic.envoyConfigManager = envoyConfigManager
 
-	ic.secretManager = newNoOpsSecretManager()
+	ic.secretManager = secrets.NewNoOpsSecretManager()
 	if ic.enabledSecretsSync {
-		secretManager, err := newSyncSecretsManager(clientset, opts.SecretsNamespace, opts.MaxRetries)
+		secretManager, err := secrets.NewSyncSecretsManager(clientset, opts.SecretsNamespace, opts.MaxRetries, true)
 		if err != nil {
 			return nil, err
 		}
@@ -261,7 +262,7 @@ func (ic *Controller) handleIngressAddedEvent(event ingressAddedEvent) error {
 		return nil
 	}
 
-	ic.secretManager.Add(event)
+	ic.secretManager.Add(secrets.IngressAddedEvent{Ingress: event.ingress})
 	return ic.ensureResources(event.ingress, false)
 }
 
@@ -269,7 +270,7 @@ func (ic *Controller) handleIngressUpdatedEvent(event ingressUpdatedEvent) error
 	if !ic.isCiliumIngressEntry(event.newIngress) {
 		return nil
 	}
-	ic.secretManager.Add(event)
+	ic.secretManager.Add(secrets.IngressUpdatedEvent{OldIngress: event.oldIngress, NewIngress: event.newIngress})
 
 	// Perform clean up if there is change in LB mode
 	oldLBMode := ic.isEffectiveLoadbalancerModeDedicated(event.oldIngress)
@@ -302,7 +303,7 @@ func (ic *Controller) handleIngressUpdatedEvent(event ingressUpdatedEvent) error
 
 func (ic *Controller) handleIngressDeletedEvent(event ingressDeletedEvent) error {
 	log.WithField(logfields.Ingress, event.ingress.Name).WithField(logfields.K8sNamespace, event.ingress.Namespace).Debug("Deleting CiliumEnvoyConfig for ingress")
-	ic.secretManager.Add(event)
+	ic.secretManager.Add(secrets.IngressDeletedEvent{Ingress: event.ingress})
 
 	if ic.isEffectiveLoadbalancerModeDedicated(event.ingress) {
 		if err := ic.deleteResources(event.ingress); err != nil {

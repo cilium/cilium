@@ -20,6 +20,7 @@ cilium-operator-alibabacloud hive dot-graph [flags]
       --enable-cilium-operator-server-access strings         List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
+      --enable-policy-secrets-sync                           Enable policy secret sync watcher
       --gops-port uint16                                     Port for gops server to listen on (default 9891)
       --identity-gc-interval duration                        GC interval for security identities (default 15m0s)
       --identity-gc-rate-interval duration                   Interval used for rate limiting the GC of security identities (default 1m0s)
@@ -39,6 +40,8 @@ cilium-operator-alibabacloud hive dot-graph [flags]
       --operator-pprof                                       Enable serving pprof debugging API
       --operator-pprof-address string                        Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
+      --policy-controller-max-retries int                    Maximum number of retries for a policy update in the controller (default 10)
+      --policy-secrets-namespace string                      Namespace where TLS secrets are stored which are used in CNP rules (default "cilium-secrets")
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
 ```
 
