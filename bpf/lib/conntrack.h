@@ -375,13 +375,11 @@ out:
 	return ret;
 }
 
-/* Like an IPv6 version of ct_lazy_lookup4, but also assumes that the L4
- * protocol is a service protocol (SCTP, UDP or TCP).
- */
+/* An IPv6 version of ct_lazy_lookup4. */
 static __always_inline int
-ct_lb_lookup6(const void *map, struct ipv6_ct_tuple *tuple,
-	      struct __ctx_buff *ctx, int l4_off, enum ct_dir dir,
-	      struct ct_state *ct_state, __u32 *monitor)
+ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple,
+		struct __ctx_buff *ctx, int l4_off, int action, enum ct_dir dir,
+		struct ct_state *ct_state, __u32 *monitor)
 {
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -399,7 +397,7 @@ ct_lb_lookup6(const void *map, struct ipv6_ct_tuple *tuple,
 	else
 		return DROP_CT_INVALID_HDR;
 
-	return __ct_lookup6(map, tuple, ctx, l4_off, ACTION_CREATE, dir,
+	return __ct_lookup6(map, tuple, ctx, l4_off, action, dir,
 			    ct_state, monitor);
 }
 

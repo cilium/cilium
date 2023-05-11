@@ -605,8 +605,8 @@ int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
-			    CT_EGRESS, &ct_state, &monitor);
+	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
+			      CT_EGRESS, &ct_state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 	case CT_REOPENED:
@@ -1042,8 +1042,8 @@ skip_service_lookup:
 	if (backend_local || !nodeport_uses_dsr6(&tuple)) {
 		struct ct_state ct_state = {};
 
-		ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
-				    CT_EGRESS, &ct_state, &monitor);
+		ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
+				      CT_EGRESS, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
 redo:
@@ -1132,8 +1132,8 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 					   is_defined(ENABLE_DSR)))
 		return CTX_ACT_OK;
 
-	ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			    &ct_state, &trace->monitor);
+	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
+			      CT_INGRESS, &ct_state, &trace->monitor);
 
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
@@ -1195,8 +1195,8 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			    &ct_state, &monitor);
+	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
+			      CT_INGRESS, &ct_state, &monitor);
 
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		ret2 = lb6_rev_nat(ctx, l4_off, &csum_off, ct_state.rev_nat_index,
