@@ -93,3 +93,71 @@ specs:
     - toEntities:
       - health
       - world
+  - description: "Allow kube-dns <> apiserver"
+    endpointSelector: {}
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          k8s-app: kube-dns
+      toPorts:
+      - ports:
+        - port: "6443"
+          protocol: TCP
+    egress:
+    - toEntities:
+      - kube-apiserver
+      - world
+      toPorts:
+      - ports:
+        - port: "6443"
+          protocol: TCP
+        - port: "53"
+          protocol: TCP
+  - description: "Allow ICMP/ICMPv6 traffic on all nodes"
+    nodeSelector: {}
+    ingress:
+    - icmps:
+      - fields:
+        - type: 8
+          family: IPv4
+        - type: 128
+          family: IPv6
+    egress:
+    - icmps:
+      - fields:
+        - type: 8
+          family: IPv4
+        - type: 128
+          family: IPv6
+  - description: "Allow ICMP/ICMPv6 traffic on all nodes"
+    endpointSelector: {}
+    ingress:
+    - icmps:
+      - fields:
+        - type: 8
+          family: IPv4
+        - type: 128
+          family: IPv6
+    egress:
+    - icmps:
+      - fields:
+        - type: 8
+          family: IPv4
+        - type: 128
+          family: IPv6
+  - description: "Allow ingress to health endpoint port from endpoints"
+    endpointSelector: {}
+    ingress:
+    - fromEntities:
+      - "remote-node"
+      toPorts:
+      - ports:
+        - port: "4240"
+          protocol: TCP
+    egress:
+    - toEntities:
+      - "health"
+      toPorts:
+      - ports:
+        - port: "4240"
+          protocol: TCP
