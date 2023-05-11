@@ -14,7 +14,7 @@ jobs:
     steps:
     - name: Mirror action step
       id: mirror
-      uses: google/mirror-branch-action@884625cd18fadb1bdb646df951a7b486a5d9f3fc
+      uses: google/mirror-branch-action@4544d8a0903fb21cfbcf4642b793e47f90783d5a
       with:
         github-token: ${{ secrets.MIRROR_API_TOKEN }}
         source: 'main'
