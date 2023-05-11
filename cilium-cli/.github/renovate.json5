@@ -71,7 +71,10 @@
       ],
       matchBaseBranches: [
         "main"
-      ]
+      ],
+      "schedule": [
+        "on friday"
+      ],
     },
     {
       "enabled": false,
