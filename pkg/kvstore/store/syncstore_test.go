@@ -241,16 +241,113 @@ func TestWorkqueueSyncStoreWithWorkers(t *testing.T) {
 	require.Equal(t, NewKVPair("/foo/bar/key1", ""), eventually(backend.deleted, 100*time.Millisecond))
 }
 
+func TestWorkqueueSyncStoreSynced(t *testing.T) {
+	runnable := func(body func(*testing.T, context.Context, *fakeBackend, SyncStore), opts ...WSSOpt) func(t *testing.T) {
+		return func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			backend := NewFakeBackend(t, true)
+			store := NewWorkqueueSyncStore(backend, "foo/bar", opts...)
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				store.Run(ctx)
+			}()
+
+			defer func() {
+				cancel()
+				wg.Wait()
+			}()
+
+			body(t, ctx, backend, store)
+		}
+	}
+
+	t.Run("standard", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		callback := func(ctx context.Context) {
+			backend.Update(ctx, "callback/executed", []byte{}, true)
+		}
+
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.UpsertKey(ctx, NewKVPair("key2", "value2"))
+		store.Synced(ctx, callback, callback)
+		store.UpsertKey(ctx, NewKVPair("key3", "value3"))
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, NewKVPair("foo/bar/key2", "value2"), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated, 100*time.Millisecond).Key)
+		require.Equal(t, NewKVPair("callback/executed", ""), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, NewKVPair("callback/executed", ""), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, NewKVPair("foo/bar/key3", "value3"), eventually(backend.updated, 100*time.Millisecond))
+	}, WSSWithSourceClusterName("qux")))
+
+	t.Run("key-override", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.UpsertKey(ctx, NewKVPair("key2", "value2"))
+		store.Synced(ctx)
+		store.UpsertKey(ctx, NewKVPair("key3", "value3"))
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, NewKVPair("foo/bar/key2", "value2"), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, "cilium/synced/qux/override", eventually(backend.updated, 100*time.Millisecond).Key)
+		require.Equal(t, NewKVPair("foo/bar/key3", "value3"), eventually(backend.updated, 100*time.Millisecond))
+	}, WSSWithSourceClusterName("qux"), WSSWithSyncedKeyOverride("override")))
+
+	t.Run("key-upsertion-failure", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		backend.errorsOnUpdate["foo/bar/key1"] = 1
+
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.UpsertKey(ctx, NewKVPair("key2", "value2"))
+		store.Synced(ctx)
+		store.UpsertKey(ctx, NewKVPair("key3", "value3"))
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, NewKVPair("foo/bar/key2", "value2"), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, NewKVPair("foo/bar/key3", "value3"), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated, 250*time.Millisecond))
+		// The synced key shall be created only once key1 has been successfully upserted.
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated, 100*time.Millisecond).Key)
+	}, WSSWithSourceClusterName("qux")))
+
+	t.Run("synced-upsertion-failure", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		backend.errorsOnUpdate["cilium/synced/qux/foo/bar"] = 1
+
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.UpsertKey(ctx, NewKVPair("key2", "value2"))
+		store.Synced(ctx)
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, NewKVPair("foo/bar/key2", "value2"), eventually(backend.updated, 100*time.Millisecond))
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated, 100*time.Millisecond).Key)
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated, 250*time.Millisecond).Key)
+	}, WSSWithSourceClusterName("qux")))
+
+	// Assert that the synced key is created only after key1 has been successfully upserted also in case there are multiple workers
+	t.Run("multiple-workers", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		backend.errorsOnUpdate["foo/bar/key1"] = 2
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.Synced(ctx)
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated, 1000*time.Millisecond))
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated, 1000*time.Millisecond))
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated, 1000*time.Millisecond))
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated, 500*time.Millisecond).Key)
+	}, WSSWithSourceClusterName("qux"), WSSWithWorkers(10)))
+}
+
 func TestWorkqueueSyncStoreMetrics(t *testing.T) {
-	defer func(name string, metric metrics.GaugeVec) {
+	defer func(name string, queue, sync metrics.GaugeVec) {
 		option.Config.ClusterName = name
-		metrics.KVStoreSyncQueueSize = metric
-	}(option.Config.ClusterName, metrics.KVStoreSyncQueueSize)
+		metrics.KVStoreSyncQueueSize = queue
+		metrics.KVStoreInitialSyncCompleted = sync
+	}(option.Config.ClusterName, metrics.KVStoreSyncQueueSize, metrics.KVStoreInitialSyncCompleted)
 
 	option.Config.ClusterName = "foo"
-	cfg, collectors := metrics.CreateConfiguration([]string{"cilium_kvstore_sync_queue_size"})
+	cfg, collectors := metrics.CreateConfiguration([]string{"cilium_kvstore_sync_queue_size", "cilium_kvstore_initial_sync_completed"})
 	require.True(t, cfg.KVStoreSyncQueueSizeEnabled)
-	require.Len(t, collectors, 1)
+	require.True(t, cfg.KVStoreInitialSyncCompletedEnabled)
+	require.Len(t, collectors, 2)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
@@ -283,6 +380,10 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 	defer func() {
 		cancel()
 		wg.Wait()
+
+		// The store should no longer be synced, since it is stopped.
+		require.Equal(t, metrics.BoolToFloat64(false),
+			testutil.ToFloat64(metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
 	}()
 
 	// The metric should reflect the updated queue size (one in this case, since one element has been processed, and
@@ -299,6 +400,17 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key3", "value3"), eventually(backend.updated, 100*time.Millisecond))
 	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key1", ""), eventually(backend.deleted, 100*time.Millisecond))
 	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key3", "value3"), eventually(backend.updated, 250*time.Millisecond))
+
+	store.Synced(ctx, func(ctx context.Context) {
+		// When the callback is executed, the store should be synced
+		require.Equal(t, metrics.BoolToFloat64(true),
+			testutil.ToFloat64(metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
+	})
+
+	// The store should not yet be synced, as the synced entry has not yet been written to the kvstore.
+	require.Equal(t, metrics.BoolToFloat64(false),
+		testutil.ToFloat64(metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
+	require.Equal(t, "cilium/synced/foo/cilium/state/nodes/v1", eventually(backend.updated, 100*time.Millisecond).Key)
 
 	// Once all elements have been processed, the metric should be zero.
 	require.Equal(t, float64(0), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
