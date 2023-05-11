@@ -68,6 +68,7 @@ run Cilium.
 Distribution               Minimum Version
 ========================== ====================
 `Amazon Linux 2`_          all
+`Bottlerocket OS`_         all
 `CentOS`_                  >= 8.0
 `Container-Optimized OS`_  all
 `CoreOS`_                  all
@@ -89,6 +90,7 @@ Ubuntu_                    >= 18.04.3
 .. _RedHat Enterprise Linux: https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux
 .. _Ubuntu: https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
 .. _Opensuse: https://www.opensuse.org/
+.. _Bottlerocket OS: https://github.com/bottlerocket-os/bottlerocket
 
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a
