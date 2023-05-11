@@ -768,10 +768,10 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
+	__s8 ext_err = 0;
 	int ret;
 
-	/* ext_err is NULL because errors don't survive the tailcall anyway. */
-	ret = snat_v6_rev_nat(ctx, &target, NULL);
+	ret = snat_v6_rev_nat(ctx, &target, &ext_err);
 	if (IS_ERR(ret)) {
 		if (ret == NAT_PUNT_TO_STACK ||
 		    /* DROP_NAT_NO_MAPPING is unwanted behavior in a
@@ -805,7 +805,8 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	ret = DROP_MISSED_TAIL_CALL;
 
  drop_err:
-	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP,
+					  METRIC_INGRESS);
 }
 
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
@@ -1982,10 +1983,10 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		 */
 		.addr = IPV4_DIRECT_ROUTING,
 	};
+	__s8 ext_err = 0;
 	int ret;
 
-	/* ext_err is NULL because errors don't survive the tailcall anyway. */
-	ret = snat_v4_rev_nat(ctx, &target, NULL);
+	ret = snat_v4_rev_nat(ctx, &target, &ext_err);
 	if (IS_ERR(ret)) {
 		if (ret == NAT_PUNT_TO_STACK ||
 		    /* DROP_NAT_NO_MAPPING is unwanted behavior in a
@@ -2031,7 +2032,8 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	ret = DROP_MISSED_TAIL_CALL;
 
  drop_err:
-	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP,
+					  METRIC_INGRESS);
 }
 
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS)
