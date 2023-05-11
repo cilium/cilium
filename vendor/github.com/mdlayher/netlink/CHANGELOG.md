@@ -1,8 +1,24 @@
 # CHANGELOG
 
-## Unreleased
+## v1.7.2
+
+- [Improvement]: updated dependencies, test with Go 1.20.
+
+## v1.7.1
+
+- [Bug Fix]: test only changes to avoid failures on big endian machines.
+
+## v1.7.0
+
+**This is the first release of package netlink that only supports Go 1.18+.
+Users on older versions of Go must use v1.6.2.**
+
+- [Improvement]: drop support for older versions of Go so we can begin using
+  modern versions of `x/sys` and other dependencies.
 
 ## v1.6.2
+
+**This is the last release of package netlink that supports Go 1.17 and below.**
 
 - [Bug Fix] [commit](https://github.com/mdlayher/netlink/commit/9f7f860d9865069cd1a6b4dee32a3095f0b841fc):
   undo update to `golang.org/x/sys` which would force the minimum Go version of

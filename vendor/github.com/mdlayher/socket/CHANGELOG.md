@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## v0.4.1
+
+- [Bug Fix] [commit](https://github.com/mdlayher/socket/commit/2a14ceef4da279de1f957c5761fffcc6c87bbd3b):
+  ensure `socket.Conn` can be used with non-socket file descriptors by handling
+  `ENOTSOCK` in the constructor.
+
+## v0.4.0
+
+**This is the first release of package socket that only supports Go 1.18+.
+Users on older versions of Go must use v0.3.0.**
+
+- [Improvement]: drop support for older versions of Go so we can begin using
+  modern versions of `x/sys` and other dependencies.
+
+## v0.3.0
+
+**This is the last release of package socket that supports Go 1.17 and below.**
+
+- [New API/API change] [PR](https://github.com/mdlayher/socket/pull/8):
+  numerous `socket.Conn` methods now support context cancelation. Future
+  releases will continue adding support as needed.
+  - New `ReadContext` and `WriteContext` methods.
+  - `Connect`, `Recvfrom`, `Recvmsg`, `Sendmsg`, and `Sendto` methods now accept
+    a context.
+  - `Sendto` parameter order was also fixed to match the underlying syscall.
+
 ## v0.2.3
 
 - [New API] [commit](https://github.com/mdlayher/socket/commit/a425d96e0f772c053164f8ce4c9c825380a98086):

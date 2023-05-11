@@ -1,3 +1,159 @@
+# Release (2023-04-24)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2`: v1.18.0
+  * **Feature**: add recursion detection middleware to all SDK requests to avoid recursion invocation in Lambda
+* `github.com/aws/aws-sdk-go-v2/service/appflow`: [v1.27.0](service/appflow/CHANGELOG.md#v1270-2023-04-24)
+  * **Feature**: Increased the max length for RefreshToken and AuthCode from 2048 to 4096.
+* `github.com/aws/aws-sdk-go-v2/service/codecatalyst`: [v1.2.5](service/codecatalyst/CHANGELOG.md#v125-2023-04-24)
+  * **Documentation**: Documentation updates for Amazon CodeCatalyst.
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.94.0](service/ec2/CHANGELOG.md#v1940-2023-04-24)
+  * **Feature**: API changes to AWS Verified Access related to identity providers' information.
+* `github.com/aws/aws-sdk-go-v2/service/mediaconvert`: [v1.36.0](service/mediaconvert/CHANGELOG.md#v1360-2023-04-24)
+  * **Feature**: This release introduces a noise reduction pre-filter, linear interpolation deinterlace mode, video pass-through, updated default job settings, and expanded LC-AAC Stereo audio bitrate ranges.
+* `github.com/aws/aws-sdk-go-v2/service/rekognition`: [v1.25.0](service/rekognition/CHANGELOG.md#v1250-2023-04-24)
+  * **Feature**: Added new status result to Liveness session status.
+* `github.com/aws/aws-sdk-go-v2/service/route53`: [v1.28.0](service/route53/CHANGELOG.md#v1280-2023-04-24)
+  * **Feature**: added paginator for listResourceRecordSets
+* `github.com/aws/aws-sdk-go-v2/service/s3`: [v1.33.0](service/s3/CHANGELOG.md#v1330-2023-04-24)
+  * **Feature**: added custom paginators for listMultipartUploads and ListObjectVersions
+
+# Release (2023-04-21)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/connect`: [v1.52.0](service/connect/CHANGELOG.md#v1520-2023-04-21)
+  * **Feature**: This release adds a new API CreateParticipant. For Amazon Connect Chat, you can use this new API to customize chat flow experiences.
+* `github.com/aws/aws-sdk-go-v2/service/ecs`: [v1.26.1](service/ecs/CHANGELOG.md#v1261-2023-04-21)
+  * **Documentation**: Documentation update to address various Amazon ECS tickets.
+* `github.com/aws/aws-sdk-go-v2/service/fms`: [v1.23.0](service/fms/CHANGELOG.md#v1230-2023-04-21)
+  * **Feature**: AWS Firewall Manager adds support for multiple administrators. You can now delegate more than one administrator per organization.
+
+# Release (2023-04-20)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/chime`: [v1.23.0](service/chime/CHANGELOG.md#v1230-2023-04-20)
+  * **Feature**: Adds support for Hindi and Thai languages and additional Amazon Transcribe parameters to the StartMeetingTranscription API.
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkmediapipelines`: [v1.4.0](service/chimesdkmediapipelines/CHANGELOG.md#v140-2023-04-20)
+  * **Feature**: This release adds support for specifying the recording file format in an S3 recording sink configuration.
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkmeetings`: [v1.15.0](service/chimesdkmeetings/CHANGELOG.md#v1150-2023-04-20)
+  * **Feature**: Adds support for Hindi and Thai languages and additional Amazon Transcribe parameters to the StartMeetingTranscription API.
+* `github.com/aws/aws-sdk-go-v2/service/gamelift`: [v1.18.0](service/gamelift/CHANGELOG.md#v1180-2023-04-20)
+  * **Feature**: Amazon GameLift supports creating Builds for Windows 2016 operating system.
+* `github.com/aws/aws-sdk-go-v2/service/guardduty`: [v1.21.0](service/guardduty/CHANGELOG.md#v1210-2023-04-20)
+  * **Feature**: This release adds support for the new Lambda Protection feature.
+* `github.com/aws/aws-sdk-go-v2/service/iot`: [v1.36.0](service/iot/CHANGELOG.md#v1360-2023-04-20)
+  * **Feature**: Support additional OTA states in GetOTAUpdate API
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.74.0](service/sagemaker/CHANGELOG.md#v1740-2023-04-20)
+  * **Feature**: Amazon SageMaker Canvas adds ModelRegisterSettings support for CanvasAppSettings.
+* `github.com/aws/aws-sdk-go-v2/service/snowball`: [v1.19.0](service/snowball/CHANGELOG.md#v1190-2023-04-20)
+  * **Feature**: Adds support for Amazon S3 compatible storage. AWS Snow Family customers can now use Amazon S3 compatible storage on Snowball Edge devices. Also adds support for V3_5S. This is a refreshed AWS Snowball Edge Storage Optimized device type with 210TB SSD (customer usable).
+* `github.com/aws/aws-sdk-go-v2/service/wafv2`: [v1.30.0](service/wafv2/CHANGELOG.md#v1300-2023-04-20)
+  * **Feature**: You can now create encrypted API keys to use in a client application integration of the JavaScript CAPTCHA API . You can also retrieve a list of your API keys and the JavaScript application integration URL.
+
+# Release (2023-04-19)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/comprehend`: [v1.24.0](service/comprehend/CHANGELOG.md#v1240-2023-04-19)
+  * **Feature**: This release supports native document models for custom classification, in addition to plain-text models. You train native document models using documents (PDF, Word, images) in their native format.
+* `github.com/aws/aws-sdk-go-v2/service/ecs`: [v1.26.0](service/ecs/CHANGELOG.md#v1260-2023-04-19)
+  * **Feature**: This release supports the Account Setting "TagResourceAuthorization" that allows for enhanced Tagging security controls.
+* `github.com/aws/aws-sdk-go-v2/service/ram`: [v1.18.0](service/ram/CHANGELOG.md#v1180-2023-04-19)
+  * **Feature**: This release adds support for customer managed permissions. Customer managed permissions enable customers to author and manage tailored permissions for resources shared using RAM.
+* `github.com/aws/aws-sdk-go-v2/service/rds`: [v1.43.1](service/rds/CHANGELOG.md#v1431-2023-04-19)
+  * **Documentation**: Adds support for the ImageId parameter of CreateCustomDBEngineVersion to RDS Custom for Oracle
+* `github.com/aws/aws-sdk-go-v2/service/s3`: [v1.32.0](service/s3/CHANGELOG.md#v1320-2023-04-19)
+  * **Feature**: Provides support for "Snow" Storage class.
+* `github.com/aws/aws-sdk-go-v2/service/secretsmanager`: [v1.19.4](service/secretsmanager/CHANGELOG.md#v1194-2023-04-19)
+  * **Documentation**: Documentation updates for Secrets Manager
+
+# Release (2023-04-17)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/appflow`: [v1.26.0](service/appflow/CHANGELOG.md#v1260-2023-04-17)
+  * **Feature**: This release adds a Client Token parameter to the following AppFlow APIs: Create/Update Connector Profile, Create/Update Flow, Start Flow, Register Connector, Update Connector Registration. The Client Token parameter allows idempotent operations for these APIs.
+* `github.com/aws/aws-sdk-go-v2/service/drs`: [v1.13.0](service/drs/CHANGELOG.md#v1130-2023-04-17)
+  * **Feature**: Changed existing APIs and added new APIs to support using an account-level launch configuration template with AWS Elastic Disaster Recovery.
+* `github.com/aws/aws-sdk-go-v2/service/dynamodb`: [v1.19.5](service/dynamodb/CHANGELOG.md#v1195-2023-04-17)
+  * **Documentation**: Documentation updates for DynamoDB API
+* `github.com/aws/aws-sdk-go-v2/service/emrserverless`: [v1.7.0](service/emrserverless/CHANGELOG.md#v170-2023-04-17)
+  * **Feature**: The GetJobRun API has been updated to include the job's billed resource utilization. This utilization shows the aggregate vCPU, memory and storage that AWS has billed for the job run. The billed resources include a 1-minute minimum usage for workers, plus additional storage over 20 GB per worker.
+* `github.com/aws/aws-sdk-go-v2/service/internetmonitor`: [v1.2.0](service/internetmonitor/CHANGELOG.md#v120-2023-04-17)
+  * **Feature**: This release includes a new configurable value, TrafficPercentageToMonitor, which allows users to adjust the amount of traffic monitored by percentage
+* `github.com/aws/aws-sdk-go-v2/service/iotwireless`: [v1.27.0](service/iotwireless/CHANGELOG.md#v1270-2023-04-17)
+  * **Feature**: Supports the new feature of LoRaWAN roaming, allows to configure MaxEirp for LoRaWAN gateway, and allows to configure PingSlotPeriod for LoRaWAN multicast group
+* `github.com/aws/aws-sdk-go-v2/service/lambda`: [v1.33.0](service/lambda/CHANGELOG.md#v1330-2023-04-17)
+  * **Feature**: Add Python 3.10 (python3.10) support to AWS Lambda
+
+# Release (2023-04-14)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/ecs`: [v1.25.1](service/ecs/CHANGELOG.md#v1251-2023-04-14)
+  * **Documentation**: This release supports  ephemeral storage for AWS Fargate Windows containers.
+* `github.com/aws/aws-sdk-go-v2/service/lambda`: [v1.32.0](service/lambda/CHANGELOG.md#v1320-2023-04-14)
+  * **Feature**: This release adds SnapStart related exceptions to InvokeWithResponseStream API. IAM access related documentation is also added for this API.
+* `github.com/aws/aws-sdk-go-v2/service/migrationhubrefactorspaces`: [v1.9.8](service/migrationhubrefactorspaces/CHANGELOG.md#v198-2023-04-14)
+  * **Documentation**: Doc only update for Refactor Spaces environments without network bridge feature.
+* `github.com/aws/aws-sdk-go-v2/service/rds`: [v1.43.0](service/rds/CHANGELOG.md#v1430-2023-04-14)
+  * **Feature**: This release adds support of modifying the engine mode of database clusters.
+
+# Release (2023-04-13)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkvoice`: [v1.5.0](service/chimesdkvoice/CHANGELOG.md#v150-2023-04-13)
+  * **Feature**: This release adds tagging support for Voice Connectors and SIP Media Applications
+* `github.com/aws/aws-sdk-go-v2/service/mediaconnect`: [v1.19.0](service/mediaconnect/CHANGELOG.md#v1190-2023-04-13)
+  * **Feature**: Gateway is a new feature of AWS Elemental MediaConnect. Gateway allows the deployment of on-premises resources for the purpose of transporting live video to and from the AWS Cloud.
+
+# Release (2023-04-12)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/groundstation`: [v1.18.0](service/groundstation/CHANGELOG.md#v1180-2023-04-12)
+  * **Feature**: AWS Ground Station Wideband DigIF GA Release
+* `github.com/aws/aws-sdk-go-v2/service/managedblockchain`: [v1.15.5](service/managedblockchain/CHANGELOG.md#v1155-2023-04-12)
+  * **Documentation**: Removal of the Ropsten network. The Ethereum foundation ceased support of Ropsten on December 31st, 2022..
+
+# Release (2023-04-11)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/ecrpublic`: [v1.16.0](service/ecrpublic/CHANGELOG.md#v1160-2023-04-11)
+  * **Feature**: This release will allow using registry alias as registryId in BatchDeleteImage request.
+* `github.com/aws/aws-sdk-go-v2/service/emrserverless`: [v1.6.0](service/emrserverless/CHANGELOG.md#v160-2023-04-11)
+  * **Feature**: This release extends GetJobRun API to return job run timeout (executionTimeoutMinutes) specified during StartJobRun call (or default timeout of 720 minutes if none was specified).
+* `github.com/aws/aws-sdk-go-v2/service/eventbridge`: [v1.19.0](service/eventbridge/CHANGELOG.md#v1190-2023-04-11)
+  * **Feature**: EventBridge PutTarget support for multiple SQL arguments on RedshiftDataParameters
+* `github.com/aws/aws-sdk-go-v2/service/iotdataplane`: [v1.15.0](service/iotdataplane/CHANGELOG.md#v1150-2023-04-11)
+  * **Feature**: This release adds support for MQTT5 user properties when calling the AWS IoT GetRetainedMessage API
+* `github.com/aws/aws-sdk-go-v2/service/wafv2`: [v1.29.0](service/wafv2/CHANGELOG.md#v1290-2023-04-11)
+  * **Feature**: For web ACLs that protect CloudFront protections, the default request body inspection size is now 16 KB, and you can use the new association configuration to increase the inspection size further, up to 64 KB. Sizes over 16 KB can incur additional costs.
+
+# Release (2023-04-10)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/connect`: [v1.51.0](service/connect/CHANGELOG.md#v1510-2023-04-10)
+  * **Feature**: This release adds the ability to configure an agent's routing profile to receive contacts from multiple channels at the same time via extending the UpdateRoutingProfileConcurrency, CreateRoutingProfile and DescribeRoutingProfile APIs.
+* `github.com/aws/aws-sdk-go-v2/service/ecs`: [v1.25.0](service/ecs/CHANGELOG.md#v1250-2023-04-10)
+  * **Feature**: This release adds support for enabling FIPS compliance on Amazon ECS Fargate tasks
+* `github.com/aws/aws-sdk-go-v2/service/marketplacecatalog`: [v1.16.0](service/marketplacecatalog/CHANGELOG.md#v1160-2023-04-10)
+  * **Feature**: Added three new APIs to support resource sharing: GetResourcePolicy, PutResourcePolicy, and DeleteResourcePolicy. Added new OwnershipType field to ListEntities request to let users filter on entities that are shared with them. Increased max page size of ListEntities response from 20 to 50 results.
+* `github.com/aws/aws-sdk-go-v2/service/mediaconvert`: [v1.35.0](service/mediaconvert/CHANGELOG.md#v1350-2023-04-10)
+  * **Feature**: AWS Elemental MediaConvert SDK now supports conversion of 608 paint-on captions to pop-on captions for SCC sources.
+* `github.com/aws/aws-sdk-go-v2/service/omics`: [v1.3.0](service/omics/CHANGELOG.md#v130-2023-04-10)
+  * **Feature**: Remove unexpected API changes.
+* `github.com/aws/aws-sdk-go-v2/service/rekognition`: [v1.24.0](service/rekognition/CHANGELOG.md#v1240-2023-04-10)
+  * **Feature**: This release adds support for Face Liveness APIs in Amazon Rekognition. Updates UpdateStreamProcessor to return ResourceInUseException Exception. Minor updates to API documentation.
+
 # Release (2023-04-07)
 
 ## General Highlights

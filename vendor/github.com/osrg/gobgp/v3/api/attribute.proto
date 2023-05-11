@@ -102,6 +102,21 @@ message EthernetSegmentIdentifier {
   bytes value = 2;
 }
 
+// VPLSNLRI represents the NLRI for:
+// - AFI=25, SAFI=65
+message VPLSNLRI {
+  // One of:
+  // - RouteDistinguisherTwoOctetASN
+  // - RouteDistinguisherIPAddress
+  // - RouteDistinguisherFourOctetASN
+  google.protobuf.Any rd = 1;
+  uint32 ve_id = 2;
+  uint32 ve_block_offset = 3;
+  uint32 ve_block_size = 4;
+  uint32 label_block_base = 5;
+}
+
+
 // EVPNEthernetAutoDiscoveryRoute represents the NLRI for:
 // - AFI=25, SAFI=70, RouteType=1
 message EVPNEthernetAutoDiscoveryRoute {
@@ -530,6 +545,11 @@ message MUPExtended {
   uint32 segment_id4 = 3;
 }
 
+message VPLSExtended {
+  uint32 control_flags = 1;
+  uint32 mtu = 2;
+}
+
 message UnknownExtended {
   uint32 type = 1;
   bytes value = 2;
@@ -551,6 +571,7 @@ message ExtendedCommunitiesAttribute {
   // - RedirectFourOctetAsSpecificExtended
   // - TrafficRemarkExtended
   // - MUPExtended
+  // - VPLSExtended
   // - UnknownExtended
   repeated google.protobuf.Any communities = 1;
 }
