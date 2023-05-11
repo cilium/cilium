@@ -1106,7 +1106,8 @@ ct_has_dsr_egress_entry6(const void *map, struct ipv6_ct_tuple *ingress_tuple)
 }
 
 static __always_inline void
-ct_update_backend_id(const void *map, const void *tuple, __u32 backend_id)
+ct_update_svc_entry(const void *map, const void *tuple,
+		    __u32 backend_id, __u16 rev_nat_index)
 {
 	struct ct_entry *entry;
 
@@ -1115,6 +1116,7 @@ ct_update_backend_id(const void *map, const void *tuple, __u32 backend_id)
 		return;
 
 	entry->backend_id = backend_id;
+	entry->rev_nat_index = rev_nat_index;
 }
 
 static __always_inline void
