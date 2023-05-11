@@ -4,6 +4,7 @@
 package install
 
 import (
+	"bytes"
 	"os"
 	"testing"
 
@@ -22,9 +23,12 @@ func TestK8sInstaller_getHelmValuesKind(t *testing.T) {
 	}
 	values, err := installer.getHelmValues()
 	assert.NoError(t, err)
-	actual, err := yaml.Marshal(values)
+	var actual bytes.Buffer
+	encoder := yaml.NewEncoder(&actual)
+	encoder.SetIndent(2)
+	err = encoder.Encode(values)
 	assert.NoError(t, err)
 	expected, err := os.ReadFile("testdata/kind.yaml")
 	assert.NoError(t, err)
-	assert.Equal(t, string(expected), string(actual))
+	assert.Equal(t, string(expected), actual.String())
 }
