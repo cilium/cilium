@@ -720,6 +720,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem:                      SubsystemAgent,
 				Name:                           "bootstrap_seconds",
 				Help:                           "Duration of bootstrap sequence",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelScope, LabelOutcome})
@@ -733,6 +734,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem:                      SubsystemAgent,
 				Name:                           "api_process_time_seconds",
 				Help:                           "Duration of processed API calls labeled by path, method and return code.",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelPath, LabelMethod, LabelAPIReturnCode})
@@ -768,6 +770,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace:                      Namespace,
 				Name:                           "endpoint_regeneration_time_stats_seconds",
 				Help:                           "Endpoint regeneration time stats labeled by the scope",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelScope, LabelStatus})
@@ -800,6 +803,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace:                      Namespace,
 				Name:                           "policy_regeneration_time_stats_seconds",
 				Help:                           "Policy regeneration time stats labeled by the scope",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelScope, LabelStatus})
@@ -852,6 +856,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace:                      Namespace,
 				Name:                           "policy_implementation_delay",
 				Help:                           "Time between a policy change and it being fully deployed into the datapath",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelPolicySource})
@@ -864,6 +869,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace:                      Namespace,
 				Name:                           "cidrgroup_translation_time_stats_seconds",
 				Help:                           "CIDRGroup translation time stats",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			})
@@ -976,6 +982,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace:                      Namespace,
 				Name:                           "proxy_upstream_reply_seconds",
 				Help:                           "Seconds waited to get a reply from a upstream server",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{"error", LabelProtocolL7, LabelScope})
@@ -1089,6 +1096,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Name:      "conntrack_gc_duration_seconds",
 				Help: "Duration in seconds of the garbage collector process " +
 					"labeled by datapath family and completion status",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelDatapathFamily, LabelProtocol, LabelStatus})
@@ -1154,6 +1162,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace:                      Namespace,
 				Name:                           "controllers_runs_duration_seconds",
 				Help:                           "Duration in seconds of the controller process labeled by completion status",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelStatus})
@@ -1197,6 +1206,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem:                      SubsystemK8sClient,
 				Name:                           "api_latency_time_seconds",
 				Help:                           "Duration of processed API calls labeled by path and method.",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelPath, LabelMethod})
@@ -1221,6 +1231,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem:                      SubsystemK8s,
 				Name:                           "cnp_status_completion_seconds",
 				Help:                           "Duration in seconds in how long it took to complete a CNP status update",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelAttempts, LabelOutcome})
@@ -1255,6 +1266,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem:                      SubsystemKVStore,
 				Name:                           "operations_duration_seconds",
 				Help:                           "Duration in seconds of kvstore operations",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelScope, LabelKind, LabelAction, LabelOutcome})
@@ -1370,6 +1382,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem:                      SubsystemBPF,
 				Name:                           "syscall_duration_seconds",
 				Help:                           "Duration of BPF system calls",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelOperation, LabelOutcome})
@@ -1419,6 +1432,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem:                      SubsystemTriggers,
 				Name:                           "policy_update_call_duration_seconds",
 				Help:                           "Duration of policy update trigger",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{LabelType})
@@ -1445,6 +1459,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Subsystem:                      SubsystemAPILimiter,
 				Name:                           "wait_history_duration_seconds",
 				Help:                           "Histogram over duration of waiting period for API calls subjects to rate limiting",
+				Buckets:                        prometheus.DefBuckets,
 				NativeHistogramBucketFactor:    HistogramFactor,
 				NativeHistogramMaxBucketNumber: HistogramMaxBuckets,
 			}, []string{"api_call"})
