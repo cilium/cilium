@@ -532,9 +532,6 @@ In DSR with Geneve, Cilium encapsulates packets to the Loadbalancer with the Gen
 header that includes the service IP/port in the Geneve option and redirects them
 to the backends.
 
-Note, IPv6 support for DSR with Geneve is currently limited. It works only with TC,
-not with XDP.
-
 The Helm example configuration in a kube-proxy-free environment with DSR and
 Geneve dispatch enabled would look as follows:
 
