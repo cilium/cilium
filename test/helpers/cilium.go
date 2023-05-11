@@ -1001,7 +1001,7 @@ INITSYSTEM=SYSTEMD`
 		return err
 	}
 
-	confPath := filepath.Join("/home/vagrant/go/src/github.com/cilium/cilium/test", ciliumConfig)
+	confPath := s.GetFilePath(ciliumConfig)
 	res = s.Exec(fmt.Sprintf("sudo cp %s /etc/sysconfig/cilium", confPath))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
