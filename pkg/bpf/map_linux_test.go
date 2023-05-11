@@ -100,20 +100,6 @@ func mapsEqual(a, b *Map) bool {
 		reflect.DeepEqual(a.MapInfo, b.MapInfo)
 }
 
-func (s *BPFPrivilegedTestSuite) TestGetMapInfo(c *C) {
-	mi, err := GetMapInfo(os.Getpid(), testMap.FD())
-	c.Assert(err, IsNil)
-
-	// Check OpenMap warning section
-	testMap.MapKey = nil
-	testMap.MapValue = nil
-	defer func() {
-		testMap.MapKey = &TestKey{}
-		testMap.MapValue = &TestValue{}
-	}()
-	c.Assert(&testMap.MapInfo, checker.DeepEquals, mi)
-}
-
 func (s *BPFPrivilegedTestSuite) TestOpen(c *C) {
 	// Ensure that os.IsNotExist() can be used with Map.Open()
 	noSuchMap := NewMap("cilium_test_no_exist",

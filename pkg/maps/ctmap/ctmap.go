@@ -711,15 +711,17 @@ func DeleteIfUpgradeNeeded(e CtEndpoint) {
 			continue
 		}
 		scopedLog := log.WithField(logfields.Path, path)
+
 		oldMap, err := bpf.OpenMap(path)
 		if err != nil {
 			scopedLog.WithError(err).Debug("Couldn't open CT map for upgrade")
 			continue
 		}
+		defer oldMap.Close()
+
 		if oldMap.CheckAndUpgrade(&newMap.Map.MapInfo) {
 			scopedLog.Warning("CT Map upgraded, expect brief disruption of ongoing connections")
 		}
-		oldMap.Close()
 	}
 }
 

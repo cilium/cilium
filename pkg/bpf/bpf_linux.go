@@ -40,56 +40,51 @@ func createMap(spec *ebpf.MapSpec, opts *ebpf.MapOptions) (*ebpf.Map, error) {
 	return m, err
 }
 
-func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32) bool {
-	info, err := GetMapInfo(os.Getpid(), fd)
-	if err != nil {
-		return false
-	}
-
+func objCheck(m *ebpf.Map, path string, mapType ebpf.MapType, keySize, valueSize, maxEntries, flags uint32) bool {
 	scopedLog := log.WithField(logfields.Path, path)
 	mismatch := false
 
-	if info.MapType != mapType {
+	if m.Type() != mapType {
 		scopedLog.WithFields(logrus.Fields{
-			"old": info.MapType,
+			"old": m.Type(),
 			"new": mapType,
 		}).Warning("Map type mismatch for BPF map")
 		mismatch = true
 	}
 
-	if info.KeySize != keySize {
+	if m.KeySize() != keySize {
 		scopedLog.WithFields(logrus.Fields{
-			"old": info.KeySize,
+			"old": m.KeySize(),
 			"new": keySize,
 		}).Warning("Key-size mismatch for BPF map")
 		mismatch = true
 	}
 
-	if info.ValueSize != valueSize {
+	if m.ValueSize() != valueSize {
 		scopedLog.WithFields(logrus.Fields{
-			"old": info.ValueSize,
+			"old": m.ValueSize(),
 			"new": valueSize,
 		}).Warning("Value-size mismatch for BPF map")
 		mismatch = true
 	}
 
-	if info.MaxEntries != maxEntries {
+	if m.MaxEntries() != maxEntries {
 		scopedLog.WithFields(logrus.Fields{
-			"old": info.MaxEntries,
+			"old": m.MaxEntries(),
 			"new": maxEntries,
 		}).Warning("Max entries mismatch for BPF map")
 		mismatch = true
 	}
-	if info.Flags != flags {
+	if m.Flags() != flags {
 		scopedLog.WithFields(logrus.Fields{
-			"old": info.Flags,
+			"old": m.Flags(),
 			"new": flags,
 		}).Warning("Flags mismatch for BPF map")
 		mismatch = true
 	}
 
 	if mismatch {
-		if info.MapType == MapTypeProgArray {
+		if m.Type() == ebpf.ProgramArray {
 			return false
 		}
 
