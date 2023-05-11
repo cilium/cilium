@@ -905,9 +905,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 					goto drop_no_service;
 			}
 
-			ct_update_backend_id(map, tuple, backend_id);
 			state->rev_nat_index = svc->rev_nat_index;
-			ct_update_rev_nat_index(map, tuple, state);
+			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
 		} else {
 			backend_id = state->backend_id;
 		}
@@ -932,9 +931,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend)
 				goto drop_no_service;
 
-			ct_update_backend_id(map, tuple, backend_id);
 			state->rev_nat_index = svc->rev_nat_index;
-			ct_update_rev_nat_index(map, tuple, state);
+			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
 		}
 
 		break;
@@ -1593,9 +1591,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 					goto drop_no_service;
 			}
 
-			ct_update_backend_id(map, tuple, backend_id);
 			state->rev_nat_index = svc->rev_nat_index;
-			ct_update_rev_nat_index(map, tuple, state);
+			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
 		} else {
 			backend_id = state->backend_id;
 		}
@@ -1620,9 +1617,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend)
 				goto drop_no_service;
 
-			ct_update_backend_id(map, tuple, backend_id);
 			state->rev_nat_index = svc->rev_nat_index;
-			ct_update_rev_nat_index(map, tuple, state);
+			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
 		}
 
 		break;
