@@ -95,7 +95,7 @@ jobs:
         echo "chart_version=$(./contrib/scripts/print-chart-version.sh)" | tee -a $GITHUB_OUTPUT
 
     - name: Push charts
-      uses: cilium/reusable-workflows/.github/actions/push-helm-chart@v0.1.0
+      uses: cilium/reusable-workflows/.github/actions/push-helm-chart@6ae27958f2f37545bf48e44106b73df05b1f6d12 # v0.1.0
       with:
         name: cilium
         path: install/kubernetes/cilium
