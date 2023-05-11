@@ -207,7 +207,7 @@ github.com/cilium/kafka/proto
 # github.com/cilium/lumberjack/v2 v2.3.0
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
-# github.com/cilium/proxy v0.0.0-20230420184820-797bea843de1
+# github.com/cilium/proxy v0.0.0-20230428120127-2eb12da291ca
 ## explicit; go 1.13
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3

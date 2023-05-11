@@ -180,8 +180,8 @@ github.com/cilium/lumberjack/v2 v2.3.0 h1:IhVJMvPpqDYmQzC0KDhAoy7KlaRsyOsZnT97Ns
 github.com/cilium/lumberjack/v2 v2.3.0/go.mod h1:yfbtPGmg4i//5oEqzaMxDqSWqgfZFmMoV70Mc2k6v0A=
 github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7 h1:ocC6/1Gz6LJd0XsJiwhcTlAy3yJrJruzh4sjRzUNvQs=
 github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7/go.mod h1:8nydvUTW+/9nVywCQ9bE/YGzb4EISALP4lKNpK3fFqo=
-github.com/cilium/proxy v0.0.0-20230420184820-797bea843de1 h1:vQBT/pz9CxfPUHLiCN/mIXhmQp2eJLPsfJdrKwR70H0=
-github.com/cilium/proxy v0.0.0-20230420184820-797bea843de1/go.mod h1:ontBl/RX7G0GwcR38YQVp6d75MjIsL1FbBidVpn+F8I=
+github.com/cilium/proxy v0.0.0-20230428120127-2eb12da291ca h1:wBOjMGjce4Z0nj/nsdoqpPX53Does+GjOwM+93Y3w8U=
+github.com/cilium/proxy v0.0.0-20230428120127-2eb12da291ca/go.mod h1:ontBl/RX7G0GwcR38YQVp6d75MjIsL1FbBidVpn+F8I=
 github.com/cilium/workerpool v1.2.0 h1:Wc2iOPTvCgWKQXeq4L5tnx4QFEI+z5q1+bSpSS0cnAY=
 github.com/cilium/workerpool v1.2.0/go.mod h1:GOYJhwlnIjR+jWSDNBb5kw47G1H/XA9X4WOBpgr4pQU=
 github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible/go.mod h1:nmEj6Dob7S7YxXgwXpfOuvO54S+tGdZdw9fuRZt25Ag=
