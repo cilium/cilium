@@ -94,6 +94,20 @@ func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) erro
 	return nil
 }
 
+func (l *Loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
+	nodeConfigPath := option.Config.GetNodeConfigPath()
+	f, err := os.Create(nodeConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to create node configuration file at %s: %w", nodeConfigPath, err)
+	}
+	defer f.Close()
+
+	if err = l.templateCache.WriteNodeConfig(f, o.LocalConfig()); err != nil {
+		return fmt.Errorf("failed to write node configuration file at %s: %w", nodeConfigPath, err)
+	}
+	return nil
+}
+
 // Must be called with option.Config.EnablePolicyMU locked.
 func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	headerPath := filepath.Join(dir, preFilterHeaderFileName)
@@ -270,11 +284,7 @@ func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
-	var (
-		args []string
-	)
-
-	args = make([]string, initArgMax)
+	args := make([]string, initArgMax)
 
 	sysSettings := []sysctl.Setting{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
@@ -290,6 +300,35 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	defer func() { firstInitialization = false }()
 
 	l.init(o.Datapath(), o.LocalConfig())
+
+	var mode baseDeviceMode
+	encapProto := option.TunnelDisabled
+	switch {
+	case option.Config.TunnelingEnabled():
+		mode = tunnelMode
+		encapProto = option.Config.TunnelProtocol
+	case option.Config.EnableHealthDatapath:
+		mode = option.DSRDispatchIPIP
+		sysSettings = append(sysSettings,
+			sysctl.Setting{Name: "net.core.fb_tunnels_only_for_init_net",
+				Val: "2", IgnoreErr: true})
+	default:
+		mode = directMode
+	}
+	args[initArgMode] = string(mode)
+
+	// Datapath initialization
+	hostDev1, hostDev2, err := SetupBaseDevice(deviceMTU)
+	if err != nil {
+		return fmt.Errorf("failed to setup base devices in mode %s: %w", mode, err)
+	}
+	args[initArgHostDev1] = hostDev1.Attrs().Name
+	args[initArgHostDev2] = hostDev2.Attrs().Name
+
+	if err := l.writeNodeConfigHeader(o); err != nil {
+		log.WithError(err).Error("Unable to write node config header")
+		return err
+	}
 
 	if err := l.writeNetdevHeader("./", o); err != nil {
 		log.WithError(err).Warn("Unable to write netdev header")
@@ -348,22 +387,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgDevices] = "<nil>"
 	}
 
-	var mode baseDeviceMode
-	encapProto := option.TunnelDisabled
-	switch {
-	case option.Config.TunnelingEnabled():
-		mode = tunnelMode
-		encapProto = option.Config.TunnelProtocol
-	case option.Config.EnableHealthDatapath:
-		mode = option.DSRDispatchIPIP
-		sysSettings = append(sysSettings,
-			sysctl.Setting{Name: "net.core.fb_tunnels_only_for_init_net",
-				Val: "2", IgnoreErr: true})
-	default:
-		mode = directMode
-	}
-	args[initArgMode] = string(mode)
-
 	if !option.Config.TunnelingEnabled() {
 		if option.Config.EnableIPv4EgressGateway || option.Config.EnableHighScaleIPcache {
 			// Tunnel is required for egress traffic under this config
@@ -417,14 +440,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	sysctl.ApplySettings(sysSettings)
-
-	// Datapath initialization
-	hostDev1, hostDev2, err := SetupBaseDevice(deviceMTU)
-	if err != nil {
-		return fmt.Errorf("failed to setup base devices in mode %s: %w", mode, err)
-	}
-	args[initArgHostDev1] = hostDev1.Attrs().Name
-	args[initArgHostDev2] = hostDev2.Attrs().Name
 
 	if option.Config.InstallIptRules && option.Config.EnableL7Proxy {
 		args[initArgProxyRule] = "true"
