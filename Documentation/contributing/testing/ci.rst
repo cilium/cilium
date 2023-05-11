@@ -180,17 +180,6 @@ After you don't need to run tests on your branch, please remove the branch from 
    +-------------------------------------------------+-------------------------------------------+
 
 
-   Running Runtime test suite is still done via ``/test-focus`` command.
-
-   +----------------------------------------+-------------------------------------------+
-   | ``/test-focus Runtime``                | Runs all runtime tests                    |
-   +----------------------------------------+-------------------------------------------+
-
-.. note::
-
-   It is not possible to run specific tests within the runtime test suite.
-
-
 Cilium-PR-Ginkgo-Tests-Kernel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

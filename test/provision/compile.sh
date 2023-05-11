@@ -117,9 +117,13 @@ then
     ./test/provision/container-images.sh test_images test/k8s
 else
     echo "Installing docker-plugin..."
-    make -C plugins/cilium-docker
-    sudo make -C plugins/cilium-docker install
-    
+    if [[ "${CILIUM_DOCKER_PLUGIN_IMAGE}" == "" ]]; then
+      make -C plugins/cilium-docker
+      sudo make -C plugins/cilium-docker install
+    else
+      ${PROVISIONSRC}/docker-run-cilium-docker-plugin.sh
+    fi
+
     if [[ "${CILIUM_IMAGE}" == "" ]]; then
 	export CILIUM_IMAGE=cilium/cilium:latest
 	echo "Building Cilium..."

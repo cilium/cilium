@@ -435,7 +435,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 			retries := 5
 
 			By("Checking connectivity to %q without policy", cloudFlare)
-			res := vm.ContainerExec(helpers.App1, helpers.Ping(cloudFlare))
+			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(cloudFlare))
 			res.ExpectSuccess("Expected to be able to connect to cloudflare (%q); external connectivity not available", cloudFlare)
 
 			By("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1)
