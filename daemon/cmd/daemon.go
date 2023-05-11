@@ -275,10 +275,6 @@ func (d *Daemon) init() error {
 	if !option.Config.DryMode {
 		bandwidth.InitBandwidthManager()
 
-		if err := d.createNodeConfigHeaderfile(); err != nil {
-			return fmt.Errorf("failed while creating node config header file: %w", err)
-		}
-
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
@@ -1319,15 +1315,6 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 			d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
 			d.controllers.TriggerController(syncHostIPsController)
 		}
-	}
-
-	// Recreate node_config.h to reflect the mac addresses of the new devices.
-	d.compilationMutex.Lock()
-	err := d.createNodeConfigHeaderfile()
-	d.compilationMutex.Unlock()
-	if err != nil {
-		log.WithError(err).Warn("Failed to re-create node config header")
-		return
 	}
 
 	// Reload the datapath.
