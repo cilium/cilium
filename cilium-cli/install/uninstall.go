@@ -50,7 +50,7 @@ func NewK8sUninstaller(client k8sInstallerImplementation, p UninstallParameters)
 	if err != nil {
 		uninstaller.Log("Error getting Cilium Version: %s", err)
 	}
-	version, err := semver.Parse(ciliumVersion)
+	version, err := semver.ParseTolerant(ciliumVersion)
 	if err != nil {
 		uninstaller.Log("Error parsing Cilium Version: %s", err)
 	} else {
