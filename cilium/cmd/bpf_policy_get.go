@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -64,13 +65,36 @@ func listAllMaps() {
 		return
 	}
 
+	maps := []policyMap{}
 	for _, file := range matchFiles {
-		fmt.Printf("%s:\n", file)
-		fmt.Println()
-		dumpMap(file)
-		fmt.Println()
-		fmt.Println()
+		endpointSplit := strings.Split(file, "_")
+		endpoint := strings.TrimLeft(endpointSplit[len(endpointSplit)-1], "0")
+		maps = append(maps, policyMap{
+			EndpointID: endpoint,
+			Path:       file,
+			Content:    mapContent(file),
+		})
 	}
+
+	if command.OutputOption() {
+		if err := command.PrintOutput(maps); err != nil {
+			os.Exit(1)
+		}
+	} else {
+		for _, m := range maps {
+			fmt.Printf("%s:\n", m.Path)
+			fmt.Println()
+			printTable(m.Content)
+			fmt.Println()
+			fmt.Println()
+		}
+	}
+}
+
+type policyMap struct {
+	EndpointID string
+	Path       string
+	Content    policymap.PolicyEntriesDump
 }
 
 func listMap(args []string) {
@@ -80,10 +104,18 @@ func listMap(args []string) {
 	if err != nil {
 		Fatalf("Failed to parse endpointID %q", lbl)
 	}
-	dumpMap(mapPath)
+
+	contentDump := mapContent(mapPath)
+	if command.OutputOption() {
+		if err := command.PrintOutput(contentDump); err != nil {
+			os.Exit(1)
+		}
+	} else {
+		printTable(contentDump)
+	}
 }
 
-func dumpMap(file string) {
+func mapContent(file string) policymap.PolicyEntriesDump {
 	m, err := policymap.Open(file)
 	if err != nil {
 		Fatalf("Failed to open map: %s\n", err)
@@ -96,19 +128,16 @@ func dumpMap(file string) {
 	}
 	sort.Slice(statsMap, statsMap.Less)
 
-	if command.OutputOption() {
-		if err := command.PrintOutput(statsMap); err != nil {
-			os.Exit(1)
-		}
-	} else {
-		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-		formatMap(w, statsMap)
-		w.Flush()
-		if len(statsMap) == 0 {
-			fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
-		}
-	}
+	return statsMap
+}
 
+func printTable(contentDump policymap.PolicyEntriesDump) {
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	formatMap(w, contentDump)
+	w.Flush()
+	if len(contentDump) == 0 {
+		fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
+	}
 }
 
 func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
