@@ -763,7 +763,6 @@ declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT
 int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 {
 	struct ipv6_nat_target target = {
-		.addr = IPV6_DIRECT_ROUTING,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
@@ -1976,12 +1975,6 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
-		/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
-		 * So we need to assume that the direct routing device is going to be
-		 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
-		 * This will change once we have resolved GH#17158.
-		 */
-		.addr = IPV4_DIRECT_ROUTING,
 	};
 	__s8 ext_err = 0;
 	int ret;
