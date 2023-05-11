@@ -3127,20 +3127,19 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.Tunnel = ""
 
 	if c.TunnelPort == 0 {
-		switch c.TunnelProtocol {
-		case TunnelDisabled:
-			// tunnel might still be used by eg. DSR with Geneve dispatch or EgressGW
-			if (c.EnableNodePort || c.KubeProxyReplacement == KubeProxyReplacementStrict) &&
-				c.NodePortMode == NodePortModeDSR &&
-				c.LoadBalancerDSRDispatch == DSRDispatchGeneve {
-				c.TunnelPort = defaults.TunnelPortGeneve
-			} else {
-				c.TunnelPort = defaults.TunnelPortVXLAN
-			}
-		case TunnelVXLAN:
-			c.TunnelPort = defaults.TunnelPortVXLAN
-		case TunnelGeneve:
+		// manually pick port for native-routing and DSR with Geneve dispatch:
+		if !c.TunnelingEnabled() &&
+			(c.EnableNodePort || c.KubeProxyReplacement == KubeProxyReplacementStrict) &&
+			c.NodePortMode == NodePortModeDSR &&
+			c.LoadBalancerDSRDispatch == DSRDispatchGeneve {
 			c.TunnelPort = defaults.TunnelPortGeneve
+		} else {
+			switch c.TunnelProtocol {
+			case TunnelVXLAN:
+				c.TunnelPort = defaults.TunnelPortVXLAN
+			case TunnelGeneve:
+				c.TunnelPort = defaults.TunnelPortGeneve
+			}
 		}
 	}
 
