@@ -243,7 +243,8 @@ jobs:
             --disk-type pd-standard \
             --disk-size 10GB \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
-            --preemptible
+            --preemptible \
+            --async
 
       - name: Create GKE cluster 2
         run: |
@@ -259,7 +260,14 @@ jobs:
             --disk-type pd-standard \
             --disk-size 10GB \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
-            --preemptible
+            --preemptible \
+            --async
+
+      - name: Wait for clusters to be provisioned
+        run: |
+          while [ "$(gcloud container operations list --filter="status=RUNNING AND targetLink~${{ env.clusterNameBase }}" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 10
+          done
 
       - name: Allow cross-cluster traffic
         run: |
