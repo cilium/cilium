@@ -11,7 +11,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func TestK8sInstaller_getHelmValuesKind(t *testing.T) {
