@@ -6,7 +6,6 @@
 package bpf
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -335,45 +334,6 @@ func (m *Map) UnpinIfExists() error {
 
 func (m *Map) controllerName() string {
 	return fmt.Sprintf("bpf-map-sync-%s", m.name)
-}
-
-func GetMapInfo(pid int, fd int) (*MapInfo, error) {
-
-	fdinfoFile := fmt.Sprintf("/proc/%d/fdinfo/%d", pid, fd)
-
-	file, err := os.Open(fdinfoFile)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	info := &MapInfo{}
-
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		var value int
-
-		line := scanner.Text()
-		if n, err := fmt.Sscanf(line, "map_type:\t%d", &value); n == 1 && err == nil {
-			info.MapType = MapType(value)
-		} else if n, err := fmt.Sscanf(line, "key_size:\t%d", &value); n == 1 && err == nil {
-			info.KeySize = uint32(value)
-		} else if n, err := fmt.Sscanf(line, "value_size:\t%d", &value); n == 1 && err == nil {
-			info.ValueSize = uint32(value)
-			info.ReadValueSize = uint32(value)
-		} else if n, err := fmt.Sscanf(line, "max_entries:\t%d", &value); n == 1 && err == nil {
-			info.MaxEntries = uint32(value)
-		} else if n, err := fmt.Sscanf(line, "map_flags:\t0x%x", &value); n == 1 && err == nil {
-			info.Flags = uint32(value)
-		}
-	}
-
-	if scanner.Err() != nil {
-		return nil, scanner.Err()
-	}
-
-	return info, nil
 }
 
 // OpenMap opens the given bpf map and generates the Map info based in the
@@ -1186,9 +1146,9 @@ func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
 	desired.Flags |= GetPreAllocateMapFlags(desired.MapType)
 
 	return objCheck(
-		m.FD(),
+		m.m,
 		m.path,
-		desired.MapType,
+		ebpf.MapType(desired.MapType),
 		desired.KeySize,
 		desired.ValueSize,
 		desired.MaxEntries,
