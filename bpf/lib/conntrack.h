@@ -327,6 +327,21 @@ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 	ct_flip_tuple_dir6(tuple);
 }
 
+static __always_inline void
+ipv6_ct_tuple_swap_ports(struct ipv6_ct_tuple *tuple)
+{
+	__be16 tmp;
+
+	/* Conntrack code uses tuples that have source and destination ports in
+	 * the reversed order. Other code, such as BPF helpers and NAT, requires
+	 * normal tuples that match the actual packet contents. This function
+	 * converts between these two formats.
+	 */
+	tmp = tuple->sport;
+	tuple->sport = tuple->dport;
+	tuple->dport = tmp;
+}
+
 static __always_inline int
 __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx,
 	     int l4_off, int action, enum ct_dir dir, struct ct_state *ct_state,
