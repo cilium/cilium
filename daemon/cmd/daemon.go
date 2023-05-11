@@ -533,7 +533,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	if option.Config.RunMonitorAgent {
-		d.monitorAgent = monitoragent.NewAgent(ctx)
+		d.monitorAgent = monitoragent.NewAgent(ctx, option.Config.MonitorEventRateLimit)
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)

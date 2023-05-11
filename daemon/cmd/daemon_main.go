@@ -699,6 +699,9 @@ func initializeFlags() {
 	flags.Int(option.MonitorQueueSizeName, 0, "Size of the event queue when reading monitor events")
 	option.BindEnv(Vp, option.MonitorQueueSizeName)
 
+	flags.Int(option.MonitorEventRateLimit, 0, "Limit of monitoring events to process per second. Zero is no limit. (default 0)")
+	option.BindEnv(Vp, option.MonitorEventRateLimit)
+
 	flags.Int(option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
 	option.BindEnv(Vp, option.MTUName)
 

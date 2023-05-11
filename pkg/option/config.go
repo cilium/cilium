@@ -715,6 +715,9 @@ const (
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
 	MonitorQueueSizeName = "monitor-queue-size"
 
+	// MonitorEventRateLimit specifies the limit of monitor events to process per second.
+	MonitorEventRateLimit = "monitor-event-rate-limit"
+
 	// FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
 	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
 
@@ -1504,6 +1507,9 @@ type DaemonConfig struct {
 	// aggregation ensures reports are generated for when monitor-aggragation
 	// is enabled. Network byte-order.
 	MonitorAggregationFlags uint16
+
+	// MonitorEventRateLimit specifies the limit of monitor events to process per second.
+	MonitorEventRateLimit int
 
 	// BPFMapsDynamicSizeRatio is ratio of total system memory to use for
 	// dynamic sizing of the CT, NAT, Neighbor and SockRevNAT BPF maps.
@@ -3031,6 +3037,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.MonitorAggregation = vp.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = vp.GetInt(MonitorQueueSizeName)
+	c.MonitorEventRateLimit = vp.GetInt(MonitorEventRateLimit)
 	c.MTU = vp.GetInt(MTUName)
 	c.PreAllocateMaps = vp.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = vp.GetBool(PrependIptablesChainsName)

@@ -246,6 +246,7 @@ cilium-agent [flags]
       --monitor-aggregation string                              Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-aggregation-flags strings                       TCP flags that trigger monitor reports when monitor aggregation is enabled (default [syn,fin,rst])
       --monitor-aggregation-interval duration                   Monitor report interval when monitor aggregation is enabled (default 5s)
+      --monitor-event-rate-limit int                            Limit of monitoring events to process per second. Zero is no limit. (default 0)
       --monitor-queue-size int                                  Size of the event queue when reading monitor events
       --mtu int                                                 Overwrite auto-detected MTU of underlying network
       --node-encryption-opt-out-labels string                   Label selector for nodes which will opt-out of node-to-node encryption (default "node-role.kubernetes.io/control-plane")

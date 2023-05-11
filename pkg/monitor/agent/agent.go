@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/ebpf/perf"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/api/v1/models"
 	oldBPF "github.com/cilium/cilium/pkg/bpf"
@@ -66,6 +67,7 @@ type Agent struct {
 
 	events        *ebpf.Map
 	monitorEvents *perf.Reader
+	limiter       *rate.Limiter
 }
 
 // NewAgent starts a new monitor agent instance which distributes monitor events
@@ -78,12 +80,19 @@ type Agent struct {
 // goroutine and close all registered listeners.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func NewAgent(ctx context.Context) *Agent {
+func NewAgent(ctx context.Context, limit int) *Agent {
+	var limiter *rate.Limiter
+	if limit > 0 {
+		limiter = rate.NewLimiter(rate.Limit(limit), limit)
+	} else {
+		limiter = rate.NewLimiter(rate.Inf, limit)
+	}
 	return &Agent{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),
 		consumers:        make(map[consumer.MonitorConsumer]struct{}),
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
+		limiter:          limiter,
 	}
 }
 
@@ -335,6 +344,7 @@ func (a *Agent) handleEvents(stopCtx context.Context) {
 	a.Unlock()
 
 	for !isCtxDone(stopCtx) {
+		a.limiter.Wait(a.ctx)
 		record, err := monitorEvents.Read()
 		switch {
 		case isCtxDone(stopCtx):
