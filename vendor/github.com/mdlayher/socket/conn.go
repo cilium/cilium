@@ -1,7 +1,11 @@
 package socket
 
 import (
+	"context"
+	"errors"
+	"io"
 	"os"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -9,8 +13,22 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Lock in an expected public interface for convenience.
+var _ interface {
+	io.ReadWriteCloser
+	syscall.Conn
+	SetDeadline(t time.Time) error
+	SetReadDeadline(t time.Time) error
+	SetWriteDeadline(t time.Time) error
+} = &Conn{}
+
 // A Conn is a low-level network connection which integrates with Go's runtime
 // network poller to provide asynchronous I/O and deadline support.
+//
+// Many of a Conn's blocking methods support net.Conn deadlines as well as
+// cancelation via context. Note that passing a context with a deadline set will
+// override any of the previous deadlines set by calls to the SetDeadline family
+// of methods.
 type Conn struct {
 	// Indicates whether or not Conn.Close has been called. Must be accessed
 	// atomically. Atomics definitions must come first in the Conn struct.
@@ -20,10 +38,25 @@ type Conn struct {
 	// descriptors such as those created by accept(2).
 	name string
 
+	// facts contains information we have determined about Conn to trigger
+	// alternate behavior in certain functions.
+	facts facts
+
 	// Provides access to the underlying file registered with the runtime
 	// network poller, and arbitrary raw I/O calls.
 	fd *os.File
 	rc syscall.RawConn
+}
+
+// facts contains facts about a Conn.
+type facts struct {
+	// isStream reports whether this is a streaming descriptor, as opposed to a
+	// packet-based descriptor like a UDP socket.
+	isStream bool
+
+	// zeroReadIsEOF reports Whether a zero byte read indicates EOF. This is
+	// false for a message based socket connection.
+	zeroReadIsEOF bool
 }
 
 // A Config contains options for a Conn.
@@ -77,13 +110,63 @@ func (c *Conn) CloseRead() error { return c.Shutdown(unix.SHUT_RD) }
 // use Close.
 func (c *Conn) CloseWrite() error { return c.Shutdown(unix.SHUT_WR) }
 
-// Read implements io.Reader by reading directly from the underlying file
-// descriptor.
+// Read reads directly from the underlying file descriptor.
 func (c *Conn) Read(b []byte) (int, error) { return c.fd.Read(b) }
 
-// Write implements io.Writer by writing directly to the underlying file
-// descriptor.
+// ReadContext reads from the underlying file descriptor with added support for
+// context cancelation.
+func (c *Conn) ReadContext(ctx context.Context, b []byte) (int, error) {
+	if c.facts.isStream && len(b) > maxRW {
+		b = b[:maxRW]
+	}
+
+	n, err := readT(c, ctx, "read", func(fd int) (int, error) {
+		return unix.Read(fd, b)
+	})
+	if n == 0 && err == nil && c.facts.zeroReadIsEOF {
+		return 0, io.EOF
+	}
+
+	return n, os.NewSyscallError("read", err)
+}
+
+// Write writes directly to the underlying file descriptor.
 func (c *Conn) Write(b []byte) (int, error) { return c.fd.Write(b) }
+
+// WriteContext writes to the underlying file descriptor with added support for
+// context cancelation.
+func (c *Conn) WriteContext(ctx context.Context, b []byte) (int, error) {
+	var (
+		n, nn int
+		err   error
+	)
+
+	doErr := c.write(ctx, "write", func(fd int) error {
+		max := len(b)
+		if c.facts.isStream && max-nn > maxRW {
+			max = nn + maxRW
+		}
+
+		n, err = unix.Write(fd, b[nn:max])
+		if n > 0 {
+			nn += n
+		}
+		if nn == len(b) {
+			return err
+		}
+		if n == 0 && err == nil {
+			err = io.ErrUnexpectedEOF
+			return nil
+		}
+
+		return err
+	})
+	if doErr != nil {
+		return 0, doErr
+	}
+
+	return nn, os.NewSyscallError("write", err)
+}
 
 // SetDeadline sets both the read and write deadlines associated with the Conn.
 func (c *Conn) SetDeadline(t time.Time) error { return c.fd.SetDeadline(t) }
@@ -285,11 +368,32 @@ func New(fd int, name string) (*Conn, error) {
 		return nil, err
 	}
 
-	return &Conn{
+	c := &Conn{
 		name: name,
 		fd:   f,
 		rc:   rc,
-	}, nil
+	}
+
+	// Probe the file descriptor for socket settings.
+	sotype, err := c.GetsockoptInt(unix.SOL_SOCKET, unix.SO_TYPE)
+	switch {
+	case err == nil:
+		// File is a socket, check its properties.
+		c.facts = facts{
+			isStream:      sotype == unix.SOCK_STREAM,
+			zeroReadIsEOF: sotype != unix.SOCK_DGRAM && sotype != unix.SOCK_RAW,
+		}
+	case errors.Is(err, unix.ENOTSOCK):
+		// File is not a socket, treat it as a regular file.
+		c.facts = facts{
+			isStream:      true,
+			zeroReadIsEOF: true,
+		}
+	default:
+		return nil, err
+	}
+
+	return c, nil
 }
 
 // Low-level methods which provide raw system call access.
@@ -303,39 +407,40 @@ func New(fd int, name string) (*Conn, error) {
 //
 // If the operating system only supports accept(2) (which does not allow flags)
 // and flags is not zero, an error will be returned.
-func (c *Conn) Accept(flags int) (*Conn, unix.Sockaddr, error) {
-	var (
+//
+// Accept obeys context cancelation and uses the deadline set on the context to
+// cancel accepting the next connection. If a deadline is set on ctx, this
+// deadline will override any previous deadlines set using SetDeadline or
+// SetReadDeadline. Upon return, the read deadline is cleared.
+func (c *Conn) Accept(ctx context.Context, flags int) (*Conn, unix.Sockaddr, error) {
+	type ret struct {
 		nfd int
 		sa  unix.Sockaddr
-		err error
-	)
-
-	doErr := c.read(sysAccept, func(fd int) error {
-		// Either accept(2) or accept4(2) depending on the OS.
-		nfd, sa, err = accept(fd, flags|socketFlags)
-		return err
-	})
-	if doErr != nil {
-		return nil, nil, doErr
 	}
+
+	r, err := readT(c, ctx, sysAccept, func(fd int) (ret, error) {
+		// Either accept(2) or accept4(2) depending on the OS.
+		nfd, sa, err := accept(fd, flags|socketFlags)
+		return ret{nfd, sa}, err
+	})
 	if err != nil {
-		// sysAccept is either "accept" or "accept4" depending on the OS.
-		return nil, nil, os.NewSyscallError(sysAccept, err)
+		// internal/poll, context error, or user function error.
+		return nil, nil, err
 	}
 
 	// Successfully accepted a connection, wrap it in a Conn for use by the
 	// caller.
-	ac, err := New(nfd, c.name)
+	ac, err := New(r.nfd, c.name)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return ac, sa, nil
+	return ac, r.sa, nil
 }
 
 // Bind wraps bind(2).
 func (c *Conn) Bind(sa unix.Sockaddr) error {
-	return c.controlErr("bind", func(fd int) error {
+	return c.control(context.Background(), "bind", func(fd int) error {
 		return unix.Bind(fd, sa)
 	})
 }
@@ -343,7 +448,12 @@ func (c *Conn) Bind(sa unix.Sockaddr) error {
 // Connect wraps connect(2). In order to verify that the underlying socket is
 // connected to a remote peer, Connect calls getpeername(2) and returns the
 // unix.Sockaddr from that call.
-func (c *Conn) Connect(sa unix.Sockaddr) (unix.Sockaddr, error) {
+//
+// Connect obeys context cancelation and uses the deadline set on the context to
+// cancel connecting to a remote peer. If a deadline is set on ctx, this
+// deadline will override any previous deadlines set using SetDeadline or
+// SetWriteDeadline. Upon return, the write deadline is cleared.
+func (c *Conn) Connect(ctx context.Context, sa unix.Sockaddr) (unix.Sockaddr, error) {
 	const op = "connect"
 
 	// TODO(mdlayher): it would seem that trying to connect to unbound vsock
@@ -363,7 +473,7 @@ func (c *Conn) Connect(sa unix.Sockaddr) (unix.Sockaddr, error) {
 		err error
 	)
 
-	doErr := c.write(op, func(fd int) error {
+	doErr := c.write(ctx, op, func(fd int) error {
 		if atomic.AddUint32(&progress, 1) == 1 {
 			// First call: initiate connect.
 			return unix.Connect(fd, sa)
@@ -400,6 +510,7 @@ func (c *Conn) Connect(sa unix.Sockaddr) (unix.Sockaddr, error) {
 		return nil
 	})
 	if doErr != nil {
+		// internal/poll or context error.
 		return nil, doErr
 	}
 
@@ -419,244 +530,351 @@ func (c *Conn) Connect(sa unix.Sockaddr) (unix.Sockaddr, error) {
 
 // Getsockname wraps getsockname(2).
 func (c *Conn) Getsockname() (unix.Sockaddr, error) {
-	const op = "getsockname"
-
-	var (
-		sa  unix.Sockaddr
-		err error
-	)
-
-	doErr := c.control(op, func(fd int) error {
-		sa, err = unix.Getsockname(fd)
-		return err
-	})
-	if doErr != nil {
-		return nil, doErr
-	}
-
-	return sa, os.NewSyscallError(op, err)
+	return controlT(c, context.Background(), "getsockname", unix.Getsockname)
 }
 
 // Getpeername wraps getpeername(2).
 func (c *Conn) Getpeername() (unix.Sockaddr, error) {
-	const op = "getpeername"
-
-	var (
-		sa  unix.Sockaddr
-		err error
-	)
-
-	doErr := c.control(op, func(fd int) error {
-		sa, err = unix.Getpeername(fd)
-		return err
-	})
-	if doErr != nil {
-		return nil, doErr
-	}
-
-	return sa, os.NewSyscallError(op, err)
+	return controlT(c, context.Background(), "getpeername", unix.Getpeername)
 }
 
 // GetsockoptInt wraps getsockopt(2) for integer values.
 func (c *Conn) GetsockoptInt(level, opt int) (int, error) {
-	const op = "getsockopt"
-
-	var (
-		value int
-		err   error
-	)
-
-	doErr := c.control(op, func(fd int) error {
-		value, err = unix.GetsockoptInt(fd, level, opt)
-		return err
+	return controlT(c, context.Background(), "getsockopt", func(fd int) (int, error) {
+		return unix.GetsockoptInt(fd, level, opt)
 	})
-	if doErr != nil {
-		return 0, doErr
-	}
-
-	return value, os.NewSyscallError(op, err)
 }
 
 // Listen wraps listen(2).
 func (c *Conn) Listen(n int) error {
-	return c.controlErr("listen", func(fd int) error {
+	return c.control(context.Background(), "listen", func(fd int) error {
 		return unix.Listen(fd, n)
 	})
 }
 
 // Recvmsg wraps recvmsg(2).
-func (c *Conn) Recvmsg(p, oob []byte, flags int) (int, int, int, unix.Sockaddr, error) {
-	const op = "recvmsg"
-
-	var (
+func (c *Conn) Recvmsg(ctx context.Context, p, oob []byte, flags int) (int, int, int, unix.Sockaddr, error) {
+	type ret struct {
 		n, oobn, recvflags int
 		from               unix.Sockaddr
-		err                error
-	)
-
-	doErr := c.read(op, func(fd int) error {
-		n, oobn, recvflags, from, err = unix.Recvmsg(fd, p, oob, flags)
-		return err
-	})
-	if doErr != nil {
-		return 0, 0, 0, nil, doErr
 	}
 
-	return n, oobn, recvflags, from, os.NewSyscallError(op, err)
+	r, err := readT(c, ctx, "recvmsg", func(fd int) (ret, error) {
+		n, oobn, recvflags, from, err := unix.Recvmsg(fd, p, oob, flags)
+		return ret{n, oobn, recvflags, from}, err
+	})
+	if r.n == 0 && err == nil && c.facts.zeroReadIsEOF {
+		return 0, 0, 0, nil, io.EOF
+	}
+
+	return r.n, r.oobn, r.recvflags, r.from, err
 }
 
-// Recvfrom wraps recvfrom(2)
-func (c *Conn) Recvfrom(p []byte, flags int) (int, unix.Sockaddr, error) {
-	const op = "recvfrom"
-
-	var (
+// Recvfrom wraps recvfrom(2).
+func (c *Conn) Recvfrom(ctx context.Context, p []byte, flags int) (int, unix.Sockaddr, error) {
+	type ret struct {
 		n    int
 		addr unix.Sockaddr
-		err  error
-	)
-
-	doErr := c.read(op, func(fd int) error {
-		n, addr, err = unix.Recvfrom(fd, p, flags)
-		return err
-	})
-	if doErr != nil {
-		return 0, nil, doErr
 	}
 
-	return n, addr, os.NewSyscallError(op, err)
+	out, err := readT(c, ctx, "recvfrom", func(fd int) (ret, error) {
+		n, addr, err := unix.Recvfrom(fd, p, flags)
+		return ret{n, addr}, err
+	})
+	if out.n == 0 && err == nil && c.facts.zeroReadIsEOF {
+		return 0, nil, io.EOF
+	}
+
+	return out.n, out.addr, err
 }
 
 // Sendmsg wraps sendmsg(2).
-func (c *Conn) Sendmsg(p, oob []byte, to unix.Sockaddr, flags int) error {
-	return c.writeErr("sendmsg", func(fd int) error {
-		return unix.Sendmsg(fd, p, oob, to, flags)
+func (c *Conn) Sendmsg(ctx context.Context, p, oob []byte, to unix.Sockaddr, flags int) (int, error) {
+	return writeT(c, ctx, "sendmsg", func(fd int) (int, error) {
+		return unix.SendmsgN(fd, p, oob, to, flags)
 	})
 }
 
 // Sendto wraps sendto(2).
-func (c *Conn) Sendto(p []byte, to unix.Sockaddr, flags int) error {
-	// TODO(mdlayher): we accidentally swapped argument order when creating this
-	// wrapper. Consider fixing.
-	return c.writeErr("sendto", func(fd int) error {
+func (c *Conn) Sendto(ctx context.Context, p []byte, flags int, to unix.Sockaddr) error {
+	return c.write(ctx, "sendto", func(fd int) error {
 		return unix.Sendto(fd, p, flags, to)
 	})
 }
 
 // SetsockoptInt wraps setsockopt(2) for integer values.
 func (c *Conn) SetsockoptInt(level, opt, value int) error {
-	return c.controlErr("setsockopt", func(fd int) error {
+	return c.control(context.Background(), "setsockopt", func(fd int) error {
 		return unix.SetsockoptInt(fd, level, opt, value)
 	})
 }
 
 // Shutdown wraps shutdown(2).
 func (c *Conn) Shutdown(how int) error {
-	return c.controlErr("shutdown", func(fd int) error {
+	return c.control(context.Background(), "shutdown", func(fd int) error {
 		return unix.Shutdown(fd, how)
 	})
 }
 
 // Conn low-level read/write/control functions. These functions mirror the
 // syscall.RawConn APIs but the input closures return errors rather than
-// booleans. Any syscalls invoked within f should return their error to allow
-// the Conn to check for readiness with the runtime network poller, or to retry
-// operations which may have been interrupted by EINTR or similar.
-//
-// Note that errors from the input closure functions are not propagated to the
-// error return values of read/write/control, and the caller is still
-// responsible for error handling.
+// booleans.
 
-// read executes f, a read function, against the associated file descriptor.
-// op is used to create an *os.SyscallError if the file descriptor is closed.
-func (c *Conn) read(op string, f func(fd int) error) error {
-	if atomic.LoadUint32(&c.closed) != 0 {
-		return os.NewSyscallError(op, unix.EBADF)
-	}
-
-	return c.rc.Read(func(fd uintptr) bool {
-		return ready(f(int(fd)))
+// read wraps readT to execute a function and capture its error result. This is
+// a convenience wrapper for functions which don't return any extra values.
+func (c *Conn) read(ctx context.Context, op string, f func(fd int) error) error {
+	_, err := readT(c, ctx, op, func(fd int) (struct{}, error) {
+		return struct{}{}, f(fd)
 	})
+	return err
 }
 
 // write executes f, a write function, against the associated file descriptor.
 // op is used to create an *os.SyscallError if the file descriptor is closed.
-func (c *Conn) write(op string, f func(fd int) error) error {
-	if atomic.LoadUint32(&c.closed) != 0 {
-		return os.NewSyscallError(op, unix.EBADF)
-	}
+func (c *Conn) write(ctx context.Context, op string, f func(fd int) error) error {
+	_, err := writeT(c, ctx, op, func(fd int) (struct{}, error) {
+		return struct{}{}, f(fd)
+	})
+	return err
+}
 
-	return c.rc.Write(func(fd uintptr) bool {
-		return ready(f(int(fd)))
+// readT executes c.rc.Read for op using the input function, returning a newly
+// allocated result T.
+func readT[T any](c *Conn, ctx context.Context, op string, f func(fd int) (T, error)) (T, error) {
+	return rwT(c, rwContext[T]{
+		Context: ctx,
+		Type:    read,
+		Op:      op,
+		Do:      f,
 	})
 }
 
-// writeErr wraps write to execute a function and capture its error result.
-// This is a convenience wrapper for functions which don't return any extra
-// values to capture in a closure.
-func (c *Conn) writeErr(op string, f func(fd int) error) error {
-	var err error
-	doErr := c.write(op, func(fd int) error {
-		err = f(fd)
-		return err
+// writeT executes c.rc.Write for op using the input function, returning a newly
+// allocated result T.
+func writeT[T any](c *Conn, ctx context.Context, op string, f func(fd int) (T, error)) (T, error) {
+	return rwT(c, rwContext[T]{
+		Context: ctx,
+		Type:    write,
+		Op:      op,
+		Do:      f,
 	})
-	if doErr != nil {
-		return doErr
-	}
-
-	return os.NewSyscallError(op, err)
 }
 
-// control executes f, a control function, against the associated file
-// descriptor. op is used to create an *os.SyscallError if the file descriptor
-// is closed.
-func (c *Conn) control(op string, f func(fd int) error) error {
+// readWrite indicates if an operation intends to read or write.
+type readWrite bool
+
+// Possible readWrite values.
+const (
+	read  readWrite = false
+	write readWrite = true
+)
+
+// An rwContext provides arguments to rwT.
+type rwContext[T any] struct {
+	// The caller's context passed for cancelation.
+	Context context.Context
+
+	// The type of an operation: read or write.
+	Type readWrite
+
+	// The name of the operation used in errors.
+	Op string
+
+	// The actual function to perform.
+	Do func(fd int) (T, error)
+}
+
+// rwT executes c.rc.Read or c.rc.Write (depending on the value of rw.Type) for
+// rw.Op using the input function, returning a newly allocated result T.
+//
+// It obeys context cancelation and the rw.Context must not be nil.
+func rwT[T any](c *Conn, rw rwContext[T]) (T, error) {
 	if atomic.LoadUint32(&c.closed) != 0 {
-		return os.NewSyscallError(op, unix.EBADF)
+		// If the file descriptor is already closed, do nothing.
+		return *new(T), os.NewSyscallError(rw.Op, unix.EBADF)
 	}
 
-	return c.rc.Control(func(fd uintptr) {
+	if err := rw.Context.Err(); err != nil {
+		// Early exit due to context cancel.
+		return *new(T), os.NewSyscallError(rw.Op, err)
+	}
+
+	var (
+		// The read or write function used to access the runtime network poller.
+		poll func(func(uintptr) bool) error
+
+		// The read or write function used to set the matching deadline.
+		deadline func(time.Time) error
+	)
+
+	if rw.Type == write {
+		poll = c.rc.Write
+		deadline = c.SetWriteDeadline
+	} else {
+		poll = c.rc.Read
+		deadline = c.SetReadDeadline
+	}
+
+	var (
+		// Whether or not the context carried a deadline we are actively using
+		// for cancelation.
+		setDeadline bool
+
+		// Signals for the cancelation watcher goroutine.
+		wg    sync.WaitGroup
+		doneC = make(chan struct{})
+
+		// Atomic: reports whether we have to disarm the deadline.
+		//
+		// TODO(mdlayher): switch back to atomic.Bool when we drop support for
+		// Go 1.18.
+		needDisarm int64
+	)
+
+	// On cancel, clean up the watcher.
+	defer func() {
+		close(doneC)
+		wg.Wait()
+	}()
+
+	if d, ok := rw.Context.Deadline(); ok {
+		// The context has an explicit deadline. We will use it for cancelation
+		// but disarm it after poll for the next call.
+		if err := deadline(d); err != nil {
+			return *new(T), err
+		}
+		setDeadline = true
+		atomic.AddInt64(&needDisarm, 1)
+	} else {
+		// The context does not have an explicit deadline. We have to watch for
+		// cancelation so we can propagate that signal to immediately unblock
+		// the runtime network poller.
+		//
+		// TODO(mdlayher): is it possible to detect a background context vs a
+		// context with possible future cancel?
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			select {
+			case <-rw.Context.Done():
+				// Cancel the operation. Make the caller disarm after poll
+				// returns.
+				atomic.AddInt64(&needDisarm, 1)
+				_ = deadline(time.Unix(0, 1))
+			case <-doneC:
+				// Nothing to do.
+			}
+		}()
+	}
+
+	var (
+		t   T
+		err error
+	)
+
+	pollErr := poll(func(fd uintptr) bool {
+		t, err = rw.Do(int(fd))
+		return ready(err)
+	})
+
+	if atomic.LoadInt64(&needDisarm) > 0 {
+		_ = deadline(time.Time{})
+	}
+
+	if pollErr != nil {
+		if rw.Context.Err() != nil || (setDeadline && errors.Is(pollErr, os.ErrDeadlineExceeded)) {
+			// The caller canceled the operation or we set a deadline internally
+			// and it was reached.
+			//
+			// Unpack a plain context error. We wait for the context to be done
+			// to synchronize state externally. Otherwise we have noticed I/O
+			// timeout wakeups when we set a deadline but the context was not
+			// yet marked done.
+			<-rw.Context.Done()
+			return *new(T), os.NewSyscallError(rw.Op, rw.Context.Err())
+		}
+
+		// Error from syscall.RawConn methods. Conventionally the standard
+		// library does not wrap internal/poll errors in os.NewSyscallError.
+		return *new(T), pollErr
+	}
+
+	// Result from user function.
+	return t, os.NewSyscallError(rw.Op, err)
+}
+
+// control executes Conn.control for op using the input function.
+func (c *Conn) control(ctx context.Context, op string, f func(fd int) error) error {
+	_, err := controlT(c, ctx, op, func(fd int) (struct{}, error) {
+		return struct{}{}, f(fd)
+	})
+	return err
+}
+
+// controlT executes c.rc.Control for op using the input function, returning a
+// newly allocated result T.
+func controlT[T any](c *Conn, ctx context.Context, op string, f func(fd int) (T, error)) (T, error) {
+	if atomic.LoadUint32(&c.closed) != 0 {
+		// If the file descriptor is already closed, do nothing.
+		return *new(T), os.NewSyscallError(op, unix.EBADF)
+	}
+
+	var (
+		t   T
+		err error
+	)
+
+	doErr := c.rc.Control(func(fd uintptr) {
 		// Repeatedly attempt the syscall(s) invoked by f until completion is
-		// indicated by the return value of ready.
+		// indicated by the return value of ready or the context is canceled.
+		//
+		// The last values for t and err are captured outside of the closure for
+		// use when the loop breaks.
 		for {
-			if ready(f(int(fd))) {
+			if err = ctx.Err(); err != nil {
+				// Early exit due to context cancel.
+				return
+			}
+
+			t, err = f(int(fd))
+			if ready(err) {
 				return
 			}
 		}
 	})
-}
-
-// controlErr wraps control to execute a function and capture its error result.
-// This is a convenience wrapper for functions which don't return any extra
-// values to capture in a closure.
-func (c *Conn) controlErr(op string, f func(fd int) error) error {
-	var err error
-	doErr := c.control(op, func(fd int) error {
-		err = f(fd)
-		return err
-	})
 	if doErr != nil {
-		return doErr
+		// Error from syscall.RawConn methods. Conventionally the standard
+		// library does not wrap internal/poll errors in os.NewSyscallError.
+		return *new(T), doErr
 	}
 
-	return os.NewSyscallError(op, err)
+	// Result from user function.
+	return t, os.NewSyscallError(op, err)
 }
 
 // ready indicates readiness based on the value of err.
 func ready(err error) bool {
-	// When a socket is in non-blocking mode, we might see a variety of errors:
-	//  - EAGAIN: most common case for a socket read not being ready
-	//  - EINPROGRESS: reported by some sockets when first calling connect
-	//  - EINTR: system call interrupted, more frequently occurs in Go 1.14+
-	//    because goroutines can be asynchronously preempted
-	//
-	// Return false to let the poller wait for readiness. See the source code
-	// for internal/poll.FD.RawRead for more details.
 	switch err {
 	case unix.EAGAIN, unix.EINPROGRESS, unix.EINTR:
-		// Not ready.
+		// When a socket is in non-blocking mode, we might see a variety of errors:
+		//  - EAGAIN: most common case for a socket read not being ready
+		//  - EINPROGRESS: reported by some sockets when first calling connect
+		//  - EINTR: system call interrupted, more frequently occurs in Go 1.14+
+		//    because goroutines can be asynchronously preempted
+		//
+		// Return false to let the poller wait for readiness. See the source code
+		// for internal/poll.FD.RawRead for more details.
 		return false
 	default:
 		// Ready regardless of whether there was an error or no error.
 		return true
 	}
 }
+
+// Darwin and FreeBSD can't read or write 2GB+ files at a time,
+// even on 64-bit systems.
+// The same is true of socket implementations on many systems.
+// See golang.org/issue/7812 and golang.org/issue/16266.
+// Use 1GB instead of, say, 2GB-1, to keep subsequent reads aligned.
+const maxRW = 1 << 30

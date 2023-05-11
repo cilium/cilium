@@ -156,9 +156,18 @@ func toUnified(fromName, toName string, content string, edits []Edit) (unified, 
 			last++
 		}
 		if edit.New != "" {
-			for _, content := range splitLines(edit.New) {
-				h.Lines = append(h.Lines, line{Kind: Insert, Content: content})
+			for i, content := range splitLines(edit.New) {
 				toLine++
+				// Merge identical Delete+Insert.
+				// This is an unwanted output of converting diffs to line diffs
+				// that is easiest to fix by postprocessing.
+				// e.g.  issue #59232: ("aaa\nccc\n", "aaa\nbbb\nccc")
+				// -> [Delete "aaa\n", Insert "aaa\n", Insert "bbb\n", ...].
+				if i == 0 && last > start && h.Lines[len(h.Lines)-1].Content == content {
+					h.Lines[len(h.Lines)-1].Kind = Equal
+					continue
+				}
+				h.Lines = append(h.Lines, line{Kind: Insert, Content: content})
 			}
 		}
 	}
@@ -226,6 +235,9 @@ func (u unified) String() string {
 		}
 		if toCount > 1 {
 			fmt.Fprintf(b, " +%d,%d", hunk.ToLine, toCount)
+		} else if hunk.ToLine == 1 && toCount == 0 {
+			// Match odd GNU diff -u behavior adding to empty file.
+			fmt.Fprintf(b, " +0,0")
 		} else {
 			fmt.Fprintf(b, " +%d", hunk.ToLine)
 		}

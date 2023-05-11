@@ -28,31 +28,50 @@ import (
 // [RFC 4761, section 3.2.2]: https://www.rfc-editor.org/rfc/rfc4761.html#section-3.2.2.
 type VPLSNLRI struct {
 	PrefixDefault
-	VEID          uint16
-	VEBlockOffset uint16
-	VEBlockSize   uint16
-	LabelBase     MPLSLabelStack
+	VEID           uint16
+	VEBlockOffset  uint16
+	VEBlockSize    uint16
+	LabelBlockBase uint32
 
 	rd RouteDistinguisherInterface
 }
 
 func (n *VPLSNLRI) DecodeFromBytes(data []byte, options ...*MarshallingOption) error {
-	if len(data) < 19 {
-		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "Not all VPLS NLRI bytes available")
-	}
+	/*
+		RFC6074 Section 7 BGP-AD and VPLS-BGP Interoperability
+		Both BGP-AD and VPLS-BGP [RFC4761] use the same AFI/SAFI.  In order
+		for both BGP-AD and VPLS-BGP to co-exist, the NLRI length must be
+		used as a demultiplexer.
+
+		The BGP-AD NLRI has an NLRI length of 12 bytes, containing only an
+		8-byte RD and a 4-byte VSI-ID. VPLS-BGP [RFC4761] uses a 17-byte
+		NLRI length.  Therefore, implementations of BGP-AD must ignore NLRI
+		that are greater than 12 bytes.
+	*/
 	length := int(binary.BigEndian.Uint16(data[0:2]))
 	if len(data) < length+2 {
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "Not all VPLS NLRI bytes available")
 	}
+	if length == 12 { // BGP-AD
+		// BGP-AD is not supported yet
+		return nil
+	}
+	// VPLS-BGP
 	n.rd = GetRouteDistinguisher(data[2:10])
 	n.VEID = binary.BigEndian.Uint16(data[10:12])
 	n.VEBlockOffset = binary.BigEndian.Uint16(data[12:14])
 	n.VEBlockSize = binary.BigEndian.Uint16(data[14:16])
-	return n.LabelBase.DecodeFromBytes(data[16:19], options...)
+
+	labelBlockBase := uint32(data[16])<<16 | uint32(data[17])<<8 | uint32(data[18])
+	n.LabelBlockBase = labelBlockBase >> 4
+
+	return nil
 }
 
 func (n *VPLSNLRI) Serialize(options ...*MarshallingOption) ([]byte, error) {
 	buf := make([]byte, 16)
+	labelBaseBuf := make([]byte, 3)
+
 	binary.BigEndian.PutUint16(buf[0:2], 17)
 	rdbuf, err := n.rd.Serialize()
 	if err != nil {
@@ -62,11 +81,12 @@ func (n *VPLSNLRI) Serialize(options ...*MarshallingOption) ([]byte, error) {
 	binary.BigEndian.PutUint16(buf[10:12], n.VEID)
 	binary.BigEndian.PutUint16(buf[12:14], n.VEBlockOffset)
 	binary.BigEndian.PutUint16(buf[14:16], n.VEBlockSize)
-	tbuf, err := n.LabelBase.Serialize(options...)
-	if err != nil {
-		return nil, err
-	}
-	return append(buf, tbuf...), nil
+
+	labelBlockBase := n.LabelBlockBase << 4
+	labelBaseBuf[0] = byte((labelBlockBase >> 16) & 0xff)
+	labelBaseBuf[1] = byte((labelBlockBase >> 8) & 0xff)
+	labelBaseBuf[2] = byte(labelBlockBase & 0xff)
+	return append(buf, labelBaseBuf...), nil
 }
 
 func (n *VPLSNLRI) AFI() uint16 {
@@ -78,26 +98,28 @@ func (n *VPLSNLRI) SAFI() uint8 {
 }
 
 func (n *VPLSNLRI) Len(options ...*MarshallingOption) int {
+	// Length (2) + Route Distinguisher (8) + VE ID (2) + VE Block Offset (2)
+	// + VE Block Size (2) + Label Block Base (3)
 	return 19
 }
 
 func (n *VPLSNLRI) String() string {
-	return fmt.Sprintf("%s:%d:%d (Block Size: %d, Label Base: %d)", n.rd, n.VEID, n.VEBlockOffset, n.VEBlockSize, n.LabelBase)
+	return fmt.Sprintf("%s:%d:%d (Block Size: %d, Label Block Base: %d)", n.rd, n.VEID, n.VEBlockOffset, n.VEBlockSize, n.LabelBlockBase)
 }
 
 func (n *VPLSNLRI) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		RD            RouteDistinguisherInterface `json:"rd"`
-		VEID          uint16                      `json:"id"`
-		VEBlockOffset uint16                      `json:"blockoffset"`
-		VEBlockSize   uint16                      `json:"blocksize"`
-		LabelBase     MPLSLabelStack              `json:"base"`
+		RD             RouteDistinguisherInterface `json:"rd"`
+		VEID           uint16                      `json:"id"`
+		VEBlockOffset  uint16                      `json:"blockoffset"`
+		VEBlockSize    uint16                      `json:"blocksize"`
+		LabelBlockBase uint32                      `json:"labelblockbase"`
 	}{
-		RD:            n.rd,
-		VEID:          n.VEID,
-		VEBlockOffset: n.VEBlockOffset,
-		VEBlockSize:   n.VEBlockSize,
-		LabelBase:     n.LabelBase,
+		RD:             n.rd,
+		VEID:           n.VEID,
+		VEBlockOffset:  n.VEBlockOffset,
+		VEBlockSize:    n.VEBlockSize,
+		LabelBlockBase: n.LabelBlockBase,
 	})
 }
 
@@ -109,13 +131,13 @@ func (l *VPLSNLRI) Flat() map[string]string {
 	return map[string]string{}
 }
 
-func NewVPLSNLRI(rd RouteDistinguisherInterface, id uint16, blockOffset uint16, blockSize uint16, labelBase MPLSLabelStack) *VPLSNLRI {
+func NewVPLSNLRI(rd RouteDistinguisherInterface, id uint16, blockOffset uint16, blockSize uint16, labelBlockBase uint32) *VPLSNLRI {
 	return &VPLSNLRI{
-		rd:            rd,
-		VEID:          id,
-		VEBlockOffset: blockOffset,
-		VEBlockSize:   blockSize,
-		LabelBase:     labelBase,
+		rd:             rd,
+		VEID:           id,
+		VEBlockOffset:  blockOffset,
+		VEBlockSize:    blockSize,
+		LabelBlockBase: labelBlockBase,
 	}
 }
 

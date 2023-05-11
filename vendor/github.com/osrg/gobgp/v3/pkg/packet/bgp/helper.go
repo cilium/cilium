@@ -94,6 +94,8 @@ func NewTestBGPUpdateMessage() *BGPMessage {
 		NewEVPNIPPrefixRoute(NewRouteDistinguisherFourOctetAS(5, 6), EthernetSegmentIdentifier{ESI_ARBITRARY, make([]byte, 9)}, 5, 24, "192.2.1.0", "192.3.1.1", 5),
 	}
 
+	prefixes6 := []AddrPrefixInterface{NewVPLSNLRI(NewRouteDistinguisherFourOctetAS(5, 6), 101, 100, 10, 1000)}
+
 	p := []PathAttributeInterface{
 		NewPathAttributeOrigin(3),
 		NewPathAttributeAsPath(aspath1),
@@ -116,6 +118,7 @@ func NewTestBGPUpdateMessage() *BGPMessage {
 		NewPathAttributeMpReachNLRI("fe80::", prefixes3),
 		NewPathAttributeMpReachNLRI("129.1.1.1", prefixes4),
 		NewPathAttributeMpReachNLRI("129.1.1.1", prefixes5),
+		NewPathAttributeMpReachNLRI("135.1.1.1", prefixes6),
 		NewPathAttributeMpUnreachNLRI(prefixes1),
 		//NewPathAttributeMpReachNLRI("112.22.2.0", []AddrPrefixInterface{}),
 		//NewPathAttributeMpUnreachNLRI([]AddrPrefixInterface{}),

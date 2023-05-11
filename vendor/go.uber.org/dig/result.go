@@ -88,6 +88,24 @@ func newResult(t reflect.Type, opts resultOptions) (result, error) {
 				fmt.Sprintf("cannot parse group %q", opts.Group), err)
 		}
 		rg := resultGrouped{Type: t, Group: g.Name, Flatten: g.Flatten}
+		if len(opts.As) > 0 {
+			var asTypes []reflect.Type
+			for _, as := range opts.As {
+				ifaceType := reflect.TypeOf(as).Elem()
+				if ifaceType == t {
+					continue
+				}
+				if !t.Implements(ifaceType) {
+					return nil, newErrInvalidInput(
+						fmt.Sprintf("invalid dig.As: %v does not implement %v", t, ifaceType), nil)
+				}
+				asTypes = append(asTypes, ifaceType)
+			}
+			if len(asTypes) > 0 {
+				rg.Type = asTypes[0]
+				rg.As = asTypes[1:]
+			}
+		}
 		if g.Soft {
 			return nil, newErrInvalidInput(fmt.Sprintf(
 				"cannot use soft with result value groups: soft was used with group:%q", g.Name), nil)
@@ -441,17 +459,27 @@ type resultGrouped struct {
 	// as a group. Requires the value's slice to be a group. If set, Type will be
 	// the type of individual elements rather than the group.
 	Flatten bool
+
+	// If specified, this is a list of types which the value will be made
+	// available as, in addition to its own type.
+	As []reflect.Type
 }
 
 func (rt resultGrouped) DotResult() []*dot.Result {
-	return []*dot.Result{
-		{
-			Node: &dot.Node{
-				Type:  rt.Type,
-				Group: rt.Group,
-			},
+	dotResults := make([]*dot.Result, 0, len(rt.As)+1)
+	dotResults = append(dotResults, &dot.Result{
+		Node: &dot.Node{
+			Type:  rt.Type,
+			Group: rt.Group,
 		},
+	})
+
+	for _, asType := range rt.As {
+		dotResults = append(dotResults, &dot.Result{
+			Node: &dot.Node{Type: asType, Group: rt.Group},
+		})
 	}
+	return dotResults
 }
 
 // newResultGrouped(f) builds a new resultGrouped from the provided field.
@@ -491,6 +519,9 @@ func (rt resultGrouped) Extract(cw containerWriter, decorated bool, v reflect.Va
 	// Decorated values are always flattened.
 	if !decorated && !rt.Flatten {
 		cw.submitGroupedValue(rt.Group, rt.Type, v)
+		for _, asType := range rt.As {
+			cw.submitGroupedValue(rt.Group, asType, v)
+		}
 		return
 	}
 
