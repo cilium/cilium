@@ -226,6 +226,10 @@ func readMockFile(ctx context.Context, path string, backend kvstore.BackendOpera
 		return err
 	}
 
+	identities.synced(ctx)
+	nodes.synced(ctx)
+	endpoints.synced(ctx)
+
 	return nil
 }
 
@@ -288,7 +292,8 @@ type identitySynchronizer struct {
 
 func newIdentitySynchronizer(ctx context.Context, backend kvstore.BackendOperations) synchronizer {
 	identitiesStore := store.NewWorkqueueSyncStore(cfg.LocalClusterName(), backend,
-		path.Join(identityCache.IdentitiesPath, "id"))
+		path.Join(identityCache.IdentitiesPath, "id"),
+		store.WSSWithSyncedKeyOverride(identityCache.IdentitiesPath))
 	go identitiesStore.Run(ctx)
 
 	return &identitySynchronizer{store: identitiesStore, encoder: backend.Encode}
@@ -339,6 +344,11 @@ func (is *identitySynchronizer) delete(ctx context.Context, key resource.Key) er
 	}
 
 	return nil
+}
+
+func (is *identitySynchronizer) synced(ctx context.Context) error {
+	log.Info("Initial list of identities successfully received from Kubernetes")
+	return is.store.Synced(ctx)
 }
 
 type nodeStub struct {
@@ -394,6 +404,11 @@ func (ns *nodeSynchronizer) delete(ctx context.Context, key resource.Key) error 
 	return nil
 }
 
+func (ns *nodeSynchronizer) synced(ctx context.Context) error {
+	log.Info("Initial list of nodes successfully received from Kubernetes")
+	return ns.store.Synced(ctx)
+}
+
 type ipmap map[string]struct{}
 
 type endpointSynchronizer struct {
@@ -403,7 +418,8 @@ type endpointSynchronizer struct {
 
 func newEndpointSynchronizer(ctx context.Context, backend kvstore.BackendOperations) synchronizer {
 	endpointsStore := store.NewWorkqueueSyncStore(cfg.LocalClusterName(), backend,
-		path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace))
+		path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
+		store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath))
 	go endpointsStore.Run(ctx)
 
 	return &endpointSynchronizer{
@@ -466,6 +482,11 @@ func (es *endpointSynchronizer) delete(ctx context.Context, key resource.Key) er
 	return nil
 }
 
+func (es *endpointSynchronizer) synced(ctx context.Context) error {
+	log.Info("Initial list of endpoints successfully received from Kubernetes")
+	return es.store.Synced(ctx)
+}
+
 func (es *endpointSynchronizer) deleteEndpoints(ctx context.Context, key resource.Key, ips ipmap) {
 	for ip := range ips {
 		scopedLog := log.WithFields(logrus.Fields{logfields.Endpoint: key.String(), logfields.IPAddr: ip})
@@ -482,6 +503,7 @@ func (es *endpointSynchronizer) deleteEndpoints(ctx context.Context, key resourc
 type synchronizer interface {
 	upsert(ctx context.Context, key resource.Key, obj runtime.Object) error
 	delete(ctx context.Context, key resource.Key) error
+	synced(ctx context.Context) error
 }
 
 func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], sync synchronizer) {
@@ -492,7 +514,7 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 		case resource.Delete:
 			event.Done(sync.delete(ctx, event.Key))
 		case resource.Sync:
-			event.Done(nil)
+			event.Done(sync.synced(ctx))
 		}
 	}
 }
@@ -511,6 +533,9 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backe
 
 	config := cmtypes.CiliumClusterConfig{
 		ID: cfg.clusterID,
+		Capabilities: cmtypes.CiliumClusterConfigCapabilities{
+			SyncedCanaries: true,
+		},
 	}
 
 	if err := clustermesh.SetClusterConfig(context.Background(), cfg.clusterName, &config, backend); err != nil {
