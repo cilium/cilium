@@ -82,7 +82,8 @@ func listAllMaps() {
 		}
 	} else {
 		for _, m := range maps {
-			fmt.Printf("%s:\n", m.Path)
+			fmt.Printf("Endpoint ID: %s\n", m.EndpointID)
+			fmt.Printf("Path: %s\n", m.Path)
 			fmt.Println()
 			printTable(m.Content)
 			fmt.Println()
