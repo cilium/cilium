@@ -948,6 +948,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 			log.WithError(err).Error("failed to initialize wireguard agent")
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
+
+		d.nodeDiscovery.Manager.Subscribe(wgAgent)
 	}
 
 	// Perform an early probe on the underlying kernel on whether BandwidthManager
