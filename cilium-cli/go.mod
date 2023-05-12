@@ -15,7 +15,7 @@ require (
 	github.com/cilium/cilium v1.14.0-snapshot.2
 	github.com/cilium/hubble v0.11.5
 	github.com/cilium/proxy v0.0.0-20230420184820-797bea843de1
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230509143121-641f9c8470ad
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230511173226-ae1c883ef390
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
@@ -24,11 +24,11 @@ require (
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
-	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53
+	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea
 	golang.org/x/mod v0.10.0
 	google.golang.org/grpc v1.55.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-	helm.sh/helm/v3 v3.11.3
+	helm.sh/helm/v3 v3.12.0
 	k8s.io/api v0.27.1
 	k8s.io/apimachinery v0.27.1
 	k8s.io/cli-runtime v0.27.1
@@ -202,11 +202,11 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/apiextensions-apiserver v0.26.4
-	k8s.io/apiserver v0.26.4 // indirect
-	k8s.io/component-base v0.26.4 // indirect
+	k8s.io/apiextensions-apiserver v0.27.1
+	k8s.io/apiserver v0.27.1 // indirect
+	k8s.io/component-base v0.27.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
-	k8s.io/kubectl v0.26.0 // indirect
+	k8s.io/kubectl v0.27.1 // indirect
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2 // indirect
 	oras.land/oras-go v1.2.3-0.20230313045143-cb5625556a37 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
