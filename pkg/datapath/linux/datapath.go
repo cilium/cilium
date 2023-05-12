@@ -37,7 +37,7 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager
 		wgAgent:         wgAgent,
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, wgAgent)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing)
 	return dp
 }
 

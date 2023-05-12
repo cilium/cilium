@@ -65,7 +65,6 @@ type linuxNodeHandler struct {
 	neighNextHopRefCount   counter.StringCounter
 	neighByNextHop         map[string]*netlink.Neigh // key = string(net.IP)
 	neighLastPingByNextHop map[string]time.Time      // key = string(net.IP)
-	wgAgent                datapath.WireguardAgent
 
 	// Pool of available IDs for nodes.
 	nodeIDs idpool.IDPool
@@ -83,7 +82,7 @@ var (
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
-func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, wgAgent datapath.WireguardAgent) *linuxNodeHandler {
+func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
@@ -93,7 +92,6 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 		neighNextHopRefCount:   counter.StringCounter{},
 		neighByNextHop:         map[string]*netlink.Neigh{},
 		neighLastPingByNextHop: map[string]time.Time{},
-		wgAgent:                wgAgent,
 		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
 		nodeIDsByIPs:           map[string]uint16{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
@@ -1073,14 +1071,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		return nil
 	}
 
-	if option.Config.EnableWireguard && newNode.WireguardPubKey != "" {
-		if err := n.wgAgent.UpdatePeer(newNode.Fullname(), newNode.WireguardPubKey, newIP4, newIP6); err != nil {
-			log.WithError(err).
-				WithField(logfields.NodeName, newNode.Fullname()).
-				Warning("Failed to update wireguard configuration for peer")
-		}
-	}
-
 	if n.nodeConfig.EnableAutoDirectRouting {
 		n.updateDirectRoute(oldIP4Cidr, newNode.IPv4AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4)
 		n.updateDirectRoute(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6)
@@ -1164,12 +1154,6 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 
 	if n.nodeConfig.EnableIPSec {
 		n.deleteIPsec(oldNode)
-	}
-
-	if option.Config.EnableWireguard {
-		if err := n.wgAgent.DeletePeer(oldNode.Fullname()); err != nil {
-			return err
-		}
 	}
 
 	n.deallocateIDForNode(oldNode)

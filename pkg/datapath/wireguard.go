@@ -12,6 +12,7 @@ import (
 
 // WireguardAgent manages the Wireguard peers
 type WireguardAgent interface {
+	NodeHandler
 	Init(mtuConfig mtu.Configuration) error
 	UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP) error
 	DeletePeer(nodeName string) error
