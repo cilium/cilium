@@ -124,7 +124,7 @@ func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 	d := &Daemon{}
 	d.initDNSProxyContext(128)
 	d.identityAllocator = NewFakeIdentityAllocator(nil)
-	d.policy = policy.NewPolicyRepository(d.identityAllocator, nil, nil, nil)
+	d.policy = policy.NewPolicyRepository(d.identityAllocator, nil, "")
 	d.dnsNameManager = fqdn.NewNameManager(fqdn.Config{
 		MinTTL:          1,
 		Cache:           fqdn.NewDNSCache(0),

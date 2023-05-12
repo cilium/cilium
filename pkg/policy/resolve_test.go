@@ -193,7 +193,7 @@ func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Reposit
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	ids := mgr.GetIdentityCache()
 	fakeAllocator := testidentity.NewMockIdentityAllocator(ids)
-	testRepo := NewPolicyRepository(fakeAllocator, ids, nil, nil)
+	testRepo := NewPolicyRepository(fakeAllocator, ids, "")
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 	GenerateNumIdentities(3000)
@@ -526,7 +526,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
+	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
 }
 
 func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
@@ -640,7 +640,6 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 								Auth: &api.Auth{
 									Type: api.AuthTypeNull,
 								},
-								CanShortCircuit: true,
 							},
 						},
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{
@@ -686,7 +685,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	policy.policyMapChanges.mutex = lock.Mutex{}
-	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
+	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
 }
 
 func TestEndpointPolicy_AllowsIdentity(t *testing.T) {

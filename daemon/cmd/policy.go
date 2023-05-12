@@ -14,12 +14,12 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/google/uuid"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
-	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -48,6 +48,7 @@ import (
 // initPolicy initializes the core policy components of the daemon.
 func (d *Daemon) initPolicy(
 	authManager auth.Manager,
+	secretsNamespace string,
 ) error {
 	// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
 	// this is only triggered by agent configuration changes for now and
@@ -67,13 +68,32 @@ func (d *Daemon) initPolicy(
 	return nil
 }
 
+type PolicyConfig struct {
+	// PolicySecretsNamespace is the namespace having tls secrets used by CNP
+	PolicySecretsNamespace string
+}
+
+var defaultConfig = PolicyConfig{
+	PolicySecretsNamespace: "cilium-secrets",
+}
+
+func (cfg PolicyConfig) Flags(flags *pflag.FlagSet) {
+	flags.String("policy-secrets-namespace", defaultConfig.PolicySecretsNamespace, "Namespace having secret resources in used by CNP")
+}
+
+var PolicyCell = cell.Module(
+	"policy",
+	"CachingIdentityAllocator Repository and IPCache",
+
+	cell.Config(defaultConfig),
+	cell.Provide(newPolicyTrifecta),
+)
+
 type policyParams struct {
 	cell.In
 
 	Lifecycle       hive.Lifecycle
 	EndpointManager endpointmanager.EndpointManager
-	CertManager     certificatemanager.CertificateManager
-	SecretManager   certificatemanager.SecretManager
 	Datapath        datapath.Datapath
 	CacheStatus     k8s.CacheStatus
 }
@@ -92,7 +112,7 @@ type policyOut struct {
 //
 // The three have a circular dependency on each other and therefore require
 // special care.
-func newPolicyTrifecta(params policyParams) (policyOut, error) {
+func newPolicyTrifecta(params policyParams, conf PolicyConfig) (policyOut, error) {
 	iao := &identityAllocatorOwner{}
 	idAlloc := &cachingIdentityAllocator{
 		cache.NewCachingIdentityAllocator(iao),
@@ -102,8 +122,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	iao.policy = policy.NewStoppedPolicyRepository(
 		idAlloc,
 		idAlloc.GetIdentityCache(),
-		params.CertManager,
-		params.SecretManager,
+		conf.PolicySecretsNamespace,
 	)
 	iao.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 

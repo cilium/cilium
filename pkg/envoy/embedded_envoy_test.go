@@ -62,7 +62,8 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	log.Debugf("run directory: %s", testRunDir)
 
-	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), testRunDir)
+	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), testRunDir, "cilium-secrets")
+
 	defer xdsServer.stop()
 	StartAccessLogServer(testRunDir, xdsServer)
 
@@ -142,7 +143,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	log.Debugf("run directory: %s", testRunDir)
 
-	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), testRunDir)
+	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), testRunDir, "cilium-secrets")
 	defer xdsServer.stop()
 	StartAccessLogServer(testRunDir, xdsServer)
 

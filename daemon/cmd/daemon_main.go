@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -1582,8 +1581,6 @@ type daemonParams struct {
 	CacheStatus          k8s.CacheStatus
 	NodeManager          nodeManager.NodeManager
 	EndpointManager      endpointmanager.EndpointManager
-	CertManager          certificatemanager.CertificateManager
-	SecretManager        certificatemanager.SecretManager
 	AuthManager          auth.Manager
 	IdentityAllocator    CachingIdentityAllocator
 	Policy               *policy.Repository

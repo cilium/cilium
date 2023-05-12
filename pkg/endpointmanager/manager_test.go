@@ -52,7 +52,7 @@ var _ = Suite(&EndpointManagerSuite{})
 
 func (s *EndpointManagerSuite) SetUpSuite(c *C) {
 	idAllocator := testidentity.NewMockIdentityAllocator(nil)
-	s.repo = policy.NewPolicyRepository(idAllocator, nil, nil, nil)
+	s.repo = policy.NewPolicyRepository(idAllocator, nil, "")
 }
 
 func (s *EndpointManagerSuite) GetPolicyRepository() *policy.Repository {

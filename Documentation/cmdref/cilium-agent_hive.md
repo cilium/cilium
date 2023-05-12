@@ -11,7 +11,6 @@ cilium-agent hive [flags]
 ### Options
 
 ```
-      --certificates-directory string                    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cni-chaining-mode string                         Enable CNI chaining with the specified plugin (default "none")
       --cni-chaining-target string                       CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.
       --cni-exclusive                                    Whether to remove other CNI configurations
@@ -34,6 +33,7 @@ cilium-agent hive [flags]
       --mesh-auth-rotated-identities-queue-size int      The size of the queue for signaling rotated identities. (default 1024)
       --mesh-auth-spiffe-trust-domain string             The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-admin-socket string              The path for the SPIRE admin agent Unix socket.
+      --policy-secrets-namespace string                  Namespace having secret resources in used by CNP (default "cilium-secrets")
       --pprof                                            Enable serving pprof debugging API
       --pprof-address string                             Address that pprof listens on (default "localhost")
       --pprof-port uint16                                Port that pprof listens on (default 6060)

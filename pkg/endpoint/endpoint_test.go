@@ -62,14 +62,14 @@ type EndpointSuite struct {
 }
 
 // suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
-var suite = EndpointSuite{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
+var suite = EndpointSuite{repo: policy.NewPolicyRepository(nil, nil, "")}
 var _ = Suite(&suite)
 
 func (s *EndpointSuite) SetUpSuite(c *C) {
 	testutils.IntegrationCheck(c)
 
 	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
-	s.repo = policy.NewPolicyRepository(nil, nil, nil, nil)
+	s.repo = policy.NewPolicyRepository(nil, nil, "")
 	// GetConfig the default labels prefix filter
 	err := labelsfilter.ParseLabelPrefixCfg(nil, "")
 	if err != nil {

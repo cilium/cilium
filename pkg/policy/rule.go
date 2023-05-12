@@ -173,7 +173,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				if newL7Rules.TerminatingTLS != nil {
 					l7Rules.TerminatingTLS = newL7Rules.TerminatingTLS
 				}
-			} else if !newL7Rules.TerminatingTLS.Equal(l7Rules.TerminatingTLS) {
+			} else if !newL7Rules.TerminatingTLS.DeepEqual(l7Rules.TerminatingTLS) {
 				ctx.PolicyTrace("   Merge conflict: mismatching terminating TLS contexts %v/%v\n", newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
 				return fmt.Errorf("cannot merge conflicting terminating TLS contexts for cached selector %s: (%v/%v)", cs.String(), newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
 			}
@@ -181,7 +181,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				if newL7Rules.OriginatingTLS != nil {
 					l7Rules.OriginatingTLS = newL7Rules.OriginatingTLS
 				}
-			} else if !newL7Rules.OriginatingTLS.Equal(l7Rules.OriginatingTLS) {
+			} else if !newL7Rules.OriginatingTLS.DeepEqual(l7Rules.OriginatingTLS) {
 				ctx.PolicyTrace("   Merge conflict: mismatching originating TLS contexts %v/%v\n", newL7Rules.OriginatingTLS, l7Rules.OriginatingTLS)
 				return fmt.Errorf("cannot merge conflicting originating TLS contexts for cached selector %s: (%v/%v)", cs.String(), newL7Rules.OriginatingTLS, l7Rules.OriginatingTLS)
 			}

@@ -189,7 +189,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 	}, nil, wg)
 	wg.Wait()
 
-	s.repo = policy.NewPolicyRepository(nil, nil, nil, nil)
+	s.repo = policy.NewPolicyRepository(nil, nil, "")
 	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: time.Second, SingleInflight: true}
 	s.dnsServer = setupServer(c)
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))

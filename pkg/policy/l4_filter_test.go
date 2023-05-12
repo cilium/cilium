@@ -5,7 +5,6 @@ package policy
 
 import (
 	"bytes"
-	"fmt"
 	stdlog "log"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -61,16 +60,6 @@ func (p *testPolicyContextType) GetNamespace() string {
 
 func (p *testPolicyContextType) GetSelectorCache() *SelectorCache {
 	return testSelectorCache
-}
-
-func (p *testPolicyContextType) GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error) {
-	switch tls.Secret.Name {
-	case "tls-cert":
-		return "", "fake public cert", "fake private key", nil
-	case "tls-ca-certs":
-		return "fake CA certs", "", "", nil
-	}
-	return "", "", "", fmt.Errorf("Unknown test secret '%s'", tls.Secret.Name)
 }
 
 func (p *testPolicyContextType) GetEnvoyHTTPRules(*api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool) {
@@ -788,12 +777,15 @@ func (ds *PolicyTestSuite) TestMergeTLSTCPPolicy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
-				TerminatingTLS: &TLSContext{
-					CertificateChain: "fake public cert",
-					PrivateKey:       "fake private key",
+				TerminatingTLS: &api.TLSContext{
+					Secret: &api.Secret{
+						Name: "tls-cert",
+					},
 				},
-				OriginatingTLS: &TLSContext{
-					TrustedCA: "fake CA certs",
+				OriginatingTLS: &api.TLSContext{
+					Secret: &api.Secret{
+						Name: "tls-ca-certs",
+					},
 				},
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
@@ -881,12 +873,15 @@ func (ds *PolicyTestSuite) TestMergeTLSHTTPPolicy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
-				TerminatingTLS: &TLSContext{
-					CertificateChain: "fake public cert",
-					PrivateKey:       "fake private key",
+				TerminatingTLS: &api.TLSContext{
+					Secret: &api.Secret{
+						Name: "tls-cert",
+					},
 				},
-				OriginatingTLS: &TLSContext{
-					TrustedCA: "fake CA certs",
+				OriginatingTLS: &api.TLSContext{
+					Secret: &api.Secret{
+						Name: "tls-ca-certs",
+					},
 				},
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
@@ -992,12 +987,15 @@ func (ds *PolicyTestSuite) TestMergeTLSSNIPolicy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
-				TerminatingTLS: &TLSContext{
-					CertificateChain: "fake public cert",
-					PrivateKey:       "fake private key",
+				TerminatingTLS: &api.TLSContext{
+					Secret: &api.Secret{
+						Name: "tls-cert",
+					},
 				},
-				OriginatingTLS: &TLSContext{
-					TrustedCA: "fake CA certs",
+				OriginatingTLS: &api.TLSContext{
+					Secret: &api.Secret{
+						Name: "tls-ca-certs",
+					},
 				},
 				ServerNames:     StringSet{"www.foo.com": {}, "www.bar.com": {}},
 				EnvoyHTTPRules:  nil,

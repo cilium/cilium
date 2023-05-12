@@ -4,9 +4,7 @@
 package policy
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"net/netip"
 	"sync"
 	"sync/atomic"
@@ -14,7 +12,6 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -35,11 +32,6 @@ type PolicyContext interface {
 
 	// return the SelectorCache
 	GetSelectorCache() *SelectorCache
-
-	// GetTLSContext resolves the given 'api.TLSContext' into CA
-	// certs and the public and private keys, using secrets from
-	// k8s or from the local file system.
-	GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error)
 
 	// GetEnvoyHTTPRules translates the given 'api.L7Rules' into
 	// the protobuf representation the Envoy can consume. The bool
@@ -65,6 +57,8 @@ type policyContext struct {
 	// isDeny this field is set to true if the given policy computation should
 	// be done for the policy deny.
 	isDeny bool
+
+	secretsNS string
 }
 
 // GetNamespace() returns the namespace for the policy rule being resolved
@@ -77,16 +71,8 @@ func (p *policyContext) GetSelectorCache() *SelectorCache {
 	return p.repo.GetSelectorCache()
 }
 
-// GetTLSContext() returns data for TLS Context via a CertificateManager
-func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error) {
-	if p.repo.certManager == nil {
-		return "", "", "", fmt.Errorf("No Certificate Manager set on Policy Repository")
-	}
-	return p.repo.certManager.GetTLSContext(context.TODO(), tls, p.ns)
-}
-
 func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool) {
-	return p.repo.GetEnvoyHTTPRules(l7Rules, p.ns)
+	return p.repo.GetEnvoyHTTPRules(l7Rules, p.ns, p.secretsNS)
 }
 
 // IsDeny returns true if the policy computation should be done for the
@@ -133,10 +119,9 @@ type Repository struct {
 	// PolicyCache tracks the selector policies created from this repo
 	policyCache *PolicyCache
 
-	certManager   certificatemanager.CertificateManager
-	secretManager certificatemanager.SecretManager
+	getEnvoyHTTPRules func(*api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)
 
-	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
+	secretsNamespace string
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -144,15 +129,15 @@ func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
 }
 
-func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)) {
+func (p *Repository) SetEnvoyRulesFunc(f func(*api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)) {
 	p.getEnvoyHTTPRules = f
 }
 
-func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
+func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns, secretsNS string) (*cilium.HttpNetworkPolicyRules, bool) {
 	if p.getEnvoyHTTPRules == nil {
 		return nil, true
 	}
-	return p.getEnvoyHTTPRules(p.secretManager, l7Rules, ns)
+	return p.getEnvoyHTTPRules(l7Rules, ns, secretsNS)
 }
 
 // GetPolicyCache() returns the policy cache used by the Repository
@@ -164,10 +149,9 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 func NewPolicyRepository(
 	idAllocator cache.IdentityAllocator,
 	idCache cache.IdentityCache,
-	certManager certificatemanager.CertificateManager,
-	secretManager certificatemanager.SecretManager,
+	secretsNamespace string,
 ) *Repository {
-	repo := NewStoppedPolicyRepository(idAllocator, idCache, certManager, secretManager)
+	repo := NewStoppedPolicyRepository(idAllocator, idCache, secretsNamespace)
 	repo.Start()
 	return repo
 }
@@ -180,15 +164,13 @@ func NewPolicyRepository(
 func NewStoppedPolicyRepository(
 	idAllocator cache.IdentityAllocator,
 	idCache cache.IdentityCache,
-	certManager certificatemanager.CertificateManager,
-	secretManager certificatemanager.SecretManager,
+	secretsNamespace string,
 ) *Repository {
 	selectorCache := NewSelectorCache(idAllocator, idCache)
 	repo := &Repository{
-		revision:      1,
-		selectorCache: selectorCache,
-		certManager:   certManager,
-		secretManager: secretManager,
+		revision:         1,
+		selectorCache:    selectorCache,
+		secretsNamespace: secretsNamespace,
 	}
 	repo.policyCache = NewPolicyCache(repo, true)
 	return repo
@@ -256,8 +238,9 @@ func (p *Repository) Start() {
 // Note: Only used for policy tracing
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
 	policyCtx := policyContext{
-		repo: p,
-		ns:   ctx.To.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		repo:      p,
+		ns:        ctx.To.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		secretsNS: p.secretsNamespace,
 	}
 	result, err := p.rules.resolveL4IngressPolicy(&policyCtx, ctx)
 	if err != nil {
@@ -279,8 +262,9 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, er
 // NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
 	policyCtx := policyContext{
-		repo: p,
-		ns:   ctx.From.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		repo:      p,
+		ns:        ctx.From.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		secretsNS: p.secretsNamespace,
 	}
 	result, err := p.rules.resolveL4EgressPolicy(&policyCtx, ctx)
 
@@ -724,8 +708,9 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	policyCtx := policyContext{
-		repo: p,
-		ns:   lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		repo:      p,
+		ns:        lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		secretsNS: p.secretsNamespace,
 	}
 
 	if ingressEnabled {

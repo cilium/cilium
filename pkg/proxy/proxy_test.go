@@ -39,7 +39,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 
 	p := StartProxySupport(10000, 20000, testRunDir, nil, nil, mockDatapathUpdater, nil,
-		testipcache.NewMockIPCache())
+		testipcache.NewMockIPCache(), "")
 
 	port, err := p.AllocateProxyPort("listener1", false, true)
 	c.Assert(err, IsNil)

@@ -56,7 +56,6 @@ cilium-agent [flags]
       --bpf-policy-map-max int                                  Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-root string                                         Path to BPF filesystem
       --bpf-sock-rev-map-max int                                Maximum number of entries for the SockRevNAT BPF map (default 262144)
-      --certificates-directory string                           Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cgroup-root string                                      Path to Cgroup2 filesystem
       --cluster-health-port int                                 TCP port for cluster-wide network connectivity health API (default 4240)
       --cluster-id int                                          Unique identifier of the cluster
@@ -252,6 +251,7 @@ cilium-agent [flags]
       --node-port-range strings                                 Set the min/max NodePort port range (default [30000,32767])
       --policy-audit-mode                                       Enable policy audit (non-drop) mode
       --policy-queue-size int                                   Size of queues for policy-related events (default 100)
+      --policy-secrets-namespace string                         Namespace having secret resources in used by CNP (default "cilium-secrets")
       --pprof                                                   Enable serving pprof debugging API
       --pprof-address string                                    Address that pprof listens on (default "localhost")
       --pprof-port uint16                                       Port that pprof listens on (default 6060)

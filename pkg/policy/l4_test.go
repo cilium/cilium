@@ -228,10 +228,10 @@ func (s *PolicyTestSuite) TestCreateL4FilterMissingSecret(c *C) {
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
 		_, err := createL4IngressFilter(testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
-		c.Assert(err, Not(IsNil))
+		c.Assert(err, IsNil)
 
 		_, err = createL4EgressFilter(testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
-		c.Assert(err, Not(IsNil))
+		c.Assert(err, IsNil)
 	}
 }
 
