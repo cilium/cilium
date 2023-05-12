@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
 const (
@@ -258,7 +259,7 @@ func (cm *ClusterMesh) Stop(hive.HookContext) error {
 	}
 
 	for name, cluster := range cm.clusters {
-		cluster.onRemove()
+		cluster.onStop()
 		delete(cm.clusters, name)
 	}
 
@@ -280,6 +281,20 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		controllers: controller.NewManager(),
 		swg:         lock.NewStoppableWaitGroup(),
 	}
+
+	rc.remoteNodes = store.NewRestartableWatchStore(
+		name,
+		cm.conf.NodeKeyCreator,
+		cm.conf.NodeObserver,
+		store.RWSWithEntriesMetric(rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.ClusterName, rc.mesh.nodeName, rc.name)),
+	)
+
+	rc.remoteServices = store.NewRestartableWatchStore(
+		name,
+		func() store.Key { return new(serviceStore.ClusterService) },
+		&remoteServiceObserver{remoteCluster: rc, swg: rc.swg},
+		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.swg.Stop() }),
+	)
 
 	return rc
 }
