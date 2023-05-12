@@ -1,5 +1,45 @@
 # Changelog
 
+## v1.11.17
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Filter ipv6 advertisements when using metallb as BGP speaker. (Backport PR #25139, Upstream PR #25043, @harsimran-pabla)
+* Fix connectivity issue if nodes share the same name across the clustermesh and wireguard is enabled (Backport PR #25011, Upstream PR #24785, @giorio94)
+* Fix incorrect network policy ebpf setup that may lead to incorrect packets denies when CEP is present in multiple CES (Backport PR #25382, Upstream PR #24838, @alan-kut)
+* Fix spurious errors containing "Failed to map node IP address to allocated ID". (Backport PR #25382, Upstream PR #25222, @bimmlerd)
+* helm chart: restore setting nodeSelector and tolerations on hubble-ui deployment via `values.yaml` (#25182, @BryanStenson-okta)
+* ipsec: Fix packet mark for FWD XFRM policy (Backport PR #25382, Upstream PR #23254, @pchaigno)
+* pkg/kvstore: Fix for deadlock in etcd status checker (Backport PR #25011, Upstream PR #24786, @hemanthmalla)
+
+**CI Changes:**
+* ci: remove `STATUS` commands from upstream tests' Jenkinsfile (Backport PR #25139, Upstream PR #25046, @nbusseneau)
+* Delete "Cilium monitor verbose mode" test (Backport PR #25382, Upstream PR #25212, @michi-covalent)
+* inctimer: fix test flake where timer does not fire within time. (Backport PR #25349, Upstream PR #25219, @tommyp1ckles)
+* jenkins: bump timeout to 210 minutes (#24938, @aanm)
+* vagrant: Bump 4.9 Vagrant box (Linux 4.9.326, to fix a kernel bug) (Backport PR #25247, Upstream PR #21106, @qmonnet)
+
+**Misc Changes:**
+* chore(deps): update hubble cli to v0.11.5 (v1.11) (patch) (#25127, @renovate[bot])
+* daemon: Mark CES feature as beta in agent flag (Backport PR #25011, Upstream PR #24850, @pchaigno)
+* docs: Add matrix version between envoy and cilium (Backport PR #25349, Upstream PR #25109, @sayboras)
+* docs: Add platform support to docs (Backport PR #25349, Upstream PR #25174, @joestringer)
+* helm: add clustermesh nodeport config warning about known bug #24692 (Backport PR #25349, Upstream PR #25033, @giorio94)
+* ipsec: Install default-drop XFRM policy sooner (Backport PR #25382, Upstream PR #25257, @pchaigno)
+* Makefile: use a specific template for mktemp files (Backport PR #25349, Upstream PR #25192, @kaworu)
+* Misc Makefile improvements for quiet mode V=0 (Backport PR #25011, Upstream PR #20031, @joestringer)
+
+**Other Changes:**
+* [backport-v1.11] agent: dump stack on stale probes (#24977, @squeed)
+* [v1.11] contrib/backporting: Fix main branch reference (#25093, @joestringer)
+* Add helm-toolbox image for helm docs, lint (#25420, @jrajahalme)
+* contrib/backporting: Fix main branch reference (#25141, @sayboras)
+* envoy: Upgrade to v1.23.9 (#25210, @sayboras)
+* install: Update image digests for v1.11.16 (#24954, @gentoo-root)
+* v1.11: docs: Document upgrade impact for IPsec (#24974, @pchaigno)
+
 ## v1.11.16
 
 Summary of Changes
