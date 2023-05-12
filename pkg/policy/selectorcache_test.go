@@ -398,7 +398,7 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 	c.Assert(len(sc.selectors), Equals, 0)
 }
 
-func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
+func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdatesChangedName(c *C) {
 	sc := testNewSelectorCache(cache.IdentityCache{})
 
 	// Add some identities to the identity cache

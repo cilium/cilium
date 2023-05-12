@@ -110,7 +110,7 @@ jobs:
           ref: ${{ steps.pr.outputs.head }}
           filters: |
             src:
-              - '!(test|Documentation)/**/!(*_test.go)'
+              - '!(.github|test|Documentation)/**/!(*_test.go)'
 
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`,
@@ -123,7 +123,8 @@ jobs:
         (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
       )) ||
       github.event_name == 'schedule' ||
-      github.event_name == 'pull_request'
+      (github.event_name == 'pull_request' && needs.check_changes.outputs.tested == 'true')
+
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
