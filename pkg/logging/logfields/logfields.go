@@ -717,4 +717,13 @@ const (
 
 	// Workers represents the number of workers.
 	Workers = "workers"
+
+	// Event identifies the type of an event.
+	Event = "event"
+
+	// Prefix identifies a given prefix.
+	Prefix = "prefix"
+
+	// Value identifies a generic value (e.g., of a key/value pair).
+	Value = "value"
 )
