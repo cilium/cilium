@@ -5,7 +5,10 @@ package server
 
 import (
 	"fmt"
+	"net"
+	"net/netip"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
@@ -23,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 var (
@@ -35,6 +39,7 @@ type Config struct {
 	CiliumURI     string
 	ProbeInterval time.Duration
 	ProbeDeadline time.Duration
+	HTTPPathAddrs []netip.Addr
 	HTTPPathPort  int
 	HealthAPISpec *healthApi.Spec
 }
@@ -57,8 +62,8 @@ type Server struct {
 	// a diff of the nodes added and removed based on this clientID.
 	clientID int64
 
-	httpPathServer *responder.Server // HTTP server for external pings
-	startTime      time.Time
+	httpPathServers []*responder.Server // HTTP server for external pings
+	startTime       time.Time
 
 	// The lock protects against read and write access to the IP->Node map,
 	// the list of statuses as most recently seen, and the last time a
@@ -361,9 +366,11 @@ func (s *Server) runActiveServices() error {
 func (s *Server) Serve() (err error) {
 	errors := make(chan error)
 
-	go func() {
-		errors <- s.httpPathServer.Serve()
-	}()
+	for _, httpPathServer := range s.httpPathServers {
+		go func(httpPathServer *responder.Server) {
+			errors <- httpPathServer.Serve()
+		}(httpPathServer)
+	}
 
 	go func() {
 		errors <- s.runActiveServices()
@@ -376,7 +383,9 @@ func (s *Server) Serve() (err error) {
 
 // Shutdown server and clean up resources
 func (s *Server) Shutdown() {
-	s.httpPathServer.Shutdown()
+	for _, httpPathServer := range s.httpPathServers {
+		httpPathServer.Shutdown()
+	}
 	s.Server.Shutdown()
 }
 
@@ -417,7 +426,13 @@ func NewServer(config Config) (*Server, error) {
 	server.Client = cl
 	server.Server = *server.newServer(config.HealthAPISpec)
 
-	server.httpPathServer = responder.NewServer(config.HTTPPathPort)
+	for _, ip := range []net.IP{node.GetIPv4(), node.GetEndpointHealthIPv4(), node.GetIPv6(), node.GetEndpointHealthIPv6()} {
+		if ip == nil {
+			continue
+		}
+		server.httpPathServers = append(server.httpPathServers,
+			responder.NewServer(net.JoinHostPort(ip.String(), strconv.Itoa(config.HTTPPathPort))))
+	}
 
 	return server, nil
 }
