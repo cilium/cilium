@@ -401,11 +401,18 @@ To upgrade using Cilium's [OCI dev chart repository](https://quay.io/repository/
 
     cilium upgrade --repository oci://quay.io/cilium-charts-dev/cilium --version 1.14.0-dev-dev.4-main-797347707c
 
-When upgrading Cilium, please refer to [the upgrade guide](https://docs.cilium.io/en/stable/operations/upgrade/)
-and adjust non-default Helm values accordingly. `cilium-cli` does not automatically modify
-non-default Helm values during upgrade. You can use `--dry-run` and `--dry-run-helm-values`
-flags to review Kubernetes resources and non-default Helm values without actually performing
-upgrade:
+Note that `upgrade` does not mean you can only upgrade to a newer version than what is
+currently installed. Similar to `helm upgrade`, `cilium upgrade` can be used to downgrade
+to a previous version. For example:
+
+     cilium install --version 1.13.2
+     cilium upgrade --version 1.12.9
+
+Please read [the upgrade guide](https://docs.cilium.io/en/stable/operations/upgrade/)
+carefully before upgrading Cilium to understand all the necessary steps. In particular,
+please note that `cilium-cli` does not automatically modify non-default Helm values during
+upgrade. You can use `--dry-run` and `--dry-run-helm-values` flags to review Kubernetes
+resources and non-default Helm values without actually performing an upgrade:
 
 To see the difference between the current Kubernetes resources in a live cluster and what would
 be applied:
