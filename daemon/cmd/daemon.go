@@ -734,6 +734,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		if err := wgAgent.Init(mtuConfig); err != nil {
 			log.WithError(err).Error("failed to initialize wireguard agent")
 		}
+
+		d.nodeDiscovery.Manager.Subscribe(wgAgent)
 	}
 
 	// Perform an early probe on the underlying kernel on whether BandwidthManager
