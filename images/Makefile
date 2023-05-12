@@ -50,3 +50,6 @@ operator-image: .buildx_builder
 
 hubble-relay-image: .buildx_builder
 	ROOT_CONTEXT=true scripts/build-image.sh hubble-relay-dev images/hubble-relay $(PLATFORMS) $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
+
+check-envoy-image:
+	scripts/check-cilium-envoy-image.sh
