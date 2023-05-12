@@ -420,9 +420,11 @@ fi
 
 sudo mkdir -p ${CILIUM_CONFIG_DIR}
 
-sudo cp "$SYSTEMD_SERVICES/$MOUNT_SYSTEMD" /etc/systemd/system/
-sudo systemctl enable $MOUNT_SYSTEMD
-sudo systemctl restart $MOUNT_SYSTEMD
+if ! mount | grep /sys/fs/bpf; then
+    sudo cp "$SYSTEMD_SERVICES/$MOUNT_SYSTEMD" /etc/systemd/system/
+    sudo systemctl enable $MOUNT_SYSTEMD
+    sudo systemctl restart $MOUNT_SYSTEMD
+fi
 sudo rm -rfv /var/lib/kubelet || true
 
 if [[ "${PRELOAD_VM}" == "true" ]]; then
