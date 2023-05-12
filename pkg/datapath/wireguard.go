@@ -11,6 +11,7 @@ import (
 
 // WireguardAgent manages the Wireguard peers
 type WireguardAgent interface {
+	NodeHandler
 	UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP) error
 	DeletePeer(nodeName string) error
 	Status(includePeers bool) (*models.WireguardStatus, error)
