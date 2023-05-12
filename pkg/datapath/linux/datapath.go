@@ -42,7 +42,7 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager
 		lbmap:           lbmap.New(),
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, wgAgent)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing)
 	return dp
 }
 
