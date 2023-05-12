@@ -1251,7 +1251,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace: Namespace,
 				Subsystem: SubsystemKVStore,
 				Name:      "events_queue_seconds",
-				Help:      "Duration in seconds of time received event was blocked before it could be queued",
+				Help:      "Seconds waited before a received event was queued",
 				Buckets:   []float64{.002, .005, .01, .015, .025, .05, .1, .25, .5, .75, 1},
 			}, []string{LabelScope, LabelAction})
 
