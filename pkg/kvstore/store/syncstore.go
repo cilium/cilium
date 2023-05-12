@@ -128,7 +128,7 @@ func NewWorkqueueSyncStore(backend SyncStoreBackend, prefix string, opts ...WSSO
 		limiter:   workqueue.DefaultControllerRateLimiter(),
 		syncedKey: prefix,
 
-		log: log.WithField("prefix", prefix),
+		log: log.WithField(logfields.Prefix, prefix),
 	}
 
 	for _, opt := range opts {
