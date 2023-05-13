@@ -15,3 +15,4 @@
 - CiliumNode
 - CiliumNodeConfig
 - CiliumPodIPPool
+- CiliumWorldCIDRSet

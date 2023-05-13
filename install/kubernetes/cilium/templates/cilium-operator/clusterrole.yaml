@@ -198,6 +198,7 @@ rules:
   - ciliumcidrgroups.cilium.io
   - ciliuml2announcementpolicies.cilium.io
   - ciliumpodippools.cilium.io
+  - ciliumworldcidrsets.cilium.io
 - apiGroups:
   - cilium.io
   resources:

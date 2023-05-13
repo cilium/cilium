@@ -422,6 +422,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.CCGName):            {start, k8sAPIGroupCiliumCIDRGroupV2Alpha1},
 	synced.CRDResourceName(v2alpha1.L2AnnouncementName): {skip, ""}, // Handled by L2 announcement directly
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
+	synced.CRDResourceName(v2alpha1.CWCIDRName):         {skip, ""}, // Handled by world-cidr control plane
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups

@@ -143,3 +143,11 @@ annotations:
       displayName: Cilium Pod IP Pool
       description: |
         CiliumPodIPPool defines an IP pool that can be used for pooled IPAM (i.e. the multi-pool IPAM mode).
+    - kind: CiliumWorldCIDRSet
+      version: v2alpha1
+      name: ciliumworldcidrsets.cilium.io
+      displayName: Cilium World CIDR Set
+      description: |
+        CiliumWorldCIDRSet is a set of CIDRs and their routing destination.
+        It is used in certain modes (e.g. highscale-IPCache) to indicate whether
+        destinations require encapsulation.
