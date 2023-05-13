@@ -627,7 +627,7 @@ ct_recreate6:
 		 * the packet needs IPSec encap so push ctx to stack for encap, or
 		 * (c) packet was redirected to tunnel device so return.
 		 */
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, 0, encrypt_key,
 					     &key, node_id, SECLABEL, *dst_sec_identity,
 					     &trace);
 		if (ret == CTX_ACT_OK)
@@ -1124,7 +1124,7 @@ skip_egress_gateway:
 skip_vtep:
 #endif
 
-#ifdef TUNNEL_MODE
+#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
 	{
 		struct tunnel_key key = {};
 
@@ -1147,9 +1147,9 @@ skip_vtep:
 		}
 #endif
 
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, node_id, SECLABEL, *dst_sec_identity,
-					     &trace);
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, ip4->daddr,
+					     encrypt_key, &key, node_id, SECLABEL,
+					     *dst_sec_identity, &trace);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack
@@ -1170,7 +1170,7 @@ skip_vtep:
 		else
 			return ret;
 	}
-#endif /* TUNNEL_MODE */
+#endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
 
@@ -1225,7 +1225,7 @@ pass_to_stack:
 #endif
 	}
 
-#if defined(TUNNEL_MODE) || defined(ENABLE_EGRESS_GATEWAY)
+#if defined(TUNNEL_MODE) || defined(ENABLE_EGRESS_GATEWAY) || defined(ENABLE_HIGH_SCALE_IPCACHE)
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_sec_identity, 0, 0,

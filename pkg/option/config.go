@@ -2523,7 +2523,7 @@ func (c *DaemonConfig) TunnelDevice() string {
 // takes care of the MTU overhead. So no need to take it into account here.
 // See encap_geneve_dsr_opt[4,6] in nodeport.h
 func (c *DaemonConfig) TunnelExists() bool {
-	return c.TunnelingEnabled() || c.EnableIPv4EgressGateway
+	return c.TunnelingEnabled() || c.EnableIPv4EgressGateway || c.EnableHighScaleIPcache
 }
 
 // AreDevicesRequired returns true if the agent needs to attach to the native
