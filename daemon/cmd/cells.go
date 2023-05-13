@@ -22,6 +22,7 @@ import (
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/worldcidrs"
 )
 
 var (
@@ -105,5 +106,8 @@ var (
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
+
+		// World CIDRs allow defining IPs that are outside of the Cilium domain.
+		worldcidrs.Cell,
 	)
 )

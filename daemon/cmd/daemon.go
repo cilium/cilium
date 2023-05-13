@@ -90,6 +90,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
+	"github.com/cilium/cilium/pkg/worldcidrs"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -190,6 +191,8 @@ type Daemon struct {
 	egressGatewayManager *egressgateway.Manager
 
 	cgroupManager *manager.CgroupManager
+
+	worldCIDRsManager *worldcidrs.Manager
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -529,6 +532,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		policy:               params.Policy,
 		policyUpdater:        params.PolicyUpdater,
 		egressGatewayManager: params.EgressGatewayManager,
+		worldCIDRsManager:    params.WorldCIDRsManager,
 		cniConfigManager:     params.CNIConfigManager,
 	}
 

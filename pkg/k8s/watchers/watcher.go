@@ -58,6 +58,7 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/worldcidrs"
 )
 
 const (
@@ -175,6 +176,11 @@ type EgressGatewayManager interface {
 	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
 	OnUpdateNode(node nodeTypes.Node)
 	OnDeleteNode(node nodeTypes.Node)
+}
+
+type WorldCIDRsManager interface {
+	OnAddWorldCIDRSet(cidrSet worldcidrs.CIDRSet)
+	OnDeleteWorldCIDRSet(id worldcidrs.CIDRSetID)
 }
 
 type envoyConfigManager interface {

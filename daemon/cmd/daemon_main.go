@@ -86,6 +86,7 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
+	"github.com/cilium/cilium/pkg/worldcidrs"
 )
 
 const (
@@ -1611,6 +1612,7 @@ type daemonParams struct {
 	PolicyUpdater        *policy.Updater
 	IPCache              *ipcache.IPCache
 	EgressGatewayManager *egressgateway.Manager
+	WorldCIDRsManager    *worldcidrs.Manager
 	CNIConfigManager     cni.CNIConfigManager
 	SwaggerSpec          *server.Spec
 	HealthAPISpec        *healthApi.Spec
