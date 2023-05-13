@@ -9,6 +9,7 @@
 #include "trace.h"
 #include "l3.h"
 #include "lib/wireguard.h"
+#include "high_scale_ipcache.h"
 
 #ifdef HAVE_ENCAP
 #ifdef ENABLE_IPSEC
@@ -142,7 +143,7 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 #endif /* !ENABLE_NODEPORT && (ENABLE_IPSEC || ENABLE_HOST_FIREWALL) */
 }
 
-#ifdef TUNNEL_MODE
+#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
 /* encap_and_redirect_lxc adds IPSec metadata (if enabled) and returns the packet
  * so that it can be passed to the IP stack. Without IPSec the packet is
  * typically redirected to the output tunnel device and ctx will not be seen by
@@ -153,13 +154,29 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
  * and finally on successful redirect returns CTX_ACT_REDIRECT.
  */
 static __always_inline int
-encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
-		       __u8 encrypt_key, struct tunnel_key *key,
-		       __u16 node_id, __u32 seclabel, __u32 dstid,
+encap_and_redirect_lxc(struct __ctx_buff *ctx,
+		       __be32 tunnel_endpoint __maybe_unused,
+		       __u32 dst_ip __maybe_unused,
+		       __u8 encrypt_key __maybe_unused,
+		       struct tunnel_key *key __maybe_unused,
+		       __u16 node_id __maybe_unused,
+		       __u32 seclabel, __u32 dstid,
 		       const struct trace_ctx *trace)
 {
-	struct tunnel_value *tunnel;
+	struct tunnel_value *tunnel __maybe_unused;
 
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
+	/* If the destination doesn't match one of the world CIDRs, we assume
+	 * it's destined to a remote pod. In that case, since the high-scale
+	 * ipcache is enabled, we want to encapsulate with the remote pod's IP
+	 * itself.
+	 */
+	if (!world_cidrs_lookup4(dst_ip))
+		return __encap_and_redirect_with_nodeid(ctx, dst_ip, seclabel,
+							dstid, NOT_VTEP_DST,
+							trace);
+	return DROP_NO_TUNNEL_ENDPOINT;
+#else /* ENABLE_HIGH_SCALE_IPCACHE */
 	if (tunnel_endpoint)
 		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
 						encrypt_key, node_id, seclabel,
@@ -169,16 +186,17 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-#ifdef ENABLE_IPSEC
+# ifdef ENABLE_IPSEC
 	if (tunnel->key) {
 		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
 
 		return encap_and_redirect_ipsec(ctx, min_encrypt_key, node_id,
 						seclabel);
 	}
-#endif
+# endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
 						dstid, NOT_VTEP_DST, trace);
+#endif /* ENABLE_HIGH_SCALE_IPCACHE */
 }
 
 static __always_inline int
@@ -194,7 +212,7 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
 						0, NOT_VTEP_DST, trace);
 }
-#endif /* TUNNEL_MODE */
+#endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 
 #if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 static __always_inline int
