@@ -96,6 +96,7 @@ func filterManifests(manifest string) map[string]string {
 	return manifestsToRender
 }
 
+// Merge maps recursively merges the values of b into a copy of a, preferring the values from b
 func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	out := make(map[string]interface{}, len(a))
 	for k, v := range a {
@@ -477,6 +478,25 @@ func resolveChartVersion(versionFlag string, repository string) (semver2.Version
 	return version, helmChart, nil
 }
 
+// GetCurrentRelease gets the currently deployed release
+func GetCurrentRelease(
+	k8sClient genericclioptions.RESTClientGetter,
+	namespace, name string,
+) (*release.Release, error) {
+	// Use the default Helm driver (Kubernetes secret).
+	helmDriver := ""
+	actionConfig := action.Configuration{}
+	logger := func(format string, v ...interface{}) {}
+	if err := actionConfig.Init(k8sClient, namespace, helmDriver, logger); err != nil {
+		return nil, err
+	}
+	currentRelease, err := actionConfig.Releases.Last(name)
+	if err != nil {
+		return nil, err
+	}
+	return currentRelease, nil
+}
+
 // UpgradeParameters contains parameters for helm upgrade operation.
 type UpgradeParameters struct {
 	// Namespace in which the Helm release is installed.
@@ -512,7 +532,7 @@ func Upgrade(
 	actionConfig := action.Configuration{}
 	// Use the default Helm driver (Kubernetes secret).
 	helmDriver := ""
-	// TODO(michi) Make the logger configurable
+	// TODO(michi) Make the logger configurable (search for all instances)
 	logger := func(format string, v ...interface{}) {}
 	if err := actionConfig.Init(k8sClient, params.Namespace, helmDriver, logger); err != nil {
 		return nil, err
