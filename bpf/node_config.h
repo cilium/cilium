@@ -95,6 +95,10 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif /* ENABLE_NODEPORT */
 #define CAPTURE4_RULES cilium_capture4_rules
 #define CAPTURE4_SIZE 16384
+# ifdef ENABLE_HIGH_SCALE_IPCACHE
+#  define IPV4_NATIVE_ROUTING_CIDR 0xffff0000
+#  define IPV4_NATIVE_ROUTING_CIDR_LEN 16
+# endif /* ENABLE_HIGH_SCALE_IPCACHE */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
