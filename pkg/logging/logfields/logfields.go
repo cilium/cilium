@@ -332,6 +332,9 @@ const (
 	// CiliumEgressGatewayPolicyName is the name of a CiliumEgressGatewayPolicy
 	CiliumEgressGatewayPolicyName = "ciliumEgressGatewayPolicyName"
 
+	// CiliumWorldCIDRSetName is the name of a CiliumWorldCIDRSet
+	CiliumWorldCIDRSetName = "ciliumWorldCIDRSetName"
+
 	// CiliumClusterwideEnvoyConfigName is the name of a CiliumClusterwideEnvoyConfig
 	CiliumClusterwideEnvoyConfigName = "ciliumClusterwideEnvoyConfigName"
 

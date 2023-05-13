@@ -842,6 +842,30 @@ func ConvertToCiliumEgressGatewayPolicy(obj interface{}) interface{} {
 	}
 }
 
+// ConvertToCiliumWorldCIDRSet converts a *cilium_v2.CiliumWorldCIDRSet into a
+// *cilium_v2.CiliumWorldCIDRSet or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumWorldCIDRSet in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumWorldCIDRSet
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumWorldCIDRSet(obj interface{}) interface{} {
+	// TODO create a slim type of the CiliumWorldCIDRSet
+	switch concreteObj := obj.(type) {
+	case *cilium_v2alpha1.CiliumWorldCIDRSet:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumWorldCIDRSet, ok := concreteObj.Obj.(*cilium_v2alpha1.CiliumWorldCIDRSet)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumWorldCIDRSet,
+		}
+	default:
+		return obj
+	}
+}
+
 // ConvertToCiliumClusterwideEnvoyConfig converts a *cilium_v2.CiliumClusterwideEnvoyConfig into a
 // *cilium_v2.CiliumClusterwideEnvoyConfig or a cache.DeletedFinalStateUnknown into
 // a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumClusterwideEnvoyConfig in its Obj.
@@ -1042,6 +1066,28 @@ func ObjToCEGP(obj interface{}) *cilium_v2.CiliumEgressGatewayPolicy {
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warn("Ignoring invalid v2 Cilium Egress Gateway Policy")
+	return nil
+}
+
+// ObjToCWCIDR attempts to cast object to a CWCIDR object and
+// returns the CWCIDR object if the cast succeeds. Otherwise, nil is returned.
+func ObjToCWCIDR(obj interface{}) *cilium_v2alpha1.CiliumWorldCIDRSet {
+	cWCIDR, ok := obj.(*cilium_v2alpha1.CiliumWorldCIDRSet)
+	if ok {
+		return cWCIDR
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		cn, ok := deletedObj.Obj.(*cilium_v2alpha1.CiliumWorldCIDRSet)
+		if ok {
+			return cn
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v2 CiliumWorldCIDRSet")
 	return nil
 }
 

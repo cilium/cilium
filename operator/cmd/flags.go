@@ -102,6 +102,10 @@ func init() {
 	flags.MarkHidden(option.EnableSRv6)
 	option.BindEnv(Vp, option.EnableSRv6)
 
+	flags.Bool(option.EnableHighScaleIPcache, false, "")
+	flags.MarkHidden(option.EnableHighScaleIPcache)
+	option.BindEnv(Vp, option.EnableHighScaleIPcache)
+
 	flags.Duration(operatorOption.EndpointGCInterval, operatorOption.EndpointGCIntervalDefault, "GC interval for cilium endpoints")
 	option.BindEnv(Vp, operatorOption.EndpointGCInterval)
 

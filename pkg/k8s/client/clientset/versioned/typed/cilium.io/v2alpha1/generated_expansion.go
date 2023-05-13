@@ -14,3 +14,5 @@ type CiliumEndpointSliceExpansion interface{}
 type CiliumLoadBalancerIPPoolExpansion interface{}
 
 type CiliumNodeConfigExpansion interface{}
+
+type CiliumWorldCIDRSetExpansion interface{}

@@ -60,6 +60,11 @@ const (
 	CCGPluralName     = "ciliumcidrgroups"
 	CCGKindDefinition = "CiliumCIDRGroup"
 	CCGName           = CCGPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumWorldCIDRSet (CWCIDR)
+	CWCIDRPluralName     = "ciliumworldcidrsets"
+	CWCIDRKindDefinition = "CiliumWorldCIDRSet"
+	CWCIDRName           = CWCIDRPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -113,6 +118,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNodeConfigList{},
 		&CiliumCIDRGroup{},
 		&CiliumCIDRGroupList{},
+		&CiliumWorldCIDRSet{},
+		&CiliumWorldCIDRSetList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

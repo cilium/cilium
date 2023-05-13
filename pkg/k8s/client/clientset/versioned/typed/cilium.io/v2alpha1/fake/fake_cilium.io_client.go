@@ -35,6 +35,10 @@ func (c *FakeCiliumV2alpha1) CiliumNodeConfigs(namespace string) v2alpha1.Cilium
 	return &FakeCiliumNodeConfigs{c, namespace}
 }
 
+func (c *FakeCiliumV2alpha1) CiliumWorldCIDRSets() v2alpha1.CiliumWorldCIDRSetInterface {
+	return &FakeCiliumWorldCIDRSets{c}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeCiliumV2alpha1) RESTClient() rest.Interface {

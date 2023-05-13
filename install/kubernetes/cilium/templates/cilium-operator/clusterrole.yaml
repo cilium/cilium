@@ -196,6 +196,7 @@ rules:
   - ciliumnodes.cilium.io
   - ciliumnodeconfigs.cilium.io
   - ciliumcidrgroups.cilium.io
+  - ciliumworldcidrsets.cilium.io
 - apiGroups:
   - cilium.io
   resources:

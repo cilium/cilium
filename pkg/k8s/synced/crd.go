@@ -67,6 +67,9 @@ func agentCRDResourceNames() []string {
 	if option.Config.EnableBGPControlPlane {
 		result = append(result, CRDResourceName(v2alpha1.BGPPName))
 	}
+	if option.Config.EnableHighScaleIPcache {
+		result = append(result, CRDResourceName(v2alpha1.CWCIDRName))
+	}
 
 	result = append(result, CRDResourceName(v2alpha1.LBIPPoolName))
 

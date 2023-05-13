@@ -28,3 +28,7 @@ type CiliumNodeConfigListerExpansion interface{}
 // CiliumNodeConfigNamespaceListerExpansion allows custom methods to be added to
 // CiliumNodeConfigNamespaceLister.
 type CiliumNodeConfigNamespaceListerExpansion interface{}
+
+// CiliumWorldCIDRSetListerExpansion allows custom methods to be added to
+// CiliumWorldCIDRSetLister.
+type CiliumWorldCIDRSetListerExpansion interface{}

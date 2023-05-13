@@ -78,6 +78,9 @@ const (
 
 	// CCGCRDName is the full name of the CiliumCIDRGroup CRD.
 	CCGCRDName = k8sconstv2alpha1.CCGKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CWCIDRCRDName is the full name of the CWCIDR CRD.
+	CWCIDRCRDName = k8sconstv2alpha1.CWCIDRKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 var (
@@ -110,6 +113,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv2alpha1.LBIPPoolName): createCRD(LBIPPoolCRDName, k8sconstv2alpha1.LBIPPoolName),
 		synced.CRDResourceName(k8sconstv2alpha1.CNCName):      createCRD(CNCCRDName, k8sconstv2alpha1.CNCName),
 		synced.CRDResourceName(k8sconstv2alpha1.CCGName):      createCRD(CCGCRDName, k8sconstv2alpha1.CCGName),
+		synced.CRDResourceName(k8sconstv2alpha1.CWCIDRName):   createCRD(CWCIDRCRDName, k8sconstv2alpha1.CWCIDRName),
 	}
 	for _, r := range synced.AllCiliumCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
@@ -169,6 +173,9 @@ var (
 
 	//go:embed crds/v2alpha1/ciliumcidrgroups.yaml
 	crdsv2Alpha1CiliumCIDRGroups []byte
+
+	//go:embed crds/v2alpha1/ciliumworldcidrsets.yaml
+	crdsv2Alpha1Ciliumworldcidrsets []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -214,6 +221,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv2Alpha1CiliumNodeConfigs
 	case CCGCRDName:
 		crdBytes = crdsv2Alpha1CiliumCIDRGroups
+	case CWCIDRCRDName:
+		crdBytes = crdsv2Alpha1Ciliumworldcidrsets
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}

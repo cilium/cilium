@@ -21,6 +21,8 @@ type Interface interface {
 	CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer
 	// CiliumNodeConfigs returns a CiliumNodeConfigInformer.
 	CiliumNodeConfigs() CiliumNodeConfigInformer
+	// CiliumWorldCIDRSets returns a CiliumWorldCIDRSetInformer.
+	CiliumWorldCIDRSets() CiliumWorldCIDRSetInformer
 }
 
 type version struct {
@@ -57,4 +59,9 @@ func (v *version) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer {
 // CiliumNodeConfigs returns a CiliumNodeConfigInformer.
 func (v *version) CiliumNodeConfigs() CiliumNodeConfigInformer {
 	return &ciliumNodeConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumWorldCIDRSets returns a CiliumWorldCIDRSetInformer.
+func (v *version) CiliumWorldCIDRSets() CiliumWorldCIDRSetInformer {
+	return &ciliumWorldCIDRSetInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

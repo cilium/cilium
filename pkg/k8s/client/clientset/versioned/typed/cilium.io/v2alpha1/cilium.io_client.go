@@ -20,6 +20,7 @@ type CiliumV2alpha1Interface interface {
 	CiliumEndpointSlicesGetter
 	CiliumLoadBalancerIPPoolsGetter
 	CiliumNodeConfigsGetter
+	CiliumWorldCIDRSetsGetter
 }
 
 // CiliumV2alpha1Client is used to interact with features provided by the cilium.io group.
@@ -45,6 +46,10 @@ func (c *CiliumV2alpha1Client) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPP
 
 func (c *CiliumV2alpha1Client) CiliumNodeConfigs(namespace string) CiliumNodeConfigInterface {
 	return newCiliumNodeConfigs(c, namespace)
+}
+
+func (c *CiliumV2alpha1Client) CiliumWorldCIDRSets() CiliumWorldCIDRSetInterface {
+	return newCiliumWorldCIDRSets(c)
 }
 
 // NewForConfig creates a new CiliumV2alpha1Client for the given config.

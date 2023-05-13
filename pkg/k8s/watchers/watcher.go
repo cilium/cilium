@@ -72,6 +72,7 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEgressGatewayPolicyV2      = "cilium/v2::CiliumEgressGatewayPolicy"
+	k8sAPIGroupCiliumWorldCIDRSetV2             = "cilium/v2::CiliumWorldCIDRSet"
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
 	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
 	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
@@ -83,6 +84,7 @@ const (
 	metricCiliumEndpoint = "CiliumEndpoint"
 	metricCLRP           = "CiliumLocalRedirectPolicy"
 	metricCEGP           = "CiliumEgressGatewayPolicy"
+	metricCWCIDR         = "CiliumWorldCIDRSet"
 	metricCCEC           = "CiliumClusterwideEnvoyConfig"
 	metricCEC            = "CiliumEnvoyConfig"
 	metricPod            = "Pod"
@@ -423,6 +425,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.LBIPPoolName): {skip, ""}, // Handled in LB IPAM
 	synced.CRDResourceName(v2alpha1.CNCName):      {skip, ""}, // Handled by init directly
 	synced.CRDResourceName(v2alpha1.CCGName):      {start, k8sAPIGroupCiliumCIDRGroupV2Alpha1},
+	synced.CRDResourceName(v2alpha1.CWCIDRName):   {start, k8sAPIGroupCiliumWorldCIDRSetV2},
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
