@@ -108,3 +108,21 @@ spec:
   - toServices:
     - k8sService:
         serviceName: http
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumWorldCIDRSet
+metadata:
+  name: test-world-cidrs
+spec:
+  encapsulate: false
+  cidrGroupRef:
+  - no-encap-cidrs
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumCIDRGroup
+metadata:
+  name: no-encap-cidrs
+spec:
+  externalCIDRs:
+  - 1.1.1.0/24
+  - 8.8.8.8/32
