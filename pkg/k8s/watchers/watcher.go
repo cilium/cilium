@@ -250,6 +250,7 @@ type K8sWatcher struct {
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
 	egressGatewayManager  EgressGatewayManager
+	worldCIDRsManager     WorldCIDRsManager
 	ipcache               ipcacheManager
 	envoyConfigManager    envoyConfigManager
 	cgroupManager         cgroupManager
@@ -300,6 +301,7 @@ func NewK8sWatcher(
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
 	egressGatewayManager EgressGatewayManager,
+	worldCIDRsManager WorldCIDRsManager,
 	envoyConfigManager envoyConfigManager,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
@@ -323,6 +325,7 @@ func NewK8sWatcher(
 		bgpSpeakerManager:     bgpSpeakerManager,
 		egressGatewayManager:  egressGatewayManager,
 		cgroupManager:         cgroupManager,
+		worldCIDRsManager:     worldCIDRsManager,
 		NodeChain:             subscriber.NewNodeChain(),
 		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
 		envoyConfigManager:    envoyConfigManager,
@@ -592,6 +595,8 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.ciliumLocalRedirectPolicyInit(k.clientset)
 		case k8sAPIGroupCiliumEgressGatewayPolicyV2:
 			k.ciliumEgressGatewayPolicyInit(k.clientset)
+		case k8sAPIGroupCiliumWorldCIDRSetV2:
+			k.ciliumWorldCIDRSetInit(k.clientset)
 		case k8sAPIGroupCiliumClusterwideEnvoyConfigV2:
 			k.ciliumClusterwideEnvoyConfigInit(ctx, k.clientset)
 		case k8sAPIGroupCiliumEnvoyConfigV2:

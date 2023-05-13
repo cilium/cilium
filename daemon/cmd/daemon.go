@@ -656,6 +656,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		egressGatewayWatcher = d.egressGatewayManager
 	}
 
+	var worldCIDRsWatcher watchers.WorldCIDRsManager
+	if d.worldCIDRsManager != nil {
+		worldCIDRsWatcher = d.worldCIDRsManager
+	}
+
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		params.Clientset,
 		d.endpointManager,
@@ -667,6 +672,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.redirectPolicyManager,
 		d.bgpSpeaker,
 		egressGatewayWatcher,
+		worldCIDRsWatcher,
 		d.l7Proxy,
 		option.Config,
 		d.ipcache,
