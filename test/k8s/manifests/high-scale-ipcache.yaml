@@ -81,3 +81,12 @@ spec:
     protocol: TCP
   selector:
     type: server
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumWorldCIDRSet
+metadata:
+  name: test-world-cidrs
+spec:
+  worldCIDRs:
+  - 1.1.1.1/32
+  - 8.8.8.8/32
