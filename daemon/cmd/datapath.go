@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
+	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -363,6 +364,12 @@ func (d *Daemon) initMaps() error {
 
 	if option.Config.EnableSRv6 {
 		srv6map.CreateMaps()
+	}
+
+	if option.Config.EnableHighScaleIPcache {
+		if err := worldcidrsmap.InitWorldCIDRsMap(); err != nil {
+			return err
+		}
 	}
 
 	if option.Config.EnableVTEP {

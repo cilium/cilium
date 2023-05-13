@@ -280,6 +280,22 @@ struct {
 } VTEP_MAP __section_maps_btf;
 #endif /* ENABLE_VTEP */
 
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
+struct world_cidrs_key4 {
+	struct bpf_lpm_trie_key lpm_key;
+	__u32 ip;
+} __packed;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct world_cidrs_key4);
+	__type(value, __u8);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, WORLD_CIDRS4_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} WORLD_CIDRS4_MAP __section_maps_btf;
+#endif /* ENABLE_HIGH_SCALE_IPCACHE */
+
 #ifndef SKIP_CALLS_MAP
 static __always_inline void ep_tail_call(struct __ctx_buff *ctx __maybe_unused,
 					 const __u32 index __maybe_unused)
