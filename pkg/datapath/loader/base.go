@@ -360,9 +360,15 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 	args[initArgMode] = string(mode)
 
-	if !option.Config.TunnelingEnabled() && option.Config.EnableIPv4EgressGateway {
-		// Tunnel is required for egress traffic under this config
-		encapProto = option.Config.TunnelProtocol
+	if !option.Config.TunnelingEnabled() {
+		if option.Config.EnableIPv4EgressGateway {
+			// Tunnel is required for egress traffic under this config
+			encapProto = option.Config.TunnelProtocol
+		}
+		if option.Config.EnableHighScaleIPcache {
+			// The high-scale ipcache only supports VXLAN for now.
+			encapProto = option.TunnelVXLAN
+		}
 	}
 
 	if !option.Config.TunnelingEnabled() &&
