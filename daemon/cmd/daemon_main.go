@@ -1409,6 +1409,9 @@ func initEnv() {
 		if !option.Config.EnableWellKnownIdentities {
 			log.Fatal("The high-scale IPcache mode requires well-known identities to be enabled.")
 		}
+		if err := probes.HaveOuterSourceIPSupport(); err != nil {
+			log.WithError(err).Fatal("The high scale IPcache mode needs support in the kernel to set the outer source IP address.")
+		}
 	}
 
 	// If there is one device specified, use it to derive better default
