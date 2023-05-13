@@ -1299,6 +1299,18 @@ drop_err:
 __section("from-host")
 int cil_from_host(struct __ctx_buff *ctx)
 {
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
+	__u32 src_id = 0;
+	int ret;
+
+	ret = decapsulate_overlay(ctx, &src_id);
+	if (IS_ERR(ret))
+		send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
+				       METRIC_INGRESS);
+	if (ret == CTX_ACT_REDIRECT)
+		return ret;
+#endif /* ENABLE_HIGH_SCALE_IPCACHE */
+
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
 	 */
