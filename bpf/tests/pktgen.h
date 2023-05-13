@@ -126,6 +126,7 @@ enum pkt_layer {
 	/* IPv6 extension headers */
 	PKT_LAYER_IPV6_HOP_BY_HOP,
 	PKT_LAYER_IPV6_AUTH,
+	PKT_LAYER_IPV6_DEST,
 
 	/* L4 layers */
 	PKT_LAYER_TCP,
@@ -357,11 +358,12 @@ void *pktgen__push_rawhdr(struct pktgen *builder, __u16 hdrsize, enum pkt_layer 
 static __always_inline
 __attribute__((warn_unused_result))
 struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder,
-							  __maybe_unused __u8 nexthdr)
+							  __u8 nexthdr,
+							  __u8 length)
 {
 	struct ipv6_opt_hdr *hdr = NULL;
 	__u8 hdrlen = 0;
-	__u8 length = 0;
+
 	/* TODO improve */
 	switch (nexthdr) {
 	case NEXTHDR_HOP:
@@ -373,6 +375,10 @@ struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder
 		hdr = pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV6_AUTH);
 		hdrlen = 2;
 		break;
+	case NEXTHDR_DEST:
+		hdr = pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV6_DEST);
+		hdrlen = (length - 8) / 8;
+		break;
 	default:
 		break;
 	}
@@ -380,7 +386,7 @@ struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder
 	if (!hdr)
 		return NULL;
 
-	if ((void *) hdr + sizeof(struct ipv6_opt_hdr) > ctx_data_end(builder->ctx))
+	if ((void *)hdr + length > ctx_data_end(builder->ctx))
 		return NULL;
 
 	hdr->hdrlen = hdrlen;
@@ -668,6 +674,9 @@ void pktgen__finish(const struct pktgen *builder)
 			case PKT_LAYER_IPV6_AUTH:
 				ipv6_layer->nexthdr = NEXTHDR_AUTH;
 				break;
+			case PKT_LAYER_IPV6_DEST:
+				ipv6_layer->nexthdr = NEXTHDR_DEST;
+				break;
 			case PKT_LAYER_TCP:
 				ipv6_layer->nexthdr = IPPROTO_TCP;
 				break;
@@ -694,6 +703,7 @@ void pktgen__finish(const struct pktgen *builder)
 
 		case PKT_LAYER_IPV6_HOP_BY_HOP:
 		case PKT_LAYER_IPV6_AUTH:
+		case PKT_LAYER_IPV6_DEST:
 			layer_off = builder->layer_offsets[i];
 			if (layer_off >= MAX_PACKET_OFF - sizeof(struct ipv6_opt_hdr))
 				return;
@@ -712,6 +722,8 @@ void pktgen__finish(const struct pktgen *builder)
 			case PKT_LAYER_IPV6_AUTH:
 				ipv6_opt_layer->nexthdr = NEXTHDR_AUTH;
 				break;
+			case PKT_LAYER_IPV6_DEST:
+				ipv6_opt_layer->nexthdr = NEXTHDR_DEST;
 			case PKT_LAYER_TCP:
 				ipv6_opt_layer->nexthdr = IPPROTO_TCP;
 				break;
