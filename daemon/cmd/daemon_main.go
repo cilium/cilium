@@ -302,7 +302,7 @@ func initializeFlags() {
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	option.BindEnv(Vp, option.DisableCiliumEndpointCRDName)
 
-	flags.String(option.EgressMasqueradeInterfaces, "", "Limit egress masquerading to interface selector")
+	flags.String(option.EgressMasqueradeInterfaces, "", "Limit iptables-based egress masquerading to interface selector")
 	option.BindEnv(Vp, option.EgressMasqueradeInterfaces)
 
 	flags.Bool(option.BPFSocketLBHostnsOnly, false, "Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
