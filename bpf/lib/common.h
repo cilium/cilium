@@ -1232,6 +1232,11 @@ struct genevehdr {
 	__u8 reserved;
 };
 
+struct vxlanhdr {
+	__be32 vx_flags;
+	__be32 vx_vni;
+};
+
 #include "overloadable.h"
 
 #endif /* __LIB_COMMON_H_ */
