@@ -627,7 +627,7 @@ ct_recreate6:
 		 * the packet needs IPSec encap so push ctx to stack for encap, or
 		 * (c) packet was redirected to tunnel device so return.
 		 */
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, 0, encrypt_key,
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, 0, 0, encrypt_key,
 					     &key, node_id, SECLABEL, *dst_sec_identity,
 					     &trace);
 		if (ret == CTX_ACT_OK)
@@ -1116,7 +1116,7 @@ skip_egress_gateway:
 		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
+			return __encap_and_redirect_with_nodeid(ctx, 0, vtep->tunnel_endpoint,
 								SECLABEL, WORLD_ID,
 								WORLD_ID, &trace);
 		}
@@ -1147,9 +1147,9 @@ skip_vtep:
 		}
 #endif
 
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, ip4->daddr,
-					     encrypt_key, &key, node_id, SECLABEL,
-					     *dst_sec_identity, &trace);
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, ip4->saddr,
+					     ip4->daddr, encrypt_key, &key, node_id,
+					     SECLABEL, *dst_sec_identity, &trace);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack

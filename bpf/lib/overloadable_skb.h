@@ -185,12 +185,14 @@ static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
 
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
-ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
-		   __u32 dstid __maybe_unused, __u32 vni __maybe_unused,
+ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip, __u32 node_id,
+		   __u32 seclabel, __u32 dstid __maybe_unused,
+		   __u32 vni __maybe_unused,
 		   void *opt, __u32 opt_len, bool is_ipv6 __maybe_unused,
 		   int *ifindex)
 {
 	struct bpf_tunnel_key key = {};
+	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 	int ret;
 
 #ifdef ENABLE_VTEP
@@ -200,10 +202,14 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
 #endif /* ENABLE_VTEP */
 		key.tunnel_id = seclabel;
 
+	if (src_ip != 0) {
+		key.local_ipv4 = bpf_ntohl(src_ip);
+		key_size = sizeof(key);
+	}
 	key.remote_ipv4 = node_id;
 	key.tunnel_ttl = IPDEFTTL;
 
-	ret = ctx_set_tunnel_key(ctx, &key, sizeof(key), BPF_F_ZERO_CSUM_TX);
+	ret = ctx_set_tunnel_key(ctx, &key, key_size, BPF_F_ZERO_CSUM_TX);
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 

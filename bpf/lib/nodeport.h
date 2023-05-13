@@ -305,7 +305,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 							ifindex);
 		}
 
-		return __encap_with_nodeid(ctx, info->tunnel_endpoint,
+		return __encap_with_nodeid(ctx, 0, info->tunnel_endpoint,
 					  WORLD_ID,
 					  info->sec_identity,
 					  NOT_VTEP_DST,
@@ -860,7 +860,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
-		ret = __encap_with_nodeid(ctx, tunnel_endpoint,
+		ret = __encap_with_nodeid(ctx, 0, tunnel_endpoint,
 					  WORLD_ID,
 					  dst_sec_identity,
 					  NOT_VTEP_DST,
@@ -1230,7 +1230,7 @@ out:
 	return DROP_MISSED_TAIL_CALL;
 #ifdef TUNNEL_MODE
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_sec_identity,
+	ret = __encap_with_nodeid(ctx, 0, tunnel_endpoint, SECLABEL, dst_sec_identity,
 				  NOT_VTEP_DST, reason, monitor, &ifindex);
 	if (ret == CTX_ACT_REDIRECT)
 		ret = ctx_redirect(ctx, ifindex, 0);
@@ -1582,7 +1582,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 							 ifindex);
 		}
 
-		return __encap_with_nodeid(ctx, info->tunnel_endpoint,
+		return __encap_with_nodeid(ctx, 0, info->tunnel_endpoint,
 					  WORLD_ID,
 					  info->sec_identity,
 					  NOT_VTEP_DST,
@@ -2079,7 +2079,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		 * bypass any netpol which disallows LB requests from
 		 * outside.
 		 */
-		ret = __encap_with_nodeid(ctx, tunnel_endpoint,
+		ret = __encap_with_nodeid(ctx, 0, tunnel_endpoint,
 					  WORLD_ID,
 					  dst_sec_identity,
 					  NOT_VTEP_DST,
@@ -2468,7 +2468,7 @@ out:
 	return DROP_MISSED_TAIL_CALL;
 #if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
 encap_redirect:
-	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_sec_identity,
+	ret = __encap_with_nodeid(ctx, 0, tunnel_endpoint, SECLABEL, dst_sec_identity,
 				  NOT_VTEP_DST, reason, monitor, &ifindex);
 	if (ret == CTX_ACT_REDIRECT)
 		ret = ctx_redirect(ctx, ifindex, 0);

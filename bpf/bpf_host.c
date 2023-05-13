@@ -743,7 +743,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
+			return __encap_and_redirect_with_nodeid(ctx, 0, vtep->tunnel_endpoint,
 								secctx, WORLD_ID, WORLD_ID, &trace);
 		}
 	}
@@ -936,8 +936,9 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 
 	ctx->mark = 0;
 	bpf_clear_meta(ctx);
-	return __encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, src_id,
-						0, NOT_VTEP_DST, &trace);
+	return __encap_and_redirect_with_nodeid(ctx, 0, ep->tunnel_endpoint,
+						src_id, 0, NOT_VTEP_DST,
+						&trace);
 }
 
 static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
@@ -1274,7 +1275,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 			}
 		}
 #endif
-		ret = __encap_and_redirect_with_nodeid(ctx, ctx_get_xfer(ctx, XFER_ENCAP_NODEID),
+		ret = __encap_and_redirect_with_nodeid(ctx, 0,
+						       ctx_get_xfer(ctx, XFER_ENCAP_NODEID),
 						       ctx_get_xfer(ctx, XFER_ENCAP_SECLABEL),
 						       ctx_get_xfer(ctx, XFER_ENCAP_DSTID),
 						       NOT_VTEP_DST, &trace);

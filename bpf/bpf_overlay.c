@@ -50,6 +50,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	struct bpf_tunnel_key key = {};
 	struct endpoint_info *ep;
 	bool decrypted;
+	__u32 key_size;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
@@ -76,7 +77,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		if (info)
 			*identity = key.tunnel_id = info->sec_identity;
 	} else {
-		if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
+		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
 
@@ -286,6 +288,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 				       __s8 *ext_err __maybe_unused)
 {
 	struct remote_endpoint_info *info;
+	__u32 key_size __maybe_unused;
 	void *data_end, *data;
 	struct iphdr *ip4;
 	struct endpoint_info *ep;
@@ -330,7 +333,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
 		*identity = key.tunnel_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 #else
-		if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
+		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
@@ -466,8 +470,10 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	struct bpf_tunnel_key key = {};
 	struct vtep_key vkey = {};
 	struct vtep_value *info;
+	__u32 key_size;
 
-	if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
+	key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+	if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 		return send_drop_notify_error(ctx, 0, DROP_NO_TUNNEL_KEY, CTX_ACT_DROP,
 										METRIC_INGRESS);
 
@@ -482,7 +488,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (unlikely(ret != 0))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 	if (info->tunnel_endpoint) {
-		ret = __encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
+		ret = __encap_and_redirect_with_nodeid(ctx, 0, info->tunnel_endpoint,
 						       LOCAL_NODE_ID, WORLD_ID,
 						       WORLD_ID, &trace);
 		if (IS_ERR(ret))
