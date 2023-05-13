@@ -303,3 +303,12 @@ func TestExecuteHeaderProbes(t *testing.T) {
 		t.Error("expected probes to not be nil")
 	}
 }
+
+func TestOuterSourceIPProbe(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testutils.SkipOnOldKernel(t, "5.19", "source IP support in struct bpf_tunnel_key")
+
+	if err := HaveOuterSourceIPSupport(); err != nil {
+		t.Fatal(err)
+	}
+}

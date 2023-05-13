@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/features"
+	"github.com/cilium/ebpf/rlimit"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -432,6 +433,73 @@ func HaveV3ISA() error {
 	}
 	if err != nil {
 		log.WithError(err).Fatal("failed to probe V3 ISA")
+	}
+	return nil
+}
+
+// HaveOuterSourceIPSupport tests whether the kernel support setting the outer
+// source IP address via the bpf_skb_set_tunnel_key BPF helper. We can't rely
+// on the verifier to reject a program using the new support because the
+// verifier just accepts any argument size for that helper; non-supported
+// fields will simply not be used. Instead, we set the outer source IP and
+// retrieve it with bpf_skb_get_tunnel_key right after. If the retrieved value
+// equals the value set, we have a confirmation the kernel supports it.
+func HaveOuterSourceIPSupport() (err error) {
+	defer func() {
+		if err != nil && !errors.Is(err, ebpf.ErrNotSupported) {
+			log.WithError(err).Fatal("failed to probe for outer source IP support")
+		}
+	}()
+
+	if err := rlimit.RemoveMemlock(); err != nil {
+		return err
+	}
+
+	progSpec := &ebpf.ProgramSpec{
+		Name:    "set_tunnel_key_probe",
+		Type:    ebpf.SchedACT,
+		License: "GPL",
+	}
+	progSpec.Instructions = asm.Instructions{
+		asm.Mov.Reg(asm.R8, asm.R1),
+
+		asm.Mov.Imm(asm.R2, 0),
+		asm.StoreMem(asm.RFP, -8, asm.R2, asm.DWord),
+		asm.StoreMem(asm.RFP, -16, asm.R2, asm.DWord),
+		asm.StoreMem(asm.RFP, -24, asm.R2, asm.DWord),
+		asm.StoreMem(asm.RFP, -32, asm.R2, asm.DWord),
+		asm.StoreMem(asm.RFP, -40, asm.R2, asm.DWord),
+		asm.Mov.Imm(asm.R2, 42),
+		asm.StoreMem(asm.RFP, -44, asm.R2, asm.Word),
+		asm.Mov.Reg(asm.R2, asm.RFP),
+		asm.Add.Imm(asm.R2, -44),
+		asm.Mov.Imm(asm.R3, 44), // sizeof(struct bpf_tunnel_key) when setting the outer source IP is supported.
+		asm.Mov.Imm(asm.R4, 0),
+		asm.FnSkbSetTunnelKey.Call(),
+
+		asm.Mov.Reg(asm.R1, asm.R8),
+		asm.Mov.Reg(asm.R2, asm.RFP),
+		asm.Add.Imm(asm.R2, -44),
+		asm.Mov.Imm(asm.R3, 44),
+		asm.Mov.Imm(asm.R4, 0),
+		asm.FnSkbGetTunnelKey.Call(),
+
+		asm.LoadMem(asm.R0, asm.RFP, -44, asm.Word),
+		asm.Return(),
+	}
+	prog, err := ebpf.NewProgram(progSpec)
+	if err != nil {
+		return err
+	}
+	defer prog.Close()
+
+	pkt := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	ret, _, err := prog.Test(pkt)
+	if err != nil {
+		return err
+	}
+	if ret != 42 {
+		return ebpf.ErrNotSupported
 	}
 	return nil
 }
