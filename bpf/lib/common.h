@@ -1237,6 +1237,11 @@ struct vxlanhdr {
 	__be32 vx_vni;
 };
 
+/* Older kernels don't support the larger tunnel key structure and we don't
+ * need it since we only want to retrieve the tunnel ID anyway.
+ */
+#define TUNNEL_KEY_WITHOUT_SRC_IP offsetof(struct bpf_tunnel_key, local_ipv4)
+
 #include "overloadable.h"
 
 #endif /* __LIB_COMMON_H_ */
