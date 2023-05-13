@@ -31,8 +31,7 @@
 #ifdef ENABLE_NODEPORT
 /* The IPv6 extension should be 8-bytes aligned */
 struct dsr_opt_v6 {
-	__u8 nexthdr;
-	__u8 len;
+	struct ipv6_opt_hdr hdr;
 	__u8 opt_type;
 	__u8 opt_len;
 	union v6addr addr;
@@ -226,11 +225,11 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 		return DROP_FRAG_NEEDED;
 	}
 
-	opt.nexthdr = ip6->nexthdr;
+	opt.hdr.nexthdr = ip6->nexthdr;
 	ip6->nexthdr = NEXTHDR_DEST;
 	ip6->payload_len = bpf_htons(payload_len);
 
-	opt.len = DSR_IPV6_EXT_LEN;
+	opt.hdr.hdrlen = DSR_IPV6_EXT_LEN;
 	opt.opt_type = DSR_IPV6_OPT_TYPE;
 	opt.opt_len = DSR_IPV6_OPT_LEN;
 	ipv6_addr_copy(&opt.addr, svc_addr);
