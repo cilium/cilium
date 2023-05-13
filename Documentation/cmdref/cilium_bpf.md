@@ -39,4 +39,5 @@ Direct access to local BPF maps
 * [cilium bpf srv6](cilium_bpf_srv6.md)	 - Manage the SRv6 routing rules
 * [cilium bpf tunnel](cilium_bpf_tunnel.md)	 - Tunnel endpoint map
 * [cilium bpf vtep](cilium_bpf_vtep.md)	 - Manage the VTEP mappings for IP/CIDR <-> VTEP MAC/IP
+* [cilium bpf world](cilium_bpf_world.md)	 - List the world CIDRs
 
