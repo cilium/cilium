@@ -62,12 +62,6 @@ set_encrypt_key_mark(struct __sk_buff *ctx, __u8 key, __u32 node_id)
 	ctx->mark = or_encrypt_key(key) | node_id << 16;
 }
 
-static __always_inline __maybe_unused void
-set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key, __u32 node_id)
-{
-	ctx->cb[CB_ENCRYPT_MAGIC] = or_encrypt_key(key) | node_id << 16;
-}
-
 /**
  * set_cluster_id_mark - sets the cluster_id mark.
  */
