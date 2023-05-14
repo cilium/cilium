@@ -106,6 +106,183 @@ func TestUniqueKeepOrdering(t *testing.T) {
 	}
 }
 
+func TestDiff(t *testing.T) {
+	testCases := []struct {
+		name     string
+		a        []string
+		b        []string
+		expected []string
+	}{
+		{
+			name:     "empty second slice",
+			a:        []string{"foo"},
+			b:        []string{},
+			expected: []string{"foo"},
+		},
+		{
+			name:     "empty first slice",
+			a:        []string{},
+			b:        []string{"foo"},
+			expected: nil,
+		},
+		{
+			name:     "both empty",
+			a:        []string{},
+			b:        []string{},
+			expected: nil,
+		},
+		{
+			name:     "both nil",
+			a:        nil,
+			b:        nil,
+			expected: nil,
+		},
+		{
+			name:     "subset",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "bar", "baz"},
+			expected: nil,
+		},
+		{
+			name:     "equal",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "bar"},
+			expected: nil,
+		},
+		{
+			name:     "same size not equal",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "baz"},
+			expected: []string{"bar"},
+		},
+		{
+			name:     "smaller size",
+			a:        []string{"baz"},
+			b:        []string{"foo", "bar"},
+			expected: []string{"baz"},
+		},
+		{
+			name:     "larger size",
+			a:        []string{"foo", "bar", "fizz"},
+			b:        []string{"fizz", "buzz"},
+			expected: []string{"foo", "bar"},
+		},
+		{
+			name:     "subset with duplicates",
+			a:        []string{"foo", "foo", "bar"},
+			b:        []string{"foo", "bar"},
+			expected: nil,
+		},
+		{
+			name:     "subset with more duplicates",
+			a:        []string{"foo", "foo", "foo", "bar", "bar"},
+			b:        []string{"foo", "foo", "bar"},
+			expected: nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			diff := Diff(tc.a, tc.b)
+			assert.Equal(t, tc.expected, diff)
+		})
+	}
+}
+
+func TestSubsetOf(t *testing.T) {
+	testCases := []struct {
+		name     string
+		a        []string
+		b        []string
+		isSubset bool
+		diff     []string
+	}{
+		{
+			name:     "empty second slice",
+			a:        []string{"foo"},
+			b:        []string{},
+			isSubset: false,
+			diff:     []string{"foo"},
+		},
+		{
+			name:     "empty first slice",
+			a:        []string{},
+			b:        []string{"foo"},
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "both empty",
+			a:        []string{},
+			b:        []string{},
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "both nil",
+			a:        nil,
+			b:        nil,
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "subset",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "bar", "baz"},
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "equal",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "bar"},
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "same size not equal",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "baz"},
+			isSubset: false,
+			diff:     []string{"bar"},
+		},
+		{
+			name:     "smaller size",
+			a:        []string{"baz"},
+			b:        []string{"foo", "bar"},
+			isSubset: false,
+			diff:     []string{"baz"},
+		},
+		{
+			name:     "larger size",
+			a:        []string{"foo", "bar", "fizz"},
+			b:        []string{"fizz", "buzz"},
+			isSubset: false,
+			diff:     []string{"foo", "bar"},
+		},
+		{
+			name:     "subset with duplicates",
+			a:        []string{"foo", "foo", "bar"},
+			b:        []string{"foo", "bar"},
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "subset with more duplicates",
+			a:        []string{"foo", "foo", "foo", "bar", "bar"},
+			b:        []string{"foo", "foo", "bar"},
+			isSubset: true,
+			diff:     nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			isSubset, diff := SubsetOf(tc.a, tc.b)
+			assert.Equal(t, tc.isSubset, isSubset)
+			assert.Equal(t, tc.diff, diff)
+		})
+	}
+}
+
 // BenchmarkUnique runs the Unique function on a slice of size elements, where each element
 // has a probability of 20% of being a duplicate.
 // At each iteration the slice is restored to its original status and reshuffled, in order
