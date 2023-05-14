@@ -22,9 +22,6 @@
 /* Pass unknown ICMPv6 NS to stack */
 #define ACTION_UNKNOWN_ICMP6_NS CTX_ACT_OK
 
-/* CB_PROXY_MAGIC overlaps with CB_ENCRYPT_MAGIC */
-#define ENCRYPT_OR_PROXY_MAGIC 0
-
 /* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_ECHO_REPLY section in
  * the bpf_lxc object file.
  */
@@ -287,13 +284,9 @@ skip_host_firewall:
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
-		/* If IPSEC is needed recirc through ingress to use xfrm stack
-		 * and then result will routed back through bpf_netdev on egress
-		 * but with encrypt marks.
-		 */
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      info->key, info->node_id,
-						      secctx, info->sec_label,
+						      info->node_id, secctx,
+						      info->sec_label,
 						      &trace);
 	} else {
 		struct tunnel_key key = {};
@@ -571,8 +564,8 @@ skip_vtep:
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      info->key, info->node_id,
-						      secctx, info->sec_label,
+						      info->node_id, secctx,
+						      info->sec_label,
 						      &trace);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
@@ -1238,7 +1231,7 @@ out:
 __section("to-host")
 int cil_to_host(struct __ctx_buff *ctx)
 {
-	__u32 magic = ctx_load_meta(ctx, ENCRYPT_OR_PROXY_MAGIC);
+	__u32 magic = ctx_load_meta(ctx, CB_PROXY_MAGIC);
 	__u16 __maybe_unused proto = 0;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1248,10 +1241,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	bool traced = false;
 	__u32 src_id = 0;
 
-	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
-		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
-		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
-	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
+	if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;
 
