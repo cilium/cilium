@@ -8,7 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/set"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 // ModulesManager is a manager which stores information about loaded modules
@@ -30,7 +30,7 @@ func (m *ModulesManager) Init() error {
 // FindModules checks whether the given kernel modules are loaded and also
 // returns a slice with names of modules which are not loaded.
 func (m *ModulesManager) FindModules(expectedNames ...string) (bool, []string) {
-	return set.SliceSubsetOf(expectedNames, m.modulesList)
+	return slices.SubsetOf(expectedNames, m.modulesList)
 }
 
 // FindOrLoadModules checks whether the given kernel modules are loaded and
