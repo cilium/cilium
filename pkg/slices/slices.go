@@ -80,3 +80,45 @@ func SortedUniqueFunc[S ~[]T, T any](
 	sort.Slice(s, less)
 	return slices.CompactFunc(s, eq)
 }
+
+// Diff returns a slice of elements which is the difference of a and b.
+// The returned slice keeps the elements in the same order found in the "a" slice.
+// Both input slices are considered as sets, that is, all elements are considered as
+// unique when computing the difference.
+func Diff[S ~[]T, T comparable](a, b S) []T {
+	if len(a) == 0 {
+		return nil
+	}
+	if len(b) == 0 {
+		return a
+	}
+
+	var diff []T
+
+	setB := make(map[T]struct{}, len(b))
+	for _, v := range b {
+		setB[v] = struct{}{}
+	}
+
+	setA := make(map[T]struct{}, len(a))
+	for _, v := range a {
+		// v is in b, too
+		if _, ok := setB[v]; ok {
+			continue
+		}
+		// v has been already added to diff
+		if _, ok := setA[v]; ok {
+			continue
+		}
+		diff = append(diff, v)
+		setA[v] = struct{}{}
+	}
+	return diff
+}
+
+// SubsetOf returns a boolean that indicates if slice a is a subset of slice b.
+// In case it is not, the returned slice contains all the unique elements that are in a but not in b.
+func SubsetOf[S ~[]T, T comparable](a, b S) (bool, []T) {
+	d := Diff(a, b)
+	return len(d) == 0, d
+}
