@@ -962,7 +962,7 @@ static __always_inline int ct_create4(const void *map_main,
 		goto err_ct_fill_up;
 
 #ifndef DISABLE_LOOPBACK_LB
-	if (ct_state->addr && ct_state->loopback) {
+	if (dir == CT_EGRESS && ct_state->addr && ct_state->loopback) {
 		__u8 flags = tuple->flags;
 		__be32 saddr, daddr;
 
@@ -970,18 +970,13 @@ static __always_inline int ct_create4(const void *map_main,
 		daddr = tuple->daddr;
 
 		/* We are looping back into the origin endpoint through a
-		 * service, set up a conntrack tuple for the reply to ensure we
+		 * service. Set up a conntrack tuple for the reply to ensure we
 		 * do rev NAT before attempting to route the destination
 		 * address which will not point back to the right source.
 		 */
 		tuple->flags = TUPLE_F_IN;
-		if (dir == CT_INGRESS) {
-			tuple->saddr = ct_state->addr;
-			tuple->daddr = ct_state->svc_addr;
-		} else {
-			tuple->saddr = ct_state->svc_addr;
-			tuple->daddr = ct_state->addr;
-		}
+		tuple->saddr = ct_state->svc_addr;
+		tuple->daddr = ct_state->addr;
 
 		err = map_update_elem(map_main, tuple, &entry, 0);
 		if (unlikely(err < 0))
