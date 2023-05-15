@@ -209,6 +209,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			)
 		ct.NewTest("north-south-loadbalancing-with-l7-policy").
 			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithCiliumVersion(">1.13.2").
 			WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).
 			WithScenarios(
 				tests.OutsideToNodePort(),
