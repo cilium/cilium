@@ -150,7 +150,7 @@ github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
-# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230514113435-3dea31d1c799
+# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230515093409-5b3e1d2932f0
 ## explicit; go 1.18
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1
@@ -692,7 +692,7 @@ github.com/spf13/cobra
 # github.com/spf13/jwalterweatherman v1.1.0
 ## explicit
 github.com/spf13/jwalterweatherman
-# github.com/spf13/pflag v1.0.6-0.20200504143853-81378bbcd8a1
+# github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 ## explicit; go 1.12
 github.com/spf13/pflag
 # github.com/spf13/viper v1.15.0
