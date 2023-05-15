@@ -15,7 +15,7 @@ import (
 type FakeNodeHandler struct{}
 
 // NewNodeHandler returns a fake NodeHandler that performs no actions
-func NewNodeHandler() datapath.NodeHandler {
+func NewNodeHandler() *FakeNodeHandler {
 	return &FakeNodeHandler{}
 }
 

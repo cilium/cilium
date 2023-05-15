@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
@@ -145,18 +144,6 @@ func (n *signalNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeTy
 }
 
 func (n *signalNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
-	return
-}
-
-func (n *signalNodeHandler) AllocateNodeID(_ net.IP) uint16 {
-	return 0
-}
-
-func (n *signalNodeHandler) DumpNodeIDs() []*models.NodeID {
-	return nil
-}
-
-func (n *signalNodeHandler) RestoreNodeIDs() {
 	return
 }
 

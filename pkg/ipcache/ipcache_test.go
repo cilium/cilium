@@ -33,7 +33,7 @@ func Test(t *testing.T) {
 }
 
 func setupIPCacheTest() {
-	SetNodeHandler(&fake.FakeNodeHandler{})
+	SetNodeIDHandler(&fake.FakeNodeHandler{})
 }
 
 func (s *IPCacheTestSuite) TestIPCache(c *C) {
