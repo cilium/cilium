@@ -81,8 +81,8 @@ func containsIP(allowedIPs []net.IPNet, ipnet *net.IPNet) bool {
 
 func newTestAgent(ctx context.Context) (*Agent, *ipcache.IPCache) {
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
-		Context:     ctx,
-		NodeHandler: &mockNodeHandler{},
+		Context:       ctx,
+		NodeIDHandler: &mockNodeHandler{},
 	})
 	wgAgent := &Agent{
 		wgClient:         &fakeWgClient{},

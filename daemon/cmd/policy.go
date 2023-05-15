@@ -116,7 +116,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		IdentityAllocator: idAlloc,
 		PolicyHandler:     iao.policy.GetSelectorCache(),
 		DatapathHandler:   params.EndpointManager,
-		NodeHandler:       params.Datapath.Node(),
+		NodeIDHandler:     params.Datapath.NodeIDs(),
 		CacheStatus:       params.CacheStatus,
 	})
 	idAlloc.ipcache = ipc
