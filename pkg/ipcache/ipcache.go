@@ -85,7 +85,7 @@ type Configuration struct {
 	cache.IdentityAllocator
 	ipcacheTypes.PolicyHandler
 	ipcacheTypes.DatapathHandler
-	ipcacheTypes.NodeHandler
+	ipcacheTypes.NodeIDHandler
 	k8s.CacheStatus
 }
 

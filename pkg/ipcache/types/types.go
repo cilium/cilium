@@ -62,8 +62,8 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 	return ResourceID(str.String())
 }
 
-// NodeHandler is responsible for the management of node identities.
-type NodeHandler interface {
+// NodeIDHandler is responsible for the management of node identities.
+type NodeIDHandler interface {
 	AllocateNodeID(net.IP) uint16
 	GetNodeIP(uint16) string
 }

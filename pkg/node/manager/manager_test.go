@@ -15,7 +15,6 @@ import (
 
 	"gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -186,22 +185,6 @@ func (n *signalNodeHandler) NodeNeighborRefresh(ctx context.Context, node nodeTy
 }
 
 func (n *signalNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
-	return
-}
-
-func (n *signalNodeHandler) AllocateNodeID(_ net.IP) uint16 {
-	return 0
-}
-
-func (n *signalNodeHandler) GetNodeIP(_ uint16) string {
-	return ""
-}
-
-func (n *signalNodeHandler) DumpNodeIDs() []*models.NodeID {
-	return nil
-}
-
-func (n *signalNodeHandler) RestoreNodeIDs() {
 	return
 }
 

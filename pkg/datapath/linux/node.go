@@ -80,7 +80,10 @@ type linuxNodeHandler struct {
 	ipsecMetricOnce      sync.Once
 }
 
-var _ datapath.NodeHandler = (*linuxNodeHandler)(nil)
+var (
+	_ datapath.NodeHandler   = (*linuxNodeHandler)(nil)
+	_ datapath.NodeIDHandler = (*linuxNodeHandler)(nil)
+)
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath

@@ -5,10 +5,8 @@ package peer
 
 import (
 	"context"
-	"net"
 	"strings"
 
-	"github.com/cilium/cilium/api/v1/models"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
@@ -132,26 +130,6 @@ func (h handler) NodeCleanNeighbors(migrateOnly bool) {
 // Close frees handler resources.
 func (h *handler) Close() {
 	close(h.stop)
-}
-
-func (h *handler) AllocateNodeID(_ net.IP) uint16 {
-	// no-op
-	return 0
-}
-
-func (h *handler) GetNodeIP(_ uint16) string {
-	// no-op
-	return ""
-}
-
-func (h *handler) DumpNodeIDs() []*models.NodeID {
-	// no-op
-	return nil
-}
-
-func (h *handler) RestoreNodeIDs() {
-	// no-op
-	return
 }
 
 // newChangeNotification creates a new change notification with the provided
