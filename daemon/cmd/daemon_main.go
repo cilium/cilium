@@ -62,6 +62,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadinfo"
@@ -1621,6 +1622,7 @@ type daemonParams struct {
 	ServiceCache         *k8s.ServiceCache
 	ClusterMesh          *clustermesh.ClusterMesh
 	MonitorAgent         monitorAgent.Agent
+	L2Announcer          *l2announcer.L2Announcer
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
