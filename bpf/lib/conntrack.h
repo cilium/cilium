@@ -850,7 +850,6 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	if (dir == CT_SERVICE) {
 		entry.backend_id = ct_state->backend_id;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
-		entry.lb_loopback = ct_state->loopback;
 		entry.node_port = ct_state->node_port;
 		entry.dsr = ct_state->dsr;
 		entry.ifindex = ct_state->ifindex;
