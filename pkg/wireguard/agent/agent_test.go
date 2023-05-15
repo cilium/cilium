@@ -31,7 +31,7 @@ func Test(t *testing.T) {
 }
 
 func setupAgentTest() {
-	ipcache.SetNodeHandler(&fake.FakeNodeHandler{})
+	ipcache.SetNodeIDHandler(&fake.FakeNodeHandler{})
 }
 
 type fakeWgClient struct{}

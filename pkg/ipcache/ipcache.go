@@ -25,7 +25,7 @@ var (
 	// Cilium is running.
 	IPIdentityCache = NewIPCache()
 	// NodeHandler includes the methods to manage node IDs.
-	NodeHandler datapath.NodeHandler
+	NodeHandler datapath.NodeIDHandler
 )
 
 // Identity is the identity representation of an IP<->Identity cache.
@@ -142,7 +142,7 @@ func (ipc *IPCache) SetListeners(listeners []IPIdentityMappingListener) {
 }
 
 // Only used for testing.
-func SetNodeHandler(nh datapath.NodeHandler) {
+func SetNodeIDHandler(nh datapath.NodeIDHandler) {
 	NodeHandler = nh
 }
 

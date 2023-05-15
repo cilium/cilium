@@ -2031,7 +2031,7 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	restAPI.PolicyGetIPHandler = NewGetIPHandler()
 
 	// /node/ids
-	restAPI.DaemonGetNodeIdsHandler = NewGetNodeIDsHandler(d.datapath.Node())
+	restAPI.DaemonGetNodeIdsHandler = NewGetNodeIDsHandler(d.datapath.NodeIDs())
 
 	return restAPI
 }
