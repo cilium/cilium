@@ -625,6 +625,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 					"hostFirewall.enabled": "true",
 				})
 
+				prepareHostPolicyEnforcement(kubectl)
+
 				originalCCNPHostPolicy := helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
 				res := kubectl.ExecMiddle("mktemp")
 				res.ExpectSuccess()
