@@ -80,6 +80,10 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define HASH_INIT4_SEED 0xcafe
 #define HASH_INIT6_SEED 0xeb9f
 
+#ifndef L2_ANNOUNCEMENTS_MAX_LIVENESS
+# define L2_ANNOUNCEMENTS_MAX_LIVENESS 3000000000ULL
+#endif
+
 #ifdef ENABLE_IPV4
 #define IPV4_MASK 0xffff
 #define IPV4_GATEWAY 0xfffff50a
