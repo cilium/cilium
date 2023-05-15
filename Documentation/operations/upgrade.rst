@@ -327,7 +327,8 @@ Annotations:
 * Egress Gateway policies now drop matching traffic when no
   gateway nodes can be found. Previously, traffic would be allowed without
   being rerouted towards an Egress Gateway.
-
+* If Gateway API feature is enabled, please upgrade related CRDs to v0.6.x. This is
+  mainly for ReferenceGrant resource version change (i.e. from v1alpha2 to v1beta1).
 
 Removed Options
 ~~~~~~~~~~~~~~~
