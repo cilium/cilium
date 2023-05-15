@@ -17,6 +17,8 @@ type Datapath interface {
 	// Node must return the handler for node events
 	Node() NodeHandler
 
+	NodeIDs() NodeIDHandler
+
 	// LocalNodeAddressing must return the node addressing implementation
 	// of the local node
 	LocalNodeAddressing() types.NodeAddressing

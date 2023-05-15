@@ -83,8 +83,8 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
-		Context:     ctx,
-		NodeHandler: &mockNodeHandler{},
+		Context:       ctx,
+		NodeIDHandler: &mockNodeHandler{},
 	})
 	defer ipCache.Shutdown()
 	wgAgent := &Agent{
