@@ -59,7 +59,7 @@ type Configuration struct {
 	cache.IdentityAllocator
 	ipcacheTypes.PolicyHandler
 	ipcacheTypes.DatapathHandler
-	ipcacheTypes.NodeHandler
+	ipcacheTypes.NodeIDHandler
 }
 
 // IPCache is a collection of mappings:

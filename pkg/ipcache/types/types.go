@@ -29,6 +29,6 @@ type DatapathHandler interface {
 }
 
 // NodeHandler is responsible for the management of node identities.
-type NodeHandler interface {
+type NodeIDHandler interface {
 	AllocateNodeID(net.IP) uint16
 }
