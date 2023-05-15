@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
@@ -53,6 +54,10 @@ var Cell = cell.Module(
 	// This cell periodically updates the agent liveness value in configmap.Map to inform
 	// the datapath of the liveness of the agent.
 	agentliveness.Cell,
+
+	// This cell defines StateDB tables and their schemas for tables which are used to transfer information
+	// between datapath components and more high-level components.
+	tables.Cell,
 
 	cell.Provide(func(dp types.Datapath) ipcache.NodeIDHandler {
 		return dp.NodeIDs()
