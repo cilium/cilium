@@ -64,9 +64,10 @@ type Configuration struct {
 // RemoteIdentityWatcher is any type which provides identities that have been
 // allocated on a remote cluster.
 type RemoteIdentityWatcher interface {
-	// WatchRemoteIdentities starts watching for identities in another kvstore and
-	// syncs all identities to the local identity cache. RemoteName should be unique
-	// unless replacing an existing remote's backend.
+	// WatchRemoteIdentities returns a RemoteCache instance which can be later
+	// started to watch identities in another kvstore and sync them to the local
+	// identity cache. remoteName should be unique unless replacing an existing
+	// remote's backend.
 	WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations) (*allocator.RemoteCache, error)
 
 	// RemoveRemoteIdentities removes any reference to a remote identity source.

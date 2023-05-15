@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -143,6 +145,11 @@ func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	c.onDeleteLocked(id, key)
+}
+
+// onDeleteLocked must be called while holding c.Mutex for writing
+func (c *cache) onDeleteLocked(id idpool.ID, key AllocatorKey) {
 	a := c.allocator
 	if a.enableMasterKeyProtection {
 		if value := a.localKeys.lookupID(id); value != nil {
@@ -191,6 +198,25 @@ func (c *cache) start() waitChan {
 func (c *cache) stop() {
 	close(c.stopChan)
 	c.stopWatchWg.Wait()
+}
+
+// drainIf emits a deletion event for all known IDs that are stale according to
+// the isStale function. It must be called after the cache has been stopped, to
+// ensure that no new events can be received afterwards.
+func (c *cache) drainIf(isStale func(id idpool.ID) bool) {
+	// Make sure we wait until the watch loop has been properly stopped, otherwise
+	// new IDs might be added afterwards we complete the draining process.
+	c.stopWatchWg.Wait()
+
+	c.mutex.Lock()
+	for id, key := range c.nextCache {
+		if isStale(id) {
+			c.onDeleteLocked(id, key)
+			log.WithFields(logrus.Fields{fieldID: id, fieldKey: key}).
+				Debug("Stale identity deleted")
+		}
+	}
+	c.mutex.Unlock()
 }
 
 func (c *cache) get(key string) idpool.ID {
