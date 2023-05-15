@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/agentliveness"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -48,6 +49,10 @@ var Cell = cell.Module(
 		newWireguardAgent,
 		newDatapath,
 	),
+
+	// This cell periodically updates the agent liveness value in configmap.Map to inform
+	// the datapath of the liveness of the agent.
+	agentliveness.Cell,
 
 	cell.Provide(func(dp types.Datapath) ipcache.NodeIDHandler {
 		return dp.NodeIDs()

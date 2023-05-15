@@ -29,6 +29,7 @@ type Index uint32
 const (
 	UTimeOffset Index = iota
 	UsedEntries
+	AgentLiveness
 )
 
 // Value is the generic datapath runtime config value.
