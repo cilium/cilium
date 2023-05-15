@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/datapath/l2responder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
@@ -54,6 +55,10 @@ var Cell = cell.Module(
 	// This cell periodically updates the agent liveness value in configmap.Map to inform
 	// the datapath of the liveness of the agent.
 	agentliveness.Cell,
+
+	// The responder reconciler takes desired state about L3->L2 address translation responses and reconciles
+	// it to the BPF L2 responder map.
+	l2responder.Cell,
 
 	// This cell defines StateDB tables and their schemas for tables which are used to transfer information
 	// between datapath components and more high-level components.
