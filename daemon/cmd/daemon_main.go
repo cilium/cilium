@@ -360,6 +360,18 @@ func initializeFlags() {
 	flags.Bool(option.EnableWireguard, false, "Enable wireguard")
 	option.BindEnv(Vp, option.EnableWireguard)
 
+	flags.Bool(option.EnableL2Announcements, false, "Enable L2 announcements")
+	option.BindEnv(Vp, option.EnableL2Announcements)
+
+	flags.Duration(option.L2AnnouncerLeaseDuration, 15*time.Second, "Duration of inactivity after which a new leader is selected")
+	option.BindEnv(Vp, option.L2AnnouncerLeaseDuration)
+
+	flags.Duration(option.L2AnnouncerRenewDeadline, 5*time.Second, "Interval at which the leader renews a lease")
+	option.BindEnv(Vp, option.L2AnnouncerRenewDeadline)
+
+	flags.Duration(option.L2AnnouncerRetryPeriod, 2*time.Second, "Timeout after a renew failure, before the next retry")
+	option.BindEnv(Vp, option.L2AnnouncerRetryPeriod)
+
 	flags.Bool(option.EnableWireguardUserspaceFallback, false, "Enables the fallback to the wireguard userspace implementation")
 	option.BindEnv(Vp, option.EnableWireguardUserspaceFallback)
 
