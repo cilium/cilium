@@ -61,7 +61,7 @@ type NodeManager interface {
 
 	// StartNeighborRefresh spawns a controller which refreshes neighbor table
 	// by sending arping periodically.
-	StartNeighborRefresh(nh datapath.NodeHandler)
+	StartNeighborRefresh(nh datapath.NodeNeighbors)
 }
 
 func newAllNodeManager(lc hive.Lifecycle, ipCache *ipcache.IPCache) (NodeManager, error) {

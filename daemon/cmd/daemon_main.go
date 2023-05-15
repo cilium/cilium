@@ -1850,16 +1850,16 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	}
 
 	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		if !d.datapath.Node().NodeNeighDiscoveryEnabled() {
+		if !d.datapath.NodeNeighbors().NodeNeighDiscoveryEnabled() {
 			// Remove all non-GC'ed neighbor entries that might have previously set
 			// by a Cilium instance.
-			d.datapath.Node().NodeCleanNeighbors(false)
+			d.datapath.NodeNeighbors().NodeCleanNeighbors(false)
 		} else {
 			// If we came from an agent upgrade, migrate entries.
-			d.datapath.Node().NodeCleanNeighbors(true)
+			d.datapath.NodeNeighbors().NodeCleanNeighbors(true)
 			// Start periodical refresh of the neighbor table from the agent if needed.
 			if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
-				d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
+				d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.NodeNeighbors())
 			}
 		}
 	}
