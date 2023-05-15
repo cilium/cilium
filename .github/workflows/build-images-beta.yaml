@@ -115,7 +115,7 @@ jobs:
       - name: Install Bom
         shell: bash
         run: |
-          curl -L https://github.com/kubernetes-sigs/bom/releases/download/v0.4.1/bom-linux-amd64 -o bom
+          curl -L https://github.com/kubernetes-sigs/bom/releases/download/v0.5.1/bom-amd64-linux -o bom
           sudo mv ./bom /usr/local/bin/bom
           sudo chmod +x /usr/local/bin/bom
 
