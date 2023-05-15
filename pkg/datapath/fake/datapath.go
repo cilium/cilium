@@ -35,6 +35,10 @@ func (f *fakeDatapath) NodeIDs() datapath.NodeIDHandler {
 	return f.node
 }
 
+func (f *fakeDatapath) NodeNeighbors() datapath.NodeNeighbors {
+	return f.node
+}
+
 // LocalNodeAddressing returns a fake node addressing implementation of the
 // local node
 func (f *fakeDatapath) LocalNodeAddressing() datapath.NodeAddressing {
