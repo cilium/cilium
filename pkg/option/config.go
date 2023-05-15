@@ -2543,7 +2543,7 @@ func (c *DaemonConfig) TunnelExists() bool {
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
 	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager ||
-		c.EnableWireguard || c.EnableHighScaleIPcache
+		c.EnableWireguard || c.EnableHighScaleIPcache || c.EnableL2Announcements
 }
 
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
