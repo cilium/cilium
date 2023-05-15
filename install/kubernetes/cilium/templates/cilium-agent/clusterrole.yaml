@@ -82,6 +82,7 @@ rules:
   - ciliumnodes
   - ciliumnodeconfigs
   - ciliumcidrgroups
+  - ciliuml2announcementpolicies
   verbs:
   - list
   - watch
@@ -122,6 +123,7 @@ rules:
   - ciliumclusterwidenetworkpolicies/status
   - ciliumendpoints/status
   - ciliumendpoints
+  - ciliuml2announcementpolicies/status
   verbs:
   - patch
 {{- end }}
