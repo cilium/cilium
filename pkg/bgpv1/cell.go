@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -34,6 +35,8 @@ var Cell = cell.Module(
 		manager.NewBGPRouterManager,
 		// Create a slim service DiffStore
 		manager.NewDiffStore[*slim_core_v1.Service],
+		// Create a endpoints DiffStore
+		manager.NewDiffStore[*k8s.Endpoints],
 	),
 	// Provides the reconcilers used by the route manager to update the config
 	manager.ConfigReconcilers,

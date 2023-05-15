@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -525,6 +526,8 @@ func TestLBServiceReconciler(t *testing.T) {
 		upsertedServices []*slim_corev1.Service
 		// the services which will be "deleted" in the diffstore
 		deletedServices []resource.Key
+		// the endpoints which will be "upserted" in the diffstore
+		upsertedEndpoints []*k8s.Endpoints
 		// the updated PodCIDR blocks to reconcile, these are string encoded
 		// for the convenience of attaching directly to the NodeSpec.PodCIDRs
 		// field.
@@ -955,7 +958,8 @@ func TestLBServiceReconciler(t *testing.T) {
 				ServiceSelector: tt.newServiceSelector,
 			}
 			newcstate := agent.ControlPlaneState{
-				IPv4: netip.MustParseAddr("127.0.0.1"),
+				IPv4:            netip.MustParseAddr("127.0.0.1"),
+				CurrentNodeName: "node1",
 			}
 
 			diffstore := newFakeDiffStore[*slim_corev1.Service]()
@@ -966,7 +970,12 @@ func TestLBServiceReconciler(t *testing.T) {
 				diffstore.Delete(key)
 			}
 
-			reconciler := NewLBServiceReconciler(diffstore)
+			epDiffStore := newFakeDiffStore[*k8s.Endpoints]()
+			for _, obj := range tt.upsertedEndpoints {
+				epDiffStore.Upsert(obj)
+			}
+
+			reconciler := NewLBServiceReconciler(diffstore, epDiffStore)
 			err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
 				Server: testSC,
 				NewC:   newc,
@@ -1031,6 +1040,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 		localASN        = 64125
 		newRouterID     = "192.168.0.2"
 		diffstore       = newFakeDiffStore[*slim_corev1.Service]()
+		epDiffStore     = newFakeDiffStore[*k8s.Endpoints]()
 		serviceSelector = &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
 		obj             = &slim_corev1.Service{
 			ObjectMeta: slim_metav1.ObjectMeta{
@@ -1094,7 +1104,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	require.NoError(t, err)
 
 	diffstore.Upsert(obj)
-	reconciler := NewLBServiceReconciler(diffstore)
+	reconciler := NewLBServiceReconciler(diffstore, epDiffStore)
 	err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
 		Server: testSC,
 		NewC:   newc,
@@ -1124,7 +1134,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Update LB service
-	reconciler = NewLBServiceReconciler(diffstore)
+	reconciler = NewLBServiceReconciler(diffstore, epDiffStore)
 	err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
 		Server: testSC,
 		NewC:   newc,

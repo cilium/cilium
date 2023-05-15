@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	k8sPkg "github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -137,6 +138,9 @@ func newFixture(conf fixtureConfig) *fixture {
 				),
 			)
 		}),
+
+		// endpoints
+		cell.Provide(k8sPkg.EndpointsResource),
 
 		// Provide the mocked client cells directly
 		cell.Provide(func() k8sClient.Clientset {

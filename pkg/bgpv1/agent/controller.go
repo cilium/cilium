@@ -94,6 +94,8 @@ type ControlPlaneState struct {
 	IPv4 netip.Addr
 	// The current IPv6 address of the agent, reachable externally.
 	IPv6 netip.Addr
+	// The current node name
+	CurrentNodeName string
 }
 
 // ResolveRouterID resolves router ID, if we have an annotation and it can be
@@ -395,15 +397,21 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("failed to retrieve Node's pod CIDR ranges: %w", err)
 	}
 
+	currentNodeName, err := c.NodeSpec.CurrentNodeName()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve current node's name: %w", err)
+	}
+
 	ipv4, _ := ip.AddrFromIP(nodeaddr.GetIPv4())
 	ipv6, _ := ip.AddrFromIP(nodeaddr.GetIPv6())
 
 	// define our current point-in-time control plane state.
 	state := &ControlPlaneState{
-		PodCIDRs:    podCIDRs,
-		Annotations: annoMap,
-		IPv4:        ipv4,
-		IPv6:        ipv6,
+		PodCIDRs:        podCIDRs,
+		Annotations:     annoMap,
+		IPv4:            ipv4,
+		IPv6:            ipv6,
+		CurrentNodeName: currentNodeName,
 	}
 
 	// call bgp sub-systems required to apply this policy's BGP topology.
