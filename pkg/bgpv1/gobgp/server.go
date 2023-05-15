@@ -45,7 +45,11 @@ type GoBGPServer struct {
 
 // NewGoBGPServerWithConfig returns instance of go bgp router wrapper.
 func NewGoBGPServerWithConfig(ctx context.Context, log *logrus.Entry, params types.ServerParameters) (types.Router, error) {
-	logger := NewServerLogger(log.Logger, params.Global.ASN)
+	logger := NewServerLogger(log.Logger, LogParams{
+		AS:        params.Global.ASN,
+		Component: "gobgp.BgpServerInstance",
+		SubSys:    "bgp-control-plane",
+	})
 
 	s := server.NewBgpServer(server.LoggerOption(logger))
 	go s.Serve()
