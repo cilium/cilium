@@ -18,6 +18,7 @@
     "test/kubernetes-test.sh",
     "test/packet/scripts/install.sh",
     "install/kubernetes/cilium/templates/spire/**",
+    "install/kubernetes/cilium/values.yaml.tmpl",
   ],
   postUpdateOptions: [
     "gomodTidy"
