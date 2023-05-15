@@ -12,9 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blang/semver/v4"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/sysdump"
@@ -69,6 +71,9 @@ type Test struct {
 	// installIPRoutesFromOutsideToPodCIDRs indicates that the test runner needs
 	// to install podCIDR => nodeIP routes before running the test
 	installIPRoutesFromOutsideToPodCIDRs bool
+
+	// requiredCiliumVSN is a required Cilium VSN for this test to be run
+	requiredCiliumVSN semver.Range
 
 	// Scenarios registered to this test.
 	scenarios map[Scenario][]*Action
@@ -182,11 +187,16 @@ func (t *Test) skip(s Scenario) {
 }
 
 // willRun returns false if all of the Test's Scenarios will be skipped, or
-// if any of its FeatureRequirements does not match
+// if any of its FeatureRequirements does not match, or a required Cilium vsn
+// does not match.
 func (t *Test) willRun() bool {
 	var sc int
 
 	if !t.Context().features.MatchRequirements(t.requirements...) {
+		return false
+	}
+
+	if t.requiredCiliumVSN != nil && !t.requiredCiliumVSN(t.Context().CiliumVersion) {
 		return false
 	}
 
@@ -495,6 +505,14 @@ func (t *Test) WithFeatureRequirements(reqs ...FeatureRequirement) *Test {
 // Cilium before running the test (and removed after the test completion).
 func (t *Test) WithIPRoutesFromOutsideToPodCIDRs() *Test {
 	t.installIPRoutesFromOutsideToPodCIDRs = true
+
+	return t
+}
+
+// WithCiliumVersion adds a requirement for a Cilium vsn in order for the test
+// to run.
+func (t *Test) WithCiliumVersion(vsn string) *Test {
+	t.requiredCiliumVSN = versioncheck.MustCompile(vsn)
 
 	return t
 }
