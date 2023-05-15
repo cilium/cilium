@@ -682,7 +682,7 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 
 // StartNeighborRefresh spawns a controller which refreshes neighbor table
 // by sending arping periodically.
-func (m *manager) StartNeighborRefresh(nh datapath.NodeHandler) {
+func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 	ctx, cancel := context.WithCancel(context.Background())
 	controller.NewManager().UpdateController("neighbor-table-refresh",
 		controller.ControllerParams{
