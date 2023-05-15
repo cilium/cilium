@@ -20,6 +20,7 @@ import (
 	"github.com/mholt/archiver/v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -639,6 +640,15 @@ func (c *Collector) Run() error {
 				// Redact the actual values.
 				for k := range v.Data {
 					v.Data[k] = []byte(redacted)
+				}
+				accessor, err := meta.Accessor(v)
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium etcd secret: %w", err)
+				}
+				var annotations = accessor.GetAnnotations()
+				if annotations != nil {
+					delete(annotations, corev1.LastAppliedConfigAnnotation)
+					accessor.SetAnnotations(annotations)
 				}
 				if err := c.WriteYAML(ciliumEtcdSecretFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Cilium etcd secret: %w", err)
