@@ -586,6 +586,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 					"hostFirewall.enabled": "true",
 				})
 
+				prepareHostPolicyEnforcement(kubectl)
+
 				ccnpHostPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
 				_, err := kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
 					helpers.KubectlApply, helpers.HelperTimeout)
