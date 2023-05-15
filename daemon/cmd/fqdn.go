@@ -363,8 +363,12 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	if option.Config.ToFQDNsProxyPort != 0 {
 		port = uint16(option.Config.ToFQDNsProxyPort)
 	} else if port == 0 {
-		// Try locate old DNS proxy port number from the datapath
-		port = d.datapath.GetProxyPort(proxy.DNSProxyName)
+		// Try locate old DNS proxy port number from the datapath, and reuse it if it's not open
+		oldPort := d.datapath.GetProxyPort(proxy.DNSProxyName)
+		openLocalPorts := proxy.OpenLocalPorts()
+		if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
+			port = oldPort
+		}
 	}
 	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
 		return fmt.Errorf("could not initialize regex LRU cache: %w", err)
