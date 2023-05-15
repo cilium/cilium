@@ -106,6 +106,7 @@ MiB
 Minikube
 Monnet
 Mythbusters
+NDP
 NativeRoutingCIDR
 NeighDiscovery
 Netronome
@@ -457,6 +458,7 @@ extraIpAddresses
 extraVolumeMounts
 extraVolumes
 facto
+failover
 failureThreshold
 fallback
 filename
