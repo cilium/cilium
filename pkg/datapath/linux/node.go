@@ -78,6 +78,7 @@ type linuxNodeHandler struct {
 var (
 	_ datapath.NodeHandler   = (*linuxNodeHandler)(nil)
 	_ datapath.NodeIDHandler = (*linuxNodeHandler)(nil)
+	_ datapath.NodeNeighbors = (*linuxNodeHandler)(nil)
 )
 
 // NewNodeHandler returns a new node handler to handle node events and
