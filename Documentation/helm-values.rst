@@ -819,7 +819,7 @@
    * - envoy
      - Configure Cilium Envoy options.
      - object
-     - ``{"affinity":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}},"connectTimeoutSeconds":2,"dnsPolicy":null,"enabled":false,"extraArgs":[],"extraContainers":[],"extraEnv":[],"extraHostPathMounts":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":9878,"image":{"digest":"sha256:5d03695af25448768062fa42bffec7dbaa970f0d2b320d39e60b0a12f45027e8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.6-4350471813b173839df78f7a1ea5d77b5cdf714b","useDigest":true},"livenessProbe":{"failureThreshold":10,"periodSeconds":30},"log":{"format":"[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v","path":""},"maxConnectionDurationSeconds":0,"maxRequestsPerConnection":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"podSecurityContext":{},"priorityClassName":null,"prometheus":{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}},"readinessProbe":{"failureThreshold":3,"periodSeconds":30},"resources":{},"rollOutPods":false,"securityContext":{"capabilities":{"envoy":["NET_ADMIN","SYS_ADMIN"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}},"startupProbe":{"failureThreshold":105,"periodSeconds":2},"terminationGracePeriodSeconds":1,"tolerations":[{"operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}}``
+     - ``{"affinity":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}},"connectTimeoutSeconds":2,"dnsPolicy":null,"enabled":false,"extraArgs":[],"extraContainers":[],"extraEnv":[],"extraHostPathMounts":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":9878,"image":{"digest":"sha256:a848e02233da3beb48082659e4cd8f925b25df838f2e6af49b96def1dc4169da","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.6-807b8b0b1c57d0009f0667464b175d638b9e512a","useDigest":true},"livenessProbe":{"failureThreshold":10,"periodSeconds":30},"log":{"format":"[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v","path":""},"maxConnectionDurationSeconds":0,"maxRequestsPerConnection":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"podSecurityContext":{},"priorityClassName":null,"prometheus":{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}},"readinessProbe":{"failureThreshold":3,"periodSeconds":30},"resources":{},"rollOutPods":false,"securityContext":{"capabilities":{"envoy":["NET_ADMIN","SYS_ADMIN"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}},"startupProbe":{"failureThreshold":105,"periodSeconds":2},"terminationGracePeriodSeconds":1,"tolerations":[{"operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}}``
    * - envoy.affinity
      - Affinity for cilium-envoy.
      - object
@@ -859,7 +859,7 @@
    * - envoy.image
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:5d03695af25448768062fa42bffec7dbaa970f0d2b320d39e60b0a12f45027e8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.6-4350471813b173839df78f7a1ea5d77b5cdf714b","useDigest":true}``
+     - ``{"digest":"sha256:a848e02233da3beb48082659e4cd8f925b25df838f2e6af49b96def1dc4169da","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.6-807b8b0b1c57d0009f0667464b175d638b9e512a","useDigest":true}``
    * - envoy.livenessProbe.failureThreshold
      - failure threshold of liveness probe
      - int
@@ -1779,11 +1779,11 @@
    * - loadBalancer
      - Configure service load balancing
      - object
-     - ``{"l7":{"algorithm":"round_robin","backend":"disabled","ports":[]}}``
+     - ``{"l7":{"algorithm":"round_robin","backend":"disabled","ports":[],"secretsNamespace":{"create":true,"name":"cilium-secrets","sync":true}}}``
    * - loadBalancer.l7
      - L7 LoadBalancer
      - object
-     - ``{"algorithm":"round_robin","backend":"disabled","ports":[]}``
+     - ``{"algorithm":"round_robin","backend":"disabled","ports":[],"secretsNamespace":{"create":true,"name":"cilium-secrets","sync":true}}``
    * - loadBalancer.l7.algorithm
      - Default LB algorithm The default LB algorithm to be used for services, which can be overridden by the service annotation (e.g. service.cilium.io/lb-l7-algorithm) Applicable values: round_robin, least_request, random
      - string
@@ -1796,6 +1796,22 @@
      - List of ports from service to be automatically redirected to above backend. Any service exposing one of these ports will be automatically redirected. Fine-grained control can be achieved by using the service annotation.
      - list
      - ``[]``
+   * - loadBalancer.l7.secretsNamespace
+     - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
+     - object
+     - ``{"create":true,"name":"cilium-secrets","sync":true}``
+   * - loadBalancer.l7.secretsNamespace.create
+     - Create secrets namespace for Ingress.
+     - bool
+     - ``true``
+   * - loadBalancer.l7.secretsNamespace.name
+     - Name of L7 network policy secret namespace.
+     - string
+     - ``"cilium-secrets"``
+   * - loadBalancer.l7.secretsNamespace.sync
+     - Enable secret sync, which will make sure all TLS secrets used by network policies are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally.
+     - bool
+     - ``true``
    * - localRedirectPolicy
      - Enable Local Redirect Policy.
      - bool
