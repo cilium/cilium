@@ -17,6 +17,8 @@ type Datapath interface {
 
 	NodeIDs() NodeIDHandler
 
+	NodeNeighbors() NodeNeighbors
+
 	// LocalNodeAddressing must return the node addressing implementation
 	// of the local node
 	LocalNodeAddressing() types.NodeAddressing

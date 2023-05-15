@@ -53,6 +53,10 @@ func (l *linuxDatapath) NodeIDs() datapath.NodeIDHandler {
 	return l.node
 }
 
+func (l *linuxDatapath) NodeNeighbors() datapath.NodeNeighbors {
+	return l.node
+}
+
 // LocalNodeAddressing returns the node addressing implementation of the local
 // node
 func (l *linuxDatapath) LocalNodeAddressing() types.NodeAddressing {
