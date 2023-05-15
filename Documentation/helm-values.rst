@@ -63,11 +63,11 @@
    * - auth.mTLS.spire.install
      - Settings to control the SPIRE installation and configuration
      - object
-     - ``{"agent":{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true},"enabled":false,"namespace":"cilium-spire","server":{"annotations":{},"ca":{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}},"dataStorage":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null},"image":"ghcr.io/spiffe/spire-server:1.5.1@sha256:4851ec8c71a8fbe230d87be78dfed0e908800c2342cf192289c7885bb2f7a870","initContainers":[],"labels":{},"service":{"annotations":{},"labels":{},"type":"ClusterIP"},"serviceAccount":{"create":true,"name":"spire-server"}}}``
+     - ``{"agent":{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true},"enabled":false,"namespace":"cilium-spire","server":{"annotations":{},"ca":{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}},"dataStorage":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null},"image":"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f","initContainers":[],"labels":{},"service":{"annotations":{},"labels":{},"type":"ClusterIP"},"serviceAccount":{"create":true,"name":"spire-server"}}}``
    * - auth.mTLS.spire.install.agent
      - SPIRE agent configuration
      - object
-     - ``{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true}``
+     - ``{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true}``
    * - auth.mTLS.spire.install.agent.annotations
      - SPIRE agent annotations
      - object
@@ -75,7 +75,7 @@
    * - auth.mTLS.spire.install.agent.image
      - SPIRE agent image
      - string
-     - ``"ghcr.io/spiffe/spire-agent:1.5.1@sha256:40228af4d9a094f0fef2d7a303a3b6a689c4b4eba2fa9f7da5125b81d2d68ec8"``
+     - ``"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823"``
    * - auth.mTLS.spire.install.agent.labels
      - SPIRE agent labels
      - object
@@ -119,7 +119,7 @@
    * - auth.mTLS.spire.install.server.image
      - SPIRE server image
      - string
-     - ``"ghcr.io/spiffe/spire-server:1.5.1@sha256:4851ec8c71a8fbe230d87be78dfed0e908800c2342cf192289c7885bb2f7a870"``
+     - ``"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f"``
    * - auth.mTLS.spire.install.server.initContainers
      - SPIRE server init containers
      - list
