@@ -125,7 +125,9 @@ type NodeHandler interface {
 	// NodeConfigurationChanged is called when the local node configuration
 	// has changed
 	NodeConfigurationChanged(config LocalNodeConfiguration) error
+}
 
+type NodeNeighbors interface {
 	// NodeNeighDiscoveryEnabled returns whether node neighbor discovery is enabled
 	NodeNeighDiscoveryEnabled() bool
 
