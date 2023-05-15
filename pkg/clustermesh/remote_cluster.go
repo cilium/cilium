@@ -57,7 +57,6 @@ type remoteCluster struct {
 
 	// mutex protects the following variables
 	// - backend
-	// - ipCacheWatcher
 	// - remoteIdentityCache
 	mutex lock.RWMutex
 
@@ -114,9 +113,6 @@ func (rc *remoteCluster) getLogger() *logrus.Entry {
 // releaseOldConnection releases the etcd connection to a remote cluster
 func (rc *remoteCluster) releaseOldConnection() {
 	rc.mutex.Lock()
-	ipCacheWatcher := rc.ipCacheWatcher
-	rc.ipCacheWatcher = nil
-
 	remoteIdentityCache := rc.remoteIdentityCache
 	rc.remoteIdentityCache = nil
 
@@ -133,9 +129,6 @@ func (rc *remoteCluster) releaseOldConnection() {
 	// operations may time out if the connection was closed due to an error
 	// condition.
 	go func() {
-		if ipCacheWatcher != nil {
-			ipCacheWatcher.Close()
-		}
 		if remoteIdentityCache != nil {
 			remoteIdentityCache.Close()
 		}
@@ -208,19 +201,19 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					rc.remoteServices.Watch(ctx, backend, path.Join(serviceStore.ServiceStorePrefix, rc.name))
 				})
 
+				mgr.Register(ipcache.IPIdentitiesPath, func(ctx context.Context) {
+					rc.ipCacheWatcher.Watch(ctx, backend)
+				})
+
 				remoteIdentityCache, err := allocator.WatchRemoteIdentities(rc.name, backend)
 				if err != nil {
 					backend.Close(ctx)
 					return err
 				}
 
-				ipCacheWatcher := ipcache.NewIPIdentityWatcher(rc.mesh.conf.IPCache, backend)
-				go ipCacheWatcher.Watch(ctx)
-
 				rc.mutex.Lock()
 				rc.backend = backend
 				rc.config = config
-				rc.ipCacheWatcher = ipCacheWatcher
 				rc.remoteIdentityCache = remoteIdentityCache
 				rc.mesh.metricReadinessStatus.WithLabelValues(rc.mesh.conf.ClusterName, rc.mesh.nodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
 				rc.mutex.Unlock()
@@ -402,6 +395,7 @@ func (rc *remoteCluster) onRemove() {
 
 	rc.remoteNodes.Drain()
 	rc.remoteServices.Drain()
+	rc.ipCacheWatcher.Drain()
 
 	rc.getLogger().Info("Remote cluster disconnected")
 }
@@ -414,7 +408,7 @@ func (rc *remoteCluster) isReady() bool {
 }
 
 func (rc *remoteCluster) isReadyLocked() bool {
-	return rc.backend != nil && rc.ipCacheWatcher != nil
+	return rc.backend != nil
 }
 
 func (rc *remoteCluster) status() *models.RemoteCluster {

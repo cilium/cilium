@@ -296,6 +296,8 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.swg.Stop() }),
 	)
 
+	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(name, cm.conf.IPCache)
+
 	return rc
 }
 
