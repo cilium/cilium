@@ -1036,7 +1036,8 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
 					 const struct lb4_reverse_nat *nat,
-					 const struct ct_state *ct_state, bool has_l4_header)
+					 const struct ct_state *ct_state __maybe_unused,
+					 bool has_l4_header)
 {
 	struct csum_offset csum_off = {};
 	__be32 old_sip, new_sip, sum = 0;
@@ -1064,6 +1065,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		new_sip = nat->address;
 	}
 
+#ifndef DISABLE_LOOPBACK_LB
 	if (ct_state->loopback) {
 		/* The packet was looped back to the sending endpoint on the
 		 * forward service translation. This implies that the original
@@ -1088,6 +1090,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		/* Update the tuple address which is representing the destination address */
 		tuple->saddr = old_sip;
 	}
+#endif
 
 	ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, saddr),
 			      &new_sip, 4, 0);
