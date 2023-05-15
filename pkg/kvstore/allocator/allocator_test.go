@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"path"
+	"sync"
 	"testing"
 	"time"
 
@@ -593,6 +594,11 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	// remove any keys which might be leftover
 	a.DeleteAllKeys()
 
+	defer func() {
+		a.DeleteAllKeys()
+		a.Delete()
+	}()
+
 	// allocate all available IDs
 	for i := idpool.ID(1); i <= idpool.ID(4); i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
@@ -624,10 +630,26 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	// watch the prefix in the same kvstore via a 2nd watcher
 	backend2, err := NewKVStoreBackend(testName, "a", TestAllocatorKey(""), kvstore.Client())
 	c.Assert(err, IsNil)
-	a2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2, allocator.WithMax(idpool.ID(256)))
+	a2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2, allocator.WithMax(idpool.ID(256)),
+		allocator.WithoutAutostart(), allocator.WithoutGC())
 	c.Assert(err, IsNil)
-	rc := a.WatchRemoteKVStore("", a2)
+
+	rc := a.NewRemoteCache("remote", a2)
 	c.Assert(rc, Not(IsNil))
+
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+
+	defer func() {
+		cancel()
+		wg.Wait()
+	}()
+
+	wg.Add(1)
+	go func() {
+		rc.Watch(ctx)
+		wg.Done()
+	}()
 
 	// wait for remote cache to be populated
 	c.Assert(testutils.WaitUntil(func() bool {
@@ -651,9 +673,4 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	for i := range cache {
 		c.Assert(cache[i], Equals, 2)
 	}
-
-	rc.Close()
-
-	a.DeleteAllKeys()
-	a.Delete()
 }

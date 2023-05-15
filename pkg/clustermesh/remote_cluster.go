@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/internal"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -74,8 +75,6 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		return err
 	}
 
-	defer remoteIdentityCache.Close()
-
 	rc.mutex.Lock()
 	rc.config = config
 	rc.remoteIdentityCache = remoteIdentityCache
@@ -98,6 +97,10 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 
 	mgr.Register(ipcache.IPIdentitiesPath, func(ctx context.Context) {
 		rc.ipCacheWatcher.Watch(ctx, backend)
+	})
+
+	mgr.Register(identityCache.IdentitiesPath, func(ctx context.Context) {
+		rc.remoteIdentityCache.Watch(ctx)
 	})
 
 	mgr.Run(ctx)

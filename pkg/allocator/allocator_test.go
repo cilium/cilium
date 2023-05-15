@@ -6,10 +6,14 @@ package allocator
 import (
 	"context"
 	"fmt"
+	"sort"
+	"sync"
 	"testing"
 	"time"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -34,6 +38,8 @@ type dummyBackend struct {
 	mutex      lock.RWMutex
 	identities map[idpool.ID]AllocatorKey
 	handler    CacheMutations
+
+	disableListDone bool
 }
 
 func newDummyBackend() Backend {
@@ -156,11 +162,19 @@ func (d *dummyBackend) Release(ctx context.Context, id idpool.ID, key AllocatorK
 func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{}) {
 	d.mutex.Lock()
 	d.handler = handler
-	for id, k := range d.identities {
-		d.handler.OnModify(id, k)
+
+	// Sort by ID to ensure consistent ordering
+	ids := maps.Keys(d.identities)
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	for _, id := range ids {
+		d.handler.OnModify(id, d.identities[id])
 	}
 	d.mutex.Unlock()
-	d.handler.OnListDone()
+
+	if !d.disableListDone {
+		d.handler.OnListDone()
+	}
+
 	<-stopChan
 }
 
@@ -434,3 +448,107 @@ func (s *AllocatorSuite) TestAllocateCached(c *C) {
 //
 //	wg.Wait()
 //}
+
+func TestWatchRemoteKVStore(t *testing.T) {
+	var wg sync.WaitGroup
+
+	run := func(ctx context.Context, rc *RemoteCache) context.CancelFunc {
+		ctx, cancel := context.WithCancel(ctx)
+		wg.Add(1)
+		go func() {
+			rc.Watch(ctx)
+			wg.Done()
+		}()
+		return cancel
+	}
+
+	stop := func(cancel context.CancelFunc) {
+		cancel()
+		wg.Wait()
+	}
+
+	global := Allocator{remoteCaches: make(map[string]*RemoteCache)}
+	events := make(AllocatorEventChan, 10)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Ensure that the goroutines are properly collected also in case the test fails.
+	defer stop(cancel)
+
+	newRemoteAllocator := func(backend Backend) *Allocator {
+		remote, err := NewAllocator(TestAllocatorKey(""), backend, WithEvents(events), WithoutAutostart(), WithoutGC())
+		require.NoError(t, err)
+
+		return remote
+	}
+
+	// Add a new remote cache, and assert that it is registered correctly
+	// and the proper events are emitted
+	backend := newDummyBackend()
+	remote := newRemoteAllocator(backend)
+
+	backend.AllocateID(ctx, idpool.ID(1), TestAllocatorKey("foo"))
+	backend.AllocateID(ctx, idpool.ID(2), TestAllocatorKey("baz"))
+
+	rc := global.NewRemoteCache("remote", remote)
+	cancel = run(ctx, rc)
+
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeModify}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("baz"), Typ: kvstore.EventTypeModify}, <-events)
+
+	require.Eventually(t, func() bool {
+		global.remoteCachesMutex.RLock()
+		defer global.remoteCachesMutex.RUnlock()
+		return global.remoteCaches["remote"] == rc
+	}, 1*time.Second, 10*time.Millisecond)
+
+	stop(cancel)
+
+	// Add a new remote cache with the same name, and assert that it overrides
+	// the previous one, and the proper events are emitted (including deletions
+	// for all stale keys)
+	backend = newDummyBackend()
+	remote = newRemoteAllocator(backend)
+
+	backend.AllocateID(ctx, idpool.ID(1), TestAllocatorKey("qux"))
+	backend.AllocateID(ctx, idpool.ID(5), TestAllocatorKey("bar"))
+
+	rc = global.NewRemoteCache("remote", remote)
+	cancel = run(ctx, rc)
+
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeModify}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(5), Key: TestAllocatorKey("bar"), Typ: kvstore.EventTypeModify}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(2), Key: TestAllocatorKey("baz"), Typ: kvstore.EventTypeDelete}, <-events)
+
+	require.Eventually(t, func() bool {
+		global.remoteCachesMutex.RLock()
+		defer global.remoteCachesMutex.RUnlock()
+		return global.remoteCaches["remote"] == rc
+	}, 1*time.Second, 10*time.Millisecond)
+
+	stop(cancel)
+
+	// Add a new remote cache with the same name, but cancel the context before
+	// the ListDone event is received, and assert that it does not override the
+	// existing entry. A deletion event should also be emitted for any object
+	// detected as part of the initial list operation, which was not present in
+	// the existing cache.
+	backend = newDummyBackend()
+	backend.(*dummyBackend).disableListDone = true
+	remote = newRemoteAllocator(backend)
+	backend.AllocateID(ctx, idpool.ID(1), TestAllocatorKey("qux"))
+	backend.AllocateID(ctx, idpool.ID(7), TestAllocatorKey("foo"))
+
+	oc := global.NewRemoteCache("remote", remote)
+	cancel = run(ctx, oc)
+
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeModify}, <-events)
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeModify}, <-events)
+
+	stop(cancel)
+
+	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeDelete}, <-events)
+	require.Equal(t, rc, global.remoteCaches["remote"])
+
+	require.Len(t, events, 0)
+}
