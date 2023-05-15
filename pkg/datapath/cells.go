@@ -40,8 +40,8 @@ var Cell = cell.Module(
 		newDatapath,
 	),
 
-	cell.Provide(func(dp types.Datapath) ipcache.NodeHandler {
-		return dp.Node()
+	cell.Provide(func(dp types.Datapath) ipcache.NodeIDHandler {
+		return dp.NodeIDs()
 	}),
 )
 
@@ -96,7 +96,7 @@ func newDatapath(params datapathParams) types.Datapath {
 
 	params.LC.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
-			datapath.Node().RestoreNodeIDs()
+			datapath.NodeIDs().RestoreNodeIDs()
 			return nil
 		},
 	})

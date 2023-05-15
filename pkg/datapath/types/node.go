@@ -135,7 +135,9 @@ type NodeHandler interface {
 	// NodeCleanNeighbors cleans all neighbor entries for the direct routing device
 	// and the encrypt interface.
 	NodeCleanNeighbors(migrateOnly bool)
+}
 
+type NodeIDHandler interface {
 	// AllocateNodeID allocates a new ID for the given node (by IP) if one wasn't
 	// already assigned.
 	AllocateNodeID(net.IP) uint16

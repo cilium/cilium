@@ -402,7 +402,7 @@ func setupTest(t *testing.T) (cleanup func()) {
 		IdentityAllocator: allocator,
 		PolicyHandler:     &mockUpdater{},
 		DatapathHandler:   &mockTriggerer{},
-		NodeHandler:       &mockNodeHandler{},
+		NodeIDHandler:     &mockNodeIDHandler{},
 	})
 
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "kube-uid", labels.LabelKubeAPIServer)
