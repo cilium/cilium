@@ -220,7 +220,9 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 				ct_state->backend_id = entry->backend_id;
 				ct_state->syn = syn;
 			} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
+#ifndef DISABLE_LOOPBACK_LB
 				ct_state->loopback = entry->lb_loopback;
+#endif
 				ct_state->node_port = entry->node_port;
 				ct_state->dsr = entry->dsr;
 				ct_state->proxy_redirect = entry->proxy_redirect;
@@ -924,7 +926,9 @@ static __always_inline int ct_create4(const void *map_main,
 	if (dir == CT_SERVICE) {
 		entry.backend_id = ct_state->backend_id;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
+#ifndef DISABLE_LOOPBACK_LB
 		entry.lb_loopback = ct_state->loopback;
+#endif
 		entry.node_port = ct_state->node_port;
 		entry.dsr = ct_state->dsr;
 		entry.from_tunnel = ct_state->from_tunnel;
@@ -957,6 +961,7 @@ static __always_inline int ct_create4(const void *map_main,
 	if (unlikely(err < 0))
 		goto err_ct_fill_up;
 
+#ifndef DISABLE_LOOPBACK_LB
 	if (ct_state->addr && ct_state->loopback) {
 		__u8 flags = tuple->flags;
 		__be32 saddr, daddr;
@@ -986,6 +991,7 @@ static __always_inline int ct_create4(const void *map_main,
 		tuple->daddr = daddr;
 		tuple->flags = flags;
 	}
+#endif
 
 	if (map_related != NULL) {
 		/* Create an ICMP entry to relate errors */
