@@ -13,7 +13,7 @@ import (
 )
 
 type fakeDatapath struct {
-	node           datapath.NodeHandler
+	node           *fakeNodeHandler
 	nodeAddressing types.NodeAddressing
 	loader         datapath.Loader
 }
@@ -29,6 +29,10 @@ func NewDatapath() datapath.Datapath {
 
 // Node returns a fake handler for node events
 func (f *fakeDatapath) Node() datapath.NodeHandler {
+	return f.node
+}
+
+func (f *fakeDatapath) NodeIDs() datapath.NodeIDHandler {
 	return f.node
 }
 
