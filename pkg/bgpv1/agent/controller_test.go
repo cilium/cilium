@@ -47,6 +47,10 @@ func (f *fakeNodeSpecer) Annotations() (map[string]string, error) {
 	return f.Annotations_()
 }
 
+func (f *fakeNodeSpecer) CurrentNodeName() (string, error) {
+	return nodeName, nil
+}
+
 // TestControllerSanity ensures that the controller calls the correct methods,
 // with the correct arguments, during its Reconcile loop.
 func TestControllerSanity(t *testing.T) {
