@@ -954,7 +954,7 @@ static __always_inline int ct_create4(const void *map_main,
 	}
 
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
-		    ct_state->src_sec_id, ct_state->addr);
+		    ct_state->src_sec_id, 0);
 
 	entry.src_sec_id = ct_state->src_sec_id;
 	err = map_update_elem(map_main, tuple, &entry, 0);
