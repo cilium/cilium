@@ -59,6 +59,20 @@ func TestUnique(t *testing.T) {
 	}
 }
 
+func TestUniqueFunc(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := UniqueFunc(
+				tc.input,
+				func(i int) int {
+					return tc.input[i]
+				},
+			)
+			assert.ElementsMatch(t, tc.expected, got)
+		})
+	}
+}
+
 func TestSortedUnique(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -143,6 +157,14 @@ func TestUniqueKeepOrdering(t *testing.T) {
 // The relevant differences between the two approaches in terms of memory are shown in the previous
 // two columns.
 func BenchmarkUnique(b *testing.B) {
+	benchmarkUnique(b, false)
+}
+
+func BenchmarkUniqueFunc(b *testing.B) {
+	benchmarkUnique(b, true)
+}
+
+func benchmarkUnique(b *testing.B, benchUniqueFunc bool) {
 	var benchCases = [...]int{96, 128, 160, 192, 256, 512, 1024}
 
 	r := rand.New(rand.NewSource(time.Now().Unix()))
@@ -162,6 +184,11 @@ func BenchmarkUnique(b *testing.B) {
 				orig = append(orig, next)
 			}
 			values := make([]int, len(orig))
+
+			key := func(i int) int {
+				return values[i]
+			}
+
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
@@ -171,9 +198,13 @@ func BenchmarkUnique(b *testing.B) {
 				rand.Shuffle(len(orig), func(i, j int) {
 					orig[i], orig[j] = orig[j], orig[i]
 				})
-				b.StartTimer()
-
-				Unique(values)
+				if benchUniqueFunc {
+					b.StartTimer()
+					UniqueFunc(values, key)
+				} else {
+					b.StartTimer()
+					Unique(values)
+				}
 			}
 		})
 	}

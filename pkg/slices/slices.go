@@ -49,6 +49,29 @@ func Unique[S ~[]T, T comparable](s S) S {
 	return s[:last]
 }
 
+// UniqueFunc deduplicates the elements in the input slice like Unique, but takes a
+// function to extract the comparable "key" to compare T. This is slower than Unique,
+// but can be used with non-comparable elements.
+func UniqueFunc[S ~[]T, T any, K comparable](s S, key func(i int) K) S {
+	if len(s) < 2 {
+		return s
+	}
+
+	last := 0
+
+	set := make(map[K]struct{}, len(s))
+	for i := 0; i < len(s); i++ {
+		if _, ok := set[key(i)]; ok {
+			continue
+		}
+		set[key(i)] = struct{}{}
+		s[last] = s[i]
+		last++
+	}
+
+	return s[:last]
+}
+
 // SortedUnique sorts and dedup the input slice in place.
 // It uses the < operator to compare the elements in the slice and thus requires
 // the elements to satisfies contraints.Ordered.
