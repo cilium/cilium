@@ -626,6 +626,18 @@ func (k *K8sInstaller) listVersions() error {
 	return err
 }
 
+func getChainingMode(values map[string]interface{}) string {
+	cni, ok := values["cni"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	chainingMode, ok := cni["chainingMode"].(string)
+	if !ok {
+		return ""
+	}
+	return chainingMode
+}
+
 func (k *K8sInstaller) preinstall(ctx context.Context) error {
 	if err := k.autodetectAndValidate(ctx); err != nil {
 		return err
@@ -658,7 +670,26 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 				return err
 			}
 		}
+	case k8s.KindEKS:
+		helmValues, err := k.params.HelmOpts.MergeValues(getter.All(cli.New()))
+		if err != nil {
+			return err
+		}
+		chainingMode := getChainingMode(helmValues)
+
+		// Do not stop AWS DS if we are running in chaining mode
+		if chainingMode != "aws-cni" {
+			if _, err := k.client.GetDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, metav1.GetOptions{}); err == nil {
+				k.Log("🔥 Patching the %q DaemonSet to evict its pods...", AwsNodeDaemonSetName)
+				patch := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"nodeSelector":{"%s":"%s"}}}}}`, AwsNodeDaemonSetNodeSelectorKey, AwsNodeDaemonSetNodeSelectorValue))
+				if _, err := k.client.PatchDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
+					k.Log("❌ Unable to patch the %q DaemonSet", AwsNodeDaemonSetName)
+					return err
+				}
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -699,23 +730,6 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 
 	switch k.flavor.Kind {
-	case k8s.KindEKS:
-		cm, err := k.generateConfigMap()
-		if err != nil {
-			return err
-		}
-		// Do not stop AWS DS if we are running in chaining mode
-		if cm.Data["cni-chaining-mode"] != "aws-cni" {
-			if _, err := k.client.GetDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, metav1.GetOptions{}); err == nil {
-				k.Log("🔥 Patching the %q DaemonSet to evict its pods...", AwsNodeDaemonSetName)
-				patch := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"nodeSelector":{"%s":"%s"}}}}}`, AwsNodeDaemonSetNodeSelectorKey, AwsNodeDaemonSetNodeSelectorValue))
-				if _, err := k.client.PatchDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
-					k.Log("❌ Unable to patch the %q DaemonSet", AwsNodeDaemonSetName)
-					return err
-				}
-			}
-		}
-
 	case k8s.KindAKS:
 		// We only made the secret-based azure installation available in >= 1.12.0
 		// Introduced in https://github.com/cilium/cilium/pull/18010
