@@ -372,6 +372,9 @@ const (
 	// with TunnelPeer
 	ConflictingTunnelPeer = "conflictingTunnelPeer"
 
+	// Type is the address type
+	Type = "type"
+
 	// Selector is a selector of any sort: endpoint, CIDR, toFQDNs
 	Selector = "Selector"
 

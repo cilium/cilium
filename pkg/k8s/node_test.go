@@ -87,6 +87,91 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.254.0.0/16")
 	c.Assert(n.IPv6AllocCIDR, NotNil)
 	c.Assert(n.IPv6AllocCIDR.String(), Equals, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112")
+
+	// No IPv4/IPv6 annotations but PodCIDRs with IPv4/IPv6
+	k8sNode = &slim_corev1.Node{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name: "node2",
+			Annotations: map[string]string{
+				annotation.V4CIDRName: "10.254.0.0/16",
+			},
+		},
+		Spec: slim_corev1.NodeSpec{
+			PodCIDR:  "10.1.0.0/16",
+			PodCIDRs: []string{"10.1.0.0/16", "f00d:aaaa:bbbb:cccc:dddd:eeee::/112"},
+		},
+	}
+
+	n = ParseNode(k8sNode, source.Local)
+	c.Assert(n.Name, Equals, "node2")
+	c.Assert(n.IPv4AllocCIDR, NotNil)
+	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
+	c.Assert(n.IPv6AllocCIDR, NotNil)
+	c.Assert(n.IPv6AllocCIDR.String(), Equals, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112")
+
+	// Node with multiple status addresses of the same type and family
+	expected := []string{"1.2.3.4", "f00d:aaaa:bbbb:cccc:dddd:eeee:0:1", "4.3.2.1", "f00d:aaaa:bbbb:cccc:dddd:eeef:0:1"}
+	notExpected := []string{"5.6.7.8", "f00d:aaaa:bbbb:cccc:dddd:aaaa::1", "8.7.6.5", "f00d:aaaa:bbbb:cccc:dddd:aaab::1"}
+	k8sNode = &slim_corev1.Node{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:        "node2",
+			Annotations: map[string]string{},
+		},
+		Spec: slim_corev1.NodeSpec{
+			PodCIDR: "10.1.0.0/16",
+		},
+		Status: slim_corev1.NodeStatus{
+			Addresses: []slim_corev1.NodeAddress{
+				{
+					Type:    slim_corev1.NodeInternalIP,
+					Address: expected[0],
+				},
+				{
+					Type:    slim_corev1.NodeInternalIP,
+					Address: notExpected[0],
+				},
+				{
+					Type:    slim_corev1.NodeInternalIP,
+					Address: expected[1],
+				},
+				{
+					Type:    slim_corev1.NodeInternalIP,
+					Address: notExpected[1],
+				},
+				{
+					Type:    slim_corev1.NodeExternalIP,
+					Address: expected[2],
+				},
+				{
+					Type:    slim_corev1.NodeExternalIP,
+					Address: notExpected[2],
+				},
+				{
+					Type:    slim_corev1.NodeExternalIP,
+					Address: expected[3],
+				},
+				{
+					Type:    slim_corev1.NodeExternalIP,
+					Address: notExpected[3],
+				},
+			},
+		},
+	}
+
+	n = ParseNode(k8sNode, source.Local)
+	c.Assert(n.Name, Equals, "node2")
+	c.Assert(n.IPv4AllocCIDR, NotNil)
+	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
+	c.Assert(len(n.IPAddresses), Equals, len(expected))
+	addrsFound := 0
+	for _, addr := range n.IPAddresses {
+		for _, expect := range expected {
+			if addr.IP.String() == expect {
+				addrsFound++
+			}
+		}
+	}
+	c.Assert(addrsFound, Equals, len(expected))
 }
 
 func (s *K8sSuite) TestParseNodeWithoutAnnotations(c *C) {
