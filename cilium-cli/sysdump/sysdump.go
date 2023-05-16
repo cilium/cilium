@@ -20,7 +20,6 @@ import (
 	"github.com/mholt/archiver/v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -640,33 +639,18 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
-			Description: "Collecting Cilium etcd secret",
+			Description: fmt.Sprintf("Checking if %s exists in %s namespace", ciliumEtcdSecretsSecretName, c.Options.CiliumNamespace),
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetSecret(ctx, c.Options.CiliumNamespace, ciliumEtcdSecretsSecretName, metav1.GetOptions{})
+				_, err := c.Client.GetSecret(ctx, c.Options.CiliumNamespace, ciliumEtcdSecretsSecretName, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
-						c.logDebug("Secret %q not found in namespace %q - this is expected when using the CRD KVStore", ciliumEtcdSecretsSecretName, c.Options.CiliumNamespace)
+						c.log("Secret %q not found in namespace %q - this is expected when using the CRD KVStore", ciliumEtcdSecretsSecretName, c.Options.CiliumNamespace)
 						return nil
 					}
 					return fmt.Errorf("failed to collect Cilium etcd secret: %w", err)
 				}
-				// Redact the actual values.
-				for k := range v.Data {
-					v.Data[k] = []byte(redacted)
-				}
-				accessor, err := meta.Accessor(v)
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium etcd secret: %w", err)
-				}
-				var annotations = accessor.GetAnnotations()
-				if annotations != nil {
-					delete(annotations, corev1.LastAppliedConfigAnnotation)
-					accessor.SetAnnotations(annotations)
-				}
-				if err := c.WriteYAML(ciliumEtcdSecretFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium etcd secret: %w", err)
-				}
+				c.log("Secret %q found in namespace %q", ciliumEtcdSecretsSecretName, c.Options.CiliumNamespace)
 				return nil
 			},
 		},
