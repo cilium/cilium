@@ -86,13 +86,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 */
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
-
-		/* Maybe overwrite the REMOTE_NODE_ID with
-		 * KUBE_APISERVER_NODE_ID to support upgrade. After v1.12,
-		 * this should be removed.
-		 */
-		if (info && identity_is_remote_node(*identity))
-			*identity = info->sec_identity;
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -340,14 +333,11 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 
 			vkey.vtep_ip = ip4->saddr & VTEP_MASK;
 			vtep = map_lookup_elem(&VTEP_MAP, &vkey);
-			if (!vtep)
-				goto skip_vtep;
-			if (vtep->tunnel_endpoint) {
+			if (vtep && vtep->tunnel_endpoint) {
 				if (*identity != WORLD_ID)
 					return DROP_INVALID_VNI;
 			}
 		}
-skip_vtep:
 #endif
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
@@ -370,9 +360,6 @@ skip_vtep:
 			}
 		}
 #endif
-		/* See comment at equivalent code in handle_ipv6() */
-		if (info && identity_is_remote_node(*identity))
-			*identity = info->sec_identity;
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
