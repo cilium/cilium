@@ -23,7 +23,17 @@ cilium hubble enable
 cilium status --wait
 
 # Enable cluster mesh
-cilium clustermesh enable
+if [ "$CILIUM_CLI_MODE" = "helm" ]; then
+  # Explicitly specify LoadBalancer service type since the default type is NodePort in helm mode.
+  # Ref: https://github.com/cilium/cilium-cli/pull/1527#discussion_r1177244379
+  #
+  # In Helm mode, externalWorkloads.enabled is set to false by default. You need to pass
+  # --enable-external-workloads flag to enable it.
+  # Ref: https://github.com/cilium/cilium/pull/25259
+  cilium clustermesh enable --service-type LoadBalancer --enable-external-workloads
+else
+  cilium clustermesh enable
+fi
 
 # Wait for cluster mesh status to be ready
 cilium clustermesh status --wait
