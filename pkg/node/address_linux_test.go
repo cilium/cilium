@@ -20,7 +20,7 @@ type NodePrivilegedSuite struct{}
 var _ = Suite(&NodePrivilegedSuite{})
 
 func (s *NodePrivilegedSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (s *NodePrivilegedSuite) Test_firstGlobalV4Addr(c *C) {

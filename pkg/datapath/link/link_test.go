@@ -17,7 +17,7 @@ type LinkSuite struct{}
 var _ = Suite(&LinkSuite{})
 
 func (s *LinkSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func Test(t *testing.T) {

@@ -19,7 +19,7 @@ type MountInfoPrivilegedTestSuite struct{}
 var _ = Suite(&MountInfoPrivilegedTestSuite{})
 
 func (s *MountInfoPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 // TestIsMountFSbyMount tests the public function IsMountFS by performing

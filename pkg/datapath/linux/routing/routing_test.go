@@ -31,7 +31,7 @@ type LinuxRoutingSuite struct{}
 var _ = Suite(&LinuxRoutingSuite{})
 
 func (s *LinuxRoutingSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (e *LinuxRoutingSuite) TestConfigure(c *C) {

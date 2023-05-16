@@ -22,7 +22,7 @@ type EncryptStatusSuite struct {
 var _ = Suite(&EncryptStatusSuite{})
 
 func (s *EncryptStatusSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	var err error
 	s.currentNetNS, err = netns.Get()

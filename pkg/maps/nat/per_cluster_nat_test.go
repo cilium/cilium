@@ -29,7 +29,7 @@ func Test(t *testing.T) {
 }
 
 func (k *PerClusterNATMapPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()

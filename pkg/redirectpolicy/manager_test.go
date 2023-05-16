@@ -31,7 +31,7 @@ type ManagerSuite struct {
 var _ = Suite(&ManagerSuite{})
 
 func (s *ManagerSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 type fakeSvcManager struct {

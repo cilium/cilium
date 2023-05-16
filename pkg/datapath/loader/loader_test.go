@@ -53,7 +53,7 @@ func Test(t *testing.T) {
 }
 
 func (s *LoaderTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	tmpDir, err := os.MkdirTemp("/tmp/", "cilium_")
 	if err != nil {

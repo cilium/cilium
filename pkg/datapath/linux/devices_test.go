@@ -39,7 +39,7 @@ type DevicesSuite struct {
 var _ = Suite(&DevicesSuite{})
 
 func (s *DevicesSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	var err error
 
