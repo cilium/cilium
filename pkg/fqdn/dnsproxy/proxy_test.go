@@ -61,7 +61,7 @@ type DNSProxyTestSuite struct {
 }
 
 func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (s *DNSProxyTestSuite) GetPolicyRepository() *policy.Repository {

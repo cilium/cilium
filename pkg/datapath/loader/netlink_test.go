@@ -24,7 +24,7 @@ type NetlinkTestSuite struct {
 var _ = Suite(&NetlinkTestSuite{})
 
 func (s *NetlinkTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	s.prevConfigEnableIPv4 = option.Config.EnableIPv4
 	s.prevConfigEnableIPv6 = option.Config.EnableIPv6

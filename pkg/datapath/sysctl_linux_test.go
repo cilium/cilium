@@ -16,7 +16,7 @@ type DaemonPrivilegedSuite struct{}
 var _ = Suite(&DaemonPrivilegedSuite{})
 
 func (s *DaemonPrivilegedSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (s *DaemonPrivilegedSuite) TestEnableIPForwarding(c *C) {

@@ -16,7 +16,7 @@ type ModulesPrivilegedTestSuite struct{}
 var _ = Suite(&ModulesPrivilegedTestSuite{})
 
 func (s *ModulesPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (s *ModulesPrivilegedTestSuite) TestFindOrLoadModules(c *C) {

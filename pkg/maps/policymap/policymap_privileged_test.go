@@ -28,7 +28,7 @@ type PolicyMapPrivilegedTestSuite struct {
 var _ = Suite(&PolicyMapPrivilegedTestSuite{})
 
 func (pm *PolicyMapPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	bpf.CheckOrMountFS("")
 

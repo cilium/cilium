@@ -10,7 +10,7 @@ import (
 )
 
 func (m *MTUSuite) TestAutoDetect(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	mtu, err := autoDetect()
 	c.Assert(err, IsNil)

@@ -30,7 +30,7 @@ type MaglevSuite struct {
 var _ = Suite(&MaglevSuite{})
 
 func (s *MaglevSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	vsn, err := version.GetKernelVersion()
 	c.Assert(err, IsNil)

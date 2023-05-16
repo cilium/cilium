@@ -21,7 +21,7 @@ type RouteSuitePrivileged struct{}
 var _ = Suite(&RouteSuitePrivileged{})
 
 func (s *RouteSuitePrivileged) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func testReplaceNexthopRoute(c *C, link netlink.Link, routerNet *net.IPNet) {
