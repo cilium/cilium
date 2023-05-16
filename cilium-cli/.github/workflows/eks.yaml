@@ -26,7 +26,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
   cilium_version: v1.13.2
   kubectl_version: v1.23.6
@@ -36,7 +35,14 @@ jobs:
     if: ${{ github.repository == 'cilium/cilium-cli' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
+    strategy:
+      matrix:
+        mode: ["classic", "helm"]
     steps:
+      - name: Set cluster name
+        run: |
+          echo "clusterName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ matrix.mode }}" >> $GITHUB_ENV
+
       - name: Checkout
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
@@ -133,7 +139,8 @@ jobs:
             --generate-name \
             --set tag=${{ steps.vars.outputs.sha }} \
             --set cilium_version=${{ env.cilium_version }} \
-            --set cluster_name=${{ env.clusterName }}
+            --set cluster_name=${{ env.clusterName }} \
+            --set cilium_cli_mode=${{ matrix.mode }}
 
       - name: Wait for job
         env:
