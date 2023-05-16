@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.12.10
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* sysdump: Added Kubernetes CNI logs to sysdump. (Backport PR #25348, Upstream PR #23937, @marseel)
+* Update CNI (loopback) to 1.3.0 (Backport PR #25433, Upstream PR #25400, @anfernee)
+
+**Bugfixes:**
+* Address cilium-agent startup performance regression. (Backport PR #25190, Upstream PR #25007, @bimmlerd)
+* datapath: Fix double SNAT (Backport PR #25248, Upstream PR #25189, @brb)
+* DNS proxy now always updates the proxy policy to avoid intermittent policy drops. (Backport PR #25348, Upstream PR #25147, @jrajahalme)
+* Filter ipv6 advertisements when using metallb as BGP speaker. (Backport PR #25138, Upstream PR #25043, @harsimran-pabla)
+* Fix bug where Cilium configurations running with tunneling disabled, BPF-masq disabled, but with masquerading enabled, do not clean up ipset configuration when a node IP changes. This can lead to a lack of masquerading on those node IPs. (Backport PR #25012, Upstream PR #24825, @christarazi)
+* Fix connectivity issue if nodes share the same name across the clustermesh and wireguard is enabled (Backport PR #25012, Upstream PR #24785, @giorio94)
+* Fix data race affecting the preferred mark in backends, e.g. backends selected by service with affinity set to local. In very rare cases a backend might be missing its preferred status and a non-local backend might be selected. (Backport PR #25348, Upstream PR #25087, @joamaki)
+* Fix incorrect network policy ebpf setup that may lead to incorrect packets denies when CEP is present in multiple CES (Backport PR #25188, Upstream PR #24838, @alan-kut)
+* Fix spurious errors containing "Failed to map node IP address to allocated ID". (Backport PR #25348, Upstream PR #25222, @bimmlerd)
+* ipsec: Fix packet mark for FWD XFRM policy (Backport PR #25348, Upstream PR #23254, @pchaigno)
+* pkg/kvstore: Fix for deadlock in etcd status checker (Backport PR #25012, Upstream PR #24786, @hemanthmalla)
+
+**CI Changes:**
+* ci: remove `STATUS` commands from upstream tests' Jenkinsfile (Backport PR #25138, Upstream PR #25046, @nbusseneau)
+* ci: remove `STATUS` commands from upstream tests' Jenkinsfile (Backport PR #25248, Upstream PR #25046, @nbusseneau)
+* Delete "Cilium monitor verbose mode" test (Backport PR #25348, Upstream PR #25212, @michi-covalent)
+* inctimer: fix test flake where timer does not fire within time. (Backport PR #25248, Upstream PR #25219, @tommyp1ckles)
+
+**Misc Changes:**
+* chore(deps): update hubble cli to v0.11.5 (v1.12) (patch) (#25126, @renovate[bot])
+* daemon: Mark CES feature as beta in agent flag (Backport PR #25012, Upstream PR #24850, @pchaigno)
+* docs: Add matrix version between envoy and cilium (Backport PR #25248, Upstream PR #25109, @sayboras)
+* docs: Add platform support to docs (Backport PR #25248, Upstream PR #25174, @joestringer)
+* docs: small fixes for k8s upgrade guide (Backport PR #25012, Upstream PR #24869, @tklauser)
+* envoy: Debug log remote IDs for Envoy policies (Backport PR #25012, Upstream PR #24939, @jrajahalme)
+* helm: add clustermesh nodeport config warning about known bug #24692 (Backport PR #25248, Upstream PR #25033, @giorio94)
+* ipsec: Install default-drop XFRM policy sooner (Backport PR #25348, Upstream PR #25257, @pchaigno)
+* Makefile: use a specific template for mktemp files (Backport PR #25248, Upstream PR #25192, @kaworu)
+* node/manager: Only remove old IPs if they weren't already added (Backport PR #25012, Upstream PR #25067, @christarazi)
+* pkg/service: Backends leak follow ups with revised fixes, debugging improvements and unit tests (Backport PR #25248, Upstream PR #24770, @aditighag)
+
+**Other Changes:**
+* [v1.12] contrib/backporting: Fix main branch reference (#25092, @joestringer)
+* contrib/backporting: Fix main branch reference (#25140, @sayboras)
+* envoy: Upgrade to v1.23.9 (#25209, @sayboras)
+* install: Update image digests for v1.12.9 (#24953, @gentoo-root)
+* v1.12: docs: Document upgrade impact for IPsec (#24972, @pchaigno)
+
 ## v1.12.9
 
 Summary of Changes
