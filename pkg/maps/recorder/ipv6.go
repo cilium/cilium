@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -108,9 +109,9 @@ func CaptureMap6() *Map {
 		captureMap6 = &Map{
 			Map: *bpf.NewMap(
 				MapNameWcard6,
-				bpf.MapTypeHash,
-				&CaptureWcard6{}, int(unsafe.Sizeof(CaptureWcard6{})),
-				&CaptureRule6{}, int(unsafe.Sizeof(CaptureRule6{})),
+				ebpf.Hash,
+				&CaptureWcard6{},
+				&CaptureRule6{},
 				MapSize,
 				bpf.BPF_F_NO_PREALLOC,
 				bpf.ConvertKeyValue,

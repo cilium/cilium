@@ -10,33 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 )
 
-// MapType is an enumeration for valid BPF map types
-type MapType int
-
-// This enumeration must be in sync with enum bpf_map_type in <linux/bpf.h>
 const (
-	MapTypeUnspec MapType = iota
-	MapTypeHash
-	MapTypeArray
-	MapTypeProgArray
-	MapTypePerfEventArray
-	MapTypePerCPUHash
-	MapTypePerCPUArray
-	MapTypeStackTrace
-	MapTypeCgroupArray
-	MapTypeLRUHash
-	MapTypeLRUPerCPUHash
-	MapTypeLPMTrie
-	MapTypeArrayOfMaps
-	MapTypeHashOfMaps
-	MapTypeDevMap
-	MapTypeSockMap
-	MapTypeCPUMap
-	MapTypeXSKMap
-	MapTypeSockHash
-	// MapTypeMaximum is the maximum supported known map type.
-	MapTypeMaximum
-
 	// maxSyncErrors is the maximum consecutive errors syncing before the
 	// controller bails out
 	maxSyncErrors = 512
@@ -55,59 +29,6 @@ const (
 var (
 	mapControllers = controller.NewManager()
 )
-
-func (t MapType) String() string {
-	switch t {
-	case MapTypeHash:
-		return "Hash"
-	case MapTypeArray:
-		return "Array"
-	case MapTypeProgArray:
-		return "Program array"
-	case MapTypePerfEventArray:
-		return "Event array"
-	case MapTypePerCPUHash:
-		return "Per-CPU hash"
-	case MapTypePerCPUArray:
-		return "Per-CPU array"
-	case MapTypeStackTrace:
-		return "Stack trace"
-	case MapTypeCgroupArray:
-		return "Cgroup array"
-	case MapTypeLRUHash:
-		return "LRU hash"
-	case MapTypeLRUPerCPUHash:
-		return "LRU per-CPU hash"
-	case MapTypeLPMTrie:
-		return "Longest prefix match trie"
-	case MapTypeArrayOfMaps:
-		return "Array of maps"
-	case MapTypeHashOfMaps:
-		return "Hash of maps"
-	case MapTypeDevMap:
-		return "Device Map"
-	case MapTypeSockMap:
-		return "Socket Map"
-	case MapTypeCPUMap:
-		return "CPU Redirect Map"
-	case MapTypeSockHash:
-		return "Socket Hash"
-	}
-
-	return "Unknown"
-}
-
-func (t MapType) allowsPreallocation() bool {
-	return t != MapTypeLPMTrie
-}
-
-func (t MapType) requiresPreallocation() bool {
-	switch t {
-	case MapTypeHash, MapTypePerCPUHash, MapTypeLPMTrie, MapTypeHashOfMaps:
-		return false
-	}
-	return true
-}
 
 // DesiredAction is the action to be performed on the BPF map
 type DesiredAction uint8

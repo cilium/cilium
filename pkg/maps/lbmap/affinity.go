@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -33,11 +35,9 @@ func initAffinity(params InitParams) {
 
 	AffinityMatchMap = bpf.NewMap(
 		AffinityMatchMapName,
-		bpf.MapTypeHash,
+		ebpf.Hash,
 		&AffinityMatchKey{},
-		int(unsafe.Sizeof(AffinityMatchKey{})),
 		&AffinityMatchValue{},
-		int(unsafe.Sizeof(AffinityMatchValue{})),
 		AffinityMapMaxEntries,
 		0,
 		bpf.ConvertKeyValue,
@@ -47,11 +47,9 @@ func initAffinity(params InitParams) {
 	if params.IPv4 {
 		Affinity4Map = bpf.NewMap(
 			Affinity4MapName,
-			bpf.MapTypeLRUHash,
+			ebpf.LRUHash,
 			&Affinity4Key{},
-			int(unsafe.Sizeof(Affinity4Key{})),
 			&AffinityValue{},
-			int(unsafe.Sizeof(AffinityValue{})),
 			AffinityMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
@@ -61,11 +59,9 @@ func initAffinity(params InitParams) {
 	if params.IPv6 {
 		Affinity6Map = bpf.NewMap(
 			Affinity6MapName,
-			bpf.MapTypeLRUHash,
+			ebpf.LRUHash,
 			&Affinity6Key{},
-			int(unsafe.Sizeof(Affinity6Key{})),
 			&AffinityValue{},
-			int(unsafe.Sizeof(AffinityValue{})),
 			AffinityMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,

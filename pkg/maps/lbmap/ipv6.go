@@ -8,6 +8,8 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -505,11 +507,9 @@ func (k SockRevNat6Key) NewValue() bpf.MapValue { return &SockRevNat6Value{} }
 // CreateSockRevNat6Map creates the reverse NAT sock map.
 func CreateSockRevNat6Map() error {
 	sockRevNat6Map := bpf.NewMap(SockRevNat6MapName,
-		bpf.MapTypeLRUHash,
+		ebpf.LRUHash,
 		&SockRevNat6Key{},
-		int(unsafe.Sizeof(SockRevNat6Key{})),
 		&SockRevNat6Value{},
-		int(unsafe.Sizeof(SockRevNat6Value{})),
 		MaxSockRevNat6MapEntries,
 		0,
 		bpf.ConvertKeyValue,

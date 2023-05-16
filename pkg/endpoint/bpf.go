@@ -1079,7 +1079,7 @@ func (e *Endpoint) updatePolicyMapPressureMetric() {
 		return
 	}
 
-	value := float64(len(e.realizedPolicy.PolicyMapState)) / float64(e.policyMap.MapInfo.MaxEntries)
+	value := float64(len(e.realizedPolicy.PolicyMapState)) / float64(e.policyMap.MaxEntries())
 	e.policyMapPressureGauge.Set(value)
 }
 

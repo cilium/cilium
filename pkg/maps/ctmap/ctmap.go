@@ -16,6 +16,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -318,11 +320,9 @@ func (m *Map) DumpEntries() (string, error) {
 func newMap(mapName string, m mapType) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
-			bpf.MapTypeLRUHash,
+			ebpf.LRUHash,
 			mapInfo[m].mapKey,
-			mapInfo[m].keySize,
 			mapInfo[m].mapValue,
-			mapInfo[m].valueSize,
 			mapInfo[m].maxEntries,
 			0,
 			mapInfo[m].parser,
@@ -719,7 +719,7 @@ func DeleteIfUpgradeNeeded(e CtEndpoint) {
 		}
 		defer oldMap.Close()
 
-		if oldMap.CheckAndUpgrade(&newMap.Map.MapInfo) {
+		if oldMap.CheckAndUpgrade(&newMap.Map) {
 			scopedLog.Warning("CT Map upgraded, expect brief disruption of ongoing connections")
 		}
 	}

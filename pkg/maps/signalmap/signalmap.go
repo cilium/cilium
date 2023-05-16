@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+
 	"github.com/cilium/ebpf/perf"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -60,11 +61,9 @@ func initMap(maxEntries int) *signalMap {
 	return &signalMap{
 		maxEntries: maxEntries,
 		oldBpfMap: bpf.NewMap(MapName,
-			bpf.MapTypePerfEventArray,
+			ebpf.PerfEventArray,
 			&Key{},
-			int(unsafe.Sizeof(Key{})),
 			&Value{},
-			int(unsafe.Sizeof(Value{})),
 			maxEntries,
 			0,
 			bpf.ConvertKeyValue,

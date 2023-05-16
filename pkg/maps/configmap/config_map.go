@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ebpf"
 )
 
 const (
@@ -86,11 +87,9 @@ func newConfigMap() *configMap {
 
 	return &configMap{
 		bpfMap: bpf.NewMap(MapName,
-			bpf.MapTypeArray,
+			ebpf.Array,
 			&index,
-			int(unsafe.Sizeof(index)),
 			&value,
-			int(unsafe.Sizeof(value)),
 			MaxEntries,
 			0,
 			bpf.ConvertKeyValue,

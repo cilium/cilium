@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -91,11 +92,9 @@ func NewMap(name string) *Map {
 	return &Map{
 		Map: *bpf.NewMap(
 			name,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&Key{},
-			int(unsafe.Sizeof(Key{})),
 			&VtepEndpointInfo{},
-			int(unsafe.Sizeof(VtepEndpointInfo{})),
 			MaxEntries,
 			0,
 			bpf.ConvertKeyValue,

@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/ebpf"
 	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
@@ -52,11 +53,9 @@ type Map struct {
 func NewTunnelMap(mapName string) *Map {
 	return &Map{Map: bpf.NewMap(
 		mapName,
-		bpf.MapTypeHash,
+		ebpf.Hash,
 		&TunnelKey{},
-		int(unsafe.Sizeof(TunnelKey{})),
 		&TunnelValue{},
-		int(unsafe.Sizeof(TunnelValue{})),
 		MaxEntries,
 		0,
 		bpf.ConvertKeyValue,

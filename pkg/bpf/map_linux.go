@@ -58,20 +58,6 @@ type MapValue interface {
 	DeepCopyMapValue() MapValue
 }
 
-type MapInfo struct {
-	MapType  MapType
-	MapKey   MapKey
-	KeySize  uint32
-	MapValue MapValue
-	// ReadValueSize is the value size that is used to read from the BPF maps
-	// this value and the ValueSize values can be different for MapTypePerCPUHash.
-	ReadValueSize uint32
-	ValueSize     uint32
-	MaxEntries    uint32
-	Flags         uint32
-	InnerSpec     *ebpf.MapSpec
-}
-
 type cacheEntry struct {
 	Key   MapKey
 	Value MapValue
@@ -81,9 +67,12 @@ type cacheEntry struct {
 }
 
 type Map struct {
-	MapInfo
-	m         *ebpf.Map
-	innerSpec *ebpf.MapSpec
+	m *ebpf.Map
+	// spec will be nil after the map has been created
+	spec *ebpf.MapSpec
+
+	MapKey   MapKey
+	MapValue MapValue
 
 	name string
 	path string
@@ -124,54 +113,99 @@ type Map struct {
 	events *eventsBuffer
 }
 
-// NewMap creates a new Map instance - object representing a BPF map
-func NewMap(name string, mapType MapType, mapKey MapKey, keySize int,
-	mapValue MapValue, valueSize, maxEntries int, flags uint32, dumpParser DumpParser) *Map {
-
-	if size := reflect.TypeOf(mapKey).Elem().Size(); size != uintptr(keySize) {
-		panic(fmt.Sprintf("Invalid %s map key size (%d != %d)", name, size, keySize))
+func (m *Map) Type() ebpf.MapType {
+	if m.m != nil {
+		return m.m.Type()
 	}
-
-	if size := reflect.TypeOf(mapValue).Elem().Size(); size != uintptr(valueSize) {
-		panic(fmt.Sprintf("Invalid %s map value size (%d != %d)", name, size, valueSize))
+	if m.spec != nil {
+		return m.spec.Type
 	}
+	return ebpf.UnspecifiedMap
+}
 
-	return &Map{
-		MapInfo: MapInfo{
-			MapType:       mapType,
-			MapKey:        mapKey,
-			KeySize:       uint32(keySize),
-			MapValue:      mapValue,
-			ReadValueSize: uint32(valueSize),
-			ValueSize:     uint32(valueSize),
-			MaxEntries:    uint32(maxEntries),
-			Flags:         flags,
-		},
-		name:       path.Base(name),
-		DumpParser: dumpParser,
+func (m *Map) KeySize() uint32 {
+	if m.m != nil {
+		return m.m.KeySize()
 	}
+	if m.spec != nil {
+		return m.spec.KeySize
+	}
+	return 0
+}
+
+func (m *Map) ValueSize() uint32 {
+	if m.m != nil {
+		return m.m.ValueSize()
+	}
+	if m.spec != nil {
+		return m.spec.ValueSize
+	}
+	return 0
+}
+
+func (m *Map) MaxEntries() uint32 {
+	if m.m != nil {
+		return m.m.MaxEntries()
+	}
+	if m.spec != nil {
+		return m.spec.MaxEntries
+	}
+	return 0
+}
+
+func (m *Map) Flags() uint32 {
+	if m.m != nil {
+		return m.m.Flags()
+	}
+	if m.spec != nil {
+		return m.spec.Flags
+	}
+	return 0
 }
 
 // NewMap creates a new Map instance - object representing a BPF map
-func NewMapWithInnerSpec(name string, mapType MapType, mapKey MapKey, mapValue MapValue, maxEntries int, flags uint32,
-	innerSpec *ebpf.MapSpec, dumpParser DumpParser) *Map {
+func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
+	maxEntries int, flags uint32, dumpParser DumpParser) *Map {
 
 	keySize := reflect.TypeOf(mapKey).Elem().Size()
 	valueSize := reflect.TypeOf(mapValue).Elem().Size()
 
 	return &Map{
-		MapInfo: MapInfo{
-			MapType:       mapType,
-			MapKey:        mapKey,
-			KeySize:       uint32(keySize),
-			MapValue:      mapValue,
-			ReadValueSize: uint32(valueSize),
-			ValueSize:     uint32(valueSize),
-			MaxEntries:    uint32(maxEntries),
-			Flags:         flags,
+		spec: &ebpf.MapSpec{
+			Type:       mapType,
+			Name:       path.Base(name),
+			KeySize:    uint32(keySize),
+			ValueSize:  uint32(valueSize),
+			MaxEntries: uint32(maxEntries),
+			Flags:      flags,
 		},
 		name:       path.Base(name),
-		innerSpec:  innerSpec,
+		MapKey:     mapKey,
+		MapValue:   mapValue,
+		DumpParser: dumpParser,
+	}
+}
+
+// NewMap creates a new Map instance - object representing a BPF map
+func NewMapWithInnerSpec(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
+	maxEntries int, flags uint32, innerSpec *ebpf.MapSpec, dumpParser DumpParser) *Map {
+
+	keySize := reflect.TypeOf(mapKey).Elem().Size()
+	valueSize := reflect.TypeOf(mapValue).Elem().Size()
+
+	return &Map{
+		spec: &ebpf.MapSpec{
+			Type:       mapType,
+			Name:       path.Base(name),
+			KeySize:    uint32(keySize),
+			ValueSize:  uint32(valueSize),
+			MaxEntries: uint32(maxEntries),
+			Flags:      flags,
+			InnerMap:   innerSpec,
+		},
+		name:       path.Base(name),
+		MapKey:     mapKey,
+		MapValue:   mapValue,
 		DumpParser: dumpParser,
 	}
 }
@@ -286,7 +320,7 @@ func (m *Map) updatePressureMetric() {
 		return
 	}
 
-	pvalue := float64(len(m.cache)) / float64(m.MaxEntries)
+	pvalue := float64(len(m.cache)) / float64(m.MaxEntries())
 	m.pressureGauge.Set(pvalue)
 }
 
@@ -352,14 +386,6 @@ func OpenMap(pinPath string) (*Map, error) {
 	}
 
 	m := &Map{
-		MapInfo: MapInfo{
-			MapType:       MapType(em.Type()),
-			KeySize:       em.KeySize(),
-			ValueSize:     em.ValueSize(),
-			ReadValueSize: em.ValueSize(),
-			MaxEntries:    em.MaxEntries(),
-			Flags:         em.Flags(),
-		},
 		m:    em,
 		name: path.Base(pinPath),
 		path: pinPath,
@@ -442,32 +468,31 @@ func (m *Map) openOrCreate(pin bool) error {
 		return nil
 	}
 
+	if m.spec == nil {
+		return fmt.Errorf("attempted to create map %s without MapSpec", m.name)
+	}
+
 	if err := m.setPathIfUnset(); err != nil {
 		return err
 	}
 
-	m.Flags |= GetPreAllocateMapFlags(m.MapType)
+	m.spec.Flags |= GetPreAllocateMapFlags(m.spec.Type)
 
-	spec := &ebpf.MapSpec{
-		Name:       m.name,
-		Type:       ebpf.MapType(m.MapType),
-		KeySize:    m.KeySize,
-		ValueSize:  m.ValueSize,
-		MaxEntries: m.MaxEntries,
-		Flags:      m.Flags,
-		InnerMap:   m.innerSpec,
-	}
 	if pin {
-		spec.Pinning = ebpf.PinByName
+		m.spec.Pinning = ebpf.PinByName
 	}
 
-	em, err := OpenOrCreateMap(spec, path.Dir(m.path))
+	em, err := OpenOrCreateMap(m.spec, path.Dir(m.path))
 	if err != nil {
 		return err
 	}
 
 	registerMap(m.path, m)
 
+	// Consume the MapSpec.
+	m.spec = nil
+
+	// Retain the Map.
 	m.m = em
 
 	return nil
@@ -559,8 +584,8 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
-	key := make([]byte, m.KeySize)
-	value := make([]byte, m.ReadValueSize)
+	key := make([]byte, m.KeySize())
+	value := make([]byte, m.ValueSize())
 
 	mk := m.MapKey.DeepCopyMapKey()
 	mv := m.MapValue.DeepCopyMapValue()
@@ -610,10 +635,10 @@ func (m *Map) DumpWithCallbackIfExists(cb DumpCallback) error {
 // object initialized via a call to NewDumpStats().
 func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error {
 	var (
-		prevKey    = make([]byte, m.KeySize)
-		currentKey = make([]byte, m.KeySize)
-		nextKey    = make([]byte, m.KeySize)
-		value      = make([]byte, m.ReadValueSize)
+		prevKey    = make([]byte, m.KeySize())
+		currentKey = make([]byte, m.KeySize())
+		nextKey    = make([]byte, m.KeySize())
+		value      = make([]byte, m.ValueSize())
 
 		prevKeyValid = false
 	)
@@ -962,8 +987,8 @@ func (m *Map) DeleteAll() error {
 
 	defer m.deleteAllMapEvent()
 
-	key := make([]byte, m.KeySize)
-	value := make([]byte, m.ReadValueSize)
+	key := make([]byte, m.KeySize())
+	value := make([]byte, m.ValueSize())
 
 	i := m.m.Iterate()
 	for i.Next(&key, &value) {
@@ -1142,17 +1167,17 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 // match, deletes the map.
 //
 // Returns true if the map was upgraded.
-func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
-	desired.Flags |= GetPreAllocateMapFlags(desired.MapType)
+func (m *Map) CheckAndUpgrade(desired *Map) bool {
+	flags := desired.Flags() | GetPreAllocateMapFlags(desired.Type())
 
 	return objCheck(
 		m.m,
 		m.path,
-		ebpf.MapType(desired.MapType),
-		desired.KeySize,
-		desired.ValueSize,
-		desired.MaxEntries,
-		desired.Flags,
+		desired.Type(),
+		desired.KeySize(),
+		desired.ValueSize(),
+		desired.MaxEntries(),
+		flags,
 	)
 }
 

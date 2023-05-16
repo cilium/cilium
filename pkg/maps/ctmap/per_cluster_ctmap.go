@@ -491,7 +491,7 @@ func newPerClusterCTMap(name string, m mapType) (*PerClusterCTMap, error) {
 
 	om := bpf.NewMapWithInnerSpec(
 		name,
-		bpf.MapTypeArrayOfMaps,
+		ebpf.ArrayOfMaps,
 		&PerClusterCTMapKey{},
 		&PerClusterCTMapVal{},
 		perClusterCTMapMaxEntries,
