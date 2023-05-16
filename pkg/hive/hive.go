@@ -55,6 +55,7 @@ type Hive struct {
 	flags                     *pflag.FlagSet
 	viper                     *viper.Viper
 	lifecycle                 *DefaultLifecycle
+	statusProvider            *cell.StatusProvider
 	populated                 bool
 	invokes                   []func() error
 	configOverrides           []any
@@ -71,14 +72,16 @@ type Hive struct {
 // the Viper() method can be used to populate the hive's viper instance.
 func New(cells ...cell.Cell) *Hive {
 	h := &Hive{
-		container:       dig.New(),
-		envPrefix:       defaultEnvPrefix,
-		cells:           cells,
-		viper:           viper.New(),
-		startTimeout:    defaultStartTimeout,
-		stopTimeout:     defaultStopTimeout,
-		flags:           pflag.NewFlagSet("", pflag.ContinueOnError),
-		lifecycle:       &DefaultLifecycle{},
+		container:      dig.New(),
+		envPrefix:      defaultEnvPrefix,
+		cells:          cells,
+		viper:          viper.New(),
+		startTimeout:   defaultStartTimeout,
+		stopTimeout:    defaultStopTimeout,
+		flags:          pflag.NewFlagSet("", pflag.ContinueOnError),
+		lifecycle:      &DefaultLifecycle{},
+		statusProvider: cell.NewStatusProvider(),
+
 		shutdown:        make(chan error, 1),
 		configOverrides: nil,
 	}
@@ -132,21 +135,23 @@ func (h *Hive) Viper() *viper.Viper {
 type defaults struct {
 	dig.Out
 
-	Flags       *pflag.FlagSet
-	Lifecycle   Lifecycle
-	Logger      logrus.FieldLogger
-	Shutdowner  Shutdowner
-	InvokerList cell.InvokerList
+	Flags          *pflag.FlagSet
+	Lifecycle      Lifecycle
+	Logger         logrus.FieldLogger
+	Shutdowner     Shutdowner
+	InvokerList    cell.InvokerList
+	StatusProvider *cell.StatusProvider
 }
 
 func (h *Hive) provideDefaults() error {
 	return h.container.Provide(func() defaults {
 		return defaults{
-			Flags:       h.flags,
-			Lifecycle:   h.lifecycle,
-			Logger:      log,
-			Shutdowner:  h,
-			InvokerList: h,
+			Flags:          h.flags,
+			Lifecycle:      h.lifecycle,
+			Logger:         log,
+			Shutdowner:     h,
+			InvokerList:    h,
+			StatusProvider: h.statusProvider,
 		}
 	})
 }
