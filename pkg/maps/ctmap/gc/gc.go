@@ -201,7 +201,7 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter *ctm
 		deleted := ctmap.GC(m, filter)
 
 		if deleted > 0 {
-			ratio := float64(deleted) / float64(m.MapInfo.MaxEntries)
+			ratio := float64(deleted) / float64(m.MaxEntries())
 			if ratio > maxDeleteRatio {
 				maxDeleteRatio = ratio
 			}

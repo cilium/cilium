@@ -113,7 +113,7 @@ func (m *Map) OpenOrCreate() error {
 		PinPath: bpf.TCGlobalsPath(),
 	}
 
-	m.spec.Flags = m.spec.Flags | bpf.GetPreAllocateMapFlags(bpf.MapType(m.spec.Type))
+	m.spec.Flags |= bpf.GetPreAllocateMapFlags(m.spec.Type)
 
 	path := bpf.MapPath(m.spec.Name)
 

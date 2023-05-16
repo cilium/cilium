@@ -17,6 +17,7 @@ import (
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -83,11 +84,9 @@ var (
 	maxEntries = 16
 
 	testMap = NewMap("cilium_test",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue,
@@ -96,24 +95,21 @@ var (
 
 func mapsEqual(a, b *Map) bool {
 	return a.name == b.name &&
-		a.path == b.path &&
-		reflect.DeepEqual(a.MapInfo, b.MapInfo)
+		reflect.DeepEqual(a.spec, b.spec)
 }
 
 func (s *BPFPrivilegedTestSuite) TestOpen(c *C) {
 	// Ensure that os.IsNotExist() can be used with Map.Open()
 	noSuchMap := NewMap("cilium_test_no_exist",
-		MapTypeHash, &TestKey{}, 4, &TestValue{}, 4, maxEntries, 0, nil)
+		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0, nil)
 	err := noSuchMap.Open()
 	c.Assert(errors.Is(err, os.ErrNotExist), Equals, true)
 
 	// existingMap is the same as testMap. Opening should succeed.
 	existingMap := NewMap("cilium_test",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue).WithCache()
@@ -146,11 +142,9 @@ func (s *BPFPrivilegedTestSuite) TestOpenMap(c *C) {
 func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 	// existingMap is the same as testMap. OpenOrCreate should skip recreation.
 	existingMap := NewMap("cilium_test",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue).WithCache()
@@ -160,11 +154,9 @@ func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 	// preallocMap unsets BPF_F_NO_PREALLOC. OpenOrCreate should recreate map.
 	EnableMapPreAllocation() // prealloc on/off is controllable in HASH map case.
 	preallocMap := NewMap("cilium_test",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		0,
 		ConvertKeyValue).WithCache()
@@ -180,11 +172,9 @@ func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 
 func (s *BPFPrivilegedTestSuite) TestRecreateMap(c *C) {
 	parallelMap := NewMap("cilium_test",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue).WithCache()
@@ -227,11 +217,9 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 
 	// existingMap is the same as testMap. Opening should succeed.
 	existingMap := NewMap("cilium_test",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue).
@@ -416,11 +404,9 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 
 func (s *BPFPrivilegedTestSuite) TestSubscribe(c *C) {
 	existingMap := NewMap("cilium_test",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue).
@@ -491,7 +477,7 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 
 	dump3 := map[string][]string{}
 	noSuchMap := NewMap("cilium_test_no_exist",
-		MapTypeHash, &TestKey{}, 4, &TestValue{}, 4, maxEntries, 0, nil)
+		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0, nil)
 	err = noSuchMap.DumpIfExists(dump3)
 	c.Assert(err, IsNil)
 	c.Assert(len(dump3), Equals, 0)
@@ -533,11 +519,9 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 func (s *BPFPrivilegedTestSuite) TestDumpReliablyWithCallback(c *C) {
 	maxEntries := uint32(256)
 	m := NewMap("cilium_dump_test",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		int(maxEntries),
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue,
@@ -662,11 +646,9 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 	// CheckAndUpgrade removes map file if upgrade is needed
 	// so we setup and use another map.
 	upgradeMap := NewMap("cilium_test_upgrade",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue).WithCache()
@@ -678,21 +660,19 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 	}()
 
 	// Exactly the same MapInfo so it won't be upgraded.
-	upgrade := upgradeMap.CheckAndUpgrade(&upgradeMap.MapInfo)
+	upgrade := upgradeMap.CheckAndUpgrade(upgradeMap)
 	c.Assert(upgrade, Equals, false)
 
 	// preallocMap unsets BPF_F_NO_PREALLOC so upgrade is needed.
 	EnableMapPreAllocation()
 	preallocMap := NewMap("cilium_test_upgrade",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		0,
 		ConvertKeyValue).WithCache()
-	upgrade = upgradeMap.CheckAndUpgrade(&preallocMap.MapInfo)
+	upgrade = upgradeMap.CheckAndUpgrade(preallocMap)
 	c.Assert(upgrade, Equals, true)
 	DisableMapPreAllocation()
 }
@@ -700,11 +680,9 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 func (s *BPFPrivilegedTestSuite) TestUnpin(c *C) {
 	var exist bool
 	unpinMap := NewMap("cilium_test_unpin",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue).WithCache()
@@ -739,11 +717,9 @@ func (s *BPFPrivilegedTestSuite) TestUnpin(c *C) {
 
 func (s *BPFPrivilegedTestSuite) TestCreateUnpinned(c *C) {
 	m := NewMap("cilium_test_create_unpinned",
-		MapTypeHash,
+		ebpf.Hash,
 		&TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue).WithCache()
@@ -766,10 +742,10 @@ func (s *BPFPrivilegedTestSuite) TestCreateUnpinned(c *C) {
 func BenchmarkMapLookup(b *testing.B) {
 	b.ReportAllocs()
 
-	m := NewMap("", MapTypeHash, &TestKey{},
-		int(unsafe.Sizeof(TestKey{})),
+	m := NewMap("",
+		ebpf.Hash,
+		&TestKey{},
 		&TestValue{},
-		int(unsafe.Sizeof(TestValue{})),
 		1,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue)

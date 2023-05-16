@@ -8,6 +8,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
@@ -29,21 +31,17 @@ var (
 func neighMapsGet() (*bpf.Map, *bpf.Map) {
 	once.Do(func() {
 		neigh4Map = bpf.NewMap(Map4Name,
-			bpf.MapTypeLRUHash,
+			ebpf.LRUHash,
 			&Key4{},
-			int(unsafe.Sizeof(Key4{})),
 			&Value{},
-			int(unsafe.Sizeof(Value{})),
 			option.Config.NeighMapEntriesGlobal,
 			0,
 			bpf.ConvertKeyValue,
 		)
 		neigh6Map = bpf.NewMap(Map6Name,
-			bpf.MapTypeLRUHash,
+			ebpf.LRUHash,
 			&Key6{},
-			int(unsafe.Sizeof(Key6{})),
 			&Value{},
-			int(unsafe.Sizeof(Value{})),
 			option.Config.NeighMapEntriesGlobal,
 			0,
 			bpf.ConvertKeyValue,

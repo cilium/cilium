@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -151,9 +152,9 @@ func initSourceRange(params InitParams) {
 	if params.IPv4 {
 		SourceRange4Map = bpf.NewMap(
 			SourceRange4MapName,
-			bpf.MapTypeLPMTrie,
-			&SourceRangeKey4{}, int(unsafe.Sizeof(SourceRangeKey4{})),
-			&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
+			ebpf.LPMTrie,
+			&SourceRangeKey4{},
+			&SourceRangeValue{},
 			SourceRangeMapMaxEntries,
 			bpf.BPF_F_NO_PREALLOC,
 			bpf.ConvertKeyValue,
@@ -164,9 +165,9 @@ func initSourceRange(params InitParams) {
 	if params.IPv6 {
 		SourceRange6Map = bpf.NewMap(
 			SourceRange6MapName,
-			bpf.MapTypeLPMTrie,
-			&SourceRangeKey6{}, int(unsafe.Sizeof(SourceRangeKey6{})),
-			&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
+			ebpf.LPMTrie,
+			&SourceRangeKey6{},
+			&SourceRangeValue{},
 			SourceRangeMapMaxEntries,
 			bpf.BPF_F_NO_PREALLOC,
 			bpf.ConvertKeyValue,

@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -165,11 +166,9 @@ type Map struct {
 func newIPCacheMap(name string) *bpf.Map {
 	return bpf.NewMap(
 		name,
-		bpf.MapTypeLPMTrie,
+		ebpf.LPMTrie,
 		&Key{},
-		int(unsafe.Sizeof(Key{})),
 		&RemoteEndpointInfo{},
-		int(unsafe.Sizeof(RemoteEndpointInfo{})),
 		MaxEntries,
 		bpf.BPF_F_NO_PREALLOC,
 		bpf.ConvertKeyValue)

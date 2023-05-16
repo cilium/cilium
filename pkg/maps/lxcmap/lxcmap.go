@@ -10,6 +10,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
@@ -35,11 +37,9 @@ var (
 func LXCMap() *bpf.Map {
 	lxcMapOnce.Do(func() {
 		lxcMap = bpf.NewMap(MapName,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&EndpointKey{},
-			int(unsafe.Sizeof(EndpointKey{})),
 			&EndpointInfo{},
-			int(unsafe.Sizeof(EndpointInfo{})),
 			MaxEntries,
 			0,
 			bpf.ConvertKeyValue,

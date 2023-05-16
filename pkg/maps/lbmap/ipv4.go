@@ -8,6 +8,8 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -68,55 +70,45 @@ func initSVC(params InitParams) {
 
 	if params.IPv4 {
 		Service4MapV2 = bpf.NewMap(Service4MapV2Name,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&Service4Key{},
-			int(unsafe.Sizeof(Service4Key{})),
 			&Service4Value{},
-			int(unsafe.Sizeof(Service4Value{})),
 			ServiceMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Service4MapV2Name))
 		Backend4Map = bpf.NewMap(Backend4MapName,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&Backend4Key{},
-			int(unsafe.Sizeof(Backend4Key{})),
 			&Backend4Value{},
-			int(unsafe.Sizeof(Backend4Value{})),
 			ServiceBackEndMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend4MapName))
 		Backend4MapV2 = bpf.NewMap(Backend4MapV2Name,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&Backend4KeyV3{},
-			int(unsafe.Sizeof(Backend4KeyV3{})),
 			&Backend4Value{},
-			int(unsafe.Sizeof(Backend4Value{})),
 			ServiceBackEndMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend4MapV2Name))
 		Backend4MapV3 = bpf.NewMap(Backend4MapV3Name,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&Backend4KeyV3{},
-			int(unsafe.Sizeof(Backend4KeyV3{})),
 			&Backend4ValueV3{},
-			int(unsafe.Sizeof(Backend4ValueV3{})),
 			ServiceBackEndMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend4MapV3Name))
 		RevNat4Map = bpf.NewMap(RevNat4MapName,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&RevNat4Key{},
-			int(unsafe.Sizeof(RevNat4Key{})),
 			&RevNat4Value{},
-			int(unsafe.Sizeof(RevNat4Value{})),
 			RevNatMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
@@ -126,55 +118,45 @@ func initSVC(params InitParams) {
 
 	if params.IPv6 {
 		Service6MapV2 = bpf.NewMap(Service6MapV2Name,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&Service6Key{},
-			int(unsafe.Sizeof(Service6Key{})),
 			&Service6Value{},
-			int(unsafe.Sizeof(Service6Value{})),
 			ServiceMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Service6MapV2Name))
 		Backend6Map = bpf.NewMap(Backend6MapName,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&Backend6Key{},
-			int(unsafe.Sizeof(Backend6Key{})),
 			&Backend6Value{},
-			int(unsafe.Sizeof(Backend6Value{})),
 			ServiceBackEndMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend6MapName))
 		Backend6MapV2 = bpf.NewMap(Backend6MapV2Name,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&Backend6KeyV3{},
-			int(unsafe.Sizeof(Backend6KeyV3{})),
 			&Backend6Value{},
-			int(unsafe.Sizeof(Backend6Value{})),
 			ServiceBackEndMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend6MapV2Name))
 		Backend6MapV3 = bpf.NewMap(Backend6MapV3Name,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&Backend6KeyV3{},
-			int(unsafe.Sizeof(Backend6KeyV3{})),
 			&Backend6ValueV3{},
-			int(unsafe.Sizeof(Backend6ValueV3{})),
 			ServiceBackEndMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend6MapV3Name))
 		RevNat6Map = bpf.NewMap(RevNat6MapName,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&RevNat6Key{},
-			int(unsafe.Sizeof(RevNat6Key{})),
 			&RevNat6Value{},
-			int(unsafe.Sizeof(RevNat6Value{})),
 			RevNatMapMaxEntries,
 			0,
 			bpf.ConvertKeyValue,
@@ -646,11 +628,9 @@ func (k SockRevNat4Key) NewValue() bpf.MapValue { return &SockRevNat4Value{} }
 // CreateSockRevNat4Map creates the reverse NAT sock map.
 func CreateSockRevNat4Map() error {
 	sockRevNat4Map := bpf.NewMap(SockRevNat4MapName,
-		bpf.MapTypeLRUHash,
+		ebpf.LRUHash,
 		&SockRevNat4Key{},
-		int(unsafe.Sizeof(SockRevNat4Key{})),
 		&SockRevNat4Value{},
-		int(unsafe.Sizeof(SockRevNat4Value{})),
 		MaxSockRevNat4MapEntries,
 		0,
 		bpf.ConvertKeyValue,

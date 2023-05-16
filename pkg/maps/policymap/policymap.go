@@ -9,6 +9,8 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -431,16 +433,14 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 }
 
 func newMap(path string) *PolicyMap {
-	mapType := bpf.MapTypeLPMTrie
+	mapType := ebpf.LPMTrie
 	flags := bpf.GetPreAllocateMapFlags(mapType)
 	return &PolicyMap{
 		Map: bpf.NewMap(
 			path,
 			mapType,
 			&PolicyKey{},
-			sizeofPolicyKey,
 			&PolicyEntry{},
-			sizeofPolicyEntry,
 			MaxEntries,
 			flags,
 			bpf.ConvertKeyValue,
@@ -480,11 +480,9 @@ func InitMapInfo(maxEntries int) {
 // InitCallMap creates the policy call maps in the kernel.
 func InitCallMaps(haveEgressCallMap bool) error {
 	policyCallMap := bpf.NewMap(PolicyCallMapName,
-		bpf.MapTypeProgArray,
+		ebpf.ProgramArray,
 		&CallKey{},
-		int(unsafe.Sizeof(CallKey{})),
 		&CallValue{},
-		int(unsafe.Sizeof(CallValue{})),
 		int(PolicyCallMaxEntries),
 		0,
 		bpf.ConvertKeyValue,
@@ -493,11 +491,9 @@ func InitCallMaps(haveEgressCallMap bool) error {
 
 	if err == nil && haveEgressCallMap {
 		policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
-			bpf.MapTypeProgArray,
+			ebpf.ProgramArray,
 			&CallKey{},
-			int(unsafe.Sizeof(CallKey{})),
 			&CallValue{},
-			int(unsafe.Sizeof(CallValue{})),
 			int(PolicyCallMaxEntries),
 			0,
 			bpf.ConvertKeyValue,

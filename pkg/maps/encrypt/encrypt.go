@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -69,11 +70,9 @@ var (
 func MapCreate() error {
 	once.Do(func() {
 		encryptMap = bpf.NewMap(MapName,
-			bpf.MapTypeArray,
+			ebpf.Array,
 			&EncryptKey{},
-			int(unsafe.Sizeof(EncryptKey{})),
 			&EncryptValue{},
-			int(unsafe.Sizeof(EncryptValue{})),
 			MaxEntries,
 			0,
 			bpf.ConvertKeyValue,

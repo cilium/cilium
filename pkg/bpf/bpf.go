@@ -6,6 +6,8 @@ package bpf
 import (
 	"sync/atomic"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -38,12 +40,15 @@ func DisableMapPreAllocation() {
 
 // GetPreAllocateMapFlags returns the map flags for map which use conditional
 // pre-allocation.
-func GetPreAllocateMapFlags(t MapType) uint32 {
-	switch {
-	case !t.allowsPreallocation():
+func GetPreAllocateMapFlags(t ebpf.MapType) uint32 {
+	switch t {
+	// LPM Tries don't support preallocation.
+	case ebpf.LPMTrie:
 		return BPF_F_NO_PREALLOC
-	case t.requiresPreallocation():
-		return 0
+	// Support disabling preallocation for these map types.
+	case ebpf.Hash, ebpf.PerCPUHash, ebpf.HashOfMaps:
+		return atomic.LoadUint32(&preAllocateMapSetting)
 	}
-	return atomic.LoadUint32(&preAllocateMapSetting)
+
+	return 0
 }

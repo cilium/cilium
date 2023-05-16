@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -48,9 +49,9 @@ func IPMasq4Map() *bpf.Map {
 	once.Do(func() {
 		ipMasq4Map = bpf.NewMap(
 			MapName,
-			bpf.MapTypeLPMTrie,
-			&Key4{}, int(unsafe.Sizeof(Key4{})),
-			&Value{}, int(unsafe.Sizeof(Value{})),
+			ebpf.LPMTrie,
+			&Key4{},
+			&Value{},
 			MaxEntries,
 			bpf.BPF_F_NO_PREALLOC,
 			bpf.ConvertKeyValue,

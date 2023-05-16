@@ -8,6 +8,8 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -77,30 +79,23 @@ func NatDumpCreated(dumpStart, entryCreated uint64) string {
 
 // NewMap instantiates a Map.
 func NewMap(name string, v4 bool, entries int) *Map {
-	var sizeKey, sizeVal int
 	var mapKey bpf.MapKey
 	var mapValue bpf.MapValue
 
 	if v4 {
 		mapKey = &NatKey4{}
-		sizeKey = SizeofNatKey4
 		mapValue = &NatEntry4{}
-		sizeVal = SizeofNatEntry4
 	} else {
 		mapKey = &NatKey6{}
-		sizeKey = SizeofNatKey6
 		mapValue = &NatEntry6{}
-		sizeVal = SizeofNatEntry6
 	}
 
 	return &Map{
 		Map: *bpf.NewMap(
 			name,
-			bpf.MapTypeLRUHash,
+			ebpf.LRUHash,
 			mapKey,
-			sizeKey,
 			mapValue,
-			sizeVal,
 			entries,
 			0,
 			bpf.ConvertKeyValue,

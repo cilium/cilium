@@ -103,7 +103,7 @@ func newPerClusterNATMap(name string, v4 bool, innerMapEntries int) (*PerCluster
 
 	om := bpf.NewMapWithInnerSpec(
 		name,
-		bpf.MapTypeArrayOfMaps,
+		ebpf.ArrayOfMaps,
 		&PerClusterNATMapKey{},
 		&PerClusterNATMapVal{},
 		perClusterNATMapMaxEntries,

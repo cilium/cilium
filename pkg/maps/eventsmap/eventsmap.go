@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -53,11 +55,9 @@ type eventsMap struct {
 // init creates the events map in the kernel.
 func (e *eventsMap) init(maxEntries int) error {
 	e.m = bpf.NewMap(MapName,
-		bpf.MapTypePerfEventArray,
+		ebpf.PerfEventArray,
 		&Key{},
-		int(unsafe.Sizeof(Key{})),
 		&Value{},
-		int(unsafe.Sizeof(Value{})),
 		maxEntries,
 		0,
 		bpf.ConvertKeyValue).

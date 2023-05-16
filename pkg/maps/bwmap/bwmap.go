@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -57,9 +58,9 @@ func ThrottleMap() *bpf.Map {
 	throttleMapInit.Do(func() {
 		throttleMap = bpf.NewMap(
 			MapName,
-			bpf.MapTypeHash,
-			&EdtId{}, int(unsafe.Sizeof(EdtId{})),
-			&EdtInfo{}, int(unsafe.Sizeof(EdtInfo{})),
+			ebpf.Hash,
+			&EdtId{},
+			&EdtInfo{},
 			MapSize,
 			bpf.BPF_F_NO_PREALLOC,
 			bpf.ConvertKeyValue,
