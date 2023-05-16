@@ -1093,7 +1093,11 @@ struct lb_affinity_match {
 
 struct ct_state {
 	__u16 rev_nat_index;
+#ifndef DISABLE_LOOPBACK_LB
 	__u16 loopback:1,
+#else
+	__u16 loopback_disabled:1,
+#endif
 	      node_port:1,
 	      dsr:1,
 	      syn:1,
@@ -1102,8 +1106,10 @@ struct ct_state {
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 	      reserved:8;
+#ifndef DISABLE_LOOPBACK_LB
 	__be32 addr;
 	__be32 svc_addr;
+#endif
 	__u32 src_sec_id;
 	__u16 ifindex;
 	__u32 backend_id;	/* Backend ID in lb4_backends */
