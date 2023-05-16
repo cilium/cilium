@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -167,9 +168,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				extraOpts := rc.makeExtraOpts()
 
 				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
-					map[string]string{
-						kvstore.EtcdOptionConfig: rc.configPath,
-					}, &extraOpts)
+					rc.makeEtcdOpts(), &extraOpts)
 
 				// Block until either an error is returned or
 				// the channel is closed due to success of the
@@ -273,6 +272,22 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			CancelDoFuncOnUpdate: true,
 		},
 	)
+}
+
+func (rc *remoteCluster) makeEtcdOpts() map[string]string {
+	opts := map[string]string{
+		kvstore.EtcdOptionConfig: rc.configPath,
+	}
+
+	for key, value := range option.Config.KVStoreOpt {
+		switch key {
+		case kvstore.EtcdRateLimitOption, kvstore.EtcdListLimitOption,
+			kvstore.EtcdOptionKeepAliveHeartbeat, kvstore.EtcdOptionKeepAliveTimeout:
+			opts[key] = value
+		}
+	}
+
+	return opts
 }
 
 func (rc *remoteCluster) makeExtraOpts() kvstore.ExtraOptions {
