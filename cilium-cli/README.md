@@ -431,6 +431,15 @@ To see the non-default Helm values that would be used during upgrade:
 > You can use external diff tools such as [dyff](https://github.com/homeport/dyff) to make
 > `kubectl diff` output more readable.
 
+It is strongly recommended that you use Cilium's [OCI dev chart repository](https://quay.io/repository/cilium-charts-dev/cilium)
+if you need to deploy Cilium with a specific commit SHA. Alternatively, you can use `image.override`
+Helm value if you need to override the cilium-agent container image. For example:
+
+    cilium upgrade --helm-set image.override=quay.io/cilium/cilium-ci:103e277f78ce95e922bfac98f1e74138a411778a --reuse-values
+
+Please see Cilium's [Helm Reference](https://docs.cilium.io/en/stable/helm-reference/) for the
+complete list of Helm values.
+
 ### Supported commands as of v0.14
 
 - [ ] `clustermesh`
