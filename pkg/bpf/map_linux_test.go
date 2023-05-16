@@ -44,7 +44,7 @@ func (v *TestValue) DeepCopyMapValue() MapValue  { return &TestValue{v.Value} }
 var _ = Suite(&BPFPrivilegedTestSuite{})
 
 func (s *BPFPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	CheckOrMountFS("")
 

@@ -25,12 +25,6 @@ func PrivilegedTest(tb testing.TB) {
 	}
 }
 
-func PrivilegedCheck(c *check.C) {
-	if os.Getenv(privilegedEnv) == "" {
-		c.Skip(fmt.Sprintf("Set %s to run this test", privilegedEnv))
-	}
-}
-
 // IntegrationTests returns true if integration tests are requested.
 func IntegrationTests() bool {
 	if os.Getenv(integrationEnv) != "" {

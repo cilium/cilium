@@ -38,7 +38,7 @@ type MigrateSuite struct {
 }
 
 func (s *MigrateSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 // n is the number of devices, routes, and rules that will be created in

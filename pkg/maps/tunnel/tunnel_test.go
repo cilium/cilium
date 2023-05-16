@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 }
 
 func (s *TunnelMapTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 }

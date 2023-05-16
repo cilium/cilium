@@ -48,7 +48,7 @@ type linuxPrivilegedIPv6OnlyTestSuite struct {
 var _ = check.Suite(&linuxPrivilegedIPv6OnlyTestSuite{})
 
 func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpSuite(c *check.C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 type linuxPrivilegedIPv4OnlyTestSuite struct {
@@ -58,7 +58,7 @@ type linuxPrivilegedIPv4OnlyTestSuite struct {
 var _ = check.Suite(&linuxPrivilegedIPv4OnlyTestSuite{})
 
 func (s *linuxPrivilegedIPv4OnlyTestSuite) SetUpSuite(c *check.C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 type linuxPrivilegedIPv4AndIPv6TestSuite struct {
@@ -68,7 +68,7 @@ type linuxPrivilegedIPv4AndIPv6TestSuite struct {
 var _ = check.Suite(&linuxPrivilegedIPv4AndIPv6TestSuite{})
 
 func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpSuite(c *check.C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 const (

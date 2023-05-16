@@ -16,7 +16,7 @@ type SysctlLinuxPrivilegedTestSuite struct{}
 var _ = Suite(&SysctlLinuxPrivilegedTestSuite{})
 
 func (s *SysctlLinuxPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (s *SysctlLinuxPrivilegedTestSuite) TestWriteSysctl(c *C) {

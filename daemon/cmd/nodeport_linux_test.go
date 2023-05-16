@@ -23,7 +23,7 @@ type NodePortSuite struct {
 var _ = Suite(&NodePortSuite{})
 
 func (s *NodePortSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (s *NodePortSuite) SetUpTest(c *C) {

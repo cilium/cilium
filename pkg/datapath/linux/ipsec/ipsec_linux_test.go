@@ -26,7 +26,7 @@ type IPSecSuitePrivileged struct{}
 var _ = Suite(&IPSecSuitePrivileged{})
 
 func (s *IPSecSuitePrivileged) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 var (
