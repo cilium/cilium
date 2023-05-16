@@ -45,8 +45,8 @@ const (
 	EtcdAddrOption               = "etcd.address"
 	isEtcdOperatorOption         = "etcd.operator"
 	EtcdOptionConfig             = "etcd.config"
-	etcdOptionKeepAliveHeartbeat = "etcd.keepaliveHeartbeat"
-	etcdOptionKeepAliveTimeout   = "etcd.keepaliveTimeout"
+	EtcdOptionKeepAliveHeartbeat = "etcd.keepaliveHeartbeat"
+	EtcdOptionKeepAliveTimeout   = "etcd.keepaliveTimeout"
 
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
@@ -112,14 +112,14 @@ func newEtcdModule() backendModule {
 			EtcdOptionConfig: &backendOption{
 				description: "Path to etcd configuration file",
 			},
-			etcdOptionKeepAliveTimeout: &backendOption{
+			EtcdOptionKeepAliveTimeout: &backendOption{
 				description: "Timeout after which an unanswered heartbeat triggers the connection to be closed",
 				validate: func(v string) error {
 					_, err := time.ParseDuration(v)
 					return err
 				},
 			},
-			etcdOptionKeepAliveHeartbeat: &backendOption{
+			EtcdOptionKeepAliveHeartbeat: &backendOption{
 				description: "Heartbeat interval to keep gRPC connection alive",
 				validate: func(v string) error {
 					_, err := time.ParseDuration(v)
@@ -204,11 +204,11 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 		clientOptions.ListBatchSize, _ = strconv.Atoi(o.value)
 	}
 
-	if o, ok := e.opts[etcdOptionKeepAliveTimeout]; ok && o.value != "" {
+	if o, ok := e.opts[EtcdOptionKeepAliveTimeout]; ok && o.value != "" {
 		clientOptions.KeepAliveTimeout, _ = time.ParseDuration(o.value)
 	}
 
-	if o, ok := e.opts[etcdOptionKeepAliveHeartbeat]; ok && o.value != "" {
+	if o, ok := e.opts[EtcdOptionKeepAliveHeartbeat]; ok && o.value != "" {
 		clientOptions.KeepAliveHeartbeat, _ = time.ParseDuration(o.value)
 	}
 
