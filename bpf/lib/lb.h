@@ -917,7 +917,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			 */
 			if (backend && !state->syn)
 				break;
-			key->backend_slot = 0;
+
 			svc = lb6_lookup_service(key, false, true);
 			if (!svc)
 				goto drop_no_service;
@@ -1607,7 +1607,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			 */
 			if (backend && !state->syn)
 				break;
-			key->backend_slot = 0;
+
 			svc = lb4_lookup_service(key, false, true);
 			if (!svc)
 				goto drop_no_service;
