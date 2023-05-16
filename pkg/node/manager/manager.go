@@ -343,13 +343,12 @@ func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 }
 
 func (m *manager) nodeAddressHasEncryptKey(address nodeTypes.Address) bool {
-	return (m.conf.NodeEncryptionEnabled() ||
-		// If we are doing encryption, but not node based encryption, then do not
-		// add a key to the nodeIPs so that we avoid a trip through stack and attempting
-		// to encrypt something we know does not have an encryption policy installed
-		// in the datapath. By setting key=0 and tunnelIP this will result in traffic
-		// being sent unencrypted over overlay device.
-		(address.Type != addressing.NodeExternalIP && address.Type != addressing.NodeInternalIP)) &&
+	// If we are doing encryption, but not node based encryption, then do not
+	// add a key to the nodeIPs so that we avoid a trip through stack and attempting
+	// to encrypt something we know does not have an encryption policy installed
+	// in the datapath. By setting key=0 and tunnelIP this will result in traffic
+	// being sent unencrypted over overlay device.
+	return m.conf.NodeEncryptionEnabled() &&
 		// Also ignore any remote node's key if the local node opted to not perform
 		// node-to-node encryption
 		!node.GetOptOutNodeEncryption()
