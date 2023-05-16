@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -313,7 +314,7 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 		default:
 			cidrs = []*cidr.CIDR{node.GetIPv6AllocRange()}
 		}
-		fromFS = node.GetIPv6Router()
+		fromFS = node.GetIPv6Router().AsSlice()
 	} else {
 		switch option.Config.IPAMMode() {
 		case ipamOption.IPAMCRD:
@@ -326,15 +327,25 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 		default:
 			cidrs = []*cidr.CIDR{node.GetIPv4AllocRange()}
 		}
-		fromFS = node.GetInternalIPv4Router()
+		fromFS = node.GetInternalIPv4Router().AsSlice()
 	}
 
-	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
-	if err := removeOldRouterState(ipv6, restoredIP); err != nil {
-		log.WithError(err).Warnf(
-			"Failed to remove old router IPs (restored IP: %s) from cilium_host. Manual intervention is required to remove all other old IPs.",
-			restoredIP,
-		)
+	k8sAddrs, k8sOk := ip.AddrFromIP(fromK8s)
+	if !k8sOk {
+		log.Warn("Failed to convert IP address %q", fromK8s)
+	}
+	fsAddrs, fsOk := ip.AddrFromIP(fromFS)
+	if !fsOk {
+		log.Warn("Failed to convert IP address %q", fromFS)
+	}
+	if k8sOk && fsOk {
+		restoredIP := node.RestoreHostIPs(ipv6, &k8sAddrs, &fsAddrs, cidrs)
+		if err := removeOldRouterState(ipv6, restoredIP.AsSlice()); err != nil {
+			log.WithError(err).Warnf(
+				"Failed to remove old router IPs (restored IP: %s) from cilium_host. Manual intervention is required to remove all other old IPs.",
+				restoredIP,
+			)
+		}
 	}
 }
 
@@ -490,7 +501,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		option.Config.TunnelExists(),
 		option.Config.EnableWireguard,
 		configuredMTU,
-		externalIP,
+		externalIP.AsSlice(),
 	)
 
 	params.NodeManager.Subscribe(params.Datapath.Node())
@@ -563,11 +574,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				oldNIDs = append(oldNIDs, nid)
 			} else if nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero() {
 				oldIngressIPs = append(oldIngressIPs, k.IPNet())
-				ip := k.IPNet().IP
-				if ip.To4() != nil {
-					node.SetIngressIPv4(ip)
-				} else {
-					node.SetIngressIPv6(ip)
+				if addr, ok := netip.AddrFromSlice(k.IPNet().IP); ok {
+					switch {
+					case ip.IsAddrV6(&addr):
+						node.SetIngressIPv6(&addr)
+					case ip.IsAddrV4(&addr):
+						node.SetIngressIPv4(&addr)
+					default:
+						log.Warnf("invalid IP %q; not setting node address", addr.String)
+						return
+					}
 				}
 			}
 		}); err != nil && !os.IsNotExist(err) {
@@ -1104,10 +1120,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// from the fs. We must do this after IPAM because we must wait until the
 	// K8s resources have been synced. Part 2/2 of restoration.
 	if option.Config.EnableIPv4 {
-		d.restoreCiliumHostIPs(false, router4FromK8s)
+		d.restoreCiliumHostIPs(false, router4FromK8s.AsSlice())
 	}
 	if option.Config.EnableIPv6 {
-		d.restoreCiliumHostIPs(true, router6FromK8s)
+		d.restoreCiliumHostIPs(true, router6FromK8s.AsSlice())
 	}
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP

@@ -14,6 +14,7 @@ import (
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -173,11 +174,11 @@ func nodeAddress(n types.Node, pref serviceoption.AddressFamilyPreference) strin
 	for _, family := range pref {
 		switch family {
 		case serviceoption.AddressFamilyIPv4:
-			if addr := n.GetNodeIP(false); addr.To4() != nil {
+			if addr := n.GetNodeIP(false); ip.IsAddrV4(addr) {
 				return addr.String()
 			}
 		case serviceoption.AddressFamilyIPv6:
-			if addr := n.GetNodeIP(true); addr.To4() == nil {
+			if addr := n.GetNodeIP(true); ip.IsAddrV6(addr) {
 				return addr.String()
 			}
 		}

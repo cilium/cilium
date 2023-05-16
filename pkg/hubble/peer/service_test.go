@@ -4,7 +4,7 @@
 package peer
 
 import (
-	"net"
+	"net/netip"
 	"sync"
 	"testing"
 	"time"
@@ -43,7 +43,7 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "zero",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.1.1")},
 						},
 					},
 				},
@@ -51,24 +51,24 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					}, {
 						Name:    "one",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.5")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.5")},
 						},
 					}, {
 						Name:    "two",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.6")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.6")},
 						},
 					},
 				},
@@ -104,29 +104,29 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "zero",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.1.1")},
 						},
 					}, {
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					}, {
 						Name:    "one",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.5")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.5")},
 						},
 					}, {
 						Name:    "two",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.6")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.6")},
 						},
 					},
 				},
@@ -134,24 +134,24 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					}, {
 						Name:    "one",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.5")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.5")},
 						},
 					}, {
 						Name:    "two",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.6")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.6")},
 						},
 					},
 				},
@@ -203,17 +203,17 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "zero",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.1.1")},
 						},
 					}, {
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					},
 				},
@@ -221,22 +221,22 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.2")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.2")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::65")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::65")},
 						},
 					},
 				},
@@ -272,17 +272,17 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "zero",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.1.1")},
 						},
 					}, {
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					},
 				},
@@ -290,22 +290,22 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "1",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					}, {
 						Name: "2",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					},
 				},
@@ -348,7 +348,7 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "zero",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.1.1")},
 						},
 					},
 				},
@@ -356,24 +356,24 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					}, {
 						Name:    "one",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.5")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.5")},
 						},
 					}, {
 						Name:    "two",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.6")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.6")},
 						},
 					},
 				},
@@ -423,29 +423,29 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "zero",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.1.1")},
 						},
 					}, {
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					}, {
 						Name:    "one",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.5")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.5")},
 						},
 					}, {
 						Name:    "two",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.6")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.6")},
 						},
 					},
 				},
@@ -453,24 +453,24 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					}, {
 						Name:    "one",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.5")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.5")},
 						},
 					}, {
 						Name:    "two",
 						Cluster: "test",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.6")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.6")},
 						},
 					},
 				},
@@ -548,17 +548,17 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "zero",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.1.1")},
 						},
 					}, {
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					},
 				},
@@ -566,22 +566,22 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.2")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.2")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::65")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::65")},
 						},
 					},
 				},
@@ -631,17 +631,17 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "zero",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.1.1")},
 						},
 					}, {
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					},
 				},
@@ -649,22 +649,22 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "one",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "1",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 						},
 					}, {
 						Name: "two",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					}, {
 						Name: "2",
 						IPAddresses: []types.Address{
-							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+							{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 						},
 					},
 				},
@@ -804,24 +804,24 @@ func TestService_NotifyWithBlockedSend(t *testing.T) {
 		{
 			Name: "one",
 			IPAddresses: []types.Address{
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+				{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("192.0.2.1")},
 			},
 		}, {
 			Name: "two",
 			IPAddresses: []types.Address{
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+				{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2001:db8::68")},
 			},
 		}, {
 			Name:    "one",
 			Cluster: "test",
 			IPAddresses: []types.Address{
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.5")},
+				{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.5")},
 			},
 		}, {
 			Name:    "two",
 			Cluster: "test",
 			IPAddresses: []types.Address{
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.6")},
+				{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.10.6")},
 			},
 		},
 	}

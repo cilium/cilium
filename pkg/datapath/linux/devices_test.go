@@ -8,6 +8,7 @@ package linux
 import (
 	"context"
 	"net"
+	"net/netip"
 	"runtime"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -51,8 +53,8 @@ func (s *DevicesSuite) SetUpSuite(c *C) {
 	s.prevConfigRoutingMode = option.Config.RoutingMode
 	s.prevConfigEnableIPv6NDP = option.Config.EnableIPv6NDP
 	s.prevConfigIPv6MCastDevice = option.Config.IPv6MCastDevice
-	s.prevK8sNodeIP = node.GetIPv4()
-	s.prevK8sNodeIPv6 = node.GetIPv6()
+	s.prevK8sNodeIP = node.GetIPv4().AsSlice()
+	s.prevK8sNodeIPv6 = node.GetIPv6().AsSlice()
 	s.currentNetNS, err = netns.Get()
 	c.Assert(err, IsNil)
 }
@@ -66,8 +68,12 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 	option.Config.RoutingMode = s.prevConfigRoutingMode
 	option.Config.EnableIPv6NDP = s.prevConfigEnableIPv6NDP
 	option.Config.IPv6MCastDevice = s.prevConfigIPv6MCastDevice
-	node.SetIPv4(s.prevK8sNodeIP)
-	node.SetIPv6(s.prevK8sNodeIPv6)
+	if ip, ok := netip.AddrFromSlice(s.prevK8sNodeIP); ok {
+		node.SetIPv4(&ip)
+	}
+	if ip, ok := netip.AddrFromSlice(s.prevK8sNodeIPv6); ok {
+		node.SetIPv6(&ip)
+	}
 }
 
 func (s *DevicesSuite) TestDetect(c *C) {
@@ -96,7 +102,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 
 		// 3. Manually specified devices, no detection is performed
 		option.Config.EnableNodePort = true
-		node.SetIPv4(net.ParseIP("192.168.0.1"))
+		node.SetIPv4(ip.ToPtr(netip.MustParseAddr("192.168.0.1")))
 		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
 		option.Config.SetDevices([]string{"dummy0"})
 
@@ -112,7 +118,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(createDummy("dummy2", "192.168.2.1/24", false), IsNil)
 		c.Assert(createDummy("dummy3", "192.168.3.1/24", false), IsNil)
 		c.Assert(delRoutes("dummy3"), IsNil) // Delete routes so it won't be detected
-		node.SetIPv4(net.ParseIP("192.168.1.1"))
+		node.SetIPv4(ip.ToPtr(netip.MustParseAddr("192.168.1.1")))
 		option.Config.EnableIPv4 = true
 		option.Config.EnableIPv6 = false
 		option.Config.RoutingMode = option.RoutingModeNative
@@ -130,7 +136,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.EnableIPv6NDP = true
 		c.Assert(createDummy("cilium_foo", "2001:db8::face/64", true), IsNil)
 		node.SetIPv4(nil)
-		node.SetIPv6(net.ParseIP("2001:db8::face"))
+		node.SetIPv6(ip.ToPtr(netip.MustParseAddr("2001:db8::face")))
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2"})

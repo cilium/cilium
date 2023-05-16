@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -290,7 +291,11 @@ func (d *Daemon) allocateHealthIPs() error {
 			}
 
 			log.Debugf("IPv4 health endpoint address: %s", result.IP)
-			node.SetEndpointHealthIPv4(result.IP)
+			healthv4, ok := netip.AddrFromSlice(result.IP)
+			if !ok {
+				return fmt.Errorf("failed to parse IP address: %q", result.IP)
+			}
+			node.SetEndpointHealthIPv4(&healthv4)
 
 			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
 			// in order to set up rules and routes on the local node to direct
@@ -306,7 +311,7 @@ func (d *Daemon) allocateHealthIPs() error {
 		if option.Config.EnableIPv6 {
 			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health", ipam.PoolDefault)
 			if err != nil {
-				if healthIPv4 := node.GetEndpointHealthIPv4(); healthIPv4 != nil {
+				if healthIPv4 := node.GetEndpointHealthIPv4().AsSlice(); healthIPv4 != nil {
 					d.ipam.ReleaseIP(healthIPv4, ipam.PoolDefault)
 					node.SetEndpointHealthIPv4(nil)
 				}
@@ -320,8 +325,11 @@ func (d *Daemon) allocateHealthIPs() error {
 				len(result.CIDRs) > 0 {
 				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
-
-			node.SetEndpointHealthIPv6(result.IP)
+			healthv6, ok := netip.AddrFromSlice(result.IP)
+			if !ok {
+				return fmt.Errorf("failed to parse IP address: %q", result.IP)
+			}
+			node.SetEndpointHealthIPv6(&healthv6)
 			log.Debugf("IPv6 health endpoint address: %s", result.IP)
 		}
 	}
@@ -337,7 +345,7 @@ func (d *Daemon) allocateIngressIPs() error {
 			var err error
 
 			// Reallocate the same address as before, if possible
-			ingressIPv4 := node.GetIngressIPv4()
+			ingressIPv4 := node.GetIngressIPv4().AsSlice()
 			if ingressIPv4 != nil {
 				result, err = d.ipam.AllocateIPWithoutSyncUpstream(ingressIPv4, "ingress", ipam.PoolDefault)
 				if err != nil {
@@ -363,7 +371,11 @@ func (d *Daemon) allocateIngressIPs() error {
 				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
-			node.SetIngressIPv4(result.IP)
+			ingressV4, ok := netip.AddrFromSlice(result.IP)
+			if !ok {
+				return fmt.Errorf("failed to parse IP address: %q", result.IP)
+			}
+			node.SetIngressIPv4(&ingressV4)
 			log.Infof("  Ingress IPv4: %s", node.GetIngressIPv4())
 
 			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the
@@ -390,7 +402,7 @@ func (d *Daemon) allocateIngressIPs() error {
 			var err error
 
 			// Reallocate the same address as before, if possible
-			ingressIPv6 := node.GetIngressIPv6()
+			ingressIPv6 := node.GetIngressIPv6().AsSlice()
 			if ingressIPv6 != nil {
 				result, err = d.ipam.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress", ipam.PoolDefault)
 				if err != nil {
@@ -404,7 +416,7 @@ func (d *Daemon) allocateIngressIPs() error {
 			if result == nil {
 				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress", ipam.PoolDefault)
 				if err != nil {
-					if ingressIPv4 := node.GetIngressIPv4(); ingressIPv4 != nil {
+					if ingressIPv4 := node.GetIngressIPv4().AsSlice(); ingressIPv4 != nil {
 						d.ipam.ReleaseIP(ingressIPv4, ipam.PoolDefault)
 						node.SetIngressIPv4(nil)
 					}
@@ -420,7 +432,11 @@ func (d *Daemon) allocateIngressIPs() error {
 				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
-			node.SetIngressIPv6(result.IP)
+			ingressV6, ok := netip.AddrFromSlice(result.IP)
+			if !ok {
+				return fmt.Errorf("failed to parse IP address: %q", result.IP)
+			}
+			node.SetIngressIPv6(&ingressV6)
 			log.Infof("  Ingress IPv6: %s", node.GetIngressIPv6())
 		}
 	}
@@ -435,8 +451,12 @@ func (d *Daemon) allocateIPs() error {
 		if err != nil {
 			return err
 		}
+		routerAddr, ok := netip.AddrFromSlice(routerIP)
+		if !ok {
+			return fmt.Errorf("failed to parse IP address: %q", routerIP)
+		}
 		if routerIP != nil {
-			node.SetInternalIPv4Router(routerIP)
+			node.SetInternalIPv4Router(&routerAddr)
 		}
 	}
 
@@ -445,8 +465,12 @@ func (d *Daemon) allocateIPs() error {
 		if err != nil {
 			return err
 		}
+		routerAddr, ok := netip.AddrFromSlice(routerIP)
+		if !ok {
+			return fmt.Errorf("failed to parse IP address: %q", routerIP)
+		}
 		if routerIP != nil {
-			node.SetIPv6Router(routerIP)
+			node.SetIPv6Router(&routerAddr)
 		}
 	}
 
@@ -486,12 +510,12 @@ func (d *Daemon) allocateIPs() error {
 		}
 
 		// Allocate IPv4 service loopback IP
-		loopbackIPv4 := net.ParseIP(option.Config.LoopbackIPv4)
-		if loopbackIPv4 == nil {
+		if loopbackIPv4, err := netip.ParseAddr(option.Config.LoopbackIPv4); err != nil {
 			return fmt.Errorf("Invalid IPv4 loopback address %s", option.Config.LoopbackIPv4)
+		} else {
+			node.SetIPv4Loopback(&loopbackIPv4)
+			log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
 		}
-		node.SetIPv4Loopback(loopbackIPv4)
-		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
 
 		if addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses(); err != nil {
 			log.WithError(err).Fatal("Unable to list local IPv4 addresses")

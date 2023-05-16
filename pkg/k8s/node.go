@@ -5,7 +5,7 @@ package k8s
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -56,8 +56,8 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 		if addr.Address == "" {
 			continue
 		}
-		ip := net.ParseIP(addr.Address)
-		if ip == nil {
+		ip, err := netip.ParseAddr(addr.Address)
+		if err != nil {
 			scopedLog.WithFields(logrus.Fields{
 				logfields.IPAddr: addr.Address,
 				"type":           addr.Type,
@@ -125,7 +125,7 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	k8sNodeAddHostIP := func(key string, alias string) {
 		if ciliumInternalIP, ok := annotation.Get(k8sNode, key, alias); !ok || ciliumInternalIP == "" {
 			scopedLog.Debugf("Missing %s (or %s). Annotation required when IPSec Enabled", key, alias)
-		} else if ip := net.ParseIP(ciliumInternalIP); ip == nil {
+		} else if ip, err := netip.ParseAddr(ciliumInternalIP); err != nil {
 			scopedLog.Debugf("ParseIP %s error", ciliumInternalIP)
 		} else {
 			na := nodeTypes.Address{
@@ -178,40 +178,40 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	if newNode.IPv4HealthIP == nil {
 		if healthIP, ok := annotation.Get(k8sNode, annotation.V4HealthName, annotation.V4HealthNameAlias); !ok || healthIP == "" {
 			scopedLog.Debug("Empty IPv4 health endpoint annotation in node")
-		} else if ip := net.ParseIP(healthIP); ip == nil {
+		} else if ip, err := netip.ParseAddr(healthIP); err != nil {
 			scopedLog.WithField(logfields.V4HealthIP, healthIP).Error("BUG, invalid IPv4 health endpoint annotation in node")
 		} else {
-			newNode.IPv4HealthIP = ip
+			newNode.IPv4HealthIP = nodeTypes.ToV4Addr(ip.String())
 		}
 	}
 
 	if newNode.IPv6HealthIP == nil {
 		if healthIP, ok := annotation.Get(k8sNode, annotation.V6HealthName, annotation.V6HealthNameAlias); !ok || healthIP == "" {
 			scopedLog.Debug("Empty IPv6 health endpoint annotation in node")
-		} else if ip := net.ParseIP(healthIP); ip == nil {
+		} else if ip, err := netip.ParseAddr(healthIP); err != nil {
 			scopedLog.WithField(logfields.V6HealthIP, healthIP).Error("BUG, invalid IPv6 health endpoint annotation in node")
 		} else {
-			newNode.IPv6HealthIP = ip
+			newNode.IPv6HealthIP = nodeTypes.ToV6Addr(ip.String())
 		}
 	}
 
 	if newNode.IPv4IngressIP == nil {
 		if ingressIP, ok := annotation.Get(k8sNode, annotation.V4IngressName, annotation.V4IngressNameAlias); !ok || ingressIP == "" {
 			scopedLog.Debug("Empty IPv4 Ingress annotation in node")
-		} else if ip := net.ParseIP(ingressIP); ip == nil {
+		} else if ip, err := netip.ParseAddr(ingressIP); err != nil {
 			scopedLog.WithField(logfields.V4IngressIP, ingressIP).Error("BUG, invalid IPv4 Ingress annotation in node")
 		} else {
-			newNode.IPv4IngressIP = ip
+			newNode.IPv4IngressIP = nodeTypes.ToV4Addr(ip.String())
 		}
 	}
 
 	if newNode.IPv6IngressIP == nil {
 		if ingressIP, ok := annotation.Get(k8sNode, annotation.V6IngressName, annotation.V6IngressNameAlias); !ok || ingressIP == "" {
 			scopedLog.Debug("Empty IPv6 Ingress annotation in node")
-		} else if ip := net.ParseIP(ingressIP); ip == nil {
+		} else if ip, err := netip.ParseAddr(ingressIP); err != nil {
 			scopedLog.WithField(logfields.V6IngressIP, ingressIP).Error("BUG, invalid IPv6 Ingress annotation in node")
 		} else {
-			newNode.IPv6IngressIP = ip
+			newNode.IPv6IngressIP = &nodeTypes.Address{IP: ip}
 		}
 	}
 

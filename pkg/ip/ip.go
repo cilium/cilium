@@ -772,6 +772,7 @@ func KeepUniqueAddrs(addrs []netip.Addr) []netip.Addr {
 }
 
 var privateIPBlocks []*net.IPNet
+var privatePrefixBlocks []*netip.Prefix
 
 func initPrivatePrefixes() {
 	// We only care about global scope prefixes here.
@@ -800,6 +801,8 @@ func initPrivatePrefixes() {
 	} {
 		_, block, _ := net.ParseCIDR(cidr)
 		privateIPBlocks = append(privateIPBlocks, block)
+		prefix, _ := netip.ParsePrefix(cidr)
+		privatePrefixBlocks = append(privatePrefixBlocks, &prefix)
 	}
 }
 
@@ -816,6 +819,25 @@ func IsPublicAddr(ip net.IP) bool {
 		}
 	}
 	return true
+}
+
+// IsPublicNetIPAddr returns whether a given global addr is from
+// a public range.
+func IsPublicNetIPAddr(addr *netip.Addr) bool {
+	if addr == nil {
+		return false
+	}
+	for _, block := range privatePrefixBlocks {
+		if block.Contains(*addr) {
+			return false
+		}
+	}
+	return true
+}
+
+// ToPtr returns the pointer to the provided addr.
+func ToPtr(addr netip.Addr) *netip.Addr {
+	return &addr
 }
 
 // IPToPrefix returns the corresponding IPNet for the given IP.
@@ -842,10 +864,31 @@ func IsIPv6(ip net.IP) bool {
 	return ip != nil && ip.To4() == nil
 }
 
+// IsAddrV6 returns true if the given addr is an IPv6 address,
+// excluding an IPv4-mapped IPv6 address.
+func IsAddrV6(addr *netip.Addr) bool {
+	return addr.Is6() && !addr.Is4In6()
+}
+
+// IsAddrV4 returns true if the given addr is an IPv4 address.
+func IsAddrV4(addr *netip.Addr) bool {
+	return addr.Is4()
+}
+
 // ListContainsIP returns whether a list of IPs contains a given IP.
 func ListContainsIP(ipList []net.IP, ip net.IP) bool {
 	for _, e := range ipList {
 		if e.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// ListContainsIPAddr returns whether a list of addrs contains the given addr.
+func ListContainsIPAddr(addrs []netip.Addr, addr netip.Addr) bool {
+	for _, a := range addrs {
+		if a.Compare(addr) == 0 {
 			return true
 		}
 	}
@@ -959,4 +1002,15 @@ func MustAddrsFromIPs(ips []net.IP) []netip.Addr {
 		addrs = append(addrs, MustAddrFromIP(ip))
 	}
 	return addrs
+}
+
+// AddrsToIPs returns a slice of net.IP for the provided addrs. It assumes
+// addrs contains only valid IP addresses and always returns a slice containing
+// valid net.IP.
+func AddrsToIPs(addrs []netip.Addr) []net.IP {
+	ips := make([]net.IP, 0, len(addrs))
+	for _, addr := range addrs {
+		ips = append(ips, (addr.AsSlice()))
+	}
+	return ips
 }

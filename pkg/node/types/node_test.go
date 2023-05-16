@@ -4,7 +4,7 @@
 package types
 
 import (
-	"net"
+	"net/netip"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -32,92 +32,92 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 	n := Node{
 		Name: "node-1",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP},
+			{IP: netip.MustParseAddr("192.0.2.3"), Type: addressing.NodeExternalIP},
 		},
 	}
-	ip := n.GetNodeIP(false)
+	addr := n.GetNodeIP(false)
 	// Return the only IP present
-	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
+	c.Assert(addr.Compare(netip.MustParseAddr("192.0.2.3")), Equals, 0)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP})
-	ip = n.GetNodeIP(false)
+	n.IPAddresses = append(n.IPAddresses, Address{IP: netip.MustParseAddr("192.0.2.3"), Type: addressing.NodeExternalIP})
+	addr = n.GetNodeIP(false)
 	// The next priority should be NodeExternalIP
-	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
+	c.Assert(addr.Compare(netip.MustParseAddr("192.0.2.3")), Equals, 0)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: addressing.NodeInternalIP})
-	ip = n.GetNodeIP(false)
+	n.IPAddresses = append(n.IPAddresses, Address{IP: netip.MustParseAddr("198.51.100.2"), Type: addressing.NodeInternalIP})
+	addr = n.GetNodeIP(false)
 	// The next priority should be NodeInternalIP
-	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
+	c.Assert(addr.Compare(netip.MustParseAddr("198.51.100.2")), Equals, 0)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::1"), Type: addressing.NodeExternalIP})
-	ip = n.GetNodeIP(true)
+	n.IPAddresses = append(n.IPAddresses, Address{IP: netip.MustParseAddr("2001:DB8::1"), Type: addressing.NodeExternalIP})
+	addr = n.GetNodeIP(true)
 	// The next priority should be NodeExternalIP and IPv6
-	c.Assert(ip.Equal(net.ParseIP("2001:DB8::1")), Equals, true)
+	c.Assert(addr.Compare(netip.MustParseAddr("2001:DB8::1")), Equals, 0)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::2"), Type: addressing.NodeInternalIP})
-	ip = n.GetNodeIP(true)
+	n.IPAddresses = append(n.IPAddresses, Address{IP: netip.MustParseAddr("2001:DB8::2"), Type: addressing.NodeInternalIP})
+	addr = n.GetNodeIP(true)
 	// The next priority should be NodeInternalIP and IPv6
-	c.Assert(ip.Equal(net.ParseIP("2001:DB8::2")), Equals, true)
+	c.Assert(addr.Compare(netip.MustParseAddr("2001:DB8::2")), Equals, 0)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: addressing.NodeInternalIP})
-	ip = n.GetNodeIP(false)
+	n.IPAddresses = append(n.IPAddresses, Address{IP: netip.MustParseAddr("198.51.100.2"), Type: addressing.NodeInternalIP})
+	addr = n.GetNodeIP(false)
 	// Should still return NodeInternalIP and IPv4
-	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
+	c.Assert(addr.Compare(netip.MustParseAddr("198.51.100.2")), Equals, 0)
 
 }
 
-func (s *NodeSuite) TestGetIPByType(c *C) {
+func (s *NodeSuite) TestGetAddrByType(c *C) {
 	n := Node{
 		Name: "node-1",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP},
+			{IP: netip.MustParseAddr("192.0.2.3"), Type: addressing.NodeExternalIP},
 		},
 	}
 
-	ip := n.GetIPByType(addressing.NodeInternalIP, false)
-	c.Assert(ip, IsNil)
-	ip = n.GetIPByType(addressing.NodeInternalIP, true)
-	c.Assert(ip, IsNil)
+	addr := n.GetAddrByType(addressing.NodeInternalIP, false)
+	c.Assert(addr, IsNil)
+	addr = n.GetAddrByType(addressing.NodeInternalIP, true)
+	c.Assert(addr, IsNil)
 
-	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
-	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	c.Assert(ip, IsNil)
+	addr = n.GetAddrByType(addressing.NodeExternalIP, false)
+	c.Assert(addr.IsEqual("192.0.2.3"), Equals, true)
+	addr = n.GetAddrByType(addressing.NodeExternalIP, true)
+	c.Assert(addr, IsNil)
 
 	n = Node{
 		Name: "node-2",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("f00b::1"), Type: addressing.NodeCiliumInternalIP},
+			{IP: netip.MustParseAddr("f00b::1"), Type: addressing.NodeCiliumInternalIP},
 		},
 	}
 
-	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	c.Assert(ip, IsNil)
-	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	c.Assert(ip, IsNil)
+	addr = n.GetAddrByType(addressing.NodeExternalIP, false)
+	c.Assert(addr, IsNil)
+	addr = n.GetAddrByType(addressing.NodeExternalIP, true)
+	c.Assert(addr, IsNil)
 
-	ip = n.GetIPByType(addressing.NodeCiliumInternalIP, false)
-	c.Assert(ip, IsNil)
-	ip = n.GetIPByType(addressing.NodeCiliumInternalIP, true)
-	c.Assert(ip.Equal(net.ParseIP("f00b::1")), Equals, true)
+	addr = n.GetAddrByType(addressing.NodeCiliumInternalIP, false)
+	c.Assert(addr, IsNil)
+	addr = n.GetAddrByType(addressing.NodeCiliumInternalIP, true)
+	c.Assert(addr.IsEqual("f00b::1"), Equals, true)
 
 	n = Node{
 		Name: "node-3",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("192.42.0.3"), Type: addressing.NodeExternalIP},
-			{IP: net.ParseIP("f00d::1"), Type: addressing.NodeExternalIP},
+			{IP: netip.MustParseAddr("192.42.0.3"), Type: addressing.NodeExternalIP},
+			{IP: netip.MustParseAddr("f00d::1"), Type: addressing.NodeExternalIP},
 		},
 	}
 
-	ip = n.GetIPByType(addressing.NodeInternalIP, false)
-	c.Assert(ip, IsNil)
-	ip = n.GetIPByType(addressing.NodeInternalIP, true)
-	c.Assert(ip, IsNil)
+	addr = n.GetAddrByType(addressing.NodeInternalIP, false)
+	c.Assert(addr, IsNil)
+	addr = n.GetAddrByType(addressing.NodeInternalIP, true)
+	c.Assert(addr, IsNil)
 
-	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	c.Assert(ip.Equal(net.ParseIP("192.42.0.3")), Equals, true)
-	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	c.Assert(ip.Equal(net.ParseIP("f00d::1")), Equals, true)
+	addr = n.GetAddrByType(addressing.NodeExternalIP, false)
+	c.Assert(addr.IsEqual("192.42.0.3"), Equals, true)
+	addr = n.GetAddrByType(addressing.NodeExternalIP, true)
+	c.Assert(addr.IsEqual("f00d::1"), Equals, true)
 }
 
 func (s *NodeSuite) TestParseCiliumNode(c *C) {
@@ -158,20 +158,20 @@ func (s *NodeSuite) TestParseCiliumNode(c *C) {
 		Name:   "foo",
 		Source: source.CustomResource,
 		IPAddresses: []Address{
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("3.3.3.3")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("c0de::1")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("c0de::2")},
+			{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2.2.2.2")},
+			{Type: addressing.NodeExternalIP, IP: netip.MustParseAddr("3.3.3.3")},
+			{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("c0de::1")},
+			{Type: addressing.NodeExternalIP, IP: netip.MustParseAddr("c0de::2")},
 		},
 		EncryptionKey:           uint8(10),
 		IPv4AllocCIDR:           cidr.MustParseCIDR("10.10.0.0/16"),
 		IPv6AllocCIDR:           cidr.MustParseCIDR("c0de::/96"),
 		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("10.20.0.0/16")},
 		IPv6SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("c0fe::/96")},
-		IPv4HealthIP:            net.ParseIP("1.1.1.1"),
-		IPv6HealthIP:            net.ParseIP("c0de::1"),
-		IPv4IngressIP:           net.ParseIP("1.1.1.2"),
-		IPv6IngressIP:           net.ParseIP("c0de::2"),
+		IPv4HealthIP:            ToV4Addr("1.1.1.1"),
+		IPv6HealthIP:            ToV6Addr("c0de::1"),
+		IPv4IngressIP:           ToV4Addr("1.1.1.2"),
+		IPv6IngressIP:           ToV6Addr("c0de::2"),
 		NodeIdentity:            uint32(12345),
 	})
 }
@@ -181,20 +181,20 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 		Name:   "foo",
 		Source: source.CustomResource,
 		IPAddresses: []Address{
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("3.3.3.3")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("c0de::1")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("c0de::2")},
+			{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("2.2.2.2")},
+			{Type: addressing.NodeExternalIP, IP: netip.MustParseAddr("3.3.3.3")},
+			{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("c0de::1")},
+			{Type: addressing.NodeExternalIP, IP: netip.MustParseAddr("c0de::2")},
 		},
 		EncryptionKey:           uint8(10),
 		IPv4AllocCIDR:           cidr.MustParseCIDR("10.10.0.0/16"),
 		IPv6AllocCIDR:           cidr.MustParseCIDR("c0de::/96"),
 		IPv4SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("10.20.0.0/16")},
 		IPv6SecondaryAllocCIDRs: []*cidr.CIDR{cidr.MustParseCIDR("c0fe::/96")},
-		IPv4HealthIP:            net.ParseIP("1.1.1.1"),
-		IPv6HealthIP:            net.ParseIP("c0de::1"),
-		IPv4IngressIP:           net.ParseIP("1.1.1.2"),
-		IPv6IngressIP:           net.ParseIP("c0de::2"),
+		IPv4HealthIP:            ToV4Addr("1.1.1.1"),
+		IPv6HealthIP:            ToV6Addr("c0de::1"),
+		IPv4IngressIP:           ToV4Addr("1.1.1.2"),
+		IPv6IngressIP:           ToV6Addr("c0de::2"),
 		NodeIdentity:            uint32(12345),
 		WireguardPubKey:         "6kiIGGPvMiadJ1brWTVfSGXheE3e3k5GjDTxfjMLYx8=",
 		Annotations: map[string]string{

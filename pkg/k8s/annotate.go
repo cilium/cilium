@@ -29,10 +29,10 @@ func prepareNodeAnnotation(nd nodeTypes.Node, encryptKey uint8) nodeAnnotation {
 	annotationMap := map[string]fmt.Stringer{
 		annotation.V4CIDRName:     nd.IPv4AllocCIDR,
 		annotation.V6CIDRName:     nd.IPv6AllocCIDR,
-		annotation.V4HealthName:   nd.IPv4HealthIP,
-		annotation.V6HealthName:   nd.IPv6HealthIP,
-		annotation.V4IngressName:  nd.IPv4IngressIP,
-		annotation.V6IngressName:  nd.IPv6IngressIP,
+		annotation.V4HealthName:   nd.IPv4HealthIP.IP,
+		annotation.V6HealthName:   nd.IPv6HealthIP.IP,
+		annotation.V4IngressName:  nd.IPv4IngressIP.IP,
+		annotation.V6IngressName:  nd.IPv6IngressIP.IP,
 		annotation.CiliumHostIP:   nd.GetCiliumInternalIP(false),
 		annotation.CiliumHostIPv6: nd.GetCiliumInternalIP(true),
 	}

@@ -5,7 +5,7 @@ package node
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/ip"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -35,42 +36,42 @@ func (s *NodeSuite) Test_chooseHostIPsToRestore(c *C) {
 	tests := []struct {
 		name            string
 		ipv6            bool
-		fromK8s, fromFS net.IP
+		fromK8s, fromFS netip.Addr
 		cidr            *cidr.CIDR
-		expect          net.IP
+		expect          netip.Addr
 		err             error
 	}{
 		{
 			name:    "restore IP from fs (both provided)",
 			ipv6:    false,
-			fromK8s: net.ParseIP("192.0.2.127"),
-			fromFS:  net.ParseIP("192.0.2.255"),
+			fromK8s: netip.MustParseAddr("192.0.2.127"),
+			fromFS:  netip.MustParseAddr("192.0.2.255"),
 			cidr:    cidr.MustParseCIDR("192.0.2.0/24"),
-			expect:  net.ParseIP("192.0.2.255"),
+			expect:  netip.MustParseAddr("192.0.2.255"),
 			err:     errMismatch,
 		},
 		{
 			name:   "restore IP from fs",
 			ipv6:   false,
-			fromFS: net.ParseIP("192.0.2.255"),
+			fromFS: netip.MustParseAddr("192.0.2.255"),
 			cidr:   cidr.MustParseCIDR("192.0.2.0/24"),
-			expect: net.ParseIP("192.0.2.255"),
+			expect: netip.MustParseAddr("192.0.2.255"),
 			err:    nil,
 		},
 		{
 			name:    "restore IP from k8s",
 			ipv6:    false,
-			fromK8s: net.ParseIP("192.0.2.127"),
+			fromK8s: netip.MustParseAddr("192.0.2.127"),
 			cidr:    cidr.MustParseCIDR("192.0.2.0/24"),
-			expect:  net.ParseIP("192.0.2.127"),
+			expect:  netip.MustParseAddr("192.0.2.127"),
 			err:     nil,
 		},
 		{
 			name:    "IP not part of CIDR",
 			ipv6:    false,
-			fromK8s: net.ParseIP("192.0.2.127"),
+			fromK8s: netip.MustParseAddr("192.0.2.127"),
 			cidr:    cidr.MustParseCIDR("192.1.2.0/24"),
-			expect:  net.ParseIP("192.0.2.127"),
+			expect:  netip.MustParseAddr("192.0.2.127"),
 			err:     errDoesNotBelong,
 		},
 		{
@@ -81,26 +82,26 @@ func (s *NodeSuite) Test_chooseHostIPsToRestore(c *C) {
 		{
 			name:    "restore IP from fs (both provided)",
 			ipv6:    true,
-			fromK8s: net.ParseIP("ff02::127"),
-			fromFS:  net.ParseIP("ff02::255"),
+			fromK8s: netip.MustParseAddr("ff02::127"),
+			fromFS:  netip.MustParseAddr("ff02::255"),
 			cidr:    cidr.MustParseCIDR("ff02::/64"),
-			expect:  net.ParseIP("ff02::255"),
+			expect:  netip.MustParseAddr("ff02::255"),
 			err:     errMismatch,
 		},
 		{
 			name:   "restore IP from fs",
 			ipv6:   true,
-			fromFS: net.ParseIP("ff02::255"),
+			fromFS: netip.MustParseAddr("ff02::255"),
 			cidr:   cidr.MustParseCIDR("ff02::/64"),
-			expect: net.ParseIP("ff02::255"),
+			expect: netip.MustParseAddr("ff02::255"),
 			err:    nil,
 		},
 		{
 			name:    "restore IP from k8s",
 			ipv6:    true,
-			fromK8s: net.ParseIP("ff02::127"),
+			fromK8s: netip.MustParseAddr("ff02::127"),
 			cidr:    cidr.MustParseCIDR("ff02::/64"),
-			expect:  net.ParseIP("ff02::127"),
+			expect:  netip.MustParseAddr("ff02::127"),
 			err:     nil,
 		},
 		{
@@ -111,7 +112,7 @@ func (s *NodeSuite) Test_chooseHostIPsToRestore(c *C) {
 	}
 	for _, tt := range tests {
 		c.Log("Test: " + tt.name)
-		got, err := chooseHostIPsToRestore(tt.ipv6, tt.fromK8s, tt.fromFS, []*cidr.CIDR{tt.cidr})
+		got, err := chooseHostIPsToRestore(tt.ipv6, &tt.fromK8s, &tt.fromFS, []*cidr.CIDR{tt.cidr})
 		c.Assert(err, checker.DeepEquals, tt.err)
 		c.Assert(got, checker.DeepEquals, tt.expect)
 	}
@@ -166,18 +167,18 @@ func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {
 	tests := []struct {
 		name            string
 		args            args
-		wantIpv4GW      net.IP
-		wantIpv6Router  net.IP
-		wantIpv6Address net.IP
+		wantIpv4GW      *netip.Addr
+		wantIpv6Router  *netip.Addr
+		wantIpv6Address *netip.Addr
 	}{
 		{
 			name: "every-ip-correct",
 			args: args{
 				nodeConfig: allIPsCorrect,
 			},
-			wantIpv4GW:      net.ParseIP("10.0.0.2"),
-			wantIpv6Router:  net.ParseIP("f00d::a00:0:0:a4ad"),
-			wantIpv6Address: net.ParseIP("fd01::b"),
+			wantIpv4GW:      ip.ToPtr(netip.MustParseAddr("10.0.0.2")),
+			wantIpv6Router:  ip.ToPtr(netip.MustParseAddr("f00d::a00:0:0:a4ad")),
+			wantIpv6Address: ip.ToPtr(netip.MustParseAddr("fd01::b")),
 		},
 		{
 			name: "file-not-present",

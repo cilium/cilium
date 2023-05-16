@@ -222,7 +222,7 @@ func (d *Daemon) syncHostIPs() error {
 			log.WithError(err).Warning("Unable to list local IPv6 addresses")
 		}
 
-		addrs = append(addrs, node.GetIPv6Router())
+		addrs = append(addrs, node.GetIPv6Router().AsSlice())
 		for _, ip := range addrs {
 			if option.Config.IsExcludedLocalAddress(ip) {
 				continue

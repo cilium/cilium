@@ -22,7 +22,7 @@ import (
 func listLocalAddresses(family int) ([]net.IP, error) {
 	var addresses []net.IP
 
-	ipsToExclude := node.GetExcludedIPs()
+	ipsToExclude := ip.AddrsToIPs(node.GetExcludedIPs())
 	addrs, err := netlink.AddrList(nil, family)
 	if err != nil {
 		return nil, err
@@ -75,11 +75,11 @@ func filterLocalAddresses(addrs []netlink.Addr, ipsToExclude []net.IP, addrScope
 type addressFamilyIPv4 struct{}
 
 func (a *addressFamilyIPv4) Router() net.IP {
-	return node.GetInternalIPv4Router()
+	return node.GetInternalIPv4Router().AsSlice()
 }
 
 func (a *addressFamilyIPv4) PrimaryExternal() net.IP {
-	return node.GetIPv4()
+	return node.GetIPv4().AsSlice()
 }
 
 func (a *addressFamilyIPv4) AllocationCIDR() *cidr.CIDR {
@@ -94,7 +94,7 @@ func (a *addressFamilyIPv4) LocalAddresses() ([]net.IP, error) {
 	}
 
 	if externalAddress := node.GetK8sExternalIPv4(); externalAddress != nil {
-		addrs = append(addrs, externalAddress)
+		addrs = append(addrs, externalAddress.AsSlice())
 	}
 
 	return addrs, nil
@@ -103,7 +103,7 @@ func (a *addressFamilyIPv4) LocalAddresses() ([]net.IP, error) {
 // LoadBalancerNodeAddresses returns all IPv4 node addresses on which the
 // loadbalancer should implement HostPort and NodePort services.
 func (a *addressFamilyIPv4) LoadBalancerNodeAddresses() []net.IP {
-	addrs := node.GetNodePortIPv4Addrs()
+	addrs := ip.AddrsToIPs(node.GetNodePortIPv4Addrs())
 	addrs = append(addrs, net.IPv4zero)
 	return addrs
 }
@@ -111,11 +111,11 @@ func (a *addressFamilyIPv4) LoadBalancerNodeAddresses() []net.IP {
 type addressFamilyIPv6 struct{}
 
 func (a *addressFamilyIPv6) Router() net.IP {
-	return node.GetIPv6Router()
+	return node.GetIPv6Router().AsSlice()
 }
 
 func (a *addressFamilyIPv6) PrimaryExternal() net.IP {
-	return node.GetIPv6()
+	return node.GetIPv6().AsSlice()
 }
 
 func (a *addressFamilyIPv6) AllocationCIDR() *cidr.CIDR {
@@ -130,7 +130,7 @@ func (a *addressFamilyIPv6) LocalAddresses() ([]net.IP, error) {
 	}
 
 	if externalAddress := node.GetK8sExternalIPv6(); externalAddress != nil {
-		addrs = append(addrs, externalAddress)
+		addrs = append(addrs, externalAddress.AsSlice())
 	}
 
 	return addrs, nil
@@ -139,7 +139,7 @@ func (a *addressFamilyIPv6) LocalAddresses() ([]net.IP, error) {
 // LoadBalancerNodeAddresses returns all IPv6 node addresses on which the
 // loadbalancer should implement HostPort and NodePort services.
 func (a *addressFamilyIPv6) LoadBalancerNodeAddresses() []net.IP {
-	addrs := node.GetNodePortIPv6Addrs()
+	addrs := ip.AddrsToIPs(node.GetNodePortIPv6Addrs())
 	addrs = append(addrs, net.IPv6zero)
 	return addrs
 }

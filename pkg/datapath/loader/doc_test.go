@@ -4,6 +4,9 @@
 package loader
 
 import (
+	"net/netip"
+
+	"gopkg.in/check.v1"
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -14,6 +17,8 @@ import (
 func (s *LoaderTestSuite) SetUpTest(c *C) {
 	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
 	node.InitDefaultPrefix("")
-	node.SetInternalIPv4Router(templateIPv4[:])
-	node.SetIPv4Loopback(templateIPv4[:])
+	addr, ok := netip.AddrFromSlice(templateIPv4[:])
+	c.Assert(ok, check.Equals, true)
+	node.SetInternalIPv4Router(&addr)
+	node.SetIPv4Loopback(&addr)
 }

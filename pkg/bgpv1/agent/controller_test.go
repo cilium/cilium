@@ -182,7 +182,7 @@ func TestControllerSanity(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			nodeaddr.SetIPv4(nodeIPv4.AsSlice())
+			nodeaddr.SetIPv4(&nodeIPv4)
 			nodetypes.SetName(nodeName)
 			nodeSpecer := &fakeNodeSpecer{
 				Annotations_: tt.annotations,

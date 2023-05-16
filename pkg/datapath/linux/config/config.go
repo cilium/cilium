@@ -92,24 +92,24 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", node.GetNodePortIPv4Addrs())
 	fmt.Fprintf(fw, "\n")
 	if option.Config.EnableIPv6 {
-		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
+		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router().AsSlice()))
 	}
-	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, node.GetInternalIPv4Router()))
+	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, node.GetInternalIPv4Router().AsSlice()))
 	fmt.Fprintf(fw, " */\n\n")
 
 	cDefinesMap["KERNEL_HZ"] = fmt.Sprintf("%d", option.Config.KernelHz)
 
 	if option.Config.EnableIPv6 {
 		extraMacrosMap["ROUTER_IP"] = routerIP.String()
-		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
+		fw.WriteString(defineIPv6("ROUTER_IP", routerIP.AsSlice()))
 	}
 
 	if option.Config.EnableIPv4 {
 		ipv4GW := node.GetInternalIPv4Router()
 		loopbackIPv4 := node.GetIPv4Loopback()
 		ipv4Range := node.GetIPv4AllocRange()
-		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4GW))
-		cDefinesMap["IPV4_LOOPBACK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(loopbackIPv4))
+		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4GW.AsSlice()))
+		cDefinesMap["IPV4_LOOPBACK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(loopbackIPv4.AsSlice()))
 		cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(ipv4Range.Mask)))
 
 		if option.Config.EnableIPv4FragmentsTracking {
@@ -121,7 +121,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableIPv6 {
 		extraMacrosMap["HOST_IP"] = hostIP.String()
-		fw.WriteString(defineIPv6("HOST_IP", hostIP))
+		fw.WriteString(defineIPv6("HOST_IP", hostIP.AsSlice()))
 	}
 
 	cDefinesMap["TUNNEL_PORT"] = fmt.Sprintf("%d", option.Config.TunnelPort)
@@ -493,7 +493,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				}).Fatal("Direct routing device's IPv4 address not found")
 			}
 
-			ipv4 := byteorder.NetIPv4ToHost32(ip)
+			ipv4 := byteorder.NetIPv4ToHost32(ip.AsSlice())
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
 		}
 
@@ -506,7 +506,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
-			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
+			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6.AsSlice()))
 		}
 	} else {
 		var directRoutingIPv6 net.IP
@@ -540,7 +540,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			return errors.New("external IPv4 node address is required when IPSec is enabled, but none found")
 		}
 
-		a := byteorder.NetIPv4ToHost32(nodeAddress)
+		a := byteorder.NetIPv4ToHost32(nodeAddress.AsSlice())
 		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
 		if iface := option.Config.EncryptInterface; len(iface) != 0 {
 			link, err := netlink.LinkByName(iface[0])

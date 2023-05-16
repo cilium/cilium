@@ -7,11 +7,26 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"net/netip"
 )
 
 // NewCIDR returns a new CIDR using a net.IPNet
 func NewCIDR(ipnet *net.IPNet) *CIDR {
 	if ipnet == nil {
+		return nil
+	}
+
+	return &CIDR{ipnet}
+}
+
+// NewCIDRFromPrefix returns a new CIDR from the provided prefix
+func NewCIDRFromPrefix(prefix *netip.Prefix) *CIDR {
+	if prefix == nil {
+		return nil
+	}
+
+	_, ipnet, err := net.ParseCIDR(prefix.String())
+	if err != nil {
 		return nil
 	}
 

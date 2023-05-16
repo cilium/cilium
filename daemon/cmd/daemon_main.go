@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
@@ -1417,20 +1417,20 @@ func initEnv() {
 
 	// Initialize node IP addresses from configuration.
 	if option.Config.IPv6NodeAddr != "auto" {
-		if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {
+		if ip, err := netip.ParseAddr(option.Config.IPv6NodeAddr); err != nil {
 			log.WithField(logfields.IPAddr, option.Config.IPv6NodeAddr).Fatal("Invalid IPv6 node address")
 		} else {
 			if !ip.IsGlobalUnicast() {
 				log.WithField(logfields.IPAddr, ip).Fatal("Invalid IPv6 node address: not a global unicast address")
 			}
-			node.SetIPv6(ip)
+			node.SetIPv6(&ip)
 		}
 	}
 	if option.Config.IPv4NodeAddr != "auto" {
-		if ip := net.ParseIP(option.Config.IPv4NodeAddr); ip == nil {
+		if ip, err := netip.ParseAddr(option.Config.IPv4NodeAddr); err != nil {
 			log.WithField(logfields.IPAddr, option.Config.IPv4NodeAddr).Fatal("Invalid IPv4 node address")
 		} else {
-			node.SetIPv4(ip)
+			node.SetIPv4(&ip)
 		}
 	}
 

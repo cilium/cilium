@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"path"
 	"sync"
@@ -133,7 +134,7 @@ func nullifyStringSubstitutions(strings map[string]string) map[string]string {
 // Since the two object files should only differ by the values of their
 // NODE_MAC symbols, we can avoid a full compilation.
 func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string,
-	bpfMasqIPv4Addrs map[string]net.IP) error {
+	bpfMasqIPv4Addrs map[string]netip.Addr) error {
 
 	hostObj, err := elf.Open(objPath)
 	if err != nil {
@@ -173,7 +174,7 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade && bpfMasqIPv4Addrs != nil {
 		if option.Config.EnableIPv4 {
 			ipv4 := bpfMasqIPv4Addrs[ifName]
-			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4))
+			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetAddrV4ToHost32(ipv4))
 		}
 	}
 

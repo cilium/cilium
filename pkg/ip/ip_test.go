@@ -907,6 +907,50 @@ func (s *IPTestSuite) TestIPVersion(c *C) {
 	}
 }
 
+func (s *IPTestSuite) TestAddrVersion(c *C) {
+	type args struct {
+		ip *netip.Addr
+	}
+	tests := []struct {
+		name string
+		args args
+		v4   bool
+		v6   bool
+	}{
+		{
+			name: "test-1",
+			args: args{
+				ip: nil,
+			},
+			v4: false,
+			v6: false,
+		},
+		{
+			name: "test-2",
+			args: args{
+				ip: ToPtr(netip.MustParseAddr("1.1.1.1")),
+			},
+			v4: true,
+			v6: false,
+		},
+		{
+			name: "test-3",
+			args: args{
+				ip: ToPtr(netip.MustParseAddr("fd00::1")),
+			},
+			v4: false,
+			v6: true,
+		},
+	}
+	for _, tt := range tests {
+		got := IsAddrV4(tt.args.ip)
+		c.Assert(got, checker.DeepEquals, tt.v4, Commentf("v4 test Name: %s", tt.name))
+
+		got = IsAddrV6(tt.args.ip)
+		c.Assert(got, checker.DeepEquals, tt.v6, Commentf("v6 test Name: %s", tt.name))
+	}
+}
+
 func (s *IPTestSuite) TestIPListEquals(c *C) {
 	ips := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")}
 	sorted := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8"), net.ParseIP("fd00::1")}
@@ -1071,4 +1115,28 @@ func (s *IPTestSuite) TestMustAddrsFromIPs(c *C) {
 		}
 	}()
 	_ = MustAddrsFromIPs(nilIPs)
+}
+
+func (s *IPTestSuite) TestAddrsToIPs(c *C) {
+	type args struct {
+		addrs []netip.Addr
+		ips   []net.IP
+	}
+	for _, tt := range []args{
+		{
+			addrs: []netip.Addr{},
+			ips:   []net.IP{},
+		},
+		{
+			addrs: []netip.Addr{netip.MustParseAddr("1.1.1.1")},
+			ips:   []net.IP{net.ParseIP("1.1.1.1")},
+		},
+		{
+			addrs: []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.2.2.2"), netip.MustParseAddr("0.0.0.0")},
+			ips:   []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2"), net.ParseIP("0.0.0.0")},
+		},
+	} {
+		ips := AddrsToIPs(tt.addrs)
+		c.Assert(ips, checker.DeepEquals, tt.ips)
+	}
 }

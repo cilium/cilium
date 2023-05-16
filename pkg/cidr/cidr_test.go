@@ -5,6 +5,7 @@ package cidr
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 
 	"gopkg.in/check.v1"
@@ -34,10 +35,22 @@ func (t *CidrTestSuite) TestDeepCopy(c *check.C) {
 
 	c2 := c1.DeepCopy()
 	c.Assert(c1, checker.DeepEquals, c2)
+
+	pref, err := netip.ParsePrefix(ipnet.String())
+	c.Assert(err, check.IsNil)
+	c3 := NewCIDRFromPrefix(&pref)
+	c.Assert(c3, check.Not(check.IsNil))
+
+	c4 := c3.DeepCopy()
+	c.Assert(c1, checker.DeepEquals, c4)
 }
 
 func (t *CidrTestSuite) TestNewCIDRNil(c *check.C) {
 	c.Assert(NewCIDR(nil), check.IsNil)
+}
+
+func (t *CidrTestSuite) TestNewCIDRFromPrefixNil(c *check.C) {
+	c.Assert(NewCIDRFromPrefix(nil), check.IsNil)
 }
 
 func (t *CidrTestSuite) TestIllegalParseCIDR(c *check.C) {

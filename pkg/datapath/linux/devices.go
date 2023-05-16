@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -465,20 +466,21 @@ func (dm *DeviceManager) expandDeviceWildcards(devices []string, option string) 
 func findK8SNodeIPLink() (netlink.Link, error) {
 	nodeIP := node.GetK8sNodeIP()
 
-	if nodeIP == nil {
-		return nil, fmt.Errorf("failed to find K8s node device as node IP is not known")
-	}
-
 	var family int
-	if nodeIP.To4() != nil {
+	switch {
+	case nodeIP == nil:
+		return nil, fmt.Errorf("failed to find K8s node device as node IP is not known")
+	case ip.IsAddrV4(nodeIP):
 		family = netlink.FAMILY_V4
-	} else {
+	case ip.IsAddrV6(nodeIP):
 		family = netlink.FAMILY_V6
+	default:
+		return nil, fmt.Errorf("invalid IP address %q", nodeIP)
 	}
 
 	if addrs, err := netlink.AddrList(nil, family); err == nil {
 		for _, a := range addrs {
-			if a.IP.Equal(nodeIP) {
+			if a.IP.Equal(nodeIP.AsSlice()) {
 				link, err := netlink.LinkByIndex(a.LinkIndex)
 				if err != nil {
 					return nil, err

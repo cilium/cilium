@@ -726,7 +726,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 
 				IP := net.IP(endpointIP.AsSlice())
 				ID := e.SecurityIdentity.ID
-				hostIP := node.GetIPv4()
+				hostIP := node.GetIPv4().AsSlice()
 				key := node.GetIPsecKeyIdentity()
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace

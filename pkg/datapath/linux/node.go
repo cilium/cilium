@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/idpool"
+	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -542,21 +543,21 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv4Wildcard, internalIPv4, wildcardIP, 0, ipsec.IPSecDirIn, false)
 			upsertIPsecLog(err, "EncryptNode local IPv4", ipsecLocal, ipsecIPv4Wildcard, spi)
 		} else {
-			if remoteIPv4 := newNode.GetNodeIP(false); remoteIPv4 != nil {
+			if remoteIPv4 := newNode.GetNodeIP(false).AsSlice(); remoteIPv4 != nil {
 				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
 				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv4, remoteIPv4, 0, ipsec.IPSecDirOutNode, false)
 				upsertIPsecLog(err, "EncryptNode IPv4", ipsecLocal, ipsecRemote, spi)
 			}
-			remoteIPv4 := newNode.GetCiliumInternalIP(false)
+			remoteIPv4 := newNode.GetCiliumInternalIP(false).AsSlice()
 			if remoteIPv4 != nil {
 				mask := newNode.IPv4AllocCIDR.Mask
-				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv4.Mask(mask), Mask: mask}
+				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv4, Mask: mask}
 				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: mask}
 				ipsecWildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
 
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemoteRoute)
-				if remoteIPv4T := newNode.GetNodeIP(false); remoteIPv4T != nil {
+				if remoteIPv4T := newNode.GetNodeIP(false).AsSlice(); remoteIPv4T != nil {
 					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv4, remoteIPv4T, 0, ipsec.IPSecDirOutNode)
 				}
 				upsertIPsecLog(err, "EncryptNode Cilium IPv4", ipsecWildcard, ipsecRemote, spi)
@@ -575,21 +576,21 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv6Wildcard, internalIPv6, wildcardIP, 0, ipsec.IPSecDirIn, false)
 			upsertIPsecLog(err, "EncryptNode local IPv6", ipsecLocal, ipsecIPv6Wildcard, spi)
 		} else {
-			if remoteIPv6 := newNode.GetNodeIP(true); remoteIPv6 != nil {
+			if remoteIPv6 := newNode.GetNodeIP(true).AsSlice(); remoteIPv6 != nil {
 				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: exactMask}
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
 				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, internalIPv6, remoteIPv6, 0, ipsec.IPSecDirOut, false)
 				upsertIPsecLog(err, "EncryptNode IPv6", ipsecLocal, ipsecRemote, spi)
 			}
-			remoteIPv6 := newNode.GetCiliumInternalIP(true)
+			remoteIPv6 := newNode.GetCiliumInternalIP(true).AsSlice()
 			if remoteIPv6 != nil {
 				mask := newNode.IPv6AllocCIDR.Mask
-				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv6.Mask(mask), Mask: mask}
+				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv6, Mask: mask}
 				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: mask}
 				ipsecWildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv6), Mask: net.CIDRMask(0, 0)}
 
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemoteRoute)
-				if remoteIPv6T := newNode.GetNodeIP(true); remoteIPv6T != nil {
+				if remoteIPv6T := newNode.GetNodeIP(true).AsSlice(); remoteIPv6T != nil {
 					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, internalIPv6, remoteIPv6T, 0, ipsec.IPSecDirOutNode)
 				}
 				upsertIPsecLog(err, "EncryptNode Cilium IPv6", ipsecWildcard, ipsecRemote, spi)
@@ -708,7 +709,7 @@ func (n *linuxNodeHandler) insertNeighborCommon(scopedLog *logrus.Entry, ctx con
 }
 
 func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link, refresh bool) {
-	newNodeIP := newNode.GetNodeIP(false)
+	newNodeIP := newNode.GetNodeIP(false).AsSlice()
 	nextHopIPv4 := make(net.IP, len(newNodeIP))
 	copy(nextHopIPv4, newNodeIP)
 
@@ -779,7 +780,7 @@ func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTyp
 }
 
 func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link, refresh bool) {
-	newNodeIP := newNode.GetNodeIP(true)
+	newNodeIP := newNode.GetNodeIP(true).AsSlice()
 	nextHopIPv6 := make(net.IP, len(newNodeIP))
 	copy(nextHopIPv6, newNodeIP)
 
@@ -870,12 +871,12 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	links = n.neighDiscoveryLinks
 	n.neighLock.Unlock()
 
-	if newNode.GetNodeIP(false).To4() != nil {
+	if ip.IsAddrV4(newNode.GetNodeIP(false)) {
 		for _, l := range links {
 			n.insertNeighbor4(ctx, newNode, l, refresh)
 		}
 	}
-	if newNode.GetNodeIP(true).To16() != nil {
+	if ip.IsAddrV6(newNode.GetNodeIP(true)) {
 		for _, l := range links {
 			n.insertNeighbor6(ctx, newNode, l, refresh)
 		}
@@ -963,7 +964,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new4Net)
 
-			if localIP := newNode.GetCiliumInternalIP(false); localIP != nil {
+			if localIP := newNode.GetCiliumInternalIP(false).AsSlice(); localIP != nil {
 				if n.subnetEncryption() {
 					for _, cidr := range n.nodeConfig.IPv4PodSubnets {
 						/* Insert wildcard policy rules for traffic skipping back through host */
@@ -981,7 +982,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 				}
 			}
 		} else {
-			if remoteIP := newNode.GetCiliumInternalIP(false); remoteIP != nil {
+			if remoteIP := newNode.GetCiliumInternalIP(false).AsSlice(); remoteIP != nil {
 				localIP := n.nodeAddressing.IPv4().Router()
 				remoteNodeID := n.allocateIDForNode(newNode)
 
@@ -1017,7 +1018,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new6Net)
 
-			if localIP := newNode.GetCiliumInternalIP(true); localIP != nil {
+			if localIP := newNode.GetCiliumInternalIP(true).AsSlice(); localIP != nil {
 				if n.subnetEncryption() {
 					for _, cidr := range n.nodeConfig.IPv6PodSubnets {
 						spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, wildcardIP, 0, ipsec.IPSecDirIn, zeroMark)
@@ -1030,7 +1031,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 				}
 			}
 		} else {
-			if remoteIP := newNode.GetCiliumInternalIP(true); remoteIP != nil {
+			if remoteIP := newNode.GetCiliumInternalIP(true).AsSlice(); remoteIP != nil {
 				localIP := n.nodeAddressing.IPv6().Router()
 				remoteNodeID := n.allocateIDForNode(newNode)
 
@@ -1063,8 +1064,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		newAllIP4AllocCidrs                      = newNode.GetIPv4AllocCIDRs()
 		newAllIP6AllocCidrs                      = newNode.GetIPv6AllocCIDRs()
 		oldIP4, oldIP6                           net.IP
-		newIP4                                   = newNode.GetNodeIP(false)
-		newIP6                                   = newNode.GetNodeIP(true)
+		newIP4                                   = newNode.GetNodeIP(false).AsSlice()
+		newIP6                                   = newNode.GetNodeIP(true).AsSlice()
 		oldKey, newKey                           uint8
 		isLocalNode                              = false
 	)
@@ -1074,8 +1075,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldIP6Cidr = oldNode.IPv6AllocCIDR
 		oldAllIP4AllocCidrs = oldNode.GetIPv4AllocCIDRs()
 		oldAllIP6AllocCidrs = oldNode.GetIPv6AllocCIDRs()
-		oldIP4 = oldNode.GetNodeIP(false)
-		oldIP6 = oldNode.GetNodeIP(true)
+		oldIP4 = oldNode.GetNodeIP(false).AsSlice()
+		oldIP6 = oldNode.GetNodeIP(true).AsSlice()
 		oldKey = oldNode.EncryptionKey
 	}
 
@@ -1198,8 +1199,8 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 		return nil
 	}
 
-	oldIP4 := oldNode.GetNodeIP(false)
-	oldIP6 := oldNode.GetNodeIP(true)
+	oldIP4 := oldNode.GetNodeIP(false).AsSlice()
+	oldIP6 := oldNode.GetNodeIP(true).AsSlice()
 
 	if n.nodeConfig.EnableAutoDirectRouting {
 		n.deleteDirectRoute(oldNode.IPv4AllocCIDR, oldIP4)
@@ -1474,12 +1475,12 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
 
 func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 	if n.nodeConfig.EnableIPv4 && oldNode.IPv4AllocCIDR != nil {
-		ciliumInternalIPv4 := oldNode.GetCiliumInternalIP(false)
+		ciliumInternalIPv4 := oldNode.GetCiliumInternalIP(false).AsSlice()
 		old4RouteNet := &net.IPNet{IP: oldNode.IPv4AllocCIDR.IP, Mask: oldNode.IPv4AllocCIDR.Mask}
 		n.deleteNodeIPSecOutRoute(old4RouteNet)
 		ipsec.DeleteIPsecEndpoint(ciliumInternalIPv4)
 		if n.nodeConfig.EncryptNode {
-			if remoteIPv4 := oldNode.GetNodeIP(false); remoteIPv4 != nil {
+			if remoteIPv4 := oldNode.GetNodeIP(false).AsSlice(); remoteIPv4 != nil {
 				exactMask := net.IPv4Mask(255, 255, 255, 255)
 				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
 				n.deleteNodeExternalIPSecOutRoute(ipsecRemote)
@@ -1488,12 +1489,12 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 	}
 
 	if n.nodeConfig.EnableIPv6 && oldNode.IPv6AllocCIDR != nil {
-		ciliumInternalIPv6 := oldNode.GetCiliumInternalIP(true)
+		ciliumInternalIPv6 := oldNode.GetCiliumInternalIP(true).AsSlice()
 		old6RouteNet := &net.IPNet{IP: oldNode.IPv6AllocCIDR.IP, Mask: oldNode.IPv6AllocCIDR.Mask}
 		n.deleteNodeIPSecOutRoute(old6RouteNet)
 		ipsec.DeleteIPsecEndpoint(ciliumInternalIPv6)
 		if n.nodeConfig.EncryptNode {
-			if remoteIPv6 := oldNode.GetNodeIP(true); remoteIPv6 != nil {
+			if remoteIPv6 := oldNode.GetNodeIP(true).AsSlice(); remoteIPv6 != nil {
 				exactMask := net.CIDRMask(128, 128)
 				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: exactMask}
 				n.deleteNodeExternalIPSecOutRoute(ipsecRemote)

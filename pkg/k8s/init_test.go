@@ -6,7 +6,7 @@ package k8s
 import (
 	"encoding/json"
 	"fmt"
-	"net"
+	"net/netip"
 	"time"
 
 	. "gopkg.in/check.v1"
@@ -67,7 +67,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	node1Slim := ConvertToNode(node1.DeepCopy()).(*slim_corev1.Node)
 	node1Cilium := ParseNode(node1Slim, source.Unspec)
-	node1Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
+	node1IP := netip.MustParseAddr("10.254.0.1")
+	node1Cilium.SetCiliumInternalIP(&node1IP)
 	useNodeCIDR(node1Cilium)
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 	// IPv6 Node range is not checked because it shouldn't be changed.
@@ -124,7 +125,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	node2Slim := ConvertToNode(node2.DeepCopy()).(*slim_corev1.Node)
 	node2Cilium := ParseNode(node2Slim, source.Unspec)
-	node2Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
+	node2IP := netip.MustParseAddr("10.254.0.1")
+	node2Cilium.SetCiliumInternalIP(&node2IP)
 	useNodeCIDR(node2Cilium)
 
 	// We use the node's annotation for the IPv4 and the PodCIDR for the

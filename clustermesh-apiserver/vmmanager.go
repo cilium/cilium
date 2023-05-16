@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -204,7 +205,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 			// Create cluster resources for the external node
 			nodeIP := nk.GetNodeIP(false)
 			m.UpdateCiliumNodeResource(nk, cew)
-			m.UpdateCiliumEndpointResource(nk.Name, id, nk.IPAddresses, nodeIP)
+			m.UpdateCiliumEndpointResource(nk.Name, id, nk.IPAddresses, nodeIP.AsSlice())
 
 			nid := id.ID.Uint32()
 
@@ -327,18 +328,18 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 		if len(addresses) == i {
 			addresses = append(addresses, &ciliumv2.AddressPair{})
 		}
-		if ipv4 := addr.IP.To4(); ipv4 != nil {
+		if ip.IsAddrV4(&addr.IP) {
 			if addresses[i].IPV4 != "" {
 				addresses = append(addresses, &ciliumv2.AddressPair{})
 				i++
 			}
-			addresses[i].IPV4 = ipv4.String()
-		} else if ipv6 := addr.IP.To16(); ipv6 != nil {
+			addresses[i].IPV4 = addr.IP.String()
+		} else if ip.IsAddrV6(&addr.IP) {
 			if addresses[i].IPV6 != "" {
 				addresses = append(addresses, &ciliumv2.AddressPair{})
 				i++
 			}
-			addresses[i].IPV6 = ipv6.String()
+			addresses[i].IPV6 = addr.IP.String()
 		}
 	}
 

@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/ip"
 )
 
 func init() {
@@ -41,12 +43,16 @@ func initExcludedIPs() {
 				continue
 			}
 		}
-		addr, err := netlink.AddrList(l, netlink.FAMILY_ALL)
+		addrs, err := netlink.AddrList(l, netlink.FAMILY_ALL)
 		if err != nil {
 			continue
 		}
-		for _, a := range addr {
-			excludedIPs = append(excludedIPs, a.IP)
+		for _, addr := range addrs {
+			ipAddr, ok := ip.AddrFromIP(addr.IP)
+			if !ok {
+				return
+			}
+			excludedIPs = append(excludedIPs, ipAddr)
 		}
 	}
 }

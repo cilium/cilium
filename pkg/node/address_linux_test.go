@@ -8,6 +8,7 @@ package node
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/testutils"
 
@@ -66,7 +67,9 @@ func (s *NodePrivilegedSuite) Test_firstGlobalV4Addr(c *C) {
 		err := setupDummyDevice(ifName, tc.ipsOnInterface...)
 		c.Assert(err, IsNil)
 
-		got, err := firstGlobalV4Addr(ifName, net.ParseIP(tc.preferredIP), tc.preferPublic)
+		addr, err := netip.ParseAddr(tc.preferredIP)
+		c.Assert(err, IsNil)
+		got, err := firstGlobalV4Addr(ifName, &addr, tc.preferPublic)
 		if err != nil {
 			c.Error(err)
 		} else {

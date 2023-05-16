@@ -6,6 +6,7 @@ package egressgateway
 import (
 	"context"
 	"net"
+	"net/netip"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -431,13 +432,17 @@ func cleanupPolicies(policyMap egressmap.PolicyMap) {
 }
 
 func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) nodeTypes.Node {
+	ip, err := netip.ParseAddr(nodeIP)
+	if err != nil {
+		return nodeTypes.Node{}
+	}
 	return nodeTypes.Node{
 		Name:   name,
 		Labels: nodeLabels,
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP(nodeIP),
+				IP:   ip,
 			},
 		},
 	}

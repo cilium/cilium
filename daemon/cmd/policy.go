@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/netip"
 	"sync"
 	"time"
@@ -181,7 +180,7 @@ func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted cache.Identit
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this
 // agent
 func (iao *identityAllocatorOwner) GetNodeSuffix() string {
-	var ip net.IP
+	var ip *netip.Addr
 
 	switch {
 	case option.Config.EnableIPv4:

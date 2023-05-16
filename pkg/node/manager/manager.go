@@ -5,7 +5,6 @@ package manager
 
 import (
 	"context"
-	"net"
 	"net/netip"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/inctimer"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -384,16 +382,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 	nodeIdentifier := n.Identity()
 	dpUpdate := true
-	var nodeIP netip.Addr
-	if nIP := n.GetNodeIP(false); nIP != nil {
-		// GH-24829: Support IPv6-only nodes.
-
-		// Skip returning the error here because at this level, we assume that
-		// the IP is valid as long as it's coming from nodeTypes.Node. This
-		// object is created either from the node discovery (K8s) or from an
-		// event from the kvstore.
-		nodeIP, _ = ip.AddrFromIP(nIP)
-	}
+	nodeIP := n.GetNodeIP(false)
 
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
 	nodeLabels, nodeIdentityOverride := m.nodeIdentityLabels(n)
@@ -411,7 +400,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 		var tunnelIP netip.Addr
 		if m.nodeAddressHasTunnelIP(address) {
-			tunnelIP = nodeIP
+			tunnelIP = *nodeIP
 		}
 
 		var key uint8
@@ -419,7 +408,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			key = n.EncryptionKey
 		}
 
-		prefix := ip.IPToNetPrefix(address.IP)
+		prefix := netip.PrefixFrom(address.IP, address.IP.BitLen())
 		// We expect the node manager to have a source of either Kubernetes,
 		// CustomResource, or KVStore. Prioritize the KVStore source over the
 		// rest as it is the strongest source, i.e. only trigger datapath
@@ -446,8 +435,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		nodeIPsAdded = append(nodeIPsAdded, prefix)
 	}
 
-	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
-		healthIP := ip.IPToNetPrefix(address)
+	for _, address := range []netip.Addr{n.IPv4HealthIP.IP, n.IPv6HealthIP.IP} {
+		healthIP := netip.PrefixFrom(address, address.BitLen())
 		if !healthIP.IsValid() {
 			continue
 		}
@@ -457,13 +446,13 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 		m.ipcache.UpsertMetadata(healthIP, n.Source, resource,
 			labels.LabelHealth,
-			ipcacheTypes.TunnelPeer{Addr: nodeIP},
+			ipcacheTypes.TunnelPeer{Addr: *nodeIP},
 			ipcacheTypes.EncryptKey(n.EncryptionKey))
 		healthIPsAdded = append(healthIPsAdded, healthIP)
 	}
 
-	for _, address := range []net.IP{n.IPv4IngressIP, n.IPv6IngressIP} {
-		ingressIP := ip.IPToNetPrefix(address)
+	for _, address := range []netip.Addr{n.IPv4IngressIP.IP, n.IPv6IngressIP.IP} {
+		ingressIP := netip.PrefixFrom(address, address.BitLen())
 		if !ingressIP.IsValid() {
 			continue
 		}
@@ -473,7 +462,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 		m.ipcache.UpsertMetadata(ingressIP, n.Source, resource,
 			labels.LabelIngress,
-			ipcacheTypes.TunnelPeer{Addr: nodeIP},
+			ipcacheTypes.TunnelPeer{Addr: *nodeIP},
 			ipcacheTypes.EncryptKey(n.EncryptionKey))
 		ingressIPsAdded = append(ingressIPsAdded, ingressIP)
 	}
@@ -532,13 +521,13 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	var oldNodeIP netip.Addr
 	if nIP := oldNode.GetNodeIP(false); nIP != nil {
 		// See comment in NodeUpdated().
-		oldNodeIP, _ = ip.AddrFromIP(nIP)
+		oldNodeIP = *nIP
 	}
 	oldNodeLabels, oldNodeIdentityOverride := m.nodeIdentityLabels(oldNode)
 
 	// Delete the old node IP addresses if they have changed in this node.
 	for _, address := range oldNode.IPAddresses {
-		oldPrefix := ip.IPToNetPrefix(address.IP)
+		oldPrefix := netip.PrefixFrom(address.IP, address.IP.BitLen())
 		if slices.Contains(nodeIPsAdded, oldPrefix) {
 			continue
 		}
@@ -571,8 +560,8 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	}
 
 	// Delete the old health IP addresses if they have changed in this node.
-	for _, address := range []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP} {
-		healthIP := ip.IPToNetPrefix(address)
+	for _, address := range []netip.Addr{oldNode.IPv4HealthIP.IP, oldNode.IPv6HealthIP.IP} {
+		healthIP := netip.PrefixFrom(address, address.BitLen())
 		if !healthIP.IsValid() || slices.Contains(healthIPsAdded, healthIP) {
 			continue
 		}
@@ -584,8 +573,8 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	}
 
 	// Delete the old ingress IP addresses if they have changed in this node.
-	for _, address := range []net.IP{oldNode.IPv4IngressIP, oldNode.IPv6IngressIP} {
-		ingressIP := ip.IPToNetPrefix(address)
+	for _, address := range []netip.Addr{oldNode.IPv4IngressIP.IP, oldNode.IPv6IngressIP.IP} {
+		ingressIP := netip.PrefixFrom(address, address.BitLen())
 		if !ingressIP.IsValid() || slices.Contains(ingressIPsAdded, ingressIP) {
 			continue
 		}

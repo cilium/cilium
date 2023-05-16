@@ -217,7 +217,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	n1 := nodeTypes.Node{Name: "node1", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.1"),
+			IP:   netip.MustParseAddr("10.0.0.1"),
 		},
 	}}
 	mngr.NodeUpdated(n1)
@@ -236,7 +236,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	n2 := nodeTypes.Node{Name: "node2", Cluster: "c1", IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.2"),
+			IP:   netip.MustParseAddr("10.0.0.2"),
 		},
 	}}
 	mngr.NodeUpdated(n2)
@@ -290,7 +290,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	n1k8s := nodeTypes.Node{Name: "node1", Cluster: "c1", Source: source.Kubernetes, IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.1"),
+			IP:   netip.MustParseAddr("10.0.0.1"),
 		},
 	}}
 	mngr.NodeUpdated(n1k8s)
@@ -309,7 +309,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	n1agent := nodeTypes.Node{Name: "node1", Cluster: "c1", Source: source.Local, IPAddresses: []nodeTypes.Address{
 		{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.1"),
+			IP:   netip.MustParseAddr("10.0.0.1"),
 		},
 	}}
 	mngr.NodeUpdated(n1agent)
@@ -396,7 +396,7 @@ func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local, IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.0.0.1"),
+				IP:   netip.MustParseAddr("10.0.0.1"),
 			},
 		}}
 		mngr.NodeUpdated(n)
@@ -449,7 +449,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Kubernetes, IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.0.0.1"),
+				IP:   netip.MustParseAddr("10.0.0.1"),
 			},
 		}}
 		mngr.NodeUpdated(n)
@@ -470,9 +470,9 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 		Name:    "node1",
 		Cluster: "c1",
 		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
+			{Type: addressing.NodeCiliumInternalIP, IP: netip.MustParseAddr("1.1.1.1")},
+			{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.0.2")},
+			{Type: addressing.NodeExternalIP, IP: netip.MustParseAddr("f00d::1")},
 		},
 	}
 	mngr.NodeUpdated(n1)
@@ -518,10 +518,10 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 		Name:    "node1",
 		Cluster: "c1",
 		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1").To4()},
+			{Type: addressing.NodeCiliumInternalIP, IP: netip.MustParseAddr("1.1.1.1")},
 		},
-		IPv4HealthIP: net.ParseIP("10.0.0.4"),
-		IPv6HealthIP: net.ParseIP("f00d::4"),
+		IPv4HealthIP: &nodeTypes.Address{IP: netip.MustParseAddr("10.0.0.4")},
+		IPv6HealthIP: &nodeTypes.Address{IP: netip.MustParseAddr("f00d::4")},
 	}
 	mngr.NodeUpdated(n1)
 
@@ -594,9 +594,9 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 		Name:    "node1",
 		Cluster: "c1",
 		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
+			{Type: addressing.NodeCiliumInternalIP, IP: netip.MustParseAddr("1.1.1.1")},
+			{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.0.2")},
+			{Type: addressing.NodeExternalIP, IP: netip.MustParseAddr("f00d::1")},
 		},
 	}
 	mngr.NodeUpdated(n1)
@@ -670,9 +670,9 @@ func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 		Name:    "node1",
 		Cluster: "c1",
 		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
+			{Type: addressing.NodeCiliumInternalIP, IP: netip.MustParseAddr("1.1.1.1")},
+			{Type: addressing.NodeInternalIP, IP: netip.MustParseAddr("10.0.0.2")},
+			{Type: addressing.NodeExternalIP, IP: netip.MustParseAddr("f00d::1")},
 		},
 	}
 	mngr.NodeUpdated(n1)
@@ -767,15 +767,15 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("192.0.2.1"),
+				IP:   netip.MustParseAddr("192.0.2.1"),
 			},
 			{
 				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("2001:DB8::1"),
+				IP:   netip.MustParseAddr("2001:DB8::1"),
 			},
 		},
-		IPv4HealthIP: net.ParseIP("192.0.2.2"),
-		IPv6HealthIP: net.ParseIP("2001:DB8::2"),
+		IPv4HealthIP: &nodeTypes.Address{IP: netip.MustParseAddr("192.0.2.2")},
+		IPv6HealthIP: &nodeTypes.Address{IP: netip.MustParseAddr("2001:DB8::2")},
 		Source:       source.KVStore,
 	}
 	mngr.NodeUpdated(n1)
@@ -800,16 +800,16 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	n1V2.IPAddresses = []nodeTypes.Address{
 		{
 			Type: addressing.NodeCiliumInternalIP,
-			IP:   net.ParseIP("192.0.2.10"),
+			IP:   netip.MustParseAddr("192.0.2.10"),
 		},
 		{
 			// We will keep the IPv6 the same to make sure we will not delete it
 			Type: addressing.NodeCiliumInternalIP,
-			IP:   net.ParseIP("2001:DB8::1"),
+			IP:   netip.MustParseAddr("2001:DB8::1"),
 		},
 	}
-	n1V2.IPv4HealthIP = net.ParseIP("192.0.2.20")
-	n1V2.IPv6HealthIP = net.ParseIP("2001:DB8::20")
+	n1V2.IPv4HealthIP = &nodeTypes.Address{IP: netip.MustParseAddr("192.0.2.20")}
+	n1V2.IPv6HealthIP = &nodeTypes.Address{IP: netip.MustParseAddr("2001:DB8::20")}
 	mngr.NodeUpdated(*n1V2)
 
 	select {

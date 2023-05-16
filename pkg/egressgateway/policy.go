@@ -111,7 +111,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 			continue
 		}
 
-		gwc.gatewayIP = node.GetK8sNodeIP()
+		gwc.gatewayIP = node.GetK8sNodeIP().AsSlice()
 
 		if node.IsLocal() {
 			err := gwc.deriveFromPolicyGatewayConfig(policyGwc)

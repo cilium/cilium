@@ -388,8 +388,8 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("failed to retrieve Node's pod CIDR ranges: %w", err)
 	}
 
-	ipv4, _ := ip.AddrFromIP(nodeaddr.GetIPv4())
-	ipv6, _ := ip.AddrFromIP(nodeaddr.GetIPv6())
+	ipv4, _ := ip.AddrFromIP(nodeaddr.GetIPv4().AsSlice())
+	ipv6, _ := ip.AddrFromIP(nodeaddr.GetIPv6().AsSlice())
 
 	// define our current point-in-time control plane state.
 	state := &ControlPlaneState{

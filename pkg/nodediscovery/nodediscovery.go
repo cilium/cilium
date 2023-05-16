@@ -234,10 +234,10 @@ func (n *NodeDiscovery) fillLocalNode() {
 	n.localNode.IPAddresses = []nodeTypes.Address{}
 	n.localNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
 	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
-	n.localNode.IPv4HealthIP = node.GetEndpointHealthIPv4()
-	n.localNode.IPv6HealthIP = node.GetEndpointHealthIPv6()
-	n.localNode.IPv4IngressIP = node.GetIngressIPv4()
-	n.localNode.IPv6IngressIP = node.GetIngressIPv6()
+	n.localNode.IPv4HealthIP = nodeTypes.ToV4Addr(node.GetEndpointHealthIPv4().String())
+	n.localNode.IPv6HealthIP = nodeTypes.ToV6Addr(node.GetEndpointHealthIPv6().String())
+	n.localNode.IPv4IngressIP = nodeTypes.ToV4Addr(node.GetIngressIPv4().String())
+	n.localNode.IPv6IngressIP = nodeTypes.ToV6Addr(node.GetIngressIPv6().String())
 	n.localNode.ClusterID = option.Config.ClusterID
 	n.localNode.EncryptionKey = node.GetEncryptKeyIndex()
 	n.localNode.WireguardPubKey = node.GetWireguardPubKey()
@@ -247,42 +247,42 @@ func (n *NodeDiscovery) fillLocalNode() {
 	if node.GetK8sExternalIPv4() != nil {
 		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeExternalIP,
-			IP:   node.GetK8sExternalIPv4(),
+			IP:   *node.GetK8sExternalIPv4(),
 		})
 	}
 
 	if node.GetIPv4() != nil {
 		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
-			IP:   node.GetIPv4(),
+			IP:   *node.GetIPv4(),
 		})
 	}
 
 	if node.GetIPv6() != nil {
 		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
-			IP:   node.GetIPv6(),
+			IP:   *node.GetIPv6(),
 		})
 	}
 
 	if node.GetInternalIPv4Router() != nil {
 		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
-			IP:   node.GetInternalIPv4Router(),
+			IP:   *node.GetInternalIPv4Router(),
 		})
 	}
 
 	if node.GetIPv6Router() != nil {
 		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
-			IP:   node.GetIPv6Router(),
+			IP:   *node.GetIPv6Router(),
 		})
 	}
 
 	if node.GetK8sExternalIPv6() != nil {
 		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeExternalIP,
-			IP:   node.GetK8sExternalIPv6(),
+			IP:   *node.GetK8sExternalIPv6(),
 		})
 	}
 }
@@ -515,23 +515,23 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	}
 
 	nodeResource.Spec.HealthAddressing.IPv4 = ""
-	if ip := n.localNode.IPv4HealthIP; ip != nil {
-		nodeResource.Spec.HealthAddressing.IPv4 = ip.String()
+	if addr := n.localNode.IPv4HealthIP; addr != nil {
+		nodeResource.Spec.HealthAddressing.IPv4 = addr.IP.String()
 	}
 
 	nodeResource.Spec.HealthAddressing.IPv6 = ""
-	if ip := n.localNode.IPv6HealthIP; ip != nil {
-		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
+	if addr := n.localNode.IPv6HealthIP; addr != nil {
+		nodeResource.Spec.HealthAddressing.IPv6 = addr.IP.String()
 	}
 
 	nodeResource.Spec.IngressAddressing.IPV4 = ""
-	if ip := n.localNode.IPv4IngressIP; ip != nil {
-		nodeResource.Spec.IngressAddressing.IPV4 = ip.String()
+	if addr := n.localNode.IPv4IngressIP; addr != nil {
+		nodeResource.Spec.IngressAddressing.IPV4 = addr.IP.String()
 	}
 
 	nodeResource.Spec.IngressAddressing.IPV6 = ""
-	if ip := n.localNode.IPv6IngressIP; ip != nil {
-		nodeResource.Spec.IngressAddressing.IPV6 = ip.String()
+	if addr := n.localNode.IPv6IngressIP; addr != nil {
+		nodeResource.Spec.IngressAddressing.IPV6 = addr.IP.String()
 	}
 
 	if pk := n.localNode.WireguardPubKey; pk != "" {

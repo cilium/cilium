@@ -243,13 +243,13 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		ip4Address, ip6Address *net.IPNet
 	)
 
-	if healthIPv6 := node.GetEndpointHealthIPv6(); healthIPv6 != nil {
-		info.Addressing.IPV6 = healthIPv6.String()
+	if healthIPv6 := node.GetEndpointHealthIPv6().AsSlice(); healthIPv6 != nil {
+		info.Addressing.IPV6 = string(healthIPv6)
 		ip6Address = &net.IPNet{IP: healthIPv6, Mask: defaults.ContainerIPv6Mask}
 		healthIP = healthIPv6
 	}
-	if healthIPv4 := node.GetEndpointHealthIPv4(); healthIPv4 != nil {
-		info.Addressing.IPV4 = healthIPv4.String()
+	if healthIPv4 := node.GetEndpointHealthIPv4().AsSlice(); healthIPv4 != nil {
+		info.Addressing.IPV4 = string(healthIPv4)
 		ip4Address = &net.IPNet{IP: healthIPv4, Mask: defaults.ContainerIPv4Mask}
 		healthIP = healthIPv4
 	}

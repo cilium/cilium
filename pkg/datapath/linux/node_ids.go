@@ -6,6 +6,7 @@ package linux
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
 
@@ -35,8 +36,10 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 
 	// Don't allocate a node ID for the local node.
 	localNode := node.GetIPv4()
-	if localNode.Equal(nodeIP) {
-		return 0
+	if addr, ok := netip.AddrFromSlice(nodeIP); ok {
+		if cmp := localNode.Compare(addr); cmp == 0 {
+			return 0
+		}
 	}
 
 	n.mutex.Lock()

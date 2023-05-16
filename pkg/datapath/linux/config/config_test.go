@@ -51,8 +51,8 @@ func (s *ConfigSuite) SetUpTest(c *C) {
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 	node.InitDefaultPrefix("")
-	node.SetInternalIPv4Router(ipv4DummyAddr.AsSlice())
-	node.SetIPv4Loopback(ipv4DummyAddr.AsSlice())
+	node.SetInternalIPv4Router(&ipv4DummyAddr)
+	node.SetIPv4Loopback(&ipv4DummyAddr)
 }
 
 func (s *ConfigSuite) TearDownTest(c *C) {
