@@ -14,7 +14,8 @@ Service Mesh
    :glob:
 
    ingress
-   l7-traffic-management
    gateway-api/gateway-api
    ingress-to-gateway/ingress-to-gateway
    istio
+   mutual-authentication/mutual-authentication
+   l7-traffic-management
