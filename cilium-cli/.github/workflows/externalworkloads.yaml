@@ -26,8 +26,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
-  vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
   zone: us-west2-a
   vmStartupScript: .github/gcp-vm-startup.sh
   cilium_version: v1.13.2
@@ -39,7 +37,15 @@ jobs:
     if: ${{ github.repository == 'cilium/cilium-cli' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 45
+    strategy:
+      matrix:
+        mode: ["classic", "helm"]
     steps:
+      - name: Set cluster name
+        run: |
+          echo "clusterName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ matrix.mode }}-vm" >> $GITHUB_ENV
+          echo "vmName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ matrix.mode }}-vm" >> $GITHUB_ENV
+
       - name: Checkout
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
@@ -147,7 +153,8 @@ jobs:
             --set job_name=cilium-cli-install \
             --set test_script_cm=cilium-cli-test-script-install \
             --set vm_name=${{ env.vmName }} \
-            --set cluster_cidr=${{ steps.cluster.outputs.cluster_cidr }}
+            --set cluster_cidr=${{ steps.cluster.outputs.cluster_cidr }} \
+            --set cilium_cli_mode=${{ matrix.mode }}
 
       - name: Wait for install job
         env:
@@ -204,7 +211,8 @@ jobs:
             --generate-name \
             --set tag=${{ steps.vars.outputs.sha }} \
             --set job_name=cilium-cli \
-            --set test_script_cm=cilium-cli-test-script
+            --set test_script_cm=cilium-cli-test-script \
+            --set cilium_cli_mode=${{ matrix.mode }}
 
       - name: Wait for test job
         env:
