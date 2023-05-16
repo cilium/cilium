@@ -183,6 +183,14 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 		}()
 	}
 
+	go func() {
+		<-k8sSvcCacheSynced
+		cache.WaitForCacheSync(ctx.Done(), endpointController.HasSynced)
+
+		log.Info("Initial list of services successfully received from Kubernetes")
+		kvs.Synced(ctx)
+	}()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
