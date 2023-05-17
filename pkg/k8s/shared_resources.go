@@ -29,6 +29,7 @@ var (
 		"Shared Kubernetes resources",
 
 		cell.Provide(
+			localPodResource,
 			serviceResource,
 			localNodeResource,
 			localCiliumNodeResource,
@@ -46,6 +47,7 @@ type SharedResources struct {
 	cell.In
 	LocalNode                        LocalNodeResource
 	LocalCiliumNode                  LocalCiliumNodeResource
+	LocalPods                        LocalPodResource
 	Services                         resource.Resource[*slim_corev1.Service]
 	Namespaces                       resource.Resource[*slim_corev1.Namespace]
 	LBIPPools                        resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
@@ -53,6 +55,19 @@ type SharedResources struct {
 	CiliumNetworkPolicies            resource.Resource[*cilium_api_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy]
 	CIDRGroups                       resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
+}
+
+// LocalPodResource is a resource.Resource[*slim_corev1.Pod] but one which will only stream updates for pod
+// objects scheduled on the node we are currently running on.
+type LocalPodResource resource.Resource[*slim_corev1.Pod]
+
+func localPodResource(lc hive.Lifecycle, cs client.Clientset) (LocalPodResource, error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*slim_corev1.PodList](cs.Slim().CoreV1().Pods(""))
+	lw = utils.ListerWatcherWithFields(lw, fields.ParseSelectorOrDie("spec.nodeName="+nodeTypes.GetName()))
+	return LocalPodResource(resource.New[*slim_corev1.Pod](lc, lw)), nil
 }
 
 func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
