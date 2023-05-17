@@ -470,6 +470,10 @@ type Parameters struct {
 	Retries              int
 	HelmValuesSecretName string
 	Output               string
+
+	// EnableExternalWorkloads indicates whether externalWorkloads.enabled Helm value
+	// should be set to true. For Helm mode only.
+	EnableExternalWorkloads bool
 }
 
 func (p Parameters) validateParams() error {
@@ -674,6 +678,13 @@ func getDeprecatedName(secretName string) string {
 	}
 }
 
+func getExternalWorkloadCertName() string {
+	if utils.IsInHelmMode() {
+		return defaults.ClusterMeshClientSecretName
+	}
+	return defaults.ClusterMeshExternalWorkloadSecretName
+}
+
 // getDeprecatedSecret attempts to retrieve a secret using one or more deprecated names
 // There are now multiple "layers" of deprecated secret names, so we call this function recursively if needed
 func (k *K8sClusterMesh) getDeprecatedSecret(ctx context.Context, client k8sClusterMeshImplementation, secretName string, defaultName string) (*corev1.Secret, error) {
@@ -760,7 +771,7 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 	// ExternalWorkload secret is created by 'clustermesh enable' command, but it isn't created by Helm. We should try to load this secret only when needed
 	var externalWorkloadKey, externalWorkloadCert []byte
 	if getExternalWorkLoadSecret {
-		externalWorkloadSecret, err := k.getSecret(ctx, client, defaults.ClusterMeshExternalWorkloadSecretName)
+		externalWorkloadSecret, err := k.getSecret(ctx, client, getExternalWorkloadCertName())
 		if err != nil {
 			return nil, fmt.Errorf("unable to get external workload secret to access clustermesh service")
 		}
@@ -1776,6 +1787,7 @@ func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameter
 	helmStrValues := []string{
 		"clustermesh.useAPIServer=true",
 		fmt.Sprintf("clustermesh.apiserver.service.type=%s", params.ServiceType),
+		fmt.Sprintf("externalWorkloads.enabled=%t", params.EnableExternalWorkloads),
 	}
 	vals, err := helm.ParseVals(helmStrValues)
 	if err != nil {
@@ -1795,6 +1807,7 @@ func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameter
 func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameters) error {
 	helmStrValues := []string{
 		"clustermesh.useAPIServer=false",
+		"externalWorkloads.enabled=false",
 	}
 	vals, err := helm.ParseVals(helmStrValues)
 	if err != nil {
