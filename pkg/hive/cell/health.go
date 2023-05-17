@@ -1,11 +1,14 @@
 package cell
 
 import (
+	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/stream"
+	"github.com/cilium/workerpool"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
@@ -13,7 +16,8 @@ import (
 type Level string
 
 const (
-	LevelDown      Level = "Down"
+	StatusUnknown  Level = "Unknown"
+	StatusStopped  Level = "Stopped"
 	StatusDegraded Level = "Degraded"
 	StatusOK       Level = "OK"
 )
@@ -26,9 +30,131 @@ type update struct {
 
 type StatusReporter interface {
 	OK(status string)
-	Down(reason string) // TODO: Disabled() instead? Don't report when stopping?
+	Stopped(reason string)
 	Degraded(reason string)
 }
+
+// =======================================
+
+type probedReporter struct {
+	sync.RWMutex
+	moduleID   string
+	name       string
+	lastStatus *Status
+}
+
+func (p *probedReporter) OK(status string) {
+	p.Lock()
+	defer p.Unlock()
+	t := time.Now()
+	p.lastStatus.Level = StatusOK
+	p.lastStatus.Message = status
+	p.lastStatus.LastOK = t
+	p.lastStatus.LastUpdated = t
+}
+
+func (p *probedReporter) Stopped(reason string) {
+	p.Lock()
+	defer p.Unlock()
+	p.lastStatus.Level = StatusStopped
+	p.lastStatus.Message = reason
+	p.lastStatus.LastUpdated = time.Now()
+}
+
+func (p *probedReporter) Degraded(reason string) {
+	p.Lock()
+	defer p.Unlock()
+	p.lastStatus.Level = StatusDegraded
+	p.lastStatus.Message = reason
+	p.lastStatus.LastUpdated = time.Now()
+}
+
+func (p *probedReporter) Run(ProbeContext) Status {
+	p.RLock()
+	defer p.RUnlock()
+	if p.lastStatus == nil {
+		p.lastStatus = &Status{
+			update: update{
+				Level:    StatusUnknown,
+				ModuleID: p.moduleID,
+				Message:  "No status reported yet",
+			},
+		}
+	}
+	return *p.lastStatus
+}
+
+func (p *probedReporter) ID() string {
+	return fmt.Sprintf("%s/%s", p.moduleID, p.name)
+}
+
+// Prober impl:
+
+type ProbeContext context.Context
+
+type ProbeInterface interface {
+	ID() string
+	Run(ProbeContext) Status
+}
+
+type statusProber struct {
+	sync.Mutex
+	probes       []ProbeInterface
+	statuses     map[string]Status
+	runCollector sync.Once
+	statusCh     chan Status
+	wp           *workerpool.WorkerPool
+}
+
+func newStatusProber() *statusProber {
+	return &statusProber{
+		statuses: make(map[string]Status),
+		statusCh: make(chan Status, 128),
+	}
+}
+
+func (s *statusProber) startCollecting(ctx context.Context) {
+	go func() {
+		<-ctx.Done()
+		close(s.statusCh)
+	}()
+	go func() {
+		for status := range s.statusCh {
+			s.statuses[status.ModuleID] = status
+		}
+	}()
+}
+
+func (s *statusProber) evalProbes(ctx context.Context) error {
+	for _, probe := range s.probes {
+		s.wp.Submit(probe.ID(), func(ctx context.Context) error {
+			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			// Add [0, 1s) of jitter to avoid all probes running at once.
+			<-time.After(time.Millisecond * time.Duration(rand.Int63n(1000)))
+			s.statusCh <- probe.Run(ctx)
+			return nil
+		})
+	}
+	_, err := s.wp.Drain()
+	return err
+}
+
+func (s *statusProber) Run(ctx context.Context) {
+	s.Lock()
+	defer s.Unlock()
+	s.startCollecting(ctx)
+	for {
+		// Each iteration has a total timeout of 5 seconds.
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		if err := s.evalProbes(ctx); err != nil {
+			log.WithError(err).Error("Failed to evaluate probes")
+		}
+		cancel()
+	}
+}
+
+// =======================================
 
 type Status struct {
 	update
@@ -76,8 +202,8 @@ func (r *reporter) Degraded(reason string) {
 	r.process(update{ModuleID: r.moduleID, Level: StatusDegraded, Message: reason})
 }
 
-func (r *reporter) Down(reason string) {
-	r.process(update{ModuleID: r.moduleID, Level: LevelDown, Message: reason})
+func (r *reporter) Stopped(reason string) {
+	r.process(update{ModuleID: r.moduleID, Level: StatusStopped, Message: reason})
 }
 
 func (r *reporter) OK(status string) {
@@ -116,9 +242,11 @@ func (p *StatusProvider) process(u update) {
 	defer p.mu.Unlock()
 
 	s := p.moduleStatuses[u.ModuleID]
-	s.LastUpdated = time.Now()
+
+	t := time.Now()
+	s.LastUpdated = t
 	if u.Level == StatusOK {
-		s.LastOK = time.Now()
+		s.LastOK = t
 	}
 	s.update = u
 	p.moduleStatuses[u.ModuleID] = s

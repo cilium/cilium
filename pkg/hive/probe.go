@@ -2,6 +2,7 @@ package hive
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -30,11 +31,26 @@ func (p *DefaultProbeManager) Run(ctx context.Context) error {
 	for {
 		for mid, pr := range p.modProbes {
 			pr := pr
+			// Add random jitter to avoid all probes running at the same time.
+			jitter := time.Millisecond * time.Duration(rand.Int63n(1000))
 			wp.Submit(mid, func(ctx context.Context) error {
 				ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				<-time.After(jitter)
 				defer cancel()
 				return pr.run(ctx)
 			})
+		}
+		done := make(chan struct{})
+		//var err error
+		go func() {
+			//_, err = wp.Drain()
+			//close(done)
+		}()
+		select {
+		case <-ctx.Done():
+			//ctx.Err()
+		case <-done:
+			<-time.After(5 * time.Second)
 		}
 	}
 }

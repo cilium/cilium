@@ -1129,7 +1129,8 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace: Namespace,
 				Name:      "controllers_runs_total",
 				Help:      "Number of times that a controller process was run labeled by completion status",
-			}, []string{LabelStatus})
+			}, []string{LabelStatus, "controller-name"})
+			//controller-labe="all"
 
 			collectors = append(collectors, ControllerRuns)
 			c.ControllerRunsEnabled = true
