@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/fs"
 	"strconv"
-	"unsafe"
 
 	"golang.org/x/sys/unix"
 
@@ -94,9 +93,8 @@ type PerClusterCTMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterCTMapKey) String() string            { return strconv.FormatUint(uint64(k.ClusterID), 10) }
-func (k *PerClusterCTMapKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *PerClusterCTMapKey) NewValue() bpf.MapValue    { return &PerClusterCTMapVal{} }
+func (k *PerClusterCTMapKey) String() string         { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (k *PerClusterCTMapKey) NewValue() bpf.MapValue { return &PerClusterCTMapVal{} }
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
@@ -104,8 +102,7 @@ type PerClusterCTMapVal struct {
 	Fd uint32
 }
 
-func (v *PerClusterCTMapVal) String() string              { return fmt.Sprintf("fd=%d", v.Fd) }
-func (v *PerClusterCTMapVal) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+func (v *PerClusterCTMapVal) String() string { return fmt.Sprintf("fd=%d", v.Fd) }
 
 // Init a "real" global per-cluster CT maps
 func InitPerClusterCTMaps(outerMapNamePrefix string, ipv4, ipv6 bool) error {

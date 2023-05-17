@@ -180,9 +180,6 @@ func (k *CtKey4) String() string {
 	return fmt.Sprintf("%s:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
 
-// GetKeyPtr returns the unsafe.Pointer for k.
-func (k *CtKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
 func (k *CtKey4) Dump(sb *strings.Builder, reverse bool) bool {
@@ -267,9 +264,6 @@ func (k *CtKey4Global) String() string {
 	return fmt.Sprintf("%s:%d --> %s:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
 }
 
-// GetKeyPtr returns the unsafe.Pointer for k.
-func (k *CtKey4Global) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
 func (k *CtKey4Global) Dump(sb *strings.Builder, reverse bool) bool {
@@ -347,9 +341,6 @@ func (k *CtKey6) GetFlags() uint8 {
 func (k *CtKey6) String() string {
 	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
-
-// GetKeyPtr returns the unsafe.Pointer for k.
-func (k *CtKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
@@ -437,9 +428,6 @@ func (k *CtKey6Global) String() string {
 	return fmt.Sprintf("[%s]:%d --> [%s]:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
 }
 
-// GetKeyPtr returns the unsafe.Pointer for k.
-func (k *CtKey6Global) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
 func (k *CtKey6Global) Dump(sb *strings.Builder, reverse bool) bool {
@@ -506,9 +494,6 @@ type CtEntry struct {
 }
 
 const SizeofCtEntry = int(unsafe.Sizeof(CtEntry{}))
-
-// GetValuePtr returns the unsafe.Pointer for s.
-func (c *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
 
 const (
 	RxClosing = 1 << iota

@@ -5,7 +5,6 @@ package nat
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/tuple"
@@ -22,10 +21,8 @@ type NatEntry4 struct {
 	Pad2    uint64     `align:"pad2"`
 	Addr    types.IPv4 `align:"to_saddr"`
 	Port    uint16     `align:"to_sport"`
+	_       uint16
 }
-
-// GetValuePtr returns the unsafe.Pointer for n.
-func (n *NatEntry4) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(n) }
 
 // String returns the readable format.
 func (n *NatEntry4) String() string {

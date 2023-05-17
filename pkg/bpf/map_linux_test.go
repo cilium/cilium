@@ -13,7 +13,6 @@ import (
 	"sync"
 
 	"testing"
-	"unsafe"
 
 	. "github.com/cilium/checkmate"
 
@@ -36,14 +35,12 @@ type TestValue struct {
 	Value uint32
 }
 
-func (k *TestKey) String() string            { return fmt.Sprintf("key=%d", k.Key) }
-func (k *TestKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *TestKey) NewValue() MapValue        { return &TestValue{} }
-func (k *TestKey) DeepCopyMapKey() MapKey    { return &TestKey{k.Key} }
+func (k *TestKey) String() string         { return fmt.Sprintf("key=%d", k.Key) }
+func (k *TestKey) NewValue() MapValue     { return &TestValue{} }
+func (k *TestKey) DeepCopyMapKey() MapKey { return &TestKey{k.Key} }
 
-func (v *TestValue) String() string              { return fmt.Sprintf("value=%d", v.Value) }
-func (v *TestValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *TestValue) DeepCopyMapValue() MapValue  { return &TestValue{v.Value} }
+func (v *TestValue) String() string             { return fmt.Sprintf("value=%d", v.Value) }
+func (v *TestValue) DeepCopyMapValue() MapValue { return &TestValue{v.Value} }
 
 var _ = Suite(&BPFPrivilegedTestSuite{})
 

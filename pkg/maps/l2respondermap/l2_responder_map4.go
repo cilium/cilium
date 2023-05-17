@@ -122,8 +122,6 @@ type L2ResponderKey struct {
 	IfIndex uint32     `align:"ifindex"`
 }
 
-func (k *L2ResponderKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
 func (k *L2ResponderKey) NewValue() bpf.MapValue { return &L2ResponderStats{} }
 
 func (k *L2ResponderKey) String() string {
@@ -145,9 +143,6 @@ func newAuthKey(ip net.IP, ifIndex uint32) L2ResponderKey {
 type L2ResponderStats struct {
 	ResponsesSent uint64 `align:"responses_sent"`
 }
-
-// GetValuePtr returns the unsafe pointer to the BPF value.
-func (s *L2ResponderStats) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
 func (s *L2ResponderStats) String() string {
 	return fmt.Sprintf("responses_sent=%q", s.ResponsesSent)

@@ -5,7 +5,6 @@ package eventsmap
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 
@@ -31,12 +30,6 @@ type Key struct {
 type Value struct {
 	progID uint32
 }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // String converts the key into a human readable string format.
 func (k *Key) String() string { return fmt.Sprintf("%d", k.index) }

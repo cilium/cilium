@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"unsafe"
 
 	"github.com/sirupsen/logrus"
 
@@ -79,9 +78,6 @@ type TunnelKey struct {
 	Pad       uint16 `align:"pad"`
 }
 
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *TunnelKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
 // String provides a string representation of the TunnelKey.
 func (k TunnelKey) String() string {
 	if ip := k.toIP(); ip != nil {
@@ -101,10 +97,6 @@ type TunnelValue struct {
 	Key    uint8  `align:"key"`
 	NodeID uint16 `align:"node_id"`
 }
-
-// GetValuePtr returns the unsafe pointer to the BPF key for users that
-// use TunnelValue as a value in bpf maps
-func (k *TunnelValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // String provides a string representation of the TunnelValue.
 func (k TunnelValue) String() string {

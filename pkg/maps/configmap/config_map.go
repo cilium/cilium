@@ -5,7 +5,6 @@ package configmap
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -41,9 +40,6 @@ func (k *Index) String() string {
 	return fmt.Sprintf("%d", uint32(*k))
 }
 
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *Index) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
 func (k *Index) NewValue() bpf.MapValue {
@@ -61,9 +57,6 @@ func (k *Index) DeepCopyMapKey() bpf.MapKey {
 func (v *Value) String() string {
 	return fmt.Sprintf("%d", uint64(*v))
 }
-
-// GetValuePtr returns the unsafe pointer to the BPF value.
-func (v *Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // DeepCopyMapValue returns a deep copy of the map value
 func (v *Value) DeepCopyMapValue() bpf.MapValue {

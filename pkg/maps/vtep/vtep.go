@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"unsafe"
 
 	"github.com/sirupsen/logrus"
 
@@ -42,9 +41,6 @@ type Key struct {
 	IP types.IPv4 `align:"vtep_ip"`
 }
 
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
 func (k Key) NewValue() bpf.MapValue { return &VtepEndpointInfo{} }
@@ -78,9 +74,6 @@ func (v *VtepEndpointInfo) String() string {
 	return fmt.Sprintf("vtepmac=%s tunnelendpoint=%s",
 		v.VtepMAC, v.TunnelEndpoint)
 }
-
-// GetValuePtr returns the unsafe pointer to the BPF value.
-func (v *VtepEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // Map represents an VTEP BPF map.
 type Map struct {

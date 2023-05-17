@@ -5,7 +5,6 @@ package policymap
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 )
@@ -28,14 +27,11 @@ type PlumbingValue struct {
 	fd uint32
 }
 
-func (k *PlumbingKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *PlumbingKey) NewValue() bpf.MapValue    { return &PlumbingValue{} }
+func (k *PlumbingKey) NewValue() bpf.MapValue { return &PlumbingValue{} }
 
 func (k *PlumbingKey) String() string {
 	return fmt.Sprintf("Endpoint: %d", k.key)
 }
-
-func (v *PlumbingValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func (v *PlumbingValue) String() string {
 	return fmt.Sprintf("fd: %d", v.fd)

@@ -66,9 +66,6 @@ func (k *NatKey4) ToHost() NatKey {
 	}
 }
 
-// GetKeyPtr returns the unsafe.Pointer for k.
-func (k *NatKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
 func (k *NatKey4) GetNextHeader() u8proto.U8proto {
 	return k.NextHeader
 }
@@ -107,9 +104,6 @@ func (k *NatKey6) ToHost() NatKey {
 		TupleKey6Global: *k.TupleKey6Global.ToHost().(*tuple.TupleKey6Global),
 	}
 }
-
-// GetKeyPtr returns the unsafe.Pointer for k.
-func (k *NatKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 func (k *NatKey6) GetNextHeader() u8proto.U8proto {
 	return k.NextHeader
