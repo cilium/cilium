@@ -61,6 +61,8 @@ jobs:
             --helm-set cni.chainingMode=portmap \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
+            --helm-set debug.enabled=true \
+            --helm-set debug.verbose="flow,envoy" \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
