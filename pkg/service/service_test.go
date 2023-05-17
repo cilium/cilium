@@ -1102,9 +1102,15 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOnlyTerminatingBackends(c *C) {
 func (m *ManagerTestSuite) TestUpsertServiceWithExternalClusterIP(c *C) {
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	option.Config.ExternalClusterIP = true
+	backends := make([]*lb.Backend, 0, len(backends1))
+	for _, b := range backends1 {
+		backends = append(backends, b.DeepCopy())
+	}
+	backends[0].State = lb.BackendStateActive
+	backends[1].State = lb.BackendStateActive
 	p := &lb.SVC{
 		Frontend:         frontend1,
-		Backends:         backends1,
+		Backends:         backends,
 		Type:             lb.SVCTypeClusterIP,
 		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
 		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
@@ -1120,7 +1126,7 @@ func (m *ManagerTestSuite) TestUpsertServiceWithExternalClusterIP(c *C) {
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
 	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
-	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends))
 }
 
 // Tests whether upsert service doesn't provision the Maglev LUT for ClusterIP,
@@ -1297,7 +1303,12 @@ func (m *ManagerTestSuite) TestL7LoadBalancerServiceOverride(c *C) {
 // Tests that services with the given backends are updated with the new backend
 // state.
 func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
-	backends := backends1
+	backends := make([]*lb.Backend, 0, len(backends1))
+	for _, b := range backends1 {
+		backends = append(backends, b.DeepCopy())
+	}
+	backends[0].State = lb.BackendStateActive
+	backends[1].State = lb.BackendStateActive
 	p1 := &lb.SVC{
 		Frontend: frontend1,
 		Backends: backends,
@@ -1377,7 +1388,15 @@ func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
 // Tests that backend states are restored.
 func (m *ManagerTestSuite) TestRestoreServiceWithBackendStates(c *C) {
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
-	backends := append(backends1, backends4...)
+	bs := append(backends1, backends4...)
+	backends := make([]*lb.Backend, 0, len(bs))
+	for _, b := range bs {
+		backends = append(backends, b.DeepCopy())
+	}
+	backends[0].State = lb.BackendStateActive
+	backends[1].State = lb.BackendStateActive
+	backends[2].State = lb.BackendStateActive
+
 	p1 := &lb.SVC{
 		Frontend:                  frontend1,
 		Backends:                  backends,
