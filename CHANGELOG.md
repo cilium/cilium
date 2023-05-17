@@ -1,5 +1,96 @@
 # Changelog
 
+## v1.13.3
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* Assume Ingress identity for cluster internal traffic through Cilium Ingress for policy enforcement. (Backport PR #25019, Upstream PR #24826, @jrajahalme)
+* policy: Promote Deny Policies from Beta to Stable (#25427, @nathanjsweet)
+
+**Minor Changes:**
+* Drop traffic matching an egress gateway policy when no gateway are found (Backport PR #24999, Upstream PR #24835, @MrFreezeex)
+* ingress: Add ownerReferences for shared mode (Backport PR #25013, Upstream PR #24942, @sayboras)
+* sysdump: Added Kubernetes CNI logs to sysdump. (Backport PR #25346, Upstream PR #23937, @marseel)
+* Update CNI (loopback) to 1.3.0 (Backport PR #25454, Upstream PR #25400, @anfernee)
+* Use BGP Control Plane annotations from Node Resource for creation of CiliumNode Resource (Backport PR #25346, Upstream PR #24914, @margau)
+
+**Bugfixes:**
+* Add support for builtin kernel modules (Backport PR #25137, Upstream PR #23953, @TheAifam5)
+* Address cilium-agent startup performance regression. (Backport PR #25185, Upstream PR #25007, @bimmlerd)
+* cmd/cleanup: Fix cleanup of generic XDP programs (Backport PR #25184, Upstream PR #25117, @pchaigno)
+* datapath: Fix double SNAT (Backport PR #25223, Upstream PR #25189, @brb)
+* DNS proxy now always updates the proxy policy to avoid intermittent policy drops. (Backport PR #25346, Upstream PR #25147, @jrajahalme)
+* Filter ipv6 advertisements when using metallb as BGP speaker. (Backport PR #25137, Upstream PR #25043, @harsimran-pabla)
+* Fix a regression in which link-local addresses were not treated with the "host" identity in some circumstances. (Backport PR #25368, Upstream PR #25298, @asauber)
+* Fix broken IPv4 connectivity from outside to NodePort service when using L7 ingress policy, by removing PROXY_RT route table. (Backport PR #25086, Upstream PR #24807, @jschwinger233)
+* Fix bug that caused ToCIDR netpols matching kube-apiserver IPs (when external to the cluster) to not reliably allow connectivity. (#25241, @giorio94)
+* Fix bug that causes enforcement of host policies on reply IPv6 pod traffic. (Backport PR #25137, Upstream PR #25024, @pchaigno)
+* Fix bug where Cilium configurations running with tunneling disabled, BPF-masq disabled, but with masquerading enabled, do not clean up ipset configuration when a node IP changes. This can lead to a lack of masquerading on those node IPs. (Backport PR #25013, Upstream PR #24825, @christarazi)
+* Fix connectivity issue if nodes share the same name across the clustermesh and wireguard is enabled (Backport PR #25013, Upstream PR #24785, @giorio94)
+* Fix data race affecting the preferred mark in backends, e.g. backends selected by service with affinity set to local. In very rare cases a backend might be missing its preferred status and a non-local backend might be selected. (Backport PR #25346, Upstream PR #25087, @joamaki)
+* Fix incorrect network policy ebpf setup that may lead to incorrect packets denies when CEP is present in multiple CES (Backport PR #25184, Upstream PR #24838, @alan-kut)
+* Fix operator shutdown hanging when kvstore is enabled (Backport PR #25223, Upstream PR #24979, @giorio94)
+* Fix operator startup delay caused by leader election lease not being released correctly (Backport PR #25137, Upstream PR #24978, @giorio94)
+* Fix panic due to assignment to nil BGP service announcements map. (Backport PR #25013, Upstream PR #24985, @harsimran-pabla)
+* Fix permission issue when copying cni plugins onto host path (Backport PR #25346, Upstream PR #24891, @JohnJAS)
+* Fix security-group-tags not working in ENI (Backport PR #25013, Upstream PR #24951, @aanm)
+* Fix spurious errors containing "Failed to map node IP address to allocated ID". (Backport PR #25346, Upstream PR #25222, @bimmlerd)
+* Fix syncing of relevant node annotations into CiliumNode (Backport PR #25368, Upstream PR #25307, @meyskens)
+* Fix the bug when long-living connections using egress gateway may be reset. (Backport PR #25346, Upstream PR #24905, @gentoo-root)
+* ipcache don't short-circuit InjectLabels if source differs (Backport PR #25077, Upstream PR #24875, @squeed)
+* pkg/kvstore: Fix for deadlock in etcd status checker (Backport PR #25013, Upstream PR #24786, @hemanthmalla)
+* Track reply packets in long-living egress gateway connections and SNATed host-local connections. (Backport PR #25424, Upstream PR #25112, @gentoo-root)
+* When using KPR Nodeport with DSR, support backends in hostNetwork or with L7 policies. (Backport PR #24795, Upstream PR #22978, @julianwiedmann)
+
+**CI Changes:**
+* Always use the 8.8.8.8 DNS resolver in kind (Backport PR #25409, Upstream PR #24713, @aspsk)
+* ci: remove `STATUS` commands from upstream tests' Jenkinsfile (Backport PR #25137, Upstream PR #25046, @nbusseneau)
+* Delete "Cilium monitor verbose mode" test (Backport PR #25346, Upstream PR #25212, @michi-covalent)
+* Enable testing of BPF programs requiring XDP_TX in CI (Backport PR #25409, Upstream PR #24250, @lmb)
+* inctimer: fix test flake where timer does not fire within time. (Backport PR #25346, Upstream PR #25219, @tommyp1ckles)
+* jenkinsfiles: Fix order of ginkgo tests (Backport PR #25137, Upstream PR #25002, @pchaigno)
+* mlh: update Jenkins jobs following removal of kernel 4.9 support (#24955, @nbusseneau)
+* test: Unquarantine host firewall + nodeport test (Backport PR #25184, Upstream PR #25025, @pchaigno)
+
+**Misc Changes:**
+* bpf: dsr: don't track L2 addresses for DSR traffic (Backport PR #24795, Upstream PR #24524, @julianwiedmann)
+* bpf: dsr: restore CB_SRC_LABEL across DSR-INGRESS tail-call (Backport PR #24795, Upstream PR #24794, @julianwiedmann)
+* bpf: lb: introduce an optimized CT lookup (Backport PR #24795, Upstream PR #22936, @julianwiedmann)
+* bpf: minor CT cleanups (Backport PR #24795, Upstream PR #23718, @julianwiedmann)
+* bpf: nodeport: minor DSR improvements (Backport PR #24795, Upstream PR #23326, @julianwiedmann)
+* chore(deps): update docker.io/library/golang:1.19.8 docker digest to 9f2dd04 (v1.13) (#25421, @renovate[bot])
+* chore(deps): update hubble cli to v0.11.5 (v1.13) (patch) (#25125, @renovate[bot])
+* daemon: Mark CES feature as beta in agent flag (Backport PR #25013, Upstream PR #24850, @pchaigno)
+* docs: `socketLB.hostNamespaceOnly` also needed for gVisor (Backport PR #25346, Upstream PR #25322, @pchaigno)
+* docs: Add matrix version between envoy and cilium (Backport PR #25223, Upstream PR #25109, @sayboras)
+* docs: Add platform support to docs (Backport PR #25223, Upstream PR #25174, @joestringer)
+* docs: small fixes for k8s upgrade guide (Backport PR #25013, Upstream PR #24869, @tklauser)
+* Documentation: add migration document (Backport PR #25013, Upstream PR #23751, @squeed)
+* documentation: move policy warning to v1.13.2 section (#24997, @squeed)
+* envoy: Debug log remote IDs for Envoy policies (Backport PR #25013, Upstream PR #24939, @jrajahalme)
+* Fix missed clustermesh config change race condition with back-to-back changes (Backport PR #25013, Upstream PR #24993, @giorio94)
+* Fix possible panic in the ipcache when removing the prefix labels for an unknown resource ID (Backport PR #25346, Upstream PR #25230, @giorio94)
+* Fixed documentation regarding cilium versioning scheme and support (Backport PR #25223, Upstream PR #25171, @ayesha-kr)
+* gha: Add retry mechanism in http test (Backport PR #25346, Upstream PR #25244, @sayboras)
+* helm: add clustermesh nodeport config warning about known bug #24692 (Backport PR #25223, Upstream PR #25033, @giorio94)
+* hive: Don't log interrupt signal as error (Backport PR #25013, Upstream PR #23880, @joamaki)
+* ipsec: Install default-drop XFRM policy sooner (Backport PR #25346, Upstream PR #25257, @pchaigno)
+* Makefile: use a specific template for mktemp files (Backport PR #25223, Upstream PR #25192, @kaworu)
+* node/manager: Only remove old IPs if they weren't already added (Backport PR #25013, Upstream PR #25067, @christarazi)
+* pkg/service: Backends leak follow ups with revised fixes, debugging improvements and unit tests (Backport PR #25223, Upstream PR #24770, @aditighag)
+* Remote node identities are enabled by default in the Cilium agent. They have already been enabled by default in the Helm charts since Cilium version 1.7. (Backport PR #25013, Upstream PR #24874, @tklauser)
+* Update the documentation for required IAM policy rights needed for Cilium to work in EKS. (Backport PR #25137, Upstream PR #25078, @toredash)
+* Update threat model (Backport PR #25013, Upstream PR #24760, @ferozsalam)
+
+**Other Changes:**
+* [v1.13] contrib/backporting: Fix main branch reference (#25091, @joestringer)
+* envoy: Upgrade to v1.23.9 (#25208, @sayboras)
+* install: Update image digests for v1.13.2 (#24952, @gentoo-root)
+* v1.13: docs: Document upgrade impact for IPsec (#24963, @pchaigno)
+* v1.13: docs: Fix typo in IPsec upgrade note (#24973, @pchaigno)
+
 ## v1.13.2
 
 Summary of Changes
