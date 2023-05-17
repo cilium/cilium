@@ -1566,12 +1566,20 @@ func init() {
           "description": "UUID of IPv4 expiration timer",
           "type": "string"
         },
+        "ipv4-pool-name": {
+          "description": "IPAM pool from which this IPv4 address was allocated",
+          "type": "string"
+        },
         "ipv6": {
           "description": "IPv6 address",
           "type": "string"
         },
         "ipv6-expiration-uuid": {
           "description": "UUID of IPv6 expiration timer",
+          "type": "string"
+        },
+        "ipv6-pool-name": {
+          "description": "IPAM pool from which this IPv6 address was allocated",
           "type": "string"
         }
       }
@@ -6431,12 +6439,20 @@ func init() {
           "description": "UUID of IPv4 expiration timer",
           "type": "string"
         },
+        "ipv4-pool-name": {
+          "description": "IPAM pool from which this IPv4 address was allocated",
+          "type": "string"
+        },
         "ipv6": {
           "description": "IPv6 address",
           "type": "string"
         },
         "ipv6-expiration-uuid": {
           "description": "UUID of IPv6 expiration timer",
+          "type": "string"
+        },
+        "ipv6-pool-name": {
+          "description": "IPAM pool from which this IPv6 address was allocated",
           "type": "string"
         }
       }
