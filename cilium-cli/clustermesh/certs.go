@@ -137,6 +137,7 @@ func (k *K8sClusterMesh) createClusterMeshClientCertificate(ctx context.Context)
 }
 
 func (k *K8sClusterMesh) createClusterMeshExternalWorkloadCertificate(ctx context.Context) error {
+	certName := getExternalWorkloadCertName()
 	certReq := &csr.CertificateRequest{
 		Names:      []csr.Name{{C: "US", ST: "San Francisco", L: "CA"}},
 		KeyRequest: csr.NewKeyRequest(),
@@ -147,16 +148,16 @@ func (k *K8sClusterMesh) createClusterMeshExternalWorkloadCertificate(ctx contex
 	signConf := &config.Signing{
 		Default: &config.SigningProfile{Expiry: 5 * 365 * 24 * time.Hour},
 		Profiles: map[string]*config.SigningProfile{
-			defaults.ClusterMeshExternalWorkloadSecretName: {
+			certName: {
 				Expiry: 5 * 365 * 24 * time.Hour,
 				Usage:  []string{"signing", "key encipherment", "server auth", "client auth"},
 			},
 		},
 	}
 
-	cert, key, err := k.certManager.GenerateCertificate(defaults.ClusterMeshExternalWorkloadSecretName, certReq, signConf)
+	cert, key, err := k.certManager.GenerateCertificate(certName, certReq, signConf)
 	if err != nil {
-		return fmt.Errorf("unable to generate certificate %s: %w", defaults.ClusterMeshExternalWorkloadSecretName, err)
+		return fmt.Errorf("unable to generate certificate %s: %w", certName, err)
 	}
 
 	data := map[string][]byte{
@@ -165,9 +166,9 @@ func (k *K8sClusterMesh) createClusterMeshExternalWorkloadCertificate(ctx contex
 		defaults.CASecretCertName: k.certManager.CACertBytes(),
 	}
 
-	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(defaults.ClusterMeshExternalWorkloadSecretName, k.params.Namespace, data), metav1.CreateOptions{})
+	_, err = k.client.CreateSecret(ctx, k.params.Namespace, k8s.NewTLSSecret(certName, k.params.Namespace, data), metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, defaults.ClusterMeshExternalWorkloadSecretName, err)
+		return fmt.Errorf("unable to create secret %s/%s: %w", k.params.Namespace, certName, err)
 	}
 
 	return nil
@@ -178,7 +179,7 @@ func (k *K8sClusterMesh) deleteCertificates(ctx context.Context) error {
 	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.ClusterMeshServerSecretName, metav1.DeleteOptions{})
 	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.ClusterMeshAdminSecretName, metav1.DeleteOptions{})
 	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.ClusterMeshRemoteSecretName, metav1.DeleteOptions{})
-	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.ClusterMeshExternalWorkloadSecretName, metav1.DeleteOptions{})
+	k.client.DeleteSecret(ctx, k.params.Namespace, getExternalWorkloadCertName(), metav1.DeleteOptions{})
 	k.client.DeleteSecret(ctx, k.params.Namespace, defaults.ClusterMeshClientSecretName, metav1.DeleteOptions{})
 	return nil
 }
