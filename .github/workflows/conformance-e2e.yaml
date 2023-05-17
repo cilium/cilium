@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -407,7 +407,7 @@ jobs:
           binary-dir: ./
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@be6ff9f147c5770d253b8d279c8e502fed68dac7
         with:
           test-name: e2e-conformance
           image-version: ${{ matrix.kernel }}
@@ -427,7 +427,7 @@ jobs:
           done
 
       - name: Run tests
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@be6ff9f147c5770d253b8d279c8e502fed68dac7
         with:
           provision: 'false'
           cmd: |
