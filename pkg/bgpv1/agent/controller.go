@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/ip"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimlabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -388,15 +387,23 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("failed to retrieve Node's pod CIDR ranges: %w", err)
 	}
 
-	ipv4, _ := ip.AddrFromIP(nodeaddr.GetIPv4())
-	ipv6, _ := ip.AddrFromIP(nodeaddr.GetIPv6())
-
 	// define our current point-in-time control plane state.
 	state := &ControlPlaneState{
 		PodCIDRs:    podCIDRs,
 		Annotations: annoMap,
-		IPv4:        ipv4,
-		IPv6:        ipv6,
+	}
+
+	ipv4 := nodeaddr.GetAddrV4()
+	ipv6 := nodeaddr.GetAddrV6()
+
+	if ipv4 == nil && ipv6 == nil {
+		return fmt.Errorf("failed to get node IPv4 or IPv6 address")
+	}
+	if ipv4 != nil {
+		state.IPv4 = *ipv4
+	}
+	if ipv6 != nil {
+		state.IPv6 = *ipv6
 	}
 
 	// call bgp sub-systems required to apply this policy's BGP topology.

@@ -6,6 +6,7 @@ package types
 import (
 	"encoding/json"
 	"net"
+	"net/netip"
 	"path"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -314,6 +316,44 @@ func (n *Node) GetNodeIP(ipv6 bool) net.IP {
 			// IP was found, use any node address available
 			if backupIP == nil {
 				backupIP = addr.IP
+			}
+		}
+	}
+	return backupIP
+}
+
+// GetNodeAddr returns one of the node's IP addresses, as a netip.Addr, with the
+// following priority:
+// - NodeInternalIP
+// - NodeExternalIP
+// - other IP address type
+func (n *Node) GetNodeAddr(ipv6 bool) *netip.Addr {
+	var backupIP *netip.Addr
+	for _, addr := range n.IPAddresses {
+		if (ipv6 && addr.IP.To4() != nil) ||
+			(!ipv6 && addr.IP.To4() == nil) {
+			continue
+		}
+		retIP, ok := ip.AddrFromIP(addr.IP)
+		if !ok {
+			continue
+		}
+		switch addr.Type {
+		// Ignore CiliumInternalIPs
+		case addressing.NodeCiliumInternalIP:
+			continue
+		// Always prefer a cluster internal IP
+		case addressing.NodeInternalIP:
+			return &retIP
+		case addressing.NodeExternalIP:
+			// Fall back to external Node IP
+			// if no internal IP could be found
+			backupIP = &retIP
+		default:
+			// As a last resort, if no internal or external
+			// IP was found, use any node address available
+			if backupIP == nil {
+				backupIP = &retIP
 			}
 		}
 	}

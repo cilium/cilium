@@ -5,6 +5,7 @@ package types
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -63,6 +64,44 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 	ip = n.GetNodeIP(false)
 	// Should still return NodeInternalIP and IPv4
 	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
+
+}
+
+func (s *NodeSuite) TestGetNodeAddr(c *C) {
+	n := Node{
+		Name: "node-1",
+		IPAddresses: []Address{
+			{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP},
+		},
+	}
+	ip := n.GetNodeAddr(false)
+	// Return the only IP present
+	c.Assert(ip.Compare(netip.MustParseAddr("192.0.2.3")), Equals, 0)
+
+	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP})
+	ip = n.GetNodeAddr(false)
+	// The next priority should be NodeExternalIP
+	c.Assert(ip.Compare(netip.MustParseAddr("192.0.2.3")), Equals, 0)
+
+	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: addressing.NodeInternalIP})
+	ip = n.GetNodeAddr(false)
+	// The next priority should be NodeInternalIP
+	c.Assert(ip.Compare(netip.MustParseAddr("198.51.100.2")), Equals, 0)
+
+	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::1"), Type: addressing.NodeExternalIP})
+	ip = n.GetNodeAddr(true)
+	// The next priority should be NodeExternalIP and IPv6
+	c.Assert(ip.Compare(netip.MustParseAddr("2001:DB8::1")), Equals, 0)
+
+	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::2"), Type: addressing.NodeInternalIP})
+	ip = n.GetNodeAddr(true)
+	// The next priority should be NodeInternalIP and IPv6
+	c.Assert(ip.Compare(netip.MustParseAddr("2001:DB8::2")), Equals, 0)
+
+	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: addressing.NodeInternalIP})
+	ip = n.GetNodeAddr(false)
+	// Should still return NodeInternalIP and IPv4
+	c.Assert(ip.Compare(netip.MustParseAddr("198.51.100.2")), Equals, 0)
 
 }
 

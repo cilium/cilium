@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -238,6 +239,14 @@ func clone(ip net.IP) net.IP {
 	return dup
 }
 
+func cloneAddr(addr *netip.Addr) *netip.Addr {
+	if addr == nil {
+		return nil
+	}
+	dup := *addr
+	return &dup
+}
+
 // GetIPv4Loopback returns the loopback IPv4 address of this node.
 func GetIPv4Loopback() net.IP {
 	addrsMu.RLock()
@@ -282,6 +291,11 @@ func SetIPv4(ip net.IP) {
 func GetIPv4() net.IP {
 	n := localNode.Get()
 	return clone(n.GetNodeIP(false))
+}
+
+func GetAddrV4() *netip.Addr {
+	n := localNode.Get()
+	return cloneAddr(n.GetNodeAddr(false))
 }
 
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
@@ -575,6 +589,12 @@ func SetIPv6(ip net.IP) {
 func GetIPv6() net.IP {
 	n := localNode.Get()
 	return clone(n.GetNodeIP(true))
+}
+
+// GetAddrV6 returns the IPv6 address of the node as a netip.Addr.
+func GetAddrV6() *netip.Addr {
+	n := localNode.Get()
+	return cloneAddr(n.GetNodeAddr(true))
 }
 
 // GetHostMasqueradeIPv6 returns the IPv6 address to be used for masquerading
