@@ -4,6 +4,7 @@
 package envoy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -25,12 +26,13 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
-type accessLogServer struct {
+type AccessLogServer struct {
 	xdsServer *XDSServer
+	stopCh    chan struct{}
 }
 
 // StartAccessLogServer starts the access log server.
-func StartAccessLogServer(envoySocketDir string, xdsServer *XDSServer) {
+func StartAccessLogServer(envoySocketDir string, xdsServer *XDSServer) *AccessLogServer {
 	accessLogPath := getAccessLogSocketPath(envoySocketDir)
 
 	// Create the access log listener
@@ -51,9 +53,12 @@ func StartAccessLogServer(envoySocketDir string, xdsServer *XDSServer) {
 		log.WithError(err).Warningf("Envoy: Failed to change the group of access log listen socket at %s, sidecar proxies may not work", accessLogPath)
 	}
 
-	server := accessLogServer{
+	server := &AccessLogServer{
 		xdsServer: xdsServer,
+		stopCh:    make(chan struct{}),
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
 		for {
@@ -72,15 +77,38 @@ func StartAccessLogServer(envoySocketDir string, xdsServer *XDSServer) {
 
 			// Serve this access log socket in a goroutine, so we can serve multiple
 			// connections concurrently.
-			go server.accessLogger(uc)
+			go server.handleConn(ctx, uc)
 		}
 	}()
+
+	go func() {
+		<-server.stopCh
+		accessLogListener.Close()
+		cancel()
+	}()
+
+	return server
 }
 
-func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
+func (s *AccessLogServer) Stop() {
+	s.stopCh <- struct{}{}
+}
+
+func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
+	stopCh := make(chan struct{})
+
+	go func() {
+		select {
+		case <-stopCh:
+		case <-ctx.Done():
+			conn.Close()
+		}
+	}()
+
 	defer func() {
 		log.Info("Envoy: Closing access log connection")
 		conn.Close()
+		stopCh <- struct{}{}
 	}()
 
 	buf := make([]byte, 4096)

@@ -53,10 +53,12 @@ func newProxy(params proxyParams) (*Proxy, error) {
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(startContext hive.HookContext) error {
 			proxy.XDSServer = envoy.StartXDSServer(proxy.ipcache, envoy.GetSocketDir(proxy.runDir))
-			envoy.StartAccessLogServer(envoy.GetSocketDir(proxy.runDir), proxy.XDSServer)
+			proxy.accessLogServer = envoy.StartAccessLogServer(envoy.GetSocketDir(proxy.runDir), proxy.XDSServer)
 			return nil
 		},
 		OnStop: func(stopContext hive.HookContext) error {
+			proxy.XDSServer.Stop()
+			proxy.accessLogServer.Stop()
 			return nil
 		},
 	})

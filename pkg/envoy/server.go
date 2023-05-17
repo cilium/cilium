@@ -903,7 +903,7 @@ func (s *XDSServer) removeListener(name string, wg *completion.WaitGroup, isProx
 	}
 }
 
-func (s *XDSServer) stop() {
+func (s *XDSServer) Stop() {
 	s.stopServer()
 	os.Remove(s.socketPath)
 }
