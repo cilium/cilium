@@ -541,14 +541,16 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	if addressing := epTemplate.Addressing; addressing != nil {
 		if uuid := addressing.IPV4ExpirationUUID; uuid != "" {
 			if ip := net.ParseIP(addressing.IPV4); ip != nil {
-				if err := d.ipam.StopExpirationTimer(ip, ipam.PoolDefault, uuid); err != nil {
+				pool := ipam.PoolOrDefault(addressing.IPV4PoolName)
+				if err := d.ipam.StopExpirationTimer(ip, pool, uuid); err != nil {
 					return d.errorDuringCreation(ep, err)
 				}
 			}
 		}
 		if uuid := addressing.IPV6ExpirationUUID; uuid != "" {
 			if ip := net.ParseIP(addressing.IPV6); ip != nil {
-				if err := d.ipam.StopExpirationTimer(ip, ipam.PoolDefault, uuid); err != nil {
+				pool := ipam.PoolOrDefault(addressing.IPV4PoolName)
+				if err := d.ipam.StopExpirationTimer(ip, pool, uuid); err != nil {
 					return d.errorDuringCreation(ep, err)
 				}
 			}
@@ -758,13 +760,13 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 
 	if !conf.NoIPRelease {
 		if option.Config.EnableIPv4 {
-			if err := d.ipam.ReleaseIP(ep.IPv4.AsSlice(), ipam.PoolDefault); err != nil {
+			if err := d.ipam.ReleaseIP(ep.IPv4.AsSlice(), ipam.PoolOrDefault(ep.IPv4IPAMPool)); err != nil {
 				scopedLog := ep.Logger(daemonSubsys).WithError(err)
 				scopedLog.Warning("Unable to release IPv4 address during endpoint deletion")
 			}
 		}
 		if option.Config.EnableIPv6 {
-			if err := d.ipam.ReleaseIP(ep.IPv6.AsSlice(), ipam.PoolDefault); err != nil {
+			if err := d.ipam.ReleaseIP(ep.IPv6.AsSlice(), ipam.PoolOrDefault(ep.IPv6IPAMPool)); err != nil {
 				scopedLog := ep.Logger(daemonSubsys).WithError(err)
 				scopedLog.Warning("Unable to release IPv6 address during endpoint deletion")
 			}

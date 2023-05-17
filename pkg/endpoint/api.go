@@ -98,6 +98,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 				return nil, fmt.Errorf("invalid IPv6 address %q", ip)
 			}
 			ep.IPv6 = ip6
+			ep.IPv6IPAMPool = base.Addressing.IPV6PoolName
 		}
 
 		if ip := base.Addressing.IPV4; ip != "" {
@@ -109,6 +110,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 				return nil, fmt.Errorf("invalid IPv4 address %q", ip)
 			}
 			ep.IPv4 = ip4
+			ep.IPv4IPAMPool = base.Addressing.IPV4PoolName
 		}
 	}
 
@@ -145,8 +147,10 @@ func (e *Endpoint) getModelEndpointIdentitiersRLocked() *models.EndpointIdentifi
 func (e *Endpoint) getModelNetworkingRLocked() *models.EndpointNetworking {
 	return &models.EndpointNetworking{
 		Addressing: []*models.AddressPair{{
-			IPV4: e.GetIPv4Address(),
-			IPV6: e.GetIPv6Address(),
+			IPV4:         e.GetIPv4Address(),
+			IPV4PoolName: e.IPv4IPAMPool,
+			IPV6:         e.GetIPv6Address(),
+			IPV6PoolName: e.IPv6IPAMPool,
 		}},
 		InterfaceIndex: int64(e.ifIndex),
 		InterfaceName:  e.ifName,
@@ -499,11 +503,13 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 
 	if newEp.IPv6.IsValid() && e.IPv6 != newEp.IPv6 {
 		e.IPv6 = newEp.IPv6
+		e.IPv6IPAMPool = newEp.IPv6IPAMPool
 		changed = true
 	}
 
 	if newEp.IPv4.IsValid() && e.IPv4 != newEp.IPv4 {
 		e.IPv4 = newEp.IPv4
+		e.IPv4IPAMPool = newEp.IPv4IPAMPool
 		changed = true
 	}
 
