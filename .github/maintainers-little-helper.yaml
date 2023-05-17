@@ -23,13 +23,13 @@ move-to-projects-for-labels-xored:
       column: "Backport done to v1.12"
   v1.11:
     needs-backport/1.11:
-      project: "https://github.com/cilium/cilium/projects/231"
+      project: "https://github.com/cilium/cilium/projects/233"
       column: "Needs backport from main"
     backport-pending/1.11:
-      project: "https://github.com/cilium/cilium/projects/231"
+      project: "https://github.com/cilium/cilium/projects/233"
       column: "Backport pending to v1.11"
     backport-done/1.11:
-      project: "https://github.com/cilium/cilium/projects/231"
+      project: "https://github.com/cilium/cilium/projects/233"
       column: "Backport done to v1.11"
 require-msgs-in-commit:
   - msg: "Signed-off-by"
