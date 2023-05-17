@@ -701,11 +701,11 @@ func (s *BPFPrivilegedTestSuite) TestUnpin(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(exist, Equals, false)
 
-	err = UnpinMapIfExists("cilium_test_unpin")
+	err = unpinMap.Unpin()
 	c.Assert(err, IsNil)
 	err = unpinMap.OpenOrCreate()
 	c.Assert(err, IsNil)
-	err = UnpinMapIfExists("cilium_test_unpin")
+	err = unpinMap.Unpin()
 	c.Assert(err, IsNil)
 	exist, err = unpinMap.exist()
 	c.Assert(err, IsNil)
