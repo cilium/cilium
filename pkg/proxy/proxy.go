@@ -135,16 +135,15 @@ type Proxy struct {
 	defaultEndpointInfoRegistry *endpointInfoRegistry
 }
 
-// StartProxySupport starts the servers to support L7 proxies: xDS GRPC server
-// and access log server.
-func StartProxySupport(minPort uint16, maxPort uint16, runDir string,
+func createProxy(minPort uint16, maxPort uint16, runDir string,
 	accessLogNotifier logger.LogRecordNotifier, accessLogMetadata []string,
-	datapathUpdater DatapathUpdater, mgr EndpointLookup,
+	datapathUpdater DatapathUpdater, endpointLookup EndpointLookup,
 	ipcache IPCacheManager) *Proxy {
-	endpointManager = mgr
+
+	endpointManager = endpointLookup
 	eir := newEndpointInfoRegistry(ipcache)
+
 	logger.SetEndpointInfoRegistry(eir)
-	xdsServer := envoy.StartXDSServer(ipcache, envoy.GetSocketDir(runDir))
 
 	if accessLogNotifier != nil {
 		logger.SetNotifier(accessLogNotifier)
@@ -154,10 +153,7 @@ func StartProxySupport(minPort uint16, maxPort uint16, runDir string,
 		logger.SetMetadata(accessLogMetadata)
 	}
 
-	envoy.StartAccessLogServer(envoy.GetSocketDir(runDir), xdsServer)
-
 	return &Proxy{
-		XDSServer:                   xdsServer,
 		runDir:                      runDir,
 		rangeMin:                    minPort,
 		rangeMax:                    maxPort,
