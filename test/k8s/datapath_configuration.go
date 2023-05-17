@@ -15,12 +15,16 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 )
 
 var _ = Describe("K8sDatapathConfig", func() {
+	const (
+		bpffsDir string = defaults.BPFFSRoot + "/" + defaults.TCGlobalsPath + "/"
+	)
 
 	var (
 		kubectl    *helpers.Kubectl
@@ -491,6 +495,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 				options["kubeProxyReplacement"] = "disabled"
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+
+			cmd := fmt.Sprintf("bpftool map update pinned %scilium_world_cidrs4 key 0 0 0 0 0 0 0 0 value 1", bpffsDir)
+			kubectl.CiliumExecMustSucceedOnAll(context.TODO(), cmd)
 
 			hsIPcacheYAML := helpers.ManifestGet(kubectl.BasePath(), hsIPcacheFile)
 			kubectl.Create(hsIPcacheYAML).ExpectSuccess("Unable to create resource %q", hsIPcacheYAML)
