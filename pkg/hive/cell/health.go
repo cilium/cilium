@@ -3,12 +3,11 @@ package cell
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cilium/cilium/pkg/stream"
-	"github.com/cilium/workerpool"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
@@ -22,7 +21,7 @@ const (
 	StatusOK       Level = "OK"
 )
 
-type update struct {
+type Update struct {
 	Level
 	ModuleID string
 	Message  string
@@ -34,130 +33,8 @@ type StatusReporter interface {
 	Degraded(reason string)
 }
 
-// =======================================
-
-type probedReporter struct {
-	sync.RWMutex
-	moduleID   string
-	name       string
-	lastStatus *Status
-}
-
-func (p *probedReporter) OK(status string) {
-	p.Lock()
-	defer p.Unlock()
-	t := time.Now()
-	p.lastStatus.Level = StatusOK
-	p.lastStatus.Message = status
-	p.lastStatus.LastOK = t
-	p.lastStatus.LastUpdated = t
-}
-
-func (p *probedReporter) Stopped(reason string) {
-	p.Lock()
-	defer p.Unlock()
-	p.lastStatus.Level = StatusStopped
-	p.lastStatus.Message = reason
-	p.lastStatus.LastUpdated = time.Now()
-}
-
-func (p *probedReporter) Degraded(reason string) {
-	p.Lock()
-	defer p.Unlock()
-	p.lastStatus.Level = StatusDegraded
-	p.lastStatus.Message = reason
-	p.lastStatus.LastUpdated = time.Now()
-}
-
-func (p *probedReporter) Run(ProbeContext) Status {
-	p.RLock()
-	defer p.RUnlock()
-	if p.lastStatus == nil {
-		p.lastStatus = &Status{
-			update: update{
-				Level:    StatusUnknown,
-				ModuleID: p.moduleID,
-				Message:  "No status reported yet",
-			},
-		}
-	}
-	return *p.lastStatus
-}
-
-func (p *probedReporter) ID() string {
-	return fmt.Sprintf("%s/%s", p.moduleID, p.name)
-}
-
-// Prober impl:
-
-type ProbeContext context.Context
-
-type ProbeInterface interface {
-	ID() string
-	Run(ProbeContext) Status
-}
-
-type statusProber struct {
-	sync.Mutex
-	probes       []ProbeInterface
-	statuses     map[string]Status
-	runCollector sync.Once
-	statusCh     chan Status
-	wp           *workerpool.WorkerPool
-}
-
-func newStatusProber() *statusProber {
-	return &statusProber{
-		statuses: make(map[string]Status),
-		statusCh: make(chan Status, 128),
-	}
-}
-
-func (s *statusProber) startCollecting(ctx context.Context) {
-	go func() {
-		<-ctx.Done()
-		close(s.statusCh)
-	}()
-	go func() {
-		for status := range s.statusCh {
-			s.statuses[status.ModuleID] = status
-		}
-	}()
-}
-
-func (s *statusProber) evalProbes(ctx context.Context) error {
-	for _, probe := range s.probes {
-		s.wp.Submit(probe.ID(), func(ctx context.Context) error {
-			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			defer cancel()
-			// Add [0, 1s) of jitter to avoid all probes running at once.
-			<-time.After(time.Millisecond * time.Duration(rand.Int63n(1000)))
-			s.statusCh <- probe.Run(ctx)
-			return nil
-		})
-	}
-	_, err := s.wp.Drain()
-	return err
-}
-
-func (s *statusProber) Run(ctx context.Context) {
-	s.Lock()
-	defer s.Unlock()
-	s.startCollecting(ctx)
-	for {
-		// Each iteration has a total timeout of 5 seconds.
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		if err := s.evalProbes(ctx); err != nil {
-			log.WithError(err).Error("Failed to evaluate probes")
-		}
-		cancel()
-	}
-}
-
-// =======================================
-
 type Status struct {
-	update
+	Update
 	LastOK      time.Time
 	LastUpdated time.Time
 }
@@ -173,48 +50,78 @@ func (s *Status) String() string {
 		s.ModuleID, s.Level, s.Message, sinceLast)
 }
 
+// How big the queue buffer for health status updates should be.
+// Insufficient will result in reporter status updates blocking while
+// waiting for the queue to be processed.
+const updatesBufferSize = 2048
+
 func NewStatusProvider() *StatusProvider {
 	p := &StatusProvider{
-		updates:        make(chan update),
+		updates:        make(chan Update, updatesBufferSize),
+		done:           make(chan struct{}),
 		moduleStatuses: make(map[string]Status),
 	}
-	p.Observable, p.emit, p.complete = stream.Multicast[Status]()
+	// ???
+	//ch := make(chan Update, updatesBufferSize)
+	//obs := stream.FromChannel(ch)
+
+	// Use multicast to fan out updates to potential multiple observers.
+	// TODO: How do we prevent external subs from blocking?
+	p.obs, p.emit, p.complete = stream.Multicast[Update]()
+	// Listen for updates, use buffered channel to avoid blocking.
+	go func() {
+		for s := range p.updates {
+			p.mu.Lock()
+			t := time.Now()
+			ns := Status{
+				Update:      s,
+				LastUpdated: t,
+			}
+			if s.Level == StatusOK {
+				ns.LastOK = t
+			}
+			p.moduleStatuses[s.ModuleID] = ns
+			p.processed.CompareAndSwap(p.processed.Load(), p.processed.Load()+1)
+			p.mu.Unlock()
+		}
+		close(p.done)
+	}()
+
+	// Start observing the stream of updates, all updates will be sent to the
+	// to the updates channel.
+	//
+	// Updates are observed in order, and processed in order by the goroutine.
+	//
+	// TODO: What value does this bring?
+	p.obs.Observe(context.Background(),
+		func(s Update) {
+			p.updates <- s
+		},
+		func(err error) {
+			if err != nil {
+				log.WithError(err).Error("StatusProvider stream failed")
+			} else {
+				log.WithError(err).Error("StatusProvider stream failed")
+			}
+			close(p.updates)
+		})
 	return p
 }
 
-type StatusProvider struct {
-	mu      sync.Mutex
-	updates chan update
-	// moduleStatuses is the *latest* status, bucketed by module ID.
-	moduleStatuses map[string]Status
-
-	stream.Observable[Status]
-	emit     func(Status)
-	complete func(error)
-}
-
-type reporter struct {
-	*StatusProvider
-	moduleID string
-}
-
-func (r *reporter) Degraded(reason string) {
-	r.process(update{ModuleID: r.moduleID, Level: StatusDegraded, Message: reason})
-}
-
-func (r *reporter) Stopped(reason string) {
-	r.process(update{ModuleID: r.moduleID, Level: StatusStopped, Message: reason})
-}
-
-func (r *reporter) OK(status string) {
-	r.process(update{ModuleID: r.moduleID, Level: StatusOK, Message: status})
-}
-
+// forModule provides a status reporter handle for emitting status updates.
 func (p *StatusProvider) forModule(moduleID string) StatusReporter {
 	p.mu.Lock()
-	p.moduleStatuses[moduleID] = Status{update: update{ModuleID: moduleID}}
+	p.moduleStatuses[moduleID] = Status{Update: Update{
+		ModuleID: moduleID,
+		Level:    StatusUnknown,
+		Message:  "No status reported yet"},
+	}
 	p.mu.Unlock()
-	return &reporter{moduleID: moduleID, StatusProvider: p}
+
+	return &reporter{
+		moduleID: moduleID,
+		emit:     p.emit,
+	}
 }
 
 func (p *StatusProvider) All() []Status {
@@ -237,22 +144,48 @@ func (p *StatusProvider) Get(moduleID string) *Status {
 	return nil
 }
 
-func (p *StatusProvider) process(u update) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	s := p.moduleStatuses[u.ModuleID]
-
-	t := time.Now()
-	s.LastUpdated = t
-	if u.Level == StatusOK {
-		s.LastOK = t
-	}
-	s.update = u
-	p.moduleStatuses[u.ModuleID] = s
-	p.emit(s)
-}
-
 func (p *StatusProvider) Stop() {
 	p.complete(nil)
+}
+
+func (p *StatusProvider) finish(ctx context.Context) error {
+	p.complete(nil)
+	select {
+	case <-p.done:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("failed to drain health status provider: %w", ctx.Err())
+	}
+}
+
+type StatusProvider struct {
+	mu        sync.Mutex
+	updates   chan Update
+	processed atomic.Uint64
+	done      chan struct{}
+	// moduleStatuses is the *latest* status, bucketed by module ID.
+	// todo: use pointer swaps to avoid copying the map.
+	moduleStatuses map[string]Status
+
+	obs      stream.Observable[Update]
+	emit     func(Update)
+	complete func(error)
+}
+
+// reporter is a handle for emitting status updates.
+type reporter struct {
+	emit     func(Update)
+	moduleID string
+}
+
+func (r *reporter) Degraded(reason string) {
+	r.emit(Update{ModuleID: r.moduleID, Level: StatusDegraded, Message: reason})
+}
+
+func (r *reporter) Stopped(reason string) {
+	r.emit(Update{ModuleID: r.moduleID, Level: StatusStopped, Message: reason})
+}
+
+func (r *reporter) OK(status string) {
+	r.emit(Update{ModuleID: r.moduleID, Level: StatusOK, Message: status})
 }
