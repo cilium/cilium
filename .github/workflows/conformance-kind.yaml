@@ -7,12 +7,7 @@ on:
       - 'Documentation/**'
       - 'test/**'
   push:
-    branches:
-      - main
-      - ft/main/**
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
+
 
 permissions: read-all
 
@@ -25,7 +20,6 @@ env:
   kind_config: .github/kind-config.yaml
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.2
-  cilium_cli_ci_version:
 
 jobs:
   installation-and-connectivity:
@@ -81,11 +75,16 @@ jobs:
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@148f953bd73d103ba1324d59d6cc3204d2258af3 # v0.14.2
-        with:
-          release-version: ${{ env.cilium_cli_version }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
+      # - name: Install Cilium CLI
+      #   uses: cilium/cilium-cli@148f953bd73d103ba1324d59d6cc3204d2258af3 # v0.14.2
+      #   with:
+      #     release-version: ${{ env.cilium_cli_version }}
+      #     ci-version: ${{ env.cilium_cli_ci_version }}
+      - name: Install franken-cli
+        run: |
+          # download https://static.eyskens.me/cilium-with-dyn to /usr/local/bin/cilium
+          sudo curl -sL https://static.eyskens.me/cilium-with-dyn -o /usr/local/bin/cilium
+          sudo chmod +x /usr/local/bin/cilium
 
       - name: Checkout code
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
