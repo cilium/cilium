@@ -265,3 +265,15 @@ func SetMetadata(md []string) {
 
 	metadata = md
 }
+
+// EndpointInfoRegistry provides endpoint information lookup by endpoint IP address.
+type EndpointInfoRegistry interface {
+	// FillEndpointInfo resolves the labels of the specified identity if known locally.
+	// If 'id' is passed as zero, will locate the EP by 'ip', and also fill info.ID, if found.
+	// Fills in the following info member fields:
+	//  - info.IPv4           (if 'ip' is IPv4)
+	//  - info.IPv6           (if 'ip' is not IPv4)
+	//  - info.Identity       (defaults to WORLD if not known)
+	//  - info.Labels         (only if identity is found)
+	FillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP, id identity.NumericIdentity)
+}

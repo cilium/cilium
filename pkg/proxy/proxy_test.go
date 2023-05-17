@@ -12,8 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy/logger"
-	"github.com/cilium/cilium/pkg/proxy/logger/test"
+	endpointtest "github.com/cilium/cilium/pkg/proxy/endpoint/test"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 
 	. "github.com/cilium/checkmate"
@@ -215,13 +214,12 @@ func (s *ProxySuite) TestCreateOrUpdateRedirectMissingListener(c *C) {
 	p := createProxy(10000, 20000, testRunDir, nil, nil, mockDatapathUpdater, nil,
 		testipcache.NewMockIPCache())
 
-	Identity := identity.NumericIdentity(123)
-	var ep logger.EndpointUpdater = &test.ProxyUpdaterMock{
+	ep := &endpointtest.ProxyUpdaterMock{
 		Id:       1000,
 		Ipv4:     "10.0.0.1",
 		Ipv6:     "f00d::1",
 		Labels:   []string{"id.foo", "id.bar"},
-		Identity: Identity,
+		Identity: identity.NumericIdentity(123),
 	}
 
 	l4 := &fakeProxyPolicy{}

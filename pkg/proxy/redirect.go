@@ -7,7 +7,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -46,7 +46,7 @@ type Redirect struct {
 	listener       *ProxyPort
 	dstPort        uint16
 	endpointID     uint64
-	localEndpoint  logger.EndpointUpdater
+	localEndpoint  endpoint.EndpointUpdater
 	implementation RedirectImplementation
 
 	// The following fields are updated while the redirect is alive, the
@@ -55,7 +55,7 @@ type Redirect struct {
 	rules policy.L7DataMap
 }
 
-func newRedirect(localEndpoint logger.EndpointUpdater, name string, listener *ProxyPort, dstPort uint16) *Redirect {
+func newRedirect(localEndpoint endpoint.EndpointUpdater, name string, listener *ProxyPort, dstPort uint16) *Redirect {
 	return &Redirect{
 		name:          name,
 		listener:      listener,
