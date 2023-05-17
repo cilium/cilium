@@ -11,7 +11,7 @@ anyone reading this document should also read [`cilium/image-tools` documentatio
 
 This image is based on `runtime` image.
 
-It adds `protoc` and plugins, Go toolchain, and includes `ineffassign`.
+It adds `protoc` and plugins, and the Go toolchain.
 The aim is to include all the Go linters as well.
 
 ### [`runtime`](runtime/Dockerfile)

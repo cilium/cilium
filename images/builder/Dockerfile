@@ -57,8 +57,6 @@ ENV GOPATH /go
 ENV PATH "${GOROOT}/bin:${GOPATH}/bin:${PATH}"
 
 WORKDIR /go/src/github.com/cilium/cilium/images/builder
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/builder \
-    ./build-go-deps.sh
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/builder \
     ./install-protoc.sh
