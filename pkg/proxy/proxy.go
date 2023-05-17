@@ -133,26 +133,12 @@ type Proxy struct {
 
 	// defaultEndpointInfoRegistry is the default instance implementing the
 	// EndpointInfoRegistry interface.
-	defaultEndpointInfoRegistry *endpointInfoRegistry
+	defaultEndpointInfoRegistry logger.EndpointInfoRegistry
 }
 
 func createProxy(minPort uint16, maxPort uint16, runDir string,
-	accessLogNotifier logger.LogRecordNotifier, accessLogMetadata []string,
-	datapathUpdater DatapathUpdater, endpointLookup EndpointLookup,
-	ipcache IPCacheManager) *Proxy {
-
-	endpointManager = endpointLookup
-	eir := newEndpointInfoRegistry(ipcache)
-
-	logger.SetEndpointInfoRegistry(eir)
-
-	if accessLogNotifier != nil {
-		logger.SetNotifier(accessLogNotifier)
-	}
-
-	if len(accessLogMetadata) > 0 {
-		logger.SetMetadata(accessLogMetadata)
-	}
+	datapathUpdater DatapathUpdater, ipcache IPCacheManager,
+	eir logger.EndpointInfoRegistry) *Proxy {
 
 	return &Proxy{
 		runDir:                      runDir,

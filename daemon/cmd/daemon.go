@@ -620,8 +620,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
-	proxy.Allocator = d.identityAllocator
-
 	d.endpointManager = params.EndpointManager
 
 	// Start service support after proxy support so that we can inject 'd.l7Proxy`.
