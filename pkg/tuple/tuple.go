@@ -5,7 +5,6 @@ package tuple
 
 import (
 	"strings"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 )
@@ -48,9 +47,6 @@ func (in *buff256uint8) DeepCopyInto(out *buff256uint8) {
 type TupleValStub struct {
 	buff buff256uint8
 }
-
-// GetValuePtr returns the unsafe.Pointer for s.
-func (t *TupleValStub) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(t) }
 
 // String stub method.
 func (t *TupleValStub) String() string {

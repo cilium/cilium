@@ -6,7 +6,6 @@ package lbmap
 import (
 	"fmt"
 	"net"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 
@@ -188,11 +187,10 @@ func NewRevNat4Key(value uint16) *RevNat4Key {
 	return &RevNat4Key{value}
 }
 
-func (k *RevNat4Key) Map() *bpf.Map             { return RevNat4Map }
-func (k *RevNat4Key) NewValue() bpf.MapValue    { return &RevNat4Value{} }
-func (k *RevNat4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *RevNat4Key) String() string            { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
-func (k *RevNat4Key) GetKey() uint16            { return k.Key }
+func (k *RevNat4Key) Map() *bpf.Map          { return RevNat4Map }
+func (k *RevNat4Key) NewValue() bpf.MapValue { return &RevNat4Value{} }
+func (k *RevNat4Key) String() string         { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
+func (k *RevNat4Key) GetKey() uint16         { return k.Key }
 
 // ToNetwork converts RevNat4Key to network byte order.
 func (k *RevNat4Key) ToNetwork() RevNatKey {
@@ -214,8 +212,6 @@ type RevNat4Value struct {
 	Address types.IPv4 `align:"address"`
 	Port    uint16     `align:"port"`
 }
-
-func (v *RevNat4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // ToNetwork converts RevNat4Value to network byte order.
 func (v *RevNat4Value) ToNetwork() RevNatValue {
@@ -286,18 +282,17 @@ func (k *Service4Key) String() string {
 	return addr
 }
 
-func (k *Service4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *Service4Key) NewValue() bpf.MapValue    { return &Service4Value{} }
-func (k *Service4Key) IsIPv6() bool              { return false }
-func (k *Service4Key) IsSurrogate() bool         { return k.GetAddress().IsUnspecified() }
-func (k *Service4Key) Map() *bpf.Map             { return Service4MapV2 }
-func (k *Service4Key) SetBackendSlot(slot int)   { k.BackendSlot = uint16(slot) }
-func (k *Service4Key) GetBackendSlot() int       { return int(k.BackendSlot) }
-func (k *Service4Key) SetScope(scope uint8)      { k.Scope = scope }
-func (k *Service4Key) GetScope() uint8           { return k.Scope }
-func (k *Service4Key) GetAddress() net.IP        { return k.Address.IP() }
-func (k *Service4Key) GetPort() uint16           { return k.Port }
-func (k *Service4Key) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }
+func (k *Service4Key) NewValue() bpf.MapValue  { return &Service4Value{} }
+func (k *Service4Key) IsIPv6() bool            { return false }
+func (k *Service4Key) IsSurrogate() bool       { return k.GetAddress().IsUnspecified() }
+func (k *Service4Key) Map() *bpf.Map           { return Service4MapV2 }
+func (k *Service4Key) SetBackendSlot(slot int) { k.BackendSlot = uint16(slot) }
+func (k *Service4Key) GetBackendSlot() int     { return int(k.BackendSlot) }
+func (k *Service4Key) SetScope(scope uint8)    { k.Scope = scope }
+func (k *Service4Key) GetScope() uint8         { return k.Scope }
+func (k *Service4Key) GetAddress() net.IP      { return k.Address.IP() }
+func (k *Service4Key) GetPort() uint16         { return k.Port }
+func (k *Service4Key) MapDelete() error        { return k.Map().Delete(k.ToNetwork()) }
 
 func (k *Service4Key) RevNatValue() RevNatValue {
 	return &RevNat4Value{
@@ -335,8 +330,6 @@ func (s *Service4Value) String() string {
 	sHost := s.ToHost().(*Service4Value)
 	return fmt.Sprintf("%d %d (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.RevNat, sHost.Flags, sHost.Flags2)
 }
-
-func (s *Service4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
 func (s *Service4Value) SetCount(count int)   { s.Count = uint16(count) }
 func (s *Service4Value) GetCount() int        { return int(s.Count) }
@@ -395,7 +388,6 @@ func NewBackend4KeyV3(id loadbalancer.BackendID) *Backend4KeyV3 {
 }
 
 func (k *Backend4KeyV3) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend4KeyV3) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(k) }
 func (k *Backend4KeyV3) NewValue() bpf.MapValue          { return &Backend4ValueV3{} }
 func (k *Backend4KeyV3) Map() *bpf.Map                   { return Backend4MapV3 }
 func (k *Backend4KeyV3) SetID(id loadbalancer.BackendID) { k.ID = id }
@@ -408,7 +400,6 @@ type Backend4Key struct {
 }
 
 func (k *Backend4Key) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend4Key) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(k) }
 func (k *Backend4Key) NewValue() bpf.MapValue          { return &Backend4Value{} }
 func (k *Backend4Key) Map() *bpf.Map                   { return Backend4Map }
 func (k *Backend4Key) SetID(id loadbalancer.BackendID) { k.ID = uint16(id) }
@@ -445,8 +436,6 @@ func (v *Backend4Value) String() string {
 	vHost := v.ToHost().(*Backend4Value)
 	return fmt.Sprintf("%s://%s:%d", vHost.Proto, vHost.Address, vHost.Port)
 }
-
-func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend4Value) GetIPCluster() cmtypes.AddrCluster {
@@ -509,8 +498,6 @@ func (v *Backend4ValueV3) String() string {
 	vHost := v.ToHost().(*Backend4ValueV3)
 	return fmt.Sprintf("%s://%s", vHost.Proto, cmtypes.AddrClusterFrom(vHost.Address.Addr(), uint32(vHost.ClusterID)).String())
 }
-
-func (v *Backend4ValueV3) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func (b *Backend4ValueV3) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend4ValueV3) GetIPCluster() cmtypes.AddrCluster {
@@ -604,12 +591,6 @@ type SockRevNat4Value struct {
 	port        int16      `align:"port"`
 	revNatIndex uint16     `align:"rev_nat_index"`
 }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *SockRevNat4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *SockRevNat4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // String converts the key into a human readable string format.
 func (k *SockRevNat4Key) String() string {

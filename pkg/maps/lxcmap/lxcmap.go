@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/netip"
 	"sync"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 
@@ -135,9 +134,6 @@ type EndpointInfo struct {
 	SecID   uint32        `align:"sec_id"`
 	Pad     pad3uint32    `align:"pad"`
 }
-
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *EndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey

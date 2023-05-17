@@ -22,13 +22,11 @@ type NatEntry6 struct {
 	Pad2    uint64     `align:"pad2"`
 	Addr    types.IPv6 `align:"to_saddr"`
 	Port    uint16     `align:"to_sport"`
+	_       [6]byte
 }
 
 // SizeofNatEntry6 is the size of the NatEntry6 type in bytes.
 const SizeofNatEntry6 = int(unsafe.Sizeof(NatEntry6{}))
-
-// GetValuePtr returns the unsafe.Pointer for n.
-func (n *NatEntry6) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(n) }
 
 // String returns the readable format.
 func (n *NatEntry6) String() string {

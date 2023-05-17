@@ -40,9 +40,6 @@ type Key struct {
 	IP types.IPv6 `align:"$union0"`
 }
 
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
 func (k Key) NewValue() bpf.MapValue { return &RemoteEndpointInfo{} }
@@ -148,15 +145,13 @@ type RemoteEndpointInfo struct {
 	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
 	NodeID           uint16     `align:"node_id"`
 	Key              uint8      `align:"key"`
+	_                uint8
 }
 
 func (v *RemoteEndpointInfo) String() string {
 	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s nodeid=%d",
 		v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.NodeID)
 }
-
-// GetValuePtr returns the unsafe pointer to the BPF value.
-func (v *RemoteEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // Map represents an IPCache BPF map.
 type Map struct {

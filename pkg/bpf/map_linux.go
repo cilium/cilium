@@ -38,9 +38,6 @@ var ErrMaxLookup = errors.New("maximum number of lookups reached")
 type MapKey interface {
 	fmt.Stringer
 
-	// Returns pointer to start of key
-	GetKeyPtr() unsafe.Pointer
-
 	// Allocates a new value matching the key type
 	NewValue() MapValue
 
@@ -50,9 +47,6 @@ type MapKey interface {
 
 type MapValue interface {
 	fmt.Stringer
-
-	// Returns pointer to start of value
-	GetValuePtr() unsafe.Pointer
 
 	// DeepCopyMapValue returns a deep copy of the map value
 	DeepCopyMapValue() MapValue
@@ -772,7 +766,7 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 	}
 
 	value := key.NewValue()
-	err := m.m.Lookup(key.GetKeyPtr(), value.GetValuePtr())
+	err := m.m.Lookup(key, value)
 
 	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpLookup, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
@@ -829,7 +823,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 		return err
 	}
 
-	err = m.m.Update(key.GetKeyPtr(), value.GetValuePtr(), ebpf.UpdateAny)
+	err = m.m.Update(key, value, ebpf.UpdateAny)
 
 	if metrics.BPFMapOps.IsEnabled() {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
@@ -909,7 +903,7 @@ func (m *Map) delete(key MapKey, ignoreMissing bool) (_ bool, err error) {
 		duration = spanstat.Start()
 	}
 
-	err = m.m.Delete(key.GetKeyPtr())
+	err = m.m.Delete(key)
 
 	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpDelete, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
@@ -1106,7 +1100,8 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		case OK:
 		case Insert:
 			// Call into ebpf-go's Map.Update() directly, don't go through the cache.
-			err := m.m.Update(e.Key.GetKeyPtr(), e.Value.GetValuePtr(), ebpf.UpdateAny)
+
+			err := m.m.Update(e.Key, e.Value, ebpf.UpdateAny)
 			if metrics.BPFMapOps.IsEnabled() {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 			}
@@ -1123,7 +1118,8 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 			m.addToEventsLocked(MapUpdate, *e)
 		case Delete:
 			// Holding lock, issue direct delete on map.
-			err := m.m.Delete(e.Key.GetKeyPtr())
+
+			err := m.m.Delete(e.Key)
 			if metrics.BPFMapOps.IsEnabled() {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
 			}

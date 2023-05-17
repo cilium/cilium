@@ -126,8 +126,6 @@ type AuthKey struct {
 	Pad            uint8  `align:"pad"`
 }
 
-func (r *AuthKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(r) }
-
 func (r *AuthKey) NewValue() bpf.MapValue { return &AuthInfo{} }
 
 func (r *AuthKey) String() string {
@@ -142,9 +140,6 @@ func (r *AuthKey) String() string {
 type AuthInfo struct {
 	Expiration utime.UTime `align:"expiration"`
 }
-
-// GetValuePtr returns the unsafe pointer to the BPF value.
-func (r *AuthInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(r) }
 
 func (r *AuthInfo) String() string {
 	return fmt.Sprintf("expiration=%q", r.Expiration)

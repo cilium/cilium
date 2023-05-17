@@ -6,7 +6,6 @@ package tuple
 import (
 	"fmt"
 	"strings"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -27,9 +26,6 @@ type TupleKey4 struct {
 	NextHeader u8proto.U8proto `align:"nexthdr"`
 	Flags      uint8           `align:"flags"`
 }
-
-// GetKeyPtr returns the unsafe.Pointer for k.
-func (k *TupleKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // NewValue creates a new bpf.MapValue.
 func (k *TupleKey4) NewValue() bpf.MapValue { return &TupleValStub{} }

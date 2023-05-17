@@ -6,7 +6,6 @@ package bpf
 import (
 	"encoding/binary"
 	"fmt"
-	"unsafe"
 
 	. "github.com/cilium/checkmate"
 
@@ -40,14 +39,12 @@ type BenchValue struct {
 	Value uint32
 }
 
-func (k *BenchKey) String() string            { return fmt.Sprintf("key=%d", k.Key) }
-func (k *BenchKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *BenchKey) NewValue() MapValue        { return &BenchValue{} }
-func (k *BenchKey) DeepCopyMapKey() MapKey    { return &BenchKey{k.Key} }
+func (k *BenchKey) String() string         { return fmt.Sprintf("key=%d", k.Key) }
+func (k *BenchKey) NewValue() MapValue     { return &BenchValue{} }
+func (k *BenchKey) DeepCopyMapKey() MapKey { return &BenchKey{k.Key} }
 
-func (v *BenchValue) String() string              { return fmt.Sprintf("value=%d", v.Value) }
-func (v *BenchValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *BenchValue) DeepCopyMapValue() MapValue  { return &BenchValue{v.Value} }
+func (v *BenchValue) String() string             { return fmt.Sprintf("value=%d", v.Value) }
+func (v *BenchValue) DeepCopyMapValue() MapValue { return &BenchValue{v.Value} }
 
 func (s *BPFTestSuite) BenchmarkConvertKeyValue(c *C) {
 	bk := []byte{0x21, 0x09, 0x40, 0xff}

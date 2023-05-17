@@ -6,7 +6,6 @@ package nat
 import (
 	"fmt"
 	"strings"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 
@@ -203,7 +202,7 @@ func deleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 	key.DestAddr = addr
 	valMap, err := m.Lookup(&key)
 	if err == nil {
-		val := *(*NatEntry4)(unsafe.Pointer(valMap.GetValuePtr()))
+		val := *(valMap.(*NatEntry4))
 		rkey := key
 		rkey.SourceAddr = key.DestAddr
 		rkey.SourcePort = key.DestPort
@@ -227,7 +226,7 @@ func deleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 	key.DestAddr = addr
 	valMap, err := m.Lookup(&key)
 	if err == nil {
-		val := *(*NatEntry6)(unsafe.Pointer(valMap.GetValuePtr()))
+		val := *(valMap.(*NatEntry6))
 		rkey := key
 		rkey.SourceAddr = key.DestAddr
 		rkey.SourcePort = key.DestPort

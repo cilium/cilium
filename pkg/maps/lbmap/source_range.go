@@ -6,7 +6,6 @@ package lbmap
 import (
 	"fmt"
 	"net"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -47,8 +46,7 @@ type SourceRangeKey4 struct {
 	Address   types.IPv4 `align:"addr"`
 }
 
-func (k *SourceRangeKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *SourceRangeKey4) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
+func (k *SourceRangeKey4) NewValue() bpf.MapValue { return &SourceRangeValue{} }
 func (k *SourceRangeKey4) String() string {
 	kHost := k.ToHost().(*SourceRangeKey4)
 	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
@@ -91,8 +89,7 @@ type SourceRangeKey6 struct {
 	Address   types.IPv6 `align:"addr"`
 }
 
-func (k *SourceRangeKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *SourceRangeKey6) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
+func (k *SourceRangeKey6) NewValue() bpf.MapValue { return &SourceRangeValue{} }
 func (k *SourceRangeKey6) String() string {
 	kHost := k.ToHost().(*SourceRangeKey6)
 	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
@@ -132,8 +129,7 @@ type SourceRangeValue struct {
 	Pad uint8 // not used
 }
 
-func (v *SourceRangeValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *SourceRangeValue) String() string              { return "" }
+func (v *SourceRangeValue) String() string { return "" }
 
 var (
 	// SourceRange4Map is the BPF map for storing IPv4 service source ranges to

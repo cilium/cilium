@@ -6,7 +6,6 @@ package encrypt
 import (
 	"fmt"
 	"sync"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -36,12 +35,6 @@ func (k EncryptKey) String() string {
 func (v EncryptValue) String() string {
 	return fmt.Sprintf("%d", v.encryptKeyID)
 }
-
-// GetValuePtr returns the unsafe pointer to the BPF value.
-func (v *EncryptValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *EncryptKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // NewValue returns a new empty instance of the structure represeting the BPF
 // map value

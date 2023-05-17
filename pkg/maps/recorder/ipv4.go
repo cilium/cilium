@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -29,8 +28,6 @@ type CaptureWcard4 struct {
 }
 
 type CaptureRule4 CaptureRule
-
-func (k *CaptureWcard4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 func (k *CaptureWcard4) NewValue() bpf.MapValue { return &CaptureRule4{} }
 
@@ -75,8 +72,6 @@ func (k *CaptureWcard4) ToHost() RecorderKey {
 func (k *CaptureWcard4) Map() *bpf.Map {
 	return &CaptureMap4().Map
 }
-
-func (v *CaptureRule4) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func (v *CaptureRule4) DeepCopyMapValue() bpf.MapValue {
 	return &CaptureRule4{

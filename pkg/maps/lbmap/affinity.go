@@ -5,7 +5,6 @@ package lbmap
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 
@@ -91,12 +90,6 @@ func NewAffinityMatchKey(revNATID uint16, backendID loadbalancer.BackendID) *Aff
 	}
 }
 
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *AffinityMatchKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *AffinityMatchValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-
 // String converts the key into a human readable string format
 func (k *AffinityMatchKey) String() string {
 	kHost := k.ToHost()
@@ -156,15 +149,6 @@ type AffinityValue struct {
 	BackendID uint32 `align:"backend_id"`
 	Pad       uint32 `align:"pad"`
 }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *Affinity4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *Affinity6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *AffinityValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // String converts the key into a human readable string format.
 func (k *Affinity4Key) String() string {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -27,9 +26,8 @@ type Key4 struct {
 	Address   types.IPv4
 }
 
-func (k *Key4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *Key4) NewValue() bpf.MapValue    { return &Value{} }
-func (k *Key4) String() string            { return fmt.Sprintf("%s", k.Address) }
+func (k *Key4) NewValue() bpf.MapValue { return &Value{} }
+func (k *Key4) String() string         { return fmt.Sprintf("%s", k.Address) }
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
@@ -37,8 +35,7 @@ type Value struct {
 	Pad uint8 // not used
 }
 
-func (v *Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *Value) String() string              { return "" }
+func (v *Value) String() string { return "" }
 
 var (
 	ipMasq4Map *bpf.Map

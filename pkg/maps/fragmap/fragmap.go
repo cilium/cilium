@@ -5,7 +5,6 @@ package fragmap
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 
@@ -38,12 +37,6 @@ type FragmentValue struct {
 	sourcePort uint16 `align:"sport"`
 	destPort   uint16 `align:"dport"`
 }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key.
-func (k *FragmentKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetValuePtr returns the unsafe pointer to the BPF value.
-func (v *FragmentValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // String converts the key into a human readable string format.
 func (k *FragmentKey) String() string {

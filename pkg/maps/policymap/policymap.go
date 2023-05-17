@@ -172,9 +172,6 @@ func getPolicyEntryFlags(p policyEntryFlagParams) policyEntryFlags {
 	return flags
 }
 
-// sizeofPolicyEntry is the size of type PolicyEntry.
-const sizeofPolicyEntry = int(unsafe.Sizeof(PolicyEntry{}))
-
 // CallKey is the index into the prog array map.
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
@@ -189,12 +186,6 @@ type CallValue struct {
 	progID uint32
 }
 
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *CallKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *CallValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-
 // String converts the key into a human readable string format.
 func (k *CallKey) String() string { return strconv.FormatUint(uint64(k.index), 10) }
 
@@ -205,8 +196,7 @@ func (v *CallValue) String() string { return strconv.FormatUint(uint64(v.progID)
 // map value.
 func (k CallKey) NewValue() bpf.MapValue { return &CallValue{} }
 
-func (pe *PolicyEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(pe) }
-func (pe *PolicyEntry) NewValue() bpf.MapValue      { return &PolicyEntry{} }
+func (pe *PolicyEntry) NewValue() bpf.MapValue { return &PolicyEntry{} }
 
 func (pe *PolicyEntry) Add(oPe PolicyEntry) {
 	pe.Packets += oPe.Packets
@@ -250,8 +240,7 @@ func (p PolicyEntriesDump) Less(i, j int) bool {
 		p[i].Key.Identity < p[j].Key.Identity
 }
 
-func (key *PolicyKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(key) }
-func (key *PolicyKey) NewValue() bpf.MapValue    { return &PolicyEntry{} }
+func (key *PolicyKey) NewValue() bpf.MapValue { return &PolicyEntry{} }
 
 func (key *PolicyKey) PortProtoString() string {
 	dport := key.GetDestPort()

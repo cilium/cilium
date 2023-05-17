@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -31,7 +30,6 @@ type EdtId struct {
 	Id uint64 `align:"id"`
 }
 
-func (k *EdtId) GetKeyPtr() unsafe.Pointer  { return unsafe.Pointer(k) }
 func (k *EdtId) NewValue() bpf.MapValue     { return &EdtInfo{} }
 func (k *EdtId) String() string             { return fmt.Sprintf("%d", int(k.Id)) }
 func (k *EdtId) DeepCopyMapKey() bpf.MapKey { return &EdtId{k.Id} }
@@ -43,8 +41,7 @@ type EdtInfo struct {
 	Pad             [4]uint64 `align:"pad"`
 }
 
-func (v *EdtInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *EdtInfo) String() string              { return fmt.Sprintf("%d", int(v.Bps)) }
+func (v *EdtInfo) String() string { return fmt.Sprintf("%d", int(v.Bps)) }
 func (v *EdtInfo) DeepCopyMapValue() bpf.MapValue {
 	return &EdtInfo{v.Bps, v.TimeLast, v.TimeHorizonDrop, v.Pad}
 }

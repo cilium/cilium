@@ -6,7 +6,6 @@ package bpf
 import (
 	"fmt"
 	"net"
-	"unsafe"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ippkg "github.com/cilium/cilium/pkg/ip"
@@ -31,13 +30,6 @@ type EndpointKey struct {
 	ClusterID uint8      `align:"cluster_id"`
 	Pad       uint8      `align:"pad"`
 }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *EndpointKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetValuePtr returns the unsafe pointer to the BPF key for users that
-// use EndpointKey as a value in bpf maps
-func (k *EndpointKey) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected.
