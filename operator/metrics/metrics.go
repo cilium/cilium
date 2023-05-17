@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"context"
+	"github.com/cilium/cilium/pkg/metrics"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -185,17 +186,22 @@ func registerMetrics() []prometheus.Collector {
 	collectors = append(collectors, EndpointGCObjects)
 
 	CiliumEndpointSliceDensity = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: Namespace,
-		Name:      "number_of_ceps_per_ces",
-		Help:      "The number of CEPs batched in a CES",
-		Buckets:   []float64{1, 10, 25, 50, 100, 200, 500, 1000},
+		Namespace:                      Namespace,
+		Name:                           "number_of_ceps_per_ces",
+		Help:                           "The number of CEPs batched in a CES",
+		Buckets:                        []float64{1, 10, 25, 50, 100, 200, 500, 1000},
+		NativeHistogramBucketFactor:    metrics.HistogramFactor,
+		NativeHistogramMaxBucketNumber: metrics.HistogramMaxBuckets,
 	})
 	collectors = append(collectors, CiliumEndpointSliceDensity)
 
 	CiliumEndpointsChangeCount = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: Namespace,
-		Name:      "number_of_cep_changes_per_ces",
-		Help:      "The number of changed CEPs in each CES update",
+		Namespace:                      Namespace,
+		Name:                           "number_of_cep_changes_per_ces",
+		Help:                           "The number of changed CEPs in each CES update",
+		Buckets:                        prometheus.DefBuckets,
+		NativeHistogramBucketFactor:    metrics.HistogramFactor,
+		NativeHistogramMaxBucketNumber: metrics.HistogramMaxBuckets,
 	}, []string{LabelOpcode})
 	collectors = append(collectors, CiliumEndpointsChangeCount)
 
@@ -214,10 +220,12 @@ func registerMetrics() []prometheus.Collector {
 	collectors = append(collectors, CiliumEndpointSliceSyncTotal)
 
 	CiliumEndpointSliceQueueDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: Namespace,
-		Name:      "ces_queueing_delay_seconds",
-		Help:      "CiliumEndpointSlice queueing delay in seconds",
-		Buckets:   append(prometheus.DefBuckets, 60, 300, 900, 1800, 3600),
+		Namespace:                      Namespace,
+		Name:                           "ces_queueing_delay_seconds",
+		Help:                           "CiliumEndpointSlice queueing delay in seconds",
+		Buckets:                        append(prometheus.DefBuckets, 60, 300, 900, 1800, 3600),
+		NativeHistogramBucketFactor:    metrics.HistogramFactor,
+		NativeHistogramMaxBucketNumber: metrics.HistogramMaxBuckets,
 	})
 	collectors = append(collectors, CiliumEndpointSliceQueueDelay)
 

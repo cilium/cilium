@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/operator/metrics"
+	metrics2 "github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
@@ -149,6 +150,8 @@ func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *
 			prometheus.LinearBuckets(0.25, 0.25, 2), // 0.25s, 0.50s
 			prometheus.LinearBuckets(1, 1, 60),      // 1s, 2s, 3s, ... 60s,
 		),
+		NativeHistogramBucketFactor:    metrics2.HistogramFactor,
+		NativeHistogramMaxBucketNumber: metrics2.HistogramMaxBuckets,
 	}, []string{"type", "status", "subnet_id"})
 
 	m.Release = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -160,6 +163,8 @@ func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *
 			prometheus.LinearBuckets(0.25, 0.25, 2), // 0.25s, 0.50s
 			prometheus.LinearBuckets(1, 1, 60),      // 1s, 2s, 3s, ... 60s,
 		),
+		NativeHistogramBucketFactor:    metrics2.HistogramFactor,
+		NativeHistogramMaxBucketNumber: metrics2.HistogramMaxBuckets,
 	}, []string{"type", "status", "subnet_id"})
 
 	// pool_maintainer is a more generic name, but for backward compatibility
