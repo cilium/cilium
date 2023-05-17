@@ -1,0 +1,20 @@
+name: Renovate Bot
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Install Renovate Bot
+        run: npm install -g renovate
+
+      - name: Run Renovate Bot
+        run: renovate --token ${{ secrets.GITHUB_TOKEN }} --platform github
