@@ -172,7 +172,7 @@ func (n *linuxNodeHandler) mapNodeID(ip string, id uint16) error {
 		return fmt.Errorf("invalid node IP %s", ip)
 	}
 
-	if err := nodemap.NodeMap().Update(nodeIP, id); err != nil {
+	if err := n.nodeMap.Update(nodeIP, id); err != nil {
 		return err
 	}
 
@@ -197,7 +197,7 @@ func (n *linuxNodeHandler) unmapNodeID(ip string) error {
 		return fmt.Errorf("invalid node IP %s", ip)
 	}
 
-	if err := nodemap.NodeMap().Delete(nodeIP); err != nil {
+	if err := n.nodeMap.Delete(nodeIP); err != nil {
 		return err
 	}
 	if id, exists := n.nodeIDsByIPs[ip]; exists {
@@ -246,7 +246,7 @@ func (n *linuxNodeHandler) RestoreNodeIDs() {
 		}
 		nodeIDs[address] = val.NodeID
 	}
-	if err := nodemap.NodeMap().IterateWithCallback(parse); err != nil {
+	if err := n.nodeMap.IterateWithCallback(parse); err != nil {
 		log.WithError(err).Error("Failed to dump content of node map")
 		return
 	}

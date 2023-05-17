@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 )
 
@@ -32,4 +33,7 @@ var Cell = cell.Module(
 
 	// Provides signalmap for datapath signals
 	signalmap.Cell,
+
+	// Provides the node map which contains information about node IDs and their IP addresses.
+	nodemap.Cell,
 )
