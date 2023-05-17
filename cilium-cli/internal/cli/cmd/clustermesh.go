@@ -368,6 +368,7 @@ func newCmdClusterMeshEnableWithHelm() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&params.ServiceType, "service-type", "NodePort", "Type of Kubernetes service to expose control plane { LoadBalancer | NodePort | ClusterIP }")
+	cmd.Flags().BoolVar(&params.EnableExternalWorkloads, "enable-external-workloads", false, "Enable support for external workloads, such as VMs")
 
 	return cmd
 }
