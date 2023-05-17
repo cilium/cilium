@@ -1634,6 +1634,7 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 			if s.backendRefCount.Add(hash) {
 				id, err := AcquireBackendID(backend.L3n4Addr)
 				if err != nil {
+					s.backendRefCount.Delete(hash)
 					return nil, nil, nil, fmt.Errorf("Unable to acquire backend ID for %q: %s",
 						backend.L3n4Addr, err)
 				}
