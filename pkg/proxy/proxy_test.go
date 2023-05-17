@@ -43,7 +43,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	err := os.MkdirAll(socketDir, 0700)
 	c.Assert(err, IsNil)
 
-	p := StartProxySupport(10000, 20000, testRunDir, nil, nil, mockDatapathUpdater, nil,
+	p := createProxy(10000, 20000, testRunDir, nil, nil, mockDatapathUpdater, nil,
 		testipcache.NewMockIPCache())
 
 	port, err := p.AllocateProxyPort("listener1", false, true)
@@ -212,7 +212,7 @@ func (s *ProxySuite) TestCreateOrUpdateRedirectMissingListener(c *C) {
 	err := os.MkdirAll(socketDir, 0700)
 	c.Assert(err, IsNil)
 
-	p := StartProxySupport(10000, 20000, testRunDir, nil, nil, mockDatapathUpdater, nil,
+	p := createProxy(10000, 20000, testRunDir, nil, nil, mockDatapathUpdater, nil,
 		testipcache.NewMockIPCache())
 
 	Identity := identity.NumericIdentity(123)

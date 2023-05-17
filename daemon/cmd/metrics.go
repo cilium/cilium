@@ -51,7 +51,6 @@ type bootstrapStatistics struct {
 	daemonInit      spanstat.SpanStat
 	mapsInit        spanstat.SpanStat
 	workloadsInit   spanstat.SpanStat
-	proxyStart      spanstat.SpanStat
 	fqdn            spanstat.SpanStat
 	enableConntrack spanstat.SpanStat
 	kvstore         spanstat.SpanStat
@@ -90,7 +89,6 @@ func (b *bootstrapStatistics) getMap() map[string]*spanstat.SpanStat {
 		"daemonInit":      &b.daemonInit,
 		"mapsInit":        &b.mapsInit,
 		"workloadsInit":   &b.workloadsInit,
-		"proxyStart":      &b.proxyStart,
 		"fqdn":            &b.fqdn,
 		"enableConntrack": &b.enableConntrack,
 		"kvstore":         &b.kvstore,

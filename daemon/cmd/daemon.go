@@ -547,6 +547,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		clustermesh:          params.ClusterMesh,
 		monitorAgent:         params.MonitorAgent,
 		l2announcer:          params.L2Announcer,
+		l7Proxy:              params.L7Proxy,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -622,23 +623,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	proxy.Allocator = d.identityAllocator
 
 	d.endpointManager = params.EndpointManager
-
-	// Start the proxy before we start K8s watcher or restore endpoints so that we can inject
-	// the daemon's proxy into the k8s watcher and each endpoint.
-	// Note: d.endpointManager needs to be set before this
-	bootstrapStats.proxyStart.Start()
-	// FIXME: Make the port range configurable.
-	if option.Config.EnableL7Proxy {
-		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			&d, option.Config.AgentLabels, d.datapath, d.endpointManager, d.ipcache)
-	} else {
-		log.Info("L7 proxies are disabled")
-		if option.Config.EnableEnvoyConfig {
-			log.Warningf("%s is not functional when L7 proxies are disabled",
-				option.EnableEnvoyConfig)
-		}
-	}
-	bootstrapStats.proxyStart.End(true)
 
 	// Start service support after proxy support so that we can inject 'd.l7Proxy`.
 	d.svc = service.NewService(&d, d.l7Proxy, d.datapath.LBMap())
