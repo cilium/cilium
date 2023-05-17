@@ -25,7 +25,6 @@ env:
   cluster_name: cilium-testing
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.2
-  cilium_cli_ci_version:
   k8s_version: v1.26.0
 
 jobs:
@@ -157,11 +156,16 @@ jobs:
           echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@148f953bd73d103ba1324d59d6cc3204d2258af3 # v0.14.2
-        with:
-          release-version: ${{ env.cilium_cli_version }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
+      # - name: Install Cilium CLI
+      #   uses: cilium/cilium-cli@148f953bd73d103ba1324d59d6cc3204d2258af3 # v0.14.2
+      #   with:
+      #     release-version: ${{ env.cilium_cli_version }}
+      #     ci-version: ${{ env.cilium_cli_ci_version }}
+
+      - name: Install franken-cli
+        run: |
+          # download https://static.eyskens.me/cilium-with-dyn to /usr/local/bin/cilium
+          sudo curl -sL https://static.eyskens.me/cilium-with-dyn -o /usr/local/bin/cilium
 
       - name: Checkout code
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
