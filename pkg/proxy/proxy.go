@@ -102,6 +102,7 @@ type ProxyPort struct {
 // Proxy maintains state about redirects
 type Proxy struct {
 	*envoy.XDSServer
+	accessLogServer *envoy.AccessLogServer
 
 	// runDir is the path of the directory where the state of L7 proxies is
 	// stored.

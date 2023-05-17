@@ -63,7 +63,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	log.Debugf("run directory: %s", testRunDir)
 
 	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), testRunDir)
-	defer xdsServer.stop()
+	defer xdsServer.Stop()
 	StartAccessLogServer(testRunDir, xdsServer)
 
 	// launch debug variant of the Envoy proxy
@@ -143,7 +143,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 	log.Debugf("run directory: %s", testRunDir)
 
 	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), testRunDir)
-	defer xdsServer.stop()
+	defer xdsServer.Stop()
 	StartAccessLogServer(testRunDir, xdsServer)
 
 	// launch debug variant of the Envoy proxy
