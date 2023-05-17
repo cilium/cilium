@@ -4,7 +4,9 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"text/tabwriter"
@@ -45,7 +47,17 @@ var bpfNodeIDListCmd = &cobra.Command{
 			})
 		}
 
-		if err := nodemap.NodeMap().IterateWithCallback(parse); err != nil {
+		nodeMap, err := nodemap.LoadNodeMap()
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				fmt.Fprintln(os.Stderr, "Cannot find node bpf map")
+				return
+			}
+
+			Fatalf("Cannot load node bpf map: %s", err)
+		}
+
+		if err := nodeMap.IterateWithCallback(parse); err != nil {
 			Fatalf("Error dumping contents of the node ID map: %s\n", err)
 		}
 

@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
-	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -323,10 +322,6 @@ func (d *Daemon) initMaps() error {
 	// are re-allocated on startup.
 	if err := ipcachemap.IPCacheMap().Recreate(); err != nil {
 		return fmt.Errorf("initializing ipcache map: %w", err)
-	}
-
-	if err := nodemap.NodeMap().OpenOrCreate(); err != nil {
-		return err
 	}
 
 	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {

@@ -32,6 +32,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -68,6 +69,7 @@ type linuxNodeHandler struct {
 	neighByNextHop         map[string]*netlink.Neigh // key = string(net.IP)
 	neighLastPingByNextHop map[string]time.Time      // key = string(net.IP)
 
+	nodeMap nodemap.Map
 	// Pool of available IDs for nodes.
 	nodeIDs idpool.IDPool
 	// Node-scoped unique IDs for the nodes.
@@ -87,7 +89,7 @@ var (
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
-func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing) *linuxNodeHandler {
+func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, nodeMap nodemap.Map) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
@@ -97,6 +99,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 		neighNextHopRefCount:   counter.StringCounter{},
 		neighByNextHop:         map[string]*netlink.Neigh{},
 		neighLastPingByNextHop: map[string]time.Time{},
+		nodeMap:                nodeMap,
 		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
 		nodeIDsByIPs:           map[string]uint16{},
 		nodeIPsByIDs:           map[uint16]string{},
