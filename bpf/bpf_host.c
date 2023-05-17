@@ -318,15 +318,6 @@ skip_host_firewall:
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
-
-#ifdef ENABLE_IPSEC
-	if (info && info->key && info->tunnel_endpoint) {
-		__u8 key = get_min_encrypt_key(info->key);
-
-		set_encrypt_key_meta(ctx, key, info->node_id);
-		set_identity_meta(ctx, secctx);
-	}
-#endif
 	return CTX_ACT_OK;
 }
 
@@ -610,15 +601,6 @@ skip_vtep:
 		 */
 		return DROP_UNROUTABLE;
 	}
-
-#ifdef ENABLE_IPSEC
-	if (info && info->key && info->tunnel_endpoint) {
-		__u8 key = get_min_encrypt_key(info->key);
-
-		set_encrypt_key_meta(ctx, key, info->node_id);
-		set_identity_meta(ctx, secctx);
-	}
-#endif
 	return CTX_ACT_OK;
 }
 
