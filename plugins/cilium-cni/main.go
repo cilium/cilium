@@ -546,6 +546,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	if ipv6IsEnabled(ipam) {
 		ep.Addressing.IPV6 = ipam.Address.IPV6
+		ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
 		ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, &state, int(conf.RouteMTU))
@@ -559,6 +560,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	if ipv4IsEnabled(ipam) {
 		ep.Addressing.IPV4 = ipam.Address.IPV4
+		ep.Addressing.IPV4PoolName = ipam.Address.IPV4PoolName
 		ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, &state, int(conf.RouteMTU))
