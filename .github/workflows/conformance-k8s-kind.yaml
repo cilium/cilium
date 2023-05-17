@@ -160,6 +160,7 @@ jobs:
         run: |
           # download https://static.eyskens.me/cilium-with-dyn to /usr/local/bin/cilium
           sudo curl -sL https://static.eyskens.me/cilium-with-dyn -o /usr/local/bin/cilium
+          sudo chmod +x /usr/local/bin/cilium
 
       - name: Checkout code
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
