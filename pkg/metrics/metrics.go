@@ -68,9 +68,8 @@ const (
 	// SubsystemAPILimiter is the subsystem to scope metrics related to the API limiter package.
 	SubsystemAPILimiter = "api_limiter"
 
-	// Namespace is used to scope metrics from cilium. It is prepended to metric
-	// names and separated with a '_'
-	Namespace = "cilium"
+	// CiliumAgentNamespace is used to scope metrics from the Cilium Agent
+	CiliumAgentNamespace = "cilium"
 
 	// LabelError indicates the type of error (string)
 	LabelError = "error"
@@ -220,6 +219,10 @@ const (
 )
 
 var (
+	// Namespace is used to scope metrics from cilium. It is prepended to metric
+	// names and separated with a '_'
+	Namespace = CiliumAgentNamespace
+
 	// goCustomCollectorsRX tracks enabled go runtime metrics.
 	goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
 
