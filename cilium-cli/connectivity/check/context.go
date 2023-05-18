@@ -70,8 +70,9 @@ type ConnectivityTest struct {
 
 	lastFlowTimestamps map[string]time.Time
 
-	nodes              map[string]*corev1.Node
-	nodesWithoutCilium []string
+	nodes                 map[string]*corev1.Node
+	nodesWithoutCilium    []string
+	nodesWithoutCiliumMap map[string]struct{}
 
 	manifests      map[string]string
 	helmYAMLValues string
