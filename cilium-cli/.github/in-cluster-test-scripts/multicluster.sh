@@ -47,8 +47,9 @@ cilium --context "${CONTEXT1}" status --wait
 cilium --context "${CONTEXT2}" status --wait
 
 # Enable cluster mesh
-cilium --context "${CONTEXT1}" clustermesh enable --service-type=LoadBalancer
-cilium --context "${CONTEXT2}" clustermesh enable --service-type=LoadBalancer
+# Test autodetection of service parameters for GKE
+cilium --context "${CONTEXT1}" clustermesh enable
+cilium --context "${CONTEXT2}" clustermesh enable
 
 # Copy the clustermesh secrets
 # TODO(ajs): Patch the connect command to expect the Helm secret name
@@ -67,6 +68,12 @@ fi
 # Wait for cluster mesh status to be ready
 cilium --context "${CONTEXT1}" clustermesh status --wait
 cilium --context "${CONTEXT2}" clustermesh status --wait
+
+# Print clustermesh Service annotations
+printf "Service annotations for Cluster 1 %s\n" \
+    $(kubectl --context "${CONTEXT1}" get svc -n kube-system clustermesh-apiserver -o jsonpath='{.metadata.annotations}')
+printf "Service annotations for Cluster 2 %s\n" \
+    $(kubectl --context "${CONTEXT2}" get svc -n kube-system clustermesh-apiserver -o jsonpath='{.metadata.annotations}')
 
 # Connect clusters
 cilium --context "${CONTEXT1}" clustermesh connect --destination-context "${CONTEXT2}"
