@@ -171,10 +171,10 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 			switch policyRepositoryCalls {
 			case 0:
 				parsedEPs := k8s.ParseEndpoints(ep1stApply)
-				c.Assert(rt.Endpoint.Backends, checker.DeepEquals, parsedEPs.Backends)
+				c.Assert(rt.NewEndpoint.Backends, checker.DeepEquals, parsedEPs.Backends)
 			case 1:
 				parsedEPs := k8s.ParseEndpoints(ep2ndApply)
-				c.Assert(rt.Endpoint.Backends, checker.DeepEquals, parsedEPs.Backends)
+				c.Assert(rt.NewEndpoint.Backends, checker.DeepEquals, parsedEPs.Backends)
 			default:
 				c.Assert(policyRepositoryCalls, Not(Equals), 0, Commentf("policy repository was called more times than expected!"))
 			}
@@ -1172,7 +1172,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 	w.K8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
 	// Running a 2nd update should also trigger a new upsert service
 	w.K8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
-	// Running a 3rd update should not trigger anything because the
+	// Running a 3rd update should also not trigger anything because the
 	// endpoints are the same
 	w.K8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
 
@@ -2723,7 +2723,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	w.K8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
 	// Running a 2nd update should also trigger a new upsert service
 	w.K8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
-	// Running a 3rd update should not trigger anything because the
+	// Running a 3rd update should also not trigger anything because the
 	// endpoints are the same
 	w.K8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
 

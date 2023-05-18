@@ -57,11 +57,14 @@ type ServiceEvent struct {
 	// Service is the service structure
 	Service *Service
 
-	// OldService is the service structure
+	// OldService is the old service structure
 	OldService *Service
 
 	// Endpoints is the endpoints structured correlated with the service
 	Endpoints *Endpoints
+
+	// OldEndpoints is old endpoints structure.
+	OldEndpoints *Endpoints
 
 	// SWG provides a mechanism to detect if a service was synchronized with
 	// the datapath.
@@ -213,12 +216,13 @@ func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	if serviceReady {
 		swg.Add()
 		s.Events <- ServiceEvent{
-			Action:     UpdateService,
-			ID:         svcID,
-			Service:    newService,
-			OldService: oldService,
-			Endpoints:  endpoints,
-			SWG:        swg,
+			Action:       UpdateService,
+			ID:           svcID,
+			Service:      newService,
+			OldService:   oldService,
+			Endpoints:    endpoints,
+			OldEndpoints: endpoints,
+			SWG:          swg,
 		}
 	}
 
@@ -232,12 +236,13 @@ func (s *ServiceCache) EnsureService(svcID ServiceID, swg *lock.StoppableWaitGro
 		if endpoints, serviceReady := s.correlateEndpoints(svcID); serviceReady {
 			swg.Add()
 			s.Events <- ServiceEvent{
-				Action:     UpdateService,
-				ID:         svcID,
-				Service:    svc,
-				OldService: svc,
-				Endpoints:  endpoints,
-				SWG:        swg,
+				Action:       UpdateService,
+				ID:           svcID,
+				Service:      svc,
+				OldService:   svc,
+				Endpoints:    endpoints,
+				OldEndpoints: endpoints,
+				SWG:          swg,
 			}
 			return true
 		}
@@ -279,9 +284,11 @@ func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.Stoppa
 
 	esID := newEndpoints.EndpointSliceID
 
+	var oldEPs *Endpoints
 	eps, ok := s.endpoints[esID.ServiceID]
 	if ok {
-		if eps.epSlices[esID.EndpointSliceName].DeepEqual(newEndpoints) {
+		oldEPs = eps.epSlices[esID.EndpointSliceName]
+		if oldEPs.DeepEqual(newEndpoints) {
 			return esID.ServiceID, newEndpoints
 		}
 	} else {
@@ -297,11 +304,12 @@ func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.Stoppa
 	if ok && serviceReady {
 		swg.Add()
 		s.Events <- ServiceEvent{
-			Action:    UpdateService,
-			ID:        esID.ServiceID,
-			Service:   svc,
-			Endpoints: endpoints,
-			SWG:       swg,
+			Action:       UpdateService,
+			ID:           esID.ServiceID,
+			Service:      svc,
+			Endpoints:    endpoints,
+			OldEndpoints: oldEPs,
+			SWG:          swg,
 		}
 	}
 
@@ -314,21 +322,27 @@ func (s *ServiceCache) DeleteEndpoints(svcID EndpointSliceID, swg *lock.Stoppabl
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	var oldEPs *Endpoints
 	svc, serviceOK := s.services[svcID.ServiceID]
-	isEmpty := s.endpoints[svcID.ServiceID].Delete(svcID.EndpointSliceName)
-	if isEmpty {
-		delete(s.endpoints, svcID.ServiceID)
+	eps, ok := s.endpoints[svcID.ServiceID]
+	if ok {
+		oldEPs = eps.epSlices[svcID.EndpointSliceName].DeepCopy() // copy for passing to ServiceEvent
+		isEmpty := eps.Delete(svcID.EndpointSliceName)
+		if isEmpty {
+			delete(s.endpoints, svcID.ServiceID)
+		}
 	}
 	endpoints, _ := s.correlateEndpoints(svcID.ServiceID)
 
 	if serviceOK {
 		swg.Add()
 		event := ServiceEvent{
-			Action:    UpdateService,
-			ID:        svcID.ServiceID,
-			Service:   svc,
-			Endpoints: endpoints,
-			SWG:       swg,
+			Action:       UpdateService,
+			ID:           svcID.ServiceID,
+			Service:      svc,
+			Endpoints:    endpoints,
+			OldEndpoints: oldEPs,
+			SWG:          swg,
 		}
 
 		s.Events <- event
@@ -560,12 +574,13 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 	if ok && serviceReady {
 		swg.Add()
 		s.Events <- ServiceEvent{
-			Action:     UpdateService,
-			ID:         id,
-			Service:    svc,
-			OldService: oldService,
-			Endpoints:  endpoints,
-			SWG:        swg,
+			Action:       UpdateService,
+			ID:           id,
+			Service:      svc,
+			OldService:   oldService,
+			Endpoints:    endpoints,
+			OldEndpoints: endpoints,
+			SWG:          swg,
 		}
 	}
 }
@@ -617,11 +632,12 @@ func (s *ServiceCache) mergeExternalServiceDeleteLocked(service *serviceStore.Cl
 		if ok && svc.Shared {
 			swg.Add()
 			event := ServiceEvent{
-				Action:    UpdateService,
-				ID:        id,
-				Service:   svc,
-				Endpoints: endpoints,
-				SWG:       swg,
+				Action:       UpdateService,
+				ID:           id,
+				Service:      svc,
+				Endpoints:    endpoints,
+				OldEndpoints: endpoints,
+				SWG:          swg,
 			}
 
 			if !serviceReady {
@@ -749,12 +765,13 @@ func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string,
 		if endpoints, ready := s.correlateEndpoints(id); ready {
 			swg.Add()
 			s.Events <- ServiceEvent{
-				Action:     UpdateService,
-				ID:         id,
-				Service:    svc,
-				OldService: svc,
-				Endpoints:  endpoints,
-				SWG:        swg,
+				Action:       UpdateService,
+				ID:           id,
+				Service:      svc,
+				OldService:   svc,
+				Endpoints:    endpoints,
+				OldEndpoints: endpoints,
+				SWG:          swg,
 			}
 		}
 	}

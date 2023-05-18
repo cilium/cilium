@@ -595,10 +595,11 @@ func (k *K8sWatcher) k8sServiceHandler() {
 		})
 
 		scopedLog.WithFields(logrus.Fields{
-			"action":      event.Action.String(),
-			"service":     event.Service.String(),
-			"old-service": event.OldService.String(),
-			"endpoints":   event.Endpoints.String(),
+			"action":        event.Action.String(),
+			"service":       event.Service.String(),
+			"old-service":   event.OldService.String(),
+			"endpoints":     event.Endpoints.String(),
+			"old-endpoints": event.OldEndpoints.String(),
 		}).Debug("Kubernetes service definition changed")
 
 		switch event.Action {
@@ -611,7 +612,11 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				return
 			}
 
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, true)
+			var oldEP k8s.Endpoints
+			if event.OldEndpoints != nil {
+				oldEP = *event.OldEndpoints
+			}
+			translator := k8s.NewK8sTranslator(event.ID, oldEP, *event.Endpoints, false, svc.Labels, true)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.WithError(err).Error("Unable to repopulate egress policies from ToService rules")
@@ -637,7 +642,9 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				return
 			}
 
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, true)
+			// Use the current Endpoints object as the "old" object and "new"
+			// object due to deletion.
+			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, *event.Endpoints, true, svc.Labels, true)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.WithError(err).Error("Unable to depopulate egress policies from ToService rules")
