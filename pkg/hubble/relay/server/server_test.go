@@ -100,7 +100,8 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 	queueSize := numFlows
 
 	pp := noopParser(t)
-	s, err := observer.NewLocalServer(pp, log,
+	nsMgr := observer.NewNamespaceManager()
+	s, err := observer.NewLocalServer(pp, nsMgr, log,
 		observeroption.WithMaxFlows(container.Capacity65535),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
