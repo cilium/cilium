@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 var _ policy.Translator = RuleTranslator{}
@@ -40,7 +41,6 @@ func (k RuleTranslator) Translate(r *api.Rule, result *policy.TranslationResult)
 // TranslateEgress populates/depopulates egress rules with ToCIDR entries based
 // on toService entries
 func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
-
 	defer r.SetAggregatedSelectors()
 	err := k.depopulateEgress(r, result)
 	if err != nil {
@@ -51,6 +51,12 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.Transl
 		if err != nil {
 			return err
 		}
+	}
+	if len(result.PrefixesToAdd) > 0 || len(result.PrefixesToRelease) > 0 {
+		release := slices.Diff(result.PrefixesToRelease, result.PrefixesToAdd)
+		add := slices.Diff(result.PrefixesToAdd, result.PrefixesToRelease)
+		result.PrefixesToRelease = release
+		result.PrefixesToAdd = add
 	}
 	return nil
 }
@@ -75,7 +81,7 @@ func (k RuleTranslator) depopulateEgress(r *api.EgressRule, result *policy.Trans
 		// counting rules twice
 		result.NumToServicesRules++
 		if k.serviceMatches(service) {
-			if prefixesToRelease, err := k.deleteToCidrFromEndpoint(r, k.NewEndpoint, k.AllocatePrefixes); err != nil {
+			if prefixesToRelease, err := k.deleteToCidrFromEndpoint(r, k.OldEndpoint, k.AllocatePrefixes); err != nil {
 				return err
 			} else {
 				result.PrefixesToRelease = append(result.PrefixesToRelease, prefixesToRelease...)
