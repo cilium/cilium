@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/cilium/cilium/api/v1/flow"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -41,6 +42,8 @@ type TestPeer interface {
 
 	// Labels returns copy of peer labels
 	Labels() map[string]string
+
+	FlowFilters() []*flow.FlowFilter
 }
 
 // Pod is a Kubernetes Pod acting as a peer in a connectivity test.
@@ -61,6 +64,9 @@ type Pod struct {
 
 	// Port the Pods is listening on for connectivity tests.
 	port uint32
+
+	// The pod is running on a node which doesn't run Cilium
+	Outside bool
 }
 
 func (p Pod) String() string {
@@ -126,6 +132,28 @@ func (p Pod) Labels() map[string]string {
 		newMap[k] = v
 	}
 	return newMap
+}
+
+func (p Pod) FlowFilters() []*flow.FlowFilter {
+	// When pod is a host netns pod running on a node w/o Cilium, we need to use
+	// that pod IP addrs (=host IP) for flow filtering, as Hubble is not aware
+	// of that pod name because it doesn't belong to a Cilium cluster.
+	if p.Outside {
+		podIPs := make([]string, 0, len(p.Pod.Status.PodIPs))
+		for _, ip := range p.Pod.Status.PodIPs {
+			podIPs = append(podIPs, ip.IP)
+		}
+		return []*flow.FlowFilter{
+			{DestinationIp: podIPs},
+			{SourceIp: podIPs},
+		}
+	}
+
+	return []*flow.FlowFilter{
+		{SourcePod: []string{p.Name()}},
+		{DestinationPod: []string{p.Name()}},
+	}
+
 }
 
 // Service is a service acting as a peer in a connectivity test.
@@ -199,6 +227,10 @@ func (s Service) Labels() map[string]string {
 	return newMap
 }
 
+func (s Service) FlowFilters() []*flow.FlowFilter {
+	return nil
+}
+
 // ExternalWorkload is an external workload acting as a peer in a
 // connectivity test. It implements interface TestPeer.
 type ExternalWorkload struct {
@@ -244,6 +276,10 @@ func (e ExternalWorkload) Labels() map[string]string {
 		newMap[k] = v
 	}
 	return newMap
+}
+
+func (e ExternalWorkload) FlowFilters() []*flow.FlowFilter {
+	return nil
 }
 
 // ICMPEndpoint returns a new ICMP endpoint.
@@ -296,6 +332,10 @@ func (ie icmpEndpoint) HasLabel(_, _ string) bool {
 // Labels returns the copy of labels
 func (ie icmpEndpoint) Labels() map[string]string {
 	return make(map[string]string)
+}
+
+func (ie icmpEndpoint) FlowFilters() []*flow.FlowFilter {
+	return nil
 }
 
 // HTTPEndpoint returns a new endpoint with the given name and raw URL.
@@ -381,4 +421,8 @@ func (he httpEndpoint) Labels() map[string]string {
 		newMap[k] = v
 	}
 	return newMap
+}
+
+func (he httpEndpoint) FlowFilters() []*flow.FlowFilter {
+	return nil
 }
