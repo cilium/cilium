@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 	"os"
 	"path"
@@ -25,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -724,9 +724,11 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					return nil
 				}
 
-				IP := net.IP(endpointIP.AsSlice())
 				ID := e.SecurityIdentity.ID
-				hostIP := node.GetIPv4()
+				hostIP, ok := ip.AddrFromIP(node.GetIPv4())
+				if !ok {
+					return controller.NewExitReason("Failed to convert node IPv4 address")
+				}
 				key := node.GetIPsecKeyIdentity()
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
@@ -737,8 +739,8 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, namedPorts); err != nil {
-					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
+				if err := ipcache.UpsertIPToKVStore(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, namedPorts); err != nil {
+					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", endpointIP.String(), ID, err)
 				}
 				return nil
 			},
