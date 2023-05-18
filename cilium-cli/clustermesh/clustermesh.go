@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1783,13 +1784,74 @@ func (k *K8sClusterMesh) ExternalWorkloadStatus(ctx context.Context, names []str
 	return err
 }
 
-func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameters) error {
-	helmStrValues := []string{
-		"clustermesh.useAPIServer=true",
-		fmt.Sprintf("clustermesh.apiserver.service.type=%s", params.ServiceType),
-		fmt.Sprintf("externalWorkloads.enabled=%t", params.EnableExternalWorkloads),
+func log(format string, a ...interface{}) {
+	// TODO (ajs): make logger configurable
+	fmt.Fprintf(os.Stdout, format+"\n", a...)
+}
+
+func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]interface{}, error) {
+	helmVals := map[string]interface{}{
+		"clustermesh": map[string]interface{}{
+			"useAPIServer": true,
+		},
+		"externalWorkloads": map[string]interface{}{
+			"enabled": params.EnableExternalWorkloads,
+		},
 	}
-	vals, err := helm.ParseVals(helmStrValues)
+
+	if params.ServiceType == "" {
+		switch flavor.Kind {
+		case k8s.KindGKE:
+			log("🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=Internal)")
+			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
+				"service": map[string]interface{}{
+					"type": "LoadBalancer",
+					"annotations": map[string]interface{}{
+						"cloud.google.com/load-balancer-type": "Internal",
+						// Allows cross-region access
+						"networking.gke.io/internal-load-balancer-allow-global-access": "true",
+					},
+				},
+			}
+		case k8s.KindAKS:
+			log("🔮 Auto-exposing service within Azure VPC (service.beta.kubernetes.io/azure-load-balancer-internal)")
+			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
+				"service": map[string]interface{}{
+					"type": "LoadBalancer",
+					"annotations": map[string]interface{}{
+						"service.beta.kubernetes.io/azure-load-balancer-internal": "true",
+					},
+				},
+			}
+		case k8s.KindEKS:
+			log("🔮 Auto-exposing service within AWS VPC (service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0")
+			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
+				"service": map[string]interface{}{
+					"type": "LoadBalancer",
+					"annotations": map[string]interface{}{
+						"service.beta.kubernetes.io/aws-load-balancer-internal": "0.0.0.0/0",
+					},
+				},
+			}
+		default:
+			return nil, fmt.Errorf("cannot auto-detect service type, please specify using '--service-type' option")
+		}
+	} else {
+		if params.ServiceType == "NodePort" {
+			log("⚠️  Using service type NodePort may fail when nodes are removed from the cluster!")
+		}
+		helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
+			"service": map[string]interface{}{
+				"type": params.ServiceType,
+			},
+		}
+	}
+
+	return helmVals, nil
+}
+
+func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameters) error {
+	vals, err := generateEnableHelmValues(params, k8sClient.AutodetectFlavor(ctx))
 	if err != nil {
 		return err
 	}
