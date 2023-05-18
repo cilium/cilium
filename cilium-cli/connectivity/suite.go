@@ -200,43 +200,6 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		return ct.Run(ctx)
 	}
 
-	// Datapath Conformance Tests
-	if ct.Params().Datapath {
-		ct.NewTest("north-south-loadbalancing").
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
-			WithScenarios(
-				tests.OutsideToNodePort(),
-			)
-		ct.NewTest("north-south-loadbalancing-with-l7-policy").
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
-			WithCiliumVersion(">1.13.2").
-			WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).
-			WithScenarios(
-				tests.OutsideToNodePort(),
-			)
-		ct.NewTest("pod-to-pod-encryption").
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryptionPod)).
-			WithScenarios(
-				tests.PodToPodEncryption(),
-			)
-		ct.NewTest("node-to-node-encryption").
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryptionPod),
-				check.RequireFeatureEnabled(check.FeatureEncryptionNode)).
-			WithScenarios(
-				tests.NodeToNodeEncryption(),
-			)
-
-		ct.NewTest("egress-gateway").
-			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML).
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEgressGateway),
-				check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
-			WithScenarios(
-				tests.EgressGateway(),
-			)
-
-		return ct.Run(ctx)
-	}
-
 	// Run all tests without any policies in place.
 	noPoliciesScenarios := []check.Scenario{
 		tests.PodToPod(),
@@ -251,11 +214,12 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	ct.NewTest("no-policies").WithScenarios(noPoliciesScenarios...)
 
-	// TODO(brb) --include-unsafe-tests
-	ct.NewTest("no-policies-from-outside").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
-		WithIPRoutesFromOutsideToPodCIDRs().
-		WithScenarios(tests.FromCIDRToPod())
+	if ct.Params().IncludeUnsafeTests {
+		ct.NewTest("no-policies-from-outside").
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithIPRoutesFromOutsideToPodCIDRs().
+			WithScenarios(tests.FromCIDRToPod())
+	}
 
 	// Skip the nodeport-related tests in the multicluster scenario if KPR is not
 	// enabled, since global nodeport services are not supported in that case.
@@ -338,18 +302,19 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
 		})
 
-	// TODO(brb) --include-unsafe-tests
-	ct.NewTest("all-ingress-deny-from-outside").WithCiliumPolicy(denyAllIngressPolicyYAML).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
-		WithIPRoutesFromOutsideToPodCIDRs().
-		WithScenarios(tests.FromCIDRToPod()).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP ||
-				a.Destination().Address(check.GetIPFamily(ct.Params().ExternalIP)) == ct.Params().ExternalIP {
-				return check.ResultOK, check.ResultNone
-			}
-			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
-		})
+	if ct.Params().IncludeUnsafeTests {
+		ct.NewTest("all-ingress-deny-from-outside").WithCiliumPolicy(denyAllIngressPolicyYAML).
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithIPRoutesFromOutsideToPodCIDRs().
+			WithScenarios(tests.FromCIDRToPod()).
+			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+				if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP ||
+					a.Destination().Address(check.GetIPFamily(ct.Params().ExternalIP)) == ct.Params().ExternalIP {
+					return check.ResultOK, check.ResultNone
+				}
+				return check.ResultDrop, check.ResultDefaultDenyIngressDrop
+			})
+	}
 
 	// This policy denies all ingresses by default
 	ct.NewTest("all-ingress-deny-knp").WithK8SPolicy(denyAllIngressPolicyKNPYAML).
@@ -443,19 +408,20 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			return check.ResultOK, check.ResultOK
 		})
 
-		// TODO(brb) --include-unsafe-tests
-	ct.NewTest("echo-ingress-from-outside").WithCiliumPolicy(echoIngressFromOtherClientPolicyYAML).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
-		WithIPRoutesFromOutsideToPodCIDRs().
-		WithScenarios(tests.FromCIDRToPod()).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().HasLabel("kind", "echo") && !a.Source().HasLabel("other", "client") {
-				// TCP handshake fails both in egress and ingress when
-				// L3(/L4) policy drops at either location.
-				return check.ResultDropCurlTimeout, check.ResultDropCurlTimeout
-			}
-			return check.ResultOK, check.ResultOK
-		})
+	if ct.Params().IncludeUnsafeTests {
+		ct.NewTest("echo-ingress-from-outside").WithCiliumPolicy(echoIngressFromOtherClientPolicyYAML).
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithIPRoutesFromOutsideToPodCIDRs().
+			WithScenarios(tests.FromCIDRToPod()).
+			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+				if a.Destination().HasLabel("kind", "echo") && !a.Source().HasLabel("other", "client") {
+					// TCP handshake fails both in egress and ingress when
+					// L3(/L4) policy drops at either location.
+					return check.ResultDropCurlTimeout, check.ResultDropCurlTimeout
+				}
+				return check.ResultOK, check.ResultOK
+			})
+	}
 
 	// This k8s policy allows ingress to echo only from client with a label 'other:client'.
 	ct.NewTest("echo-ingress-knp").WithK8SPolicy(echoIngressFromOtherClientPolicyKNPYAML).
@@ -570,17 +536,18 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			return check.ResultOK, check.ResultNone
 		})
 
-	// TODO(brb) --include-unsafe-tests
-	ct.NewTest("from-cidr-host-netns").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
-		WithCiliumPolicy(renderedTemplates["echoIngressFromCIDRYAML"]).
-		WithIPRoutesFromOutsideToPodCIDRs().
-		WithScenarios(
-			tests.FromCIDRToPod(),
-		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			return check.ResultOK, check.ResultNone
-		})
+	if ct.Params().IncludeUnsafeTests {
+		ct.NewTest("from-cidr-host-netns").
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithCiliumPolicy(renderedTemplates["echoIngressFromCIDRYAML"]).
+			WithIPRoutesFromOutsideToPodCIDRs().
+			WithScenarios(
+				tests.FromCIDRToPod(),
+			).
+			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+				return check.ResultOK, check.ResultNone
+			})
+	}
 
 	// Tests with deny policy
 	ct.NewTest("echo-ingress-from-other-client-deny").
@@ -741,7 +708,41 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureHealthChecking)).
 		WithScenarios(tests.CiliumHealth())
 
+	ct.NewTest("north-south-loadbalancing").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+		WithScenarios(
+			tests.OutsideToNodePort(),
+		)
+
+	ct.NewTest("pod-to-pod-encryption").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryptionPod)).
+		WithScenarios(
+			tests.PodToPodEncryption(),
+		)
+	ct.NewTest("node-to-node-encryption").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryptionPod),
+			check.RequireFeatureEnabled(check.FeatureEncryptionNode)).
+		WithScenarios(
+			tests.NodeToNodeEncryption(),
+		)
+
+	ct.NewTest("egress-gateway").
+		WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML).
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEgressGateway),
+			check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+		WithScenarios(
+			tests.EgressGateway(),
+		)
+
 	// The following tests have DNS redirect policies. They should be executed last.
+
+	ct.NewTest("north-south-loadbalancing-with-l7-policy").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+		WithCiliumVersion(">1.13.2").
+		WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).
+		WithScenarios(
+			tests.OutsideToNodePort(),
+		)
 
 	// Test L7 HTTP introspection using an ingress policy on echo pods.
 	ct.NewTest("echo-ingress-l7").
