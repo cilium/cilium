@@ -7,11 +7,11 @@ import (
 	"net"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/google/go-cmp/cmp"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )

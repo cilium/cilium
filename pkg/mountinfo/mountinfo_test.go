@@ -9,8 +9,8 @@ import (
 	"bytes"
 	"testing"
 
+	. "github.com/cilium/checkmate"
 	"golang.org/x/sys/unix"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 )

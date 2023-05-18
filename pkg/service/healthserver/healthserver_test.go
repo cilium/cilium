@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 type ServiceHealthServerSuite struct{}

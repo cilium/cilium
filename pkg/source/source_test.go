@@ -6,7 +6,7 @@ package source
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 type SourceTestSuite struct{}

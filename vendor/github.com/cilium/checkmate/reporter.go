@@ -60,7 +60,7 @@ func (ow *outputWriter) WriteCallSuccess(label string, c *C) {
 		if c.reason != "" {
 			suffix = " (" + c.reason + ")"
 		}
-		if c.status() == succeededSt {
+		if true {
 			suffix += "\t" + c.timerString()
 		}
 		suffix += "\n"

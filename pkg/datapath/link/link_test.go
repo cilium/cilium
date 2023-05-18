@@ -8,8 +8,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/testutils"
 
+	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
-	. "gopkg.in/check.v1"
 )
 
 type LinkSuite struct{}

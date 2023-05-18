@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/cilium/kafka/proto"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
 )

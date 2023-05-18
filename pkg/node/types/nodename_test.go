@@ -6,7 +6,7 @@ package types
 import (
 	"os"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func (s *NodeSuite) TestHostname(c *C) {

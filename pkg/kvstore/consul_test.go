@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	consulAPI "github.com/hashicorp/consul/api"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )

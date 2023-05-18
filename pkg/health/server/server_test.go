@@ -6,8 +6,8 @@ package server
 import (
 	"strings"
 
+	. "github.com/cilium/checkmate"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	. "gopkg.in/check.v1"
 
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	"github.com/cilium/cilium/pkg/metrics"

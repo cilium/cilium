@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
+	. "github.com/cilium/checkmate"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/prometheus/procfs"
-	. "gopkg.in/check.v1"
 )
 
 type XFRMCollectorTest struct{}

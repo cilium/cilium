@@ -7,8 +7,8 @@ import (
 	"net"
 	"testing"
 
+	. "github.com/cilium/checkmate"
 	"github.com/cilium/ebpf/rlimit"
-	. "gopkg.in/check.v1"
 
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"

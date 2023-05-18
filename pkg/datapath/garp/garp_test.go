@@ -10,8 +10,8 @@ import (
 	"net/netip"
 	"testing"
 
+	. "github.com/cilium/checkmate"
 	"github.com/mdlayher/arp"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -28,7 +28,7 @@ type garpSuite struct{}
 var _ = Suite(&garpSuite{})
 
 func (s *garpSuite) TestGARPCell(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	testIfaceName := "lo"
 	testGARPCell := func(garpSender Sender) error {

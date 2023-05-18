@@ -7,8 +7,8 @@ import (
 	"errors"
 	"os"
 
+	. "github.com/cilium/checkmate"
 	"golang.org/x/sys/unix"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/checker"

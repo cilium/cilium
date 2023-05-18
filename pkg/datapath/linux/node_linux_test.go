@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	check "github.com/cilium/checkmate"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
-	"gopkg.in/check.v1"
 
 	"github.com/cilium/ebpf/rlimit"
 

@@ -8,7 +8,7 @@ import (
 
 // TestName returns the current test name in the form "SuiteName.TestName"
 func (c *C) TestName() string {
-	return c.testName
+	return c.T.Name()
 }
 
 // -----------------------------------------------------------------------
@@ -16,7 +16,7 @@ func (c *C) TestName() string {
 
 // Failed returns whether the currently running test has already failed.
 func (c *C) Failed() bool {
-	return c.status() == failedSt
+	return c.T.Failed()
 }
 
 // Fail marks the currently running test as failed.
@@ -25,7 +25,8 @@ func (c *C) Failed() bool {
 // what went wrong. The higher level helper functions will fail the test
 // and do the logging properly.
 func (c *C) Fail() {
-	c.setStatus(failedSt)
+	c.T.Helper()
+	c.T.Fail()
 }
 
 // FailNow marks the currently running test as failed and stops running it.
@@ -33,21 +34,25 @@ func (c *C) Fail() {
 // what went wrong. The higher level helper functions will fail the test
 // and do the logging properly.
 func (c *C) FailNow() {
-	c.Fail()
-	c.stopNow()
+	c.T.Helper()
+	if contents := c.logb.String(); contents != "" {
+		c.T.Logf("\n%s", contents)
+	}
+	c.T.FailNow()
 }
 
 // Succeed marks the currently running test as succeeded, undoing any
 // previous failures.
 func (c *C) Succeed() {
-	c.setStatus(succeededSt)
+	c.T.Helper()
+	c.T.Fatal("Succeed is not supported")
 }
 
 // SucceedNow marks the currently running test as succeeded, undoing any
 // previous failures, and stops running the test.
 func (c *C) SucceedNow() {
-	c.Succeed()
-	c.stopNow()
+	c.T.Helper()
+	c.T.Fatal("SucceedNow is not supported")
 }
 
 // ExpectFailure informs that the running test is knowingly broken for
@@ -57,23 +62,8 @@ func (c *C) SucceedNow() {
 // fix the problem is found, without forgetting about the fact that a
 // failure still exists.
 func (c *C) ExpectFailure(reason string) {
-	if reason == "" {
-		panic("Missing reason why the test is expected to fail")
-	}
-	c.mustFail = true
-	c.reason = reason
-}
-
-// Skip skips the running test for the provided reason. If run from within
-// SetUpTest, the individual test being set up will be skipped, and if run
-// from within SetUpSuite, the whole suite is skipped.
-func (c *C) Skip(reason string) {
-	if reason == "" {
-		panic("Missing reason why the test is being skipped")
-	}
-	c.reason = reason
-	c.setStatus(skippedSt)
-	c.stopNow()
+	c.T.Helper()
+	c.T.Skip("Skipping since test would fail otherwise:", reason)
 }
 
 // -----------------------------------------------------------------------
@@ -173,13 +163,13 @@ func (c *C) Check(obtained interface{}, checker Checker, args ...interface{}) bo
 // for an example).
 func (c *C) Assert(obtained interface{}, checker Checker, args ...interface{}) {
 	if !c.internalCheck("Assert", obtained, checker, args...) {
-		c.stopNow()
+		c.T.Helper()
+		c.FailNow()
 	}
 }
 
 func (c *C) internalCheck(funcName string, obtained interface{}, checker Checker, args ...interface{}) bool {
 	if checker == nil {
-		c.logCaller(2)
 		c.logString(fmt.Sprintf("%s(obtained, nil!?, ...):", funcName))
 		c.logString("Oops.. you've provided a nil checker!")
 		c.logNewLine()
@@ -201,7 +191,6 @@ func (c *C) internalCheck(funcName string, obtained interface{}, checker Checker
 
 	if len(params) != len(info.Params) {
 		names := append([]string{info.Params[0], info.Name}, info.Params[1:]...)
-		c.logCaller(2)
 		c.logString(fmt.Sprintf("%s(%s):", funcName, strings.Join(names, ", ")))
 		c.logString(fmt.Sprintf("Wrong number of parameters for %s: want %d, got %d", info.Name, len(names), len(params)+1))
 		c.logNewLine()
@@ -215,7 +204,6 @@ func (c *C) internalCheck(funcName string, obtained interface{}, checker Checker
 	// Do the actual check.
 	result, error := checker.Check(params, names)
 	if !result || error != "" {
-		c.logCaller(2)
 		for i := 0; i != len(params); i++ {
 			c.logValue(names[i], params[i])
 		}
