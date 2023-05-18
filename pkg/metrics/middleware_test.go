@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

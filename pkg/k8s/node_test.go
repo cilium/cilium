@@ -6,7 +6,7 @@ package k8s
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"

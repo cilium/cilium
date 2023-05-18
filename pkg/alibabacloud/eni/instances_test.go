@@ -7,7 +7,7 @@ import (
 	"net"
 	"testing"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 
 	apimock "github.com/cilium/cilium/pkg/alibabacloud/api/mock"
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"

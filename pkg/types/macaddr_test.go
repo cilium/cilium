@@ -6,7 +6,7 @@ package types
 import (
 	"net"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
 )

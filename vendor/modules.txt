@@ -169,6 +169,9 @@ github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cespare/xxhash/v2 v2.2.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
+# github.com/cilium/checkmate v1.0.3
+## explicit; go 1.11
+github.com/cilium/checkmate
 # github.com/cilium/coverbee v0.3.2
 ## explicit; go 1.18
 github.com/cilium/coverbee
@@ -1286,9 +1289,6 @@ google.golang.org/protobuf/types/known/fieldmaskpb
 google.golang.org/protobuf/types/known/structpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
-# gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-## explicit; go 1.11
-gopkg.in/check.v1
 # gopkg.in/inf.v0 v0.9.1
 ## explicit
 gopkg.in/inf.v0

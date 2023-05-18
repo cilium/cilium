@@ -8,7 +8,7 @@ package cmd
 import (
 	"fmt"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"

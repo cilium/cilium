@@ -10,9 +10,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/testutils"
 
+	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
-	. "gopkg.in/check.v1"
 )
 
 type EncryptStatusSuite struct {

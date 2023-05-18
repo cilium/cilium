@@ -10,8 +10,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/testutils"
 
+	. "github.com/cilium/checkmate"
 	"golang.org/x/sys/unix"
-	. "gopkg.in/check.v1"
 )
 
 type MountInfoPrivilegedTestSuite struct{}

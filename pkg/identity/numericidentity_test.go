@@ -6,7 +6,7 @@ package identity
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/stretchr/testify/require"
 

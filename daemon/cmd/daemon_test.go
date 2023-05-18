@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/prometheus/client_golang/prometheus"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/api/v1/models"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"

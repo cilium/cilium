@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func checkMarshalUnmarshal(c *C, r *Rule) {

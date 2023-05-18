@@ -6,7 +6,7 @@ package endpoint
 import (
 	"context"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"

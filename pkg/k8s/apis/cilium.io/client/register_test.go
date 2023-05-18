@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"

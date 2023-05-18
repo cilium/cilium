@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func (s *independentSuite) TestLocalLock(c *C) {

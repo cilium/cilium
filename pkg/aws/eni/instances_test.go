@@ -6,7 +6,7 @@ package eni
 import (
 	"context"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"

@@ -6,7 +6,7 @@ package helpers
 import (
 	"time"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 )
 
 type operation int

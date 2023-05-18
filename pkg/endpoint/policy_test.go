@@ -4,7 +4,7 @@
 package endpoint
 
 import (
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/policy"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"

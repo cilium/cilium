@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 

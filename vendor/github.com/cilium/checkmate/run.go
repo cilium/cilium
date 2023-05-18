@@ -1,10 +1,9 @@
 package check
 
 import (
-	"bufio"
+	"errors"
 	"flag"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 )
@@ -25,24 +24,51 @@ func Suite(suite interface{}) interface{} {
 // -----------------------------------------------------------------------
 // Public running interface.
 
-var (
-	oldFilterFlag  = flag.String("gocheck.f", "", "Regular expression selecting which tests and/or suites to run")
-	oldVerboseFlag = flag.Bool("gocheck.v", false, "Verbose mode")
-	oldStreamFlag  = flag.Bool("gocheck.vv", false, "Super verbose mode (disables output caching)")
-	oldBenchFlag   = flag.Bool("gocheck.b", false, "Run benchmarks")
-	oldBenchTime   = flag.Duration("gocheck.btime", 1*time.Second, "approximate run time for each benchmark")
-	oldListFlag    = flag.Bool("gocheck.list", false, "List the names of all tests that will be run")
-	oldWorkFlag    = flag.Bool("gocheck.work", false, "Display and do not remove the test working directory")
+func init() {
+	for _, f := range []struct {
+		flag        string
+		replacement string
+	}{
+		{"gocheck.f", "-run"},
+		{"gocheck.v", "-v"},
+		{"gocheck.vv", "-v -count 1"},
+		{"gocheck.list", ""},
+		{"gocheck.work", ""},
+		{"check.f", "-run"},
+		{"check.v", "-v"},
+		{"check.vv", "-v -count 1"},
+		{"check.list", ""},
+		{"check.work", ""},
+	} {
+		flag.Var(&deprecatedFlag{f.replacement}, f.flag, "deprecated")
+	}
+}
 
-	newFilterFlag  = flag.String("check.f", "", "Regular expression selecting which tests and/or suites to run")
-	newVerboseFlag = flag.Bool("check.v", false, "Verbose mode")
-	newStreamFlag  = flag.Bool("check.vv", false, "Super verbose mode (disables output caching)")
-	newBenchFlag   = flag.Bool("check.b", false, "Run benchmarks")
-	newBenchTime   = flag.Duration("check.btime", 1*time.Second, "approximate run time for each benchmark")
-	newBenchMem    = flag.Bool("check.bmem", false, "Report memory benchmarks")
-	newListFlag    = flag.Bool("check.list", false, "List the names of all tests that will be run")
-	newWorkFlag    = flag.Bool("check.work", false, "Display and do not remove the test working directory")
+var (
+	oldBenchFlag = flag.Bool("gocheck.b", false, "Run benchmarks")
+	oldBenchTime = flag.Duration("gocheck.btime", 1*time.Second, "approximate run time for each benchmark")
+	newBenchFlag = flag.Bool("check.b", false, "Run benchmarks")
+	newBenchTime = flag.Duration("check.btime", 1*time.Second, "approximate run time for each benchmark")
+	newBenchMem  = flag.Bool("check.bmem", false, "Report memory benchmarks")
 )
+
+type deprecatedFlag struct {
+	replacement string
+}
+
+var _ flag.Value = (*deprecatedFlag)(nil)
+
+func (df *deprecatedFlag) String() string {
+	return ""
+}
+
+func (df *deprecatedFlag) Set(string) error {
+	if df.replacement == "" {
+		return errors.New("deprecated flag")
+	}
+
+	return fmt.Errorf("deprecated: use %s instead", df.replacement)
+}
 
 // TestingT runs all test suites registered with the Suite function,
 // printing results to stdout, and reporting any failures back to
@@ -53,43 +79,25 @@ func TestingT(testingT *testing.T) {
 		benchTime = *oldBenchTime
 	}
 	conf := &RunConf{
-		Filter:        *oldFilterFlag + *newFilterFlag,
-		Verbose:       *oldVerboseFlag || *newVerboseFlag,
-		Stream:        *oldStreamFlag || *newStreamFlag,
 		Benchmark:     *oldBenchFlag || *newBenchFlag,
 		BenchmarkTime: benchTime,
 		BenchmarkMem:  *newBenchMem,
-		KeepWorkDir:   *oldWorkFlag || *newWorkFlag,
 	}
-	if *oldListFlag || *newListFlag {
-		w := bufio.NewWriter(os.Stdout)
-		for _, name := range ListAll(conf) {
-			fmt.Fprintln(w, name)
-		}
-		w.Flush()
-		return
-	}
-	result := RunAll(conf)
-	println(result.String())
-	if !result.Passed() {
-		testingT.Fail()
-	}
+	RunAll(testingT, conf)
 }
 
 // RunAll runs all test suites registered with the Suite function, using the
 // provided run configuration.
-func RunAll(runConf *RunConf) *Result {
-	result := Result{}
+func RunAll(t *testing.T, runConf *RunConf) {
 	for _, suite := range allSuites {
-		result.Add(Run(suite, runConf))
+		Run(t, suite, runConf)
 	}
-	return &result
 }
 
 // Run runs the provided test suite using the provided run configuration.
-func Run(suite interface{}, runConf *RunConf) *Result {
+func Run(t *testing.T, suite interface{}, runConf *RunConf) {
 	runner := newSuiteRunner(suite, runConf)
-	return runner.run()
+	runner.run(t)
 }
 
 // ListAll returns the names of all the test functions registered with the

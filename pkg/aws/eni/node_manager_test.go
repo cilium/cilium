@@ -9,8 +9,9 @@ import (
 	"fmt"
 	"time"
 
-	"gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	check "github.com/cilium/checkmate"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"

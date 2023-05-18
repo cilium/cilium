@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"time"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/api/v1/models"
 )

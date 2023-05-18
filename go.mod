@@ -16,6 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.74.0
 	github.com/aws/smithy-go v1.13.5
 	github.com/blang/semver/v4 v4.0.0
+	github.com/cilium/checkmate v1.0.3
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/customvet v0.0.0-20221207181232-aa8731fa2d27
 	github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2
@@ -109,7 +110,6 @@ require (
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
 	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.0

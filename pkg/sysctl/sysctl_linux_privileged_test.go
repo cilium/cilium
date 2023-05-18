@@ -8,7 +8,7 @@ package sysctl
 import (
 	"github.com/cilium/cilium/pkg/testutils"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 type SysctlLinuxPrivilegedTestSuite struct{}

@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func Test(t *testing.T) { TestingT(t) }

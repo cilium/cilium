@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
 )
