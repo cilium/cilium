@@ -13,7 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

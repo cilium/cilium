@@ -6,7 +6,7 @@ package redirectpolicy
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/checker"

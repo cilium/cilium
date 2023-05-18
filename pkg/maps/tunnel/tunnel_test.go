@@ -7,7 +7,7 @@ import (
 	"net"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/ebpf/rlimit"
 

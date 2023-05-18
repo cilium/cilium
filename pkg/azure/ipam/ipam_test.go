@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"

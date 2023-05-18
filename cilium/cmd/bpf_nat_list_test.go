@@ -6,7 +6,7 @@ package cmd
 import (
 	"encoding/json"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/checker"

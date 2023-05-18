@@ -8,9 +8,9 @@ import (
 	"net"
 	"testing"
 
+	. "github.com/cilium/checkmate"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"

@@ -6,7 +6,7 @@ package option
 import (
 	"strconv"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func (s *OptionSuite) TestVerifyMonitorAggregationLevel(c *C) {

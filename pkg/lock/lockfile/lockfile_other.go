@@ -5,6 +5,11 @@
 
 package lockfile
 
+import (
+	"context"
+	"fmt"
+)
+
 // Lockfile is a simple wrapper around POSIX file locking
 // but it uses Linux's per-fd locks, which makes it safe to
 // use within the same process

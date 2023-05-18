@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/prometheus/client_golang/prometheus"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/blang/semver/v4"
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/option"
 )

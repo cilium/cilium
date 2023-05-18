@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 type JSONSuite struct{}

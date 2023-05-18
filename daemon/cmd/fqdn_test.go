@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	miekgdns "github.com/miekg/dns"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/checker"

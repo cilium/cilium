@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 )
 
 const (

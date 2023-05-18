@@ -8,9 +8,9 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	. "github.com/cilium/checkmate"
 	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
-	. "gopkg.in/check.v1"
 )
 
 var (

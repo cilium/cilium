@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/spf13/pflag"
-	. "gopkg.in/check.v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

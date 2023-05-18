@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
+	check "github.com/cilium/checkmate"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
-	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/plugins/cilium-cni/lib"

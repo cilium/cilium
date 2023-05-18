@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/miekg/dns"
 	"golang.org/x/exp/maps"
-	. "gopkg.in/check.v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/checker"

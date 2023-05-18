@@ -6,7 +6,7 @@ package cmd
 import (
 	"net"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func (s *DaemonSuite) TestContainsSubnet(c *C) {

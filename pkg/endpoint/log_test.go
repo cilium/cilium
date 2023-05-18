@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	. "github.com/cilium/checkmate"
 	"github.com/sirupsen/logrus"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"

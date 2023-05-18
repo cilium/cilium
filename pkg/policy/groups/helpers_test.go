@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/netip"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/checker"

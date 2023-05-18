@@ -9,8 +9,8 @@ import (
 	"net"
 	"os/exec"
 
+	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/testutils"
