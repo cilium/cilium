@@ -23,9 +23,11 @@ concurrency:
 env:
   kind_version: v0.17.0
   kind_config: .github/kind-config.yaml
+  kind_config_v6: .github/kind-config-ipv6.yaml
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.2
   cilium_cli_ci_version:
+  PROM_VERSION: 2.34.0
 
 jobs:
   installation-and-connectivity:
@@ -67,16 +69,26 @@ jobs:
             --helm-set cni.chainingMode=portmap \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
+            --helm-set prometheus.enabled=true \
+            --helm-set kubeProxyReplacement=partial \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
             --version="
+          CILIUM_INSTALL_IPV6="${CILIUM_INSTALL_DEFAULTS} \
+            --helm-set ipv6.enabled=true \
+            --helm-set ipv4.enabled=false \
+            --helm-set routingMode=native \
+            --helm-set autoDirectNodeRoutes=true \
+            --helm-set ipv6NativeRoutingCIDR=2001:db8:1::/64"
+
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target bing.com --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo cilium_install_ipv6=${CILIUM_INSTALL_IPV6} >> $GITHUB_OUTPUT
           echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
@@ -125,6 +137,22 @@ jobs:
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
 
+      - name: Check prometheus metrics
+        if: ${{ success() }}
+        run: |
+          cd $HOME
+          cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
+          kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
+          kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9962/metrics > metrics.prom
+          # Install promtool binary release. `go install` doesn't work due to
+          # https://github.com/prometheus/prometheus/issues/8852 and related issues.
+          curl -sSL --remote-name-all https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/{prometheus-${PROM_VERSION}.linux-amd64.tar.gz,sha256sums.txt}
+          sha256sum --check --ignore-missing sha256sums.txt
+          tar xzvf prometheus-${PROM_VERSION}.linux-amd64.tar.gz prometheus-${PROM_VERSION}.linux-amd64/promtool
+          rm -f prometheus-${PROM_VERSION}.linux-amd64.tar.gz
+          sudo mv prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/bin
+          cat metrics.prom | promtool check metrics
+
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
@@ -148,6 +176,24 @@ jobs:
       - name: Run connectivity test
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
+
+      - name: Delete Kind cluster
+        run: |
+          kind delete cluster --name chart-testing
+
+      - name: Create kind cluster v6
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
+        with:
+          version: ${{ env.kind_version }}
+          config: ${{ env.kind_config_v6 }}
+
+      - name: Install Cilium v6
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_ipv6 }}
+
+      - name: Run connectivity test
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Post-test information gathering
         if: ${{ !success() }}
