@@ -67,8 +67,8 @@ env:
   kind_version: v0.17.0
   k8s_version: v1.24.12
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.2
-  cilium_cli_ci_version:
+  cilium_cli_version:
+  cilium_cli_ci_version: e67f7c6be791217431c2b90bda58e8eb9de5e369
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
   contextName1: kind-cluster1-${{ github.run_id }}

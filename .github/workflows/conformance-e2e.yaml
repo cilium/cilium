@@ -65,8 +65,8 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  #cilium_cli_version: v0.14.2
-  cilium_cli_ci_version: ccfeae59be318598b25932fd931539aa24e4f6fb
+  #cilium_cli_version:
+  cilium_cli_ci_version: e67f7c6be791217431c2b90bda58e8eb9de5e369
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -439,6 +439,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             ./cilium-cli connectivity test --collect-sysdump-on-failure \
+              --include-unsafe-tests \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
             ./contrib/scripts/kind-down.sh
 
