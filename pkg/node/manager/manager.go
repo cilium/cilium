@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
@@ -136,6 +137,9 @@ type manager struct {
 	// controllerManager manages the controllers that are launched within the
 	// Manager.
 	controllerManager *controller.Manager
+
+	// healthReporter reports on the current health status of the node manager module.
+	healthReporter cell.StatusReporter
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -171,7 +175,7 @@ func (m *manager) Iter(f func(nh datapath.NodeHandler)) {
 }
 
 // New returns a new node manager
-func New(name string, c Configuration, ipCache IPCache) (*manager, error) {
+func New(name string, c Configuration, ipCache IPCache, healthReporter cell.StatusReporter) (*manager, error) {
 	m := &manager{
 		name:              name,
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
@@ -179,6 +183,7 @@ func New(name string, c Configuration, ipCache IPCache) (*manager, error) {
 		controllerManager: controller.NewManager(),
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
 		ipcache:           ipCache,
+		healthReporter:    healthReporter,
 	}
 
 	m.metricEventsReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
