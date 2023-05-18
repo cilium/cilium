@@ -82,6 +82,50 @@ Finally, in order to run Cilium locally on VMs, you need:
 | `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_  | >= 5.2                | N/A (OS-specific)                                                              |
 +------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 
+Kind-based Setup (preferred)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can find the setup for a `kind <https://kind.sigs.k8s.io/>`_ environment in
+``contrib/scripts/kind.sh``. This setup doesn't require any VMs and/or
+VirtualBox on Linux, but does require `Docker for Mac
+<https://docs.docker.com/desktop/install/mac-install/>`_ for Mac OS.
+
+Makefile targets automate the task of spinning up an environment and building
+Cilium images:
+
+* ``make kind``: Creates a kind cluster based on the configuration passed in.
+  For more information, see _`Configuration for clusters`.
+* ``make kind-image``: Builds all Cilium images and loads them into the
+  cluster.
+* ``make kind-image-agent``: Builds the Cilium Agent image only and loads it
+  into the cluster.
+* ``make kind-image-operator``: Builds the Cilium Operator (generic) image only
+  and loads it into the cluster.
+* ``make kind-image-debug``: Builds all Cilium images with optimizations
+  disabled and ``dlv`` embedded for live debugging enabled and loads the images
+  into the cluster.
+* ``make kind-install-cilium``: Installs Cilium into the cluster using the
+  Cilium CLI.
+* ``make kind-down``: Tears down and deletes the cluster.
+
+The preceding list includes the most used commands for convenience. For more
+targets, see the ``Makefile``.
+
+Configuration for clusters
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``make kind`` takes a few environment variables to modify the configuration of
+the clusters it creates. The following parameters are the most commonly used:
+
+* ``CONTROLPLANES``: How many control-plane nodes are created.
+* ``WORKERS``: How many worker nodes are created.
+* ``CLUSTER_NAME``: The name of the Kubernetes cluster.
+* ``IMAGE``: The image for kind, for example: ``kindest/node:v1.11.10``.
+* ``KUBEPROXY_MODE``: Pass directly as ``kubeProxyMode`` to the kind
+  configuration Custom Resource Definition (CRD).
+
+For more environment variables, see ``contrib/scripts/kind.sh``.
+
 Vagrant Setup
 ~~~~~~~~~~~~~
 
