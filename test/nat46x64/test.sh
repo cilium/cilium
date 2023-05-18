@@ -1,328 +1,316 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 PS4='+[\t] '
 set -eux
 
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
-HELM_CHART_DIR=${3:-/vagrant/install/kubernetes/cilium}
+CILIUM_EXEC="docker exec -t lb-node docker exec -t cilium-lb"
 
-# With Kind we create two nodes cluster:
-#
-# * "kind-control-plane" runs cilium in the LB-only mode.
-# * "kind-worker" runs the nginx server.
-#
-# The LB cilium does not connect to the kube-apiserver. For now we use Kind
-# just to create Docker-in-Docker containers.
-kind create cluster --config kind-config.yaml --image=kindest/node:v1.24.3
+function cilium_install {
+    docker exec -t lb-node docker rm -f cilium-lb || true
+    docker exec -t lb-node \
+        docker run --name cilium-lb -td \
+            -v /sys/fs/bpf:/sys/fs/bpf \
+            -v /lib/modules:/lib/modules \
+            --privileged=true \
+            --network=host \
+            quay.io/${IMG_OWNER}/cilium-ci:${IMG_TAG} \
+            cilium-agent \
+            --enable-ipv4=true \
+            --enable-ipv6=true \
+            --devices=eth0 \
+            --datapath-mode=lb-only \
+            "$@"
+    while ! ${CILIUM_EXEC} cilium status; do sleep 3; done
+    sleep 1
+}
 
-# Install Cilium as standalone L4LB: tc/Maglev/SNAT
-helm install cilium ${HELM_CHART_DIR} \
-    --wait \
-    --namespace kube-system \
-    --set debug.enabled=true \
-    --set image.repository="quay.io/${IMG_OWNER}/cilium-ci" \
-    --set image.tag="${IMG_TAG}" \
-    --set image.useDigest=false \
-    --set image.pullPolicy=IfNotPresent \
-    --set operator.enabled=false \
-    --set loadBalancer.standalone=true \
-    --set loadBalancer.algorithm=maglev \
-    --set loadBalancer.mode=snat \
-    --set loadBalancer.acceleration=disabled \
-    --set devices='{eth0}' \
-    --set ipv4.enabled=true \
-    --set ipv6.enabled=true \
-    --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key="kubernetes.io/hostname" \
-    --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator=In \
-    --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]=kind-control-plane
+# With Docker-in-Docker we create two nodes:
+#
+# * "lb-node" runs cilium in the LB-only mode.
+# * "nginx" runs the nginx server.
+
+docker network create --subnet="172.12.42.0/24,2001:db8:1::/64" --ipv6 cilium-l4lb
+docker run --privileged --name lb-node -d \
+    --network cilium-l4lb -v /lib/modules:/lib/modules \
+    docker:dind
+docker exec -t lb-node mount bpffs /sys/fs/bpf -t bpf
+docker run --name nginx -d --network cilium-l4lb nginx
+
+# Wait until Docker is ready in the lb-node node
+while ! docker exec -t lb-node docker ps >/dev/null; do sleep 1; done
+
+# Install Cilium as standalone L4LB (tc/Maglev/SNAT)
+cilium_install \
+    --bpf-lb-algorithm=maglev \
+    --bpf-lb-dsr-dispatch=ipip \
+    --bpf-lb-acceleration=disabled \
+    --bpf-lb-mode=snat
 
 # Disable TX and RX csum offloading, as veth does not support it. Otherwise,
 # the forwarded packets by the LB to the worker node will have invalid csums.
-IFIDX=$(docker exec -i kind-control-plane \
+IFIDX=$(docker exec -i lb-node \
     /bin/sh -c 'echo $(( $(ip -o l show eth0 | awk "{print $1}" | cut -d: -f1) ))')
 LB_VETH_HOST=$(ip -o l | grep "if$IFIDX" | awk '{print $2}' | cut -d@ -f1)
 ethtool -K $LB_VETH_HOST rx off tx off
 
-docker exec kind-worker /bin/sh -c 'apt-get update && apt-get install -y nginx && systemctl start nginx'
-WORKER_IP6=$(docker exec kind-worker ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
-WORKER_IP4=$(docker exec kind-worker ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
+NGINX_PID=$(docker inspect nginx -f '{{ .State.Pid }}')
+WORKER_IP4=$(nsenter -t $NGINX_PID -n ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
+WORKER_IP6=$(nsenter -t $NGINX_PID -n ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
+WORKER_MAC=$(nsenter -t $NGINX_PID -n ip -o l show dev eth0 | grep -oP '(?<=link/ether )[^ ]+')
 
-kubectl -n kube-system rollout status ds/cilium --timeout=5m
-
-# NAT 4->6 test suite
-#####################
+# NAT 4->6 test suite (services)
+################################
 
 LB_VIP="10.0.0.4"
 
-CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
+${CILIUM_EXEC} \
     cilium service update --id 1 --frontend "${LB_VIP}:80" --backends "[${WORKER_IP6}]:80" --k8s-node-port
 
-SVC_BEFORE=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
+SVC_BEFORE=$(${CILIUM_EXEC} cilium service list)
 
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
+${CILIUM_EXEC} cilium bpf lb list
 
-MAG_V4=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v4}')
-MAG_V6=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v6}')
+MAG_V4=$(${CILIUM_EXEC} cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
+MAG_V6=$(${CILIUM_EXEC} cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
 if [ ! -z "$MAG_V4" -o -z "$MAG_V6" ]; then
 	echo "Invalid content of Maglev table!"
-	kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list
+	${CILIUM_EXEC} cilium bpf lb maglev list
 	exit 1
 fi
 
-LB_NODE_IP=$(docker exec kind-control-plane ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
+LB_NODE_IP=$(docker exec -t lb-node ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
+
+# Add the neighbor entry for the nginx node to avoid the LB failing to forward
+# the requests due to the FIB lookup drops (nsenter, as busybox iproute2
+# doesn't support neigh entries creation).
+CONTROL_PLANE_PID=$(docker inspect lb-node -f '{{ .State.Pid }}')
+nsenter -t $CONTROL_PLANE_PID -n ip neigh add ${WORKER_IP6} dev eth0 lladdr ${WORKER_MAC}
 
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT
-helm upgrade cilium ${HELM_CHART_DIR} \
-    --wait \
-    --namespace kube-system \
-    --reuse-values \
-    --set loadBalancer.acceleration=native
-kubectl -n kube-system delete pod -l k8s-app=cilium
-
-kubectl -n kube-system rollout status ds/cilium --timeout=5m
+cilium_install \
+    --bpf-lb-algorithm=maglev \
+    --bpf-lb-dsr-dispatch=ipip \
+    --bpf-lb-acceleration=native \
+    --bpf-lb-mode=snat
 
 # Check that restoration went fine. Note that we currently cannot do runtime test
 # as veth + XDP is broken when switching protocols. Needs something bare metal.
-CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-SVC_AFTER=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
+SVC_AFTER=$(${CILIUM_EXEC} cilium service list)
 
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
+${CILIUM_EXEC} cilium bpf lb list
 
 [ "$SVC_BEFORE" != "$SVC_AFTER" ] && exit 1
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
-helm upgrade cilium ${HELM_CHART_DIR} \
-    --wait \
-    --namespace kube-system \
-    --reuse-values \
-    --set loadBalancer.acceleration=disabled
-kubectl -n kube-system delete pod -l k8s-app=cilium
-
-kubectl -n kube-system rollout status ds/cilium --timeout=5m
+cilium_install \
+    --bpf-lb-algorithm=maglev \
+    --bpf-lb-dsr-dispatch=ipip \
+    --bpf-lb-acceleration=disabled \
+    --bpf-lb-mode=snat
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Install Cilium as standalone L4LB: tc/Random/SNAT
-helm upgrade cilium ${HELM_CHART_DIR} \
-    --wait \
-    --namespace kube-system \
-    --reuse-values \
-    --set loadBalancer.algorithm=random
-kubectl -n kube-system delete pod -l k8s-app=cilium
-
-kubectl -n kube-system rollout status ds/cilium --timeout=5m
+cilium_install \
+    --bpf-lb-algorithm=random \
+    --bpf-lb-dsr-dispatch=ipip \
+    --bpf-lb-acceleration=disabled \
+    --bpf-lb-mode=snat
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Add another IPv6->IPv6 service and reuse backend
 
 LB_ALT="fd00:dead:beef:15:bad::1"
 
-CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
+${CILIUM_EXEC} \
     cilium service update --id 2 --frontend "[${LB_ALT}]:80" --backends "[${WORKER_IP6}]:80" --k8s-node-port
 
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
+${CILIUM_EXEC} cilium service list
+${CILIUM_EXEC} cilium bpf lb list
 
-LB_NODE_IP=$(docker exec kind-control-plane ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
+LB_NODE_IP=$(docker exec lb-node ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 ip -6 r a "${LB_ALT}/128" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_ALT}]:80"
+    curl -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Check if restore for both is proper
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
-helm upgrade cilium ${HELM_CHART_DIR} \
-    --wait \
-    --namespace kube-system \
-    --reuse-values \
-    --set loadBalancer.algorithm=maglev
-kubectl -n kube-system delete pod -l k8s-app=cilium
-
-kubectl -n kube-system rollout status ds/cilium --timeout=5m
+cilium_install \
+    --bpf-lb-algorithm=maglev \
+    --bpf-lb-dsr-dispatch=ipip \
+    --bpf-lb-acceleration=disabled \
+    --bpf-lb-mode=snat
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_ALT}]:80"
+    curl -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit -1)
 done
 
-CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 1
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 2
+${CILIUM_EXEC} cilium service delete 1
+${CILIUM_EXEC} cilium service delete 2
+nsenter -t $CONTROL_PLANE_PID -n ip neigh del ${WORKER_IP6} dev eth0
 
-# NAT 6->4 test suite
-#####################
+# NAT 6->4 test suite (services)
+################################
 
 LB_VIP="fd00:cafe::1"
 
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
+${CILIUM_EXEC} \
     cilium service update --id 1 --frontend "[${LB_VIP}]:80" --backends "${WORKER_IP4}:80" --k8s-node-port
 
-SVC_BEFORE=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
+SVC_BEFORE=$(${CILIUM_EXEC} cilium service list)
 
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
+${CILIUM_EXEC} cilium bpf lb list
 
-MAG_V4=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v4}')
-MAG_V6=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v6}')
+MAG_V4=$(${CILIUM_EXEC} cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr -d '\r')
+MAG_V6=$(${CILIUM_EXEC} cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
 if [ ! -z "$MAG_V4" -o -z "$MAG_V6" ]; then
 	echo "Invalid content of Maglev table!"
-	kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb maglev list
+	${CILIUM_EXEC} cilium bpf lb maglev list
 	exit 1
 fi
 
-LB_NODE_IP=$(docker exec kind-control-plane ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
+LB_NODE_IP=$(docker exec -t lb-node ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 ip -6 r a "${LB_VIP}/128" via "$LB_NODE_IP"
+
+# Add the neighbor entry for the nginx node to avoid the LB failing to forward
+# the requests due to the FIB lookup drops (nsenter, as busybox iproute2
+# doesn't support neigh entries creation).
+CONTROL_PLANE_PID=$(docker inspect lb-node -f '{{ .State.Pid }}')
+nsenter -t $CONTROL_PLANE_PID -n ip neigh add ${WORKER_IP4} dev eth0 lladdr ${WORKER_MAC}
 
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_VIP}]:80"
+    curl -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT
-helm upgrade cilium ${HELM_CHART_DIR} \
-    --wait \
-    --namespace kube-system \
-    --reuse-values \
-    --set loadBalancer.acceleration=native
-kubectl -n kube-system delete pod -l k8s-app=cilium
-
-kubectl -n kube-system rollout status ds/cilium --timeout=5m
+cilium_install \
+    --bpf-lb-algorithm=maglev \
+    --bpf-lb-dsr-dispatch=ipip \
+    --bpf-lb-acceleration=native \
+    --bpf-lb-mode=snat
 
 # Check that restoration went fine. Note that we currently cannot do runtime test
 # as veth + XDP is broken when switching protocols. Needs something bare metal.
-CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-SVC_AFTER=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
+SVC_AFTER=$(${CILIUM_EXEC} cilium service list)
 
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
+${CILIUM_EXEC} cilium bpf lb list
 
 [ "$SVC_BEFORE" != "$SVC_AFTER" ] && exit 1
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
-helm upgrade cilium ${HELM_CHART_DIR} \
-    --wait \
-    --namespace kube-system \
-    --reuse-values \
-    --set loadBalancer.acceleration=disabled
-kubectl -n kube-system delete pod -l k8s-app=cilium
-
-kubectl -n kube-system rollout status ds/cilium --timeout=5m
+cilium_install \
+    --bpf-lb-algorithm=maglev \
+    --bpf-lb-dsr-dispatch=ipip \
+    --bpf-lb-acceleration=disabled \
+    --bpf-lb-mode=snat
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_VIP}]:80"
+    curl -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Install Cilium as standalone L4LB: tc/Random/SNAT
-helm upgrade cilium ${HELM_CHART_DIR} \
-    --wait \
-    --namespace kube-system \
-    --reuse-values \
-    --set loadBalancer.algorithm=random
-kubectl -n kube-system delete pod -l k8s-app=cilium
-
-kubectl -n kube-system rollout status ds/cilium --timeout=5m
+cilium_install \
+    --bpf-lb-algorithm=random \
+    --bpf-lb-dsr-dispatch=ipip \
+    --bpf-lb-acceleration=disabled \
+    --bpf-lb-mode=snat
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_VIP}]:80"
+    curl -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Add another IPv4->IPv4 service and reuse backend
 
 LB_ALT="10.0.0.8"
 
-CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
+${CILIUM_EXEC} \
     cilium service update --id 2 --frontend "${LB_ALT}:80" --backends "${WORKER_IP4}:80" --k8s-node-port
 
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
+${CILIUM_EXEC} cilium service list
+${CILIUM_EXEC} cilium bpf lb list
 
-LB_NODE_IP=$(docker exec kind-control-plane ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
+LB_NODE_IP=$(docker exec -t lb-node ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 ip r a "${LB_ALT}/32" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_VIP}]:80"
+    curl -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_ALT}:80"
+    curl -o /dev/null "${LB_ALT}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Check if restore for both is proper
 
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
-helm upgrade cilium ${HELM_CHART_DIR} \
-    --wait \
-    --namespace kube-system \
-    --reuse-values \
-    --set loadBalancer.algorithm=maglev
-kubectl -n kube-system delete pod -l k8s-app=cilium
-
-kubectl -n kube-system rollout status ds/cilium --timeout=5m
+cilium_install \
+    --bpf-lb-algorithm=maglev \
+    --bpf-lb-dsr-dispatch=ipip \
+    --bpf-lb-acceleration=disabled \
+    --bpf-lb-mode=snat
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_VIP}]:80"
+    curl -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_ALT}:80"
+    curl -o /dev/null "${LB_ALT}:80" || (echo "Failed $i"; exit -1)
 done
 
-CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 1
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 2
+${CILIUM_EXEC} cilium service delete 1
+${CILIUM_EXEC} cilium service delete 2
+nsenter -t $CONTROL_PLANE_PID -n ip neigh del ${WORKER_IP4} dev eth0
 
 # NAT test suite & PCAP recorder
 ################################
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT/Recorder
-helm upgrade cilium ${HELM_CHART_DIR} \
-    --wait \
-    --namespace kube-system \
-    --reuse-values \
-    -f recorder-config.yaml \
-    --set loadBalancer.algorithm=maglev \
-    --set loadBalancer.acceleration=native
-kubectl -n kube-system delete pod -l k8s-app=cilium
-
-kubectl -n kube-system rollout status ds/cilium --timeout=5m
+cilium_install \
+    --bpf-lb-algorithm=maglev \
+    --bpf-lb-dsr-dispatch=ipip \
+    --bpf-lb-acceleration=native \
+    --bpf-lb-mode=snat \
+    --enable-recorder=true
 
 # Trigger recompilation with 32 IPv4 filter masks
-CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
+${CILIUM_EXEC} \
     cilium recorder update --id 1 --caplen 100 \
         --filters="2.2.2.2/0 0 1.1.1.1/32 80 TCP,\
 2.2.2.2/1 0 1.1.1.1/32 80 TCP,\
@@ -360,7 +348,7 @@ kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
 2.2.2.2/32 0 1.1.1.1/0 80 TCP"
 
 # Trigger recompilation with 32 IPv6 filter masks
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
+${CILIUM_EXEC} \
     cilium recorder update --id 2 --caplen 100 \
         --filters="f00d::1/0 80 cafe::/128 0 UDP,\
 f00d::1/1 80 cafe::/127 0 UDP,\
@@ -397,10 +385,15 @@ f00d::1/31 80 cafe::/97 0 UDP,\
 f00d::1/32 80 cafe::/96 0 UDP,\
 f00d::1/32 80 cafe::/0 0 UDP"
 
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium recorder list
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf recorder list
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium recorder delete 1
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium recorder delete 2
-kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium recorder list
+${CILIUM_EXEC} cilium recorder list
+${CILIUM_EXEC} cilium bpf recorder list
+${CILIUM_EXEC} cilium recorder delete 1
+${CILIUM_EXEC} cilium recorder delete 2
+${CILIUM_EXEC} cilium recorder list
+
+# cleanup
+docker rm -f lb-node
+docker rm -f nginx
+docker network rm cilium-l4lb
 
 echo "YAY!"
