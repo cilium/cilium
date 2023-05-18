@@ -48,7 +48,7 @@ type Parameters struct {
 	JSONMockImage         string
 	AgentDaemonSetName    string
 	DNSTestServerImage    string
-	Datapath              bool
+	IncludeUnsafeTests    bool
 	AgentPodSelector      string
 	NodeSelector          map[string]string
 	ExternalTarget        string

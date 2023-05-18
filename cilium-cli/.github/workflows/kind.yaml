@@ -101,6 +101,7 @@ jobs:
         run: |
           # Run the connectivity test in non-default namespace (i.e. not cilium-test)
           cilium connectivity test --debug --all-flows --test-namespace test-namespace \
+            --include-unsafe-tests \
             --collect-sysdump-on-failure --junit-file connectivity-${{ matrix.mode }}.xml
 
       - name: Upload junit output
@@ -151,6 +152,7 @@ jobs:
       - name: Connectivity test
         run: |
           cilium connectivity test --debug --force-deploy --all-flows --test-namespace test-namespace \
+            --include-unsafe-tests \
             --collect-sysdump-on-failure --junit-file connectivity-ipsec-${{ matrix.mode }}.xml
 
       - name: Upload junit output
@@ -301,7 +303,8 @@ jobs:
       - name: Run the multicluster connectivity tests
         run: |
           cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug \
-          --collect-sysdump-on-failure --junit-file connectivity-clustermesh.xml
+            --include-unsafe-tests \
+            --collect-sysdump-on-failure --junit-file connectivity-clustermesh.xml
 
       - name: Upload junit output
         if: ${{ always() }}
