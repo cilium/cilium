@@ -56,7 +56,7 @@ func (m *module) logger(log logrus.FieldLogger) logrus.FieldLogger {
 	return log.WithField(logfields.LogSubsys, m.id)
 }
 
-func (m *module) moduleScopedStatusReporter(p *StatusProvider) StatusReporter {
+func (m *module) moduleScopedStatusReporter(p *HealthStatus) StatusReporter {
 	return p.forModule(m.id)
 }
 

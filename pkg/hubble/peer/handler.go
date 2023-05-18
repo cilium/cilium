@@ -31,6 +31,10 @@ type handler struct {
 	addressPref serviceoption.AddressFamilyPreference
 }
 
+func (h *handler) Name() string {
+	return "hubble-peer-handler"
+}
+
 func newHandler(withoutTLSInfo bool, addressPref serviceoption.AddressFamilyPreference) *handler {
 	return &handler{
 		stop:        make(chan struct{}),

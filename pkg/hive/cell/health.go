@@ -55,19 +55,19 @@ func (s *Status) String() string {
 // waiting for the queue to be processed.
 const updatesBufferSize = 2048
 
-func NewStatusProvider() *StatusProvider {
-	p := &StatusProvider{
+func NewHealthStatus() *HealthStatus {
+	p := &HealthStatus{
 		updates:        make(chan Update, updatesBufferSize),
 		done:           make(chan struct{}),
 		moduleStatuses: make(map[string]Status),
 	}
-	// ???
-	//ch := make(chan Update, updatesBufferSize)
-	//obs := stream.FromChannel(ch)
 
 	// Use multicast to fan out updates to potential multiple observers.
+	//
 	// TODO: How do we prevent external subs from blocking?
+	// 		Do we need the external subs or can we just keep it all unexported.
 	p.obs, p.emit, p.complete = stream.Multicast[Update]()
+
 	// Listen for updates, use buffered channel to avoid blocking.
 	go func() {
 		for s := range p.updates {
@@ -91,8 +91,6 @@ func NewStatusProvider() *StatusProvider {
 	// to the updates channel.
 	//
 	// Updates are observed in order, and processed in order by the goroutine.
-	//
-	// TODO: What value does this bring?
 	p.obs.Observe(context.Background(),
 		func(s Update) {
 			p.updates <- s
@@ -108,8 +106,8 @@ func NewStatusProvider() *StatusProvider {
 	return p
 }
 
-// forModule provides a status reporter handle for emitting status updates.
-func (p *StatusProvider) forModule(moduleID string) StatusReporter {
+// forModule returns a module scoped status reporter handle for emitting status updates.
+func (p *HealthStatus) forModule(moduleID string) StatusReporter {
 	p.mu.Lock()
 	p.moduleStatuses[moduleID] = Status{Update: Update{
 		ModuleID: moduleID,
@@ -124,7 +122,8 @@ func (p *StatusProvider) forModule(moduleID string) StatusReporter {
 	}
 }
 
-func (p *StatusProvider) All() []Status {
+// All returns a copy of all the latest statuses.
+func (p *HealthStatus) All() []Status {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	all := maps.Values(p.moduleStatuses)
@@ -134,7 +133,8 @@ func (p *StatusProvider) All() []Status {
 	return all
 }
 
-func (p *StatusProvider) Get(moduleID string) *Status {
+// Get returns the latest status for a module, by module ID.
+func (p *HealthStatus) Get(moduleID string) *Status {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	s, ok := p.moduleStatuses[moduleID]
@@ -144,11 +144,9 @@ func (p *StatusProvider) Get(moduleID string) *Status {
 	return nil
 }
 
-func (p *StatusProvider) Stop() {
-	p.complete(nil)
-}
-
-func (p *StatusProvider) finish(ctx context.Context) error {
+// Finish stops the status provider, and waits for all updates to be processed or
+// returns an error if the context is cancelled first.
+func (p *HealthStatus) Finish(ctx context.Context) error {
 	p.complete(nil)
 	select {
 	case <-p.done:
@@ -158,18 +156,21 @@ func (p *StatusProvider) finish(ctx context.Context) error {
 	}
 }
 
-type StatusProvider struct {
+type HealthStatus struct {
 	mu        sync.Mutex
 	updates   chan Update
 	processed atomic.Uint64
 	done      chan struct{}
 	// moduleStatuses is the *latest* status, bucketed by module ID.
-	// todo: use pointer swaps to avoid copying the map.
 	moduleStatuses map[string]Status
 
 	obs      stream.Observable[Update]
 	emit     func(Update)
 	complete func(error)
+}
+
+func (p *HealthStatus) Processed() uint64 {
+	return p.processed.Load()
 }
 
 // reporter is a handle for emitting status updates.
