@@ -209,13 +209,6 @@ jobs:
           ref: v1.11
           persist-credentials: false
 
-      - name: Checkout pull request for Helm chart
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-        with:
-          ref: ${{ steps.vars.outputs.sha }}
-          persist-credentials: false
-          path: pull-request
-
       - name: Wait for image to be available
         timeout-minutes: 10
         shell: bash
@@ -224,7 +217,7 @@ jobs:
 
       - name: Run LoadBalancing test
         run: |
-          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
+          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
