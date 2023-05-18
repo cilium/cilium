@@ -810,10 +810,7 @@ func (a *Action) followFlows(ctx context.Context, ready chan bool) error {
 	// All tests are initiated from the source Pod, so filtering traffic
 	// originating from and destined to the Pod should capture what we need.
 	pod := a.Source()
-	filter := []*flow.FlowFilter{
-		{SourcePod: []string{pod.Name()}},
-		{DestinationPod: []string{pod.Name()}},
-	}
+	filter := pod.FlowFilters()
 
 	// Initiate long-poll against Hubble Relay.
 	b, err := hubbleClient.GetFlows(ctx, &observer.GetFlowsRequest{
