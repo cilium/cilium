@@ -292,10 +292,12 @@ func (ct *ConnectivityTest) extractFeaturesFromNodes(ctx context.Context, client
 	}
 
 	nodes := []string{}
+	ct.nodesWithoutCiliumMap = make(map[string]struct{})
 	for _, node := range nodeList.Items {
 		node := node
 		if !canNodeRunCilium(&node) {
 			nodes = append(nodes, node.ObjectMeta.Name)
+			ct.nodesWithoutCiliumMap[node.ObjectMeta.Name] = struct{}{}
 		}
 	}
 
