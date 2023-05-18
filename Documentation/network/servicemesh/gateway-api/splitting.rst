@@ -86,14 +86,14 @@ Now that the Gateway is ready, you can make HTTP requests to the services.
     Request Body:
         -no body in request-
 
-Notice that the reply includes the name of the pod that received the query. For example:
+Notice that the reply includes the name of the Pod that received the query. For example:
 
 .. code-block:: shell-session
 
     Hostname: echo-2-5bfb6668b4-2rl4t
 
 Repeat the command several times.
-You should see the reply balanced evenly across both pods and nodes.
+You should see the reply balanced evenly across both Pods and Nodes.
 Verify that traffic is evenly split across multiple Pods by running a loop and counting the requests:
 
 .. code-block:: shell-session
