@@ -25,7 +25,7 @@ env:
   kind_config: .github/kind-config.yaml
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version:
-  cilium_cli_ci_version: e67f7c6be791217431c2b90bda58e8eb9de5e369
+  cilium_cli_ci_version: 866a7d325ca19f80cadb8989c8c759e5a0946f4a
 
 jobs:
   installation-and-connectivity:
