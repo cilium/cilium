@@ -32,7 +32,10 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
-var log *logrus.Logger
+var (
+	log       *logrus.Logger
+	nsManager = NewNamespaceManager()
+)
 
 func init() {
 	log = logrus.New()
@@ -56,7 +59,7 @@ func noopParser(t *testing.T) *parser.Parser {
 
 func TestNewLocalServer(t *testing.T) {
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log)
+	s, err := NewLocalServer(pp, nsManager, log)
 	require.NoError(t, err)
 	assert.NotNil(t, s.GetStopped())
 	assert.NotNil(t, s.GetPayloadParser())
@@ -67,7 +70,7 @@ func TestNewLocalServer(t *testing.T) {
 
 func TestLocalObserverServer_ServerStatus(t *testing.T) {
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log, observeroption.WithMaxFlows(container.Capacity1))
+	s, err := NewLocalServer(pp, nsManager, log, observeroption.WithMaxFlows(container.Capacity1))
 	require.NoError(t, err)
 	res, err := s.ServerStatus(context.Background(), &observerpb.ServerStatusRequest{})
 	require.NoError(t, err)
@@ -98,7 +101,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
@@ -240,7 +243,7 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMonitorBuffer(queueSize),
 	)
 	require.NoError(t, err)
@@ -291,7 +294,7 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
@@ -405,7 +408,7 @@ func TestHooks(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity15),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithCiliumDaemon(ciliumDaemon),
@@ -464,7 +467,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnFlowDeliveryFunc(onFlowDelivery),
@@ -527,7 +530,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnFlowDeliveryFunc(onFlowDelivery),
@@ -557,4 +560,40 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	// This should be assert.Equals(t, flowsReceived, numFlows)
 	// A bug in the ring buffer prevents this from succeeding
 	assert.Greater(t, flowsReceived, 0)
+}
+
+func TestLocalObserverServer_GetNamespaces(t *testing.T) {
+	pp := noopParser(t)
+	nsManager := NewNamespaceManager()
+	nsManager.AddNamespace(&observerpb.Namespace{
+		Namespace: "zzz",
+	})
+	nsManager.AddNamespace(&observerpb.Namespace{
+		Namespace: "bbb",
+		Cluster:   "some-cluster",
+	})
+	nsManager.AddNamespace(&observerpb.Namespace{
+		Namespace: "aaa",
+		Cluster:   "some-cluster",
+	})
+	s, err := NewLocalServer(pp, nsManager, log, observeroption.WithMaxFlows(container.Capacity1))
+	require.NoError(t, err)
+	res, err := s.GetNamespaces(context.Background(), &observerpb.GetNamespacesRequest{})
+	require.NoError(t, err)
+	expected := &observerpb.GetNamespacesResponse{
+		Namespaces: []*observerpb.Namespace{
+			{
+				Namespace: "zzz",
+			},
+			{
+				Namespace: "aaa",
+				Cluster:   "some-cluster",
+			},
+			{
+				Namespace: "bbb",
+				Cluster:   "some-cluster",
+			},
+		},
+	}
+	assert.Equal(t, expected, res)
 }

@@ -37,11 +37,19 @@ func GetName() string {
 // (prefixed)cluster name and the local node name in case of
 // clustered environments otherwise returns the name of the local node.
 func GetAbsoluteNodeName() string {
-	if option.Config.ClusterName != "" &&
-		option.Config.ClusterName != defaults.ClusterName {
-		return option.Config.ClusterName + "/" + nodeName
+	if clusterName := GetClusterName(); clusterName != "" {
+		return clusterName + "/" + nodeName
 	} else {
 		return nodeName
+	}
+}
+
+func GetClusterName() string {
+	if option.Config.ClusterName != "" &&
+		option.Config.ClusterName != defaults.ClusterName {
+		return option.Config.ClusterName
+	} else {
+		return ""
 	}
 }
 

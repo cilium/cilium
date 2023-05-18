@@ -171,8 +171,13 @@ func (d *Daemon) launchHubble() {
 			observerOpts = append(observerOpts, opt)
 		}
 	}
+	namespaceManager := observer.NewNamespaceManager()
+	go namespaceManager.Run(d.ctx)
 
-	d.hubbleObserver, err = observer.NewLocalServer(payloadParser, logger,
+	d.hubbleObserver, err = observer.NewLocalServer(
+		payloadParser,
+		namespaceManager,
+		logger,
 		observerOpts...,
 	)
 	if err != nil {
