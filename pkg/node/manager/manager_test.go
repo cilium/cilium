@@ -120,6 +120,10 @@ type signalNodeHandler struct {
 	EnableNodeValidateImplementationEvent bool
 }
 
+func (s *signalNodeHandler) Name() string {
+	return "manager_test:signalNodeHandler"
+}
+
 func newSignalNodeHandler() *signalNodeHandler {
 	return &signalNodeHandler{
 		NodeAddEvent:                    make(chan nodeTypes.Node, 10),

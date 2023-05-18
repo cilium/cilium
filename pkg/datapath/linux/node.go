@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"go.uber.org/multierr"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -76,6 +77,37 @@ type linuxNodeHandler struct {
 
 	ipsecMetricCollector prometheus.Collector
 	ipsecMetricOnce      sync.Once
+
+	//errReporter   *errorReporter
+	reconcileErrs []error
+}
+
+// imperativeReconcileError implements an error that is useful in situations where we may not be
+// bubbling errors up to the caller.
+//
+// This is a common pattern in existing state <> datapath reconciliation code, where we
+// often will continue execution of the entire procoe
+//
+// TODO: Think of another name.
+type errorReporter struct {
+	// High level context of what the reconciliation procedure was intending to do.
+	context string
+	errs    []error
+}
+
+func (i *errorReporter) GetError() error {
+	if i.errs == nil || len(i.errs) == 0 {
+		return nil
+	}
+	s := i.context + ":\n\n"
+	for i, err := range i.errs {
+		s += fmt.Sprintf("[%d]: %s\n", i, err.Error())
+	}
+	return errors.New(s)
+}
+
+func (h *linuxNodeHandler) Name() string {
+	return "node-host-linux-datapath"
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
@@ -102,18 +134,19 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 // node are provided as context. The caller expects the tunnel mapping in the
 // datapath to be updated.
 func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP net.IP,
-	firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8, nodeID uint16) {
+	firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8, nodeID uint16) error {
 	if !encapEnabled {
 		// When the protocol family is disabled, the initial node addition will
 		// trigger a deletion to clean up leftover entries. The deletion happens
 		// in quiet mode as we don't know whether it exists or not
 		if newCIDR.IsValid() && firstAddition {
-			deleteTunnelMapping(newCIDR, true)
+			return deleteTunnelMapping(newCIDR, true)
 		}
 
-		return
+		return nil
 	}
 
+	var acc error
 	if cidrNodeMappingUpdateRequired(oldCIDR, newCIDR, oldIP, newIP, oldEncryptKey, newEncryptKey) {
 		log.WithFields(logrus.Fields{
 			logfields.IPAddr: newIP,
@@ -124,6 +157,7 @@ func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP ne
 			log.WithError(err).WithFields(logrus.Fields{
 				"allocCIDR": newCIDR,
 			}).Error("bpf: Unable to update in tunnel endpoint map")
+			err = multierr.Append(acc, fmt.Errorf("unable to update in tunnel endpoint map: %w", err))
 		}
 	}
 
@@ -136,8 +170,11 @@ func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP ne
 		fallthrough
 	// Node allocation CIDR has changed
 	case oldCIDR.IsValid() && newCIDR.IsValid() && !oldCIDR.Equal(newCIDR):
-		deleteTunnelMapping(oldCIDR, false)
+		if err := deleteTunnelMapping(oldCIDR, false); err != nil {
+			err = multierr.Append(acc, fmt.Errorf("unable to delete old tunnel mapping: %w", err))
+		}
 	}
+	return nil
 }
 
 // cidrNodeMappingUpdateRequired returns true if the change from an old node
@@ -166,9 +203,9 @@ func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP
 	return !oldCIDR.Equal(newCIDR)
 }
 
-func deleteTunnelMapping(oldCIDR cmtypes.PrefixCluster, quietMode bool) {
+func deleteTunnelMapping(oldCIDR cmtypes.PrefixCluster, quietMode bool) error {
 	if !oldCIDR.IsValid() {
-		return
+		return nil
 	}
 
 	log.WithFields(logrus.Fields{
@@ -183,10 +220,12 @@ func deleteTunnelMapping(oldCIDR cmtypes.PrefixCluster, quietMode bool) {
 			log.WithError(err).WithFields(logrus.Fields{
 				"allocPrefixCluster": oldCIDR.String(),
 			}).Error("Unable to delete in tunnel endpoint map")
+			return err
 		}
 	} else {
 		_ = tunnel.TunnelMap().SilentDeleteTunnelEndpoint(addrCluster)
 	}
+	return nil
 }
 
 func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.Route, err error) {
@@ -938,7 +977,7 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 	n.deleteNeighbor6(oldNode)
 }
 
-func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
+func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) (acc error) {
 	var spi uint8
 	var err error
 
@@ -1049,14 +1088,38 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 			}
 		}
 	}
+	return
 }
 
 func (n *linuxNodeHandler) subnetEncryption() bool {
 	return len(n.nodeConfig.IPv4PodSubnets) > 0 || len(n.nodeConfig.IPv6PodSubnets) > 0
 }
 
+func (n *linuxNodeHandler) addErr(ctx string, err error) {
+	n.reconcileErrs = append(n.reconcileErrs, fmt.Errorf("%s: %s", ctx, err))
+}
+
+func (n *linuxNodeHandler) aggregateErrs() error {
+	if len(n.reconcileErrs) == 0 {
+		return nil
+	}
+	err := multierr.Combine(n.reconcileErrs...)
+	n.reconcileErrs = nil
+	return err
+}
+
 // Must be called with linuxNodeHandler.mutex held.
-func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAddition bool) error {
+func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAddition bool) (acc error) {
+	// Question: Is this the approach we want to take, its a bit ugly in cases like this where there
+	// is a lot of places for errors to be tacked on.
+	//
+	// Perhaps we want another multierr?
+	// This is the high level reconciliation function for this node handler implementation,
+	// upon return, aggregate all errors and return them to the caller.
+	defer func() {
+		acc = n.aggregateErrs()
+	}()
+
 	var (
 		oldIP4Cidr, oldIP6Cidr                   *cidr.CIDR
 		oldAllIP4AllocCidrs, oldAllIP6AllocCidrs []*cidr.CIDR
@@ -1079,6 +1142,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldKey = oldNode.EncryptionKey
 	}
 
+	// If the nodeConfig enables IPSec and the node is not encrypted, enable IPSec.
 	if n.nodeConfig.EnableIPSec && !n.nodeConfig.EncryptNode {
 		n.enableIPsec(newNode)
 		newKey = newNode.EncryptionKey
@@ -1116,13 +1180,18 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			log.WithError(err).
 				WithField(logfields.NodeName, newNode.Fullname()).
 				Warning("Failed to update wireguard configuration for peer")
+			n.addErr("failed updating wireguard peer", err)
 		}
 	}
 
 	if n.nodeConfig.EnableAutoDirectRouting {
-		n.updateDirectRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4)
-		n.updateDirectRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6)
-		return nil
+		if err := n.updateDirectRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4); err != nil {
+			n.addErr("updating IPv4 direct routes", err)
+		}
+		if err := n.updateDirectRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6); err != nil {
+			n.addErr("updating IPv6 direct routes", err)
+		}
+		return
 	}
 
 	if n.nodeConfig.EnableEncapsulation {
@@ -1159,21 +1228,25 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			n.updateOrRemoveNodeRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode)
 		}
 
-		return nil
+		return
 	} else if firstAddition {
 		for _, ipv4AllocCIDR := range newAllIP4AllocCidrs {
 			if rt, _ := n.lookupNodeRoute(ipv4AllocCIDR, isLocalNode); rt != nil {
-				n.deleteNodeRoute(ipv4AllocCIDR, isLocalNode)
+				if err := n.deleteNodeRoute(ipv4AllocCIDR, isLocalNode); err != nil {
+					n.addErr("deleting ipv4 route", err)
+				}
 			}
 		}
 		for _, ipv6AllocCIDR := range newAllIP6AllocCidrs {
 			if rt, _ := n.lookupNodeRoute(ipv6AllocCIDR, isLocalNode); rt != nil {
-				n.deleteNodeRoute(ipv6AllocCIDR, isLocalNode)
+				if err := n.deleteNodeRoute(ipv6AllocCIDR, isLocalNode); err != nil {
+					n.addErr("deleting ipv6 route", err)
+				}
 			}
 		}
 	}
 
-	return nil
+	return
 }
 
 func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
@@ -1246,7 +1319,9 @@ func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAd
 	}
 }
 
+// this function should be idempotent?
 func (n *linuxNodeHandler) replaceHostRules() error {
+	// Add a new IP route rule to ipsec table.
 	rule := route.Rule{
 		Priority: 1,
 		Mask:     linux_defaults.RouteMarkMask,

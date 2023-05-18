@@ -18,6 +18,10 @@ type FakeNodeHandler struct {
 	Nodes map[string]nodeTypes.Node
 }
 
+func (n *FakeNodeHandler) Name() string {
+	return "fakeNodeHandler"
+}
+
 // NewNodeHandler returns a fake NodeHandler that stores the nodes,
 // but performs no other actions.
 func NewNodeHandler() *FakeNodeHandler {

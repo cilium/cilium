@@ -6,11 +6,13 @@ package manager
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/netip"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
 	"github.com/cilium/workerpool"
@@ -207,12 +209,7 @@ func New(name string, c Configuration, ipCache IPCache, healthReporter cell.Stat
 		Help:      "Number of validation calls to implement the datapath implementation of a node",
 	})
 
-	err := metrics.RegisterList([]prometheus.Collector{m.metricDatapathValidations, m.metricEventsReceived, m.metricNumNodes})
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
+	return m, metrics.RegisterList([]prometheus.Collector{m.metricDatapathValidations, m.metricEventsReceived, m.metricNumNodes})
 }
 
 func (m *manager) Start(hive.HookContext) error {
@@ -298,9 +295,19 @@ func (m *manager) backgroundSync(ctx context.Context) error {
 
 			entry.mutex.Lock()
 			m.mutex.RUnlock()
+			var acc error
+			// Node manager performs all validation task for all registered handlers.
+			// If any of the handlers fails, the node is marked as degraded.
 			m.Iter(func(nh datapath.NodeHandler) {
-				nh.NodeValidateImplementation(entry.node)
+				if err := nh.NodeValidateImplementation(entry.node); err != nil {
+					acc = multierr.Append(acc, fmt.Errorf("handler %q: %w", entry.node.Name, err))
+				}
 			})
+			if acc != nil {
+				m.healthReporter.Degraded(fmt.Sprintf("Node datapath validation failed: %v", acc))
+			} else {
+				m.healthReporter.OK("Node datapath validation succeeded")
+			}
 			entry.mutex.Unlock()
 
 			m.metricDatapathValidations.Inc()
