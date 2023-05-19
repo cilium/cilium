@@ -39,4 +39,7 @@ type BGPRouterManager interface {
 	// BGP daemon running locally, then peers can be differentiated based on
 	// local AS number.
 	GetPeers(ctx context.Context) ([]*models.BgpPeer, error)
+
+	// Stop will stop all BGP instances and clean up local state.
+	Stop()
 }

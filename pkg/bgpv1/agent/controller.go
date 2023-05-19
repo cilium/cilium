@@ -263,11 +263,6 @@ func (c *Controller) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			killCTX, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-			defer cancel()
-
-			c.FullWithdrawal(killCTX) // kill any BGP sessions
-
 			l.Info("Cilium BGP Control Plane Controller shut down")
 			return
 		case <-c.Sig.Sig:
@@ -442,6 +437,11 @@ func (c *Controller) applyPolicyDefaults(policy *v2alpha1api.CiliumBGPPeeringPol
 			}
 			if n.KeepAliveTime.Duration == 0 {
 				n.KeepAliveTime.Duration = n.HoldTime.Duration / 3
+			}
+
+			// apply graceful restart defaults
+			if n.GracefulRestart.Enabled && n.GracefulRestart.RestartTime.Duration == 0 {
+				n.GracefulRestart.RestartTime.Duration = types.DefaultGRRestartTime
 			}
 		}
 	}

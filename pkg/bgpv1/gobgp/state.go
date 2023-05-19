@@ -92,6 +92,12 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateRespo
 			}
 		}
 
+		peerState.GracefulRestart = &models.BgpGracefulRestart{}
+		if peer.GracefulRestart != nil {
+			peerState.GracefulRestart.Enabled = peer.GracefulRestart.Enabled
+			peerState.GracefulRestart.RestartTimeSeconds = int64(peer.GracefulRestart.RestartTime)
+		}
+
 		data = append(data, peerState)
 	}
 

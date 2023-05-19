@@ -17,6 +17,9 @@ const (
 	DefaultBGPConnectRetryTime = 120 * time.Second
 	// DefaultBGPHoldTime defines the default initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
 	DefaultBGPHoldTime = 90 * time.Second
+
+	// DefaultGRRestartTime defines default Restart Time for graceful restart (RFC 4724, section 4.2)
+	DefaultGRRestartTime = 120 * time.Second
 )
 
 // BGPGlobal contains high level BGP configuration for given instance.
