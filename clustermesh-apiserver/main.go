@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -47,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -130,6 +130,7 @@ func init() {
 
 		kvstore.Cell(kvstore.EtcdBackendName),
 		cell.Provide(func() *kvstore.ExtraOptions { return nil }),
+		heartbeat.Cell,
 
 		healthAPIServerCell,
 		cmmetrics.Cell,
@@ -636,20 +637,6 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 			SharedOnly: !cfg.enableExternalWorkloads,
 		})
 	}
-
-	go func() {
-		timer, timerDone := inctimer.New()
-		defer timerDone()
-		for {
-			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
-			err := backend.Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
-			if err != nil {
-				log.WithError(err).Warning("Unable to update heartbeat key")
-			}
-			cancel()
-			<-timer.After(kvstore.HeartbeatWriteInterval)
-		}
-	}()
 
 	log.Info("Initialization complete")
 }
