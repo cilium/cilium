@@ -54,7 +54,7 @@ static __always_inline int ipv4_load_daddr(struct __ctx_buff *ctx, int off,
 }
 
 static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
-					const struct iphdr *ip4)
+					struct iphdr *ip4)
 {
 	__u8 new_ttl, ttl = ip4->ttl;
 
@@ -62,9 +62,10 @@ static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
 		return 1;
 
 	new_ttl = ttl - 1;
+	ip4->ttl = new_ttl;
+
 	/* l3_csum_replace() takes at min 2 bytes, zero extended. */
 	ipv4_csum_update_by_value(ctx, off, ttl, new_ttl, 2);
-	ctx_store_bytes(ctx, off + offsetof(struct iphdr, ttl), &new_ttl, sizeof(new_ttl), 0);
 
 	return 0;
 }
