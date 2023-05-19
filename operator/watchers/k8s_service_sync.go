@@ -107,11 +107,20 @@ type ServiceSyncConfiguration interface {
 	utils.ServiceConfiguration
 }
 
+type ServiceSyncParameters struct {
+	ServiceSyncConfiguration
+
+	Clientset  k8sClient.Clientset
+	Services   resource.Resource[*slim_corev1.Service]
+	Backend    store.SyncStoreBackend
+	SharedOnly bool
+}
+
 // StartSynchronizingServices starts a controller for synchronizing services from k8s to kvstore
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], shared bool, cfg ServiceSyncConfiguration) {
+func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters) {
 	log.Info("Starting to synchronize k8s services to kvstore")
 
 	serviceOptsModifier, err := utils.GetServiceListOptionsModifier(cfg)
@@ -122,7 +131,13 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 	readyChan := make(chan struct{}, 0)
 
 	go func() {
-		store := store.NewWorkqueueSyncStore(kvstore.Client(), serviceStore.ServiceStorePrefix,
+		if cfg.Backend == nil {
+			// Needs to be assigned in a separate goroutine, since it might block
+			// if the client is not yet initialized.
+			cfg.Backend = kvstore.Client()
+		}
+
+		store := store.NewWorkqueueSyncStore(cfg.Backend, serviceStore.ServiceStorePrefix,
 			store.WSSWithSourceClusterName(cfg.LocalClusterName()))
 		kvs = store
 		close(readyChan)
@@ -134,7 +149,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 
 	// Start populating the service cache
 	go func() {
-		for ev := range services.Events(ctx) {
+		for ev := range cfg.Services.Events(ctx) {
 			switch ev.Kind {
 			case resource.Sync:
 				// Wait until service cache updates have been fully processed.
@@ -160,7 +175,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 	switch {
 	case k8s.SupportsEndpointSlice():
 		var endpointSliceEnabled bool
-		endpointController, endpointSliceEnabled = endpointSlicesInit(ctx, wg, clientset.Slim(), swgEps)
+		endpointController, endpointSliceEnabled = endpointSlicesInit(ctx, wg, cfg.Clientset.Slim(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if endpointSliceEnabled {
 			// endpointController has been kicked off already inside
@@ -175,7 +190,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 		}
 		fallthrough
 	default:
-		endpointController = endpointsInit(clientset.Slim(), swgEps, serviceOptsModifier)
+		endpointController = endpointsInit(cfg.Clientset.Slim(), swgEps, serviceOptsModifier)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -197,7 +212,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 
 		<-readyChan
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(ctx, cfg.LocalClusterName(), shared, cfg.LocalClusterID())
+		k8sServiceHandler(ctx, cfg.LocalClusterName(), cfg.SharedOnly, cfg.LocalClusterID())
 	}()
 }
 
