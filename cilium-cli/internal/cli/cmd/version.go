@@ -16,12 +16,6 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 )
 
-// The following variables are set at compile time via LDFLAGS.
-var (
-	// Version is the software version.
-	Version string
-)
-
 func getLatestStableVersion() string {
 	resp, err := http.Get("https://raw.githubusercontent.com/cilium/cilium/main/stable.txt")
 	if err != nil {
@@ -44,7 +38,7 @@ func newCmdVersion() *cobra.Command {
 		Short: "Display detailed version information",
 		Long:  `Displays information about the version of this software.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("cilium-cli: %s compiled with %v on %v/%v\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+			fmt.Printf("cilium-cli: %s compiled with %v on %v/%v\n", version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 			fmt.Printf("cilium image (default): %s\n", defaults.Version)
 			fmt.Printf("cilium image (stable): %s\n", getLatestStableVersion())
 			if clientOnly {
