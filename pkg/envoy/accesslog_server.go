@@ -32,21 +32,23 @@ type AccessLogServer struct {
 }
 
 // StartAccessLogServer starts the access log server.
-func StartAccessLogServer(envoySocketDir string, xdsServer *XDSServer) *AccessLogServer {
+func StartAccessLogServer(envoySocketDir string, xdsServer *XDSServer) (*AccessLogServer, error) {
 	accessLogPath := getAccessLogSocketPath(envoySocketDir)
 
+	// Remove/Unlink the old unix domain socket, if any.
+	_ = os.Remove(accessLogPath)
+
 	// Create the access log listener
-	os.Remove(accessLogPath) // Remove/Unlink the old unix domain socket, if any.
 	accessLogListener, err := net.ListenUnix("unixpacket", &net.UnixAddr{Name: accessLogPath, Net: "unixpacket"})
 	if err != nil {
-		log.WithError(err).Fatalf("Envoy: Failed to open access log listen socket at %s", accessLogPath)
+		return nil, fmt.Errorf("failed to open access log listen socket at %s: %w", accessLogPath, err)
 	}
 	accessLogListener.SetUnlinkOnClose(true)
 
 	// Make the socket accessible by owner and group only. Group access is needed for Istio
 	// sidecar proxies.
 	if err = os.Chmod(accessLogPath, 0660); err != nil {
-		log.WithError(err).Fatalf("Envoy: Failed to change mode of access log listen socket at %s", accessLogPath)
+		return nil, fmt.Errorf("failed to change mode of access log listen socket at %s: %w", accessLogPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
 	if err = os.Chown(accessLogPath, -1, option.Config.ProxyGID); err != nil {
@@ -87,7 +89,7 @@ func StartAccessLogServer(envoySocketDir string, xdsServer *XDSServer) *AccessLo
 		cancel()
 	}()
 
-	return server
+	return server, nil
 }
 
 func (s *AccessLogServer) Stop() {

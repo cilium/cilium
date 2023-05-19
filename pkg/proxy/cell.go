@@ -4,6 +4,8 @@
 package proxy
 
 import (
+	"fmt"
+
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive"
@@ -52,13 +54,27 @@ func newProxy(params proxyParams) (*Proxy, error) {
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(startContext hive.HookContext) error {
-			proxy.XDSServer = envoy.StartXDSServer(proxy.ipcache, envoy.GetSocketDir(proxy.runDir))
-			proxy.accessLogServer = envoy.StartAccessLogServer(envoy.GetSocketDir(proxy.runDir), proxy.XDSServer)
+			xdsServer, err := envoy.StartXDSServer(proxy.ipcache, envoy.GetSocketDir(proxy.runDir))
+			if err != nil {
+				return fmt.Errorf("failed to start Envoy xDS server: %w", err)
+			}
+			proxy.XDSServer = xdsServer
+
+			accessLogServer, err := envoy.StartAccessLogServer(envoy.GetSocketDir(proxy.runDir), proxy.XDSServer)
+			if err != nil {
+				return fmt.Errorf("failed to start Envoy AccessLog server: %w", err)
+			}
+			proxy.accessLogServer = accessLogServer
+
 			return nil
 		},
 		OnStop: func(stopContext hive.HookContext) error {
-			proxy.XDSServer.Stop()
-			proxy.accessLogServer.Stop()
+			if proxy.XDSServer != nil {
+				proxy.XDSServer.Stop()
+			}
+			if proxy.accessLogServer != nil {
+				proxy.accessLogServer.Stop()
+			}
 			return nil
 		},
 	})

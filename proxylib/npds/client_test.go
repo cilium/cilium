@@ -88,7 +88,9 @@ func (s *ClientSuite) TestRequestAllResources(c *C) {
 
 	// Some wait before server is made available
 	time.Sleep(500 * time.Millisecond)
-	xdsServer := envoy.StartXDSServer(testipcache.NewMockIPCache(), test.Tmpdir)
+	xdsServer, err := envoy.StartXDSServer(testipcache.NewMockIPCache(), test.Tmpdir)
+	c.Assert(err, IsNil)
+	defer xdsServer.Stop()
 	time.Sleep(500 * time.Millisecond)
 
 	// Create version 1 with resource 0.
