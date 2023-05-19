@@ -1620,6 +1620,7 @@ type daemonParams struct {
 	CNIConfigManager     cni.CNIConfigManager
 	SwaggerSpec          *server.Spec
 	HealthAPISpec        *healthApi.Spec
+	ServiceCache         *k8s.ServiceCache
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
