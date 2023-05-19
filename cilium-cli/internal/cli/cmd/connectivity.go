@@ -71,7 +71,7 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 			}
 
 			// Instantiate the test harness.
-			cc, err := check.NewConnectivityTest(k8sClient, params, Version)
+			cc, err := check.NewConnectivityTest(k8sClient, params, version)
 			if err != nil {
 				return err
 			}

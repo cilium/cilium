@@ -144,7 +144,7 @@ func newCmdUninstall() *cobra.Command {
 				TestNamespace:   params.TestNamespace,
 				FlowValidation:  check.FlowValidationModeDisabled,
 				Writer:          os.Stdout,
-			}, Version)
+			}, version)
 			if err != nil {
 				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s", err)
 			} else {
@@ -311,7 +311,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 				TestNamespace:   params.TestNamespace,
 				FlowValidation:  check.FlowValidationModeDisabled,
 				Writer:          os.Stdout,
-			}, Version)
+			}, version)
 			if err != nil {
 				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s", err)
 			} else {
