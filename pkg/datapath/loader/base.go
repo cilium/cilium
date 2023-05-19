@@ -396,7 +396,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if !option.Config.TunnelingEnabled() &&
 		option.Config.EnableNodePort &&
-		option.Config.NodePortMode == option.NodePortModeDSR &&
+		option.Config.NodePortMode != option.NodePortModeSNAT &&
 		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
 		encapProto = option.TunnelGeneve
 	}

@@ -143,7 +143,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	encapProto := option.Config.TunnelProtocol
 	if !option.Config.TunnelingEnabled() &&
 		option.Config.EnableNodePort &&
-		option.Config.NodePortMode == option.NodePortModeDSR &&
+		option.Config.NodePortMode != option.NodePortModeSNAT &&
 		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
 		encapProto = option.TunnelGeneve
 	}

@@ -3136,7 +3136,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		// manually pick port for native-routing and DSR with Geneve dispatch:
 		if !c.TunnelingEnabled() &&
 			(c.EnableNodePort || c.KubeProxyReplacement == KubeProxyReplacementStrict) &&
-			c.NodePortMode == NodePortModeDSR &&
+			c.NodePortMode != NodePortModeSNAT &&
 			c.LoadBalancerDSRDispatch == DSRDispatchGeneve {
 			c.TunnelPort = defaults.TunnelPortGeneve
 		} else {
