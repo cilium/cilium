@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -153,6 +154,22 @@ func (r *gatewayReconciler) enqueueRequestForOwningHTTPRoute() handler.EventHand
 
 		for _, parent := range hr.Spec.ParentRefs {
 			if !IsGateway(parent) {
+				continue
+			}
+
+			gw := &gatewayv1beta1.Gateway{}
+			if err := r.Client.Get(context.Background(), types.NamespacedName{
+				Namespace: namespaceDerefOr(parent.Namespace, a.GetNamespace()),
+				Name:      string(parent.Name),
+			}, gw); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					scopedLog.WithError(err).Error("Failed to get Gateway")
+				}
+				continue
+			}
+
+			if !hasMatchingController(context.Background(), r.Client, controllerName)(gw) {
+				scopedLog.Debug("Gateway does not have matching controller, skipping")
 				continue
 			}
 

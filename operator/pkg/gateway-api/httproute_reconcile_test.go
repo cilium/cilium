@@ -21,6 +21,15 @@ import (
 )
 
 var httpRouteFixture = []client.Object{
+	// GatewayClass
+	&gatewayv1beta1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cilium",
+		},
+		Spec: gatewayv1beta1.GatewayClassSpec{
+			ControllerName: "io.cilium/gateway-controller",
+		},
+	},
 	// Gateway for valid HTTPRoute
 	&gatewayv1beta1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
@@ -28,7 +37,7 @@ var httpRouteFixture = []client.Object{
 			Namespace: "default",
 		},
 		Spec: gatewayv1beta1.GatewaySpec{
-			GatewayClassName: "io.cilium/gateway-controller",
+			GatewayClassName: "cilium",
 			Listeners: []gatewayv1beta1.Listener{
 				{
 					Name:     "http",
@@ -47,7 +56,7 @@ var httpRouteFixture = []client.Object{
 			Namespace: "another-namespace",
 		},
 		Spec: gatewayv1beta1.GatewaySpec{
-			GatewayClassName: "io.cilium/gateway-controller",
+			GatewayClassName: "cilium",
 			Listeners: []gatewayv1beta1.Listener{
 				{
 					Name: "http",

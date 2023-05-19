@@ -138,6 +138,10 @@ func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 			continue
 		}
 
+		if !hasMatchingController(ctx, c, controllerName)(gw) {
+			continue
+		}
+
 		if !isAllowed(ctx, c, gw, hr) {
 			// Gateway is not attachable, update the status for this HTTPRoute
 			mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
