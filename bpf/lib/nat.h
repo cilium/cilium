@@ -1149,7 +1149,7 @@ snat_v4_rev_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off)
 		tuple.dport = identifier;
 		break;
 	default:
-		return DROP_UNKNOWN_L4;
+		return NAT_PUNT_TO_STACK;
 	}
 	state = snat_v4_lookup(&tuple);
 	if (!state)
@@ -1222,7 +1222,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target, __
 			break;
 		case ICMP_DEST_UNREACH:
 			if (icmphdr.code != ICMP_FRAG_NEEDED)
-				return DROP_UNKNOWN_ICMP_CODE;
+				return NAT_PUNT_TO_STACK;
 			return snat_v4_rev_nat_handle_icmp_frag_needed(ctx, off);
 		default:
 			return NAT_PUNT_TO_STACK;
@@ -1948,7 +1948,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx, __u32 off)
 		tuple.dport = identifier;
 		break;
 	default:
-		return DROP_UNKNOWN_L4;
+		return NAT_PUNT_TO_STACK;
 	}
 	state = snat_v6_lookup(&tuple);
 	if (!state)
