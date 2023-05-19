@@ -302,7 +302,7 @@ func TestRunRollback(t *testing.T) {
 			})
 		}),
 	)
-	h.SetTimeouts(time.Millisecond, time.Millisecond)
+	h.SetTimeouts(time.Millisecond, time.Minute)
 
 	err := h.Run()
 	assert.ErrorIs(t, err, context.DeadlineExceeded, "expected Run() to fail with timeout")
