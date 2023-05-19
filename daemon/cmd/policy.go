@@ -288,26 +288,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		}
 	}
 
-	// Any newly allocated identities MUST be upserted to the ipcache if
-	// no error is returned. This is postponed to the rule reaction queue
-	// to be done after the affected endpoints have been regenerated,
-	// otherwise new identities are upserted to the ipcache before we
-	// return.
-	//
-	// Release of these identities will be tied to the corresponding policy
-	// in the policy.Repository and released upon policyDelete().
-	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
-	if _, err := d.ipcache.AllocateCIDRs(prefixes, nil, newlyAllocatedIdentities); err != nil {
-		_ = d.prefixLengths.Delete(prefixes)
-		logger.WithError(err).WithField("prefixes", prefixes).Warn(
-			"Failed to allocate identities for CIDRs during policy add")
-		resChan <- &PolicyAddResult{
-			newRev: 0,
-			err:    err,
-		}
-		return
-	}
-
 	// No errors past this point!
 
 	d.policy.Mutex.Lock()
@@ -365,6 +345,37 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 
 	d.policy.Mutex.Unlock()
 
+	// Wait until we have calculated which endpoints need to be selected
+	// across multiple goroutines.
+	policySelectionWG.Wait()
+
+	// Get the subset of rules that are referenced by local endpoints
+	locallySelectedRules := addedRules.CachedSelectedRules()
+
+	// Get subset of prefixes that is locally relevant
+	locallyRelevantPrefixes := policy.GetCIDRPrefixes(locallySelectedRules.AsPolicyRules())
+	logger.WithField("prefixes", locallyRelevantPrefixes).Debug("Found locally relevant CIDR prefixes...")
+
+	// Any newly allocated identities MUST be upserted to the ipcache if
+	// no error is returned. This is postponed to the rule reaction queue
+	// to be done after the affected endpoints have been regenerated,
+	// otherwise new identities are upserted to the ipcache before we
+	// return.
+	//
+	// Release of these identities will be tied to the corresponding policy
+	// in the policy.Repository and released upon policyDelete().
+	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
+	if _, err := d.ipcache.AllocateCIDRs(locallyRelevantPrefixes, nil, newlyAllocatedIdentities); err != nil {
+		_ = d.prefixLengths.Delete(prefixes)
+		logger.WithError(err).WithField("prefixes", locallyRelevantPrefixes).Warn(
+			"Failed to allocate identities for CIDRs during policy add")
+		resChan <- &PolicyAddResult{
+			newRev: 0,
+			err:    err,
+		}
+		return
+	}
+
 	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
 		// bpf_host needs to be recompiled whenever CIDR policy changed.
 		if hostEp := d.endpointManager.GetHostEndpoint(); hostEp != nil {
@@ -418,7 +429,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// policy reaction queue.
 	r := &PolicyReactionEvent{
 		d:                 d,
-		wg:                &policySelectionWG,
 		epsToBumpRevision: endpointsToBumpRevision,
 		endpointsToRegen:  endpointsToRegen,
 		newRev:            newRev,
@@ -454,7 +464,9 @@ type PolicyReactionEvent struct {
 func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 	// Wait until we have calculated which endpoints need to be selected
 	// across multiple goroutines.
-	r.wg.Wait()
+	if r.wg != nil {
+		r.wg.Wait()
+	}
 	r.d.reactToRuleUpdates(r.epsToBumpRevision, r.endpointsToRegen, r.newRev, r.upsertIdentities, r.releasePrefixes)
 }
 

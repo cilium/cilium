@@ -150,6 +150,27 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint) (bool, error) {
 	return endpointSelected, nil
 }
 
+// CachedSelectedRules returns the subset of rules that apply to identity
+// that has been given to rule.matches() call.
+// In production this is done only with the identities of local endpoints, so that
+// this function can be used to get the subset of locally relevant rules.
+func (rules ruleSlice) CachedSelectedRules() ruleSlice {
+	var locallySelected ruleSlice
+
+	for _, r := range rules {
+		r.metadata.Mutex.Lock()
+		for _, selected := range r.metadata.IdentitySelected {
+			if selected {
+				locallySelected = append(locallySelected, r)
+				break
+			}
+		}
+		r.metadata.Mutex.Unlock()
+	}
+
+	return locallySelected
+}
+
 // AsPolicyRules return the internal policyapi.Rule objects as a policyapi.Rules object
 func (rules ruleSlice) AsPolicyRules() policyapi.Rules {
 	policyRules := make(policyapi.Rules, 0, len(rules))

@@ -2579,14 +2579,23 @@ func (ds *PolicyTestSuite) TestMatches(c *C) {
 	c.Assert(epRule.matches(notSelectedIdentity), Equals, false)
 	c.Assert(epRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false})
 
+	// Neither of the rules has been selected by identities used so far
+	c.Assert(repo.rules.CachedSelectedRules(), HasLen, 0)
+
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
 	c.Assert(epRule.matches(selectedIdentity), Equals, true)
 	c.Assert(epRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false})
 
+	// One of the rules has been selected by identities used so far
+	c.Assert(repo.rules.CachedSelectedRules(), HasLen, 1)
+
 	// Test again to check for caching working correctly.
 	c.Assert(epRule.matches(selectedIdentity), Equals, true)
 	c.Assert(epRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false})
+
+	// One of the rules has been selected by identities used so far
+	c.Assert(repo.rules.CachedSelectedRules(), HasLen, 1)
 
 	// Possible scenario where an endpoint is deleted, and soon after another
 	// endpoint is added with the same ID, but with a different identity. Matching
@@ -2594,19 +2603,31 @@ func (ds *PolicyTestSuite) TestMatches(c *C) {
 	c.Assert(epRule.matches(notSelectedIdentity), Equals, false)
 	c.Assert(epRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false})
 
+	// One of the rules has been selected by identities used so far
+	c.Assert(repo.rules.CachedSelectedRules(), HasLen, 1)
+
 	// host endpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
 	c.Assert(epRule.matches(hostIdentity), Equals, false)
 	c.Assert(epRule.metadata.IdentitySelected, checker.DeepEquals,
 		map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false, hostIdentity.ID: false})
 
+	// One of the rules has been selected by identities used so far
+	c.Assert(repo.rules.CachedSelectedRules(), HasLen, 1)
+
 	// selectedEndpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
 	c.Assert(hostRule.matches(selectedIdentity), Equals, false)
 	c.Assert(hostRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: false})
+
+	// One of the rules has been selected by identities used so far
+	c.Assert(repo.rules.CachedSelectedRules(), HasLen, 1)
 
 	// host endpoint is selected by rule, so we it should be added to EndpointsSelected.
 	c.Assert(hostRule.matches(hostIdentity), Equals, true)
 	c.Assert(hostRule.metadata.IdentitySelected, checker.DeepEquals,
 		map[identity.NumericIdentity]bool{selectedIdentity.ID: false, hostIdentity.ID: true})
+
+	// Both of the rules has been selected by identities used so far
+	c.Assert(repo.rules.CachedSelectedRules(), HasLen, 2)
 }
 
 func BenchmarkRuleString(b *testing.B) {
