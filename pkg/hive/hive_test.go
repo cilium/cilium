@@ -52,8 +52,8 @@ func TestHiveGoodConfig(t *testing.T) {
 	err = hive.Stop(context.TODO())
 	assert.NoError(t, err, "expected Stop to succeed")
 
-	assert.Equal(t, cfg.Foo, "test", "Config.Foo not set correctly")
-	assert.Equal(t, cfg.Bar, 13, "Config.Bar not set correctly")
+	assert.Equal(t, "test", cfg.Foo, "Config.Foo not set correctly")
+	assert.Equal(t, 13, cfg.Bar, "Config.Bar not set correctly")
 }
 
 // BadConfig has a field that matches no flags, and Flags
@@ -104,7 +104,7 @@ func TestHiveConfigOverride(t *testing.T) {
 	err = h.Stop(context.TODO())
 	assert.NoError(t, err, "expected Stop to succeed")
 
-	assert.Equal(t, cfg.Foo, "override", "Config.Foo not set correctly")
+	assert.Equal(t, "override", cfg.Foo, "Config.Foo not set correctly")
 }
 
 type SomeObject struct {
@@ -309,8 +309,8 @@ func TestRunRollback(t *testing.T) {
 
 	// We should see 2 start hooks invoked, and then 1 stop hook as first
 	// one is rolled back.
-	assert.Equal(t, started, 2)
-	assert.Equal(t, stopped, 1)
+	assert.Equal(t, 2, started)
+	assert.Equal(t, 1, stopped)
 }
 
 var shutdownOnStartCell = cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
