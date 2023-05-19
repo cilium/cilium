@@ -12,6 +12,12 @@ import (
 	"github.com/cilium/cilium-cli/sysdump"
 )
 
+// The following variables are set at compile time via LDFLAGS.
+var (
+	// Version is the software version.
+	Version string
+)
+
 // NewDefaultCiliumCommand returns a new "cilium" cli cobra command without any additional hooks.
 func NewDefaultCiliumCommand() *cobra.Command {
 	return NewCiliumCommand(&NopHooks{})
@@ -19,6 +25,7 @@ func NewDefaultCiliumCommand() *cobra.Command {
 
 // NewCiliumCommand returns a new "cilium" cli cobra command registering all the additional input hooks.
 func NewCiliumCommand(hooks Hooks) *cobra.Command {
+	cmd.SetVersion(Version)
 	return cmd.NewCiliumCommand(hooks)
 }
 
