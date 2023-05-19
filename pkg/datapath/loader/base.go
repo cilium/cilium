@@ -198,18 +198,17 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 		// IPAMENI mode supports multiple network facing interfaces that
 		// will all need Encrypt logic applied in order to decrypt any
 		// received encrypted packets. This logic will attach to all
-		// !veth devices. Only use if user has not configured interfaces.
-		if len(interfaces) == 0 {
-			if links, err := netlink.LinkList(); err == nil {
-				for _, link := range links {
-					isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
-					if err == nil && !isVirtual {
-						interfaces = append(interfaces, link.Attrs().Name)
-					}
+		// !veth devices.
+		interfaces = nil
+		if links, err := netlink.LinkList(); err == nil {
+			for _, link := range links {
+				isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
+				if err == nil && !isVirtual {
+					interfaces = append(interfaces, link.Attrs().Name)
 				}
 			}
-			option.Config.EncryptInterface = interfaces
 		}
+		option.Config.EncryptInterface = interfaces
 	}
 
 	// No interfaces is valid in tunnel disabled case
