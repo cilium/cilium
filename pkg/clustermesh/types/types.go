@@ -59,3 +59,9 @@ func (c0 *CiliumClusterConfig) IsCompatible(c1 *CiliumClusterConfig) error {
 	}
 	return nil
 }
+
+// ClusterIDName groups together the ClusterID and the ClusterName
+type ClusterIDName struct {
+	ClusterID   uint32
+	ClusterName string
+}
