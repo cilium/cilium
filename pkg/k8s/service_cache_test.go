@@ -216,7 +216,7 @@ func testServiceCache(c *check.C,
 	}
 
 	swgEps := lock.NewStoppableWaitGroup()
-	updateEndpointsCB(&svcCache, swgEps)
+	updateEndpointsCB(svcCache, swgEps)
 
 	// The service should be ready as both service and endpoints have been
 	// imported
@@ -262,7 +262,7 @@ func testServiceCache(c *check.C,
 	}, 2*time.Second), check.IsNil)
 
 	// Deleting the endpoints will result in a service update event
-	deleteEndpointsCB(&svcCache, swgEps)
+	deleteEndpointsCB(svcCache, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -276,7 +276,7 @@ func testServiceCache(c *check.C,
 	c.Assert(endpoints.String(), check.Equals, "")
 
 	// Reinserting the endpoints should re-match with the still existing service
-	updateEndpointsCB(&svcCache, swgEps)
+	updateEndpointsCB(svcCache, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -301,7 +301,7 @@ func testServiceCache(c *check.C,
 
 	// Deleting the endpoints will not emit an event as the notification
 	// was sent out when the service was deleted.
-	deleteEndpointsCB(&svcCache, swgEps)
+	deleteEndpointsCB(svcCache, swgEps)
 	time.Sleep(100 * time.Millisecond)
 	select {
 	case <-svcCache.Events:

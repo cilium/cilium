@@ -1306,7 +1306,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		rules, policyImportErr := args.cnp.Parse()
 		c.Assert(policyImportErr, checker.DeepEquals, want.err)
 
-		policyImportErr = k8s.PreprocessRules(rules, &ds.d.k8sWatcher.K8sSvcCache)
+		policyImportErr = k8s.PreprocessRules(rules, ds.d.k8sWatcher.K8sSvcCache)
 		c.Assert(policyImportErr, IsNil)
 
 		// Only add policies if we have successfully parsed them. Otherwise, if

@@ -340,7 +340,7 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 
 	rules := api.Rules{&rule1}
 
-	err := PreprocessRules(rules, &cache)
+	err := PreprocessRules(rules, cache)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule1.Egress[0].ToCIDRSet), Equals, 1)

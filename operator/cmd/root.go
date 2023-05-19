@@ -488,7 +488,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 				if isETCDOperator {
 					scopedLog.Infof("%s running with service synchronization: automatic etcd service translation enabled", binaryName)
 
-					svcGetter := k8s.ServiceIPGetter(&operatorWatchers.K8sSvcCache)
+					svcGetter := k8s.ServiceIPGetter(operatorWatchers.K8sSvcCache)
 
 					name, namespace, err := kvstore.SplitK8sServiceURL(svcURL)
 					if err != nil {
@@ -519,7 +519,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 								scopedLog.Warnf("BUG: invalid k8s service: %s", slimSvcObj)
 							}
 							sc.UpdateService(slimSvc, nil)
-							svcGetter = operatorWatchers.NewServiceGetter(&sc)
+							svcGetter = operatorWatchers.NewServiceGetter(sc)
 						case k8sErrors.IsNotFound(err):
 							scopedLog.Error("Service not found in k8s")
 						default:

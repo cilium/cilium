@@ -41,7 +41,7 @@ func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(clusterSuffix, backe
 }
 
 type ClusterMeshServicesTestSuite struct {
-	svcCache   k8s.ServiceCache
+	svcCache   *k8s.ServiceCache
 	testDir    string
 	mesh       *ClusterMesh
 	randomName string
@@ -98,7 +98,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		ConfigDirectory:       dir,
 		NodeKeyCreator:        testNodeCreator,
 		nodeObserver:          &testObserver{},
-		ServiceMerger:         &s.svcCache,
+		ServiceMerger:         s.svcCache,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
 	})
