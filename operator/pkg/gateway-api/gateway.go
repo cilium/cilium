@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -151,7 +152,7 @@ func (r *gatewayReconciler) enqueueRequestForOwningHTTPRoute() handler.EventHand
 			return nil
 		}
 
-		return getReconcileRequestsForRoute(a, hr.Spec.CommonRouteSpec)
+		return getReconcileRequestsForRoute(context.Background(), r.Client, a, hr.Spec.CommonRouteSpec)
 	})
 }
 
@@ -164,20 +165,39 @@ func (r *gatewayReconciler) enqueueRequestForOwningTLSRoute() handler.EventHandl
 			return nil
 		}
 
-		return getReconcileRequestsForRoute(a, hr.Spec.CommonRouteSpec)
+		return getReconcileRequestsForRoute(context.Background(), r.Client, a, hr.Spec.CommonRouteSpec)
 	})
 }
 
-func getReconcileRequestsForRoute(object metav1.Object, route gatewayv1beta1.CommonRouteSpec) []reconcile.Request {
+func getReconcileRequestsForRoute(ctx context.Context, c client.Client, object metav1.Object, route gatewayv1beta1.CommonRouteSpec) []reconcile.Request {
 	var reqs []reconcile.Request
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.Controller: gateway,
-		logfields.Resource:   object.GetName(),
+		logfields.Resource: types.NamespacedName{
+			Namespace: object.GetNamespace(),
+			Name:      object.GetName(),
+		},
 	})
 
 	for _, parent := range route.ParentRefs {
 		if !IsGateway(parent) {
+			continue
+		}
+
+		gw := &gatewayv1beta1.Gateway{}
+		if err := c.Get(ctx, types.NamespacedName{
+			Namespace: namespaceDerefOr(parent.Namespace, object.GetNamespace()),
+			Name:      string(parent.Name),
+		}, gw); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				scopedLog.WithError(err).Error("Failed to get Gateway")
+			}
+			continue
+		}
+
+		if !hasMatchingController(ctx, c, controllerName)(gw) {
+			scopedLog.Debug("Gateway does not have matching controller, skipping")
 			continue
 		}
 
