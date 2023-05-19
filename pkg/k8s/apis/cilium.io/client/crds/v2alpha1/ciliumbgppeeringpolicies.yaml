@@ -132,6 +132,24 @@ spec:
                               whole second.
                             format: duration
                             type: string
+                          gracefulRestart:
+                            description: GracefulRestart defines graceful restart
+                              parameters which are negotiated with this neighbor.
+                            properties:
+                              enabled:
+                                description: Enabled flag, when set enables graceful
+                                  restart capability.
+                                type: boolean
+                              restartTime:
+                                description: "RestartTime is the estimated time it
+                                  will take for the BGP session to be re-established
+                                  with peer after a restart. After this period, peer
+                                  will remove stale routes. This is described RFC
+                                  4724 section 4.2. \n Default is 120s if empty or
+                                  zero. Rounded internally to the nearest whole second."
+                                format: duration
+                                type: string
+                            type: object
                           holdTime:
                             description: HoldTime defines the initial value for the
                               BGP HoldTimer (RFC 4271, Section 4.2). The default value

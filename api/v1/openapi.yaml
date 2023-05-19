@@ -3537,6 +3537,9 @@ definitions:
       uptime-nanoseconds:
         description: BGP peer connection uptime in nano seconds.
         type: integer
+      graceful-restart:
+        description: Graceful restart capability
+        "$ref": "#/definitions/BgpGracefulRestart"
       families:
         description: BGP peer address family state
         type: array
@@ -3585,4 +3588,21 @@ definitions:
         type: integer
       advertised:
         description: Number of routes advertised of this address family to the peer
+        type: integer
+  BgpGracefulRestart:
+    description: |-
+      BGP graceful restart parameters negotiated with the peer.
+
+      +k8s:deepcopy-gen=true
+    properties:
+      enabled:
+        description: |-
+          When set, graceful restart capability is negotiated for all AFI/SAFIs of 
+          this peer.
+        type: boolean
+      restart-time-seconds:
+        description: |-
+          This is the time advertised to peer for the BGP session to be re-established 
+          after a restart. After this period, peer will remove stale routes. 
+          (RFC 4724 section 4.2)
         type: integer

@@ -199,6 +199,23 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 		HoldTime:          uint64(n.HoldTime.Round(time.Second).Seconds()),
 		KeepaliveInterval: uint64(n.KeepAliveTime.Round(time.Second).Seconds()),
 	}
+
+	// populate graceful restart config
+	if peer.GracefulRestart == nil {
+		peer.GracefulRestart = &gobgp.GracefulRestart{}
+	}
+	peer.GracefulRestart.Enabled = n.GracefulRestart.Enabled
+	peer.GracefulRestart.RestartTime = uint32(n.GracefulRestart.RestartTime.Round(time.Second).Seconds())
+
+	for _, afiConf := range peer.AfiSafis {
+		if afiConf.MpGracefulRestart == nil {
+			afiConf.MpGracefulRestart = &gobgp.MpGracefulRestart{}
+		}
+		afiConf.MpGracefulRestart.Config = &gobgp.MpGracefulRestartConfig{
+			Enabled: n.GracefulRestart.Enabled,
+		}
+	}
+
 	return peer, nil
 }
 

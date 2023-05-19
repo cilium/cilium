@@ -362,3 +362,15 @@ func (m *BGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, err
 	}
 	return res, nil
 }
+
+// Stop cleans up all servers, should be called at shutdown
+func (m *BGPRouterManager) Stop() {
+	m.Lock()
+	defer m.Unlock()
+
+	for _, s := range m.Servers {
+		s.Server.Stop()
+	}
+
+	m.Servers = make(LocalASNMap)
+}

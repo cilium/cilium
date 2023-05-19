@@ -36,6 +36,7 @@ var _ agent.BGPRouterManager = (*MockBGPRouterManager)(nil)
 type MockBGPRouterManager struct {
 	ConfigurePeers_ func(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, cstate *agent.ControlPlaneState) error
 	GetPeers_       func(ctx context.Context) ([]*models.BgpPeer, error)
+	Stop_           func()
 }
 
 func (m *MockBGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, cstate *agent.ControlPlaneState) error {
@@ -44,4 +45,7 @@ func (m *MockBGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alp
 
 func (m *MockBGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, error) {
 	return m.GetPeers_(ctx)
+}
+func (m *MockBGPRouterManager) Stop() {
+	m.Stop_()
 }

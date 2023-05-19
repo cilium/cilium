@@ -218,6 +218,8 @@ func setup(ctx context.Context, peerConfigs []gobgpConfig, fixConfig fixtureConf
 			peer.stopGoBGP()
 		}
 
+		f.bgp.BGPMgr.Stop()
+
 		f.hive.Stop(ctx)
 		teardownLinks()
 	}
