@@ -297,10 +297,11 @@ func NewK8sWatcher(
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
 	sharedResources k8s.SharedResources,
+	serviceCache *k8s.ServiceCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		clientset:             clientset,
-		K8sSvcCache:           k8s.NewServiceCache(datapath.LocalNodeAddressing()),
+		K8sSvcCache:           serviceCache,
 		endpointManager:       endpointManager,
 		nodeDiscoverManager:   nodeDiscoverManager,
 		policyManager:         policyManager,
