@@ -938,7 +938,8 @@ skip_egress_gateway:
 }
 
 static __always_inline __maybe_unused int
-snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off)
+snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
+				    bool has_l4_header)
 {
 	struct ipv4_ct_tuple tuple = {};
 	struct ipv4_nat_entry *state;
@@ -946,8 +947,6 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off)
 	__u32 icmpoff = off + sizeof(struct icmphdr);
 	__be16 identifier;
 	__u8 type;
-	void *data, *data_end;
-	struct iphdr *ip4;
 	int ret;
 
 	/* According to the RFC 5508, any networking equipment that is
@@ -1007,9 +1006,6 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off)
 	if (IS_ERR(ret))
 		return ret;
 
-	if (!revalidate_data(ctx, &data, &data_end,
-			     &ip4))
-		return DROP_INVALID;
 	/* Switch back to the outer header. */
 	tuple.nexthdr = IPPROTO_ICMP;
 	/* Reset so no l4 NAT is done in snat_v4_rewrite_egress. We don't need
@@ -1017,7 +1013,7 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off)
 	 */
 	tuple.sport = state->to_sport;
 
-	return snat_v4_rewrite_egress(ctx, &tuple, state, off, ipv4_has_l4_header(ip4));
+	return snat_v4_rewrite_egress(ctx, &tuple, state, off, has_l4_header);
 }
 
 static __always_inline __maybe_unused int
@@ -1077,7 +1073,7 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target, __s8 *
 		case ICMP_DEST_UNREACH:
 			if (icmphdr.code != ICMP_FRAG_NEEDED)
 				return DROP_UNKNOWN_ICMP_CODE;
-			return snat_v4_nat_handle_icmp_frag_needed(ctx, off);
+			return snat_v4_nat_handle_icmp_frag_needed(ctx, off, has_l4_header);
 		default:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
@@ -1095,7 +1091,7 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target, __s8 *
 	if (ret < 0)
 		return ret;
 
-	return snat_v4_rewrite_egress(ctx, &tuple, state, off, ipv4_has_l4_header(ip4));
+	return snat_v4_rewrite_egress(ctx, &tuple, state, off, has_l4_header);
 }
 
 static __always_inline __maybe_unused int
