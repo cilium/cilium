@@ -89,7 +89,10 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to Gateways and enqueue TLSRoutes that reference them,
 		// only if there is a change in the spec
 		Watches(&source.Kind{Type: &gatewayv1beta1.Gateway{}}, r.enqueueRequestForGateway(),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(
+				predicate.GenerationChangedPredicate{},
+				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName)),
+			)).
 		Complete(r)
 }
 
