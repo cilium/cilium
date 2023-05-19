@@ -157,19 +157,19 @@ func toAny(pb proto.Message) *anypb.Any {
 }
 
 // StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) *XDSServer {
+func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) (*XDSServer, error) {
 	xdsSocketPath := getXDSSocketPath(envoySocketDir)
 
 	os.Remove(xdsSocketPath)
 	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsSocketPath, Net: "unix"})
 	if err != nil {
-		log.WithError(err).Fatalf("Envoy: Failed to open xDS listen socket at %s", xdsSocketPath)
+		return nil, fmt.Errorf("failed to open xDS listen socket at %s: %w", xdsSocketPath, err)
 	}
 
 	// Make the socket accessible by owner and group only. Group access is needed for Istio
 	// sidecar proxies.
 	if err = os.Chmod(xdsSocketPath, 0660); err != nil {
-		log.WithError(err).Fatalf("Envoy: Failed to change mode of xDS listen socket at %s", xdsSocketPath)
+		return nil, fmt.Errorf("failed to change mode of xDS listen socket at %s: %w", xdsSocketPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
 	if err = os.Chown(xdsSocketPath, -1, option.Config.ProxyGID); err != nil {
@@ -247,7 +247,7 @@ func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) *XDSServe
 		NetworkPolicyMutator:   npdsMutator,
 		networkPolicyEndpoints: make(map[string]endpoint.EndpointUpdater),
 		stopServer:             stopServer,
-	}
+	}, nil
 }
 
 func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
