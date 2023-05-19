@@ -74,8 +74,6 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
-	nodemanager "github.com/cilium/cilium/pkg/node/manager"
-	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
@@ -537,6 +535,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		policyUpdater:        params.PolicyUpdater,
 		egressGatewayManager: params.EgressGatewayManager,
 		cniConfigManager:     params.CNIConfigManager,
+		clustermesh:          params.ClusterMesh,
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -1180,8 +1179,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		// identity allocator to run asynchronously.
 		realIdentityAllocator := d.identityAllocator
 		realIdentityAllocator.InitIdentityAllocator(params.Clientset)
-
-		d.bootstrapClusterMesh(params.NodeManager)
 	}
 
 	// Must be done at least after initializing BPF LB-related maps
@@ -1277,33 +1274,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	return &d, restoredEndpoints, nil
-}
-
-func (d *Daemon) bootstrapClusterMesh(nodeMngr nodemanager.NodeManager) {
-	bootstrapStats.clusterMeshInit.Start()
-	if path := option.Config.ClusterMeshConfig; path != "" {
-		if option.Config.ClusterID == 0 {
-			log.Info("Cluster-ID is not specified, skipping ClusterMesh initialization")
-		} else {
-			log.WithField("path", path).Info("Initializing ClusterMesh routing")
-			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
-				Name:                  option.Config.ClusterName,
-				NodeName:              nodeTypes.GetName(),
-				ConfigDirectory:       path,
-				NodeKeyCreator:        nodeStore.KeyCreator,
-				ServiceMerger:         d.k8sWatcher.K8sSvcCache,
-				NodeManager:           nodeMngr,
-				RemoteIdentityWatcher: d.identityAllocator,
-				IPCache:               d.ipcache,
-			})
-			if err != nil {
-				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
-			}
-
-			d.clustermesh = clustermesh
-		}
-	}
-	bootstrapStats.clusterMeshInit.End(true)
 }
 
 // ReloadOnDeviceChange regenerates device related information and reloads the datapath.

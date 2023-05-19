@@ -13,9 +13,11 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -93,32 +95,26 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		Context: ctx,
 	})
 	defer ipc.Shutdown()
-	cm, err := NewClusterMesh(Configuration{
-		Name:                  "test2",
-		ConfigDirectory:       dir,
+
+	s.mesh = NewClusterMesh(hivetest.Lifecycle(c), Configuration{
+		Config: Config{ClusterMeshConfig: dir},
+
+		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
 		NodeKeyCreator:        testNodeCreator,
-		nodeObserver:          &testObserver{},
+		NodeObserver:          &testObserver{},
 		ServiceMerger:         s.svcCache,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
 	})
-	c.Assert(err, IsNil)
-	c.Assert(cm, Not(IsNil))
-
-	s.mesh = cm
+	c.Assert(s.mesh, Not(IsNil))
 
 	// wait for both clusters to appear in the list of cm clusters
 	c.Assert(testutils.WaitUntil(func() bool {
-		return cm.NumReadyClusters() == 2
+		return s.mesh.NumReadyClusters() == 2
 	}, 10*time.Second), IsNil)
 }
 
 func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
-	if s.mesh != nil {
-		s.mesh.Close()
-		s.mesh.conf.RemoteIdentityWatcher.Close()
-	}
-
 	os.RemoveAll(s.testDir)
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
 	kvstore.Client().Close(context.TODO())

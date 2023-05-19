@@ -14,7 +14,9 @@ import (
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -138,15 +140,16 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		Context: ctx,
 	})
 	defer ipc.Shutdown()
-	cm, err := NewClusterMesh(Configuration{
-		Name:                  "test2",
-		ConfigDirectory:       dir,
+
+	cm := NewClusterMesh(hivetest.Lifecycle(c), Configuration{
+		Config: Config{ClusterMeshConfig: dir},
+
+		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
 		NodeKeyCreator:        testNodeCreator,
-		nodeObserver:          &testObserver{},
+		NodeObserver:          &testObserver{},
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
 	})
-	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
 
 	nodeNames := []string{"foo", "bar", "baz"}
@@ -202,6 +205,4 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		defer nodesMutex.RUnlock()
 		return len(nodes) == 0
 	}, 10*time.Second), IsNil)
-
-	cm.Close()
 }

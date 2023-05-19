@@ -23,6 +23,8 @@ type backendOption struct {
 
 type backendOptions map[string]*backendOption
 
+type ClusterSizeDependantIntervalFunc func(baseInterval time.Duration) time.Duration
+
 // ExtraOptions represents any options that can not be represented in a textual
 // format and need to be set programmatically.
 type ExtraOptions struct {
@@ -30,7 +32,7 @@ type ExtraOptions struct {
 
 	// ClusterSizeDependantInterval defines the function to calculate
 	// intervals based on cluster size
-	ClusterSizeDependantInterval func(baseInterval time.Duration) time.Duration
+	ClusterSizeDependantInterval ClusterSizeDependantIntervalFunc
 
 	// NoLockQuorumCheck disables the lock acquisition quorum check
 	NoLockQuorumCheck bool
