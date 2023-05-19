@@ -119,33 +119,32 @@ func (def config) Flags(flags *pflag.FlagSet) {
 }
 
 // GlobalUserMgmtClientPromiseCell provides a promise returning the global kvstore client to perform users
-// management operations, once it has been initialized. Note: client initialization must be handled separately.
+// management operations, once it has been initialized.
 var GlobalUserMgmtClientPromiseCell = cell.Module(
 	"global-kvstore-users-client",
 	"Global KVStore Users Management Client Promise",
 
-	cell.Provide(func(lc hive.Lifecycle) promise.Promise[BackendOperationsUserMgmt] {
+	cell.Provide(func(lc hive.Lifecycle, backendPromise promise.Promise[BackendOperations]) promise.Promise[BackendOperationsUserMgmt] {
 		resolver, promise := promise.New[BackendOperationsUserMgmt]()
-		stop := make(chan struct{})
+		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
 
 		lc.Append(hive.Hook{
 			OnStart: func(hive.HookContext) error {
 				wg.Add(1)
 				go func() {
-					select {
-					case <-defaultClientSet:
-						resolver.Resolve(defaultClient)
-					case <-stop:
-						resolver.Reject(errors.New("stopping"))
+					backend, err := backendPromise.Await(ctx)
+					if err != nil {
+						resolver.Reject(err)
+					} else {
+						resolver.Resolve(backend)
 					}
-
 					wg.Done()
 				}()
 				return nil
 			},
 			OnStop: func(hive.HookContext) error {
-				close(stop)
+				cancel()
 				wg.Wait()
 				return nil
 			},
