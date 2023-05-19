@@ -622,7 +622,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	d.endpointManager = params.EndpointManager
 
-	// Start service support after proxy support so that we can inject 'd.l7Proxy`.
 	d.svc = service.NewService(&d, d.l7Proxy, d.datapath.LBMap())
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
