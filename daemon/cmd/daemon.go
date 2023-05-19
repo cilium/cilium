@@ -692,16 +692,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 	if option.Config.EnableServiceTopology {
-		d.k8sWatcher.RegisterNodeSubscriber(&d.k8sWatcher.K8sSvcCache)
+		d.k8sWatcher.RegisterNodeSubscriber(d.k8sWatcher.K8sSvcCache)
 	}
 
 	// watchers.NewCiliumNodeUpdater needs to be registered *after* d.endpointManager
 	d.k8sWatcher.RegisterNodeSubscriber(watchers.NewCiliumNodeUpdater(d.nodeDiscovery))
 
-	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+	d.redirectPolicyManager.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
 	if option.Config.BGPAnnounceLBIP {
-		d.bgpSpeaker.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+		d.bgpSpeaker.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 	}
 
 	bootstrapStats.daemonInit.End(true)
@@ -768,7 +768,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bootstrapStats.restore.End(true)
 	}
 
-	debug.RegisterStatusObject("k8s-service-cache", &d.k8sWatcher.K8sSvcCache)
+	debug.RegisterStatusObject("k8s-service-cache", d.k8sWatcher.K8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
 	debug.RegisterStatusObject("ongoing-endpoint-creations", d.endpointCreations)
 
@@ -1102,7 +1102,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.nodeDiscovery.JoinCluster(nodeTypes.GetName())
 
 		// Start services watcher
-		serviceStore.JoinClusterServices(&d.k8sWatcher.K8sSvcCache, option.Config)
+		serviceStore.JoinClusterServices(d.k8sWatcher.K8sSvcCache, option.Config)
 	}
 
 	// Start IPAM
@@ -1292,7 +1292,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr nodemanager.NodeManager) {
 				NodeName:              nodeTypes.GetName(),
 				ConfigDirectory:       path,
 				NodeKeyCreator:        nodeStore.KeyCreator,
-				ServiceMerger:         &d.k8sWatcher.K8sSvcCache,
+				ServiceMerger:         d.k8sWatcher.K8sSvcCache,
 				NodeManager:           nodeMngr,
 				RemoteIdentityWatcher: d.identityAllocator,
 				IPCache:               d.ipcache,

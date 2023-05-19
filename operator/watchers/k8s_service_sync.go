@@ -371,7 +371,7 @@ type ServiceGetter struct {
 func NewServiceGetter(sc *k8s.ServiceCache) *ServiceGetter {
 	return &ServiceGetter{
 		shortCutK8sCache: sc,
-		k8sCache:         &K8sSvcCache,
+		k8sCache:         K8sSvcCache,
 	}
 }
 

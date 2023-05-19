@@ -95,8 +95,8 @@ type ServiceCache struct {
 }
 
 // NewServiceCache returns a new ServiceCache
-func NewServiceCache(nodeAddressing types.NodeAddressing) ServiceCache {
-	return ServiceCache{
+func NewServiceCache(nodeAddressing types.NodeAddressing) *ServiceCache {
+	return &ServiceCache{
 		services:          map[ServiceID]*Service{},
 		endpoints:         map[ServiceID]*EndpointSlices{},
 		externalEndpoints: map[ServiceID]externalEndpoints{},
