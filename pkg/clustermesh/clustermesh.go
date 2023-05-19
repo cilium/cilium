@@ -14,16 +14,17 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
-	nodemanager "github.com/cilium/cilium/pkg/node/manager"
-	nodeStore "github.com/cilium/cilium/pkg/node/store"
-	"github.com/cilium/cilium/pkg/option"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
 const (
@@ -37,15 +38,12 @@ const (
 // Configuration is the configuration that must be provided to
 // NewClusterMesh()
 type Configuration struct {
-	// Name is the name of the local cluster. This is used for logging and metrics
-	Name string
+	cell.In
 
-	// NodeName is the name of the local node. This is used for logging and metrics
-	NodeName string
+	Config
 
-	// ConfigDirectory is the path to the directory that will be watched for etcd
-	// configuration files to appear
-	ConfigDirectory string
+	// ClusterIDName is the id/name of the local cluster. This is used for logging and metrics
+	types.ClusterIDName
 
 	// NodeKeyCreator is the function used to create node instances as
 	// nodes are being discovered in remote clusters
@@ -55,17 +53,17 @@ type Configuration struct {
 	// endpoints into an existing cache
 	ServiceMerger ServiceMerger
 
-	// NodeManager is the node manager to manage all discovered remote
-	// nodes
-	NodeManager nodemanager.NodeManager
-
-	nodeObserver store.Observer
+	// NodeObserver reacts to node events.
+	NodeObserver store.Observer
 
 	// RemoteIdentityWatcher provides identities that have been allocated on a
 	// remote cluster.
 	RemoteIdentityWatcher RemoteIdentityWatcher
 
 	IPCache ipcache.IPCacher
+
+	// ClusterSizeDependantInterval allows to calculate intervals based on cluster size.
+	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc `optional:"true"`
 }
 
 func SetClusterConfig(clusterName string, config *cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
@@ -125,15 +123,6 @@ type RemoteIdentityWatcher interface {
 	Close()
 }
 
-// NodeObserver returns the node store observer of the configuration
-func (c *Configuration) NodeObserver() store.Observer {
-	if c.nodeObserver != nil {
-		return c.nodeObserver
-	}
-
-	return nodeStore.NewNodeObserver(c.NodeManager)
-}
-
 // ClusterMesh is a cache of multiple remote clusters
 type ClusterMesh struct {
 	// conf is the configuration, it is immutable after NewClusterMesh()
@@ -141,14 +130,14 @@ type ClusterMesh struct {
 
 	mutex         lock.RWMutex
 	clusters      map[string]*remoteCluster
-	controllers   *controller.Manager
 	configWatcher *configDirectoryWatcher
-
-	ipcache ipcache.IPCacher
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
 	globalServices *globalServiceCache
+
+	// nodeName is the name of the local node. This is used for logging and metrics
+	nodeName string
 
 	// metricTotalRemoteClusters is gauge metric keeping track of total number
 	// of remote clusters.
@@ -169,12 +158,22 @@ type ClusterMesh struct {
 
 // NewClusterMesh creates a new remote cluster cache based on the
 // provided configuration
-func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
+func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
+	if c.ClusterID == 0 {
+		return nil
+	}
+
+	if c.ClusterMeshConfig == "" {
+		return nil
+	}
+
+	nodeName := nodeTypes.GetName()
 	cm := &ClusterMesh{
 		conf:           c,
 		clusters:       map[string]*remoteCluster{},
-		controllers:    controller.NewManager(),
-		globalServices: newGlobalServiceCache(c.Name, c.NodeName),
+		globalServices: newGlobalServiceCache(c.ClusterName, nodeName),
+		nodeName:       nodeName,
+
 		metricTotalRemoteClusters: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: subsystem,
@@ -209,18 +208,22 @@ func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
 			Name:      "remote_cluster_nodes",
 			Help:      "The total number of nodes in the remote cluster",
 		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
-		ipcache: c.IPCache,
 	}
 
-	w, err := createConfigDirectoryWatcher(c.ConfigDirectory, cm)
+	lifecycle.Append(cm)
+	return cm
+}
+
+func (cm *ClusterMesh) Start(hive.HookContext) error {
+	w, err := createConfigDirectoryWatcher(cm.conf.ClusterMeshConfig, cm)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create config directory watcher: %s", err)
+		return fmt.Errorf("unable to create config directory watcher: %w", err)
 	}
 
 	cm.configWatcher = w
 
 	if err := cm.configWatcher.watch(); err != nil {
-		return nil, err
+		return fmt.Errorf("unable to start config directory watcher: %w", err)
 	}
 
 	_ = metrics.RegisterList([]prometheus.Collector{
@@ -230,12 +233,13 @@ func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
 		cm.metricTotalFailures,
 		cm.metricTotalNodes,
 	})
-	return cm, nil
+
+	return nil
 }
 
 // Close stops watching for remote cluster configuration files to appear and
 // will close all connections to remote clusters
-func (cm *ClusterMesh) Close() {
+func (cm *ClusterMesh) Stop(hive.HookContext) error {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -247,12 +251,14 @@ func (cm *ClusterMesh) Close() {
 		cluster.onRemove()
 		delete(cm.clusters, name)
 	}
-	cm.controllers.RemoveAllAndWait()
+
 	metrics.Unregister(cm.metricTotalRemoteClusters)
 	metrics.Unregister(cm.metricLastFailureTimestamp)
 	metrics.Unregister(cm.metricReadinessStatus)
 	metrics.Unregister(cm.metricTotalFailures)
 	metrics.Unregister(cm.metricTotalNodes)
+
+	return nil
 }
 
 func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
@@ -269,7 +275,7 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 }
 
 func (cm *ClusterMesh) add(name, path string) {
-	if name == option.Config.ClusterName {
+	if name == cm.conf.ClusterName {
 		log.WithField(fieldClusterName, name).Debug("Ignoring configuration for own cluster")
 		return
 	}
@@ -283,7 +289,7 @@ func (cm *ClusterMesh) add(name, path string) {
 		inserted = true
 	}
 
-	cm.metricTotalRemoteClusters.WithLabelValues(cm.conf.Name, cm.conf.NodeName).Set(float64(len(cm.clusters)))
+	cm.metricTotalRemoteClusters.WithLabelValues(cm.conf.ClusterName, cm.nodeName).Set(float64(len(cm.clusters)))
 	cm.mutex.Unlock()
 
 	log.WithField(fieldClusterName, name).Debug("Remote cluster configuration added")
@@ -301,7 +307,7 @@ func (cm *ClusterMesh) remove(name string) {
 	if cluster, ok := cm.clusters[name]; ok {
 		cluster.onRemove()
 		delete(cm.clusters, name)
-		cm.metricTotalRemoteClusters.WithLabelValues(cm.conf.Name, cm.conf.NodeName).Set(float64(len(cm.clusters)))
+		cm.metricTotalRemoteClusters.WithLabelValues(cm.conf.ClusterName, cm.nodeName).Set(float64(len(cm.clusters)))
 		cm.globalServices.onClusterDelete(name)
 	}
 	cm.mutex.Unlock()

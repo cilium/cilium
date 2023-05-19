@@ -12,6 +12,7 @@ cilium-agent hive [flags]
 
 ```
       --certificates-directory string                    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
+      --clustermesh-config string                        Path to the ClusterMesh configuration directory
       --cni-chaining-mode string                         Enable CNI chaining with the specified plugin (default "none")
       --cni-chaining-target string                       CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.
       --cni-exclusive                                    Whether to remove other CNI configurations

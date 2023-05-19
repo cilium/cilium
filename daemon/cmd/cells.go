@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
@@ -113,5 +114,8 @@ var (
 
 		// ServiceCache holds the list of known services correlated with the matching endpoints.
 		cell.Provide(func(dp dptypes.Datapath) *k8s.ServiceCache { return k8s.NewServiceCache(dp.LocalNodeAddressing()) }),
+
+		// ClusterMesh is the Cilium's multicluster implementation.
+		clustermesh.Cell,
 	)
 )

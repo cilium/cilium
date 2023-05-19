@@ -4,7 +4,6 @@
 package clustermesh
 
 import (
-	"context"
 	"crypto/sha256"
 	"os"
 	"path"
@@ -12,7 +11,8 @@ import (
 
 	. "github.com/cilium/checkmate"
 
-	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -97,21 +97,11 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	// Create an indirect link, as in case of Kubernetes COnfigMaps/Secret mounted inside pods.
 	c.Assert(os.Symlink(path.Join(dataDir, "cluster2"), file2), IsNil)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ipc := ipcache.NewIPCache(&ipcache.Configuration{
-		Context: ctx,
+	cm := NewClusterMesh(hivetest.Lifecycle(c), Configuration{
+		Config:        Config{ClusterMeshConfig: baseDir},
+		ClusterIDName: types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
 	})
-	defer ipc.Shutdown()
-	cm, err := NewClusterMesh(Configuration{
-		Name:            "test1",
-		ConfigDirectory: baseDir,
-		NodeKeyCreator:  testNodeCreator,
-		IPCache:         ipc,
-	})
-	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
-	defer cm.Close()
 
 	// wait for cluster1 and cluster2 to appear
 	c.Assert(testutils.WaitUntil(func() bool {
