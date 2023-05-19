@@ -1033,7 +1033,7 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target, __s8 *
 		__be16 dport;
 	} l4hdr;
 	bool icmp_echoreply = false;
-	bool has_l4_header = true;
+	bool has_l4_header;
 	int ct_action = ACTION_UNSPEC;
 	__u64 off;
 	int ret;
@@ -1044,6 +1044,7 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target, __s8 *
 		return DROP_INVALID;
 
 	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
+	has_l4_header = ipv4_has_l4_header(ip4);
 
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
@@ -1185,7 +1186,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target, __
 		__be16 sport;
 		__be16 dport;
 	} l4hdr;
-	bool has_l4_header = true;
+	bool has_l4_header;
 	int ct_action = ACTION_UNSPEC;
 	__u64 off;
 	int ret;
@@ -1196,6 +1197,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target, __
 		return DROP_INVALID;
 
 	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &tuple);
+	has_l4_header = ipv4_has_l4_header(ip4);
 
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
