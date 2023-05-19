@@ -27,7 +27,11 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/k8s"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
@@ -507,5 +511,65 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 	}
 
+	return nil
+}
+
+// OnUpdateCiliumNode is only called if running with IPAM ENI and IPsec. In
+// that case, we need to rerun reinitializeIPSec whenever new ENIs are added to
+// the local node, to attach our BPF program for IPsec decryption to the new
+// interfaces.
+func (l *Loader) OnUpdateCiliumNode(oldNode, newNode *ciliumv2.CiliumNode, _ *lock.StoppableWaitGroup) error {
+	if !k8s.IsLocalCiliumNode(newNode) {
+		return nil
+	}
+
+	log.Debug("Checking for new ENIs on local node")
+
+	newENIs := make([]string, 0)
+	for newENI := range newNode.Status.ENI.ENIs {
+		existed := false
+		for oldENI := range oldNode.Status.ENI.ENIs {
+			if newENI == oldENI {
+				existed = true
+				break
+			}
+		}
+		if !existed {
+			newENIs = append(newENIs, newENI)
+		}
+	}
+
+	if len(newENIs) == 0 {
+		return nil
+	}
+
+	// ... and we can then trigger loading of BPF programs to those interfaces.
+	log.WithField(logfields.NewENIs, newENIs).Info("New ENIs detected")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// If we have any new ENIs, we first need to wait for the corresponding
+	// interfaces to show up...
+	missingENIByMac, err := ipam.WaitForENIInterfaces(oldNode, newNode)
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.MissingENIs: missingENIByMac,
+		}).Error("Failed while waiting for ENIs to be attached")
+		return err
+	}
+
+	return l.reinitializeIPSec(ctx)
+}
+
+// OnAddCiliumNode doesn't need to perform anything contrary to
+// OnUpdateCiliumNode because we are not interested in new remote nodes.
+func (l *Loader) OnAddCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
+	return nil
+}
+
+// OnDeleteCiliumNode doesn't need to perform anything contrary to
+// OnUpdateCiliumNode because we are not interested in remote nodes.
+func (l *Loader) OnDeleteCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
 	return nil
 }

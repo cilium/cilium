@@ -614,6 +614,9 @@ const (
 	// MissingENIs are the ENIs that we expected to be available but were not found.
 	MissingENIs = "missingENIs"
 
+	// NewENIs are ENIs that have been added to the CiliumNode.
+	NewENIs = "newENIs"
+
 	// Hint helps nudge the user in the right direction when troubleshooting.
 	Hint = "hint"
 

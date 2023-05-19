@@ -1187,6 +1187,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, restoredEndpoints, fmt.Errorf("error while initializing daemon: %w", err)
 	}
 
+	// Register the datapath loader as a CiliumNode subscriber if running IPsec
+	// and ENI mode so that we can attach the IPsec BPF program on new ENIs as
+	// they are added.
+	if option.Config.EnableIPSec && option.Config.IPAM == ipamOption.IPAMENI {
+		d.k8sWatcher.RegisterCiliumNodeSubscriber(d.Datapath().Loader())
+	}
+
 	// iptables rules can be updated only after d.init() intializes the iptables above.
 	err = d.updateDNSDatapathRules(d.ctx)
 	if err != nil {

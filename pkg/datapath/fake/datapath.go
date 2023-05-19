@@ -9,6 +9,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
@@ -143,5 +145,17 @@ func (f *fakeLoader) CustomCallsMapPath(id uint16) string {
 
 // Reinitialize does nothing.
 func (f *fakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+	return nil
+}
+
+func (f *fakeLoader) OnUpdateCiliumNode(oldNode, newNode *ciliumv2.CiliumNode, _ *lock.StoppableWaitGroup) error {
+	return nil
+}
+
+func (f *fakeLoader) OnAddCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
+	return nil
+}
+
+func (f *fakeLoader) OnDeleteCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
 	return nil
 }

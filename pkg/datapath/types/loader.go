@@ -9,6 +9,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -22,6 +23,9 @@ type Loader interface {
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
 	Reinitialize(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr IptablesManager, p Proxy) error
+	OnUpdateCiliumNode(oldNode, newNode *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error
+	OnAddCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error
+	OnDeleteCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error
 }
 
 // BaseProgramOwner is any type for which a loader is building base programs.
