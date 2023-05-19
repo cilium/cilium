@@ -35,6 +35,7 @@ type kprConfig struct {
 	routingMode    string
 	tunnelProtocol string
 	nodePortMode   string
+	dispatchMode   string
 }
 
 func (cfg *kprConfig) set() {
@@ -52,6 +53,7 @@ func (cfg *kprConfig) set() {
 	option.Config.EnableSocketLBTracing = true
 	option.Config.RoutingMode = cfg.routingMode
 	option.Config.TunnelProtocol = cfg.tunnelProtocol
+	option.Config.LoadBalancerDSRDispatch = cfg.dispatchMode
 
 	if cfg.nodePortMode == option.NodePortModeDSR || cfg.nodePortMode == option.NodePortModeHybrid {
 		option.Config.NodePortMode = cfg.nodePortMode
@@ -232,6 +234,129 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.routingMode = option.RoutingModeTunnel
 				cfg.tunnelProtocol = option.TunnelVXLAN
 				cfg.nodePortMode = option.NodePortModeDSR
+				cfg.dispatchMode = option.DSRDispatchOption
+			},
+			kprConfig{
+				expectedErrorRegex:      "Node Port .+ mode cannot be used with .+ tunneling.",
+				enableSocketLB:          true,
+				enableNodePort:          true,
+				enableHostPort:          true,
+				enableExternalIPs:       true,
+				enableSessionAffinity:   true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+			},
+		},
+
+		// Node port DSR mode + Geneve dispatch + native routing
+		{
+			"node-port-dsr-mode+geneve-dispatch+native-routing",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
+				cfg.routingMode = option.RoutingModeNative
+				cfg.nodePortMode = option.NodePortModeDSR
+				cfg.dispatchMode = option.DSRDispatchGeneve
+			},
+			kprConfig{
+				enableSocketLB:          true,
+				enableNodePort:          true,
+				enableHostPort:          true,
+				enableExternalIPs:       true,
+				enableSessionAffinity:   true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+			},
+		},
+		// Node port DSR mode + Geneve dispatch + geneve routing
+		{
+			"node-port-dsr-mode+geneve-dispatch+geneve-routing",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
+				cfg.routingMode = option.RoutingModeTunnel
+				cfg.tunnelProtocol = option.TunnelGeneve
+				cfg.nodePortMode = option.NodePortModeDSR
+				cfg.dispatchMode = option.DSRDispatchGeneve
+			},
+			kprConfig{
+				enableSocketLB:          true,
+				enableNodePort:          true,
+				enableHostPort:          true,
+				enableExternalIPs:       true,
+				enableSessionAffinity:   true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+			},
+		},
+		// Node port DSR mode + Geneve dispatch + vxlan routing: error as they're incompatible
+		{
+			"node-port-dsr-mode+geneve-dispatch+vxlan-routing",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
+				cfg.routingMode = option.RoutingModeTunnel
+				cfg.tunnelProtocol = option.TunnelVXLAN
+				cfg.nodePortMode = option.NodePortModeDSR
+				cfg.dispatchMode = option.DSRDispatchGeneve
+			},
+			kprConfig{
+				expectedErrorRegex:      "Node Port .+ mode cannot be used with .+ tunneling.",
+				enableSocketLB:          true,
+				enableNodePort:          true,
+				enableHostPort:          true,
+				enableExternalIPs:       true,
+				enableSessionAffinity:   true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+			},
+		},
+
+		// Node port Hybrid mode + Geneve dispatch + native routing
+		{
+			"node-port-hybrid-mode+geneve-dispatch+native-routing",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
+				cfg.routingMode = option.RoutingModeNative
+				cfg.nodePortMode = option.NodePortModeHybrid
+				cfg.dispatchMode = option.DSRDispatchGeneve
+			},
+			kprConfig{
+				enableSocketLB:          true,
+				enableNodePort:          true,
+				enableHostPort:          true,
+				enableExternalIPs:       true,
+				enableSessionAffinity:   true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+			},
+		},
+		// Node port Hybrid mode + Geneve dispatch + geneve routing
+		{
+			"node-port-hybrid-mode+geneve-dispatch+geneve-routing",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
+				cfg.routingMode = option.RoutingModeTunnel
+				cfg.tunnelProtocol = option.TunnelGeneve
+				cfg.nodePortMode = option.NodePortModeHybrid
+				cfg.dispatchMode = option.DSRDispatchGeneve
+			},
+			kprConfig{
+				enableSocketLB:          true,
+				enableNodePort:          true,
+				enableHostPort:          true,
+				enableExternalIPs:       true,
+				enableSessionAffinity:   true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+			},
+		},
+		// Node port Hybrid mode + Geneve dispatch + vxlan routing: error as they're incompatible
+		{
+			"node-port-hybrid-mode+geneve-dispatch+vxlan-routing",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
+				cfg.routingMode = option.RoutingModeTunnel
+				cfg.tunnelProtocol = option.TunnelVXLAN
+				cfg.nodePortMode = option.NodePortModeHybrid
+				cfg.dispatchMode = option.DSRDispatchGeneve
 			},
 			kprConfig{
 				expectedErrorRegex:      "Node Port .+ mode cannot be used with .+ tunneling.",
