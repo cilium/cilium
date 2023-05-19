@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -79,6 +80,7 @@ type policyOut struct {
 
 	IdentityAllocator      CachingIdentityAllocator
 	CacheIdentityAllocator cache.IdentityAllocator
+	RemoteIdentityWatcher  clustermesh.RemoteIdentityWatcher
 	Repository             *policy.Repository
 	Updater                *policy.Updater
 	IPCache                *ipcache.IPCache
@@ -142,6 +144,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	return policyOut{
 		IdentityAllocator:      idAlloc,
 		CacheIdentityAllocator: idAlloc,
+		RemoteIdentityWatcher:  idAlloc,
 		Repository:             iao.policy,
 		Updater:                policyUpdater,
 		IPCache:                ipc,
