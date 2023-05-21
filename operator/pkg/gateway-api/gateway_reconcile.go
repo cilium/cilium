@@ -143,14 +143,16 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return fail(err)
 	}
 
+	setGatewayReady(gw, true, "Gateway successfully configured")
+
 	// Step 4: Update the status of the Gateway
 	if err = r.setAddressStatus(ctx, gw); err != nil {
 		scopedLog.WithError(err).Error("Address is not ready")
-		setGatewayReady(gw, false, "Address is not ready")
+		setGatewayProgrammed(gw, false, "Address is not ready")
 		return fail(err)
 	}
 
-	setGatewayReady(gw, true, "Gateway successfully reconciled")
+	setGatewayProgrammed(gw, true, "Gateway successfully reconciled")
 	scopedLog.Info("Successfully reconciled Gateway")
 	return success()
 }

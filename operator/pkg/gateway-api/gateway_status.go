@@ -16,6 +16,12 @@ func setGatewayAccepted(gw *gatewayv1beta1.Gateway, accepted bool, msg string) *
 	return gw
 }
 
+// setGatewayProgrammed inserts or updates the Programmed condition for the provided Gateway resource.
+func setGatewayProgrammed(gw *gatewayv1beta1.Gateway, ready bool, msg string) *gatewayv1beta1.Gateway {
+	gw.Status.Conditions = merge(gw.Status.Conditions, gatewayStatusProgrammedCondition(gw, ready, msg))
+	return gw
+}
+
 // setGatewayReady inserts or updates the Ready condition for the provided Gateway resource.
 func setGatewayReady(gw *gatewayv1beta1.Gateway, ready bool, msg string) *gatewayv1beta1.Gateway {
 	gw.Status.Conditions = merge(gw.Status.Conditions, gatewayStatusReadyCondition(gw, ready, msg))
@@ -38,6 +44,29 @@ func gatewayStatusAcceptedCondition(gw *gatewayv1beta1.Gateway, accepted bool, m
 			Type:               string(gatewayv1beta1.GatewayConditionAccepted),
 			Status:             metav1.ConditionFalse,
 			Reason:             string(gatewayv1beta1.GatewayReasonNoResources),
+			Message:            msg,
+			ObservedGeneration: gw.GetGeneration(),
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+	}
+}
+
+func gatewayStatusProgrammedCondition(gw *gatewayv1beta1.Gateway, scheduled bool, msg string) metav1.Condition {
+	switch scheduled {
+	case true:
+		return metav1.Condition{
+			Type:               string(gatewayv1beta1.GatewayConditionProgrammed),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gatewayv1beta1.GatewayReasonProgrammed),
+			Message:            msg,
+			ObservedGeneration: gw.GetGeneration(),
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+	default:
+		return metav1.Condition{
+			Type:               string(gatewayv1beta1.GatewayConditionProgrammed),
+			Status:             metav1.ConditionFalse,
+			Reason:             string(gatewayv1beta1.GatewayReasonListenersNotReady),
 			Message:            msg,
 			ObservedGeneration: gw.GetGeneration(),
 			LastTransitionTime: metav1.NewTime(time.Now()),
