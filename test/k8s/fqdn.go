@@ -28,7 +28,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sFQDNTest", func() {
 		// The IPs are updated in BeforeAll
 		worldTarget          = "vagrant-cache.ci.cilium.io"
 		worldTargetIP        = "147.75.38.95"
-		worldInvalidTarget   = "jenkins.cilium.io"
+		worldInvalidTarget   = "cilium.io"
 		worldInvalidTargetIP = "104.198.14.52"
 	)
 
