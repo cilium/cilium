@@ -63,13 +63,20 @@ type TimeoutConfig struct {
 	// Max value for conformant implementation: 30 seconds
 	MaxTimeToConsistency time.Duration
 
-	// NamespacesMustBeReady represents the maximum time for all Pods and Gateways in a namespaces to be marked as ready.
+	// NamespacesMustBeReady represents the maximum time for the following to happen within
+	// specified namespace(s):
+	// * All Pods to be marked as "Ready"
+	// * All Gateways to be marked as "Accepted" and "Programmed"
 	// Max value for conformant implementation: None
 	NamespacesMustBeReady time.Duration
 
 	// RequestTimeout represents the maximum time for making an HTTP Request with the roundtripper.
 	// Max value for conformant implementation: None
 	RequestTimeout time.Duration
+
+	// LatestObservedGenerationSet represents the maximum time for an ObservedGeneration to bump.
+	// Max value for conformant implementation: None
+	LatestObservedGenerationSet time.Duration
 
 	// RequiredConsecutiveSuccesses is the number of requests that must succeed in a row
 	// to consider a response "consistent" before making additional assertions on the response body.
@@ -93,6 +100,7 @@ func DefaultTimeoutConfig() TimeoutConfig {
 		MaxTimeToConsistency:           30 * time.Second,
 		NamespacesMustBeReady:          300 * time.Second,
 		RequestTimeout:                 10 * time.Second,
+		LatestObservedGenerationSet:    60 * time.Second,
 		RequiredConsecutiveSuccesses:   3,
 	}
 }
@@ -137,5 +145,8 @@ func SetupTimeoutConfig(timeoutConfig *TimeoutConfig) {
 	}
 	if timeoutConfig.RequestTimeout == 0 {
 		timeoutConfig.RequestTimeout = defaultTimeoutConfig.RequestTimeout
+	}
+	if timeoutConfig.LatestObservedGenerationSet == 0 {
+		timeoutConfig.LatestObservedGenerationSet = defaultTimeoutConfig.LatestObservedGenerationSet
 	}
 }

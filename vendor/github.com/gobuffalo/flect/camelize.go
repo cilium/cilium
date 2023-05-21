@@ -22,10 +22,6 @@ func (i Ident) Camelize() Ident {
 	for i, part := range i.Parts {
 		var x string
 		var capped bool
-		if strings.ToLower(part) == "id" {
-			out = append(out, "ID")
-			continue
-		}
 		for _, c := range part {
 			if unicode.IsLetter(c) || unicode.IsDigit(c) {
 				if i == 0 {

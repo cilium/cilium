@@ -53,7 +53,7 @@ type SecretObjectReference struct {
 	// +kubebuilder:default=""
 	Group *Group `json:"group"`
 
-	// Kind is kind of the referent. For example "HTTPRoute" or "Service".
+	// Kind is kind of the referent. For example "Secret".
 	//
 	// +optional
 	// +kubebuilder:default=Secret
@@ -99,8 +99,20 @@ type BackendObjectReference struct {
 	// +kubebuilder:default=""
 	Group *Group `json:"group,omitempty"`
 
-	// Kind is kind of the referent. For example "HTTPRoute" or "Service".
+	// Kind is the Kubernetes resource kind of the referent. For example
+	// "Service".
+	//
 	// Defaults to "Service" when not specified.
+	//
+	// ExternalName services can refer to CNAME DNS records that may live
+	// outside of the cluster and as such are difficult to reason about in
+	// terms of conformance. They also may not be safe to forward to (see
+	// CVE-2021-25740 for more information). Implementations SHOULD NOT
+	// support ExternalName Services.
+	//
+	// Support: Core (Services with a type other than ExternalName)
+	//
+	// Support: Implementation-specific (Services with type ExternalName)
 	//
 	// +optional
 	// +kubebuilder:default=Service

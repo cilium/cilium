@@ -377,14 +377,14 @@ func toQueryMatch(match gatewayv1beta1.HTTPRouteMatch) []model.KeyValueMatch {
 		switch t {
 		case gatewayv1beta1.QueryParamMatchExact:
 			res = append(res, model.KeyValueMatch{
-				Key: h.Name,
+				Key: string(h.Name),
 				Match: model.StringMatch{
 					Exact: h.Value,
 				},
 			})
 		case gatewayv1beta1.QueryParamMatchRegularExpression:
 			res = append(res, model.KeyValueMatch{
-				Key: h.Name,
+				Key: string(h.Name),
 				Match: model.StringMatch{
 					Regex: h.Value,
 				},

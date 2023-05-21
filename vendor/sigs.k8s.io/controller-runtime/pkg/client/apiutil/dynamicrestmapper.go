@@ -40,6 +40,8 @@ type dynamicRESTMapper struct {
 	// Used for lazy init.
 	inited  uint32
 	initMtx sync.Mutex
+
+	useLazyRestmapper bool
 }
 
 // DynamicRESTMapperOption is a functional option on the dynamicRESTMapper.
@@ -57,6 +59,12 @@ func WithLimiter(lim *rate.Limiter) DynamicRESTMapperOption {
 // until an API call is made.
 var WithLazyDiscovery DynamicRESTMapperOption = func(drm *dynamicRESTMapper) error {
 	drm.lazy = true
+	return nil
+}
+
+// WithExperimentalLazyMapper enables experimental more advanced Lazy Restmapping mechanism.
+var WithExperimentalLazyMapper DynamicRESTMapperOption = func(drm *dynamicRESTMapper) error {
+	drm.useLazyRestmapper = true
 	return nil
 }
 
@@ -94,6 +102,9 @@ func NewDynamicRESTMapper(cfg *rest.Config, opts ...DynamicRESTMapperOption) (me
 		if err = opt(drm); err != nil {
 			return nil, err
 		}
+	}
+	if drm.useLazyRestmapper {
+		return newLazyRESTMapperWithClient(client)
 	}
 	if !drm.lazy {
 		if err := drm.setStaticMapper(); err != nil {

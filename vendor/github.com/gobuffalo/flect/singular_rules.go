@@ -6,18 +6,18 @@ var singularRules = []rule{}
 func AddSingular(ext string, repl string) {
 	singularMoot.Lock()
 	defer singularMoot.Unlock()
-	singularRules = append(singularRules, rule{
+	singularRules = append([]rule{{
 		suffix: ext,
 		fn: func(s string) string {
 			s = s[:len(s)-len(ext)]
 			return s + repl
 		},
-	})
+	}}, singularRules...)
 
-	singularRules = append(singularRules, rule{
+	singularRules = append([]rule{{
 		suffix: repl,
 		fn: func(s string) string {
 			return s
 		},
-	})
+	}}, singularRules...)
 }

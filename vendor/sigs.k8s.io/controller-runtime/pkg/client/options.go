@@ -154,6 +154,21 @@ func (f FieldOwner) ApplyToUpdate(opts *UpdateOptions) {
 	opts.FieldManager = string(f)
 }
 
+// ApplyToSubResourcePatch applies this configuration to the given patch options.
+func (f FieldOwner) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
+	opts.FieldManager = string(f)
+}
+
+// ApplyToSubResourceCreate applies this configuration to the given create options.
+func (f FieldOwner) ApplyToSubResourceCreate(opts *SubResourceCreateOptions) {
+	opts.FieldManager = string(f)
+}
+
+// ApplyToSubResourceUpdate applies this configuration to the given update options.
+func (f FieldOwner) ApplyToSubResourceUpdate(opts *SubResourceUpdateOptions) {
+	opts.FieldManager = string(f)
+}
+
 // }}}
 
 // {{{ Create Options

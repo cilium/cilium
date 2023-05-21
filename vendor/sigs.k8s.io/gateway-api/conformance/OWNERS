@@ -6,5 +6,5 @@ approvers:
   - gateway-api-maintainers
 
 reviewers:
-  - gateway-api-maintainers
+  - gateway-api-conformance-reviewers
   - gateway-api-mesh-leads
