@@ -33,11 +33,16 @@ func init() {
 var HTTPRouteCrossNamespace = suite.ConformanceTest{
 	ShortName:   "HTTPRouteCrossNamespace",
 	Description: "A single HTTPRoute in the gateway-conformance-web-backend namespace should attach to Gateway in another namespace",
-	Manifests:   []string{"tests/httproute-cross-namespace.yaml"},
+	Features: []suite.SupportedFeature{
+		suite.SupportGateway,
+		suite.SupportHTTPRoute,
+	},
+	Manifests: []string{"tests/httproute-cross-namespace.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		routeNN := types.NamespacedName{Name: "cross-namespace", Namespace: "gateway-conformance-web-backend"}
 		gwNN := types.NamespacedName{Name: "backend-namespaces", Namespace: "gateway-conformance-infra"}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
+		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		t.Run("Simple HTTP request should reach web-backend", func(t *testing.T) {
 			http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, http.ExpectedResponse{

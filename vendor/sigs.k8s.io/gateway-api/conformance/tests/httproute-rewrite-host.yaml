@@ -7,23 +7,23 @@ spec:
   hostnames:
     - "rewrite.example"
   parentRefs:
-  - name: same-namespace
+    - name: same-namespace
   rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /one
-    filters:
-    - type: URLRewrite
-      urlRewrite:
-        hostname: one.example.org
-    backendRefs:
-    - name: infra-backend-v1
-      port: 8080
-  - filters:
-    - type: URLRewrite
-      urlRewrite:
-        hostname: example.org
-    backendRefs:
-    - name: infra-backend-v2
-      port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /one
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            hostname: one.example.org
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+    - filters:
+        - type: URLRewrite
+          urlRewrite:
+            hostname: example.org
+      backendRefs:
+        - name: infra-backend-v2
+          port: 8080

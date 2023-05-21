@@ -20,9 +20,9 @@ metadata:
   namespace: gateway-conformance-infra
 spec:
   parentRefs:
-  - name: same-namespace
+    - name: same-namespace
   rules:
-  - backendRefs:
-    - name: web-backend
-      namespace: gateway-conformance-web-backend
-      port: 8080
+    - backendRefs:
+        - name: web-backend
+          namespace: gateway-conformance-web-backend
+          port: 8080

@@ -6,6 +6,7 @@ metadata:
 spec:
   parentRefs:
   - name: same-namespace
+    namespace: gateway-conformance-infra
   rules:
   - backendRefs:
     - name: web-backend

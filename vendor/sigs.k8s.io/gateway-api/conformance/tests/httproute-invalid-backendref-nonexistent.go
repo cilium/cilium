@@ -35,7 +35,11 @@ func init() {
 var HTTPRouteInvalidNonExistentBackendRef = suite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidNonExistentBackendRef",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set a ResolvedRefs status False with reason BackendNotFound and return 500 when binding to a Gateway in the same namespace if the route has a BackendRef Service that does not exist",
-	Manifests:   []string{"tests/httproute-invalid-backendref-nonexistent.yaml"},
+	Features: []suite.SupportedFeature{
+		suite.SupportGateway,
+		suite.SupportHTTPRoute,
+	},
+	Manifests: []string{"tests/httproute-invalid-backendref-nonexistent.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		routeNN := types.NamespacedName{Name: "invalid-nonexistent-backend-ref", Namespace: "gateway-conformance-infra"}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}

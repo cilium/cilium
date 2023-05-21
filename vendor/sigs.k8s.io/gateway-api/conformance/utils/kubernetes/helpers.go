@@ -108,14 +108,21 @@ func gwcMustBeAccepted(t *testing.T, c client.Client, timeoutConfig config.Timeo
 	return controllerName
 }
 
-// GatewayMustHaveLatestConditions will fail the test if there are
-// conditions that were not updated
-func GatewayMustHaveLatestConditions(t *testing.T, gw *v1beta1.Gateway) {
+// GatewayMustHaveLatestConditions waits until the specified Gateway has
+// the latest conditions to set.
+func GatewayMustHaveLatestConditions(t *testing.T, timeoutConfig config.TimeoutConfig, gw *v1beta1.Gateway) {
 	t.Helper()
 
-	if err := ConditionsHaveLatestObservedGeneration(gw, gw.Status.Conditions); err != nil {
-		t.Fatalf("Gateway %v", err)
-	}
+	waitErr := wait.PollImmediate(1*time.Second, timeoutConfig.LatestObservedGenerationSet, func() (bool, error) {
+		if err := ConditionsHaveLatestObservedGeneration(gw, gw.Status.Conditions); err != nil {
+			t.Logf("Gateway %s/%s latest conditions not set yet: %v", gw.Namespace, gw.Name, err)
+			return false, nil
+		}
+
+		return true, nil
+	})
+
+	require.NoErrorf(t, waitErr, "error waiting for %s Gateway to have Latest ObservedGeneration to be set: %v", gw.Name, waitErr)
 }
 
 // GatewayClassMustHaveLatestConditions will fail the test if there are
@@ -147,13 +154,14 @@ func ConditionsHaveLatestObservedGeneration(obj metav1.Object, conditions []meta
 		return nil
 	}
 
+	wantGeneration := obj.GetGeneration()
 	var b strings.Builder
-	fmt.Fprint(&b, "expected observedGeneration to be updated for all conditions")
+	fmt.Fprintf(&b, "expected observedGeneration to be updated to %d for all conditions", wantGeneration)
 	fmt.Fprintf(&b, ", only %d/%d were updated.", len(conditions)-len(staleConditions), len(conditions))
 	fmt.Fprintf(&b, " stale conditions are: ")
 
 	for i, c := range staleConditions {
-		fmt.Fprintf(&b, c.Type)
+		fmt.Fprintf(&b, "%s (generation %d)", c.Type, c.ObservedGeneration)
 		if i != len(staleConditions)-1 {
 			fmt.Fprintf(&b, ", ")
 		}
@@ -174,10 +182,10 @@ func FilterStaleConditions(obj metav1.Object, conditions []metav1.Condition) []m
 	return stale
 }
 
-// NamespacesMustBeAccepted waits until all Pods are marked ready and all Gateways
-// are marked accepted in the provided namespaces. This will cause the test to
-// halt if the specified timeout is exceeded.
-func NamespacesMustBeAccepted(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, namespaces []string) {
+// NamespacesMustBeReady waits until all Pods are marked Ready and all Gateways
+// are marked Accepted and Programmed in the specified namespace(s). This will
+// cause the test to halt if the specified timeout is exceeded.
+func NamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, namespaces []string) {
 	t.Helper()
 
 	waitErr := wait.PollImmediate(1*time.Second, timeoutConfig.NamespacesMustBeReady, func() (bool, error) {
@@ -194,13 +202,19 @@ func NamespacesMustBeAccepted(t *testing.T, c client.Client, timeoutConfig confi
 				gw := gw
 
 				if err = ConditionsHaveLatestObservedGeneration(&gw, gw.Status.Conditions); err != nil {
-					t.Log(err)
+					t.Logf("Gateway %s/%s %v", ns, gw.Name, err)
 					return false, nil
 				}
 
 				// Passing an empty string as the Reason means that any Reason will do.
 				if !findConditionInList(t, gw.Status.Conditions, string(v1beta1.GatewayConditionAccepted), "True", "") {
-					t.Logf("%s/%s Gateway not ready yet", ns, gw.Name)
+					t.Logf("%s/%s Gateway not Accepted yet", ns, gw.Name)
+					return false, nil
+				}
+
+				// Passing an empty string as the Reason means that any Reason will do.
+				if !findConditionInList(t, gw.Status.Conditions, string(v1beta1.GatewayConditionProgrammed), "True", "") {
+					t.Logf("%s/%s Gateway not Programmed yet", ns, gw.Name)
 					return false, nil
 				}
 			}
@@ -555,6 +569,16 @@ func HTTPRouteMustHaveCondition(t *testing.T, client client.Client, timeoutConfi
 	require.NoErrorf(t, waitErr, "error waiting for HTTPRoute status to have a Condition matching expectations")
 }
 
+// HTTPRouteMustHaveResolvedRefsConditionsTrue checks that the supplied HTTPRoute has the resolvedRefsCondition
+// set to true.
+func HTTPRouteMustHaveResolvedRefsConditionsTrue(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, routeNN types.NamespacedName, gwNN types.NamespacedName) {
+	HTTPRouteMustHaveCondition(t, client, timeoutConfig, routeNN, gwNN, metav1.Condition{
+		Type:   string(v1beta1.RouteConditionResolvedRefs),
+		Status: metav1.ConditionTrue,
+		Reason: string(v1beta1.RouteReasonResolvedRefs),
+	})
+}
+
 func parentRefToString(p v1beta1.ParentReference) string {
 	if p.Namespace != nil && *p.Namespace != "" {
 		return fmt.Sprintf("%v/%v", p.Namespace, p.Name)
@@ -619,11 +643,16 @@ func listenersMatch(t *testing.T, expected, actual []v1beta1.ListenerStatus) boo
 		return false
 	}
 
-	// TODO(mikemorris): Allow for arbitrarily ordered listeners
-	for i, eListener := range expected {
-		aListener := actual[i]
-		if aListener.Name != eListener.Name {
-			t.Logf("Name doesn't match")
+	for _, eListener := range expected {
+		var aListener *v1beta1.ListenerStatus
+		for i := range actual {
+			if actual[i].Name == eListener.Name {
+				aListener = &actual[i]
+				break
+			}
+		}
+		if aListener == nil {
+			t.Logf("Expected status for listener %s to be present", eListener.Name)
 			return false
 		}
 

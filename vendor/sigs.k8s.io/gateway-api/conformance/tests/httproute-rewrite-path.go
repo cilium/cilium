@@ -34,12 +34,17 @@ var HTTPRouteRewritePath = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRewritePath",
 	Description: "An HTTPRoute with path rewrite filter",
 	Manifests:   []string{"tests/httproute-rewrite-path.yaml"},
-	Features:    []suite.SupportedFeature{suite.SupportHTTPRoutePathRewrite},
+	Features: []suite.SupportedFeature{
+		suite.SupportGateway,
+		suite.SupportHTTPRoute,
+		suite.SupportHTTPRoutePathRewrite,
+	},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
 		routeNN := types.NamespacedName{Name: "rewrite-path", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
+		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		testCases := []http.ExpectedResponse{
 			{

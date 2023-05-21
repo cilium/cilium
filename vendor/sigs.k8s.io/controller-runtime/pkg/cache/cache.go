@@ -452,6 +452,7 @@ func convertToByObject[T any](byGVK map[schema.GroupVersionKind]T, scheme *runti
 		if !ok {
 			return nil, def, fmt.Errorf("object %T for GVK %q does not implement client.Object", obj, gvk)
 		}
+		cObj.GetObjectKind().SetGroupVersionKind(gvk)
 		if byObject == nil {
 			byObject = map[client.Object]T{}
 		}

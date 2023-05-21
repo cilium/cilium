@@ -35,12 +35,17 @@ var HTTPRouteRedirectPath = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRedirectPath",
 	Description: "An HTTPRoute with scheme redirect filter",
 	Manifests:   []string{"tests/httproute-redirect-path.yaml"},
-	Features:    []suite.SupportedFeature{suite.SupportHTTPRoutePathRedirect},
+	Features: []suite.SupportedFeature{
+		suite.SupportGateway,
+		suite.SupportHTTPRoute,
+		suite.SupportHTTPRoutePathRedirect,
+	},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
 		routeNN := types.NamespacedName{Name: "redirect-path", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
+		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		testCases := []http.ExpectedResponse{{
 			Request: http.Request{
