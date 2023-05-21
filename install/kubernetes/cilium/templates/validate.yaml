@@ -45,3 +45,11 @@
     {{ fail "Hubble UI requires hubble.ui.frontend.image.tag to be '>=v0.9.0'" }}
   {{- end }}
 {{- end }}
+
+{{- if .Values.ingressController.enabled }}
+  {{- if hasKey .Values "l7Proxy" }}
+    {{- if not .Values.l7Proxy }}
+      {{ fail "Ingress or Gateway API controller requires .Values.l7Proxy to be set to 'true'" }}
+    {{- end }}
+  {{- end }}
+{{- end }}
