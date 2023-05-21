@@ -62,13 +62,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}()
 
-	if err := r.setListenerStatus(ctx, gw); err != nil {
-		scopedLog.WithError(err).Error("Unable to set listener status")
-		setGatewayAccepted(gw, false, "Unable to set listener status")
-		return fail(err)
-	}
-	setGatewayAccepted(gw, true, "Gateway successfully scheduled")
-
 	// Step 2: Gather all required information for the ingestion model
 	gwc := &gatewayv1beta1.GatewayClass{}
 	if err := r.Client.Get(ctx, client.ObjectKey{Name: string(gw.Spec.GatewayClassName)}, gwc); err != nil {
@@ -116,6 +109,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Services:        servicesList.Items,
 		ReferenceGrants: grants.Items,
 	})
+
+	if err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList); err != nil {
+		scopedLog.WithError(err).Error("Unable to set listener status")
+		setGatewayAccepted(gw, false, "Unable to set listener status")
+		return fail(err)
+	}
+	setGatewayAccepted(gw, true, "Gateway successfully scheduled")
 
 	// Step 3: Translate the listeners into Cilium model
 	cec, svc, ep, err := translation.NewTranslator(r.SecretsNamespace, r.IdleTimeoutSeconds).Translate(&model.Model{HTTP: httpListeners, TLS: tlsListeners})
@@ -230,10 +230,30 @@ func (r *gatewayReconciler) filterHTTPRoutesByGateway(ctx context.Context, gw *g
 	return filtered
 }
 
+func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *gatewayv1beta1.Gateway, listener *gatewayv1beta1.Listener, routes []gatewayv1beta1.HTTPRoute) []gatewayv1beta1.HTTPRoute {
+	var filtered []gatewayv1beta1.HTTPRoute
+	for _, route := range routes {
+		if isAccepted(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHostsForListener(listener, route.Spec.Hostnames)) > 0 {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
 func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *gatewayv1beta1.Gateway, routes []gatewayv1alpha2.TLSRoute) []gatewayv1alpha2.TLSRoute {
 	var filtered []gatewayv1alpha2.TLSRoute
 	for _, route := range routes {
 		if isAccepted(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames)) > 0 {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *gatewayReconciler) filterTLSRoutesByListener(ctx context.Context, gw *gatewayv1beta1.Gateway, listener *gatewayv1beta1.Listener, routes []gatewayv1alpha2.TLSRoute) []gatewayv1alpha2.TLSRoute {
+	var filtered []gatewayv1alpha2.TLSRoute
+	for _, route := range routes {
+		if isAccepted(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHostsForListener(listener, route.Spec.Hostnames)) > 0 {
 			filtered = append(filtered, route)
 		}
 	}
@@ -293,8 +313,10 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1b
 	return nil
 }
 
-func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1beta1.Gateway) error {
+func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1beta1.Gateway, httpRoutes *gatewayv1beta1.HTTPRouteList, tlsRoutes *gatewayv1alpha2.TLSRouteList) error {
 	for _, l := range gw.Spec.Listeners {
+		isValid := true
+
 		// SupportedKinds is a required field, so we can't declare it as nil.
 		supportedKinds := []gatewayv1beta1.RouteGroupKind{}
 		invalidRouteKinds := false
@@ -321,6 +343,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		var conds []metav1.Condition
 		if invalidRouteKinds {
 			conds = append(conds, gatewayListenerInvalidRouteKinds(gw, "Invalid Route Kinds"))
+			isValid = false
 		} else {
 			conds = append(conds, gatewayListenerProgrammedCondition(gw, true, "Listener Ready"))
 		}
@@ -335,6 +358,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 						Message:            "Invalid CertificateRef",
 						LastTransitionTime: metav1.Now(),
 					})
+					isValid = false
 					break
 				}
 
@@ -351,6 +375,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 						Message:            "CertificateRef is not permitted",
 						LastTransitionTime: metav1.Now(),
 					})
+					isValid = false
 					break
 				}
 
@@ -362,9 +387,16 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 						Message:            "Invalid CertificateRef",
 						LastTransitionTime: metav1.Now(),
 					})
+					isValid = false
 					break
 				}
 			}
+		}
+
+		var attachedRoutes int32
+		if isValid {
+			attachedRoutes += int32(len(r.filterHTTPRoutesByListener(ctx, gw, &l, httpRoutes.Items)))
+			attachedRoutes += int32(len(r.filterTLSRoutesByListener(ctx, gw, &l, tlsRoutes.Items)))
 		}
 
 		found := false
@@ -373,6 +405,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 				found = true
 				gw.Status.Listeners[i].SupportedKinds = supportedKinds
 				gw.Status.Listeners[i].Conditions = conds
+				gw.Status.Listeners[i].AttachedRoutes = attachedRoutes
 				break
 			}
 		}
@@ -381,6 +414,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 				Name:           l.Name,
 				SupportedKinds: supportedKinds,
 				Conditions:     conds,
+				AttachedRoutes: attachedRoutes,
 			})
 		}
 	}
