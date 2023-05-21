@@ -47,6 +47,14 @@
 {{- end }}
 
 {{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+  {{- if hasKey .Values "l7Proxy" }}
+    {{- if not .Values.l7Proxy }}
+      {{ fail "Ingress or Gateway API controller requires .Values.l7Proxy to be set to 'true'" }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
   {{- if hasKey .Values "kubeProxyReplacement" }}
     {{- if and (ne .Values.kubeProxyReplacement "partial") (ne .Values.kubeProxyReplacement "strict") }}
       {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
