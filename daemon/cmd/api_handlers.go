@@ -120,8 +120,14 @@ func wrapAPIHandler[Params any](dp promise.Promise[*Daemon], handler func(d *Dae
 // apiHandlers bridges the API handlers still implemented inside Daemon into a set of
 // individual handlers. Since NewDaemon() is side-effectful, we can only get a promise for
 // *Daemon, and thus the handlers will need to Await() for it to be ready.
-// This is meant to be a temporary measure until handlers have been moved out from *Daemon.
-func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig) (out handlersOut) {
+//
+// This method depends on [deletionQueue] to make sure the deletion lock file is created and locked
+// before the API server starts.
+//
+// This is meant to be a temporary measure until handlers have been moved out from *Daemon
+// to daemon/restapi or feature-specific packages. At that point the dependency on *deletionQueue
+// should be moved to the cell in daemon/restapi.
+func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ *deletionQueue) (out handlersOut) {
 	// /healthz/
 	out.DaemonGetHealthzHandler = wrapAPIHandler(dp, getHealthzHandler)
 

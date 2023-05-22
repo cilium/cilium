@@ -86,6 +86,14 @@ var (
 		// Cilium API served over UNIX sockets. Accessed by the 'cilium' utility (not cilium-cli).
 		server.Cell,
 		cell.Invoke(configureAPIServer),
+
+		// Cilium API handlers
+		cell.Provide(ciliumAPIHandlers),
+
+		// Processes endpoint deletions that occurred while the agent was down.
+		// This starts before the API server as ciliumAPIHandlers() depends on
+		// the 'deletionQueue' provided by this cell.
+		deletionQueueCell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
