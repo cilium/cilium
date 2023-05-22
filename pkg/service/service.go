@@ -1640,8 +1640,7 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 				backends[i].ID = id
 				backends[i].Weight = backend.Weight
 				newBackends = append(newBackends, backends[i])
-				// TODO make backendByHash by value not by ref
-				s.backendByHash[hash] = backends[i]
+				s.backendByHash[hash] = backends[i].DeepCopy()
 			} else {
 				backends[i].ID = s.backendByHash[hash].ID
 			}
