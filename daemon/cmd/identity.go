@@ -9,7 +9,6 @@ import (
 	"net/netip"
 
 	"github.com/go-openapi/runtime/middleware"
-	k8sCache "k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
@@ -95,7 +94,7 @@ type CachingIdentityAllocator interface {
 	cache.IdentityAllocator
 	clustermesh.RemoteIdentityWatcher
 
-	InitIdentityAllocator(versioned.Interface, k8sCache.Store) <-chan struct{}
+	InitIdentityAllocator(versioned.Interface) <-chan struct{}
 	Close()
 }
 

@@ -41,7 +41,7 @@ func (s *IdentityCacheTestSuite) SetUpSuite(c *C) {
 
 func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(nil)
 
 	hostID := identity.GetReservedID("host")
 	c.Assert(mgr.LookupIdentityByID(context.TODO(), hostID), Not(IsNil))
