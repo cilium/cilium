@@ -126,7 +126,7 @@ jobs:
           fi
           echo "EXTERNAL_NODE_IPS_PARAM=${EXTERNAL_NODE_IPS_PARAM}" >> $GITHUB_ENV
 
-      # Install Cilium with HostPort support for extended connectivity test.
+      # Install Cilium with HostPort support and enables Prometheus for extended connectivity test.
       - name: Install Cilium
         run: |
           cilium install \
@@ -136,7 +136,8 @@ jobs:
             --helm-set bpf.monitorAggregation=none \
             --helm-set cni.chainingMode=portmap \
             --helm-set loadBalancer.l7.backend=envoy \
-            --helm-set tls.secretsBackend=k8s
+            --helm-set tls.secretsBackend=k8s \
+            --helm-set prometheus.enabled=true
 
       - name: Enable Relay
         run: |
