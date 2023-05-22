@@ -130,7 +130,7 @@ func NoopFunc(ctx context.Context) error {
 //     owner dies. It is the responsibility of the owner to either lock the owner
 //     in a way that will delay destruction throughout the controller run or to
 //     check for the destruction throughout the run.
-type Controller struct {
+type controller struct {
 	// Constant after creation, safe to access without locking
 	name string
 	uuid string
@@ -155,7 +155,7 @@ type Controller struct {
 }
 
 // GetSuccessCount returns the number of successful controller runs
-func (c *Controller) GetSuccessCount() int {
+func (c *controller) GetSuccessCount() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -163,7 +163,7 @@ func (c *Controller) GetSuccessCount() int {
 }
 
 // GetFailureCount returns the number of failed controller runs
-func (c *Controller) GetFailureCount() int {
+func (c *controller) GetFailureCount() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -171,7 +171,7 @@ func (c *Controller) GetFailureCount() int {
 }
 
 // GetLastError returns the last error returned
-func (c *Controller) GetLastError() error {
+func (c *controller) GetLastError() error {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -179,14 +179,14 @@ func (c *Controller) GetLastError() error {
 }
 
 // GetLastErrorTimestamp returns the last error returned
-func (c *Controller) GetLastErrorTimestamp() time.Time {
+func (c *controller) GetLastErrorTimestamp() time.Time {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	return c.lastErrorStamp
 }
 
-func (c *Controller) runController(params ControllerParams) {
+func (c *controller) runController(params ControllerParams) {
 	errorRetries := 1
 
 	runTimer, timerDone := inctimer.New()
@@ -303,7 +303,7 @@ shutdown:
 }
 
 // logger returns a logrus object with controllerName and UUID fields.
-func (c *Controller) getLogger() *logrus.Entry {
+func (c *controller) getLogger() *logrus.Entry {
 	return log.WithFields(logrus.Fields{
 		fieldControllerName: c.name,
 		fieldUUID:           c.uuid,
@@ -312,7 +312,7 @@ func (c *Controller) getLogger() *logrus.Entry {
 
 // recordError updates all statistic collection variables on error
 // c.mutex must be held.
-func (c *Controller) recordError(err error) {
+func (c *controller) recordError(err error) {
 	c.lastError = err
 	c.lastErrorStamp = time.Now()
 	c.failureCount++
@@ -323,7 +323,7 @@ func (c *Controller) recordError(err error) {
 
 // recordSuccess updates all statistic collection variables on success
 // c.mutex must be held.
-func (c *Controller) recordSuccess() {
+func (c *controller) recordSuccess() {
 	c.lastError = nil
 	c.lastSuccessStamp = time.Now()
 	c.successCount++
