@@ -138,7 +138,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
 
 	mgr := NewCachingIdentityAllocator(idAllocatorOwner)
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 
 	do := &DummyOwner{

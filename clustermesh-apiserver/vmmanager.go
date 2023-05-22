@@ -54,7 +54,7 @@ func NewVMManager(clientset k8sClient.Clientset) *VMManager {
 	if option.Config.EnableWellKnownIdentities {
 		identity.InitWellKnownIdentities(option.Config)
 	}
-	m.identityAllocator.InitIdentityAllocator(clientset, identityStore)
+	m.identityAllocator.InitIdentityAllocator(clientset)
 	m.startCiliumExternalWorkloadWatcher(clientset)
 	return m
 }
