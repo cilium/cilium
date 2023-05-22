@@ -360,9 +360,11 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
-		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 1)
-		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
+		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
+		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
 		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
+		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
 	})
 
 	t.Run("http route with nonexistent backend", func(t *testing.T) {
@@ -406,10 +408,13 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
-		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 1)
-		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
-		require.Equal(t, metav1.ConditionStatus("False"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
-		require.Equal(t, "InvalidHTTPRoute", route.Status.RouteStatus.Parents[0].Conditions[0].Reason)
+		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
+		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
+
+		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
+		require.Equal(t, metav1.ConditionStatus("False"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
+		require.Equal(t, "InvalidHTTPRoute", route.Status.RouteStatus.Parents[0].Conditions[1].Reason)
 	})
 
 	t.Run("http route with valid but not allowed gateway", func(t *testing.T) {
@@ -429,11 +434,13 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
-		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 1)
-		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
-		require.Equal(t, metav1.ConditionStatus("False"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
-		require.Equal(t, "NotAllowedByListeners", route.Status.RouteStatus.Parents[0].Conditions[0].Reason)
-		require.Equal(t, "HTTPRoute is not allowed", route.Status.RouteStatus.Parents[0].Conditions[0].Message)
+		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
+		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
+		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
+		require.Equal(t, metav1.ConditionStatus("False"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
+		require.Equal(t, "NotAllowedByListeners", route.Status.RouteStatus.Parents[0].Conditions[1].Reason)
+		require.Equal(t, "HTTPRoute is not allowed", route.Status.RouteStatus.Parents[0].Conditions[1].Message)
 	})
 
 	t.Run("http route with non-matching hostname", func(t *testing.T) {
@@ -453,11 +460,13 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, route.Status.RouteStatus.Parents, 1, "Should have 1 parent")
-		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 1)
-		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
-		require.Equal(t, metav1.ConditionStatus("False"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
-		require.Equal(t, "NoMatchingListenerHostname", route.Status.RouteStatus.Parents[0].Conditions[0].Reason)
-		require.Equal(t, "No matching listener hostname", route.Status.RouteStatus.Parents[0].Conditions[0].Message)
+		require.Len(t, route.Status.RouteStatus.Parents[0].Conditions, 2)
+		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[0].Type)
+		require.Equal(t, metav1.ConditionStatus("True"), route.Status.RouteStatus.Parents[0].Conditions[0].Status)
+		require.Equal(t, "Accepted", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
+		require.Equal(t, metav1.ConditionStatus("False"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
+		require.Equal(t, "NoMatchingListenerHostname", route.Status.RouteStatus.Parents[0].Conditions[1].Reason)
+		require.Equal(t, "No matching listener hostname", route.Status.RouteStatus.Parents[0].Conditions[1].Message)
 	})
 
 	t.Run("http route with cross namespace backend", func(t *testing.T) {

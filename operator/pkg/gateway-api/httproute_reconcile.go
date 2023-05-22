@@ -109,6 +109,14 @@ func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 						httpBackendNotFoundRouteCondition(hr, err.Error()),
 					})
 				}
+				continue
+			}
+
+			// Service exists, update the status for all the parents
+			for _, parent := range hr.Spec.ParentRefs {
+				mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
+					httpRouteResolvedRefsOkayCondition(hr, "Service reference is valid"),
+				})
 			}
 		}
 	}
@@ -160,9 +168,24 @@ func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 			}
 			if !found {
 				mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
-					httpNoMatchingListenerPortCondition(hr, fmt.Sprintf("No matching listener with port %d", *parent.Port)),
+					httpNoMatchingParentCondition(hr, fmt.Sprintf("No matching listener with port %d", *parent.Port)),
 				})
 				continue
+			}
+		}
+
+		if parent.SectionName != nil {
+			found := false
+			for _, listener := range gw.Spec.Listeners {
+				if listener.Name == *parent.SectionName {
+					found = true
+					break
+				}
+			}
+			if !found {
+				mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
+					httpNoMatchingParentCondition(hr, fmt.Sprintf("No matching listener with sectionName %s", *parent.SectionName)),
+				})
 			}
 		}
 

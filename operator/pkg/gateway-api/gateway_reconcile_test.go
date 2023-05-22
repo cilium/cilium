@@ -317,11 +317,13 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 
 		require.Len(t, gw.Status.Listeners, 1)
 		require.Equal(t, "http", string(gw.Status.Listeners[0].Name))
-		require.Len(t, gw.Status.Listeners[0].Conditions, 1)
+		require.Len(t, gw.Status.Listeners[0].Conditions, 2)
 		require.Equal(t, "Programmed", gw.Status.Listeners[0].Conditions[0].Type)
 		require.Equal(t, "True", string(gw.Status.Listeners[0].Conditions[0].Status))
 		require.Equal(t, "Programmed", gw.Status.Listeners[0].Conditions[0].Reason)
 		require.Equal(t, "Listener Ready", gw.Status.Listeners[0].Conditions[0].Message)
+		require.Equal(t, "Accepted", gw.Status.Listeners[0].Conditions[1].Type)
+		require.Equal(t, "True", string(gw.Status.Listeners[0].Conditions[1].Status))
 	})
 
 	t.Run("valid tls gateway", func(t *testing.T) {
@@ -385,11 +387,13 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 
 		require.Len(t, gw.Status.Listeners, 1)
 		require.Equal(t, "tls", string(gw.Status.Listeners[0].Name))
-		require.Len(t, gw.Status.Listeners[0].Conditions, 1)
+		require.Len(t, gw.Status.Listeners[0].Conditions, 2)
 		require.Equal(t, "Programmed", gw.Status.Listeners[0].Conditions[0].Type)
 		require.Equal(t, "True", string(gw.Status.Listeners[0].Conditions[0].Status))
 		require.Equal(t, "Programmed", gw.Status.Listeners[0].Conditions[0].Reason)
 		require.Equal(t, "Listener Ready", gw.Status.Listeners[0].Conditions[0].Message)
+		require.Equal(t, "Accepted", gw.Status.Listeners[0].Conditions[1].Type)
+		require.Equal(t, "True", string(gw.Status.Listeners[0].Conditions[1].Status))
 	})
 
 }
