@@ -42,6 +42,7 @@ Everybody listed is a committer as per governance definition.
  * [Paul Chaignon] (Isovalent)
  * [Quentin Monnet] (Isovalent)
  * [Robin Hahling] (Isovalent)
+ * [Sarah Corleissen] (Isovalent)
  * [Sebastian Wicki] (Isovalent)
  * [Tam Mach] (Isovalent)
  * [Thomas Graf] (Isovalent)
