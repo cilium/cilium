@@ -10,14 +10,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -138,10 +135,6 @@ type Controller struct {
 	name string
 	uuid string
 
-	// Fields only accessed by the manager
-	params       ControllerParams
-	cancelDoFunc context.CancelFunc
-
 	// Channels written to and/or closed by the manager
 	stop    chan struct{}
 	update  chan ControllerParams
@@ -183,14 +176,6 @@ func (c *Controller) GetLastError() error {
 	defer c.mutex.RUnlock()
 
 	return c.lastError
-}
-
-// Trigger triggers the controller
-func (c *Controller) Trigger() {
-	select {
-	case c.trigger <- struct{}{}:
-	default:
-	}
 }
 
 // GetLastErrorTimestamp returns the last error returned
@@ -317,76 +302,12 @@ shutdown:
 	close(c.terminated)
 }
 
-// updateParamsLocked sets the specified controller's parameters.
-//
-// If the RunInterval exceeds ControllerMaxInterval, it will be capped.
-func (c *Controller) updateParamsLocked(params ControllerParams) {
-	ctx := c.params.Context
-	if c.params.CancelDoFuncOnUpdate && c.cancelDoFunc != nil {
-		c.cancelDoFunc()
-
-		// (re)set the context as the previous might have been cancelled
-		if params.Context == nil {
-			ctx, c.cancelDoFunc = context.WithCancel(context.Background())
-		} else {
-			ctx, c.cancelDoFunc = context.WithCancel(params.Context)
-		}
-	}
-
-	c.params = params
-	c.params.Context = ctx
-
-	maxInterval := time.Duration(option.Config.MaxControllerInterval) * time.Second
-	if maxInterval > 0 && params.RunInterval > maxInterval {
-		c.getLogger().Infof("Limiting interval to %s", maxInterval)
-		c.params.RunInterval = maxInterval
-	}
-}
-
-func (c *Controller) stopController() {
-	if c.cancelDoFunc != nil {
-		c.cancelDoFunc()
-	}
-
-	close(c.stop)
-}
-
 // logger returns a logrus object with controllerName and UUID fields.
 func (c *Controller) getLogger() *logrus.Entry {
 	return log.WithFields(logrus.Fields{
 		fieldControllerName: c.name,
 		fieldUUID:           c.uuid,
 	})
-}
-
-// GetStatusModel returns a models.ControllerStatus representing the
-// controller's configuration & status
-func (c *Controller) GetStatusModel() *models.ControllerStatus {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	status := &models.ControllerStatus{
-		Name: c.name,
-		UUID: strfmt.UUID(c.uuid),
-		Configuration: &models.ControllerStatusConfiguration{
-			ErrorRetry:     !c.params.NoErrorRetry,
-			ErrorRetryBase: strfmt.Duration(c.params.ErrorRetryBaseDuration),
-			Interval:       strfmt.Duration(c.params.RunInterval),
-		},
-		Status: &models.ControllerStatusStatus{
-			SuccessCount:            int64(c.successCount),
-			LastSuccessTimestamp:    strfmt.DateTime(c.lastSuccessStamp),
-			FailureCount:            int64(c.failureCount),
-			LastFailureTimestamp:    strfmt.DateTime(c.lastErrorStamp),
-			ConsecutiveFailureCount: int64(c.consecutiveErrors),
-		},
-	}
-
-	if c.lastError != nil {
-		status.Status.LastFailureMsg = c.lastError.Error()
-	}
-
-	return status
 }
 
 // recordError updates all statistic collection variables on error
