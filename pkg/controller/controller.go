@@ -139,19 +139,19 @@ type Controller struct {
 	uuid string
 
 	// Fields only accessed by the manager
+	params       ControllerParams
 	cancelDoFunc context.CancelFunc
 
-	// Channels closed by the manager
+	// Channels written to and/or closed by the manager
 	stop    chan struct{}
-	update  chan struct{}
+	update  chan ControllerParams
 	trigger chan struct{}
 
 	// terminated is closed by the controller goroutine when it terminates
 	terminated chan struct{}
 
-	// Manipulated by the controller, requires locking
+	// Manipulated by the controller, read by the Manager, requires locking
 	mutex             lock.RWMutex
-	params            ControllerParams
 	successCount      int
 	lastSuccessStamp  time.Time
 	failureCount      int
@@ -201,14 +201,9 @@ func (c *Controller) GetLastErrorTimestamp() time.Time {
 	return c.lastErrorStamp
 }
 
-func (c *Controller) runController() {
+func (c *Controller) runController(params ControllerParams) {
 	errorRetries := 1
 
-	c.mutex.RLock()
-	params := c.params
-	c.mutex.RUnlock()
-
-	maxRetryInterval := params.MaxRetryInterval
 	runTimer, timerDone := inctimer.New()
 	defer timerDone()
 
@@ -256,12 +251,12 @@ func (c *Controller) runController() {
 						interval = time.Duration(errorRetries) * time.Second
 					}
 
-					if maxRetryInterval > 0 && interval > maxRetryInterval {
+					if params.MaxRetryInterval > 0 && interval > params.MaxRetryInterval {
 						c.getLogger().WithFields(logrus.Fields{
 							"calculatedInterval": interval,
-							"maxAllowedInterval": maxRetryInterval,
+							"maxAllowedInterval": params.MaxRetryInterval,
 						}).Debug("Cap retry interval to max allowed value")
-						interval = maxRetryInterval
+						interval = params.MaxRetryInterval
 					}
 
 					errorRetries++
@@ -290,26 +285,22 @@ func (c *Controller) runController() {
 		case <-c.stop:
 			goto shutdown
 
-		case <-c.update:
-			// If we receive a signal on both channels c.stop and c.update,
-			// golang will pick either c.stop or c.update randomly.
-			// This select will make sure we don't execute the controller
-			// while we are shutting down.
-			select {
-			case <-c.stop:
-				goto shutdown
-			default:
-			}
-			// Pick up any changes to the parameters in case the controller has
-			// been updated.
-			c.mutex.RLock()
-			params = c.params
-			c.mutex.RUnlock()
-
+		case params = <-c.update:
+			// update channel is never closed
 		case <-runTimer.After(interval):
+			// timer channel is not yet closed
 		case <-c.trigger:
+			// trigger channel is never closed
 		}
 
+		// If we receive a signal on multiple channels golang will pick one randomly.
+		// This select will make sure we don't execute the controller
+		// while we are shutting down.
+		select {
+		case <-c.stop:
+			goto shutdown
+		default:
+		}
 	}
 
 shutdown:
@@ -358,7 +349,6 @@ func (c *Controller) stopController() {
 	}
 
 	close(c.stop)
-	close(c.update)
 }
 
 // logger returns a logrus object with controllerName and UUID fields.

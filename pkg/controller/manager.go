@@ -70,18 +70,15 @@ func (m *Manager) updateController(name string, params ControllerParams) *Contro
 
 	ctrl, exists := m.controllers[name]
 	if exists {
-		m.mutex.Unlock()
-
 		ctrl.getLogger().Debug("Updating existing controller")
-		ctrl.mutex.Lock()
 		ctrl.updateParamsLocked(params)
-		ctrl.mutex.Unlock()
 
 		// Notify the goroutine of the params update.
 		select {
-		case ctrl.update <- struct{}{}:
+		case ctrl.update <- ctrl.params:
 		default:
 		}
+		m.mutex.Unlock()
 
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
 	} else {
@@ -89,7 +86,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *Contro
 			name:       name,
 			uuid:       uuid.New().String(),
 			stop:       make(chan struct{}),
-			update:     make(chan struct{}, 1),
+			update:     make(chan ControllerParams, 1),
 			trigger:    make(chan struct{}, 1),
 			terminated: make(chan struct{}),
 		}
@@ -108,7 +105,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *Contro
 		globalStatus.controllers[ctrl.uuid] = ctrl
 		globalStatus.mutex.Unlock()
 
-		go ctrl.runController()
+		go ctrl.runController(ctrl.params)
 	}
 
 	return ctrl
@@ -258,7 +255,7 @@ func FakeManager(failingControllers int) *Manager {
 			name:              fmt.Sprintf("controller-%d", i),
 			uuid:              fmt.Sprintf("%d", i),
 			stop:              make(chan struct{}),
-			update:            make(chan struct{}, 1),
+			update:            make(chan ControllerParams, 1),
 			trigger:           make(chan struct{}, 1),
 			terminated:        make(chan struct{}),
 			lastError:         fmt.Errorf("controller failed"),
