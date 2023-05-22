@@ -158,18 +158,6 @@ func (m *Manager) RemoveControllerAndWait(name string) error {
 	return err
 }
 
-// TerminationChannel returns a channel that is closed after the controller has
-// been terminated
-func (m *Manager) TerminationChannel(name string) chan struct{} {
-	if c := m.lookup(name); c != nil {
-		return c.terminated
-	}
-
-	c := make(chan struct{})
-	close(c)
-	return c
-}
-
 func (m *Manager) removeAll() []*managedController {
 	ctrls := []*managedController{}
 
