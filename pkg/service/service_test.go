@@ -1477,8 +1477,10 @@ func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
 	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
 	hash := backends[1].L3n4Addr.Hash()
 	c.Assert(m.svc.backendByHash[hash].State, Equals, lb.BackendStateMaintenance)
-	hash = backends[2].L3n4Addr.Hash()
-	c.Assert(m.svc.backendByHash[hash].State, Equals, lb.BackendStateActive)
+	c.Assert(m.svc.svcByID[id1].backendByHash[hash].State, Equals, lb.BackendStateMaintenance)
+	hash2 := backends[2].L3n4Addr.Hash()
+	c.Assert(m.svc.backendByHash[hash2].State, Equals, lb.BackendStateActive)
+	c.Assert(m.svc.svcByID[id1].backendByHash[hash2].State, Equals, lb.BackendStateActive)
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 2)
 
 	// Update existing backend weight
@@ -1491,7 +1493,7 @@ func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
 	c.Assert(created, Equals, false)
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 3)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
-	c.Assert(m.svc.backendByHash[hash].State, Equals, lb.BackendStateMaintenance)
+	c.Assert(m.svc.svcByID[id1].backendByHash[hash2].State, Equals, lb.BackendStateMaintenance)
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, 1)
 
 	// Delete backends with weight 0
