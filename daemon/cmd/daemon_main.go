@@ -1591,7 +1591,6 @@ var daemonCell = cell.Module(
 
 	cell.Provide(newDaemonPromise),
 	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
-	cell.Provide(ciliumAPIHandlers),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
