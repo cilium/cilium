@@ -470,7 +470,6 @@ snat_v4_icmp_rewrite_egress_embedded(struct __ctx_buff *ctx,
 	int ret;
 	int flags = BPF_F_PSEUDO_HDR;
 	struct csum_offset csum = {};
-	__be32 sum_l4 = 0;
 	__be32 sum;
 
 	if (state->to_saddr == tuple->saddr &&
@@ -494,18 +493,16 @@ snat_v4_icmp_rewrite_egress_embedded(struct __ctx_buff *ctx,
 			return DROP_CSUM_L4;
 #endif  /* ENABLE_SCTP */
 		case IPPROTO_ICMP: {
-			__be32 from, to;
-
 			if (ctx_store_bytes(ctx, inner_l4_off +
 						offsetof(struct icmphdr, un.echo.id),
 						&state->to_sport,
 						sizeof(state->to_sport), 0) < 0)
 				return DROP_WRITE_ERROR;
-			from = tuple->sport;
-			to = state->to_sport;
-			flags = 0; /* ICMPv4 has no pseudo-header */
-			sum_l4 = csum_diff(&from, 4, &to, 4, 0);
-			csum.offset = offsetof(struct icmphdr, checksum);
+			if (l4_csum_replace(ctx, inner_l4_off + offsetof(struct icmphdr, checksum),
+					    tuple->sport,
+					    state->to_sport,
+					    sizeof(tuple->sport)) < 0)
+				return DROP_CSUM_L4;
 			break;
 		}}
 	}
@@ -514,8 +511,6 @@ snat_v4_icmp_rewrite_egress_embedded(struct __ctx_buff *ctx,
 		return DROP_WRITE_ERROR;
 	if (ipv4_csum_update_by_diff(ctx, l4_off + sizeof(struct icmphdr), sum) < 0)
 		return DROP_CSUM_L3;
-	if (tuple->nexthdr == IPPROTO_ICMP)
-		sum = sum_l4;
 	if (csum.offset &&
 	    csum_l4_replace(ctx, inner_l4_off, &csum, 0, sum, flags) < 0)
 		return DROP_CSUM_L4;
@@ -529,7 +524,7 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 {
 	int ret, flags = BPF_F_PSEUDO_HDR;
 	struct csum_offset csum = {};
-	__be32 sum_l4 = 0, sum;
+	__be32 sum;
 
 	if (state->to_saddr == tuple->saddr &&
 	    state->to_sport == tuple->sport)
@@ -554,18 +549,16 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 				return DROP_CSUM_L4;
 #endif  /* ENABLE_SCTP */
 			case IPPROTO_ICMP: {
-				__be32 from, to;
-
 				if (ctx_store_bytes(ctx, off +
 						    offsetof(struct icmphdr, un.echo.id),
 						    &state->to_sport,
 						    sizeof(state->to_sport), 0) < 0)
 					return DROP_WRITE_ERROR;
-				from = tuple->sport;
-				to = state->to_sport;
-				flags = 0; /* ICMPv4 has no pseudo-header */
-				sum_l4 = csum_diff(&from, 4, &to, 4, 0);
-				csum.offset = offsetof(struct icmphdr, checksum);
+				if (l4_csum_replace(ctx, off + offsetof(struct icmphdr, checksum),
+						    tuple->sport,
+						    state->to_sport,
+						    sizeof(tuple->sport)) < 0)
+					return DROP_CSUM_L4;
 				break;
 			}}
 		}
@@ -575,8 +568,6 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 		return DROP_WRITE_ERROR;
 	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
 		return DROP_CSUM_L3;
-	if (tuple->nexthdr == IPPROTO_ICMP)
-		sum = sum_l4;
 	if (csum.offset &&
 	    csum_l4_replace(ctx, off, &csum, 0, sum, flags) < 0)
 		return DROP_CSUM_L4;
@@ -590,7 +581,7 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 {
 	int ret, flags = BPF_F_PSEUDO_HDR;
 	struct csum_offset csum = {};
-	__be32 sum_l4 = 0, sum;
+	__be32 sum;
 
 	if (state->to_daddr == tuple->daddr &&
 	    state->to_dport == tuple->dport)
@@ -614,7 +605,6 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 #endif  /* ENABLE_SCTP */
 		case IPPROTO_ICMP: {
 			__u8 type = 0;
-			__be32 from, to;
 
 			if (ctx_load_bytes(ctx, off +
 					   offsetof(struct icmphdr, type),
@@ -626,11 +616,11 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 						    &state->to_dport,
 						    sizeof(state->to_dport), 0) < 0)
 					return DROP_WRITE_ERROR;
-				from = tuple->dport;
-				to = state->to_dport;
-				flags = 0; /* ICMPv4 has no pseudo-header */
-				sum_l4 = csum_diff(&from, 4, &to, 4, 0);
-				csum.offset = offsetof(struct icmphdr, checksum);
+				if (l4_csum_replace(ctx, off + offsetof(struct icmphdr, checksum),
+						    tuple->dport,
+						    state->to_dport,
+						    sizeof(tuple->dport)) < 0)
+					return DROP_CSUM_L4;
 			}
 			break;
 		}}
@@ -640,8 +630,6 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 		return DROP_WRITE_ERROR;
 	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
 		return DROP_CSUM_L3;
-	if (tuple->nexthdr == IPPROTO_ICMP)
-		sum = sum_l4;
 	if (csum.offset &&
 	    csum_l4_replace(ctx, off, &csum, 0, sum, flags) < 0)
 		return DROP_CSUM_L4;
