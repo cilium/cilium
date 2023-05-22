@@ -60,14 +60,17 @@ type decoratorNode struct {
 	// Results of the decorator.
 	results resultList
 
-	// order of this node in each Scopes' graphHolders.
+	// Order of this node in each Scopes' graphHolders.
 	orders map[*Scope]int
 
-	// scope this node was originally provided to.
+	// Scope this node was originally provided to.
 	s *Scope
+
+	// Callback for this decorator, if there is one.
+	callback Callback
 }
 
-func newDecoratorNode(dcor interface{}, s *Scope) (*decoratorNode, error) {
+func newDecoratorNode(dcor interface{}, s *Scope, opts decorateOptions) (*decoratorNode, error) {
 	dval := reflect.ValueOf(dcor)
 	dtype := dval.Type()
 	dptr := dval.Pointer()
@@ -91,6 +94,7 @@ func newDecoratorNode(dcor interface{}, s *Scope) (*decoratorNode, error) {
 		params:   pl,
 		results:  rl,
 		s:        s,
+		callback: opts.Callback,
 	}
 	return n, nil
 }
@@ -109,6 +113,24 @@ func (n *decoratorNode) Call(s containerStore) (err error) {
 		}
 	}
 
+	args, err := n.params.BuildList(n.s)
+	if err != nil {
+		return errArgumentsFailed{
+			Func:   n.location,
+			Reason: err,
+		}
+	}
+
+	if n.callback != nil {
+		// Wrap in separate func to include PanicErrors
+		defer func() {
+			n.callback(CallbackInfo{
+				Name:  fmt.Sprintf("%v.%v", n.location.Package, n.location.Name),
+				Error: err,
+			})
+		}()
+	}
+
 	if n.s.recoverFromPanics {
 		defer func() {
 			if p := recover(); p != nil {
@@ -120,16 +142,8 @@ func (n *decoratorNode) Call(s containerStore) (err error) {
 		}()
 	}
 
-	args, err := n.params.BuildList(n.s)
-	if err != nil {
-		return errArgumentsFailed{
-			Func:   n.location,
-			Reason: err,
-		}
-	}
-
 	results := s.invoker()(reflect.ValueOf(n.dcor), args)
-	if err := n.results.ExtractList(n.s, true /* decorated */, results); err != nil {
+	if err = n.results.ExtractList(n.s, true /* decorated */, results); err != nil {
 		return err
 	}
 	n.state = decoratorCalled
@@ -146,7 +160,8 @@ type DecorateOption interface {
 }
 
 type decorateOptions struct {
-	Info *DecorateInfo
+	Info     *DecorateInfo
+	Callback Callback
 }
 
 // FillDecorateInfo is a DecorateOption that writes info on what Dig was
@@ -223,7 +238,7 @@ func (s *Scope) Decorate(decorator interface{}, opts ...DecorateOption) error {
 		opt.apply(&options)
 	}
 
-	dn, err := newDecoratorNode(decorator, s)
+	dn, err := newDecoratorNode(decorator, s, options)
 	if err != nil {
 		return err
 	}

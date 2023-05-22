@@ -16,14 +16,13 @@
 package server
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/osrg/gobgp/v3/internal/pkg/config"
 	"github.com/osrg/gobgp/v3/internal/pkg/table"

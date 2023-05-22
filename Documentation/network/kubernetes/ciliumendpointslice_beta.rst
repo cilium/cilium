@@ -29,6 +29,26 @@ propagation should be reduced in this case, allowing for better scalability,
 at the cost of potentially longer delay before identity of new endpoint is
 recognized throughout the cluster.
 
+.. note::
+
+   CiliumEndpointSlice is a concept that is specific to Cilium and is not
+   related to `Kubernetes' EndpointSlice`_. Although the names are similar, and
+   even though the concept of slices in each feature brings similar
+   improvements for scalability, they address different problems.
+
+   Kubernetes' Endpoints and EndpointSlices allow Cilium to make load-balancing
+   decisions for a particular Service object; Kubernetes' EndpointSlices offer
+   a scalable way to track Service back-ends within a cluster.
+
+   By contrast, CiliumEndpoints and CiliumEndpointSlices are used to make
+   network routing and policy decisions. So CiliumEndpointSlices focus on
+   tracking Pods, batching CEPs to reduce the number of updates to propagate
+   through the API-server on large clusters.
+
+   Enabling one does not affect the other.
+
+.. _Kubernetes' EndpointSlice: https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/
+
 Deploy Cilium with CES
 =======================
 The CES feature relies on use of CEP. This feature is disabled by default

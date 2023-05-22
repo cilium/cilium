@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/ipam/service/ipallocator"
 	"github.com/google/uuid"
 
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
+	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 )

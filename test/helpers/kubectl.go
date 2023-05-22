@@ -120,14 +120,14 @@ var (
 		"ipv4NativeRoutingCIDR":  IPv4NativeRoutingCIDR,
 		"ipv6NativeRoutingCIDR":  IPv6NativeRoutingCIDR,
 
-		"ipam.operator.clusterPoolIPv6PodCIDR": "fd02::/112",
+		"ipam.operator.clusterPoolIPv6PodCIDRList": "fd02::/112",
 	}
 
 	eksChainingHelmOverrides = map[string]string{
 		"k8s.requireIPv4PodCIDR": "false",
 		"cni.chainingMode":       "aws-cni",
 		"masquerade":             "false",
-		"tunnel":                 "disabled",
+		"routingMode":            "native",
 		"nodeinit.enabled":       "true",
 	}
 
@@ -138,7 +138,7 @@ var (
 		"ipv6.enabled":               "false",
 		"k8s.requireIPv4PodCIDR":     "false",
 		"nodeinit.enabled":           "true",
-		"tunnel":                     "disabled",
+		"routingMode":                "native",
 	}
 
 	gkeHelmOverrides = map[string]string{
@@ -158,7 +158,7 @@ var (
 
 	aksHelmOverrides = map[string]string{
 		"ipam.mode":                           "delegated-plugin",
-		"tunnel":                              "disabled",
+		"routingMode":                         "native",
 		"endpointRoutes.enabled":              "true",
 		"extraArgs":                           "{--local-router-ipv4=169.254.23.0}",
 		"k8s.requireIPv4PodCIDR":              "false",
@@ -238,7 +238,8 @@ func HelmOverride(option string) string {
 // NativeRoutingEnabled returns true when native routing is enabled for a
 // particular CNI_INTEGRATION
 func NativeRoutingEnabled() bool {
-	tunnelDisabled := HelmOverride("tunnel") == "disabled"
+	tunnelDisabled := HelmOverride("tunnel") == "disabled" ||
+		HelmOverride("routingMode") == "native"
 	gkeEnabled := HelmOverride("gke.enabled") == "true"
 	return tunnelDisabled || gkeEnabled
 }
@@ -3296,7 +3297,7 @@ func (kub *Kubectl) CiliumReport(commands ...string) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 
 	go func() {
 		defer wg.Done()
@@ -3306,6 +3307,11 @@ func (kub *Kubectl) CiliumReport(commands ...string) {
 	go func() {
 		defer wg.Done()
 		kub.DumpCiliumCommandOutput(ctx, CiliumNamespace)
+	}()
+
+	go func() {
+		defer wg.Done()
+		kub.CollectSysdump(ctx)
 	}()
 
 	kub.CiliumCheckReport(ctx)
@@ -3331,6 +3337,24 @@ func (kub *Kubectl) CiliumReport(commands ...string) {
 	for _, res := range results {
 		res.WaitUntilFinish()
 		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+	}
+}
+
+func (kub *Kubectl) CollectSysdump(ctx context.Context) {
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+		return
+	}
+
+	logsPath := filepath.Join(kub.BasePath(), testPath)
+
+	// We need to get into the root directory because the CLI doesn't yet
+	// support absolute path. Once https://github.com/cilium/cilium-cli/pull/1552
+	// is installed in test VM images, we can remove this.
+	res := kub.ExecContext(ctx, fmt.Sprintf("cd / && cilium-cli sysdump --output-filename %s/cilium-sysdump", logsPath))
+	if !res.WasSuccessful() {
+		log.WithError(res.GetError()).Errorf("failed to collect sysdump")
 	}
 }
 
@@ -4327,8 +4351,18 @@ func (kub *Kubectl) HubbleObserve(pod string, args string) *CmdRes {
 
 // HubbleObserveFollow runs `hubble observe --follow --output=jsonpb <args>` on
 // the Cilium pod 'ns/pod' in the background. The process is stopped when ctx is cancelled.
-func (kub *Kubectl) HubbleObserveFollow(ctx context.Context, pod string, args string) *CmdRes {
-	return kub.ExecPodCmdBackground(ctx, CiliumNamespace, pod, "cilium-agent", fmt.Sprintf("hubble observe --follow --output=jsonpb %s", args))
+func (kub *Kubectl) HubbleObserveFollow(ctx context.Context, pod string, args string) (*CmdRes, error) {
+	hubbleRes := kub.ExecPodCmdBackground(ctx, CiliumNamespace, pod, "cilium-agent",
+		fmt.Sprintf("hubble observe --debug --follow --output=jsonpb %s", args))
+	// Wait until we see the following debug log message. This is to ensure
+	// hubble observe is fully ready before returning from HubbleObserveFollow.
+	// We only need to wait for 6s because if the Hubble client can't connect
+	// to the server after 5s, it will error out anyway.
+	err := hubbleRes.WaitUntilMatchTimeout("Sending GetFlows request", 6*time.Second)
+	if err != nil {
+		return hubbleRes, fmt.Errorf("no flows received after timeout: %w", err)
+	}
+	return hubbleRes, nil
 }
 
 // WaitForIPCacheEntry waits until the given ipAddr appears in "cilium bpf ipcache list"

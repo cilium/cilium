@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package cmd
 
 import (
@@ -23,6 +21,7 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/envoy"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
@@ -31,12 +30,16 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/authmap"
+	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
+	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -76,9 +79,21 @@ func setupTestDirectories() {
 
 	option.Config.RunDir = tempRunDir
 	option.Config.StateDir = tempRunDir
+
+	socketDir := envoy.GetSocketDir(tempRunDir)
+	err = os.MkdirAll(socketDir, 0700)
+	if err != nil {
+		panic("creating envoy socket directory failed")
+	}
 }
 
 func TestMain(m *testing.M) {
+	if !testutils.IntegrationTests() {
+		// Immediately run the test suite without manipulating the environment
+		// if integration tests are not requested.
+		os.Exit(m.Run())
+	}
+
 	proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
 
 	// Set up all configuration options which are global to the entire test
@@ -106,6 +121,7 @@ func TestMain(m *testing.M) {
 	option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
 
 	time.Local = time.UTC
+
 	os.Exit(m.Run())
 }
 
@@ -118,6 +134,8 @@ func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) 
 }
 
 func (ds *DaemonSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+
 	// Register metrics once before running the suite
 	_, ds.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})
 	metrics.MustRegister(ds.collectors...)
@@ -149,6 +167,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
+			func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
+			func() egressmap.PolicyMap { return nil },
 		),
 		ControlPlane,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
@@ -213,6 +233,8 @@ type DaemonEtcdSuite struct {
 var _ = Suite(&DaemonEtcdSuite{})
 
 func (e *DaemonEtcdSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+
 	kvstore.SetupDummy("etcd")
 	e.DaemonSuite.kvstoreInit = true
 }
@@ -232,6 +254,8 @@ type DaemonConsulSuite struct {
 var _ = Suite(&DaemonConsulSuite{})
 
 func (e *DaemonConsulSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+
 	kvstore.SetupDummy("consul")
 	e.DaemonSuite.kvstoreInit = true
 }
@@ -301,4 +325,10 @@ func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
 }
 
 func (ds *DaemonSuite) RemoveRestoredDNSRules(epID uint16) {
+}
+
+func (ds *DaemonSuite) TestMemoryMap(c *C) {
+	pid := os.Getpid()
+	m := memoryMap(pid)
+	c.Assert(m, Not(Equals), "")
 }

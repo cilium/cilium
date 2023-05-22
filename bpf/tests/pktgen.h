@@ -37,7 +37,7 @@ static volatile const __u8 mac_six[] =   {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E};
  *  having to come up with custom ips.
  */
 
-#define IPV4(a, b, c, d) __bpf_htonl(((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
+#define IPV4(a, b, c, d) __bpf_htonl(((a) << 24) + ((b) << 16) + ((c) << 8) + (d))
 
 /* IPv4 addresses for hosts, external to the cluster */
 #define v4_ext_one	IPV4(110, 0, 11, 1)
@@ -147,8 +147,8 @@ enum pkt_layer {
 /* Packet builder */
 struct pktgen {
 	struct __ctx_buff *ctx;
-	__u16 cur_off;
-	__u16 layer_offsets[PKT_BUILDER_LAYERS];
+	__u64 cur_off;
+	__u64 layer_offsets[PKT_BUILDER_LAYERS];
 	enum pkt_layer layers[PKT_BUILDER_LAYERS];
 };
 
@@ -176,29 +176,6 @@ int pktgen__free_layer(const struct pktgen *builder)
 	return -1;
 }
 
-static __always_inline
-__attribute__((warn_unused_result))
-int ctx_data_valid(const struct __ctx_buff *ctx, __maybe_unused __u16 off)
-{
-	int ret = 0;
-
-	/* try to open up a range on the pkt reg */
-	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
-		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
-		     "%[off] &= %[offmax]\n\t"
-		     "r1 += %[off]\n\t"
-		     "if r1 > r2 goto +2\n\t"
-		     "%[ret] = 0\n\t"
-		     "goto +1\n\t"
-		     "%[ret] = %[errno]\n\t"
-		     : [ret]"=r"(ret)
-		     : [ctx]"r"(ctx), [off]"r"(off),
-		       [offmax]"i"(0xff), [errno]"i"(-EINVAL)
-		     : "r1", "r2");
-
-	return ret;
-}
-
 /* Push an empty ethernet header onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
@@ -207,10 +184,12 @@ struct ethhdr *pktgen__push_ethhdr(struct pktgen *builder)
 	struct __ctx_buff *ctx = builder->ctx;
 	struct ethhdr *layer;
 	int layer_idx;
+	void *data;
 
 	/* Request additional tailroom, and check that we got it. */
 	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ethhdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct ethhdr) > ctx_data_end(ctx))
+	data = ctx_data(ctx);
+	if (data + builder->cur_off + sizeof(struct ethhdr) > ctx_data_end(ctx))
 		return 0;
 
 	/* Check that any value within the struct will not exceed a u16 which
@@ -219,7 +198,7 @@ struct ethhdr *pktgen__push_ethhdr(struct pktgen *builder)
 	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct ethhdr))
 		return 0;
 
-	layer = ctx_data(ctx) + builder->cur_off;
+	layer = data + builder->cur_off;
 	layer_idx = pktgen__free_layer(builder);
 
 	if (layer_idx < 0)
@@ -247,6 +226,7 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 {
 	__u32 length = sizeof(struct iphdr) + option_bytes;
 	struct __ctx_buff *ctx = builder->ctx;
+	void *data, *data_end;
 	struct iphdr *layer;
 	int layer_idx;
 
@@ -255,7 +235,9 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 
 	/* Request additional tailroom, and check that we got it. */
 	ctx_adjust_troom(ctx, builder->cur_off + length - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + length > ctx_data_end(ctx))
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+	if (data + builder->cur_off + length > data_end)
 		return 0;
 
 	/* Check that any value within the struct will not exceed a u16 which
@@ -264,7 +246,7 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 	if (builder->cur_off >= MAX_PACKET_OFF - length)
 		return 0;
 
-	layer = ctx_data(ctx) + builder->cur_off;
+	layer = data + builder->cur_off;
 	layer_idx = pktgen__free_layer(builder);
 
 	if (layer_idx < 0)
@@ -398,11 +380,7 @@ struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder
 	if (!hdr)
 		return NULL;
 
-	/* after multiple extension headers are added, LLVM tends to generate
-	 * code that verifier doesn't understand. try to open up a range on
-	 * the pkt reg
-	 */
-	if (ctx_data_valid(builder->ctx, builder->cur_off))
+	if ((void *) hdr + sizeof(struct ipv6_opt_hdr) > ctx_data_end(builder->ctx))
 		return NULL;
 
 	hdr->hdrlen = hdrlen;
@@ -537,7 +515,7 @@ void *pktgen__push_data_room(struct pktgen *builder, int len)
 	/* Check that any value within the struct will not exceed a u16 which
 	 * is the max allowed offset within a packet from ctx->data.
 	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - len)
+	if ((__s64)builder->cur_off >= MAX_PACKET_OFF - len)
 		return 0;
 
 	layer = ctx_data(ctx) + builder->cur_off;
@@ -581,10 +559,10 @@ void pktgen__finish(const struct pktgen *builder)
 	struct ipv6hdr *ipv6_layer;
 	struct ipv6_opt_hdr *ipv6_opt_layer;
 	struct tcphdr *tcp_layer;
-	__u16 layer_off;
+	__u64 layer_off;
 	__u16 v4len;
 	__be16 v6len;
-	__u16 hdr_size;
+	__u64 hdr_size;
 
 	#pragma unroll
 	for (int i = 0; i < PKT_BUILDER_LAYERS; i++) {
@@ -780,7 +758,7 @@ void pktgen__finish(const struct pktgen *builder)
 						builder->layer_offsets[i];
 			}
 
-			tcp_layer->doff = hdr_size / 4;
+			tcp_layer->doff = (__u16)hdr_size / 4;
 
 			break;
 

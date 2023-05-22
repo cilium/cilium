@@ -240,7 +240,7 @@ spec:
                   addressing:
                     description: IP4/6 addresses assigned to this Endpoint
                     items:
-                      description: AddressPair is is a par of IPv4 and/or IPv6 address.
+                      description: AddressPair is a pair of IPv4 and/or IPv6 address.
                       properties:
                         ipv4:
                           type: string

@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -74,6 +75,7 @@ type linuxNodeHandler struct {
 	nodeIDsByIPs map[string]uint16
 
 	ipsecMetricCollector prometheus.Collector
+	ipsecMetricOnce      sync.Once
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
@@ -340,8 +342,9 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) {
 // f00d::a0a:0:0:0/112 via f00d::a0a:0:0:1 dev cilium_host src fd04::11 metric 1024 pref medium
 func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bool) (route.Route, error) {
 	var (
-		local, nexthop net.IP
-		mtu            int
+		local   net.IP
+		nexthop *net.IP
+		mtu     int
 	)
 	if prefix.IP.To4() != nil {
 		if n.nodeAddressing.IPv4() == nil {
@@ -352,8 +355,8 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 			return route.Route{}, fmt.Errorf("IPv4 router address unavailable")
 		}
 
-		nexthop = n.nodeAddressing.IPv4().Router()
-		local = nexthop
+		local = n.nodeAddressing.IPv4().Router()
+		nexthop = &local
 	} else {
 		if n.nodeAddressing.IPv6() == nil {
 			return route.Route{}, fmt.Errorf("IPv6 addressing unavailable")
@@ -367,8 +370,11 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 			return route.Route{}, fmt.Errorf("External IPv6 address unavailable")
 		}
 
-		nexthop = n.nodeAddressing.IPv6().Router()
-		local = n.nodeAddressing.IPv6().PrimaryExternal()
+		// For ipv6, kernel will reject "ip r a $cidr via $ipv6_cilium_host dev cilium_host"
+		// with "Error: Gateway can not be a local address". Instead, we have to remove "via"
+		// as "ip r a $cidr dev cilium_host" to make it work.
+		nexthop = nil
+		local = n.nodeAddressing.IPv6().Router()
 	}
 
 	if !isLocalNode {
@@ -377,7 +383,7 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 
 	// The default routing table accounts for encryption overhead for encrypt-node traffic
 	return route.Route{
-		Nexthop:  &nexthop,
+		Nexthop:  nexthop,
 		Local:    local,
 		Device:   n.datapathConfig.HostDevice,
 		Prefix:   *prefix.IPNet,
@@ -489,6 +495,12 @@ func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8) {
 	} else {
 		scopedLog.Debug("IPsec enable succeeded")
 	}
+}
+
+func (n *linuxNodeHandler) registerIpsecMetricOnce() {
+	n.ipsecMetricOnce.Do(func() {
+		metrics.Register(n.ipsecMetricCollector)
+	})
 }
 
 func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
@@ -945,11 +957,11 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 		wildcardIP := net.ParseIP(wildcardIPv4)
 		wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
 
+		err = ipsec.IPsecDefaultDropPolicy(false)
+		upsertIPsecLog(err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi)
+
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new4Net)
-
-			err = ipsec.IPsecDefaultDropPolicy(false)
-			upsertIPsecLog(err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi)
 
 			if localIP := newNode.GetCiliumInternalIP(false); localIP != nil {
 				if n.subnetEncryption() {
@@ -999,11 +1011,11 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 		wildcardIP := net.ParseIP(wildcardIPv6)
 		wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 128)}
 
+		err = ipsec.IPsecDefaultDropPolicy(true)
+		upsertIPsecLog(err, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi)
+
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new6Net)
-
-			err = ipsec.IPsecDefaultDropPolicy(true)
-			upsertIPsecLog(err, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi)
 
 			if localIP := newNode.GetCiliumInternalIP(true); localIP != nil {
 				if n.subnetEncryption() {
@@ -1028,7 +1040,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 						upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi)
 					}
 				} else {
-					localCIDR := &net.IPNet{IP: localIP, Mask: net.CIDRMask(0, 0)}
+					localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
 					remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 					n.replaceNodeIPSecOutRoute(new6Net)
 					spi, err := ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
@@ -1094,15 +1106,15 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			n.enableSubnetIPsec(n.nodeConfig.IPv4PodSubnets, n.nodeConfig.IPv6PodSubnets)
 		}
 		if firstAddition && n.nodeConfig.EnableIPSec {
-			metrics.Register(n.ipsecMetricCollector)
+			n.registerIpsecMetricOnce()
 		}
 		return nil
 	}
 
 	if option.Config.EnableWireguard && newNode.WireguardPubKey != "" {
-		if err := n.wgAgent.UpdatePeer(newNode.Name, newNode.WireguardPubKey, newIP4, newIP6); err != nil {
+		if err := n.wgAgent.UpdatePeer(newNode.Fullname(), newNode.WireguardPubKey, newIP4, newIP6); err != nil {
 			log.WithError(err).
-				WithField(logfields.NodeName, newNode.Name).
+				WithField(logfields.NodeName, newNode.Fullname()).
 				Warning("Failed to update wireguard configuration for peer")
 		}
 	}
@@ -1183,9 +1195,6 @@ func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	if oldNode.IsLocal() {
-		if n.nodeConfig.EnableIPSec {
-			metrics.Unregister(n.ipsecMetricCollector)
-		}
 		return nil
 	}
 
@@ -1218,7 +1227,7 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	}
 
 	if option.Config.EnableWireguard {
-		if err := n.wgAgent.DeletePeer(oldNode.Name); err != nil {
+		if err := n.wgAgent.DeletePeer(oldNode.Fullname()); err != nil {
 			return err
 		}
 	}
@@ -1319,7 +1328,7 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 	var device string
 
-	if option.Config.Tunnel == option.TunnelDisabled {
+	if !option.Config.TunnelingEnabled() {
 		device = option.Config.EncryptInterface[0]
 	} else {
 		device = option.Config.TunnelDevice()
@@ -1521,8 +1530,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 				return err
 			}
 			n.enableNeighDiscovery = len(ifaceNames) != 0 // No need to arping for L2-less devices
-		case n.nodeConfig.EnableIPSec &&
-			option.Config.Tunnel == option.TunnelDisabled &&
+		case n.nodeConfig.EnableIPSec && !option.Config.TunnelingEnabled() &&
 			len(option.Config.EncryptInterface) != 0:
 			// When FIB lookup is not supported we need to pick an
 			// interface so pick first interface in the list. On
@@ -1580,14 +1588,13 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if err := n.replaceHostRules(); err != nil {
 			log.WithError(err).Warning("Cannot replace Host rules")
 		}
-		metrics.Register(n.ipsecMetricCollector)
+		n.registerIpsecMetricOnce()
 	} else {
 		err := n.removeEncryptRules()
 		if err != nil {
 			log.WithError(err).Warning("Cannot cleanup previous encryption rule state.")
 		}
 		ipsec.DeleteXfrm()
-		metrics.Unregister(n.ipsecMetricCollector)
 	}
 
 	if newConfig.UseSingleClusterRoute {

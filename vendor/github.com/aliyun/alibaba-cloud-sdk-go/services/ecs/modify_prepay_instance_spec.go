@@ -71,21 +71,30 @@ func (client *Client) ModifyPrepayInstanceSpecWithCallback(request *ModifyPrepay
 // ModifyPrepayInstanceSpecRequest is the request struct for api ModifyPrepayInstanceSpec
 type ModifyPrepayInstanceSpecRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	CouponNo             string           `position:"Query" name:"CouponNo"`
-	OperatorType         string           `position:"Query" name:"OperatorType"`
-	SystemDiskCategory   string           `position:"Query" name:"SystemDisk.Category"`
-	RebootTime           string           `position:"Query" name:"RebootTime"`
-	MigrateAcrossZone    requests.Boolean `position:"Query" name:"MigrateAcrossZone"`
-	InstanceType         string           `position:"Query" name:"InstanceType"`
-	AutoPay              requests.Boolean `position:"Query" name:"AutoPay"`
-	RebootWhenFinished   requests.Boolean `position:"Query" name:"RebootWhenFinished"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	EndTime              string           `position:"Query" name:"EndTime"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceId           string           `position:"Query" name:"InstanceId"`
+	ResourceOwnerId      requests.Integer                `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string                          `position:"Query" name:"ClientToken"`
+	CouponNo             string                          `position:"Query" name:"CouponNo"`
+	OperatorType         string                          `position:"Query" name:"OperatorType"`
+	SystemDiskCategory   string                          `position:"Query" name:"SystemDisk.Category"`
+	RebootTime           string                          `position:"Query" name:"RebootTime"`
+	MigrateAcrossZone    requests.Boolean                `position:"Query" name:"MigrateAcrossZone"`
+	InstanceType         string                          `position:"Query" name:"InstanceType"`
+	ModifyMode           string                          `position:"Query" name:"ModifyMode"`
+	AutoPay              requests.Boolean                `position:"Query" name:"AutoPay"`
+	RebootWhenFinished   requests.Boolean                `position:"Query" name:"RebootWhenFinished"`
+	ResourceOwnerAccount string                          `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                          `position:"Query" name:"OwnerAccount"`
+	EndTime              string                          `position:"Query" name:"EndTime"`
+	OwnerId              requests.Integer                `position:"Query" name:"OwnerId"`
+	Disk                 *[]ModifyPrepayInstanceSpecDisk `position:"Query" name:"Disk"  type:"Repeated"`
+	InstanceId           string                          `position:"Query" name:"InstanceId"`
+}
+
+// ModifyPrepayInstanceSpecDisk is a repeated param struct in ModifyPrepayInstanceSpecRequest
+type ModifyPrepayInstanceSpecDisk struct {
+	PerformanceLevel string `name:"PerformanceLevel"`
+	DiskId           string `name:"DiskId"`
+	Category         string `name:"Category"`
 }
 
 // ModifyPrepayInstanceSpecResponse is the response struct for api ModifyPrepayInstanceSpec

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -43,11 +44,16 @@ type SpireDelegateClient struct {
 	trustBundle    *x509.CertPool
 
 	cancelListenForUpdates context.CancelFunc
+
+	rotatedIdentitiesChan chan certs.CertificateRotationEvent
+
+	logLimiter logging.Limiter
 }
 
 type SpireDelegateConfig struct {
 	SpireAdminSocketPath string `mapstructure:"mesh-auth-spire-admin-socket"`
 	SpiffeTrustDomain    string `mapstructure:"mesh-auth-spiffe-trust-domain"`
+	RotatedQueueSize     int    `mapstructure:"mesh-auth-rotated-identities-queue-size"`
 }
 
 var Cell = cell.Module(
@@ -63,9 +69,11 @@ func newSpireDelegateClient(lc hive.Lifecycle, cfg SpireDelegateConfig, log logr
 		return nil
 	}
 	client := &SpireDelegateClient{
-		cfg:       cfg,
-		log:       log.WithField(logfields.LogSubsys, "spire-delegate"),
-		svidStore: map[string]*delegatedidentityv1.X509SVIDWithKey{},
+		cfg:                   cfg,
+		log:                   log.WithField(logfields.LogSubsys, "spire-delegate"),
+		svidStore:             map[string]*delegatedidentityv1.X509SVIDWithKey{},
+		rotatedIdentitiesChan: make(chan certs.CertificateRotationEvent, cfg.RotatedQueueSize),
+		logLimiter:            logging.NewLimiter(10*time.Second, 3),
 	}
 
 	lc.Append(hive.Hook{OnStart: client.onStart, OnStop: client.onStop})
@@ -75,7 +83,8 @@ func newSpireDelegateClient(lc hive.Lifecycle, cfg SpireDelegateConfig, log logr
 
 func (cfg SpireDelegateConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringVar(&cfg.SpireAdminSocketPath, "mesh-auth-spire-admin-socket", "", "The path for the SPIRE admin agent Unix socket.") // default is /run/spire/sockets/admin.sock
-	flags.StringVar(&cfg.SpiffeTrustDomain, "mesh-auth-spiffe-trust-domain", "spiffe.cilium.io", "The trust domain for the SPIFFE identity.")
+	flags.StringVar(&cfg.SpiffeTrustDomain, "mesh-auth-spiffe-trust-domain", "spiffe.cilium", "The trust domain for the SPIFFE identity.")
+	flags.IntVar(&cfg.RotatedQueueSize, "mesh-auth-rotated-identities-queue-size", 1024, "The size of the queue for signaling rotated identities.")
 }
 
 func (s *SpireDelegateClient) onStart(ctx hive.HookContext) error {
@@ -167,6 +176,8 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 	newSvidStore := map[string]*delegatedidentityv1.X509SVIDWithKey{}
 
 	s.svidStoreMutex.RLock()
+	updatedKeys := []string{}
+
 	for _, svid := range svids {
 
 		if svid.X509Svid.Id.TrustDomain != s.cfg.SpiffeTrustDomain {
@@ -180,8 +191,7 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 		if _, exists := s.svidStore[key]; exists {
 			old := s.svidStore[key]
 			if old.X509Svid.ExpiresAt != svid.X509Svid.ExpiresAt || !equalCertChains(old.X509Svid.CertChain, svid.X509Svid.CertChain) {
-				s.log.Debugf("X509-SVID for %s has changed, updating", key)
-				// this is a good point to in the future send a trigger for a new handshake
+				updatedKeys = append(updatedKeys, key)
 			}
 		} else {
 			s.log.Debugf("X509-SVID for %s is new, adding", key)
@@ -194,6 +204,23 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 	s.svidStoreMutex.Lock()
 	s.svidStore = newSvidStore
 	s.svidStoreMutex.Unlock()
+
+	for _, key := range updatedKeys {
+		// we send an update event to re-trigger a handshake if needed
+		id, err := s.spiffeIDToNumericIdentity(key)
+		if err != nil {
+			s.log.WithError(err).Errorf("failed to convert spiffe ID %s to numeric identity", key)
+			continue
+		}
+		select {
+		case s.rotatedIdentitiesChan <- certs.CertificateRotationEvent{Identity: id}:
+			s.log.Debugf("X509-SVID for %s has changed, signaling this", key)
+		default:
+			if s.logLimiter.Allow() {
+				s.log.Warnf("skipping sending rotated identity %d as channel is full", id)
+			}
+		}
+	}
 }
 
 func (s *SpireDelegateClient) handleX509BundleUpdate(bundles map[string][]byte) {

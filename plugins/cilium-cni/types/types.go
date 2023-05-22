@@ -31,6 +31,7 @@ type NetConf struct {
 	EnableDebug  bool                   `json:"enable-debug"`
 	LogFormat    string                 `json:"log-format"`
 	LogFile      string                 `json:"log-file"`
+	ChainingMode string                 `json:"chaining-mode"`
 }
 
 // IPAM is the Cilium specific CNI IPAM configuration
@@ -68,7 +69,7 @@ func parsePrevResult(n *NetConf) (*NetConf, error) {
 func ReadNetConf(path string) (*NetConf, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to read CNI configuration '%s': %s", path, err)
+		return nil, fmt.Errorf("unable to read CNI configuration '%s': %s", path, err)
 	}
 
 	netConfList := &NetConfList{}

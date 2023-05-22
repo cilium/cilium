@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Authors of Cilium
 
@@ -77,7 +77,7 @@ get_branch_from_version() {
     local remote="$1"
     local branch="$(echo $2 | sed 's/.*\(v[0-9]\+\.[0-9]\+\).*/\1/')"
     if [ -z "$(git ls-remote --heads $remote $branch)" ]; then
-        branch="master"
+        branch="main"
     fi
     echo "$branch"
 }

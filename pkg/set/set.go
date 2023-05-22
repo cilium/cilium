@@ -7,6 +7,13 @@ package set
 // not, it also returns slice of elements which are the difference of both
 // input slices.
 func SliceSubsetOf(sub, main []string) (bool, []string) {
+	if len(sub) == 0 {
+		return true, nil
+	}
+	if len(main) == 0 {
+		return len(sub) == 0, sub
+	}
+
 	var diff []string
 	occurrences := make(map[string]int, len(main))
 	result := true

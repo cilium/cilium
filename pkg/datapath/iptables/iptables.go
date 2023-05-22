@@ -326,7 +326,7 @@ func (m *IptablesManager) Init() {
 	m.haveIp6tables = haveIp6tables
 
 	if err := modulesManager.FindOrLoadModules("xt_socket"); err != nil {
-		if option.Config.Tunnel == option.TunnelDisabled {
+		if !option.Config.TunnelingEnabled() {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
 			// logic for packets for which a local socket is found by ip early
 			// demux. xt_socket performs a local socket match and sets an skb mark on
@@ -377,7 +377,7 @@ func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
 	// Original source address use works if xt_socket match is supported, or if ip early demux
 	// is disabled, but it is not needed when tunneling is used as the tunnel header carries
 	// the source security ID.
-	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && option.Config.Tunnel == option.TunnelDisabled
+	return (m.haveSocketMatch || m.ipEarlyDemuxDisabled) && !option.Config.TunnelingEnabled()
 }
 
 // removeRules removes iptables rules installed by Cilium.
@@ -459,7 +459,8 @@ func (m *IptablesManager) iptIngressProxyRule(rules string, prog iptablesInterfa
 	ingressProxyMark := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy)
 	ingressProxyPort := fmt.Sprintf("%d", proxyPort)
 
-	if strings.Contains(rules, fmt.Sprintf("CILIUM_PRE_mangle -p %s -m mark --mark %s", l4proto, ingressMarkMatch)) {
+	existingRuleRegex := regexp.MustCompile(fmt.Sprintf("CILIUM_PRE_mangle -p %s -m mark --mark %s.*--on-ip %s", l4proto, ingressMarkMatch, ip))
+	if existingRuleRegex.MatchString(rules) {
 		return nil
 	}
 
@@ -489,7 +490,8 @@ func (m *IptablesManager) iptEgressProxyRule(rules string, prog iptablesInterfac
 	egressProxyMark := fmt.Sprintf("%#x", linux_defaults.MagicMarkIsToProxy)
 	egressProxyPort := fmt.Sprintf("%d", proxyPort)
 
-	if strings.Contains(rules, fmt.Sprintf("-A CILIUM_PRE_mangle -p %s -m mark --mark %s", l4proto, egressMarkMatch)) {
+	existingRuleRegex := regexp.MustCompile(fmt.Sprintf("-A CILIUM_PRE_mangle -p %s -m mark --mark %s.*--on-ip %s", l4proto, egressMarkMatch, ip))
+	if existingRuleRegex.MatchString(rules) {
 		return nil
 	}
 
@@ -623,10 +625,22 @@ func (m *IptablesManager) installStaticProxyRules() error {
 			return err
 		}
 
-		// No conntrack for proxy return traffic
+		// No conntrack for proxy return traffic that is heading to cilium_host
 		if err := ip6tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
+			"-o", defaults.HostDevice,
+			"-m", "mark", "--mark", matchProxyReply,
+			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+			"-j", "CT", "--notrack"}); err != nil {
+			return err
+		}
+
+		// No conntrack for proxy upstream traffic that is heading to lxc+
+		if err := ip6tables.runProg([]string{
+			"-t", "raw",
+			"-A", ciliumOutputRawChain,
+			"-o", "lxc+",
 			"-m", "mark", "--mark", matchProxyReply,
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 			"-j", "CT", "--notrack"}); err != nil {
@@ -728,11 +742,11 @@ func (m *IptablesManager) addProxyRules(prog iptablesInterface, ip string, proxy
 
 	// Delete all other rules for this same proxy name
 	// These may accumulate if there is a bind failure on a previously used port
-	portMatch := fmt.Sprintf("TPROXY --on-port %d ", proxyPort)
+	portAndIPMatch := fmt.Sprintf("TPROXY --on-port %d --on-ip %s ", proxyPort, ip)
 	scanner := bufio.NewScanner(strings.NewReader(rules))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || !strings.Contains(rule, "cilium: TPROXY to host "+name) || strings.Contains(rule, portMatch) {
+		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || !strings.Contains(rule, "cilium: TPROXY to host "+name) || strings.Contains(rule, portAndIPMatch) {
 			continue
 		}
 
@@ -1247,7 +1261,7 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 		return err
 	}
 
-	if option.Config.Tunnel != option.TunnelDisabled {
+	if option.Config.TunnelingEnabled() {
 		// Masquerade all traffic from the host into the ifName
 		// interface if the source is not in the node's pod CIDR.
 		//
@@ -1597,13 +1611,13 @@ func (m *IptablesManager) addCiliumAcceptXfrmRules() error {
 		return nil
 	}
 
-	insertAcceptXfrm := func(table, chain string) error {
+	insertAcceptXfrm := func(ipt *ipt, table, chain string) error {
 		matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 		matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 
 		comment := "exclude xfrm marks from " + table + " " + chain + " chain"
 
-		if err := ip4tables.runProg([]string{
+		if err := ipt.runProg([]string{
 			"-t", table,
 			"-A", chain,
 			"-m", "mark", "--mark", matchFromIPSecEncrypt,
@@ -1612,7 +1626,7 @@ func (m *IptablesManager) addCiliumAcceptXfrmRules() error {
 			return err
 		}
 
-		return ip4tables.runProg([]string{
+		return ipt.runProg([]string{
 			"-t", table,
 			"-A", chain,
 			"-m", "mark", "--mark", matchFromIPSecDecrypt,
@@ -1620,23 +1634,21 @@ func (m *IptablesManager) addCiliumAcceptXfrmRules() error {
 			"-j", "ACCEPT"})
 	}
 
-	if err := insertAcceptXfrm("filter", ciliumInputChain); err != nil {
-		return err
-	}
-	if err := insertAcceptXfrm("filter", ciliumOutputChain); err != nil {
-		return err
-	}
-	if err := insertAcceptXfrm("filter", ciliumForwardChain); err != nil {
-		return err
-	}
-	if err := insertAcceptXfrm("nat", ciliumPostNatChain); err != nil {
-		return err
-	}
-	if err := insertAcceptXfrm("nat", ciliumPreNatChain); err != nil {
-		return err
-	}
-	if err := insertAcceptXfrm("nat", ciliumOutputNatChain); err != nil {
-		return err
+	for _, chain := range ciliumChains {
+		switch chain.table {
+		case "filter", "nat":
+			if option.Config.EnableIPv4 {
+				if err := insertAcceptXfrm(ip4tables, chain.table, chain.name); err != nil {
+					return err
+				}
+			}
+			// ip6tables chain exists only if chain.ipv6 is true
+			if option.Config.EnableIPv6 && chain.ipv6 {
+				if err := insertAcceptXfrm(ip6tables, chain.table, chain.name); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

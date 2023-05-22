@@ -118,7 +118,7 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 		option.Config.EnableIPv6 = oldEnableIPv6
 	}()
 
-	testRun := func(t *testutils.TestEndpoint) ([]byte, map[string]uint32, map[string]string) {
+	testRun := func(t *testutils.TestEndpoint) ([]byte, map[string]uint64, map[string]string) {
 		cfg := &HeaderfileWriter{}
 		varSub, stringSub := loader.ELFSubstitutions(t)
 
@@ -128,7 +128,7 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 		return buf.Bytes(), varSub, stringSub
 	}
 
-	lxcIPs := []string{"LXC_IP_1", "LXC_IP_2", "LXC_IP_3", "LXC_IP_4"}
+	lxcIPs := []string{"LXC_IP_1", "LXC_IP_2"}
 
 	tests := []struct {
 		description string
@@ -211,9 +211,9 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	cfg.writeStaticData(&buf, ep)
 	b := buf.Bytes()
 	for k := range varSub {
-		for _, suffix := range []string{"_1", "_2", "_3", "_4"} {
+		for _, suffix := range []string{"_1", "_2"} {
 			// Variables with these suffixes are implemented via
-			// multiple 32-bit values. The header define doesn't
+			// multiple 64-bit values. The header define doesn't
 			// include these numbers though, so strip them.
 			if strings.HasSuffix(k, suffix) {
 				k = strings.TrimSuffix(k, suffix)
@@ -232,7 +232,7 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	}
 }
 
-func assertKeysInsideMap(c *C, m map[string]uint32, keys []string, want bool) {
+func assertKeysInsideMap(c *C, m map[string]uint64, keys []string, want bool) {
 	for _, v := range keys {
 		_, ok := m[v]
 		c.Assert(ok, Equals, want)

@@ -115,6 +115,10 @@ const (
 	// traffic to that node.
 	WireguardPubKey      = NetworkPrefix + "/wg-pub-key"
 	WireguardPubKeyAlias = Prefix + ".network.wg-pub-key"
+
+	// BGPVRouterAnnoPrefix is the prefix used for all Virtual Router annotations
+	// Its just a prefix, because the ASN of the Router is part of the annotation itself
+	BGPVRouterAnnoPrefix = "cilium.io/bgp-virtual-router."
 )
 
 // Get returns the annotation value associated with the given key, or any of

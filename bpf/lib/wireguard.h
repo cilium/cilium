@@ -48,9 +48,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		}
 #endif
 		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-#ifndef ENABLE_NODE_ENCRYPTION
 		src = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
-#endif /* ENABLE_NODE_ENCRYPTION */
 		break;
 #endif
 #ifdef ENABLE_IPV4
@@ -58,9 +56,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-#ifndef ENABLE_NODE_ENCRYPTION
 		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-#endif /* ENABLE_NODE_ENCRYPTION */
 		break;
 #endif
 	default:
@@ -88,7 +84,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	 * as with --encrypt-node=false we encrypt only pod-to-pod packets.
 	 */
 #ifndef ENABLE_NODE_ENCRYPTION
-	if (!src || src->sec_label == HOST_ID)
+	if (!src || src->sec_identity == HOST_ID)
 		goto out;
 #endif /* ENABLE_NODE_ENCRYPTION */
 
@@ -98,7 +94,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	 * reply traffic arrives from the cluster-external server and goes to
 	 * the client pod.
 	 */
-	if (!src || !identity_is_cluster(src->sec_label))
+	if (!src || !identity_is_cluster(src->sec_identity))
 		goto out;
 
 	/* Redirect to the WireGuard tunnel device if the encryption is

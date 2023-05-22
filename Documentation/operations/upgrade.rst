@@ -314,17 +314,53 @@ Annotations:
   DNS server is expired.
 * Cilium now writes its CNI configuration file to ``05-cilium.conflist`` in
   all cases, rather than the previous default of ``05-cilium.conf``.
+* The default value of ``--update-ec2-adapter-limit-via-api`` has changed from
+  ``false`` to ``true``. This means that the Cilium Operator will fetch the
+  most up-to-date EC2 adapter limits from the AWS API. This now requires
+  updated IAM permissions for Cilium to have ``ec2:DescribeInstances``. In EKS,
+  nodes usually have ``AmazonEKSWorkerNodePolicy`` which includes this
+  permission, so it should work in most cases. If your nodes don't have this
+  policy, then consider adding it to your IAM permissions. Explicitly configure
+  ``--update-ec2-adapter-limit-via-api`` to ``false`` if you want to avoid this
+  additional IAM permission. Beware that if your EC2 instance type that Cilium
+  is running on is not known to Cilium, it may cause a crash.
+* Egress Gateway policies now drop matching traffic when no
+  gateway nodes can be found. Previously, traffic would be allowed without
+  being rerouted towards an Egress Gateway.
+* If Gateway API feature is enabled, please upgrade related CRDs to v0.6.x. This is
+  mainly for ReferenceGrant resource version change (i.e. from v1alpha2 to v1beta1).
 
 Removed Options
 ~~~~~~~~~~~~~~~
 
-The ``sockops-enable`` option is removed
+* The ``sockops-enable`` and ``force-local-policy-eval-at-source`` options deprecated in version
+  1.13 are removed.
+
+New Options
+~~~~~~~~~~~
+
+* ``routing-mode=native``: This option enables native-routing mode, in place of
+  ``tunnel=disabled``, now deprecated.
+* ``tunnel-protocol``: This option allows setting the tunneling protocol, in place
+  of e.g., ``tunnel=vxlan``.
+
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``tunnel`` option is deprecated and will be removed in v1.15. To enable
+  native-routing mode, set ``routing-mode=native`` (previously
+  ``tunnel=disabled``). To configure the tunneling protocol, set
+  ``tunnel-protocol=geneve`` (previously ``tunnel=geneve``).
 
 Added Metrics
 ~~~~~~~~~~~~~
 
 * ``cilium_operator_ces_sync_total``
 * ``cilium_policy_change_total``
+* ``go_sched_latencies_seconds``
+* ``cilium_operator_ipam_available_ips``
+* ``cilium_operator_ipam_used_ips``
+* ``cilium_operator_ipam_needed_ips``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
@@ -333,6 +369,12 @@ Deprecated Metrics
 * ``cilium_policy_import_errors_total`` is deprecated. Please use
   ``cilium_policy_change_total``, which counts all policy changes (Add, Update, Delete)
   based on outcome ("success" or "failure").
+* ``cilium_operator_ipam_ips`` is deprecated. Use ``cilium_operator_ipam_{available,used,needed}_ips`` instead.
+
+Changed Metrics
+~~~~~~~~~~~~~~~
+
+* ``cilium_bpf_map_pressure`` is now enabled by default.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -343,6 +385,34 @@ Helm Options
 * The ``securityContext`` for Hubble Relay now defaults to drop all
   capabilities and run as non-root user.
 * The ``containerRuntime.integration`` value is being deprecated in favor of ``bpf.autoMount.enabled``.
+* Following the deprecation of the ``tunnel`` agent flag, ``tunnel`` is being
+  deprecated in favor of ``routingMode`` and ``tunnelProtocol`` and will be
+  removed in v1.15.
+* Values ``encryption.keyFile``, ``encryption.mountPath``,
+  ``encryption.secretName`` and ``encryption.interface`` are deprecated in
+  favor of their ``encryption.ipsec.*`` counterparts and will be removed in
+  Cilium 1.15.
+* Value ``hubble.peerService.enabled`` was deprecated in Cilium 1.13 and has
+  been removed. The peer service is no longer optional.
+* Values ``hubble.tls.ca``, ``hubble.tls.ca.cert`` and ``hubble.tls.ca.key``
+  were deprecated in Cilium 1.12 in favor of ``tls.ca``, ``tls.ca.cert`` and
+  ``tls.ca.key`` respectively, and have been removed.
+* Value ``hubble.ui.securityContext.enabled`` was deprecated in Cilium 1.12 in
+  favor of ``hubble.ui.securityContext``, and has been removed.
+* Values ``ipam.operator.clusterPoolIPv4PodCIDR`` and
+  ``ipam.operator.clusterPoolIPv6PodCIDR`` were deprecated in Cilium 1.11 in
+  favor of ``ipam.operator.clusterPoolIPv4PodCIDRList`` and
+  ``ipam.operator.clusterPoolIPv6PodCIDRList``, respectively, and have been
+  removed.
+  In order to preserve the default behavior for selecting CIDRs when default
+  values are kept, ``ipam.operator.clusterPoolIPv4PodCIDRList`` now defaults to
+  a singleton containing the default CIDR value for the removed value
+  ``ipam.operator.clusterPoolIPv4PodCIDR`` (and similarly for IPv6).
+* Values ``clustermesh.apiserver.tls.ca.cert`` and ``clustermesh.apiserver.tls.ca.key``
+  are deprecated in favor of ``tls.ca.cert`` and ``tls.ca.key`` respectively, and
+  will be removed in v1.15.
+* Values ``proxy.prometheus.enabled`` and ``proxy.prometheus.port`` are deprecated in favor of
+  their ``envoy.prometheus.*`` counterparts.
 
 .. _earlier_upgrade_notes:
 

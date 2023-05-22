@@ -1,0 +1,21 @@
+on:
+  # Allow to run manually via GitHub UI
+  workflow_dispatch: {}
+  # Additionally run once a day at midnight
+  schedule:
+    - cron:  '0 0 * * *'
+
+jobs:
+  mirror_job:
+    if: github.repository == 'cilium/cilium'
+    runs-on: ubuntu-latest
+    environment: mirror
+    name: Mirror main branch to master branch
+    steps:
+    - name: Mirror action step
+      id: mirror
+      uses: google/mirror-branch-action@30c52ee21f5d3bd7fb28b95501c11aae7f17eebb
+      with:
+        github-token: ${{ secrets.MIRROR_API_TOKEN }}
+        source: 'main'
+        dest: 'master'

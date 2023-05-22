@@ -441,6 +441,12 @@ func (res *CmdRes) GetDebugMessage() string {
 // WaitUntilMatch waits until the given substring is present in the `CmdRes.stdout`
 // If the timeout is reached it will return an error.
 func (res *CmdRes) WaitUntilMatch(substr string) error {
+	return res.WaitUntilMatchTimeout(substr, HelperTimeout)
+}
+
+// WaitUntilMatchTimeout is the same as WaitUntilMatch but with a user-provided
+// timeout value.
+func (res *CmdRes) WaitUntilMatchTimeout(substr string, timeout time.Duration) error {
 	body := func() bool {
 		return strings.Contains(res.OutputPrettyPrint(), substr)
 	}
@@ -448,7 +454,7 @@ func (res *CmdRes) WaitUntilMatch(substr string) error {
 	return WithTimeout(
 		body,
 		fmt.Sprintf("%s is not in the output after timeout", substr),
-		&TimeoutConfig{Timeout: HelperTimeout})
+		&TimeoutConfig{Timeout: timeout})
 }
 
 // WaitUntilMatchRegexp waits until the `CmdRes.stdout` matches the given regexp.

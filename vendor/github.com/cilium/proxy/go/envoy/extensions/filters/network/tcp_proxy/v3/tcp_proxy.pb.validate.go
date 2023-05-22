@@ -366,7 +366,35 @@ func (m *TcpProxy) validate(all bool) error {
 		}
 	}
 
-	// no validation rules for ReceiveBeforeConnect
+	if d := m.GetAccessLogFlushInterval(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = TcpProxyValidationError{
+				field:  "AccessLogFlushInterval",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			gte := time.Duration(0*time.Second + 1000000*time.Nanosecond)
+
+			if dur < gte {
+				err := TcpProxyValidationError{
+					field:  "AccessLogFlushInterval",
+					reason: "value must be greater than or equal to 1ms",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
 
 	switch m.ClusterSpecifier.(type) {
 
@@ -719,6 +747,8 @@ func (m *TcpProxy_TunnelingConfig) validate(all bool) error {
 	}
 
 	// no validation rules for PropagateResponseHeaders
+
+	// no validation rules for PostPath
 
 	if len(errors) > 0 {
 		return TcpProxy_TunnelingConfigMultiError(errors)

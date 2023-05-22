@@ -9,5 +9,11 @@ if ! have_kind; then
     echo "  https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
 fi
 
-kind delete clusters kind && \
-    docker network rm kind-cilium
+default_cluster_name="kind"
+default_network="kind-cilium"
+
+for cluster in "${@:-${default_cluster_name}}"; do
+    kind delete cluster --name "$cluster"
+done
+
+docker network rm ${default_network}

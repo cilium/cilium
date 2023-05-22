@@ -81,11 +81,11 @@ func TestClient_Upsert(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-id/dummy-id",
+									Path:        "/identity/dummy-id",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/dclient",
+									Path:        "/cilium-operator",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
@@ -116,11 +116,11 @@ func TestClient_Upsert(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-id/dummy-id",
+									Path:        "/identity/dummy-id",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/dclient",
+									Path:        "/cilium-operator",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
@@ -140,11 +140,11 @@ func TestClient_Upsert(t *testing.T) {
 							{
 								SpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-id/dummy-id",
+									Path:        "/identity/dummy-id",
 								},
 								ParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/dclient",
+									Path:        "/cilium-operator",
 								},
 								Selectors: defaultSelectors,
 							},
@@ -166,11 +166,11 @@ func TestClient_Upsert(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-id/dummy-id",
+									Path:        "/identity/dummy-id",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/dclient",
+									Path:        "/cilium-operator",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
@@ -192,11 +192,11 @@ func TestClient_Upsert(t *testing.T) {
 							{
 								SpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-id/dummy-id",
+									Path:        "/identity/dummy-id",
 								},
 								ParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/dclient",
+									Path:        "/cilium-operator",
 								},
 								Selectors: defaultSelectors,
 							},
@@ -252,11 +252,11 @@ func TestClient_Delete(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-id/dummy-id",
+									Path:        "/identity/dummy-id",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/dclient",
+									Path:        "/cilium-operator",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
@@ -287,11 +287,11 @@ func TestClient_Delete(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-id/dummy-id",
+									Path:        "/identity/dummy-id",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/dclient",
+									Path:        "/cilium-operator",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
@@ -321,11 +321,11 @@ func TestClient_Delete(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-id/dummy-id",
+									Path:        "/identity/dummy-id",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/dclient",
+									Path:        "/cilium-operator",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
@@ -355,11 +355,11 @@ func TestClient_Delete(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-id/dummy-id",
+									Path:        "/identity/dummy-id",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/dclient",
+									Path:        "/cilium-operator",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{

@@ -47,6 +47,9 @@ const (
 	// Labels are any label, they may not be relevant to the security identity.
 	Labels = "labels"
 
+	// Source is the label or node information source
+	Source = "source"
+
 	// Controller is the name of the controller to log it.
 	Controller = "controller"
 
@@ -232,6 +235,9 @@ const (
 	// Hash is a hash of something
 	Hash = "hash"
 
+	// ServerNames is the list of TLS SNIs
+	ServerNames = "serverNames"
+
 	// ServiceName is the orchestration framework name for a service
 	ServiceName = "serviceName"
 
@@ -358,6 +364,13 @@ const (
 
 	// Tunnel is the tunnel name
 	Tunnel = "tunnel"
+
+	// TunnelPeer is the tunnel peer address
+	TunnelPeer = "tunnelPeer"
+
+	// ConflictingTunnelPeer is the address of a tunnel peer which conflicts
+	// with TunnelPeer
+	ConflictingTunnelPeer = "conflictingTunnelPeer"
 
 	// Selector is a selector of any sort: endpoint, CIDR, toFQDNs
 	Selector = "Selector"
@@ -539,6 +552,10 @@ const (
 	// Key is the identity of the encryption key
 	Key = "key"
 
+	// ConflictingKey is the identity of the encryption key which conflicts with
+	// Key
+	ConflictingKey = "conflictingKey"
+
 	// URL represents a Uniform Resource Locator.
 	URL = "url"
 
@@ -649,6 +666,13 @@ const (
 	// Number of Backends failed while restoration.
 	FailedBackends = "failedBackends"
 
+	// SkippedBackends is the number of Backends that were skipped during restore
+	// as duplicates.
+	SkippedBackends = "skippedBackends"
+
+	// OrphanBackends is the number Backends that are not associated with any services.
+	OrphanBackends = "orphanBackends"
+
 	// Number of Services failed while restoration.
 	RestoredSVCs = "restoredServices"
 
@@ -681,4 +705,10 @@ const (
 
 	// User identifies a given user
 	User = "user"
+
+	// CIDRGroupRef is a references to a CiliumCIDRGroup object.
+	CIDRGroupRef = "cidrGroupRef"
+
+	// Workers represents the number of workers.
+	Workers = "workers"
 )

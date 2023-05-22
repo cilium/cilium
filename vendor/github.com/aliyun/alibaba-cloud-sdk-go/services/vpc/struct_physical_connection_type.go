@@ -52,4 +52,5 @@ type PhysicalConnectionType struct {
 	VpconnStatus                   string `json:"VpconnStatus" xml:"VpconnStatus"`
 	ExpectSpec                     string `json:"ExpectSpec" xml:"ExpectSpec"`
 	ResourceGroupId                string `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	AdDetailLocation               string `json:"AdDetailLocation" xml:"AdDetailLocation"`
 }

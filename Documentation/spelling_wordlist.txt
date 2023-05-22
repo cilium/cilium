@@ -1,3 +1,4 @@
+AArch
 ACK
 AKS
 APIEndpoint
@@ -5,6 +6,7 @@ AdapterLimitViaAPI
 Alemayhu
 Alibaba
 Anthos
+Attestor
 Automount
 BIGTCP
 BPF
@@ -165,7 +167,9 @@ Zhou
 Zookeeper
 aarch
 admin
+adminSocketPath
 agentNotReadyTaintKey
+agentSocketPath
 aksbyocni
 alibabacloud
 allocator
@@ -199,6 +203,7 @@ autoMount
 autoProtectPortRange
 autocompletion
 autoload
+automount
 autoscaler
 awk
 aws
@@ -249,6 +254,7 @@ buildx
 busybox
 bytecode
 cBPF
+caBundle
 callee
 cancelled
 cardinality
@@ -264,6 +270,7 @@ certsVolume
 cgroup
 cgroups
 chainingMode
+chainingTarget
 changelog
 cheatsheet
 ci
@@ -271,6 +278,7 @@ cidr
 cidrs
 ciliumAgent
 ciliumNodeUpdateRate
+ciliumOperator
 ciliumnode
 classful
 classid
@@ -309,6 +317,7 @@ configSources
 configmap
 configs
 conformant
+connectionTimeout
 conntrack
 conntrackGCInterval
 containerRuntime
@@ -334,10 +343,12 @@ curl
 customCalls
 customConf
 daemonset
+dataStorage
 datacenter
 datagrams
 datapath
 datapathMode
+datastorage
 datastore
 datastream
 datastreams
@@ -350,6 +361,7 @@ decapsulation
 decrypt
 decrypted
 deepcopy
+delegatedClient
 deletetopic
 demux
 dependant
@@ -468,6 +480,7 @@ functionalities
 fwmark
 gRPC
 gVNIC
+gVisor
 gatewayAPI
 gcInterval
 gcTags
@@ -505,6 +518,7 @@ healthcheck
 healthz
 herokuapp
 hexData
+highScaleIPcache
 hoc
 hostAliases
 hostConfDirMountPath
@@ -549,6 +563,7 @@ ingressLBAnnotationPrefixes
 ingressing
 init
 initContainer
+initContainers
 inline
 inlined
 inlines
@@ -605,6 +620,7 @@ kata
 keepDeprecatedLabels
 keepDeprecatedProbes
 keyFile
+keyType
 keyless
 keypair
 keyspace
@@ -720,6 +736,7 @@ mov
 mtls
 mul
 multi
+multiPoolMap
 multicore
 multihoming
 multinode
@@ -895,6 +912,7 @@ rollOutCiliumPods
 rollOutPods
 rollout
 routable
+routingMode
 rst
 rsync
 runPath
@@ -926,6 +944,7 @@ securityContext
 selftest
 selftests
 sendmsg
+serverAddress
 serviceAccount
 serviceAccountName
 serviceAccounts
@@ -947,6 +966,7 @@ sig
 skb
 skipCNPStatusStartupClean
 skipCRDCreation
+skipKubeletVerification
 skipUnknownCGroupIDs
 skipteardown
 sleepAfterInit
@@ -958,11 +978,6 @@ sortBufferLenMax
 sourceContext
 spiffe
 spiffeTrustDomain
-spireAdminSocketPath
-spireAgentSocketPath
-spireServerAddress
-spireServerConnectionTimeout
-spireServerSocketPath
 src
 srv
 ssl
@@ -1041,8 +1056,10 @@ tracepoint
 tracepoints
 transpiling
 triaged
+trustDomain
 ttlSecondsAfterFinished
 tunnelPort
+tunnelProtocol
 tuples
 ubuntu
 udp

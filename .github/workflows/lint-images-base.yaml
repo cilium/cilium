@@ -9,8 +9,8 @@ on:
       - reopened
   push:
     branches:
-      - master
-      - ft/master/**
+      - main
+      - ft/main/**
 
 permissions: read-all
 
@@ -23,7 +23,7 @@ jobs:
     name: Lint image build logic
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           persist-credentials: false
 
@@ -38,3 +38,6 @@ jobs:
         with:
           entrypoint: make
           args: -C images check-runtime-image check-builder-image
+
+      - name: Check Cilium Envoy image
+        run: make -C images check-envoy-image

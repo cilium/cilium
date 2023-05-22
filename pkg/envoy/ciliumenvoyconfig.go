@@ -100,7 +100,7 @@ func (old *Resources) ListenersAddedOrDeleted(new *Resources) bool {
 // ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources
 // type cecNamespace and cecName parameters, if not empty, will be prepended to the Envoy resource
 // names.
-func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XDSResource, validate bool, portAllocator PortAllocator, isL7LB bool) (Resources, error) {
+func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XDSResource, validate bool, portAllocator PortAllocator, isL7LB bool, useOriginalSourceAddr bool) (Resources, error) {
 	resources := Resources{}
 	for _, r := range anySlice {
 		// Skip empty TypeURLs, which are left behind when Unmarshaling resource JSON fails
@@ -143,10 +143,10 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 				}
 			}
 			if !found {
-				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* not ingress */, !isL7LB, isL7LB))
+				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
 			}
 			// Inject listener socket option for Cilium datapath
-			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* not ingress */))
+			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
 
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
@@ -345,12 +345,12 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 			if validate {
 				if err := secret.Validate(); err != nil {
-					return Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%s): %s", secret.Name, err, secret.String())
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%s)", secret.Name, err)
 				}
 			}
 			resources.Secrets = append(resources.Secrets, secret)
 
-			log.Debugf("ParseResources: Parsed secret: %v", secret)
+			log.Debugf("ParseResources: Parsed secret: %s", secret.Name)
 
 		default:
 			return Resources{}, fmt.Errorf("Unsupported type: %s", typeURL)
@@ -430,7 +430,7 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	// resources to begin with.
 	// If both listeners and clusters are added then wait for clusters.
 	for _, r := range resources.Secrets {
-		log.Debugf("Envoy upsertSecret %s %v", r.Name, r)
+		log.Debugf("Envoy upsertSecret %s", r.Name)
 		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
 	}
 	for _, r := range resources.Endpoints {

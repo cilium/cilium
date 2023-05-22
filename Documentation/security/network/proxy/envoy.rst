@@ -10,6 +10,12 @@
 Envoy
 =====
 
+Envoy proxy shipped with Cilium is built with minimal Envoy extensions and custom policy enforcement filters.
+Cilium uses this minimal distribution as its host proxy for enforcing HTTP and other L7 policies as specified in network policies
+for the cluster. Cilium proxy is distributed within the Cilium images.
+
+For more information on the version compatibility matrix, see `Cilium Proxy documentation <https://github.com/cilium/proxy#version-compatibility-matrix>`_.
+
 *************
 Go Extensions
 *************
@@ -30,7 +36,7 @@ In sum, you as the developer need only worry about the logic of parsing the prot
 and Cilium + Envoy + eBPF do the heavy-lifting.  
 
 This guide uses simple examples based on a hypothetical "r2d2" protocol 
-(see `proxylib/r2d2/r2d2parser.go <https://github.com/cilium/cilium/blob/master/proxylib/r2d2/r2d2parser.go>`_) 
+(see `proxylib/r2d2/r2d2parser.go <https://github.com/cilium/cilium/blob/main/proxylib/r2d2/r2d2parser.go>`_)
 that might be used to talk to a simple protocol droid a long time ago in a galaxy far, far away.   
 But it also points to other real protocols like Memcached and Cassandra that already exist in the cilium/proxylib 
 directory.  

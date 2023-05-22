@@ -346,7 +346,6 @@ Makefile* @cilium/build
 /examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /FURTHER_READINGS.rst @cilium/docs-structure
 /hack/ @cilium/tophat
-/GO_VERSION @cilium/sig-agent
 *.Jenkinsfile @cilium/ci-structure
 /hubble-relay/ @cilium/sig-hubble
 /images @cilium/build
@@ -428,11 +427,15 @@ jenkinsfiles @cilium/ci-structure
 /pkg/ipcache/ @cilium/ipcache
 /pkg/ipmasq @cilium/sig-agent
 /pkg/k8s/ @cilium/sig-k8s
+/pkg/k8s/watchers/cilium_network_policy.go @cilium/sig-policy
+/pkg/k8s/watchers/cilium_cidr_group.go @cilium/sig-policy
+/pkg/k8s/watchers/cilium_cidr_group_test.go @cilium/sig-policy
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
 /pkg/kafka/ @cilium/proxy
 /pkg/kvstore/ @cilium/kvstore
 /pkg/labels @cilium/sig-policy @cilium/api
+/pkg/labelsfilter @cilium/sig-policy
 /pkg/launcher @cilium/sig-agent
 /pkg/loadbalancer @cilium/sig-lb
 /pkg/lock @cilium/sig-agent
@@ -464,6 +467,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/safeio @cilium/sig-agent
 /pkg/serializer @cilium/sig-agent
 /pkg/service @cilium/sig-lb
+/pkg/source @cilium/ipcache
 /pkg/status/ @cilium/sig-agent
 /pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure

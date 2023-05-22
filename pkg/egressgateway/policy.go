@@ -101,7 +101,7 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 	gwc := gatewayConfig{
 		egressIP:  net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 0)},
-		gatewayIP: zeroIPv4,
+		gatewayIP: GatewayNotFoundIPv4,
 	}
 
 	policyGwc := config.policyGwConfig
@@ -125,6 +125,8 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 				logger.WithError(err).Error("Failed to derive policy gateway configuration")
 			}
 		}
+
+		break
 	}
 
 	config.gatewayConfig = gwc

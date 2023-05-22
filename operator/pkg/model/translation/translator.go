@@ -10,9 +10,11 @@ import (
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 const (
@@ -65,6 +67,22 @@ func (i *defaultTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoy
 	cec.Spec.Services = i.getServices(model)
 	cec.Spec.Resources = i.getResources(model)
 
+	ownerReferences := make([]metav1.OwnerReference, 0, len(model.HTTP))
+	uniqueMap := map[string]struct{}{}
+	for _, h := range model.HTTP {
+		key := fmt.Sprintf("%s/%s/%s", h.Sources[0].Version, h.Sources[0].Kind, h.Sources[0].Name)
+		if _, exists := uniqueMap[key]; exists {
+			continue
+		}
+		uniqueMap[key] = struct{}{}
+		ownerReferences = append(ownerReferences, metav1.OwnerReference{
+			APIVersion: h.Sources[0].Version,
+			Kind:       h.Sources[0].Kind,
+			Name:       h.Sources[0].Name,
+			UID:        types.UID(h.Sources[0].UID),
+		})
+	}
+	cec.OwnerReferences = ownerReferences
 	return cec, nil, nil, nil
 }
 
@@ -105,18 +123,23 @@ func (i *defaultTranslator) getServices(_ *model.Model) []*ciliumv2.ServiceListe
 }
 
 func (i *defaultTranslator) getResources(m *model.Model) []ciliumv2.XDSResource {
-	listener, routeConfig, clusters := i.getListener(m), i.getRouteConfiguration(m), i.getClusters(m)
-	res := make([]ciliumv2.XDSResource, 0, len(listener)+len(routeConfig)+len(clusters))
-	res = append(res, listener...)
-	res = append(res, routeConfig...)
-	res = append(res, clusters...)
+	var res []ciliumv2.XDSResource
+
+	res = append(res, i.getHTTPRouteListener(m)...)
+	res = append(res, i.getTLSRouteListener(m)...)
+	res = append(res, i.getEnvoyHTTPRouteConfiguration(m)...)
+	res = append(res, i.getClusters(m)...)
+
 	return res
 }
 
-// getListener returns the listener for the given model. Only one single
-// listener is returned for shared LB mode, tls and non-tls filters are
-// applied by default.
-func (i *defaultTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
+// getHTTPRouteListener returns the listener for the given model with HTTPRoute.
+// TLS and non-TLS filters for HTTP traffic are applied by default.
+// Only one single listener is returned for shared LB mode.
+func (i *defaultTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSResource {
+	if len(m.HTTP) == 0 {
+		return nil
+	}
 	var tlsMap = make(map[model.TLSSecret][]string)
 	for _, h := range m.HTTP {
 		for _, s := range h.TLS {
@@ -124,12 +147,38 @@ func (i *defaultTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
 		}
 	}
 
-	l, _ := NewListenerWithDefaults("listener", i.secretsNamespace, tlsMap)
+	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsMap)
+	return []ciliumv2.XDSResource{l}
+}
+
+// getTLSRouteListener returns the listener for the given model with TLSRoute.
+// it will set up filters for SNI matching by default.
+func (i *defaultTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSResource {
+	if len(m.TLS) == 0 {
+		return nil
+	}
+	var backendsMap = make(map[string][]string)
+	for _, h := range m.TLS {
+		for _, route := range h.Routes {
+			for _, backend := range route.Backends {
+				key := fmt.Sprintf("%s/%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
+				backendsMap[key] = append(backendsMap[key], route.Hostnames...)
+			}
+		}
+	}
+
+	if len(backendsMap) == 0 {
+		return nil
+	}
+
+	l, _ := NewSNIListenerWithDefaults("listener", backendsMap)
 	return []ciliumv2.XDSResource{l}
 }
 
 // getRouteConfiguration returns the route configuration for the given model.
-func (i *defaultTranslator) getRouteConfiguration(m *model.Model) []ciliumv2.XDSResource {
+func (i *defaultTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv2.XDSResource {
+	var res []ciliumv2.XDSResource
+
 	portHostName := map[string][]string{}
 	hostNameRoutes := map[string][]model.HTTPRoute{}
 
@@ -152,8 +201,6 @@ func (i *defaultTranslator) getRouteConfiguration(m *model.Model) []ciliumv2.XDS
 		}
 	}
 
-	var res []ciliumv2.XDSResource
-
 	for _, port := range []string{insecureHost, secureHost} {
 		hostNames, exists := portHostName[port]
 		if !exists {
@@ -164,13 +211,13 @@ func (i *defaultTranslator) getRouteConfiguration(m *model.Model) []ciliumv2.XDS
 		redirectedHost := map[string]struct{}{}
 		// Add HTTPs redirect virtual host for secure host
 		if port == insecureHost && i.enforceHTTPs {
-			for _, h := range unique(portHostName[secureHost]) {
+			for _, h := range slices.Unique(portHostName[secureHost]) {
 				vhs, _ := NewVirtualHostWithDefaults([]string{h}, true, i.hostNameSuffixMatch, hostNameRoutes[h])
 				virtualhosts = append(virtualhosts, vhs)
 				redirectedHost[h] = struct{}{}
 			}
 		}
-		for _, h := range unique(hostNames) {
+		for _, h := range slices.Unique(hostNames) {
 			if port == insecureHost {
 				if _, ok := redirectedHost[h]; ok {
 					continue
@@ -190,33 +237,49 @@ func (i *defaultTranslator) getRouteConfiguration(m *model.Model) []ciliumv2.XDS
 		rc, _ := NewRouteConfiguration(routeName, virtualhosts)
 		res = append(res, rc)
 	}
+
 	return res
 }
 
-func (i *defaultTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
-	namespaceNamePortMap := getNamespaceNamePortsMap(m)
+func getBackendName(ns, name, port string) string {
+	// the name is having the format of "namespace/name:port"
+	return fmt.Sprintf("%s/%s:%s", ns, name, port)
+}
 
+func (i *defaultTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
+	envoyClusters := map[string]ciliumv2.XDSResource{}
 	var sortedClusterNames []string
-	for ns, v := range namespaceNamePortMap {
+
+	for ns, v := range getNamespaceNamePortsMapForHTTP(m) {
 		for name, ports := range v {
 			for _, port := range ports {
-				// the name is having the format of "namespace/name:port"
-				sortedClusterNames = append(sortedClusterNames, fmt.Sprintf("%s/%s:%s", ns, name, port))
+				b := getBackendName(ns, name, port)
+				sortedClusterNames = append(sortedClusterNames, b)
+				envoyClusters[b], _ = NewHTTPClusterWithDefaults(b)
 			}
 		}
 	}
-	sort.Strings(sortedClusterNames)
+	for ns, v := range getNamespaceNamePortsMapForTLS(m) {
+		for name, ports := range v {
+			for _, port := range ports {
+				b := getBackendName(ns, name, port)
+				sortedClusterNames = append(sortedClusterNames, b)
+				envoyClusters[b], _ = NewTCPClusterWithDefaults(b)
+			}
+		}
+	}
 
-	res := make([]ciliumv2.XDSResource, 0, len(sortedClusterNames))
-	for _, name := range sortedClusterNames {
-		c, _ := NewClusterWithDefaults(name)
-		res = append(res, c)
+	sort.Strings(sortedClusterNames)
+	res := make([]ciliumv2.XDSResource, len(sortedClusterNames))
+	for i, name := range sortedClusterNames {
+		res[i] = envoyClusters[name]
 	}
 
 	return res
 }
 
 // getNamespaceNamePortsMap returns a map of namespace -> name -> ports.
+// it gets all HTTP and TLS routes.
 // The ports are sorted and unique.
 func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 	namespaceNamePortMap := map[string]map[string][]string{}
@@ -225,7 +288,7 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 			for _, be := range r.Backends {
 				namePortMap, exist := namespaceNamePortMap[be.Namespace]
 				if exist {
-					namePortMap[be.Name] = sortAndUnique(append(namePortMap[be.Name], be.Port.GetPort()))
+					namePortMap[be.Name] = slices.SortedUnique(append(namePortMap[be.Name], be.Port.GetPort()))
 				} else {
 					namePortMap = map[string][]string{
 						be.Name: {be.Port.GetPort()},
@@ -233,32 +296,53 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 				}
 				namespaceNamePortMap[be.Namespace] = namePortMap
 			}
+			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+		}
+	}
+
+	for _, l := range m.TLS {
+		for _, r := range l.Routes {
+			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+		}
+	}
+
+	return namespaceNamePortMap
+}
+
+// getNamespaceNamePortsMapForHTTP returns a map of namespace -> name -> ports.
+// The ports are sorted and unique.
+func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]string {
+	namespaceNamePortMap := map[string]map[string][]string{}
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 		}
 	}
 	return namespaceNamePortMap
 }
 
-func sortAndUnique(arr []string) []string {
-	res := unique(arr)
-	sort.Strings(res)
-	return res
+// getNamespaceNamePortsMapFroTLS returns a map of namespace -> name -> ports.
+// The ports are sorted and unique.
+func getNamespaceNamePortsMapForTLS(m *model.Model) map[string]map[string][]string {
+	namespaceNamePortMap := map[string]map[string][]string{}
+	for _, l := range m.TLS {
+		for _, r := range l.Routes {
+			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+		}
+	}
+	return namespaceNamePortMap
 }
 
-// unique returns a unique slice of strings. The order of the elements is
-// preserved.
-func unique(arr []string) []string {
-	m := map[string]struct{}{}
-	for _, s := range arr {
-		m[s] = struct{}{}
-	}
-
-	res := make([]string, 0, len(m))
-	for _, v := range arr {
-		if _, exists := m[v]; !exists {
-			continue
+func mergeBackendsInNamespaceNamePortMap(backends []model.Backend, namespaceNamePortMap map[string]map[string][]string) {
+	for _, be := range backends {
+		namePortMap, exist := namespaceNamePortMap[be.Namespace]
+		if exist {
+			namePortMap[be.Name] = slices.SortedUnique(append(namePortMap[be.Name], be.Port.GetPort()))
+		} else {
+			namePortMap = map[string][]string{
+				be.Name: {be.Port.GetPort()},
+			}
 		}
-		res = append(res, v)
-		delete(m, v)
+		namespaceNamePortMap[be.Namespace] = namePortMap
 	}
-	return res
 }

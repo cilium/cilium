@@ -26,6 +26,10 @@ type SVID struct {
 
 	// PrivateKey is the private key for the X509-SVID.
 	PrivateKey crypto.Signer
+
+	// Hint is an operator-specified string used to provide guidance on how this
+	// identity should be used by a workload when more than one SVID is returned.
+	Hint string
 }
 
 // Load loads the X509-SVID from PEM encoded files on disk. certFile and

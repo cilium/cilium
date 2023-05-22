@@ -56,6 +56,13 @@
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
 {{- $azureUsePrimaryAddress = (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
 {{- $socketLB := (coalesce .Values.socketLB .Values.hostServices) -}}
+
+{{- $cniChainingMode := "none" -}}
+{{- if (not (kindIs "invalid" .Values.cni.chainingMode)) -}}
+  {{- $cniChainingMode = .Values.cni.chainingMode  -}}
+{{- else if (not (kindIs "invalid" .Values.cni.chainingTarget)) -}}
+  {{- $cniChainingMode = "generic-veth" -}}
+{{- end -}}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -173,11 +180,6 @@ data:
   # NOTE that this will open the port on ALL nodes where Cilium pods are
   # scheduled.
   prometheus-serve-addr: ":{{ .Values.prometheus.port }}"
-  # Port to expose Envoy metrics (e.g. "9964"). Envoy metrics listener will be disabled if this
-  # field is not set.
-  {{- if .Values.proxy.prometheus.enabled }}
-  proxy-prometheus-port: "{{ .Values.proxy.prometheus.port }}"
-  {{- end }}
   {{- if .Values.prometheus.metrics }}
   # Metrics that should be enabled or disabled from the default metric
   # list. (+metric_foo to enable metric_foo , -metric_bar to disable
@@ -185,6 +187,14 @@ data:
   metrics: {{- range .Values.prometheus.metrics }}
     {{ . }}
   {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- if not .Values.envoy.enabled }}
+  # Port to expose Envoy metrics (e.g. "9964"). Envoy metrics listener will be disabled if this
+  # field is not set.
+  {{- if and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled }}
+  proxy-prometheus-port: "{{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}"
   {{- end }}
 {{- end }}
 
@@ -306,7 +316,7 @@ data:
 
 {{- if (not (kindIs "invalid" .Values.bpf.hostLegacyRouting)) }}
   enable-host-legacy-routing: {{ .Values.bpf.hostLegacyRouting | quote }}
-{{- else if ne .Values.cni.chainingMode "none" }}
+{{- else if ne $cniChainingMode "none" }}
   # In cni chaining mode, the other chained plugin is responsible for underlying connectivity,
   # so cilium eBPF host routing shoud not work, and let it fall back to the legacy routing mode
   enable-host-legacy-routing: "true"
@@ -396,13 +406,30 @@ data:
   #   - vxlan (default)
   #   - geneve
 {{- if .Values.gke.enabled }}
-  tunnel: "disabled"
+  routing-mode: "native"
   enable-endpoint-routes: "true"
   enable-local-node-route: "false"
 {{- else if .Values.aksbyocni.enabled }}
-  tunnel: "vxlan"
-{{- else }}
-  tunnel: {{ .Values.tunnel | quote }}
+  routing-mode: "tunnel"
+  tunnel-protocol: "vxlan"
+{{- end }}
+
+{{- if eq .Values.tunnel "disabled" }}
+  routing-mode: "native"
+{{- else if eq .Values.tunnel "vxlan" }}
+  routing-mode: "tunnel"
+  tunnel-protocol: "vxlan"
+{{- else if eq .Values.tunnel "geneve" }}
+  routing-mode: "tunnel"
+  tunnel-protocol: "geneve"
+{{- end }}
+
+{{- if .Values.routingMode }}
+  routing-mode: "{{ .Values.routingMode }}"
+{{- end }}
+
+{{- if .Values.tunnelProtocol }}
+  tunnel-protocol: "{{ .Values.tunnelProtocol }}"
 {{- end }}
 
 {{- if .Values.tunnelPort }}
@@ -464,7 +491,7 @@ data:
   enable-l7-proxy: {{ .Values.l7Proxy | quote }}
 {{- end }}
 
-{{- if ne .Values.cni.chainingMode "none" }}
+{{- if ne $cniChainingMode "none" }}
   # Enable chaining with another CNI plugin
   #
   # Supported modes:
@@ -473,14 +500,14 @@ data:
   #  - flannel
   #  - generic-veth
   #  - portmap (Enables HostPort support for Cilium)
-  cni-chaining-mode: {{ .Values.cni.chainingMode }}
+  cni-chaining-mode: {{ $cniChainingMode }}
 
 {{- if hasKey .Values "enableIdentityMark" }}
   enable-identity-mark: {{ .Values.enableIdentityMark | quote }}
 {{- else if (ne $enableIdentityMark "true") }}
   enable-identity-mark: "false"
 {{- end }}
-{{- if ne .Values.cni.chainingMode "portmap" }}
+{{- if ne $cniChainingMode "portmap" }}
   # Disable the PodCIDR route to the cilium_host interface as it is not
   # required. While chaining, it is the responsibility of the underlying plugin
   # to enable routing.
@@ -530,7 +557,7 @@ data:
 {{- end }}
 
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
-{{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne .Values.cni.chainingMode "none") }}
+{{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne $cniChainingMode "none") }}
   install-no-conntrack-iptables-rules: "false"
 {{- else }}
   install-no-conntrack-iptables-rules: {{ .Values.installNoConntrackIptablesRules | quote }}
@@ -551,6 +578,10 @@ data:
   enable-bandwidth-manager: {{ .Values.bandwidthManager.enabled | quote }}
   enable-bbr: {{ .Values.bandwidthManager.bbr | quote }}
 {{- end }}
+{{- end }}
+
+{{- if .Values.highScaleIPcache.enabled }}
+  enable-high-scale-ipcache: {{ .Values.highScaleIPcache.enabled | quote }}
 {{- end }}
 
 {{- if hasKey .Values "localRedirectPolicy" }}
@@ -707,7 +738,7 @@ data:
 {{- if .Values.cni.configMap }}
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
 {{- if .Values.cni.customConf  }}
-  {{- /* legacy: v1.13 and before needed cni.customConf: true with cni.configMap */ -}}
+  # legacy: v1.13 and before needed cni.customConf: true with cni.configMap
   write-cni-conf-when-ready: {{ .Values.cni.hostConfDirMountPath }}/05-cilium.conflist
 {{- end }}
 {{- else if .Values.cni.readCniConf }}
@@ -722,10 +753,13 @@ data:
 {{- if .Values.cni.uninstall }}
   cni-uninstall: {{ .Values.cni.uninstall | quote }}
 {{- end }}
+{{- if (not (kindIs "invalid" .Values.cni.chainingTarget)) }}
+  cni-chaining-target: {{ .Values.cni.chainingTarget | quote }}
+{{- end}}
 {{- if .Values.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.kubeConfigPath | quote }}
 {{- end }}
-{{- if and ( .Values.endpointHealthChecking.enabled ) (or (eq .Values.cni.chainingMode "portmap") (eq .Values.cni.chainingMode "none")) }}
+{{- if and ( .Values.endpointHealthChecking.enabled ) (or (eq $cniChainingMode "portmap") (eq $cniChainingMode "none")) }}
   enable-endpoint-health-checking: "true"
 {{- else}}
   # Disable health checking, when chaining mode is not set to portmap or none
@@ -814,21 +848,37 @@ data:
 
 {{- if or (eq $ipam "cluster-pool") (eq $ipam "cluster-pool-v2beta") }}
 {{- if .Values.ipv4.enabled }}
-  {{- if .Values.ipam.operator.clusterPoolIPv4PodCIDRList }}
-  cluster-pool-ipv4-cidr: {{ .Values.ipam.operator.clusterPoolIPv4PodCIDRList | join " " | quote }}
-  {{- else }}
-  cluster-pool-ipv4-cidr: {{ .Values.ipam.operator.clusterPoolIPv4PodCIDR | quote }}
+  {{- if hasKey .Values.ipam.operator "clusterPoolIPv4PodCIDR" }}
+    {{- /* ipam.operator.clusterPoolIPv4PodCIDR removed in v1.14, remove this failsafe around v1.17 */ -}}
+    {{- fail "Value ipam.operator.clusterPoolIPv4PodCIDR removed, use ipam.operator.clusterPoolIPv4PodCIDRList instead" }}
   {{- end }}
+  cluster-pool-ipv4-cidr: {{ .Values.ipam.operator.clusterPoolIPv4PodCIDRList | join " " | quote }}
   cluster-pool-ipv4-mask-size: {{ .Values.ipam.operator.clusterPoolIPv4MaskSize | quote }}
 {{- end }}
 {{- if .Values.ipv6.enabled }}
-  {{- if .Values.ipam.operator.clusterPoolIPv6PodCIDRList }}
-  cluster-pool-ipv6-cidr: {{ .Values.ipam.operator.clusterPoolIPv6PodCIDRList | join " " | quote }}
-  {{- else }}
-  cluster-pool-ipv6-cidr: {{ .Values.ipam.operator.clusterPoolIPv6PodCIDR | quote }}
+  {{- if hasKey .Values.ipam.operator "clusterPoolIPv6PodCIDR" }}
+    {{- /* ipam.operator.clusterPoolIPv6PodCIDR removed in v1.14, remove this failsafe around v1.17 */ -}}
+    {{- fail "Value ipam.operator.clusterPoolIPv6PodCIDR removed, use ipam.operator.clusterPoolIPv6PodCIDRList instead" }}
   {{- end }}
+  cluster-pool-ipv6-cidr: {{ .Values.ipam.operator.clusterPoolIPv6PodCIDRList | join " " | quote }}
   cluster-pool-ipv6-mask-size: {{ .Values.ipam.operator.clusterPoolIPv6MaskSize | quote }}
 {{- end }}
+{{- end }}
+{{- if (eq $ipam "multi-pool") }}
+  {{- $pools := list }}
+  {{- range $pool, $cidrs := .Values.ipam.operator.multiPoolMap }}
+    {{- $attrs := list }}
+    {{- if hasKey $cidrs "ipv4CIDRs" }}
+    {{- $attrs = append $attrs (printf "ipv4-cidrs:%s" (join "," $cidrs.ipv4CIDRs)) }}
+    {{- $attrs = append $attrs (printf "ipv4-mask-size:%s" (toString $cidrs.ipv4MaskSize)) }}
+    {{- end }}
+    {{- if hasKey $cidrs "ipv6CIDRs" }}
+    {{- $attrs = append $attrs (printf "ipv6-cidrs:%s" (join "," $cidrs.ipv6CIDRs)) }}
+    {{- $attrs = append $attrs (printf "ipv6-mask-size:%s" (toString $cidrs.ipv6MaskSize)) }}
+    {{- end }}
+    {{- $pools = append $pools (printf "%s=%s" $pool (join ";" $attrs)) }}
+  {{- end }}
+  multi-pool-map: {{ join "," $pools | quote }}
 {{- end }}
 
 {{- if .Values.ipam.operator.externalAPILimitBurstSize }}
@@ -1013,18 +1063,27 @@ data:
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}
 
-{{- end }}
-
-{{- if .Values.auth.mTLS.enabled }}
+{{- if .Values.auth.mTLS.spire.enabled }}
   mesh-auth-mtls-enabled: "true"
   mesh-auth-mtls-listener-port: {{ .Values.auth.mTLS.port | quote }}
-  mesh-auth-spire-agent-socket: {{ .Values.auth.mTLS.spireAgentSocketPath }}
-  mesh-auth-spire-server-address: {{ .Values.auth.mTLS.spireServerAddress }}
-  mesh-auth-spire-server-connection-timeout: {{ .Values.auth.mTLS.spireServerConnectionTimeout }}
-  mesh-auth-spire-admin-socket: {{ .Values.auth.mTLS.spireAdminSocketPath }}
-  mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spiffeTrustDomain }}
+  mesh-auth-spire-agent-socket: {{ .Values.auth.mTLS.spire.agentSocketPath | quote }}
+  mesh-auth-spire-server-address: {{ .Values.auth.mTLS.spire.serverAddress | quote }}
+  mesh-auth-spire-server-connection-timeout: {{ .Values.auth.mTLS.spire.connectionTimeout }}
+  mesh-auth-spire-admin-socket: {{ .Values.auth.mTLS.spire.adminSocketPath | quote }}
+  mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spire.trustDomain | quote }}
 {{- end }}
 
+  proxy-connect-timeout: {{ .Values.envoy.connectTimeoutSeconds | quote }}
+  proxy-max-requests-per-connection: {{ .Values.envoy.maxRequestsPerConnection | quote }}
+  proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
+
+  external-envoy-proxy: {{ .Values.envoy.enabled | quote }}
+
+{{- if .Values.envoy.log.path }}
+  envoy-log: {{ .Values.envoy.log.path | quote }}
+{{- end }}
+
+{{- end }}
 ---
 {{- if and .Values.ipMasqAgent.enabled .Values.ipMasqAgent.config }}
 apiVersion: v1

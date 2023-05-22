@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 )
 
@@ -40,7 +41,7 @@ func (f *fakeCertificateProvider) GetTrustBundle() (*x509.CertPool, error) {
 }
 
 func (f *fakeCertificateProvider) GetCertificateForIdentity(id identity.NumericIdentity) (*tls.Certificate, error) {
-	uriSAN := "spiffe://spiffe.cilium.io/cilium-id/" + id.String()
+	uriSAN := "spiffe://spiffe.cilium/identity/" + id.String()
 	cert, ok := f.certMap[uriSAN]
 	if !ok {
 		return nil, fmt.Errorf("no certificate for %s", uriSAN)
@@ -58,7 +59,7 @@ func (f *fakeCertificateProvider) GetCertificateForIdentity(id identity.NumericI
 
 func (f *fakeCertificateProvider) ValidateIdentity(id identity.NumericIdentity, cert *x509.Certificate) (bool, error) {
 	for _, uri := range cert.URIs {
-		if uri.String() == fmt.Sprintf("spiffe://spiffe.cilium.io/cilium-id/%d", id) {
+		if uri.String() == fmt.Sprintf("spiffe://spiffe.cilium/identity/%d", id) {
 			return true, nil
 		}
 	}
@@ -66,17 +67,21 @@ func (f *fakeCertificateProvider) ValidateIdentity(id identity.NumericIdentity, 
 }
 
 func (f *fakeCertificateProvider) NumericIdentityToSNI(id identity.NumericIdentity) string {
-	return id.String() + "." + "spiffe.cilium.io"
+	return id.String() + "." + "spiffe.cilium"
 }
 
 func (f *fakeCertificateProvider) SNIToNumericIdentity(sni string) (identity.NumericIdentity, error) {
-	suffix := "." + "spiffe.cilium.io"
+	suffix := "." + "spiffe.cilium"
 	if !strings.HasSuffix(sni, suffix) {
 		return 0, fmt.Errorf("SNI %s does not belong to our trust domain", sni)
 	}
 
 	idStr := strings.TrimSuffix(sni, suffix)
 	return identity.ParseNumericIdentity(idStr)
+}
+
+func (f *fakeCertificateProvider) SubscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
+	return nil
 }
 
 func generateTestCertificates(t *testing.T) (map[string]*x509.Certificate, map[string]*ecdsa.PrivateKey, *x509.CertPool) {
@@ -110,7 +115,7 @@ func generateTestCertificates(t *testing.T) (map[string]*x509.Certificate, map[s
 	leafPrivKeys := make(map[string]*ecdsa.PrivateKey)
 
 	for i := 1000; i <= 1001; i++ {
-		certURL, err := url.Parse(fmt.Sprintf("spiffe://spiffe.cilium.io/cilium-id/%d", i))
+		certURL, err := url.Parse(fmt.Sprintf("spiffe://spiffe.cilium/identity/%d", i))
 		if err != nil {
 			t.Fatalf("failed to parse URL: %v", err)
 		}
@@ -159,9 +164,9 @@ func Test_mtlsAuthHandler_verifyPeerCertificate(t *testing.T) {
 			args: args{
 				id:             &id1000,
 				caBundle:       caPool,
-				verifiedChains: [][]*x509.Certificate{{certMap["spiffe://spiffe.cilium.io/cilium-id/1000"]}},
+				verifiedChains: [][]*x509.Certificate{{certMap["spiffe://spiffe.cilium/identity/1000"]}},
 			},
-			want:    &certMap["spiffe://spiffe.cilium.io/cilium-id/1000"].NotAfter,
+			want:    &certMap["spiffe://spiffe.cilium/identity/1000"].NotAfter,
 			wantErr: false,
 		},
 		{
@@ -169,9 +174,9 @@ func Test_mtlsAuthHandler_verifyPeerCertificate(t *testing.T) {
 			args: args{
 				id:             nil,
 				caBundle:       caPool,
-				verifiedChains: [][]*x509.Certificate{{certMap["spiffe://spiffe.cilium.io/cilium-id/1000"]}},
+				verifiedChains: [][]*x509.Certificate{{certMap["spiffe://spiffe.cilium/identity/1000"]}},
 			},
-			want:    &certMap["spiffe://spiffe.cilium.io/cilium-id/1000"].NotAfter,
+			want:    &certMap["spiffe://spiffe.cilium/identity/1000"].NotAfter,
 			wantErr: false,
 		},
 		{
@@ -179,7 +184,7 @@ func Test_mtlsAuthHandler_verifyPeerCertificate(t *testing.T) {
 			args: args{
 				id:             &id1001,
 				caBundle:       caPool,
-				verifiedChains: [][]*x509.Certificate{{certMap["spiffe://spiffe.cilium.io/cilium-id/1000"]}},
+				verifiedChains: [][]*x509.Certificate{{certMap["spiffe://spiffe.cilium/identity/1000"]}},
 			},
 			want:    nil,
 			wantErr: true,
@@ -189,7 +194,7 @@ func Test_mtlsAuthHandler_verifyPeerCertificate(t *testing.T) {
 			args: args{
 				id:             &id1000,
 				caBundle:       caPool,
-				verifiedChains: [][]*x509.Certificate{{certMapOtherCA["spiffe://spiffe.cilium.io/cilium-id/1000"]}},
+				verifiedChains: [][]*x509.Certificate{{certMapOtherCA["spiffe://spiffe.cilium/identity/1000"]}},
 			},
 			want:    nil,
 			wantErr: true,
@@ -199,7 +204,7 @@ func Test_mtlsAuthHandler_verifyPeerCertificate(t *testing.T) {
 			args: args{
 				id:             nil,
 				caBundle:       caPool,
-				verifiedChains: [][]*x509.Certificate{{certMapOtherCA["spiffe://spiffe.cilium.io/cilium-id/1000"]}},
+				verifiedChains: [][]*x509.Certificate{{certMapOtherCA["spiffe://spiffe.cilium/identity/1000"]}},
 			},
 			want:    nil,
 			wantErr: true,
@@ -218,7 +223,7 @@ func Test_mtlsAuthHandler_verifyPeerCertificate(t *testing.T) {
 			args: args{
 				id:             nil,
 				caBundle:       x509.NewCertPool(),
-				verifiedChains: [][]*x509.Certificate{{certMapOtherCA["spiffe://spiffe.cilium.io/cilium-id/1000"]}},
+				verifiedChains: [][]*x509.Certificate{{certMapOtherCA["spiffe://spiffe.cilium/identity/1000"]}},
 			},
 			want:    nil,
 			wantErr: true,
@@ -258,17 +263,17 @@ func Test_mtlsAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 			name: "valid certificate with SNI to match identity",
 			args: args{
 				info: &tls.ClientHelloInfo{
-					ServerName: "1000.spiffe.cilium.io",
+					ServerName: "1000.spiffe.cilium",
 				},
 			},
-			wantURI: "spiffe://spiffe.cilium.io/cilium-id/1000",
+			wantURI: "spiffe://spiffe.cilium/identity/1000",
 			wantErr: false,
 		},
 		{
 			name: "no certificate for non existing identity",
 			args: args{
 				info: &tls.ClientHelloInfo{
-					ServerName: "9999.spiffe.cilium.io",
+					ServerName: "9999.spiffe.cilium",
 				},
 			},
 			wantErr: true,

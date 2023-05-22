@@ -10,8 +10,8 @@
 Gateway API Support
 *******************
 
-Cilium supports Gateway API v0.5.1 for below resources, all the Core conformance
-tests, plus the ReferenceGrant extended tests, are passed.
+Cilium supports Gateway API v0.6.1 for below resources, all the Core conformance
+tests are passed.
 
 - `GatewayClass <https://gateway-api.sigs.k8s.io/api-types/gatewayclass/>`_
 - `Gateway <https://gateway-api.sigs.k8s.io/api-types/gateway/>`_
@@ -33,4 +33,4 @@ Cilium's Gateway API features:
    http
    https
 
-More examples can be found `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v0.5.1/examples/v1beta1>`_.
+More examples can be found `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v0.6.1/examples/standard>`_.

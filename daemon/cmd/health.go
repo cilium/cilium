@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -19,10 +20,10 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 )
 
-func (d *Daemon) initHealth(cleaner *daemonCleanup) {
+func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	log.Info("Launching Cilium health daemon")
-	if ch, err := health.Launch(); err != nil {
+	if ch, err := health.Launch(spec); err != nil {
 		log.WithError(err).Fatal("Failed to launch cilium-health")
 	} else {
 		d.ciliumHealth = ch

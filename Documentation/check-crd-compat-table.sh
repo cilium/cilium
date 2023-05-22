@@ -67,8 +67,8 @@ upstream_branches() {
        | sed 's+refs/heads/++'
 }
 
-branch_or_master() {
-   echo "$(upstream_branches ${1}) master" \
+branch_or_main() {
+   echo "$(upstream_branches ${1}) main" \
        | awk '{ print $1 }'
 }
 
@@ -107,7 +107,7 @@ create_file(){
           printf "| %-15s | %-14s |\n" ${tag} ${schema_version} >> "${dst_file}"
           echo   "+-----------------+----------------+" >> "${dst_file}"
       done
-      branch=$(branch_or_master "${stable_branch}")
+      branch=$(branch_or_main "${stable_branch}")
       branch_version=$(target_version "${stable_branch}" "${branch}")
       schema_version=$(get_schema_of_branch "${branch}")
       >&2 echo "${schema_version}"
@@ -115,9 +115,9 @@ create_file(){
       echo   "+-----------------+----------------+" >> "${dst_file}"
   done
 
-  schema_version=$(get_schema_of_branch "master")
+  schema_version=$(get_schema_of_branch "main")
   >&2 echo "Checking latest branch schema version... ${schema_version}"
-  printf "| %-15s | %-14s |\n" "latest / master" ${schema_version} >> "${dst_file}"
+  printf "| %-15s | %-14s |\n" "latest / main" ${schema_version} >> "${dst_file}"
   echo   "+-----------------+----------------+" >> "${dst_file}"
 }
 
@@ -176,7 +176,7 @@ fi
 
 release_ersion="$(echo $1 | sed 's/^v//')"
 release_version="v$release_ersion"
-release_branch="$(branch_or_master $release_version)"
+release_branch="$(branch_or_main $release_version)"
 
 create_file ${release_version} "${dst_file}" "${release_branch}"
 
@@ -187,7 +187,7 @@ create_file ${release_version} "${dst_file}" "${release_branch}"
 # | v1.12           | 1.25.6         |
 row_offset=2 # Gather 2 lines prior to the release branch
 if ! egrep "[ ]${release_version}[ ]" "${dst_file}"; then
-  # Unreleased RC with no upstream branch needs to go back 4 lines from 'master'
+  # Unreleased RC with no upstream branch needs to go back 4 lines from 'main'
   row_offset=4
 fi
 last_cilium_release=$(egrep "[ ]${release_branch}[ ]" -B${row_offset} "${dst_file}" | awk 'NR == 1 { print $2 }')

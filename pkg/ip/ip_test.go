@@ -5,7 +5,6 @@ package ip
 
 import (
 	"math/big"
-	"math/rand"
 	"net"
 	"net/netip"
 	"sort"
@@ -748,27 +747,6 @@ func (s *IPTestSuite) TestKeepUniqueIPs(c *C) {
 	c.Assert(len(ips), Equals, 3, Commentf("Too few IPs returned for only 3 uniques"))
 	for i := range ipSource[:3] {
 		c.Assert(ips[i].String(), Equals, ipSource[i].String(), Commentf("Incorrect unique IP returned"))
-	}
-}
-
-// Note: each "op" works on size things
-func (s *IPTestSuite) BenchmarkKeepUniqueIPs(c *C) {
-	size := 1000
-	ipsOrig := make([]net.IP, 0, size)
-	for i := 0; i < size; i++ {
-		ipsOrig = append(ipsOrig, net.IPv4(byte(i>>24), byte(i>>16), byte(i>>8), byte(i>>0)))
-	}
-	ips := make([]net.IP, 0, len(ipsOrig))
-
-	copy(ips, ipsOrig)
-	for i := 0; i < c.N; i++ {
-		c.StopTimer()
-		rand.Shuffle(len(ips), func(i, j int) {
-			ips[i], ips[j] = ips[j], ips[i]
-		})
-		c.StartTimer()
-
-		KeepUniqueIPs(ips)
 	}
 }
 

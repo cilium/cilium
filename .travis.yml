@@ -3,7 +3,8 @@ language: go
 dist: focal
 sudo: required
 
-go: "1.20.1"
+# renovate: datasource=golang-version depName=go
+go: "1.20.4"
 
 jobs:
   include:
@@ -11,7 +12,7 @@ jobs:
       virt: vm
       group: edge
 
-if: branch = master OR type = pull_request
+if: branch = main OR type = pull_request
 
 addons:
   apt:

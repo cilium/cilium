@@ -224,7 +224,7 @@ int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 		.cluster_id = BACKEND_CLUSTER_ID
 	};
 	struct remote_endpoint_info cache_value = {
-		.sec_label = BACKEND_IDENTITY,
+		.sec_identity = BACKEND_IDENTITY,
 
 		/* Assuming node IP is unique for now */
 		.tunnel_endpoint = BACKEND_NODE_IP,

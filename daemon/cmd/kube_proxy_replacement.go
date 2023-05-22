@@ -186,16 +186,23 @@ func initKubeProxyReplacementOptions() error {
 	}
 
 	if option.Config.EnableNodePort {
-		if option.Config.Tunnel == option.TunnelVXLAN &&
+		if option.Config.TunnelingEnabled() && option.Config.TunnelProtocol == option.TunnelVXLAN &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {
-			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, option.Config.Tunnel)
+			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, option.Config.TunnelProtocol)
 		}
 
-		if option.Config.Tunnel == option.TunnelGeneve &&
+		if option.Config.TunnelingEnabled() && option.Config.TunnelProtocol == option.TunnelGeneve &&
 			option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
 			return fmt.Errorf("Node Port %q mode with %s dispatch cannot be used with %s tunneling.",
-				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, option.Config.Tunnel)
+				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, option.Config.TunnelProtocol)
+		}
+
+		if option.Config.NodePortMode == option.NodePortModeDSR &&
+			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve &&
+			option.Config.TunnelingEnabled() && option.Config.TunnelProtocol != option.TunnelGeneve {
+			return fmt.Errorf("Node Port %q mode with %s dispatch requires %s tunneling.",
+				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, option.TunnelGeneve)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
@@ -352,22 +359,6 @@ func probeKubeProxyReplacementOptions() error {
 	}
 
 	return nil
-}
-
-func probeManagedNeighborSupport() {
-	if option.Config.DryMode {
-		return
-	}
-
-	// Probes for kernel commit:
-	//   856c02dbce4f ("bpf: Introduce helper bpf_get_branch_snapshot")
-	// This is a bit of a workaround given feature probing for netlink
-	// neighboring subsystem is cumbersome. The commit was added in the
-	// same release as managed neighbors, that is, 5.16+.
-	if probes.HaveProgramHelper(ebpf.Kprobe, asm.FnGetBranchSnapshot) == nil {
-		log.Info("Using Managed Neighbor Kernel support")
-		option.Config.ARPPingKernelManaged = true
-	}
 }
 
 func probeCgroupSupportTCP(ipv4 bool) error {

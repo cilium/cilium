@@ -1,7 +1,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 
 # define a function replacing spaces with commas in a list
@@ -39,7 +39,7 @@ DOCKER_BUILD_FLAGS?=
 
 # use gsed if avaiable, otherwise use sed.
 # gsed is needed for MacOS to make in-place replacement work correctly.
-SED ?= $(if $(shell command -v gsed), gsed, sed)
+SED ?= $(if $(shell command -v gsed),gsed,sed)
 
 # Set DOCKER_DEV_ACCOUNT with "cilium" by default
 ifeq ($(DOCKER_DEV_ACCOUNT),)
@@ -64,6 +64,7 @@ endif
 
 CONSUL_IMAGE=consul:1.7.2
 
+export CILIUM_CLI ?= cilium
 export GO ?= go
 
 # go build/test/clean flags
@@ -119,8 +120,8 @@ endif
 
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
     CILIUM_ENVOY_REF=$(shell sed -E -e 's/^FROM (--[^ ]* )*([^ ]*) as cilium-envoy/\2/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
-    CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:([^:@]*).*/\1/p;d' | sed -E -e 's/.*-([^-]*)$/\1/')
-    GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+    CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:(.*-)?([^:@]*).*/\2/p;d')
+    GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/proxy.requiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
 endif
 
 # Use git only if in a Git repo, otherwise find the files from the file system
@@ -138,26 +139,9 @@ BPF_SRCFILES := $(filter-out $(BPF_SRCFILES_IGNORE),$(subst ../,,$(subst $(ROOT_
 CILIUM_DATAPATH_SHA256=$(shell cd $(ROOT_DIR); cat $(BPF_SRCFILES) | sha256sum | awk '{print $$1}')
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA256=$(CILIUM_DATAPATH_SHA256)"
 
-# Set -mod=vendor if running >= go 1.13 or if GO111MODULE is set.
-# A go build is being executed with go modules if:
-# * The go command is invoked with GO111MODULE=on environment variable set.
-# * The go command is invoked in a directory outside of the $GOPATH/src tree
-#   and the environment variable GO111MODULE unset (or explicitly set to 'auto').
-ifeq ($(GO111MODULE),on)
-    GO_BUILD_FLAGS += -mod=vendor
-    GO_TEST_FLAGS += -mod=vendor
-    GO_CLEAN_FLAGS += -mod=vendor
-else
-    GO_MAJOR_VERSION_GE_1 := $(shell expr `$(GO) version | grep -E 'go[0-9]+' -o | sed 's/go//g'` \>= 1)
-    ifeq ($(GO_MAJOR_VERSION_GE_1),1)
-        GO_MINOR_VERSION_GE_13 := $(shell expr `$(GO) version | grep -E 'go[^ ]+' -o | sed 's/go1.//g'` \>= 13)
-        ifeq ($(GO_MINOR_VERSION_GE_13),1)
-            GO_BUILD_FLAGS += -mod=vendor
-            GO_TEST_FLAGS += -mod=vendor
-            GO_CLEAN_FLAGS += -mod=vendor
-        endif
-    endif
-endif
+GO_BUILD_FLAGS += -mod=vendor
+GO_TEST_FLAGS += -mod=vendor
+GO_CLEAN_FLAGS += -mod=vendor
 
 GO_BUILD = CGO_ENABLED=0 $(GO) build
 

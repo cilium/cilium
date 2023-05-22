@@ -13,6 +13,8 @@ import (
 type Interface interface {
 	// CiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicyInformer.
 	CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer
+	// CiliumCIDRGroups returns a CiliumCIDRGroupInformer.
+	CiliumCIDRGroups() CiliumCIDRGroupInformer
 	// CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 	CiliumEndpointSlices() CiliumEndpointSliceInformer
 	// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
@@ -35,6 +37,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // CiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicyInformer.
 func (v *version) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer {
 	return &ciliumBGPPeeringPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumCIDRGroups returns a CiliumCIDRGroupInformer.
+func (v *version) CiliumCIDRGroups() CiliumCIDRGroupInformer {
+	return &ciliumCIDRGroupInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumEndpointSlices returns a CiliumEndpointSliceInformer.

@@ -1,0 +1,27 @@
+{{- if and .Values.envoy.enabled (not .Values.preflight.enabled) .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-envoy
+  namespace: {{ .Release.Namespace }}
+  {{- if not .Values.envoy.prometheus.serviceMonitor.enabled }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port | quote }}
+  {{- end }}
+  labels:
+    k8s-app: cilium-envoy
+    app.kubernetes.io/name: cilium-envoy
+    app.kubernetes.io/part-of: cilium
+    io.cilium/app: proxy
+spec:
+  clusterIP: None
+  type: ClusterIP
+  selector:
+    k8s-app: cilium-envoy
+  ports:
+  - name: envoy-metrics
+    port: {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
+    protocol: TCP
+    targetPort: envoy-metrics
+{{- end }}

@@ -99,6 +99,15 @@ func (d *Daemon) launchHubble() {
 		localSrvOpts []serveroption.Option
 	)
 
+	if len(option.Config.HubbleMonitorEvents) > 0 {
+		monitorFilter, err := monitor.NewMonitorFilter(logger, option.Config.HubbleMonitorEvents)
+		if err != nil {
+			logger.WithError(err).Warn("Failed to initialize Hubble monitor event filter")
+		} else {
+			observerOpts = append(observerOpts, observeroption.WithOnMonitorEvent(monitorFilter))
+		}
+	}
+
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
 			"address": option.Config.HubbleMetricsServer,
@@ -317,7 +326,7 @@ func (d *Daemon) GetEndpointInfo(ip netip.Addr) (endpoint v1.EndpointInfo, ok bo
 	return ep, true
 }
 
-// GetEndpointInfo returns endpoint info for a given Cilium endpoint id. Used by Hubble.
+// GetEndpointInfoByID returns endpoint info for a given Cilium endpoint id. Used by Hubble.
 func (d *Daemon) GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool) {
 	ep := d.endpointManager.LookupCiliumID(id)
 	if ep == nil {

@@ -18,9 +18,9 @@ const (
 	metricSet    = "set"
 )
 
-func getScopeFromKey(key string) string {
+func GetScopeFromKey(key string) string {
 	s := strings.SplitN(key, "/", 5)
-	if len(s) != 5 {
+	if len(s) < 4 {
 		if len(key) >= 12 {
 			return key[:12]
 		}
@@ -33,7 +33,7 @@ func increaseMetric(key, kind, action string, duration time.Duration, err error)
 	if !option.Config.MetricsConfig.KVStoreOperationsDurationEnabled {
 		return
 	}
-	namespace := getScopeFromKey(key)
+	namespace := GetScopeFromKey(key)
 	outcome := metrics.Error2Outcome(err)
 	metrics.KVStoreOperationsDuration.
 		WithLabelValues(namespace, kind, action, outcome).Observe(duration.Seconds())
@@ -43,7 +43,7 @@ func trackEventQueued(key string, typ EventType, duration time.Duration) {
 	if !option.Config.MetricsConfig.KVStoreEventsQueueDurationEnabled {
 		return
 	}
-	metrics.KVStoreEventsQueueDuration.WithLabelValues(getScopeFromKey(key), typ.String()).Observe(duration.Seconds())
+	metrics.KVStoreEventsQueueDuration.WithLabelValues(GetScopeFromKey(key), typ.String()).Observe(duration.Seconds())
 }
 
 func recordQuorumError(err string) {

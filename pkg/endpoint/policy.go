@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 	"os"
 	"path"
@@ -25,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -143,22 +143,6 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 
 	// Publish the updated policy to L7 proxies.
 	return e.proxy.UpdateNetworkPolicy(e, e.visibilityPolicy, e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
-}
-
-func (e *Endpoint) useCurrentNetworkPolicy(proxyWaitGroup *completion.WaitGroup) {
-	if e.SecurityIdentity == nil {
-		return
-	}
-
-	// If desired L4Policy is nil then no policy change is needed.
-	if e.desiredPolicy == nil || e.desiredPolicy.L4Policy == nil {
-		return
-	}
-
-	if !e.isProxyDisabled() {
-		// Wait for the current network policy to be acked
-		e.proxy.UseCurrentNetworkPolicy(e, e.desiredPolicy.L4Policy, proxyWaitGroup)
-	}
 }
 
 // setNextPolicyRevision updates the desired policy revision field
@@ -740,9 +724,11 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					return nil
 				}
 
-				IP := net.IP(endpointIP.AsSlice())
 				ID := e.SecurityIdentity.ID
-				hostIP := node.GetIPv4()
+				hostIP, ok := ip.AddrFromIP(node.GetIPv4())
+				if !ok {
+					return controller.NewExitReason("Failed to convert node IPv4 address")
+				}
 				key := node.GetIPsecKeyIdentity()
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
@@ -753,8 +739,8 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, namedPorts); err != nil {
-					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
+				if err := ipcache.UpsertIPToKVStore(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, namedPorts); err != nil {
+					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", endpointIP.String(), ID, err)
 				}
 				return nil
 			},

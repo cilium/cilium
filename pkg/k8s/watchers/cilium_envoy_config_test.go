@@ -4,9 +4,7 @@
 package watchers
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 
 	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -56,16 +54,13 @@ spec:
 func (s *K8sWatcherSuite) TestParseEnvoySpec(c *C) {
 	jsonBytes, err := yaml.YAMLToJSON([]byte(envoySpec))
 	c.Assert(err, IsNil)
-	var buf bytes.Buffer
-	json.Indent(&buf, jsonBytes, "", "\t")
-	fmt.Printf("JSON spec:\n%s\n", buf.String())
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := envoy.ParseResources("namespace", "name", cec.Spec.Resources, true, nil, len(cec.Spec.Services) > 0)
+	resources, err := envoy.ParseResources("namespace", "name", cec.Spec.Resources, true, nil, len(cec.Spec.Services) > 0, !isIngressKind(&cec.ObjectMeta))
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))

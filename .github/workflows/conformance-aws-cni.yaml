@@ -9,7 +9,7 @@ on:
   schedule:
     - cron:  '30 0/6 * * *'
   ### FOR TESTING PURPOSES
-  # This workflow runs in the context of `master`, and ignores changes to
+  # This workflow runs in the context of `main`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
   # - Make sure the PR uses a branch from the base repository (requires write
   #   privileges). It will not work with a branch from a fork (missing secrets).
@@ -67,7 +67,8 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.1
+  cilium_cli_version: v0.14.2
+  cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.122.0
   kubectl_version: v1.23.6
@@ -90,7 +91,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -125,8 +126,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Checkout master branch to access local actions
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -169,7 +170,7 @@ jobs:
             --helm-set=cni.chainingMode=aws-cni \
             --helm-set=eni.enabled=false \
             --helm-set=ipam.mode=cluster-pool \
-            --helm-set=tunnel=disabled \
+            --helm-set=routingMode=native \
             --helm-set=bandwidthManager.enabled=false \
             --wait=false \
             --rollback=false \
@@ -198,12 +199,10 @@ jobs:
           target_url: ${{ env.check_url }}
 
       - name: Install Cilium CLI
-        run: |
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
+        uses: cilium/cilium-cli@207512ce9e729d9b3cc1a59e92af5c8d50ce37c4 # v0.14.2
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Install kubectl
         run: |
@@ -227,35 +226,11 @@ jobs:
           aws-region: ${{ env.region }}
 
       - name: Create EKS cluster
-        run: |
-          cat <<EOF > eks-config.yaml
-            apiVersion: eksctl.io/v1alpha5
-            kind: ClusterConfig
-
-            metadata:
-              name: ${{ env.clusterName }}
-              region: ${{ env.region }}
-              tags:
-               usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
-               owner: "${{ steps.vars.outputs.owner }}"
-
-            managedNodeGroups:
-            - name: ng-1
-              instanceTypes:
-               - t3.medium
-               - t3a.medium
-              desiredCapacity: 2
-              spot: true
-              privateNetworking: true
-              volumeType: "gp3"
-              volumeSize: 10
-              taints:
-               - key: "node.cilium.io/agent-not-ready"
-                 value: "true"
-                 effect: "NoExecute"
-          EOF
-
-          eksctl create cluster -f ./eks-config.yaml
+        uses: ./.github/actions/setup-eks-cluster
+        with:
+          cluster_name: ${{ env.clusterName }}
+          region: ${{ env.region }}
+          owner: "${{ steps.vars.outputs.owner }}"
 
       - name: Update AWS VPC CNI plugin
         run: |
@@ -271,7 +246,7 @@ jobs:
 
       # Checkout source code to install Cilium using local Helm chart.
       - name: Checkout code
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false

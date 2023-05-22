@@ -1,0 +1,6 @@
+{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.auth.mTLS.spire.install.namespace }}
+{{- end }}

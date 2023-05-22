@@ -266,12 +266,13 @@ var _ = SkipDescribeIf(func() bool {
 				// the app instances are running
 				By("Starting hubble observe and generating traffic which should%s redirect to proxy", not)
 				ctx, cancel := context.WithCancel(context.Background())
-				hubbleRes := kubectl.HubbleObserveFollow(
+				hubbleRes, err := kubectl.HubbleObserveFollow(
 					ctx, ciliumPod,
 					// since 0s is important here so no historic events from the
 					// buffer are shown, only follow from the current time
 					"--type l7 --since 0s",
 				)
+				Expect(err).To(BeNil(), "Failed to start hubble observe")
 
 				// clean up at the end of the test
 				defer func() {
@@ -281,7 +282,6 @@ var _ = SkipDescribeIf(func() bool {
 				}()
 
 				// Let the monitor get started since it is started in the background.
-				time.Sleep(2 * time.Second)
 				res := kubectl.ExecPodCmd(
 					namespaceForTest, appPods[helpers.App2],
 					curlCmd)
@@ -290,7 +290,7 @@ var _ = SkipDescribeIf(func() bool {
 				res.ExpectSuccess("%q cannot curl %q", appPods[helpers.App2], resource)
 
 				By("Checking that aforementioned traffic was%sredirected to the proxy", not)
-				err := hubbleRes.WaitUntilMatchFilterLineTimeout(filter, expect, hubbleTimeout)
+				err = hubbleRes.WaitUntilMatchFilterLineTimeout(filter, expect, hubbleTimeout)
 				if redirected {
 					ExpectWithOffset(1, err).To(BeNil(), "traffic was not redirected to the proxy when it should have been")
 				} else {
@@ -412,7 +412,7 @@ var _ = SkipDescribeIf(func() bool {
 			BeforeAll(func() {
 				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 					map[string]string{
-						"tunnel":               "disabled",
+						"routingMode":          "native",
 						"autoDirectNodeRoutes": "true",
 
 						"hostFirewall.enabled": "true",
@@ -1494,7 +1494,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 					// The following are needed because of
 					// https://github.com/cilium/cilium/issues/17962 &&
 					// https://github.com/cilium/cilium/issues/16197.
-					"tunnel":               "disabled",
+					"routingMode":          "native",
 					"autoDirectNodeRoutes": "true",
 					"kubeProxyReplacement": "strict",
 				})

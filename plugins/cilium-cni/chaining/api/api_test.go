@@ -28,16 +28,8 @@ func (p *pluginTest) Add(ctx context.Context, pluginContext PluginContext, cli *
 	return nil, nil
 }
 
-func (p *pluginTest) ImplementsAdd() bool {
-	return true
-}
-
-func (p *pluginTest) Delete(ctx context.Context, pluginContext PluginContext, cli *lib.DeletionFallbackClient) (err error) {
+func (p *pluginTest) Delete(ctx context.Context, pluginContext PluginContext, delClient *lib.DeletionFallbackClient) (err error) {
 	return nil
-}
-
-func (p *pluginTest) ImplementsDelete() bool {
-	return true
 }
 
 func (p *pluginTest) Check(ctx context.Context, pluginContext PluginContext, cli *client.Client) error {

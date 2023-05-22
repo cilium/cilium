@@ -6,7 +6,6 @@ package watchers
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +23,7 @@ import (
 	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -38,14 +38,14 @@ var (
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})
-	kvs               *store.SharedStore
+	kvs               store.SyncStore
 )
 
 func k8sEventMetric(scope, action string) {
 	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action)
 }
 
-func k8sServiceHandler(clusterName string, shared bool, clusterID uint32) {
+func k8sServiceHandler(ctx context.Context, clusterName string, shared bool, clusterID uint32) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
 
@@ -53,36 +53,46 @@ func k8sServiceHandler(clusterName string, shared bool, clusterID uint32) {
 		svc.Cluster = clusterName
 		svc.ClusterID = clusterID
 
-		log.WithFields(logrus.Fields{
+		scopedLog := log.WithFields(logrus.Fields{
 			logfields.K8sSvcName:   event.ID.Name,
 			logfields.K8sNamespace: event.ID.Namespace,
 			"action":               event.Action.String(),
 			"service":              event.Service.String(),
 			"endpoints":            event.Endpoints.String(),
 			"shared":               event.Service.Shared,
-		}).Debug("Kubernetes service definition changed")
+		})
+		scopedLog.Debug("Kubernetes service definition changed")
 
 		if shared && !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
-			kvs.DeleteLocalKey(context.TODO(), &svc)
+			kvs.DeleteKey(ctx, &svc)
 			return
 		}
 
 		switch event.Action {
 		case k8s.UpdateService:
-			kvs.UpdateLocalKeySync(context.TODO(), &svc)
+			if err := kvs.UpsertKey(ctx, &svc); err != nil {
+				// An error is triggered only in case it concerns service marshaling,
+				// as kvstore operations are automatically re-tried in case of error.
+				scopedLog.WithError(err).Warning("Failed synchronizing service")
+			}
 
 		case k8s.DeleteService:
-			kvs.DeleteLocalKey(context.TODO(), &svc)
+			kvs.DeleteKey(ctx, &svc)
 		}
 	}
 	for {
-		event, ok := <-K8sSvcCache.Events
-		if !ok {
+		select {
+		case event, ok := <-K8sSvcCache.Events:
+			if !ok {
+				return
+			}
+
+			serviceHandler(event)
+
+		case <-ctx.Done():
 			return
 		}
-
-		serviceHandler(event)
 	}
 }
 
@@ -112,23 +122,11 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 	readyChan := make(chan struct{}, 0)
 
 	go func() {
-		store, err := store.JoinSharedStore(store.Configuration{
-			Prefix:                  serviceStore.ServiceStorePrefix,
-			SynchronizationInterval: 5 * time.Minute,
-			KeyCreator: func() store.Key {
-				return &serviceStore.ClusterService{}
-			},
-			Backend:  nil,
-			Observer: nil,
-			Context:  ctx,
-		})
-
-		if err != nil {
-			log.WithError(err).Fatal("Unable to join kvstore store to announce services")
-		}
-
+		store := store.NewWorkqueueSyncStore(kvstore.Client(), serviceStore.ServiceStorePrefix,
+			store.WSSWithSourceClusterName(cfg.LocalClusterName()))
 		kvs = store
 		close(readyChan)
+		store.Run(ctx)
 	}()
 
 	swgSvcs := lock.NewStoppableWaitGroup()
@@ -191,7 +189,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 
 		<-readyChan
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(cfg.LocalClusterName(), shared, cfg.LocalClusterID())
+		k8sServiceHandler(ctx, cfg.LocalClusterName(), shared, cfg.LocalClusterID())
 	}()
 }
 

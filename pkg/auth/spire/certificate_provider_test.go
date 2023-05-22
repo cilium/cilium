@@ -18,6 +18,7 @@ import (
 	delegatedidentityv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/agent/delegatedidentity/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 
+	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -126,7 +127,7 @@ func TestSpireDelegateClient_sniToSPIFFEID(t *testing.T) {
 			args: args{
 				id: 1234,
 			},
-			want: "spiffe://test.cilium.io/cilium-id/1234",
+			want: "spiffe://test.cilium.io/identity/1234",
 		},
 	}
 	for _, tt := range tests {
@@ -145,8 +146,8 @@ func TestSpireDelegateClient_sniToSPIFFEID(t *testing.T) {
 }
 
 func TestSpireDelegateClient_ValidateIdentity(t *testing.T) {
-	urlFor1234, _ := url.Parse("spiffe://test.cilium.io/cilium-id/1234")
-	urlFor9999, _ := url.Parse("spiffe://test.cilium.io/cilium-id/9999")
+	urlFor1234, _ := url.Parse("spiffe://test.cilium.io/identity/1234")
+	urlFor9999, _ := url.Parse("spiffe://test.cilium.io/identity/9999")
 
 	type args struct {
 		id   identity.NumericIdentity
@@ -271,7 +272,7 @@ func TestSpireDelegateClient_GetTrustBundle(t *testing.T) {
 }
 
 func TestSpireDelegateClient_GetCertificateForIdentity(t *testing.T) {
-	certURL, err := url.Parse("spiffe://spiffe.cilium.io/cilium-id/1234")
+	certURL, err := url.Parse("spiffe://spiffe.cilium/identity/1234")
 	if err != nil {
 		t.Fatalf("failed to parse URL: %v", err)
 	}
@@ -300,31 +301,31 @@ func TestSpireDelegateClient_GetCertificateForIdentity(t *testing.T) {
 	}
 
 	svidStore := map[string]*delegatedidentityv1.X509SVIDWithKey{
-		"spiffe://test.cilium.io/cilium-id/1234": {
+		"spiffe://test.cilium.io/identity/1234": {
 			X509Svid: &types.X509SVID{
 				Id: &types.SPIFFEID{
 					TrustDomain: "test.cilium.io",
-					Path:        "/cilium-id/1234",
+					Path:        "/identity/1234",
 				},
 				CertChain: [][]byte{leafCertBytes},
 			},
 			X509SvidKey: leafPKCS8Key,
 		},
-		"spiffe://test.cilium.io/cilium-id/2222": {
+		"spiffe://test.cilium.io/identity/2222": {
 			X509Svid: &types.X509SVID{
 				Id: &types.SPIFFEID{
 					TrustDomain: "test.cilium.io",
-					Path:        "/cilium-id/2222",
+					Path:        "/identity/2222",
 				},
 				CertChain: [][]byte{},
 			},
 			X509SvidKey: leafPKCS8Key,
 		},
-		"spiffe://test.cilium.io/cilium-id/3333": {
+		"spiffe://test.cilium.io/identity/3333": {
 			X509Svid: &types.X509SVID{
 				Id: &types.SPIFFEID{
 					TrustDomain: "test.cilium.io",
-					Path:        "/cilium-id/3333",
+					Path:        "/identity/3333",
 				},
 				CertChain: [][]byte{leafCertBytes},
 			},
@@ -392,6 +393,97 @@ func TestSpireDelegateClient_GetCertificateForIdentity(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("SpireDelegateClient.GetCertificateForIdentity() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSpireDelegateClient_SubscribeToRotatedIdentities(t *testing.T) {
+	tests := []struct {
+		name    string
+		actions []func(t *testing.T, s *SpireDelegateClient)
+		events  []certs.CertificateRotationEvent
+	}{
+		{
+			name: "receive no event on a new ID",
+			actions: []func(t *testing.T, s *SpireDelegateClient){
+				func(t *testing.T, s *SpireDelegateClient) {
+					s.handleX509SVIDUpdate([]*delegatedidentityv1.X509SVIDWithKey{
+						{
+							X509Svid: &types.X509SVID{
+								Id: &types.SPIFFEID{
+									TrustDomain: "test.cilium.io",
+									Path:        "/identity/1234",
+								},
+								ExpiresAt: time.Now().Add(time.Hour).Unix(),
+							},
+						},
+					})
+				},
+			},
+			events: []certs.CertificateRotationEvent{},
+		},
+		{
+			name: "receive 1 updated event",
+			actions: []func(t *testing.T, s *SpireDelegateClient){
+				func(t *testing.T, s *SpireDelegateClient) {
+					s.handleX509SVIDUpdate([]*delegatedidentityv1.X509SVIDWithKey{
+						{
+							X509Svid: &types.X509SVID{
+								Id: &types.SPIFFEID{
+									TrustDomain: "test.cilium.io",
+									Path:        "/identity/1234",
+								},
+								ExpiresAt: time.Now().Add(time.Hour).Unix(),
+							},
+						},
+					})
+				},
+				func(t *testing.T, s *SpireDelegateClient) {
+					// Update the certificate
+					s.handleX509SVIDUpdate([]*delegatedidentityv1.X509SVIDWithKey{
+						{
+							X509Svid: &types.X509SVID{
+								Id: &types.SPIFFEID{
+									TrustDomain: "test.cilium.io",
+									Path:        "/identity/1234",
+								},
+								ExpiresAt: time.Now().Add(2 * time.Hour).Unix(),
+							},
+						},
+					})
+				},
+			},
+			events: []certs.CertificateRotationEvent{
+				{
+					Identity: 1234,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &SpireDelegateClient{
+				cfg: SpireDelegateConfig{
+					SpiffeTrustDomain: "test.cilium.io",
+				},
+				log:                   log,
+				rotatedIdentitiesChan: make(chan certs.CertificateRotationEvent, 10),
+				svidStore:             make(map[string]*delegatedidentityv1.X509SVIDWithKey),
+			}
+			for _, action := range tt.actions {
+				action(t, s)
+			}
+			got := []certs.CertificateRotationEvent{}
+			select {
+			case event := <-s.SubscribeToRotatedIdentities():
+				got = append(got, event)
+			default:
+				break
+			}
+
+			if !reflect.DeepEqual(got, tt.events) {
+				t.Errorf("SpireDelegateClient.SubscribeToRotatedIdentities() = %v, want %v", got, tt.events)
 			}
 		})
 	}

@@ -49,6 +49,9 @@ type CachingIdentityAllocator struct {
 
 	identitiesPath string
 
+	// This field exists is to hand out references that are either for sending
+	// and receiving. It should not be used directly without converting it first
+	// to a AllocatorEventSendChan or AllocatorEventRecvChan.
 	events  allocator.AllocatorEventChan
 	watcher identityWatcher
 
@@ -158,9 +161,16 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		"cluster-id": option.Config.ClusterID,
 	}).Info("Allocating identities between range")
 
+	// In the case of the allocator being closed, we need to create a new events channel
+	// and start a new watch.
+	if m.events == nil {
+		m.events = make(allocator.AllocatorEventChan, eventsQueueSize)
+		m.watcher.watch(m.events)
+	}
+
 	// Asynchronously set up the global identity allocator since it connects
 	// to the kvstore.
-	go func(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan, minID, maxID idpool.ID) {
+	go func(owner IdentityAllocatorOwner, events allocator.AllocatorEventSendChan, minID, maxID idpool.ID) {
 		m.setupMutex.Lock()
 		defer m.setupMutex.Unlock()
 
@@ -212,6 +222,8 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 	return m.globalIdentityAllocatorInitialized
 }
 
+const eventsQueueSize = 1024
+
 // InitIdentityAllocator creates the the identity allocator. Only the first
 // invocation of this function will have an effect. The Caller must have
 // initialized well known identities before calling this (by calling
@@ -236,7 +248,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 		owner:                              owner,
 		identitiesPath:                     IdentitiesPath,
 		watcher:                            watcher,
-		events:                             make(allocator.AllocatorEventChan, 1024),
+		events:                             make(allocator.AllocatorEventChan, eventsQueueSize),
 	}
 	m.watcher.watch(m.events)
 
@@ -257,13 +269,17 @@ func (m *CachingIdentityAllocator) Close() {
 		// This means the channel was closed and therefore the IdentityAllocator == nil will never be true
 	default:
 		if m.IdentityAllocator == nil {
-			log.Panic("Close() called without calling InitIdentityAllocator() first")
+			log.Error("Close() called without calling InitIdentityAllocator() first")
+			return
 		}
 	}
 
 	m.IdentityAllocator.Delete()
 	if m.events != nil {
-		close(m.events)
+		// Have the now only remaining writing party close the events channel,
+		// to ensure we don't panic with 'send on closed channel'.
+		m.localIdentities.close()
+		m.events = nil
 	}
 
 	m.IdentityAllocator = nil

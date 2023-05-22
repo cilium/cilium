@@ -195,6 +195,7 @@ rules:
   - ciliumnetworkpolicies.cilium.io
   - ciliumnodes.cilium.io
   - ciliumnodeconfigs.cilium.io
+  - ciliumcidrgroups.cilium.io
 - apiGroups:
   - cilium.io
   resources:
@@ -246,6 +247,7 @@ rules:
   resources:
   - gatewayclasses
   - gateways
+  - tlsroutes
   - httproutes
   - referencegrants
   - referencepolicies
@@ -259,6 +261,7 @@ rules:
   - gatewayclasses/status
   - gateways/status
   - httproutes/status
+  - tlsroutes/status
   verbs:
   - update
   - patch

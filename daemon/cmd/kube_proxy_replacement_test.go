@@ -32,8 +32,9 @@ type kprConfig struct {
 
 	expectedErrorRegex string
 
-	tunnel       string
-	nodePortMode string
+	routingMode    string
+	tunnelProtocol string
+	nodePortMode   string
 }
 
 func (cfg *kprConfig) set() {
@@ -49,7 +50,8 @@ func (cfg *kprConfig) set() {
 	option.Config.EnableBPFMasquerade = cfg.enableBPFMasquerade
 	option.Config.EnableIPv4Masquerade = cfg.enableIPv4Masquerade
 	option.Config.EnableSocketLBTracing = true
-	option.Config.Tunnel = cfg.tunnel
+	option.Config.RoutingMode = cfg.routingMode
+	option.Config.TunnelProtocol = cfg.tunnelProtocol
 
 	if cfg.nodePortMode == option.NodePortModeDSR || cfg.nodePortMode == option.NodePortModeHybrid {
 		option.Config.NodePortMode = cfg.nodePortMode
@@ -227,7 +229,8 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			"node-port-dsr-mode+vxlan",
 			func(cfg *kprConfig) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
-				cfg.tunnel = option.TunnelVXLAN
+				cfg.routingMode = option.RoutingModeTunnel
+				cfg.tunnelProtocol = option.TunnelVXLAN
 				cfg.nodePortMode = option.NodePortModeDSR
 			},
 			kprConfig{

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Kubernetes Authors All rights reserved.
 #
@@ -35,7 +35,7 @@ CILIUM_GITHUB_SSH='git@github.com:cilium/cilium.git'
 # 2=Minor
 # 3=.Patch
 # 4=Patch
-BRANCH_REGEX="master|release-([0-9]{1,})\.([0-9]{1,})(\.([0-9]{1,}))*$"
+BRANCH_REGEX="main|release-([0-9]{1,})\.([0-9]{1,})(\.([0-9]{1,}))*$"
 # release - 1=Major, 2=Minor, 3=Patch, 4=-(alpha|beta|rc), 5=rev
 # dotzero - 1=Major, 2=Minor
 # build - 1=build number, 2=sha1

@@ -40,9 +40,10 @@ cilium-operator [flags]
   -D, --debug                                                Enable debugging mode
       --ec2-api-endpoint string                              AWS API endpoint for the EC2 service
       --enable-cilium-endpoint-slice                         If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.
+      --enable-cilium-operator-server-access strings         List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-ipv4                                          Enable IPv4 support (default true)
       --enable-ipv6                                          Enable IPv6 support (default true)
-      --enable-k8s                                           Enable operation of Kubernetes-related services/controllers when using Cilium with Kubernetes (default true)
+      --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                            Enable k8s event handover to kvstore for improved scalability
@@ -78,7 +79,7 @@ cilium-operator [flags]
       --log-driver strings                                   Logging endpoints to use for example syslog
       --log-opt map                                          Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
       --mesh-auth-mtls-enabled                               The flag to enable mTLS for the SPIRE server.
-      --mesh-auth-spiffe-trust-domain string                 The trust domain for the SPIFFE identity. (default "spiffe.cilium.io")
+      --mesh-auth-spiffe-trust-domain string                 The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc.cluster.local:8081")
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server endpoint. (default 10s)
@@ -100,7 +101,7 @@ cilium-operator [flags]
       --synchronize-k8s-nodes                                Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
       --synchronize-k8s-services                             Synchronize Kubernetes services to kvstore (default true)
       --unmanaged-pod-watcher-interval int                   Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
-      --update-ec2-adapter-limit-via-api                     Use the EC2 API to update the instance type to adapter limits
+      --update-ec2-adapter-limit-via-api                     Use the EC2 API to update the instance type to adapter limits (default true)
       --version                                              Print version information
 ```
 

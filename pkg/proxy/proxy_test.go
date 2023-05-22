@@ -5,8 +5,10 @@ package proxy
 
 import (
 	"context"
+	"os"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/envoy"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 
 	. "gopkg.in/check.v1"
@@ -31,8 +33,12 @@ func (m *MockDatapathUpdater) SupportsOriginalSourceAddr() bool {
 func (s *ProxySuite) TestPortAllocator(c *C) {
 	mockDatapathUpdater := &MockDatapathUpdater{}
 
-	stateDir := c.MkDir()
-	p := StartProxySupport(10000, 20000, stateDir, nil, nil, mockDatapathUpdater, nil,
+	testRunDir := c.MkDir()
+	socketDir := envoy.GetSocketDir(testRunDir)
+	err := os.MkdirAll(socketDir, 0700)
+	c.Assert(err, IsNil)
+
+	p := StartProxySupport(10000, 20000, testRunDir, nil, nil, mockDatapathUpdater, nil,
 		testipcache.NewMockIPCache())
 
 	port, err := p.AllocateProxyPort("listener1", false, true)

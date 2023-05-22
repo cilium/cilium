@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/btf"
 )
 
 const globalDataMap = ".data"
@@ -229,19 +230,15 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) error {
 // loader. This is done for compatibility with kernels that don't support
 // global data maps yet.
 //
-// Currently, all map reads are expected to be 32 bits wide until BTF MapKV
-// can be fully accessed by the caller, which would allow for querying value
-// widths.
-//
 // This works in conjunction with the __fetch macros in the datapath, which
 // emit direct array accesses instead of memory loads with an offset from the
 // map's pointer.
 func inlineGlobalData(spec *ebpf.CollectionSpec) error {
-	data, err := globalData(spec)
+	vars, err := globalData(spec)
 	if err != nil {
 		return err
 	}
-	if data == nil {
+	if vars == nil {
 		// No static data, nothing to replace.
 		return nil
 	}
@@ -270,11 +267,14 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 			// Equivalent to Instruction.mapOffset().
 			off := uint32(uint64(ins.Constant) >> 32)
 
-			if off%4 != 0 {
-				return fmt.Errorf("global const access at offset %d not 32-bit aligned", off)
+			// Look up the value of the variable stored at the Datasec offset pointed
+			// at by the instruction.
+			value, ok := vars[off]
+			if !ok {
+				return fmt.Errorf("no global constant found in %s at offset %d", globalDataMap, off)
 			}
 
-			imm := spec.ByteOrder.Uint32(data[off : off+4])
+			imm := spec.ByteOrder.Uint64(value)
 
 			// Replace the map load with an immediate load. Must be a dword load
 			// to match the instruction width of a map load.
@@ -292,22 +292,50 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
+type varOffsets map[uint32][]byte
+
 // globalData gets the contents of the first entry in the global data map
 // and removes it from the spec to prevent it from being created in the kernel.
-func globalData(spec *ebpf.CollectionSpec) ([]byte, error) {
-	data := spec.Maps[globalDataMap]
-	if data == nil {
+func globalData(spec *ebpf.CollectionSpec) (varOffsets, error) {
+	dm := spec.Maps[globalDataMap]
+	if dm == nil {
 		return nil, nil
 	}
 
-	if dl := len(data.Contents); dl != 1 {
+	if dl := len(dm.Contents); dl != 1 {
 		return nil, fmt.Errorf("expected one key in %s, found %d", globalDataMap, dl)
 	}
 
-	out, ok := (data.Contents[0].Value).([]byte)
+	ds, ok := dm.Value.(*btf.Datasec)
+	if !ok {
+		return nil, fmt.Errorf("no BTF datasec found for %s", globalDataMap)
+	}
+
+	data, ok := (dm.Contents[0].Value).([]byte)
 	if !ok {
 		return nil, fmt.Errorf("expected %s value to be a byte slice, got: %T",
-			globalDataMap, data.Contents[0].Value)
+			globalDataMap, dm.Contents[0].Value)
+	}
+
+	// Slice up the binary contents of the global data map according to the
+	// variables described in its Datasec.
+	out := make(varOffsets)
+	for _, vsi := range ds.Vars {
+		if vsi.Size > 8 {
+			return nil, fmt.Errorf("variables larger than 8 bytes are not supported (got %d)", vsi.Size)
+		}
+
+		if _, ok := out[vsi.Offset]; ok {
+			return nil, fmt.Errorf("duplicate VarSecInfo for offset %d", vsi.Offset)
+		}
+
+		// Allocate a fixed slice of 8 bytes so it can be used to store in an imm64
+		// instruction later using ByteOrder.Uint64().
+		v := make([]byte, 8)
+		copy(v, data[vsi.Offset:vsi.Offset+vsi.Size])
+
+		// Emit the variable's value by its offset in the datasec.
+		out[vsi.Offset] = v
 	}
 
 	// Remove the map definition to skip loading it into the kernel.

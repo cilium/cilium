@@ -3884,6 +3884,14 @@ func init() {
       "description": "Status of proxy\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "envoy-deployment-mode": {
+          "description": "Deployment mode of Envoy L7 proxy",
+          "type": "string",
+          "enum": [
+            "embedded",
+            "external"
+          ]
+        },
         "ip": {
           "description": "IP address that the proxy listens on",
           "type": "string"
@@ -9172,6 +9180,14 @@ func init() {
       "description": "Status of proxy\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "envoy-deployment-mode": {
+          "description": "Deployment mode of Envoy L7 proxy",
+          "type": "string",
+          "enum": [
+            "embedded",
+            "external"
+          ]
+        },
         "ip": {
           "description": "IP address that the proxy listens on",
           "type": "string"

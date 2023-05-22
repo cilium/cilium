@@ -1084,17 +1084,10 @@ func (e *Endpoint) updatePolicyMapPressureMetric() {
 	e.policyMapPressureGauge.Set(value)
 }
 
-// The bool pointed by hadProxy, if not nil, will be set to 'true' if
-// the deleted entry had a proxy port assigned to it.  *hadProxy is
-// not otherwise changed (e.g., it is never set to 'false').
-func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, hadProxy *bool) bool {
+func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) bool {
 	// Convert from policy.Key to policymap.Key
-	policymapKey := policymap.PolicyKey{
-		Identity:         keyToDelete.Identity,
-		DestPort:         keyToDelete.DestPort,
-		Nexthdr:          keyToDelete.Nexthdr,
-		TrafficDirection: keyToDelete.TrafficDirection,
-	}
+	policymapKey := policymap.NewKey(keyToDelete.Identity, keyToDelete.DestPort,
+		keyToDelete.Nexthdr, keyToDelete.TrafficDirection)
 
 	// Do not error out if the map entry was already deleted from the bpf map.
 	// Incremental updates depend on this being OK in cases where identity change
@@ -1110,11 +1103,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, had
 		return false
 	}
 
-	var entry policy.MapStateEntry
-	var ok bool
-	if entry, ok = e.realizedPolicy.PolicyMapState[keyToDelete]; ok && entry.ProxyPort != 0 && hadProxy != nil {
-		*hadProxy = true
-	}
+	entry := e.realizedPolicy.PolicyMapState[keyToDelete]
 
 	// Operation was successful, remove from realized state.
 	delete(e.realizedPolicy.PolicyMapState, keyToDelete)
@@ -1131,12 +1120,8 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, had
 
 func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry, incremental bool) bool {
 	// Convert from policy.Key to policymap.Key
-	policymapKey := policymap.PolicyKey{
-		Identity:         keyToAdd.Identity,
-		DestPort:         keyToAdd.DestPort,
-		Nexthdr:          keyToAdd.Nexthdr,
-		TrafficDirection: keyToAdd.TrafficDirection,
-	}
+	policymapKey := policymap.NewKey(keyToAdd.Identity, keyToAdd.DestPort,
+		keyToAdd.Nexthdr, keyToAdd.TrafficDirection)
 
 	var err error
 	if entry.IsDeny {
@@ -1176,25 +1161,20 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 
 	e.PolicyDebug(nil, "ApplyPolicyMapChanges")
 
-	proxyChanges, err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}
 
-	if proxyChanges {
-		// Ignoring the revertFunc; keep all successful changes even if some fail.
-		err, _ = e.updateNetworkPolicy(proxyWaitGroup)
-	} else {
-		// Allow caller to wait for the current network policy to be acked
-		e.useCurrentNetworkPolicy(proxyWaitGroup)
-	}
+	// Ignoring the revertFunc; keep all successful changes even if some fail.
+	err, _ = e.updateNetworkPolicy(proxyWaitGroup)
 
 	return err
 }
 
 // applyPolicyMapChanges applies any incremental policy map changes
 // collected on the desired policy.
-func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
+func (e *Endpoint) applyPolicyMapChanges() error {
 	errors := 0
 
 	e.PolicyDebug(nil, "applyPolicyMapChanges")
@@ -1246,9 +1226,6 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 		// policy is first instantiated.
 		if entry.IsRedirectEntry() {
 			entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
-			if entry.ProxyPort != 0 {
-				proxyChanges = true
-			}
 		}
 		if !e.addPolicyKey(keyToAdd, entry, true) {
 			errors++
@@ -1256,21 +1233,22 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 	}
 
 	for keyToDelete := range deletes {
-		if !e.deletePolicyKey(keyToDelete, true, &proxyChanges) {
+		if !e.deletePolicyKey(keyToDelete, true) {
 			errors++
 		}
 	}
 
 	if errors > 0 {
-		return proxyChanges, fmt.Errorf("updating desired PolicyMap state failed")
-	} else if len(adds)+len(deletes) > 0 {
+		return fmt.Errorf("updating desired PolicyMap state failed")
+	}
+	if len(adds)+len(deletes) > 0 {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.AddedPolicyID:   adds,
 			logfields.DeletedPolicyID: deletes,
 		}).Debug("Applied policy map updates due identity changes")
 	}
 
-	return proxyChanges, nil
+	return nil
 }
 
 // syncPolicyMap updates the bpf policy map state based on the
@@ -1279,7 +1257,7 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 func (e *Endpoint) syncPolicyMap() error {
 	// Apply pending policy map changes first so that desired map is up-to-date before
 	// we diff the maps below.
-	_, err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}
@@ -1327,7 +1305,7 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 	for keyToDelete := range realized {
 		// If key that is in realized state is not in desired state, just remove it.
 		if entry, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-			if !e.deletePolicyKey(keyToDelete, false, nil) {
+			if !e.deletePolicyKey(keyToDelete, false) {
 				errors++
 			}
 			diffCount++
@@ -1347,21 +1325,19 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 	currentMap := make(policy.MapState)
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
-		// Convert key to host byte-order. ToHost() makes a copy.
-		keyHostOrder := key.(*policymap.PolicyKey).ToHost()
+		policymapKey := key.(*policymap.PolicyKey)
 		// Convert from policymap.Key to policy.Key
 		policyKey := policy.Key{
-			Identity:         keyHostOrder.Identity,
-			DestPort:         keyHostOrder.DestPort,
-			Nexthdr:          keyHostOrder.Nexthdr,
-			TrafficDirection: keyHostOrder.TrafficDirection,
+			Identity:         policymapKey.Identity,
+			DestPort:         policymapKey.GetDestPort(),
+			Nexthdr:          policymapKey.Nexthdr,
+			TrafficDirection: policymapKey.TrafficDirection,
 		}
-		// Convert value to host byte-order. ToHost() makes a copy.
-		entryHostOrder := value.(*policymap.PolicyEntry).ToHost()
+		policymapEntry := value.(*policymap.PolicyEntry)
 		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
 		policyEntry := policy.MapStateEntry{
-			ProxyPort: entryHostOrder.ProxyPort,
-			IsDeny:    policymap.PolicyEntryFlags(entryHostOrder.GetFlags()).IsDeny(),
+			ProxyPort: policymapEntry.GetProxyPort(),
+			IsDeny:    policymapEntry.IsDeny(),
 		}
 		currentMap[policyKey] = policyEntry
 	}
@@ -1386,7 +1362,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 
 	// Apply pending policy map changes first so that desired map is up-to-date before
 	// we diff the maps below.
-	_, err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
 	}

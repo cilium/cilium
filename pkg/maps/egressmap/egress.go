@@ -3,22 +3,11 @@
 
 package egressmap
 
-const (
-	PolicyMapName = "cilium_egress_gw_policy_v4"
+import "github.com/cilium/cilium/pkg/hive/cell"
 
-	MaxPolicyEntries = 1 << 14
+var Cell = cell.Module(
+	"egressmaps",
+	"Egressmaps provide access to the egress gateway datapath maps",
+	cell.Config(DefaultPolicyConfig),
+	cell.Provide(createPolicyMapFromDaemonConfig),
 )
-
-var (
-	EgressPolicyMap *egressPolicyMap
-)
-
-// InitEgressMaps initializes the egress policy map.
-func InitEgressMaps(maxPolicyEntries int) error {
-	return initEgressPolicyMap(PolicyMapName, maxPolicyEntries, true)
-}
-
-// OpenEgressMaps initializes the egress policy map.
-func OpenEgressMaps() error {
-	return initEgressPolicyMap(PolicyMapName, 0, false)
-}

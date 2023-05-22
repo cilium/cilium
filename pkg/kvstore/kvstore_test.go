@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package kvstore
 
 import (
 	"testing"
 
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func Test(t *testing.T) {
@@ -19,6 +19,10 @@ func Test(t *testing.T) {
 type independentSuite struct{}
 
 var _ = Suite(&independentSuite{})
+
+func (s *independentSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (s *independentSuite) TestGetLockPath(c *C) {
 	const path = "foo/path"
@@ -32,9 +36,10 @@ func (s *independentSuite) TestValidateScopesFromKey(c *C) {
 		"cilium/state/ip/v1/default/10.15.189.183":                                                  "ip/v1",
 		"cilium/state/ip/v1/default/f00d::a0f:0:0:6f2e":                                             "ip/v1",
 		"cilium/state/nodes/v1/default/runtime":                                                     "nodes/v1",
+		"cilium/state/nodes/v1":                                                                     "nodes/v1",
 	}
 
 	for key, val := range mockData {
-		c.Assert(getScopeFromKey(key), Equals, val)
+		c.Assert(GetScopeFromKey(key), Equals, val)
 	}
 }

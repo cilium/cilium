@@ -143,7 +143,7 @@ func NewKey(ip net.IP, mask net.IPMask, clusterID uint8) Key {
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type RemoteEndpointInfo struct {
-	SecurityIdentity uint32     `align:"sec_label"`
+	SecurityIdentity uint32     `align:"sec_identity"`
 	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
 	NodeID           uint16     `align:"node_id"`
 	Key              uint8      `align:"key"`

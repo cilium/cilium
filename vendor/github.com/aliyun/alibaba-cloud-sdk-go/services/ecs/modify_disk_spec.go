@@ -71,15 +71,23 @@ func (client *Client) ModifyDiskSpecWithCallback(request *ModifyDiskSpecRequest,
 // ModifyDiskSpecRequest is the request struct for api ModifyDiskSpec
 type ModifyDiskSpecRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	DiskCategory         string           `position:"Query" name:"DiskCategory"`
-	DiskId               string           `position:"Query" name:"DiskId"`
-	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	PerformanceLevel     string           `position:"Query" name:"PerformanceLevel"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	ProvisionedIops      requests.Integer `position:"Query" name:"ProvisionedIops"`
+	ResourceOwnerId           requests.Integer                        `position:"Query" name:"ResourceOwnerId"`
+	DiskCategory              string                                  `position:"Query" name:"DiskCategory"`
+	DiskId                    string                                  `position:"Query" name:"DiskId"`
+	DryRun                    requests.Boolean                        `position:"Query" name:"DryRun"`
+	ResourceOwnerAccount      string                                  `position:"Query" name:"ResourceOwnerAccount"`
+	PerformanceLevel          string                                  `position:"Query" name:"PerformanceLevel"`
+	OwnerAccount              string                                  `position:"Query" name:"OwnerAccount"`
+	PerformanceControlOptions ModifyDiskSpecPerformanceControlOptions `position:"Query" name:"PerformanceControlOptions"  type:"Struct"`
+	OwnerId                   requests.Integer                        `position:"Query" name:"OwnerId"`
+	ProvisionedIops           requests.Integer                        `position:"Query" name:"ProvisionedIops"`
+}
+
+// ModifyDiskSpecPerformanceControlOptions is a repeated param struct in ModifyDiskSpecRequest
+type ModifyDiskSpecPerformanceControlOptions struct {
+	IOPS       string `name:"IOPS"`
+	Throughput string `name:"Throughput"`
+	Recover    string `name:"Recover"`
 }
 
 // ModifyDiskSpecResponse is the response struct for api ModifyDiskSpec

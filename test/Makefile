@@ -3,6 +3,14 @@
 
 include ../Makefile.defs
 
+# Determines if the eBPF unit tests are ran with `sudo`
+RUN_WITH_SUDO ?= true
+ifeq ($(RUN_WITH_SUDO), true)
+	RUN_WITH_SUDO=-exec sudo
+else
+	RUN_WITH_SUDO=
+endif
+
 PROVISION ?= true
 # If you set provision to false the test will run without bootstrapping the
 # cluster again.
@@ -26,20 +34,20 @@ all: build
 
 build:
 	@$(ECHO_GINKGO)$@
-	$(GINKGO) build -tags=integration_tests
+	$(GINKGO) build
 	$(QUIET)$(MAKE) -C bpf/
 
 build-darwin:
 	@$(ECHO_GINKGO)$@
-	GOOS=darwin $(GINKGO) build -tags=integration_tests
+	GOOS=darwin $(GINKGO) build
 
 test: run k8s-test
 
 run:
-	KERNEL=net-next ginkgo --focus "Runtime" --tags integration_tests -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
+	INTEGRATION_TESTS=true KERNEL=net-next ginkgo --focus "Runtime" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 k8s-test:
-	ginkgo --focus "K8s" --tags integration_tests -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
+	INTEGRATION_TESTS=true ginkgo --focus "K8s" -v -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
 
 # Match kind-image target in parent directory
 k8s-kind: export DOCKER_REGISTRY=localhost:5000
@@ -53,7 +61,7 @@ k8s-kind:
 		NETNEXT="$(NETNEXT)" \
 		KUBEPROXY="$(KUBEPROXY)" \
 		NO_CILIUM_ON_NODES="$(NO_CILIUM_ON_NODES)" \
-		ginkgo --focus "$(FOCUS)" --tags integration_tests -v -- \
+		INTEGRATION_TESTS=true ginkgo --focus "$(FOCUS)" -v -- \
 			-cilium.testScope=k8s \
 			-cilium.provision=false \
 			-cilium.kubeconfig=$$(echo ~/.kube/config) \
@@ -92,4 +100,4 @@ endif
 
 run_bpf_tests:
 	$(QUIET)$(MAKE) -C ../bpf/tests all
-	$(QUIET)$(GO) test ./bpf_tests -exec sudo -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)
+	$(QUIET)$(GO) test ./bpf_tests $(RUN_WITH_SUDO) -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)

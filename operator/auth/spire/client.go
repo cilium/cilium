@@ -28,8 +28,8 @@ import (
 
 const (
 	notFoundError   = "NotFound"
-	defaultParentID = "/dclient"
-	pathPrefix      = "/cilium-id"
+	defaultParentID = "/cilium-operator"
+	pathPrefix      = "/identity"
 )
 
 var defaultSelectors = []*types.Selector{
@@ -76,7 +76,7 @@ func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
 		"SPIRE server endpoint.")
 	flags.StringVar(&cfg.SpiffeTrustDomain,
 		"mesh-auth-spiffe-trust-domain",
-		"spiffe.cilium.io",
+		"spiffe.cilium",
 		"The trust domain for the SPIFFE identity.")
 }
 
@@ -154,7 +154,7 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 }
 
 // Upsert creates or updates the SPIFFE ID for the given ID.
-// The SPIFFE ID is in the form of spiffe://<trust-domain>/cilium-id/<id>.
+// The SPIFFE ID is in the form of spiffe://<trust-domain>/identity/<id>.
 func (c *Client) Upsert(ctx context.Context, id string) error {
 	if c.entry == nil {
 		return fmt.Errorf("unable to connect to SPIRE server %s", c.cfg.SpireServerAddress)
@@ -191,7 +191,7 @@ func (c *Client) Upsert(ctx context.Context, id string) error {
 }
 
 // Delete deletes the SPIFFE ID for the given ID.
-// The SPIFFE ID is in the form of spiffe://<trust-domain>/cilium-id/<id>.
+// The SPIFFE ID is in the form of spiffe://<trust-domain>/identity/<id>.
 func (c *Client) Delete(ctx context.Context, id string) error {
 	if c.entry == nil {
 		return fmt.Errorf("unable to connect to SPIRE server %s", c.cfg.SpireServerAddress)

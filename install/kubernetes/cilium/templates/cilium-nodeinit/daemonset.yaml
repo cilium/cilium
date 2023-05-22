@@ -79,6 +79,10 @@ spec:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
           terminationMessagePolicy: FallbackToLogsOnError
+          {{- with .Values.nodeinit.extraVolumeMounts }}
+          volumeMounts:
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
       {{- with .Values.nodeinit.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
@@ -94,4 +98,13 @@ spec:
       hostPID: true
       hostNetwork: true
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.nodeinit.priorityClassName "system-node-critical") }}
+      {{- if .Values.serviceAccounts.nodeinit.enabled }}
+      serviceAccount: {{ .Values.serviceAccounts.nodeinit.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.nodeinit.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.nodeinit.automount }}
+      {{- end }}
+      {{- with .Values.nodeinit.extraVolumes }}
+      volumes:
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
 {{- end }}

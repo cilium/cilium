@@ -17,6 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -33,25 +35,26 @@ func (s *LinuxRoutingSuite) SetUpSuite(c *C) {
 }
 
 func (e *LinuxRoutingSuite) TestConfigure(c *C) {
-	ip, ri := getFakes(c)
-	masterMAC := ri.MasterIfMAC
 	runFuncInNetNS(c, func() {
+		ip, ri := getFakes(c, true)
+		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(c, masterMAC)
 		defer ifaceCleanup()
 
 		runConfigureThenDelete(c, ri, ip, 1500)
 	})
 	runFuncInNetNS(c, func() {
+		ip, ri := getFakes(c, false)
+		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(c, masterMAC)
 		defer ifaceCleanup()
 
-		ri.Masquerade = false
 		runConfigureThenDelete(c, ri, ip, 1500)
 	})
 }
 
 func (e *LinuxRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
-	_, ri := getFakes(c)
+	_, ri := getFakes(c, true)
 	ipv6 := netip.MustParseAddr("fd00::2").AsSlice()
 	err := ri.Configure(ipv6, 1500, false)
 	c.Assert(err, NotNil)
@@ -66,7 +69,7 @@ func (e *LinuxRoutingSuite) TestDeleteRoutewithIncompatibleIP(c *C) {
 }
 
 func (e *LinuxRoutingSuite) TestDelete(c *C) {
-	fakeIP, fakeRoutingInfo := getFakes(c)
+	fakeIP, fakeRoutingInfo := getFakes(c, true)
 	masterMAC := fakeRoutingInfo.MasterIfMAC
 
 	tests := []struct {
@@ -116,6 +119,16 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 				c.Assert(netlink.RuleAdd(&r), IsNil)
 
 				return ip
+			},
+			wantErr: true,
+		},
+		{
+			name: "fails to delete rules due to masquerade misconfiguration",
+			preRun: func() netip.Addr {
+				runConfigure(c, fakeRoutingInfo, fakeIP, 1500)
+				// inconsistency with fakeRoutingInfo.Masquerade should lead to failure
+				option.Config.EnableIPv4Masquerade = false
+				return fakeIP
 			},
 			wantErr: true,
 		},
@@ -231,28 +244,44 @@ func createDummyDevice(c *C, macAddr mac.MAC) func() {
 	}
 }
 
-// getFakes returns a fake IP simulating an Endpoint IP and RoutingInfo as test
-// harnesses.
-func getFakes(c *C) (netip.Addr, RoutingInfo) {
+// getFakes returns a fake IP simulating an Endpoint IP and RoutingInfo as test harnesses.
+// To create routing info with a list of CIDRs which the interface has access to, set withCIDR parameter to true
+func getFakes(c *C, withCIDR bool) (netip.Addr, RoutingInfo) {
 	fakeGateway := netip.MustParseAddr("192.168.2.1")
-	fakeCIDR := netip.MustParsePrefix("192.168.0.0/16")
+	fakeSubnet1CIDR := netip.MustParsePrefix("192.168.0.0/16")
+	fakeSubnet2CIDR := netip.MustParsePrefix("192.170.0.0/16")
 	fakeMAC, err := mac.ParseMAC("00:11:22:33:44:55")
 	c.Assert(err, IsNil)
 	c.Assert(fakeMAC, NotNil)
 
-	fakeRoutingInfo, err := parse(
-		fakeGateway.String(),
-		[]string{fakeCIDR.String()},
-		fakeMAC.String(),
-		"1",
-		ipamOption.IPAMENI,
-		true,
-	)
+	var fakeRoutingInfo *RoutingInfo
+	if withCIDR {
+		fakeRoutingInfo, err = parse(
+			fakeGateway.String(),
+			[]string{fakeSubnet1CIDR.String(), fakeSubnet2CIDR.String()},
+			fakeMAC.String(),
+			"1",
+			ipamOption.IPAMENI,
+			true,
+		)
+	} else {
+		fakeRoutingInfo, err = parse(
+			fakeGateway.String(),
+			nil,
+			fakeMAC.String(),
+			"1",
+			ipamOption.IPAMAzure,
+			false,
+		)
+	}
 	c.Assert(err, IsNil)
 	c.Assert(fakeRoutingInfo, NotNil)
 
-	fakeIP := netip.MustParseAddr("192.168.2.123")
+	node.SetRouterInfo(fakeRoutingInfo)
+	option.Config.IPAM = fakeRoutingInfo.IpamMode
+	option.Config.EnableIPv4Masquerade = fakeRoutingInfo.Masquerade
 
+	fakeIP := netip.MustParseAddr("192.168.2.123")
 	return fakeIP, *fakeRoutingInfo
 }
 

@@ -1361,12 +1361,13 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 }
 
 func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{}) error {
-	failed, restored := 0, 0
+	failed, restored, skipped := 0, 0, 0
 	backends, err := s.lbmap.DumpBackendMaps()
 	if err != nil {
 		return fmt.Errorf("Unable to dump backend maps: %s", err)
 	}
 
+	svcBackendsCount := len(svcBackendsById)
 	for _, b := range backends {
 		log.WithFields(logrus.Fields{
 			logfields.BackendID:        b.ID,
@@ -1374,33 +1375,55 @@ func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{
 			logfields.BackendState:     b.State,
 			logfields.BackendPreferred: b.Preferred,
 		}).Debug("Restoring backend")
-		if _, ok := svcBackendsById[b.ID]; !ok && s.backendRefCount[b.L3n4Addr.Hash()] != 0 {
-			// If a backend by id isn't referenced by any of the service entries,
-			// it's likely to be a duplicate backend. This can happen when agent
-			// leaked backend entries in the backends map prior to restart, and created
-			// duplicate with different IDs but same L3n4Addr (hash).
+		if _, ok := svcBackendsById[b.ID]; !ok && (svcBackendsCount != 0) {
+			// If a backend by ID isn't referenced by any of the services, it's
+			// likely a leaked backend. In case of duplicate leaked backends,
+			// there would be multiple IDs allocated for the same backend resource
+			// identified by its L3nL4Addr hash. The second check for service
+			// backends count is added for unusual cases where there might've been
+			// a problem with reading entries from the services map. In such cases,
+			// the agent should not wipe out the backends map, as this can disrupt
+			// existing connections. SyncWithK8sFinished will later sync the backends
+			// map with the latest state.
+			// Leaked backend scenarios:
+			// 1) Backend entries leaked, no duplicates
+			// 2) Backend entries leaked with duplicates:
+			// 	a) backend with overlapping L3nL4Addr hash is associated with service(s)
+			//     Sequence of events:
+			//     Backends were leaked prior to agent restart, but there was at least
+			//     one service that the backend by hash is associated with.
+			//     s.backendByHash will have a non-zero reference count for the
+			//     overlapping L3nL4Addr hash.
+			// 	b) none of the backends are associated with services
+			//     Sequence of events:
+			// 	   All the services these backends were associated with were deleted
+			//     prior to agent restart.
+			//     s.backendByHash will not have an entry for the backends hash.
 			// As none of the service entries have a reference to these backends
-			// in the services map, the duplicate backends were not available for
+			// in the services map, the backends were likely not available for
 			// load-balancing new traffic. While there is a slim chance that the
-			// duplicate backends could have previously established active connections,
+			// backends could have previously established active connections,
 			// and these connections can get disrupted. However, the leaks likely
 			// happened when service entries were deleted, so those connections
 			// were also expected to be terminated.
 			// Regardless, delete the duplicates as this can affect restoration of current
 			// active backends, and may prevent new backends getting added as map
-			// size is limited, which can result in connectivity issues.
+			// size is limited, which can lead to connectivity disruptions.
 			id := b.ID
 			DeleteBackendID(id)
 			if err := s.lbmap.DeleteBackendByID(id); err != nil {
-				log.Errorf("unable to delete duplicate backend: %v", id)
+				// As the backends map is not expected to be updated during restore,
+				// the deletion call shouldn't fail. But log the error, just
+				// in case...
+				log.Errorf("unable to delete leaked backend: %v", id)
 			}
 			log.WithFields(logrus.Fields{
 				logfields.BackendID:        b.ID,
 				logfields.L3n4Addr:         b.L3n4Addr,
 				logfields.BackendState:     b.State,
 				logfields.BackendPreferred: b.Preferred,
-			}).Debug("Duplicate backend entry not restored")
-			failed++
+			}).Debug("Leaked backend entry not restored")
+			skipped++
 			continue
 		}
 		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
@@ -1421,12 +1444,15 @@ func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{
 	log.WithFields(logrus.Fields{
 		logfields.RestoredBackends: restored,
 		logfields.FailedBackends:   failed,
+		logfields.SkippedBackends:  skipped,
 	}).Info("Restored backends from maps")
 
 	return nil
 }
 
 func (s *Service) deleteOrphanBackends() error {
+	orphanBackends := 0
+
 	for hash, b := range s.backendByHash {
 		if s.backendRefCount[hash] == 0 {
 			log.WithField(logfields.BackendID, b.ID).
@@ -1436,8 +1462,12 @@ func (s *Service) deleteOrphanBackends() error {
 			DeleteBackendID(b.ID)
 			s.lbmap.DeleteBackendByID(b.ID)
 			delete(s.backendByHash, hash)
+			orphanBackends++
 		}
 	}
+	log.WithFields(logrus.Fields{
+		logfields.OrphanBackends: orphanBackends,
+	}).Info("Deleted orphan backends")
 
 	return nil
 }

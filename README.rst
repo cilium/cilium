@@ -1,8 +1,8 @@
 .. raw:: html
 
    <picture>
-      <source media="(prefers-color-scheme: light)" srcset="https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo.png" width="350" alt="Cilium Logo">
-      <img src="https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo-dark.png" width="350" alt="Cilium Logo">
+      <source media="(prefers-color-scheme: light)" srcset="https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo.png" width="350" alt="Cilium Logo">
+      <img src="https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-dark.png" width="350" alt="Cilium Logo">
    </picture>
 
 |cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl| |fossa| |codespaces|
@@ -31,23 +31,28 @@ and flexible. To learn more about eBPF, visit `eBPF.io`_.
 Stable Releases
 ===============
 
-The Cilium community maintains minor stable releases for the last three major
-Cilium versions. Older Cilium stable versions from major releases prior to that
+The Cilium community maintains minor stable releases for the last three minor
+Cilium versions. Older Cilium stable versions from minor releases prior to that
 are considered EOL.
 
-For upgrades to new major releases please consult the `Cilium Upgrade Guide
+For upgrades to new minor releases please consult the `Cilium Upgrade Guide
 <https://docs.cilium.io/en/stable/operations/upgrade/>`_.
 
 Listed below are the actively maintained release branches along with their latest
-minor release, corresponding image pull tags and their release notes:
+patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.13.1``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.1>`__  |
+| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-04-17 | ``quay.io/cilium/cilium:v1.13.2``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.2>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.12.8``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.8>`__  |
+| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-04-18 | ``quay.io/cilium/cilium:v1.12.9``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.9>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.11.15`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.15>`__ |
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-05-15 | ``quay.io/cilium/cilium:v1.11.17`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.17>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
+
+Architectures
+-------------
+
+Cilium images are distributed for AMD64 and AArch64 architectures.
 
 Software Bill of Materials
 --------------------------
@@ -63,8 +68,8 @@ Development
 ===========
 
 For development and testing purpose, the Cilium community publishes snapshots,
-early release candidates (RC) and CI container images build from the `master
-branch <https://github.com/cilium/cilium/commits/master>`_. These images are
+early release candidates (RC) and CI container images build from the `main
+branch <https://github.com/cilium/cilium/commits/main>`_. These images are
 not for use in production.
 
 For testing upgrades to new development releases please consult the latest
@@ -74,9 +79,9 @@ Listed below are branches for testing along with their snapshots or RC releases,
 corresponding image pull tags and their release notes where applicable:
 
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
-| `master <https://github.com/cilium/cilium/commits/master>`__                         | daily      | ``quay.io/cilium/cilium-ci:latest``          | N/A                                                                                   |
+| `main <https://github.com/cilium/cilium/commits/main>`__                             | daily      | ``quay.io/cilium/cilium-ci:latest``          | N/A                                                                                   |
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
-| `v1.14.0-snapshot.1 <https://github.com/cilium/cilium/commits/v1.14.0-snapshot.1>`__ | 2023-04-03 | ``quay.io/cilium/cilium:v1.14.0-snapshot.1`` | `Snapshot Notes <https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.1>`__ |
+| `v1.14.0-snapshot.2 <https://github.com/cilium/cilium/commits/v1.14.0-snapshot.2>`__ | 2023-04-28 | ``quay.io/cilium/cilium:v1.14.0-snapshot.2`` | `Snapshot Notes <https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.2>`__ |
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
 
 Functionality Overview
@@ -252,7 +257,7 @@ Linux kernel 4.9.x or later.
 To read up on the necessary kernel versions to run the BPF runtime, see the
 section Prerequisites_.
 
-.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/bpf-overview.png
+.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/bpf-overview.png
     :align: center
 
 XDP is a further step in evolution and enables to run a specific flavor of BPF
@@ -298,13 +303,13 @@ We host a weekly community `YouTube livestream called eCHO <https://www.youtube.
 
 Governance
 ----------
-The Cilium project is governed by a group of `Maintainers and Committers <https://raw.githubusercontent.com/cilium/cilium/master/MAINTAINERS.md>`__.
+The Cilium project is governed by a group of `Maintainers and Committers <https://raw.githubusercontent.com/cilium/cilium/main/MAINTAINERS.md>`__.
 How they are selected and govern is outlined in our `governance document <https://docs.cilium.io/en/latest/community/governance/commit_access/>`__.
 
 Adopters
 --------
 A list of adopters of the Cilium project who are deploying it in production, and of their use cases,
-can be found in file `USERS.md <https://raw.githubusercontent.com/cilium/cilium/master/USERS.md>`__.
+can be found in file `USERS.md <https://raw.githubusercontent.com/cilium/cilium/main/USERS.md>`__.
 
 Roadmap
 -------

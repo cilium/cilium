@@ -6,11 +6,13 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"text/tabwriter"
 
 	"github.com/blang/semver/v4"
 	"github.com/spf13/cobra"
+	"golang.org/x/mod/modfile"
 )
 
 var rootCmd = &cobra.Command{
@@ -30,17 +32,48 @@ func init() {
 	nfsFirewallChecks = flags.Bool("nfs-firewall", false, "Run extra NFS firewall checks, requires root privileges")
 }
 
-func rootCmdRun(cmd *cobra.Command, args []string) {
-	minGoVersion, err := semver.ParseTolerant(minGoVersionStr)
+func readGoModGoVersion(rootDir string) (*semver.Version, error) {
+	goModFile := "go.mod"
+	path := filepath.Join(rootDir, goModFile)
+	data, err := os.ReadFile(path)
 	if err != nil {
-		panic(fmt.Sprintf("cannot parse minGoVersionStr: %q", minGoVersionStr))
+		return nil, err
+	}
+	mod, err := modfile.Parse(goModFile, data, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if mod.Go == nil {
+		return nil, fmt.Errorf("no go statement found in %s", path)
+	}
+	ver, err := semver.ParseTolerant(mod.Go.Version)
+	if err != nil {
+		return nil, err
+	}
+	return &ver, nil
+}
+
+func rootCmdRun(cmd *cobra.Command, args []string) {
+	rootDir := goPath() + "/src/github.com/cilium/cilium"
+
+	// $GOPATH is optional to set with a module-based Go setup
+	// If we cannot find src path via `$GOPATH`, just look in
+	// the `make` dir for `go.mod`
+	if _, err := os.Stat(rootDir); os.IsNotExist(err) {
+		rootDir, _ = os.Getwd()
+	}
+
+	minGoVersion, err := readGoModGoVersion(rootDir)
+	if err != nil {
+		panic(fmt.Sprintf("cannot read go version from go.mod: %v", err))
 	}
 
 	checks := []check{
 		osArchCheck{},
 		unameCheck{},
 		rootDirCheck{
-			rootDir: goPath() + "/src/github.com/cilium/cilium",
+			rootDir: rootDir,
 		},
 		&binaryCheck{
 			name:          "make",
@@ -53,7 +86,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			ifNotFound:    checkError,
 			versionArgs:   []string{"version"},
 			versionRegexp: regexp.MustCompile(`go version go(\d+\.\d+\S*)`),
-			minVersion:    &minGoVersion,
+			minVersion:    minGoVersion,
 		},
 		&binaryCheck{
 			name:          "tparse",

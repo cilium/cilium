@@ -16,7 +16,7 @@
 {{- end }}
 
 {{/* validate service monitoring CRDs */}}
-{{- if and .Values.prometheus.enabled (or .Values.prometheus.serviceMonitor.enabled .Values.operator.prometheus.serviceMonitor.enabled) }}
+{{- if or (and .Values.prometheus.enabled .Values.prometheus.serviceMonitor.enabled) (and .Values.operator.prometheus.enabled .Values.operator.prometheus.serviceMonitor.enabled) (and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled .Values.envoy.prometheus.serviceMonitor.enabled) (and .Values.proxy.prometheus.enabled .Values.hubble.relay.prometheus.enabled .Values.hubble.relay.prometheus.serviceMonitor.enabled) }}
   {{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
       {{ fail "Service Monitor requires monitoring.coreos.com/v1 CRDs. Please refer to https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml" }}
   {{- end }}
@@ -47,11 +47,25 @@
 {{- end }}
 
 {{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+  {{- if hasKey .Values "l7proxy" }}
+    {{- if not .Values.l7proxy }}
+      {{ fail "Ingress or Gateway API controller requires .Values.l7proxy to be set to 'true'" }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
   {{- if hasKey .Values "kubeProxyReplacement" }}
     {{- if and (ne .Values.kubeProxyReplacement "partial") (ne .Values.kubeProxyReplacement "strict") }}
       {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
     {{- end }}
   {{- else }}
     {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+  {{- end }}
+{{- end }}
+
+{{- if .Values.auth.mTLS.spire.install.enabled }}
+  {{- if not .Values.auth.mTLS.spire.enabled }}
+    {{ fail "SPIRE installation requires .Values.auth.mTLS.enabled=true and .Values.auth.mTLS.spire.enabled=true" }}
   {{- end }}
 {{- end }}

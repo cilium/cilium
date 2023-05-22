@@ -20,9 +20,6 @@ const (
 
 	// Cilium Endpoint Slice (CES)
 
-	// CESSingularName is the singular name of Cilium Endpoint Slice
-	CESSingularName = "ciliumendpointslice"
-
 	// CESPluralName is the plural name of Cilium Endpoint Slice
 	CESPluralName = "ciliumendpointslices"
 
@@ -34,9 +31,6 @@ const (
 
 	// Cilium BGP Peering Policy (BGPP)
 
-	// BGPPSingularName is the singular name of Cilium BGP Peering Policy
-	BGPPSingularName = "ciliumbgppeeringpolicy"
-
 	// BGPPPluralName is the plural name of Cilium BGP Peering Policy
 	BGPPPluralName = "ciliumbgppeeringpolicies"
 
@@ -47,9 +41,6 @@ const (
 	BGPPName = BGPPPluralName + "." + CustomResourceDefinitionGroup
 
 	// Cilium Load Balancer IP Pool (IPPool)
-
-	// PoolSingularName is the singular name of Cilium Load Balancer IP Pool
-	PoolSingularName = "ciliumloadbalancerippool"
 
 	// PoolPluralName is the plural name of Cilium Load Balancer IP Pool
 	PoolPluralName = "ciliumloadbalancerippools"
@@ -64,6 +55,11 @@ const (
 	CNCPluralName     = "ciliumnodeconfigs"
 	CNCKindDefinition = "CiliumNodeConfig"
 	CNCName           = CNCPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumCIDRGroup (CCG)
+	CCGPluralName     = "ciliumcidrgroups"
+	CCGKindDefinition = "CiliumCIDRGroup"
+	CCGName           = CCGPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -115,6 +111,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumLoadBalancerIPPoolList{},
 		&CiliumNodeConfig{},
 		&CiliumNodeConfigList{},
+		&CiliumCIDRGroup{},
+		&CiliumCIDRGroupList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

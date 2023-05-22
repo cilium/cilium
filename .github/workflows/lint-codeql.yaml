@@ -3,12 +3,12 @@ name: codeql
 on:
   pull_request:
     branches:
-      - master
-      - ft/master/**
+      - main
+      - ft/main/**
   push:
     branches:
-      - master
-      - ft/master/**
+      - main
+      - ft/main/**
   schedule:
     - cron: "45 6 * * 3"
 
@@ -41,14 +41,14 @@ jobs:
       security-events: write
     steps:
     - name: Checkout repo
-      uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       with:
         persist-credentials: false
         fetch-depth: 1
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@168b99b3c22180941ae7dbdd5f5c9678ede476ba # v2.2.7
+      uses: github/codeql-action/init@29b1f65c5e92e24fe6b6647da1eaabe529cec70f # v2.3.3
       with:
         languages: go
         debug: true
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@168b99b3c22180941ae7dbdd5f5c9678ede476ba # v2.2.7
+      uses: github/codeql-action/analyze@29b1f65c5e92e24fe6b6647da1eaabe529cec70f # v2.3.3

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package endpoint
 
 import (
@@ -18,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
@@ -76,13 +73,6 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 	ep.OpLabels = labels.NewOpLabels()
 	return ep
 }
-
-var (
-	regenerationMetadata = &regeneration.ExternalRegenerationMetadata{
-		Reason:            "test",
-		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-	}
-)
 
 func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 	// For this test, the real linux datapath is necessary to properly

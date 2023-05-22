@@ -177,7 +177,7 @@ const (
 	// to the v1.X branch
 	CiliumStableHelmChartVersion = "1.13"
 	CiliumStableVersion          = "v" + CiliumStableHelmChartVersion
-	CiliumLatestHelmChartVersion = "1.13.90"
+	CiliumLatestHelmChartVersion = "1.14.0-dev"
 
 	MonitorLogFileName = "monitor.log"
 
@@ -289,7 +289,7 @@ var badLogMessages = map[string][]string{
 	segmentationFault:   nil,
 	NACKreceived:        nil,
 	RunInitFailed:       {"signal: terminated", "signal: killed"},
-	sizeMismatch:        nil,
+	sizeMismatch:        {"globals/cilium_policy"},
 	emptyBPFInitArg:     nil,
 	RemovingMapMsg:      nil,
 	logBufferMessage:    nil,

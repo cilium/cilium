@@ -6,9 +6,9 @@ package envoy
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -25,17 +25,13 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
-func getAccessLogPath(stateDir string) string {
-	return filepath.Join(stateDir, "access_log.sock")
-}
-
 type accessLogServer struct {
 	xdsServer *XDSServer
 }
 
 // StartAccessLogServer starts the access log server.
-func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
-	accessLogPath := getAccessLogPath(stateDir)
+func StartAccessLogServer(envoySocketDir string, xdsServer *XDSServer) {
+	accessLogPath := getAccessLogSocketPath(envoySocketDir)
 
 	// Create the access log listener
 	os.Remove(accessLogPath) // Remove/Unlink the old unix domain socket, if any.
@@ -91,7 +87,7 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 	for {
 		n, _, flags, _, err := conn.ReadMsgUnix(buf, nil)
 		if err != nil {
-			if !isEOF(err) {
+			if !errors.Is(err, io.EOF) {
 				log.WithError(err).Error("Envoy: Error while reading from access log connection")
 			}
 			break
@@ -160,15 +156,6 @@ func logRecord(pblog *cilium.LogEntry) *logger.LogRecord {
 		l7tags = logger.LogTags.L7(&accesslog.LogRecordL7{
 			Proto:  l7.GetProto(),
 			Fields: l7.GetFields(),
-		})
-	} else {
-		// Default to the deprecated HTTP log format
-		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
-			Method:   pblog.Method,
-			Code:     int(pblog.Status),
-			URL:      ParseURL(pblog.Scheme, pblog.Host, pblog.Path),
-			Protocol: GetProtocol(pblog.HttpProtocol),
-			Headers:  GetNetHttpHeaders(pblog.Headers),
 		})
 	}
 

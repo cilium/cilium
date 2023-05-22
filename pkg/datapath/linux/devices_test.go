@@ -30,7 +30,7 @@ type DevicesSuite struct {
 	prevConfigEnableIPv4          bool
 	prevConfigEnableIPv6          bool
 	prevConfigEnableNodePort      bool
-	prevConfigTunnel              string
+	prevConfigRoutingMode         string
 	prevConfigEnableIPv6NDP       bool
 	prevK8sNodeIP                 net.IP
 	prevK8sNodeIPv6               net.IP
@@ -48,7 +48,7 @@ func (s *DevicesSuite) SetUpSuite(c *C) {
 	s.prevConfigEnableIPv4 = option.Config.EnableIPv4
 	s.prevConfigEnableIPv6 = option.Config.EnableIPv6
 	s.prevConfigEnableNodePort = option.Config.EnableNodePort
-	s.prevConfigTunnel = option.Config.Tunnel
+	s.prevConfigRoutingMode = option.Config.RoutingMode
 	s.prevConfigEnableIPv6NDP = option.Config.EnableIPv6NDP
 	s.prevConfigIPv6MCastDevice = option.Config.IPv6MCastDevice
 	s.prevK8sNodeIP = node.GetIPv4()
@@ -63,7 +63,7 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 	option.Config.EnableIPv4 = s.prevConfigEnableIPv4
 	option.Config.EnableIPv6 = s.prevConfigEnableIPv6
 	option.Config.EnableNodePort = s.prevConfigEnableNodePort
-	option.Config.Tunnel = s.prevConfigTunnel
+	option.Config.RoutingMode = s.prevConfigRoutingMode
 	option.Config.EnableIPv6NDP = s.prevConfigEnableIPv6NDP
 	option.Config.IPv6MCastDevice = s.prevConfigIPv6MCastDevice
 	node.SetIPv4(s.prevK8sNodeIP)
@@ -115,7 +115,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		node.SetIPv4(net.ParseIP("192.168.1.1"))
 		option.Config.EnableIPv4 = true
 		option.Config.EnableIPv6 = false
-		option.Config.Tunnel = option.TunnelDisabled
+		option.Config.RoutingMode = option.RoutingModeNative
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})

@@ -423,10 +423,10 @@ lb_l4_xlate(struct __ctx_buff *ctx, __u8 nexthdr __maybe_unused, int l4_off,
 
 #ifdef ENABLE_IPV6
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-					 struct csum_offset *csum_off,
 					 struct ipv6_ct_tuple *tuple, int flags,
 					 struct lb6_reverse_nat *nat)
 {
+	struct csum_offset csum_off = {};
 	union v6addr old_saddr;
 	union v6addr tmp;
 	__u8 *new_saddr;
@@ -435,8 +435,10 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 
 	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT, nat->address.p4, nat->port);
 
+	csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
 	if (nat->port) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, csum_off);
+		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, &csum_off);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -458,8 +460,8 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 		return DROP_WRITE_ERROR;
 
 	sum = csum_diff(old_saddr.addr, 16, new_saddr, 16, 0);
-	if (csum_off->offset &&
-	    csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+	if (csum_off.offset &&
+	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
 	return 0;
@@ -468,15 +470,12 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 /** Perform IPv6 reverse NAT based on reverse NAT index
  * @arg ctx		packet
  * @arg l4_off		offset to L4
- * @arg csum_off	offset to L4 checksum field
- * @arg csum_flags	checksum flags
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  * @arg saddr_tuple	If set, tuple address will be updated with new source address
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-				       struct csum_offset *csum_off, __u16 index,
-				       struct ipv6_ct_tuple *tuple, int flags)
+				       __u16 index, struct ipv6_ct_tuple *tuple, int flags)
 {
 	struct lb6_reverse_nat *nat;
 
@@ -485,7 +484,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (nat == NULL)
 		return 0;
 
-	return __lb6_rev_nat(ctx, l4_off, csum_off, tuple, flags, nat);
+	return __lb6_rev_nat(ctx, l4_off, tuple, flags, nat);
 }
 
 static __always_inline void
@@ -838,7 +837,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     struct ipv6_ct_tuple *tuple,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
-				     const bool skip_l3_xlate)
+				     const bool skip_l3_xlate,
+				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__u8 flags = tuple->flags;
@@ -854,7 +854,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		return DROP_NO_SERVICE;
 
 	/* See lb4_local comments re svc endpoint lookup process */
-	ret = ct_lb_lookup6(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
+	ret = ct_lazy_lookup6(map, tuple, ctx, l4_off, ACTION_CREATE, CT_SERVICE, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 #ifdef ENABLE_SESSION_AFFINITY
@@ -877,77 +877,77 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		state->backend_id = backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
 
-		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, false, false);
+		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, ext_err);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
 		if (IS_ERR(ret))
-			goto drop_no_service;
-		goto update_state;
-	case CT_REOPENED:
-	case CT_ESTABLISHED:
-	case CT_RELATED:
+			goto drop_err;
+
+		break;
 	case CT_REPLY:
 		/* See lb4_local comment */
 		if (state->rev_nat_index == 0) {
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_rev_nat_index(map, tuple, state);
 		}
-		break;
-	default:
-		goto drop_no_service;
-	}
 
-	/* See lb4_local comment */
-	if (state->rev_nat_index != svc->rev_nat_index) {
+		/* See lb4_local comment */
+		if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
-		if (lb6_svc_is_affinity(svc))
-			backend_id = lb6_affinity_backend_id_by_addr(svc,
-								     &client_id);
+			if (lb6_svc_is_affinity(svc))
+				backend_id = lb6_affinity_backend_id_by_addr(svc,
+									     &client_id);
 #endif
-		if (!backend_id) {
-			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
-			if (!backend_id)
-				goto drop_no_service;
+			if (!backend_id) {
+				backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
+				if (!backend_id)
+					goto drop_no_service;
+			}
+
+			state->rev_nat_index = svc->rev_nat_index;
+			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
+		} else {
+			backend_id = state->backend_id;
 		}
 
-		state->backend_id = backend_id;
-		ct_update_backend_id(map, tuple, state);
-		state->rev_nat_index = svc->rev_nat_index;
-		ct_update_rev_nat_index(map, tuple, state);
-	}
-	/* If the lookup fails it means the user deleted the backend out from
-	 * underneath us. To resolve this fall back to hash. If this is a TCP
-	 * session we are likely to get a TCP RST.
-	 */
-	backend = lb6_lookup_backend(ctx, state->backend_id);
-	if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
-		/* Drain existing connections, but redirect new ones to only
-		 * active backends.
+		/* If the lookup fails it means the user deleted the backend out from
+		 * underneath us. To resolve this fall back to hash. If this is a TCP
+		 * session we are likely to get a TCP RST.
 		 */
-		if (backend && !state->syn)
-			goto update_state;
-		key->backend_slot = 0;
-		svc = lb6_lookup_service(key, false, true);
-		if (!svc)
-			goto drop_no_service;
-		backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 		backend = lb6_lookup_backend(ctx, backend_id);
-		if (!backend)
-			goto drop_no_service;
-		state->backend_id = backend_id;
-		ct_update_backend_id(map, tuple, state);
+		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
+			/* Drain existing connections, but redirect new ones to only
+			 * active backends.
+			 */
+			if (backend && !state->syn)
+				break;
+			key->backend_slot = 0;
+			svc = lb6_lookup_service(key, false, true);
+			if (!svc)
+				goto drop_no_service;
+			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
+			backend = lb6_lookup_backend(ctx, backend_id);
+			if (!backend)
+				goto drop_no_service;
+
+			state->rev_nat_index = svc->rev_nat_index;
+			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
+		}
+
+		break;
+	default:
+		ret = DROP_UNKNOWN_CT;
+		goto drop_err;
 	}
-update_state:
+
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
 	tuple->flags = flags;
-	state->rev_nat_index = svc->rev_nat_index;
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb6_svc_is_affinity(svc))
-		lb6_update_affinity_by_addr(svc, &client_id,
-					    state->backend_id);
+		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
@@ -961,8 +961,10 @@ update_state:
 	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off,
 			 key, backend, skip_l3_xlate);
 drop_no_service:
+	ret = DROP_NO_SERVICE;
+drop_err:
 	tuple->flags = flags;
-	return DROP_NO_SERVICE;
+	return ret;
 }
 
 /* lb6_ctx_store_state() stores per packet load balancing state to be picked
@@ -1032,18 +1034,22 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 
 #ifdef ENABLE_IPV4
 static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
 					 const struct lb4_reverse_nat *nat,
-					 const struct ct_state *ct_state, bool has_l4_header)
+					 const struct ct_state *ct_state __maybe_unused,
+					 bool has_l4_header)
 {
+	struct csum_offset csum_off = {};
 	__be32 old_sip, new_sip, sum = 0;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
 
+	if (has_l4_header)
+		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
 	if (nat->port && has_l4_header) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, csum_off);
+		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, &csum_off);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -1059,6 +1065,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		new_sip = nat->address;
 	}
 
+#ifndef DISABLE_LOOPBACK_LB
 	if (ct_state->loopback) {
 		/* The packet was looped back to the sending endpoint on the
 		 * forward service translation. This implies that the original
@@ -1083,6 +1090,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		/* Update the tuple address which is representing the destination address */
 		tuple->saddr = old_sip;
 	}
+#endif
 
 	ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, saddr),
 			      &new_sip, 4, 0);
@@ -1093,8 +1101,8 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 
-	if (csum_off->offset &&
-	    csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+	if (csum_off.offset &&
+	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
 	return 0;
@@ -1105,13 +1113,10 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
  * @arg ctx		packet
  * @arg l3_off		offset to L3
  * @arg l4_off		offset to L4
- * @arg csum_off	offset to L4 checksum field
- * @arg csum_flags	checksum flags
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  */
 static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-				       struct csum_offset *csum_off,
 				       struct ct_state *ct_state,
 				       struct ipv4_ct_tuple *tuple, int flags, bool has_l4_header)
 {
@@ -1122,7 +1127,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 	if (nat == NULL)
 		return 0;
 
-	return __lb4_rev_nat(ctx, l3_off, l4_off, csum_off, tuple, flags, nat,
+	return __lb4_rev_nat(ctx, l3_off, l4_off, tuple, flags, nat,
 			     ct_state, has_l4_header);
 }
 
@@ -1208,27 +1213,6 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 #else
 	return true;
 #endif /* ENABLE_SRC_RANGE_CHECK */
-}
-
-static __always_inline int
-lb4_populate_ports(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off)
-{
-	if (tuple->nexthdr == IPPROTO_TCP ||
-#ifdef ENABLE_SCTP
-	    tuple->nexthdr == IPPROTO_SCTP ||
-#endif  /* ENABLE_SCTP */
-	    tuple->nexthdr == IPPROTO_UDP) {
-		struct {
-			__be16 sport;
-			__be16 dport;
-		} l4hdr;
-		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
-			return -EFAULT;
-		tuple->sport = l4hdr.sport;
-		tuple->dport = l4hdr.dport;
-		return 0;
-	}
-	return -ENOTSUP;
 }
 
 static __always_inline bool
@@ -1528,7 +1512,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     struct ct_state *state,
 				     bool has_l4_header,
 				     const bool skip_l3_xlate,
-				     __u32 *cluster_id __maybe_unused)
+				     __u32 *cluster_id __maybe_unused,
+				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 saddr = tuple->saddr;
@@ -1545,8 +1530,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (unlikely(svc->count == 0))
 		return DROP_NO_SERVICE;
 
-	ret = ct_lb_lookup4(map, tuple, ctx, l4_off, has_l4_header, CT_SERVICE,
-			    state, &monitor);
+	ret = ct_lazy_lookup4(map, tuple, ctx, l4_off, has_l4_header, ACTION_CREATE,
+			      CT_SERVICE, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 #ifdef ENABLE_SESSION_AFFINITY
@@ -1570,16 +1555,14 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		state->backend_id = backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
 
-		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, false, false);
+		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, ext_err);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
 		if (IS_ERR(ret))
-			goto drop_no_service;
-		goto update_state;
-	case CT_REOPENED:
-	case CT_ESTABLISHED:
-	case CT_RELATED:
+			goto drop_err;
+
+		break;
 	case CT_REPLY:
 		/* For backward-compatibility we need to update reverse NAT
 		 * index in the CT_SERVICE entry for old connections, as later
@@ -1591,58 +1574,62 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_rev_nat_index(map, tuple, state);
 		}
-		break;
-	default:
-		goto drop_no_service;
-	}
 
-	/* If the CT_SERVICE entry is from a non-related connection (e.g.
-	 * endpoint has been removed, but its CT entries were not (it is
-	 * totally possible due to the bug in DumpReliablyWithCallback)),
-	 * then a wrong (=from unrelated service) backend can be selected.
-	 * To avoid this, check that reverse NAT indices match. If not,
-	 * select a new backend.
-	 */
-	if (state->rev_nat_index != svc->rev_nat_index) {
+		/* If the CT_SERVICE entry is from a non-related connection (e.g.
+		 * endpoint has been removed, but its CT entries were not (it is
+		 * totally possible due to the bug in DumpReliablyWithCallback)),
+		 * then a wrong (=from unrelated service) backend can be selected.
+		 * To avoid this, check that reverse NAT indices match. If not,
+		 * select a new backend.
+		 */
+		if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
-		if (lb4_svc_is_affinity(svc))
-			backend_id = lb4_affinity_backend_id_by_addr(svc,
-								     &client_id);
+			if (lb4_svc_is_affinity(svc))
+				backend_id = lb4_affinity_backend_id_by_addr(svc,
+									     &client_id);
 #endif
-		if (!backend_id) {
-			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
-			if (!backend_id)
-				goto drop_no_service;
+			if (!backend_id) {
+				backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+				if (!backend_id)
+					goto drop_no_service;
+			}
+
+			state->rev_nat_index = svc->rev_nat_index;
+			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
+		} else {
+			backend_id = state->backend_id;
 		}
 
-		state->backend_id = backend_id;
-		ct_update_backend_id(map, tuple, state);
-		state->rev_nat_index = svc->rev_nat_index;
-		ct_update_rev_nat_index(map, tuple, state);
-	}
-	/* If the lookup fails it means the user deleted the backend out from
-	 * underneath us. To resolve this fall back to hash. If this is a TCP
-	 * session we are likely to get a TCP RST.
-	 */
-	backend = lb4_lookup_backend(ctx, state->backend_id);
-	if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
-		/* Drain existing connections, but redirect new ones to only
-		 * active backends.
+		/* If the lookup fails it means the user deleted the backend out from
+		 * underneath us. To resolve this fall back to hash. If this is a TCP
+		 * session we are likely to get a TCP RST.
 		 */
-		if (backend && !state->syn)
-			goto update_state;
-		key->backend_slot = 0;
-		svc = lb4_lookup_service(key, false, true);
-		if (!svc)
-			goto drop_no_service;
-		backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 		backend = lb4_lookup_backend(ctx, backend_id);
-		if (!backend)
-			goto drop_no_service;
-		state->backend_id = backend_id;
-		ct_update_backend_id(map, tuple, state);
+		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
+			/* Drain existing connections, but redirect new ones to only
+			 * active backends.
+			 */
+			if (backend && !state->syn)
+				break;
+			key->backend_slot = 0;
+			svc = lb4_lookup_service(key, false, true);
+			if (!svc)
+				goto drop_no_service;
+			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+			backend = lb4_lookup_backend(ctx, backend_id);
+			if (!backend)
+				goto drop_no_service;
+
+			state->rev_nat_index = svc->rev_nat_index;
+			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
+		}
+
+		break;
+	default:
+		ret = DROP_UNKNOWN_CT;
+		goto drop_err;
 	}
-update_state:
+
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 	*cluster_id = backend->cluster_id;
 #endif
@@ -1651,12 +1638,9 @@ update_state:
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
 	tuple->flags = flags;
-	state->rev_nat_index = svc->rev_nat_index;
-	state->addr = backend->address;
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb4_svc_is_affinity(svc))
-		lb4_update_affinity_by_addr(svc, &client_id,
-					    state->backend_id);
+		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
 #ifndef DISABLE_LOOPBACK_LB
 	/* Special loopback case: The origin endpoint has transmitted to a
@@ -1669,7 +1653,6 @@ update_state:
 	if (saddr == backend->address) {
 		new_saddr = IPV4_LOOPBACK;
 		state->loopback = 1;
-		state->addr = new_saddr;
 		state->svc_addr = saddr;
 	}
 
@@ -1688,8 +1671,10 @@ update_state:
 			 tuple->nexthdr, l3_off, l4_off, key,
 			 backend, has_l4_header, skip_l3_xlate);
 drop_no_service:
+	ret = DROP_NO_SERVICE;
+drop_err:
 	tuple->flags = flags;
-	return DROP_NO_SERVICE;
+	return ret;
 }
 
 /* lb4_ctx_store_state() stores per packet load balancing state to be picked
@@ -1705,7 +1690,11 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+#ifndef DISABLE_LOOPBACK_LB
 		       state->loopback);
+#else
+		       0);
+#endif
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
 }
 

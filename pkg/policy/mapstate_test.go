@@ -60,6 +60,16 @@ func (ds *PolicyTestSuite) TestPolicyKeyTrafficDirection(c *check.C) {
 	c.Assert(k.IsEgress(), check.Equals, true)
 }
 
+// validatePortProto makes sure each Key in MapState abides by the contract that protocol/nexthdr
+// can only be wildcarded if the destination port is also wildcarded.
+func (m MapState) validatePortProto(c *check.C) {
+	for k := range m {
+		if k.Nexthdr == 0 {
+			c.Assert(k.DestPort, check.Equals, uint16(0))
+		}
+	}
+}
+
 func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 	type args struct {
 		key   Key
@@ -733,6 +743,7 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 	}
 	for _, tt := range tests {
 		tt.keys.DenyPreferredInsert(tt.args.key, tt.args.entry, nil)
+		tt.keys.validatePortProto(c)
 		c.Assert(tt.keys, checker.DeepEquals, tt.want, check.Commentf(tt.name))
 	}
 }
@@ -1147,6 +1158,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, AuthTypeNone, nil)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
+		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
 		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
@@ -1385,6 +1397,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, x.authType, nil)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
+		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
 		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
@@ -1555,6 +1568,7 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 		adds := make(Keys)
 		visOld := make(MapState)
 		tt.keys.AddVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, adds, visOld)
+		tt.keys.validatePortProto(c)
 		c.Assert(tt.keys, checker.DeepEquals, tt.want, check.Commentf(tt.name))
 		// Find new and updated entries
 		wantAdds := make(Keys)
@@ -1951,6 +1965,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		for k := range visOld {
 			deletes[k] = struct{}{}
 		}
+		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
 		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
@@ -2065,6 +2080,7 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithSubnets(c *check.
 		outcomeKeys := MapState{}
 		outcomeKeys.DenyPreferredInsert(aKey, aEntry, selectorCache)
 		outcomeKeys.DenyPreferredInsert(bKey, bEntry, selectorCache)
+		outcomeKeys.validatePortProto(c)
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf(tt.name))
 	}
 	// Now test all cases with different traffic directions.
@@ -2081,6 +2097,7 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithSubnets(c *check.
 		outcomeKeys := MapState{}
 		outcomeKeys.DenyPreferredInsert(aKey, aEntry, selectorCache)
 		outcomeKeys.DenyPreferredInsert(bKey, bEntry, selectorCache)
+		outcomeKeys.validatePortProto(c)
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf("different traffic directions %s", tt.name))
 	}
 }

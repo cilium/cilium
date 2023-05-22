@@ -270,6 +270,17 @@ func (m *PortNetworkPolicy) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	if m.GetEndPort() > 65535 {
+		err := PortNetworkPolicyValidationError{
+			field:  "EndPort",
+			reason: "value must be less than or equal to 65535",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	// no validation rules for Protocol
 
 	for idx, item := range m.GetRules() {
@@ -412,6 +423,10 @@ func (m *TLSContext) validate(all bool) error {
 	// no validation rules for CertificateChain
 
 	// no validation rules for PrivateKey
+
+	// no validation rules for ValidationContextSdsSecret
+
+	// no validation rules for TlsSdsSecret
 
 	if len(errors) > 0 {
 		return TLSContextMultiError(errors)
@@ -954,6 +969,8 @@ func (m *HeaderMatch) validate(all bool) error {
 	// no validation rules for MatchAction
 
 	// no validation rules for MismatchAction
+
+	// no validation rules for ValueSdsSecret
 
 	if len(errors) > 0 {
 		return HeaderMatchMultiError(errors)
@@ -1793,3 +1810,138 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = L7NetworkPolicyRuleValidationError{}
+
+// Validate checks the field values on NetworkPoliciesConfigDump with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *NetworkPoliciesConfigDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on NetworkPoliciesConfigDump with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// NetworkPoliciesConfigDumpMultiError, or nil if none found.
+func (m *NetworkPoliciesConfigDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *NetworkPoliciesConfigDump) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetNetworkpolicies() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, NetworkPoliciesConfigDumpValidationError{
+						field:  fmt.Sprintf("Networkpolicies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, NetworkPoliciesConfigDumpValidationError{
+						field:  fmt.Sprintf("Networkpolicies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return NetworkPoliciesConfigDumpValidationError{
+					field:  fmt.Sprintf("Networkpolicies[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return NetworkPoliciesConfigDumpMultiError(errors)
+	}
+	return nil
+}
+
+// NetworkPoliciesConfigDumpMultiError is an error wrapping multiple validation
+// errors returned by NetworkPoliciesConfigDump.ValidateAll() if the
+// designated constraints aren't met.
+type NetworkPoliciesConfigDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m NetworkPoliciesConfigDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m NetworkPoliciesConfigDumpMultiError) AllErrors() []error { return m }
+
+// NetworkPoliciesConfigDumpValidationError is the validation error returned by
+// NetworkPoliciesConfigDump.Validate if the designated constraints aren't met.
+type NetworkPoliciesConfigDumpValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e NetworkPoliciesConfigDumpValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e NetworkPoliciesConfigDumpValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e NetworkPoliciesConfigDumpValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e NetworkPoliciesConfigDumpValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e NetworkPoliciesConfigDumpValidationError) ErrorName() string {
+	return "NetworkPoliciesConfigDumpValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e NetworkPoliciesConfigDumpValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sNetworkPoliciesConfigDump.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = NetworkPoliciesConfigDumpValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = NetworkPoliciesConfigDumpValidationError{}

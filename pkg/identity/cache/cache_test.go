@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package cache
 
 import (
@@ -14,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 var (
@@ -35,6 +34,10 @@ func Test(t *testing.T) {
 type IdentityCacheTestSuite struct{}
 
 var _ = Suite(&IdentityCacheTestSuite{})
+
+func (s *IdentityCacheTestSuite) SetUpSuite(c *C) {
+	testutils.IntegrationCheck(c)
+}
 
 func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	mgr := NewCachingIdentityAllocator(newDummyOwner())

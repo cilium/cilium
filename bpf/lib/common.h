@@ -56,13 +56,6 @@
 #define NOT_VTEP_DST 0
 #endif
 
-/* TODO: ipsec v6 tunnel datapath still needs separate fixing */
-#ifndef ENABLE_IPSEC
-# ifdef ENABLE_IPV6
-#  define ENABLE_ENCAP_HOST_REMAP 1
-# endif
-#endif
-
 /* XFER_FLAGS that get transferred from XDP to SKB */
 enum {
 	XFER_PKT_NO_SVC		= (1 << 0),  /* Skip upper service handling. */
@@ -85,7 +78,11 @@ enum {
 
 #define CILIUM_CALL_DROP_NOTIFY			1
 #define CILIUM_CALL_ERROR_NOTIFY		2
-#define CILIUM_CALL_SEND_ICMP6_ECHO_REPLY	3
+/*
+ * A gap in the macro numbering sequence was created by #24921.
+ * It can be reused for a new macro in the future, but caution is needed when
+ * backporting changes as it may conflict with older versions of the code.
+ */
 #define CILIUM_CALL_HANDLE_ICMP6_NS		4
 #define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
 #define CILIUM_CALL_ARP				6
@@ -131,7 +128,11 @@ enum {
 #define CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS	40
 #define CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS	41
 #define CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT	42
-#define CILIUM_CALL_SIZE			43
+#define CILIUM_CALL_IPV4_CONT_FROM_HOST		43
+#define CILIUM_CALL_IPV4_CONT_FROM_NETDEV	44
+#define CILIUM_CALL_IPV6_CONT_FROM_HOST		45
+#define CILIUM_CALL_IPV6_CONT_FROM_NETDEV	46
+#define CILIUM_CALL_SIZE			47
 
 typedef __u64 mac_t;
 
@@ -215,13 +216,6 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 #define revalidate_data_pull(ctx, data, data_end, ip)			\
 	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), true)
 
-/* revalidate_data_maybe_pull() does the same as revalidate_data_pull()
- * except that the skb data pull is controlled by the "pull" argument.
- */
-#define revalidate_data_maybe_pull(ctx, data, data_end, ip, pull)	\
-	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), pull)
-
-
 /* revalidate_data() initializes the provided pointers from the ctx.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise.
@@ -231,13 +225,11 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
-#define BPF_V6_1(dst, ...)	BPF_V6_4(dst, __VA_ARGS__)
-#define BPF_V6_4(dst, a1, a2, a3, a4)		\
+#define BPF_V6_1(dst, ...)	BPF_V6_2(dst, __VA_ARGS__)
+#define BPF_V6_2(dst, a1, a2)		\
 	({					\
-		dst.p1 = a1;			\
-		dst.p2 = a2;			\
-		dst.p3 = a3;			\
-		dst.p4 = a4;			\
+		dst.d1 = a1;			\
+		dst.d2 = a2;			\
 	})
 
 #define ENDPOINT_KEY_IPV4 1
@@ -317,24 +309,50 @@ struct edt_info {
 };
 
 struct remote_endpoint_info {
-	__u32		sec_label;
+	__u32		sec_identity;
 	__u32		tunnel_endpoint;
 	__u16		node_id;
 	__u8		key;
 };
 
+/*
+ * Longest-prefix match map lookup only matches the number of bits from the
+ * beginning of the key stored in the map indicated by the 'lpm_key' field in
+ * the same stored map key, not including the 'lpm_key' field itself. Note that
+ * the 'lpm_key' value passed in the lookup function argument needs to be a
+ * "full prefix" (POLICY_FULL_PREFIX defined below).
+ *
+ * Since we need to be able to wildcard 'sec_label' independently on 'protocol'
+ * and 'dport' fields, we'll need to do that explicitly with a separate lookup
+ * where 'sec_label' is zero. For the 'protocol' and 'port' we can use the
+ * longest-prefix match by placing them at the end ot the key in this specific
+ * order, as we want to be able to wildcard those fields in a specific pattern:
+ * 'protocol' can only be wildcarded if dport is also fully wildcarded.
+ * 'protocol' is never partially wildcarded, so it is either fully wildcarded or
+ * not wildcarded at all. 'dport' can be partially wildcarded, but only when
+ * 'protocol' is fully specified. This follows the logic that the destination
+ * port is a property of a transport protocol and can not be specified without
+ * also specifying the protocol.
+ */
 struct policy_key {
+	struct bpf_lpm_trie_key lpm_key;
 	__u32		sec_label;
-	__u16		dport;
-	__u8		protocol;
 	__u8		egress:1,
 			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__u16		dport; /* can be wildcarded with CIDR-like prefix */
 };
+
+/* POLICY_FULL_PREFIX gets full prefix length of policy_key */
+#define POLICY_FULL_PREFIX						\
+  (8 * (sizeof(struct policy_key) - sizeof(struct bpf_lpm_trie_key)))
 
 struct policy_entry {
 	__be16		proxy_port;
 	__u8		deny:1,
-			pad:7;
+			wildcard_protocol:1, /* protocol is fully wildcarded */
+			wildcard_dport:1, /* dport is fully wildcarded */
+			pad:5;
 	__u8		auth_type;
 	__u16		pad1;
 	__u16		pad2;
@@ -570,6 +588,7 @@ enum {
 #define DROP_SNAT_NO_MAP_FOUND	-191
 #define DROP_INVALID_CLUSTER_ID	-192
 #define DROP_DSR_ENCAP_UNSUPP_PROTO	-193
+#define DROP_NO_EGRESS_GATEWAY	-194
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define NAT_46X64_RECIRC	100
@@ -1074,7 +1093,11 @@ struct lb_affinity_match {
 
 struct ct_state {
 	__u16 rev_nat_index;
+#ifndef DISABLE_LOOPBACK_LB
 	__u16 loopback:1,
+#else
+	__u16 loopback_disabled:1,
+#endif
 	      node_port:1,
 	      dsr:1,
 	      syn:1,
@@ -1083,8 +1106,10 @@ struct ct_state {
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 	      reserved:8;
+#ifndef DISABLE_LOOPBACK_LB
 	__be32 addr;
 	__be32 svc_addr;
+#endif
 	__u32 src_sec_id;
 	__u16 ifindex;
 	__u32 backend_id;	/* Backend ID in lb4_backends */

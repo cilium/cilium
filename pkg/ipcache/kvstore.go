@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/netip"
 	"path"
 	"sort"
 	"strings"
@@ -97,7 +98,7 @@ func newKVReferenceCounter(s store) *kvReferenceCounter {
 
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
-func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.NumericIdentity, key uint8,
+func UpsertIPToKVStore(ctx context.Context, IP, hostIP netip.Addr, ID identity.NumericIdentity, key uint8,
 	metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap) error {
 	// Sort named ports into a slice
 	namedPorts := make([]identity.NamedPort, 0, len(npm))
@@ -114,10 +115,10 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.Numer
 
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
 	ipIDPair := identity.IPIdentityPair{
-		IP:           IP,
+		IP:           IP.AsSlice(),
 		ID:           ID,
 		Metadata:     metadata,
-		HostIP:       hostIP,
+		HostIP:       hostIP.AsSlice(),
 		Key:          key,
 		K8sNamespace: k8sNamespace,
 		K8sPodName:   k8sPodName,

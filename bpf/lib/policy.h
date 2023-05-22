@@ -11,12 +11,24 @@
 #include "eps.h"
 #include "maps.h"
 
-static __always_inline void
-account(struct __ctx_buff *ctx, struct policy_entry *policy)
+static __always_inline int
+__account_and_check(struct __ctx_buff *ctx, struct policy_entry *policy,
+		    __s8 *ext_err, __u16 *proxy_port)
 {
 	/* FIXME: Use per cpu counters */
 	__sync_fetch_and_add(&policy->packets, 1);
 	__sync_fetch_and_add(&policy->bytes, ctx_full_len(ctx));
+
+	if (unlikely(policy->deny))
+		return DROP_POLICY_DENY;
+
+	*proxy_port = policy->proxy_port;
+	if (unlikely(policy->auth_type)) {
+		if (ext_err)
+			*ext_err = (__s8)policy->auth_type;
+		return DROP_POLICY_AUTH_REQUIRED;
+	}
+	return CTX_ACT_OK;
 }
 
 static __always_inline int
@@ -26,12 +38,14 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		    __u16 *proxy_port)
 {
 	struct policy_entry *policy;
+	struct policy_entry *l4policy;
 	struct policy_key key = {
+		.lpm_key = { POLICY_FULL_PREFIX, {} }, /* always look up with unwildcarded data */
 		.sec_label = remote_id,
-		.dport = dport,
-		.protocol = proto,
 		.egress = !dir,
 		.pad = 0,
+		.protocol = proto,
+		.dport = dport,
 	};
 
 #ifdef ALLOW_ICMP_FRAG_NEEDED
@@ -108,58 +122,64 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	 * 5. id/ANY/ANY     (L3-only)
 	 * 6. ANY/ANY/ANY    (All)
 	 */
-	/* L4 lookup can't be done on untracked fragments. */
-	if (!is_untracked_fragment) {
-		/* Start with L3/L4 lookup. */
-		policy = map_lookup_elem(map, &key);
-		if (likely(policy)) {
-			cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
-				    dport << 16 | proto);
-			*match_type = POLICY_MATCH_L3_L4;	/* 1. id/proto/port */
-			goto policy_check_entry;
-		}
 
-		/* L4-only lookup. */
-		key.sec_label = 0;
-		policy = map_lookup_elem(map, &key);
-		if (likely(policy)) {
-			*match_type = POLICY_MATCH_L4_ONLY;	/* 2. ANY/proto/port */
-			goto policy_check_entry;
-		}
-	}
-
-	/* Check L3-proto policy */
-	key.sec_label = remote_id;
-	key.dport = 0;
+	/* Start with L3/L4 lookup.
+	 * LPM precedence order with L3:
+	 * 1. id/proto/port
+	 * 3. id/proto/ANY (check L4-only match first)
+	 * 5. id/ANY/ANY   (check proto match first)
+	 *
+	 * Note: Untracked fragments always have zero ports in the tuple so they can
+	 * only match entries that have fully wildcarded ports.
+	 */
 	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		*match_type = POLICY_MATCH_L3_PROTO;		/* 3. id/proto/ANY */
-		goto policy_check_entry;
+
+	/* This is a full L3/L4 match if port is not wildcarded,
+	 * need to check for L4-only policy first if it is.
+	 */
+	if (likely(policy && !policy->wildcard_dport)) {
+		cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
+			    dport << 16 | proto);
+		*match_type = POLICY_MATCH_L3_L4;		/* 1. id/proto/port */
+		return __account_and_check(ctx, policy, ext_err, proxy_port);
 	}
 
-	/* Check Proto-only policy */
+	/* L4-only lookup. */
 	key.sec_label = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		*match_type = POLICY_MATCH_PROTO_ONLY;		/* 4. ANY/proto/ANY */
-		goto policy_check_entry;
+	/* LPM precedence order without L3:
+	 * 2. ANY/proto/port
+	 * 4. ANY/proto/ANY
+	 * 6. ANY/ANY/ANY   == allow-all as L3 is zeroed in this lookup,
+	 *                     defer this until L3 match has been ruled out below.
+	 *
+	 * Untracked fragments always have zero ports in the tuple so they can
+	 * only match entries that have fully wildcarded ports.
+	 */
+	l4policy = map_lookup_elem(map, &key);
+
+	if (likely(l4policy && !l4policy->wildcard_dport)) {
+		*match_type = POLICY_MATCH_L4_ONLY;		/* 2. ANY/proto/port */
+		return __account_and_check(ctx, l4policy, ext_err, proxy_port);
 	}
 
-	/* If L4 policy check misses, fall back to L3-only. */
-	key.sec_label = remote_id;
-	key.protocol = 0;
-	policy = map_lookup_elem(map, &key);
+	if (likely(policy && !policy->wildcard_protocol)) {
+		*match_type = POLICY_MATCH_L3_PROTO;		/* 3. id/proto/ANY */
+		return __account_and_check(ctx, policy, ext_err, proxy_port);
+	}
+
+	if (likely(l4policy && !l4policy->wildcard_protocol)) {
+		*match_type = POLICY_MATCH_PROTO_ONLY;		/* 4. ANY/proto/ANY */
+		return __account_and_check(ctx, l4policy, ext_err, proxy_port);
+	}
+
 	if (likely(policy)) {
 		*match_type = POLICY_MATCH_L3_ONLY;		/* 5. id/ANY/ANY */
-		goto policy_check_entry;
+		return __account_and_check(ctx, policy, ext_err, proxy_port);
 	}
 
-	/* Final fallback if allow-all policy is in place. */
-	key.sec_label = 0;
-	policy = map_lookup_elem(map, &key);
-	if (policy) {
+	if (likely(l4policy)) {
 		*match_type = POLICY_MATCH_ALL;			/* 6. ANY/ANY/ANY */
-		goto policy_check_entry;
+		return __account_and_check(ctx, l4policy, ext_err, proxy_port);
 	}
 
 	/* TODO: Consider skipping policy lookup in this case? */
@@ -172,20 +192,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		return DROP_FRAG_NOSUPPORT;
 
 	return DROP_POLICY;
-
-policy_check_entry:
-	account(ctx, policy);
-
-	if (unlikely(policy->deny))
-		return DROP_POLICY_DENY;
-
-	*proxy_port = policy->proxy_port;
-	if (unlikely(policy->auth_type)) {
-		if (ext_err)
-			*ext_err = (__s8)policy->auth_type;
-		return DROP_POLICY_AUTH_REQUIRED;
-	}
-	return CTX_ACT_OK;
 }
 
 /**

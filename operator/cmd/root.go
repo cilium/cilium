@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
+	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/identitygc"
@@ -38,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -68,13 +70,14 @@ var (
 
 	// Use a Go context so we can tell the leaderelection code when we
 	// want to step down
-	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
+	leaderElectionCtx       context.Context
+	leaderElectionCtxCancel context.CancelFunc
 
 	operatorAddr string
 
-	// IsLeader is an atomic boolean value that is true when the Operator is
+	// isLeader is an atomic boolean value that is true when the Operator is
 	// elected leader. Otherwise, it is false.
-	IsLeader atomic.Value
+	isLeader atomic.Bool
 
 	// OperatorCell are the operator specific cells without infrastructure cells.
 	// Used also in tests.
@@ -107,11 +110,23 @@ var (
 			}
 		}),
 
+		api.HealthHandlerCell(
+			kvstoreEnabled,
+			isLeader.Load,
+		),
+		api.MetricsHandlerCell,
+		operatorApi.SpecCell,
+		api.ServerCell,
+
+		// Provides a global job registry which cells can use to spawn job groups.
+		job.Cell,
+
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
 			// The CRDs registration should be the first operation to be invoked after the operator is elected leader.
 			client.RegisterCRDsCell,
 			k8s.SharedResourcesCell,
+
 			lbipam.Cell,
 			auth.Cell,
 			legacyCell,
@@ -139,11 +154,14 @@ func Execute() {
 }
 
 func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
-	apiServerShutdownSignal := make(chan struct{})
-
+	var wg sync.WaitGroup
 	lc.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
-			go runOperator(llc, clientset, shutdowner, apiServerShutdownSignal)
+			wg.Add(1)
+			go func() {
+				runOperator(llc, clientset, shutdowner)
+				wg.Done()
+			}()
 			return nil
 		},
 		OnStop: func(ctx hive.HookContext) error {
@@ -151,7 +169,7 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 				return err
 			}
 			doCleanup()
-			close(apiServerShutdownSignal)
+			wg.Wait()
 			return nil
 		},
 	})
@@ -209,7 +227,6 @@ func initEnv() {
 	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate(vp)
 	operatorOption.Config.Populate(vp)
-	operatorAddr = vp.GetString(operatorOption.OperatorAPIServeAddr)
 
 	// add hooks after setting up metrics in the option.Confog
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
@@ -220,72 +237,24 @@ func initEnv() {
 	}
 
 	option.LogRegisteredOptions(vp, log)
+	log.Infof("Cilium Operator %s", version.Version)
 }
 
 func doCleanup() {
-	IsLeader.Store(false)
+	isLeader.Store(false)
 
-	// Cancelling this conext here makes sure that if the operator hold the
+	// Cancelling this context here makes sure that if the operator hold the
 	// leader lease, it will be released.
 	leaderElectionCtxCancel()
-}
-
-func getAPIServerAddr() []string {
-	if operatorOption.Config.OperatorAPIServeAddr == "" {
-		return []string{"127.0.0.1:0", "[::1]:0"}
-	}
-	return []string{operatorOption.Config.OperatorAPIServeAddr}
-}
-
-// checkStatus checks the connection status to the kvstore and
-// k8s apiserver and returns an error if any of them is unhealthy
-func checkStatus(clientset k8sClient.Clientset) error {
-	if kvstoreEnabled() {
-		// We check if we are the leader here because only the leader has
-		// access to the kvstore client. Otherwise, the kvstore client check
-		// will block. It is safe for a non-leader to skip this check, as the
-		// it is the leader's responsibility to report the status of the
-		// kvstore client.
-		if leader, ok := IsLeader.Load().(bool); ok && leader {
-			if client := kvstore.Client(); client == nil {
-				return fmt.Errorf("kvstore client not configured")
-			} else if _, err := client.Status(); err != nil {
-				return err
-			}
-		}
-	}
-
-	if _, err := clientset.Discovery().ServerVersion(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capbility in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
-func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner, apiServerShutdownSignal chan struct{}) {
-	log.Infof("Cilium Operator %s", version.Version)
+func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+	isLeader.Store(false)
 
-	allSystemsGo := make(chan struct{})
-	IsLeader.Store(false)
-
-	// Configure API server for the operator.
-	srv, err := api.NewServer(apiServerShutdownSignal, allSystemsGo, getAPIServerAddr()...)
-	if err != nil {
-		log.WithError(err).Fatalf("Unable to create operator apiserver")
-	}
-	close(allSystemsGo)
-
-	if operatorOption.Config.EnableK8s {
-		go func() {
-			err = srv.WithStatusCheckFunc(func() error { return checkStatus(clientset) }).StartServer()
-			if err != nil {
-				log.WithError(err).Fatalf("Unable to start operator apiserver")
-			}
-		}()
-	}
+	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
 
 	if operatorOption.Config.EnableMetrics {
 		operatorMetrics.Register()
@@ -424,7 +393,7 @@ func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {
 // OnOperatorStartLeading is the function called once the operator starts leading
 // in HA mode.
 func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
-	IsLeader.Store(true)
+	isLeader.Store(true)
 
 	// If CiliumEndpointSlice feature is enabled, create CESController, start CEP watcher and run controller.
 	if legacy.clientset.IsEnabled() && !option.Config.DisableCiliumEndpointCRD && option.Config.EnableCiliumEndpointSlice {
@@ -474,7 +443,12 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	log.WithField(logfields.Mode, option.Config.IPAM).Info("Initializing IPAM")
 
 	switch ipamMode := option.Config.IPAM; ipamMode {
-	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2, ipamOption.IPAMAlibabaCloud:
+	case ipamOption.IPAMAzure,
+		ipamOption.IPAMENI,
+		ipamOption.IPAMClusterPool,
+		ipamOption.IPAMClusterPoolV2,
+		ipamOption.IPAMMultiPool,
+		ipamOption.IPAMAlibabaCloud:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
 		if !providerBuiltin {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
@@ -622,7 +596,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		}
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
+	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 || option.Config.IPAM == ipamOption.IPAMMultiPool {
 		// We will use CiliumNodes as the source of truth for the podCIDRs.
 		// Once the CiliumNodes are synchronized with the operator we will
 		// be able to watch for K8s Node events which they will be used

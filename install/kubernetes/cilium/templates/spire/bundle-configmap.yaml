@@ -1,0 +1,7 @@
+{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-bundle
+  namespace: {{ .Values.auth.mTLS.spire.install.namespace }}
+{{- end }}

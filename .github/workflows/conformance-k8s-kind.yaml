@@ -8,8 +8,8 @@ on:
       - 'test/**'
   push:
     branches:
-      - master
-      - ft/master/**
+      - main
+      - ft/main/**
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
@@ -21,11 +21,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  kind_version: v0.17.0
+  kind_version: v0.19.0
   cluster_name: cilium-testing
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.0
-  k8s_version: v1.26.0
+  cilium_cli_version: v0.14.2
+  cilium_cli_ci_version:
+  k8s_version: v1.27.1
 
 jobs:
   kubernetes-e2e:
@@ -40,8 +41,8 @@ jobs:
       IP_FAMILY: ${{ matrix.ipFamily }}
 
     steps:
-      - name: Checkout master branch to access local actions
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -84,6 +85,7 @@ jobs:
           networking:
             ipFamily: ${IP_FAMILY}
             kubeProxyMode: "none"
+            disableDefaultCNI: true
           nodes:
           - role: control-plane
           - role: worker
@@ -156,15 +158,13 @@ jobs:
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        run: |
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
+        uses: cilium/cilium-cli@207512ce9e729d9b3cc1a59e92af5c8d50ce37c4 # v0.14.2
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Checkout code
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -201,7 +201,8 @@ jobs:
           # KubeProxy|kube-proxy : kube-proxy specifics
           # LoadBalancer|GCE|ExternalIP : require a cloud provider, some of them are GCE specifics
           # Netpol|NetworkPolicy : network policies, demand significant resources and use to be slow, better to run in a different job
-          # same.port.number.but.different.protocols|HostPort : #9207
+          # Aggregator : Flaky, https://github.com/cilium/cilium/issues/24622.
+          # same.port.number.but.different.protocols|HostPort|should.serve.endpoints.on.same.port.and.different.protocols : #9207
           # rejected : Kubernetes expect Services without endpoints associated to REJECT the connection to notify the client, Cilium silently drops the packet
           # externalTrafficPolicy : needs investigation
 
@@ -210,12 +211,12 @@ jobs:
           export E2E_REPORT_DIR=${PWD}/_artifacts
           /usr/local/bin/ginkgo --nodes=25                \
             --focus="\[Conformance\]|\[sig-network\]"     \
-            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols"   \
+            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|Aggregator|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols|should.serve.endpoints.on.same.port.and.different.protocols"   \
             /usr/local/bin/e2e.test                       \
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
             --provider=local                              \
-            --dump-logs-on-failure=false                  \
+            --dump-logs-on-failure=true                   \
             --report-dir=${E2E_REPORT_DIR}                \
             --disable-log-dump=true
 
@@ -246,7 +247,7 @@ jobs:
 
       - name: Upload Kubernetes e2e Junit Reports
         if: ${{ success() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3
         with:
           name: kubernetes-e2e-junit
           path: './_artifacts/*.xml'

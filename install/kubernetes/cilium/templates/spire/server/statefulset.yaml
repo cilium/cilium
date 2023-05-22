@@ -1,0 +1,95 @@
+{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: spire-server
+  namespace: {{ .Values.auth.mTLS.spire.install.namespace }}
+  {{- with .Values.auth.mTLS.spire.install.server.annotations }}
+  annotations:
+    {{- toYaml . | nindent 8 }}
+  {{- end }}
+  labels:
+    app: spire-server
+  {{- with .Values.auth.mTLS.spire.install.server.labels }}
+    {{- toYaml . | nindent 8 }}
+  {{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spire-server
+  serviceName: spire-server
+  template:
+    metadata:
+      labels:
+        app: spire-server
+    spec:
+      serviceAccountName: {{ .Values.auth.mTLS.spire.install.server.serviceAccount.name }}
+      shareProcessNamespace: true
+      {{- if gt (len .Values.auth.mTLS.spire.install.server.initContainers) 0 }}
+      initContainers:
+        {{- toYaml .Values.auth.mTLS.spire.install.server.initContainers | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: cilium-init
+        image: docker.io/library/busybox:1.35.0@sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b
+        command:
+          - /bin/sh
+          - -c
+          - |
+            {{- tpl (.Files.Get "files/spire/init.bash") . | nindent 12 }}
+      - name: spire-server
+        image: ghcr.io/spiffe/spire-server:1.5.1
+        args:
+        - -config
+        - /run/spire/config/server.conf
+        ports:
+        - name: grpc
+          containerPort: 8081
+        volumeMounts:
+        - name: spire-config
+          mountPath: /run/spire/config
+          readOnly: true
+        {{- if .Values.auth.mTLS.spire.install.server.dataStorage.enabled }}
+        - name: spire-data
+          mountPath: /run/spire/data
+          readOnly: false
+        {{- end }}
+        - name: spire-server-socket
+          mountPath: /tmp/spire-server/private
+          readOnly: false
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: 8080
+          failureThreshold: 2
+          initialDelaySeconds: 15
+          periodSeconds: 60
+          timeoutSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: spire-config
+        configMap:
+          name: spire-server
+      - name: spire-server-socket
+        hostPath:
+          path: /var/run/spire-server/sockets
+          type: DirectoryOrCreate
+  {{- if .Values.auth.mTLS.spire.install.server.dataStorage.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: spire-data
+    spec:
+      accessModes:
+      - {{ .Values.auth.mTLS.spire.install.server.dataStorage.accessMode | default "ReadWriteOnce" }}
+      resources:
+        requests:
+          storage: {{ .Values.auth.mTLS.spire.install.server.dataStorage.size }}
+      storageClassName: {{ .Values.auth.mTLS.spire.install.server.dataStorage.storageClass }}
+  {{- end }}
+{{- end }}

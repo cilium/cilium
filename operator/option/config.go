@@ -87,10 +87,6 @@ const (
 	// NodesGCInterval is the duration for which the cilium nodes are GC.
 	NodesGCInterval = "nodes-gc-interval"
 
-	// OperatorAPIServeAddr IP:Port on which to serve api requests in
-	// operator (pass ":Port" to bind on all interfaces, "" is off)
-	OperatorAPIServeAddr = "operator-api-serve-addr"
-
 	// OperatorPrometheusServeAddr IP:Port on which to serve prometheus
 	// metrics (pass ":Port" to bind on all interfaces, "" is off).
 	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
@@ -120,6 +116,9 @@ const (
 
 	// IPAMInstanceTagFilter are optional tags used to filter instances for ENI discovery ; only used with AWS IPAM mode for now
 	IPAMInstanceTags = "instance-tags-filter"
+
+	// IPAMMultiPoolMap are IP pool definitions used for the multi-pool IPAM mode.
+	IPAMMultiPoolMap = "multi-pool-map"
 
 	// ClusterPoolIPv4CIDR is the cluster's IPv4 CIDR to allocate
 	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
@@ -297,11 +296,6 @@ const (
 	// Applicable values: dedicated, shared
 	IngressDefaultLoadbalancerMode = "ingress-default-lb-mode"
 
-	// EnableK8s operation of Kubernet-related services/controllers.
-	// Intended for operating cilium with CNI-compatible orchestrators
-	// other than Kubernetes. (default is true)
-	EnableK8s = "enable-k8s"
-
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	// default values: k8s-app=kube-dns
 	PodRestartSelector = "pod-restart-selector"
@@ -343,7 +337,6 @@ type OperatorConfig struct {
 	// will simply return.
 	EndpointGCInterval time.Duration
 
-	OperatorAPIServeAddr        string
 	OperatorPrometheusServeAddr string
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
@@ -408,6 +401,9 @@ type OperatorConfig struct {
 	// NodeCIDRMaskSizeIPv6 is the IPv6 podCIDR mask size that will be used
 	// per node.
 	NodeCIDRMaskSizeIPv6 int
+
+	// IPAMMultiPoolMap are IP pool definitions used for the multi-pool IPAM mode.
+	IPAMMultiPoolMap map[string]string
 
 	// AWS options
 
@@ -552,11 +548,6 @@ type OperatorConfig struct {
 	// Applicable values: dedicated, shared
 	IngressDefaultLoadbalancerMode string
 
-	// Enables/Disables operation of kubernet-related services/controllers.
-	// Intended for operating cilium with CNI-compatible orquestrators
-	// othern than Kubernetes. (default is true)
-	EnableK8s bool
-
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	PodRestartSelector string
 }
@@ -571,7 +562,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.CNPStatusCleanupBurst = vp.GetInt(CNPStatusCleanupBurst)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
-	c.OperatorAPIServeAddr = vp.GetString(OperatorAPIServeAddr)
 	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)
@@ -602,7 +592,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.IngressLBAnnotationPrefixes = vp.GetStringSlice(IngressLBAnnotationPrefixes)
 	c.IngressSharedLBServiceName = vp.GetString(IngressSharedLBServiceName)
 	c.IngressDefaultLoadbalancerMode = vp.GetString(IngressDefaultLoadbalancerMode)
-	c.EnableK8s = vp.GetBool(EnableK8s)
 	c.PodRestartSelector = vp.GetString(PodRestartSelector)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)
@@ -688,6 +677,12 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	} else {
 		c.ENIGarbageCollectionTags = m
 	}
+
+	if m, err := command.GetStringMapStringE(vp, IPAMMultiPoolMap); err != nil {
+		log.Fatalf("unable to parse %s: %s", IPAMMultiPoolMap, err)
+	} else {
+		c.IPAMMultiPoolMap = m
+	}
 }
 
 // Config represents the operator configuration.
@@ -695,6 +690,7 @@ var Config = &OperatorConfig{
 	IPAMSubnetsIDs:           make([]string, 0),
 	IPAMSubnetsTags:          make(map[string]string),
 	IPAMInstanceTags:         make(map[string]string),
+	IPAMMultiPoolMap:         make(map[string]string),
 	AWSInstanceLimitMapping:  make(map[string]string),
 	ENITags:                  make(map[string]string),
 	ENIGarbageCollectionTags: make(map[string]string),

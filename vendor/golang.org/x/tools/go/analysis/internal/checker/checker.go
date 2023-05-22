@@ -75,6 +75,7 @@ func RegisterFlags() {
 // Run loads the packages specified by args using go/packages,
 // then applies the specified analyzers to them.
 // Analysis flags must already have been set.
+// Analyzers must be valid according to [analysis.Validate].
 // It provides most of the logic for the main functions of both the
 // singlechecker and the multi-analysis commands.
 // It returns the appropriate exit code.
@@ -142,9 +143,10 @@ func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
 		// TODO: filter analyzers based on RunDespiteError?
 	}
 
-	// Print the results.
+	// Run the analysis.
 	roots := analyze(initial, analyzers)
 
+	// Apply fixes.
 	if Fix {
 		if err := applyFixes(roots); err != nil {
 			// Fail when applying fixes failed.
@@ -152,6 +154,8 @@ func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
 			return 1
 		}
 	}
+
+	// Print the results.
 	return printDiagnostics(roots)
 }
 
@@ -211,8 +215,9 @@ func loadingError(initial []*packages.Package) error {
 	return err
 }
 
-// TestAnalyzer applies an analysis to a set of packages (and their
+// TestAnalyzer applies an analyzer to a set of packages (and their
 // dependencies if necessary) and returns the results.
+// The analyzer must be valid according to [analysis.Validate].
 //
 // Facts about pkg are returned in a map keyed by object; package facts
 // have a nil key.
@@ -765,6 +770,15 @@ func (act *action) execOnce() {
 				err = fmt.Errorf(
 					"internal error: on package %s, analyzer %s returned a result of type %v, but declared ResultType %v",
 					pass.Pkg.Path(), pass.Analyzer, got, want)
+			}
+		}
+	}
+	if err == nil { // resolve diagnostic URLs
+		for i := range act.diagnostics {
+			if url, uerr := analysisflags.ResolveURL(act.a, act.diagnostics[i]); uerr == nil {
+				act.diagnostics[i].URL = url
+			} else {
+				err = uerr // keep the last error
 			}
 		}
 	}

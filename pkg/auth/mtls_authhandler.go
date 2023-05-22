@@ -272,3 +272,7 @@ func (m *mtlsAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, ca
 
 	return expirationTime, nil
 }
+
+func (m *mtlsAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
+	return m.cert.SubscribeToRotatedIdentities()
+}

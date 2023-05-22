@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -30,6 +31,7 @@ type ipCache interface {
 type authHandler interface {
 	authenticate(*authRequest) (*authResponse, error)
 	authType() policy.AuthType
+	subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent
 }
 
 type authRequest struct {

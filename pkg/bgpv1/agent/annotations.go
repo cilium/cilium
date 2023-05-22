@@ -6,13 +6,11 @@ package agent
 import (
 	"errors"
 	"math"
-	"net"
+	"net/netip"
 	"strconv"
 	"strings"
-)
 
-const (
-	BGPVRouterAnnoPrefix = "cilium.io/bgp-virtual-router."
+	"github.com/cilium/cilium/pkg/annotation"
 )
 
 // ErrNotVRouterAnno is an error returned from parseAnnotation() when the
@@ -137,7 +135,7 @@ func NewAnnotationMap(a map[string]string) (AnnotationMap, error) {
 func parseAnnotation(key string, value string) (int, Attributes, error) {
 	var out Attributes
 	// is this an annotation we care about?
-	if !strings.HasPrefix(key, BGPVRouterAnnoPrefix) {
+	if !strings.HasPrefix(key, annotation.BGPVRouterAnnoPrefix) {
 		return 0, out, ErrNotVRouterAnno{key}
 	}
 
@@ -167,8 +165,8 @@ func parseAnnotation(key string, value string) (int, Attributes, error) {
 		}
 		switch kv[0] {
 		case "router-id":
-			ip := net.ParseIP(kv[1])
-			if ip.IsUnspecified() {
+			addr, _ := netip.ParseAddr(kv[1])
+			if addr.IsUnspecified() {
 				return 0, out, ErrAttrib{key, kv[0], "could not parse in an IPv4 address"}
 			}
 			out.RouterID = kv[1]

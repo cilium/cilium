@@ -21,11 +21,6 @@
  */
 #define SKIP_ICMPV6_HOPLIMIT_HANDLING
 
-/* Controls the inclusion of the CILIUM_CALL_SEND_ICMP6_ECHO_REPLY section in
- * the bpf_lxc object file.
- */
-#define SKIP_ICMPV6_ECHO_HANDLING
-
 /* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
  */
 #define SKIP_SRV6_HANDLING
@@ -103,17 +98,18 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_NETDEV)
 int tail_lb_ipv4(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
+	__s8 ext_err = 0;
 
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb4(ctx, 0);
+		ret = nodeport_lb4(ctx, 0, &ext_err);
 		if (ret == NAT_46X64_RECIRC) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 			return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
 						      CTX_ACT_DROP,
 						      METRIC_INGRESS);
 		} else if (IS_ERR(ret)) {
-			return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
-						      METRIC_INGRESS);
+			return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+							  CTX_ACT_DROP, METRIC_INGRESS);
 		}
 	}
 
@@ -172,12 +168,13 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_lb_ipv6(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
+	__s8 ext_err = 0;
 
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb6(ctx, 0);
+		ret = nodeport_lb6(ctx, 0, &ext_err);
 		if (IS_ERR(ret))
-			return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
-						      METRIC_INGRESS);
+			return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+							  CTX_ACT_DROP, METRIC_INGRESS);
 	}
 
 	return bpf_xdp_exit(ctx, ret);

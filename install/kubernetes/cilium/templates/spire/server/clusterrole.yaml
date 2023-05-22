@@ -1,0 +1,22 @@
+{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled .Values.auth.mTLS.spire.install.server.serviceAccount.create -}}
+
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.auth.mTLS.spire.install.server.serviceAccount.name }}
+rules:
+# ClusterRole to allow spire-server node attestor to query Token Review API
+- apiGroups: [ "authentication.k8s.io" ]
+  resources: [ "tokenreviews" ]
+  verbs: [ "create" ]
+# Required cluster role to allow spire-server to query k8s API server
+# for pods for psat attestation
+- apiGroups: [ "" ]
+  resources: [ "pods" ]
+  verbs: [ "get" ]
+# Required cluster role to allow spire-server to query k8s API server
+# for nodes for psat attestation
+- apiGroups: [ "" ]
+  resources: [ "nodes","nodes/proxy" ]
+  verbs: [ "get" ]
+{{- end }}

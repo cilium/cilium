@@ -8,8 +8,8 @@ on:
       - 'test/**'
   push:
     branches:
-      - master
-      - ft/master/**
+      - main
+      - ft/main/**
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
@@ -22,7 +22,8 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.1
+  cilium_cli_version: v0.14.2
+  cilium_cli_ci_version:
   kind_version: v0.17.0
   kind_config: .github/kind-config.yaml
   metallb_version: 0.12.1
@@ -54,8 +55,8 @@ jobs:
           default-ingress-controller: true
 
     steps:
-      - name: Checkout master branch to access local actions
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -63,12 +64,10 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Cilium CLI
-        run: |
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
+        uses: cilium/cilium-cli@207512ce9e729d9b3cc1a59e92af5c8d50ce37c4 # v0.14.2
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Set image tag
         id: vars
@@ -81,6 +80,8 @@ jobs:
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --helm-set=debug.enabled=true \
+            --helm-set=debug.verbose=envoy \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
@@ -99,7 +100,7 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -111,11 +112,13 @@ jobs:
           config: ${{ env.kind_config }}
 
       - name: Checkout ingress-controller-conformance
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
-          repository: kubernetes-sigs/ingress-controller-conformance
+          # Use the forked repo with retry mechanism
+          # Please refer to https://github.com/kubernetes-sigs/ingress-controller-conformance/pull/101 for more details.
+          repository: cilium/ingress-controller-conformance
           path: ingress-controller-conformance
-          ref: a38bfcddfc7b10a7b479c1f274b87380c7390c96
+          ref: 010bbae21b71d9785660b87908dfe2ba8cd2f25d
           persist-credentials: false
 
       - name: Install Ingress conformance test tool
@@ -161,24 +164,6 @@ jobs:
             --version ${{ env.metallb_version }} \
             --values metallb_values.yaml \
             --wait
-
-      # Remove this step once https://github.com/cilium/cilium-cli/pull/1432 is merged.
-      - name: Create Ingress Endpoint
-        if: ${{ matrix.loadbalancer-mode == 'shared' }}
-        timeout-minutes: 5
-        run: |
-          cat << EOF | kubectl apply -f -
-          apiVersion: v1
-          kind: Endpoints
-          metadata:
-            name: cilium-ingress
-            namespace: kube-system
-          subsets:
-          - addresses:
-            - ip: "192.192.192.192"
-            ports:
-            - port: 9999
-          EOF
 
       - name: Create sample workload
         timeout-minutes: 5

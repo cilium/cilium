@@ -6,21 +6,15 @@ package auth
 import (
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/maps/authmap"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type authMapAuthenticator struct {
-	authMap *authmap.Map
+	authMap authmap.Map
 }
 
-func newAuthMapAuthenticator() datapathAuthenticator {
-	// Make sure authmap is initialized. This will fail in non-privileged unit tests,
-	// but as we are not exercising this authenticator in nonprivileged unit tests yet,
-	// we'll just ignore the error for now.
-	authmap.InitAuthMap(option.Config.AuthMapEntries)
-
+func newAuthMapAuthenticator(authMap authmap.Map) datapathAuthenticator {
 	return &authMapAuthenticator{
-		authMap: authmap.AuthMap(),
+		authMap: authMap,
 	}
 }
 

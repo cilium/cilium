@@ -145,7 +145,7 @@ Install Cilium release via Helm:
      --set alibabacloud.enabled=true \\
      --set ipam.mode=alibabacloud \\
      --set enableIPv4Masquerade=false \\
-     --set tunnel=disabled
+     --set routingMode=native
 
 .. note::
 

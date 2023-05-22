@@ -371,18 +371,12 @@ func (m *CgroupManager) deletePodMetadata(pod *v1.Pod) {
 func (m *CgroupManager) getPodMetadata(cgroupId uint64, podMetadataOut chan *PodMetadata) {
 	cm, ok := m.containerMetadataByCgrpId[cgroupId]
 	if !ok {
-		log.WithFields(logrus.Fields{
-			"container-cgroup-id": cgroupId,
-		}).Debugf("Metadata not found")
 		close(podMetadataOut)
 		return
 	}
 
 	pm, ok := m.podMetadataById[cm.podId]
 	if !ok {
-		log.WithFields(logrus.Fields{
-			"container-cgroup-id": cgroupId,
-		}).Debugf("Pod metadata not found")
 		close(podMetadataOut)
 		return
 	}

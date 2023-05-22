@@ -2,15 +2,15 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 # Copyright Authors of Cilium
 
-LIB=${1}
+# LIB=${1}
 RUNDIR=${2}
 PROCSYSNETDIR=${3}
 SYSCLASSNETDIR=${4}
 IP4_HOST=${5}
 IP6_HOST=${6}
 MODE=${7}
-TUNNEL_MODE=${8}
-# Only set if TUNNEL_MODE = "vxlan", "geneve"
+TUNNEL_PROTOCOL=${8}
+# Only set if TUNNEL_PROTOCOL = "vxlan", "geneve"
 TUNNEL_PORT=${9}
 # Only set if MODE = "direct"
 NATIVE_DEVS=${10}
@@ -23,13 +23,11 @@ MTU=${13}
 # BPFFS_ROOT=${17}
 NODE_PORT=${18}
 # NODE_PORT_BIND=${19}
-MCPU=${20}
-NR_CPUS=${21}
+# MCPU=${20}
+# NR_CPUS=${21}
 ENDPOINT_ROUTES=${22}
 PROXY_RULE=${23}
-FILTER_PRIO=${24}
-
-ID_WORLD=2
+# FILTER_PRIO=${24}
 
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
@@ -42,9 +40,6 @@ set -o pipefail
 
 # Remove old legacy files
 rm $RUNDIR/encap.state 2> /dev/null || true
-
-# This directory was created by the daemon and contains the per container header file
-DIR="$PWD/globals"
 
 function setup_dev()
 {
@@ -108,8 +103,7 @@ function move_local_rules()
 
 function setup_proxy_rules()
 {
-	# Any packet from an ingress proxy uses a separate routing table that routes
-	# the packet back to the cilium host device.
+	# TODO(brb): remove $PROXY_RT_TABLE -related code in v1.15
 	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
 
 	# Any packet to an ingress or egress proxy uses a separate routing table
@@ -123,27 +117,16 @@ function setup_proxy_rules()
 			if [ -z "$(ip -4 rule list $to_proxy_rulespec)" ]; then
 				ip -4 rule add $to_proxy_rulespec
 			fi
-			if [ "$ENDPOINT_ROUTES" = "true" ]; then
-				if [ ! -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
-					ip -4 rule delete $from_ingress_rulespec
-				fi
-			else
-				if [ -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
-					ip -4 rule add $from_ingress_rulespec
-				fi
-			fi
+
+			ip -4 rule delete $from_ingress_rulespec || true
 		fi
 
 		# Traffic to the host proxy is local
 		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo
-		# Traffic from ingress proxy goes to Cilium address space via the cilium host device
-		if [ "$ENDPOINT_ROUTES" = "true" ]; then
-			ip route delete table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 2>/dev/null || true
-			ip route delete table $PROXY_RT_TABLE default via $IP4_HOST 2>/dev/null || true
-		else
-			ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
-			ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
-		fi
+
+		# The $PROXY_RT_TABLE is no longer in use, so delete it
+		ip route delete table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 2>/dev/null || true
+		ip route delete table $PROXY_RT_TABLE default via $IP4_HOST 2>/dev/null || true
 	else
 		ip -4 rule del $to_proxy_rulespec 2> /dev/null || true
 		ip -4 rule del $from_ingress_rulespec 2> /dev/null || true
@@ -154,29 +137,17 @@ function setup_proxy_rules()
 			if [ -z "$(ip -6 rule list $to_proxy_rulespec)" ]; then
 				ip -6 rule add $to_proxy_rulespec
 			fi
-			if [ "$ENDPOINT_ROUTES" = "true" ]; then
-				if [ ! -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
-					ip -6 rule delete $from_ingress_rulespec
-				fi
-			else
-				if [ -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
-					ip -6 rule add $from_ingress_rulespec
-				fi
-			fi
+
+			ip -6 rule delete $from_ingress_rulespec || true
 		fi
 
 		IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
 		if [ -n "$IP6_LLADDR" ]; then
 			# Traffic to the host proxy is local
 			ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo
-			# Traffic from ingress proxy goes to Cilium address space via the cilium host device
-			if [ "$ENDPOINT_ROUTES" = "true" ]; then
-				ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
-				ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
-			else
-				ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
-				ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
-			fi
+			# The $PROXY_RT_TABLE is no longer in use, so delete it
+			ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
+			ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
 		fi
 	else
 		ip -6 rule del $to_proxy_rulespec 2> /dev/null || true
@@ -196,69 +167,13 @@ function rnd_mac_addr()
     printf '%02x%s' $upper $lower
 }
 
-function bpf_compile()
-{
-	IN=$1
-	OUT=$2
-	TYPE=$3
-	EXTRA_OPTS=$4
-
-	clang -O2 -target bpf -std=gnu89 -nostdinc -emit-llvm	\
-	      -g -Wall -Wextra -Werror -Wshadow			\
-	      -Wno-address-of-packed-member			\
-	      -Wno-unknown-warning-option			\
-	      -Wno-gnu-variable-sized-type-not-at-end		\
-	      -Wdeclaration-after-statement			\
-	      -Wimplicit-int-conversion -Wenum-conversion	\
-	      -I. -I$DIR -I$LIB -I$LIB/include			\
-	      -D__NR_CPUS__=$NR_CPUS				\
-	      -DENABLE_ARP_RESPONDER=1				\
-	      $EXTRA_OPTS					\
-	      -c $LIB/$IN -o - |				\
-	llc -march=bpf -mcpu=$MCPU -filetype=$TYPE -o $OUT
-}
-
-function bpf_unload()
-{
-	DEV=$1
-	WHERE=$2
-
-	tc filter del dev $DEV $WHERE 2> /dev/null || true
-}
-
-function bpf_load()
-{
-	DEV=$1
-	OPTS=$2
-	WHERE=$3
-	IN=$4
-	OUT=$5
-	SEC=$6
-	CALLS_MAP=$7
-
-	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
-	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
-
-	OPTS="${OPTS} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
-	bpf_compile $IN $OUT obj "$OPTS"
-	tc qdisc replace dev $DEV clsact || true
-	[ -z "$(tc filter show dev $DEV $WHERE | grep -v "pref $FILTER_PRIO bpf chain 0 $\|pref $FILTER_PRIO bpf chain 0 handle 0x1")" ] || tc filter del dev $DEV $WHERE
-
-	cilium bpf migrate-maps -s "$OUT"
-
-	if ! tc filter replace dev "$DEV" "$WHERE" prio "$FILTER_PRIO" handle 1 bpf da obj "$OUT" sec "$SEC"; then
-		cilium bpf migrate-maps -e "$OUT" -r 1
-		return 1
-	fi
-}
-
 function create_encap_dev()
 {
 	TUNNEL_OPTS="external"
 	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
 		TUNNEL_OPTS="dstport $TUNNEL_PORT $TUNNEL_OPTS"
 	fi
-	ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_MODE $TUNNEL_OPTS || encap_fail
+	ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_PROTOCOL $TUNNEL_OPTS || encap_fail
 }
 
 function encap_fail()
@@ -371,14 +286,32 @@ if [ "$MODE" = "tunnel" ]; then
 	echo "#define TUNNEL_MODE 1" >> $RUNDIR/globals/node_config.h
 fi
 
-if [ "${TUNNEL_MODE}" != "<nil>" ]; then
-	ENCAP_DEV="cilium_${TUNNEL_MODE}"
+# Remove eventual existing encapsulation device from previous run
+case "${TUNNEL_PROTOCOL}" in
+  "<nil>")
+	ip link del cilium_vxlan 2> /dev/null || true
+	ip link del cilium_geneve 2> /dev/null || true
+    ;;
+  "vxlan")
+	ip link del cilium_geneve 2> /dev/null || true
+    ;;
+  "geneve")
+	ip link del cilium_vxlan 2> /dev/null || true
+    ;;
+  *)
+	(>&2 echo "ERROR: Unknown tunnel mode")
+    exit 1
+    ;;
+esac
+
+if [ "${TUNNEL_PROTOCOL}" != "<nil>" ]; then
+	ENCAP_DEV="cilium_${TUNNEL_PROTOCOL}"
 
 	ip link show $ENCAP_DEV || create_encap_dev
 
 	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
 		ip -details link show $ENCAP_DEV | grep "dstport $TUNNEL_PORT" || {
-			ip link delete name $ENCAP_DEV type $TUNNEL_MODE
+			ip link delete name $ENCAP_DEV type $TUNNEL_PROTOCOL
 			create_encap_dev
 		}
 	fi
@@ -389,22 +322,6 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
 	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
-
-	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
-	COPTS="-DSECLABEL=${ID_WORLD} -DFROM_ENCAP_DEV=1"
-	if [ "$NODE_PORT" = "true" ]; then
-		COPTS="${COPTS} -DDISABLE_LOOPBACK_LB"
-	fi
-
-	bpf_load "$ENCAP_DEV" "$COPTS" ingress bpf_overlay.c bpf_overlay.o from-overlay "$CALLS_MAP"
-	bpf_load "$ENCAP_DEV" "$COPTS" egress bpf_overlay.c bpf_overlay.o to-overlay "$CALLS_MAP"
-
-	cilium bpf migrate-maps -e bpf_overlay.o -r 0
-
-else
-	# Remove eventual existing encapsulation device from previous run
-	ip link del cilium_vxlan 2> /dev/null || true
-	ip link del cilium_geneve 2> /dev/null || true
 fi
 
 if [ "$MODE" = "direct" ] || [ "$NODE_PORT" = "true" ] ; then
@@ -451,5 +368,5 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 done
 
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
-	bpf_unload $HOST_DEV2 "egress"
+	tc filter del dev $HOST_DEV2 "egress" 2> /dev/null || true
 fi

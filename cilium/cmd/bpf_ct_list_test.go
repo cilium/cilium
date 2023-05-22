@@ -86,7 +86,7 @@ func dumpAndRead(maps []interface{}, dump dumpCallback, c *C, args ...interface{
 	defer func() { os.Stdout = stdout }()
 
 	command.ForceJSON()
-	dump(maps, args)
+	dump(maps, args...)
 
 	channel := make(chan string)
 	go func() {

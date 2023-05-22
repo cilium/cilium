@@ -41,13 +41,8 @@ SKIP_CUSTOMVET_CHECK ?= "false"
 
 JOB_BASE_NAME ?= cilium_test
 
-GO_VERSION := $(shell cat GO_VERSION)
-GO_MAJOR_AND_MINOR_VERSION := $(shell sed 's/\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?/\1.\2/' GO_VERSION)
-GO_IMAGE_VERSION := $(shell awk -F. '{ z=$$3; if (z == "") z=0; print $$1 "." $$2 "." z}' GO_VERSION)
+GO_MAJOR_AND_MINOR_VERSION := $(shell awk '/^go/ { print $$2 }' go.mod)
 GO_INSTALLED_MAJOR_AND_MINOR_VERSION := $(shell $(GO) version | sed 's/go version go\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?.*/\1.\2/')
-
-GO_CONTAINER := $(CONTAINER_ENGINE) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) golang:$(GO_VERSION)
-GOIMPORTS_VERSION ?= v0.1.12
 
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
@@ -112,13 +107,12 @@ generate-cov: ## Generate HTML coverage report at coverage-all.html.
 	$(QUIET) rm coverage.out.tmp
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
-integration-tests: GO_TAGS_FLAGS+=integration_tests
-integration-tests: start-kvstores ## Runs all integration tests.
+integration-tests: start-kvstores ## Run Go tests including ones that are marked as integration tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
 endif
-	$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
+	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 	$(MAKE) stop-kvstores
 
@@ -205,9 +199,10 @@ CRDS_CILIUM_V2 := ciliumnetworkpolicies \
 CRDS_CILIUM_V2ALPHA1 := ciliumendpointslices \
                         ciliumbgppeeringpolicies \
                         ciliumloadbalancerippools \
-                        ciliumnodeconfigs
+                        ciliumnodeconfigs \
+                        ciliumcidrgroups
 manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
-	$(eval TMPDIR := $(shell mktemp -d))
+	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
 	$(QUIET)$(GO) run sigs.k8s.io/controller-tools/cmd/controller-gen $(CRD_OPTIONS) paths=$(CRD_PATHS) output:crd:artifacts:config="$(TMPDIR)"
 	$(QUIET)$(GO) run ./tools/crdcheck "$(TMPDIR)"
 
@@ -231,7 +226,7 @@ generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and ser
 		-f api/v1/openapi.yaml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO_CONTAINER) bash -c "go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION) && ./contrib/scripts/format-api.sh api/v1/client/ api/v1/models/ api/v1/server/"
+	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
 
 generate-health-api: api/v1/health/openapi.yaml ## Generate cilium-health client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/health/openapi.yaml
@@ -248,7 +243,7 @@ generate-health-api: api/v1/health/openapi.yaml ## Generate cilium-health client
 		-f api/v1/health/openapi.yaml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO_CONTAINER) bash -c "go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION) && ./contrib/scripts/format-api.sh api/v1/health/"
+	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/health
 
 generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/operator/openapi.yaml
@@ -265,7 +260,7 @@ generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator 
 		-f api/v1/operator/openapi.yaml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	-$(QUIET)$(GO_CONTAINER) bash -c "go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION) && ./contrib/scripts/format-api.sh api/v1/operator/"
+	-$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/operator
 
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
@@ -331,7 +326,7 @@ GEN_CRD_GROUPS := "cilium.io:v2\
 generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
 	$(ASSERT_CILIUM_MODULE)
 
-	$(eval TMPDIR := $(shell mktemp -d))
+	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
 
 	$(QUIET) $(call generate_k8s_protobuf,${K8S_PROTO_PACKAGES},"$(TMPDIR)")
 
@@ -416,7 +411,7 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_OPERATOR_IMAGE)
 
 kind: ## Create a kind cluster for Cilium development.
-	$(QUIET)./contrib/scripts/kind.sh
+	SED=$(SED) $(QUIET)./contrib/scripts/kind.sh
 
 kind-down: ## Destroy a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind-down.sh
@@ -429,8 +424,7 @@ kind-clustermesh: ## Create two kind clusters for clustermesh development.
 
 .PHONY: kind-clustermesh-down
 kind-clustermesh-down: ## Destroy kind clusters for clustermesh development.
-	kind delete clusters clustermesh1
-	kind delete clusters clustermesh2
+	$(QUIET)./contrib/scripts/kind-down.sh clustermesh1 clustermesh2
 
 .PHONY: kind-clustermesh-ready
 kind-clustermesh-ready: ## Check if both kind clustermesh clusters exist
@@ -459,31 +453,31 @@ kind-clustermesh-images: kind-clustermesh-ready kind-build-clustermesh-apiserver
 	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh1
 	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) --name clustermesh2
 
-.PHONY: kind-install-cilium-clustermesh
+$(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
 kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
 	kubectl config use kind-clustermesh1
-	-cilium uninstall >/dev/null
-	cilium install \
+	-$(CILIUM_CLI) uninstall >/dev/null
+	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
 		--version=
 	@echo "  INSTALL cilium on clustermesh2 cluster"
 	kubectl config use kind-clustermesh2
-	-cilium uninstall >/dev/null
-	cilium install \
+	-$(CILIUM_CLI) uninstall >/dev/null
+	$(CILIUM_CLI) install \
 		--inherit-ca kind-clustermesh1 \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
 		--version=
 	@echo "  Enabling clustermesh"
-	cilium clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
-	cilium clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
-	cilium clustermesh status --context kind-clustermesh1 --wait
-	cilium clustermesh status --context kind-clustermesh2 --wait
-	cilium clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
-	cilium clustermesh status --context kind-clustermesh1 --wait
-	cilium clustermesh status --context kind-clustermesh2 --wait
+	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
+	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
+	$(CILIUM_CLI) clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
 
 
 .PHONY: kind-ready
@@ -522,20 +516,25 @@ kind-install-cilium: kind-ready ## Install a local Cilium version into the clust
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
-	-cilium uninstall >/dev/null
+	-$(CILIUM_CLI) uninstall >/dev/null
 	# cilium-cli's --wait flag doesn't work, so we just force it to run
 	# in the background instead and wait for the resources to be available.
 	# https://github.com/cilium/cilium-cli/issues/1070
-	cilium install \
+	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-values.yaml \
 		--version= \
 		>/dev/null 2>&1 &
 
+.PHONY: kind-uninstall-cilium
+kind-uninstall-cilium: ## Uninstall Cilium from the cluster.
+	@echo "  UNINSTALL cilium"
+	-$(CILIUM_CLI) uninstall
+
 .PHONY: kind-check-cilium
 kind-check-cilium:
 	@echo "  CHECK  cilium is ready..."
-	cilium status --wait --wait-duration 1s >/dev/null 2>/dev/null
+	$(CILIUM_CLI) status --wait --wait-duration 1s >/dev/null 2>/dev/null
 
 # Template for kind debug targets. Parameters are:
 # $(1) agent target
@@ -590,8 +589,8 @@ endif
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
 	$(QUIET) contrib/scripts/check-log-newlines.sh
-	@$(ECHO_CHECK) contrib/scripts/check-privileged-tests-tags.sh
-	$(QUIET) contrib/scripts/check-privileged-tests-tags.sh
+	@$(ECHO_CHECK) contrib/scripts/check-test-tags.sh
+	$(QUIET) contrib/scripts/check-test-tags.sh
 	@$(ECHO_CHECK) contrib/scripts/check-assert-deep-equals.sh
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
@@ -661,29 +660,6 @@ else
 	@$(ECHO_CHECK) "Installed Go version $(GO_INSTALLED_MAJOR_AND_MINOR_VERSION) matches required version $(GO_MAJOR_AND_MINOR_VERSION)"
 endif
 
-update-go-version: ## Update Go version for all the components (images, CI, dev-doctor etc.).
-	# Update dev-doctor Go version.
-	$(QUIET) sed -i 's/^const minGoVersionStr = ".*"/const minGoVersionStr = "$(GO_MAJOR_AND_MINOR_VERSION)"/' tools/dev-doctor/config.go
-	@echo "Updated go version in tools/dev-doctor to $(GO_MAJOR_AND_MINOR_VERSION)"
-	# Update Go version in GitHub action config.
-	$(QUIET) for fl in $(shell find .github/workflows -name "*.yaml" -print) ; do sed -i 's/go-version: .*/go-version: $(GO_IMAGE_VERSION)/g' $$fl ; done
-	@echo "Updated go version in GitHub Actions to $(GO_IMAGE_VERSION)"
-	# Update Go version in main.go.
-	$(QUIET) for fl in $(shell find .  -name main.go -not -path "./vendor/*" -print); do \
-		sed -i \
-			-e 's|^//go:build go.*|//go:build go$(GO_MAJOR_AND_MINOR_VERSION)|g' \
-			$$fl ; \
-	done
-	# Update Go version in Travis CI config.
-	$(QUIET) sed -i 's/go: ".*/go: "$(GO_VERSION)"/g' .travis.yml
-	@echo "Updated go version in .travis.yml to $(GO_VERSION)"
-	# Update Go version in test scripts.
-	$(QUIET) sed -i 's/GO_VERSION=.*/GO_VERSION="$(GO_VERSION)"/g' test/kubernetes-test.sh
-	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION="$(GO_VERSION)"/g' test/packet/scripts/install.sh
-	@echo "Updated go version in test scripts to $(GO_VERSION)"
-	# Update Go version in Dockerfiles.
-	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION=$(GO_VERSION)/g' contrib/backporting/Dockerfile
-
 dev-doctor: ## Run Cilium dev-doctor to validate local development environment.
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )
 	$(QUIET)$(GO) run ./tools/dev-doctor
@@ -703,3 +679,9 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 
 .PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean check-sources
 force :;
+
+# this top level run_bpf_tests target will run the bpf unit tests inside the Cilium Builder container.
+# it exists here so the entire source code repo can be mounted into the container.
+CILIUM_BUILDER_IMAGE=$(shell cat images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
+run_bpf_tests:
+	docker run -v $$(pwd):/src --privileged -w /src -e RUN_WITH_SUDO=false $(CILIUM_BUILDER_IMAGE) "make" "-C" "test/" "run_bpf_tests"

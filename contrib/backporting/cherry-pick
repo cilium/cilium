@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
@@ -7,7 +7,7 @@ require_linux
 
 ORG=${ORG:-"cilium"}
 REPO=${REPO:-"cilium"}
-BRANCH=${BRANCH:-"master"}
+BRANCH=${BRANCH:-"main"}
 
 cleanup () {
   if [ -n "$TMPF" ]; then

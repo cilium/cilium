@@ -426,7 +426,7 @@ func parseX509Context(resp *workload.X509SVIDResponse) (*X509Context, error) {
 
 // parseX509SVIDs parses one or all of the SVIDs in the response. If firstOnly
 // is true, then only the first SVID in the response is parsed and returned.
-// Otherwise all SVIDs are parsed and returned.
+// Otherwise, all SVIDs are parsed and returned.
 func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svid.SVID, error) {
 	n := len(resp.Svids)
 	if n == 0 {
@@ -436,10 +436,20 @@ func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svi
 		n = 1
 	}
 
+	hints := make(map[string]struct{}, n)
 	svids := make([]*x509svid.SVID, 0, n)
 	for i := 0; i < n; i++ {
 		svid := resp.Svids[i]
+		// In the event of more than one X509SVID message with the same hint value set, then the first message in the
+		// list SHOULD be selected.
+		if _, ok := hints[svid.Hint]; ok && svid.Hint != "" {
+			continue
+		}
+
+		hints[svid.Hint] = struct{}{}
+
 		s, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey)
+		s.Hint = svid.Hint
 		if err != nil {
 			return nil, err
 		}
@@ -506,7 +516,7 @@ func parseX509BundlesResponse(resp *workload.X509BundlesResponse) (*x509bundle.S
 
 // parseJWTSVIDs parses one or all of the SVIDs in the response. If firstOnly
 // is true, then only the first SVID in the response is parsed and returned.
-// Otherwise all SVIDs are parsed and returned.
+// Otherwise, all SVIDs are parsed and returned.
 func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly bool) ([]*jwtsvid.SVID, error) {
 	n := len(resp.Svids)
 	if n == 0 {
@@ -516,10 +526,19 @@ func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly 
 		n = 1
 	}
 
+	hints := make(map[string]struct{}, n)
 	svids := make([]*jwtsvid.SVID, 0, n)
 	for i := 0; i < n; i++ {
 		svid := resp.Svids[i]
+		// In the event of more than one X509SVID message with the same hint value set, then the first message in the
+		// list SHOULD be selected.
+		if _, ok := hints[svid.Hint]; ok && svid.Hint != "" {
+			continue
+		}
+		hints[svid.Hint] = struct{}{}
+
 		s, err := jwtsvid.ParseInsecure(svid.Svid, audience)
+		s.Hint = svid.Hint
 		if err != nil {
 			return nil, err
 		}

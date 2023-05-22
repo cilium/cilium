@@ -71,21 +71,30 @@ func (client *Client) ModifyInstanceSpecWithCallback(request *ModifyInstanceSpec
 // ModifyInstanceSpecRequest is the request struct for api ModifyInstanceSpec
 type ModifyInstanceSpecRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId                  requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken                      string           `position:"Query" name:"ClientToken"`
-	AllowMigrateAcrossZone           requests.Boolean `position:"Query" name:"AllowMigrateAcrossZone"`
-	InternetMaxBandwidthOut          requests.Integer `position:"Query" name:"InternetMaxBandwidthOut"`
-	SystemDiskCategory               string           `position:"Query" name:"SystemDisk.Category"`
-	InstanceType                     string           `position:"Query" name:"InstanceType"`
-	TemporaryEndTime                 string           `position:"Query" name:"Temporary.EndTime"`
-	ResourceOwnerAccount             string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount                     string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                          requests.Integer `position:"Query" name:"OwnerId"`
-	TemporaryInternetMaxBandwidthOut requests.Integer `position:"Query" name:"Temporary.InternetMaxBandwidthOut"`
-	TemporaryStartTime               string           `position:"Query" name:"Temporary.StartTime"`
-	Async                            requests.Boolean `position:"Query" name:"Async"`
-	InstanceId                       string           `position:"Query" name:"InstanceId"`
-	InternetMaxBandwidthIn           requests.Integer `position:"Query" name:"InternetMaxBandwidthIn"`
+	ResourceOwnerId                  requests.Integer          `position:"Query" name:"ResourceOwnerId"`
+	ClientToken                      string                    `position:"Query" name:"ClientToken"`
+	AllowMigrateAcrossZone           requests.Boolean          `position:"Query" name:"AllowMigrateAcrossZone"`
+	InternetMaxBandwidthOut          requests.Integer          `position:"Query" name:"InternetMaxBandwidthOut"`
+	SystemDiskCategory               string                    `position:"Query" name:"SystemDisk.Category"`
+	InstanceType                     string                    `position:"Query" name:"InstanceType"`
+	TemporaryEndTime                 string                    `position:"Query" name:"Temporary.EndTime"`
+	ModifyMode                       string                    `position:"Query" name:"ModifyMode"`
+	ResourceOwnerAccount             string                    `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                     string                    `position:"Query" name:"OwnerAccount"`
+	OwnerId                          requests.Integer          `position:"Query" name:"OwnerId"`
+	TemporaryInternetMaxBandwidthOut requests.Integer          `position:"Query" name:"Temporary.InternetMaxBandwidthOut"`
+	TemporaryStartTime               string                    `position:"Query" name:"Temporary.StartTime"`
+	Async                            requests.Boolean          `position:"Query" name:"Async"`
+	Disk                             *[]ModifyInstanceSpecDisk `position:"Query" name:"Disk"  type:"Repeated"`
+	InstanceId                       string                    `position:"Query" name:"InstanceId"`
+	InternetMaxBandwidthIn           requests.Integer          `position:"Query" name:"InternetMaxBandwidthIn"`
+}
+
+// ModifyInstanceSpecDisk is a repeated param struct in ModifyInstanceSpecRequest
+type ModifyInstanceSpecDisk struct {
+	PerformanceLevel string `name:"PerformanceLevel"`
+	DiskId           string `name:"DiskId"`
+	Category         string `name:"Category"`
 }
 
 // ModifyInstanceSpecResponse is the response struct for api ModifyInstanceSpec

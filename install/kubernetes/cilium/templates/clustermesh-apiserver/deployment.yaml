@@ -140,6 +140,7 @@ spec:
         - --cluster-users-enabled
         - --cluster-users-config-path=/var/lib/cilium/etcd-config/users.yaml
         {{- end }}
+        - --enable-external-workloads={{ .Values.externalWorkloads.enabled }}
         env:
         - name: CLUSTER_NAME
           valueFrom:
@@ -189,15 +190,49 @@ spec:
         {{- end }}
       volumes:
       - name: etcd-server-secrets
-        secret:
-          secretName: clustermesh-apiserver-server-cert
+        projected:
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
+          sources:
+          - secret:
+              name: clustermesh-apiserver-server-cert
+              items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+          {{- if not .Values.tls.caBundle.enabled }}
+              - key: ca.crt
+                path: ca.crt
+          {{- else }}
+          - configMap:
+              name: {{ .Values.tls.caBundle.name }}
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: ca.crt
+          {{- end }}
       - name: etcd-admin-client
-        secret:
-          secretName: clustermesh-apiserver-admin-cert
+        projected:
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
+          sources:
+          - secret:
+              name: clustermesh-apiserver-admin-cert
+              items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+          {{- if not .Values.tls.caBundle.enabled }}
+              - key: ca.crt
+                path: ca.crt
+          {{- else }}
+          - configMap:
+              name: {{ .Values.tls.caBundle.name }}
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: ca.crt
+          {{- end }}
       {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
       - name: etcd-users-config
         configMap:

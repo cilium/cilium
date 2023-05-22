@@ -198,6 +198,7 @@ func (c *Controller) runController() {
 	errorRetries := 1
 
 	c.mutex.RLock()
+	ctx := c.ctxDoFunc
 	params := c.params
 	c.mutex.RUnlock()
 	runFunc := true
@@ -212,7 +213,7 @@ func (c *Controller) runController() {
 			interval = params.RunInterval
 
 			start := time.Now()
-			err = params.DoFunc(c.ctxDoFunc)
+			err = params.DoFunc(ctx)
 			duration := time.Since(start)
 
 			c.mutex.Lock()
@@ -220,6 +221,12 @@ func (c *Controller) runController() {
 			c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
 
 			if err != nil {
+				if ctx.Err() != nil {
+					// The controller's context was canceled. Let's wait for the
+					// next controller update (or stop).
+					err = NewExitReason("controller context canceled")
+				}
+
 				switch err := err.(type) {
 				case ExitReason:
 					// This is actually not an error case, but it causes an exit
@@ -293,6 +300,7 @@ func (c *Controller) runController() {
 			// Pick up any changes to the parameters in case the controller has
 			// been updated.
 			c.mutex.RLock()
+			ctx = c.ctxDoFunc
 			params = c.params
 			c.mutex.RUnlock()
 			runFunc = true

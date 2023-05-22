@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -29,10 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/authmap"
-	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -255,7 +251,6 @@ func (d *Daemon) syncHostIPs() error {
 	}
 
 	for _, ipIDPair := range specialIdentities {
-		hostKey := node.GetIPsecKeyIdentity()
 		isHost := ipIDPair.ID == identity.ReservedIdentityHost
 		if isHost {
 			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
@@ -275,7 +270,7 @@ func (d *Daemon) syncHostIPs() error {
 		// This upsert will fail with ErrOverwrite continuously as long as the
 		// EP / CN watcher have found an apiserver IP and upserted it into the
 		// ipcache. Until then, it is expected to succeed.
-		d.ipcache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
+		d.ipcache.Upsert(ipIDPair.PrefixString(), nil, 0, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
 			Source: d.sourceByIP(ipIDPair.IP, source.Local),
 		})
@@ -314,7 +309,7 @@ func (d *Daemon) syncHostIPs() error {
 
 func (d *Daemon) sourceByIP(ip net.IP, defaultSrc source.Source) source.Source {
 	if addr, ok := ippkg.AddrFromIP(ip); ok {
-		lbls := d.ipcache.GetIDMetadataByIP(addr)
+		lbls := d.ipcache.GetMetadataLabelsByIP(addr)
 		if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
 			return source.KubeAPIServer
 		}
@@ -333,12 +328,6 @@ func (d *Daemon) initMaps() error {
 	if option.Config.DryMode {
 		return nil
 	}
-
-	if err := configmap.InitMap(); err != nil {
-		return err
-	}
-	// start configmap users after configmap.InitMap() above
-	utime.InitUTime(d.ctx, d.controllers, time.Minute)
 
 	if _, err := lxcmap.LXCMap().OpenOrCreate(); err != nil {
 		return err
@@ -362,22 +351,12 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if err := authmap.InitAuthMap(option.Config.AuthMapEntries); err != nil {
-		return err
-	}
-
 	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {
 		return err
 	}
 
 	if option.Config.TunnelingEnabled() {
 		if _, err := tunnel.TunnelMap().OpenOrCreate(); err != nil {
-			return err
-		}
-	}
-
-	if option.Config.EnableIPv4EgressGateway {
-		if err := egressmap.InitEgressMaps(option.Config.EgressGatewayPolicyMapEntries); err != nil {
 			return err
 		}
 	}

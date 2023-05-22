@@ -98,7 +98,7 @@ body:
       placeholder: |
         - Jenkins URL: https://jenkins.cilium.io/job/Cilium-PR-K8s-1.22-kernel-4.19/92/
         - ZIP file(s):
-            - [test_results.zip](https://github.com/cilium/cilium/files/1234567/7fcfe7ee_K8sUpdates_Tests_upgrade_and_downgrade_from_a_Cilium_stable_image_to_master.zip)
+            - [test_results.zip](https://github.com/cilium/cilium/files/1234567/7fcfe7ee_K8sUpdates_Tests_upgrade_and_downgrade_from_a_Cilium_stable_image_to_main.zip)
       value: |
         - Jenkins URL: 
         - ZIP file(s): 

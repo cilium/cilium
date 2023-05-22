@@ -13,7 +13,12 @@
     "examples/hubble/*",
     "go.mod",
     "go.sum",
-    "Makefile.defs"
+    "Makefile.defs",
+    ".travis.yml",
+    "test/kubernetes-test.sh",
+    "test/packet/scripts/install.sh",
+    "install/kubernetes/cilium/templates/spire/**",
+    "install/kubernetes/cilium/values.yaml.tmpl",
   ],
   postUpdateOptions: [
     "gomodTidy"
@@ -23,7 +28,7 @@
   // If removed, we would fall back on the config:base preset, which ignores any
   // paths that match 'examples/*' (which we explicitly do not want to ignore).
   "ignorePaths": [
-    // This file is deprecated and no longer present in master
+    // This file is deprecated and no longer present in main
     "images/cilium-test/Dockerfile"
   ],
   "ignoreDeps": [
@@ -39,7 +44,7 @@
   "separateMinorPatch": true,
   "pruneStaleBranches": true,
   "baseBranches": [
-    "master",
+    "main",
     "v1.13",
     "v1.12",
     "v1.11"
@@ -72,8 +77,8 @@
       ]
     },
     {
-      "groupName": "all go dependencies master",
-      "groupSlug": "all-go-deps-master",
+      "groupName": "all go dependencies main",
+      "groupSlug": "all-go-deps-main",
       "matchFiles": [
         "go.mod",
         "go.sum"
@@ -94,7 +99,7 @@
         "on friday"
       ],
       matchBaseBranches: [
-        "master"
+        "main"
       ]
     },
     {
@@ -140,6 +145,36 @@
       "matchFiles": [
         "images/builder/Dockerfile",
         "images/runtime/Dockerfile"
+      ],
+      "schedule": [
+        "on friday"
+      ]
+    },
+    {
+      // Images that directly use docker.io/library/golang for building.
+      "groupName": "golang-images",
+      "matchFiles": [
+        "contrib/backporting/Dockerfile",
+        "images/cilium-docker-plugin/Dockerfile",
+        "images/clustermesh-apiserver/Dockerfile",
+        "images/hubble-relay/Dockerfile",
+        "images/operator/Dockerfile"
+      ],
+      "schedule": [
+        "on friday"
+      ]
+    },
+    {
+      // Images that directly use docker.io/library/alpine for building.
+      "groupName": "alpine-images",
+      "matchFiles": [
+        "contrib/coccinelle/Dockerfile",
+        "images/cache/Dockerfile",
+        "images/clustermesh-apiserver/Dockerfile",
+        "images/operator/Dockerfile"
+      ],
+      "schedule": [
+        "on friday"
       ]
     },
     {
@@ -148,7 +183,7 @@
       ],
       "allowedVersions": "22.04",
       "matchBaseBranches": [
-        "master",
+        "main",
         "v1.13"
       ]
     },
@@ -161,6 +196,15 @@
         "v1.12",
         "v1.11"
       ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/busybox"
+      ],
+      "allowedVersions": "<=1.35",
+      "matchPaths": [
+        "install/kubernetes/cilium/templates/spire/**"
+      ],
     },
     {
       "matchPackageNames": [
@@ -198,9 +242,17 @@
       "matchPackageNames": [
         "docker.io/library/alpine"
       ],
-      "allowedVersions": "<3.17",
+      "allowedVersions": "<3.18",
       "matchBaseBranches": [
         "v1.13",
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.17",
+      "matchBaseBranches": [
         "v1.12",
         "v1.11"
       ]
@@ -225,6 +277,16 @@
         "cilium/hubble",
         "quay.io/cilium/hubble"
       ],
+    },
+    {
+      "groupName": "Go",
+      "matchDepNames": [
+        "go",
+        "docker.io/library/golang"
+      ],
+      "schedule": [
+        "on friday"
+      ]
     },
     {
       // Group golangci-lint updates to overrule grouping of version updates in the GHA files.
@@ -272,13 +334,14 @@
     },
     {
       "fileMatch": [
-        "^\\.github/workflows/[^/]+\\.yaml$"
+        "^\\.github/workflows/[^/]+\\.ya?ml$"
       ],
       // This regex manages version strings in GitHub actions workflow files,
       // similar to the examples shown here:
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION: (?<currentValue>.*)"
       ]
     },
     {
@@ -290,6 +353,23 @@
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION = (?<currentValue>.*)\\s+.+_SHA = (?<currentDigest>sha256:[a-f0-9]+)"
+      ]
+    },
+    {
+      "fileMatch": [
+        "^\\.travis\\.yml$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+go: \"(?<currentValue>.*)\""
+      ]
+    },
+    {
+      "fileMatch": [
+        "^test/kubernetes-test\\.sh$",
+        "^test/packet/scripts/install\\.sh$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\""
       ]
     }
   ]

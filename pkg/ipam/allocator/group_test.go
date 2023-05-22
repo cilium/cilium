@@ -19,9 +19,6 @@ func (e *AllocatorSuite) TestPoolGroupAllocator(c *check.C) {
 	})
 	c.Assert(err, check.IsNil)
 	c.Assert(g, check.Not(check.IsNil))
-	c.Assert(g.PoolExists("s1"), check.Equals, true)
-	c.Assert(g.PoolExists("s2"), check.Equals, true)
-	c.Assert(g.PoolExists("s3"), check.Equals, false)
 	quota := g.GetPoolQuota()
 	c.Assert(quota["s1"].AvailableIPs, check.Equals, 1<<16-2)
 	c.Assert(quota["s2"].AvailableIPs, check.Equals, 1<<16-2)
@@ -41,14 +38,12 @@ func (e *AllocatorSuite) TestPoolGroupAllocatorLimit(c *check.C) {
 	c.Assert(quota["s1"].AvailableIPs, check.Equals, maxAvailablePerPool)
 	c.Assert(quota["s2"].AvailableIPs, check.Equals, maxAvailablePerPool)
 
-	for i := 0; i < 2*maxAvailablePerPool; i++ {
-		poolID, available := g.FirstPoolWithAvailableQuota([]types.PoolID{})
-		c.Assert(poolID, check.Not(check.Equals), types.PoolNotExists)
-		c.Assert(available, check.Not(check.Equals), 0)
-
-		ips, err := g.AllocateMany(poolID, 1)
-		c.Assert(err, check.IsNil)
-		c.Assert(len(ips), check.Equals, 1)
+	for _, poolID := range []types.PoolID{"s1", "s2"} {
+		for i := 0; i < maxAvailablePerPool; i++ {
+			ips, err := g.AllocateMany(poolID, 1)
+			c.Assert(err, check.IsNil)
+			c.Assert(len(ips), check.Equals, 1)
+		}
 	}
 
 	quota = g.GetPoolQuota()

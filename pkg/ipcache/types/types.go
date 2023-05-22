@@ -6,6 +6,8 @@ package types
 import (
 	"context"
 	"net"
+	"net/netip"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -38,9 +40,12 @@ type ResourceID string
 type ResourceKind string
 
 var (
+	ResourceKindCNP                  = ResourceKind("cnp")
+	ResourceKindCCNP                 = ResourceKind("ccnp")
 	ResourceKindEndpoint             = ResourceKind("ep")
 	ResourceKindEndpointSlice        = ResourceKind("endpointslices")
 	ResourceKindEndpointSlicev1beta1 = ResourceKind("endpointslices_v1beta1")
+	ResourceKindNetpol               = ResourceKind("netpol")
 	ResourceKindNode                 = ResourceKind("node")
 )
 
@@ -60,4 +65,31 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 // NodeHandler is responsible for the management of node identities.
 type NodeHandler interface {
 	AllocateNodeID(net.IP) uint16
+}
+
+// TunnelPeer is the IP address of the host associated with this prefix. This is
+// typically used to establish a tunnel, e.g. in tunnel mode or for encryption.
+// This type implements ipcache.IPMetadata
+type TunnelPeer struct{ netip.Addr }
+
+func (t TunnelPeer) IP() net.IP {
+	return t.AsSlice()
+}
+
+// EncryptKey is the identity of the encryption key.
+// This type implements ipcache.IPMetadata
+type EncryptKey uint8
+
+const EncryptKeyEmpty = EncryptKey(0)
+
+func (e EncryptKey) IsValid() bool {
+	return e != EncryptKeyEmpty
+}
+
+func (e EncryptKey) Uint8() uint8 {
+	return uint8(e)
+}
+
+func (e EncryptKey) String() string {
+	return strconv.Itoa(int(e))
 }

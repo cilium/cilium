@@ -54,4 +54,4 @@ Let's verify a Cilium image's signature using the ``cosign verify`` command:
     
 
 .. _`Keyless Signatures`: https://docs.sigstore.dev/cosign/keyless/
-.. _`Cilium workflows`: https://github.com/cilium/cilium/tree/master/.github/workflows
+.. _`Cilium workflows`: https://github.com/cilium/cilium/tree/main/.github/workflows

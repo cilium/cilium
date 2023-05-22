@@ -61,9 +61,9 @@ func (m *BpfMetadata) validate(all bool) error {
 
 	// no validation rules for IsIngress
 
-	// no validation rules for MayUseOriginalSourceAddress
+	// no validation rules for UseOriginalSourceAddress
 
-	// no validation rules for EgressMarkSourceEndpointId
+	// no validation rules for IsL7Lb
 
 	// no validation rules for Ipv4SourceAddress
 

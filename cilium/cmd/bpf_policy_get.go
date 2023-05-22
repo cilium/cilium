@@ -10,20 +10,19 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/identity"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -67,13 +66,37 @@ func listAllMaps() {
 		return
 	}
 
+	maps := []policyMap{}
 	for _, file := range matchFiles {
-		fmt.Printf("%s:\n", file)
-		fmt.Println()
-		dumpMap(file)
-		fmt.Println()
-		fmt.Println()
+		endpointSplit := strings.Split(file, "_")
+		endpoint := strings.TrimLeft(endpointSplit[len(endpointSplit)-1], "0")
+		maps = append(maps, policyMap{
+			EndpointID: endpoint,
+			Path:       file,
+			Content:    mapContent(file),
+		})
 	}
+
+	if command.OutputOption() {
+		if err := command.PrintOutput(maps); err != nil {
+			os.Exit(1)
+		}
+	} else {
+		for _, m := range maps {
+			fmt.Printf("Endpoint ID: %s\n", m.EndpointID)
+			fmt.Printf("Path: %s\n", m.Path)
+			fmt.Println()
+			printTable(m.Content)
+			fmt.Println()
+			fmt.Println()
+		}
+	}
+}
+
+type policyMap struct {
+	EndpointID string
+	Path       string
+	Content    policymap.PolicyEntriesDump
 }
 
 func listMap(args []string) {
@@ -83,10 +106,18 @@ func listMap(args []string) {
 	if err != nil {
 		Fatalf("Failed to parse endpointID %q", lbl)
 	}
-	dumpMap(mapPath)
+
+	contentDump := mapContent(mapPath)
+	if command.OutputOption() {
+		if err := command.PrintOutput(contentDump); err != nil {
+			os.Exit(1)
+		}
+	} else {
+		printTable(contentDump)
+	}
 }
 
-func dumpMap(file string) {
+func mapContent(file string) policymap.PolicyEntriesDump {
 	m, err := policymap.Open(file)
 	if err != nil {
 		Fatalf("Failed to open map: %s\n", err)
@@ -99,19 +130,16 @@ func dumpMap(file string) {
 	}
 	sort.Slice(statsMap, statsMap.Less)
 
-	if command.OutputOption() {
-		if err := command.PrintOutput(statsMap); err != nil {
-			os.Exit(1)
-		}
-	} else {
-		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-		formatMap(w, statsMap)
-		w.Flush()
-		if len(statsMap) == 0 {
-			fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
-		}
-	}
+	return statsMap
+}
 
+func printTable(contentDump policymap.PolicyEntriesDump) {
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	formatMap(w, contentDump)
+	w.Flush()
+	if len(contentDump) == 0 {
+		fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
+	}
 }
 
 func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
@@ -122,8 +150,10 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		labelsDesTitle        = "LABELS (source:key[=value])"
 		portTitle             = "PORT/PROTO"
 		proxyPortTitle        = "PROXY PORT"
+		authTypeTitle         = "AUTH TYPE"
 		bytesTitle            = "BYTES"
 		packetsTitle          = "PACKETS"
+		prefixTitle           = "PREFIX"
 	)
 
 	labelsID := map[identity.NumericIdentity]*identity.Identity{}
@@ -141,49 +171,46 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 	}
 
 	if printIDs {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-			policyTitle, trafficDirectionTitle, labelsIDTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			policyTitle, trafficDirectionTitle, labelsIDTitle, portTitle, proxyPortTitle, authTypeTitle, bytesTitle, packetsTitle, prefixTitle)
 	} else {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-			policyTitle, trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			policyTitle, trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, authTypeTitle, bytesTitle, packetsTitle, prefixTitle)
 	}
 	for _, stat := range statsMap {
+		prefixLen := stat.Key.Prefixlen - policymap.StaticPrefixBits
 		id := identity.NumericIdentity(stat.Key.Identity)
 		trafficDirection := trafficdirection.TrafficDirection(stat.Key.TrafficDirection)
 		trafficDirectionString := trafficDirection.String()
-		port := models.PortProtocolANY
-		if stat.Key.DestPort != 0 || stat.Key.Nexthdr == uint8(u8proto.ICMP) || stat.Key.Nexthdr == uint8(u8proto.ICMPv6) {
-			dport := byteorder.NetworkToHost16(stat.Key.DestPort)
-			proto := u8proto.U8proto(stat.Key.Nexthdr)
-			port = fmt.Sprintf("%d/%s", dport, proto.String())
-		}
+		port := stat.Key.PortProtoString()
 		proxyPort := "NONE"
-		if stat.ProxyPort != 0 {
-			proxyPort = strconv.FormatUint(uint64(byteorder.NetworkToHost16(stat.ProxyPort)), 10)
+		pp := stat.GetProxyPort()
+		if pp != 0 {
+			proxyPort = strconv.FormatUint(uint64(pp), 10)
 		}
 		var policyStr string
-		if policymap.PolicyEntryFlags(stat.Flags).IsDeny() {
+		if stat.IsDeny() {
 			policyStr = "Deny"
 		} else {
 			policyStr = "Allow"
 		}
 		if printIDs {
-			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%d\t%d\t\n",
-				policyStr, trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t\n",
+				policyStr, trafficDirectionString, id, port, proxyPort, policy.AuthType(stat.AuthType), stat.Bytes, stat.Packets, prefixLen)
 		} else if lbls := labelsID[id]; lbls != nil && len(lbls.Labels) > 0 {
 			first := true
 			for _, lbl := range lbls.Labels.GetPrintableModel() {
 				if first {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t\n",
-						policyStr, trafficDirectionString, lbl, port, proxyPort, stat.Bytes, stat.Packets)
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t\n",
+						policyStr, trafficDirectionString, lbl, port, proxyPort, policy.AuthType(stat.AuthType), stat.Bytes, stat.Packets, prefixLen)
 					first = false
 				} else {
-					fmt.Fprintf(w, "\t\t%s\t\t\t\t\t\t\n", lbl)
+					fmt.Fprintf(w, "\t\t%s\t\t\t\t\t\t\t\n", lbl)
 				}
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%d\t%d\t\n",
-				policyStr, trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t\n",
+				policyStr, trafficDirectionString, id, port, proxyPort, policy.AuthType(stat.AuthType), stat.Bytes, stat.Packets, prefixLen)
 		}
 	}
 }

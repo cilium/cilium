@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/asaskevich/govalidator"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -139,7 +138,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 			ExpectHubbleRelayReady(kubectl, hubbleRelayNamespace)
 			hubbleRelayIP, hubbleRelayPort, err := kubectl.GetServiceHostPort(hubbleRelayNamespace, hubbleRelayService)
 			Expect(err).Should(BeNil(), "Cannot get service %s", hubbleRelayService)
-			Expect(govalidator.IsIP(hubbleRelayIP)).Should(BeTrue(), "hubbleRelayIP is not an IP")
+			Expect(net.ParseIP(hubbleRelayIP) != nil).Should(BeTrue(), "hubbleRelayIP is not an IP")
 			hubbleRelayAddress = net.JoinHostPort(hubbleRelayIP, strconv.Itoa(hubbleRelayPort))
 
 			namespaceForTest = helpers.GenerateNamespaceForTest("")
@@ -179,15 +178,16 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 		It("Test L3/L4 Flow", func() {
 			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
 			defer cancel()
-			follow := kubectl.HubbleObserveFollow(ctx, ciliumPodK8s1, fmt.Sprintf(
+			follow, err := kubectl.HubbleObserveFollow(ctx, ciliumPodK8s1, fmt.Sprintf(
 				"--last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
 				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port))
+			Expect(err).To(BeNil(), "Failed to start hubble observe")
 
 			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], app1ClusterIP)
 
-			err := follow.WaitUntilMatchFilterLineTimeout(`{$.flow.Type}`, "L3_L4", helpers.ShortCommandTimeout)
+			err = follow.WaitUntilMatchFilterLineTimeout(`{$.flow.Type}`, "L3_L4", helpers.ShortCommandTimeout)
 			Expect(err).To(BeNil(), fmt.Sprintf("hubble observe query timed out on %q", follow.OutputPrettyPrint()))
 
 			// Basic check for L4 Prometheus metrics.
@@ -230,15 +230,16 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 
 			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
 			defer cancel()
-			follow := kubectl.HubbleObserveFollow(ctx, ciliumPodK8s1, fmt.Sprintf(
+			follow, err := kubectl.HubbleObserveFollow(ctx, ciliumPodK8s1, fmt.Sprintf(
 				"--last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
 				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels))
+			Expect(err).To(BeNil(), "Failed to start hubble observe")
 
 			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], app1ClusterIP)
 
-			err := follow.WaitUntilMatchFilterLineTimeout(`{$.flow.Type}`, "L7", helpers.ShortCommandTimeout)
+			err = follow.WaitUntilMatchFilterLineTimeout(`{$.flow.Type}`, "L7", helpers.ShortCommandTimeout)
 			Expect(err).To(BeNil(), fmt.Sprintf("hubble observe query timed out on %q", follow.OutputPrettyPrint()))
 
 			// Basic check for L7 Prometheus metrics.

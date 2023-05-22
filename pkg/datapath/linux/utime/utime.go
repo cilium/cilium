@@ -5,7 +5,6 @@ package utime
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"runtime"
@@ -13,13 +12,10 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 )
 
 const (
-	ctrlName = "sync-utime"
-
 	btimeInfoFilepath = "/proc/stat"
 	nClockSamples     = 10
 
@@ -63,46 +59,23 @@ func (t UTime) String() string {
 }
 
 type utimeController struct {
-	index  configmap.Index
-	offset UTime
-}
-
-type controllerManager interface {
-	UpdateController(name string, params controller.ControllerParams)
-}
-
-func InitUTime(ctx context.Context, mgr controllerManager, interval time.Duration) {
-	ctrl := &utimeController{
-		index: configmap.UTimeOffset,
-	}
-
-	// Add controller for keeping clock in sync for NTP time jumps and any difference
-	// between monotonic and boottime clocks.
-	mgr.UpdateController(ctrlName,
-		controller.ControllerParams{
-			DoFunc: func(ctx context.Context) error {
-				return ctrl.sync()
-			},
-			RunInterval: interval,
-			Context:     ctx,
-		},
-	)
+	configMap configmap.Map
+	offset    UTime
 }
 
 func (u *utimeController) sync() error {
-	offset := GetCurrentUTimeOffset()
+	offset := getCurrentUTimeOffset()
 	if offset != u.offset {
-		err := configmap.Update(u.index, uint64(offset))
-		if err != nil {
-			return err
+		if err := u.configMap.Update(configmap.UTimeOffset, uint64(offset)); err != nil {
+			return fmt.Errorf("failed to update utime offset: %w", err)
 		}
 		u.offset = offset
 	}
 	return nil
 }
 
-// GetCurrentUTimeOffset returns the current time offset to be configured for the datapath
-func GetCurrentUTimeOffset() UTime {
+// getCurrentUTimeOffset returns the current time offset to be configured for the datapath
+func getCurrentUTimeOffset() UTime {
 	// boottime is in seconds since Unix epoch, delta is clock drift in nanoseconds
 	boottime, err := getBoottime()
 	if err != nil {

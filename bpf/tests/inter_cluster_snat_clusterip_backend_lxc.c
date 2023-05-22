@@ -294,7 +294,7 @@ int lxc_to_overlay_synack_setup(struct __ctx_buff *ctx)
 	};
 
 	struct remote_endpoint_info cache_value = {
-		.sec_label = REMOTE_NODE_ID,
+		.sec_identity = REMOTE_NODE_ID,
 	};
 
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);

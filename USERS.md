@@ -115,6 +115,11 @@ Users (Alphabetically)
       L: https://www.youtube.com/watch?v=yXm7yZE2rk4
       Q: @rmaika @mohahmed13
 
+    * N: Cistec
+      D: Cistec is a clinical information system provider and uses Cilium as the CNI plugin.
+      U: Networking and network policy
+      L: https://www.cistec.com/
+      
     * N: Civo
       D: Civo is offering Cilium as the CNI option for Civo users to choose it for their Civo Kubernetes clusters.
       U: Networking and network policy
@@ -359,8 +364,8 @@ Users (Alphabetically)
     * N: New York Times (the)
       D: The New York Times is using Cilium on EKS to build multi-region multi-tenant shared clusters
       U: Networking (CNI, EKS IPAM, Maglev, kube-proxy replacement, Direct Routing),  Observability (Network metrics with Hubble, policy troubleshooting) and Security (Network Policy)
-      L: https://www.nytimes.com/
-      Q: @prune
+      L: https://www.nytimes.com/, https://youtu.be/9FDpMNvPrCw
+      Q: @abebars
 
     * N: Nexxiot
       D: Nexxiot is an IoT SaaS provider using Cilium as the main CNI plugin on AWS EKS clusters
@@ -551,6 +556,12 @@ Users (Alphabetically)
       U: Networking, CNI
       L: https://segmentfault.com/a/1190000040298428/en
 
+    * N: teuto.net Netzdienste GmbH
+      D: teuto.net is using cilium for their managed k8s service, t8s
+      U: CNI, CiliumNetworkPolicy, Hubble, Encryption, ...
+      L: https://teuto.net/managed-kubernetes
+      Q: @cwrau
+
     * N: T-Systems International
       D: TSI uses Cilium for it's Open Sovereign Cloud product, including as a CNI for Gardener-based Kubernetes clusters and bare-metal infrastructure managed by OnMetal.
       U: CNI, overlay network, NetworkPolicies
@@ -560,6 +571,12 @@ Users (Alphabetically)
       D: uSwitch is using Cilium in AWS for all their production clusters (self hosted k8s)
       U: ClusterMesh, CNI-Chaining (with amazon-vpc-cni-k8s)
       Q: @jirving
+
+    * N: United Cloud
+      D: United Cloud is using Cilium for all non-production and production clusters (on-premises)
+      U: CNI, Hubble, CiliumNetworkPolicy, CiliumClusterwideNetworkPolicy, ClusterMesh, Encryption
+      L: https://united.cloud
+      Q: @boris
 
     * N: Utmost Software, Inc
       D: Utmost is using Cilium in all tiers of its Kubernetes ecosystem to implement zero trust

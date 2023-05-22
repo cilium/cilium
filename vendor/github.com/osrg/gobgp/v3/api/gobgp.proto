@@ -496,6 +496,7 @@ message Path {
   // - IPAddressPrefix
   // - LabeledIPAddressPrefix
   // - EncapsulationNLRI
+  // - VPLSNLRI
   // - EVPNEthernetAutoDiscoveryRoute
   // - EVPNMACIPAdvertisementRoute
   // - EVPNInclusiveMulticastEthernetTagRoute

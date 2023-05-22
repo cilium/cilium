@@ -36,6 +36,12 @@ func (o *GetHealthzReader) ReadResponse(response runtime.ClientResponse, consume
 			return nil, err
 		}
 		return nil, result
+	case 501:
+		result := NewGetHealthzNotImplemented()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -154,6 +160,67 @@ func (o *GetHealthzInternalServerError) GetPayload() string {
 }
 
 func (o *GetHealthzInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// response payload
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetHealthzNotImplemented creates a GetHealthzNotImplemented with default headers values
+func NewGetHealthzNotImplemented() *GetHealthzNotImplemented {
+	return &GetHealthzNotImplemented{}
+}
+
+/*
+GetHealthzNotImplemented describes a response with status code 501, with default header values.
+
+Cilium operator health status not available
+*/
+type GetHealthzNotImplemented struct {
+	Payload string
+}
+
+// IsSuccess returns true when this get healthz not implemented response has a 2xx status code
+func (o *GetHealthzNotImplemented) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get healthz not implemented response has a 3xx status code
+func (o *GetHealthzNotImplemented) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get healthz not implemented response has a 4xx status code
+func (o *GetHealthzNotImplemented) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get healthz not implemented response has a 5xx status code
+func (o *GetHealthzNotImplemented) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this get healthz not implemented response a status code equal to that given
+func (o *GetHealthzNotImplemented) IsCode(code int) bool {
+	return code == 501
+}
+
+func (o *GetHealthzNotImplemented) Error() string {
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzNotImplemented  %+v", 501, o.Payload)
+}
+
+func (o *GetHealthzNotImplemented) String() string {
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzNotImplemented  %+v", 501, o.Payload)
+}
+
+func (o *GetHealthzNotImplemented) GetPayload() string {
+	return o.Payload
+}
+
+func (o *GetHealthzNotImplemented) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {

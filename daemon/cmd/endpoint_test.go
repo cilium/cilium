@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build integration_tests
-
 package cmd
 
 import (
 	"context"
-	"net"
+	"net/netip"
 	"runtime"
 	"time"
 
@@ -98,7 +96,9 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
 	// Check that the endpoint has the reserved:init label.
-	ep, err := ds.d.endpointManager.Lookup(endpointid.NewIPPrefixID(net.ParseIP(epTemplate.Addressing.IPV4)))
+	v4ip, err := netip.ParseAddr(epTemplate.Addressing.IPV4)
+	c.Assert(err, IsNil)
+	ep, err := ds.d.endpointManager.Lookup(endpointid.NewIPPrefixID(v4ip))
 	c.Assert(err, IsNil)
 	c.Assert(ep.OpLabels.IdentityLabels(), checker.DeepEquals, expectedLabels)
 

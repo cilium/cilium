@@ -31,8 +31,13 @@ import (
 )
 
 var (
-	log      = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
-	zeroIPv4 = net.ParseIP("0.0.0.0")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
+	// GatewayNotFoundIPv4 is a special IP value used as gatewayIP in the BPF policy
+	// map to indicate no gateway was found for the given policy
+	GatewayNotFoundIPv4 = net.ParseIP("0.0.0.0")
+	// ExcludedCIDRIPv4 is a special IP value used as gatewayIP in the BPF policy map
+	// to indicate the entry is for an excluded CIDR and should skip egress gateway
+	ExcludedCIDRIPv4 = net.ParseIP("0.0.0.1")
 )
 
 // Cell provides a [Manager] for consumption with hive.
@@ -103,6 +108,9 @@ type Manager struct {
 	// routes/rules to steer egress gateway traffic to the correct interface
 	// with the egress IP assigned to
 	installRoutes bool
+
+	// policyMap communicates the active policies to the dapath.
+	policyMap egressmap.PolicyMap
 }
 
 type Params struct {
@@ -112,6 +120,7 @@ type Params struct {
 	DaemonConfig      *option.DaemonConfig
 	CacheStatus       k8s.CacheStatus
 	IdentityAllocator identityCache.IdentityAllocator
+	PolicyMap         egressmap.PolicyMap
 
 	Lifecycle hive.Lifecycle
 }
@@ -129,6 +138,7 @@ func NewEgressGatewayManager(p Params) *Manager {
 		epDataStore:             make(map[endpointID]*endpointMetadata),
 		identityAllocator:       p.IdentityAllocator,
 		installRoutes:           p.Config.InstallEgressGatewayRoutes,
+		policyMap:               p.PolicyMap,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -519,7 +529,7 @@ nextIpRule:
 
 func (manager *Manager) addMissingEgressRules() {
 	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
-	egressmap.EgressPolicyMap.IterateWithCallback(
+	manager.policyMap.IterateWithCallback(
 		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
 			egressPolicies[*key] = *val
 		})
@@ -530,7 +540,7 @@ func (manager *Manager) addMissingEgressRules() {
 
 		gatewayIP := gwc.gatewayIP
 		if excludedCIDR {
-			gatewayIP = zeroIPv4
+			gatewayIP = ExcludedCIDRIPv4
 		}
 
 		if policyPresent && policyVal.Match(gwc.egressIP.IP, gatewayIP) {
@@ -544,7 +554,7 @@ func (manager *Manager) addMissingEgressRules() {
 			logfields.GatewayIP:       gatewayIP,
 		})
 
-		if err := egressmap.EgressPolicyMap.Update(endpointIP, *dstCIDR, gwc.egressIP.IP, gatewayIP); err != nil {
+		if err := manager.policyMap.Update(endpointIP, *dstCIDR, gwc.egressIP.IP, gatewayIP); err != nil {
 			logger.WithError(err).Error("Error applying egress gateway policy")
 		} else {
 			logger.Debug("Egress gateway policy applied")
@@ -560,7 +570,7 @@ func (manager *Manager) addMissingEgressRules() {
 // is not baked by an actual k8s CiliumEgressGatewayPolicy.
 func (manager *Manager) removeUnusedEgressRules() {
 	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
-	egressmap.EgressPolicyMap.IterateWithCallback(
+	manager.policyMap.IterateWithCallback(
 		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
 			egressPolicies[*key] = *val
 		})
@@ -570,7 +580,7 @@ nextPolicyKey:
 		matchPolicy := func(endpointIP net.IP, dstCIDR *net.IPNet, excludedCIDR bool, gwc *gatewayConfig) bool {
 			gatewayIP := gwc.gatewayIP
 			if excludedCIDR {
-				gatewayIP = zeroIPv4
+				gatewayIP = ExcludedCIDRIPv4
 			}
 
 			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP.IP, gatewayIP)
@@ -587,7 +597,7 @@ nextPolicyKey:
 			logfields.GatewayIP:       policyVal.GetGatewayIP(),
 		})
 
-		if err := egressmap.EgressPolicyMap.Delete(policyKey.GetSourceIP(), *policyKey.GetDestCIDR()); err != nil {
+		if err := manager.policyMap.Delete(policyKey.GetSourceIP(), *policyKey.GetDestCIDR()); err != nil {
 			logger.WithError(err).Error("Error removing egress gateway policy")
 		} else {
 			logger.Debug("Egress gateway policy removed")

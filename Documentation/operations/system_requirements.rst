@@ -19,6 +19,7 @@ Summary
 When running Cilium using the container image ``cilium/cilium``, the host
 system must meet these requirements:
 
+- Hosts with either AMD64 or AArch64 architecture
 - `Linux kernel`_ >= 4.19.57 or equivalent (e.g., 4.18 on RHEL8)
 
 When running Cilium as a native process on your host (i.e. **not** running the
@@ -47,6 +48,14 @@ iproute2                 >= 5.9.0 [#iproute2_foot]_     yes
 .. [#iproute2_foot] Requires support for eBPF templating as documented
    :ref:`below <iproute2_requirements>`.
 
+Architecture Support
+====================
+
+Cilium images are built for the following platforms:
+
+- AMD64
+- AArch64
+
 Linux Distribution Compatibility & Considerations
 =================================================
 
@@ -59,6 +68,7 @@ run Cilium.
 Distribution               Minimum Version
 ========================== ====================
 `Amazon Linux 2`_          all
+`Bottlerocket OS`_         all
 `CentOS`_                  >= 8.0
 `Container-Optimized OS`_  all
 `CoreOS`_                  all
@@ -80,6 +90,7 @@ Ubuntu_                    >= 18.04.3
 .. _RedHat Enterprise Linux: https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux
 .. _Ubuntu: https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
 .. _Opensuse: https://www.opensuse.org/
+.. _Bottlerocket OS: https://github.com/bottlerocket-os/bottlerocket
 
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a
@@ -410,6 +421,7 @@ Port Range / Protocol    Description
 6060/tcp                 cilium-agent pprof server (listening on 127.0.0.1)
 6061/tcp                 cilium-operator pprof server (listening on 127.0.0.1)
 6062/tcp                 Hubble Relay pprof server (listening on 127.0.0.1)
+9878/tcp                 cilium-envoy health listener (listening on 127.0.0.1)
 9879/tcp                 cilium-agent health status API (listening on 127.0.0.1 and/or ::1)
 9890/tcp                 cilium-agent gops server (listening on 127.0.0.1)
 9891/tcp                 operator gops server (listening on 127.0.0.1)
@@ -417,7 +429,7 @@ Port Range / Protocol    Description
 9893/tcp                 Hubble Relay gops server (listening on 127.0.0.1)
 9962/tcp                 cilium-agent Prometheus metrics
 9963/tcp                 cilium-operator Prometheus metrics
-9964/tcp                 cilium-proxy Prometheus metrics
+9964/tcp                 cilium-envoy Prometheus metrics
 51871/udp                WireGuard encryption tunnel endpoint
 ======================== ==================================================================
 

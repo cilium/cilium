@@ -4,7 +4,7 @@
 package id
 
 import (
-	"net"
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -202,6 +202,6 @@ func (s *IDSuite) TestParse(c *C) {
 }
 
 func (s *IDSuite) TestNewIPPrefix(c *C) {
-	c.Assert(strings.HasPrefix(NewIPPrefixID(net.ParseIP("1.1.1.1")), string(IPv4Prefix)), Equals, true)
-	c.Assert(strings.HasPrefix(NewIPPrefixID(net.ParseIP("f00d::1")), string(IPv6Prefix)), Equals, true)
+	c.Assert(strings.HasPrefix(NewIPPrefixID(netip.MustParseAddr("1.1.1.1")), string(IPv4Prefix)), Equals, true)
+	c.Assert(strings.HasPrefix(NewIPPrefixID(netip.MustParseAddr("f00d::1")), string(IPv6Prefix)), Equals, true)
 }

@@ -6,7 +6,7 @@ package agent_test
 import (
 	"context"
 	"errors"
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -20,7 +20,7 @@ import (
 var (
 	// the standard node name we'll use throughout our tests.
 	nodeName = "node-under-test-01"
-	nodeIPv4 = net.ParseIP("192.168.0.1")
+	nodeIPv4 = netip.MustParseAddr("192.168.0.1")
 )
 
 // a mock agent.nodeSpecer implementation.
@@ -92,7 +92,7 @@ func TestControllerSanity(t *testing.T) {
 				if p != wantPolicy {
 					t.Fatalf("got: %+v, want: %+v", p, wantPolicy)
 				}
-				if !c.IPv4.Equal(nodeIPv4) {
+				if c.IPv4 != nodeIPv4 {
 					t.Fatalf("got: %v, want: %v", c.IPv4, nodeIPv4)
 				}
 				return nil
@@ -182,7 +182,7 @@ func TestControllerSanity(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			nodeaddr.SetIPv4(nodeIPv4)
+			nodeaddr.SetIPv4(nodeIPv4.AsSlice())
 			nodetypes.SetName(nodeName)
 			nodeSpecer := &fakeNodeSpecer{
 				Annotations_: tt.annotations,
@@ -202,7 +202,7 @@ func TestControllerSanity(t *testing.T) {
 			}
 			err := c.Reconcile(context.Background())
 			if (tt.err == nil) != (err == nil) {
-				t.Fatalf("wanted error: %v", tt.err == nil)
+				t.Fatalf("want: %v, got: %v", tt.err, err)
 			}
 		})
 	}

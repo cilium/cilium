@@ -1,0 +1,11 @@
+{{- if and .Values.tls.caBundle.enabled .Values.tls.caBundle.content -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.tls.caBundle.name }}
+  namespace: {{ .Release.Namespace }}
+data:
+  {{ .Values.tls.caBundle.key }}: |
+    {{- .Values.tls.caBundle.content | nindent 4 }}
+{{- end }}

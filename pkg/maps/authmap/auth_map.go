@@ -5,7 +5,6 @@ package authmap
 
 import (
 	"fmt"
-	"sync"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -21,87 +20,87 @@ const (
 	MapName = "cilium_auth_map"
 )
 
-var (
-	authMap     *Map
-	authMapInit = &sync.Once{}
-)
+// Map provides access to the eBPF map auth.
+type Map interface {
+	// Lookup returns the auth map object associated with the provided
+	// (local identity, remote identity, remote host id, auth type) quadruple.
+	Lookup(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) (*AuthInfo, error)
 
-type Map struct {
-	*ebpf.Map
+	// Update inserts or updates the auth map object associated with the provided
+	// (local identity, remote identity, remote host id, auth type) quadruple.
+	Update(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType, expiration utime.UTime) error
+
+	// Delete deletes the auth map object associated with the provided
+	// (local identity, remote identity, remote host id, auth type) quadruple.
+	Delete(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) error
+
+	// IterateWithCallback iterates through all the keys/values of an auth map,
+	// passing each key/value pair to the cb callback.
+	IterateWithCallback(cb IterateCallback) error
 }
 
-// AuthMap returns the initialized auth map
-func AuthMap() *Map {
-	return authMap
+type authMap struct {
+	bpfMap *ebpf.Map
 }
 
-// InitAuthMap initializes the auth map.
-func InitAuthMap(maxEntries int) error {
-	return initMap(maxEntries, true)
+func newMap(maxEntries int) *authMap {
+	return &authMap{
+		bpfMap: ebpf.NewMap(&ebpf.MapSpec{
+			Name:       MapName,
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(AuthKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(AuthInfo{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+			Pinning:    ebpf.PinByName,
+		}),
+	}
 }
 
-// OpenAuthMap opens the auth map for access.
-func OpenAuthMap() error {
-	return initMap(0, false)
+// LoadAuthMap loads the pre-initialized auth map for access.
+// This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
+// It needs to initialized beforehand via the Cilium Agent.
+func LoadAuthMap() (Map, error) {
+	bpfMap, err := ebpf.LoadRegisterMap(MapName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load bpf map: %w", err)
+	}
+
+	return &authMap{bpfMap: bpfMap}, nil
 }
 
-func initMap(maxEntries int, create bool) error {
-	var initErr error
+func (m *authMap) init() error {
+	if err := m.bpfMap.OpenOrCreate(); err != nil {
+		return fmt.Errorf("failed to init bpf map: %w", err)
+	}
 
-	authMapInit.Do(func() {
-		var m *ebpf.Map
-
-		if create {
-			m = ebpf.NewMap(&ebpf.MapSpec{
-				Name:       MapName,
-				Type:       ebpf.Hash,
-				KeySize:    uint32(unsafe.Sizeof(AuthKey{})),
-				ValueSize:  uint32(unsafe.Sizeof(AuthInfo{})),
-				MaxEntries: uint32(maxEntries),
-				Flags:      unix.BPF_F_NO_PREALLOC,
-				Pinning:    ebpf.PinByName,
-			})
-			if err := m.OpenOrCreate(); err != nil {
-				initErr = err
-				return
-			}
-		} else {
-			var err error
-
-			if m, err = ebpf.LoadRegisterMap(MapName); err != nil {
-				initErr = err
-				return
-			}
-		}
-
-		authMap = &Map{Map: m}
-	})
-
-	return initErr
+	return nil
 }
 
-// Update inserts or updates the auth map object associated with the provided
-// (local identity, remote identity, remote host id, auth type) quadruple.
-func (m *Map) Update(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType, expiration utime.UTime) error {
+func (m *authMap) close() error {
+	if err := m.bpfMap.Close(); err != nil {
+		return fmt.Errorf("failed to close bpf map: %w", err)
+	}
+
+	return nil
+}
+
+func (m *authMap) Update(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType, expiration utime.UTime) error {
 	key := newAuthKey(localIdentity, remoteIdentity, remoteNodeID, authType)
 	val := AuthInfo{Expiration: expiration}
-	return m.Map.Update(key, val, 0)
+	return m.bpfMap.Update(key, val, 0)
 }
 
-// Delete deletes the auth map object associated with the provided
-// (local identity, remote identity, remote host id, auth type) quadruple.
-func (m *Map) Delete(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) error {
+func (m *authMap) Delete(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) error {
 	key := newAuthKey(localIdentity, remoteIdentity, remoteNodeID, authType)
-	return m.Map.Delete(key)
+	return m.bpfMap.Delete(key)
 }
 
-// Lookup returns the auth map object associated with the provided
-// (local identity, remote identity, remote host id, auth type) quadruple.
-func (m *Map) Lookup(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) (*AuthInfo, error) {
+func (m *authMap) Lookup(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) (*AuthInfo, error) {
 	key := newAuthKey(localIdentity, remoteIdentity, remoteNodeID, authType)
 	val := AuthInfo{}
 
-	err := m.Map.Lookup(&key, &val)
+	err := m.bpfMap.Lookup(&key, &val)
 
 	return &val, err
 }
@@ -111,10 +110,8 @@ func (m *Map) Lookup(localIdentity identity.NumericIdentity, remoteIdentity iden
 // all the keys/values of an auth map.
 type IterateCallback func(*AuthKey, *AuthInfo)
 
-// IterateWithCallback iterates through all the keys/values of an auth map,
-// passing each key/value pair to the cb callback.
-func (m *Map) IterateWithCallback(cb IterateCallback) error {
-	return m.Map.IterateWithCallback(&AuthKey{}, &AuthInfo{},
+func (m *authMap) IterateWithCallback(cb IterateCallback) error {
+	return m.bpfMap.IterateWithCallback(&AuthKey{}, &AuthInfo{},
 		func(k, v interface{}) {
 			key := k.(*AuthKey)
 			value := v.(*AuthInfo)

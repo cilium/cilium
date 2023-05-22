@@ -1195,7 +1195,13 @@ func (e *etcdClient) statusChecker() {
 
 		e.statusLock.Unlock()
 		if e.latestErrorStatus != nil {
-			e.statusCheckErrors <- e.latestErrorStatus
+			select {
+			case e.statusCheckErrors <- e.latestErrorStatus:
+			default:
+				// Channel's buffer is full, skip sending errors to the channel but log warnings instead
+				log.WithError(e.latestErrorStatus).
+					Warning("Status check error channel is full, dropping this error")
+			}
 		}
 
 		select {
@@ -1351,7 +1357,7 @@ func (e *etcdClient) createOpPut(key string, value []byte, leaseID client.LeaseI
 	return &op
 }
 
-// UpdateIfLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
+// UpdateIfLocked updates a key if the client is still holding the given lock.
 func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) error {
 	if err := e.waitForInitialSession(ctx); err != nil {
 		return err

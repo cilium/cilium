@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"text/tabwriter"
 
@@ -14,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 )
 
@@ -36,7 +38,8 @@ var bpfEgressListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf egress list")
 
-		if err := egressmap.OpenEgressMaps(); err != nil {
+		policyMap, err := egressmap.OpenPinnedPolicyMap()
+		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find egress gateway bpf maps")
 				return
@@ -51,11 +54,11 @@ var bpfEgressListCmd = &cobra.Command{
 				SourceIP:  key.GetSourceIP().String(),
 				DestCIDR:  key.GetDestCIDR().String(),
 				EgressIP:  val.GetEgressIP().String(),
-				GatewayIP: val.GetGatewayIP().String(),
+				GatewayIP: mapGatewayIP(val.GetGatewayIP()),
 			})
 		}
 
-		if err := egressmap.EgressPolicyMap.IterateWithCallback(parse); err != nil {
+		if err := policyMap.IterateWithCallback(parse); err != nil {
 			Fatalf("Error dumping contents of egress policy map: %s\n", err)
 		}
 
@@ -72,6 +75,18 @@ var bpfEgressListCmd = &cobra.Command{
 			printEgressList(bpfEgressList)
 		}
 	},
+}
+
+// This function attempt to translate gatewayIP to special values if they exist
+// or return the IP as a string otherwise.
+func mapGatewayIP(ip net.IP) string {
+	if ip.Equal(egressgateway.GatewayNotFoundIPv4) {
+		return "Not Found"
+	}
+	if ip.Equal(egressgateway.ExcludedCIDRIPv4) {
+		return "Excluded CIDR"
+	}
+	return ip.String()
 }
 
 func printEgressList(egressList []egressPolicy) {
