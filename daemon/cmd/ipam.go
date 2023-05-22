@@ -41,7 +41,7 @@ func NewPostIPAMHandler(d *Daemon) ipamapi.PostIpamHandler {
 func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 	family := strings.ToLower(swag.StringValue(params.Family))
 	owner := swag.StringValue(params.Owner)
-	pool := ipam.PoolOrDefault(swag.StringValue(params.Pool))
+	pool := ipam.Pool(swag.StringValue(params.Pool))
 	var expirationTimeout time.Duration
 	if swag.BoolValue(params.Expiration) {
 		expirationTimeout = defaults.IPAMExpiration
@@ -58,6 +58,7 @@ func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 
 	if ipv4Result != nil {
 		resp.Address.IPV4 = ipv4Result.IP.String()
+		resp.Address.IPV4PoolName = ipv4Result.IPPoolName.String()
 		resp.IPV4 = &models.IPAMAddressResponse{
 			Cidrs:           ipv4Result.CIDRs,
 			IP:              ipv4Result.IP.String(),
@@ -70,6 +71,7 @@ func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 
 	if ipv6Result != nil {
 		resp.Address.IPV6 = ipv6Result.IP.String()
+		resp.Address.IPV6PoolName = ipv6Result.IPPoolName.String()
 		resp.IPV6 = &models.IPAMAddressResponse{
 			Cidrs:           ipv6Result.CIDRs,
 			IP:              ipv6Result.IP.String(),
@@ -97,7 +99,7 @@ func NewPostIPAMIPHandler(d *Daemon) ipamapi.PostIpamIPHandler {
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAMIP) Handle(params ipamapi.PostIpamIPParams) middleware.Responder {
 	owner := swag.StringValue(params.Owner)
-	pool := ipam.PoolOrDefault(swag.StringValue(params.Pool))
+	pool := ipam.Pool(swag.StringValue(params.Pool))
 	if err := h.daemon.ipam.AllocateIPString(params.IP, owner, pool); err != nil {
 		return api.Error(ipamapi.PostIpamIPFailureCode, err)
 	}
@@ -128,7 +130,7 @@ func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIpamIPParams) middleware.Resp
 		return api.Error(ipamapi.DeleteIpamIPInvalidCode, fmt.Errorf("Invalid IP address: %s", params.IP))
 	}
 
-	pool := ipam.PoolOrDefault(swag.StringValue(params.Pool))
+	pool := ipam.Pool(swag.StringValue(params.Pool))
 	if err := h.daemon.ipam.ReleaseIP(ip, pool); err != nil {
 		return api.Error(ipamapi.DeleteIpamIPFailureCode, err)
 	}
@@ -559,6 +561,9 @@ func (d *Daemon) startIPAM() {
 	log.Info("Initializing node addressing")
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	d.ipam = ipam.NewIPAM(d.datapath.LocalNodeAddressing(), option.Config, d.nodeDiscovery, d.k8sWatcher, &d.mtuConfig, d.clientset)
+	if d.ipamMetadata != nil {
+		d.ipam.WithMetadata(d.ipamMetadata)
+	}
 	bootstrapStats.ipam.End(true)
 }
 

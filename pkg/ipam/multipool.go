@@ -430,7 +430,7 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 	if syncUpstream {
 		m.k8sUpdater.TriggerWithReason("allocation of next IP")
 	}
-	return &AllocationResult{IP: ip}, nil
+	return &AllocationResult{IP: ip, IPPoolName: poolName}, nil
 }
 
 func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
@@ -450,7 +450,7 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 	if syncUpstream {
 		m.k8sUpdater.TriggerWithReason("allocation of IP")
 	}
-	return &AllocationResult{IP: ip}, nil
+	return &AllocationResult{IP: ip, IPPoolName: poolName}, nil
 }
 
 func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, upstreamSync bool) error {

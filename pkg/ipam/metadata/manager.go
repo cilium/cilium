@@ -83,16 +83,16 @@ func (m *Manager) Stop(ctx hive.HookContext) error {
 
 func splitK8sPodName(owner string) (namespace, name string, ok bool) {
 	// Require namespace/name format
-	s := strings.SplitN(owner, "/", 2)
-	if len(s) != 2 {
+	namespace, name, ok = strings.Cut(owner, "/")
+	if !ok {
 		return "", "", false
 	}
 	// Check if components are a valid namespace name and pod name
-	if validation.IsDNS1123Subdomain(s[0]) != nil ||
-		validation.IsDNS1123Subdomain(s[1]) != nil {
+	if validation.IsDNS1123Subdomain(namespace) != nil ||
+		validation.IsDNS1123Subdomain(name) != nil {
 		return "", "", false
 	}
-	return s[0], s[1], true
+	return namespace, name, true
 }
 
 func (m *Manager) GetIPPoolForPod(owner string) (pool string, err error) {

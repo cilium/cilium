@@ -119,9 +119,8 @@ func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfiguratio
 
 func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (*models.IPAMResponse, func(context.Context), error) {
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
-	// TODO: this will be configurable e.g. by pod annotations when using multi-homing
-	pool := ""
-	ipam, err := client.IPAMAllocate("", podName, pool, true)
+
+	ipam, err := client.IPAMAllocate("", podName, "", true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to allocate IP via local cilium agent: %w", err)
 	}
@@ -132,8 +131,8 @@ func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (
 
 	releaseFunc := func(context.Context) {
 		if ipam.Address != nil {
-			releaseIP(client, ipam.Address.IPV4, pool)
-			releaseIP(client, ipam.Address.IPV6, pool)
+			releaseIP(client, ipam.Address.IPV4, ipam.Address.IPV4PoolName)
+			releaseIP(client, ipam.Address.IPV6, ipam.Address.IPV6PoolName)
 		}
 	}
 
