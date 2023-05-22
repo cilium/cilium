@@ -102,6 +102,10 @@ type MtuConfiguration interface {
 	GetDeviceMTU() int
 }
 
+type Metadata interface {
+	GetIPPoolForPod(owner string) (pool string, err error)
+}
+
 // NewIPAM returns a new IP address manager
 func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
 	ipam := &IPAM{
@@ -167,6 +171,12 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 	}
 
 	return ipam
+}
+
+// WithMetadata sets an optional Metadata provider, which IPAM will use to
+// determine what IPAM pool an IP owner should allocate its IP from
+func (ipam *IPAM) WithMetadata(m Metadata) {
+	ipam.metadata = m
 }
 
 // getIPOwner returns the owner for an IP in a particular pool or the empty
