@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
+	"github.com/cilium/cilium/pkg/k8s/apis"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -168,7 +168,7 @@ func (cpt *ControlPlaneTest) StartOperator(modCellConfig func(vp *viper.Viper)) 
 		),
 	}
 
-	cpt.operatorHandle.hive.Viper().Set(client.SkipCRDCreation, true)
+	cpt.operatorHandle.hive.Viper().Set(apis.SkipCRDCreation, true)
 
 	// Apply the test specific cells configuration
 	//
