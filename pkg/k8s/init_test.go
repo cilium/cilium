@@ -66,14 +66,15 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 				return true, n1copy, nil
 			})
 
-		node1Slim := ConvertToNode(node1.DeepCopy()).(*slim_corev1.Node)
-		node1Cilium := ParseNode(node1Slim, source.Unspec)
+		node1Slim, err := TransformToNode(node1.DeepCopy())
+		c.Assert(err, checker.Equals, nil)
+		node1Cilium := ParseNode(node1Slim.(*slim_corev1.Node), source.Unspec)
 		node1Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 		useNodeCIDR(node1Cilium)
 		c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 		// IPv6 Node range is not checked because it shouldn't be changed.
 
-		_, err := AnnotateNode(fakeK8sClient, "node1", *node1Cilium, 0)
+		_, err = AnnotateNode(fakeK8sClient, "node1", *node1Cilium, 0)
 
 		c.Assert(err, IsNil)
 
@@ -123,8 +124,9 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 				return true, n2Copy, nil
 			})
 
-		node2Slim := ConvertToNode(node2.DeepCopy()).(*slim_corev1.Node)
-		node2Cilium := ParseNode(node2Slim, source.Unspec)
+		node2Slim, err := TransformToNode(node2.DeepCopy())
+		c.Assert(err, checker.Equals, nil)
+		node2Cilium := ParseNode(node2Slim.(*slim_corev1.Node), source.Unspec)
 		node2Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 		useNodeCIDR(node2Cilium)
 

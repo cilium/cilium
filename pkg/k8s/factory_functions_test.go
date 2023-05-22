@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/cilium/checkmate"
@@ -23,6 +24,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+)
+
+var (
+	unknownObj    = 100
+	unknownObjErr = fmt.Errorf("unknown object type %T", unknownObj)
 )
 
 func (s *K8sSuite) Test_EqualV2CNP(c *C) {
@@ -902,24 +908,26 @@ func (s *K8sSuite) Test_EqualV1Service(c *C) {
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToK8sService(c *C) {
+func (s *K8sSuite) Test_TransformToK8sService(c *C) {
 	type args struct {
 		obj interface{}
 	}
 	tests := []struct {
-		name string
-		args args
-		want interface{}
+		name     string
+		args     args
+		want     interface{}
+		expected bool
 	}{
 		{
-			name: "normal conversion",
+			name: "normal transformation",
 			args: args{
 				obj: &core_v1.Service{},
 			},
-			want: &slim_corev1.Service{},
+			want:     &slim_corev1.Service{},
+			expected: true,
 		},
 		{
-			name: "delete final state unknown conversion",
+			name: "delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
@@ -930,31 +938,36 @@ func (s *K8sSuite) Test_ConvertToK8sService(c *C) {
 				Key: "foo",
 				Obj: &slim_corev1.Service{},
 			},
+			expected: true,
 		},
 		{
-			name: "unknown object type in delete final state unknown conversion",
+			name: "unknown object type in delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: 100,
+					Obj: unknownObj,
 				},
 			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
+			want:     unknownObjErr,
+			expected: false,
 		},
 		{
-			name: "unknown object type in conversion",
+			name: "unknown object type in transformation",
 			args: args{
-				obj: 100,
+				obj: unknownObj,
 			},
-			want: 100,
+			want:     unknownObjErr,
+			expected: false,
 		},
 	}
 	for _, tt := range tests {
-		got := ConvertToK8sService(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		got, err := TransformToK8sService(tt.args.obj)
+		if tt.expected {
+			c.Assert(err, checker.Equals, nil)
+			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		} else {
+			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		}
 	}
 }
 
@@ -1161,26 +1174,28 @@ func (s *K8sSuite) Test_ConvertToSlimIngressLoadBalancerStatus(c *C) {
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToCNP(c *C) {
+func (s *K8sSuite) Test_TransformToCNP(c *C) {
 	type args struct {
 		obj interface{}
 	}
 	tests := []struct {
-		name string
-		args args
-		want interface{}
+		name     string
+		args     args
+		want     interface{}
+		expected bool
 	}{
 		{
-			name: "normal conversion",
+			name: "normal transformation",
 			args: args{
 				obj: &v2.CiliumNetworkPolicy{},
 			},
 			want: &types.SlimCNP{
 				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
 			},
+			expected: true,
 		},
 		{
-			name: "delete final state unknown conversion",
+			name: "delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
@@ -1193,51 +1208,58 @@ func (s *K8sSuite) Test_ConvertToCNP(c *C) {
 					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
 				},
 			},
+			expected: true,
 		},
 		{
-			name: "unknown object type in delete final state unknown conversion",
+			name: "unknown object type in delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: 100,
+					Obj: unknownObj,
 				},
 			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
+			want:     unknownObjErr,
+			expected: false,
 		},
 		{
-			name: "unknown object type in conversion",
+			name: "unknown object type in transformation",
 			args: args{
-				obj: 100,
+				obj: unknownObj,
 			},
-			want: 100,
+			want:     unknownObjErr,
+			expected: false,
 		},
 	}
 	for _, tt := range tests {
-		got := ConvertToCNP(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		got, err := TransformToCNP(tt.args.obj)
+		if tt.expected {
+			c.Assert(err, checker.Equals, nil)
+			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		} else {
+			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		}
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToCCNP(c *C) {
+func (s *K8sSuite) Test_TransformToCCNP(c *C) {
 	type args struct {
 		obj interface{}
 	}
 	tests := []struct {
-		name string
-		args args
-		want interface{}
+		name     string
+		args     args
+		want     interface{}
+		expected bool
 	}{
 		{
-			name: "normal conversion",
+			name: "normal transformation",
 			args: args{
 				obj: &v2.CiliumClusterwideNetworkPolicy{},
 			},
 			want: &types.SlimCNP{
 				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
 			},
+			expected: true,
 		},
 		{
 			name: "A CCNP where it doesn't contain neither a spec nor specs",
@@ -1247,9 +1269,10 @@ func (s *K8sSuite) Test_ConvertToCCNP(c *C) {
 			want: &types.SlimCNP{
 				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
 			},
+			expected: true,
 		},
 		{
-			name: "delete final state unknown conversion",
+			name: "delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
@@ -1262,52 +1285,59 @@ func (s *K8sSuite) Test_ConvertToCCNP(c *C) {
 					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
 				},
 			},
+			expected: true,
 		},
 		{
-			name: "unknown object type in delete final state unknown conversion",
+			name: "unknown object type in delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: 100,
+					Obj: unknownObj,
 				},
 			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
+			want:     unknownObjErr,
+			expected: false,
 		},
 		{
-			name: "unknown object type in conversion",
+			name: "unknown object type in transformation",
 			args: args{
-				obj: 100,
+				obj: unknownObj,
 			},
-			want: 100,
+			want:     unknownObjErr,
+			expected: false,
 		},
 	}
 	for _, tt := range tests {
-		got := ConvertToCCNP(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		got, err := TransformToCCNP(tt.args.obj)
+		if tt.expected {
+			c.Assert(err, checker.Equals, nil)
+			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		} else {
+			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		}
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToNode(c *C) {
+func (s *K8sSuite) Test_TransformToNode(c *C) {
 	type args struct {
 		obj interface{}
 	}
 	tests := []struct {
-		name string
-		args args
-		want interface{}
+		name     string
+		args     args
+		want     interface{}
+		expected bool
 	}{
 		{
-			name: "normal conversion",
+			name: "normal transformation",
 			args: args{
 				obj: &core_v1.Node{},
 			},
-			want: &slim_corev1.Node{},
+			want:     &slim_corev1.Node{},
+			expected: true,
 		},
 		{
-			name: "delete final state unknown conversion",
+			name: "delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
@@ -1318,52 +1348,185 @@ func (s *K8sSuite) Test_ConvertToNode(c *C) {
 				Key: "foo",
 				Obj: &slim_corev1.Node{},
 			},
+			expected: true,
 		},
 		{
-			name: "unknown object type in delete final state unknown conversion",
+			name: "unknown object type in delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: 100,
+					Obj: unknownObj,
 				},
 			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
+			want:     unknownObjErr,
+			expected: false,
 		},
 		{
-			name: "unknown object type in conversion",
+			name: "unknown object type in transformation",
 			args: args{
-				obj: 100,
+				obj: unknownObj,
 			},
-			want: 100,
+			want:     unknownObjErr,
+			expected: false,
 		},
 	}
 	for _, tt := range tests {
-		got := ConvertToNode(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		got, err := TransformToNode(tt.args.obj)
+		if tt.expected {
+			c.Assert(err, checker.Equals, nil)
+			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		} else {
+			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		}
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToCiliumNode(c *C) {
+func (s *K8sSuite) Test_TransformToCiliumLocalRedirectPolicy(c *C) {
 	type args struct {
 		obj interface{}
 	}
 	tests := []struct {
-		name string
-		args args
-		want interface{}
+		name     string
+		args     args
+		want     interface{}
+		expected bool
 	}{
 		{
-			name: "normal conversion",
+			name: "normal transformation",
+			args: args{
+				obj: &v2.CiliumLocalRedirectPolicy{},
+			},
+			want:     &v2.CiliumLocalRedirectPolicy{},
+			expected: true,
+		},
+		{
+			name: "delete final state unknown transformation",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v2.CiliumLocalRedirectPolicy{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &v2.CiliumLocalRedirectPolicy{},
+			},
+			expected: true,
+		},
+		{
+			name: "unknown object type in delete final state unknown transformation",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: unknownObj,
+				},
+			},
+			want:     unknownObjErr,
+			expected: false,
+		},
+		{
+			name: "unknown object type in transformation",
+			args: args{
+				obj: unknownObj,
+			},
+			want:     unknownObjErr,
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		got, err := TransformToCiliumLocalRedirectPolicy(tt.args.obj)
+		if tt.expected {
+			c.Assert(err, checker.Equals, nil)
+			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		} else {
+			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		}
+	}
+}
+
+func (s *K8sSuite) Test_TransformToCiliumExternalWorkload(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name     string
+		args     args
+		want     interface{}
+		expected bool
+	}{
+		{
+			name: "normal transformation",
+			args: args{
+				obj: &v2.CiliumExternalWorkload{},
+			},
+			want:     &v2.CiliumExternalWorkload{},
+			expected: true,
+		},
+		{
+			name: "delete final state unknown transformation",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v2.CiliumExternalWorkload{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &v2.CiliumExternalWorkload{},
+			},
+			expected: true,
+		},
+		{
+			name: "unknown object type in delete final state unknown transformation",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: unknownObj,
+				},
+			},
+			want:     unknownObjErr,
+			expected: false,
+		},
+		{
+			name: "unknown object type in transformation",
+			args: args{
+				obj: unknownObj,
+			},
+			want:     unknownObjErr,
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		got, err := TransformToCiliumExternalWorkload(tt.args.obj)
+		if tt.expected {
+			c.Assert(err, checker.Equals, nil)
+			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		} else {
+			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		}
+	}
+}
+
+func (s *K8sSuite) Test_TransformToCiliumNode(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name     string
+		args     args
+		want     interface{}
+		expected bool
+	}{
+		{
+			name: "normal transformation",
 			args: args{
 				obj: &v2.CiliumNode{},
 			},
-			want: &v2.CiliumNode{},
+			want:     &v2.CiliumNode{},
+			expected: true,
 		},
 		{
-			name: "delete final state unknown conversion",
+			name: "delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
@@ -1374,54 +1537,124 @@ func (s *K8sSuite) Test_ConvertToCiliumNode(c *C) {
 				Key: "foo",
 				Obj: &v2.CiliumNode{},
 			},
+			expected: true,
 		},
 		{
-			name: "unknown object type in delete final state unknown conversion",
+			name: "unknown object type in delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: 100,
+					Obj: unknownObj,
 				},
 			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
+			want:     unknownObjErr,
+			expected: false,
 		},
 		{
-			name: "unknown object type in conversion",
+			name: "unknown object type in transformation",
 			args: args{
-				obj: 100,
+				obj: unknownObj,
 			},
-			want: 100,
+			want:     unknownObjErr,
+			expected: false,
 		},
 	}
 	for _, tt := range tests {
-		got := ConvertToCiliumNode(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		got, err := TransformToCiliumNode(tt.args.obj)
+		if tt.expected {
+			c.Assert(err, checker.Equals, nil)
+			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		} else {
+			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		}
 	}
 }
 
-func (s *K8sSuite) Test_ConvertToCiliumEndpoint(c *C) {
+func (s *K8sSuite) Test_TransformToCiliumEgressGatewayPolicy(c *C) {
 	type args struct {
 		obj interface{}
 	}
 	tests := []struct {
-		name string
-		args args
-		want interface{}
+		name     string
+		args     args
+		want     interface{}
+		expected bool
 	}{
 		{
-			name: "normal conversion",
+			name: "normal transformation",
+			args: args{
+				obj: &v2.CiliumEgressGatewayPolicy{},
+			},
+			want:     &v2.CiliumEgressGatewayPolicy{},
+			expected: true,
+		},
+		{
+			name: "delete final state unknown transformation",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v2.CiliumEgressGatewayPolicy{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &v2.CiliumEgressGatewayPolicy{},
+			},
+			expected: true,
+		},
+		{
+			name: "unknown object type in delete final state unknown transformation",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: unknownObj,
+				},
+			},
+			want:     unknownObjErr,
+			expected: false,
+		},
+		{
+			name: "unknown object type in transformation",
+			args: args{
+				obj: unknownObj,
+			},
+			want:     unknownObjErr,
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		got, err := TransformToCiliumEgressGatewayPolicy(tt.args.obj)
+		if tt.expected {
+			c.Assert(err, checker.Equals, nil)
+			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		} else {
+			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		}
+	}
+}
+
+func (s *K8sSuite) Test_TransformToCiliumEndpoint(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name     string
+		args     args
+		want     interface{}
+		expected bool
+	}{
+		{
+			name: "normal transformation",
 			args: args{
 				obj: &v2.CiliumEndpoint{},
 			},
 			want: &types.CiliumEndpoint{
 				Encryption: &v2.EncryptionSpec{},
 			},
+			expected: true,
 		},
 		{
-			name: "delete final state unknown conversion",
+			name: "delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
@@ -1554,31 +1787,36 @@ func (s *K8sSuite) Test_ConvertToCiliumEndpoint(c *C) {
 					},
 				},
 			},
+			expected: true,
 		},
 		{
-			name: "unknown object type in delete final state unknown conversion",
+			name: "unknown object type in delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: 100,
+					Obj: unknownObj,
 				},
 			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
+			want:     unknownObjErr,
+			expected: false,
 		},
 		{
-			name: "unknown object type in conversion",
+			name: "unknown object type in transformation",
 			args: args{
-				obj: 100,
+				obj: unknownObj,
 			},
-			want: 100,
+			want:     unknownObjErr,
+			expected: false,
 		},
 	}
 	for _, tt := range tests {
-		got := ConvertToCiliumEndpoint(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		got, err := TransformToCiliumEndpoint(tt.args.obj)
+		if tt.expected {
+			c.Assert(err, checker.Equals, nil)
+			c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+		} else {
+			c.Assert(err, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+		}
 	}
 }
 

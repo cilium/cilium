@@ -52,7 +52,7 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Client
 				k.K8sEventProcessed(metricCLRP, resources.MetricDelete, err == nil)
 			},
 		},
-		k8s.ConvertToCiliumLocalRedirectPolicy,
+		k8s.TransformToCiliumLocalRedirectPolicy,
 	)
 
 	k.blockWaitGroupToSyncResources(

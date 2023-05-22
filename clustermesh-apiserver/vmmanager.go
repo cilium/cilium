@@ -89,7 +89,7 @@ func (m *VMManager) startCiliumExternalWorkloadWatcher(clientset k8sClient.Clien
 				}
 			},
 		},
-		k8s.ConvertToCiliumExternalWorkload,
+		k8s.TransformToCiliumExternalWorkload,
 	)
 
 	go m.ciliumExternalWorkloadInformer.Run(wait.NeverStop)

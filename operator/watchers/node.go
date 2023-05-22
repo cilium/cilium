@@ -4,6 +4,7 @@
 package watchers
 
 import (
+	"fmt"
 	"sync"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -91,7 +92,7 @@ func nodesInit(wg *sync.WaitGroup, slimClient slimclientset.Interface, stopCh <-
 					nodeQueue.Add(key)
 				},
 			},
-			convertToNode,
+			transformToNode,
 		)
 		wg.Add(1)
 		go func() {
@@ -105,7 +106,7 @@ func nodesInit(wg *sync.WaitGroup, slimClient slimclientset.Interface, stopCh <-
 	})
 }
 
-func convertToNode(obj interface{}) interface{} {
+func transformToNode(obj interface{}) (interface{}, error) {
 	switch concreteObj := obj.(type) {
 	case *slim_corev1.Node:
 		n := &slim_corev1.Node{
@@ -122,11 +123,11 @@ func convertToNode(obj interface{}) interface{} {
 			},
 		}
 		*concreteObj = slim_corev1.Node{}
-		return n
+		return n, nil
 	case cache.DeletedFinalStateUnknown:
 		node, ok := concreteObj.Obj.(*slim_corev1.Node)
 		if !ok {
-			return obj
+			return nil, fmt.Errorf("unknown object type %T", concreteObj.Obj)
 		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
@@ -146,8 +147,8 @@ func convertToNode(obj interface{}) interface{} {
 		}
 		// Small GC optimization
 		*node = slim_corev1.Node{}
-		return dfsu
+		return dfsu, nil
 	default:
-		return obj
+		return nil, fmt.Errorf("unknown object type %T", concreteObj)
 	}
 }

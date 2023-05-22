@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	k8sTypes "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -418,7 +417,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	// as this was added in sufficiently earlier versions of Cilium (v1.6).
 	// Source:
 	// https://github.com/cilium/cilium/commit/5c365f2c6d7930dcda0b8f0d5e6b826a64022a4f
-	k8sNode, err := n.k8sGetters.GetK8sNode(
+	slimNode, err := n.k8sGetters.GetK8sNode(
 		context.TODO(),
 		nodeTypes.GetName(),
 	)
@@ -440,15 +439,13 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		APIVersion: "v1",
 		Kind:       "Node",
 		Name:       nodeTypes.GetName(),
-		UID:        k8sNode.UID,
+		UID:        slimNode.UID,
 	}}
-	providerID = k8sNode.Spec.ProviderID
+	providerID = slimNode.Spec.ProviderID
 
 	// Get the addresses from k8s node and add them as part of Cilium Node.
 	// Cilium Node should contain all addresses from k8s.
-	nodeInterface := k8s.ConvertToNode(k8sNode)
-	typesNode := nodeInterface.(*k8sTypes.Node)
-	k8sNodeParsed := k8s.ParseNode(typesNode, source.Unspec)
+	k8sNodeParsed := k8s.ParseNode(slimNode, source.Unspec)
 	k8sNodeAddresses = k8sNodeParsed.IPAddresses
 
 	nodeResource.ObjectMeta.Labels = k8sNodeParsed.Labels

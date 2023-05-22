@@ -59,7 +59,7 @@ func (k *K8sWatcher) ciliumEgressGatewayPolicyInit(ciliumNPClient client.Clients
 				k.K8sEventProcessed(metricCEGP, resources.MetricDelete, true)
 			},
 		},
-		k8s.ConvertToCiliumEgressGatewayPolicy,
+		k8s.TransformToCiliumEgressGatewayPolicy,
 	)
 
 	k.blockWaitGroupToSyncResources(
