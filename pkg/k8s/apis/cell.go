@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package client
+package apis
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
 
@@ -26,6 +27,10 @@ var RegisterCRDsCell = cell.Module(
 	cell.Config(defaultConfig),
 
 	cell.Invoke(createCRDs),
+
+	cell.ProvidePrivate(
+		newCiliumGroupCRDs,
+	),
 )
 
 type RegisterCRDsConfig struct {
@@ -40,6 +45,9 @@ func (c RegisterCRDsConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(SkipCRDCreation, false, "When true, Kubernetes Custom Resource Definitions will not be created")
 }
 
+// RegisterCRDsFunc is a function that register all the CRDs for a k8s group
+type RegisterCRDsFunc func(k8sClient.Clientset) error
+
 type params struct {
 	cell.In
 
@@ -48,7 +56,8 @@ type params struct {
 
 	Clientset k8sClient.Clientset
 
-	Config RegisterCRDsConfig
+	Config            RegisterCRDsConfig
+	RegisterCRDsFuncs []RegisterCRDsFunc `group:"register-crd-funcs"`
 }
 
 func createCRDs(p params) {
@@ -61,13 +70,25 @@ func createCRDs(p params) {
 				return nil
 			}
 
-			if err := RegisterCRDs(p.Clientset); err != nil {
-				return fmt.Errorf("unable to create CRDs: %w", err)
+			for _, f := range p.RegisterCRDsFuncs {
+				if err := f(p.Clientset); err != nil {
+					return fmt.Errorf("unable to create CRDs: %w", err)
+				}
 			}
-			return nil
-		},
-		OnStop: func(_ hive.HookContext) error {
+
 			return nil
 		},
 	})
+}
+
+type registerCRDsFuncOut struct {
+	cell.Out
+
+	Func RegisterCRDsFunc `group:"register-crd-funcs"`
+}
+
+func newCiliumGroupCRDs() registerCRDsFuncOut {
+	return registerCRDsFuncOut{
+		Func: client.RegisterCRDs,
+	}
 }

@@ -43,7 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
+	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -124,7 +124,7 @@ var (
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
 			// The CRDs registration should be the first operation to be invoked after the operator is elected leader.
-			client.RegisterCRDsCell,
+			apis.RegisterCRDsCell,
 			k8s.SharedResourcesCell,
 
 			lbipam.Cell,
