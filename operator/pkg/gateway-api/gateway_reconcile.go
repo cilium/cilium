@@ -346,6 +346,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 			isValid = false
 		} else {
 			conds = append(conds, gatewayListenerProgrammedCondition(gw, true, "Listener Ready"))
+			conds = append(conds, gatewayListenerAcceptedCondition(gw, true, "Listener Accepted"))
 		}
 
 		if l.TLS != nil {
