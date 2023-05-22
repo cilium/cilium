@@ -84,7 +84,7 @@ contributors across the globe, there is almost always someone available to help.
 | auth.mTLS.spire.install.server.labels | object | `{}` | SPIRE server labels |
 | auth.mTLS.spire.install.server.service | object | `{"annotations":{},"labels":{},"type":"ClusterIP"}` | SPIRE server service configuration |
 | auth.mTLS.spire.install.server.serviceAccount | object | `{"create":true,"name":"spire-server"}` | SPIRE server service account |
-| auth.mTLS.spire.serverAddress | string | `"spire-server.cilium-spire.svc.cluster.local:8081"` | SPIRE server address |
+| auth.mTLS.spire.serverAddress | string | `"spire-server.cilium-spire.svc:8081"` | SPIRE server address |
 | auth.mTLS.spire.trustDomain | string | `"spiffe.cilium"` | SPIFFE trust domain to use for fetching certificates |
 | autoDirectNodeRoutes | bool | `false` | Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment. |
 | azure.enabled | bool | `false` | Enable Azure integration. Note that this is incompatible with AKS clusters created in BYOCNI mode: use AKS BYOCNI integration (`aksbyocni.enabled`) instead. |
