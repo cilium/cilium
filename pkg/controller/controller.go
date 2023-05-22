@@ -159,7 +159,6 @@ type Controller struct {
 	lastError         error
 	lastErrorStamp    time.Time
 	lastDuration      time.Duration
-	ctxDoFunc         context.Context
 }
 
 // GetSuccessCount returns the number of successful controller runs
@@ -206,7 +205,6 @@ func (c *Controller) runController() {
 	errorRetries := 1
 
 	c.mutex.RLock()
-	ctx := c.ctxDoFunc
 	params := c.params
 	c.mutex.RUnlock()
 
@@ -220,7 +218,7 @@ func (c *Controller) runController() {
 		interval := params.RunInterval
 
 		start := time.Now()
-		err = params.DoFunc(ctx)
+		err = params.DoFunc(params.Context)
 		duration := time.Since(start)
 
 		c.mutex.Lock()
@@ -228,7 +226,7 @@ func (c *Controller) runController() {
 		c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
 
 		if err != nil {
-			if ctx.Err() != nil {
+			if params.Context.Err() != nil {
 				// The controller's context was canceled. Let's wait for the
 				// next controller update (or stop).
 				err = NewExitReason("controller context canceled")
@@ -305,7 +303,6 @@ func (c *Controller) runController() {
 			// Pick up any changes to the parameters in case the controller has
 			// been updated.
 			c.mutex.RLock()
-			ctx = c.ctxDoFunc
 			params = c.params
 			c.mutex.RUnlock()
 
@@ -333,18 +330,20 @@ shutdown:
 //
 // If the RunInterval exceeds ControllerMaxInterval, it will be capped.
 func (c *Controller) updateParamsLocked(params ControllerParams) {
+	ctx := c.params.Context
 	if c.params.CancelDoFuncOnUpdate && c.cancelDoFunc != nil {
 		c.cancelDoFunc()
 
 		// (re)set the context as the previous might have been cancelled
 		if params.Context == nil {
-			c.ctxDoFunc, c.cancelDoFunc = context.WithCancel(context.Background())
+			ctx, c.cancelDoFunc = context.WithCancel(context.Background())
 		} else {
-			c.ctxDoFunc, c.cancelDoFunc = context.WithCancel(params.Context)
+			ctx, c.cancelDoFunc = context.WithCancel(params.Context)
 		}
 	}
 
 	c.params = params
+	c.params.Context = ctx
 
 	maxInterval := time.Duration(option.Config.MaxControllerInterval) * time.Second
 	if maxInterval > 0 && params.RunInterval > maxInterval {

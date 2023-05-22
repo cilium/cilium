@@ -97,9 +97,9 @@ func (m *Manager) updateController(name string, params ControllerParams) *Contro
 		ctrl.getLogger().Debug("Starting new controller")
 
 		if params.Context == nil {
-			ctrl.ctxDoFunc, ctrl.cancelDoFunc = context.WithCancel(context.Background())
+			ctrl.params.Context, ctrl.cancelDoFunc = context.WithCancel(context.Background())
 		} else {
-			ctrl.ctxDoFunc, ctrl.cancelDoFunc = context.WithCancel(params.Context)
+			ctrl.params.Context, ctrl.cancelDoFunc = context.WithCancel(params.Context)
 		}
 		m.controllers[ctrl.name] = ctrl
 		m.mutex.Unlock()
@@ -266,7 +266,7 @@ func FakeManager(failingControllers int) *Manager {
 			consecutiveErrors: 1,
 		}
 
-		ctrl.ctxDoFunc, ctrl.cancelDoFunc = context.WithCancel(context.Background())
+		ctrl.params.Context, ctrl.cancelDoFunc = context.WithCancel(context.Background())
 		m.controllers[ctrl.name] = ctrl
 	}
 
