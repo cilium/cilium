@@ -474,12 +474,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 	SkipContextIf(helpers.DoesNotRunOnNetNextKernel, "High-scale IPcache", func() {
 		const hsIPcacheFile = "high-scale-ipcache.yaml"
 
-		AfterAll(func() {
+		AfterEach(func() {
 			hsIPcacheYAML := helpers.ManifestGet(kubectl.BasePath(), hsIPcacheFile)
 			_ = kubectl.Delete(hsIPcacheYAML)
 		})
 
-		It("Test ingress policy enforcement", func() {
+		testHighScaleIPcache := func(tunnelProto string) {
 			options := map[string]string{
 				"highScaleIPcache.enabled":    "true",
 				"routingMode":                 "native",
@@ -487,6 +487,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"devices":                     "",
 				"ipv6.enabled":                "false",
 				"wellKnownIdentities.enabled": "true",
+				"tunnelProtocol":              tunnelProto,
 			}
 			if !helpers.RunsOnGKE() {
 				options["autoDirectNodeRoutes"] = "true"
@@ -506,6 +507,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// pods that need to be deployed.
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l type=client", 2*helpers.HelperTimeout)
 			Expect(err).ToNot(HaveOccurred(), "Client pods not ready after timeout")
+		}
+
+		It("Test ingress policy enforcement with VXLAN", func() {
+			testHighScaleIPcache("vxlan")
+		})
+
+		It("Test ingress policy enforcement with GENEVE", func() {
+			testHighScaleIPcache("geneve")
 		})
 	})
 
