@@ -1559,7 +1559,7 @@
    * - hubble.relay.tls
      - TLS configuration for Hubble Relay
      - object
-     - ``{"client":{"cert":"","key":""},"server":{"cert":"","enabled":false,"extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
+     - ``{"client":{"cert":"","key":""},"server":{"cert":"","enabled":false,"extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false}}``
    * - hubble.relay.tls.client
      - base64 encoded PEM values for the hubble-relay client certificate and private key This keypair is presented to Hubble server instances for mTLS authentication and is required when hubble.tls.enabled is true. These values need to be set manually if hubble.tls.auto.enabled is false.
      - object
@@ -1567,7 +1567,7 @@
    * - hubble.relay.tls.server
      - base64 encoded PEM values for the hubble-relay server certificate and private key
      - object
-     - ``{"cert":"","enabled":false,"extraDnsNames":[],"extraIpAddresses":[],"key":""}``
+     - ``{"cert":"","enabled":false,"extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false}``
    * - hubble.relay.tls.server.extraDnsNames
      - extra DNS names added to certificate when its auto gen
      - list
