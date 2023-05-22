@@ -208,6 +208,14 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 		peer.Transport = &gobgp.Transport{LocalAddress: wildcardIPv6Addr}
 	}
 
+	// Enable multi-hop for eBGP if non-zero TTL is provided
+	if g.asn != uint32(n.PeerASN) && n.EBGPMultihopTTL > 0 {
+		peer.EbgpMultihop = &gobgp.EbgpMultihop{
+			Enabled:     true,
+			MultihopTtl: uint32(n.EBGPMultihopTTL),
+		}
+	}
+
 	if peer.Timers == nil {
 		peer.Timers = &gobgp.Timers{}
 	}

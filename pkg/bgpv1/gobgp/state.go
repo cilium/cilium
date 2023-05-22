@@ -74,6 +74,10 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateRespo
 			peerState.Families = append(peerState.Families, toAgentAfiSafiState(afiSafi.State))
 		}
 
+		if peer.EbgpMultihop != nil && peer.EbgpMultihop.Enabled {
+			peerState.EbgpMultihopTTL = int64(peer.EbgpMultihop.MultihopTtl)
+		}
+
 		if peer.Timers != nil {
 			tConfig := peer.Timers.Config
 			tState := peer.Timers.State

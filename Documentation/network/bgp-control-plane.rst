@@ -77,6 +77,7 @@ The policy in ``yaml`` form is defined below:
       neighbors: # []CiliumBGPNeighbor
        - peerAddress: 'fc00:f853:ccd:e793::50/128'
          peerASN: 64512
+         eBGPMultihopTTL: 10
          gracefulRestart:
             enabled: true
             restartTime: "20s"
@@ -99,6 +100,7 @@ Fields
        virtualRouters[*].neighbors: A list of neighbors to peer with
            neighbors[*].peerAddress: The address of the peer neighbor
            neighbors[*].peerASN: The ASN of the peer
+           neighbors[*].eBGPMultihopTTL: (optional) Time To Live (TTL) value used in BGP packets. 0 if eBGP multi-hop feature is disabled.
            neighbors[*].gracefulRestart.enabled: The flag to enable graceful restart capability.
            neighbors[*].gracefulRestart.restartTime: The restart time advertised to the peer (RFC 4724 section 4.2).
 

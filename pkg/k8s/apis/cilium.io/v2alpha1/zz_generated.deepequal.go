@@ -21,6 +21,9 @@ func (in *CiliumBGPNeighbor) DeepEqual(other *CiliumBGPNeighbor) bool {
 	if in.PeerASN != other.PeerASN {
 		return false
 	}
+	if in.EBGPMultihopTTL != other.EBGPMultihopTTL {
+		return false
+	}
 	if in.ConnectRetryTime != other.ConnectRetryTime {
 		return false
 	}

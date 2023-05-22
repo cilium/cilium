@@ -3529,6 +3529,11 @@ definitions:
       peer-address:
         description: IP Address of peer
         type: string
+      ebgp-multihop-ttl:
+        description: |
+          Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.
+          0 if eBGP multi-hop feature is disabled.
+        type: integer
       session-state:
         description: |
           BGP peer operational state as described here

@@ -132,6 +132,15 @@ spec:
                               whole second.
                             format: duration
                             type: string
+                          eBGPMultihopTTL:
+                            description: EBGPMultihopTTL controls the multi-hop feature
+                              for eBGP peers. Its value defines the Time To Live (TTL)
+                              value used in BGP packets sent to the neighbor. When
+                              empty or zero, eBGP multi-hop feature is disabled. The
+                              value is ignored for iBGP peers.
+                            maximum: 255
+                            minimum: 0
+                            type: integer
                           gracefulRestart:
                             description: GracefulRestart defines graceful restart
                               parameters which are negotiated with this neighbor.
