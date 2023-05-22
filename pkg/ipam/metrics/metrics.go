@@ -245,12 +245,16 @@ func NewTriggerMetrics(namespace, name string) *triggerMetrics {
 			Subsystem: ipamSubsystem,
 			Name:      name + "_duration_seconds",
 			Help:      "Duration of trigger runs",
+			Buckets: []float64{0.005, 0.025, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.25, 1.5, 2, 3,
+				4, 5, 6, 8, 10, 15, 20, 30, 45, 60},
 		}),
 		latency: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: ipamSubsystem,
 			Name:      name + "_latency_seconds",
 			Help:      "Latency between queue and trigger run",
+			Buckets: []float64{0.005, 0.025, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.25, 1.5, 2, 3,
+				4, 5, 6, 8, 10, 15, 20, 30, 45, 60},
 		}),
 	}
 }
