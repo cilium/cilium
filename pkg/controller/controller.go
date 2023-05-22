@@ -134,8 +134,23 @@ func NoopFunc(ctx context.Context) error {
 //     in a way that will delay destruction throughout the controller run or to
 //     check for the destruction throughout the run.
 type Controller struct {
+	// Constant after creation, safe to access without locking
+	name string
+	uuid string
+
+	// Fields only accessed by the manager
+	cancelDoFunc context.CancelFunc
+
+	// Channels closed by the manager
+	stop    chan struct{}
+	update  chan struct{}
+	trigger chan struct{}
+
+	// terminated is closed by the controller goroutine when it terminates
+	terminated chan struct{}
+
+	// Manipulated by the controller, requires locking
 	mutex             lock.RWMutex
-	name              string
 	params            ControllerParams
 	successCount      int
 	lastSuccessStamp  time.Time
@@ -144,15 +159,7 @@ type Controller struct {
 	lastError         error
 	lastErrorStamp    time.Time
 	lastDuration      time.Duration
-	uuid              string
-	stop              chan struct{}
-	update            chan struct{}
-	trigger           chan struct{}
 	ctxDoFunc         context.Context
-	cancelDoFunc      context.CancelFunc
-
-	// terminated is closed after the controller has been terminated
-	terminated chan struct{}
 }
 
 // GetSuccessCount returns the number of successful controller runs
