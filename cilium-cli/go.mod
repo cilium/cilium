@@ -11,11 +11,11 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/charts v0.0.0-20230428220251-45051af07e95
+	github.com/cilium/charts v0.0.0-20230517183441-c9396080c47d
 	github.com/cilium/cilium v1.14.0-snapshot.2
 	github.com/cilium/hubble v0.11.5
 	github.com/cilium/proxy v0.0.0-20230420184820-797bea843de1
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230515093409-5b3e1d2932f0
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230522082550-8ee0889ed836
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
@@ -24,7 +24,7 @@ require (
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
-	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea
+	golang.org/x/exp v0.0.0-20230519143937-03e91628a987
 	golang.org/x/mod v0.10.0
 	google.golang.org/grpc v1.55.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
