@@ -10,100 +10,152 @@
 TLS Migration
 *************
 
-This example builds on the previous :ref:`gs_gateway_http` and add TLS
+This migration example builds on the previous :ref:`gs_gateway_http_migration` and add TLS
 termination for two HTTP routes. For simplicity, the second route to ``productpage``
 is omitted.
 
-.. literalinclude:: ../../../../examples/kubernetes/gateway/basic-https.yaml
 
-.. include:: ../tls-cert.rst
+Review Ingress Configuration
+============================
 
-Deploy the Gateway and HTTPRoute
-================================
+You'll find the example Ingress definition in ``tls-ingress.yaml``.
 
-The Gateway configuration for this demo provides the similar routing to the
-``details`` and ``productpage`` services.
+.. literalinclude:: ../../../../examples/kubernetes/servicemesh/tls-ingress.yaml
+
+This example:
+
+- listens for HTTPS traffic on port 443.
+- terminates TLS for the ``hipstershop.cilium.rocks`` and ``bookinfo.cilium.rocks`` hostnames using the TLS certificate and key from the Secret *demo-cert*.
+- routes HTTPS requests for the ``hipstershop.cilium.rocks`` hostname with the URI prefix ``/hipstershop.ProductCatalogService`` to the *productcatalogservice* Service.
+- routes HTTPS requests for the ``hipstershop.cilium.rocks`` hostname with the URI prefix ``/hipstershop.CurrencyService`` to the *currencyservice* Service.
+- routes HTTPS requests for the ``bookinfo.cilium.rocks`` hostname with the URI prefix ``/details`` to the *details* Service.
+- routes HTTPS requests for the ``bookinfo.cilium.rocks`` hostname with any other prefix to the *productpage* Service.
 
 
-.. tabs::
+Create Equivalent Gateway Configuration
+=======================================
 
-    .. group-tab:: Self-signed Certificate
+To create the equivalent TLS termination configuration, you must consider the following:
 
-        .. parsed-literal::
-
-            $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/gateway/basic-https.yaml
-
-    .. group-tab:: Cert Manager
-
-        .. parsed-literal::
-
-            $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/gateway/basic-https.yaml
-
-        To tell cert-manager that this Ingress needs a certificate, annotate the
-        Gateway with the name of the CA issuer we previously created:
-
-        .. code-block:: shell-session
-
-            $ kubectl annotate gateway tls-gateway cert-manager.io/issuer=ca-issuer
-
-        This creates a Certificate object along with a Secret containing the TLS
-        certificate.
-
-        .. code-block:: shell-session
-
-            $ kubectl get certificate,secret demo-cert
-            NAME                                    READY   SECRET      AGE
-            certificate.cert-manager.io/demo-cert   True    demo-cert   29s
-            NAME               TYPE                DATA   AGE
-            secret/demo-cert   kubernetes.io/tls   3      29s
-
-External IP address will be shown up in Gateway. Also, the host names should be shown up in
-related HTTPRoutes.
-
-.. code-block:: shell-session
-
-    $ kubectl get gateway tls-gateway
-    NAME          CLASS    ADDRESS         READY   AGE
-    tls-gateway   cilium   10.104.247.23   True    29s
-
-    $ kubectl get httproutes https-app-route-1 https-app-route-2
-    NAME                HOSTNAMES                      AGE
-    https-app-route-1   ["bookinfo.cilium.rocks"]      29s
-    https-app-route-2   ["hipstershop.cilium.rocks"]   29s
-
-Update ``/etc/hosts`` with the host names and IP address of the Gateway:
-
-.. code-block:: shell-session
-
-    $ sudo perl -ni -e 'print if !/\.cilium\.rocks$/d' /etc/hosts; sudo tee -a /etc/hosts \
-      <<<"$(kubectl get gateway tls-gateway -o jsonpath='{.status.addresses[0].value}') bookinfo.cilium.rocks hipstershop.cilium.rocks"
-
-Make HTTPS Requests
-===================
+- TLS Termination
 
 .. tabs::
 
-    .. group-tab:: Self-signed Certificate
-
-        By specifying the CA's certificate on a curl request, you can say that you trust certificates
-        signed by that CA.
-
-        .. code-block:: shell-session
-
-            $ curl --cacert minica.pem -v https://bookinfo.cilium.rocks/details/1
-            $ curl --cacert minica.pem -v https://hipstershop.cilium.rocks/
-
-        If you prefer, instead of supplying the CA you can specify ``-k`` to tell the
-        curl client not to validate the server's certificate. Without either, you
-        will get an error that the certificate was signed by an unknown authority.
-
-        Specifying -v on the curl request, you can see that the TLS handshake took
-        place successfully.
-
-    .. group-tab:: Cert Manager
+    .. group-tab:: Ingress
+        
+        The Ingress resource supports TLS termination via the TLS section, where the TLS certificate and key are stored in a Kubernetes Secret.
 
         .. code-block:: shell-session
 
-            $ curl https://bookinfo.cilium.rocks/details/1
-            $ curl https://hipstershop.cilium.rocks/
+            apiVersion: networking.k8s.io/v1
+            kind: Ingress
+            metadata:
+            name: tls-ingress
+            namespace: default
+            spec:
+              tls:
+              - hosts:
+                - bookinfo.cilium.rocks
+                - hipstershop.cilium.rocks
+                secretName: demo-cert
 
+    .. group-tab:: Gateway API
+
+        In the Gateway API, TLS termination is a property of the Gateway listener, and similarly to the Ingress, a TLS certificate and key are also stored in a Secret.
+
+        .. code-block:: shell-session
+
+            apiVersion: gateway.networking.k8s.io/v1beta1
+            kind: Gateway
+            metadata:
+              name: tls-gateway
+            spec:
+              gatewayClassName: cilium
+            listeners:
+            - name: bookinfo.cilium.rocks
+              protocol: HTTPS
+              port: 443
+              hostname: "bookinfo.cilium.rocks"
+              tls:
+                certificateRefs:
+                - kind: Secret
+                    name: demo-cert
+            - name: hipstershop.cilium.rocks
+              protocol: HTTPS
+              port: 443
+              hostname: "hipstershop.cilium.rocks"
+              tls:
+                certificateRefs:
+                - kind: Secret
+                    name: demo-cert
+
+- Host-header-based Routing Rules
+
+.. tabs::
+
+    .. group-tab:: Ingress
+        
+        The Ingress API uses the term *host*.
+        With Ingress, each host has separate routing rules.
+
+        .. code-block:: shell-session
+
+            apiVersion: networking.k8s.io/v1
+            kind: Ingress
+            metadata:
+            name: tls-ingress
+            namespace: default
+            spec:
+            ingressClassName: cilium
+            rules:
+            - host: hipstershop.cilium.rocks
+                http:
+                paths:
+                - backend:
+                    service:
+                        name: productcatalogservice
+                        port:
+                        number: 3550
+                    path: /hipstershop.ProductCatalogService
+                    pathType: Prefix
+
+    .. group-tab:: Gateway API
+
+        The Gateway API uses the *hostname* term.
+        The host-header-based routing rules map to the hostnames of the HTTPRoute. 
+        In the HTTPRoute, the routing rules apply to all hostnames.
+
+        The hostnames of an HTTPRoute must match the hostname of the Gateway listener. Otherwise, the listener will ignore the routing rules for the unmatched hostnames.
+
+        .. code-block:: shell-session
+
+            ---
+            apiVersion: gateway.networking.k8s.io/v1beta1
+            kind: HTTPRoute
+            metadata:
+            name: hipstershop-cilium-rocks
+            namespace: default
+            spec:
+            hostnames:
+            - hipstershop.cilium.rocks
+            parentRefs:
+            - name: cilium
+            rules:
+            - backendRefs:
+                - name: productcatalogservice
+                port: 3550
+                matches:
+                - path:
+                    type: PathPrefix
+                    value: /hipstershop.ProductCatalogService
+
+
+Review Equivalent Gateway Configuration
+=======================================
+
+You'll find the equivalent final Gateway and HTTPRoute definition in ``tls-migration.yaml``.
+
+.. literalinclude:: ../../../../examples/kubernetes/gateway/tls-migration.yaml
+
+Deploy the resources and verify that HTTPS requests are routed successfully to the services.
+For more information, consult the Gateway API :ref:`gs_gateway_https`.
