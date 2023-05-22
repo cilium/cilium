@@ -90,18 +90,17 @@ func (p *podCIDRPool) allocateNext() (net.IP, error) {
 	return nil, errors.New("all pod CIDR ranges are exhausted")
 }
 
-func (p *podCIDRPool) release(ip net.IP) error {
+func (p *podCIDRPool) release(ip net.IP) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
 	for _, ipAllocator := range p.ipAllocators {
 		cidrNet := ipAllocator.CIDR()
 		if cidrNet.Contains(ip) {
-			return ipAllocator.Release(ip)
+			ipAllocator.Release(ip)
+			return
 		}
 	}
-
-	return nil
 }
 
 func (p *podCIDRPool) hasAvailableIPs() bool {

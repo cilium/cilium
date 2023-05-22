@@ -145,13 +145,11 @@ func (r *Range) AllocateNext() (net.IP, error) {
 // Release releases the IP back to the pool. Releasing an
 // unallocated IP or an IP out of the range is a no-op and
 // returns no error.
-func (r *Range) Release(ip net.IP) error {
+func (r *Range) Release(ip net.IP) {
 	ok, offset := r.contains(ip)
-	if !ok {
-		return nil
+	if ok {
+		r.alloc.Release(offset)
 	}
-
-	return r.alloc.Release(offset)
 }
 
 // ForEach calls the provided function for each allocated IP.

@@ -249,18 +249,14 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 			return ErrIPv4Disabled
 		}
 
-		if err := ipam.IPv4Allocator.Release(ip, pool); err != nil {
-			return err
-		}
+		ipam.IPv4Allocator.Release(ip, pool)
 	} else {
 		family = IPv6
 		if ipam.IPv6Allocator == nil {
 			return ErrIPv6Disabled
 		}
 
-		if err := ipam.IPv6Allocator.Release(ip, pool); err != nil {
-			return err
-		}
+		ipam.IPv6Allocator.Release(ip, pool)
 	}
 
 	owner := ipam.releaseIPOwner(ip, pool)
