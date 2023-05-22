@@ -41,6 +41,9 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif
 
 #define TUNNEL_PORT 8472
+#define TUNNEL_PROTOCOL_VXLAN 1
+#define TUNNEL_PROTOCOL_GENEVE 2
+#define TUNNEL_PROTOCOL 1
 
 #define HOST_ID 1
 #define WORLD_ID 2
