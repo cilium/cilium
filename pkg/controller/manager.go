@@ -75,7 +75,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
 	} else {
 		ctrl = &managedController{
-			Controller: Controller{
+			controller: controller{
 				name:       name,
 				uuid:       uuid.New().String(),
 				stop:       make(chan struct{}),
@@ -225,6 +225,7 @@ func (m *Manager) TriggerController(name string) {
 // FakeManager returns a fake controller manager with the specified number of
 // failing controllers. The returned manager is identical in any regard except
 // for internal pointers.
+// Used for testing only.
 func FakeManager(failingControllers int) *Manager {
 	m := &Manager{
 		controllers: controllerMap{},
@@ -232,7 +233,7 @@ func FakeManager(failingControllers int) *Manager {
 
 	for i := 0; i < failingControllers; i++ {
 		ctrl := &managedController{
-			Controller: Controller{
+			controller: controller{
 				name:              fmt.Sprintf("controller-%d", i),
 				uuid:              fmt.Sprintf("%d", i),
 				stop:              make(chan struct{}),
@@ -253,7 +254,7 @@ func FakeManager(failingControllers int) *Manager {
 }
 
 type managedController struct {
-	Controller
+	controller
 
 	params       ControllerParams
 	cancelDoFunc context.CancelFunc
