@@ -1173,7 +1173,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		// Ignore the channel returned by this function, as we want the global
 		// identity allocator to run asynchronously.
 		realIdentityAllocator := d.identityAllocator
-		realIdentityAllocator.InitIdentityAllocator(params.Clientset, nil)
+		realIdentityAllocator.InitIdentityAllocator(params.Clientset)
 
 		d.bootstrapClusterMesh(params.NodeManager)
 	}
