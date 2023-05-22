@@ -14,6 +14,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"sync"
@@ -40,10 +41,14 @@ var Cell = cell.Module(
 	"cilium-operator-server",
 	"cilium operator server",
 
-	cell.Provide(newForCell),
+	cell.Provide(
+		apiObject,
+		realServer,
+		testServer,
+	),
 )
 
-type serverParams struct {
+type apiParams struct {
 	cell.In
 
 	Lifecycle  hive.Lifecycle
@@ -51,11 +56,12 @@ type serverParams struct {
 	Logger     logrus.FieldLogger
 	Spec       *Spec
 
-	OperatorGetHealthzHandler operator.GetHealthzHandler
-	MetricsGetMetricsHandler  metrics.GetMetricsHandler
+	OperatorGetHealthzHandler operator.GetHealthzHandler `optional:"true"`
+	MetricsGetMetricsHandler  metrics.GetMetricsHandler  `optional:"true"`
 }
 
-func newForCell(p serverParams) (*Server, error) {
+func apiObject(p apiParams) (*restapi.CiliumOperatorAPI, error) {
+	// Construct the API from the provided handlers
 	api := restapi.NewCiliumOperatorAPI(p.Spec.Document)
 
 	// Construct the API from the provided handlers
@@ -63,12 +69,30 @@ func newForCell(p serverParams) (*Server, error) {
 	api.OperatorGetHealthzHandler = p.OperatorGetHealthzHandler
 	api.MetricsGetMetricsHandler = p.MetricsGetMetricsHandler
 
-	s := NewServer(api)
+	return api, nil
+}
+
+type serverParams struct {
+	cell.In
+
+	Lifecycle  hive.Lifecycle
+	Shutdowner hive.Shutdowner
+	Logger     logrus.FieldLogger
+	API        *restapi.CiliumOperatorAPI
+}
+
+func realServer(p serverParams) (*Server, error) {
+	s := NewServer(p.API)
 	s.shutdowner = p.Shutdowner
 	s.logger = p.Logger
 	p.Lifecycle.Append(s)
-
 	return s, nil
+}
+
+type TestServer *httptest.Server
+
+func testServer(p serverParams) TestServer {
+	return httptest.NewServer(p.API.Serve(nil))
 }
 
 const (

@@ -14,6 +14,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"sync"
@@ -39,10 +40,14 @@ var Cell = cell.Module(
 	"cilium-health-api-server",
 	"cilium health API server",
 
-	cell.Provide(newForCell),
+	cell.Provide(
+		apiObject,
+		realServer,
+		testServer,
+	),
 )
 
-type serverParams struct {
+type apiParams struct {
 	cell.In
 
 	Lifecycle  hive.Lifecycle
@@ -50,12 +55,13 @@ type serverParams struct {
 	Logger     logrus.FieldLogger
 	Spec       *Spec
 
-	GetHealthzHandler                 restapi.GetHealthzHandler
-	ConnectivityGetStatusHandler      connectivity.GetStatusHandler
-	ConnectivityPutStatusProbeHandler connectivity.PutStatusProbeHandler
+	GetHealthzHandler                 restapi.GetHealthzHandler          `optional:"true"`
+	ConnectivityGetStatusHandler      connectivity.GetStatusHandler      `optional:"true"`
+	ConnectivityPutStatusProbeHandler connectivity.PutStatusProbeHandler `optional:"true"`
 }
 
-func newForCell(p serverParams) (*Server, error) {
+func apiObject(p apiParams) (*restapi.CiliumHealthAPIAPI, error) {
+	// Construct the API from the provided handlers
 	api := restapi.NewCiliumHealthAPIAPI(p.Spec.Document)
 
 	// Construct the API from the provided handlers
@@ -64,12 +70,30 @@ func newForCell(p serverParams) (*Server, error) {
 	api.ConnectivityGetStatusHandler = p.ConnectivityGetStatusHandler
 	api.ConnectivityPutStatusProbeHandler = p.ConnectivityPutStatusProbeHandler
 
-	s := NewServer(api)
+	return api, nil
+}
+
+type serverParams struct {
+	cell.In
+
+	Lifecycle  hive.Lifecycle
+	Shutdowner hive.Shutdowner
+	Logger     logrus.FieldLogger
+	API        *restapi.CiliumHealthAPIAPI
+}
+
+func realServer(p serverParams) (*Server, error) {
+	s := NewServer(p.API)
 	s.shutdowner = p.Shutdowner
 	s.logger = p.Logger
 	p.Lifecycle.Append(s)
-
 	return s, nil
+}
+
+type TestServer *httptest.Server
+
+func testServer(p serverParams) TestServer {
+	return httptest.NewServer(p.API.Serve(nil))
 }
 
 const (

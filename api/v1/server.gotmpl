@@ -13,6 +13,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"sync"
@@ -40,10 +41,14 @@ var Cell = cell.Module(
 	"{{ dasherize .Name }}-server",
 	"{{ humanize .Name }} server",
 
-	cell.Provide(newForCell),
+	cell.Provide(
+		apiObject,
+		realServer,
+		testServer,
+	),
 )
 
-type serverParams struct {
+type apiParams struct {
 	cell.In
 
 	Lifecycle  hive.Lifecycle
@@ -53,12 +58,13 @@ type serverParams struct {
 
 	{{- $package := .Package }}
 	{{ range .Operations }}
-		{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler {{ .PackageAlias }}.{{ pascalize .Name }}Handler
+		{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler {{ .PackageAlias }}.{{ pascalize .Name }}Handler `optional:"true"`
 	{{- end }}
 }
 
-func newForCell(p serverParams) (*Server, error) {
-	api := {{ .Package }}.New{{pascalize .Name}}API(p.Spec.Document)
+func apiObject(p apiParams) (*{{ .Package }}.{{ pascalize .Name}}API, error) {
+	// Construct the API from the provided handlers
+	api := {{ .Package }}.New{{ pascalize .Name}}API(p.Spec.Document)
 
 	// Construct the API from the provided handlers
 	{{- $package := .Package }}
@@ -66,14 +72,31 @@ func newForCell(p serverParams) (*Server, error) {
 	  api.{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler = p.{{ if ne  .Package $package }}{{ pascalize .Package }}{{ end }}{{ pascalize .Name }}Handler
 	{{- end }}
 
-	s := NewServer(api)
+	return api, nil
+}
+
+type serverParams struct {
+	cell.In
+
+	Lifecycle  hive.Lifecycle
+	Shutdowner hive.Shutdowner
+	Logger     logrus.FieldLogger
+	API        *{{ .Package }}.{{ pascalize .Name }}API
+}
+
+func realServer(p serverParams) (*Server, error) {
+	s := NewServer(p.API)
 	s.shutdowner = p.Shutdowner
 	s.logger = p.Logger
 	p.Lifecycle.Append(s)
-
 	return s, nil
 }
 
+type TestServer *httptest.Server
+
+func testServer(p serverParams) TestServer {
+	return httptest.NewServer(p.API.Serve(nil))
+}
 
 const (
 	schemeHTTP  = "http"
@@ -137,11 +160,11 @@ func (cfg ServerConfig) Flags(flags *pflag.FlagSet) {
 }
 
 var SpecCell = cell.Module(
-	"{{ dasherize .Name }}-spec",
-	"{{ humanize .Name }} Specification",
+       "{{ dasherize .Name }}-spec",
+       "{{ humanize .Name }} Specification",
 
-	cell.Config(defaultServerConfig),
-	cell.Provide(newSpec),
+       cell.Config(defaultServerConfig),
+       cell.Provide(newSpec),
 )
 
 type Spec struct {

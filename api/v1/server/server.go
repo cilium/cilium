@@ -14,6 +14,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"sync"
@@ -48,10 +49,14 @@ var Cell = cell.Module(
 	"cilium-api-server",
 	"cilium API server",
 
-	cell.Provide(newForCell),
+	cell.Provide(
+		apiObject,
+		realServer,
+		testServer,
+	),
 )
 
-type serverParams struct {
+type apiParams struct {
 	cell.In
 
 	Lifecycle  hive.Lifecycle
@@ -59,61 +64,62 @@ type serverParams struct {
 	Logger     logrus.FieldLogger
 	Spec       *Spec
 
-	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
-	PolicyDeleteFqdnCacheHandler         policy.DeleteFqdnCacheHandler
-	IpamDeleteIpamIPHandler              ipam.DeleteIpamIPHandler
-	PolicyDeletePolicyHandler            policy.DeletePolicyHandler
-	PrefilterDeletePrefilterHandler      prefilter.DeletePrefilterHandler
-	RecorderDeleteRecorderIDHandler      recorder.DeleteRecorderIDHandler
-	ServiceDeleteServiceIDHandler        service.DeleteServiceIDHandler
-	BgpGetBgpPeersHandler                bgp.GetBgpPeersHandler
-	DaemonGetCgroupDumpMetadataHandler   daemon.GetCgroupDumpMetadataHandler
-	DaemonGetClusterNodesHandler         daemon.GetClusterNodesHandler
-	DaemonGetConfigHandler               daemon.GetConfigHandler
-	DaemonGetDebuginfoHandler            daemon.GetDebuginfoHandler
-	EndpointGetEndpointHandler           endpoint.GetEndpointHandler
-	EndpointGetEndpointIDHandler         endpoint.GetEndpointIDHandler
-	EndpointGetEndpointIDConfigHandler   endpoint.GetEndpointIDConfigHandler
-	EndpointGetEndpointIDHealthzHandler  endpoint.GetEndpointIDHealthzHandler
-	EndpointGetEndpointIDLabelsHandler   endpoint.GetEndpointIDLabelsHandler
-	EndpointGetEndpointIDLogHandler      endpoint.GetEndpointIDLogHandler
-	PolicyGetFqdnCacheHandler            policy.GetFqdnCacheHandler
-	PolicyGetFqdnCacheIDHandler          policy.GetFqdnCacheIDHandler
-	PolicyGetFqdnNamesHandler            policy.GetFqdnNamesHandler
-	DaemonGetHealthzHandler              daemon.GetHealthzHandler
-	PolicyGetIPHandler                   policy.GetIPHandler
-	PolicyGetIdentityHandler             policy.GetIdentityHandler
-	PolicyGetIdentityEndpointsHandler    policy.GetIdentityEndpointsHandler
-	PolicyGetIdentityIDHandler           policy.GetIdentityIDHandler
-	ServiceGetLrpHandler                 service.GetLrpHandler
-	DaemonGetMapHandler                  daemon.GetMapHandler
-	DaemonGetMapNameHandler              daemon.GetMapNameHandler
-	DaemonGetMapNameEventsHandler        daemon.GetMapNameEventsHandler
-	MetricsGetMetricsHandler             metrics.GetMetricsHandler
-	DaemonGetNodeIdsHandler              daemon.GetNodeIdsHandler
-	PolicyGetPolicyHandler               policy.GetPolicyHandler
-	PolicyGetPolicySelectorsHandler      policy.GetPolicySelectorsHandler
-	PrefilterGetPrefilterHandler         prefilter.GetPrefilterHandler
-	RecorderGetRecorderHandler           recorder.GetRecorderHandler
-	RecorderGetRecorderIDHandler         recorder.GetRecorderIDHandler
-	RecorderGetRecorderMasksHandler      recorder.GetRecorderMasksHandler
-	ServiceGetServiceHandler             service.GetServiceHandler
-	ServiceGetServiceIDHandler           service.GetServiceIDHandler
-	StatedbGetStatedbDumpHandler         statedb.GetStatedbDumpHandler
-	DaemonPatchConfigHandler             daemon.PatchConfigHandler
-	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
-	EndpointPatchEndpointIDConfigHandler endpoint.PatchEndpointIDConfigHandler
-	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
-	PrefilterPatchPrefilterHandler       prefilter.PatchPrefilterHandler
-	IpamPostIpamHandler                  ipam.PostIpamHandler
-	IpamPostIpamIPHandler                ipam.PostIpamIPHandler
-	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
-	PolicyPutPolicyHandler               policy.PutPolicyHandler
-	RecorderPutRecorderIDHandler         recorder.PutRecorderIDHandler
-	ServicePutServiceIDHandler           service.PutServiceIDHandler
+	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler      `optional:"true"`
+	PolicyDeleteFqdnCacheHandler         policy.DeleteFqdnCacheHandler         `optional:"true"`
+	IpamDeleteIpamIPHandler              ipam.DeleteIpamIPHandler              `optional:"true"`
+	PolicyDeletePolicyHandler            policy.DeletePolicyHandler            `optional:"true"`
+	PrefilterDeletePrefilterHandler      prefilter.DeletePrefilterHandler      `optional:"true"`
+	RecorderDeleteRecorderIDHandler      recorder.DeleteRecorderIDHandler      `optional:"true"`
+	ServiceDeleteServiceIDHandler        service.DeleteServiceIDHandler        `optional:"true"`
+	BgpGetBgpPeersHandler                bgp.GetBgpPeersHandler                `optional:"true"`
+	DaemonGetCgroupDumpMetadataHandler   daemon.GetCgroupDumpMetadataHandler   `optional:"true"`
+	DaemonGetClusterNodesHandler         daemon.GetClusterNodesHandler         `optional:"true"`
+	DaemonGetConfigHandler               daemon.GetConfigHandler               `optional:"true"`
+	DaemonGetDebuginfoHandler            daemon.GetDebuginfoHandler            `optional:"true"`
+	EndpointGetEndpointHandler           endpoint.GetEndpointHandler           `optional:"true"`
+	EndpointGetEndpointIDHandler         endpoint.GetEndpointIDHandler         `optional:"true"`
+	EndpointGetEndpointIDConfigHandler   endpoint.GetEndpointIDConfigHandler   `optional:"true"`
+	EndpointGetEndpointIDHealthzHandler  endpoint.GetEndpointIDHealthzHandler  `optional:"true"`
+	EndpointGetEndpointIDLabelsHandler   endpoint.GetEndpointIDLabelsHandler   `optional:"true"`
+	EndpointGetEndpointIDLogHandler      endpoint.GetEndpointIDLogHandler      `optional:"true"`
+	PolicyGetFqdnCacheHandler            policy.GetFqdnCacheHandler            `optional:"true"`
+	PolicyGetFqdnCacheIDHandler          policy.GetFqdnCacheIDHandler          `optional:"true"`
+	PolicyGetFqdnNamesHandler            policy.GetFqdnNamesHandler            `optional:"true"`
+	DaemonGetHealthzHandler              daemon.GetHealthzHandler              `optional:"true"`
+	PolicyGetIPHandler                   policy.GetIPHandler                   `optional:"true"`
+	PolicyGetIdentityHandler             policy.GetIdentityHandler             `optional:"true"`
+	PolicyGetIdentityEndpointsHandler    policy.GetIdentityEndpointsHandler    `optional:"true"`
+	PolicyGetIdentityIDHandler           policy.GetIdentityIDHandler           `optional:"true"`
+	ServiceGetLrpHandler                 service.GetLrpHandler                 `optional:"true"`
+	DaemonGetMapHandler                  daemon.GetMapHandler                  `optional:"true"`
+	DaemonGetMapNameHandler              daemon.GetMapNameHandler              `optional:"true"`
+	DaemonGetMapNameEventsHandler        daemon.GetMapNameEventsHandler        `optional:"true"`
+	MetricsGetMetricsHandler             metrics.GetMetricsHandler             `optional:"true"`
+	DaemonGetNodeIdsHandler              daemon.GetNodeIdsHandler              `optional:"true"`
+	PolicyGetPolicyHandler               policy.GetPolicyHandler               `optional:"true"`
+	PolicyGetPolicySelectorsHandler      policy.GetPolicySelectorsHandler      `optional:"true"`
+	PrefilterGetPrefilterHandler         prefilter.GetPrefilterHandler         `optional:"true"`
+	RecorderGetRecorderHandler           recorder.GetRecorderHandler           `optional:"true"`
+	RecorderGetRecorderIDHandler         recorder.GetRecorderIDHandler         `optional:"true"`
+	RecorderGetRecorderMasksHandler      recorder.GetRecorderMasksHandler      `optional:"true"`
+	ServiceGetServiceHandler             service.GetServiceHandler             `optional:"true"`
+	ServiceGetServiceIDHandler           service.GetServiceIDHandler           `optional:"true"`
+	StatedbGetStatedbDumpHandler         statedb.GetStatedbDumpHandler         `optional:"true"`
+	DaemonPatchConfigHandler             daemon.PatchConfigHandler             `optional:"true"`
+	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler       `optional:"true"`
+	EndpointPatchEndpointIDConfigHandler endpoint.PatchEndpointIDConfigHandler `optional:"true"`
+	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler `optional:"true"`
+	PrefilterPatchPrefilterHandler       prefilter.PatchPrefilterHandler       `optional:"true"`
+	IpamPostIpamHandler                  ipam.PostIpamHandler                  `optional:"true"`
+	IpamPostIpamIPHandler                ipam.PostIpamIPHandler                `optional:"true"`
+	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler         `optional:"true"`
+	PolicyPutPolicyHandler               policy.PutPolicyHandler               `optional:"true"`
+	RecorderPutRecorderIDHandler         recorder.PutRecorderIDHandler         `optional:"true"`
+	ServicePutServiceIDHandler           service.PutServiceIDHandler           `optional:"true"`
 }
 
-func newForCell(p serverParams) (*Server, error) {
+func apiObject(p apiParams) (*restapi.CiliumAPIAPI, error) {
+	// Construct the API from the provided handlers
 	api := restapi.NewCiliumAPIAPI(p.Spec.Document)
 
 	// Construct the API from the provided handlers
@@ -171,12 +177,30 @@ func newForCell(p serverParams) (*Server, error) {
 	api.RecorderPutRecorderIDHandler = p.RecorderPutRecorderIDHandler
 	api.ServicePutServiceIDHandler = p.ServicePutServiceIDHandler
 
-	s := NewServer(api)
+	return api, nil
+}
+
+type serverParams struct {
+	cell.In
+
+	Lifecycle  hive.Lifecycle
+	Shutdowner hive.Shutdowner
+	Logger     logrus.FieldLogger
+	API        *restapi.CiliumAPIAPI
+}
+
+func realServer(p serverParams) (*Server, error) {
+	s := NewServer(p.API)
 	s.shutdowner = p.Shutdowner
 	s.logger = p.Logger
 	p.Lifecycle.Append(s)
-
 	return s, nil
+}
+
+type TestServer *httptest.Server
+
+func testServer(p serverParams) TestServer {
+	return httptest.NewServer(p.API.Serve(nil))
 }
 
 const (
