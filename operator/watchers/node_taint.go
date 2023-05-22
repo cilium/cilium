@@ -137,7 +137,7 @@ func ciliumPodsWatcher(wg *sync.WaitGroup, clientset k8sClient.Clientset, stopCh
 				ciliumQueue.Add(key)
 			},
 		},
-		convertToCiliumPod,
+		transformToCiliumPod,
 		ciliumPodsStore,
 	)
 
@@ -241,7 +241,7 @@ func hostNameIndexFunc(obj interface{}) ([]string, error) {
 	return nil, fmt.Errorf("%w - found %T", errNoPod, obj)
 }
 
-func convertToCiliumPod(obj interface{}) interface{} {
+func transformToCiliumPod(obj interface{}) (interface{}, error) {
 	switch concreteObj := obj.(type) {
 	case *slim_corev1.Pod:
 		p := &slim_corev1.Pod{
@@ -259,11 +259,11 @@ func convertToCiliumPod(obj interface{}) interface{} {
 			},
 		}
 		*concreteObj = slim_corev1.Pod{}
-		return p
+		return p, nil
 	case cache.DeletedFinalStateUnknown:
 		pod, ok := concreteObj.Obj.(*slim_corev1.Pod)
 		if !ok {
-			return obj
+			return nil, fmt.Errorf("unknown object type %T", concreteObj.Obj)
 		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
@@ -284,9 +284,9 @@ func convertToCiliumPod(obj interface{}) interface{} {
 		}
 		// Small GC optimization
 		*pod = slim_corev1.Pod{}
-		return dfsu
+		return dfsu, nil
 	default:
-		return obj
+		return nil, fmt.Errorf("unknown object type %T", concreteObj)
 	}
 }
 

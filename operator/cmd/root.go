@@ -525,14 +525,24 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 							// k8s service for etcd. As soon the k8s caches are
 							// synced, this hijack will stop happening.
 							sc := k8s.NewServiceCache(nil)
-							slimSvcObj := k8s.ConvertToK8sService(k8sSvc)
-							slimSvc := k8s.ObjToV1Services(slimSvcObj)
-							if slimSvc == nil {
-								// This will never happen but still log it
-								scopedLog.Warnf("BUG: invalid k8s service: %s", slimSvcObj)
+							slimSvcObj, err := k8s.TransformToK8sService(k8sSvc)
+							if err != nil {
+								scopedLog.WithFields(logrus.Fields{
+									logfields.ServiceName:      k8sSvc.Name,
+									logfields.ServiceNamespace: k8sSvc.Namespace,
+								}).Error("Failed to transform k8s service")
+							} else {
+								slimSvc := k8s.ObjToV1Services(slimSvcObj)
+								if slimSvc == nil {
+									// This will never happen but still log it
+									scopedLog.WithFields(logrus.Fields{
+										logfields.ServiceName:      k8sSvc.Name,
+										logfields.ServiceNamespace: k8sSvc.Namespace,
+									}).Warn("BUG: invalid k8s service")
+								}
+								sc.UpdateService(slimSvc, nil)
+								svcGetter = operatorWatchers.NewServiceGetter(sc)
 							}
-							sc.UpdateService(slimSvc, nil)
-							svcGetter = operatorWatchers.NewServiceGetter(sc)
 						case k8sErrors.IsNotFound(err):
 							scopedLog.Error("Service not found in k8s")
 						default:

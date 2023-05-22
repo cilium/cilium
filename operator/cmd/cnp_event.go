@@ -119,7 +119,7 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 				}
 			},
 		},
-		k8s.ConvertToCNP,
+		k8s.TransformToCNP,
 		cnpStore,
 	)
 

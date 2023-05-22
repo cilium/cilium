@@ -245,6 +245,6 @@ func CiliumSlimEndpointResource(lc hive.Lifecycle, cs client.Clientset, opts ...
 	return resource.New[*types.CiliumEndpoint](lc, lw,
 		resource.WithLazyTransform(func() runtime.Object {
 			return &cilium_api_v2.CiliumEndpoint{}
-		}, ConvertToCiliumEndpointOrError),
+		}, TransformToCiliumEndpoint),
 	), nil
 }
