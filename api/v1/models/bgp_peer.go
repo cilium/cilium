@@ -47,6 +47,11 @@ type BgpPeer struct {
 	// Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8) in seconds
 	ConnectRetryTimeSeconds int64 `json:"connect-retry-time-seconds,omitempty"`
 
+	// Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.
+	// 0 if eBGP multi-hop feature is disabled.
+	//
+	EbgpMultihopTTL int64 `json:"ebgp-multihop-ttl,omitempty"`
+
 	// BGP peer address family state
 	Families []*BgpPeerFamilies `json:"families"`
 

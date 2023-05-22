@@ -97,6 +97,14 @@ type CiliumBGPNeighbor struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
 	PeerASN int `json:"peerASN"`
+	// EBGPMultihopTTL controls the multi-hop feature for eBGP peers.
+	// Its value defines the Time To Live (TTL) value used in BGP packets sent to the neighbor.
+	// When empty or zero, eBGP multi-hop feature is disabled. The value is ignored for iBGP peers.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=255
+	EBGPMultihopTTL int `json:"eBGPMultihopTTL,omitempty"`
 	// ConnectRetryTime defines the initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
 	// The default value for the ConnectRetryTime (if empty or zero) is 120 seconds.
 	// Rounded internally to the nearest whole second.

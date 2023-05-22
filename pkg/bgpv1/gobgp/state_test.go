@@ -84,6 +84,24 @@ var (
 
 	neighbor64127 = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:          64127,
+		PeerAddress:      "192.168.88.1/32",
+		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+	}
+
+	// changed EBGPMultihopTTL
+	neighbor64127Update = &v2alpha1api.CiliumBGPNeighbor{
+		PeerASN:          64127,
+		PeerAddress:      "192.168.88.1/32",
+		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+		EBGPMultihopTTL:  10,
+	}
+
+	neighbor64128 = &v2alpha1api.CiliumBGPNeighbor{
+		PeerASN:          64128,
 		PeerAddress:      "192.168.77.1/32",
 		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
 		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
@@ -119,14 +137,17 @@ func TestGetPeerState(t *testing.T) {
 				neighbor64125,
 				neighbor64126,
 				neighbor64127,
+				neighbor64128,
 			},
 			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
 				// changed ConnectRetryTime
 				neighbor64125Update,
 				// changed HoldTime & KeepAliveTime
 				neighbor64126Update,
+				// changed EBGPMultihopTTL
+				neighbor64127Update,
 				// no change
-				neighbor64127,
+				neighbor64128,
 			},
 			localASN: 64124,
 			errStr:   "",
@@ -270,6 +291,10 @@ func validatePeers(t *testing.T, localASN uint32, neighbors []*v2alpha1api.Ciliu
 
 		require.EqualValues(t, n.GracefulRestart.Enabled, p.GracefulRestart.Enabled)
 		require.EqualValues(t, n.GracefulRestart.RestartTime.Seconds(), p.GracefulRestart.RestartTimeSeconds)
+
+		if n.EBGPMultihopTTL > 0 {
+			require.EqualValues(t, n.EBGPMultihopTTL, p.EbgpMultihopTTL)
+		}
 
 		// since there is no real neighbor, bgp session state will be either idle or active.
 		require.Contains(t, []string{"idle", "active"}, p.SessionState)

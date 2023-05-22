@@ -1834,6 +1834,10 @@ func init() {
           "description": "Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8) in seconds",
           "type": "integer"
         },
+        "ebgp-multihop-ttl": {
+          "description": "Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.\n0 if eBGP multi-hop feature is disabled.\n",
+          "type": "integer"
+        },
         "families": {
           "description": "BGP peer address family state",
           "type": "array",
@@ -6769,6 +6773,10 @@ func init() {
         },
         "connect-retry-time-seconds": {
           "description": "Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8) in seconds",
+          "type": "integer"
+        },
+        "ebgp-multihop-ttl": {
+          "description": "Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.\n0 if eBGP multi-hop feature is disabled.\n",
           "type": "integer"
         },
         "families": {
