@@ -139,7 +139,7 @@
    * - auth.mTLS.spire.serverAddress
      - SPIRE server address
      - string
-     - ``"spire-server.cilium-spire.svc.cluster.local:8081"``
+     - ``"spire-server.cilium-spire.svc:8081"``
    * - auth.mTLS.spire.trustDomain
      - SPIFFE trust domain to use for fetching certificates
      - string
