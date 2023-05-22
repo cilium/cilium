@@ -186,6 +186,7 @@ func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 				mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
 					httpNoMatchingParentCondition(hr, fmt.Sprintf("No matching listener with sectionName %s", *parent.SectionName)),
 				})
+				continue
 			}
 		}
 
