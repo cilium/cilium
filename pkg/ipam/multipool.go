@@ -462,11 +462,11 @@ func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, up
 		return fmt.Errorf("unable to release IP %s of unknown pool %q (family %s)", ip, poolName, family)
 	}
 
-	err := pool.release(ip)
-	if err == nil && upstreamSync {
+	pool.release(ip)
+	if upstreamSync {
 		m.k8sUpdater.TriggerWithReason("release of IP")
 	}
-	return err
+	return nil
 }
 
 func (m *multiPoolManager) Allocator(family Family) Allocator {

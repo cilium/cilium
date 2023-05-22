@@ -56,18 +56,13 @@ func (s *IPAMSuite) TestLock(c *C) {
 	ipv6 = ipv6.Next()
 
 	// Forcefully release possible allocated IPs
-	err := ipam.IPv4Allocator.Release(ipv4.AsSlice(), PoolDefault)
-	c.Assert(err, IsNil)
-	err = ipam.IPv6Allocator.Release(ipv6.AsSlice(), PoolDefault)
-	c.Assert(err, IsNil)
+	ipam.IPv4Allocator.Release(ipv4.AsSlice(), PoolDefault)
+	ipam.IPv6Allocator.Release(ipv6.AsSlice(), PoolDefault)
 
 	// Let's allocate the IP first so we can see the tests failing
 	result, err := ipam.IPv4Allocator.Allocate(ipv4.AsSlice(), "test", PoolDefault)
 	c.Assert(err, IsNil)
 	c.Assert(result.IP, checker.DeepEquals, net.IP(ipv4.AsSlice()))
-
-	err = ipam.IPv4Allocator.Release(ipv4.AsSlice(), PoolDefault)
-	c.Assert(err, IsNil)
 }
 
 func (s *IPAMSuite) TestExcludeIP(c *C) {
