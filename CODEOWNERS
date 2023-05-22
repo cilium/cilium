@@ -37,6 +37,9 @@
 #   Provide guidance around the best use of Cilium project continuous
 #   integration and testing infrastructure, including GitHub actions, VM
 #   helpers, testing frameworks, etc.
+# - @cilium/committers
+#   Committers have commit access to the project and govern who else can
+#   become a committer to the project.
 # - @cilium/contributing:
 #   Encourage practices that ensure an inclusive contributor community. Review
 #   tooling and scripts used by contributors.
@@ -282,7 +285,7 @@ Makefile* @cilium/build
 /Documentation/cmdref/
 /Documentation/community/community.rst @cilium/contributing
 /Documentation/community/governance/ @cilium/contributing
-/Documentation/community/governance/commit_access.rst @cilium/contributing @cilium/docs-structure
+/Documentation/community/governance/commit_access.rst @cilium/committers
 /Documentation/community/roadmap.rst @cilium/contributing @cilium/docs-structure
 /Documentation/contributing/ @cilium/contributing @cilium/docs-structure
 /Documentation/conf.py @cilium/docs-structure
@@ -358,7 +361,7 @@ Makefile* @cilium/build
 /install/kubernetes/cilium/templates/hubble* @cilium/sig-k8s @cilium/helm @cilium/sig-hubble
 jenkinsfiles @cilium/ci-structure
 /LICENSE @cilium/tophat
-/MAINTAINERS.md @cilium/contributing
+/MAINTAINERS.md @cilium/committers
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
 /operator/pkg/ciliumenvoyconfig @cilium/sig-servicemesh
