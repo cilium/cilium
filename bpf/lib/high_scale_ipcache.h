@@ -32,6 +32,8 @@ world_cidrs_lookup4(__u32 addr)
 static __always_inline int
 decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 {
+	struct genevehdr geneve __maybe_unused;
+	__u32 opt_len __maybe_unused;
 	void *data, *data_end;
 	__u16 dport, proto;
 	struct iphdr *ip4;
@@ -56,19 +58,39 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 	if (dport != bpf_htons(TUNNEL_PORT))
 		return CTX_ACT_OK;
 
-	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4) +
-	      sizeof(struct udphdr) +
-	      offsetof(struct vxlanhdr, vx_vni);
-	if (ctx_load_bytes(ctx, off, src_id, sizeof(__u32)) < 0)
-		return DROP_INVALID;
+	switch (TUNNEL_PROTOCOL) {
+	case TUNNEL_PROTOCOL_GENEVE:
+		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4) + sizeof(struct udphdr);
+		if (ctx_load_bytes(ctx, off, &geneve, sizeof(geneve)) < 0)
+			return CTX_ACT_DROP;
+
+		opt_len = geneve.opt_len * 4;
+		memcpy(src_id, &geneve.vni, sizeof(__u32));
+
+		shrink = ipv4_hdrlen(ip4) + sizeof(struct udphdr) +
+			 sizeof(struct genevehdr) + opt_len +
+			 sizeof(struct ethhdr);
+		break;
+	case TUNNEL_PROTOCOL_VXLAN:
+		shrink = ipv4_hdrlen(ip4) + sizeof(struct udphdr) +
+			 sizeof(struct vxlanhdr) + sizeof(struct ethhdr);
+		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4) +
+		      sizeof(struct udphdr) +
+		      offsetof(struct vxlanhdr, vx_vni);
+
+		if (ctx_load_bytes(ctx, off, src_id, sizeof(__u32)) < 0)
+			return CTX_ACT_DROP;
+		break;
+	default:
+		/* If the tunnel type is neither VXLAN nor GENEVE, we have an issue. */
+		__throw_build_bug();
+	}
+
 	*src_id = bpf_ntohl(*src_id) >> 8;
 	ctx_store_meta(ctx, CB_SRC_LABEL, *src_id);
 
-	shrink = ipv4_hdrlen(ip4) + sizeof(struct udphdr) +
-		 sizeof(struct vxlanhdr) + sizeof(struct ethhdr);
-	if (ctx_adjust_hroom(ctx, -shrink, BPF_ADJ_ROOM_MAC,
-			     ctx_adjust_hroom_flags()))
-		return DROP_INVALID;
+	if (ctx_adjust_hroom(ctx, -shrink, BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags()))
+		return CTX_ACT_DROP;
 	return ctx_redirect(ctx, ENCAP_IFINDEX, BPF_F_INGRESS);
 }
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
