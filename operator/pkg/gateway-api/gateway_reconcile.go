@@ -419,6 +419,18 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 			})
 		}
 	}
+
+	// filter listener status to only have active listeners
+	var newListenersStatus []gatewayv1beta1.ListenerStatus
+	for _, ls := range gw.Status.Listeners {
+		for _, l := range gw.Spec.Listeners {
+			if ls.Name == l.Name {
+				newListenersStatus = append(newListenersStatus, ls)
+				break
+			}
+		}
+	}
+	gw.Status.Listeners = newListenersStatus
 	return nil
 }
 
