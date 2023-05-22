@@ -63,3 +63,14 @@ func TestPromiseCancelled(t *testing.T) {
 		t.Fatalf("expected %s error, got %s", context.Canceled, err)
 	}
 }
+
+func TestPromiseResolved(t *testing.T) {
+	promise := Resolved(123)
+	i, err := promise.Await(context.TODO())
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if i != 123 {
+		t.Fatalf("expected 123, got %d", i)
+	}
+}
