@@ -1207,6 +1207,10 @@ hubble:
         # When set to true, enable TLS on for Hubble Relay server
         # (ie: for clients connecting to the Hubble Relay API).
         enabled: false
+        # When set to true enforces mutual TLS between Hubble Relay server and its clients.
+        # False allow non-mutual TLS connections.
+        # This option has no effect when TLS is disabled.
+        mtls: false
         # These values need to be set manually if hubble.tls.auto.enabled is false.
         cert: ""
         key: ""

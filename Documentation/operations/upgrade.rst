@@ -392,6 +392,10 @@ New Options
   ``tunnel=disabled``, now deprecated.
 * ``tunnel-protocol``: This option allows setting the tunneling protocol, in place
   of e.g., ``tunnel=vxlan``.
+* ``tls-relay-client-ca-files``: This option lets you provide a certificate authority (CA)
+  key and cert in Hubble Relay to authenticate Hubble Relay's clients with mTLS. When you provide a CA key and cert,
+  Hubble Relay enforces mTLS authentication on its clients (for example, Hubble CLI
+  client can't connect to Hubble Relay using ``--tls-allow-insecure``).
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -406,6 +410,11 @@ Deprecated Options
 * The ``cluster-pool-v2beta`` IPAM mode is deprecated and will be removed in v1.15.
   The functionality to dynamically allocate Pod CIDRs is now provided  by the
   more flexible ``multi-pool`` IPAM mode.
+* The following Hubble Relay options are deprecated and will be removed in v1.15:
+   * ``tls-client-cert-file`` (replaced with ``tls-hubble-client-cert-file``).
+   * ``tls-client-key-file`` (replaced with ``tls-hubble-client-key-file``).
+   * ``tls-server-cert-file`` (replaced with ``tls-relay-server-cert-file``).
+   * ``tls-server-key-file`` (replaced with ``tls-relay-server-key-file``).
 
 Deprecated Commands
 ~~~~~~~~~~~~~~~~~~~
