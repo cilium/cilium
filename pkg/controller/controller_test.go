@@ -170,6 +170,18 @@ func (b *ControllerSuite) TestCancellation(c *C) {
 	}
 }
 
+// terminationChannel returns a channel that is closed after the controller has
+// been terminated
+func (m *Manager) terminationChannel(name string) chan struct{} {
+	if c := m.lookup(name); c != nil {
+		return c.terminated
+	}
+
+	c := make(chan struct{})
+	close(c)
+	return c
+}
+
 func (b *ControllerSuite) TestWaitForTermination(c *C) {
 	mngr := NewManager()
 	mngr.UpdateController("test1", ControllerParams{})
@@ -179,7 +191,7 @@ func (b *ControllerSuite) TestWaitForTermination(c *C) {
 	// still running
 	c.Assert(testutils.WaitUntil(func() bool {
 		select {
-		case <-mngr.TerminationChannel("test1"):
+		case <-mngr.terminationChannel("test1"):
 			return false
 		default:
 			return true
@@ -190,7 +202,7 @@ func (b *ControllerSuite) TestWaitForTermination(c *C) {
 
 	// The controller must have been terminated already due to AndWait above
 	select {
-	case <-mngr.TerminationChannel("test1"):
+	case <-mngr.terminationChannel("test1"):
 	default:
 		c.Fail()
 	}
