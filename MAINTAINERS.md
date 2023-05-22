@@ -18,6 +18,7 @@ Everybody listed is a committer as per governance definition.
  * [Daniel Borkmann] (Isovalent)
  * [Dan Wendlandt] (Isovalent)
  * [Deepesh Pathak]
+ * [Dylan Reimerink] (Isovalent)
  * [Eloy Coto] (Red Hat)
  * [Gilberto Bertin] (Isovalent)
  * [Glib Smaga] (Isovalent)
@@ -78,6 +79,7 @@ project.
 [Daniel Borkmann]: https://github.com/borkmann
 [Dan Wendlandt]: https://github.com/danwent
 [Deepesh Pathak]: https://github.com/fristonio
+[Dylan Reimerink]: https://github.com/dylandreimerink
 [Eloy Coto]: https://github.com/eloycoto
 [Gilberto Bertin]: https://github.com/jibi
 [Glib Smaga]: https://github.com/glibsm
