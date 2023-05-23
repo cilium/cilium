@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
@@ -26,7 +27,7 @@ var defaultOptions = options{
 	clientConnBuilder: GRPCClientConnBuilder{
 		DialTimeout: defaults.DialTimeout,
 		Options: []grpc.DialOption{
-			grpc.WithInsecure(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithBlock(),
 			grpc.FailOnNonTempDialError(true),
 			grpc.WithReturnConnectionError(),
