@@ -260,7 +260,7 @@ type EndpointPolicyBandwidthEvent struct {
 
 // Handle handles the policy bandwidth update.
 func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
-	var bps uint64
+	var bps, prio uint64
 
 	e := ev.ep
 	if err := e.lockAlive(); err != nil {
@@ -275,17 +275,22 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
 		e.unlock()
 	}()
 
-	bandwidthEgress, err := ev.annoCB(e.K8sNamespace, e.K8sPodName)
+	bandwidthEgress, priority, err := ev.annoCB(e.K8sNamespace, e.K8sPodName)
 	if err != nil || !option.Config.EnableBandwidthManager {
 		res <- &EndpointRegenerationResult{
 			err: err,
 		}
 		return
 	}
-	if bandwidthEgress != "" {
-		bps, err = bandwidth.GetBytesPerSec(bandwidthEgress)
+	if bandwidthEgress != "" || priority != "" {
+		if bandwidthEgress != "" {
+			bps, err = bandwidth.GetBytesPerSec(bandwidthEgress)
+		}
+		if err == nil && priority != "" {
+			prio, err = strconv.Atoi(priority)
+		}
 		if err == nil {
-			err = bwmap.Update(e.ID, bps)
+			err = bwmap.Update(e.ID, bps, prio)
 		}
 	} else {
 		err = bwmap.SilentDelete(e.ID)
@@ -307,7 +312,9 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
 	}
 	e.getLogger().Debugf("Updating %s from %s to %s bytes/sec", bandwidth.EgressBandwidth,
 		bpsOld, bpsNew)
+	e.getLogger().Debugf("Updating %s from %d to %d bytes/sec", bandwidth.Priority, e.prio, prio)
 	e.bps = bps
+	e.prio = prio
 	res <- &EndpointRegenerationResult{
 		err: nil,
 	}

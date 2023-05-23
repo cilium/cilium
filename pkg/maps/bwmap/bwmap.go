@@ -39,13 +39,15 @@ type EdtInfo struct {
 	Bps             uint64    `align:"bps"`
 	TimeLast        uint64    `align:"t_last"`
 	TimeHorizonDrop uint64    `align:"t_horizon_drop"`
-	Pad             [4]uint64 `align:"pad"`
+	Prio            uint32    `align:"prio"`
+	Pad32           uint32    `align:"pad_32"`
+	Pad             [3]uint64 `align:"pad"`
 }
 
 func (v *EdtInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *EdtInfo) String() string              { return fmt.Sprintf("%d", int(v.Bps)) }
+func (v *EdtInfo) String() string              { return fmt.Sprintf("%d, %d", int(v.Bps), int(v.Prio)) }
 func (v *EdtInfo) DeepCopyMapValue() bpf.MapValue {
-	return &EdtInfo{v.Bps, v.TimeLast, v.TimeHorizonDrop, v.Pad}
+	return &EdtInfo{v.Bps, v.TimeLast, v.TimeHorizonDrop, v.Prio, v.Pad32, v.Pad}
 }
 
 var (
@@ -70,10 +72,10 @@ func ThrottleMap() *bpf.Map {
 	return throttleMap
 }
 
-func Update(Id uint16, Bps uint64) error {
+func Update(Id uint16, Bps uint64, Prio uint32) error {
 	return ThrottleMap().Update(
 		&EdtId{Id: uint64(Id)},
-		&EdtInfo{Bps: Bps, TimeHorizonDrop: uint64(DefaultDropHorizon)})
+		&EdtInfo{Bps: Bps, TimeHorizonDrop: uint64(DefaultDropHorizon), Prio: Prio})
 }
 
 func Delete(Id uint16) error {

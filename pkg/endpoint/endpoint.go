@@ -159,6 +159,9 @@ type Endpoint struct {
 	// bps is the egress rate of the endpoint
 	bps uint64
 
+	// prio is the traffic priority of the endpoint
+	prio uint32
+
 	// mac is the MAC address of the endpoint
 	//
 	mac mac.MAC // Container MAC address.
@@ -1616,12 +1619,12 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 					value, _ := annotation.Get(po, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
 					return value, nil
 				})
-				e.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
+				e.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress, priority string, err error) {
 					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
 					if err != nil {
-						return "", err
+						return "", "", err
 					}
-					return annotations[bandwidth.EgressBandwidth], nil
+					return annotations[bandwidth.EgressBandwidth], annotations[bandwidth.Priority], nil
 				})
 				e.UpdateLabels(ctx, identityLabels, info, true)
 				close(done)

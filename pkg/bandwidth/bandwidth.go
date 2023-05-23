@@ -27,6 +27,8 @@ const (
 	EgressBandwidth = "kubernetes.io/egress-bandwidth"
 	// IngressBandwidth is the K8s Pod annotation.
 	IngressBandwidth = "kubernetes.io/ingress-bandwidth"
+	// Priority is the Cilium Pod priority annotation.
+	Priority = "bandwidth.cilium.io/priority"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)

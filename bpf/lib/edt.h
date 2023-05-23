@@ -53,6 +53,8 @@ static __always_inline int edt_sched_departure(struct __ctx_buff *ctx)
 	info = map_lookup_elem(&THROTTLE_MAP, &aggregate);
 	if (!info)
 		return CTX_ACT_OK;
+	if (!info->bps)
+		goto out;
 
 	now = ktime_get_ns();
 	t = ctx->tstamp;
@@ -73,6 +75,8 @@ static __always_inline int edt_sched_departure(struct __ctx_buff *ctx)
 		return CTX_ACT_DROP;
 	WRITE_ONCE(info->t_last, t_next);
 	ctx->tstamp = t_next;
+out:
+	ctx->priority = info->prio;
 	return CTX_ACT_OK;
 }
 #else

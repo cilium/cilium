@@ -305,7 +305,9 @@ struct edt_info {
 	__u64		bps;
 	__u64		t_last;
 	__u64		t_horizon_drop;
-	__u64		pad[4];
+	__u32		prio;
+	__u32		pad_32;
+	__u64		pad[3];
 };
 
 struct remote_endpoint_info {

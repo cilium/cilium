@@ -444,6 +444,13 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
 					bandwidth.EgressBandwidth)
 			}
+			if _, ok := annotations[bandwidth.Priority]; ok && !option.Config.EnableBandwidthManager {
+				log.WithFields(logrus.Fields{
+					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
+					logfields.Annotations: logfields.Repr(annotations),
+				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
+					bandwidth.Priority)
+			}
 		}
 	}
 
@@ -490,12 +497,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			value, _ := annotation.Get(p, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
 			return value, nil
 		})
-		ep.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
+		ep.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress, priority string, err error) {
 			_, p, err := d.endpointMetadataFetcher.Fetch(ns, podName)
 			if err != nil {
-				return "", err
+				return "", "", err
 			}
-			return p.Annotations[bandwidth.EgressBandwidth], nil
+			return p.Annotations[bandwidth.EgressBandwidth], p.Annotations[bandwidth.Priority], nil
 		})
 		ep.UpdateNoTrackRules(func(ns, podName string) (noTrackPort string, err error) {
 			_, p, err := d.endpointMetadataFetcher.Fetch(ns, podName)
