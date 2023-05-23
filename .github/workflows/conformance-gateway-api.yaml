@@ -71,9 +71,8 @@ jobs:
             --helm-set=operator.image.useDigest=false \
             --helm-set kubeProxyReplacement=strict \
             --helm-set=securityContext.privileged=true \
-            --helm-set=gatewayAPI.enabled=true \
-            --rollback=false \
-            --version="
+            --helm-set=gatewayAPI.enabled=true"
+
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Checkout
@@ -120,7 +119,12 @@ jobs:
 
       - name: Install Cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+          kubectl -n kube-system get pods
 
       - name: Install metallb for LB service
         timeout-minutes: 10
