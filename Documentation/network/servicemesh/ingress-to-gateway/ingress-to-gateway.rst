@@ -79,6 +79,19 @@ There are currently two primary methods to migrate Ingress API resources to Gate
 - *automated*, creating rules using the `ingress2gateway tool <https://github.com/kubernetes-sigs/ingress2gateway>`_. 
   This project reads Ingress resources from a Kubernetes cluster based on your current Kube Config. It will output YAML for equivalent Gateway API resources to stdout.
 
+Ingress Annotations Migration
+#############################
+
+Most Ingress controllers make the use of annotations to provide support for specific features, such as HTTP request manipulation and routing. 
+As highlighted above, the Gateway API model avoids the use of implementation-specific annotations where possible to provide a portable configuration.
+
+Therefore, porting implementation-specific Ingress annotations to a Gateway API resource rarely applies. 
+Instead, the Gateway API provides native support for some of these features, including:
+
+- Request/response manipulation
+- Traffic splitting
+- Header, query parameter, or method-based routing
+
 Examples
 ########
 
