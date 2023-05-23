@@ -938,7 +938,7 @@ func init() {
         "summary": "Release an allocated IP address",
         "parameters": [
           {
-            "$ref": "#/parameters/ipam-release-arg"
+            "$ref": "#/parameters/ipam-ip"
           },
           {
             "$ref": "#/parameters/ipam-pool"
@@ -4598,13 +4598,6 @@ func init() {
       "name": "pool",
       "in": "query"
     },
-    "ipam-release-arg": {
-      "type": "string",
-      "description": "IP address or owner name",
-      "name": "ip",
-      "in": "path",
-      "required": true
-    },
     "labels": {
       "description": "List of labels\n",
       "name": "labels",
@@ -5741,7 +5734,7 @@ func init() {
         "parameters": [
           {
             "type": "string",
-            "description": "IP address or owner name",
+            "description": "IP address",
             "name": "ip",
             "in": "path",
             "required": true
@@ -9989,13 +9982,6 @@ func init() {
       "type": "string",
       "name": "pool",
       "in": "query"
-    },
-    "ipam-release-arg": {
-      "type": "string",
-      "description": "IP address or owner name",
-      "name": "ip",
-      "in": "path",
-      "required": true
     },
     "labels": {
       "description": "List of labels\n",

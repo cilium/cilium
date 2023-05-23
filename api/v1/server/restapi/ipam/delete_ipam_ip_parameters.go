@@ -34,7 +34,7 @@ type DeleteIpamIPParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
-	/*IP address or owner name
+	/*IP address
 	  Required: true
 	  In: path
 	*/

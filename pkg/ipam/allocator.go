@@ -30,21 +30,6 @@ var (
 	ErrIPv6Disabled = errors.New("IPv6 allocation disabled")
 )
 
-func (ipam *IPAM) lookupIPsByOwner(owner string, pool Pool) (ips []net.IP) {
-	ipam.allocatorMutex.RLock()
-	defer ipam.allocatorMutex.RUnlock()
-
-	for ip, o := range ipam.owner[pool] {
-		if o == owner {
-			if parsedIP := net.ParseIP(ip); parsedIP != nil {
-				ips = append(ips, parsedIP)
-			}
-		}
-	}
-
-	return
-}
-
 // AllocateIP allocates a IP address.
 func (ipam *IPAM) AllocateIP(ip net.IP, owner string, pool Pool) error {
 	needSyncUpstream := true
@@ -275,32 +260,6 @@ func (ipam *IPAM) ReleaseIP(ip net.IP, pool Pool) error {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 	return ipam.releaseIPLocked(ip, pool)
-}
-
-// ReleaseIPString is identical to ReleaseIP but takes a string and supports
-// referring to the IPs to be released with the IP itself or the owner name
-// used during allocation. If the owner can be referred to multiple IPs, then
-// all IPs are being released.
-func (ipam *IPAM) ReleaseIPString(releaseArg string, pool Pool) (err error) {
-	var ips []net.IP
-
-	ip := net.ParseIP(releaseArg)
-	if ip == nil {
-		ips = ipam.lookupIPsByOwner(releaseArg, pool)
-		if len(ips) == 0 {
-			return fmt.Errorf("Invalid IP address or owner name: %s", releaseArg)
-		}
-	} else {
-		ips = append(ips, ip)
-	}
-
-	for _, parsedIP := range ips {
-		// If any of the releases fail, report the failure
-		if err2 := ipam.ReleaseIP(parsedIP, pool); err2 != nil {
-			err = err2
-		}
-	}
-	return
 }
 
 // Dump dumps the list of allocated IP addresses

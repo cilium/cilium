@@ -469,7 +469,7 @@ paths:
       tags:
       - ipam
       parameters:
-      - "$ref": "#/parameters/ipam-release-arg"
+      - "$ref": "#/parameters/ipam-ip"
       - "$ref": "#/parameters/ipam-pool"
       responses:
         '200':
@@ -1112,12 +1112,6 @@ parameters:
   ipam-ip:
     name: ip
     description: IP address
-    in: path
-    required: true
-    type: string
-  ipam-release-arg:
-    name: ip
-    description: IP address or owner name
     in: path
     required: true
     type: string
