@@ -611,11 +611,8 @@ const (
 	// NewNode refers to the node after the update
 	NewNode = "newNode"
 
-	// AttachedENIs are the ENIs which have been attached to the node
-	AttachedENIs = "attachedENIs"
-
-	// ExpectedENIs are the ENIs which are expected to be available
-	ExpectedENIs = "expectedENIs"
+	// MissingENIs are the ENIs that we expected to be available but were not found.
+	MissingENIs = "missingENIs"
 
 	// Hint helps nudge the user in the right direction when troubleshooting.
 	Hint = "hint"
