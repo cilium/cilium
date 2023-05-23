@@ -312,3 +312,9 @@ func TestOuterSourceIPProbe(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestIPv6Support(t *testing.T) {
+	if err := HaveIPv6Support(); err != nil {
+		t.Fatal(err)
+	}
+}

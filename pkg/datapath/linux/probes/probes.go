@@ -504,6 +504,18 @@ func HaveOuterSourceIPSupport() (err error) {
 	return nil
 }
 
+// HaveIPv6Support tests whether kernel can open an IPv6 socket. This will
+// also implicitly auto-load IPv6 kernel module if available and not yet
+// loaded.
+func HaveIPv6Support() error {
+	fd, err := unix.Socket(unix.AF_INET6, unix.SOCK_STREAM, 0)
+	if errors.Is(err, unix.EAFNOSUPPORT) || errors.Is(err, unix.EPROTONOSUPPORT) {
+		return ErrNotSupported
+	}
+	unix.Close(fd)
+	return nil
+}
+
 // CreateHeaderFiles creates C header files with macros indicating which BPF
 // features are available in the kernel.
 func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
