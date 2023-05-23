@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -95,7 +94,7 @@ type fixture struct {
 }
 
 type fixtureConfig struct {
-	node      corev1.Node
+	node      slim_core_v1.Node
 	policy    cilium_api_v2alpha1.CiliumBGPPeeringPolicy
 	ipam      string
 	bgpEnable bool
@@ -110,8 +109,8 @@ func newFixture(conf fixtureConfig) *fixture {
 	f.policyClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies()
 
 	// create default base node
-	f.fakeClientSet.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"), conf.node.DeepCopy(), "")
+	f.fakeClientSet.SlimFakeClientset.Tracker().Create(
+		slim_core_v1.SchemeGroupVersion.WithResource("nodes"), conf.node.DeepCopy(), "")
 
 	// create initial bgp policy
 	f.fakeClientSet.CiliumFakeClientset.Tracker().Add(&conf.policy)
