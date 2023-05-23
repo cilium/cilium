@@ -169,13 +169,13 @@ func (jg *group) Add(jobs ...Job) {
 	jg.mu.Lock()
 	defer jg.mu.Unlock()
 
-	for _, j := range jobs {
-		// The context is only set once the group has been started. If we have not yet started, queue the job.
-		if jg.ctx == nil {
-			jg.queuedJobs = append(jg.queuedJobs, j)
-			return
-		}
+	// The context is only set once the group has been started. If we have not yet started, queue the jobs.
+	if jg.ctx == nil {
+		jg.queuedJobs = append(jg.queuedJobs, jobs...)
+		return
+	}
 
+	for _, j := range jobs {
 		jg.wg.Add(1)
 		pprof.Do(jg.ctx, jg.options.pprofLabels, func(ctx context.Context) {
 			go j.start(ctx, jg.wg, jg.options)
