@@ -11,10 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
-	"github.com/cilium/cilium/pkg/probe"
 )
 
 type preFilterMapType int
@@ -50,10 +47,6 @@ type PreFilter struct {
 	revision int64
 	mutex    lock.RWMutex
 }
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "prefilter")
-)
 
 // WriteConfig dumps the configuration for the corresponding header file
 func (p *PreFilter) WriteConfig(fw io.Writer) {
@@ -250,13 +243,9 @@ func (p *PreFilter) init() (*PreFilter, error) {
 
 // NewPreFilter returns prefilter handle
 func NewPreFilter() (*PreFilter, error) {
-	haveLPM := probe.HaveFullLPM()
-	if !haveLPM {
-		log.Warning("Kernel too old for full LPM map support. Needs kernel 4.16 or higher. Only enabling /32 and /128 prefixes for prefilter.")
-	}
 	c := preFilterConfig{
-		dyn4Enabled: haveLPM,
-		dyn6Enabled: haveLPM,
+		dyn4Enabled: true,
+		dyn6Enabled: true,
 		fix4Enabled: true,
 		fix6Enabled: true,
 	}
