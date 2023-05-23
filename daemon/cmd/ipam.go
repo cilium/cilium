@@ -123,8 +123,13 @@ func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIpamIPParams) middleware.Resp
 		return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
 	}
 
+	ip := net.ParseIP(params.IP)
+	if ip == nil {
+		return api.Error(ipamapi.DeleteIpamIPInvalidCode, fmt.Errorf("Invalid IP address: %s", params.IP))
+	}
+
 	pool := ipam.PoolOrDefault(swag.StringValue(params.Pool))
-	if err := h.daemon.ipam.ReleaseIPString(params.IP, pool); err != nil {
+	if err := h.daemon.ipam.ReleaseIP(ip, pool); err != nil {
 		return api.Error(ipamapi.DeleteIpamIPFailureCode, err)
 	}
 
