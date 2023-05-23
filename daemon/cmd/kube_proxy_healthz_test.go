@@ -73,7 +73,7 @@ func (s *KubeProxyHealthzTestSuite) healthTestHelper(c *C, ciliumStatus string,
 			injectedLastUpdatedTs: lastUpdateTs}}
 
 	// Create a new request.
-	req, err := http.NewRequest("GET", "/healthz", nil)
+	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
 	c.Assert(err, IsNil)
 	w := httptest.NewRecorder()
 
