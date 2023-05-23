@@ -10,6 +10,7 @@ import (
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium-cli/k8s"
 )
@@ -152,8 +153,30 @@ func (s Service) Path() string {
 }
 
 // Address returns the network address of the Service.
-func (s Service) Address(IPFamily) string {
-	return s.Service.Name
+func (s Service) Address(family IPFamily) string {
+	// If the cluster IP is empty (headless service case) or the IP family is set to any, return the service name
+	if s.Service.Spec.ClusterIP == "" || family == IPFamilyAny {
+		return s.Service.Name
+	}
+
+	getClusterIPForIPFamily := func(family v1.IPFamily) string {
+		for i, f := range s.Service.Spec.IPFamilies {
+			if f == family {
+				return s.Service.Spec.ClusterIPs[i]
+			}
+		}
+
+		return ""
+	}
+
+	switch family {
+	case IPFamilyV4:
+		return getClusterIPForIPFamily(v1.IPv4Protocol)
+	case IPFamilyV6:
+		return getClusterIPForIPFamily(v1.IPv6Protocol)
+	}
+
+	return ""
 }
 
 // Port returns the first port of the Service.
