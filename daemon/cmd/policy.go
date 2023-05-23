@@ -421,7 +421,7 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 //   - regenerate all endpoints in epsToRegen
 //   - bump the policy revision of all endpoints not in epsToRegen, but which are
 //     in allEps, to revision rev.
-//   - wait for the regenerations to be finished
+//   - wait for the all endpoint regenerations to be _queued_.
 //   - upsert or delete CIDR identities to the ipcache, as needed.
 func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64, upsertPrefixes, releasePrefixes []netip.Prefix) {
 	var enqueueWaitGroup sync.WaitGroup
