@@ -192,12 +192,6 @@ func (k *CallKey) String() string { return strconv.FormatUint(uint64(k.index), 1
 // String converts the value into a human readable string format.
 func (v *CallValue) String() string { return strconv.FormatUint(uint64(v.progID), 10) }
 
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k CallKey) NewValue() bpf.MapValue { return &CallValue{} }
-
-func (pe *PolicyEntry) NewValue() bpf.MapValue { return &PolicyEntry{} }
-
 func (pe *PolicyEntry) Add(oPe PolicyEntry) {
 	pe.Packets += oPe.Packets
 	pe.Bytes += oPe.Bytes
@@ -239,8 +233,6 @@ func (p PolicyEntriesDump) Less(i, j int) bool {
 	return p[i].Key.TrafficDirection <= p[j].Key.TrafficDirection &&
 		p[i].Key.Identity < p[j].Key.Identity
 }
-
-func (key *PolicyKey) NewValue() bpf.MapValue { return &PolicyEntry{} }
 
 func (key *PolicyKey) PortProtoString() string {
 	dport := key.GetDestPort()

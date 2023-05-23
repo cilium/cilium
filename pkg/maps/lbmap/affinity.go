@@ -96,10 +96,6 @@ func (k *AffinityMatchKey) String() string {
 // String converts the value into a human readable string format
 func (v *AffinityMatchValue) String() string { return "" }
 
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value
-func (k *AffinityMatchKey) NewValue() bpf.MapValue { return &AffinityMatchValue{} }
-
 // ToNetwork returns the key in the network byte order
 func (k *AffinityMatchKey) ToNetwork() *AffinityMatchKey {
 	n := *k
@@ -159,11 +155,3 @@ func (k *Affinity6Key) String() string {
 
 // String converts the value into a human readable string format.
 func (v *AffinityValue) String() string { return fmt.Sprintf("%d %d", v.BackendID, v.LastUsed) }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k Affinity4Key) NewValue() bpf.MapValue { return &AffinityValue{} }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k Affinity6Key) NewValue() bpf.MapValue { return &AffinityValue{} }

@@ -70,7 +70,7 @@ const SizeofNeighKey6 = int(unsafe.Sizeof(Key6{}))
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Value struct {
 	macaddr types.MACAddr
-	pad     uint16
+	_       uint16
 }
 
 // SizeOfNeighValue is the size of type NeighValue.
@@ -84,14 +84,6 @@ func (k *Key6) String() string { return k.ipv6.String() }
 
 // String converts the value into a human readable string format.
 func (v *Value) String() string { return v.macaddr.String() }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k Key4) NewValue() bpf.MapValue { return &Value{} }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k Key6) NewValue() bpf.MapValue { return &Value{} }
 
 // InitMaps creates the nodeport neighbors maps in the kernel.
 func InitMaps(ipv4, ipv6 bool) error {

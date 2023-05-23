@@ -10,7 +10,6 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -121,8 +120,6 @@ type L2ResponderKey struct {
 	IP      types.IPv4 `align:"ip"`
 	IfIndex uint32     `align:"ifindex"`
 }
-
-func (k *L2ResponderKey) NewValue() bpf.MapValue { return &L2ResponderStats{} }
 
 func (k *L2ResponderKey) String() string {
 	return fmt.Sprintf("ip=%s, ifIndex=%d", net.IP(k.IP[:]), k.IfIndex)

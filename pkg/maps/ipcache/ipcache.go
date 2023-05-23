@@ -40,10 +40,6 @@ type Key struct {
 	IP types.IPv6 `align:"$union0"`
 }
 
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value
-func (k Key) NewValue() bpf.MapValue { return &RemoteEndpointInfo{} }
-
 func getStaticPrefixBits() uint32 {
 	staticMatchSize := unsafe.Sizeof(Key{})
 	staticMatchSize -= unsafe.Sizeof(Key{}.Prefixlen)

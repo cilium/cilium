@@ -41,10 +41,6 @@ type Key struct {
 	IP types.IPv4 `align:"vtep_ip"`
 }
 
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value
-func (k Key) NewValue() bpf.MapValue { return &VtepEndpointInfo{} }
-
 func (k Key) String() string {
 	return k.IP.String()
 }

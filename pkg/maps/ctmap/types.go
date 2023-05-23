@@ -152,9 +152,6 @@ type CtKey4 struct {
 	tuple.TupleKey4
 }
 
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey4) NewValue() bpf.MapValue { return &CtEntry{} }
-
 // ToNetwork converts CtKey4 ports to network byte order.
 func (k *CtKey4) ToNetwork() CtKey {
 	n := *k
@@ -229,9 +226,6 @@ func (k *CtKey4) GetTupleKey() tuple.TupleKey {
 type CtKey4Global struct {
 	tuple.TupleKey4Global
 }
-
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey4Global) NewValue() bpf.MapValue { return &CtEntry{} }
 
 // ToNetwork converts ports to network byte order.
 //
@@ -316,9 +310,6 @@ type CtKey6 struct {
 	tuple.TupleKey6
 }
 
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey6) NewValue() bpf.MapValue { return &CtEntry{} }
-
 // ToNetwork converts CtKey6 ports to network byte order.
 func (k *CtKey6) ToNetwork() CtKey {
 	return &CtKey6{
@@ -393,9 +384,6 @@ type CtKey6Global struct {
 }
 
 const SizeofCtKey6Global = int(unsafe.Sizeof(CtKey6Global{}))
-
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey6Global) NewValue() bpf.MapValue { return &CtEntry{} }
 
 // ToNetwork converts ports to network byte order.
 //

@@ -27,8 +27,6 @@ type PlumbingValue struct {
 	fd uint32
 }
 
-func (k *PlumbingKey) NewValue() bpf.MapValue { return &PlumbingValue{} }
-
 func (k *PlumbingKey) String() string {
 	return fmt.Sprintf("Endpoint: %d", k.key)
 }

@@ -26,8 +26,7 @@ type Key4 struct {
 	Address   types.IPv4
 }
 
-func (k *Key4) NewValue() bpf.MapValue { return &Value{} }
-func (k *Key4) String() string         { return fmt.Sprintf("%s", k.Address) }
+func (k *Key4) String() string { return fmt.Sprintf("%s", k.Address) }
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue

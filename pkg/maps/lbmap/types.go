@@ -59,6 +59,9 @@ type ServiceKey interface {
 type ServiceValue interface {
 	bpf.MapValue
 
+	// Allocate a new value
+	New() ServiceValue
+
 	// Set the number of backends
 	SetCount(int)
 

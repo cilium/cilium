@@ -36,10 +36,6 @@ func (v EncryptValue) String() string {
 	return fmt.Sprintf("%d", v.encryptKeyID)
 }
 
-// NewValue returns a new empty instance of the structure represeting the BPF
-// map value
-func (k EncryptKey) NewValue() bpf.MapValue { return &EncryptValue{} }
-
 func newEncryptKey(key uint32) *EncryptKey {
 	return &EncryptKey{
 		key: key,

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -26,9 +25,6 @@ type TupleKey4 struct {
 	NextHeader u8proto.U8proto `align:"nexthdr"`
 	Flags      uint8           `align:"flags"`
 }
-
-// NewValue creates a new bpf.MapValue.
-func (k *TupleKey4) NewValue() bpf.MapValue { return &TupleValStub{} }
 
 // ToNetwork converts TupleKey4 ports to network byte order.
 func (k *TupleKey4) ToNetwork() TupleKey {

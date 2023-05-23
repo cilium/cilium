@@ -35,9 +35,6 @@ var ErrMaxLookup = errors.New("maximum number of lookups reached")
 type MapKey interface {
 	fmt.Stringer
 
-	// Allocates a new value matching the key type
-	NewValue() MapValue
-
 	// DeepCopyMapKey returns a deep copy of the map key
 	DeepCopyMapKey() MapKey
 }
@@ -745,7 +742,7 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 		duration = spanstat.Start()
 	}
 
-	value := key.NewValue()
+	value := m.MapValue.DeepCopyMapValue()
 	err := m.m.Lookup(key, value)
 
 	if metrics.BPFSyscallDuration.IsEnabled() {

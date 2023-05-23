@@ -177,10 +177,9 @@ func NewRevNat4Key(value uint16) *RevNat4Key {
 	return &RevNat4Key{value}
 }
 
-func (k *RevNat4Key) Map() *bpf.Map          { return RevNat4Map }
-func (k *RevNat4Key) NewValue() bpf.MapValue { return &RevNat4Value{} }
-func (k *RevNat4Key) String() string         { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
-func (k *RevNat4Key) GetKey() uint16         { return k.Key }
+func (k *RevNat4Key) Map() *bpf.Map  { return RevNat4Map }
+func (k *RevNat4Key) String() string { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
+func (k *RevNat4Key) GetKey() uint16 { return k.Key }
 
 // ToNetwork converts RevNat4Key to network byte order.
 func (k *RevNat4Key) ToNetwork() RevNatKey {
@@ -272,7 +271,6 @@ func (k *Service4Key) String() string {
 	return addr
 }
 
-func (k *Service4Key) NewValue() bpf.MapValue  { return &Service4Value{} }
 func (k *Service4Key) IsIPv6() bool            { return false }
 func (k *Service4Key) IsSurrogate() bool       { return k.GetAddress().IsUnspecified() }
 func (k *Service4Key) Map() *bpf.Map           { return Service4MapV2 }
@@ -314,6 +312,10 @@ type Service4Value struct {
 	Flags     uint8     `align:"flags"`
 	Flags2    uint8     `align:"flags2"`
 	Pad       pad2uint8 `align:"pad"`
+}
+
+func (s *Service4Value) New() ServiceValue {
+	return &Service4Value{}
 }
 
 func (s *Service4Value) String() string {
@@ -378,7 +380,6 @@ func NewBackend4KeyV3(id loadbalancer.BackendID) *Backend4KeyV3 {
 }
 
 func (k *Backend4KeyV3) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend4KeyV3) NewValue() bpf.MapValue          { return &Backend4ValueV3{} }
 func (k *Backend4KeyV3) Map() *bpf.Map                   { return Backend4MapV3 }
 func (k *Backend4KeyV3) SetID(id loadbalancer.BackendID) { k.ID = id }
 func (k *Backend4KeyV3) GetID() loadbalancer.BackendID   { return k.ID }
@@ -390,7 +391,6 @@ type Backend4Key struct {
 }
 
 func (k *Backend4Key) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend4Key) NewValue() bpf.MapValue          { return &Backend4Value{} }
 func (k *Backend4Key) Map() *bpf.Map                   { return Backend4Map }
 func (k *Backend4Key) SetID(id loadbalancer.BackendID) { k.ID = uint16(id) }
 func (k *Backend4Key) GetID() loadbalancer.BackendID   { return loadbalancer.BackendID(k.ID) }
@@ -570,7 +570,7 @@ type SockRevNat4Key struct {
 	cookie  uint64     `align:"cookie"`
 	address types.IPv4 `align:"address"`
 	port    int16      `align:"port"`
-	pad     int16      `align:"pad"`
+	_       int16
 }
 
 // SockRevNat4Value is an entry in the reverse NAT sock map.
@@ -591,10 +591,6 @@ func (k *SockRevNat4Key) String() string {
 func (v *SockRevNat4Value) String() string {
 	return fmt.Sprintf("[%s]:%d, %d", v.address, v.port, v.revNatIndex)
 }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k SockRevNat4Key) NewValue() bpf.MapValue { return &SockRevNat4Value{} }
 
 // CreateSockRevNat4Map creates the reverse NAT sock map.
 func CreateSockRevNat4Map() error {

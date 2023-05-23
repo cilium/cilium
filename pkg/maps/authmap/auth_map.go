@@ -9,7 +9,6 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/ebpf"
 )
@@ -125,8 +124,6 @@ type AuthKey struct {
 	AuthType       uint8  `align:"auth_type"`
 	Pad            uint8  `align:"pad"`
 }
-
-func (r *AuthKey) NewValue() bpf.MapValue { return &AuthInfo{} }
 
 func (r *AuthKey) String() string {
 	return fmt.Sprintf("localIdentity=%d, remoteIdentity=%d, remoteNodeID=%d, authType=%d", r.LocalIdentity, r.RemoteIdentity, r.RemoteNodeID, r.AuthType)
