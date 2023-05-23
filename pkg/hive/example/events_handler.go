@@ -24,7 +24,7 @@ func newEventsHandler(ee ExampleEvents) HTTPHandlerOut {
 			Path: "/events",
 			Handler: func(w http.ResponseWriter, req *http.Request) {
 				f := w.(http.Flusher)
-				w.WriteHeader(200)
+				w.WriteHeader(http.StatusOK)
 
 				for ev := range stream.ToChannel[ExampleEvent](req.Context(), ee) {
 					fmt.Fprintf(w, "%s\n", ev.Message)
