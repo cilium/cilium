@@ -31,6 +31,13 @@ type eniDeviceConfig struct {
 
 type configMap map[string]eniDeviceConfig // by MAC addr
 
+func WaitForENIInterfaces(oldNode, newNode *ciliumv2.CiliumNode) (map[string]string, error) {
+	// We can pass a nil MtuConfiguration in this case because we don't plan to
+	// actually configure any of those ENI interfaces.
+	newENIByMac := parseENIConfigs(oldNode, newNode, nil)
+	return waitForNetlinkDevices(newENIByMac)
+}
+
 func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration) error {
 	addedENIByMac := parseENIConfigs(oldNode, newNode, mtuConfig)
 	go setupENIDevices(addedENIByMac)
@@ -104,11 +111,16 @@ func parseENIConfig(name string, eni *eniTypes.ENI, mtuConfig MtuConfiguration, 
 		return cfg, fmt.Errorf("failed to parse eni subnet cidr %q: %w", eni.Subnet.CIDR, err)
 	}
 
+	mtu := 0
+	if mtuConfig != nil {
+		mtu = mtuConfig.GetDeviceMTU()
+	}
+
 	return eniDeviceConfig{
 		name:         name,
 		ip:           ip,
 		cidr:         cidr,
-		mtu:          mtuConfig.GetDeviceMTU(),
+		mtu:          mtu,
 		usePrimaryIP: usePrimary,
 	}, nil
 }
