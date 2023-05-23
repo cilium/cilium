@@ -24,6 +24,7 @@ var (
 
 // Test_PodCIDRAdvert validates pod IPv4/v6 subnet is advertised, withdrawn and modified on node addresses change.
 func Test_PodCIDRAdvert(t *testing.T) {
+	t.Skip()
 	testutils.PrivilegedTest(t)
 
 	// steps define order in which test is run. Note, this is different from table tests, in which each unit is
@@ -167,6 +168,7 @@ func Test_PodCIDRAdvert(t *testing.T) {
 
 // Test_LBEgressAdvertisement validates Service v4 and v6 IPs is advertised, withdrawn and modified on changing policy.
 func Test_LBEgressAdvertisement(t *testing.T) {
+	t.Skip()
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {

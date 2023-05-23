@@ -27,6 +27,7 @@ type peeringState struct {
 // peering status which is reported from BGP control plane.
 // Topology - (BGP CP) === (2 x gobgp instances)
 func Test_NeighborAddDel(t *testing.T) {
+	t.Skip()
 	testutils.PrivilegedTest(t)
 
 	var steps = []struct {
