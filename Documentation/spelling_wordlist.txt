@@ -542,6 +542,7 @@ hostPath
 hostPort
 hostRoot
 hostname
+hostnames
 hostns
 hostonlyif
 hostonlyifs
