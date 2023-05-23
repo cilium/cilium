@@ -9,7 +9,7 @@ permissions: read-all
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.2
+  cilium_cli_version: v0.14.3
   cilium_cli_ci_version:
   KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config.yaml
@@ -119,7 +119,7 @@ jobs:
 
       - name: Install Cilium CLI
         if: ${{ failure() }}
-        uses: cilium/cilium-cli@207512ce9e729d9b3cc1a59e92af5c8d50ce37c4 # v0.14.2
+        uses: cilium/cilium-cli@d4c49cddefadf11852cd5bbde0bbd9e0b2c67d43 # v0.14.3
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
