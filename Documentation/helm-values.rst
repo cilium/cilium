@@ -679,7 +679,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto`
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used to generate any certificates not provided by the user at installation time.
      - object
-     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm"}``
+     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"cronJob","schedule":"0 0 1 */4 *"}``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.certManagerIssuerRef`
      - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
      - object
@@ -695,7 +695,11 @@
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.method`
      - Sets the method to auto-generate certificates. Supported values: - cronJob:      This method uses a Kubernetes CronJob to generate any                 certificates not provided by the user at                 installation time. - certmanager:  This method uses cert-manager to generate & rotate                 certificates. - helm:         This method uses Helm to generate all certificates.                 Deprecated and will be removed in Cilium v1.16.
      - string
-     - ``"helm"``
+     - ``"cronJob"``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.auto.schedule`
+     - Schedule for certificates regeneration (regardless of their expiration date). Only used if method is "cronJob". If nil, then no recurring job will be created. Instead, only the one-shot job is deployed to generate the certificates at installation time.  Due to the out-of-band distribution of client certs to external workloads the CA is (re)regenerated only if it is not provided as a helm value and the k8s secret is manually deleted.  Defaults to midnight of the first day of every fourth month. For syntax, see https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
+     - string
+     - ``"0 0 1 */4 *"``
    * - :spelling:ignore:`clustermesh.apiserver.tls.client`
      - base64 encoded PEM values for the clustermesh-apiserver client certificate and private key. Used if 'auto' is not enabled.
      - object
@@ -1823,11 +1827,11 @@
    * - :spelling:ignore:`hubble.tls`
      - TLS configuration for Hubble
      - object
-     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
+     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"cronJob","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
    * - :spelling:ignore:`hubble.tls.auto`
      - Configure automatic TLS certificates generation.
      - object
-     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
+     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"cronJob","schedule":"0 0 1 */4 *"}``
    * - :spelling:ignore:`hubble.tls.auto.certManagerIssuerRef`
      - certmanager issuer used when hubble.tls.auto.method=certmanager.
      - object
@@ -1843,7 +1847,7 @@
    * - :spelling:ignore:`hubble.tls.auto.method`
      - Sets the method to auto-generate certificates. Supported values: - cronJob:      This method uses a Kubernetes CronJob to generate any                 certificates not provided by the user at                 installation time. - certmanager:  This method uses cert-manager to generate & rotate                 certificates. - helm:         This method uses Helm to generate all certificates.                 Deprecated and will be removed in Cilium v1.16.
      - string
-     - ``"helm"``
+     - ``"cronJob"``
    * - :spelling:ignore:`hubble.tls.auto.schedule`
      - Schedule for certificates regeneration (regardless of their expiration date). Only used if method is "cronJob". If nil, then no recurring job will be created. Instead, only the one-shot job is deployed to generate the certificates at installation time.  Defaults to midnight of the first day of every fourth month. For syntax, see https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
      - string

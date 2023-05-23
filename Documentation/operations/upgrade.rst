@@ -441,7 +441,7 @@ Helm Options
   and have been removed. The ```clustermesh-apiserver-ca-cert`` secret is no longer generated.
 * The ``helm`` method for both ``hubble.tls.auto.method`` and
   ``clustermesh.apiserver.tls.auto.method`` has been deprecated and will be
-  removed in v1.16.
+  removed in v1.16. For both, the new default is ``cronJob``.
 
 * Values ``authentication.mutual.spire.install.agent.image`` and ``authentication.mutual.spire.install.server.image``
   changed their type from a string to a structured definition that decouples repository and tag. This improves the

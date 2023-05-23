@@ -1046,7 +1046,7 @@ hubble:
       #                 certificates.
       # - helm:         This method uses Helm to generate all certificates.
       #                 Deprecated and will be removed in Cilium v1.16.
-      method: helm
+      method: cronJob
       # -- Generated certificates validity duration in days.
       certValidityDuration: 1095
       # -- Schedule for certificates regeneration (regardless of their expiration date).
@@ -2749,7 +2749,7 @@ clustermesh:
         #                 certificates.
         # - helm:         This method uses Helm to generate all certificates.
         #                 Deprecated and will be removed in Cilium v1.16.
-        method: helm
+        method: cronJob
         # -- Generated certificates validity duration in days.
         certValidityDuration: 1095
         # -- Schedule for certificates regeneration (regardless of their expiration date).
@@ -2761,10 +2761,9 @@ clustermesh:
         # CA is (re)regenerated only if it is not provided as a helm value and the k8s
         # secret is manually deleted.
         #
-        # Defaults to none. Commented syntax gives midnight of the first day of every
-        # fourth month. For syntax, see
-        # https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
-        # schedule: "0 0 1 */4 *"
+        # Defaults to midnight of the first day of every fourth month. For
+        # syntax, see https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
+        schedule: "0 0 1 */4 *"
 
         # [Example]
         # certManagerIssuerRef:
