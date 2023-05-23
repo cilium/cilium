@@ -439,6 +439,9 @@ Helm Options
 * Values ``clustermesh.apiserver.tls.ca.cert`` and ``clustermesh.apiserver.tls.ca.key``
   were deprecated in Cilium 1.14 in favor of ``tls.ca.cert`` and ``tls.ca.key`` respectively,
   and have been removed. The ```clustermesh-apiserver-ca-cert`` secret is no longer generated.
+* The ``helm`` method for both ``hubble.tls.auto.method`` and
+  ``clustermesh.apiserver.tls.auto.method`` has been deprecated and will be
+  removed in v1.16.
 
 * Values ``authentication.mutual.spire.install.agent.image`` and ``authentication.mutual.spire.install.server.image``
   changed their type from a string to a structured definition that decouples repository and tag. This improves the

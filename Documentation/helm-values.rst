@@ -677,7 +677,7 @@
      - string
      - ``"legacy"``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto`
-     - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
+     - Configure automatic TLS certificates generation. A Kubernetes CronJob is used to generate any certificates not provided by the user at installation time.
      - object
      - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm"}``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.certManagerIssuerRef`
@@ -692,6 +692,10 @@
      - When set to true, automatically generate a CA and certificates to enable mTLS between clustermesh-apiserver and external workload instances. If set to false, the certs to be provided by setting appropriate values below.
      - bool
      - ``true``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.auto.method`
+     - Sets the method to auto-generate certificates. Supported values: - cronJob:      This method uses a Kubernetes CronJob to generate any                 certificates not provided by the user at                 installation time. - certmanager:  This method uses cert-manager to generate & rotate                 certificates. - helm:         This method uses Helm to generate all certificates.                 Deprecated and will be removed in Cilium v1.16.
+     - string
+     - ``"helm"``
    * - :spelling:ignore:`clustermesh.apiserver.tls.client`
      - base64 encoded PEM values for the clustermesh-apiserver client certificate and private key. Used if 'auto' is not enabled.
      - object
@@ -1837,7 +1841,7 @@
      - bool
      - ``true``
    * - :spelling:ignore:`hubble.tls.auto.method`
-     - Set the method to auto-generate certificates. Supported values: - helm:         This method uses Helm to generate all certificates. - cronJob:      This method uses a Kubernetes CronJob the generate any                 certificates not provided by the user at installation                 time. - certmanager:  This method use cert-manager to generate & rotate certificates.
+     - Sets the method to auto-generate certificates. Supported values: - cronJob:      This method uses a Kubernetes CronJob to generate any                 certificates not provided by the user at                 installation time. - certmanager:  This method uses cert-manager to generate & rotate                 certificates. - helm:         This method uses Helm to generate all certificates.                 Deprecated and will be removed in Cilium v1.16.
      - string
      - ``"helm"``
    * - :spelling:ignore:`hubble.tls.auto.schedule`
