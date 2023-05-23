@@ -89,6 +89,14 @@ func (n *CIDR) Equal(o *CIDR) bool {
 	return Equal(n.IPNet, o.IPNet)
 }
 
+// String returns the string about the CIDR like "192.0.2.0/24"
+func (in *CIDR) String() string {
+	if in == nil {
+		return "<nil>"
+	}
+	return in.IPNet.String()
+}
+
 // Equal returns true if the n and o net.IPNet CIDRs arr Equal.
 func Equal(n, o *net.IPNet) bool {
 	if n == nil || o == nil {
