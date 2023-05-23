@@ -8,7 +8,6 @@ import (
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -55,9 +54,9 @@ type nodeConfig struct {
 }
 
 // newNodeObj creates new corev1.Node object based on passed config
-func newNodeObj(conf nodeConfig) corev1.Node {
-	nodeObj := corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
+func newNodeObj(conf nodeConfig) slim_core_v1.Node {
+	nodeObj := slim_core_v1.Node{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name:        "base-node",
 			Labels:      map[string]string{},
 			Annotations: map[string]string{},
