@@ -325,7 +325,7 @@ func (s *Status) Format() string {
 	fmt.Fprintf(w, Yellow+"    /¯¯\\\n")
 	fmt.Fprintf(w, Cyan+" /¯¯"+Yellow+"\\__/"+Green+"¯¯\\"+Reset+"\tCilium:\t"+s.statusSummary(defaults.AgentDaemonSetName)+"\n")
 	fmt.Fprintf(w, Cyan+" \\__"+Red+"/¯¯\\"+Green+"__/"+Reset+"\tOperator:\t"+s.statusSummary(defaults.OperatorDeploymentName)+"\n")
-	fmt.Fprintf(w, Green+" /¯¯"+Red+"\\__/"+Magenta+"¯¯\\"+Reset+"\tEnvoy DaemonSet:\t"+s.statusSummary(defaults.EnvoyDaemonSetName)+"\n")
+	fmt.Fprintf(w, Green+" /¯¯"+Red+"\\__/"+Magenta+"¯¯\\"+Reset+"\tEnvoy DaemonSet:\t"+envoyStatusSummary(s.statusSummary(defaults.EnvoyDaemonSetName))+"\n")
 	fmt.Fprintf(w, Green+" \\__"+Blue+"/¯¯\\"+Magenta+"__/"+Reset+"\tHubble Relay:\t"+s.statusSummary(defaults.RelayDeploymentName)+"\n")
 	fmt.Fprintf(w, Blue+Blue+Blue+"    \\__/"+Reset+"\tClusterMesh:\t"+s.statusSummary(defaults.ClusterMeshDeploymentName)+"\n")
 	fmt.Fprintf(w, "\n")
@@ -379,4 +379,14 @@ func (s *Status) Format() string {
 	w.Flush()
 
 	return buf.String()
+}
+
+// envoyStatusSummary adds some more context to the default `disabled` - mainly to prevent confusion.
+// This might get removed once the DaemonSet mode becomes the only available option.
+func envoyStatusSummary(statusSummary string) string {
+	if strings.Contains(statusSummary, "disabled") {
+		return strings.Replace(statusSummary, "disabled", "disabled (using embedded mode)", 1)
+	}
+
+	return statusSummary
 }
