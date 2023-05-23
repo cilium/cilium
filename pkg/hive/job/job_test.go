@@ -676,10 +676,15 @@ func TestRegistry(t *testing.T) {
 func TestGroup_JobQueue(t *testing.T) {
 	h := fixture(func(r Registry, l hive.Lifecycle) {
 		g := r.NewGroup()
-		g.Add(OneShot("queued", func(ctx context.Context) error {
-			return nil
-		}))
-		if len(g.(*group).queuedJobs) != 1 {
+		g.Add(
+			OneShot("queued1", func(ctx context.Context) error { return nil }),
+			OneShot("queued2", func(ctx context.Context) error { return nil }),
+		)
+		g.Add(
+			OneShot("queued3", func(ctx context.Context) error { return nil }),
+			OneShot("queued4", func(ctx context.Context) error { return nil }),
+		)
+		if len(g.(*group).queuedJobs) != 4 {
 			t.Fatal()
 		}
 		l.Append(g)
