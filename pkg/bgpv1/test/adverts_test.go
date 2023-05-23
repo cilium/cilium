@@ -145,7 +145,7 @@ func Test_PodCIDRAdvert(t *testing.T) {
 	err = gobgpPeers[0].waitForSessionState(testCtx, []string{"ESTABLISHED"})
 	require.NoError(t, err)
 
-	tracker := fixture.fakeClientSet.KubernetesFakeClientset.Tracker()
+	tracker := fixture.fakeClientSet.SlimFakeClientset.Tracker()
 
 	for _, step := range steps {
 		t.Run(step.description, func(t *testing.T) {
