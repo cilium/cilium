@@ -158,6 +158,8 @@ experimental features is always optional and subject to change.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | field_mask | [google.protobuf.FieldMask](#google-protobuf-FieldMask) |  | FieldMask allows clients to limit flow&#39;s fields that will be returned. For example, {paths: [&#34;source.id&#34;, &#34;destination.id&#34;]} will return flows with only these two fields set. |
+| transmit_nodename_once | [bool](#bool) |  | transmit_nodename_once will include node name only in the first message if set. |
+| transmit_endpoint_once | [bool](#bool) |  | transmit_endpoint_once will include full endpoint information only when first seen in the connection. |
 
 
 

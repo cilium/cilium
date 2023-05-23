@@ -114,6 +114,14 @@ message GetFlowsRequest {
         // For example, {paths: ["source.id", "destination.id"]} will return flows
         // with only these two fields set.
         google.protobuf.FieldMask field_mask = 1;
+
+        // transmit_nodename_once will include node name only in the first
+        // message if set.
+        bool transmit_nodename_once = 2;
+
+        // transmit_endpoint_once will include full endpoint information only
+        // when first seen in the connection.
+        bool transmit_endpoint_once = 3;
     }
     Experimental experimental = 999;
 }
