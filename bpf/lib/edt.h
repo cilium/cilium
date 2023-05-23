@@ -10,6 +10,23 @@
 #include "time.h"
 #include "maps.h"
 
+static __always_inline void bwm_save_prio(struct __ctx_buff *ctx __maybe_unused)
+{
+#if __ctx_is == __ctx_skb
+	/* queue mapping is retained, upper stack orhpans skb->sk */
+	/* note: 16 bit only retained */
+	ctx->queue_mapping = skb_cgroup_classid(ctx);
+#endif
+}
+
+static __always_inline void bwm_xfer_prio(struct __ctx_buff *ctx __maybe_unused)
+{
+#if __ctx_is == __ctx_skb
+	ctx->priority = ctx->queue_mapping;
+	ctx->queue_mapping = 0;
+#endif
+}
+
 /* From XDP layer, we neither go through an egress hook nor qdisc
  * from here, hence nothing to be set.
  */

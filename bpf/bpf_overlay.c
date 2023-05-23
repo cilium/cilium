@@ -354,6 +354,7 @@ int to_overlay(struct __ctx_buff *ctx)
 	if (unlikely(ret < 0))
 		goto out;
 
+	bwm_xfer_prio(ctx);
 #ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the
 	 * phys dev where FQ runs, but the issue is that the aggregate state

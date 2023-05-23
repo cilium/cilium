@@ -1025,6 +1025,7 @@ out:
 					      METRIC_EGRESS);
 #endif /* ENABLE_HOST_FIREWALL */
 
+	bwm_xfer_prio(ctx);
 #if defined(ENABLE_BANDWIDTH_MANAGER)
 	ret = edt_sched_departure(ctx);
 	/* No send_drop_notify_error() here given we're rate-limiting. */

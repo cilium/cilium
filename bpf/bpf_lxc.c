@@ -981,6 +981,7 @@ int handle_xgress(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		bwm_save_prio(ctx);
 		edt_set_aggregate(ctx, LXC_ID);
 		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 					is_defined(DEBUG)),
@@ -989,6 +990,7 @@ int handle_xgress(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		bwm_save_prio(ctx);
 		edt_set_aggregate(ctx, LXC_ID);
 		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 					is_defined(DEBUG)),
