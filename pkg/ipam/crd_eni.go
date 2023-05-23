@@ -32,10 +32,14 @@ type eniDeviceConfig struct {
 type configMap map[string]eniDeviceConfig // by MAC addr
 
 func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration) error {
-	var (
-		existingENIByName map[string]eniTypes.ENI
-		addedENIByMac     = configMap{}
-	)
+	addedENIByMac := parseENIConfigs(oldNode, newNode, mtuConfig)
+	go setupENIDevices(addedENIByMac)
+	return nil
+}
+
+func parseENIConfigs(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration) configMap {
+	existingENIByName := make(map[string]eniTypes.ENI)
+	addedENIByMac := make(configMap)
 
 	if oldNode != nil {
 		existingENIByName = oldNode.Status.ENI.ENIs
@@ -63,9 +67,7 @@ func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuCon
 		}
 	}
 
-	go setupENIDevices(addedENIByMac)
-
-	return nil
+	return addedENIByMac
 }
 
 func setupENIDevices(eniConfigByMac configMap) {
