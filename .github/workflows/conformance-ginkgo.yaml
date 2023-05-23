@@ -1,0 +1,759 @@
+name: Conformance ginkgo (ci-ginkgo)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  issue_comment:
+    types:
+      - created
+  # Run every 6 hours
+  schedule:
+    - cron:  '0 1/6 * * *'
+  ### FOR TESTING PURPOSES
+  # This workflow runs in the context of `main`, and ignores changes to
+  # workflow files in PRs. For testing changes to this workflow from a PR:
+  # - Make sure the PR uses a branch from the base repository (requires write
+  #   privileges). It will not work with a branch from a fork (missing secrets).
+  # - Uncomment the `pull_request` event below, commit separately with a `DO
+  #   NOT MERGE` message, and push to the PR. As long as the commit is present,
+  #   any push to the PR will trigger this workflow.
+  # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
+  #   will disappear from the PR checks: please provide a direct link to the
+  #   successful workflow run (can be found from Actions tab) in a comment.
+  #
+  # pull_request: {}
+  ###
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # So that Sibz/github-status-action can write into the status API
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - issue_comment: PR number
+  #   - pull_request: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing:
+  # - schedule: {name} schedule {SHA}
+  # - issue_comment: {name} issue_comment {PR number}
+  # - pull_request: {name} pull_request {PR number}
+  #
+  # Note: for `issue_comment` triggers, we additionally need to filter out based
+  # on comment content, otherwise any comment will interrupt workflow runs.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-ginkgo' ||
+        github.event.comment.body == '/test'
+      ) && github.event.issue.number) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number)
+    }}
+  cancel-in-progress: true
+
+env:
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  # Pre-build the ginkgo binary so that we don't have to build it for all
+  # runners.
+  build-ginkgo-binary:
+    runs-on: ubuntu-latest
+    name: Build Ginkgo E2E
+    timeout-minutes: 30
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-ginkgo' ||
+        (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+          else
+            SHA=${{ github.sha }}
+          fi
+
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Set commit status to pending
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Ginkgo test in progress...
+          state: pending
+          target_url: ${{ env.check_url }}
+
+      - name: Checkout code
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      # Load Ginkgo build from GitHub
+      - name: Load ginkgo E2E from GH cache
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        id: cache
+        with:
+          path: /tmp/.ginkgo-build/
+          key: ${{ runner.os }}-ginkgo-e2e-${{ hashFiles('**/*.go') }}
+
+      - name: Install Go
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.20.4
+
+      - name: Build Ginkgo
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          go install github.com/onsi/ginkgo/ginkgo@v1.16.5
+          mkdir -p /tmp/.ginkgo-build
+
+      - name: Build Test
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          cd test
+          /home/runner/go/bin/ginkgo build
+          strip test.test
+          tar -cz test.test -f test.tgz
+
+      - name: Store Ginkgo Test in GitHub cache path
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.ginkgo-build/
+          if [ -f test/test.tgz ]; then
+            cp test/test.tgz /tmp/.ginkgo-build/
+            echo "file copied"
+          fi
+
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+  setup-and-test:
+    needs: build-ginkgo-binary
+    runs-on:
+      group: ginkgo-runners
+    timeout-minutes: 35
+    name: "E2E Test (${{ matrix.k8s-version }}, ${{matrix.focus}})"
+    env:
+      job_name: "E2E Test (${{ matrix.k8s-version }}, ${{matrix.focus}})"
+    strategy:
+      fail-fast: false
+      max-parallel: 60
+      matrix:
+        k8s-version:
+          - "1.27"
+          - "1.26"
+          - "1.25"
+          - "1.19"
+        focus:
+          - "f01-agent-chaos"
+          - "f02-agent-fqdn"
+          - "f03-agent-policy"
+          - "f04-agent-policy-multi-node-1"
+          - "f05-agent-policy-multi-node-2"
+          - "f06-agent-policy-basic"
+          - "f07-datapath-host"
+          - "f08-datapath-misc-1"
+          - "f09-datapath-misc-2"
+          - "f10-agent-hubble-bandwidth"
+          - "f11-datapath-service-ns-tc"
+          - "f12-datapath-service-ns-misc"
+          - "f13-datapath-service-ns-xdp-1"
+          - "f14-datapath-service-ns-xdp-2"
+          - "f15-datapath-service-ew-1"
+          - "f16-datapath-service-ew-2"
+          - "f17-datapath-service-ew-kube-proxy"
+          - "f18-datapath-bgp-custom-lrp"
+          - "f19-update"
+          - "f20-kafka"
+
+        include:
+          - k8s-version: "1.27"
+            ip-family: "dual"
+            kube-image: "kindest/node:v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b"
+            kernel: "bpf-next-20230526.105339@sha256:4133d4e09b1e86ac175df8d899873180281bb4220dc43e2566c47b0241637411"
+
+          - k8s-version: "1.26"
+            ip-family: "dual"
+            kube-image: "kindest/node:v1.26.4@sha256:f4c0d87be03d6bea69f5e5dc0adb678bb498a190ee5c38422bf751541cebe92e"
+            kernel: "4.19-20230526.105339@sha256:cca7436d6c9f08bd218ac12347eb76616ad1a276282806239a93035033b35efe"
+
+          - k8s-version: "1.25"
+            ip-family: "dual"
+            kube-image: "kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161"
+            kernel: "5.4-20230526.105339@sha256:523ff0c81ed9be73a2d0d02a64c72655225efdd32e35220f530ca3eff3eada3c"
+
+# Re-enable when necessary
+#          - k8s-version: "1.24"
+#            ip-family: "dual"
+#            kube-image: "kindest/node:v1.24.13@sha256:cea86276e698af043af20143f4bf0509e730ec34ed3b7fa790cc0bea091bc5dd"
+#            kernel: "4.19-20230526.105339@sha256:cca7436d6c9f08bd218ac12347eb76616ad1a276282806239a93035033b35efe"
+#
+#          - k8s-version: "1.23"
+#            ip-family: "dual"
+#            kube-image: "kindest/node:v1.23.17@sha256:f77f8cf0b30430ca4128cc7cfafece0c274a118cd0cdb251049664ace0dee4ff"
+#            kernel: "4.19-20230526.105339@sha256:cca7436d6c9f08bd218ac12347eb76616ad1a276282806239a93035033b35efe"
+#
+#          - k8s-version: "1.22"
+#            ip-family: "dual"
+#            kube-image: "kindest/node:v1.22.17@sha256:9af784f45a584f6b28bce2af84c494d947a05bd709151466489008f80a9ce9d5"
+#            kernel: "4.19-20230526.105339@sha256:cca7436d6c9f08bd218ac12347eb76616ad1a276282806239a93035033b35efe"
+#
+#          - k8s-version: "1.21"
+#            ip-family: "dual"
+#            kube-image: "kindest/node:v1.21.14@sha256:220cfafdf6e3915fbce50e13d1655425558cb98872c53f802605aa2fb2d569cf"
+#            kernel: "4.19-20230526.105339@sha256:cca7436d6c9f08bd218ac12347eb76616ad1a276282806239a93035033b35efe"
+#
+#          - k8s-version: "1.20"
+#            ip-family: "dual"
+#            kube-image: "kindest/node:v1.20.15@sha256:a32bf55309294120616886b5338f95dd98a2f7231519c7dedcec32ba29699394"
+#            kernel: "4.19-20230526.105339@sha256:cca7436d6c9f08bd218ac12347eb76616ad1a276282806239a93035033b35efe"
+
+          - k8s-version: "1.19"
+            ip-family: "ipv4"
+            kube-image: "kindest/node:v1.19.16@sha256:476cb3269232888437b61deca013832fee41f9f074f9bed79f57e4280f7c48b7"
+            kernel: "4.19-20230526.105339@sha256:cca7436d6c9f08bd218ac12347eb76616ad1a276282806239a93035033b35efe"
+
+          ###
+          # K8sAgentChaosTest Connectivity demo application Endpoint can still connect while Cilium is not running
+          # K8sAgentChaosTest Restart with long lived connections L3/L4 policies still work while Cilium is restarted
+          # K8sAgentChaosTest Restart with long lived connections TCP connection is not dropped when cilium restarts
+          - focus: "f01-agent-chaos"
+            cliFocus: "K8sAgentChaosTest"
+
+          ###
+          # K8sAgentFQDNTest Restart Cilium validate that FQDN is still working
+          # K8sAgentFQDNTest Validate that FQDN policy continues to work after being updated
+          # K8sAgentFQDNTest Validate that multiple specs are working correctly
+          # K8sAgentPerNodeConfigTest Correctly computes config overrides
+          - focus: "f02-agent-fqdn"
+            cliFocus: "K8sAgentFQDNTest|K8sAgentPerNodeConfigTest"
+
+          ###
+          # K8sAgentPolicyTest Clusterwide policies Test clusterwide connectivity with policies
+          # K8sAgentPolicyTest External services To Services first endpoint creation
+          # K8sAgentPolicyTest External services To Services first endpoint creation match service by labels
+          # K8sAgentPolicyTest External services To Services first policy
+          # K8sAgentPolicyTest External services To Services first policy, match service by labels
+          # K8sAgentPolicyTest Namespaces policies Cilium Network policy using namespace label and L7
+          # K8sAgentPolicyTest Namespaces policies Kubernetes Network Policy by namespace selector
+          # K8sAgentPolicyTest Namespaces policies Tests the same Policy in different namespaces
+          - focus: "f03-agent-policy"
+            cliFocus: "K8sAgentPolicyTest Clusterwide|K8sAgentPolicyTest External|K8sAgentPolicyTest Namespaces"
+
+          ###
+          # K8sAgentPolicyTest Multi-node policy test validates fromEntities policies Validates fromEntities all policy
+          # K8sAgentPolicyTest Multi-node policy test validates fromEntities policies Validates fromEntities cluster policy
+          # K8sAgentPolicyTest Multi-node policy test validates fromEntities policies with remote-node identity disabled Allows from all hosts with cnp fromEntities host policy
+          # K8sAgentPolicyTest Multi-node policy test validates fromEntities policies with remote-node identity enabled Validates fromEntities remote-node policy
+          # K8sAgentPolicyTest Multi-node policy test with L7 policy using connectivity-check to check datapath
+          - focus: "f04-agent-policy-multi-node-1"
+            cliFocus: "K8sAgentPolicyTest Multi-node policy test validates fromEntities|K8sAgentPolicyTest Multi-node policy test with"
+
+          ###
+          # K8sAgentPolicyTest Multi-node policy test validates ingress CIDR-dependent L4 connectivity is blocked after denying ingress
+          # K8sAgentPolicyTest Multi-node policy test validates ingress CIDR-dependent L4 connectivity is restored after importing ingress policy
+          # K8sAgentPolicyTest Multi-node policy test validates ingress CIDR-dependent L4 connectivity works from the outside before any policies
+          # K8sAgentPolicyTest Multi-node policy test validates ingress CIDR-dependent L4 With host policy Connectivity is restored after importing ingress policy
+          # K8sAgentPolicyTest Multi-node policy test validates ingress CIDR-dependent L4 With host policy Connectivity to hostns is blocked after denying ingress
+          - focus: "f05-agent-policy-multi-node-2"
+            cliFocus: "K8sAgentPolicyTest Multi-node policy test validates ingress"
+
+          ###
+          # K8sAgentPolicyTest Basic Test Invalid Policy report status correctly
+          # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests DNS proxy visibility without policy
+          # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests HTTP proxy visibility without policy
+          # K8sAgentPolicyTest Basic Test Traffic redirections to proxy Tests proxy visibility interactions with policy lifecycle operations
+          # K8sPolicyTestExtended Validate toEntities KubeAPIServer Allows connection to KubeAPIServer
+          # K8sPolicyTestExtended Validate toEntities KubeAPIServer Denies connection to KubeAPIServer
+          # K8sPolicyTestExtended Validate toEntities KubeAPIServer Still allows connection to KubeAPIServer with a duplicate policy
+          - focus: "f06-agent-policy-basic"
+            cliFocus: "K8sAgentPolicyTest Basic|K8sPolicyTestExtended"
+
+          ###
+          # K8sDatapathConfig Host firewall Check connectivity with IPv6 disabled
+          # K8sDatapathConfig Host firewall With native routing
+          # K8sDatapathConfig Host firewall With native routing and endpoint routes
+          # K8sDatapathConfig Host firewall With VXLAN
+          # K8sDatapathConfig Host firewall With VXLAN and endpoint routes
+          - focus: "f07-datapath-host"
+            cliFocus: "K8sDatapathConfig Host"
+
+          ###
+          # K8sDatapathConfig Encapsulation Check iptables masquerading with random-fully
+          # K8sDatapathConfig Etcd Check connectivity
+          # K8sDatapathConfig MonitorAggregation Checks that monitor aggregation flags send notifications
+          # K8sDatapathConfig MonitorAggregation Checks that monitor aggregation restricts notifications
+          - focus: "f08-datapath-misc-1"
+            cliFocus: "K8sDatapathConfig Encapsulation|K8sDatapathConfig Etcd|K8sDatapathConfig Etcd|K8sDatapathConfig MonitorAggregation"
+
+          ###
+          # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting
+          # K8sDatapathConfig Check BPF masquerading with ip-masq-agent VXLAN
+          # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement
+          # K8sDatapathConfig Iptables Skip conntrack for pod traffic
+          # K8sDatapathConfig IPv4Only Check connectivity with IPv6 disabled
+          # K8sDatapathConfig IPv6 masquerading across K8s nodes, skipped due to native routing CIDR
+          # K8sDatapathConfig Transparent encryption DirectRouting Check connectivity with transparent encryption and direct routing with bpf_host
+          - focus: "f09-datapath-misc-2"
+            cliFocus: "K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig Transparent"
+
+          ###
+          # K8sAgentHubbleTest Hubble Observe Test FQDN Policy with Relay
+          # K8sAgentHubbleTest Hubble Observe Test L3/L4 Flow
+          # K8sAgentHubbleTest Hubble Observe Test L3/L4 Flow with hubble-relay
+          # K8sAgentHubbleTest Hubble Observe Test L7 Flow
+          # K8sAgentHubbleTest Hubble Observe Test L7 Flow with hubble-relay
+          # K8sAgentHubbleTest Hubble Observe Test TLS certificate
+          # K8sDatapathBandwidthTest Checks Bandwidth Rate-Limiting Checks Pod to Pod bandwidth, direct routing
+          # K8sDatapathBandwidthTest Checks Bandwidth Rate-Limiting Checks Pod to Pod bandwidth, geneve tunneling
+          # K8sDatapathBandwidthTest Checks Bandwidth Rate-Limiting Checks Pod to Pod bandwidth, vxlan tunneling
+          - focus: "f10-agent-hubble-bandwidth"
+            cliFocus: "K8sAgentHubbleTest|K8sDatapathBandwidthTest"
+
+          ###
+          # K8sDatapathServicesTest Checks N/S loadbalancing ClusterIP cannot be accessed externally when access is disabled
+          # K8sDatapathServicesTest Checks N/S loadbalancing Supports IPv4 fragments
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, direct routing and dsr with geneve
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, direct routing and Hybrid
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, geneve tunnel, dsr and Maglev
+          - focus: "f11-datapath-service-ns-tc"
+            cliFocus: "K8sDatapathServicesTest Checks N/S loadbalancing ClusterIP|K8sDatapathServicesTest Checks N/S loadbalancing Supports|K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC"
+
+          ###
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests externalIPs
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests GH#10983
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests NodePort with sessionAffinity from outside
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests security id propagation in N/S LB requests fwd-ed over tunnel
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with direct routing and DSR
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with secondary NodePort device
+          # K8sDatapathServicesTest Checks N/S loadbalancing with L7 policy Tests NodePort with L7 Policy from outside
+          - focus: "f12-datapath-service-ns-misc"
+            cliFocus: "K8sDatapathServicesTest Checks N/S loadbalancing Tests externalIPs|K8sDatapathServicesTest Checks N/S loadbalancing Tests GH|K8sDatapathServicesTest Checks N/S loadbalancing Tests NodePort|K8sDatapathServicesTest Checks N/S loadbalancing Tests security|K8sDatapathServicesTest Checks N/S loadbalancing Tests with direct|K8sDatapathServicesTest Checks N/S loadbalancing Tests with secondary|K8sDatapathServicesTest Checks N/S loadbalancing with"
+
+          ###
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, DSR and Maglev
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, DSR and Random
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, DSR with Geneve and Maglev
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, Hybrid and Maglev
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, Hybrid and Random
+          - focus: "f13-datapath-service-ns-xdp-1"
+            cliFocus: "K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, DSR|K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, Hybrid"
+
+          ###
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, SNAT and Maglev
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, SNAT and Random
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, vxlan tunnel, SNAT and Random
+          # K8sDatapathServicesTest Checks N/S loadbalancing With ClusterIP external access ClusterIP can be accessed when external access is enabled
+          # K8sDatapathServicesTest Checks N/S loadbalancing With host policy Tests NodePort
+          - focus: "f14-datapath-service-ns-xdp-2"
+            cliFocus: "K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, SNAT|K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, vxlan|K8sDatapathServicesTest Checks N/S loadbalancing With"
+
+          ###
+          # K8sDatapathServicesTest Checks device reconfiguration Detects newly added device and reloads datapath
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks in-cluster KPR Tests HealthCheckNodePort
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks in-cluster KPR Tests that binding to NodePort port fails
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks in-cluster KPR with L7 policy Tests NodePort with L7 Policy
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks service accessing itself (hairpin flow)
+          - focus: "f15-datapath-service-ew-1"
+            cliFocus: 'K8sDatapathServicesTest Checks device|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) Checks'
+
+          ###
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) TFTP with DNS Proxy port collision Tests TFTP from DNS Proxy Port
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) with L4 policy Tests NodePort with L4 Policy
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) with L7 policy Tests NodePort with L7 Policy
+          - focus: "f16-datapath-service-ew-2"
+            cliFocus: 'K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) TFTP|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) with'
+
+          ###
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy)
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) with externalTrafficPolicy=Local
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) with IPSec and externalTrafficPolicy=Local
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) with the host firewall and externalTrafficPolicy=Local
+          - focus: "f17-datapath-service-ew-kube-proxy"
+            cliFocus: 'K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) Tests'
+
+          ###
+          # K8sDatapathBGPTests Tests LoadBalancer Connectivity to endpoint via LB
+          # K8sDatapathCustomCalls Basic test with byte-counter Loads byte-counter and gets consistent values
+          # K8sDatapathCustomCalls Basic test with byte-counter Loads byte-counter and gets consistent values, with per-endpoint routes
+          # K8sDatapathLRPTests Checks local redirect policy LRP connectivity
+          # K8sDatapathLRPTests Checks local redirect policy LRP restores service when removed
+          - focus: "f18-datapath-bgp-custom-lrp"
+            cliFocus: "K8sDatapathBGPTests|K8sDatapathCustomCalls|K8sDatapathLRPTests"
+
+          ###
+          # K8sUpdates Tests upgrade and downgrade from a Cilium stable image to master
+          - focus: "f19-update"
+            cliFocus: "K8sUpdates"
+
+          ###
+          # K8sKafkaPolicyTest Kafka Policy Tests KafkaPolicies
+          - focus: "f20-kafka"
+            cliFocus: "K8sKafkaPolicyTest"
+
+        exclude:
+          # https://github.com/cilium/cilium/actions/runs/4914433266/jobs/8775742540
+          # Needs triage
+          - k8s-version: "1.19"
+            focus: "f20-kafka"
+
+          # The bandwidth test is disabled and hubble tests are not meant
+          # to run on net-next.
+          - k8s-version: "1.27"
+            focus: "f10-agent-hubble-bandwidth"
+
+          # Cilium "v1.13" is not supported in K8s "1.27". Skipping upgrade/downgrade tests.
+          - k8s-version: "1.27"
+            focus: "f19-update"
+
+          # These tests are meant to run with kube-proxy which is not available
+          # with net-next
+          - k8s-version: "1.27"
+            focus: "f16-datapath-service-ew-2"
+
+          # These tests are meant to run with kube-proxy which is not available
+          # with net-next
+          - k8s-version: "1.27"
+            focus: "f17-datapath-service-ew-kube-proxy"
+
+          # These tests require an external node which is only available on 1.27
+          # / net-next so there's no point on running them
+          - k8s-version: "1.26"
+            focus: "f05-agent-policy-multi-node-2"
+
+          # These tests require kernel net-next so there's no point on running them
+          - k8s-version: "1.26"
+            focus: "f11-datapath-service-ns-tc"
+
+          - k8s-version: "1.26"
+            focus: "f12-datapath-service-ns-misc"
+
+          - k8s-version: "1.26"
+            focus: "f13-datapath-service-ns-xdp-1"
+
+          - k8s-version: "1.26"
+            focus: "f14-datapath-service-ns-xdp-2"
+
+          # These tests require are not intended to run on kernel 5.4, thus we can ignore them
+          - k8s-version: "1.25"
+            focus: "f01-agent-chaos"
+
+          - k8s-version: "1.25"
+            focus: "f03-agent-policy"
+
+          - k8s-version: "1.25"
+            focus: "f04-agent-policy-multi-node-1"
+
+          - k8s-version: "1.25"
+            focus: "f05-agent-policy-multi-node-2"
+
+          - k8s-version: "1.25"
+            focus: "f11-datapath-service-ns-tc"
+
+          - k8s-version: "1.25"
+            focus: "f12-datapath-service-ns-misc"
+
+          - k8s-version: "1.25"
+            focus: "f13-datapath-service-ns-xdp-1"
+
+          - k8s-version: "1.25"
+            focus: "f14-datapath-service-ns-xdp-2"
+
+          - k8s-version: "1.25"
+            focus: "f15-datapath-service-ew-1"
+
+          - k8s-version: "1.25"
+            focus: "f16-datapath-service-ew-2"
+
+          - k8s-version: "1.25"
+            focus: "f17-datapath-service-ew-kube-proxy"
+
+          - k8s-version: "1.25"
+            focus: "f18-datapath-bgp-custom-lrp"
+
+          - k8s-version: "1.25"
+            focus: "f20-kafka"
+
+          # These tests require an external node which is only available on 1.27
+          # / net-next so there's no point on running them
+          - k8s-version: "1.19"
+            focus: "f05-agent-policy-multi-node-2"
+
+          # These tests are always skipped so there's no point on running
+          - k8s-version: "1.19"
+            focus: "f11-datapath-service-ns-tc"
+
+          - k8s-version: "1.19"
+            focus: "f12-datapath-service-ns-misc"
+
+          - k8s-version: "1.19"
+            focus: "f13-datapath-service-ns-xdp-1"
+
+          - k8s-version: "1.19"
+            focus: "f14-datapath-service-ns-xdp-2"
+
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+          else
+            SHA=${{ github.sha }}
+          fi
+
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Checkout pull request for tests
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Install cilium-cli
+        shell: bash
+        run: |
+          cid=$(docker create quay.io/cilium/cilium-cli-ci:latest ls)
+          docker cp $cid:/usr/local/bin/cilium ./cilium-cli
+          docker rm $cid
+
+      - name: Install helm
+        shell: bash
+        run: |
+          HELM_VERSION=3.7.0
+          wget "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+          tar -xf "helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+          mv ./linux-amd64/helm ./helm
+
+      - name: Provision LVH VMs
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        with:
+          test-name: datapath-conformance
+          install-dependencies: true
+          image-version: ${{ matrix.kernel }}
+          host-mount: ./
+          cpu: 4
+          mem: 12G
+          dns-resolver: '1.1.1.1'
+          cmd: |
+            git config --global --add safe.directory /host
+            mv /host/helm /usr/bin
+
+      - name: Provision kind
+        timeout-minutes: 5
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+            if [[ "${{ matrix.kernel }}" == bpf-next-* ]]; then
+              ./contrib/scripts/kind.sh "" 2 "" "${{ matrix.kube-image }}" "none" "${{ matrix.ip-family }}"
+              kubectl label node kind-worker2 cilium.io/ci-node=kind-worker2
+              # Avoid re-labeling this node by setting "node-role.kubernetes.io/controlplane"
+              kubectl label node kind-worker2 node-role.kubernetes.io/controlplane=
+            else
+              ./contrib/scripts/kind.sh "" 1 "" "${{ matrix.kube-image }}" "iptables" "${{ matrix.ip-family }}"
+            fi
+            # Some tests using demo-customcalls.yaml are mounting this directoy
+            mkdir -p /home/vagrant/go/src/github.com/cilium
+            ln -s /host /home/vagrant/go/src/github.com/cilium/cilium
+            git config --add safe.directory /cilium
+
+      # Load Ginkgo build from GitHub
+      - name: Load ${{ matrix.name }} Ginkgo build from GitHub
+        uses: actions/cache/restore@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        id: cache
+        with:
+          path: /tmp/.ginkgo-build/
+          key: ${{ runner.os }}-ginkgo-e2e-${{ hashFiles('**/*.go') }}
+
+      - name: Copy Ginkgo binary
+        shell: bash
+        run: |
+          cd test/
+          tar -xf /tmp/.ginkgo-build/test.tgz
+
+      - name: Run tests [junit]
+        timeout-minutes: 40
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/test/
+            kubectl get ns -A -o wide
+            kubectl get pods -A -o wide
+            export K8S_NODES=2
+            export NETNEXT=0
+            if [[ "${{ matrix.kernel }}" == bpf-next-* ]]; then
+               export KERNEL=net-next
+               export NETNEXT=1
+               export KUBEPROXY=0
+               export K8S_NODES=3
+               export NO_CILIUM_ON_NODES=kind-worker2
+            elif [[ "${{ matrix.kernel }}" == 4.19-* ]]; then
+               export KERNEL=419
+            elif [[ "${{ matrix.kernel }}" == 5.4-* ]]; then
+               export KERNEL=54
+            fi
+            export K8S_VERSION=${{ matrix.k8s-version }}
+            export CNI_INTEGRATION=kind
+            export INTEGRATION_TESTS=true
+            # GitHub actions do not support IPv6 connectivity to outside
+            # world.
+            export CILIUM_NO_IPV6_OUTSIDE=true
+            echo "/root/go/bin/ginkgo \
+             --focus=\"${{ matrix.cliFocus }}\" \
+             --skip=\"${{ matrix.cliSkip }}\" \
+             --seed=1679952881 \
+             -v -- \
+             -cilium.provision=false \
+             -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+             -cilium.tag=${{ steps.vars.outputs.sha }}  \
+             -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+             -cilium.operator-tag=${{ steps.vars.outputs.sha }} \
+             -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+             -cilium.hubble-relay-tag=${{ steps.vars.outputs.sha }} \
+             -cilium.kubeconfig=/root/.kube/config \
+             -cilium.provision-k8s=false \
+             -cilium.operator-suffix=-ci"
+
+              ./test.test \
+               --ginkgo.focus="${{ matrix.cliFocus }}" \
+               --ginkgo.skip="${{ matrix.cliSkip }}" \
+               --ginkgo.seed=1679952881 \
+               --ginkgo.v -- \
+               -cilium.provision=false \
+               -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+               -cilium.tag=${{ steps.vars.outputs.sha }}  \
+               -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+               -cilium.operator-tag=${{ steps.vars.outputs.sha }} \
+               -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+               -cilium.hubble-relay-tag=${{ steps.vars.outputs.sha }} \
+               -cilium.kubeconfig=/root/.kube/config \
+               -cilium.provision-k8s=false \
+               -cilium.operator-suffix=-ci
+
+      - name: Fetch artifacts
+        if: ${{ !success() }}
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            kubectl get pods --all-namespaces -o wide
+            ./cilium-cli status
+            mkdir -p cilium-sysdumps
+            tar -zcf "test_results-${{ env.job_name }}.tar.gz" /host/test/test_results
+            ./cilium-cli sysdump --output-filename "cilium-sysdump-${{ env.job_name }}-final" || true
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-sysdumps
+          path: |
+            cilium-sysdump-*.zip
+            bugtool-*.tar.gz
+            test_results-*.tar.gz
+          retention-days: 5
+
+      - name: Fetch JUnits
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cd test/
+          junit_filename="${{ env.job_name }}.xml"
+          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+
+      - name: Upload JUnits
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-junits
+          path: |
+            cilium-junits/*.xml
+          retention-days: 2
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@86789108ea0fd9be947a4232dd560e2fa3b9467a # v0.0.1
+        with:
+          junit-directory: "cilium-junits"
+
+      - name: Set commit status to success
+        if: ${{ success() }}
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Gingko test successful
+          state: success
+          target_url: ${{ env.check_url }}
+
+      - name: Set commit status to failure
+        if: ${{ failure() }}
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Gingko test failed
+          state: failure
+          target_url: ${{ env.check_url }}
+
+      - name: Set commit status to cancelled
+        if: ${{ cancelled() }}
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Gingko test cancelled
+          state: error
+          target_url: ${{ env.check_url }}
