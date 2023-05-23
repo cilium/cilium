@@ -52,8 +52,7 @@ func (e *eventsMap) init(maxEntries int) error {
 		&Key{},
 		&Value{},
 		maxEntries,
-		0,
-		bpf.ConvertKeyValue).
+		0).
 		WithEvents(option.Config.GetEventBufferConfig(MapName))
 	return e.m.Create()
 }

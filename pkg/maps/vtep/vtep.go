@@ -90,7 +90,6 @@ func NewMap(name string) *Map {
 			&VtepEndpointInfo{},
 			MaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(name)),
 	}

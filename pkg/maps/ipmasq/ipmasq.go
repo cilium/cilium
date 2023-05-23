@@ -51,7 +51,6 @@ func IPMasq4Map() *bpf.Map {
 			&Value{},
 			MaxEntries,
 			bpf.BPF_F_NO_PREALLOC,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(MapName))
 	})

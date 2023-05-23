@@ -107,7 +107,6 @@ func newPerClusterNATMap(name string, v4 bool, innerMapEntries int) (*PerCluster
 		perClusterNATMapMaxEntries,
 		0,
 		inner,
-		bpf.ConvertKeyValue,
 	)
 
 	if err := om.OpenOrCreate(); err != nil {

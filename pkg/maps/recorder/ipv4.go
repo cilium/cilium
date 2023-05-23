@@ -109,7 +109,6 @@ func CaptureMap4() *Map {
 				&CaptureRule4{},
 				MapSize,
 				bpf.BPF_F_NO_PREALLOC,
-				bpf.ConvertKeyValue,
 			).WithCache().WithEvents(option.Config.GetEventBufferConfig(MapNameWcard4)),
 			v4: true,
 		}

@@ -85,7 +85,6 @@ func newConfigMap() *configMap {
 			&value,
 			MaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		),
 	}
 }

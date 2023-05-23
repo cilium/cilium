@@ -97,7 +97,6 @@ func NewMap(name string, v4 bool, entries int) *Map {
 			mapValue,
 			entries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithEvents(option.Config.GetEventBufferConfig(name)),
 		v4: v4,
 	}

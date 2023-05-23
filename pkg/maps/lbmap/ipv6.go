@@ -494,7 +494,6 @@ func CreateSockRevNat6Map() error {
 		&SockRevNat6Value{},
 		MaxSockRevNat6MapEntries,
 		0,
-		bpf.ConvertKeyValue,
 	).WithPressureMetric()
 	return sockRevNat6Map.Create()
 }

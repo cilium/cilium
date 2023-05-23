@@ -494,7 +494,6 @@ func newPerClusterCTMap(name string, m mapType) (*PerClusterCTMap, error) {
 		perClusterCTMapMaxEntries,
 		0,
 		inner,
-		bpf.ConvertKeyValue,
 	)
 
 	if err := om.OpenOrCreate(); err != nil {

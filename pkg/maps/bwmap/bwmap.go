@@ -60,7 +60,6 @@ func ThrottleMap() *bpf.Map {
 			&EdtInfo{},
 			MapSize,
 			bpf.BPF_F_NO_PREALLOC,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(MapName))
 	})

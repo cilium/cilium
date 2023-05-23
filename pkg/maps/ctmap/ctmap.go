@@ -103,7 +103,6 @@ type mapAttributes struct {
 	mapValue   bpf.MapValue
 	valueSize  int
 	maxEntries int
-	parser     bpf.DumpParser
 	bpfDefine  string
 	natMapLock *lock.Mutex // Serializes concurrent accesses to natMap
 	natMap     *nat.Map
@@ -136,7 +135,6 @@ func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxE
 		mapValue:   &CtEntry{},
 		valueSize:  SizeofCtEntry,
 		maxEntries: maxEntries,
-		parser:     bpf.ConvertKeyValue,
 		natMapLock: natMapsLock[m],
 		natMap:     nat,
 	}
@@ -325,7 +323,6 @@ func newMap(mapName string, m mapType) *Map {
 			mapInfo[m].mapValue,
 			mapInfo[m].maxEntries,
 			0,
-			mapInfo[m].parser,
 		),
 		mapType: m,
 		define:  mapInfo[m].bpfDefine,
