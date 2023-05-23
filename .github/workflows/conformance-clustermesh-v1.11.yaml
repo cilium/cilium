@@ -377,7 +377,7 @@ jobs:
           envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-cluster2.yaml
 
     - name: Create Kind cluster 1
-      uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
+      uses: helm/kind-action@fa81e57adff234b2908110485695db0f181f3c67 # v1.7.0
       with:
         cluster_name: ${{ env.clusterName1 }}
         version: ${{ env.kind_version }}
@@ -386,7 +386,7 @@ jobs:
         wait: 0 # The control-plane never becomes ready, since no CNI is present
 
     - name: Create Kind cluster 2
-      uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
+      uses: helm/kind-action@fa81e57adff234b2908110485695db0f181f3c67 # v1.7.0
       with:
         cluster_name: ${{ env.clusterName2 }}
         version: ${{ env.kind_version }}
