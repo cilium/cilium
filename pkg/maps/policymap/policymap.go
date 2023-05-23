@@ -432,7 +432,6 @@ func newMap(path string) *PolicyMap {
 			&PolicyEntry{},
 			MaxEntries,
 			flags,
-			bpf.ConvertKeyValue,
 		),
 	}
 }
@@ -474,7 +473,6 @@ func InitCallMaps(haveEgressCallMap bool) error {
 		&CallValue{},
 		int(PolicyCallMaxEntries),
 		0,
-		bpf.ConvertKeyValue,
 	)
 	err := policyCallMap.Create()
 
@@ -485,7 +483,6 @@ func InitCallMaps(haveEgressCallMap bool) error {
 			&CallValue{},
 			int(PolicyCallMaxEntries),
 			0,
-			bpf.ConvertKeyValue,
 		)
 
 		err = policyEgressCallMap.Create()

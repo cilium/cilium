@@ -74,7 +74,6 @@ func initSVC(params InitParams) {
 			&Service4Value{},
 			ServiceMapMaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Service4MapV2Name))
 		Backend4Map = bpf.NewMap(Backend4MapName,
@@ -83,7 +82,6 @@ func initSVC(params InitParams) {
 			&Backend4Value{},
 			ServiceBackEndMapMaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend4MapName))
 		Backend4MapV2 = bpf.NewMap(Backend4MapV2Name,
@@ -92,7 +90,6 @@ func initSVC(params InitParams) {
 			&Backend4Value{},
 			ServiceBackEndMapMaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend4MapV2Name))
 		Backend4MapV3 = bpf.NewMap(Backend4MapV3Name,
@@ -101,7 +98,6 @@ func initSVC(params InitParams) {
 			&Backend4ValueV3{},
 			ServiceBackEndMapMaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend4MapV3Name))
 		RevNat4Map = bpf.NewMap(RevNat4MapName,
@@ -110,7 +106,6 @@ func initSVC(params InitParams) {
 			&RevNat4Value{},
 			RevNatMapMaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(RevNat4MapName))
 	}
@@ -122,7 +117,6 @@ func initSVC(params InitParams) {
 			&Service6Value{},
 			ServiceMapMaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Service6MapV2Name))
 		Backend6Map = bpf.NewMap(Backend6MapName,
@@ -131,7 +125,6 @@ func initSVC(params InitParams) {
 			&Backend6Value{},
 			ServiceBackEndMapMaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend6MapName))
 		Backend6MapV2 = bpf.NewMap(Backend6MapV2Name,
@@ -140,7 +133,6 @@ func initSVC(params InitParams) {
 			&Backend6Value{},
 			ServiceBackEndMapMaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend6MapV2Name))
 		Backend6MapV3 = bpf.NewMap(Backend6MapV3Name,
@@ -149,7 +141,6 @@ func initSVC(params InitParams) {
 			&Backend6ValueV3{},
 			ServiceBackEndMapMaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(Backend6MapV3Name))
 		RevNat6Map = bpf.NewMap(RevNat6MapName,
@@ -158,7 +149,6 @@ func initSVC(params InitParams) {
 			&RevNat6Value{},
 			RevNatMapMaxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(RevNat6MapName))
 	}
@@ -614,7 +604,6 @@ func CreateSockRevNat4Map() error {
 		&SockRevNat4Value{},
 		MaxSockRevNat4MapEntries,
 		0,
-		bpf.ConvertKeyValue,
 	).WithPressureMetric()
 	return sockRevNat4Map.Create()
 }

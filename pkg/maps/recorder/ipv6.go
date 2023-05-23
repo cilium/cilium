@@ -109,7 +109,6 @@ func CaptureMap6() *Map {
 				&CaptureRule6{},
 				MapSize,
 				bpf.BPF_F_NO_PREALLOC,
-				bpf.ConvertKeyValue,
 			).WithCache().WithEvents(option.Config.GetEventBufferConfig(MapNameWcard6)),
 			v4: false,
 		}

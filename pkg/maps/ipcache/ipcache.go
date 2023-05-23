@@ -165,8 +165,7 @@ func newIPCacheMap(name string) *bpf.Map {
 		&Key{},
 		&RemoteEndpointInfo{},
 		MaxEntries,
-		bpf.BPF_F_NO_PREALLOC,
-		bpf.ConvertKeyValue)
+		bpf.BPF_F_NO_PREALLOC)
 }
 
 // NewMap instantiates a Map.

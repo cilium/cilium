@@ -58,7 +58,6 @@ func initMap(maxEntries int) *signalMap {
 			&Value{},
 			maxEntries,
 			0,
-			bpf.ConvertKeyValue,
 		),
 	}
 }

@@ -86,7 +86,6 @@ var (
 		&TestValue{},
 		maxEntries,
 		BPF_F_NO_PREALLOC,
-		ConvertKeyValue,
 	).WithCache()
 )
 
@@ -98,7 +97,7 @@ func mapsEqual(a, b *Map) bool {
 func (s *BPFPrivilegedTestSuite) TestOpen(c *C) {
 	// Ensure that os.IsNotExist() can be used with Map.Open()
 	noSuchMap := NewMap("cilium_test_no_exist",
-		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0, nil)
+		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0)
 	err := noSuchMap.Open()
 	c.Assert(errors.Is(err, os.ErrNotExist), Equals, true)
 
@@ -108,8 +107,7 @@ func (s *BPFPrivilegedTestSuite) TestOpen(c *C) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
-		ConvertKeyValue).WithCache()
+		BPF_F_NO_PREALLOC).WithCache()
 	err = existingMap.Open()
 	c.Check(err, IsNil)      // Avoid assert to ensure Close() is called below.
 	err = existingMap.Open() // Reopen should be no-op.
@@ -143,8 +141,7 @@ func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
-		ConvertKeyValue).WithCache()
+		BPF_F_NO_PREALLOC).WithCache()
 	err := existingMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 
@@ -155,8 +152,7 @@ func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		0,
-		ConvertKeyValue).WithCache()
+		0).WithCache()
 	err = preallocMap.OpenOrCreate()
 	defer preallocMap.Close()
 	c.Assert(err, IsNil)
@@ -173,8 +169,7 @@ func (s *BPFPrivilegedTestSuite) TestRecreateMap(c *C) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
-		ConvertKeyValue).WithCache()
+		BPF_F_NO_PREALLOC).WithCache()
 	err := parallelMap.Recreate()
 	defer parallelMap.Close()
 	c.Assert(err, IsNil)
@@ -218,8 +213,7 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
-		ConvertKeyValue).
+		BPF_F_NO_PREALLOC).
 		WithCache().
 		WithEvents(option.BPFEventBufferConfig{Enabled: true, MaxSize: 10})
 
@@ -366,6 +360,9 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	value, err = existingMap.Lookup(key1)
 	c.Assert(err, Not(IsNil))
 	c.Assert(value, Equals, nil)
+	value, err = existingMap.Lookup(key2)
+	c.Assert(err, Not(IsNil))
+	c.Assert(value, Equals, nil)
 
 	c.Assert(len(dumpEvents()), Equals, 9)
 	assertEvent(8, "key=104", "<nil>", "sync", "delete-all")
@@ -405,8 +402,7 @@ func (s *BPFPrivilegedTestSuite) TestSubscribe(c *C) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
-		ConvertKeyValue).
+		BPF_F_NO_PREALLOC).
 		WithCache().
 		WithEvents(option.BPFEventBufferConfig{Enabled: true, MaxSize: 10})
 
@@ -474,7 +470,7 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 
 	dump3 := map[string][]string{}
 	noSuchMap := NewMap("cilium_test_no_exist",
-		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0, nil)
+		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0)
 	err = noSuchMap.DumpIfExists(dump3)
 	c.Assert(err, IsNil)
 	c.Assert(len(dump3), Equals, 0)
@@ -520,9 +516,7 @@ func (s *BPFPrivilegedTestSuite) TestDumpReliablyWithCallback(c *C) {
 		&TestKey{},
 		&TestValue{},
 		int(maxEntries),
-		BPF_F_NO_PREALLOC,
-		ConvertKeyValue,
-	).WithCache()
+		BPF_F_NO_PREALLOC).WithCache()
 	err := m.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer func() {
@@ -647,8 +641,7 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
-		ConvertKeyValue).WithCache()
+		BPF_F_NO_PREALLOC).WithCache()
 	err := upgradeMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer func() {
@@ -667,8 +660,7 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		0,
-		ConvertKeyValue).WithCache()
+		0).WithCache()
 	upgrade = upgradeMap.CheckAndUpgrade(preallocMap)
 	c.Assert(upgrade, Equals, true)
 	DisableMapPreAllocation()
@@ -681,8 +673,7 @@ func (s *BPFPrivilegedTestSuite) TestUnpin(c *C) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
-		ConvertKeyValue).WithCache()
+		BPF_F_NO_PREALLOC).WithCache()
 	err := unpinMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	exist, err = unpinMap.exist()
@@ -718,8 +709,7 @@ func (s *BPFPrivilegedTestSuite) TestCreateUnpinned(c *C) {
 		&TestKey{},
 		&TestValue{},
 		maxEntries,
-		BPF_F_NO_PREALLOC,
-		ConvertKeyValue).WithCache()
+		BPF_F_NO_PREALLOC).WithCache()
 	err := m.CreateUnpinned()
 	c.Assert(err, IsNil)
 	exist, err := m.exist()
@@ -744,8 +734,7 @@ func BenchmarkMapLookup(b *testing.B) {
 		&TestKey{},
 		&TestValue{},
 		1,
-		BPF_F_NO_PREALLOC,
-		ConvertKeyValue)
+		BPF_F_NO_PREALLOC)
 
 	if err := m.CreateUnpinned(); err != nil {
 		b.Fatal(err)

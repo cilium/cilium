@@ -15,14 +15,11 @@ import (
 	"reflect"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/bpf/binary"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -78,9 +75,6 @@ type Map struct {
 
 	// enableSync is true when synchronization retries have been enabled.
 	enableSync bool
-
-	// DumpParser is a function for parsing keys and values from BPF maps
-	DumpParser DumpParser
 
 	// withValueCache is true when map cache has been enabled
 	withValueCache bool
@@ -159,7 +153,7 @@ func (m *Map) Flags() uint32 {
 
 // NewMap creates a new Map instance - object representing a BPF map
 func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
-	maxEntries int, flags uint32, dumpParser DumpParser) *Map {
+	maxEntries int, flags uint32) *Map {
 
 	keySize := reflect.TypeOf(mapKey).Elem().Size()
 	valueSize := reflect.TypeOf(mapValue).Elem().Size()
@@ -173,16 +167,15 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 			MaxEntries: uint32(maxEntries),
 			Flags:      flags,
 		},
-		name:       path.Base(name),
-		MapKey:     mapKey,
-		MapValue:   mapValue,
-		DumpParser: dumpParser,
+		name:     path.Base(name),
+		MapKey:   mapKey,
+		MapValue: mapValue,
 	}
 }
 
 // NewMap creates a new Map instance - object representing a BPF map
 func NewMapWithInnerSpec(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
-	maxEntries int, flags uint32, innerSpec *ebpf.MapSpec, dumpParser DumpParser) *Map {
+	maxEntries int, flags uint32, innerSpec *ebpf.MapSpec) *Map {
 
 	keySize := reflect.TypeOf(mapKey).Elem().Size()
 	valueSize := reflect.TypeOf(mapValue).Elem().Size()
@@ -197,10 +190,9 @@ func NewMapWithInnerSpec(name string, mapType ebpf.MapType, mapKey MapKey, mapVa
 			Flags:      flags,
 			InnerMap:   innerSpec,
 		},
-		name:       path.Base(name),
-		MapKey:     mapKey,
-		MapValue:   mapValue,
-		DumpParser: dumpParser,
+		name:     path.Base(name),
+		MapKey:   mapKey,
+		MapValue: mapValue,
 	}
 }
 
@@ -558,19 +550,19 @@ func (m *Map) NextKey(key, nextKeyOut interface{}) error {
 	return err
 }
 
-type DumpParser func(key []byte, value []byte, mapKey MapKey, mapValue MapValue) (MapKey, MapValue, error)
 type DumpCallback func(key MapKey, value MapValue)
-type MapValidator func(path string) (bool, error)
 
-// DumpWithCallback iterates over the Map and calls the given callback
-// function on each iteration. That callback function is receiving the
-// actual key and value. The callback function should consider creating a
-// deepcopy of the key and value on between each iterations to avoid memory
-// corruption.
+// DumpWithCallback iterates over the Map and calls the given DumpCallback for
+// each map entry. With the current implementation, it is safe for callbacks to
+// retain the values received, as they are guaranteed to be new instances.
 //
 // TODO(tb): This package currently doesn't support dumping per-cpu maps, as
 // ReadValueSize is always set to the size of a single value.
 func (m *Map) DumpWithCallback(cb DumpCallback) error {
+	if cb == nil {
+		return errors.New("empty callback")
+	}
+
 	if err := m.Open(); err != nil {
 		return err
 	}
@@ -578,26 +570,16 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
-	key := make([]byte, m.KeySize())
-	value := make([]byte, m.ValueSize())
-
+	// Don't need deep copies here, only fresh pointers.
 	mk := m.MapKey.DeepCopyMapKey()
 	mv := m.MapValue.DeepCopyMapValue()
 
 	i := m.m.Iterate()
-	for i.Next(&key, &value) {
-		// TODO(tb): Remove DumpParser altogether if it's only ever used with
-		// bpf.ConvertKeyValue. It does binary.Read and Iterate().Next() already
-		// does that ootb.
-		var err error
-		mk, mv, err = m.DumpParser(key, value, mk, mv)
-		if err != nil {
-			return err
-		}
+	for i.Next(mk, mv) {
+		cb(mk, mv)
 
-		if cb != nil {
-			cb(mk, mv)
-		}
+		mk = m.MapKey.DeepCopyMapKey()
+		mv = m.MapValue.DeepCopyMapValue()
 	}
 
 	return i.Err()
@@ -628,14 +610,23 @@ func (m *Map) DumpWithCallbackIfExists(cb DumpCallback) error {
 // The caller must provide a callback for handling each entry, and a stats
 // object initialized via a call to NewDumpStats().
 func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error {
+	if cb == nil {
+		return errors.New("empty callback")
+	}
+
+	if stats == nil {
+		return errors.New("stats is nil")
+	}
+
 	var (
-		prevKey    = make([]byte, m.KeySize())
-		currentKey = make([]byte, m.KeySize())
-		nextKey    = make([]byte, m.KeySize())
-		value      = make([]byte, m.ValueSize())
+		prevKey    = m.MapKey.DeepCopyMapKey()
+		currentKey = m.MapKey.DeepCopyMapKey()
+		nextKey    = m.MapKey.DeepCopyMapKey()
+		value      = m.MapValue.DeepCopyMapValue()
 
 		prevKeyValid = false
 	)
+
 	stats.start()
 	defer stats.finish()
 
@@ -644,7 +635,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 	}
 
 	// Get the first map key.
-	if err := m.NextKey(nil, unsafe.Pointer(&currentKey[0])); err != nil {
+	if err := m.NextKey(nil, currentKey); err != nil {
 		stats.Lookup = 1
 		if errors.Is(err, ebpf.ErrKeyNotExist) {
 			// Empty map, nothing to iterate.
@@ -652,9 +643,6 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 			return nil
 		}
 	}
-
-	mk := m.MapKey.DeepCopyMapKey()
-	mv := m.MapValue.DeepCopyMapValue()
 
 	// maxLookup is an upper bound limit to prevent backtracking forever
 	// when iterating over the map's elements (the map might be concurrently
@@ -672,14 +660,14 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 		// the map again. Continue with nextKey only if we still find currentKey in
 		// the Lookup() after the call to m.NextKey(), this way we know nextKey is
 		// NOT the first key in the map and iteration hasn't reset.
-		nextKeyErr := m.NextKey(unsafe.Pointer(&currentKey[0]), unsafe.Pointer(&nextKey[0]))
+		nextKeyErr := m.NextKey(currentKey, nextKey)
 
-		if err := m.m.Lookup(unsafe.Pointer(&currentKey[0]), unsafe.Pointer(&value[0])); err != nil {
+		if err := m.m.Lookup(currentKey, value); err != nil {
 			stats.LookupFailed++
 			// Restarting from a invalid key starts the iteration again from the beginning.
 			// If we have a previously found key, try to restart from there instead
 			if prevKeyValid {
-				copy(currentKey, prevKey)
+				currentKey = prevKey
 				// Restart from a given previous key only once, otherwise if the prevKey is
 				// concurrently deleted we might loop forever trying to look it up.
 				prevKeyValid = false
@@ -688,22 +676,13 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 				// Depending on exactly when currentKey was deleted from the
 				// map, nextKey may be the actual key element after the deleted
 				// one, or the first element in the map.
-				copy(currentKey, nextKey)
+				currentKey = nextKey
 				stats.Interrupted++
 			}
 			continue
 		}
 
-		var err error
-		mk, mv, err = m.DumpParser(currentKey, value, mk, mv)
-		if err != nil {
-			stats.Interrupted++
-			return err
-		}
-
-		if cb != nil {
-			cb(mk, mv)
-		}
+		cb(currentKey, value)
 
 		if nextKeyErr != nil {
 			if errors.Is(nextKeyErr, ebpf.ErrKeyNotExist) {
@@ -714,8 +693,9 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 		}
 
 		// Prepare keys to move to the next iteration.
-		copy(prevKey, currentKey)
-		copy(currentKey, nextKey)
+		prevKey = currentKey
+		currentKey = nextKey
+		nextKey = m.MapKey.DeepCopyMapKey()
 		prevKeyValid = true
 	}
 
@@ -977,48 +957,27 @@ func (m *Map) DeleteAll() error {
 	}
 
 	mk := m.MapKey.DeepCopyMapKey()
-	mv := m.MapValue.DeepCopyMapValue()
+	mv := make([]byte, m.ValueSize())
 
 	defer m.deleteAllMapEvent()
 
-	key := make([]byte, m.KeySize())
-	value := make([]byte, m.ValueSize())
-
 	i := m.m.Iterate()
-	for i.Next(&key, &value) {
-		err := m.m.Delete(key)
+	for i.Next(mk, &mv) {
+		err := m.m.Delete(mk)
 
-		mk, _, err2 := m.DumpParser(key, []byte{}, mk, mv)
-		if err2 == nil {
-			m.deleteCacheEntry(mk, err)
-		} else {
-			log.WithError(err2).Warningf("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", key)
-		}
+		m.deleteCacheEntry(mk, err)
 
 		if err != nil {
 			return err
 		}
 	}
 
-	return i.Err()
-}
-
-// ConvertKeyValue converts key and value from bytes to given Golang struct pointers.
-func ConvertKeyValue(bKey []byte, bValue []byte, key MapKey, value MapValue) (MapKey, MapValue, error) {
-
-	if len(bKey) > 0 {
-		if err := binary.Read(bKey, byteorder.Native, key); err != nil {
-			return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-		}
+	err := i.Err()
+	if err != nil {
+		log.WithError(err).Warningf("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", mk)
 	}
 
-	if len(bValue) > 0 {
-		if err := binary.Read(bValue, byteorder.Native, value); err != nil {
-			return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
-		}
-	}
-
-	return key, value, nil
+	return err
 }
 
 // GetModel returns a BPF map in the representation served via the API
