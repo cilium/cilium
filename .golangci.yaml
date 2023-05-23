@@ -63,6 +63,14 @@ linters-settings:
   gosec:
     includes:
       - G402
+  gomodguard:
+    blocked:
+      modules:
+        - gopkg.in/check.v1:
+            recommendations:
+              - testing
+              - github.com/stretchr/testify/assert
+            reason: "gocheck has been deprecated, see https://docs.cilium.io/en/latest/contributing/testing/unit/#migrating-tests-off-of-gopkg-in-check-v1"
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
@@ -97,6 +105,7 @@ linters:
     - unused
     - goheader
     - gosec
+    - gomodguard
 
 # To enable later if makes sense
 #    - deadcode
