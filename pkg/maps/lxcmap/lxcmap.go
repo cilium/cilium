@@ -140,10 +140,6 @@ type EndpointKey struct {
 	bpf.EndpointKey
 }
 
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value
-func (k EndpointKey) NewValue() bpf.MapValue { return &EndpointInfo{} }
-
 // NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected
 func NewEndpointKey(ip net.IP) *EndpointKey {

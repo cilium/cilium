@@ -93,8 +93,7 @@ type PerClusterCTMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterCTMapKey) String() string         { return strconv.FormatUint(uint64(k.ClusterID), 10) }
-func (k *PerClusterCTMapKey) NewValue() bpf.MapValue { return &PerClusterCTMapVal{} }
+func (k *PerClusterCTMapKey) String() string { return strconv.FormatUint(uint64(k.ClusterID), 10) }
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue

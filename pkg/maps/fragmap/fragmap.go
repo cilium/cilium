@@ -48,10 +48,6 @@ func (v *FragmentValue) String() string {
 	return fmt.Sprintf("%d, %d", v.destPort, v.sourcePort)
 }
 
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k FragmentKey) NewValue() bpf.MapValue { return &FragmentValue{} }
-
 // InitMap creates the signal map in the kernel.
 func InitMap(mapEntries int) error {
 	fragMap := bpf.NewMap(MapName,

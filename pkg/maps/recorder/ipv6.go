@@ -29,8 +29,6 @@ type CaptureWcard6 struct {
 
 type CaptureRule6 CaptureRule
 
-func (k *CaptureWcard6) NewValue() bpf.MapValue { return &CaptureRule6{} }
-
 func (k *CaptureWcard6) DeepCopyMapKey() bpf.MapKey {
 	return &CaptureWcard6{
 		DestAddr: k.DestAddr,

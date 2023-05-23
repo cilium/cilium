@@ -67,8 +67,7 @@ type PerClusterNATMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterNATMapKey) String() string         { return strconv.FormatUint(uint64(k.ClusterID), 10) }
-func (k *PerClusterNATMapKey) NewValue() bpf.MapValue { return &PerClusterNATMapVal{} }
+func (k *PerClusterNATMapKey) String() string { return strconv.FormatUint(uint64(k.ClusterID), 10) }
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue

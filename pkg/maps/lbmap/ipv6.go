@@ -78,10 +78,9 @@ func NewRevNat6Key(value uint16) *RevNat6Key {
 	return &RevNat6Key{value}
 }
 
-func (v *RevNat6Key) Map() *bpf.Map          { return RevNat6Map }
-func (v *RevNat6Key) NewValue() bpf.MapValue { return &RevNat6Value{} }
-func (v *RevNat6Key) String() string         { return fmt.Sprintf("%d", v.ToHost().(*RevNat6Key).Key) }
-func (v *RevNat6Key) GetKey() uint16         { return v.Key }
+func (v *RevNat6Key) Map() *bpf.Map  { return RevNat6Map }
+func (v *RevNat6Key) String() string { return fmt.Sprintf("%d", v.ToHost().(*RevNat6Key).Key) }
+func (v *RevNat6Key) GetKey() uint16 { return v.Key }
 
 // ToNetwork converts RevNat6Key to network byte order.
 func (v *RevNat6Key) ToNetwork() RevNatKey {
@@ -157,7 +156,6 @@ func (k *Service6Key) String() string {
 	}
 }
 
-func (k *Service6Key) NewValue() bpf.MapValue  { return &Service6Value{} }
 func (k *Service6Key) IsIPv6() bool            { return true }
 func (k *Service6Key) IsSurrogate() bool       { return k.GetAddress().IsUnspecified() }
 func (k *Service6Key) Map() *bpf.Map           { return Service6MapV2 }
@@ -199,6 +197,10 @@ type Service6Value struct {
 	Flags     uint8     `align:"flags"`
 	Flags2    uint8     `align:"flags2"`
 	Pad       pad2uint8 `align:"pad"`
+}
+
+func (s *Service6Value) New() ServiceValue {
+	return &Service6Value{}
 }
 
 func (s *Service6Value) String() string {
@@ -262,7 +264,6 @@ func NewBackend6KeyV3(id loadbalancer.BackendID) *Backend6KeyV3 {
 }
 
 func (k *Backend6KeyV3) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend6KeyV3) NewValue() bpf.MapValue          { return &Backend6ValueV3{} }
 func (k *Backend6KeyV3) Map() *bpf.Map                   { return Backend6MapV3 }
 func (k *Backend6KeyV3) SetID(id loadbalancer.BackendID) { k.ID = id }
 func (k *Backend6KeyV3) GetID() loadbalancer.BackendID   { return k.ID }
@@ -274,7 +275,6 @@ type Backend6Key struct {
 }
 
 func (k *Backend6Key) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend6Key) NewValue() bpf.MapValue          { return &Backend6Value{} }
 func (k *Backend6Key) Map() *bpf.Map                   { return Backend6Map }
 func (k *Backend6Key) SetID(id loadbalancer.BackendID) { k.ID = uint16(id) }
 func (k *Backend6Key) GetID() loadbalancer.BackendID   { return loadbalancer.BackendID(k.ID) }
@@ -454,7 +454,7 @@ type SockRevNat6Key struct {
 	cookie  uint64     `align:"cookie"`
 	address types.IPv6 `align:"address"`
 	port    int16      `align:"port"`
-	pad     int16      `align:"pad"`
+	_       int16
 }
 
 // SizeofSockRevNat6Key is the size of type SockRevNat6Key.
@@ -481,10 +481,6 @@ func (k *SockRevNat6Key) String() string {
 func (v *SockRevNat6Value) String() string {
 	return fmt.Sprintf("[%s]:%d, %d", v.address, v.port, v.revNatIndex)
 }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k SockRevNat6Key) NewValue() bpf.MapValue { return &SockRevNat6Value{} }
 
 // CreateSockRevNat6Map creates the reverse NAT sock map.
 func CreateSockRevNat6Map() error {

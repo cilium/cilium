@@ -30,7 +30,6 @@ type EdtId struct {
 	Id uint64 `align:"id"`
 }
 
-func (k *EdtId) NewValue() bpf.MapValue     { return &EdtInfo{} }
 func (k *EdtId) String() string             { return fmt.Sprintf("%d", int(k.Id)) }
 func (k *EdtId) DeepCopyMapKey() bpf.MapKey { return &EdtId{k.Id} }
 

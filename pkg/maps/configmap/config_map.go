@@ -40,13 +40,6 @@ func (k *Index) String() string {
 	return fmt.Sprintf("%d", uint32(*k))
 }
 
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value
-func (k *Index) NewValue() bpf.MapValue {
-	var value Value
-	return &value
-}
-
 // DeepCopyMapKey returns a deep copy of the map key
 func (k *Index) DeepCopyMapKey() bpf.MapKey {
 	index := *k

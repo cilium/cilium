@@ -127,8 +127,6 @@ func newTunnelKey(ip net.IP, clusterID uint32) (*TunnelKey, error) {
 	return &result, nil
 }
 
-func (v TunnelKey) NewValue() bpf.MapValue { return &TunnelValue{} }
-
 func newTunnelValue(ip net.IP, key uint8, nodeID uint16) *TunnelValue {
 	result := TunnelValue{}
 	result.TunnelIP = newTunnelIP(ip)
@@ -148,8 +146,6 @@ func newTunnelIP(ip net.IP) TunnelIP {
 	}
 	return result
 }
-
-func (v TunnelValue) NewValue() bpf.MapValue { return &TunnelValue{} }
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
 func (m *Map) SetTunnelEndpoint(encryptKey uint8, nodeID uint16, prefix cmtypes.AddrCluster, endpoint net.IP) error {

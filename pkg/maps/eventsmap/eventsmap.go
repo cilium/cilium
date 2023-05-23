@@ -37,10 +37,6 @@ func (k *Key) String() string { return fmt.Sprintf("%d", k.index) }
 // String converts the value into a human readable string format.
 func (v *Value) String() string { return fmt.Sprintf("%d", v.progID) }
 
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k Key) NewValue() bpf.MapValue { return &Value{} }
-
 type eventsMap struct {
 	m *bpf.Map
 }

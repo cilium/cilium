@@ -36,7 +36,6 @@ type TestValue struct {
 }
 
 func (k *TestKey) String() string         { return fmt.Sprintf("key=%d", k.Key) }
-func (k *TestKey) NewValue() MapValue     { return &TestValue{} }
 func (k *TestKey) DeepCopyMapKey() MapKey { return &TestKey{k.Key} }
 
 func (v *TestValue) String() string             { return fmt.Sprintf("value=%d", v.Value) }
