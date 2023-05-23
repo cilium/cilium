@@ -67,7 +67,7 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.2
+  cilium_cli_version: v0.14.3
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.122.0
@@ -191,7 +191,7 @@ jobs:
           target_url: ${{ env.check_url }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@207512ce9e729d9b3cc1a59e92af5c8d50ce37c4 # v0.14.2
+        uses: cilium/cilium-cli@d4c49cddefadf11852cd5bbde0bbd9e0b2c67d43 # v0.14.3
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
