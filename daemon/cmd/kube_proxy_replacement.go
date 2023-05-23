@@ -339,12 +339,6 @@ func probeKubeProxyReplacementOptions() error {
 		}
 	}
 
-	if option.Config.EnableSVCSourceRangeCheck && !probe.HaveFullLPM() {
-		msg := fmt.Sprintf("--%s requires kernel 4.16 or newer.",
-			option.EnableSVCSourceRangeCheck)
-		return fmt.Errorf(msg)
-	}
-
 	if option.Config.BPFSocketLBHostnsOnly {
 		if !option.Config.EnableSocketLB {
 			option.Config.BPFSocketLBHostnsOnly = false
