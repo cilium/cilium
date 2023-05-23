@@ -11,9 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
-
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -511,32 +508,4 @@ func SupportsEndpointSlice() bool {
 // watch and process endpoint slices V1.
 func SupportsEndpointSliceV1() bool {
 	return SupportsEndpointSlice() && version.Capabilities().EndpointSliceV1
-}
-
-// HasEndpointSlice returns true if the hasEndpointSlices is closed before the
-// controller has been synchronized with k8s.
-func HasEndpointSlice(hasEndpointSlices chan struct{}, controller cache.Controller) bool {
-	endpointSliceSynced := make(chan struct{})
-	go func() {
-		cache.WaitForCacheSync(wait.NeverStop, controller.HasSynced)
-		close(endpointSliceSynced)
-	}()
-
-	// Check if K8s has a single endpointslice endpoint. By default, k8s has
-	// always the kubernetes-apiserver endpoint. If the endpointSlice are synced
-	// but we haven't received any endpoint slice then it means k8s is not
-	// running with k8s endpoint slice enabled.
-	select {
-	case <-endpointSliceSynced:
-		select {
-		// In case both select cases are ready to be selected we will recheck if
-		// hasEndpointSlices was closed.
-		case <-hasEndpointSlices:
-			return true
-		default:
-		}
-	case <-hasEndpointSlices:
-		return true
-	}
-	return false
 }
