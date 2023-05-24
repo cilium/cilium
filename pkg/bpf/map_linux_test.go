@@ -116,20 +116,13 @@ func (s *BPFPrivilegedTestSuite) TestOpen(c *C) {
 }
 
 func (s *BPFPrivilegedTestSuite) TestOpenMap(c *C) {
-	openedMap, err := OpenMap("cilium_test_no_exist")
+	openedMap, err := OpenMap("cilium_test_no_exist", &TestKey{}, &TestValue{})
 	c.Assert(err, Not(IsNil))
 	c.Assert(openedMap, IsNil)
 
-	openedMap, err = OpenMap(MapPath("cilium_test"))
+	openedMap, err = OpenMap(MapPath("cilium_test"), &TestKey{}, &TestValue{})
 	c.Assert(err, IsNil)
 
-	// Check OpenMap warning section
-	testMap.MapKey = nil
-	testMap.MapValue = nil
-	defer func() {
-		testMap.MapKey = &TestKey{}
-		testMap.MapValue = &TestValue{}
-	}()
 	c.Assert(mapsEqual(openedMap, testMap), Equals, true)
 }
 

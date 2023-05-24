@@ -709,7 +709,9 @@ func DeleteIfUpgradeNeeded(e CtEndpoint) {
 		}
 		scopedLog := log.WithField(logfields.Path, path)
 
-		oldMap, err := bpf.OpenMap(path)
+		// Pass nil key and value types since we're not intending on accessing the
+		// map's contents.
+		oldMap, err := bpf.OpenMap(path, nil, nil)
 		if err != nil {
 			scopedLog.WithError(err).Debug("Couldn't open CT map for upgrade")
 			continue
