@@ -138,31 +138,23 @@ func getMapName(mapname string, ipv4 bool, proto u8proto.U8proto) string {
 
 func getOrOpenMap(epname string, ipv4 bool, proto u8proto.U8proto) (*bpf.Map, error) {
 	mapname := getMapName(epname, ipv4, proto)
-	m := bpf.GetMap(mapname)
-	if m == nil {
-		var err error
-		// Open the map and leave it open
-		m, err = bpf.OpenMap(bpf.MapPath(mapname))
-		if err != nil {
-			return nil, fmt.Errorf("Can not open CT map %s: %s", mapname, err)
-		}
-		isGlobal := epname == "global"
-		if isGlobal {
-			if ipv4 {
-				m.MapKey = &CtKey4Global{}
-			} else {
-				m.MapKey = &CtKey6Global{}
-			}
-		} else {
-			if ipv4 {
-				m.MapKey = &CtKey4{}
-			} else {
-				m.MapKey = &CtKey6{}
-			}
-		}
-		m.MapValue = &CtEntry{}
+	if m := bpf.GetMap(mapname); m != nil {
+		return m, nil
 	}
-	return m, nil
+
+	if epname == "global" {
+		if ipv4 {
+			return bpf.OpenMap(bpf.MapPath(mapname), &CtKey4Global{}, &CtEntry{})
+		}
+
+		return bpf.OpenMap(bpf.MapPath(mapname), &CtKey6Global{}, &CtEntry{})
+	}
+
+	if ipv4 {
+		return bpf.OpenMap(bpf.MapPath(mapname), &CtKey4{}, &CtEntry{})
+	}
+
+	return bpf.OpenMap(bpf.MapPath(mapname), &CtKey6{}, &CtEntry{})
 }
 
 // Lookup opens a conntrack map if necessary, and does a lookup on it with a key constructed from

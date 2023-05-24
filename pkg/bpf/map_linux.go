@@ -353,12 +353,8 @@ func (m *Map) controllerName() string {
 	return fmt.Sprintf("bpf-map-sync-%s", m.name)
 }
 
-// OpenMap opens the given bpf map and generates the Map info based in the
-// information stored in the bpf map.
-// *Warning*: Calling this function requires the caller to properly setup
-// the MapInfo.MapKey and MapInfo.MapValues fields as those structures are not
-// stored in the bpf map.
-func OpenMap(pinPath string) (*Map, error) {
+// OpenMap opens the map at pinPath.
+func OpenMap(pinPath string, key MapKey, value MapValue) (*Map, error) {
 	if !path.IsAbs(pinPath) {
 		return nil, fmt.Errorf("pinPath must be absolute: %s", pinPath)
 	}
@@ -369,9 +365,11 @@ func OpenMap(pinPath string) (*Map, error) {
 	}
 
 	m := &Map{
-		m:    em,
-		name: path.Base(pinPath),
-		path: pinPath,
+		m:        em,
+		name:     path.Base(pinPath),
+		path:     pinPath,
+		MapKey:   key,
+		MapValue: value,
 	}
 
 	registerMap(pinPath, m)
