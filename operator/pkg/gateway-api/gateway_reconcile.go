@@ -363,7 +363,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 					break
 				}
 
-				allowed, err := isReferenceAllowed(ctx, r.Client, gw, cert)
+				allowed, err := isCertificateReferenceAllowed(ctx, r.Client, gw, cert)
 				if err != nil {
 					return err
 				}
@@ -434,7 +434,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 	return nil
 }
 
-func isReferenceAllowed(ctx context.Context, c client.Client, gw *gatewayv1beta1.Gateway, cert gatewayv1beta1.SecretObjectReference) (bool, error) {
+func isCertificateReferenceAllowed(ctx context.Context, c client.Client, gw *gatewayv1beta1.Gateway, cert gatewayv1beta1.SecretObjectReference) (bool, error) {
 	// Secret is in the same namespace as the Gateway
 	if cert.Namespace == nil || string(*cert.Namespace) == gw.GetNamespace() {
 		return true, nil
