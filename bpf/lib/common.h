@@ -290,11 +290,12 @@ struct tunnel_value {
 struct endpoint_info {
 	__u32		ifindex;
 	__u16		unused; /* used to be sec_label, no longer used */
-	__u16           lxc_id;
+	__u16		lxc_id;
 	__u32		flags;
 	mac_t		mac;
 	mac_t		node_mac;
-	__u32		pad[4];
+	__u32		sec_id;
+	__u32		pad[3];
 };
 
 struct edt_id {
