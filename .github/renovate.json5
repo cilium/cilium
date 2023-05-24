@@ -53,6 +53,7 @@
     "enabled": true
   },
   "labels": [
+    "renovate/stop-updating",
     "kind/enhancement",
     "release-note/misc"
   ],
