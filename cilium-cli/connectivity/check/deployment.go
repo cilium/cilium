@@ -45,8 +45,9 @@ const (
 	kindClientName                 = "client"
 	kindPerfName                   = "perf"
 
-	hostNetNSDeploymentName = "host-netns"
-	kindHostNetNS           = "host-netns"
+	hostNetNSDeploymentName          = "host-netns"
+	hostNetNSDeploymentNameNonCilium = "host-netns-non-cilium" // runs on non-Cilium test nodes
+	kindHostNetNS                    = "host-netns"
 
 	EchoServerHostPort = 40000
 
@@ -236,6 +237,8 @@ type daemonSetParameters struct {
 	Labels         map[string]string
 	HostNetwork    bool
 	Tolerations    []corev1.Toleration
+	Capabilities   []corev1.Capability
+	NodeSelector   map[string]string
 }
 
 func newDaemonSet(p daemonSetParameters) *appsv1.DaemonSet {
@@ -266,7 +269,7 @@ func newDaemonSet(p daemonSetParameters) *appsv1.DaemonSet {
 							ReadinessProbe:  p.ReadinessProbe,
 							SecurityContext: &corev1.SecurityContext{
 								Capabilities: &corev1.Capabilities{
-									Add: []corev1.Capability{"NET_ADMIN", "NET_RAW"},
+									Add: append([]corev1.Capability{"NET_RAW"}, p.Capabilities...),
 								},
 							},
 						},
@@ -287,6 +290,10 @@ func newDaemonSet(p daemonSetParameters) *appsv1.DaemonSet {
 
 	for k, v := range p.Labels {
 		ds.Spec.Template.ObjectMeta.Labels[k] = v
+	}
+
+	if p.NodeSelector != nil {
+		ds.Spec.Template.Spec.NodeSelector = p.NodeSelector
 	}
 
 	return ds
@@ -801,9 +808,27 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 		_, err = ct.clients.src.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentName, metav1.GetOptions{})
 		if err != nil {
-			ct.Logf("✨ [%s] Deploying host-netns daemonset...", ct.clients.src.ClusterName())
+			ct.Logf("✨ [%s] Deploying %s daemonset...", hostNetNSDeploymentName, ct.clients.src.ClusterName())
 			ds := newDaemonSet(daemonSetParameters{
 				Name:        hostNetNSDeploymentName,
+				Kind:        kindHostNetNS,
+				Image:       ct.params.CurlImage,
+				Port:        8080,
+				Labels:      map[string]string{"other": "host-netns"},
+				Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+				HostNetwork: true,
+			})
+			_, err = ct.clients.src.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create daemonset %s: %w", hostNetNSDeploymentName, err)
+			}
+		}
+
+		_, err = ct.clients.src.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentNameNonCilium, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s daemonset...", hostNetNSDeploymentNameNonCilium, ct.clients.src.ClusterName())
+			ds := newDaemonSet(daemonSetParameters{
+				Name:        hostNetNSDeploymentNameNonCilium,
 				Kind:        kindHostNetNS,
 				Image:       ct.params.CurlImage,
 				Port:        8080,
@@ -813,10 +838,14 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Tolerations: []corev1.Toleration{
 					{Operator: corev1.TolerationOpExists},
 				},
+				Capabilities: []corev1.Capability{corev1.Capability("NET_ADMIN")}, // to install IP routes
+				NodeSelector: map[string]string{
+					defaults.CiliumNoScheduleLabel: "true",
+				},
 			})
 			_, err = ct.clients.src.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("unable to create daemonset %s: %w", hostNetNSDeploymentName, err)
+				return fmt.Errorf("unable to create daemonset %s: %w", hostNetNSDeploymentNameNonCilium, err)
 			}
 		}
 
