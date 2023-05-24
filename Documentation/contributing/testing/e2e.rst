@@ -12,8 +12,7 @@ End-To-End Connectivity Testing
 Introduction
 ~~~~~~~~~~~~
 
-Cilium uses `cilium-cli connectivity tests
-<https://github.com/cilium/cilium-cli/#connectivity-check>`_
+Cilium uses `cilium-cli connectivity tests <https://github.com/cilium/cilium-cli/#connectivity-check>`_
 for implementing and running end-to-end tests which test Cilium all the way
 from the API level (e.g. importing policies, CLI) to the datapath (i.e, whether
 policy that is imported is enforced accordingly in the datapath).
@@ -32,7 +31,7 @@ Running tests locally
 
 Before running the connectivity tests you need to install `Cilium CLI <https://github.com/cilium/cilium-cli/>`_ .
 Alternatively, ``Cilium CLI`` can be manually built and installed by fetching
-`https://github.com/cilium/cilium-cli`, and then running ``make install``.
+``https://github.com/cilium/cilium-cli``, and then running ``make install``.
 
 Next, you need a Kubernetes cluster to run Cilium. The easiest way to create one
 is to use `kind <https://github.com/kubernetes-sigs/kind>`_. Cilium provides
