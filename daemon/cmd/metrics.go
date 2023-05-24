@@ -12,7 +12,6 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -34,17 +33,6 @@ func (h *getMetrics) Handle(params restapi.GetMetricsParams) middleware.Responde
 	}
 
 	return restapi.NewGetMetricsOK().WithPayload(metrics)
-}
-
-func initMetrics() <-chan error {
-	var errs <-chan error
-
-	if option.Config.PrometheusServeAddr != "" {
-		log.Infof("Serving prometheus metrics on %s", option.Config.PrometheusServeAddr)
-		errs = metrics.Enable(option.Config.PrometheusServeAddr)
-	}
-
-	return errs
 }
 
 type bootstrapStatistics struct {
@@ -71,7 +59,7 @@ type bootstrapStatistics struct {
 }
 
 func (b *bootstrapStatistics) updateMetrics() {
-	if !option.Config.MetricsConfig.BootstrapTimesEnabled {
+	if !metrics.BootstrapTimes.IsEnabled() {
 		return
 	}
 

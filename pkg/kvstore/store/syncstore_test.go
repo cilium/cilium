@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -336,17 +337,17 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 }
 
 func TestWorkqueueSyncStoreMetrics(t *testing.T) {
-	defer func(name string, queue, sync metrics.GaugeVec) {
+	defer func(name string, queue, sync metric.Vec[metric.Gauge]) {
 		option.Config.ClusterName = name
 		metrics.KVStoreSyncQueueSize = queue
 		metrics.KVStoreInitialSyncCompleted = sync
 	}(option.Config.ClusterName, metrics.KVStoreSyncQueueSize, metrics.KVStoreInitialSyncCompleted)
 
 	option.Config.ClusterName = "foo"
-	cfg, collectors := metrics.CreateConfiguration([]string{"cilium_kvstore_sync_queue_size", "cilium_kvstore_initial_sync_completed"})
-	require.True(t, cfg.KVStoreSyncQueueSizeEnabled)
-	require.True(t, cfg.KVStoreInitialSyncCompletedEnabled)
-	require.Len(t, collectors, 2)
+
+	legacyMetrics := metrics.NewLegacyMetrics()
+	require.True(t, legacyMetrics.KVStoreSyncQueueSize.IsEnabled())
+	require.True(t, legacyMetrics.KVStoreInitialSyncCompleted.IsEnabled())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)

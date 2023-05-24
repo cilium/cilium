@@ -22,6 +22,7 @@ import (
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
@@ -60,6 +61,9 @@ var (
 		k8sClient.Cell,
 
 		cni.Cell,
+
+		// Provide the modular metrics registry, metric HTTP server and legacy metrics cell.
+		metrics.Cell,
 
 		// Provide option.Config via hive so cells can depend on the agent config.
 		cell.Provide(func() *option.DaemonConfig { return option.Config }),

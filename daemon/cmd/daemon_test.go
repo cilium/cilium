@@ -11,9 +11,6 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/cilium/checkmate"
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/cilium/cilium/api/v1/models"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
@@ -44,6 +41,8 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/types"
+
+	. "github.com/cilium/checkmate"
 )
 
 type DaemonSuite struct {
@@ -64,9 +63,6 @@ type DaemonSuite struct {
 	OnGetCompilationLock   func() *lock.RWMutex
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
 	OnGetCIDRPrefixLengths func() ([]int, []int)
-
-	// Metrics
-	collectors []prometheus.Collector
 }
 
 func setupTestDirectories() {
@@ -138,17 +134,6 @@ func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) 
 
 func (ds *DaemonSuite) SetUpSuite(c *C) {
 	testutils.IntegrationCheck(c)
-
-	// Register metrics once before running the suite
-	_, ds.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})
-	metrics.MustRegister(ds.collectors...)
-}
-
-func (ds *DaemonSuite) TearDownSuite(c *C) {
-	// Unregister the metrics after the suite has finished
-	for _, c := range ds.collectors {
-		metrics.Unregister(c)
-	}
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {

@@ -279,7 +279,7 @@ func (m *Map) updatePressureMetric() {
 
 	// Do a lazy check of MetricsConfig as it is not available at map static
 	// initialization.
-	if !option.Config.MetricsConfig.BPFMapPressure {
+	if !metrics.BPFMapPressure {
 		if !m.withValueCache {
 			m.cache = nil
 		}
@@ -566,13 +566,13 @@ func (m *Map) Close() error {
 
 func (m *Map) NextKey(key, nextKeyOut interface{}) error {
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 
 	err := m.m.NextKey(key, nextKeyOut)
 
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpGetNextKey, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
 	}
 
@@ -782,14 +782,14 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 	defer m.lock.RUnlock()
 
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 
 	value := key.NewValue()
 	err := m.m.Lookup(key.GetKeyPtr(), value.GetValuePtr())
 
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpLookup, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
 	}
 
@@ -846,7 +846,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 
 	err = m.m.Update(key.GetKeyPtr(), value.GetValuePtr(), ebpf.UpdateAny)
 
-	if option.Config.MetricsConfig.BPFMapOps {
+	if metrics.BPFMapOps.IsEnabled() {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 	}
 
@@ -920,13 +920,13 @@ func (m *Map) delete(key MapKey, ignoreMissing bool) (_ bool, err error) {
 	}
 
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 
 	err = m.m.Delete(key.GetKeyPtr())
 
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpDelete, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
 	}
 
@@ -939,7 +939,7 @@ func (m *Map) delete(key MapKey, ignoreMissing bool) (_ bool, err error) {
 		return false, nil
 	}
 
-	if option.Config.MetricsConfig.BPFMapOps {
+	if metrics.BPFMapOps.IsEnabled() {
 		// err can be nil or any error other than ebpf.ErrKeyNotExist.
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
 	}
@@ -1122,7 +1122,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		case Insert:
 			// Call into ebpf-go's Map.Update() directly, don't go through the cache.
 			err := m.m.Update(e.Key.GetKeyPtr(), e.Value.GetValuePtr(), ebpf.UpdateAny)
-			if option.Config.MetricsConfig.BPFMapOps {
+			if metrics.BPFMapOps.IsEnabled() {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 			}
 			if err == nil {
@@ -1139,7 +1139,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		case Delete:
 			// Holding lock, issue direct delete on map.
 			err := m.m.Delete(e.Key.GetKeyPtr())
-			if option.Config.MetricsConfig.BPFMapOps {
+			if metrics.BPFMapOps.IsEnabled() {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
 			}
 			if err == nil || errors.Is(err, ebpf.ErrKeyNotExist) {

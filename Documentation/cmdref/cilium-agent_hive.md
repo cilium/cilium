@@ -36,10 +36,12 @@ cilium-agent hive [flags]
       --mesh-auth-rotated-identities-queue-size int      The size of the queue for signaling rotated identities. (default 1024)
       --mesh-auth-spiffe-trust-domain string             The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-admin-socket string              The path for the SPIRE admin agent Unix socket.
+      --metrics strings                                  Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)
       --monitor-queue-size int                           Size of the event queue when reading monitor events
       --pprof                                            Enable serving pprof debugging API
       --pprof-address string                             Address that pprof listens on (default "localhost")
       --pprof-port uint16                                Port that pprof listens on (default 6060)
+      --prometheus-serve-addr string                     IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off) (default ":9962")
       --read-cni-conf string                             CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
       --write-cni-conf-when-ready string                 Write the CNI configuration to the specified path when agent is ready
 ```

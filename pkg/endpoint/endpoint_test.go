@@ -13,7 +13,6 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -56,9 +55,6 @@ type EndpointSuite struct {
 	OnRemoveFromEndpointQueue func(epID uint64)
 	OnGetCompilationLock      func() *lock.RWMutex
 	OnSendNotification        func(msg monitorAPI.AgentNotifyMessage) error
-
-	// Metrics
-	collectors []prometheus.Collector
 }
 
 // suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
@@ -77,15 +73,12 @@ func (s *EndpointSuite) SetUpSuite(c *C) {
 	}
 
 	// Register metrics once before running the suite
-	_, s.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})
-	metrics.MustRegister(s.collectors...)
+	metrics.NewLegacyMetrics().EndpointStateCount.SetEnabled(true)
 }
 
 func (s *EndpointSuite) TearDownSuite(c *C) {
 	// Unregister the metrics after the suite has finished
-	for _, c := range s.collectors {
-		metrics.Unregister(c)
-	}
+	metrics.EndpointStateCount.SetEnabled(false)
 }
 
 func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
