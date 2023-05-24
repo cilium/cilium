@@ -90,7 +90,7 @@ jobs:
           persist-credentials: false
 
       - name: Set image tag
-        id: vars
+        id: sha
         run: |
           if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
             echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
@@ -115,49 +115,65 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.sha.outputs.tag }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Install cilium chart
+      - name: Set up install variables
+        id: vars
         run: |
-          helm install cilium ./install/kubernetes/cilium \
-             --namespace kube-system \
-             --set nodeinit.enabled=true \
-             --set kubeProxyReplacement=partial \
-             --set socketLB.enabled=false \
-             --set externalIPs.enabled=true \
-             --set nodePort.enabled=true \
-             --set hostPort.enabled=true \
-             --set bpf.masquerade=false \
-             --set ipam.mode=kubernetes \
-             --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-             --set image.tag=${{ steps.vars.outputs.tag }} \
-             --set image.pullPolicy=IfNotPresent \
-             --set image.useDigest=false \
-             --set hubble.relay.enabled=true \
-             --set hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-             --set hubble.relay.image.tag=${{ steps.vars.outputs.tag }} \
-             --set hubble.relay.image.pullPolicy=IfNotPresent \
-             --set hubble.relay.image.useDigest=false \
-             --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-             --set operator.image.suffix=-ci \
-             --set operator.image.tag=${{ steps.vars.outputs.tag }} \
-             --set operator.image.pullPolicy=IfNotPresent \
-             --set operator.image.useDigest=false \
-             --set prometheus.enabled=true \
-             --set operator.prometheus.enabled=true \
-             --set hubble.enabled=true \
-             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \
-             --set ingressController.enabled=true
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+             --helm-set nodeinit.enabled=true \
+             --helm-set kubeProxyReplacement=partial \
+             --helm-set socketLB.enabled=false \
+             --helm-set externalIPs.enabled=true \
+             --helm-set nodePort.enabled=true \
+             --helm-set hostPort.enabled=true \
+             --helm-set bpf.masquerade=false \
+             --helm-set ipam.mode=kubernetes \
+             --helm-set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+             --helm-set image.tag=${{ steps.sha.outputs.tag }} \
+             --helm-set image.pullPolicy=IfNotPresent \
+             --helm-set image.useDigest=false \
+             --helm-set hubble.relay.enabled=true \
+             --helm-set hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+             --helm-set hubble.relay.image.tag=${{ steps.sha.outputs.tag }} \
+             --helm-set hubble.relay.image.pullPolicy=IfNotPresent \
+             --helm-set hubble.relay.image.useDigest=false \
+             --helm-set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+             --helm-set operator.image.suffix=-ci \
+             --helm-set operator.image.tag=${{ steps.sha.outputs.tag }} \
+             --helm-set operator.image.pullPolicy=IfNotPresent \
+             --helm-set operator.image.useDigest=false \
+             --helm-set prometheus.enabled=true \
+             --helm-set operator.prometheus.enabled=true \
+             --helm-set hubble.enabled=true \
+             --helm-set=hubble.metrics.enabled=\"{dns,drop,tcp,flow,port-distribution,icmp,http}\" \
+             --helm-set ingressController.enabled=true"
 
-          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
-          kubectl rollout -n kube-system status deploy/coredns --timeout=5m
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
-          # To make sure that cilium CRD is available (default timeout is 5m)
-          # https://github.com/cilium/cilium/blob/main/operator/crd.go#L34
-          kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+      - name: Install Cilium CLI
+        run: |
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
 
-          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245 &
+      - name: Install Cilium
+        run: |
+          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+          kubectl -n kube-system get pods
+
+      - name: Port forward Relay
+        run: |
+          cilium hubble port-forward&
+          sleep 10s
+          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run conformance test (e.g. connectivity check)
         run: |
@@ -179,13 +195,6 @@ jobs:
           rm -f prometheus-${PROM_VERSION}.linux-amd64.tar.gz
           sudo mv prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/bin
           cat metrics.prom | promtool check metrics
-
-      - name: Install Cilium CLI
-        if: ${{ failure() }}
-        uses: cilium/cilium-cli@d4c49cddefadf11852cd5bbde0bbd9e0b2c67d43 # v0.14.3
-        with:
-          release-version: ${{ env.cilium_cli_version }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() }}
