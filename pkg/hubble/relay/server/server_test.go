@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/fake"
 	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -80,7 +79,7 @@ func init() {
 	for i := 0; i < 254; i++ {
 		ip := fake.IP(fake.WithIPv4())
 		endpoints[ip] = &testutils.FakeEndpointInfo{
-			ID:           uint64(i),
+			ID:           uint64(i + 128),
 			IPv4:         net.ParseIP(ip),
 			PodNamespace: fake.K8sNamespace(),
 			PodName:      fake.K8sPodName(),
@@ -170,7 +169,7 @@ func newHubblePeer(t testing.TB, ctx context.Context, address string, hubbleObse
 	}()
 }
 
-func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
+func benchmarkRelayGetFlows(b *testing.B, exp *observerpb.GetFlowsRequest_Experimental) {
 	tmp := b.TempDir()
 	root := "unix://" + filepath.Join(tmp, "peer-")
 	ctx := context.Background()
@@ -256,19 +255,8 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 	require.NoError(b, err)
 	require.Equal(b, numPeers, len(nodesResp.Nodes))
 
-	getFlowsReq := new(observerpb.GetFlowsRequest)
-	if withFieldMask {
-		fieldmask, err := fieldmaskpb.New(&flowpb.Flow{}, "time",
-			"verdict", "drop_reason",
-			"traffic_direction", "trace_observation_point", "Summary",
-			"source.ID", "source.pod_name", "source.namespace",
-			"destination.ID", "destination.pod_name", "destination.namespace",
-			"l4.TCP.source_port",
-		)
-		require.NoError(b, err)
-		getFlowsReq.Experimental = &observerpb.GetFlowsRequest_Experimental{
-			FieldMask: fieldmask,
-		}
+	getFlowsReq := &observerpb.GetFlowsRequest{
+		Experimental: exp,
 	}
 	found := make([]*observerpb.Flow, 0, numFlows)
 	b.StartTimer()
@@ -287,22 +275,91 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 		case *observerpb.GetFlowsResponse_NodeStatus:
 		}
 	}
-	assert.Equal(b, numFlows, len(found))
+	require.Equal(b, numFlows, len(found))
 	b.StopTimer()
 
+	// map of maps is only need to verify in tests (that each peer doesn't send it more than once).
+	multiNodeSeen := make(map[string]map[uint32]*flowpb.Endpoint)
 	for _, f := range found {
-		assert.NotEmpty(b, f.Source.PodName)
-		assert.NotEmpty(b, f.Destination.PodName)
-		assert.NotZero(b, f.Time)
-		assert.NotEmpty(b, f.Summary)
-		assert.NotZero(b, f.L4.GetTCP().SourcePort)
+		if exp.TransmitEndpointOnce {
+			if _, ok := multiNodeSeen[f.NodeName]; !ok {
+				multiNodeSeen[f.NodeName] = make(map[uint32]*flowpb.Endpoint)
+			}
+			seen := multiNodeSeen[f.NodeName]
+			// Example of populating endpoint info back again.
+			require.NotEmpty(b, f.Source.ID)
+			require.NotEmpty(b, f.Destination.ID)
+			if src, ok := seen[f.Source.ID]; ok {
+				require.Empty(b, f.Source.PodName)
+				f.Source = src
+			} else {
+				seen[f.Source.ID] = f.Source
+			}
+			if dst, ok := seen[f.Destination.ID]; ok {
+				require.Empty(b, f.Destination.PodName)
+				f.Destination = dst
+			} else {
+				seen[f.Destination.ID] = f.Destination
+			}
+		}
+		if exp.FieldMask != nil {
+			require.Empty(b, f.Source.Labels)
+			require.Empty(b, f.Destination.Labels)
+		}
+		require.NotEmpty(b, f.Source.PodName)
+		require.NotEmpty(b, f.Destination.PodName)
+		require.NotZero(b, f.Time)
+		require.NotEmpty(b, f.Summary)
+		require.NotZero(b, f.L4.GetTCP().SourcePort)
 	}
 }
 
-func BenchmarkRelayGetFlowsWithFieldMask(b *testing.B) {
-	benchmarkRelayGetFlows(b, true)
-}
+func BenchmarkRelayGetFlows(b *testing.B) {
+	fieldmask, err := fieldmaskpb.New(&flowpb.Flow{}, "time",
+		"verdict", "drop_reason",
+		"traffic_direction", "trace_observation_point", "Summary",
+		"source.ID", "source.pod_name", "source.namespace",
+		"destination.ID", "destination.pod_name", "destination.namespace",
+		"l4.TCP.source_port", "node_name",
+	)
+	require.NoError(b, err)
 
-func BenchmarkRelayGetFlowsWithoutFieldMask(b *testing.B) {
-	benchmarkRelayGetFlows(b, false)
+	type testcase struct {
+		name        string
+		experiments *observerpb.GetFlowsRequest_Experimental
+	}
+
+	tcs := []testcase{
+		{
+			name:        "base",
+			experiments: &observerpb.GetFlowsRequest_Experimental{},
+		},
+		{
+			name: "field mask",
+			experiments: &observerpb.GetFlowsRequest_Experimental{
+				FieldMask: fieldmask,
+			},
+		},
+		{
+			name: "endpoint and nodename dedup",
+			experiments: &observerpb.GetFlowsRequest_Experimental{
+				TransmitNodenameOnce: true,
+				TransmitEndpointOnce: true,
+			},
+		},
+		{
+			name: "endpoint and nodename dedup with field mask",
+			experiments: &observerpb.GetFlowsRequest_Experimental{
+				FieldMask:            fieldmask,
+				TransmitNodenameOnce: true,
+				TransmitEndpointOnce: true,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		b.Run(tc.name, func(b *testing.B) {
+			benchmarkRelayGetFlows(b, tc.experiments)
+		})
+	}
 }
