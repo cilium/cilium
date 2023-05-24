@@ -539,13 +539,15 @@ var _ = Describe("K8sDatapathConfig", func() {
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
 
-			res := kubectl.ExecInHostNetNS(context.TODO(), helpers.K8s1, "conntrack -F")
-			res.ExpectSuccess("Cannot flush conntrack table")
+			_, err = kubectl.ExecInHostNetNSByLabel(context.TODO(), helpers.K8s1, "conntrack -F")
+			if err != nil {
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot flush conntrack table")
+			}
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
 			cmd := fmt.Sprintf("iptables -w 60 -t raw -C CILIUM_PRE_raw -s %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j CT --notrack", helpers.IPv4NativeRoutingCIDR)
-			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
+			res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
 			res.ExpectSuccess("Missing '-j CT --notrack' iptables rule")
 
 			cmd = fmt.Sprintf("iptables -w 60 -t raw -C CILIUM_PRE_raw -d %s -m comment --comment 'cilium: NOTRACK for pod traffic' -j CT --notrack", helpers.IPv4NativeRoutingCIDR)
@@ -561,9 +563,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 			res.ExpectSuccess("Missing '-j CT --notrack' iptables rule")
 
 			cmd = fmt.Sprintf("conntrack -L -s %s -d %s | wc -l", helpers.IPv4NativeRoutingCIDR, helpers.IPv4NativeRoutingCIDR)
-			res = kubectl.ExecInHostNetNS(context.TODO(), helpers.K8s1, cmd)
-			res.ExpectSuccess("Cannot list conntrack entries")
-			Expect(strings.TrimSpace(res.Stdout())).To(Equal("0"), "Unexpected conntrack entries")
+			resStr, err := kubectl.ExecInHostNetNSByLabel(context.TODO(), helpers.K8s1, cmd)
+			if err != nil {
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot list conntrack entries")
+			}
+			Expect(strings.TrimSpace(resStr)).To(Equal("0"), "Unexpected conntrack entries")
 		})
 	})
 })
