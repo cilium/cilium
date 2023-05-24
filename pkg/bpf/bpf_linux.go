@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -28,13 +27,13 @@ func createMap(spec *ebpf.MapSpec, opts *ebpf.MapOptions) (*ebpf.Map, error) {
 	}
 
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 
 	m, err := ebpf.NewMapWithOptions(spec, *opts)
 
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpCreate, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
 	}
 

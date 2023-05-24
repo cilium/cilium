@@ -29,7 +29,7 @@ var goleakOptions = []goleak.Option{
 // the hive commands and documentation can be generated from it.
 func TestAgentCell(t *testing.T) {
 	defer goleak.VerifyNone(t, goleakOptions...)
-	defer metrics.ResetMetrics()
+	defer metrics.Reinitialize()
 
 	logging.SetLogLevelToDebug()
 	err := hive.New(Agent).Populate()

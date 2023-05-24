@@ -1063,7 +1063,7 @@ func (e *Endpoint) SkipStateClean() {
 }
 
 func (e *Endpoint) initPolicyMapPressureMetric() {
-	if !option.Config.MetricsConfig.BPFMapPressure {
+	if !metrics.BPFMapPressure {
 		return
 	}
 

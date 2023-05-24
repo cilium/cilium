@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -271,13 +272,12 @@ func TestRestartableWatchStoreConcurrent(t *testing.T) {
 }
 
 func TestRestartableWatchStoreMetrics(t *testing.T) {
-	defer func(name string, metric metrics.GaugeVec) {
+	defer func(name string, metric metric.Vec[metric.Gauge]) {
 		metrics.KVStoreInitialSyncCompleted = metric
 	}(option.Config.ClusterName, metrics.KVStoreInitialSyncCompleted)
 
-	cfg, collectors := metrics.CreateConfiguration([]string{"cilium_kvstore_initial_sync_completed"})
-	require.True(t, cfg.KVStoreInitialSyncCompletedEnabled)
-	require.Len(t, collectors, 1)
+	metrics.NewLegacyMetrics()
+	require.True(t, metrics.KVStoreInitialSyncCompleted.IsEnabled())
 
 	entries := prometheus.NewGauge(prometheus.GaugeOpts{Name: "test_elements_metric"})
 	synced := metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "qux", "read")

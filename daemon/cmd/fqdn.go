@@ -211,12 +211,12 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
 				epID := ep.StringID()
-				if option.Config.MetricsConfig.FQDNActiveNames || option.Config.MetricsConfig.FQDNActiveIPs {
+				if metrics.FQDNActiveNames.IsEnabled() || metrics.FQDNActiveIPs.IsEnabled() {
 					countFQDNs, countIPs := ep.DNSHistory.Count()
-					if option.Config.MetricsConfig.FQDNActiveNames {
+					if metrics.FQDNActiveNames.IsEnabled() {
 						metrics.FQDNActiveNames.WithLabelValues(epID).Set(float64(countFQDNs))
 					}
-					if option.Config.MetricsConfig.FQDNActiveIPs {
+					if metrics.FQDNActiveIPs.IsEnabled() {
 						metrics.FQDNActiveIPs.WithLabelValues(epID).Set(float64(countIPs))
 					}
 				}
@@ -227,7 +227,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 					}
 				}
 				alive, dead := ep.DNSZombies.GC()
-				if option.Config.MetricsConfig.FQDNActiveZombiesConnections {
+				if metrics.FQDNAliveZombieConnections.IsEnabled() {
 					metrics.FQDNAliveZombieConnections.WithLabelValues(epID).Set(float64(len(alive)))
 				}
 

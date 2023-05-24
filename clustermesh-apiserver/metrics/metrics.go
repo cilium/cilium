@@ -64,6 +64,9 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 
 	mm.registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	mm.registry.MustRegister(collectors.NewGoCollector())
+	// Constructing the legacy metrics and register them at the metrics global variable.
+	// This is a hack until we can unify this metrics manager with the metrics.Registry.
+	metrics.NewLegacyMetrics()
 	mm.registry.MustRegister(
 		metrics.KVStoreOperationsDuration,
 		metrics.KVStoreEventsQueueDuration,

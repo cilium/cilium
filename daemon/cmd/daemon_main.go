@@ -5,10 +5,8 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -695,9 +693,6 @@ func initializeFlags() {
 	flags.MarkHidden(option.MaxCtrlIntervalName)
 	option.BindEnv(Vp, option.MaxCtrlIntervalName)
 
-	flags.StringSlice(option.Metrics, []string{}, "Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)")
-	option.BindEnv(Vp, option.Metrics)
-
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
@@ -765,14 +760,6 @@ func initializeFlags() {
 
 	flags.Bool(option.PreAllocateMapsName, defaults.PreAllocateMaps, "Enable BPF map pre-allocation")
 	option.BindEnv(Vp, option.PreAllocateMapsName)
-
-	// We expect only one of the possible variables to be filled. The evaluation order is:
-	// --prometheus-serve-addr, CILIUM_PROMETHEUS_SERVE_ADDR, then PROMETHEUS_SERVE_ADDR
-	// The second environment variable (without the CILIUM_ prefix) is here to
-	// handle the case where someone uses a new image with an older spec, and the
-	// older spec used the older variable name.
-	flags.String(option.PrometheusServeAddr, ":9962", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
-	option.BindEnvWithLegacyEnvFallback(Vp, option.PrometheusServeAddr, "PROMETHEUS_SERVE_ADDR")
 
 	flags.Int(option.AuthMapEntriesName, option.AuthMapEntriesDefault, "Maximum number of entries in auth map")
 	option.BindEnv(Vp, option.AuthMapEntriesName)
@@ -1810,14 +1797,6 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	bootstrapStats.healthCheck.End(true)
 
 	d.startStatusCollector(cleaner)
-
-	go func(errs <-chan error) {
-		err := <-errs
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.WithError(err).Error("Cannot start metrics server")
-			params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
-		}
-	}(initMetrics())
 
 	d.startAgentHealthHTTPService()
 	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
