@@ -4,6 +4,7 @@
 package slices
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"strconv"
@@ -353,5 +354,42 @@ func BenchmarkUnique(b *testing.B) {
 				Unique(values)
 			}
 		})
+	}
+}
+
+func BenchmarkSubsetOf(b *testing.B) {
+	var benchCases = [...]struct {
+		subsetSz   int
+		supersetSz int
+	}{
+		{64, 512}, {128, 512},
+		{256, 2048}, {512, 2048},
+		{1024, 8192}, {2048, 8192},
+	}
+
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	for _, bc := range benchCases {
+		b.Run(
+			fmt.Sprintf("%d-%d", bc.subsetSz, bc.supersetSz),
+			func(b *testing.B) {
+				b.ReportAllocs()
+
+				subset := make([]string, 0, bc.subsetSz)
+				for i := 0; i < bc.subsetSz; i++ {
+					subset = append(subset, strconv.Itoa(r.Intn(bc.subsetSz)))
+				}
+
+				superset := make([]string, 0, bc.supersetSz)
+				for i := 0; i < bc.supersetSz; i++ {
+					superset = append(superset, strconv.Itoa(r.Intn(bc.subsetSz)))
+				}
+
+				b.ResetTimer()
+
+				for i := 0; i < b.N; i++ {
+					_, _ = SubsetOf(subset, superset)
+				}
+			},
+		)
 	}
 }
