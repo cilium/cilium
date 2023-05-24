@@ -151,10 +151,9 @@ generate_commit_list_for_pr () {
   echo "                 ----------                          -------------------"
   echo "     v (start)"
   while read entry; do
-    entry_array=($entry)
-    entry_id=${entry_array[0]}
-    entry_sha=${entry_array[1]}
-    entry_sub=${entry_array[@]:2}
+    entry_id=$(echo "$entry" | cut -d ' ' -f 1)
+    entry_sha=$(echo "$entry" | cut -d ' ' -f 2)
+    entry_sub=$(echo "$entry" | cut -d ' ' -f 3-)
     entry_sub_re="^$(sed 's/[.^$*+?()[{\|]/\\&/g' <<< "$entry_sub")$" # adds backslashes for extended regex
     related_commits="$(git log --since="1year" --pretty="%H" --no-merges --extended-regexp --grep "$entry_sub_re" $REMOTE/main)"
     found_commit=0
