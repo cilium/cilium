@@ -479,7 +479,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			_ = kubectl.Delete(hsIPcacheYAML)
 		})
 
-		testHighScaleIPcache := func(tunnelProto string) {
+		testHighScaleIPcache := func(tunnelProto string, epRoutesConfig string) {
 			options := map[string]string{
 				"highScaleIPcache.enabled":    "true",
 				"routingMode":                 "native",
@@ -487,6 +487,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"ipv6.enabled":                "false",
 				"wellKnownIdentities.enabled": "true",
 				"tunnelProtocol":              tunnelProto,
+				"endpointRoutes.enabled":      epRoutesConfig,
 			}
 			if !helpers.RunsOnGKE() {
 				options["autoDirectNodeRoutes"] = "true"
@@ -508,12 +509,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(err).ToNot(HaveOccurred(), "Client pods not ready after timeout")
 		}
 
-		It("Test ingress policy enforcement with VXLAN", func() {
-			testHighScaleIPcache("vxlan")
+		It("Test ingress policy enforcement with VXLAN and no endpoint routes", func() {
+			testHighScaleIPcache("vxlan", "false")
 		})
 
-		It("Test ingress policy enforcement with GENEVE", func() {
-			testHighScaleIPcache("geneve")
+		It("Test ingress policy enforcement with GENEVE and endpoint routes", func() {
+			testHighScaleIPcache("geneve", "true")
 		})
 	})
 
