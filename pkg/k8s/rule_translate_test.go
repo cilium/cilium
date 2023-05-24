@@ -5,9 +5,12 @@ package k8s
 
 import (
 	"net"
+	"net/netip"
 	"sort"
+	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -18,6 +21,202 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
+
+func TestTranslate(t *testing.T) {
+	type args struct {
+		rule   *api.Rule
+		result *policy.TranslationResult
+	}
+	type translator struct {
+		sid            ServiceID
+		oldEPs, newEPs Endpoints
+		revert         bool
+		labels         map[string]string
+	}
+	epAddrCluster := cmtypes.MustParseAddrCluster("10.1.1.1")
+	epAddrCluster2 := cmtypes.MustParseAddrCluster("10.2.1.1")
+	defaultTranslator := translator{
+		sid: ServiceID{
+			Cluster:   "1",
+			Name:      "foo",
+			Namespace: "default",
+		},
+		oldEPs: Endpoints{
+			Backends: map[cmtypes.AddrCluster]*Backend{
+				epAddrCluster: {
+					Ports: map[string]*loadbalancer.L4Addr{
+						"port": {
+							Protocol: loadbalancer.TCP,
+							Port:     80,
+						},
+					},
+				},
+			},
+		},
+		newEPs: Endpoints{
+			Backends: map[cmtypes.AddrCluster]*Backend{
+				epAddrCluster2: {
+					Ports: map[string]*loadbalancer.L4Addr{
+						"port": {
+							Protocol: loadbalancer.TCP,
+							Port:     80,
+						},
+					},
+				},
+			},
+		},
+		revert: false,
+		labels: map[string]string{
+			"app": "foo",
+		},
+	}
+	defaultRule := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDRSet: api.CIDRRuleSlice{
+						{Cidr: api.CIDR(epAddrCluster.String() + "/32"), Generated: true},
+					},
+					ToServices: []api.Service{
+						{
+							K8sService: &api.K8sServiceNamespace{
+								ServiceName: defaultTranslator.sid.Name,
+								Namespace:   defaultTranslator.sid.Namespace,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	tests := []struct {
+		name           string
+		translator     func() translator
+		args           func() args
+		expected       error
+		expectedResult *policy.TranslationResult
+	}{
+		{
+			name:       "both prefixes to add and remove",
+			translator: func() translator { return defaultTranslator },
+			args: func() args {
+				return args{
+					rule:   defaultRule.DeepCopy(),
+					result: &policy.TranslationResult{},
+				}
+			},
+			expected: nil,
+			expectedResult: &policy.TranslationResult{
+				NumToServicesRules: 1,
+				PrefixesToRelease:  []netip.Prefix{netip.PrefixFrom(epAddrCluster.Addr(), 32)},
+				PrefixesToAdd:      []netip.Prefix{netip.PrefixFrom(epAddrCluster2.Addr(), 32)},
+			},
+		},
+		{
+			name: "only prefix to release",
+			translator: func() translator {
+				n := defaultTranslator
+				n.oldEPs.Backends[epAddrCluster2] = &Backend{
+					Ports: map[string]*loadbalancer.L4Addr{
+						"port": {
+							Protocol: loadbalancer.TCP,
+							Port:     80,
+						},
+					},
+				}
+				return n
+			},
+			args: func() args {
+				r := defaultRule.DeepCopy()
+				r.Egress[0].ToCIDRSet = append(r.Egress[0].ToCIDRSet, api.CIDRRule{
+					Cidr:      api.CIDR(epAddrCluster2.String() + "/32"),
+					Generated: true,
+				})
+				return args{
+					rule:   r,
+					result: &policy.TranslationResult{},
+				}
+			},
+			expected: nil,
+			expectedResult: &policy.TranslationResult{
+				NumToServicesRules: 1,
+				PrefixesToRelease:  []netip.Prefix{netip.PrefixFrom(epAddrCluster.Addr(), 32)},
+				PrefixesToAdd:      nil,
+			},
+		},
+		{
+			name: "no prefixes to add or remove",
+			translator: func() translator {
+				n := defaultTranslator
+				n.oldEPs.Backends[epAddrCluster2] = &Backend{
+					Ports: map[string]*loadbalancer.L4Addr{
+						"port": {
+							Protocol: loadbalancer.TCP,
+							Port:     80,
+						},
+					},
+				}
+				n.newEPs = n.oldEPs
+				return n
+			},
+			args: func() args {
+				r := defaultRule.DeepCopy()
+				r.Egress[0].ToCIDRSet = append(r.Egress[0].ToCIDRSet, api.CIDRRule{
+					Cidr:      api.CIDR(epAddrCluster2.String() + "/32"),
+					Generated: true,
+				})
+				return args{
+					rule:   r,
+					result: &policy.TranslationResult{},
+				}
+			},
+			expected: nil,
+			expectedResult: &policy.TranslationResult{
+				NumToServicesRules: 1,
+				PrefixesToRelease:  nil,
+				PrefixesToAdd:      nil,
+			},
+		},
+		{
+			name: "only prefix to add",
+			translator: func() translator {
+				n := defaultTranslator
+				n.newEPs.Backends[epAddrCluster] = &Backend{
+					Ports: map[string]*loadbalancer.L4Addr{
+						"port": {
+							Protocol: loadbalancer.TCP,
+							Port:     80,
+						},
+					},
+				}
+				return n
+			},
+			args: func() args {
+				return args{
+					rule:   defaultRule.DeepCopy(),
+					result: &policy.TranslationResult{},
+				}
+			},
+			expected: nil,
+			expectedResult: &policy.TranslationResult{
+				NumToServicesRules: 1,
+				PrefixesToRelease:  nil,
+				PrefixesToAdd:      []netip.Prefix{netip.PrefixFrom(epAddrCluster2.Addr(), 32)},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lator := tt.translator()
+			args := tt.args()
+			tr := NewK8sTranslator(lator.sid, lator.oldEPs, lator.newEPs, lator.revert, lator.labels, true)
+			err := tr.Translate(args.rule, args.result)
+			assert.Equal(t, tt.expected, err)
+			assert.Equal(t, tt.expectedResult, args.result)
+		})
+	}
+}
 
 func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	idAllocator := testidentity.NewMockIdentityAllocator(nil)
