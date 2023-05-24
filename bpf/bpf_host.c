@@ -1209,6 +1209,8 @@ handle_srv6(struct __ctx_buff *ctx)
 __section("from-netdev")
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
+	__u32 __maybe_unused src_id = 0;
+
 #ifdef ENABLE_NODEPORT_ACCELERATION
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
 #ifdef HAVE_ENCAP
@@ -1288,6 +1290,15 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 #endif
 
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
+	ret = decapsulate_overlay(ctx, &src_id);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
+				       METRIC_INGRESS);
+	if (ret == CTX_ACT_REDIRECT)
+		return ret;
+#endif /* ENABLE_HIGH_SCALE_IPCACHE */
+
 	return handle_netdev(ctx, false);
 
 drop_err:
@@ -1301,18 +1312,6 @@ drop_err:
 __section("from-host")
 int cil_from_host(struct __ctx_buff *ctx)
 {
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
-	__u32 src_id = 0;
-	int ret;
-
-	ret = decapsulate_overlay(ctx, &src_id);
-	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
-					      METRIC_INGRESS);
-	if (ret == CTX_ACT_REDIRECT)
-		return ret;
-#endif /* ENABLE_HIGH_SCALE_IPCACHE */
-
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
 	 */

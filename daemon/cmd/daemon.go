@@ -1018,10 +1018,17 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			return nil, nil, fmt.Errorf("BPF ip-masq-agent needs kernel 4.16 or newer")
 		}
 	}
-	if option.Config.EnableHostFirewall && len(option.Config.GetDevices()) == 0 {
-		msg := "host firewall's external facing device could not be determined. Use --%s to specify."
-		log.WithError(err).Errorf(msg, option.Devices)
-		return nil, nil, fmt.Errorf(msg, option.Devices)
+	if len(option.Config.GetDevices()) == 0 {
+		if option.Config.EnableHostFirewall {
+			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
+			log.WithError(err).Errorf(msg, option.Devices)
+			return nil, nil, fmt.Errorf(msg, option.Devices)
+		}
+		if option.Config.EnableHighScaleIPcache {
+			msg := "External facing device for high-scale IPcache could not be determined. Use --%s to specify."
+			log.WithError(err).Errorf(msg, option.Devices)
+			return nil, nil, fmt.Errorf(msg, option.Devices)
+		}
 	}
 	if option.Config.EnableSCTP {
 		if probes.HaveLargeInstructionLimit() != nil {
