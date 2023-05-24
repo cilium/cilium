@@ -22,6 +22,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -187,9 +188,11 @@ func getReconcileRequestsForRoute(ctx context.Context, c client.Client, object m
 			continue
 		}
 
+		ns := helpers.NamespaceDerefOr(parent.Namespace, object.GetNamespace())
+
 		gw := &gatewayv1beta1.Gateway{}
 		if err := c.Get(ctx, types.NamespacedName{
-			Namespace: namespaceDerefOr(parent.Namespace, object.GetNamespace()),
+			Namespace: ns,
 			Name:      string(parent.Name),
 		}, gw); err != nil {
 			if !k8serrors.IsNotFound(err) {
@@ -203,7 +206,6 @@ func getReconcileRequestsForRoute(ctx context.Context, c client.Client, object m
 			continue
 		}
 
-		ns := namespaceDerefOr(parent.Namespace, object.GetNamespace())
 		scopedLog.WithFields(logrus.Fields{
 			logfields.K8sNamespace: ns,
 			logfields.Resource:     parent.Name,

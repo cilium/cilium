@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -54,11 +55,17 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}()
 
+	// check if this cert is allowed to be used by this gateway
+	grants := &gatewayv1beta1.ReferenceGrantList{}
+	if err := r.Client.List(ctx, grants); err != nil {
+		return fail(err)
+	}
+
 	for _, fn := range []httpRouteChecker{
 		validateService,
 		validateGateway,
 	} {
-		if res, err := fn(ctx, r.Client, hr); err != nil {
+		if res, err := fn(ctx, r.Client, hr, grants); err != nil {
 			return res, err
 		}
 	}
@@ -67,7 +74,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return success()
 }
 
-func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error) {
+func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HTTPRoute, grants *gatewayv1beta1.ReferenceGrantList) (ctrl.Result, error) {
 	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
 		logfields.Controller: "httpRoute",
 		logfields.Resource:   client.ObjectKeyFromObject(hr),
@@ -75,13 +82,16 @@ func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 
 	for _, rule := range hr.Spec.Rules {
 		for _, be := range rule.BackendRefs {
-			ns := namespaceDerefOr(be.Namespace, hr.GetNamespace())
-			if ns != hr.GetNamespace() {
+			ns := helpers.NamespaceDerefOr(be.Namespace, hr.GetNamespace())
+
+			if ns != hr.GetNamespace() && !helpers.IsBackendReferenceAllowed(hr.GetNamespace(), be.BackendRef, grants.Items) {
+				// no reference grants, update the status for all the parents
 				for _, parent := range hr.Spec.ParentRefs {
 					mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
 						httpRefNotPermittedRouteCondition(hr, "Cross namespace references are not allowed"),
 					})
 				}
+
 				continue
 			}
 
@@ -123,14 +133,14 @@ func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 	return success()
 }
 
-func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error) {
+func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HTTPRoute, _ *gatewayv1beta1.ReferenceGrantList) (ctrl.Result, error) {
 	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
 		logfields.Controller: "httpRoute",
 		logfields.Resource:   client.ObjectKeyFromObject(hr),
 	})
 
 	for _, parent := range hr.Spec.ParentRefs {
-		ns := namespaceDerefOr(parent.Namespace, hr.GetNamespace())
+		ns := helpers.NamespaceDerefOr(parent.Namespace, hr.GetNamespace())
 		gw := &gatewayv1beta1.Gateway{}
 		if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, gw); err != nil {
 			if !k8serrors.IsNotFound(err) {

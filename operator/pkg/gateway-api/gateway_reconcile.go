@@ -19,6 +19,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	translation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
@@ -95,7 +96,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return fail(err)
 	}
 
-	grants := &gatewayv1alpha2.ReferenceGrantList{}
+	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
 		scopedLog.WithError(err).Error("Unable to list ReferenceGrants")
 		return fail(err)
@@ -262,7 +263,7 @@ func (r *gatewayReconciler) filterTLSRoutesByListener(ctx context.Context, gw *g
 
 func isAccepted(_ context.Context, gw *gatewayv1beta1.Gateway, route metav1.Object, parents []gatewayv1beta1.RouteParentStatus) bool {
 	for _, rps := range parents {
-		if namespaceDerefOr(rps.ParentRef.Namespace, route.GetNamespace()) != gw.GetNamespace() ||
+		if helpers.NamespaceDerefOr(rps.ParentRef.Namespace, route.GetNamespace()) != gw.GetNamespace() ||
 			string(rps.ParentRef.Name) != gw.GetName() {
 			continue
 		}
@@ -380,7 +381,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 					break
 				}
 
-				if err = validateTLSSecret(ctx, r.Client, namespaceDerefOr(cert.Namespace, gw.GetNamespace()), string(cert.Name)); err != nil {
+				if err = validateTLSSecret(ctx, r.Client, helpers.NamespaceDerefOr(cert.Namespace, gw.GetNamespace()), string(cert.Name)); err != nil {
 					conds = merge(conds, metav1.Condition{
 						Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
 						Status:             metav1.ConditionFalse,
@@ -441,7 +442,7 @@ func isCertificateReferenceAllowed(ctx context.Context, c client.Client, gw *gat
 	}
 
 	// check if this cert is allowed to be used by this gateway
-	grants := &gatewayv1alpha2.ReferenceGrantList{}
+	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := c.List(ctx, grants, client.InNamespace(*cert.Namespace)); err != nil {
 		return false, err
 	}

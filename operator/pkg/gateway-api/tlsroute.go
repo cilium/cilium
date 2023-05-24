@@ -21,6 +21,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -48,7 +49,7 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					}
 					backendServices = append(backendServices,
 						types.NamespacedName{
-							Namespace: namespaceDerefOr(backend.Namespace, hr.Namespace),
+							Namespace: helpers.NamespaceDerefOr(backend.Namespace, hr.Namespace),
 							Name:      string(backend.Name),
 						}.String(),
 					)
@@ -70,7 +71,7 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}
 				gateways = append(gateways,
 					types.NamespacedName{
-						Namespace: namespaceDerefOr(parent.Namespace, hr.Namespace),
+						Namespace: helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace),
 						Name:      string(parent.Name),
 					}.String(),
 				)

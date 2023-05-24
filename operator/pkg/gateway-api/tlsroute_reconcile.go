@@ -16,6 +16,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -66,7 +67,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// gateway validators
 	for _, parent := range tr.Spec.ParentRefs {
-		ns := namespaceDerefOr(parent.Namespace, tr.GetNamespace())
+		ns := helpers.NamespaceDerefOr(parent.Namespace, tr.GetNamespace())
 		gw := &gatewayv1beta1.Gateway{}
 
 		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, gw); err != nil {

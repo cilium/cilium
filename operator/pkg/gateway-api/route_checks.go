@@ -14,6 +14,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -26,7 +28,7 @@ func checkAgainstCrossNamespaceReferences(ctx context.Context, log *logrus.Entry
 
 	for _, rule := range tr.Spec.Rules {
 		for _, be := range rule.BackendRefs {
-			ns := namespaceDerefOr(be.Namespace, tr.GetNamespace())
+			ns := helpers.NamespaceDerefOr(be.Namespace, tr.GetNamespace())
 			if ns != tr.GetNamespace() {
 				for _, parent := range tr.Spec.ParentRefs {
 					mergeTLSRouteStatusConditions(tr, parent, []metav1.Condition{
