@@ -102,7 +102,8 @@ jobs:
           # Run the connectivity test in non-default namespace (i.e. not cilium-test)
           cilium connectivity test --debug --all-flows --test-namespace test-namespace \
             --include-unsafe-tests \
-            --collect-sysdump-on-failure --junit-file connectivity-${{ matrix.mode }}.xml
+            --collect-sysdump-on-failure --junit-file connectivity-${{ matrix.mode }}.xml \
+            --junit-property mode=${{ matrix.mode }}
 
       - name: Upload junit output
         if: ${{ always() }}
@@ -153,7 +154,8 @@ jobs:
         run: |
           cilium connectivity test --debug --force-deploy --all-flows --test-namespace test-namespace \
             --include-unsafe-tests \
-            --collect-sysdump-on-failure --junit-file connectivity-ipsec-${{ matrix.mode }}.xml
+            --collect-sysdump-on-failure --junit-file connectivity-ipsec-${{ matrix.mode }}.xml \
+            --junit-property mode=${{ matrix.mode }}
 
       - name: Upload junit output
         if: ${{ always() }}
@@ -304,7 +306,8 @@ jobs:
         run: |
           cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug \
             --include-unsafe-tests \
-            --collect-sysdump-on-failure --junit-file connectivity-clustermesh.xml
+            --collect-sysdump-on-failure --junit-file connectivity-clustermesh.xml \
+            --junit-property mode=clustermesh
 
       - name: Upload junit output
         if: ${{ always() }}

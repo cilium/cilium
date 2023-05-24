@@ -134,6 +134,7 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.ExternalIP, "external-ip", "1.1.1.1", "IP to use as external target in connectivity tests")
 	cmd.Flags().StringVar(&params.ExternalOtherIP, "external-other-ip", "1.0.0.1", "Other IP to use as external target in connectivity tests")
 	cmd.Flags().StringVar(&params.JunitFile, "junit-file", "", "Generate junit report and write to file")
+	cmd.Flags().StringToStringVar(&params.JunitProperties, "junit-property", map[string]string{}, "Add key=value properties to the generated junit file")
 	cmd.Flags().BoolVar(&params.SkipIPCacheCheck, "skip-ip-cache-check", true, "Skip IPCache check")
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().BoolVar(&params.IncludeUnsafeTests, "include-unsafe-tests", false, "Include tests which can modify cluster nodes state")
