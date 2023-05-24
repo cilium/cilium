@@ -379,7 +379,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/bandwidth/ @cilium/sig-datapath
 /pkg/bgp/ @cilium/sig-bgp
 /pkg/bgpv1/ @cilium/sig-bgp
-/pkg/bpf/ @cilium/sig-datapath
+/pkg/bpf/ @cilium/loader
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/cgroups/ @cilium/sig-datapath
 /pkg/checker/ @cilium/ci-structure
@@ -463,6 +463,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/policy/groups/aws/ @cilium/sig-policy @cilium/aws
 /pkg/proxy/ @cilium/proxy
 /pkg/proxy/accesslog @cilium/api
+/pkg/recorder @cilium/sig-datapath
 /pkg/redirectpolicy @cilium/sig-lb
 /pkg/safeio @cilium/sig-agent
 /pkg/serializer @cilium/sig-agent
