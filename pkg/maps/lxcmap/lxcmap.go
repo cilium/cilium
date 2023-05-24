@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -62,6 +63,7 @@ type EndpointFrontend interface {
 	GetID() uint64
 	IPv4Address() netip.Addr
 	IPv6Address() netip.Addr
+	GetIdentity() identity.NumericIdentity
 }
 
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
@@ -101,16 +103,17 @@ func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 		LxcID:   uint16(e.GetID()),
 		MAC:     mac,
 		NodeMAC: nodeMAC,
+		SecID:   e.GetIdentity().Uint32(),
 	}
 
 	return info, nil
 
 }
 
-type pad4uint32 [4]uint32
+type pad3uint32 [3]uint32
 
 // DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *pad4uint32) DeepCopyInto(out *pad4uint32) {
+func (in *pad3uint32) DeepCopyInto(out *pad3uint32) {
 	copy(out[:], in[:])
 	return
 }
@@ -129,7 +132,8 @@ type EndpointInfo struct {
 	_       uint32
 	MAC     mac.Uint64MAC `align:"mac"`
 	NodeMAC mac.Uint64MAC `align:"node_mac"`
-	Pad     pad4uint32    `align:"pad"`
+	SecID   uint32        `align:"sec_id"`
+	Pad     pad3uint32    `align:"pad"`
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value
@@ -164,8 +168,9 @@ func (v *EndpointInfo) String() string {
 		return "(localhost)"
 	}
 
-	return fmt.Sprintf("id=%-5d flags=0x%04X ifindex=%-3d mac=%s nodemac=%s",
+	return fmt.Sprintf("id=%-5d sec_id=%-5d flags=0x%04X ifindex=%-3d mac=%s nodemac=%s",
 		v.LxcID,
+		v.SecID,
 		v.Flags,
 		v.IfIndex,
 		v.MAC,
