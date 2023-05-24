@@ -399,14 +399,19 @@ func (ct *ConnectivityTest) writeJunit() error {
 		return nil
 	}
 
+	properties := []junit.Property{
+		{Name: "Args", Value: strings.Join(os.Args[3:], "|")},
+	}
+	for key, val := range ct.Params().JunitProperties {
+		properties = append(properties, junit.Property{Name: key, Value: val})
+	}
+
 	suite := &junit.TestSuite{
 		Name:    "connectivity test",
 		Package: "cilium",
 		Tests:   len(ct.tests),
 		Properties: &junit.Properties{
-			Properties: []junit.Property{
-				{Name: "Args", Value: strings.Join(os.Args[3:], "|")},
-			},
+			Properties: properties,
 		},
 	}
 
