@@ -49,6 +49,9 @@ repository in the Cilium project:
   code owner is not expected to validate the technical correctness of
   submissions. Correctness is typically handled by another code owner group
   which is also assigned to any given piece of documentation.
+- `@cilium/sig-foundations <https://github.com/orgs/cilium/teams/sig-foundations>`__:
+  Review changes to the core libraries and provide guidance to overall
+  software architecture.
 - `@cilium/github-sec <https://github.com/orgs/cilium/teams/github-sec>`__:
   Responsible for maintaining the security of repositories in the Cilium
   project by maintaining best practices for workflow usage, for instance
