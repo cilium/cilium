@@ -410,6 +410,10 @@ The threat matrix for such an attacker is as follows:
 | Network data     | - Without transparent encryption, an attacker     |
 |                  |   could inspect traffic between workloads in both |
 |                  |   overlay and native routing modes.               |
+|                  | - An attacker with knowledge of pod network       |
+|                  |   configuration (including pod IP addresses and   |
+|                  |   ports) could inject traffic into a cluster by   |
+|                  |   forging packets.                                |
 |                  | - Denial of service could occur depending on the  |
 |                  |   behavior of the attacker.                       |
 +------------------+---------------------------------------------------+
@@ -470,8 +474,12 @@ For such an attacker, the threat matrix is as follows:
 | Cilium eBPF      | None                                              |
 | programs         |                                                   |
 +------------------+---------------------------------------------------+
-| Network data     | Denial of service could occur depending on the    |
-|                  | behavior of the attacker.                         |
+| Network data     | - An attacker with knowledge of pod network       |
+|                  |   configuration (including pod IP addresses and   |
+|                  |   ports) could inject traffic into a cluster by   |
+|                  |   forging packets.                                |
+|                  | - Denial of service could occur depending on the  |
+|                  |   behavior of the attacker.                       |
 +------------------+---------------------------------------------------+
 | Observability    | - Denial of service could occur depending on the  |
 | data             |   behavior of the attacker.                       |
