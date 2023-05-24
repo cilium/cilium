@@ -58,6 +58,7 @@ type Parameters struct {
 	PodCIDRs              []podCIDRs
 	NodesWithoutCiliumIPs []nodesWithoutCiliumIP
 	JunitFile             string
+	JunitProperties       map[string]string
 
 	K8sVersion           string
 	HelmChartDirectory   string
