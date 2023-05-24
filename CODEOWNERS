@@ -46,6 +46,9 @@
 #   code owner is not expected to validate the technical correctness of
 #   submissions. Correctness is typically handled by another code owner group
 #   which is also assigned to any given piece of documentation.
+# - @cilium/sig-foundations:
+#   Review changes to the core libraries and provide guidance to overall
+#   software architecture.
 # - @cilium/github-sec:
 #   Responsible for maintaining the security of repositories in the Cilium
 #   project by maintaining best practices for workflow usage, for instance
@@ -269,6 +272,7 @@ Makefile* @cilium/build
 /daemon/cmd/prefilter.go @cilium/sig-datapath
 /daemon/cmd/proxy.go @cilium/proxy
 /daemon/cmd/state.go @cilium/endpoint
+/daemon/cmd/cells*.go @cilium/sig-foundations
 /Documentation/ @cilium/docs-structure
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
@@ -414,7 +418,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/fqdn/ @cilium/sig-agent @cilium/proxy
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
 /pkg/health/ @cilium/sig-agent
-/pkg/hive/ @cilium/sig-agent
+/pkg/hive/ @cilium/sig-foundations
 /pkg/hubble/ @cilium/sig-hubble
 /pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
 /pkg/identity @cilium/sig-policy
@@ -461,6 +465,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/policy @cilium/sig-policy
 /pkg/policy/api/ @cilium/api
 /pkg/policy/groups/aws/ @cilium/sig-policy @cilium/aws
+/pkg/promise @cilium/sig-foundations
 /pkg/proxy/ @cilium/proxy
 /pkg/proxy/accesslog @cilium/api
 /pkg/redirectpolicy @cilium/sig-lb
@@ -469,6 +474,8 @@ jenkinsfiles @cilium/ci-structure
 /pkg/service @cilium/sig-lb
 /pkg/source @cilium/ipcache
 /pkg/status/ @cilium/sig-agent
+/pkg/statedb @cilium/sig-foundations
+/pkg/stream @cilium/sig-foundations
 /pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure
 /pkg/tuple @cilium/sig-datapath
