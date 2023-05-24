@@ -171,12 +171,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 	struct tunnel_value *tunnel __maybe_unused;
 
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
-	/* If the destination doesn't match one of the world CIDRs, we assume
-	 * it's destined to a remote pod. In that case, since the high-scale
-	 * ipcache is enabled, we want to encapsulate with the remote pod's IP
-	 * itself.
-	 */
-	if (!world_cidrs_lookup4(dst_ip))
+	if (needs_encapsulation(dst_ip))
 		return __encap_and_redirect_with_nodeid(ctx, src_ip, dst_ip,
 							seclabel, dstid,
 							NOT_VTEP_DST, trace);
