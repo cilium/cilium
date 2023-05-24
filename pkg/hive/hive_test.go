@@ -6,11 +6,15 @@ package hive_test
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -79,6 +83,91 @@ func TestHiveBadConfig(t *testing.T) {
 	err := hive.Start(context.TODO())
 	assert.ErrorContains(t, err, "has invalid keys: foo", "expected 'invalid keys' error")
 	assert.ErrorContains(t, err, "has unset fields: Bar", "expected 'unset fields' error")
+}
+
+type MapConfig struct {
+	Foo map[string]string
+}
+
+func (MapConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringToString("foo", nil, "foo")
+}
+
+func TestHiveStringMapConfig(t *testing.T) {
+	runnable := func(setter func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper), expected map[string]string) func(t *testing.T) {
+		return func(t *testing.T) {
+			defer os.Unsetenv("CILIUM_FOO")
+
+			var cfg MapConfig
+			testCell := cell.Module(
+				"test",
+				"Test Module",
+				cell.Config(MapConfig{}),
+				cell.Invoke(func(c MapConfig) {
+					cfg = c
+				}),
+			)
+
+			hive := hive.New(testCell)
+
+			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+			hive.RegisterFlags(flags)
+
+			setter(t, flags, hive.Viper())
+
+			err := hive.Start(context.TODO())
+			require.NoError(t, err, "expected Start to succeed")
+
+			err = hive.Stop(context.TODO())
+			require.NoError(t, err, "expected Stop to succeed")
+
+			require.Equal(t, expected, cfg.Foo, "Config.Foo not set correctly")
+		}
+	}
+
+	t.Run("unset", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+	}, map[string]string{}))
+
+	t.Run("flag-kv", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, flags.Set("foo", "foo=bar,baz=qux"))
+		require.NoError(t, flags.Set("foo", "fred=thud"))
+	}, map[string]string{"foo": "bar", "baz": "qux", "fred": "thud"}))
+
+	t.Run("env-kv", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, os.Setenv("CILIUM_FOO", "foo=bar,baz=qux"))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("env-json", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, os.Setenv("CILIUM_FOO", `{"foo":"bar","baz":"qux"}`))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("config-yaml", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		vp.SetConfigType("yaml")
+		reader := strings.NewReader("foo:\n  foo: bar\n  baz: qux")
+		require.NoError(t, vp.ReadConfig(reader), "Failed reading config file")
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("config-json", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		vp.SetConfigType("json")
+		reader := strings.NewReader(`{"foo": {"foo":"bar","baz":"qux"}}`)
+		require.NoError(t, vp.ReadConfig(reader), "Failed reading config file")
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("cm-json", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, vp.MergeConfigMap(map[string]interface{}{"foo": `{"foo":"bar","baz":"qux"}`}))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("cm-kv", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, vp.MergeConfigMap(map[string]interface{}{"foo": "foo=bar,baz=qux"}))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("cm-json", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, vp.MergeConfigMap(map[string]interface{}{"foo": `{"foo":"bar","baz":"qux"}`}))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("cm-map", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, vp.MergeConfigMap(map[string]interface{}{"foo": map[string]string{"foo": "bar", "baz": "qux"}}))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
 }
 
 func TestHiveConfigOverride(t *testing.T) {
