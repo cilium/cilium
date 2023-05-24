@@ -22,6 +22,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -185,7 +186,7 @@ func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Objec
 				if !IsSecret(cert) {
 					continue
 				}
-				ns := namespaceDerefOr(cert.Namespace, gw.GetNamespace())
+				ns := helpers.NamespaceDerefOr(cert.Namespace, gw.GetNamespace())
 				if string(cert.Name) == obj.GetName() &&
 					ns == obj.GetNamespace() {
 					gateways = append(gateways, client.ObjectKey{

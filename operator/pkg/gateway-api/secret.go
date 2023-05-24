@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -73,7 +74,7 @@ func (r *secretSyncer) enqueueRequestForGatewayTLS() handler.EventHandler {
 					continue
 				}
 				s := types.NamespacedName{
-					Namespace: namespaceDerefOr(cert.Namespace, gw.Namespace),
+					Namespace: helpers.NamespaceDerefOr(cert.Namespace, gw.Namespace),
 					Name:      string(cert.Name),
 				}
 				reqs = append(reqs, reconcile.Request{NamespacedName: s})

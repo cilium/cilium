@@ -51,11 +51,9 @@ func KindPtr(name string) *gatewayv1beta1.Kind {
 	return &kind
 }
 
-func namespaceDerefOr(namespace *gatewayv1beta1.Namespace, defaultNamespace string) string {
-	if namespace != nil && *namespace != "" {
-		return string(*namespace)
-	}
-	return defaultNamespace
+func ObjectNamePtr(name string) *gatewayv1beta1.ObjectName {
+	objectName := gatewayv1beta1.ObjectName(name)
+	return &objectName
 }
 
 func groupDerefOr(group *gatewayv1beta1.Group, defaultGroup string) string {

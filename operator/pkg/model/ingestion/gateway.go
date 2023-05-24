@@ -8,6 +8,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 )
 
@@ -21,7 +22,7 @@ type Input struct {
 	Gateway         gatewayv1beta1.Gateway
 	HTTPRoutes      []gatewayv1beta1.HTTPRoute
 	TLSRoutes       []gatewayv1alpha2.TLSRoute
-	ReferenceGrants []gatewayv1alpha2.ReferenceGrant
+	ReferenceGrants []gatewayv1beta1.ReferenceGrant
 	Services        []corev1.Service
 }
 
@@ -67,13 +68,13 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			for _, rule := range r.Spec.Rules {
 				bes := make([]model.Backend, 0, len(rule.BackendRefs))
 				for _, be := range rule.BackendRefs {
-					if !isReferenceAllowed(r.GetNamespace(), be.BackendRef, input.ReferenceGrants) {
+					if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, input.ReferenceGrants) {
 						continue
 					}
 					if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
 						continue
 					}
-					if serviceExists(string(be.Name), namespaceDerefOr(be.Namespace, r.Namespace), input.Services) {
+					if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), input.Services) {
 						bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
 					}
 				}
@@ -183,13 +184,13 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			for _, rule := range r.Spec.Rules {
 				bes := make([]model.Backend, 0, len(rule.BackendRefs))
 				for _, be := range rule.BackendRefs {
-					if !isReferenceAllowed(r.GetNamespace(), be, input.ReferenceGrants) {
+					if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, input.ReferenceGrants) {
 						continue
 					}
 					if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
 						continue
 					}
-					if serviceExists(string(be.Name), namespaceDerefOr(be.Namespace, r.Namespace), input.Services) {
+					if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), input.Services) {
 						bes = append(bes, backendToModelBackend(be, r.Namespace))
 					}
 				}
@@ -247,30 +248,6 @@ func toHTTPRequestRedirectFilter(redirect *gatewayv1beta1.HTTPRequestRedirectFil
 	}
 }
 
-// isReferenceAllowed returns true if the reference is allowed by the reference grant.
-// TODO(tam): only HTTP and TLS with Service is supported right now.
-// We need to support other routes (e.g. grpc, etc.) later.
-func isReferenceAllowed(originatingNamespace string, be gatewayv1beta1.BackendRef, grants []gatewayv1alpha2.ReferenceGrant) bool {
-	if be.Namespace == nil || string(*be.Namespace) == originatingNamespace {
-		return true
-	}
-	for _, g := range grants {
-		for _, from := range g.Spec.From {
-			if ((from.Group == gatewayv1beta1.GroupName && from.Kind == "HTTPRoute") ||
-				(from.Group == gatewayv1alpha2.GroupName && from.Kind == "TLSRoute")) &&
-				(string)(from.Namespace) == originatingNamespace {
-				for _, to := range g.Spec.To {
-					if to.Group == corev1.GroupName && to.Kind == "Service" &&
-						(to.Name == nil || string(*to.Name) == string(be.Name)) {
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
-}
-
 func toHostname(hostname *gatewayv1beta1.Hostname) string {
 	if hostname != nil {
 		return (string)(*hostname)
@@ -288,7 +265,7 @@ func serviceExists(svcName, svcNamespace string, services []corev1.Service) bool
 }
 
 func backendToModelBackend(be gatewayv1beta1.BackendRef, defaultNamespace string) model.Backend {
-	ns := namespaceDerefOr(be.Namespace, defaultNamespace)
+	ns := helpers.NamespaceDerefOr(be.Namespace, defaultNamespace)
 	var port *model.BackendPort
 
 	if be.Port != nil {
@@ -303,13 +280,6 @@ func backendToModelBackend(be gatewayv1beta1.BackendRef, defaultNamespace string
 		Port:      port,
 		Weight:    be.Weight,
 	}
-}
-
-func namespaceDerefOr(namespace *gatewayv1beta1.Namespace, defaultNamespace string) string {
-	if namespace != nil && *namespace != "" {
-		return string(*namespace)
-	}
-	return defaultNamespace
 }
 
 func toPathMatch(match gatewayv1beta1.HTTPRouteMatch) model.StringMatch {
@@ -403,7 +373,7 @@ func toTLS(tls *gatewayv1beta1.GatewayTLSConfig, defaultNamespace string) []mode
 	for _, cert := range tls.CertificateRefs {
 		res = append(res, model.TLSSecret{
 			Name:      string(cert.Name),
-			Namespace: namespaceDerefOr(cert.Namespace, defaultNamespace),
+			Namespace: helpers.NamespaceDerefOr(cert.Namespace, defaultNamespace),
 		})
 	}
 	return res
