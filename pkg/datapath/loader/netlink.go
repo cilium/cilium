@@ -414,3 +414,33 @@ func (l *Loader) reloadIPSecOnLinkChanges() {
 		}
 	}()
 }
+
+// addHostDeviceAddr add internal ipv4 and ipv6 addresses to the cilium_host device.
+func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
+	if ipv4 != nil {
+		addr := netlink.Addr{
+			IPNet: &net.IPNet{
+				IP:   ipv4,
+				Mask: net.CIDRMask(32, 32), // corresponds to /32
+			},
+		}
+
+		if err := netlink.AddrReplace(hostDev, &addr); err != nil {
+			return err
+		}
+	}
+	if ipv6 != nil {
+		addr := netlink.Addr{
+			IPNet: &net.IPNet{
+				IP:   ipv6,
+				Mask: net.CIDRMask(64, 128), // corresponds to /64
+			},
+		}
+
+		if err := netlink.AddrReplace(hostDev, &addr); err != nil {
+			return err
+		}
+
+	}
+	return nil
+}

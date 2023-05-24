@@ -7,6 +7,7 @@ package loader
 
 import (
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -72,6 +73,57 @@ func TestSetupDev(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, s, "0")
 		}
+
+		err = netlink.LinkDel(dummy)
+		require.NoError(t, err)
+
+		return nil
+	})
+}
+
+func TestAddHostDeviceAddr(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	// test IP addresses
+	testIPv4 := net.ParseIP("1.2.3.4")
+	testIPv6 := net.ParseIP("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
+
+	netnsName := "test-internal-node-ips"
+	netns0, err := netns.ReplaceNetNSWithName(netnsName)
+	require.NoError(t, err)
+	require.NotNil(t, netns0)
+	t.Cleanup(func() {
+		netns0.Close()
+		netns.RemoveNetNSWithName(netnsName)
+	})
+
+	netns0.Do(func(_ ns.NetNS) error {
+		ifName := "dummy"
+		dummy := &netlink.Dummy{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: ifName,
+			},
+		}
+		err := netlink.LinkAdd(dummy)
+		require.NoError(t, err)
+
+		err = addHostDeviceAddr(dummy, testIPv4, testIPv6)
+		require.NoError(t, err)
+
+		addrs, err := netlink.AddrList(dummy, netlink.FAMILY_ALL)
+		require.NoError(t, err)
+
+		var foundIPv4, foundIPv6 bool
+		for _, addr := range addrs {
+			if testIPv4.Equal(addr.IP) {
+				foundIPv4 = true
+			}
+			if testIPv6.Equal(addr.IP) {
+				foundIPv6 = true
+			}
+		}
+		require.Equal(t, foundIPv4, true)
+		require.Equal(t, foundIPv6, true)
 
 		err = netlink.LinkDel(dummy)
 		require.NoError(t, err)
