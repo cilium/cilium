@@ -2529,7 +2529,8 @@ func (c *DaemonConfig) TunnelExists() bool {
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
-	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager || c.EnableWireguard
+	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager ||
+		c.EnableWireguard || c.EnableHighScaleIPcache
 }
 
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
@@ -4124,7 +4125,7 @@ func EndpointStatusValuesMap() (values map[string]struct{}) {
 // place.
 func MightAutoDetectDevices() bool {
 	devices := Config.GetDevices()
-	return ((Config.EnableHostFirewall || Config.EnableWireguard) && len(devices) == 0) ||
+	return ((Config.EnableHostFirewall || Config.EnableWireguard || Config.EnableHighScaleIPcache) && len(devices) == 0) ||
 		(Config.KubeProxyReplacement != KubeProxyReplacementDisabled &&
 			(len(devices) == 0 || Config.DirectRoutingDevice == ""))
 }

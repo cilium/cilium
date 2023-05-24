@@ -484,7 +484,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"highScaleIPcache.enabled":    "true",
 				"routingMode":                 "native",
 				"bpf.monitorAggregation":      "none",
-				"devices":                     "",
 				"ipv6.enabled":                "false",
 				"wellKnownIdentities.enabled": "true",
 				"tunnelProtocol":              tunnelProto,
