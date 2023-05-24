@@ -403,12 +403,25 @@ returns a cell that "provides" the parsed configuration to the application:
 
     type MyConfig struct {
         MyOption string
+
+        SliceOption []string
+        MapOption map[string]string
     }
 
     func (def MyConfig) Flags(flags *pflag.FlagSet) {
         // Register the "my-option" flag. This matched against the MyOption field
         // by removing any dashes and doing case insensitive comparison.
         flags.String("my-option", def.MyOption, "My config option")
+
+        // Flags are supported for representing complex types such as slices and maps.
+        // * Slices are obtained splitting the input string on commas.
+        // * Maps support different formats based on how they are provided:
+        //   - CLI: key=value format, separated by commas; the flag can be
+        //     repeated multiple times.
+        //   - Environment variable or configuration file: either JSON encoded
+        //     or comma-separated key=value format.
+        flags.StringSlice("slice-option", def.SliceOption, "My slice config option")
+        flags.StringToString("map-option", def.MapOption, "My map config option")
     }
 
     var defaultMyConfig = MyConfig{
