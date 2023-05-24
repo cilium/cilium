@@ -41,6 +41,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		deploymentManager.SetKubectl(kubectl)
 
 		ni, err = helpers.GetNodesInfo(kubectl)
 		Expect(err).Should(BeNil(), "Cannot get nodes info")
