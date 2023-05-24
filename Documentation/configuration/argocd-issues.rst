@@ -48,11 +48,6 @@ If so, you will need the following exclusions in your Argo CD application defini
 
     ignoreDifferences:
       - group: ""
-        kind: ConfigMap
-        name: hubble-ca-cert
-        jsonPointers:
-        - /data/ca.crt
-      - group: ""
         kind: Secret
         name: hubble-relay-client-certs
         jsonPointers:
