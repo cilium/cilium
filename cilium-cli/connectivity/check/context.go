@@ -592,7 +592,7 @@ func (ct *ConnectivityTest) modifyStaticRoutesForNodesWithoutCilium(ctx context.
 	for _, e := range ct.params.PodCIDRs {
 		for _, withoutCilium := range ct.nodesWithoutCilium {
 			pod := ct.hostNetNSPodsByNode[withoutCilium]
-			_, err := ct.client.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, hostNetNSDeploymentName,
+			_, err := ct.client.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, hostNetNSDeploymentNameNonCilium,
 				[]string{"ip", "route", verb, e.CIDR, "via", e.HostIP},
 			)
 			ct.Debugf("Modifying (%s) static route on nodes without Cilium (%v): %v",
