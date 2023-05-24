@@ -29,7 +29,8 @@ framework to automatically skip tests when a required test condition cannot be m
 Running tests locally
 ^^^^^^^^^^^^^^^^^^^^^
 
-Before running the connectivity tests you need to install `Cilium CLI <https://github.com/cilium/cilium-cli#installation>`_.
+
+Before running the connectivity tests you need to install `Cilium CLI <https://github.com/cilium/cilium-cli/>`_ .
 Alternatively, ``Cilium CLI`` can be manually built and installed by fetching
 `https://github.com/cilium/cilium-cli`, and then running ``make install``.
 
