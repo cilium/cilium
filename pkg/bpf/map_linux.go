@@ -59,8 +59,8 @@ type Map struct {
 	// spec will be nil after the map has been created
 	spec *ebpf.MapSpec
 
-	MapKey   MapKey
-	MapValue MapValue
+	key   MapKey
+	value MapValue
 
 	name string
 	path string
@@ -164,9 +164,9 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 			MaxEntries: uint32(maxEntries),
 			Flags:      flags,
 		},
-		name:     path.Base(name),
-		MapKey:   mapKey,
-		MapValue: mapValue,
+		name:  path.Base(name),
+		key:   mapKey,
+		value: mapValue,
 	}
 }
 
@@ -187,9 +187,9 @@ func NewMapWithInnerSpec(name string, mapType ebpf.MapType, mapKey MapKey, mapVa
 			Flags:      flags,
 			InnerMap:   innerSpec,
 		},
-		name:     path.Base(name),
-		MapKey:   mapKey,
-		MapValue: mapValue,
+		name:  path.Base(name),
+		key:   mapKey,
+		value: mapValue,
 	}
 }
 
@@ -365,11 +365,11 @@ func OpenMap(pinPath string, key MapKey, value MapValue) (*Map, error) {
 	}
 
 	m := &Map{
-		m:        em,
-		name:     path.Base(pinPath),
-		path:     pinPath,
-		MapKey:   key,
-		MapValue: value,
+		m:     em,
+		name:  path.Base(pinPath),
+		path:  pinPath,
+		key:   key,
+		value: value,
 	}
 
 	registerMap(pinPath, m)
@@ -566,15 +566,15 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	defer m.lock.RUnlock()
 
 	// Don't need deep copies here, only fresh pointers.
-	mk := m.MapKey.DeepCopyMapKey()
-	mv := m.MapValue.DeepCopyMapValue()
+	mk := m.key.DeepCopyMapKey()
+	mv := m.value.DeepCopyMapValue()
 
 	i := m.m.Iterate()
 	for i.Next(mk, mv) {
 		cb(mk, mv)
 
-		mk = m.MapKey.DeepCopyMapKey()
-		mv = m.MapValue.DeepCopyMapValue()
+		mk = m.key.DeepCopyMapKey()
+		mv = m.value.DeepCopyMapValue()
 	}
 
 	return i.Err()
@@ -614,10 +614,10 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 	}
 
 	var (
-		prevKey    = m.MapKey.DeepCopyMapKey()
-		currentKey = m.MapKey.DeepCopyMapKey()
-		nextKey    = m.MapKey.DeepCopyMapKey()
-		value      = m.MapValue.DeepCopyMapValue()
+		prevKey    = m.key.DeepCopyMapKey()
+		currentKey = m.key.DeepCopyMapKey()
+		nextKey    = m.key.DeepCopyMapKey()
+		value      = m.value.DeepCopyMapValue()
 
 		prevKeyValid = false
 	)
@@ -690,7 +690,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 		// Prepare keys to move to the next iteration.
 		prevKey = currentKey
 		currentKey = nextKey
-		nextKey = m.MapKey.DeepCopyMapKey()
+		nextKey = m.key.DeepCopyMapKey()
 		prevKeyValid = true
 	}
 
@@ -740,7 +740,7 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 		duration = spanstat.Start()
 	}
 
-	value := m.MapValue.DeepCopyMapValue()
+	value := m.value.DeepCopyMapValue()
 	err := m.m.Lookup(key, value)
 
 	if metrics.BPFSyscallDuration.IsEnabled() {
@@ -951,7 +951,7 @@ func (m *Map) DeleteAll() error {
 		return err
 	}
 
-	mk := m.MapKey.DeepCopyMapKey()
+	mk := m.key.DeepCopyMapKey()
 	mv := make([]byte, m.ValueSize())
 
 	defer m.deleteAllMapEvent()
