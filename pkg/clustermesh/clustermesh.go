@@ -108,6 +108,16 @@ func GetClusterConfig(clusterName string, backend kvstore.BackendOperations) (*c
 	return &config, nil
 }
 
+// IsClusterConfigRequired returns whether the remote kvstore guarantees that the
+// cilium cluster config will be eventually created.
+func IsClusterConfigRequired(ctx context.Context, backend kvstore.BackendOperations) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	val, err := backend.Get(ctx, kvstore.HasClusterConfigPath)
+	return val != nil, err
+}
+
 // RemoteIdentityWatcher is any type which provides identities that have been
 // allocated on a remote cluster.
 type RemoteIdentityWatcher interface {
