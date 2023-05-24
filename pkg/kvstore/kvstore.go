@@ -39,6 +39,15 @@ const (
 	// the heartbeat
 	HeartbeatPath = BaseKeyPrefix + "/.heartbeat"
 
+	// HasClusterConfigPath is the path to the key used to convey that the cluster
+	// configuration will be eventually created, and remote cilium agents shall
+	// wait until it is present. If this key is not set, the cilium configuration
+	// might, or might not, be configured, but the agents will continue regardless,
+	// falling back to the backward compatible behavior. It must be set before that
+	// the agents have the possibility to connect to the kvstore (that is, when
+	// it is not yet exposed). The corresponding values is ignored.
+	HasClusterConfigPath = BaseKeyPrefix + "/.has-cluster-config"
+
 	// ClusterConfigPrefix is the kvstore prefix to cluster configuration
 	ClusterConfigPrefix = BaseKeyPrefix + "/cluster-config"
 
