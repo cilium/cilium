@@ -1307,8 +1307,8 @@ int cil_from_host(struct __ctx_buff *ctx)
 
 	ret = decapsulate_overlay(ctx, &src_id);
 	if (IS_ERR(ret))
-		send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
-				       METRIC_INGRESS);
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
+					      METRIC_INGRESS);
 	if (ret == CTX_ACT_REDIRECT)
 		return ret;
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
