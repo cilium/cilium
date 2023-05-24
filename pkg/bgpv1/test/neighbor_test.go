@@ -6,12 +6,14 @@ package test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/testutils"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -100,21 +102,32 @@ func Test_NeighborAddDel(t *testing.T) {
 				require.NoError(t, err, step.description)
 			}
 
-			// validate expected state vs state reported by BGP CP
-			var peers []*models.BgpPeer
-			peers, err = fixture.bgp.BGPMgr.GetPeers(testCtx)
-			require.NoError(t, err, step.description)
+			deadline, _ := testCtx.Deadline()
+			outstanding := deadline.Sub(time.Now())
+			require.Greater(t, outstanding, 0*time.Second, "test context deadline exceeded")
 
-			var runningState []peeringState
-			for _, peer := range peers {
-				runningState = append(runningState, peeringState{
-					peerASN:     uint32(peer.PeerAsn),
-					peerAddr:    peer.PeerAddress,
-					peerSession: peer.SessionState,
-				})
+			peerStatesMatch := func() bool {
+				// validate expected state vs state reported by BGP CP
+				var peers []*models.BgpPeer
+				peers, err = fixture.bgp.BGPMgr.GetPeers(testCtx)
+				require.NoError(t, err, step.description)
+
+				var runningState []peeringState
+				for _, peer := range peers {
+					runningState = append(runningState, peeringState{
+						peerASN:     uint32(peer.PeerAsn),
+						peerAddr:    peer.PeerAddress,
+						peerSession: peer.SessionState,
+					})
+				}
+				return assert.ElementsMatch(t, step.expectedPeerStates, runningState, step.description)
 			}
 
-			require.ElementsMatch(t, step.expectedPeerStates, runningState, step.description)
+			// Retry peerStatesMatch once per second until the test context deadline.
+			// We may need to retry as remote peer's session state does not have to immediately match our
+			// session state (e.g. peer may be already in Established but we still in OpenConfirm
+			// until we receive a Keepalive from the peer).
+			require.Eventually(t, peerStatesMatch, outstanding, 1*time.Second, step.description)
 		})
 	}
 }
