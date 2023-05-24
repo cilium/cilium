@@ -2529,6 +2529,11 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 
 		options["enableCiliumEndpointSlice"] = "true"
 	}
+
+	if !SupportIPv6Connectivity() {
+		options["ipv6.enabled"] = "false"
+	}
+
 	return nil
 }
 
