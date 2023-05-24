@@ -2198,7 +2198,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
-	ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 	switch (proto) {
 #if defined(ENABLE_ARP_PASSTHROUGH) || defined(ENABLE_ARP_RESPONDER)
@@ -2208,12 +2207,42 @@ int cil_to_container(struct __ctx_buff *ctx)
 #endif
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+# ifdef ENABLE_HIGH_SCALE_IPCACHE
+	if (identity == WORLD_ID) {
+		struct endpoint_info *ep;
+		void *data, *data_end;
+		struct ipv6hdr *ip6;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
+		if (ep)
+			identity = ep->sec_id;
+	}
+# endif /* ENABLE_HIGH_SCALE_IPCACHE */
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ep_tail_call(ctx, CILIUM_CALL_IPV6_CT_INGRESS);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+# ifdef ENABLE_HIGH_SCALE_IPCACHE
+	if (identity == WORLD_ID) {
+		struct endpoint_info *ep;
+		void *data, *data_end;
+		struct iphdr *ip4;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		ep = __lookup_ip4_endpoint(ip4->saddr);
+		if (ep)
+			identity = ep->sec_id;
+	}
+# endif /* ENABLE_HIGH_SCALE_IPCACHE */
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_CT_INGRESS);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
