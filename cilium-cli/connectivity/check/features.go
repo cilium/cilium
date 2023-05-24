@@ -196,13 +196,24 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 		Mode:    mode,
 	}
 
-	mode = "disabled"
-	if v, ok := cm.Data["tunnel"]; ok {
-		mode = v
-	}
-	result[FeatureTunnel] = FeatureStatus{
-		Enabled: mode != "disabled",
-		Mode:    mode,
+	if versioncheck.MustCompile("<1.14.0")(ct.CiliumVersion) {
+		mode = "disabled"
+		if v, ok := cm.Data["tunnel"]; ok {
+			mode = v
+		}
+		result[FeatureTunnel] = FeatureStatus{
+			Enabled: mode != "disabled",
+			Mode:    mode,
+		}
+	} else {
+		mode = "native"
+		if v, ok := cm.Data["routing-mode"]; ok {
+			mode = v
+		}
+		result[FeatureTunnel] = FeatureStatus{
+			Enabled: mode != "native",
+			Mode:    mode,
+		}
 	}
 
 	result[FeatureIPv4] = FeatureStatus{
