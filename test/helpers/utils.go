@@ -793,3 +793,23 @@ func CiliumEndpointSliceFeatureEnabled() bool {
 	return k8sVersionGreaterEqual121(k8sVersion) && (GetCurrentIntegration() == "" ||
 		IsIntegration(CIIntegrationKind))
 }
+
+// SupportIPv6Connectivity returns true if the CI environment supports IPv6
+// connectivity across pods.
+func SupportIPv6Connectivity() bool {
+	supportedVersions := versioncheck.MustCompile(">=1.20.0")
+	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
+	if err != nil {
+		return false
+	}
+
+	if supportedVersions(k8sVersion) {
+		return true
+	}
+
+	if IsIntegration(CIIntegrationKind) {
+		return false
+	}
+
+	return true
+}
