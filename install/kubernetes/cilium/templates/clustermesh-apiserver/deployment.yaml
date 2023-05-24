@@ -51,6 +51,11 @@ spec:
         - |
           rm -rf /var/run/etcd/*;
           /usr/local/bin/etcd --data-dir=/var/run/etcd --name=clustermesh-apiserver --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379 --initial-cluster-token=clustermesh-apiserver --initial-cluster-state=new --auto-compaction-retention=1 &
+
+          # The following key needs to be created before that the cilium agents
+          # have the possibility of connecting to etcd.
+          etcdctl put cilium/.has-cluster-config true
+
           etcdctl user add root --no-password;
           etcdctl user grant-role root root;
           etcdctl user add admin-{{ .Values.cluster.name }} --no-password;
