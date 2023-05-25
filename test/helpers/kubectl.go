@@ -1110,9 +1110,10 @@ func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string)
 	return out, nil
 }
 
-// GetNodeIPByLabel returns the IPv4 of the node with cilium.io/ci-node=label.
+// getNodeIPByLabel returns the first IP of the node with cilium.io/ci-node=label
+// for the given ipFamily.
 // An error is returned if a node cannot be found.
-func (kub *Kubectl) GetNodeIPByLabel(label string, external bool) (string, error) {
+func (kub *Kubectl) getNodeIPByLabel(label string, external bool, ipFamily v1.IPFamily) (string, error) {
 	ipType := "InternalIP"
 	if external {
 		ipType = "ExternalIP"
@@ -1130,13 +1131,35 @@ func (kub *Kubectl) GetNodeIPByLabel(label string, external bool) (string, error
 	}
 
 	for _, ipStr := range strings.Fields(out) {
-		if ip := net.ParseIP(ipStr); ip.To4() != nil {
-			return ipStr, nil
+		ip := net.ParseIP(ipStr)
+		switch ipFamily {
+		case v1.IPv4Protocol:
+			if ip.To4() != nil {
+				return ipStr, nil
+			}
+		case v1.IPv6Protocol:
+			if ip.To4() == nil {
+				return ipStr, nil
+			}
+		default:
+			return "", fmt.Errorf("IP family %q unknown", ipFamily)
 		}
 	}
 
-	return "", fmt.Errorf("found %s ip addrs, but they do not belong to the v4 family",
-		out)
+	return "", fmt.Errorf("found %s ip addrs, but they do not belong to the %s family",
+		out, ipFamily)
+}
+
+// GetNodeIPByLabel returns the IPv4 of the node with cilium.io/ci-node=label.
+// An error is returned if a node cannot be found.
+func (kub *Kubectl) GetNodeIPByLabel(label string, external bool) (string, error) {
+	return kub.getNodeIPByLabel(label, external, v1.IPv4Protocol)
+}
+
+// GetNodeIPv6ByLabel returns the IPv6 of the node with cilium.io/ci-node=label.
+// An error is returned if a node cannot be found.
+func (kub *Kubectl) GetNodeIPv6ByLabel(label string, external bool) (string, error) {
+	return kub.getNodeIPByLabel(label, external, v1.IPv6Protocol)
 }
 
 func (kub *Kubectl) getIfaceByIPAddr(label string, ipAddr string) (string, error) {
