@@ -471,7 +471,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	SkipContextIf(helpers.DoesNotRunOnNetNextKernel, "High-scale IPcache", func() {
+	SkipContextIf(func() bool {
+		return helpers.SkipQuarantined() || helpers.DoesNotRunOnNetNextKernel()
+	}, "High-scale IPcache", func() {
 		const hsIPcacheFile = "high-scale-ipcache.yaml"
 
 		AfterEach(func() {
