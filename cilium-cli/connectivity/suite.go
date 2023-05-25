@@ -737,7 +737,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	// The following tests have DNS redirect policies. They should be executed last.
 
 	ct.NewTest("north-south-loadbalancing-with-l7-policy").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium),
+			check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithCiliumVersion(">1.13.2").
 		WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).
 		WithScenarios(
