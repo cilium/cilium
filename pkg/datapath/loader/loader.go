@@ -20,6 +20,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -62,6 +63,8 @@ type Loader struct {
 	templateCache *objectCache
 
 	canDisableDwarfRelocations bool
+
+	ipsecMu lock.Mutex // guards reinitializeIPSec
 }
 
 // NewLoader returns a new loader.
@@ -81,6 +84,8 @@ func (l *Loader) init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfi
 			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
 		}
 		elf.IgnoreSymbolPrefixes(ignorePrefixes)
+
+		go l.reloadIPSecOnLinkChanges()
 	})
 	l.templateCache.Update(nodeCfg)
 }

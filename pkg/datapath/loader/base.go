@@ -173,6 +173,10 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 		return nil
 	}
 
+	// Guard against concurrent calls from Reinitialize() and reloadIPSecOnLinkChanges()
+	l.ipsecMu.Lock()
+	defer l.ipsecMu.Unlock()
+
 	interfaces := option.Config.EncryptInterface
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		// IPAMENI mode supports multiple network facing interfaces that

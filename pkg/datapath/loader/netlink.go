@@ -7,10 +7,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/inctimer"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -317,4 +320,58 @@ func setupBaseDevice(nativeDevs []netlink.Link, mode baseDeviceMode, mtu int) (n
 
 		return linkHost, linkNet, nil
 	}
+}
+
+// reloadIPSecOnLinkChanges subscribes to link changes to detect newly added devices
+// and reinitializes IPsec on changes. Only in effect for ENI mode in which we expect
+// new devices at runtime.
+func (l *Loader) reloadIPSecOnLinkChanges() {
+	// settleDuration is the amount of time to wait for further link updates
+	// before proceeding with reinitialization. This avoids reinitializing
+	// twice when seeing NEWLINK followed by SETLINK.
+	const settleDuration = 5 * time.Second
+
+	if !option.Config.EnableIPSec || option.Config.IPAM != ipamOption.IPAMENI {
+		return
+	}
+
+	updates := make(chan netlink.LinkUpdate, 16)
+	ctx := context.Background()
+
+	if err := netlink.LinkSubscribe(updates, ctx.Done()); err != nil {
+		log.WithError(err).Fatal("Failed to subscribe for link changes")
+	}
+
+	go func() {
+		timer, stop := inctimer.New()
+		defer stop()
+
+		for u := range updates {
+			// Ignore updates about veth devices
+			if u.Type() == "veth" {
+				continue
+			}
+
+			// Drain extra updates while we wait for things to settle
+			settled := false
+			for !settled {
+				select {
+				case _, ok := <-updates:
+					if !ok {
+						return
+					}
+				case <-timer.After(settleDuration):
+					settled = true
+				}
+			}
+
+			err := l.reinitializeIPSec(ctx)
+			if err != nil {
+				// We may fail if links have been removed during the reload. In this case
+				// the updates channel will have queued updates which will retrigger the
+				// reinitialization.
+				log.WithError(err).Warn("Failed to reinitialize IPsec after device change")
+			}
+		}
+	}()
 }
