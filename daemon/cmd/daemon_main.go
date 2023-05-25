@@ -1066,6 +1066,10 @@ func initializeFlags() {
 	flags.MarkHidden(option.EnableICMPRules)
 	option.BindEnv(option.EnableICMPRules)
 
+	flags.Bool(option.UseCiliumInternalIPForIPsec, defaults.UseCiliumInternalIPForIPsec, "Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation")
+	flags.MarkHidden(option.UseCiliumInternalIPForIPsec)
+	option.BindEnv(option.UseCiliumInternalIPForIPsec)
+
 	flags.Bool(option.BypassIPAvailabilityUponRestore, false, "Bypasses the IP availability error within IPAM upon endpoint restore")
 	flags.MarkHidden(option.BypassIPAvailabilityUponRestore)
 	option.BindEnv(option.BypassIPAvailabilityUponRestore)
