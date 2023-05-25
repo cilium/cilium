@@ -39,16 +39,16 @@ type poolPair struct {
 }
 
 type preAllocValue int
-type preAllocMap map[string]preAllocValue
+type preAllocMap map[Pool]preAllocValue
 
 func parsePreAllocMap(conf map[string]string) (preAllocMap, error) {
-	m := make(map[string]preAllocValue, len(conf))
+	m := make(map[Pool]preAllocValue, len(conf))
 	for pool, s := range conf {
 		value, err := strconv.ParseInt(s, 10, 32)
 		if err != nil {
 			return nil, fmt.Errorf("invalid pre-alloc value for pool %q: %w", pool, err)
 		}
-		m[pool] = preAllocValue(value)
+		m[Pool(pool)] = preAllocValue(value)
 	}
 
 	return m, nil
@@ -60,7 +60,7 @@ type multiPoolManager struct {
 	owner Owner
 
 	preallocMap  preAllocMap
-	pools        map[string]*poolPair
+	pools        map[Pool]*poolPair
 	poolsUpdated chan struct{}
 
 	node *ciliumv2.CiliumNode
@@ -97,7 +97,7 @@ func newMultiPoolManager(conf Configuration, nodeWatcher nodeWatcher, owner Owne
 		owner:           owner,
 		conf:            conf,
 		preallocMap:     preallocMap,
-		pools:           map[string]*poolPair{},
+		pools:           map[Pool]*poolPair{},
 		poolsUpdated:    make(chan struct{}, 1),
 		node:            nil,
 		controller:      k8sController,
@@ -140,7 +140,7 @@ func (m *multiPoolManager) waitForAllPools() {
 // available for the given IP family. This function is supposed to only be called
 // before any IPs are handed out, so hasAvailableIPs returns true so as long as
 // the local node has IPs assigned to it in the given pool.
-func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolName string) (ready bool) {
+func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolName Pool) (ready bool) {
 	timer, stop := inctimer.New()
 	defer stop()
 	for {
@@ -187,7 +187,7 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	}
 
 	for _, pool := range newNode.Spec.IPAM.Pools.Allocated {
-		m.upsertPoolLocked(pool.Pool, pool.CIDRs)
+		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs)
 	}
 
 	m.node = newNode
@@ -250,7 +250,7 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 		}
 
 		requested = append(requested, types.IPAMPoolRequest{
-			Pool: poolName,
+			Pool: poolName.String(),
 			Needed: types.IPAMPoolDemand{
 				IPv4Addrs: neededIPv4,
 				IPv6Addrs: neededIPv6,
@@ -273,7 +273,7 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 		}
 
 		allocated = append(allocated, types.IPAMPoolAllocation{
-			Pool:  poolName,
+			Pool:  poolName.String(),
 			CIDRs: cidrs,
 		})
 	}
@@ -299,7 +299,7 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 	return nil
 }
 
-func (m *multiPoolManager) upsertPoolLocked(poolName string, podCIDRs []types.IPAMPodCIDR) {
+func (m *multiPoolManager) upsertPoolLocked(poolName Pool, podCIDRs []types.IPAMPodCIDR) {
 	pool, ok := m.pools[poolName]
 	if !ok {
 		pool = &poolPair{}
@@ -384,8 +384,8 @@ func (m *multiPoolManager) dump(family Family) (allocated map[string]string, sta
 		}
 
 		ipPrefix := ""
-		if poolName != PoolDefault.String() {
-			ipPrefix = poolName + "/"
+		if poolName != PoolDefault {
+			ipPrefix = poolName.String() + "/"
 		}
 
 		for ip, owner := range ipToOwner {
@@ -396,7 +396,7 @@ func (m *multiPoolManager) dump(family Family) (allocated map[string]string, sta
 	return allocated, fmt.Sprintf("%d IPAM pool(s) available", len(m.pools))
 }
 
-func (m *multiPoolManager) poolByFamilyLocked(poolName string, family Family) *podCIDRPool {
+func (m *multiPoolManager) poolByFamilyLocked(poolName Pool, family Family) *podCIDRPool {
 	switch family {
 	case IPv4:
 		pair, ok := m.pools[poolName]
@@ -417,7 +417,7 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	pool := m.poolByFamilyLocked(poolName.String(), family)
+	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
 		return nil, fmt.Errorf("unable to allocate from unknown pool %q (family %s)", poolName, family)
 	}
@@ -437,7 +437,7 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	pool := m.poolByFamilyLocked(poolName.String(), family)
+	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
 		return nil, fmt.Errorf("unable to reserve IP %s from unknown pool %q (family %s)", ip, poolName, family)
 	}
@@ -457,7 +457,7 @@ func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, up
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	pool := m.poolByFamilyLocked(poolName.String(), family)
+	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
 		return fmt.Errorf("unable to release IP %s of unknown pool %q (family %s)", ip, poolName, family)
 	}
