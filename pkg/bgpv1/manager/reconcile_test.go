@@ -149,6 +149,7 @@ func TestNeighborReconciler(t *testing.T) {
 		holdTimer         bool
 		connectRetryTimer bool
 		keepaliveTimer    bool
+		grRestartTime     bool
 	}
 
 	table := []struct {
@@ -217,6 +218,41 @@ func TestNeighborReconciler(t *testing.T) {
 			},
 			checks: checkTimers{
 				connectRetryTimer: true,
+			},
+			err: nil,
+		},
+		{
+			name: "update neighbor - graceful restart",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:     true,
+					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+				}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:     true,
+					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+				}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:     true,
+					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+				}},
+			},
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:     false,
+					RestartTime: metav1.Duration{Duration: 0},
+				}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:     true,
+					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+				}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:     true,
+					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+				}},
+			},
+			checks: checkTimers{
+				grRestartTime: true,
 			},
 			err: nil,
 		},
@@ -304,6 +340,13 @@ func TestNeighborReconciler(t *testing.T) {
 				if tt.checks.keepaliveTimer {
 					toCiliumPeer.KeepAliveTime = metav1.Duration{
 						Duration: time.Duration(peer.ConfiguredKeepAliveTimeSeconds) * time.Second,
+					}
+				}
+
+				if tt.checks.grRestartTime {
+					toCiliumPeer.GracefulRestart.Enabled = peer.GracefulRestart.Enabled
+					toCiliumPeer.GracefulRestart.RestartTime = metav1.Duration{
+						Duration: time.Duration(peer.GracefulRestart.RestartTimeSeconds) * time.Second,
 					}
 				}
 

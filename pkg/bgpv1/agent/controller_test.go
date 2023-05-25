@@ -124,6 +124,9 @@ func TestControllerSanity(t *testing.T) {
 							{
 								PeerASN:     65000,
 								PeerAddress: "172.0.0.1/32",
+								GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+									Enabled: true,
+								},
 							},
 						},
 					},
@@ -134,7 +137,11 @@ func TestControllerSanity(t *testing.T) {
 				defaulted := false
 				for _, r := range p.Spec.VirtualRouters {
 					for _, n := range r.Neighbors {
-						if n.ConnectRetryTime.Duration != 0 && n.HoldTime.Duration != 0 && n.KeepAliveTime.Duration != 0 {
+						if n.ConnectRetryTime.Duration != 0 &&
+							n.HoldTime.Duration != 0 &&
+							n.KeepAliveTime.Duration != 0 &&
+							n.GracefulRestart.RestartTime.Duration != 0 {
+
 							defaulted = true
 						}
 					}
