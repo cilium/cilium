@@ -66,7 +66,7 @@ concurrency:
 env:
   # renovate is disabled in this workflow until https://github.com/cilium/cilium-cli/issues/1627 is resolved.
   # renovate_disabled: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.2
+  cilium_cli_version: v0.14.5
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -428,12 +428,10 @@ jobs:
             ./cilium-cli status --wait
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-            ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
-            ./cilium-cli connectivity test --collect-sysdump-on-failure \
-              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+
             ./contrib/scripts/kind-down.sh
 
       - name: Fetch artifacts
