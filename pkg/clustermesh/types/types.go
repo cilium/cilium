@@ -36,6 +36,11 @@ type CiliumClusterConfig struct {
 type CiliumClusterConfigCapabilities struct {
 	// Supports per-prefix "synced" canaries
 	SyncedCanaries bool `json:"syncedCanaries,omitempty"`
+
+	// The information concerning the given cluster is cached from an external
+	// kvstore (for instance, by kvstoremesh). This implies that keys are stored
+	// under the dedicated "cilium/cache" prefix, and all are cluster-scoped.
+	Cached bool `json:"cached,omitempty"`
 }
 
 func (c0 *CiliumClusterConfig) IsCompatible(c1 *CiliumClusterConfig) error {
