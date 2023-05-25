@@ -35,7 +35,7 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.New("", &fakeConfig.Config{}, nil)
+	nm, err = manager.New("", &fakeConfig.Config{}, nil, nil)
 	c.Assert(err, IsNil)
 }
 
