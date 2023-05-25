@@ -42,7 +42,7 @@ type bgpRouterManagerParams struct {
 	Reconcilers []ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
-// BGPRouterManager implements the pkg.bgpv1.manager.BGPRouterManager interface.
+// BGPRouterManager implements the pkg.bgpv1.agent.BGPRouterManager interface.
 //
 // Logically, this manager views each CiliumBGPVirtualRouter within a
 // CiliumBGPPeeringPolicy as a BGP router instantiated on its host.
@@ -79,7 +79,7 @@ type BGPRouterManager struct {
 
 // NewBGPRouterManager constructs a GoBGP-backed BGPRouterManager.
 //
-// See NewBGPRouterManager for details.
+// See BGPRouterManager for details.
 func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 	for i := len(params.Reconcilers) - 1; i >= 0; i-- {
 		if params.Reconcilers[i] == nil {
