@@ -270,7 +270,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	retryTimeout := int64(option.Config.HTTPRetryTimeout) //seconds
 
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
-		StatPrefix: "proxy",
+		StatPrefix:       "proxy",
+		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+		SkipXffAppend:    true,
 		HttpFilters: []*envoy_config_http.HttpFilter{
 			getCiliumHttpFilter(),
 			{
@@ -525,7 +527,9 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 
 	s.addListener(metricsListenerName, func() *envoy_config_listener.Listener {
 		hcmConfig := &envoy_config_http.HttpConnectionManager{
-			StatPrefix: metricsListenerName,
+			StatPrefix:       metricsListenerName,
+			UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+			SkipXffAppend:    true,
 			HttpFilters: []*envoy_config_http.HttpFilter{{
 				Name: "envoy.filters.http.router",
 				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{

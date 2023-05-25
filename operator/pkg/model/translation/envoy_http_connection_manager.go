@@ -8,6 +8,7 @@ import (
 	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -23,6 +24,8 @@ func NewHTTPConnectionManager(name, routeName string, mutationFunc ...HttpConnec
 		RouteSpecifier: &httpConnectionManagerv3.HttpConnectionManager_Rds{
 			Rds: &httpConnectionManagerv3.Rds{RouteConfigName: routeName},
 		},
+		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+		SkipXffAppend:    true,
 		HttpFilters: []*httpConnectionManagerv3.HttpFilter{
 			{
 				Name: "envoy.filters.http.router",

@@ -19,6 +19,8 @@ spec:
                 stat_prefix: envoy-lb-listener
                 rds:
                   route_config_name: lb_route
+                use_remote_address: true
+                skip_xff_append: true
                 http_filters:
                   - name: envoy.filters.http.router
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
