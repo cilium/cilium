@@ -50,6 +50,14 @@ Cilium. The following custom resources are registered by the Cilium Operator:
 -  CiliumExternalWorkload
 -  CiliumIdentity
 -  CiliumLocalRedirectPolicy
+-  CiliumEgressGatewayPolicy
+-  CiliumEndpointSlice
+-  CiliumClusterwideEnvoyConfig
+-  CiliumEnvoyConfig
+-  CiliumBGPPeeringPolicy
+-  CiliumLoadBalancerIPPool
+-  CiliumNodeConfig
+-  CiliumCIDRGroup
 
 IPAM
 ~~~~
