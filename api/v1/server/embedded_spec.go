@@ -37,7 +37,7 @@ func init() {
   "paths": {
     "/bgp/peers": {
       "get": {
-        "description": "Retrieves current operational state of BGP peers created by \nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
+        "description": "Retrieves current operational state of BGP peers created by\nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
         "tags": [
           "bgp"
         ],
@@ -683,6 +683,31 @@ func init() {
             "description": "Invalid request (error parsing parameters)",
             "schema": {
               "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Returns modules health and status information of the Cilium daemon.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Get modules health of Cilium daemon",
+        "parameters": [
+          {
+            "type": "boolean",
+            "description": "Brief will return a brief representation of the Cilium status.\n",
+            "name": "brief",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ModulesHealth"
             }
           }
         }
@@ -3576,6 +3601,43 @@ func init() {
         }
       }
     },
+    "ModuleHealth": {
+      "description": "Report module health status",
+      "properties": {
+        "last-ok": {
+          "description": "Time at which the last OK check occurred",
+          "type": "string"
+        },
+        "last-updated": {
+          "description": "Time of last health update",
+          "type": "string"
+        },
+        "level": {
+          "description": "Describes the health status level",
+          "type": "string"
+        },
+        "message": {
+          "description": "Reports the associated health message",
+          "type": "string"
+        },
+        "module-id": {
+          "description": "Describes the module identitier",
+          "type": "string"
+        }
+      }
+    },
+    "ModulesHealth": {
+      "description": "Reports agent's modules health status",
+      "properties": {
+        "modules": {
+          "description": "List out modules health status",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ModuleHealth"
+          }
+        }
+      }
+    },
     "MonitorStatus": {
       "description": "Status of the node monitor",
       "properties": {
@@ -4699,7 +4761,7 @@ func init() {
   "paths": {
     "/bgp/peers": {
       "get": {
-        "description": "Retrieves current operational state of BGP peers created by \nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
+        "description": "Retrieves current operational state of BGP peers created by\nCilium BGP virtual router. This includes session state, uptime,\ninformation per address family, etc.\n",
         "tags": [
           "bgp"
         ],
@@ -5425,6 +5487,31 @@ func init() {
             "description": "Invalid request (error parsing parameters)",
             "schema": {
               "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Returns modules health and status information of the Cilium daemon.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Get modules health of Cilium daemon",
+        "parameters": [
+          {
+            "type": "boolean",
+            "description": "Brief will return a brief representation of the Cilium status.\n",
+            "name": "brief",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ModulesHealth"
             }
           }
         }
@@ -8869,6 +8956,43 @@ func init() {
         "value": {
           "description": "Value of the metric",
           "type": "number"
+        }
+      }
+    },
+    "ModuleHealth": {
+      "description": "Report module health status",
+      "properties": {
+        "last-ok": {
+          "description": "Time at which the last OK check occurred",
+          "type": "string"
+        },
+        "last-updated": {
+          "description": "Time of last health update",
+          "type": "string"
+        },
+        "level": {
+          "description": "Describes the health status level",
+          "type": "string"
+        },
+        "message": {
+          "description": "Reports the associated health message",
+          "type": "string"
+        },
+        "module-id": {
+          "description": "Describes the module identitier",
+          "type": "string"
+        }
+      }
+    },
+    "ModulesHealth": {
+      "description": "Reports agent's modules health status",
+      "properties": {
+        "modules": {
+          "description": "List out modules health status",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ModuleHealth"
+          }
         }
       }
     },

@@ -79,6 +79,7 @@ type serverParams struct {
 	PolicyGetFqdnCacheHandler            policy.GetFqdnCacheHandler
 	PolicyGetFqdnCacheIDHandler          policy.GetFqdnCacheIDHandler
 	PolicyGetFqdnNamesHandler            policy.GetFqdnNamesHandler
+	DaemonGetHealthHandler               daemon.GetHealthHandler
 	DaemonGetHealthzHandler              daemon.GetHealthzHandler
 	PolicyGetIPHandler                   policy.GetIPHandler
 	PolicyGetIdentityHandler             policy.GetIdentityHandler
@@ -137,6 +138,7 @@ func newForCell(p serverParams) (*Server, error) {
 	api.PolicyGetFqdnCacheHandler = p.PolicyGetFqdnCacheHandler
 	api.PolicyGetFqdnCacheIDHandler = p.PolicyGetFqdnCacheIDHandler
 	api.PolicyGetFqdnNamesHandler = p.PolicyGetFqdnNamesHandler
+	api.DaemonGetHealthHandler = p.DaemonGetHealthHandler
 	api.DaemonGetHealthzHandler = p.DaemonGetHealthzHandler
 	api.PolicyGetIPHandler = p.PolicyGetIPHandler
 	api.PolicyGetIdentityHandler = p.PolicyGetIdentityHandler

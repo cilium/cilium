@@ -118,6 +118,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		PolicyGetFqdnNamesHandler: policy.GetFqdnNamesHandlerFunc(func(params policy.GetFqdnNamesParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.GetFqdnNames has not yet been implemented")
 		}),
+		DaemonGetHealthHandler: daemon.GetHealthHandlerFunc(func(params daemon.GetHealthParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.GetHealth has not yet been implemented")
+		}),
 		DaemonGetHealthzHandler: daemon.GetHealthzHandlerFunc(func(params daemon.GetHealthzParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetHealthz has not yet been implemented")
 		}),
@@ -286,6 +289,8 @@ type CiliumAPIAPI struct {
 	PolicyGetFqdnCacheIDHandler policy.GetFqdnCacheIDHandler
 	// PolicyGetFqdnNamesHandler sets the operation handler for the get fqdn names operation
 	PolicyGetFqdnNamesHandler policy.GetFqdnNamesHandler
+	// DaemonGetHealthHandler sets the operation handler for the get health operation
+	DaemonGetHealthHandler daemon.GetHealthHandler
 	// DaemonGetHealthzHandler sets the operation handler for the get healthz operation
 	DaemonGetHealthzHandler daemon.GetHealthzHandler
 	// PolicyGetIPHandler sets the operation handler for the get IP operation
@@ -485,6 +490,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.PolicyGetFqdnNamesHandler == nil {
 		unregistered = append(unregistered, "policy.GetFqdnNamesHandler")
+	}
+	if o.DaemonGetHealthHandler == nil {
+		unregistered = append(unregistered, "daemon.GetHealthHandler")
 	}
 	if o.DaemonGetHealthzHandler == nil {
 		unregistered = append(unregistered, "daemon.GetHealthzHandler")
@@ -748,6 +756,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/fqdn/names"] = policy.NewGetFqdnNames(o.context, o.PolicyGetFqdnNamesHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/health"] = daemon.NewGetHealth(o.context, o.DaemonGetHealthHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}

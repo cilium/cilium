@@ -1,33 +1,33 @@
 ---
-swagger: '2.0'
+swagger: "2.0"
 info:
   title: Cilium API
   description: Cilium
   version: v1beta1
 x-schemes:
-- unix
+  - unix
 basePath: "/v1"
 produces:
-- application/json
+  - application/json
 consumes:
-- application/json
+  - application/json
 paths:
   "/cluster/nodes":
     get:
       summary: Get nodes information stored in the cilium-agent
       tags:
-      - daemon
+        - daemon
       parameters:
-      - name: client-id
-        description: |
-          Client UUID should be used when the client wants to request
-          a diff of nodes added and / or removed since the last time
-          that client has made a request.
-        in: header
-        required: false
-        type: integer
+        - name: client-id
+          description: |
+            Client UUID should be used when the client wants to request
+            a diff of nodes added and / or removed since the last time
+            that client has made a request.
+          in: header
+          required: false
+          type: integer
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/ClusterNodeStatus"
@@ -39,28 +39,47 @@ paths:
         components such as the local container runtime, connected datastore,
         Kubernetes integration and Hubble.
       tags:
-      - daemon
+        - daemon
       parameters:
-      - name: brief
-        description: |
-          Brief will return a brief representation of the Cilium status.
-        in: header
-        required: false
-        type: boolean
+        - name: brief
+          description: |
+            Brief will return a brief representation of the Cilium status.
+          in: header
+          required: false
+          type: boolean
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/StatusResponse"
+  "/health":
+    get:
+      summary: Get modules health of Cilium daemon
+      description: |
+        Returns modules health and status information of the Cilium daemon.
+      tags:
+        - daemon
+      parameters:
+        - name: brief
+          description: |
+            Brief will return a brief representation of the Cilium status.
+          in: header
+          required: false
+          type: boolean
+      responses:
+        "200":
+          description: Success
+          schema:
+            "$ref": "#/definitions/ModulesHealth"
   "/config":
     get:
       summary: Get configuration of Cilium daemon
       description: |
         Returns the configuration of the Cilium daemon.
       tags:
-      - daemon
+        - daemon
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/DaemonConfiguration"
@@ -71,21 +90,21 @@ paths:
         ConfigurationMap and regenerates & recompiles all required datapath
         components.
       tags:
-      - daemon
+        - daemon
       parameters:
-      - name: configuration
-        in: body
-        required: true
-        schema:
-          "$ref": "#/definitions/DaemonConfigurationSpec"
+        - name: configuration
+          in: body
+          required: true
+          schema:
+            "$ref": "#/definitions/DaemonConfigurationSpec"
       responses:
-        '200':
+        "200":
           description: Success
-        '400':
+        "400":
           description: Bad configuration parameters
           schema:
             "$ref": "#/definitions/Error"
-        '500':
+        "500":
           description: Recompilation failed
           x-go-name: Failure
           schema:
@@ -96,49 +115,49 @@ paths:
       description: |
         Returns endpoint information
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
+        - "$ref": "#/parameters/endpoint-id"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/Endpoint"
-        '400':
+        "400":
           description: Invalid endpoint ID format for specified type
           x-go-name: Invalid
           schema:
             "$ref": "#/definitions/Error"
-        '404':
+        "404":
           description: Endpoint not found
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
     put:
       summary: Create endpoint
       description: |
         Creates a new endpoint
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
-      - "$ref": "#/parameters/endpoint-change-request"
+        - "$ref": "#/parameters/endpoint-id"
+        - "$ref": "#/parameters/endpoint-change-request"
       responses:
-        '201':
+        "201":
           description: Created
-        '400':
+        "400":
           description: Invalid endpoint in request
           x-go-name: Invalid
           schema:
             "$ref": "#/definitions/Error"
-        '409':
+        "409":
           description: Endpoint already exists
           x-go-name: Exists
-        '500':
+        "500":
           description: Endpoint creation failed
           x-go-name: Failed
           schema:
             "$ref": "#/definitions/Error"
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
     patch:
       summary: Modify existing endpoint
@@ -146,26 +165,26 @@ paths:
       description: |
         Applies the endpoint change request to an existing endpoint
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
-      - "$ref": "#/parameters/endpoint-change-request"
+        - "$ref": "#/parameters/endpoint-id"
+        - "$ref": "#/parameters/endpoint-change-request"
       responses:
-        '200':
+        "200":
           description: Success
-        '400':
+        "400":
           description: Invalid modify endpoint request
           x-go-name: Invalid
           schema:
             "$ref": "#/definitions/Error"
-        '404':
+        "404":
           description: Endpoint does not exist
-        '500':
+        "500":
           description: Endpoint update failed
           x-go-name: Failed
           schema:
             "$ref": "#/definitions/Error"
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
     delete:
       summary: Delete endpoint
@@ -180,27 +199,27 @@ paths:
         workload represented by the endpoint will be disconnected.It will no
         longer be able to initiate or receive communications of any sort.
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
+        - "$ref": "#/parameters/endpoint-id"
       responses:
-        '200':
+        "200":
           description: Success
-        '206':
+        "206":
           description: Deleted with a number of errors encountered
           x-go-name: Errors
           schema:
             type: integer
-        '400':
+        "400":
           description: |
             Invalid endpoint ID format for specified type. Details in error
             message
           x-go-name: Invalid
           schema:
             "$ref": "#/definitions/Error"
-        '404':
+        "404":
           description: Endpoint not found
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
   "/endpoint":
     get:
@@ -208,19 +227,19 @@ paths:
       description: |
         Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/labels"
+        - "$ref": "#/parameters/labels"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
             items:
               "$ref": "#/definitions/Endpoint"
-        '404':
+        "404":
           description: Endpoints with provided parameters not found
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/config":
     get:
@@ -228,17 +247,17 @@ paths:
       description: |
         Retrieves the configuration of the specified endpoint.
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
+        - "$ref": "#/parameters/endpoint-id"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/EndpointConfigurationStatus"
-        '404':
+        "404":
           description: Endpoint not found
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
     patch:
       summary: Modify mutable endpoint configuration
@@ -246,44 +265,44 @@ paths:
         Update the configuration of an existing endpoint and regenerates &
         recompiles the corresponding programs automatically.
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
-      - name: endpoint-configuration
-        in: body
-        required: true
-        schema:
-          "$ref": "#/definitions/EndpointConfigurationSpec"
+        - "$ref": "#/parameters/endpoint-id"
+        - name: endpoint-configuration
+          in: body
+          required: true
+          schema:
+            "$ref": "#/definitions/EndpointConfigurationSpec"
       responses:
-        '200':
+        "200":
           description: Success
-        '400':
+        "400":
           description: Invalid configuration request
           x-go-name: Invalid
-        '404':
+        "404":
           description: Endpoint not found
-        '500':
+        "500":
           description: Update failed. Details in message.
           x-go-name: Failed
           schema:
             "$ref": "#/definitions/Error"
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/labels":
     get:
       summary: Retrieves the list of labels associated with an endpoint.
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
+        - "$ref": "#/parameters/endpoint-id"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/LabelConfiguration"
-        '404':
+        "404":
           description: Endpoint not found
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
     patch:
       summary: Set label configuration of endpoint
@@ -291,64 +310,64 @@ paths:
         Sets labels associated with an endpoint. These can be user provided or
         derived from the orchestration system.
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
-      - name: configuration
-        in: body
-        required: true
-        schema:
-          "$ref": "#/definitions/LabelConfigurationSpec"
+        - "$ref": "#/parameters/endpoint-id"
+        - name: configuration
+          in: body
+          required: true
+          schema:
+            "$ref": "#/definitions/LabelConfigurationSpec"
       responses:
-        '200':
+        "200":
           description: Success
-        '404':
+        "404":
           description: Endpoint not found
-        '500':
+        "500":
           description: Error while updating labels
           x-go-name: UpdateFailed
           schema:
             "$ref": "#/definitions/Error"
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/log":
     get:
       summary: Retrieves the status logs associated with this endpoint.
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
+        - "$ref": "#/parameters/endpoint-id"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/EndpointStatusLog"
-        '400':
+        "400":
           description: Invalid identity provided
           x-go-name: Invalid
-        '404':
+        "404":
           description: Endpoint not found
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
 
   "/endpoint/{id}/healthz":
     get:
       summary: Retrieves the status logs associated with this endpoint.
       tags:
-      - endpoint
+        - endpoint
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
+        - "$ref": "#/parameters/endpoint-id"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/EndpointHealth"
-        '400':
+        "400":
           description: Invalid identity provided
           x-go-name: Invalid
-        '404':
+        "404":
           description: Endpoint not found
-        '429':
+        "429":
           description: Rate-limiting too many requests in the given time frame
   "/identity":
     get:
@@ -356,24 +375,24 @@ paths:
       description: |
         Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
       tags:
-      - policy
+        - policy
       parameters:
-      - "$ref": "#/parameters/labels"
+        - "$ref": "#/parameters/labels"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
             items:
               "$ref": "#/definitions/Identity"
-        '404':
+        "404":
           description: Identities with provided parameters not found
-        '520':
+        "520":
           description: Identity storage unreachable. Likely a network problem.
           x-go-name: Unreachable
           schema:
             "$ref": "#/definitions/Error"
-        '521':
+        "521":
           description: Invalid identity format in storage
           x-go-name: InvalidStorageFormat
           schema:
@@ -382,24 +401,24 @@ paths:
     get:
       summary: Retrieve identity
       tags:
-      - policy
+        - policy
       parameters:
-      - "$ref": "#/parameters/identity-id"
+        - "$ref": "#/parameters/identity-id"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/Identity"
-        '400':
+        "400":
           description: Invalid identity provided
-        '404':
+        "404":
           description: Identity not found
-        '520':
+        "520":
           description: Identity storage unreachable. Likely a network problem.
           x-go-name: Unreachable
           schema:
             "$ref": "#/definitions/Error"
-        '521':
+        "521":
           description: Invalid identity format in storage
           x-go-name: InvalidStorageFormat
           schema:
@@ -408,32 +427,32 @@ paths:
     get:
       summary: Retrieve identities which are being used by local endpoints
       tags:
-      - policy
+        - policy
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
             items:
               "$ref": "#/definitions/IdentityEndpoints"
-        '404':
+        "404":
           description: Set of identities which are being used by local endpoints could not be found.
   "/ipam":
     post:
       summary: Allocate an IP address
       tags:
-      - ipam
+        - ipam
       parameters:
-      - "$ref": "#/parameters/ipam-family"
-      - "$ref": "#/parameters/ipam-owner"
-      - "$ref": "#/parameters/ipam-pool"
-      - "$ref": "#/parameters/ipam-expiration"
+        - "$ref": "#/parameters/ipam-family"
+        - "$ref": "#/parameters/ipam-owner"
+        - "$ref": "#/parameters/ipam-pool"
+        - "$ref": "#/parameters/ipam-expiration"
       responses:
-        '201':
+        "201":
           description: Success
           schema:
             "$ref": "#/definitions/IPAMResponse"
-        '502':
+        "502":
           description: Allocation failure
           x-go-name: Failure
           schema:
@@ -442,49 +461,49 @@ paths:
     post:
       summary: Allocate an IP address
       tags:
-      - ipam
+        - ipam
       parameters:
-      - "$ref": "#/parameters/ipam-ip"
-      - "$ref": "#/parameters/ipam-owner"
-      - "$ref": "#/parameters/ipam-pool"
+        - "$ref": "#/parameters/ipam-ip"
+        - "$ref": "#/parameters/ipam-owner"
+        - "$ref": "#/parameters/ipam-pool"
       responses:
-        '200':
+        "200":
           description: Success
-        '400':
+        "400":
           description: Invalid IP address
           x-go-name: Invalid
-        '409':
+        "409":
           description: IP already allocated
           x-go-name: Exists
-        '500':
+        "500":
           description: IP allocation failure. Details in message.
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
-        '501':
+        "501":
           description: Allocation for address family disabled
           x-go-name: Disabled
     delete:
       summary: Release an allocated IP address
       tags:
-      - ipam
+        - ipam
       parameters:
-      - "$ref": "#/parameters/ipam-release-arg"
-      - "$ref": "#/parameters/ipam-pool"
+        - "$ref": "#/parameters/ipam-release-arg"
+        - "$ref": "#/parameters/ipam-pool"
       responses:
-        '200':
+        "200":
           description: Success
-        '400':
+        "400":
           description: Invalid IP address
           x-go-name: Invalid
-        '404':
+        "404":
           description: IP address not found
-        '500':
+        "500":
           description: Address release failure
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
-        '501':
+        "501":
           description: Allocation for address family disabled
           x-go-name: Disabled
   "/policy":
@@ -493,41 +512,41 @@ paths:
       description: |
         Returns the entire policy tree with all children.
       tags:
-      - policy
+        - policy
       parameters:
-      - name: labels
-        in: body
-        schema:
-          "$ref": "#/definitions/Labels"
+        - name: labels
+          in: body
+          schema:
+            "$ref": "#/definitions/Labels"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/Policy"
-        '404':
+        "404":
           description: No policy rules found
     put:
       summary: Create or update a policy (sub)tree
       tags:
-      - policy
+        - policy
       parameters:
-      - "$ref": "#/parameters/policy-rules"
+        - "$ref": "#/parameters/policy-rules"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/Policy"
-        '400':
+        "400":
           description: Invalid policy
           x-go-name: InvalidPolicy
           schema:
             "$ref": "#/definitions/Error"
-        '460':
+        "460":
           description: Invalid path
           x-go-name: InvalidPath
           schema:
             "$ref": "#/definitions/Error"
-        '500':
+        "500":
           description: Policy import failed
           x-go-name: Failure
           schema:
@@ -535,26 +554,26 @@ paths:
     delete:
       summary: Delete a policy (sub)tree
       tags:
-      - policy
+        - policy
       parameters:
-      - name: labels
-        in: body
-        required: false
-        schema:
-          "$ref": "#/definitions/Labels"
+        - name: labels
+          in: body
+          required: false
+          schema:
+            "$ref": "#/definitions/Labels"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/Policy"
-        '400':
+        "400":
           description: Invalid request
           x-go-name: Invalid
           schema:
             "$ref": "#/definitions/Error"
-        '404':
+        "404":
           description: Policy not found
-        '500':
+        "500":
           description: Error while deleting policy
           x-go-name: Failure
           schema:
@@ -563,9 +582,9 @@ paths:
     get:
       summary: See what selectors match which identities
       tags:
-      - policy
+        - policy
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/SelectorCache"
@@ -573,9 +592,9 @@ paths:
     get:
       summary: Retrieve list of all local redirect policies
       tags:
-      - service
+        - service
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
@@ -585,9 +604,9 @@ paths:
     get:
       summary: Retrieve list of all services
       tags:
-      - service
+        - service
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
@@ -597,44 +616,44 @@ paths:
     get:
       summary: Retrieve configuration of a service
       tags:
-      - service
+        - service
       parameters:
-      - "$ref": "#/parameters/service-id"
+        - "$ref": "#/parameters/service-id"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/Service"
-        '404':
+        "404":
           description: Service not found
     put:
       summary: Create or update service
       tags:
-      - service
+        - service
       parameters:
-      - "$ref": "#/parameters/service-id"
-      - "$ref": "#/parameters/service-config"
+        - "$ref": "#/parameters/service-id"
+        - "$ref": "#/parameters/service-config"
       responses:
-        '200':
+        "200":
           description: Updated
-        '201':
+        "201":
           description: Created
-        '460':
+        "460":
           description: Invalid frontend in service configuration
           x-go-name: InvalidFrontend
           schema:
             "$ref": "#/definitions/Error"
-        '461':
+        "461":
           description: Invalid backend in service configuration
           x-go-name: InvalidBackend
           schema:
             "$ref": "#/definitions/Error"
-        '500':
+        "500":
           description: Error while creating service
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
-        '501':
+        "501":
           description: Error while updating backend states
           x-go-name: UpdateBackendFailure
           schema:
@@ -642,15 +661,15 @@ paths:
     delete:
       summary: Delete a service
       tags:
-      - service
+        - service
       parameters:
-      - "$ref": "#/parameters/service-id"
+        - "$ref": "#/parameters/service-id"
       responses:
-        '200':
+        "200":
           description: Success
-        '404':
+        "404":
           description: Service not found
-        '500':
+        "500":
           description: Service deletion failed
           x-go-name: Failure
           schema:
@@ -659,9 +678,9 @@ paths:
     get:
       summary: Retrieve list of all recorders
       tags:
-      - recorder
+        - recorder
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
@@ -671,9 +690,9 @@ paths:
     get:
       summary: Retrieve list of all recorder masks
       tags:
-      - recorder
+        - recorder
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
@@ -683,29 +702,29 @@ paths:
     get:
       summary: Retrieve configuration of a recorder
       tags:
-      - recorder
+        - recorder
       parameters:
-      - "$ref": "#/parameters/recorder-id"
+        - "$ref": "#/parameters/recorder-id"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/Recorder"
-        '404':
+        "404":
           description: Recorder not found
     put:
       summary: Create or update recorder
       tags:
-      - recorder
+        - recorder
       parameters:
-      - "$ref": "#/parameters/recorder-id"
-      - "$ref": "#/parameters/recorder-config"
+        - "$ref": "#/parameters/recorder-id"
+        - "$ref": "#/parameters/recorder-config"
       responses:
-        '200':
+        "200":
           description: Updated
-        '201':
+        "201":
           description: Created
-        '500':
+        "500":
           description: Error while creating recorder
           x-go-name: Failure
           schema:
@@ -713,15 +732,15 @@ paths:
     delete:
       summary: Delete a recorder
       tags:
-      - recorder
+        - recorder
       parameters:
-      - "$ref": "#/parameters/recorder-id"
+        - "$ref": "#/parameters/recorder-id"
       responses:
-        '200':
+        "200":
           description: Success
-        '404':
+        "404":
           description: Recorder not found
-        '500':
+        "500":
           description: Recorder deletion failed
           x-go-name: Failure
           schema:
@@ -730,13 +749,13 @@ paths:
     get:
       summary: Retrieve list of CIDRs
       tags:
-      - prefilter
+        - prefilter
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/Prefilter"
-        '500':
+        "500":
           description: Prefilter get failed
           x-go-name: Failure
           schema:
@@ -744,20 +763,20 @@ paths:
     patch:
       summary: Update list of CIDRs
       tags:
-      - prefilter
+        - prefilter
       parameters:
-      - "$ref": "#/parameters/prefilter-spec"
+        - "$ref": "#/parameters/prefilter-spec"
       responses:
-        '200':
+        "200":
           description: Updated
           schema:
             "$ref": "#/definitions/Prefilter"
-        '461':
+        "461":
           description: Invalid CIDR prefix
           x-go-name: InvalidCIDR
           schema:
             "$ref": "#/definitions/Error"
-        '500':
+        "500":
           description: Prefilter update failed
           x-go-name: Failure
           schema:
@@ -765,20 +784,20 @@ paths:
     delete:
       summary: Delete list of CIDRs
       tags:
-      - prefilter
+        - prefilter
       parameters:
-      - "$ref": "#/parameters/prefilter-spec"
+        - "$ref": "#/parameters/prefilter-spec"
       responses:
-        '200':
+        "200":
           description: Deleted
           schema:
             "$ref": "#/definitions/Prefilter"
-        '461':
+        "461":
           description: Invalid CIDR prefix
           x-go-name: InvalidCIDR
           schema:
             "$ref": "#/definitions/Error"
-        '500':
+        "500":
           description: Prefilter delete failed
           x-go-name: Failure
           schema:
@@ -787,13 +806,13 @@ paths:
     get:
       summary: Retrieve information about the agent and evironment for debugging
       tags:
-      - daemon
+        - daemon
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/DebugInfo"
-        '500':
+        "500":
           description: DebugInfo get failed
           x-go-name: Failure
           schema:
@@ -802,13 +821,13 @@ paths:
     get:
       summary: Retrieve cgroup metadata for all pods
       tags:
-      - daemon
+        - daemon
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/CgroupDumpMetadata"
-        '500':
+        "500":
           description: CgroupDumpMetadata get failed
           x-go-name: Failure
           schema:
@@ -817,9 +836,9 @@ paths:
     get:
       summary: List all open maps
       tags:
-      - daemon
+        - daemon
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/BPFMapList"
@@ -827,46 +846,46 @@ paths:
     get:
       summary: Retrieve contents of BPF map
       tags:
-      - daemon
+        - daemon
       parameters:
-      - "$ref": "#/parameters/map-name"
+        - "$ref": "#/parameters/map-name"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/BPFMap"
-        '404':
+        "404":
           description: Map not found
   "/map/{name}/events":
     get:
       summary: Retrieves the recent event logs associated with this endpoint.
       tags:
-      - daemon
+        - daemon
       parameters:
-      - "$ref": "#/parameters/map-name"
-      - "$ref": "#/parameters/follow"
+        - "$ref": "#/parameters/map-name"
+        - "$ref": "#/parameters/follow"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: string
             format: binary
-        '404':
+        "404":
           description: Map not found
   "/metrics/":
     get:
       summary: Retrieve cilium metrics
       tags:
-      - metrics
+        - metrics
       parameters: []
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
             items:
               "$ref": "#/definitions/Metric"
-        '500':
+        "500":
           description: Metrics cannot be retrieved
 
   "/fqdn/cache":
@@ -876,23 +895,23 @@ paths:
         Retrieves the list of DNS lookups intercepted from endpoints,
         optionally filtered by DNS name, CIDR IP range or source.
       tags:
-      - policy
+        - policy
       parameters:
-      - "$ref": "#/parameters/matchpattern"
-      - "$ref": "#/parameters/cidr"
-      - "$ref": "#/parameters/source"
+        - "$ref": "#/parameters/matchpattern"
+        - "$ref": "#/parameters/cidr"
+        - "$ref": "#/parameters/source"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
             items:
               "$ref": "#/definitions/DNSLookup"
-        '400':
+        "400":
           description: Invalid request (error parsing parameters)
           schema:
             "$ref": "#/definitions/Error"
-        '404':
+        "404":
           description: No DNS data with provided parameters found
     delete:
       summary: Deletes matching DNS lookups from the policy-generation cache.
@@ -901,13 +920,13 @@ paths:
         DNS name. The removed IP data will no longer be used in generated
         policies.
       tags:
-      - policy
+        - policy
       parameters:
-      - "$ref": "#/parameters/matchpattern"
+        - "$ref": "#/parameters/matchpattern"
       responses:
-        '200':
+        "200":
           description: Success
-        '400':
+        "400":
           description: Invalid request (error parsing parameters)
           schema:
             "$ref": "#/definitions/Error"
@@ -919,24 +938,24 @@ paths:
         Retrieves the list of DNS lookups intercepted from the specific endpoint,
         optionally filtered by endpoint id, DNS name, CIDR IP range or source.
       tags:
-      - policy
+        - policy
       parameters:
-      - "$ref": "#/parameters/endpoint-id"
-      - "$ref": "#/parameters/matchpattern"
-      - "$ref": "#/parameters/cidr"
-      - "$ref": "#/parameters/source"
+        - "$ref": "#/parameters/endpoint-id"
+        - "$ref": "#/parameters/matchpattern"
+        - "$ref": "#/parameters/cidr"
+        - "$ref": "#/parameters/source"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
             items:
               "$ref": "#/definitions/DNSLookup"
-        '400':
+        "400":
           description: Invalid request (error parsing parameters)
           schema:
             "$ref": "#/definitions/Error"
-        '404':
+        "404":
           description: No DNS data with provided parameters found
   "/fqdn/names":
     get:
@@ -945,13 +964,13 @@ paths:
         Retrieves the list of DNS-related fields (names to poll, selectors and
         their corresponding regexes).
       tags:
-      - policy
+        - policy
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             "$ref": "#/definitions/NameManager"
-        '400':
+        "400":
           description: Invalid request (error parsing parameters)
           schema:
             "$ref": "#/definitions/Error"
@@ -963,21 +982,21 @@ paths:
         their identities, host addresses, Kubernetes pod names, etc.
         The list can optionally filtered by a CIDR IP range.
       tags:
-      - policy
+        - policy
       parameters:
-      - "$ref": "#/parameters/cidr"
+        - "$ref": "#/parameters/cidr"
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
             items:
               "$ref": "#/definitions/IPListEntry"
-        '400':
+        "400":
           description: Invalid request (error parsing parameters)
           schema:
             "$ref": "#/definitions/Error"
-        '404':
+        "404":
           description: No IP cache entries with provided parameters found
   "/node/ids":
     get:
@@ -986,9 +1005,9 @@ paths:
         Retrieves a list of node IDs allocated by the agent and their
         associated node IP addresses.
       tags:
-      - daemon
+        - daemon
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
@@ -998,13 +1017,13 @@ paths:
     get:
       summary: Lists operational state of BGP peers
       description: |
-        Retrieves current operational state of BGP peers created by 
+        Retrieves current operational state of BGP peers created by
         Cilium BGP virtual router. This includes session state, uptime,
         information per address family, etc.
       tags:
         - bgp
       responses:
-        '200':
+        "200":
           description: Success
           schema:
             type: array
@@ -1126,8 +1145,8 @@ parameters:
     in: query
     type: string
     enum:
-    - ipv4
-    - ipv6
+      - ipv4
+      - ipv6
   ipam-owner:
     name: owner
     in: query
@@ -1172,6 +1191,33 @@ parameters:
     type: string
 
 definitions:
+  ModulesHealth:
+    description: Reports agent's modules health status
+    properties:
+      modules:
+        description: List out modules health status
+        type: array
+        items:
+          "$ref": "#/definitions/ModuleHealth"
+  ModuleHealth:
+    description: Report module health status
+    properties:
+      module-id:
+        description: Describes the module identitier
+        type: string
+      level:
+        description: Describes the health status level
+        type: string
+      message:
+        description: Reports the associated health message
+        type: string
+      last-ok:
+        description: Time at which the last OK check occurred
+        type: string
+      last-updated:
+        description: Time of last health update
+        type: string
+
   Endpoint:
     description: An endpoint is a namespaced network interface to which cilium applies policies
     type: object
@@ -1341,11 +1387,11 @@ definitions:
     type: object
     properties:
       overallHealth:
-       "$ref": "#/definitions/EndpointHealthStatus"
+        "$ref": "#/definitions/EndpointHealthStatus"
       bpf:
-       "$ref": "#/definitions/EndpointHealthStatus"
+        "$ref": "#/definitions/EndpointHealthStatus"
       policy:
-       "$ref": "#/definitions/EndpointHealthStatus"
+        "$ref": "#/definitions/EndpointHealthStatus"
       connected:
         description: Is this endpoint reachable
         type: boolean
@@ -1385,8 +1431,8 @@ definitions:
         description: Code indicate type of status change
         type: string
         enum:
-         - ok
-         - failed
+          - ok
+          - failed
       message:
         description: Status message
         type: string
@@ -1914,10 +1960,10 @@ definitions:
         type: string
         description: State the component is in
         enum:
-        - Ok
-        - Warning
-        - Failure
-        - Disabled
+          - Ok
+          - Warning
+          - Failure
+          - Disabled
       msg:
         type: string
         description: Human readable status/error/warning message
@@ -1931,8 +1977,8 @@ definitions:
       mode:
         type: string
         enum:
-        - Disabled
-        - Enabled
+          - Disabled
+          - Enabled
       devices:
         type: array
         items:
@@ -1998,14 +2044,14 @@ definitions:
         type: string
         description: State the component is in
         enum:
-        - Ok
-        - Warning
-        - Failure
-        - Disabled
+          - Ok
+          - Warning
+          - Failure
+          - Disabled
       k8s-api-versions:
-          type: array
-          items:
-            type: string
+        type: array
+        items:
+          type: string
       msg:
         type: string
         description: Human readable status/error/warning message
@@ -2019,10 +2065,10 @@ definitions:
       mode:
         type: string
         enum:
-        - Disabled
-        - Strict
-        - Probe
-        - Partial
+          - Disabled
+          - Strict
+          - Probe
+          - Partial
       devices:
         type: array
         items:
@@ -2071,20 +2117,20 @@ definitions:
               mode:
                 type: string
                 enum:
-                - SNAT
-                - DSR
-                - Hybrid
+                  - SNAT
+                  - DSR
+                  - Hybrid
               algorithm:
                 type: string
                 enum:
-                - Random
-                - Maglev
+                  - Random
+                  - Maglev
               acceleration:
                 type: string
                 enum:
-                - None
-                - Native
-                - Generic
+                  - None
+                  - Native
+                  - Generic
               portMin:
                 type: integer
               portMax:
@@ -2560,7 +2606,7 @@ definitions:
         description: identities mapping to this selector
         type: array
         items:
-            type: integer
+          type: integer
       users:
         description: number of users of this selector in the cache
         type: integer
@@ -2608,15 +2654,15 @@ definitions:
         description: Layer 4 protocol
         type: string
         enum:
-        - tcp
-        - udp
-        - any
+          - tcp
+          - udp
+          - any
       scope:
         description: Load balancing scope for frontend address
         type: string
         enum:
-        - external
-        - internal
+          - external
+          - internal
       port:
         description: Layer 4 port number
         type: integer
@@ -2625,7 +2671,7 @@ definitions:
     description: Service backend address
     type: object
     required:
-    - ip
+      - ip
     properties:
       ip:
         description: Layer 3 address
@@ -2714,7 +2760,7 @@ definitions:
     description: Configuration of a service
     type: object
     required:
-    - frontend-address
+      - frontend-address
     properties:
       id:
         description: Unique identification
@@ -2735,37 +2781,37 @@ definitions:
             description: Service type
             type: string
             enum:
-            - ClusterIP
-            - NodePort
-            - ExternalIPs
-            - HostPort
-            - LoadBalancer
-            - LocalRedirect
+              - ClusterIP
+              - NodePort
+              - ExternalIPs
+              - HostPort
+              - LoadBalancer
+              - LocalRedirect
           trafficPolicy:
             description: Service external traffic policy (deprecated in favor of extTrafficPolicy)
             type: string
             enum:
-            - Cluster
-            - Local
+              - Cluster
+              - Local
           extTrafficPolicy:
             description: Service external traffic policy
             type: string
             enum:
-            - Cluster
-            - Local
+              - Cluster
+              - Local
           intTrafficPolicy:
             description: Service internal traffic policy
             type: string
             enum:
-            - Cluster
-            - Local
+              - Cluster
+              - Local
           natPolicy:
             description: Service protocol NAT policy
             type: string
             enum:
-            - None
-            - Nat46
-            - Nat64
+              - None
+              - Nat46
+              - Nat64
           healthCheckNodePort:
             description: Service health check node port
             type: integer
@@ -2825,16 +2871,16 @@ definitions:
         description: Layer 4 protocol
         type: string
         enum:
-        - TCP
-        - UDP
-        - SCTP
-        - ANY
+          - TCP
+          - UDP
+          - SCTP
+          - ANY
   RecorderSpec:
     description: Configuration of a recorder
     type: object
     required:
-    - id
-    - filters
+      - id
+      - filters
     properties:
       id:
         description: Unique identification
@@ -2959,8 +3005,8 @@ definitions:
         description: Location of where the redirect is installed
         type: string
         enum:
-        - ingress
-        - egress
+          - ingress
+          - egress
       statistics:
         description: Statistics of this set of proxy redirect
         "$ref": "#/definitions/RequestResponseStatistics"
@@ -3018,8 +3064,8 @@ definitions:
       congestionControl:
         type: string
         enum:
-        - cubic
-        - bbr
+          - cubic
+          - bbr
   Masquerading:
     description: |-
       Status of masquerading
@@ -3042,8 +3088,8 @@ definitions:
       mode:
         type: string
         enum:
-        - BPF
-        - iptables
+          - BPF
+          - iptables
       ip-masq-agent:
         description: Is BPF ip-masq-agent enabled
         type: boolean
@@ -3073,8 +3119,8 @@ definitions:
         description: Datapath clock source
         type: string
         enum:
-        - ktime
-        - jiffies
+          - ktime
+          - jiffies
       hertz:
         description: Kernel Hz
         type: integer
@@ -3089,8 +3135,8 @@ definitions:
         description: Datapath routing mode
         type: string
         enum:
-        - BPF
-        - Legacy
+          - BPF
+          - Legacy
   ControllerStatuses:
     description: Collection of controller statuses
     type: array
@@ -3174,15 +3220,15 @@ definitions:
         description: Action type for event
         type: string
         enum:
-        - update
-        - delete
+          - update
+          - delete
       desired-action:
         description: Desired action to be performed after this event
         type: string
         enum:
-        - ok
-        - insert
-        - delete
+          - ok
+          - insert
+          - delete
       last-error:
         description: Last error seen while performing desired action
         type: string
@@ -3221,9 +3267,9 @@ definitions:
         description: Desired action to be performed
         type: string
         enum:
-        - ok
-        - insert
-        - delete
+          - ok
+          - insert
+          - delete
       last-error:
         description: Last error seen while performing desired action
         type: string
@@ -3336,7 +3382,7 @@ definitions:
         description: IP addresses of the node associated with the ID in the agent
         type: array
         items:
-            type: string
+          type: string
   IPListEntry:
     description: IP entry with metadata
     type: object
@@ -3481,7 +3527,7 @@ definitions:
   BgpPeer:
     description: |-
       State of a BGP Peer
-      
+
       +k8s:deepcopy-gen=true
     properties:
       local-asn:
@@ -3509,7 +3555,7 @@ definitions:
   BgpPeerFamilies:
     description: |-
       BGP AFI SAFI state of the peer
-      
+
       +k8s:deepcopy-gen=true
     properties:
       afi:
