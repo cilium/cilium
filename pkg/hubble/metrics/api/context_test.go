@@ -289,6 +289,19 @@ func Test_reservedIdentityContext(t *testing.T) {
 	}), []string{"reserved:host", "reserved:remote-node"})
 }
 
+func Test_workloadContext(t *testing.T) {
+	opts, err := ParseContextOptions(Options{"sourceContext": "workload", "destinationContext": "workload"})
+	assert.NoError(t, err)
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod"},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod"}}), []string{"", ""})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}}},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}}},
+	}), []string{"foo-ns/foo-deploy", "bar-ns/bar-deploy"})
+}
+
 func Test_workloadNameContext(t *testing.T) {
 	opts, err := ParseContextOptions(Options{"sourceContext": "workload-name", "destinationContext": "workload-name"})
 	assert.NoError(t, err)

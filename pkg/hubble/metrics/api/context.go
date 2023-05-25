@@ -39,6 +39,8 @@ const (
 	// purpose. It uses "reserved:kube-apiserver" label if it's present in the identity label list.
 	// Otherwise, it uses the first label in the identity label list with "reserved:" prefix.
 	ContextReservedIdentity
+	// ContextWorkload uses the namespace and the pod's workload name for identification.
+	ContextWorkload
 	// ContextWorkloadName uses the pod's workload name for identification.
 	ContextWorkloadName
 	// ContextApp uses the pod's app label for identification.
@@ -54,7 +56,7 @@ const ContextOptionsHelp = `
  destinationEgressContext  ::= identifier , { "|", identifier }
  destinationIngressContext ::= identifier , { "|", identifier }
  labels                    ::= label , { ",", label }
- identifier             ::= identity | namespace | pod | pod-name | dns | ip | reserved-identity | workload-name | app
+ identifier             ::= identity | namespace | pod | pod-name | dns | ip | reserved-identity | workload | workload-name | app
  label                     ::= source_ip | source_pod | source_namespace | source_workload | source_app | destination_ip | destination_pod | destination_namespace | destination_workload | destination_app | traffic_direction
 `
 
@@ -105,6 +107,8 @@ func (c ContextIdentifier) String() string {
 		return "ip"
 	case ContextReservedIdentity:
 		return "reserved-identity"
+	case ContextWorkload:
+		return "workload"
 	case ContextWorkloadName:
 		return "workload-name"
 	case ContextApp:
@@ -165,6 +169,8 @@ func parseContextIdentifier(s string) (ContextIdentifier, error) {
 		return ContextIP, nil
 	case "reserved-identity":
 		return ContextReservedIdentity, nil
+	case "workload":
+		return ContextWorkload, nil
 	case "workload-name":
 		return ContextWorkloadName, nil
 	case "app":
@@ -468,6 +474,13 @@ func getContextIDLabelValue(contextID ContextIdentifier, flow *pb.Flow, source b
 		}
 	case ContextReservedIdentity:
 		labelValue = handleReservedIdentityLabels(ep.GetLabels())
+	case ContextWorkload:
+		if workloads := ep.GetWorkloads(); len(workloads) != 0 {
+			labelValue = workloads[0].Name
+		}
+		if labelValue != "" && ep.GetNamespace() != "" {
+			labelValue = ep.GetNamespace() + "/" + labelValue
+		}
 	case ContextWorkloadName:
 		if workloads := ep.GetWorkloads(); len(workloads) != 0 {
 			labelValue = workloads[0].Name
