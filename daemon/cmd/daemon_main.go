@@ -1620,6 +1620,8 @@ type daemonParams struct {
 	CNIConfigManager     cni.CNIConfigManager
 	SwaggerSpec          *server.Spec
 	HealthAPISpec        *healthApi.Spec
+	HealthProvider       *cell.HealthProvider
+	HealthReporter       cell.HealthReporter
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1896,6 +1898,9 @@ func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI 
 
 	// /healthz/
 	restAPI.DaemonGetHealthzHandler = NewGetHealthzHandler(d)
+
+	// /health
+	restAPI.DaemonGetHealthHandler = NewGetHealthHandler(d)
 
 	// /cluster/nodes
 	restAPI.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(d)

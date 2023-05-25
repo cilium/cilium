@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -211,6 +212,9 @@ type Daemon struct {
 
 	// just used to tie together some status reporting
 	cniConfigManager cni.CNIConfigManager
+
+	healthProvider *cell.HealthProvider
+	healthReporter cell.HealthReporter
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -541,6 +545,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		policyUpdater:        params.PolicyUpdater,
 		egressGatewayManager: params.EgressGatewayManager,
 		cniConfigManager:     params.CNIConfigManager,
+		healthProvider:       params.HealthProvider,
+		healthReporter:       params.HealthReporter,
 	}
 
 	if option.Config.RunMonitorAgent {
