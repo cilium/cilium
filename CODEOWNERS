@@ -532,3 +532,4 @@ Vagrantfile @cilium/ci-structure
 /vagrant_box_defaults.rb @cilium/ci-structure
 /vendor/ @cilium/vendor
 /VERSION @cilium/tophat
+/.clang-format @cilium/contributing
