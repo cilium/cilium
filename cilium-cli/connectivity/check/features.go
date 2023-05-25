@@ -210,9 +210,14 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 		if v, ok := cm.Data["routing-mode"]; ok {
 			mode = v
 		}
+		tunnelProto := ""
+		if mode != "native" {
+			tunnelProto = cm.Data["tunnel-protocol"]
+		}
+
 		result[FeatureTunnel] = FeatureStatus{
 			Enabled: mode != "native",
-			Mode:    mode,
+			Mode:    tunnelProto,
 		}
 	}
 
