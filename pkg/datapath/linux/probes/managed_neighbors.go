@@ -70,17 +70,17 @@ func haveManagedNeighbors() (outer error) {
 		runtime.UnlockOSThread()
 	}()
 
-	la := netlink.NewLinkAttrs()
-	la.Name = "cilium-dummy"
-
-	dummy := &netlink.Dummy{LinkAttrs: la}
-	if err := netlink.LinkAdd(dummy); err != nil {
-		return fmt.Errorf("failed to add dummy link: %w", err)
+	veth := &netlink.Veth{
+		LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
+		PeerName:  "veth1",
 	}
 
+	if err := netlink.LinkAdd(veth); err != nil {
+		return fmt.Errorf("failed to add dummy veth: %w", err)
+	}
 	neigh := netlink.Neigh{
-		LinkIndex: dummy.Index,
-		IP:        net.IPv4(10, 1, 1, 1),
+		LinkIndex: veth.Index,
+		IP:        net.IPv4(0, 0, 0, 1),
 		Flags:     netlink.NTF_EXT_LEARNED,
 		FlagsExt:  netlink.NTF_EXT_MANAGED,
 	}
@@ -89,15 +89,24 @@ func haveManagedNeighbors() (outer error) {
 		return fmt.Errorf("failed to add neighbor: %w", err)
 	}
 
-	nl, err := netlink.NeighList(dummy.Index, 0)
+	// nl, err := netlink.NeighList(dummy.Index, 0)
+	nl, err := netlink.NeighList(veth.Index, 0)
 	if err != nil {
 		return fmt.Errorf("failed to list neighbors: %w", err)
 	}
 
 	for _, n := range nl {
-		if n.IP.Equal(neigh.IP) && n.Flags == netlink.NTF_EXT_LEARNED && n.FlagsExt == netlink.NTF_EXT_MANAGED {
-			return nil
+		if !n.IP.Equal(neigh.IP) {
+			continue
 		}
+		if n.Flags != netlink.NTF_EXT_LEARNED {
+			continue
+		}
+		if n.FlagsExt != netlink.NTF_EXT_MANAGED {
+			continue
+		}
+
+		return nil
 	}
 
 	return ErrNotSupported
