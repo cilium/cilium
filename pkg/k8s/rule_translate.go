@@ -24,7 +24,6 @@ type RuleTranslator struct {
 	OldEndpoint, NewEndpoint Endpoints
 	ServiceLabels            map[string]string
 	Revert                   bool
-	AllocatePrefixes         bool
 }
 
 // Translate calls TranslateEgress on all r.Egress rules
@@ -64,7 +63,7 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.Transl
 func (k RuleTranslator) populateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
 	for _, service := range r.ToServices {
 		if k.serviceMatches(service) {
-			if backendPrefixes, err := k.generateToCidrFromEndpoint(r, k.NewEndpoint, k.AllocatePrefixes); err != nil {
+			if backendPrefixes, err := k.generateToCidrFromEndpoint(r, k.NewEndpoint); err != nil {
 				return err
 			} else {
 				result.PrefixesToAdd = append(result.PrefixesToAdd, backendPrefixes...)
@@ -81,7 +80,7 @@ func (k RuleTranslator) depopulateEgress(r *api.EgressRule, result *policy.Trans
 		// counting rules twice
 		result.NumToServicesRules++
 		if k.serviceMatches(service) {
-			if prefixesToRelease, err := k.deleteToCidrFromEndpoint(r, k.OldEndpoint, k.AllocatePrefixes); err != nil {
+			if prefixesToRelease, err := k.deleteToCidrFromEndpoint(r, k.OldEndpoint); err != nil {
 				return err
 			} else {
 				result.PrefixesToRelease = append(result.PrefixesToRelease, prefixesToRelease...)
@@ -114,17 +113,8 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 func (k RuleTranslator) generateToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoints Endpoints,
-	allocatePrefixes bool) ([]netip.Prefix, error) {
-
-	var prefixes []netip.Prefix
-
-	// allocatePrefixes if true here implies that this translation is
-	// occurring after policy import. This means that the CIDRs were not
-	// known at that time, so the IPCache hasn't been informed about them.
-	// In this case, it's the job of this Translator to notify the IPCache.
-	if allocatePrefixes {
-		prefixes = endpoints.Prefixes()
-	}
+) ([]netip.Prefix, error) {
+	prefixes := endpoints.Prefixes()
 
 	// This will generate one-address CIDRs consisting of endpoint backend ip
 	for addrCluster := range endpoints.Backends {
@@ -165,7 +155,7 @@ func (k RuleTranslator) generateToCidrFromEndpoint(
 func (k RuleTranslator) deleteToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoints Endpoints,
-	releasePrefixes bool) ([]netip.Prefix, error) {
+) ([]netip.Prefix, error) {
 
 	var toReleasePrefixes []netip.Prefix
 	delCIDRRules := make(map[int]*api.CIDRRule, len(egress.ToCIDRSet))
@@ -204,13 +194,11 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 		return toReleasePrefixes, nil
 	}
 
-	if releasePrefixes {
-		delSlice := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
-		for _, delCIDRRule := range delCIDRRules {
-			delSlice = append(delSlice, *delCIDRRule)
-		}
-		toReleasePrefixes = policy.GetPrefixesFromCIDRSet(delSlice)
+	delSlice := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
+	for _, delCIDRRule := range delCIDRRules {
+		delSlice = append(delSlice, *delCIDRRule)
 	}
+	toReleasePrefixes = policy.GetPrefixesFromCIDRSet(delSlice)
 
 	// if endpoint is not in CIDR or it's not generated it's ok to retain it
 	newCIDRRules := make([]api.CIDRRule, 0, len(egress.ToCIDRSet)-len(delCIDRRules))
@@ -243,7 +231,7 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 			if ok && svc.IsExternal() {
 				eps := ep.GetEndpoints()
 				if eps != nil {
-					t := NewK8sTranslator(ns, Endpoints{}, *eps, false, svc.Labels, false)
+					t := NewK8sTranslator(ns, Endpoints{}, *eps, false, svc.Labels)
 					// We don't need to check the translation result here because the k8s
 					// RuleTranslator above sets allocatePrefixes to be false.
 					err := t.Translate(rule, &policy.TranslationResult{})
@@ -265,13 +253,12 @@ func NewK8sTranslator(
 	oldEPs, newEPs Endpoints,
 	revert bool,
 	labels map[string]string,
-	allocatePrefixes bool) RuleTranslator {
+) RuleTranslator {
 	return RuleTranslator{
-		Service:          serviceInfo,
-		OldEndpoint:      oldEPs,
-		NewEndpoint:      newEPs,
-		ServiceLabels:    labels,
-		Revert:           revert,
-		AllocatePrefixes: allocatePrefixes,
+		Service:       serviceInfo,
+		OldEndpoint:   oldEPs,
+		NewEndpoint:   newEPs,
+		ServiceLabels: labels,
+		Revert:        revert,
 	}
 }
