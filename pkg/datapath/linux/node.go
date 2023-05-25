@@ -949,9 +949,6 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 }
 
 func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
-	var spi uint8
-	var err error
-
 	if newNode.IsLocal() {
 		n.replaceHostRules()
 	}
@@ -961,6 +958,14 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 	// to avoid confusion in netfilters and conntrack that may be using
 	// the mark fields. This uses XFRM_OUTPUT_MARK added in 4.14 kernels.
 	zeroMark := option.Config.EnableEndpointRoutes
+
+	n.enableIPsecIPv4(newNode, zeroMark)
+	n.enableIPsecIPv6(newNode, zeroMark)
+}
+
+func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark bool) {
+	var spi uint8
+	var err error
 
 	if n.nodeConfig.EnableIPv4 && newNode.IPv4AllocCIDR != nil {
 		new4Net := newNode.IPv4AllocCIDR.IPNet
@@ -1015,6 +1020,11 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 			}
 		}
 	}
+}
+
+func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark bool) {
+	var spi uint8
+	var err error
 
 	if n.nodeConfig.EnableIPv6 && newNode.IPv6AllocCIDR != nil {
 		new6Net := newNode.IPv6AllocCIDR.IPNet
