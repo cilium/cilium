@@ -322,6 +322,63 @@ When the service has ``externalTrafficPolicy: Local``, ``BGP Control Plane`` kee
 of the endpoints for the service on the local node and stops advertisement when there's
 no local endpoint.
 
+CLI
+---
+
+There are two CLIs available to view cilium BGP peering state. One CLI is present
+inside Cilium Agent. The second CLI is the cluster-wide `Cilium CLI <https://github.com/cilium/cilium-cli>`_.
+
+.. warning::
+
+   The Cilium CLI is experimental. Consider carefully before using it in production environments!
+
+Cilium Agent CLI
+~~~~~~~~~~~~~~~~
+
+The following command shows peering status:
+
+.. code-block:: shell-session
+
+   cilium# cilium bgp peers -h
+   List state of all peers defined in CiliumBGPPeeringPolicy
+
+   Usage:
+     cilium bgp peers [flags]
+
+   Flags:
+     -h, --help            help for peers
+     -o, --output string   json| yaml| jsonpath='{}'
+
+   Global Flags:
+         --config string   Config file (default is $HOME/.cilium.yaml)
+     -D, --debug           Enable debug messages
+     -H, --host string     URI to server-side API
+
+
+Cilium-CLI
+~~~~~~~~~~
+
+Cilium CLI displays the BGP peering status of all nodes.
+
+.. code-block:: shell-session
+
+   # cilium-cli bgp peers -h
+   Gets BGP peering status from all nodes in the cluster
+
+   Usage:
+     cilium bgp peers [flags]
+
+   Flags:
+         --agent-pod-selector string   Label on cilium-agent pods to select with (default "k8s-app=cilium")
+     -h, --help                        help for peers
+         --node string                 Node from which BGP status will be fetched, omit to select all nodes
+     -o, --output string               Output format. One of: json, summary (default "summary")
+         --wait-duration duration      Maximum time to wait for result, default 1 minute (default 1m0s)
+
+   Global Flags:
+         --context string     Kubernetes configuration context
+     -n, --namespace string   Namespace Cilium is running in (default "kube-system")
+
 Architecture
 ------------
 
