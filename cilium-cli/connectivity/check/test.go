@@ -168,13 +168,15 @@ func (t *Test) setup(ctx context.Context) error {
 		return fmt.Errorf("applying network policies: %w", err)
 	}
 
-	if err := t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "add"); err != nil {
-		return fmt.Errorf("installing static routes: %w", err)
-	}
+	if t.installIPRoutesFromOutsideToPodCIDRs {
+		if err := t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "add"); err != nil {
+			return fmt.Errorf("installing static routes: %w", err)
+		}
 
-	t.finalizers = append(t.finalizers, func() error {
-		return t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "del")
-	})
+		t.finalizers = append(t.finalizers, func() error {
+			return t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "del")
+		})
+	}
 
 	return nil
 }
