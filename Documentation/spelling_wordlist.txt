@@ -506,6 +506,7 @@ grafana
 graphviz
 grep
 hairpinned
+hairpinning
 hardcode
 hardcoded
 hardcoding
