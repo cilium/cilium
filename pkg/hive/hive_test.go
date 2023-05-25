@@ -6,6 +6,7 @@ package hive_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -132,6 +133,50 @@ func TestProvideInvoke(t *testing.T) {
 	assert.NoError(t, err, "expected Run to succeed")
 
 	assert.True(t, invoked, "expected invoke to be called, but it was not")
+}
+
+func TestProvideHealthReporter(t *testing.T) {
+	// Module provided health reporter should be injected and be scoped to the
+	// module ID.
+	// As well, should contain state about last update and whether modules where
+	// stopped.
+	testCell := cell.Module(
+		"test",
+		"Test Module",
+		cell.Invoke(func(hr cell.StatusReporter) {
+			hr.OK("all good")
+			hr.Stopped("done!")
+		}),
+	)
+	testCell2 := cell.Module(
+		"test2",
+		"Test Module 2",
+		cell.Invoke(func(hr cell.StatusReporter) {
+			hr.Degraded("woops", fmt.Errorf("someerr"))
+		}),
+	)
+
+	var all []cell.Status
+	h := hive.New(
+		testCell,
+		testCell2,
+		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner, hr cell.Health) {
+			lc.Append(hive.Hook{
+				OnStop: func(hive.HookContext) error {
+					all = hr.All()
+					return nil
+				}})
+		}),
+		shutdownOnStartCell,
+	)
+	assert.NoError(t, h.Run(), "expected Run to succeed")
+	assert.Equal(t, all[0].Level, cell.StatusOK)
+	assert.Equal(t, all[0].ModuleID, "test")
+	assert.Equal(t, all[0].Err, nil)
+	assert.True(t, all[0].Stopped)
+	assert.Equal(t, all[1].Level, cell.StatusDegraded)
+	assert.Equal(t, all[1].ModuleID, "test2")
+	assert.Equal(t, all[1].Err, fmt.Errorf("someerr"))
 }
 
 func TestGroup(t *testing.T) {

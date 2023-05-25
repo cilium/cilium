@@ -55,6 +55,7 @@ type Hive struct {
 	flags                     *pflag.FlagSet
 	viper                     *viper.Viper
 	lifecycle                 *DefaultLifecycle
+	healthStatus              *cell.HealthProvider
 	populated                 bool
 	invokes                   []func() error
 	configOverrides           []any
@@ -79,6 +80,7 @@ func New(cells ...cell.Cell) *Hive {
 		stopTimeout:     defaultStopTimeout,
 		flags:           pflag.NewFlagSet("", pflag.ContinueOnError),
 		lifecycle:       &DefaultLifecycle{},
+		healthStatus:    cell.NewHealthProvider(),
 		shutdown:        make(chan error, 1),
 		configOverrides: nil,
 	}
@@ -134,16 +136,35 @@ type defaults struct {
 
 	Flags       *pflag.FlagSet
 	Lifecycle   Lifecycle
+	Health      cell.Health
 	Logger      logrus.FieldLogger
 	Shutdowner  Shutdowner
 	InvokerList cell.InvokerList
 }
 
+type health struct {
+	*cell.HealthProvider
+}
+
+func (h health) Start(ctx HookContext) error {
+	h.HealthProvider.Start(context.Context(ctx))
+	return nil
+}
+
+func (h health) Stop(ctx HookContext) error {
+	return h.HealthProvider.Stop(context.Context(ctx))
+}
+
 func (h *Hive) provideDefaults() error {
+	// Health status collector needs to be started prior to being used,
+	// and then draining during shutdown to process all updates.
+	h.lifecycle.Append(health{h.healthStatus})
+
 	return h.container.Provide(func() defaults {
 		return defaults{
 			Flags:       h.flags,
 			Lifecycle:   h.lifecycle,
+			Health:      h.healthStatus,
 			Logger:      log,
 			Shutdowner:  h,
 			InvokerList: h,
