@@ -161,6 +161,7 @@ type IPIdentityWatcher struct {
 	store   storepkg.WatchStore
 	ipcache IPCacher
 
+	clusterName                string
 	clusterID                  uint32
 	withSelfDeletionProtection bool
 
@@ -178,9 +179,10 @@ type IPCacher interface {
 // NewIPIdentityWatcher creates a new IPIdentityWatcher for the given cluster.
 func NewIPIdentityWatcher(clusterName string, ipc IPCacher) *IPIdentityWatcher {
 	watcher := IPIdentityWatcher{
-		ipcache: ipc,
-		synced:  make(chan struct{}),
-		log:     log.WithField(logfields.ClusterName, clusterName),
+		ipcache:     ipc,
+		clusterName: clusterName,
+		synced:      make(chan struct{}),
+		log:         log.WithField(logfields.ClusterName, clusterName),
 	}
 
 	watcher.store = storepkg.NewRestartableWatchStore(
@@ -197,6 +199,7 @@ type IWOpt func(*iwOpts)
 type iwOpts struct {
 	clusterID              uint32
 	selfDeletionProtection bool
+	cachedPrefix           bool
 }
 
 // WithClusterID configures the ClusterID associated with the given watcher.
@@ -216,6 +219,14 @@ func WithSelfDeletionProtection() IWOpt {
 	}
 }
 
+// WithCachedPrefix adapts the watched prefix based on the fact that the information
+// concerning the given cluster is cached from an external kvstore.
+func WithCachedPrefix(cached bool) IWOpt {
+	return func(opts *iwOpts) {
+		opts.cachedPrefix = cached
+	}
+}
+
 // Watch starts the watcher and blocks waiting for events, until the context is
 // closed. When events are received from the kvstore, all IPIdentityMappingListener
 // are notified. It automatically emits deletion events for stale keys when appropriate
@@ -232,10 +243,15 @@ func (iw *IPIdentityWatcher) Watch(ctx context.Context, backend storepkg.WatchSt
 		iw.store.Drain()
 	}
 
+	prefix := path.Join(IPIdentitiesPath, AddressSpace)
+	if iwo.cachedPrefix {
+		prefix = path.Join(kvstore.StateToCachePrefix(IPIdentitiesPath), iw.clusterName)
+	}
+
 	iw.started = true
 	iw.clusterID = iwo.clusterID
 	iw.withSelfDeletionProtection = iwo.selfDeletionProtection
-	iw.store.Watch(ctx, backend, path.Join(IPIdentitiesPath, AddressSpace))
+	iw.store.Watch(ctx, backend, prefix)
 }
 
 // Drain triggers a deletion event for all known ipcache entries.
