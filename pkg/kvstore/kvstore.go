@@ -4,6 +4,7 @@
 package kvstore
 
 import (
+	"strings"
 	"time"
 )
 
@@ -59,3 +60,13 @@ const (
 	// HeartbeatPath is updated
 	HeartbeatWriteInterval = time.Minute
 )
+
+// StateToCachePrefix converts a kvstore prefix starting with "cilium/state"
+// (holding the cilium state) to the corresponding one holding cached information
+// from another kvstore (that is, "cilium/cache").
+func StateToCachePrefix(prefix string) string {
+	if strings.HasPrefix(prefix, "cilium/state") {
+		return strings.Replace(prefix, "cilium/state", "cilium/cache", 1)
+	}
+	return prefix
+}
