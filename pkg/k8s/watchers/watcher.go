@@ -616,7 +616,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 			if event.OldEndpoints != nil {
 				oldEP = *event.OldEndpoints
 			}
-			translator := k8s.NewK8sTranslator(event.ID, oldEP, *event.Endpoints, false, svc.Labels, true)
+			translator := k8s.NewK8sTranslator(event.ID, oldEP, *event.Endpoints, false, svc.Labels)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.WithError(err).Error("Unable to repopulate egress policies from ToService rules")
@@ -644,7 +644,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 
 			// Use the current Endpoints object as the "old" object and "new"
 			// object due to deletion.
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, *event.Endpoints, true, svc.Labels, true)
+			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, *event.Endpoints, true, svc.Labels)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.WithError(err).Error("Unable to depopulate egress policies from ToService rules")
