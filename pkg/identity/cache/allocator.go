@@ -453,11 +453,17 @@ func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, identities 
 // WatchRemoteIdentities returns a RemoteCache instance which can be later
 // started to watch identities in another kvstore and sync them to the local
 // identity cache. remoteName should be unique unless replacing an existing
-// remote's backend.
-func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations) (*allocator.RemoteCache, error) {
+// remote's backend. When cachedPrefix is set, identities are assumed to be
+// stored under the "cilium/cache" prefix, and the watcher is adapted accordingly.
+func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations, cachedPrefix bool) (*allocator.RemoteCache, error) {
 	<-m.globalIdentityAllocatorInitialized
 
-	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(m.identitiesPath, m.owner.GetNodeSuffix(), &key.GlobalIdentity{}, backend)
+	prefix := m.identitiesPath
+	if cachedPrefix {
+		prefix = path.Join(kvstore.StateToCachePrefix(prefix), remoteName)
+	}
+
+	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(prefix, m.owner.GetNodeSuffix(), &key.GlobalIdentity{}, backend)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up remote allocator backend: %s", err)
 	}
