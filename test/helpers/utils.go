@@ -813,3 +813,12 @@ func SupportIPv6Connectivity() bool {
 
 	return true
 }
+
+// SupportIPv6ToOutside returns true if the CI environment supports IPv6
+// connectivity to the outside world.
+func SupportIPv6ToOutside() bool {
+	if os.Getenv("CILIUM_NO_IPV6_OUTSIDE") != "" {
+		return false
+	}
+	return true
+}

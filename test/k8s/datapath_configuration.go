@@ -147,6 +147,43 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("Encapsulation", func() {
+		var (
+			tmpEchoPodPath    string
+			outside, outside6 string
+		)
+
+		BeforeAll(func() {
+			if helpers.ExistNodeWithoutCilium() && !helpers.SupportIPv6ToOutside() {
+				// Deploy echoserver on the node which does not run Cilium to test
+				// IPv6 connectivity to the outside world. The pod will run in
+				// the host netns, so no CNI is required for the pod on that host.
+				echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-hostnetns.yaml")
+				res := kubectl.ExecMiddle("mktemp")
+				res.ExpectSuccess()
+				tmpEchoPodPath = strings.Trim(res.Stdout(), "\n")
+				kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM/%s/' %s > %s",
+					helpers.GetFirstNodeWithoutCilium(), echoPodPath, tmpEchoPodPath)).ExpectSuccess()
+				kubectl.ApplyDefault(tmpEchoPodPath).ExpectSuccess("Cannot install echoserver application")
+				Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echoserver-hostnetns",
+					helpers.HelperTimeout)).Should(BeNil())
+				var err error
+				outside, err = kubectl.GetNodeIPByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
+				Expect(err).Should(BeNil())
+				outside6, err = kubectl.GetNodeIPv6ByLabel(kubectl.GetFirstNodeWithoutCiliumLabel(), false)
+				Expect(err).Should(BeNil())
+				outside6 = net.JoinHostPort(outside6, "80")
+			} else {
+				outside = "http://google.com"
+				outside6 = "http://google.com"
+			}
+		})
+
+		AfterAll(func() {
+			if tmpEchoPodPath != "" {
+				kubectl.Delete(tmpEchoPodPath)
+			}
+		})
+
 		enableVXLANTunneling := func(options map[string]string) {
 			options["tunnelProtocol"] = "vxlan"
 			if helpers.RunsOnGKE() {
@@ -167,10 +204,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
 			By("Test iptables masquerading")
-			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
-				Should(BeTrue(), "IPv4 connectivity test to http://google.com failed")
-			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, true)).
-				Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
+			Expect(testPodHTTPToOutside(kubectl, outside, false, false, false)).
+				Should(BeTrue(), "IPv4 connectivity test to %s", outside)
+			if helpers.ExistNodeWithoutCilium() || helpers.SupportIPv6ToOutside() {
+				Expect(testPodHTTPToOutside(kubectl, outside6, false, false, true)).
+					Should(BeTrue(), "IPv6 connectivity test to %s failed", outside6)
+			}
 		})
 	})
 
