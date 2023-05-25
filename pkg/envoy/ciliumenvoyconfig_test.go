@@ -99,6 +99,8 @@ resources:
               route:
                 cluster: "envoy-admin"
                 prefix_rewrite: "/stats/prometheus"
+        use_remote_address: true
+        skip_xff_append: true
         http_filters:
         - name: envoy.filters.http.router
 `
@@ -137,6 +139,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
       transport_socket:
@@ -233,6 +237,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
 `
@@ -301,6 +307,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
 `
@@ -371,6 +379,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
   - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
