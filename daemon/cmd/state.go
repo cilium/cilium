@@ -359,9 +359,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 	return
 }
 
-func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
-	var err error
-
+func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 	if option.Config.EnableIPv6 && ep.IPv6.IsValid() {
 		ipv6Pool := ipam.PoolOrDefault(ep.IPv6IPAMPool)
 		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.AsSlice(), ep.HumanStringLocked()+" [restored]", ipv6Pool)
