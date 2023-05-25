@@ -512,6 +512,9 @@ const (
 	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
 	EnableICMPRules = true
 
+	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
+	UseCiliumInternalIPForIPsec = false
+
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN = 8472
 	// TunnelPortGeneve is the default Geneve port
