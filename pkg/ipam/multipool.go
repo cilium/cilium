@@ -38,17 +38,16 @@ type poolPair struct {
 	v6 *podCIDRPool
 }
 
-type preAllocValue int
-type preAllocMap map[Pool]preAllocValue
+type preAllocatePerPool map[Pool]int
 
-func parsePreAllocMap(conf map[string]string) (preAllocMap, error) {
-	m := make(map[Pool]preAllocValue, len(conf))
+func parseMultiPoolPreAllocMap(conf map[string]string) (preAllocatePerPool, error) {
+	m := make(map[Pool]int, len(conf))
 	for pool, s := range conf {
 		value, err := strconv.ParseInt(s, 10, 32)
 		if err != nil {
-			return nil, fmt.Errorf("invalid pre-alloc value for pool %q: %w", pool, err)
+			return nil, fmt.Errorf("invalid value for pool %q: %w", pool, err)
 		}
-		m[Pool(pool)] = preAllocValue(value)
+		m[Pool(pool)] = int(value)
 	}
 
 	return m, nil
@@ -59,7 +58,8 @@ type multiPoolManager struct {
 	conf  Configuration
 	owner Owner
 
-	preallocMap  preAllocMap
+	preallocatedIPsPerPool preAllocatePerPool
+
 	pools        map[Pool]*poolPair
 	poolsUpdated chan struct{}
 
@@ -75,9 +75,9 @@ type multiPoolManager struct {
 var _ Allocator = (*multiPoolAllocator)(nil)
 
 func newMultiPoolManager(conf Configuration, nodeWatcher nodeWatcher, owner Owner, clientset nodeUpdater) *multiPoolManager {
-	preallocMap, err := parsePreAllocMap(option.Config.IPAMMultiPoolNodePreAlloc)
+	preallocMap, err := parseMultiPoolPreAllocMap(option.Config.IPAMMultiPoolPreAllocation)
 	if err != nil {
-		log.WithError(err).Fatalf("Invalid %s flag value", option.IPAMMultiPoolNodePreAlloc)
+		log.WithError(err).Fatalf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation)
 	}
 
 	k8sController := controller.NewManager()
@@ -93,17 +93,17 @@ func newMultiPoolManager(conf Configuration, nodeWatcher nodeWatcher, owner Owne
 	}
 
 	c := &multiPoolManager{
-		mutex:           &lock.Mutex{},
-		owner:           owner,
-		conf:            conf,
-		preallocMap:     preallocMap,
-		pools:           map[Pool]*poolPair{},
-		poolsUpdated:    make(chan struct{}, 1),
-		node:            nil,
-		controller:      k8sController,
-		k8sUpdater:      k8sUpdater,
-		nodeUpdater:     clientset,
-		finishedRestore: false,
+		mutex:                  &lock.Mutex{},
+		owner:                  owner,
+		conf:                   conf,
+		preallocatedIPsPerPool: preallocMap,
+		pools:                  map[Pool]*poolPair{},
+		poolsUpdated:           make(chan struct{}, 1),
+		node:                   nil,
+		controller:             k8sController,
+		k8sUpdater:             k8sUpdater,
+		nodeUpdater:            clientset,
+		finishedRestore:        false,
 	}
 
 	// Subscribe to CiliumNode updates
@@ -115,7 +115,7 @@ func newMultiPoolManager(conf Configuration, nodeWatcher nodeWatcher, owner Owne
 	return c
 }
 
-// waitForAllPools waits for all pools in preallocMap to have IPs available.
+// waitForAllPools waits for all pools in preallocatedIPsPerPool to have IPs available.
 // This function blocks the IPAM constructor forever and periodically logs
 // that it is waiting for IPs to be assigned. This blocking behavior is
 // consistent with other IPAM modes.
@@ -123,7 +123,7 @@ func (m *multiPoolManager) waitForAllPools() {
 	allPoolsReady := false
 	for !allPoolsReady {
 		allPoolsReady = true
-		for pool := range m.preallocMap {
+		for pool := range m.preallocatedIPsPerPool {
 			ctx, cancel := context.WithTimeout(context.Background(), waitForPoolTimeout)
 			if m.conf.IPv4Enabled() {
 				allPoolsReady = m.waitForPool(ctx, IPv4, pool) && allPoolsReady
@@ -224,7 +224,7 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 	allocated := []types.IPAMPoolAllocation{}
 
 	// Only pools present in multi-pool-node-pre-alloc can be requested
-	for poolName, preAlloc := range m.preallocMap {
+	for poolName, preAlloc := range m.preallocatedIPsPerPool {
 		var neededIPv4, neededIPv6 int
 		pool, ok := m.pools[poolName]
 		if ok {

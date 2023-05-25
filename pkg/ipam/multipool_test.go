@@ -35,7 +35,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	}
 	c := newMultiPoolManager(fakeConfig, fakeK8sCiliumNodeAPI, fakeOwner, fakeK8sCiliumNodeAPI)
 	// set custom preAllocMap to not rely on option.Config in unit tests
-	c.preallocMap = preAllocMap{
+	c.preallocatedIPsPerPool = preAllocatePerPool{
 		"default": 16,
 		"mars":    8,
 	}
