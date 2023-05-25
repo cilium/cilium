@@ -21,7 +21,7 @@ import (
 
 type event struct{ ev, ip string }
 type fakeIPCache struct{ events chan event }
-type fakeBackend struct{}
+type fakeBackend struct{ prefix string }
 
 func NewEvent(ev, ip string) event { return event{ev: ev, ip: ip} }
 func NewFakeIPCache() *fakeIPCache { return &fakeIPCache{events: make(chan event)} }
@@ -44,7 +44,7 @@ func (m *fakeIPCache) OnIPIdentityCacheChange(modType CacheModification, cidrClu
 	oldID *Identity, newID Identity, encryptKey uint8, nodeID uint16, k8sMeta *K8sMetadata) {
 }
 
-func (fb *fakeBackend) ListAndWatch(ctx context.Context, _, _ string, _ int) *kvstore.Watcher {
+func (fb *fakeBackend) ListAndWatch(ctx context.Context, _, prefix string, _ int) *kvstore.Watcher {
 	var pair identity.IPIdentityPair
 	ch := make(kvstore.EventChan, 10)
 
@@ -52,6 +52,8 @@ func (fb *fakeBackend) ListAndWatch(ctx context.Context, _, _ string, _ int) *kv
 		out, _ := pair.Marshal()
 		return out
 	}
+
+	fb.prefix = prefix
 
 	pair = identity.IPIdentityPair{IP: net.ParseIP("10.0.0.1")}
 	ch <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: pair.GetKeyName(), Value: marshal(pair)}
@@ -83,7 +85,7 @@ func eventually(in <-chan event) event {
 }
 
 func TestIPIdentityWatcher(t *testing.T) {
-	runnable := func(body func(ipcache *fakeIPCache), opts ...IWOpt) func(t *testing.T) {
+	runnable := func(body func(ipcache *fakeIPCache), prefix string, opts ...IWOpt) func(t *testing.T) {
 		return func(t *testing.T) {
 			ipcache := NewFakeIPCache()
 			backend := NewFakeBackend()
@@ -108,6 +110,9 @@ func TestIPIdentityWatcher(t *testing.T) {
 			}()
 
 			body(ipcache)
+
+			// Assert that the watched prefix is correct.
+			require.Equal(t, prefix, backend.prefix)
 		}
 	}
 
@@ -118,7 +123,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24"), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.0.1"), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164"), eventually(ipcache.events))
-	}))
+	}, "cilium/state/ip/v1/default/"))
 
 	t.Run("with cluster ID", runnable(func(ipcache *fakeIPCache) {
 		require.Equal(t, NewEvent("upsert", "10.0.0.1@10"), eventually(ipcache.events))
@@ -127,5 +132,14 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24@10"), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.0.1@10"), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164@10"), eventually(ipcache.events))
-	}, WithClusterID(10)))
+	}, "cilium/state/ip/v1/default/", WithClusterID(10)))
+
+	t.Run("with cached prefix", runnable(func(ipcache *fakeIPCache) {
+		require.Equal(t, NewEvent("upsert", "10.0.0.1"), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.1.0/24"), eventually(ipcache.events))
+		require.Equal(t, NewEvent("sync", ""), eventually(ipcache.events))
+		require.Equal(t, NewEvent("delete", "10.0.1.0/24"), eventually(ipcache.events))
+		require.Equal(t, NewEvent("delete", "10.0.0.1"), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164"), eventually(ipcache.events))
+	}, "cilium/cache/ip/v1/foo/", WithCachedPrefix(true)))
 }

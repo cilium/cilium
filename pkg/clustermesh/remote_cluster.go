@@ -100,8 +100,8 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		rc.remoteServices.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
 	})
 
-	mgr.Register(ipcache.IPIdentitiesPath, func(ctx context.Context) {
-		rc.ipCacheWatcher.Watch(ctx, backend)
+	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
+		rc.ipCacheWatcher.Watch(ctx, backend, ipcache.WithCachedPrefix(capabilities.Cached))
 	})
 
 	mgr.Register(identityCache.IdentitiesPath, func(ctx context.Context) {
