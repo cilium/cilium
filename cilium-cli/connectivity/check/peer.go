@@ -231,6 +231,80 @@ func (s Service) FlowFilters() []*flow.FlowFilter {
 	return nil
 }
 
+func (s Service) ToNodeportService(node *v1.Node) NodeportService {
+	return NodeportService{
+		Service: s,
+		Node:    node,
+	}
+}
+
+// NodeportService wraps a Service and exposes it through its nodeport, acting as a peer in a connectivity test.
+// It implements interface TestPeer.
+type NodeportService struct {
+	Service Service
+	Node    *v1.Node
+}
+
+// Name returns name of the wrapped service.
+func (s NodeportService) Name() string {
+	return s.Service.Name()
+}
+
+// Scheme returns the scheme of the wrapped service.
+func (s NodeportService) Scheme() string {
+	return s.Service.Scheme()
+}
+
+// Path returns the path of the wrapped service.
+func (s NodeportService) Path() string {
+	return s.Service.Path()
+}
+
+// Address returns the node IP of the wrapped Service.
+func (s NodeportService) Address(family IPFamily) string {
+	if family == IPFamilyAny {
+		return s.Node.Status.Addresses[0].Address
+	}
+
+	for _, address := range s.Node.Status.Addresses {
+		if address.Type == v1.NodeInternalIP {
+			parsedAddress := net.ParseIP(address.Address)
+
+			switch family {
+			case IPFamilyV4:
+				if parsedAddress.To4() != nil {
+					return address.Address
+				}
+			case IPFamilyV6:
+				if parsedAddress.To16() != nil {
+					return address.Address
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+// Port returns the first nodeport of the wrapped Service.
+func (s NodeportService) Port() uint32 {
+	return uint32(s.Service.Service.Spec.Ports[0].NodePort)
+}
+
+// HasLabel checks if given label exists and value matches.
+func (s NodeportService) HasLabel(name, value string) bool {
+	return s.Service.HasLabel(name, value)
+}
+
+// Labels returns the copy of service labels
+func (s NodeportService) Labels() map[string]string {
+	return s.Service.Labels()
+}
+
+func (s NodeportService) FlowFilters() []*flow.FlowFilter {
+	return s.Service.FlowFilters()
+}
+
 // ExternalWorkload is an external workload acting as a peer in a
 // connectivity test. It implements interface TestPeer.
 type ExternalWorkload struct {
