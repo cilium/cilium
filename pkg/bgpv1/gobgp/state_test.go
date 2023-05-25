@@ -21,6 +21,74 @@ import (
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-test")
+
+	neighbor64125 = &v2alpha1api.CiliumBGPNeighbor{
+		PeerASN:          64125,
+		PeerAddress:      "192.168.0.1/32",
+		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+	}
+
+	// changed ConnectRetryTime
+	neighbor64125Update = &v2alpha1api.CiliumBGPNeighbor{
+		PeerASN:          64125,
+		PeerAddress:      "192.168.0.1/32",
+		ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
+		HoldTime:         metav1.Duration{Duration: 30 * time.Second},
+		KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+	}
+
+	// enabled graceful restart
+	neighbor64125UpdateGR = &v2alpha1api.CiliumBGPNeighbor{
+		PeerASN:          64125,
+		PeerAddress:      "192.168.0.1/32",
+		ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
+		HoldTime:         metav1.Duration{Duration: 30 * time.Second},
+		KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+		GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+			Enabled:     true,
+			RestartTime: metav1.Duration{Duration: 120 * time.Second},
+		},
+	}
+
+	// enabled graceful restart - updated restart time
+	neighbor64125UpdateGRTimer = &v2alpha1api.CiliumBGPNeighbor{
+		PeerASN:          64125,
+		PeerAddress:      "192.168.0.1/32",
+		ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
+		HoldTime:         metav1.Duration{Duration: 30 * time.Second},
+		KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+		GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+			Enabled:     true,
+			RestartTime: metav1.Duration{Duration: 20 * time.Second},
+		},
+	}
+
+	neighbor64126 = &v2alpha1api.CiliumBGPNeighbor{
+		PeerASN:          64126,
+		PeerAddress:      "192.168.66.1/32",
+		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+	}
+
+	// changed HoldTime & KeepAliveTime
+	neighbor64126Update = &v2alpha1api.CiliumBGPNeighbor{
+		PeerASN:          64126,
+		PeerAddress:      "192.168.66.1/32",
+		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+		HoldTime:         metav1.Duration{Duration: 12 * time.Second},
+		KeepAliveTime:    metav1.Duration{Duration: 4 * time.Second},
+	}
+
+	neighbor64127 = &v2alpha1api.CiliumBGPNeighbor{
+		PeerASN:          64127,
+		PeerAddress:      "192.168.77.1/32",
+		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+	}
 )
 
 // TestGetPeerState confirms the parsing of go bgp ListPeers to cilium modes work as intended
@@ -40,69 +108,49 @@ func TestGetPeerState(t *testing.T) {
 		updateErrStr string
 	}{
 		{
-			name: "test add neighbor",
+			name:      "test add neighbor",
+			neighbors: []*v2alpha1api.CiliumBGPNeighbor{neighbor64125},
+			localASN:  64124,
+			errStr:    "",
+		},
+		{
+			name: "test add + update neighbors",
 			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
-				{
-					PeerASN:          64125,
-					PeerAddress:      "192.168.0.1/32",
-					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
-				},
+				neighbor64125,
+				neighbor64126,
+				neighbor64127,
+			},
+			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
+				// changed ConnectRetryTime
+				neighbor64125Update,
+				// changed HoldTime & KeepAliveTime
+				neighbor64126Update,
+				// no change
+				neighbor64127,
 			},
 			localASN: 64124,
 			errStr:   "",
 		},
 		{
-			name: "test add + update neighbors",
+			name: "test graceful restart - update enable",
 			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
-				{
-					PeerASN:          64125,
-					PeerAddress:      "192.168.0.1/32",
-					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
-				},
-				{
-					PeerASN:          64126,
-					PeerAddress:      "192.168.66.1/32",
-					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
-				},
-				{
-					PeerASN:          64127,
-					PeerAddress:      "192.168.77.1/32",
-					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
-				},
+				neighbor64125,
 			},
 			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
-				// changed ConnectRetryTime
-				{
-					PeerASN:          64125,
-					PeerAddress:      "192.168.0.1/32",
-					ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 30 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
-				},
-				// changed HoldTime & KeepAliveTime
-				{
-					PeerASN:          64126,
-					PeerAddress:      "192.168.66.1/32",
-					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 12 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 4 * time.Second},
-				},
-				// no change
-				{
-					PeerASN:          64127,
-					PeerAddress:      "192.168.77.1/32",
-					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
-				},
+				// enabled GR
+				neighbor64125UpdateGR,
+			},
+			localASN: 64124,
+			errStr:   "",
+		},
+		{
+			name: "test graceful restart - update restart time",
+			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
+				neighbor64125UpdateGR,
+			},
+			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
+				// changed gr restart time
+				neighbor64125UpdateGRTimer,
 			},
 			localASN: 64124,
 			errStr:   "",
@@ -219,6 +267,9 @@ func validatePeers(t *testing.T, localASN uint32, neighbors []*v2alpha1api.Ciliu
 		require.EqualValues(t, n.ConnectRetryTime.Seconds(), p.ConnectRetryTimeSeconds)
 		require.EqualValues(t, n.HoldTime.Seconds(), p.ConfiguredHoldTimeSeconds)
 		require.EqualValues(t, n.KeepAliveTime.Seconds(), p.ConfiguredKeepAliveTimeSeconds)
+
+		require.EqualValues(t, n.GracefulRestart.Enabled, p.GracefulRestart.Enabled)
+		require.EqualValues(t, n.GracefulRestart.RestartTime.Seconds(), p.GracefulRestart.RestartTimeSeconds)
 
 		// since there is no real neighbor, bgp session state will be either idle or active.
 		require.Contains(t, []string{"idle", "active"}, p.SessionState)
