@@ -35,7 +35,7 @@ type CiliumClusterConfig struct {
 
 type CiliumClusterConfigCapabilities struct {
 	// Supports per-prefix "synced" canaries
-	SyncedCanaries bool `json:"syncedFlags,omitempty"`
+	SyncedCanaries bool `json:"syncedCanaries,omitempty"`
 }
 
 func (c0 *CiliumClusterConfig) IsCompatible(c1 *CiliumClusterConfig) error {
