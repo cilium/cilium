@@ -272,7 +272,7 @@ func (m *Manager) getConnectionManager(svc *slim_corev1.Service) (ciliumv2.XDSRe
 			},
 		},
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
-		SkipXffAppend:    true,
+		SkipXffAppend:    false,
 		HttpFilters: []*envoy_extensions_filters_network_http_connection_manager_v3.HttpFilter{
 			{
 				Name: "envoy.filters.http.router",
