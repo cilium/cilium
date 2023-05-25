@@ -208,6 +208,15 @@ func deleteKNP(ctx context.Context, client *k8s.Client, knp *networkingv1.Networ
 	return nil
 }
 
+// deleteCEGP deletes a CiliumEgressGatewayPolicy from the cluster.
+func deleteCEGP(ctx context.Context, client *k8s.Client, cegp *ciliumv2.CiliumEgressGatewayPolicy) error {
+	if err := client.DeleteCiliumEgressGatewayPolicy(ctx, cegp.Name, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("%s/%s policy delete failed: %w", client.ClusterName(), cegp.Name, err)
+	}
+
+	return nil
+}
+
 func defaultDropReason(flow *flowpb.Flow) bool {
 	return flow.GetDropReasonDesc() != flowpb.DropReason_DROP_REASON_UNKNOWN
 }
@@ -525,7 +534,7 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 
 // deletePolicies deletes a given set of network policies from the cluster.
 func (t *Test) deletePolicies(ctx context.Context) error {
-	if len(t.cnps) == 0 && len(t.knps) == 0 {
+	if len(t.cnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 {
 		return nil
 	}
 
@@ -558,9 +567,21 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 		}
 	}
 
-	// Wait for policies to be deleted on all Cilium nodes.
-	if err := t.waitCiliumPolicyRevisions(ctx, revs); err != nil {
-		return fmt.Errorf("timed out removing policies on Cilium agents: %w", err)
+	// Delete all the Test's CEGPs from all clients.
+	for _, cegp := range t.cegps {
+		t.Infof("📜 Deleting CiliumEgressGatewayPolicy '%s' from namespace '%s'..", cegp.Name, cegp.Namespace)
+		for _, client := range t.Context().clients.clients() {
+			if err := deleteCEGP(ctx, client, cegp); err != nil {
+				return fmt.Errorf("deleting CiliumEgressGatewayPolicy: %w", err)
+			}
+		}
+	}
+
+	if len(t.cnps) != 0 || len(t.knps) != 0 {
+		// Wait for policies to be deleted on all Cilium nodes.
+		if err := t.waitCiliumPolicyRevisions(ctx, revs); err != nil {
+			return fmt.Errorf("timed out removing policies on Cilium agents: %w", err)
+		}
 	}
 
 	if len(t.cnps) > 0 {
@@ -569,6 +590,10 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 
 	if len(t.knps) > 0 {
 		t.Debugf("📜 Successfully deleted %d K8S NetworkPolicy", len(t.knps))
+	}
+
+	if len(t.cegps) > 0 {
+		t.Debugf("📜 Successfully deleted %d CiliumEgressGatewayPolicies", len(t.cegps))
 	}
 
 	return nil
