@@ -50,8 +50,9 @@ To create the equivalent TLS termination configuration, you must consider the fo
             apiVersion: networking.k8s.io/v1
             kind: Ingress
             metadata:
-            name: tls-ingress
-            namespace: default
+              name: tls-ingress
+              namespace: default
+            [...]
             spec:
               tls:
               - hosts:
@@ -71,22 +72,22 @@ To create the equivalent TLS termination configuration, you must consider the fo
               name: tls-gateway
             spec:
               gatewayClassName: cilium
-            listeners:
-            - name: bookinfo.cilium.rocks
-              protocol: HTTPS
-              port: 443
-              hostname: "bookinfo.cilium.rocks"
-              tls:
-                certificateRefs:
-                - kind: Secret
+              listeners:
+              - name: bookinfo.cilium.rocks
+                protocol: HTTPS
+                port: 443
+                hostname: "bookinfo.cilium.rocks"
+                tls:
+                  certificateRefs:
+                  - kind: Secret
                     name: demo-cert
-            - name: hipstershop.cilium.rocks
-              protocol: HTTPS
-              port: 443
-              hostname: "hipstershop.cilium.rocks"
-              tls:
-                certificateRefs:
-                - kind: Secret
+              - name: hipstershop.cilium.rocks
+                protocol: HTTPS
+                port: 443
+                hostname: "hipstershop.cilium.rocks"
+                tls:
+                  certificateRefs:
+                  - kind: Secret
                     name: demo-cert
 
 - Host-header-based Routing Rules
@@ -103,10 +104,10 @@ To create the equivalent TLS termination configuration, you must consider the fo
             apiVersion: networking.k8s.io/v1
             kind: Ingress
             metadata:
-            name: tls-ingress
-            namespace: default
+              name: tls-ingress
+              namespace: default
             spec:
-            ingressClassName: cilium
+              ingressClassName: cilium
             rules:
             - host: hipstershop.cilium.rocks
                 http:
@@ -136,19 +137,18 @@ To create the equivalent TLS termination configuration, you must consider the fo
             name: hipstershop-cilium-rocks
             namespace: default
             spec:
-            hostnames:
-            - hipstershop.cilium.rocks
-            parentRefs:
-            - name: cilium
-            rules:
-            - backendRefs:
-                - name: productcatalogservice
-                port: 3550
-                matches:
+              hostnames:
+              - hipstershop.cilium.rocks
+              parentRefs:
+              - name: cilium
+              rules:
+              - matches:
                 - path:
-                    type: PathPrefix
-                    value: /hipstershop.ProductCatalogService
-
+                  type: PathPrefix
+                  value: /hipstershop.ProductCatalogService
+              backendRefs:
+              - name: productcatalogservice
+                port: 3550
 
 Review Equivalent Gateway Configuration
 =======================================
