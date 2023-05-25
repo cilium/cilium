@@ -70,7 +70,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		capabilities = config.Capabilities
 	}
 
-	remoteIdentityCache, err := rc.mesh.conf.RemoteIdentityWatcher.WatchRemoteIdentities(rc.name, backend)
+	remoteIdentityCache, err := rc.mesh.conf.RemoteIdentityWatcher.WatchRemoteIdentities(rc.name, backend, capabilities.Cached)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		rc.ipCacheWatcher.Watch(ctx, backend, ipcache.WithCachedPrefix(capabilities.Cached))
 	})
 
-	mgr.Register(identityCache.IdentitiesPath, func(ctx context.Context) {
+	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
 		rc.remoteIdentityCache.Watch(ctx)
 	})
 
