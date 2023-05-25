@@ -948,6 +948,40 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 	n.deleteNeighbor6(oldNode)
 }
 
+// getDefaultEncryptionInterface() is needed to find the interface used when
+// populating neighbor table and doing arpRequest. For most configurations
+// there is only a single interface so choosing [0] works by choosing the only
+// interface. However EKS, uses multiple interfaces, but fortunately for us
+// in EKS any interface would work so pick the [0] index here as well.
+func getDefaultEncryptionInterface() string {
+	iface := ""
+	if len(option.Config.EncryptInterface) > 0 {
+		iface = option.Config.EncryptInterface[0]
+	}
+	return iface
+}
+
+func getLinkLocalIP(family int) (net.IP, error) {
+	iface := getDefaultEncryptionInterface()
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return nil, err
+	}
+	addr, err := netlink.AddrList(link, family)
+	if err != nil {
+		return nil, err
+	}
+	return addr[0].IPNet.IP, nil
+}
+
+func getV4LinkLocalIP() (net.IP, error) {
+	return getLinkLocalIP(netlink.FAMILY_V4)
+}
+
+func getV6LinkLocalIP() (net.IP, error) {
+	return getLinkLocalIP(netlink.FAMILY_V6)
+}
+
 func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 	if newNode.IsLocal() {
 		n.replaceHostRules()
@@ -986,6 +1020,11 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark boo
 		}
 
 		if n.subnetEncryption() {
+			localIP, err = getV4LinkLocalIP()
+			if err != nil {
+				log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
+			}
+
 			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
 				/* Insert wildcard policy rules for traffic skipping back through host */
 				if err = ipsec.IpSecReplacePolicyFwd(cidr, localIP); err != nil {
@@ -1010,6 +1049,12 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark boo
 		remoteNodeID := n.allocateIDForNode(newNode)
 
 		if n.subnetEncryption() {
+			localIP, err = getV4LinkLocalIP()
+			if err != nil {
+				log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
+			}
+			remoteIP = newNode.GetNodeIP(false)
+
 			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
 				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, zeroMark)
 				upsertIPsecLog(err, "out IPv4", wildcardCIDR, cidr, spi)
@@ -1052,6 +1097,11 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark boo
 		}
 
 		if n.subnetEncryption() {
+			localIP, err = getV6LinkLocalIP()
+			if err != nil {
+				log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
+			}
+
 			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
 				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, wildcardIP, 0, ipsec.IPSecDirIn, zeroMark)
 				upsertIPsecLog(err, "in IPv6", wildcardCIDR, cidr, spi)
@@ -1071,6 +1121,12 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark boo
 		remoteNodeID := n.allocateIDForNode(newNode)
 
 		if n.subnetEncryption() {
+			localIP, err = getV6LinkLocalIP()
+			if err != nil {
+				log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
+			}
+			remoteIP = newNode.GetNodeIP(true)
+
 			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
 				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, zeroMark)
 				upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi)
