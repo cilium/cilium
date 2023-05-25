@@ -132,21 +132,23 @@ func (h *Hive) Viper() *viper.Viper {
 type defaults struct {
 	dig.Out
 
-	Flags       *pflag.FlagSet
-	Lifecycle   Lifecycle
-	Logger      logrus.FieldLogger
-	Shutdowner  Shutdowner
-	InvokerList cell.InvokerList
+	Flags          *pflag.FlagSet
+	Lifecycle      Lifecycle
+	Logger         logrus.FieldLogger
+	Shutdowner     Shutdowner
+	InvokerList    cell.InvokerList
+	HealthProvider *cell.HealthProvider
 }
 
 func (h *Hive) provideDefaults() error {
 	return h.container.Provide(func() defaults {
 		return defaults{
-			Flags:       h.flags,
-			Lifecycle:   h.lifecycle,
-			Logger:      log,
-			Shutdowner:  h,
-			InvokerList: h,
+			Flags:          h.flags,
+			Lifecycle:      h.lifecycle,
+			Logger:         log,
+			Shutdowner:     h,
+			InvokerList:    h,
+			HealthProvider: cell.NewHealthProvider(),
 		}
 	})
 }

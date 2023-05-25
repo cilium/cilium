@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/sirupsen/logrus"
+	"go.uber.org/dig"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -55,10 +56,21 @@ func (m *module) logger(log logrus.FieldLogger) logrus.FieldLogger {
 	return log.WithField(logfields.LogSubsys, m.id)
 }
 
+func (m *module) healthReporter(p *HealthProvider) HealthReporter {
+	r := p.ForModule(m.id)
+	// Since this module requested a reporter, set a default down status.
+	r.Down("Status not reported by module")
+	return r
+}
+
 func (m *module) Apply(c container) error {
 	scope := c.Scope(m.id)
 
 	if err := scope.Decorate(m.logger); err != nil {
+		return err
+	}
+
+	if err := scope.Provide(m.healthReporter, dig.Export(false)); err != nil {
 		return err
 	}
 
