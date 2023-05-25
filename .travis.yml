@@ -26,7 +26,6 @@ before_install: ./.travis/prepare.sh
 before_script:
   - export DOCKER_BUILD_FLAGS=--quiet
   - export PATH=/usr/local/clang/bin:$PATH
-  - export V=0
 
 script: ./.travis/build.sh
 
