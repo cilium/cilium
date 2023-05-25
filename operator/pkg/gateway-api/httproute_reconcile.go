@@ -92,7 +92,7 @@ func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 					})
 				}
 
-				continue
+				return success()
 			}
 
 			if !IsService(be.BackendObjectReference) {
@@ -101,7 +101,7 @@ func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 						httpInvalidKindRouteCondition(hr, string("Unsupported backend kind "+*be.Kind)),
 					})
 				}
-				continue
+				return success()
 			}
 
 			svc := &corev1.Service{}
@@ -119,7 +119,7 @@ func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 						httpBackendNotFoundRouteCondition(hr, err.Error()),
 					})
 				}
-				continue
+				return success()
 			}
 
 			// Service exists, update the status for all the parents
