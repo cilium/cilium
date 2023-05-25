@@ -842,8 +842,8 @@ const (
 	// IPAM is the IPAM method to use
 	IPAM = "ipam"
 
-	// IPAMMultiPoolNodePreAlloc contains the list of IP pools which should be pre-allocated on this node
-	IPAMMultiPoolNodePreAlloc = "multi-pool-node-pre-alloc"
+	// IPAMMultiPoolPreAllocation defines the pre-allocation value for each IPAM pool
+	IPAMMultiPoolPreAllocation = "ipam-multi-pool-pre-allocation"
 
 	// XDPModeNative for loading progs with XDPModeLinkDriver
 	XDPModeNative = "native"
@@ -2057,8 +2057,8 @@ type DaemonConfig struct {
 	// IPAM is the IPAM method to use
 	IPAM string
 
-	// IPAMMultiPoolNodePreAlloc contains the list of IP pools which should be pre-allocated on this node
-	IPAMMultiPoolNodePreAlloc map[string]string
+	// IPAMMultiPoolPreAllocation defines the pre-allocation value for each IPAM pool
+	IPAMMultiPoolPreAllocation map[string]string
 
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
@@ -3378,10 +3378,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 			c.K8sRequireIPv6PodCIDR = true
 		}
 	}
-	if m, err := command.GetStringMapStringE(vp, IPAMMultiPoolNodePreAlloc); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMMultiPoolNodePreAlloc, err)
+	if m, err := command.GetStringMapStringE(vp, IPAMMultiPoolPreAllocation); err != nil {
+		log.Fatalf("unable to parse %s: %s", IPAMMultiPoolPreAllocation, err)
 	} else {
-		c.IPAMMultiPoolNodePreAlloc = m
+		c.IPAMMultiPoolPreAllocation = m
 	}
 
 	c.KubeProxyReplacementHealthzBindAddr = vp.GetString(KubeProxyReplacementHealthzBindAddr)
