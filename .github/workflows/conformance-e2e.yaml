@@ -176,26 +176,26 @@ jobs:
           # See https://github.com/cilium/cilium/issues/20606 for configuration table
 
           - name: '1'
-            kernel: '4.19-main'
+            kernel: '4.19-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
 
           - name: '2'
-            kernel: '5.4-main'
+            kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
 
           - name: '3'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
             endpoint-routes: 'true'
 
           - name: '4'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -204,7 +204,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '5'
-            kernel: '5.15-main'
+            kernel: '5.15-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -214,7 +214,7 @@ jobs:
             host-fw: 'true'
 
           - name: '6'
-            kernel: '6.0-main'
+            kernel: '6.0-20230420.212204'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -224,7 +224,7 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '7'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -233,14 +233,14 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '8'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'geneve'
             endpoint-routes: 'true'
 
           - name: '9'
-            kernel: '4.19-main'
+            kernel: '4.19-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
@@ -248,7 +248,7 @@ jobs:
             encryption-node: 'false'
 
           - name: '10'
-            kernel: '5.4-main'
+            kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
@@ -256,7 +256,7 @@ jobs:
             encryption-node: 'false'
 
           - name: '11'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
@@ -265,7 +265,7 @@ jobs:
             endpoint-routes: 'true'
 
           - name: '12'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -276,7 +276,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '13'
-            kernel: '5.15-main'
+            kernel: '5.15-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -287,7 +287,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '14'
-            kernel: '6.0-main'
+            kernel: '6.0-20230420.212204'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -297,7 +297,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '15'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -307,7 +307,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '16'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'geneve'
