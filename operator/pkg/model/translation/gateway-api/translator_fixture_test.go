@@ -54,7 +54,7 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 								{UpgradeType: "websocket"},
 							},
 							UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
-							SkipXffAppend:    true,
+							SkipXffAppend:    false,
 							HttpFilters: []*http_connection_manager_v3.HttpFilter{
 								{
 									Name: "envoy.filters.http.router",

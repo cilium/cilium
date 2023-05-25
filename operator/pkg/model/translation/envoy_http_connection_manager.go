@@ -25,7 +25,7 @@ func NewHTTPConnectionManager(name, routeName string, mutationFunc ...HttpConnec
 			Rds: &httpConnectionManagerv3.Rds{RouteConfigName: routeName},
 		},
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
-		SkipXffAppend:    true,
+		SkipXffAppend:    false,
 		HttpFilters: []*httpConnectionManagerv3.HttpFilter{
 			{
 				Name: "envoy.filters.http.router",
