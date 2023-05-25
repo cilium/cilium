@@ -169,15 +169,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - kernel: '4.19-20230420.212204'
+          - kernel: '4.19-v0.3'
             ci-kernel: '419'
-          - kernel: '5.4-20230420.212204'
+          - kernel: '5.4-v0.3'
             ci-kernel: '54'
-          - kernel: '5.10-20230420.212204'
+          - kernel: '5.10-v0.3'
             ci-kernel: '510'
-          - kernel: '5.15-20230420.212204'
+          - kernel: '5.15-v0.3'
             ci-kernel: '510'
-          - kernel: 'bpf-next-20230420.212204'
+          - kernel: 'bpf-next-main'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
