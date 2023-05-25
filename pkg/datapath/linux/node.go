@@ -1052,11 +1052,15 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark boo
 		remoteNodeID := n.allocateIDForNode(newNode)
 
 		if n.subnetEncryption() {
-			localIP, err = getV4LinkLocalIP()
-			if err != nil {
-				log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
+			// Check if we should use the NodeInternalIPs instead of the
+			// CiliumInternalIPs for the IPsec encapsulation.
+			if !option.Config.UseCiliumInternalIPForIPsec {
+				localIP, err = getV4LinkLocalIP()
+				if err != nil {
+					log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
+				}
+				remoteIP = newNode.GetNodeIP(false)
 			}
-			remoteIP = newNode.GetNodeIP(false)
 
 			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
 				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, zeroMark)
@@ -1127,11 +1131,15 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark boo
 		remoteNodeID := n.allocateIDForNode(newNode)
 
 		if n.subnetEncryption() {
-			localIP, err = getV6LinkLocalIP()
-			if err != nil {
-				log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
+			// Check if we should use the NodeInternalIPs instead of the
+			// CiliumInternalIPs for the IPsec encapsulation.
+			if !option.Config.UseCiliumInternalIPForIPsec {
+				localIP, err = getV6LinkLocalIP()
+				if err != nil {
+					log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
+				}
+				remoteIP = newNode.GetNodeIP(true)
 			}
-			remoteIP = newNode.GetNodeIP(true)
 
 			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
 				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, zeroMark)
