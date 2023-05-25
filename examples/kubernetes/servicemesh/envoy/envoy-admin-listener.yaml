@@ -27,5 +27,7 @@ spec:
                   prefix: "/"
                 route:
                   cluster: "envoy-admin"
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router

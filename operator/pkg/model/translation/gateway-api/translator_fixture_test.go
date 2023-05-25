@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -52,6 +53,8 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 							UpgradeConfigs: []*http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
 								{UpgradeType: "websocket"},
 							},
+							UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+							SkipXffAppend:    true,
 							HttpFilters: []*http_connection_manager_v3.HttpFilter{
 								{
 									Name: "envoy.filters.http.router",

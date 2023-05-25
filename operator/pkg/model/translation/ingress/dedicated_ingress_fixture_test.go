@@ -151,6 +151,8 @@ func toListenerFilter(name string) *envoy_config_listener.Filter {
 				UpgradeConfigs: []*http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
 					{UpgradeType: "websocket"},
 				},
+				UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+				SkipXffAppend:    true,
 				HttpFilters: []*http_connection_manager_v3.HttpFilter{
 					{
 						Name: "envoy.filters.http.router",
