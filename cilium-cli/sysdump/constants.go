@@ -183,10 +183,3 @@ var (
 		Version:  "v1alpha2",
 	}
 )
-
-var (
-	tetragonAgentContainerName = "tetragon"
-	tetragonBugtoolPrefix      = "tetragon-bugtool"
-	tetragonCliCommand         = "tetra"
-	tetragonTracingPolicy      = "tetragontracingpolicy-<ts>.yaml"
-)

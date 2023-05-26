@@ -1088,7 +1088,9 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get Tetragon pods: %w", err)
 				}
-				if err := c.submitTetragonBugtoolTasks(FilterPods(p, c.NodeList)); err != nil {
+				if err := c.SubmitTetragonBugtoolTasks(FilterPods(p, c.NodeList),
+					DefaultTetragonAgentContainerName, DefaultTetragonBugtoolPrefix,
+					DefaultTetragonCLICommand); err != nil {
 					return fmt.Errorf("failed to collect 'tetragon-bugtool': %w", err)
 				}
 				return nil
@@ -1147,7 +1149,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
 				}
-				if err := c.WriteYAML(tetragonTracingPolicy, v); err != nil {
+				if err := c.WriteYAML(DefaultTetragonTracingPolicy, v); err != nil {
 					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
 				}
 				return nil
@@ -1434,7 +1436,8 @@ func (c *Collector) shouldSkipTask(t Task) bool {
 	return c.Options.Quick && !t.Quick
 }
 
-func (c *Collector) submitTetragonBugtoolTasks(pods []*corev1.Pod) error {
+func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgentContainerName,
+	tetragonBugtoolPrefix, tetragonCLICommand string) error {
 	for _, p := range pods {
 		p := p
 		workerID := fmt.Sprintf("%s-%s", tetragonBugtoolPrefix, p.Name)
@@ -1452,7 +1455,7 @@ func (c *Collector) submitTetragonBugtoolTasks(pods []*corev1.Pod) error {
 
 			tarGzFile := fmt.Sprintf("%s-%s.tar.gz", tetragonBugtoolPrefix, time.Now().Format(timeFormat))
 			// Run 'tetra bugtool' in the pod.
-			command := []string{tetragonCliCommand, "bugtool", "--out", tarGzFile}
+			command := []string{tetragonCLICommand, "bugtool", "--out", tarGzFile}
 
 			c.logDebug("Executing 'tetragon-bugtool' command: %v", command)
 			_, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, command)
