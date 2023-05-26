@@ -2064,6 +2064,9 @@ tls:
     # -- Entry of the ConfigMap containing the CA trust bundle.
     key: ca.crt
 
+    # -- Use a Secret instead of a ConfigMap.
+    useSecret: false
+
     # If uncommented, creates the ConfigMap and fills it with the specified content.
     # Otherwise, the ConfigMap is assumed to be already present in .Release.Namespace.
     #
