@@ -4,7 +4,10 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
+
+	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -62,6 +65,32 @@ func (r *authMapCache) Delete(key authKey) error {
 	}
 
 	delete(r.cacheEntries, key)
+
+	return nil
+}
+
+func (r *authMapCache) DeleteIf(predicate func(key authKey, info authInfo) bool) error {
+	r.cacheEntriesMutex.Lock()
+	defer r.cacheEntriesMutex.Unlock()
+
+	var entriesToDelete []authKey
+	for k, v := range r.cacheEntries {
+		if predicate(k, v) {
+			entriesToDelete = append(entriesToDelete, k)
+		}
+	}
+
+	for _, key := range entriesToDelete {
+		// delete every entry individually to keep the cache in sync in case of an error
+		if err := r.authmap.Delete(key); err != nil {
+			if errors.Is(err, ebpf.ErrKeyNotExist) {
+				log.Debugf("auth: failed to delete auth entry with key %s: entry already deleted", key)
+				continue
+			}
+			return fmt.Errorf("failed to delete auth entry from map: %w", err)
+		}
+		delete(r.cacheEntries, key)
+	}
 
 	return nil
 }

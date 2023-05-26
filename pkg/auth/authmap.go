@@ -15,6 +15,7 @@ import (
 type authMap interface {
 	Update(key authKey, info authInfo) error
 	Delete(key authKey) error
+	DeleteIf(predicate func(key authKey, info authInfo) bool) error
 	Get(key authKey) (authInfo, error)
 	All() (map[authKey]authInfo, error)
 }
