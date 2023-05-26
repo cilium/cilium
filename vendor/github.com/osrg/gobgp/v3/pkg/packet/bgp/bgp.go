@@ -4374,12 +4374,9 @@ func NewFlowSpecComponentItem(op uint8, value uint64) *FlowSpecComponentItem {
 					return uint32(i)
 				}
 			}
-			// return invalid order
-			return 4
+			// Return 8 octet order
+			return 3
 		}()
-	}
-	if order > 3 {
-		return nil
 	}
 	v.Op = uint8(uint32(v.Op) | order<<4)
 	return v
@@ -6917,8 +6914,14 @@ func (l *LsTLVBgpRouterID) DecodeFromBytes(data []byte) error {
 }
 
 func (l *LsTLVBgpRouterID) Serialize() ([]byte, error) {
-	var buf [4]byte
-	copy(buf[:], l.RouterID)
+	tmpaddr := l.RouterID
+	if tmpaddr.To4() != nil {
+		var buf [4]byte
+		copy(buf[:], l.RouterID.To4())
+		return l.LsTLV.Serialize(buf[:])
+	}
+	var buf [16]byte
+	copy(buf[:], l.RouterID.To16())
 	return l.LsTLV.Serialize(buf[:])
 }
 
@@ -7937,7 +7940,7 @@ func NewLsTLVAdjacencySID(l *uint32) *LsTLVAdjacencySID {
 	var flags uint8
 	return &LsTLVAdjacencySID{
 		LsTLV: LsTLV{
-			Type:   BGP_ASPATH_ATTR_TYPE_SET,
+			Type:   LS_TLV_ADJACENCY_SID,
 			Length: 7, // TODO: Implementation to judge 7 octets or 8 octets
 		},
 		Flags:  flags,
@@ -8069,7 +8072,7 @@ type LsTLVPeerNodeSID struct {
 func NewLsTLVPeerNodeSID(l *LsBgpPeerSegmentSID) *LsTLVPeerNodeSID {
 	return &LsTLVPeerNodeSID{
 		LsTLV: LsTLV{
-			Type:   BGP_ASPATH_ATTR_TYPE_SET,
+			Type:   LS_TLV_PEER_NODE_SID,
 			Length: l.Flags.SidLen(),
 		},
 		Flags:  l.Flags.FlagBits(),
@@ -8160,7 +8163,7 @@ type LsTLVPeerAdjacencySID struct {
 func NewLsTLVPeerAdjacencySID(l *LsBgpPeerSegmentSID) *LsTLVPeerAdjacencySID {
 	return &LsTLVPeerAdjacencySID{
 		LsTLV: LsTLV{
-			Type:   BGP_ASPATH_ATTR_TYPE_SET,
+			Type:   LS_TLV_ADJACENCY_SID,
 			Length: l.Flags.SidLen(),
 		},
 		Flags:  l.Flags.FlagBits(),
@@ -8251,7 +8254,7 @@ type LsTLVPeerSetSID struct {
 func NewLsTLVPeerSetSID(l *LsBgpPeerSegmentSID) *LsTLVPeerSetSID {
 	return &LsTLVPeerSetSID{
 		LsTLV: LsTLV{
-			Type:   BGP_ASPATH_ATTR_TYPE_SET,
+			Type:   LS_TLV_PEER_SET_SID,
 			Length: l.Flags.SidLen(),
 		},
 		Flags:  l.Flags.FlagBits(),
