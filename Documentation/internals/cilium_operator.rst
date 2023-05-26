@@ -85,6 +85,12 @@ mode:
 
 For more information on IPAM visit :ref:`address_management`.
 
+Load Balancer IP Address Management
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When :ref:`lb_ipam` is used, Cilium Operator manages IP address
+for ``type: LoadBalancer`` services.
+
 KVStore operations
 ~~~~~~~~~~~~~~~~~~
 
