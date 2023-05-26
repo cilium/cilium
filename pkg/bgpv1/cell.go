@@ -20,7 +20,7 @@ var Cell = cell.Module(
 	"bgp-cp",
 	"BGP Control Plane",
 
-	// The Controller which is the entry point of the module
+	// The Controller which is the entry point of the module.
 	cell.Provide(agent.NewController),
 	cell.ProvidePrivate(
 		// Signaler is used by all cells that observe resources to signal the controller to start reconciliation.
