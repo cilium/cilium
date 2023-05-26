@@ -1,4 +1,5 @@
-{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled .Values.auth.mTLS.spire.install.server.serviceAccount.create -}}
+{{- $installSpire := include "spire.install.enabled" . }}
+{{- if and (eq $installSpire "true") .Values.auth.mTLS.spire.install.server.serviceAccount.create -}}
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:

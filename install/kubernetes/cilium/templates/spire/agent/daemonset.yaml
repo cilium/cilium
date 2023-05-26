@@ -1,4 +1,4 @@
-{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+{{- if eq (include "spire.install.enabled" .) "true" -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:

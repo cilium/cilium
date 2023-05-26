@@ -154,3 +154,18 @@ Validate duration field, return validated duration, 0s when provided duration is
 0s
 {{- end }}
 {{- end }}
+
+{{/*
+Return true if spire installation should be done.
+*/}}
+{{- define "spire.install.enabled" }}
+  {{- if semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility) -}}
+    {{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+      {{- print "true" -}}
+    {{- else -}}
+      {{- print "false" -}}
+    {{- end }}
+  {{- else -}}
+    {{- print "false" -}}
+  {{- end -}}
+{{- end -}}

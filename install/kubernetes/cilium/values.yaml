@@ -2933,12 +2933,12 @@ auth:
     # Settings for SPIRE
     spire:
       # -- Enable SPIRE integration
-      enabled: false
+      enabled: true
       # -- Settings to control the SPIRE installation and configuration
       install:
         # -- Enable SPIRE installation.
         # This will only take effect only if auth.mTLS.spire.enabled is true
-        enabled: false
+        enabled: true
         # -- SPIRE namespace to install into
         namespace: cilium-spire
         # -- SPIRE agent configuration

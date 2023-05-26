@@ -1,4 +1,4 @@
-{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+{{- if eq (include "spire.install.enabled" .) "true" -}}
 apiVersion: v1
 kind: Service
 metadata:
