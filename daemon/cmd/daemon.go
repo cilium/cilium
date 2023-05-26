@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -219,6 +220,9 @@ type Daemon struct {
 
 	// read-only map of all the hive settings
 	settings cellSettings
+	// enable modules health support
+	healthProvider cell.Health
+	healthReporter cell.HealthReporter
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -537,6 +541,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		l7Proxy:              params.L7Proxy,
 		db:                   params.DB,
 		settings:             params.Settings,
+		healthProvider:       params.HealthProvider,
+		healthReporter:       params.HealthReporter,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)

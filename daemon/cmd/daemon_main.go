@@ -1632,6 +1632,8 @@ type daemonParams struct {
 	DB                   statedb.DB
 	APILimiterSet        *rate.APILimiterSet
 	Settings             cellSettings
+	HealthProvider       cell.Health
+	HealthReporter       cell.HealthReporter
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

@@ -67,7 +67,7 @@ type GetHealthParams struct {
 
 	/* Brief.
 
-	   Brief will return a brief representation of the Cilium status.
+	   Brief is a brief representation of the Cilium status.
 
 	*/
 	Brief *bool
