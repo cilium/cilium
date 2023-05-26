@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // SyncStore abstracts the operations allowing to synchronize key/value pairs
@@ -78,14 +77,6 @@ type syncCanary struct{}
 
 type WSSOpt func(*wqSyncStore)
 
-// WSSWithSourceClusterName configures the name of the source cluster the information
-// is synchronized from, which is used to scope the "synced" prefix and enrich the metrics.
-func WSSWithSourceClusterName(cluster string) WSSOpt {
-	return func(wss *wqSyncStore) {
-		wss.source = cluster
-	}
-}
-
 // WSSWithRateLimiter sets the rate limiting algorithm to be used when requeueing failed events.
 func WSSWithRateLimiter(limiter workqueue.RateLimiter) WSSOpt {
 	return func(wss *wqSyncStore) {
@@ -117,11 +108,11 @@ func WSSWithSyncedKeyOverride(key string) WSSOpt {
 
 // NewWorkqueueSyncStore returns a SyncStore instance which leverages a workqueue
 // to coalescence update/delete requests and handle retries in case of errors.
-func NewWorkqueueSyncStore(backend SyncStoreBackend, prefix string, opts ...WSSOpt) SyncStore {
+func NewWorkqueueSyncStore(clusterName string, backend SyncStoreBackend, prefix string, opts ...WSSOpt) SyncStore {
 	wss := &wqSyncStore{
 		backend: backend,
 		prefix:  prefix,
-		source:  option.Config.ClusterName,
+		source:  clusterName,
 
 		workers:   1,
 		withLease: true,

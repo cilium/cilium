@@ -111,7 +111,7 @@ func eventually(in <-chan *KVPair) *KVPair {
 func TestWorkqueueSyncStore(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
-	store := NewWorkqueueSyncStore(backend, "/foo/bar")
+	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar")
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -164,7 +164,7 @@ func TestWorkqueueSyncStore(t *testing.T) {
 func TestWorkqueueSyncStoreWithoutLease(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, false)
-	store := NewWorkqueueSyncStore(backend, "/foo/bar", WSSWithoutLease())
+	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar", WSSWithoutLease())
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -188,7 +188,7 @@ func TestWorkqueueSyncStoreWithRateLimiter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
 	limiter := NewFakeRateLimiter()
-	store := NewWorkqueueSyncStore(backend, "/foo/bar", WSSWithRateLimiter(limiter))
+	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar", WSSWithRateLimiter(limiter))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -215,7 +215,7 @@ func TestWorkqueueSyncStoreWithRateLimiter(t *testing.T) {
 func TestWorkqueueSyncStoreWithWorkers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
-	store := NewWorkqueueSyncStore(backend, "/foo/bar", WSSWithWorkers(2))
+	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar", WSSWithWorkers(2))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -246,7 +246,7 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 		return func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			backend := NewFakeBackend(t, true)
-			store := NewWorkqueueSyncStore(backend, "foo/bar", opts...)
+			store := NewWorkqueueSyncStore("qux", backend, "foo/bar", opts...)
 
 			var wg sync.WaitGroup
 			wg.Add(1)
@@ -280,7 +280,7 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 		require.Equal(t, NewKVPair("callback/executed", ""), eventually(backend.updated))
 		require.Equal(t, NewKVPair("callback/executed", ""), eventually(backend.updated))
 		require.Equal(t, NewKVPair("foo/bar/key3", "value3"), eventually(backend.updated))
-	}, WSSWithSourceClusterName("qux")))
+	}))
 
 	t.Run("key-override", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
 		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
@@ -292,7 +292,7 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 		require.Equal(t, NewKVPair("foo/bar/key2", "value2"), eventually(backend.updated))
 		require.Equal(t, "cilium/synced/qux/override", eventually(backend.updated).Key)
 		require.Equal(t, NewKVPair("foo/bar/key3", "value3"), eventually(backend.updated))
-	}, WSSWithSourceClusterName("qux"), WSSWithSyncedKeyOverride("override")))
+	}, WSSWithSyncedKeyOverride("override")))
 
 	t.Run("key-upsertion-failure", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
 		backend.errorsOnUpdate["foo/bar/key1"] = 1
@@ -308,7 +308,7 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
 		// The synced key shall be created only once key1 has been successfully upserted.
 		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
-	}, WSSWithSourceClusterName("qux")))
+	}))
 
 	t.Run("synced-upsertion-failure", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
 		backend.errorsOnUpdate["cilium/synced/qux/foo/bar"] = 1
@@ -321,7 +321,7 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 		require.Equal(t, NewKVPair("foo/bar/key2", "value2"), eventually(backend.updated))
 		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
 		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
-	}, WSSWithSourceClusterName("qux")))
+	}))
 
 	// Assert that the synced key is created only after key1 has been successfully upserted also in case there are multiple workers
 	t.Run("multiple-workers", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
@@ -333,7 +333,7 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
 		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
 		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
-	}, WSSWithSourceClusterName("qux"), WSSWithWorkers(10)))
+	}, WSSWithWorkers(10)))
 }
 
 func TestWorkqueueSyncStoreMetrics(t *testing.T) {
@@ -343,15 +343,13 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 		metrics.KVStoreInitialSyncCompleted = sync
 	}(option.Config.ClusterName, metrics.KVStoreSyncQueueSize, metrics.KVStoreInitialSyncCompleted)
 
-	option.Config.ClusterName = "foo"
-
 	legacyMetrics := metrics.NewLegacyMetrics()
 	require.True(t, legacyMetrics.KVStoreSyncQueueSize.IsEnabled())
 	require.True(t, legacyMetrics.KVStoreInitialSyncCompleted.IsEnabled())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
-	store := NewWorkqueueSyncStore(backend, "cilium/state/nodes/v1")
+	store := NewWorkqueueSyncStore("foo", backend, "cilium/state/nodes/v1")
 
 	// The queue size should be initially zero.
 	require.Equal(t, float64(0), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
@@ -417,9 +415,4 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 
 	// Once all elements have been processed, the metric should be zero.
 	require.Equal(t, float64(0), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
-
-	// The metric should reflect the specified cluster name if overwritten.
-	storeWithClusterName := NewWorkqueueSyncStore(backend, "cilium/state/nodes/v1", WSSWithSourceClusterName("bar"))
-	storeWithClusterName.UpsertKey(ctx, NewKVPair("key2", "value2"))
-	require.Equal(t, float64(1), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "bar")))
 }

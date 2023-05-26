@@ -164,9 +164,8 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	})
 	c.Assert(cm, Not(IsNil))
 
-	nodesWSS := store.NewWorkqueueSyncStore(kvstore.Client(), nodeStore.NodeStorePrefix,
-		store.WSSWithSourceClusterName("cluster2"), // The one which is tested with sync canaries
-	)
+	// cluster2 is the cluster which is tested with sync canaries
+	nodesWSS := store.NewWorkqueueSyncStore("cluster2", kvstore.Client(), nodeStore.NodeStorePrefix)
 	go nodesWSS.Run(ctx)
 	nodeNames := []string{"foo", "bar", "baz"}
 
