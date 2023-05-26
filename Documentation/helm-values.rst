@@ -2631,7 +2631,7 @@
    * - tls
      - Configure TLS configuration in the agent.
      - object
-     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"caBundle":{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt"},"secretsBackend":"local"}``
+     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"caBundle":{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt","useSecret":false},"secretsBackend":"local"}``
    * - tls.ca
      - Base64 encoded PEM values for the CA certificate and private key. This can be used as common CA to generate certificates used by hubble and clustermesh components. It is neither required nor used when cert-manager is used to generate the certificates.
      - object
@@ -2651,7 +2651,7 @@
    * - tls.caBundle
      - Configure the CA trust bundle used for the validation of the certificates leveraged by hubble and clustermesh. When enabled, it overrides the content of the 'ca.crt' field of the respective certificates, allowing for CA rotation with no down-time.
      - object
-     - ``{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt"}``
+     - ``{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt","useSecret":false}``
    * - tls.caBundle.enabled
      - Enable the use of the CA trust bundle.
      - bool
@@ -2664,6 +2664,10 @@
      - Name of the ConfigMap containing the CA trust bundle.
      - string
      - ``"cilium-root-ca.crt"``
+   * - tls.caBundle.useSecret
+     - Use a Secret instead of a ConfigMap.
+     - bool
+     - ``false``
    * - tls.secretsBackend
      - This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies (namely the secrets referenced by terminatingTLS and originatingTLS). Possible values:   - local   - k8s
      - string

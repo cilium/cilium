@@ -845,7 +845,7 @@ spec:
               - key: ca.crt
                 path: common-etcd-client-ca.crt
           {{- else }}
-          - configMap:
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
               name: {{ .Values.tls.caBundle.name }}
               optional: true
               items:
@@ -904,7 +904,7 @@ spec:
               - key: ca.crt
                 path: client-ca.crt
           {{- else }}
-          - configMap:
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
               name: {{ .Values.tls.caBundle.name }}
               optional: true
               items:
