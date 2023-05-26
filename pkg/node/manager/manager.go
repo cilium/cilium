@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
@@ -121,6 +122,9 @@ type manager struct {
 	// controllerManager manages the controllers that are launched within the
 	// Manager.
 	controllerManager *controller.Manager
+
+	// healthReporter reports on the current health status of the node manager module.
+	healthReporter cell.HealthReporter
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -198,7 +202,7 @@ func NewNodeMetrics() *nodeMetrics {
 }
 
 // New returns a new node manager
-func New(c Configuration, ipCache IPCache, nodeMetrics *nodeMetrics) (*manager, error) {
+func New(c Configuration, ipCache IPCache, nodeMetrics *nodeMetrics, healthReporter cell.HealthReporter) (*manager, error) {
 	m := &manager{
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		conf:              c,
@@ -206,6 +210,7 @@ func New(c Configuration, ipCache IPCache, nodeMetrics *nodeMetrics) (*manager, 
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
 		ipcache:           ipCache,
 		metrics:           nodeMetrics,
+		healthReporter:    healthReporter,
 	}
 
 	return m, nil
