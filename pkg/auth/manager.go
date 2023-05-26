@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -24,10 +25,9 @@ func (key signalAuthKey) String() string {
 }
 
 type authManager struct {
-	signalChannel <-chan signalAuthKey
-	ipCache       ipCache
-	authHandlers  map[policy.AuthType]authHandler
-	authmap       authMap
+	ipCache      ipCache
+	authHandlers map[policy.AuthType]authHandler
+	authmap      authMap
 
 	mutex   lock.Mutex
 	pending map[authKey]struct{}
@@ -57,7 +57,6 @@ type authResponse struct {
 }
 
 func newAuthManager(
-	signalChannel <-chan signalAuthKey,
 	authHandlers []authHandler,
 	authmap authMap,
 	ipCache ipCache,
@@ -74,45 +73,41 @@ func newAuthManager(
 	}
 
 	return &authManager{
-		signalChannel: signalChannel,
-		authHandlers:  ahs,
-		authmap:       authmap,
-		ipCache:       ipCache,
-		pending:       make(map[authKey]struct{}),
+		authHandlers: ahs,
+		authmap:      authmap,
+		ipCache:      ipCache,
+		pending:      make(map[authKey]struct{}),
 	}, nil
 }
 
-// start receives auth required signals from the signal channel and spawns
-// a new go routine for each authentication request
-func (a *authManager) start() {
-	go func() {
-		for key := range a.signalChannel {
-			k := authKey{
-				localIdentity:  identity.NumericIdentity(key.LocalIdentity),
-				remoteIdentity: identity.NumericIdentity(key.RemoteIdentity),
-				remoteNodeID:   key.RemoteNodeID,
-				authType:       policy.AuthType(key.AuthType),
+// handleAuthRequest receives auth required signals and spawns a new go routine for each authentication request.
+func (a *authManager) handleAuthRequest(_ context.Context, key signalAuthKey) error {
+	k := authKey{
+		localIdentity:  identity.NumericIdentity(key.LocalIdentity),
+		remoteIdentity: identity.NumericIdentity(key.RemoteIdentity),
+		remoteNodeID:   key.RemoteNodeID,
+		authType:       policy.AuthType(key.AuthType),
+	}
+
+	if a.markPendingAuth(k) {
+		go func(key authKey) {
+			defer a.clearPendingAuth(key)
+
+			// Check if the auth is actually required, as we might have
+			// updated the authmap since the datapath issued the auth
+			// required signal.
+			if i, err := a.authmap.Get(key); err == nil && i.expiration.After(time.Now()) {
+				log.Debugf("auth: Already authenticated, skipped authentication for key %v", key)
+				return
 			}
 
-			if a.markPendingAuth(k) {
-				go func(key authKey) {
-					defer a.clearPendingAuth(key)
-
-					// Check if the auth is actually required, as we might have
-					// updated the authmap since the datapath issued the auth
-					// required signal.
-					if i, err := a.authmap.Get(key); err == nil && i.expiration.After(time.Now()) {
-						log.Debugf("auth: Already authenticated, skipped authentication for key %v", key)
-						return
-					}
-
-					if err := a.authenticate(key); err != nil {
-						log.WithError(err).Warningf("auth: Failed to authenticate request for key %v", key)
-					}
-				}(k)
+			if err := a.authenticate(key); err != nil {
+				log.WithError(err).Warningf("auth: Failed to authenticate request for key %v", key)
 			}
-		}
-	}()
+		}(k)
+	}
+
+	return nil
 }
 
 // markPendingAuth checks if there is a pending authentication for the given key.
