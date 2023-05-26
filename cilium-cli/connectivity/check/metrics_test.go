@@ -122,7 +122,7 @@ func TestMetricsIncrease(t *testing.T) {
 
 	for name, tc := range tt {
 		t.Run(name, func(t *testing.T) {
-			err := metricsIncrease(tc.before, tc.after)
+			err := metricsIncrease(&tc.before, &tc.after)
 			if tc.err {
 				assert.Error(t, err)
 			} else {

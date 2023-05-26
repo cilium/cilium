@@ -112,7 +112,7 @@ func parseMetrics(reader io.Reader) (promMetricsFamily, error) {
 }
 
 // metricsIncrease verifies for all the metrics that the values increased.
-func metricsIncrease(mf1, mf2 dto.MetricFamily) error {
+func metricsIncrease(mf1, mf2 *dto.MetricFamily) error {
 	metrics1 := mf1.GetMetric()
 	metrics2 := mf2.GetMetric()
 
