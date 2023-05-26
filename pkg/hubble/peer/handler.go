@@ -41,6 +41,10 @@ func newHandler(withoutTLSInfo bool, addressPref serviceoption.AddressFamilyPref
 // notified of nodes updates by the daemon's node manager.
 var _ datapath.NodeHandler = (*handler)(nil)
 
+func (h *handler) Name() string {
+	return "hubble-peer-handler"
+}
+
 // NodeAdd implements datapath.NodeHandler.NodeAdd.
 func (h *handler) NodeAdd(n types.Node) error {
 	cn := h.newChangeNotification(n, peerpb.ChangeNotificationType_PEER_ADDED)

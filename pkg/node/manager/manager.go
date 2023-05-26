@@ -5,12 +5,15 @@ package manager
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/cilium/workerpool"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -18,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
@@ -135,6 +139,9 @@ type manager struct {
 	// controllerManager manages the controllers that are launched within the
 	// Manager.
 	controllerManager *controller.Manager
+
+	// healthReporter reports on the current health status of the node manager module.
+	healthReporter cell.StatusReporter
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -170,7 +177,7 @@ func (m *manager) Iter(f func(nh datapath.NodeHandler)) {
 }
 
 // New returns a new node manager
-func New(name string, c Configuration, ipCache IPCache) (*manager, error) {
+func New(name string, c Configuration, ipCache IPCache, healthReporter cell.StatusReporter) (*manager, error) {
 	m := &manager{
 		name:              name,
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
@@ -178,6 +185,7 @@ func New(name string, c Configuration, ipCache IPCache) (*manager, error) {
 		controllerManager: controller.NewManager(),
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
 		ipcache:           ipCache,
+		healthReporter:    healthReporter,
 	}
 
 	m.metricEventsReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -201,12 +209,7 @@ func New(name string, c Configuration, ipCache IPCache) (*manager, error) {
 		Help:      "Number of validation calls to implement the datapath implementation of a node",
 	})
 
-	err := metrics.RegisterList([]prometheus.Collector{m.metricDatapathValidations, m.metricEventsReceived, m.metricNumNodes})
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
+	return m, metrics.RegisterList([]prometheus.Collector{m.metricDatapathValidations, m.metricEventsReceived, m.metricNumNodes})
 }
 
 func (m *manager) Start(hive.HookContext) error {
@@ -292,9 +295,21 @@ func (m *manager) backgroundSync(ctx context.Context) error {
 
 			entry.mutex.Lock()
 			m.mutex.RUnlock()
+			var acc error
+			// Node manager performs all validation task for all registered handlers.
+			// If any of the handlers fails, the node is marked as degraded.
+			handlerNames := []string{}
 			m.Iter(func(nh datapath.NodeHandler) {
-				nh.NodeValidateImplementation(entry.node)
+				if err := nh.NodeValidateImplementation(entry.node); err != nil {
+					acc = multierr.Append(acc, fmt.Errorf("handler %q: %w", entry.node.Name, err))
+				}
+				handlerNames = append(handlerNames, nh.Name())
 			})
+			if acc != nil {
+				m.healthReporter.Degraded("Node datapath sync failed", acc)
+			} else {
+				m.healthReporter.OK(fmt.Sprintf("Node datapath validation succeeded: %s", strings.Join(handlerNames, ", ")))
+			}
 			entry.mutex.Unlock()
 
 			m.metricDatapathValidations.Inc()
@@ -677,7 +692,8 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 // by sending arping periodically.
 func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 	ctx, cancel := context.WithCancel(context.Background())
-	controller.NewManager().UpdateController("neighbor-table-refresh",
+	cmgr := controller.NewManager()
+	cmgr.UpdateController("neighbor-table-refresh",
 		controller.ControllerParams{
 			DoFunc: func(controllerCtx context.Context) error {
 				// Cancel previous goroutines from previous controller run
