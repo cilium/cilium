@@ -71,10 +71,14 @@ const (
 
 	ConnectivityCheckNamespace = "cilium-test"
 
+	// renovate: datasource=docker
 	ConnectivityCheckAlpineCurlImage = "quay.io/cilium/alpine-curl:v1.6.0@sha256:408430f548a8390089b9b83020148b0ef80b0be1beb41a98a8bfe036709c196e"
-	ConnectivityPerformanceImage     = "quay.io/cilium/network-perf:a816f935930cb2b40ba43230643da4d5751a5711@sha256:679d3a370c696f63884da4557a4466f3b5569b4719bb4f86e8aac02fbe390eea"
-	ConnectivityCheckJSONMockImage   = "quay.io/cilium/json-mock:v1.3.5@sha256:d5dfd0044540cbe01ad6a1932cfb1913587f93cac4f145471ca04777f26342a4"
-	ConnectivityDNSTestServerImage   = "docker.io/coredns/coredns:1.10.0@sha256:017727efcfeb7d053af68e51436ce8e65edbc6ca573720afb4f79c8594036955"
+	// renovate: datasource=docker
+	ConnectivityPerformanceImage = "quay.io/cilium/network-perf:a816f935930cb2b40ba43230643da4d5751a5711@sha256:679d3a370c696f63884da4557a4466f3b5569b4719bb4f86e8aac02fbe390eea"
+	// renovate: datasource=docker
+	ConnectivityCheckJSONMockImage = "quay.io/cilium/json-mock:v1.3.5@sha256:d5dfd0044540cbe01ad6a1932cfb1913587f93cac4f145471ca04777f26342a4"
+	// renovate: datasource=docker
+	ConnectivityDNSTestServerImage = "docker.io/coredns/coredns:1.10.0@sha256:017727efcfeb7d053af68e51436ce8e65edbc6ca573720afb4f79c8594036955"
 
 	ConfigMapName = "cilium-config"
 	Version       = "v1.13.2"
