@@ -324,6 +324,7 @@ jobs:
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.eventBufferCapacity=65535 \
             --rollback=false \
             --config monitor-aggregation=none \
             --nodes-without-cilium=kind-worker3 \
@@ -428,8 +429,10 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
             ./cilium-cli connectivity test --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
             ./contrib/scripts/kind-down.sh
 
