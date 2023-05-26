@@ -39,7 +39,6 @@ var Cell = cell.Module(
 	// The manager is the main entry point which gets registered to signal map and receives auth requests.
 	cell.Invoke(newManager),
 	cell.ProvidePrivate(
-		newSignalRegistration,
 		// Null auth handler provides support for auth type "null" - which always succeeds.
 		newMutualAuthHandler,
 		// Always fail auth handler provides support for auth type "always-fail" - which always fails.
@@ -71,18 +70,6 @@ func (r config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("mesh-auth-expired-gc-interval", r.MeshAuthExpiredGCInterval, "Interval in which expired auth entries are attempted to be garbage collected")
 }
 
-func newSignalRegistration(sm signal.SignalManager, config config) (<-chan signalAuthKey, error) {
-	var signalChannel = make(chan signalAuthKey, config.MeshAuthQueueSize)
-
-	// RegisterHandler registers signalChannel with SignalManager, but flow of events
-	// starts later during the OnStart hook of the SignalManager
-	err := sm.RegisterHandler(signal.ChannelHandler(signalChannel), signal.SignalAuthRequired)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set up signal channel for datapath authentication required events: %w", err)
-	}
-	return signalChannel, nil
-}
-
 type authManagerParams struct {
 	cell.In
 
@@ -91,7 +78,7 @@ type authManagerParams struct {
 	IPCache          *ipcache.IPCache
 	AuthHandlers     []authHandler `group:"authHandlers"`
 	AuthMap          authmap.Map
-	SignalChannel    <-chan signalAuthKey
+	SignalManager    signal.SignalManager
 	CiliumIdentities resource.Resource[*ciliumv2.CiliumIdentity]
 	CiliumNodes      resource.Resource[*ciliumv2.CiliumNode]
 	Logger           logrus.FieldLogger
@@ -112,28 +99,39 @@ func newManager(params authManagerParams) error {
 		},
 	})
 
-	mgr, err := newAuthManager(params.SignalChannel, params.AuthHandlers, mapCache, params.IPCache)
-	if err != nil {
-		return fmt.Errorf("failed to create auth manager: %w", err)
-	}
-
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(startCtx hive.HookContext) error {
-			mgr.start()
-			return nil
-		},
-	})
-
-	mapGC := newAuthMapGC(mapCache, params.IPCache)
-
 	jobGroup := params.JobRegistry.NewGroup(
 		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "auth")),
 	)
 
+	mgr, err := newAuthManager(params.AuthHandlers, mapCache, params.IPCache)
+	if err != nil {
+		return fmt.Errorf("failed to create auth manager: %w", err)
+	}
+
+	if err := registerSignalAuthenticationJob(jobGroup, mgr, params.SignalManager, params.Config); err != nil {
+		return fmt.Errorf("failed to register signal authentication job: %w", err)
+	}
+
+	mapGC := newAuthMapGC(mapCache, params.IPCache)
+
 	registerGCJobs(jobGroup, mapGC, params)
 
 	params.Lifecycle.Append(jobGroup)
+
+	return nil
+}
+
+func registerSignalAuthenticationJob(jobGroup job.Group, mgr *authManager, sm signal.SignalManager, config config) error {
+	var signalChannel = make(chan signalAuthKey, config.MeshAuthQueueSize)
+
+	// RegisterHandler registers signalChannel with SignalManager, but flow of events
+	// starts later during the OnStart hook of the SignalManager
+	if err := sm.RegisterHandler(signal.ChannelHandler(signalChannel), signal.SignalAuthRequired); err != nil {
+		return fmt.Errorf("failed to set up signal channel for datapath authentication required events: %w", err)
+	}
+
+	jobGroup.Add(job.Observer("auth request processing", mgr.handleAuthRequest, stream.FromChannel(signalChannel)))
 
 	return nil
 }

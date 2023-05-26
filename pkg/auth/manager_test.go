@@ -21,7 +21,7 @@ func Test_newAuthManager_clashingAuthHandlers(t *testing.T) {
 		&alwaysFailAuthHandler{},
 	}
 
-	am, err := newAuthManager(nil, authHandlers, nil, nil)
+	am, err := newAuthManager(authHandlers, nil, nil)
 	assert.ErrorContains(t, err, "multiple handlers for auth type: test-always-fail")
 	assert.Nil(t, am)
 }
@@ -32,7 +32,7 @@ func Test_newAuthManager(t *testing.T) {
 		&fakeAuthHandler{},
 	}
 
-	am, err := newAuthManager(make(<-chan signalAuthKey, 100), authHandlers, nil, nil)
+	am, err := newAuthManager(authHandlers, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
@@ -87,7 +87,6 @@ func Test_authManager_authenticate(t *testing.T) {
 				entries: map[authKey]authInfo{},
 			}
 			am, err := newAuthManager(
-				make(<-chan signalAuthKey, 100),
 				[]authHandler{&alwaysFailAuthHandler{}, &alwaysPassAuthHandler{}},
 				authMap,
 				newFakeIPCache(map[uint16]string{
