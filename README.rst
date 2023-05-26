@@ -42,9 +42,9 @@ Listed below are the actively maintained release branches along with their lates
 patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-04-17 | ``quay.io/cilium/cilium:v1.13.2``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.2>`__  |
+| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-05-17 | ``quay.io/cilium/cilium:v1.13.3``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.3>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-04-18 | ``quay.io/cilium/cilium:v1.12.9``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.9>`__  |
+| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-05-17 | ``quay.io/cilium/cilium:v1.12.10`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.10>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 | `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-05-15 | ``quay.io/cilium/cilium:v1.11.17`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.17>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
