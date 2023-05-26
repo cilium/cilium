@@ -47,6 +47,10 @@ const (
 	DefaultCNIConfigMapName                  = "cni-configuration"
 	DefaultTetragonNamespace                 = "kube-system"
 	DefaultTetragonLabelSelector             = "app.kubernetes.io/name=tetragon"
+	DefaultTetragonAgentContainerName        = "tetragon"
+	DefaultTetragonBugtoolPrefix             = "tetragon-bugtool"
+	DefaultTetragonCLICommand                = "tetra"
+	DefaultTetragonTracingPolicy             = "tetragontracingpolicy-<ts>.yaml"
 )
 
 var (
