@@ -30,6 +30,7 @@
     "enabled": true
   },
   "labels": [
+    "renovate/stop-updating",
     "kind/enhancement",
     "priority/release-blocker"
   ],
