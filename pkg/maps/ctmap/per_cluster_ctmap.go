@@ -85,8 +85,7 @@ type dummyPerClusterCTMaps struct {
 // should retire this entire file.
 type PerClusterCTMap struct {
 	*bpf.Map
-	m             mapType
-	innerMapCache map[uint32]*Map
+	m mapType
 }
 
 // +k8s:deepcopy-gen=true
@@ -506,9 +505,8 @@ func newPerClusterCTMap(name string, m mapType) (*PerClusterCTMap, error) {
 	}
 
 	return &PerClusterCTMap{
-		Map:           om,
-		m:             m,
-		innerMapCache: make(map[uint32]*Map),
+		Map: om,
+		m:   m,
 	}, nil
 }
 
