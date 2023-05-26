@@ -75,7 +75,7 @@ func TestParseContextOptions(t *testing.T) {
 	// All of the labelsContext options should work
 	opts, err = ParseContextOptions(Options{"labelsContext": strings.Join(contextLabelsList, ",")})
 	assert.NoError(t, err)
-	assert.EqualValues(t, "labels=source_ip,source_pod,source_namespace,source_workload,source_app,destination_ip,destination_pod,destination_namespace,destination_workload,destination_app,traffic_direction", opts.Status())
+	assert.EqualValues(t, "labels=source_ip,source_pod,source_namespace,source_workload,source_workload_kind,source_app,destination_ip,destination_pod,destination_namespace,destination_workload,destination_workload_kind,destination_app,traffic_direction", opts.Status())
 	assert.EqualValues(t, contextLabelsList, opts.GetLabelNames())
 
 	opts, err = ParseContextOptions(Options{"labelsContext": "non_existent_label"})
@@ -233,7 +233,7 @@ func TestParseGetLabelValues(t *testing.T) {
 		PodName:   "bar-deploy-pod",
 		Workloads: []*pb.Workload{{
 			Name: "bar-deploy",
-			Kind: "Deployment",
+			Kind: "StatefulSet",
 		}},
 		Labels: []string{
 			"k8s:app=barapp",
@@ -251,10 +251,10 @@ func TestParseGetLabelValues(t *testing.T) {
 	assert.EqualValues(t,
 		mustGetLabelValues(opts, flow),
 		[]string{
-			// source_ip, source_pod, source_namespace, source_workload, source_app
-			"1.2.3.4", "foo-deploy-pod", "foo-ns", "foo-deploy", "fooapp",
-			// destination_ip, destination_pod, destination_namespace, destination_workload, destination_app
-			"5.6.7.8", "bar-deploy-pod", "bar-ns", "bar-deploy", "barapp",
+			// source_ip, source_pod, source_namespace, source_workload, source_workload_kind , source_app
+			"1.2.3.4", "foo-deploy-pod", "foo-ns", "foo-deploy", "Deployment", "fooapp",
+			// destination_ip, destination_pod, destination_namespace, destination_workload, destination_workload_kind, destination_app
+			"5.6.7.8", "bar-deploy-pod", "bar-ns", "bar-deploy", "StatefulSet", "barapp",
 			// traffic_direction
 			"ingress",
 		},
@@ -265,8 +265,8 @@ func TestParseGetLabelValues(t *testing.T) {
 	assert.EqualValues(t,
 		mustGetLabelValues(opts, &pb.Flow{}),
 		[]string{
-			"", "", "", "", "",
-			"", "", "", "", "",
+			"", "", "", "", "", "",
+			"", "", "", "", "", "",
 			"unknown",
 		},
 	)
