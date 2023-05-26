@@ -624,45 +624,15 @@ func (h *fsmHandler) active(ctx context.Context) (bgp.FSMState, *fsmStateReason)
 			fsm.lock.Lock()
 			fsm.conn = conn
 			fsm.lock.Unlock()
-			ttl := 0
-			ttlMin := 0
 
 			fsm.lock.RLock()
-			if fsm.pConf.TtlSecurity.Config.Enabled {
-				ttl = 255
-				ttlMin = int(fsm.pConf.TtlSecurity.Config.TtlMin)
-			} else if fsm.pConf.Config.PeerAs != 0 && fsm.pConf.Config.PeerType == config.PEER_TYPE_EXTERNAL {
-				if fsm.pConf.EbgpMultihop.Config.Enabled {
-					ttl = int(fsm.pConf.EbgpMultihop.Config.MultihopTtl)
-				} else if fsm.pConf.Transport.Config.Ttl != 0 {
-					ttl = int(fsm.pConf.Transport.Config.Ttl)
-				} else {
-					ttl = 1
-				}
-			} else if fsm.pConf.Transport.Config.Ttl != 0 {
-				ttl = int(fsm.pConf.Transport.Config.Ttl)
-			}
-			if ttl != 0 {
-				if err := setTCPTTLSockopt(conn.(*net.TCPConn), ttl); err != nil {
-					fsm.logger.Warn("cannot set TTL for peer",
-						log.Fields{
-							"Topic": "Peer",
-							"Key":   fsm.pConf.Config.NeighborAddress,
-							"State": fsm.state.String(),
-							"Ttl":   ttl,
-							"Error": err})
-				}
-			}
-			if ttlMin != 0 {
-				if err := setTCPMinTTLSockopt(conn.(*net.TCPConn), ttlMin); err != nil {
-					fsm.logger.Warn("cannot set minimal TTL for peer",
-						log.Fields{
-							"Topic": "Peer",
-							"Key":   fsm.pConf.Config.NeighborAddress,
-							"State": fsm.state.String(),
-							"Ttl":   ttl,
-							"Error": err})
-				}
+			if err := setPeerConnTTL(fsm); err != nil {
+				fsm.logger.Warn("cannot set TTL for peer",
+					log.Fields{
+						"Topic": "Peer",
+						"Key":   fsm.pConf.Config.NeighborAddress,
+						"State": fsm.state.String(),
+						"Error": err})
 			}
 			fsm.lock.RUnlock()
 			// we don't implement delayed open timer so move to opensent right
@@ -701,6 +671,38 @@ func (h *fsmHandler) active(ctx context.Context) (bgp.FSMState, *fsmStateReason)
 			}
 		}
 	}
+}
+
+func setPeerConnTTL(fsm *fsm) error {
+	ttl := 0
+	ttlMin := 0
+
+	if fsm.pConf.TtlSecurity.Config.Enabled {
+		ttl = 255
+		ttlMin = int(fsm.pConf.TtlSecurity.Config.TtlMin)
+	} else if fsm.pConf.Config.PeerAs != 0 && fsm.pConf.Config.PeerType == config.PEER_TYPE_EXTERNAL {
+		if fsm.pConf.EbgpMultihop.Config.Enabled {
+			ttl = int(fsm.pConf.EbgpMultihop.Config.MultihopTtl)
+		} else if fsm.pConf.Transport.Config.Ttl != 0 {
+			ttl = int(fsm.pConf.Transport.Config.Ttl)
+		} else {
+			ttl = 1
+		}
+	} else if fsm.pConf.Transport.Config.Ttl != 0 {
+		ttl = int(fsm.pConf.Transport.Config.Ttl)
+	}
+
+	if ttl != 0 {
+		if err := setTCPTTLSockopt(fsm.conn.(*net.TCPConn), ttl); err != nil {
+			return fmt.Errorf("failed to set TTL %d: %w", ttl, err)
+		}
+	}
+	if ttlMin != 0 {
+		if err := setTCPMinTTLSockopt(fsm.conn.(*net.TCPConn), ttlMin); err != nil {
+			return fmt.Errorf("failed to set minimal TTL %d: %w", ttlMin, err)
+		}
+	}
+	return nil
 }
 
 func capAddPathFromConfig(pConf *config.Neighbor) bgp.ParameterCapabilityInterface {

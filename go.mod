@@ -64,7 +64,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.6
-	github.com/osrg/gobgp/v3 v3.14.0
+	github.com/osrg/gobgp/v3 v3.15.1-0.20230605074248-03982e597eac
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/client_model v0.4.0

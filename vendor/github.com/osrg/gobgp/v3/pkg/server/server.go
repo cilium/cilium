@@ -3246,14 +3246,16 @@ func (s *BgpServer) UpdatePeerGroup(ctx context.Context, r *api.UpdatePeerGroupR
 }
 
 func (s *BgpServer) updateNeighbor(c *config.Neighbor) (needsSoftResetIn bool, err error) {
+	var pgConf *config.PeerGroup
 	if c.Config.PeerGroup != "" {
 		if pg, ok := s.peerGroupMap[c.Config.PeerGroup]; ok {
-			if err := config.SetDefaultNeighborConfigValues(c, pg.Conf, &s.bgpConfig.Global); err != nil {
-				return needsSoftResetIn, err
-			}
+			pgConf = pg.Conf
 		} else {
 			return needsSoftResetIn, fmt.Errorf("no such peer-group: %s", c.Config.PeerGroup)
 		}
+	}
+	if err := config.SetDefaultNeighborConfigValues(c, pgConf, &s.bgpConfig.Global); err != nil {
+		return needsSoftResetIn, err
 	}
 
 	addr, err := c.ExtractNeighborAddress()
@@ -3340,7 +3342,32 @@ func (s *BgpServer) updateNeighbor(c *config.Neighbor) (needsSoftResetIn bool, e
 				"Err":   err})
 		// rollback to original state
 		peer.fsm.pConf = original
+		return needsSoftResetIn, err
 	}
+
+	setTTL := false
+	if !original.EbgpMultihop.Config.Equal(&c.EbgpMultihop.Config) {
+		peer.fsm.pConf.EbgpMultihop.Config = c.EbgpMultihop.Config
+		setTTL = true
+	}
+	if !original.TtlSecurity.Config.Equal(&c.TtlSecurity.Config) {
+		peer.fsm.pConf.TtlSecurity.Config = c.TtlSecurity.Config
+		setTTL = true
+	}
+	if setTTL && peer.fsm.conn != nil {
+		if err := setPeerConnTTL(peer.fsm); err != nil {
+			s.logger.Error("failed to set peer connection TTL",
+				log.Fields{
+					"Topic": "Peer",
+					"Key":   addr,
+					"Err":   err})
+			// rollback to original state
+			peer.fsm.pConf = original
+			setPeerConnTTL(peer.fsm)
+			return needsSoftResetIn, err
+		}
+	}
+
 	return needsSoftResetIn, err
 }
 

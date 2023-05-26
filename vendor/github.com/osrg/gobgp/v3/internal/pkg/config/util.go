@@ -554,6 +554,8 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 			NotificationEnabled: pconf.GracefulRestart.Config.NotificationEnabled,
 			LonglivedEnabled:    pconf.GracefulRestart.Config.LongLivedEnabled,
 			LocalRestarting:     pconf.GracefulRestart.State.LocalRestarting,
+			PeerRestartTime:     uint32(pconf.GracefulRestart.State.PeerRestartTime),
+			PeerRestarting:      pconf.GracefulRestart.State.PeerRestarting,
 		},
 		Transport: &api.Transport{
 			RemotePort:    uint32(pconf.Transport.Config.RemotePort),
