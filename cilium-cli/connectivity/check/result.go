@@ -179,7 +179,7 @@ func assertMetricsIncrease(metrics ...string) assertMetricsFunc {
 
 			// Additional check needed because previously we do not return in case of error, otherwise we will panic!
 			if bValue != nil && aValue != nil {
-				errM := metricsIncrease(*bValue, *aValue)
+				errM := metricsIncrease(bValue, aValue)
 				if errM != nil {
 					err = errors.Join(err, errM)
 				}
