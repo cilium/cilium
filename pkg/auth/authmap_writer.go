@@ -4,7 +4,10 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
+
+	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/identity"
@@ -73,6 +76,26 @@ func (r *authMapWriter) Delete(key authKey) error {
 		AuthType:       key.authType.Uint8(),
 	}); err != nil {
 		return fmt.Errorf("failed to delete entry from auth map: %w", err)
+	}
+
+	return nil
+}
+
+func (r *authMapWriter) DeleteIf(predicate func(key authKey, info authInfo) bool) error {
+	all, err := r.All()
+	if err != nil {
+		return fmt.Errorf("failed to get all entries: %w", err)
+	}
+	for k, v := range all {
+		if predicate(k, v) {
+			if err := r.Delete(k); err != nil {
+				if errors.Is(err, ebpf.ErrKeyNotExist) {
+					log.Debugf("auth: failed to delete auth entry with key %s: entry already deleted", k)
+					continue
+				}
+				return fmt.Errorf("failed to delete auth entry from map: %w", err)
+			}
+		}
 	}
 
 	return nil

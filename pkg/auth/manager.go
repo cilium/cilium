@@ -5,6 +5,7 @@ package auth
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/cilium/cilium/pkg/auth/certs"
@@ -35,6 +36,7 @@ type authManager struct {
 // ipCache is the set of interactions the auth manager performs with the IPCache
 type ipCache interface {
 	GetNodeIP(uint16) string
+	AllocateNodeID(net.IP) uint16
 }
 
 // authHandler is responsible to handle authentication for a specific auth type
