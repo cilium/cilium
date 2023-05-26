@@ -423,6 +423,11 @@ func getHealthzHandler(d *Daemon, params GetHealthzParams) middleware.Responder 
 	return NewGetHealthzOK().WithPayload(&sr)
 }
 
+func getHealthHandler(d *Daemon, params GetHealthParams) middleware.Responder {
+	sr := d.getHealthReport()
+	return NewGetHealthOK().WithPayload(&sr)
+}
+
 func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	clusterStatus := models.ClusterStatus{
 		Self: nodeTypes.GetAbsoluteNodeName(),

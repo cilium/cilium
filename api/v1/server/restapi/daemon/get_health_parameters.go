@@ -34,7 +34,7 @@ type GetHealthParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
-	/*Brief will return a brief representation of the Cilium status.
+	/*Brief is a brief representation of the Cilium status.
 
 	  In: header
 	*/
