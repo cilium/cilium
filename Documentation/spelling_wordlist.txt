@@ -280,6 +280,7 @@ cidrs
 ciliumAgent
 ciliumNodeUpdateRate
 ciliumOperator
+ciliumcon
 ciliumnode
 classful
 classid
@@ -340,6 +341,7 @@ crypto
 cryptographic
 ctAnyMax
 ctTcpMax
+ctf
 curl
 customCalls
 customConf
@@ -1039,6 +1041,7 @@ terminatingTLS
 terminationGracePeriodSeconds
 terminationGracePeriods
 testsuite
+tetragon
 th
 thunderx
 tiefighter

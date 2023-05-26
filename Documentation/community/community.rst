@@ -41,6 +41,8 @@ Name                 Purpose
 #kubernetes          Kubernetes-specific questions
 #networkpolicy       Questions on network policies
 #release             Release announcements only
+#service-mesh        Questions on Cilium Service Mesh
+#tetragon            Questions on Tetragon
 ==================== ==========================================================
 
 You can join the following channels if you are looking to contribute to
@@ -72,6 +74,27 @@ Name                 Purpose
 .. _eBPF Go library: https://github.com/cilium/ebpf
 .. _eCHO News: https://cilium.io/newsletter/
 
+Our Slack hosts channels for eBPF and Cilium-related events online and in
+person.
+
+==================== ==========================================================
+Name                 Purpose
+==================== ==========================================================
+#ciliumcon           CiliumCon
+#ctf                 Cilium and eBPF capture-the-flag challenges
+#ebpf-summit         eBPF Summit
+==================== ==========================================================
+
+How to create a Slack channel
+-----------------------------
+
+1. Open a new `GitHub issue in the cilium/community repo <https://github.com/cilium/community/issues>`_
+2. Specify the title "Slack: <Name>"
+3. Provide a description
+4. Find two Cilium committers to comment in the issue that they approve the
+   creation of the Slack channel
+5. Not all Slack channels need to be listed on this page, but you can submit a
+   PR if you would like to include it here. 
 
 Special Interest Groups
 =======================
@@ -97,9 +120,10 @@ Release Management     None                                  #launchpad    Relea
 How to create a SIG
 -------------------
 
-1. Open a new `GitHub issue <https://github.com/cilium/cilium/issues>`_
+1. Open a new `GitHub issue in the cilium/cilium repo <https://github.com/cilium/cilium/issues>`_
 2. Specify the title "SIG-Request: <Name>"
 3. Provide a description
 4. Find two Cilium committers to support the SIG.
 5. Ask on #development to get the Slack channel and Zoom meeting created
 6. Submit a PR to update the documentation to get your new SIG listed
+
