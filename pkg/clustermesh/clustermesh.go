@@ -66,7 +66,7 @@ type Configuration struct {
 	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc `optional:"true"`
 }
 
-func SetClusterConfig(clusterName string, config *cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
+func SetClusterConfig(ctx context.Context, clusterName string, config *cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
 	key := path.Join(kvstore.ClusterConfigPrefix, clusterName)
 
 	val, err := json.Marshal(config)
@@ -74,7 +74,7 @@ func SetClusterConfig(clusterName string, config *cmtypes.CiliumClusterConfig, b
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
 	_, err = backend.UpdateIfDifferent(ctx, key, val, true)
@@ -85,10 +85,10 @@ func SetClusterConfig(clusterName string, config *cmtypes.CiliumClusterConfig, b
 	return nil
 }
 
-func GetClusterConfig(clusterName string, backend kvstore.BackendOperations) (*cmtypes.CiliumClusterConfig, error) {
+func GetClusterConfig(ctx context.Context, clusterName string, backend kvstore.BackendOperations) (*cmtypes.CiliumClusterConfig, error) {
 	var config cmtypes.CiliumClusterConfig
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
 	val, err := backend.Get(ctx, path.Join(kvstore.ClusterConfigPrefix, clusterName))

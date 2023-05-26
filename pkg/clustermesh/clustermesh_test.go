@@ -94,8 +94,11 @@ func (o *testObserver) OnDelete(k store.NamedKey) {
 }
 
 func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	kvstore.SetupDummy("etcd")
-	defer kvstore.Client().Close(context.TODO())
+	defer kvstore.Client().Close(ctx)
 
 	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
@@ -118,7 +121,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 			ID: uint32(i),
 		}
 
-		err = SetClusterConfig(name, &config, kvstore.Client())
+		err = SetClusterConfig(ctx, name, &config, kvstore.Client())
 		c.Assert(err, IsNil)
 	}
 
@@ -134,8 +137,6 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	err = os.WriteFile(config3, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 	})
@@ -163,7 +164,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	for _, rc := range cm.clusters {
 		rc.mutex.RLock()
 		for _, name := range nodeNames {
-			err = rc.remoteNodes.UpdateLocalKeySync(context.TODO(), &testNode{Name: name, Cluster: rc.name})
+			err = rc.remoteNodes.UpdateLocalKeySync(ctx, &testNode{Name: name, Cluster: rc.name})
 			c.Assert(err, IsNil)
 		}
 		rc.mutex.RUnlock()

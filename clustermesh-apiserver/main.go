@@ -584,7 +584,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 		ID: cfg.clusterID,
 	}
 
-	if err := clustermesh.SetClusterConfig(cfg.clusterName, &config, kvstore.Client()); err != nil {
+	if err := clustermesh.SetClusterConfig(context.Background(), cfg.clusterName, &config, kvstore.Client()); err != nil {
 		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}
 
