@@ -299,7 +299,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 
 	pubKey, err := wgtypes.ParseKey(pubKeyHex)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse public key: %w", err)
 	}
 
 	if prevNodeName, ok := a.nodeNameByPubKey[pubKey]; ok {

@@ -446,6 +446,10 @@ type clusterNodesClient struct {
 	*models.ClusterNodeStatus
 }
 
+func (c *clusterNodesClient) Name() string {
+	return "cluster-nodes-cient"
+}
+
 func (c *clusterNodesClient) NodeAdd(newNode nodeTypes.Node) error {
 	c.Lock()
 	c.NodesAdded = append(c.NodesAdded, newNode.GetModel())

@@ -196,8 +196,9 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 
 	// It doesn't exist so let's attempt to add it.
 	firstAttemptErr := netlink.XfrmStateAdd(new)
+	fmt.Println("[tom-debug] (xfrm) new =", new)
 	if !os.IsExist(firstAttemptErr) {
-		return firstAttemptErr
+		return fmt.Errorf("xfrm state add (first attempt): %w", firstAttemptErr)
 	}
 	log.WithFields(logrus.Fields{
 		logfields.SPI:           new.Spi,
@@ -209,15 +210,19 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 	// existing one first.
 	deletedSomething, err := xfrmDeleteConflictingState(states, new)
 	if err != nil {
-		return err
+		return fmt.Errorf("delete conflicting state: %w", err)
 	}
 
 	// If no conflicting state was found and deleted, there's no point in
 	// attempting to add again.
 	if !deletedSomething {
+
 		return firstAttemptErr
 	}
-	return netlink.XfrmStateAdd(new)
+	if err := netlink.XfrmStateAdd(new); err != nil {
+		return fmt.Errorf("xfrm state add (second attempt): %w", err)
+	}
+	return nil
 }
 
 // Attempt to remove any XFRM state that conflicts with the state we just tried
@@ -617,28 +622,29 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 	if !outerLocal.Equal(outerRemote) {
 		if dir == IPSecDirIn || dir == IPSecDirBoth {
 			if spi, err = ipSecReplaceStateIn(outerLocal, outerRemote, outputMark); err != nil {
-				return 0, fmt.Errorf("unable to replace local state: %s", err)
+				return 0, fmt.Errorf("unable to replace local state: %w", err)
 			}
 			if err = ipSecReplacePolicyIn(remote, local, outerRemote, outerLocal); err != nil {
 				if !os.IsExist(err) {
-					return 0, fmt.Errorf("unable to replace policy in: %s", err)
+					return 0, fmt.Errorf("unable to replace policy in: %w", err)
 				}
 			}
 			if err = IpSecReplacePolicyFwd(local, outerLocal); err != nil {
 				if !os.IsExist(err) {
-					return 0, fmt.Errorf("unable to replace policy fwd: %s", err)
+					return 0, fmt.Errorf("unable to replace policy fwd: %w", err)
 				}
 			}
 		}
 
 		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
+			// @tom ---->
 			if spi, err = ipSecReplaceStateOut(outerLocal, outerRemote, remoteNodeID); err != nil {
-				return 0, fmt.Errorf("unable to replace remote state: %s", err)
+				return 0, fmt.Errorf("unable to replace remote state: %w", err)
 			}
 
 			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, remoteNodeID, dir); err != nil {
 				if !os.IsExist(err) {
-					return 0, fmt.Errorf("unable to replace policy out: %s", err)
+					return 0, fmt.Errorf("unable to replace policy out: %w", err)
 				}
 			}
 		}

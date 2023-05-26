@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"sync"
 	"time"
 
 	. "github.com/cilium/checkmate"
@@ -35,7 +36,7 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.New("", &fakeConfig.Config{}, nil)
+	nm, err = manager.New("", &fakeConfig.Config{}, nil, &testHealthReporter{})
 	c.Assert(err, IsNil)
 }
 
@@ -419,4 +420,28 @@ func (g *GetNodesSuite) Test_cleanupClients(c *C) {
 		h.cleanupClients()
 		c.Assert(h.clients, checker.DeepEquals, want.clients)
 	}
+}
+
+type testHealthReporter struct {
+	sync.Mutex
+	stopped bool
+	ok      bool
+}
+
+func (t *testHealthReporter) OK(string) {
+	t.Lock()
+	defer t.Unlock()
+	t.ok = true
+}
+
+func (t *testHealthReporter) Degraded(string) {
+	t.Lock()
+	defer t.Unlock()
+	t.ok = false
+}
+
+func (t *testHealthReporter) Stopped(string) {
+	t.Lock()
+	defer t.Unlock()
+	t.stopped = true
 }
