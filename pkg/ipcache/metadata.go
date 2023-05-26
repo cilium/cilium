@@ -286,6 +286,10 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 	// Don't hold lock while calling UpdateIdentities, as it will otherwise run into a deadlock
 	ipc.metadata.RUnlock()
 
+	if err != nil {
+		return remainingPrefixes, err
+	}
+
 	// Recalculate policy first before upserting into the ipcache.
 	if len(idsToAdd) > 0 {
 		ipc.UpdatePolicyMaps(ctx, idsToAdd, idsToDelete)
