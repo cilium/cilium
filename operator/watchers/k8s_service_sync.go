@@ -130,8 +130,8 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 			cfg.Backend = kvstore.Client()
 		}
 
-		store := store.NewWorkqueueSyncStore(cfg.Backend, serviceStore.ServiceStorePrefix,
-			store.WSSWithSourceClusterName(cfg.LocalClusterName()))
+		store := store.NewWorkqueueSyncStore(cfg.LocalClusterName(),
+			cfg.Backend, serviceStore.ServiceStorePrefix)
 		kvs = store
 		close(kvstoreReady)
 		store.Run(ctx)
