@@ -56,6 +56,9 @@ func (s *ClusterMeshServicesTestSuite) SetUpSuite(c *C) {
 }
 
 func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	kvstore.SetupDummy("etcd")
 
 	s.randomName = rand.RandomString()
@@ -77,7 +80,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		config := cmtypes.CiliumClusterConfig{
 			ID: uint32(i),
 		}
-		err := SetClusterConfig(cluster, &config, kvstore.Client())
+		err := SetClusterConfig(ctx, cluster, &config, kvstore.Client())
 		c.Assert(err, IsNil)
 	}
 
@@ -89,8 +92,6 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	err = os.WriteFile(config2, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 	})

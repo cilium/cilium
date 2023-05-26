@@ -306,7 +306,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 	rc.controllers.UpdateController(ctrlname, controller.ControllerParams{
 		DoFunc: func(ctx context.Context) error {
 			rc.getLogger().Debug("Retrieving cluster configuration from remote kvstore")
-			config, err := GetClusterConfig(rc.name, backend)
+			config, err := GetClusterConfig(ctx, rc.name, backend)
 			if err != nil {
 				return err
 			}
