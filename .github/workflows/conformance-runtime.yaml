@@ -108,7 +108,7 @@ jobs:
 
       - name: Install Go
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.20.4
@@ -232,7 +232,7 @@ jobs:
           sudo kvm-ok
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
         with:
           test-name: runtime-tests
           image-version: bpf-next-20230526.100931@sha256:859602be3f66a359d9d20f23505b7df5c46d21f174b336a5bc4dd4f9ea558b54
@@ -257,7 +257,7 @@ jobs:
 
       - name: Setup runtime
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
         with:
           provision: 'false'
           cmd: |
@@ -311,7 +311,7 @@ jobs:
       - name: Runtime privileged tests [junit]
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 20
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
         with:
           provision: 'false'
           cmd: |
