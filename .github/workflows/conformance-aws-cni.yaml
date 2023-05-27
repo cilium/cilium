@@ -165,6 +165,7 @@ jobs:
             --helm-set=clustermesh.apiserver.image.tag=${SHA} \
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.enabled=true \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=enableIPv4Masquerade=false \
             --helm-set=cni.chainingMode=aws-cni \
@@ -172,18 +173,13 @@ jobs:
             --helm-set=ipam.mode=cluster-pool \
             --helm-set=routingMode=native \
             --helm-set=bandwidthManager.enabled=false \
-            --wait=false \
-            --rollback=false \
-            --config monitor-aggregation=none \
-            --version="
-          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
-            --relay-version=${SHA}"
+            --helm-set=bpf.monitorAggregation=none \
+            --wait=false"
+
           # L7 policies are not supported in chaining mode.
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --test '!fqdn,!l7' --external-target amazon.com --external-ip 1.0.0.1 --external-other-ip 1.1.1.1"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
-          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
@@ -253,15 +249,12 @@ jobs:
 
       - name: Install Cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
-      - name: Enable Relay
-        run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
-
-      - name: Wait for Cilium status to be ready
+      - name: Wait for Cilium to be ready
         run: |
           cilium status --wait
+          kubectl get pods -n kube-system
 
       - name: Port forward Relay
         run: |

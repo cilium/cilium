@@ -166,10 +166,9 @@ jobs:
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=bpf.monitorAggregation=none \
-            --wait=false \
-            --rollback=false \
             --kube-proxy-replacement=strict \
-            --version="
+            --wait=false"
+
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
@@ -275,7 +274,12 @@ jobs:
 
       - name: Install Cilium in cluster
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium to be ready
+        run: |
+          cilium status --wait
+          kubectl get pods -n kube-system
 
       - name: Enable cluster mesh
         run: |

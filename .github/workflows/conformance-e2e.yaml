@@ -341,10 +341,10 @@ jobs:
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=hubble.eventBufferCapacity=65535 \
-            --rollback=false \
-            --config monitor-aggregation=none \
+            --helm-set=bpf.monitorAggregation=none \
             --nodes-without-cilium=kind-worker3 \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
+
           TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
@@ -434,7 +434,7 @@ jobs:
           cmd: |
             cd /host/
             ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
-            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+            CILIUM_CLI_MODE=helm ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
             kubectl -n kube-system exec daemonset/cilium -- cilium status

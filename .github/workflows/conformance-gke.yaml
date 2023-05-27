@@ -225,10 +225,9 @@ jobs:
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
-            --wait=false \
-            --rollback=false \
-            --config monitor-aggregation=none \
-            --version="
+            --helm-set=bpf.monitorAggregation=none \
+            --wait=false"
+
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
@@ -308,7 +307,12 @@ jobs:
 
       - name: Install Cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.cilium-install-opts }}
+          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.cilium-install-opts }}
+
+      - name: Wait for Cilium to be ready
+        run: |
+          cilium status --wait
+          kubectl get pods -n kube-system
 
       - name: Enable Relay
         run: |

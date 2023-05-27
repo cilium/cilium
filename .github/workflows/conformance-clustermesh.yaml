@@ -271,9 +271,7 @@ jobs:
           --helm-set=operator.image.tag=${SHA} \
           --helm-set=operator.image.useDigest=false \
           --helm-set=bpf.masquerade=false \
-          --config monitor-aggregation=none \
-          --rollback=false \
-          --version="
+          --helm-set=bpf.monitorAggregation=none"
 
         CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
         if [ "${{ matrix.tunnel }}" == "disabled" ]; then
@@ -423,11 +421,16 @@ jobs:
       run: |
         # Using the deprecated flag --cluster-name due to cilium/cilium-cli#1347
         # --helm-set cluster.name ${{ env.clusterName1 }}
-        cilium --context ${{ env.contextName1 }} install \
+        CILIUM_CLI_MODE=helm cilium --context ${{ env.contextName1 }} install \
           ${{ steps.vars.outputs.cilium_install_defaults }} \
           --encryption ${{ matrix.encryption }} \
           --cluster-name ${{ env.clusterName1 }} \
           --helm-set cluster.id=1
+
+    - name: Wait for Cilium to be ready
+      run: |
+        cilium status --wait
+        kubectl get pods -n kube-system
 
     - name: Copy the IPsec secret to cluster2, as they must match
       if: matrix.encryption == 'ipsec'
@@ -439,12 +442,17 @@ jobs:
       run: |
         # Using the deprecated form --cluster-name due to cilium/cilium-cli#1347
         # --helm-set cluster.name ${{ env.clusterName2 }}
-        cilium --context ${{ env.contextName2 }} install \
+        CILIUM_CLI_MODE=helm cilium --context ${{ env.contextName2 }} install \
           ${{ steps.vars.outputs.cilium_install_defaults }} \
           --encryption ${{ matrix.encryption }} \
           --cluster-name ${{ env.clusterName2 }} \
           --helm-set cluster.id=255 \
           --inherit-ca ${{ env.contextName1 }}
+
+    - name: Wait for Cilium to be ready
+      run: |
+        cilium status --wait
+        kubectl get pods -n kube-system
 
     - name: Enable Hubble
       run: |
