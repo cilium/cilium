@@ -623,13 +623,15 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	}
 
 	if legacy.clientset.IsEnabled() {
-		if operatorOption.Config.EndpointGCInterval != 0 {
-			enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, false)
-		} else {
-			// Even if the EndpointGC is disabled we still want it to run at least
-			// once. This is to prevent leftover CEPs from populating ipcache with
-			// stale entries.
-			enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, true)
+		if !option.Config.EnableCiliumEndpointSlice {
+			if operatorOption.Config.EndpointGCInterval != 0 {
+				enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, false)
+			} else {
+				// Even if the EndpointGC is disabled we still want it to run at least
+				// once. This is to prevent leftover CEPs from populating ipcache with
+				// stale entries.
+				enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, true)
+			}
 		}
 
 		err = enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
