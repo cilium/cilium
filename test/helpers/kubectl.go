@@ -121,6 +121,10 @@ var (
 		"ipv6NativeRoutingCIDR":  IPv6NativeRoutingCIDR,
 
 		"ipam.operator.clusterPoolIPv6PodCIDRList": "fd02::/112",
+
+		// Disable mTLS features till we have a proper test setup
+		"auth.mTLS.spire.enabled":         "false",
+		"auth.mTLS.spire.install.enabled": "false",
 	}
 
 	eksChainingHelmOverrides = map[string]string{
