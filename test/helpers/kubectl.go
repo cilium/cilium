@@ -121,6 +121,10 @@ var (
 		"ipv6NativeRoutingCIDR":  IPv6NativeRoutingCIDR,
 
 		"ipam.operator.clusterPoolIPv6PodCIDRList": "fd02::/112",
+
+		// Disable mTLS features as GHA is already giving us a required coverage.
+		"authentication.mutual.spire.enabled":         "false",
+		"authentication.mutual.spire.install.enabled": "false",
 	}
 
 	eksChainingHelmOverrides = map[string]string{
