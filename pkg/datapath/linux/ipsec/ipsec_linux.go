@@ -61,7 +61,8 @@ const (
 	// encoded in a XfrmMark
 	ipSecXfrmMarkSPIShift = 12
 
-	defaultDropPriority = 100
+	defaultDropPriority      = 100
+	oldXFRMOutPolicyPriority = 50
 )
 
 type ipSecKey struct {
@@ -380,7 +381,7 @@ func IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP) error {
 //
 // We do need to match on the mark because there is also traffic flowing
 // through XFRM that we don't want to encrypt (e.g., hostns traffic).
-func IPsecDefaultDropPolicy(ipv6 bool) (err error) {
+func IPsecDefaultDropPolicy(ipv6 bool) error {
 	defaultDropPolicy := defaultDropPolicyIPv4
 	family := netlink.FAMILY_V4
 	if ipv6 {
@@ -388,80 +389,36 @@ func IPsecDefaultDropPolicy(ipv6 bool) (err error) {
 		family = netlink.FAMILY_V6
 	}
 
-	// We call removeStaleStatesAndPolicies only if the catch-all default-drop
-	// policy was successfully installed. If it was not installed, then there's
-	// a danger of letting plain-text traffic leave the node if we remove stale
-	// XFRM configs.
-	// This code can be removed in Cilium v1.15.
-	defer func() {
-		if err == nil {
-			removeStaleStatesAndPolicies(family)
-		}
-	}()
+	err := netlink.XfrmPolicyUpdate(defaultDropPolicy)
 
-	return netlink.XfrmPolicyUpdate(defaultDropPolicy)
-}
-
-// Removes XFRM states and policies that are identified as installed by a
-// previous version of Cilium. We rely mainly on the mark mask to identify if
-// it was installed in a previous version. These states and policies need to be
-// removed for cross-node connectivity to work.
-func removeStaleStatesAndPolicies(family int) {
+	// We move the existing XFRM OUT policy to a lower priority to allow the
+	// new priorities to take precedence.
+	// This code can be removed in Cilium v1.15 to instead remove the old XFRM
+	// OUT policy and state.
 	removeStaleXFRMOnce.Do(func() {
-		removeStalePolicies(family)
-		removeStaleStates(family)
+		deprioritizeOldOutPolicy(family)
 	})
+
+	return err
 }
 
-func removeStalePolicies(family int) {
+// Lowers the priority of the old XFRM OUT policy. We rely on the mark mask to
+// identify it. By lowering the priority, we will allow the new XFRM OUT
+// policies to take precedence. We cannot simply remove and replace the old
+// XFRM OUT configs because that would cause traffic interruptions on upgrades.
+func deprioritizeOldOutPolicy(family int) {
 	policies, err := netlink.XfrmPolicyList(family)
 	if err != nil {
 		log.WithError(err).Error("Cannot get XFRM policies")
 	}
 	for _, p := range policies {
-		switch p.Dir {
-		case netlink.XFRM_DIR_OUT:
-			if isDefaultDropPolicy(&p) {
-				continue
-			}
-			if p.Mark.Mask != linux_defaults.IPsecOldMarkMaskOut {
-				// This XFRM OUT policy was not installed by a previous version of Cilium.
-				continue
-			}
-		case netlink.XFRM_DIR_IN:
-			// The XFRM IN policies didn't change so we don't want to remove them.
-			continue
-		default:
-			continue
-		}
-		if err := netlink.XfrmPolicyDel(&p); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.SourceCIDR:      p.Src,
-				logfields.DestinationCIDR: p.Dst,
-			}).Error("Failed to remove stale XFRM policy")
-		}
-	}
-}
-
-func removeStaleStates(family int) {
-	states, err := netlink.XfrmStateList(family)
-	if err != nil {
-		log.WithError(err).Error("Cannot get XFRM states")
-	}
-	for _, s := range states {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.SPI:           s.Spi,
-			logfields.SourceIP:      s.Src,
-			logfields.DestinationIP: s.Dst,
-		})
-
-		if s.Mark.Mask == linux_defaults.IPsecOldMarkMaskOut &&
-			s.Mark.Value == ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(s.Spi)) {
-			// This XFRM state was installed by a previous version of Cilium.
-			if err := netlink.XfrmStateDel(&s); err == nil {
-				scopedLog.Info("Removed stale XFRM OUT state")
-			} else {
-				scopedLog.WithError(err).Error("Failed to remove stale XFRM OUT state")
+		if p.Dir == netlink.XFRM_DIR_OUT && p.Mark.Mask == linux_defaults.IPsecOldMarkMaskOut {
+			p.Priority = oldXFRMOutPolicyPriority
+			if err := netlink.XfrmPolicyUpdate(&p); err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.SourceCIDR:      p.Src,
+					logfields.DestinationCIDR: p.Dst,
+				}).Error("Failed to deprioritize old XFRM policy")
 			}
 		}
 	}
