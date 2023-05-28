@@ -322,7 +322,26 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 		}
 	}
 
+	if option.Config.EnableIPSec {
+		for _, ep := range state.restored {
+			if ep.IsHost() {
+				log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
+				if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.bwManager, d.fetchK8sMetadataForEndpoint); err != nil {
+					log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating restored host endpoint")
+					epRegenerated <- false
+				} else {
+					epRegenerated <- true
+				}
+				break
+			}
+		}
+	}
+
 	for _, ep := range state.restored {
+		if ep.IsHost() && option.Config.EnableIPSec {
+			// The host endpoint was handled above.
+			continue
+		}
 		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			if err := ep.RegenerateAfterRestore(endpointsRegenerator, d.bwManager, d.fetchK8sMetadataForEndpoint); err != nil {
