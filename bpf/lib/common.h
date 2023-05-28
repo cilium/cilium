@@ -788,6 +788,10 @@ enum {
 #define	CB_ENCRYPT_IDENTITY	CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
+#define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
+						 * Not used by xfrm.
+						 * Can be removed in v1.15.
+						 */
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_FROM_TUNNEL		CB_CT_STATE	/* Alias, non-overlapping */
