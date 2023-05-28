@@ -47,6 +47,8 @@ const (
 	// ipSecXfrmMarkSPIShift defines how many bits the SPI is shifted when
 	// encoded in a XfrmMark
 	ipSecXfrmMarkSPIShift = 12
+
+	defaultDropPriority = 100
 )
 
 type ipSecKey struct {
@@ -94,7 +96,7 @@ var (
 		Dst:      wildcardCIDRv4,
 		Mark:     defaultDropMark,
 		Action:   netlink.XFRM_POLICY_BLOCK,
-		Priority: 1,
+		Priority: defaultDropPriority,
 	}
 	defaultDropPolicyIPv6 = &netlink.XfrmPolicy{
 		Dir:      netlink.XFRM_DIR_OUT,
@@ -102,7 +104,7 @@ var (
 		Dst:      wildcardCIDRv6,
 		Mark:     defaultDropMark,
 		Action:   netlink.XFRM_POLICY_BLOCK,
-		Priority: 1,
+		Priority: defaultDropPriority,
 	}
 
 	// To attempt to remove any stale XFRM configs once at startup, after
