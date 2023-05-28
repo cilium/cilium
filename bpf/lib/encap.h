@@ -8,7 +8,11 @@
 #include "dbg.h"
 #include "trace.h"
 #include "l3.h"
+
+#if defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb
 #include "lib/wireguard.h"
+#endif /* defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb */
+
 #include "high_scale_ipcache.h"
 
 #ifdef HAVE_ENCAP
@@ -65,7 +69,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 	int ifindex;
 	int ret = 0;
 
-#ifdef ENABLE_WIREGUARD
+#if defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb
 	/* Redirect the packet to the WireGuard tunnel device for encryption
 	 * if needed.
 	 *
@@ -78,7 +82,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 	ret = wg_maybe_redirect_to_encrypt(ctx);
 	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 		return ret;
-#endif /* ENABLE_WIREGUARD */
+#endif /* defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb */
 
 	ret = __encap_with_nodeid(ctx, src_ip, 0, tunnel_endpoint, seclabel, dstid,
 				  vni, trace->reason, trace->monitor,
