@@ -154,6 +154,15 @@ func initKubeProxyReplacementOptions() error {
 			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
 		}
 
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
+			option.Config.EnableWireguard && option.Config.EncryptNode {
+			log.WithField(logfields.Hint,
+				"Disable XDP acceleration to encrypt N/S Loadbalancer traffic.").
+				Warnf("With %s: %s and %s, %s enabled, N/S Loadbalancer traffic won't be encrypted "+
+					"when an intermediate node redirects a request to another node where a selected backend is running.",
+					option.NodePortAcceleration, option.Config.NodePortAcceleration, option.EnableWireguard, option.EncryptNode)
+		}
+
 		if !option.Config.NodePortBindProtection {
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}

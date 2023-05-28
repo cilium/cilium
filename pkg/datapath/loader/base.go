@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 	"github.com/cilium/cilium/pkg/sysctl"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -265,6 +266,13 @@ func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 		return nil
 	}
 	for _, dev := range option.Config.GetDevices() {
+		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
+		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
+		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
+		// is enabled, otherwise we will get "operation not supported" error.
+		if dev == wgTypes.IfaceName {
+			continue
+		}
 		if err := compileAndLoadXDPProg(ctx, dev, option.Config.XDPMode, extraCArgs); err != nil {
 			return err
 		}
