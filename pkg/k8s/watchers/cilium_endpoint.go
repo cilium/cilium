@@ -119,42 +119,13 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 	if oldEndpoint != nil && oldEndpoint.Networking != nil {
 		// Delete the old IP addresses from the IP cache
 		defer func() {
-			for _, oldPair := range oldEndpoint.Networking.Addressing {
-				v4Added, v6Added := false, false
-				for _, ipAdded := range ipsAdded {
-					if ipAdded == oldPair.IPV4 {
-						v4Added = true
-					}
-					if ipAdded == oldPair.IPV6 {
-						v6Added = true
-					}
-				}
-				if !v4Added {
-					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
-					if portsChanged {
-						namedPortsChanged = true
-					}
-				}
-				if !v6Added {
-					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
-					if portsChanged {
-						namedPortsChanged = true
-					}
-				}
-			}
+			namedPortsChanged = k.removeEndpointIPCacheMetadata(oldEndpoint, ipsAdded)
 		}()
 	}
-
-	// default to the standard key
-	encryptionKey := node.GetEndpointEncryptKeyIndex()
 
 	id := identity.ReservedIdentityUnmanaged
 	if endpoint.Identity != nil {
 		id = identity.NumericIdentity(endpoint.Identity.ID)
-	}
-
-	if endpoint.Encryption != nil {
-		encryptionKey = uint8(endpoint.Encryption.Key)
 	}
 
 	if endpoint.Networking == nil || endpoint.Networking.NodeIP == "" {
@@ -181,6 +152,32 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 		return
 	}
 
+	ips, namedPortsChanged := k.upsertEndpointIPCacheMetadata(endpoint)
+	ipsAdded = append(ipsAdded, ips...)
+}
+
+func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
+	namedPortsChanged := k.removeEndpointIPCacheMetadata(endpoint, nil)
+	if namedPortsChanged {
+		k.policyManager.TriggerPolicyUpdates(true, "Named ports deleted")
+	}
+}
+
+func (k *K8sWatcher) upsertEndpointIPCacheMetadata(endpoint *types.CiliumEndpoint) ([]string, bool) {
+	id := identity.ReservedIdentityUnmanaged
+	if endpoint.Identity != nil {
+		id = identity.NumericIdentity(endpoint.Identity.ID)
+	}
+
+	// default to the standard key
+	encryptionKey := node.GetEndpointEncryptKeyIndex()
+	if endpoint.Encryption != nil {
+		encryptionKey = uint8(endpoint.Encryption.Key)
+	}
+	var ipsAdded []string
+
+	nodeIP := net.ParseIP(endpoint.Networking.NodeIP)
+
 	k8sMeta := &ipcachetypes.K8sMetadata{
 		Namespace:  endpoint.Namespace,
 		PodName:    endpoint.Name,
@@ -197,6 +194,7 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 		}
 	}
 
+	var namedPortsChanged bool
 	for _, pair := range endpoint.Networking.Addressing {
 		if pair.IPV4 != "" {
 			ipsAdded = append(ipsAdded, pair.IPV4)
@@ -216,28 +214,36 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 			}
 		}
 	}
+
+	return ipsAdded, namedPortsChanged
 }
 
-func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
-	if endpoint.Networking != nil {
-		namedPortsChanged := false
-		for _, pair := range endpoint.Networking.Addressing {
-			if pair.IPV4 != "" {
-				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
-				if portsChanged {
-					namedPortsChanged = true
-				}
-			}
+func (k *K8sWatcher) removeEndpointIPCacheMetadata(endpoint *types.CiliumEndpoint, ipsAdded []string) bool {
+	var namedPortsChanged bool
 
-			if pair.IPV6 != "" {
-				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
-				if portsChanged {
-					namedPortsChanged = true
-				}
+	for _, oldPair := range endpoint.Networking.Addressing {
+		v4Added, v6Added := false, false
+		for _, ipAdded := range ipsAdded {
+			if ipAdded == oldPair.IPV4 {
+				v4Added = true
+			}
+			if ipAdded == oldPair.IPV6 {
+				v6Added = true
 			}
 		}
-		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates(true, "Named ports deleted")
+		if !v4Added {
+			portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
+			if portsChanged {
+				namedPortsChanged = true
+			}
+		}
+		if !v6Added {
+			portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
+			if portsChanged {
+				namedPortsChanged = true
+			}
 		}
 	}
+
+	return namedPortsChanged
 }
