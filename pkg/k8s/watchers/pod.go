@@ -867,29 +867,9 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 
 	hostKey := node.GetEndpointEncryptKeyIndex()
 
-	k8sMeta := &ipcachetypes.K8sMetadata{
-		Namespace: newPod.Namespace,
-		PodName:   newPod.Name,
-	}
-
-	// Store Named ports, if any.
-	for _, container := range newPod.Spec.Containers {
-		for _, port := range container.Ports {
-			if port.Name == "" {
-				continue
-			}
-			p, err := u8proto.ParseProtocol(string(port.Protocol))
-			if err != nil {
-				return fmt.Errorf("ContainerPort: invalid protocol: %s", port.Protocol)
-			}
-			if k8sMeta.NamedPorts == nil {
-				k8sMeta.NamedPorts = make(ciliumTypes.NamedPortMap)
-			}
-			k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
-				Port:  uint16(port.ContainerPort),
-				Proto: uint8(p),
-			}
-		}
+	k8sMeta, err := k.getNamedPortsFromPod(newPod)
+	if err != nil {
+		return err
 	}
 
 	var errs []string
@@ -975,6 +955,33 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 	}
 
 	return skipped, nil
+}
+
+func (k *K8sWatcher) getNamedPortsFromPod(pod *slim_corev1.Pod) (*ipcachetypes.K8sMetadata, error) {
+	k8sMeta := &ipcachetypes.K8sMetadata{
+		Namespace:  pod.Namespace,
+		PodName:    pod.Name,
+		NamedPorts: make(ciliumTypes.NamedPortMap),
+	}
+	for _, container := range pod.Spec.Containers {
+		for _, port := range container.Ports {
+			if port.Name == "" {
+				continue
+			}
+			p, err := u8proto.ParseProtocol(string(port.Protocol))
+			if err != nil {
+				return nil, fmt.Errorf("ContainerPort: invalid protocol: %s", port.Protocol)
+			}
+			if port.ContainerPort < 1 || port.ContainerPort > 65535 {
+				return nil, fmt.Errorf("ContainerPort: invalid port: %d", port.ContainerPort)
+			}
+			k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
+				Port:  uint16(port.ContainerPort),
+				Proto: uint8(p),
+			}
+		}
+	}
+	return k8sMeta, nil
 }
 
 // GetCachedPod returns a pod from the local store.
