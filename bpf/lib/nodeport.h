@@ -1890,7 +1890,7 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	has_l4_header = ipv4_has_l4_header(ip4),
+	has_l4_header = ipv4_has_l4_header(ip4);
 
 	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret))
