@@ -473,6 +473,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/safeio @cilium/sig-agent
 /pkg/serializer @cilium/sig-agent
 /pkg/service @cilium/sig-lb
+/pkg/slices @cilium/sig-foundations
 /pkg/source @cilium/ipcache
 /pkg/status/ @cilium/sig-agent
 /pkg/statedb @cilium/sig-foundations
