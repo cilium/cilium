@@ -68,7 +68,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			for _, rule := range r.Spec.Rules {
 				bes := make([]model.Backend, 0, len(rule.BackendRefs))
 				for _, be := range rule.BackendRefs {
-					if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, input.ReferenceGrants) {
+					if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("HTTPRoute"), input.ReferenceGrants) {
 						continue
 					}
 					if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
@@ -184,7 +184,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			for _, rule := range r.Spec.Rules {
 				bes := make([]model.Backend, 0, len(rule.BackendRefs))
 				for _, be := range rule.BackendRefs {
-					if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, input.ReferenceGrants) {
+					if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be, gatewayv1alpha2.SchemeGroupVersion.WithKind("TLSRoute"), input.ReferenceGrants) {
 						continue
 					}
 					if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {

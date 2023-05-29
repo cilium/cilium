@@ -54,15 +54,10 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}()
 
-	// backend validators
-	for _, fn := range []backendValidationFunc{
-		checkAgainstCrossNamespaceReferences,
-		checkBackendIsService,
-		checkBackendIsExistingService,
-	} {
-		if res, continueCheck, err := fn(ctx, scopedLog.WithField(logfields.Resource, tr), r.Client, tr); err != nil || !continueCheck {
-			return res, err
-		}
+	// check if this cert is allowed to be used by this gateway
+	grants := &gatewayv1beta1.ReferenceGrantList{}
+	if err := r.Client.List(ctx, grants); err != nil {
+		return fail(err)
 	}
 
 	// gateway validators
@@ -102,6 +97,25 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		mergeTLSRouteStatusConditions(tr, parent, []metav1.Condition{
 			tlsRouteAcceptedCondition(tr, true, tlsRouteAcceptedMessage),
 		})
+	}
+
+	// backend validators
+
+	// set status to okay, this wil be overwritten in checks if needed
+	for _, parent := range tr.Spec.ParentRefs {
+		mergeTLSRouteStatusConditions(tr, parent, []metav1.Condition{
+			tlsRouteResolvedRefsOkayCondition(tr, "Service reference is valid"),
+		})
+	}
+
+	for _, fn := range []backendValidationFunc{
+		checkAgainstCrossNamespaceReferences,
+		checkBackendIsService,
+		checkBackendIsExistingService,
+	} {
+		if res, continueCheck, err := fn(ctx, scopedLog.WithField(logfields.Resource, tr), r.Client, grants, tr); err != nil || !continueCheck {
+			return res, err
+		}
 	}
 
 	scopedLog.Info("Successfully reconciled TLSRoute")
