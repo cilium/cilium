@@ -213,6 +213,14 @@ func initKubeProxyReplacementOptions() error {
 			}
 		}
 
+		if option.Config.EnableHighScaleIPcache {
+			if option.Config.NodePortMode != option.NodePortModeDSR ||
+				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+				return fmt.Errorf("The high-scale IPcache mode requires Node Port mode %q with %s dispatch",
+					option.NodePortModeDSR, option.DSRDispatchGeneve)
+			}
+		}
+
 		option.Config.EnableHealthDatapath =
 			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
 				option.Config.NodePortMode == option.NodePortModeDSR &&
