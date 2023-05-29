@@ -433,7 +433,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	// were successfully synced
 	err = m.WaitForInitialGlobalIdentities(ctx)
 	if err != nil {
-		return nil, false, err
+		return nil, false, &ErrGlobalIdentitiesNotReady{cause: err.Error()}
 	}
 
 	if m.IdentityAllocator == nil {
@@ -695,7 +695,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	// were successfully synced
 	err = m.WaitForInitialGlobalIdentities(ctx)
 	if err != nil {
-		return false, err
+		return false, &ErrGlobalIdentitiesNotReady{cause: err.Error()}
 	}
 
 	if m.IdentityAllocator == nil {
@@ -804,4 +804,14 @@ func mapLabels(allocatorKey allocator.AllocatorKey) labels.Labels {
 	}
 
 	return idLabels
+}
+
+// ErrGlobalIdentitiesNotReady is an error that represents global identities
+// allocation is not yet ready to be used by the identity allocator.
+type ErrGlobalIdentitiesNotReady struct {
+	cause string
+}
+
+func (e *ErrGlobalIdentitiesNotReady) Error() string {
+	return "global identities not yet ready: " + e.cause
 }
