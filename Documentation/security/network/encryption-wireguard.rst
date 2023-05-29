@@ -283,6 +283,12 @@ options:
   key in its corresponding ``CiliumNode`` CRD when a worker node's public key
   changes, given that the worker node will be unable to do so itself.
 
+  N/S load balancer traffic isn't encrypted when an intermediate node redirects
+  a request to a different node with the following load balancer configuration:
+
+  - LoadBalancer & NodePort XDP Acceleration
+  - Direct Server Return (DSR)
+
 Legal
 =====
 
