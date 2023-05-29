@@ -1006,6 +1006,10 @@ const (
 	// By default, Hubble observes all monitor events.
 	HubbleMonitorEvents = "hubble-monitor-events"
 
+	// HubbleRedact controls which values Hubble will redact in network flows.
+	// By default, Hubble does not redact any values.
+	HubbleRedact = "hubble-redact"
+
 	// DisableIptablesFeederRules specifies which chains will be excluded
 	// when installing the feeder rules
 	DisableIptablesFeederRules = "disable-iptables-feeder-rules"
@@ -2209,6 +2213,10 @@ type DaemonConfig struct {
 	// HubbleMonitorEvents specifies Cilium monitor events for Hubble to observe.
 	// By default, Hubble observes all monitor events.
 	HubbleMonitorEvents []string
+
+	// HubbleRedact controls which values Hubble will redact in network flows.
+	// By default, Hubble does not redact any values.
+	HubbleRedact []string
 
 	// EndpointStatus enables population of information in the
 	// CiliumEndpoint.Status resource
@@ -3434,6 +3442,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.HubbleRecorderSinkQueueSize = vp.GetInt(HubbleRecorderSinkQueueSize)
 	c.HubbleSkipUnknownCGroupIDs = vp.GetBool(HubbleSkipUnknownCGroupIDs)
 	c.HubbleMonitorEvents = vp.GetStringSlice(HubbleMonitorEvents)
+	c.HubbleRedact = vp.GetStringSlice(HubbleRedact)
 
 	c.DisableIptablesFeederRules = vp.GetStringSlice(DisableIptablesFeederRules)
 

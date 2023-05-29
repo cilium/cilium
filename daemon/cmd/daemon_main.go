@@ -971,6 +971,9 @@ func initializeFlags() {
 	)
 	option.BindEnv(Vp, option.HubbleMonitorEvents)
 
+	flags.StringSlice(option.HubbleRedact, []string{}, "List of Hubble redact options")
+	option.BindEnv(Vp, option.HubbleRedact)
+
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(Vp, option.DisableIptablesFeederRules)
 
