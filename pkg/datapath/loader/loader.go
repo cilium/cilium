@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -62,6 +63,8 @@ type Loader struct {
 
 	// templateCache is the cache of pre-compiled datapaths.
 	templateCache *objectCache
+
+	ipsecMu lock.Mutex // guards reinitializeIPSec
 }
 
 // NewLoader returns a new loader.
@@ -333,15 +336,14 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 }
 
 func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) error {
-	if err := compileNetwork(ctx); err != nil {
-		log.WithError(err).Fatal("failed to compile encryption programs")
-	}
 	progs := []progDefinition{{progName: symbolFromNetwork, direction: dirIngress}}
 	for _, iface := range option.Config.EncryptInterface {
 		finalize, err := replaceDatapath(ctx, iface, networkObj, progs, "")
 		if err != nil {
 			log.WithField(logfields.Interface, iface).WithError(err).Fatal("Load encryption network failed")
 		}
+		log.WithField(logfields.Interface, iface).Info("Encryption network program (re)loaded")
+
 		// Defer map removal until all interfaces' progs have been replaced.
 		defer finalize()
 	}
