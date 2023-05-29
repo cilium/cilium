@@ -401,6 +401,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 		BeforeAll(func() {
 			kubectl.Exec("kubectl label nodes --all status=lockdown")
 
+			// Need to install Cilium w/ host fw prior to the host policy preperation
+			// step.
+			deploymentManager.DeployCilium(map[string]string{
+				"hostFirewall.enabled": "true",
+			}, DeployCiliumOptionsAndDNS)
+
 			prepareHostPolicyEnforcement(kubectl)
 		})
 
@@ -545,10 +551,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 // termination of those connections.
 // This function implements that process.
 func prepareHostPolicyEnforcement(kubectl *helpers.Kubectl) {
-	deploymentManager.DeployCilium(map[string]string{
-		"hostFirewall.enabled": "true",
-	}, DeployCiliumOptionsAndDNS)
-
 	demoHostPolicies := helpers.ManifestGet(kubectl.BasePath(), "host-policies.yaml")
 	By(fmt.Sprintf("Applying policies %s for 1min", demoHostPolicies))
 	_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
