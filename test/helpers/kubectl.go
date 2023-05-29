@@ -3870,7 +3870,7 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 
 	}
 	if err := RepeatUntilTrue(body, &TimeoutConfig{Timeout: HelperTimeout}); err != nil {
-		return fmt.Errorf("Cilium validation failed: %s: Last polled error: %s", err, lastError)
+		return fmt.Errorf("Cilium validation failed: %s: Last polled error: %s (attempts: %d)", err, lastError, consecutiveFailures)
 	}
 	return nil
 }
