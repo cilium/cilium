@@ -193,6 +193,9 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 		return nil
 	}
 
+	l.ipsecMu.Lock()
+	defer l.ipsecMu.Unlock()
+
 	interfaces := option.Config.EncryptInterface
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		// IPAMENI mode supports multiple network facing interfaces that
@@ -496,8 +499,19 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		log.WithError(err).Fatal("C and Go structs alignment check failed")
 	}
 
-	if err := l.reinitializeIPSec(ctx); err != nil {
-		return err
+	if option.Config.EnableIPSec {
+		if err := compileNetwork(ctx); err != nil {
+			log.WithError(err).Fatal("failed to compile encryption programs")
+		}
+
+		if err := l.reinitializeIPSec(ctx); err != nil {
+			return err
+		}
+
+		if firstInitialization {
+			// Start a background worker to reinitialize IPsec if links change.
+			l.reloadIPSecOnLinkChanges()
+		}
 	}
 
 	if err := l.reinitializeOverlay(ctx, encapProto); err != nil {
