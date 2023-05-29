@@ -7,10 +7,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/inctimer"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -317,4 +320,75 @@ func setupBaseDevice(nativeDevs []netlink.Link, mode baseDeviceMode, mtu int) (n
 
 		return linkHost, linkNet, nil
 	}
+}
+
+// reloadIPSecOnLinkChanges subscribes to link changes to detect newly added devices
+// and reinitializes IPsec on changes. Only in effect for ENI mode in which we expect
+// new devices at runtime.
+func (l *Loader) reloadIPSecOnLinkChanges() {
+	// settleDuration is the amount of time to wait for further link updates
+	// before proceeding with reinitialization. This avoids back-to-back
+	// reinitialization when multiple link changes are made at once.
+	const settleDuration = 1 * time.Second
+
+	if !option.Config.EnableIPSec || option.Config.IPAM != ipamOption.IPAMENI {
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	updates := make(chan netlink.LinkUpdate)
+
+	if err := netlink.LinkSubscribe(updates, ctx.Done()); err != nil {
+		log.WithError(err).Fatal("Failed to subscribe for link changes")
+	}
+
+	go func() {
+		defer cancel()
+
+		timer, stop := inctimer.New()
+		defer stop()
+
+		// If updates arrive during settle duration a single element
+		// is sent to this channel and we reinitialize right away
+		// without waiting for further updates.
+		trigger := make(chan struct{}, 1)
+
+		for {
+			// Wait for first update or trigger before reinitializing.
+			select {
+			case _, ok := <-updates:
+				if !ok {
+					return
+				}
+			case <-trigger:
+			}
+
+			log.Info("Reinitializing IPsec due to link changes")
+			err := l.reinitializeIPSec(ctx)
+			if err != nil {
+				// We may fail if links have been removed during the reload. In this case
+				// the updates channel will have queued updates which will retrigger the
+				// reinitialization.
+				log.WithError(err).Warn("Failed to reinitialize IPsec after device change")
+			}
+
+			// Avoid reinitializing repeatedly in short period of time
+			// by draining further updates for 'settleDuration'.
+			settled := timer.After(settleDuration)
+		settleLoop:
+			for {
+				select {
+				case <-settled:
+					break settleLoop
+				case <-updates:
+					select {
+					case trigger <- struct{}{}:
+					default:
+					}
+					break settleLoop
+				}
+
+			}
+		}
+	}()
 }
