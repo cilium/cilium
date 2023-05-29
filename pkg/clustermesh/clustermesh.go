@@ -71,9 +71,6 @@ type RemoteIdentityWatcher interface {
 
 	// RemoveRemoteIdentities removes any reference to a remote identity source.
 	RemoveRemoteIdentities(name string)
-
-	// Close stops the watcher.
-	Close()
 }
 
 // ClusterMesh is a cache of multiple remote clusters
