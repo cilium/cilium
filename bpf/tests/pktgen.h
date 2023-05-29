@@ -148,6 +148,7 @@ enum pkt_layer {
 	PKT_LAYER_ICMP,
 	PKT_LAYER_ICMPV6,
 	PKT_LAYER_SCTP,
+	PKT_LAYER_ESP,
 
 	/* Packet data*/
 	PKT_LAYER_DATA,
@@ -525,6 +526,57 @@ struct tcphdr *pktgen__push_default_tcphdr(struct pktgen *builder)
 	return hdr;
 }
 
+/* Push an empty ESP header onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct ip_esp_hdr *pktgen__push_esphdr(struct pktgen *builder)
+{
+	struct __ctx_buff *ctx = builder->ctx;
+	struct ip_esp_hdr *layer;
+	int layer_idx;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ip_esp_hdr) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct ip_esp_hdr) > ctx_data_end(ctx))
+		return 0;
+
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct ip_esp_hdr))
+		return 0;
+
+	layer = ctx_data(ctx) + builder->cur_off;
+	layer_idx = pktgen__free_layer(builder);
+
+	if (layer_idx < 0)
+		return 0;
+
+	builder->layers[layer_idx] = PKT_LAYER_ESP;
+	builder->layer_offsets[layer_idx] = builder->cur_off;
+	builder->cur_off += sizeof(struct ip_esp_hdr);
+
+	return layer;
+}
+
+/* Push a ESP header with sane defaults onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct ip_esp_hdr *pktgen__push_default_esphdr(struct pktgen *builder)
+{
+	struct ip_esp_hdr *hdr = pktgen__push_esphdr(builder);
+
+	if (!hdr)
+		return 0;
+	if ((void *)hdr + sizeof(struct ip_esp_hdr) > ctx_data_end(builder->ctx))
+		return 0;
+
+	hdr->spi = 1;
+	hdr->seq_no = 10000;
+
+	return hdr;
+}
+
 /* Push an empty SCTP header onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
@@ -695,6 +747,9 @@ void pktgen__finish(const struct pktgen *builder)
 			case PKT_LAYER_SCTP:
 				ipv4_layer->protocol = IPPROTO_SCTP;
 				break;
+			case PKT_LAYER_ESP:
+				ipv4_layer->protocol = IPPROTO_ESP;
+				break;
 			default:
 				break;
 			}
@@ -742,6 +797,9 @@ void pktgen__finish(const struct pktgen *builder)
 				break;
 			case PKT_LAYER_SCTP:
 				ipv6_layer->nexthdr = IPPROTO_SCTP;
+				break;
+			case PKT_LAYER_ESP:
+				ipv6_layer->nexthdr = IPPROTO_ESP;
 				break;
 			default:
 				break;
@@ -827,6 +885,10 @@ void pktgen__finish(const struct pktgen *builder)
 
 			tcp_layer->doff = (__u16)hdr_size / 4;
 
+			break;
+
+		case PKT_LAYER_ESP:
+			/* No sizes or checksums for ESP, so nothing to do */
 			break;
 
 		case PKT_LAYER_ARP:
