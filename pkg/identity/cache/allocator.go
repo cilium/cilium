@@ -37,6 +37,10 @@ var (
 	// IdentitiesPath is the path to where identities are stored in the
 	// key-value store.
 	IdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "identities", "v1")
+
+	// ErrAllocatorUninitialized is an error that occurs when the identity
+	// allocator is not yet initialized.
+	ErrAllocatorUninitialized = errors.New("allocator not initialized")
 )
 
 // The filename for the local allocator checkpoont. This is periodically
@@ -433,7 +437,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	}
 
 	if m.IdentityAllocator == nil {
-		return nil, false, fmt.Errorf("allocator not initialized")
+		return nil, false, ErrAllocatorUninitialized
 	}
 
 	idp, allocated, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, &key.GlobalIdentity{LabelArray: lbls.LabelArray()})
@@ -695,7 +699,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	}
 
 	if m.IdentityAllocator == nil {
-		return false, fmt.Errorf("allocator not initialized")
+		return false, ErrAllocatorUninitialized
 	}
 
 	// Rely on the eventual Kv-Store events for delete
