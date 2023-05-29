@@ -195,6 +195,7 @@ The ``hive.Hive`` type can be thought of as an application container, composed f
 - :ref:`api_decorate`: Wraps a set of cells with a decorator function to provide these cells with augmented objects.
 - :ref:`api_config`: Provides a configuration struct to the hive.
 - :ref:`api_invoke`: Registers an invoke function to instantiate and initialize objects.
+- :ref:`api_metric`: Provides metrics to the hive.
 
 Hive also by default provides the following globally available objects:
 
@@ -469,6 +470,75 @@ In tests the configuration can be populated in various ways:
         if err := h.Populate(); err != nil {
             t.Fatalf("Failed to populate: %s", err)
         }
+    }
+
+.. _api_metric:
+
+Metric
+^^^^^^
+
+The metric cell allows you to define a collection of metrics near a feature you
+would like to instrument. Like the :ref:`api_provide` cell, you define a new 
+type and a constructor. In the case of a metric cell the type should be a 
+struct with only public fields. The types of these fields should implement
+both `metric.WithMetadata <https://pkg.go.dev/github.com/cilium/cilium/pkg/metrics/metric#WithMetadata>`_
+and `prometheus.Collector <https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#Collector>`_.
+The easiest way to get such metrics is to use the types defined in `pkg/metrics/metric <https://pkg.go.dev/github.com/cilium/cilium/pkg/metrics/metric>`_.
+
+The metric collection struct type returned by the given constructor is made 
+available in the hive just like a normal provide. In addition all of the metrics
+are made available via the ``hive-metrics`` `value group <https://pkg.go.dev/go.uber.org/dig#hdr-Value_Groups>`_.
+This value group is consumed by the metrics package so any metrics defined 
+via a metric cell are automatically registered.
+
+.. code-block:: go
+
+    var Cell = cell.Module("my-feature", "My Feature",
+        cell.Metric(NewFeatureMetrics),
+        cell.Provide(NewMyFeature),
+    )
+
+    type FeatureMetrics struct {
+        Calls   metric.Vec[metric.Counter]
+        Latency metric.Histogram
+    }
+
+    func NewFeatureMetrics() FeatureMetrics {
+        return FeatureMetrics{
+            Calls: metric.NewCounterVec(metric.CounterOpts{
+                ConfigName: metrics.Namespace + "_my_feature_calls_total",
+                Subsystem:  "my_feature",
+                Namespace:  metrics.Namespace,
+                Name:       "calls_total",
+            }, []string{"caller"}),
+            Latency: metric.NewHistogram(metric.HistogramOpts{
+                ConfigName: metrics.Namespace + "_my_feature_latency_seconds",
+                Namespace:  metrics.Namespace,
+                Subsystem:  "my_feature",
+                Name:       "latency_seconds",
+            }),
+        }
+    }
+
+    type MyFeature struct {
+        metrics FeatureMetrics
+    }
+
+    func NewMyFeature(metrics FeatureMetrics) *MyFeature {
+        return &MyFeature{
+            metrics: metrics,
+        }
+    }
+
+    func (mf *MyFeature) SomeFunction(caller string) {
+        mf.metrics.Calls.With(prometheus.Labels{"caller": caller}).Inc()
+
+        span := spanstat.Start()
+        // Normally we would do some actual work here
+        time.Sleep(time.Second)
+        span.End(true)
+
+        mf.metrics.Latency.Observe(span.Seconds())
     }
 
 .. _api_lifecycle:
