@@ -84,7 +84,7 @@ func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 		for _, be := range rule.BackendRefs {
 			ns := helpers.NamespaceDerefOr(be.Namespace, hr.GetNamespace())
 
-			if ns != hr.GetNamespace() && !helpers.IsBackendReferenceAllowed(hr.GetNamespace(), be.BackendRef, grants.Items) {
+			if ns != hr.GetNamespace() && !helpers.IsBackendReferenceAllowed(hr.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("HTTPRoute"), grants.Items) {
 				// no reference grants, update the status for all the parents
 				for _, parent := range hr.Spec.ParentRefs {
 					mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
