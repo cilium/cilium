@@ -83,7 +83,7 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 	case TUNNEL_PROTOCOL_GENEVE:
 		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4) + sizeof(struct udphdr);
 		if (ctx_load_bytes(ctx, off, &geneve, sizeof(geneve)) < 0)
-			return CTX_ACT_DROP;
+			return DROP_INVALID;
 
 		opt_len = geneve.opt_len * 4;
 		memcpy(src_id, &geneve.vni, sizeof(__u32));
@@ -100,7 +100,7 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 		      offsetof(struct vxlanhdr, vx_vni);
 
 		if (ctx_load_bytes(ctx, off, src_id, sizeof(__u32)) < 0)
-			return CTX_ACT_DROP;
+			return DROP_INVALID;
 		break;
 	default:
 		/* If the tunnel type is neither VXLAN nor GENEVE, we have an issue. */
@@ -111,7 +111,7 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 	ctx_store_meta(ctx, CB_SRC_LABEL, *src_id);
 
 	if (ctx_adjust_hroom(ctx, -shrink, BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags()))
-		return CTX_ACT_DROP;
+		return DROP_INVALID;
 	return ctx_redirect(ctx, ENCAP_IFINDEX, BPF_F_INGRESS);
 }
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
