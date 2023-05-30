@@ -1543,6 +1543,13 @@ func initEnv(vp *viper.Viper) {
 			)
 		}
 	}
+
+	// Ensure the xdp-ignore-device-regex compiles
+	if len(option.Config.XDPIgnoreDeviceNameRegex) > 0 {
+		if _, err := regexp.Compile(option.Config.XDPIgnoreDeviceNameRegex); err != nil {
+			log.WithError(err).Fatal("Invalid xdp-ignore-device-regex regular expression")
+		}
+	}
 }
 
 func (d *Daemon) initKVStore() {

@@ -191,7 +191,7 @@ func attachProgram(link netlink.Link, prog *ebpf.Program, progName string, qdisc
 	}
 
 	if err := netlink.FilterReplace(filter); err != nil {
-		return fmt.Errorf("replacing tc filter: %w", err)
+		return fmt.Errorf("replacing tc filter for interface %s: %w", link.Attrs().Name, err)
 	}
 
 	return nil

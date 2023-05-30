@@ -154,6 +154,9 @@ const (
 	// EncryptNode enables node IP encryption
 	EncryptNode = "encrypt-node"
 
+	// XDPIgnoreDeviceNameRegex allows devices to be skipped when XDP is enabled
+	XDPIgnoreDeviceNameRegex = "xdp-ignore-device-regex"
+
 	// EnvoyLog sets the path to a separate Envoy log file, if any
 	EnvoyLog = "envoy-log"
 
@@ -1438,6 +1441,9 @@ type DaemonConfig struct {
 	HostV6Addr          net.IP       // Host v6 address of the snooping device
 	EncryptInterface    []string     // Set of network facing interface to encrypt over
 	EncryptNode         bool         // Set to true for encrypting node IP traffic
+
+	// Set to ignore devices when enabling XDP
+	XDPIgnoreDeviceNameRegex string
 
 	// If set to true the daemon will detect new and deleted datapath devices
 	// at runtime and reconfigure the datapath to load programs onto the new
@@ -3092,6 +3098,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableLocalRedirectPolicy = vp.GetBool(EnableLocalRedirectPolicy)
 	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
+	c.XDPIgnoreDeviceNameRegex = vp.GetString(XDPIgnoreDeviceNameRegex)
 	c.EnvoyLogPath = vp.GetString(EnvoyLog)
 	c.HTTPNormalizePath = vp.GetBool(HTTPNormalizePath)
 	c.HTTPIdleTimeout = vp.GetInt(HTTPIdleTimeout)

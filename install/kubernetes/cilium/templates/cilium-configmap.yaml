@@ -732,6 +732,9 @@ data:
 {{- if hasKey .Values.loadBalancer "serviceTopology" }}
   enable-service-topology: {{ .Values.loadBalancer.serviceTopology | quote }}
 {{- end }}
+{{- if hasKey .Values.loadBalancer "xdpIgnoreDeviceRegex" }}
+  xdp-ignore-device-regex: {{ .Values.loadBalancer.xdpIgnoreDeviceRegex | quote }}
+{{- end }}
 
 {{- end }}
 {{- if hasKey .Values.maglev "tableSize" }}

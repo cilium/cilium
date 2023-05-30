@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -239,6 +240,9 @@ func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
 	}
+
+	rgxIgnoredXDPDevices := regexp.MustCompile(option.Config.XDPIgnoreDeviceNameRegex)
+
 	for _, dev := range option.Config.GetDevices() {
 		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
@@ -247,6 +251,16 @@ func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 		if dev == wgTypes.IfaceName {
 			continue
 		}
+
+		// Don't enable XDP on links that match the option.Config.XDPIgnoreDeviceNameRegex regex
+		// This is useful for when you want XDP but a required device driver on the system does
+		// not yet have support for XDP in the kernel.
+		if len(option.Config.XDPIgnoreDeviceNameRegex) > 0 {
+			if rgxIgnoredXDPDevices.MatchString(dev) {
+				continue
+			}
+		}
+
 		if err := compileAndLoadXDPProg(ctx, dev, option.Config.XDPMode, extraCArgs); err != nil {
 			return err
 		}

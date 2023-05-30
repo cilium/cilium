@@ -1734,6 +1734,11 @@ loadBalancer:
   # e.g. native, disabled
   # acceleration: disabled
 
+  # -- xdpIgnoreDeviceRegex is the option to selectively ignore devices that would
+  # otherwise have xdp enabled on them. Useful if you have devices that do not yet
+  # have driver support for XDP
+  # xdpIgnoreDeviceRegex:
+
   # -- dsrDispatch configures whether IP option or IPIP encapsulation is
   # used to pass a service IP and port to remote backend
   # dsrDispatch: opt
