@@ -4,8 +4,6 @@
 package sock
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"net/netip"
@@ -14,7 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -74,7 +71,7 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 	}
 
 	sock := &monitor.TraceSockNotify{}
-	if err := binary.Read(bytes.NewReader(data), byteorder.Native, sock); err != nil {
+	if err := monitor.DecodeTraceSockNotify(data, sock); err != nil {
 		return fmt.Errorf("failed to parse sock trace event: %w", err)
 	}
 
