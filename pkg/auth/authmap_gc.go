@@ -38,6 +38,10 @@ type authMapGarbageCollector struct {
 	ciliumIdentitiesDeleted    map[identity.NumericIdentity]struct{}
 }
 
+func (r *authMapGarbageCollector) Name() string {
+	return "authmap-gc"
+}
+
 type policyRepository interface {
 	GetAuthTypes(localID, remoteID identity.NumericIdentity) policy.AuthTypes
 }

@@ -106,6 +106,10 @@ type LocalNodeConfiguration struct {
 // implementation can differ between the own local node and remote nodes by
 // calling node.IsLocal().
 type NodeHandler interface {
+	// Name identifies the handler, this is used in logging/reporting handler
+	// reconciliation errors.
+	Name() string
+
 	// NodeAdd is called when a node is discovered for the first time.
 	NodeAdd(newNode nodeTypes.Node) error
 
