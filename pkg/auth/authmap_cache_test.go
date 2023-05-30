@@ -20,7 +20,7 @@ func Test_authMapCache_restoreCache(t *testing.T) {
 					localIdentity:  1,
 					remoteIdentity: 2,
 					remoteNodeID:   10,
-					authType:       policy.AuthTypeNull,
+					authType:       policy.AuthTypeDisabled,
 				}: {
 					expiration: time.Now().Add(10 * time.Minute),
 				},

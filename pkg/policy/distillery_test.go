@@ -319,13 +319,13 @@ var (
 	mapKeyAllowAllE_ = Key{0, 0, 0, dirEgress}
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, AuthTypeNone).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, AuthTypeDisabled).WithOwners()
 	}
 	mapEntryL7Deny_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, true, AuthTypeNone).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, true, AuthTypeDisabled).WithOwners()
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) MapStateEntry {
-		entry := NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), true, false, AuthTypeNone).WithOwners()
+		entry := NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), true, false, AuthTypeDisabled).WithOwners()
 		entry.ProxyPort = 4242
 		return entry
 	}

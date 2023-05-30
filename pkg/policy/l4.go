@@ -196,9 +196,9 @@ type PerSelectorPolicy struct {
 
 	api.L7Rules
 
-	// Auth is the kind of cryptographic authentication required for the traffic to be allowed
+	// Authentication is the kind of cryptographic authentication required for the traffic to be allowed
 	// at L3, if any.
-	Auth *api.Auth `json:"auth,omitempty"`
+	Authentication *api.Authentication `json:"auth,omitempty"`
 
 	// IsDeny is set if this L4Filter contains should be denied
 	IsDeny bool `json:",omitempty"`
@@ -211,7 +211,7 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
 		a.ServerNames.Equal(b.ServerNames) &&
 		a.isRedirect == b.isRedirect &&
-		a.Auth.DeepEqual(b.Auth) &&
+		a.Authentication.DeepEqual(b.Authentication) &&
 		a.IsDeny == b.IsDeny &&
 		a.L7Rules.DeepEqual(&b.L7Rules)
 }
@@ -220,30 +220,27 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 type AuthType uint8
 
 const (
-	// AuthTypeNone means no authentication required
-	AuthTypeNone AuthType = iota
-	// AuthTypeNull is a simple auth type that always succeeds
-	AuthTypeNull
-	// AuthTypeMTLSSpiffe is a mTLS auth type that uses SPIFFE identities with a SPIRE server
-	AuthTypeMTLSSpiffe
+	// AuthTypeDisabled means no authentication required
+	AuthTypeDisabled AuthType = iota
+	// AuthTypeSpire is a mutual auth type that uses SPIFFE identities with a SPIRE server
+	AuthTypeSpire
 	// AuthTypeAlwaysFail is a simple auth type that always denies the request
 	AuthTypeAlwaysFail
 )
 
 // GetAuthType returns the AuthType of the L4Filter.
 func (a *PerSelectorPolicy) GetAuthType() AuthType {
-	if a == nil || a.Auth == nil {
-		return AuthTypeNone
+	if a == nil || a.Authentication == nil {
+		return AuthTypeDisabled
 	}
-	switch a.Auth.Type {
-	case "null":
-		return AuthTypeNull
-	case "mtls-spiffe":
-		return AuthTypeMTLSSpiffe
-	case "always-fail":
+	switch a.Authentication.Mode {
+	case api.AuthenticationModeRequired:
+		return AuthTypeSpire
+	case api.AuthenticationModeAlwaysFail:
 		return AuthTypeAlwaysFail
+	default:
+		return AuthTypeDisabled
 	}
-	return AuthTypeNone
 }
 
 // Uint8 returns AuthType as a uint8
@@ -255,14 +252,12 @@ func (a AuthType) Uint8() uint8 {
 // This must return the strings accepted for api.AuthType
 func (a AuthType) String() string {
 	switch a {
-	case AuthTypeNone:
-		return ""
-	case AuthTypeNull:
-		return "null"
-	case AuthTypeMTLSSpiffe:
-		return "mtls-spiffe"
+	case AuthTypeDisabled:
+		return "disabled"
+	case AuthTypeSpire:
+		return "spire"
 	case AuthTypeAlwaysFail:
-		return "always-fail"
+		return "test-always-fail"
 	}
 	return fmt.Sprintf("Unknown-auth-type-%d", a.Uint8())
 }
@@ -649,13 +644,13 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache *Selec
 }
 
 // add L7 rules for all endpoints in the L7DataMap
-func (l7 L7DataMap) addPolicyForSelector(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Auth, deny bool, sni []string, forceRedirect bool) {
+func (l7 L7DataMap) addPolicyForSelector(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, forceRedirect bool) {
 	isRedirect := !deny && (forceRedirect || terminatingTLS != nil || originatingTLS != nil || len(sni) > 0 || !rules.IsEmpty())
 	for epsel := range l7 {
 		l7policy := &PerSelectorPolicy{
 			TerminatingTLS: terminatingTLS,
 			OriginatingTLS: originatingTLS,
-			Auth:           auth,
+			Authentication: auth,
 			IsDeny:         deny,
 			ServerNames:    NewStringSet(sni),
 			isRedirect:     isRedirect,
@@ -708,7 +703,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
-func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, auth *api.Auth, rule api.Ports, port api.PortProtocol,
+func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 
@@ -868,7 +863,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 //
 // hostWildcardL7 determines if L7 traffic from Host should be
 // wildcarded (in the relevant daemon mode).
-func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, auth *api.Auth, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
+func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, auth *api.Authentication, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray) (*L4Filter, error) {
 
 	filter, err := createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, ruleLabels, true, nil)
@@ -896,7 +891,7 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 // specified endpoints and port/protocol for egress traffic, with reference
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
-func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, auth *api.Auth, rule api.Ports, port api.PortProtocol,
+func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
 
 	return createL4Filter(policyCtx, toEndpoints, auth, rule, port, protocol, ruleLabels, false, fqdns)

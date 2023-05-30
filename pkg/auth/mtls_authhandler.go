@@ -32,7 +32,7 @@ type mtlsParams struct {
 
 func newMTLSAuthHandler(lc hive.Lifecycle, cfg MTLSConfig, params mtlsParams, log logrus.FieldLogger) authHandlerResult {
 	if cfg.MTLSListenerPort == 0 {
-		log.Info("mTLS Auth Handler is disabled as no port is configured")
+		log.Info("mutual authentication handler is disabled as no port is configured")
 		return authHandlerResult{}
 	}
 	if params.CertificateProvider == nil {
@@ -141,7 +141,7 @@ func (m *mtlsAuthHandler) authenticate(ar *authRequest) (*authResponse, error) {
 }
 
 func (m *mtlsAuthHandler) authType() policy.AuthType {
-	return policy.AuthTypeMTLSSpiffe
+	return policy.AuthTypeSpire
 }
 
 func (m *mtlsAuthHandler) listenForConnections(upstreamCtx context.Context, ready chan<- struct{}) {

@@ -77,6 +77,6 @@ func FuzzAccumulateMapChange(f *testing.F) {
 			t.Skip()
 		}
 		policyMaps := MapChanges{}
-		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, port, proto, dir, redirect, deny, AuthTypeNone, nil)
+		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, port, proto, dir, redirect, deny, AuthTypeDisabled, nil)
 	})
 }

@@ -476,8 +476,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
-	rule1MapStateEntry := NewMapStateEntry(wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, false, false, AuthTypeNone)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, AuthTypeNone)
+	rule1MapStateEntry := NewMapStateEntry(wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, false, false, AuthTypeDisabled)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -563,8 +563,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 				}},
 			},
 			{
-				Auth: &api.Auth{
-					Type: api.AuthTypeNull,
+				Authentication: &api.Authentication{
+					Mode: api.AuthenticationModeDisabled,
 				},
 				IngressCommonRule: api.IngressCommonRule{
 					FromEndpoints: []api.EndpointSelector{
@@ -618,8 +618,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, Not(IsNil))
 
-	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, false, AuthTypeNone)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, AuthTypeNone)
+	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, false, AuthTypeDisabled)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -637,8 +637,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 						PerSelectorPolicies: L7DataMap{
 							cachedSelectorWorld: nil,
 							cachedSelectorTest: &PerSelectorPolicy{
-								Auth: &api.Auth{
-									Type: api.AuthTypeNull,
+								Authentication: &api.Authentication{
+									Mode: api.AuthenticationModeDisabled,
 								},
 								CanShortCircuit: true,
 							},
@@ -658,8 +658,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 		PolicyMapState: MapState{
 			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          allowEgressMapStateEntry,
 			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry.WithAuthType(AuthTypeNull),
-			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry.WithAuthType(AuthTypeNull),
+			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
+			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
 		},
 	}
 

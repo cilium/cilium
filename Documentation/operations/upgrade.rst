@@ -329,6 +329,10 @@ Annotations:
   being rerouted towards an Egress Gateway.
 * If Gateway API feature is enabled, please upgrade related CRDs to v0.6.x. This is
   mainly for ReferenceGrant resource version change (i.e. from v1alpha2 to v1beta1).
+* The attribute ``auth.type`` is renamed to ``authentication.mode`` in both Ingress and
+  Egress rules in CiliumNetworkPolicy CRD. The old attribute name is no longer supported,
+  please update your CiliumNetworkPolicy CRD accordingly. Also applicable values for this
+  attribute are changed to ``disabled``, ``required`` and ``test-always-fail``.
 
 Removed Options
 ~~~~~~~~~~~~~~~
