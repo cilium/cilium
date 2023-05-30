@@ -1605,7 +1605,7 @@ type daemonParams struct {
 	LocalNodeStore       node.LocalNodeStore
 	BGPController        *bgpv1.Controller
 	Shutdowner           hive.Shutdowner
-	SharedResources      agentK8s.Resources
+	Resources            agentK8s.Resources
 	CacheStatus          k8s.CacheStatus
 	NodeManager          nodeManager.NodeManager
 	EndpointManager      endpointmanager.EndpointManager

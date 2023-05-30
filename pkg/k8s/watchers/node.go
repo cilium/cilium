@@ -62,7 +62,7 @@ func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitG
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	events := k.sharedResources.LocalNode.Events(ctx)
+	events := k.resources.LocalNode.Events(ctx)
 	var oldNode *slim_corev1.Node
 	for {
 		select {
@@ -100,7 +100,7 @@ func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitG
 // GetK8sNode returns the *local Node* from the local store.
 func (k *K8sWatcher) GetK8sNode(ctx context.Context, nodeName string) (*slim_corev1.Node, error) {
 	// Retrieve the store. Blocks until synced (or ctx cancelled).
-	store, err := k.sharedResources.LocalNode.Store(ctx)
+	store, err := k.resources.LocalNode.Store(ctx)
 	if err != nil {
 		return nil, err
 	}
