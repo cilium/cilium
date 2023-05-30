@@ -83,15 +83,15 @@ func Test_MultiPoolManager(t *testing.T) {
 		{
 			Pool: "default",
 			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
 				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
+				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
 			},
 		},
 		{
 			Pool: "mars",
 			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
 				types.IPAMPodCIDR(marsIPv4CIDR1.String()),
+				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
 			},
 		},
 	}
@@ -161,16 +161,16 @@ func Test_MultiPoolManager(t *testing.T) {
 		{
 			Pool: "default",
 			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
 				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
+				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
 			},
 		},
 		{
 			Pool: "mars",
 			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
 				types.IPAMPodCIDR(marsIPv4CIDR1.String()),
 				types.IPAMPodCIDR(marsIPv4CIDR2.String()),
+				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
 			},
 		},
 	}
