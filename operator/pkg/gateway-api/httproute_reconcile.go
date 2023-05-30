@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -59,7 +60,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// check if this cert is allowed to be used by this gateway
 	grants := &gatewayv1alpha2.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
-		return fail(err)
+		return fail(fmt.Errorf("failed to retrieve reference grants: %w", err))
 	}
 
 	for _, fn := range []httpRouteChecker{

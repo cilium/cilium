@@ -10,11 +10,18 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-// isReferenceAllowed returns true if the reference is allowed by the reference grant.
-// TODO(tam): only HTTP and TLS with Service is supported right now.
-// We need to support other routes (e.g. grpc, etc.) later.
+// IsBackendReferenceAllowed returns true if the backend reference is allowed by the reference grant.
 func IsBackendReferenceAllowed(originatingNamespace string, be gatewayv1beta1.BackendRef, gvk schema.GroupVersionKind, grants []gatewayv1alpha2.ReferenceGrant) bool {
-	ns := NamespaceDerefOr(be.Namespace, originatingNamespace)
+	return isReferenceAllowed(originatingNamespace, string(be.Name), be.Namespace, gvk, corev1.SchemeGroupVersion.WithKind("Service"), grants)
+}
+
+// IsSecretReferenceAllowed returns true if the secret reference is allowed by the reference grant.
+func IsSecretReferenceAllowed(originatingNamespace string, sr gatewayv1beta1.SecretObjectReference, gvk schema.GroupVersionKind, grants []gatewayv1alpha2.ReferenceGrant) bool {
+	return isReferenceAllowed(originatingNamespace, string(sr.Name), sr.Namespace, gvk, corev1.SchemeGroupVersion.WithKind("Secret"), grants)
+}
+
+func isReferenceAllowed(originatingNamespace, name string, namespace *gatewayv1beta1.Namespace, fromGVK, toGVK schema.GroupVersionKind, grants []gatewayv1alpha2.ReferenceGrant) bool {
+	ns := NamespaceDerefOr(namespace, originatingNamespace)
 	if originatingNamespace == ns {
 		return true // same namespace is always allowed
 	}
@@ -24,11 +31,11 @@ func IsBackendReferenceAllowed(originatingNamespace string, be gatewayv1beta1.Ba
 			continue
 		}
 		for _, from := range g.Spec.From {
-			if (from.Group == gatewayv1alpha2.Group(gvk.Group) && from.Kind == gatewayv1alpha2.Kind(gvk.Kind)) &&
+			if (from.Group == gatewayv1alpha2.Group(fromGVK.Group) && from.Kind == gatewayv1alpha2.Kind(fromGVK.Kind)) &&
 				(string)(from.Namespace) == originatingNamespace {
 				for _, to := range g.Spec.To {
-					if to.Group == corev1.GroupName && to.Kind == "Service" &&
-						(to.Name == nil || string(*to.Name) == string(be.Name)) {
+					if to.Group == gatewayv1alpha2.Group(toGVK.Group) && to.Kind == gatewayv1alpha2.Kind(toGVK.Kind) &&
+						(to.Name == nil || string(*to.Name) == name) {
 						return true
 					}
 				}

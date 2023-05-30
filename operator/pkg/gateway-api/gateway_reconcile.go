@@ -18,6 +18,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	translation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
@@ -275,6 +276,11 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1b
 }
 
 func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1beta1.Gateway) error {
+	grants := &gatewayv1alpha2.ReferenceGrantList{}
+	if err := r.Client.List(ctx, grants); err != nil {
+		return fmt.Errorf("failed to retrieve reference grants: %w", err)
+	}
+
 	for _, l := range gw.Spec.Listeners {
 		cond := gatewayListenerReadyCondition(gw, true, "Listener Ready")
 		if l.TLS != nil {
@@ -283,12 +289,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 					continue
 				}
 
-				allowed, err := isReferenceAllowed(ctx, r.Client, gw, cert)
-				if err != nil {
-					return err
-				}
-
-				if !allowed {
+				if !helpers.IsSecretReferenceAllowed(gw.Namespace, cert, gatewayv1beta1.SchemeGroupVersion.WithKind("Gateway"), grants.Items) {
 					cond = metav1.Condition{
 						Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
 						Status:             metav1.ConditionFalse,

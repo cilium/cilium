@@ -123,7 +123,7 @@ func GatewayAPI(input Input) []model.HTTPListener {
 			},
 			Port:     uint32(l.Port),
 			Hostname: toHostname(l.Hostname),
-			TLS:      toTLS(l.TLS, input.Gateway.GetNamespace()),
+			TLS:      toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
 			Routes:   routes,
 		})
 	}
@@ -272,13 +272,17 @@ func toQueryMatch(match gatewayv1beta1.HTTPRouteMatch) []model.KeyValueMatch {
 	return res
 }
 
-func toTLS(tls *gatewayv1beta1.GatewayTLSConfig, defaultNamespace string) []model.TLSSecret {
+func toTLS(tls *gatewayv1beta1.GatewayTLSConfig, grants []gatewayv1alpha2.ReferenceGrant, defaultNamespace string) []model.TLSSecret {
 	if tls == nil {
 		return nil
 	}
 
 	res := make([]model.TLSSecret, 0, len(tls.CertificateRefs))
 	for _, cert := range tls.CertificateRefs {
+		if !helpers.IsSecretReferenceAllowed(defaultNamespace, cert, gatewayv1beta1.SchemeGroupVersion.WithKind("Gateway"), grants) {
+			// not allowed to be referred to, skipping
+			continue
+		}
 		res = append(res, model.TLSSecret{
 			Name:      string(cert.Name),
 			Namespace: namespaceDerefOr(cert.Namespace, defaultNamespace),
