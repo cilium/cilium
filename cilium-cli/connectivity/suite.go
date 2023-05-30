@@ -11,6 +11,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/versioncheck"
+
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/manifests/template"
 	"github.com/cilium/cilium-cli/connectivity/tests"
@@ -157,6 +159,9 @@ var (
 
 	//go:embed manifests/egress-gateway-policy.yaml
 	egressGatewayPolicyYAML string
+
+	//go:embed manifests/egress-gateway-policy-excluded-cidrs.yaml
+	egressGatewayPolicyExcludedCIDRsYAML string
 )
 
 var (
@@ -726,13 +731,27 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			tests.NodeToNodeEncryption(),
 		)
 
-	ct.NewTest("egress-gateway").
-		WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEgressGateway),
-			check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
-		WithScenarios(
-			tests.EgressGateway(),
-		)
+	if ct.Params().IncludeUnsafeTests {
+		ct.NewTest("egress-gateway").
+			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML, check.CiliumEgressGatewayPolicyParams{}).
+			WithIPRoutesFromOutsideToPodCIDRs().
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEgressGateway),
+				check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithScenarios(
+				tests.EgressGateway(),
+			)
+	}
+
+	if versioncheck.MustCompile(">=1.14.0")(ct.CiliumVersion) {
+		ct.NewTest("egress-gateway-excluded-cidrs").
+			WithCiliumEgressGatewayPolicy(egressGatewayPolicyExcludedCIDRsYAML,
+				check.CiliumEgressGatewayPolicyParams{ExcludedCIDRs: check.ExternalNodeExcludedCIDRs}).
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEgressGateway),
+				check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithScenarios(
+				tests.EgressGatewayExcludedCIDRs(),
+			)
+	}
 
 	// The following tests have DNS redirect policies. They should be executed last.
 
