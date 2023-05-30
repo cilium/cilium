@@ -315,6 +315,11 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1b
 }
 
 func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1beta1.Gateway, httpRoutes *gatewayv1beta1.HTTPRouteList, tlsRoutes *gatewayv1alpha2.TLSRouteList) error {
+	grants := &gatewayv1beta1.ReferenceGrantList{}
+	if err := r.Client.List(ctx, grants); err != nil {
+		return err
+	}
+
 	for _, l := range gw.Spec.Listeners {
 		isValid := true
 
@@ -364,12 +369,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 					break
 				}
 
-				allowed, err := isCertificateReferenceAllowed(ctx, r.Client, gw, cert)
-				if err != nil {
-					return err
-				}
-
-				if !allowed {
+				if !helpers.IsSecretReferenceAllowed(gw.Namespace, cert, gatewayv1beta1.SchemeGroupVersion.WithKind("Gateway"), grants.Items) {
 					conds = merge(conds, metav1.Condition{
 						Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
 						Status:             metav1.ConditionFalse,
@@ -381,7 +381,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 					break
 				}
 
-				if err = validateTLSSecret(ctx, r.Client, helpers.NamespaceDerefOr(cert.Namespace, gw.GetNamespace()), string(cert.Name)); err != nil {
+				if err := validateTLSSecret(ctx, r.Client, helpers.NamespaceDerefOr(cert.Namespace, gw.GetNamespace()), string(cert.Name)); err != nil {
 					conds = merge(conds, metav1.Condition{
 						Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
 						Status:             metav1.ConditionFalse,
@@ -433,34 +433,6 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 	}
 	gw.Status.Listeners = newListenersStatus
 	return nil
-}
-
-func isCertificateReferenceAllowed(ctx context.Context, c client.Client, gw *gatewayv1beta1.Gateway, cert gatewayv1beta1.SecretObjectReference) (bool, error) {
-	// Secret is in the same namespace as the Gateway
-	if cert.Namespace == nil || string(*cert.Namespace) == gw.GetNamespace() {
-		return true, nil
-	}
-
-	// check if this cert is allowed to be used by this gateway
-	grants := &gatewayv1beta1.ReferenceGrantList{}
-	if err := c.List(ctx, grants, client.InNamespace(*cert.Namespace)); err != nil {
-		return false, err
-	}
-
-	for _, g := range grants.Items {
-		for _, from := range g.Spec.From {
-			if from.Group == gatewayv1beta1.GroupName &&
-				from.Kind == kindGateway && (string)(from.Namespace) == gw.GetNamespace() {
-				for _, to := range g.Spec.To {
-					if to.Group == corev1.GroupName && to.Kind == kindSecret &&
-						(to.Name == nil || string(*to.Name) == string(cert.Name)) {
-						return true, nil
-					}
-				}
-			}
-		}
-	}
-	return false, nil
 }
 
 func validateTLSSecret(ctx context.Context, c client.Client, namespace, name string) error {
