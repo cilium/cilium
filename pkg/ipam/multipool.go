@@ -189,6 +189,7 @@ type multiPoolManager struct {
 	owner Owner
 
 	preallocatedIPsPerPool preAllocatePerPool
+	pendingIPsPerPool      *pendingAllocationsPerPool
 
 	pools        map[Pool]*poolPair
 	poolsUpdated chan struct{}
@@ -227,6 +228,7 @@ func newMultiPoolManager(conf Configuration, nodeWatcher nodeWatcher, owner Owne
 		owner:                  owner,
 		conf:                   conf,
 		preallocatedIPsPerPool: preallocMap,
+		pendingIPsPerPool:      newPendingAllocationsPerPool(),
 		pools:                  map[Pool]*poolPair{},
 		poolsUpdated:           make(chan struct{}, 1),
 		node:                   nil,
@@ -347,59 +349,110 @@ func neededIPCeil(numIP int, preAlloc int) int {
 	return (quotient + 1) * preAlloc
 }
 
+// computeNeededIPsPerPoolLocked computes how many IPs we want to request from
+// the operator for each pool. The formula we use for each pool is basically
+//
+//	neededIPs = roundUp(inUseIPs + pendingIPs + preAllocIPs, preAllocIPs)
+//
+//	      inUseIPs      Number of IPs that are currently actively in use
+//	      pendingIPs    Number of IPs that have been requested, but not yet assigned
+//	      preAllocIPs   Minimum number of IPs that we want to pre-allocate as a buffer
+//
+// Rounded up to the next multiple of preAllocIPs.
+func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPoolDemand {
+	demand := make(map[Pool]types.IPAMPoolDemand, len(m.pools))
+
+	// inUseIPs
+	for poolName, pool := range m.pools {
+		ipv4Addrs := 0
+		if p := pool.v4; p != nil {
+			ipv4Addrs = p.inUseIPCount()
+		}
+		ipv6Addrs := 0
+		if p := pool.v6; p != nil {
+			ipv6Addrs = p.inUseIPCount()
+		}
+
+		demand[poolName] = types.IPAMPoolDemand{
+			IPv4Addrs: ipv4Addrs,
+			IPv6Addrs: ipv6Addrs,
+		}
+	}
+
+	// + pendingIPs
+	for poolName, pending := range m.pendingIPsPerPool.pools {
+		ipv4Addrs := demand[poolName].IPv4Addrs + pending.pendingForFamily(IPv4)
+		ipv6Addrs := demand[poolName].IPv6Addrs + pending.pendingForFamily(IPv6)
+
+		demand[poolName] = types.IPAMPoolDemand{
+			IPv4Addrs: ipv4Addrs,
+			IPv6Addrs: ipv6Addrs,
+		}
+	}
+
+	// + preAllocIPs
+	for poolName, preAlloc := range m.preallocatedIPsPerPool {
+		ipv4Addrs := demand[poolName].IPv4Addrs
+		if m.conf.IPv4Enabled() {
+			ipv4Addrs = neededIPCeil(ipv4Addrs, preAlloc)
+		}
+		ipv6Addrs := demand[poolName].IPv6Addrs
+		if m.conf.IPv6Enabled() {
+			ipv6Addrs = neededIPCeil(ipv6Addrs, preAlloc)
+		}
+
+		demand[poolName] = types.IPAMPoolDemand{
+			IPv4Addrs: ipv4Addrs,
+			IPv6Addrs: ipv6Addrs,
+		}
+	}
+
+	return demand
+}
+
 func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 	m.mutex.Lock()
 	newNode := m.node.DeepCopy()
 	requested := []types.IPAMPoolRequest{}
 	allocated := []types.IPAMPoolAllocation{}
 
-	// Only pools present in multi-pool-node-pre-alloc can be requested
-	for poolName, preAlloc := range m.preallocatedIPsPerPool {
-		var neededIPv4, neededIPv6 int
-		pool, ok := m.pools[poolName]
-		if ok {
-			if pool.v4 != nil {
-				neededIPv4 = pool.v4.inUseIPCount()
-			}
-			if pool.v6 != nil {
-				neededIPv6 = pool.v6.inUseIPCount()
-			}
-		}
-
-		if m.conf.IPv4Enabled() {
-			neededIPv4 = neededIPCeil(neededIPv4, int(preAlloc))
-			if ok && pool.v4 != nil {
-				pool.v4.releaseExcessCIDRsMultiPool(neededIPv4)
-			}
-		}
-		if m.conf.IPv6Enabled() {
-			neededIPv6 = neededIPCeil(neededIPv6, int(preAlloc))
-			if ok && pool.v6 != nil {
-				pool.v6.releaseExcessCIDRsMultiPool(neededIPv6)
-			}
+	m.pendingIPsPerPool.removeExpiredEntries()
+	neededIPsPerPool := m.computeNeededIPsPerPoolLocked()
+	for poolName, needed := range neededIPsPerPool {
+		if needed.IPv4Addrs == 0 && needed.IPv6Addrs == 0 {
+			continue // no need to request "0" IPs
 		}
 
 		requested = append(requested, types.IPAMPoolRequest{
-			Pool: poolName.String(),
-			Needed: types.IPAMPoolDemand{
-				IPv4Addrs: neededIPv4,
-				IPv6Addrs: neededIPv6,
-			},
+			Pool:   poolName.String(),
+			Needed: needed,
 		})
 	}
 
 	// Write in-use pools to podCIDR. This removes any released pod CIDRs
 	for poolName, pool := range m.pools {
+		neededIPs := neededIPsPerPool[poolName]
+
 		cidrs := []types.IPAMPodCIDR{}
-		if pool.v4 != nil {
-			v4CIDRs := pool.v4.inUsePodCIDRs()
+		if v4Pool := pool.v4; v4Pool != nil {
+			v4Pool.releaseExcessCIDRsMultiPool(neededIPs.IPv4Addrs)
+			v4CIDRs := v4Pool.inUsePodCIDRs()
+
 			slices.Sort(v4CIDRs)
 			cidrs = append(cidrs, v4CIDRs...)
 		}
-		if pool.v6 != nil {
-			v6CIDRs := pool.v6.inUsePodCIDRs()
+		if v6Pool := pool.v6; v6Pool != nil {
+			v6Pool.releaseExcessCIDRsMultiPool(neededIPs.IPv6Addrs)
+			v6CIDRs := v6Pool.inUsePodCIDRs()
+
 			slices.Sort(v6CIDRs)
 			cidrs = append(cidrs, v6CIDRs...)
+		}
+
+		// remove pool if we've released all CIDRs
+		if len(cidrs) == 0 {
+			delete(m.pools, poolName)
+			continue
 		}
 
 		allocated = append(allocated, types.IPAMPoolAllocation{
@@ -547,19 +600,25 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
+	defer func() {
+		if syncUpstream {
+			m.k8sUpdater.TriggerWithReason("allocation of next IP")
+		}
+	}()
+
 	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
-		return nil, fmt.Errorf("unable to allocate from unknown pool %q (family %s)", poolName, family)
+		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
+		return nil, fmt.Errorf("unable to allocate from pool %q (family %s): pool not (yet) available", poolName, family)
 	}
 
 	ip, err := pool.allocateNext()
 	if err != nil {
+		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
 		return nil, err
 	}
 
-	if syncUpstream {
-		m.k8sUpdater.TriggerWithReason("allocation of next IP")
-	}
+	m.pendingIPsPerPool.markAsAllocated(poolName, owner, family)
 	return &AllocationResult{IP: ip, IPPoolName: poolName}, nil
 }
 
@@ -567,19 +626,25 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
+	defer func() {
+		if syncUpstream {
+			m.k8sUpdater.TriggerWithReason("allocation of specific IP")
+		}
+	}()
+
 	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
-		return nil, fmt.Errorf("unable to reserve IP %s from unknown pool %q (family %s)", ip, poolName, family)
+		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
+		return nil, fmt.Errorf("unable to reserve IP %s from pool %q (family %s): pool not (yet) available", ip, poolName, family)
 	}
 
 	err := pool.allocate(ip)
 	if err != nil {
+		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
 		return nil, err
 	}
 
-	if syncUpstream {
-		m.k8sUpdater.TriggerWithReason("allocation of IP")
-	}
+	m.pendingIPsPerPool.markAsAllocated(poolName, owner, family)
 	return &AllocationResult{IP: ip, IPPoolName: poolName}, nil
 }
 
