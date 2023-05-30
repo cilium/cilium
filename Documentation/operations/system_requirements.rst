@@ -418,7 +418,7 @@ Port Range / Protocol    Description
 4240/tcp                 cluster health checks (``cilium-health``)
 4244/tcp                 Hubble server
 4245/tcp                 Hubble Relay
-4250/tcp                 mTLS port
+4250/tcp                 Mutual Authentication port
 4251/tcp                 Spire Agent health check port (listening on 127.0.0.1 or ::1)
 6060/tcp                 cilium-agent pprof server (listening on 127.0.0.1)
 6061/tcp                 cilium-operator pprof server (listening on 127.0.0.1)

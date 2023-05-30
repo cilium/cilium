@@ -145,7 +145,7 @@ func generateTestCertificates(t *testing.T) (map[string]*x509.Certificate, map[s
 	return leafCerts, leafPrivKeys, caPool
 }
 
-func Test_mtlsAuthHandler_verifyPeerCertificate(t *testing.T) {
+func Test_mutualAuthHandler_verifyPeerCertificate(t *testing.T) {
 	certMap, keyMap, caPool := generateTestCertificates(t)
 	certMapOtherCA, _, _ := generateTestCertificates(t)
 	type args struct {
@@ -248,7 +248,7 @@ func Test_mtlsAuthHandler_verifyPeerCertificate(t *testing.T) {
 	}
 }
 
-func Test_mtlsAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
+func Test_mutualAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 	certMap, keyMap, caPool := generateTestCertificates(t)
 	type args struct {
 		info *tls.ClientHelloInfo
@@ -317,16 +317,16 @@ func Test_mtlsAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 	}
 }
 
-func Test_mtlsAuthHandler_authenticate(t *testing.T) {
+func Test_mutualAuthHandler_authenticate(t *testing.T) {
 	certMap, keyMap, caPool := generateTestCertificates(t)
 
-	tls := &mutualAuthHandler{
+	mAuthHandler := &mutualAuthHandler{
 		cfg:  MutualAuthConfig{MutualAuthListenerPort: getRandomOpenPort(t)},
 		log:  log,
 		cert: &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
 	}
-	tls.onStart(context.Background())
-	defer tls.onStop(context.Background())
+	mAuthHandler.onStart(context.Background())
+	defer mAuthHandler.onStop(context.Background())
 
 	var lowestExpirationTime time.Time
 	for _, cert := range certMap {
@@ -392,7 +392,7 @@ func Test_mtlsAuthHandler_authenticate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tls.authenticate(tt.args.ar)
+			got, err := mAuthHandler.authenticate(tt.args.ar)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("mutualAuthHandler.authenticate() error = %v, wantErr %v", err, tt.wantErr)
 				return

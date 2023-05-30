@@ -282,7 +282,7 @@ func (s *SpireDelegateClient) initWatcher(ctx context.Context) (delegatedidentit
 		Selectors: []*spiffeTypes.Selector{
 			{
 				Type:  "cilium",
-				Value: "mtls",
+				Value: "mutual-auth",
 			},
 		},
 	})

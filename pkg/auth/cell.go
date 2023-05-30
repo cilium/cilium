@@ -31,8 +31,8 @@ var Cell = cell.Module(
 	cell.Invoke(newManager),
 	cell.ProvidePrivate(
 		newSignalRegistration,
-		// MTLS auth handler provides support for auth type "mtls-*" - which performs mTLS authentication.
-		newMTLSAuthHandler,
+		// Null auth handler provides support for auth type "null" - which always succeeds.
+		newMutualAuthHandler,
 		// Always fail auth handler provides support for auth type "always-fail" - which always fails.
 		newAlwaysFailAuthHandler,
 	),
@@ -104,10 +104,4 @@ type authHandlerResult struct {
 	cell.Out
 
 	AuthHandler authHandler `group:"authHandlers"`
-}
-
-func newNullAuthHandler() authHandlerResult {
-	return authHandlerResult{
-		AuthHandler: &disabledAuthHandler{},
-	}
 }
