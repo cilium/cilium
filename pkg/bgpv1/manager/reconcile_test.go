@@ -145,7 +145,13 @@ func TestPreflightReconciler(t *testing.T) {
 // TestNeighborReconciler confirms the `neighborReconciler` function configures
 // the desired BGP neighbors given a CiliumBGPVirtualRouter configuration.
 func TestNeighborReconciler(t *testing.T) {
-	var table = []struct {
+	type checkTimers struct {
+		holdTimer         bool
+		connectRetryTimer bool
+		keepaliveTimer    bool
+	}
+
+	table := []struct {
 		// name of the test
 		name string
 		// existing neighbors, expanded to CiliumBGPNeighbor during test
@@ -154,6 +160,8 @@ func TestNeighborReconciler(t *testing.T) {
 		//
 		// this is the resulting neighbors we expect on the BgpServer.
 		newNeighbors []v2alpha1api.CiliumBGPNeighbor
+		// checks validates set timer values
+		checks checkTimers
 		// error provided or nil
 		err error
 	}{
@@ -206,6 +214,9 @@ func TestNeighborReconciler(t *testing.T) {
 				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second}},
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
 				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
+			},
+			checks: checkTimers{
+				connectRetryTimer: true,
 			},
 			err: nil,
 		},
@@ -270,45 +281,36 @@ func TestNeighborReconciler(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed creating test BgpServer: %v", err)
 			}
-			peers := getPeerResp.Peers
+			var runningPeers []v2alpha1api.CiliumBGPNeighbor
 
-			if len(tt.newNeighbors) == 0 && len(peers) > 0 {
-				t.Fatalf("got: %v, want: %v", len(peers), len(tt.newNeighbors))
-			}
+			for _, peer := range getPeerResp.Peers {
+				toCiliumPeer := v2alpha1api.CiliumBGPNeighbor{
+					PeerAddress: toHostPrefix(peer.PeerAddress),
+					PeerASN:     int(peer.PeerAsn),
+				}
 
-			for _, n := range tt.newNeighbors {
-				prefix := netip.MustParsePrefix(n.PeerAddress)
-				var seen bool
-				for _, p := range peers {
-					addr := netip.MustParseAddr(p.PeerAddress)
-					if prefix.Addr() == addr {
-						seen = true
-						if n.ConnectRetryTime.Duration != 0 && int64(n.ConnectRetryTime.Seconds()) != p.ConnectRetryTimeSeconds {
-							t.Fatalf("ConnectRetryTime does not match: wanted: %d, got: %d", int64(n.ConnectRetryTime.Seconds()), p.ConnectRetryTimeSeconds)
-						}
+				if tt.checks.holdTimer {
+					toCiliumPeer.HoldTime = metav1.Duration{
+						Duration: time.Duration(peer.ConfiguredHoldTimeSeconds) * time.Second,
 					}
 				}
-				if !seen {
-					t.Fatalf("wanted neighbor %v, not present", n)
-				}
-			}
 
-			for _, p := range peers {
-				paddr := netip.MustParseAddr(p.PeerAddress)
-				var seen bool
-				for _, n := range tt.newNeighbors {
-					addr := netip.MustParsePrefix(n.PeerAddress)
-					if paddr == addr.Addr() {
-						seen = true
-						if n.ConnectRetryTime.Duration != 0 && int64(n.ConnectRetryTime.Seconds()) != p.ConnectRetryTimeSeconds {
-							t.Fatalf("ConnectRetryTime does not match: wanted: %d, got: %d", int64(n.ConnectRetryTime.Seconds()), p.ConnectRetryTimeSeconds)
-						}
+				if tt.checks.connectRetryTimer {
+					toCiliumPeer.ConnectRetryTime = metav1.Duration{
+						Duration: time.Duration(peer.ConnectRetryTimeSeconds) * time.Second,
 					}
 				}
-				if !seen {
-					t.Fatalf("wanted peer %v, not present", p.PeerAddress)
+
+				if tt.checks.keepaliveTimer {
+					toCiliumPeer.KeepAliveTime = metav1.Duration{
+						Duration: time.Duration(peer.ConfiguredKeepAliveTimeSeconds) * time.Second,
+					}
 				}
+
+				runningPeers = append(runningPeers, toCiliumPeer)
 			}
+
+			require.ElementsMatch(t, tt.newNeighbors, runningPeers)
 		})
 	}
 }
@@ -1086,4 +1088,14 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 		CState: cstate,
 	})
 	require.NoError(t, err)
+}
+
+// hostPrefixLen returns addr/32 for ipv4 address and addr/128 for ipv6 address
+func toHostPrefix(addr string) string {
+	addrNet := netip.MustParseAddr(addr)
+	bits := 32
+	if addrNet.Is6() {
+		bits = 128
+	}
+	return netip.PrefixFrom(addrNet, bits).String()
 }
