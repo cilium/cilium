@@ -728,7 +728,7 @@ encryption:
   type: ipsec
 
   # -- Enable encryption for pure node to node traffic.
-  # This option is only effective when encryption.type is set to ipsec.
+  # This option is only effective when encryption.type is set to "wireguard".
   nodeEncryption: false
 
   ipsec:

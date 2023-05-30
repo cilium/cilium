@@ -797,7 +797,7 @@
      - string
      - ``"/etc/ipsec"``
    * - encryption.nodeEncryption
-     - Enable encryption for pure node to node traffic. This option is only effective when encryption.type is set to ipsec.
+     - Enable encryption for pure node to node traffic. This option is only effective when encryption.type is set to "wireguard".
      - bool
      - ``false``
    * - encryption.secretName
