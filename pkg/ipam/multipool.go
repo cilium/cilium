@@ -31,6 +31,10 @@ const (
 	multiPoolTriggerName    = "ipam-sync-multi-pool-trigger"
 
 	waitForPoolTimeout = 3 * time.Minute
+
+	// pendingAllocationTTL is how long we wait for pending allocation to
+	// be fulfilled
+	pendingAllocationTTL = 5 * time.Minute
 )
 
 type poolPair struct {
@@ -51,6 +55,132 @@ func parseMultiPoolPreAllocMap(conf map[string]string) (preAllocatePerPool, erro
 	}
 
 	return m, nil
+}
+
+// pendingAllocationsPerPool tracks the number of pending allocations per pool.
+// A pending allocation is an allocation that has been requested, but not yet
+// fulfilled (i.e. typically because the pool is currently empty).
+// If an allocation is pending, we will request one additional IP from the
+// operator for every outstanding pending request. We will do this until the
+// allocation is fulfilled (e.g. because the operator has replenished our pool),
+// or if pending allocation expires (i.e. the owner has not performed any retry
+// attempt within pendingAllocationTTL)
+type pendingAllocationsPerPool struct {
+	pools map[Pool]pendingAllocationsPerOwner
+	clock func() time.Time // support custom clock for testing
+}
+
+// newPendingAllocationsPerPool returns a new pendingAllocationsPerPool with the
+// default monotonic expiration clock
+func newPendingAllocationsPerPool() *pendingAllocationsPerPool {
+	return &pendingAllocationsPerPool{
+		pools: map[Pool]pendingAllocationsPerOwner{},
+		clock: func() time.Time {
+			return time.Now()
+		},
+	}
+}
+
+// upsertPendingAllocation adds (or refreshes) a pending allocation to a particular pool.
+// The pending allocation is associated with a particular owner for bookkeeping purposes.
+func (p pendingAllocationsPerPool) upsertPendingAllocation(poolName Pool, owner string, family Family) {
+	pool, ok := p.pools[poolName]
+	if !ok {
+		pool = pendingAllocationsPerOwner{}
+	}
+
+	log.WithFields(logrus.Fields{
+		"owner":  owner,
+		"family": family,
+		"pool":   poolName,
+	}).Debug("IP allocation failed, upserting pending allocation")
+
+	now := p.clock()
+	pool.startExpirationAt(now, owner, family)
+	p.pools[poolName] = pool
+}
+
+// markAsAllocated marks a pending allocation as fulfilled. This means that the owner
+// has now been assigned an IP from the given IP family
+func (p pendingAllocationsPerPool) markAsAllocated(poolName Pool, owner string, family Family) {
+	pool, ok := p.pools[poolName]
+	if !ok {
+		return
+	}
+	pool.removeExpiration(owner, family)
+	if len(pool) == 0 {
+		delete(p.pools, poolName)
+	}
+}
+
+// removeExpiredEntries removes all expired pending allocations from all pools.
+// Pending allocations expire if they are not fulfilled after the time interval
+// specified in pendingAllocationTTL has elapsed.
+// This typically means that we are no longer trying to reserve an additional IP for
+// the expired allocation. The owner of the expired pending allocation may still
+// reissue the allocation and be successful next time if the IP pool has now
+// enough capacity.
+func (p pendingAllocationsPerPool) removeExpiredEntries() {
+	now := p.clock()
+	for poolName, pool := range p.pools {
+		pool.removeExpiredEntries(now, poolName)
+		if len(pool) == 0 {
+			delete(p.pools, poolName)
+		}
+	}
+}
+
+// pendingForPool returns how many IP allocations are pending for the given
+// pool and IP family
+func (p pendingAllocationsPerPool) pendingForPool(pool Pool, family Family) int {
+	return p.pools[pool].pendingForFamily(family)
+}
+
+// pendingAllocationsPerOwner tracks if an IP owner has a pending allocation
+// request for a particular IP family.
+// The IP family as the first key allows one to quickly determine how many
+// IP allocations are pending for a given IP family.
+type pendingAllocationsPerOwner map[Family]map[string]time.Time
+
+// startExpiration starts the expiration timer for a pending allocation
+func (p pendingAllocationsPerOwner) startExpirationAt(now time.Time, owner string, family Family) {
+	expires, ok := p[family]
+	if !ok {
+		expires = map[string]time.Time{}
+	}
+
+	expires[owner] = now.Add(pendingAllocationTTL)
+	p[family] = expires
+}
+
+// startExpiration removes the expiration timer for a pending allocation, this
+// happens either because the timer expired, or the allocation was fulfilled
+func (p pendingAllocationsPerOwner) removeExpiration(owner string, family Family) {
+	delete(p[family], owner)
+	if len(p[family]) == 0 {
+		delete(p, family)
+	}
+}
+
+// removeExpiredEntries removes all pending allocation requests which have expired
+func (p pendingAllocationsPerOwner) removeExpiredEntries(now time.Time, pool Pool) {
+	for family, owners := range p {
+		for owner, expires := range owners {
+			if now.After(expires) {
+				p.removeExpiration(owner, family)
+				log.WithFields(logrus.Fields{
+					"owner":  owner,
+					"family": family,
+					"pool":   pool,
+				}).Debug("Pending IP allocation has expired without being fulfilled")
+			}
+		}
+	}
+}
+
+// pendingForPool returns how many IP allocations are pending for the given family
+func (p pendingAllocationsPerOwner) pendingForFamily(family Family) int {
+	return len(p[family])
 }
 
 type multiPoolManager struct {
