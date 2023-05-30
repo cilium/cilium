@@ -42,10 +42,9 @@ var FlowType_value = flow.FlowType_value
 
 type AuthType = flow.AuthType
 
-const AuthType_NONE = flow.AuthType_NONE
-const AuthType_NULL = flow.AuthType_NULL
-const AuthType_MTLS_SPIFFE = flow.AuthType_MTLS_SPIFFE
-const AuthType_ALWAYS_FAIL = flow.AuthType_ALWAYS_FAIL
+const AuthType_DISABLED = flow.AuthType_DISABLED
+const AuthType_SPIRE = flow.AuthType_SPIRE
+const AuthType_TEST_ALWAYS_FAIL = flow.AuthType_TEST_ALWAYS_FAIL
 
 var AuthType_name = flow.AuthType_name
 var AuthType_value = flow.AuthType_value

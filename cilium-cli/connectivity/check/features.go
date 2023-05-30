@@ -61,7 +61,7 @@ const (
 	FeatureCNP Feature = "cilium-network-policy"
 	FeatureKNP Feature = "k8s-network-policy"
 
-	FeatureAuthMTLSSpiffe Feature = "auth-mtls-spiffe"
+	FeatureAuthSpiffe Feature = "mutual-auth-spiffe"
 
 	FeatureIngressController Feature = "ingress-controller"
 
@@ -232,8 +232,8 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 		Enabled: cm.Data["enable-endpoint-routes"] == "true",
 	}
 
-	result[FeatureAuthMTLSSpiffe] = FeatureStatus{
-		Enabled: cm.Data["mesh-auth-mtls-enabled"] == "true",
+	result[FeatureAuthSpiffe] = FeatureStatus{
+		Enabled: cm.Data["mesh-auth-mutual-enabled"] == "true",
 	}
 
 	result[FeatureIngressController] = FeatureStatus{
