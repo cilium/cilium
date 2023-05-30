@@ -358,6 +358,9 @@ Deprecated Options
 * The ``disable-cnp-status-updates``, ``cnp-node-status-gc-interval duration`` and ``enable-k8s-event-handover``
   options are deprecated and will be removed in v1.15. There is no replacement for these
   flags as enabling them causes scalability and performance issues even in small clusters.
+* The ``cluster-pool-v2beta`` IPAM mode is deprecated and will be removed in v1.15.
+  The functionality to dynamically allocate Pod CIDRs is now provided  by the
+  more flexible ``multi-pool`` IPAM mode.
 
 Deprecated Commands
 ~~~~~~~~~~~~~~~~~~~
