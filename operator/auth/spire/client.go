@@ -35,7 +35,7 @@ const (
 var defaultSelectors = []*types.Selector{
 	{
 		Type:  "cilium",
-		Value: "mtls",
+		Value: "mutual-auth",
 	},
 }
 
@@ -94,7 +94,7 @@ type Client struct {
 }
 
 // NewClient creates a new SPIRE client.
-// If the mTLS is not enabled, it returns a noop client.
+// If the mutual authentication is not enabled, it returns a noop client.
 func NewClient(lc hive.Lifecycle, cfg ClientConfig, log logrus.FieldLogger) identity.Provider {
 	if !cfg.MutualAuthEnabled {
 		return &noopClient{}

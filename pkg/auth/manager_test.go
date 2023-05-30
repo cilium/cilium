@@ -15,18 +15,18 @@ import (
 
 func Test_newAuthManager_clashingAuthHandlers(t *testing.T) {
 	authHandlers := []authHandler{
-		&disabledAuthHandler{},
-		&disabledAuthHandler{},
+		&alwaysFailAuthHandler{},
+		&alwaysFailAuthHandler{},
 	}
 
 	am, err := newAuthManager(nil, authHandlers, nil, nil)
-	assert.ErrorContains(t, err, "multiple handlers for auth type: disabled")
+	assert.ErrorContains(t, err, "multiple handlers for auth type: test-always-fail")
 	assert.Nil(t, am)
 }
 
 func Test_newAuthManager(t *testing.T) {
 	authHandlers := []authHandler{
-		&disabledAuthHandler{},
+		&alwaysPassAuthHandler{},
 		&fakeAuthHandler{},
 	}
 
@@ -53,7 +53,7 @@ func Test_authManager_authenticate(t *testing.T) {
 				remoteNodeID:   2,
 				authType:       1,
 			},
-			wantErr:     assertErrorString("unknown requested auth type: required"),
+			wantErr:     assertErrorString("unknown requested auth type: spire"),
 			wantEntries: 0,
 		},
 		{
@@ -62,7 +62,7 @@ func Test_authManager_authenticate(t *testing.T) {
 				localIdentity:  1,
 				remoteIdentity: 2,
 				remoteNodeID:   1,
-				authType:       0,
+				authType:       2,
 			},
 			wantErr:     assertErrorString("remote node IP not available for node ID 1"),
 			wantEntries: 0,
@@ -73,7 +73,7 @@ func Test_authManager_authenticate(t *testing.T) {
 				localIdentity:  1,
 				remoteIdentity: 2,
 				remoteNodeID:   2,
-				authType:       0,
+				authType:       100,
 			},
 			wantErr:     assert.NoError,
 			wantEntries: 1,
@@ -86,7 +86,7 @@ func Test_authManager_authenticate(t *testing.T) {
 			}
 			am, err := newAuthManager(
 				make(<-chan signalAuthKey, 100),
-				[]authHandler{&disabledAuthHandler{}},
+				[]authHandler{&alwaysFailAuthHandler{}, &alwaysPassAuthHandler{}},
 				authMap,
 				newFakeIPCache(map[uint16]string{
 					2: "172.18.0.2",

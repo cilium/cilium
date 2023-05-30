@@ -24,13 +24,13 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 )
 
-type mtlsParams struct {
+type mutualAuthParams struct {
 	cell.In
 
 	CertificateProvider certs.CertificateProvider
 }
 
-func newMTLSAuthHandler(lc hive.Lifecycle, cfg MutualAuthConfig, params mtlsParams, log logrus.FieldLogger) authHandlerResult {
+func newMutualAuthHandler(lc hive.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams, log logrus.FieldLogger) authHandlerResult {
 	if cfg.MutualAuthListenerPort == 0 {
 		log.Info("mutual authentication handler is disabled as no port is configured")
 		return authHandlerResult{}
@@ -39,16 +39,16 @@ func newMTLSAuthHandler(lc hive.Lifecycle, cfg MutualAuthConfig, params mtlsPara
 		log.Fatal("No certificate provider configured, but one is required. Please check if the spire flags are configured.")
 	}
 
-	mtls := &mutualAuthHandler{
+	mAuthHandler := &mutualAuthHandler{
 		cfg:  cfg,
-		log:  log.WithField(logfields.LogSubsys, "mtls-auth-handler"),
+		log:  log.WithField(logfields.LogSubsys, "mutual-auth-handler"),
 		cert: params.CertificateProvider,
 	}
 
-	lc.Append(hive.Hook{OnStart: mtls.onStart, OnStop: mtls.onStop})
+	lc.Append(hive.Hook{OnStart: mAuthHandler.onStart, OnStop: mAuthHandler.onStop})
 
 	return authHandlerResult{
-		AuthHandler: mtls,
+		AuthHandler: mAuthHandler,
 	}
 }
 
@@ -154,14 +154,14 @@ func (m *mutualAuthHandler) listenForConnections(upstreamCtx context.Context, re
 	var lc net.ListenConfig
 	l, err := lc.Listen(ctx, "tcp", fmt.Sprintf(":%d", m.cfg.MutualAuthListenerPort))
 	if err != nil {
-		m.log.WithError(err).Fatal("Failed to start mTLS listener")
+		m.log.WithError(err).Fatal("Failed to start mutual auth listener")
 	}
 	go func() { // shutdown socket goroutine
 		<-ctx.Done()
 		l.Close()
 	}()
 
-	m.log.WithField(logfields.Port, m.cfg.MutualAuthListenerPort).Info("Started mTLS listener")
+	m.log.WithField(logfields.Port, m.cfg.MutualAuthListenerPort).Info("Started mutual auth listener")
 	ready <- struct{}{} // signal to hive that we are ready to accept connections
 
 	for {
@@ -169,7 +169,7 @@ func (m *mutualAuthHandler) listenForConnections(upstreamCtx context.Context, re
 		if err != nil {
 			m.log.WithError(err).Error("Failed to accept connection")
 			if errors.Is(err, net.ErrClosed) {
-				m.log.Info("mTLS listener socket got closed")
+				m.log.Info("mutual auth listener socket got closed")
 				return
 			}
 			continue
@@ -211,7 +211,7 @@ func (m *mutualAuthHandler) GetCertificateForIncomingConnection(info *tls.Client
 }
 
 func (m *mutualAuthHandler) onStart(ctx hive.HookContext) error {
-	m.log.Info("Starting mTLS auth handler")
+	m.log.Info("Starting mutual auth handler")
 
 	listenCtx, cancel := context.WithCancel(context.Background())
 	m.cancelSocketListen = cancel
@@ -223,7 +223,7 @@ func (m *mutualAuthHandler) onStart(ctx hive.HookContext) error {
 }
 
 func (m *mutualAuthHandler) onStop(ctx hive.HookContext) error {
-	m.log.Info("Stopping mTLS auth handler")
+	m.log.Info("Stopping mutual auth handler")
 	m.cancelSocketListen()
 	return nil
 }

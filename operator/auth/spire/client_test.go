@@ -91,7 +91,7 @@ func TestClient_Upsert(t *testing.T) {
 									Selectors: []*types.Selector{
 										{
 											Type:  "cilium",
-											Value: "mtls",
+											Value: "mutual-auth",
 										},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
@@ -126,7 +126,7 @@ func TestClient_Upsert(t *testing.T) {
 									Selectors: []*types.Selector{
 										{
 											Type:  "cilium",
-											Value: "mtls",
+											Value: "mutual-auth",
 										},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
@@ -176,7 +176,7 @@ func TestClient_Upsert(t *testing.T) {
 									Selectors: []*types.Selector{
 										{
 											Type:  "cilium",
-											Value: "mtls",
+											Value: "mutual-auth",
 										},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
@@ -262,7 +262,7 @@ func TestClient_Delete(t *testing.T) {
 									Selectors: []*types.Selector{
 										{
 											Type:  "cilium",
-											Value: "mtls",
+											Value: "mutual-auth",
 										},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
@@ -297,7 +297,7 @@ func TestClient_Delete(t *testing.T) {
 									Selectors: []*types.Selector{
 										{
 											Type:  "cilium",
-											Value: "mtls",
+											Value: "mutual-auth",
 										},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
@@ -331,7 +331,7 @@ func TestClient_Delete(t *testing.T) {
 									Selectors: []*types.Selector{
 										{
 											Type:  "cilium",
-											Value: "mtls",
+											Value: "mutual-auth",
 										},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
@@ -365,7 +365,7 @@ func TestClient_Delete(t *testing.T) {
 									Selectors: []*types.Selector{
 										{
 											Type:  "cilium",
-											Value: "mtls",
+											Value: "mutual-auth",
 										},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
