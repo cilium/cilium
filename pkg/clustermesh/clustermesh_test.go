@@ -14,8 +14,10 @@ import (
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/pkg/clustermesh/internal"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -132,7 +134,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 			config.Capabilities.SyncedCanaries = true
 		}
 
-		err = SetClusterConfig(ctx, name, &config, kvstore.Client())
+		err = cmutils.SetClusterConfig(ctx, name, &config, kvstore.Client())
 		c.Assert(err, IsNil)
 	}
 
@@ -154,13 +156,14 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	defer ipc.Shutdown()
 
 	cm := NewClusterMesh(hivetest.Lifecycle(c), Configuration{
-		Config: Config{ClusterMeshConfig: dir},
-
+		Config:                internal.Config{ClusterMeshConfig: dir},
 		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
 		NodeKeyCreator:        testNodeCreator,
 		NodeObserver:          &testObserver{},
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
+		Metrics:               newMetrics(),
+		InternalMetrics:       internal.MetricsProvider(subsystem)(),
 	})
 	c.Assert(cm, Not(IsNil))
 
@@ -174,16 +177,12 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		return cm.NumReadyClusters() == 3
 	}, 10*time.Second), IsNil)
 
-	cm.mutex.RLock()
-	for _, rc := range cm.clusters {
-		rc.mutex.RLock()
+	for _, cluster := range []string{"cluster1", "cluster2", "cluster3"} {
 		for _, name := range nodeNames {
-			nodesWSS.UpsertKey(ctx, &testNode{Name: name, Cluster: rc.name})
+			nodesWSS.UpsertKey(ctx, &testNode{Name: name, Cluster: cluster})
 			c.Assert(err, IsNil)
 		}
-		rc.mutex.RUnlock()
 	}
-	cm.mutex.RUnlock()
 
 	// Write the sync canary for cluster2
 	nodesWSS.Synced(ctx)
