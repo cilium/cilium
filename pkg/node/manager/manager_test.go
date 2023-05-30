@@ -145,6 +145,10 @@ func newSignalNodeHandler() *signalNodeHandler {
 	}
 }
 
+func (s *signalNodeHandler) Name() string {
+	return "manager_test:signalNodeHandler"
+}
+
 func (n *signalNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
 	if n.EnableNodeAddEvent {
 		n.NodeAddEvent <- newNode
