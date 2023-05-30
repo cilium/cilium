@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
+	apiserverK8s "github.com/cilium/cilium/clustermesh-apiserver/k8s"
 	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
 	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
@@ -126,7 +127,7 @@ func init() {
 
 		gops.Cell(defaults.GopsPortApiserver),
 		k8sClient.Cell,
-		k8s.SharedResourcesCell,
+		apiserverK8s.ResourcesCell,
 
 		kvstore.Cell(kvstore.EtcdBackendName),
 		cell.Provide(func() *kvstore.ExtraOptions { return nil }),

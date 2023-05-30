@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -1604,7 +1605,7 @@ type daemonParams struct {
 	LocalNodeStore       node.LocalNodeStore
 	BGPController        *bgpv1.Controller
 	Shutdowner           hive.Shutdowner
-	SharedResources      k8s.SharedResources
+	SharedResources      agentK8s.Resources
 	CacheStatus          k8s.CacheStatus
 	NodeManager          nodeManager.NodeManager
 	EndpointManager      endpointmanager.EndpointManager

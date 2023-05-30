@@ -7,6 +7,7 @@ import (
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -78,7 +79,7 @@ var (
 
 		// Shared resources provide access to k8s resources as event streams or as
 		// read-only stores.
-		k8s.SharedResourcesCell,
+		agentK8s.ResourcesCell,
 
 		// EndpointManager maintains a collection of the locally running endpoints.
 		endpointmanager.Cell,

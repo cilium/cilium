@@ -9,6 +9,7 @@ import (
 
 	. "github.com/cilium/checkmate"
 
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
@@ -33,7 +34,7 @@ type K8sWatcherSuite struct{}
 
 var _ = Suite(&K8sWatcherSuite{})
 
-var emptySharedResources = k8s.SharedResources{}
+var emptySharedResources = agentK8s.Resources{}
 
 type fakeWatcherConfiguration struct{}
 
