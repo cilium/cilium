@@ -36,9 +36,9 @@ var (
 			namespaceResource,
 			lbIPPoolsResource,
 			ciliumIdentityResource,
-			ciliumNetworkPolicy,
-			ciliumClusterwideNetworkPolicy,
-			ciliumCIDRGroup,
+			ciliumNetworkPolicyResource,
+			ciliumClusterwideNetworkPolicyResource,
+			ciliumCIDRGroupResource,
 		),
 	)
 )
@@ -137,7 +137,7 @@ func ciliumIdentityResource(lc hive.Lifecycle, cs client.Clientset) (resource.Re
 	return resource.New[*cilium_api_v2.CiliumIdentity](lc, lw), nil
 }
 
-func ciliumNetworkPolicy(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {
+func ciliumNetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -145,7 +145,7 @@ func ciliumNetworkPolicy(lc hive.Lifecycle, cs client.Clientset) (resource.Resou
 	return resource.New[*cilium_api_v2.CiliumNetworkPolicy](lc, lw), nil
 }
 
-func ciliumClusterwideNetworkPolicy(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy], error) {
+func ciliumClusterwideNetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -153,7 +153,7 @@ func ciliumClusterwideNetworkPolicy(lc hive.Lifecycle, cs client.Clientset) (res
 	return resource.New[*cilium_api_v2.CiliumClusterwideNetworkPolicy](lc, lw), nil
 }
 
-func ciliumCIDRGroup(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup], error) {
+func ciliumCIDRGroupResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
