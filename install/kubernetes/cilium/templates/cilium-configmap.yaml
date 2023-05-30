@@ -1078,8 +1078,8 @@ data:
 {{- end }}
 
 {{- if .Values.authentication.mutual.spire.enabled }}
-  mesh-auth-mtls-enabled: "true"
-  mesh-auth-mtls-listener-port: {{ .Values.authentication.mutual.port | quote }}
+  mesh-auth-mutual-enabled: "true"
+  mesh-auth-mutual-listener-port: {{ .Values.authentication.mutual.port | quote }}
   mesh-auth-spire-agent-socket: {{ .Values.authentication.mutual.spire.agentSocketPath | quote }}
   mesh-auth-spire-server-address: {{ .Values.authentication.mutual.spire.serverAddress | quote }}
   mesh-auth-spire-server-connection-timeout: {{ .Values.authentication.mutual.spire.connectionTimeout }}

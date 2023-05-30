@@ -231,18 +231,18 @@ func Test_mtlsAuthHandler_verifyPeerCertificate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &mtlsAuthHandler{
-				cfg:  MTLSConfig{MTLSListenerPort: 1234},
+			m := &mutualAuthHandler{
+				cfg:  MutualAuthConfig{MutualAuthListenerPort: 1234},
 				log:  log,
 				cert: &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
 			}
 			got, err := m.verifyPeerCertificate(tt.args.id, tt.args.caBundle, tt.args.verifiedChains)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("mtlsAuthHandler.verifyPeerCertificate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("mutualAuthHandler.verifyPeerCertificate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("mtlsAuthHandler.verifyPeerCertificate() = %v, want %v", got, tt.want)
+				t.Errorf("mutualAuthHandler.verifyPeerCertificate() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -290,26 +290,26 @@ func Test_mtlsAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &mtlsAuthHandler{
-				cfg:  MTLSConfig{MTLSListenerPort: 1234},
+			m := &mutualAuthHandler{
+				cfg:  MutualAuthConfig{MutualAuthListenerPort: 1234},
 				log:  log,
 				cert: &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
 			}
 			got, err := m.GetCertificateForIncomingConnection(tt.args.info)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("mtlsAuthHandler.GetCertificateForIncomingConnection() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("mutualAuthHandler.GetCertificateForIncomingConnection() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr {
 				if got.Leaf == nil {
-					t.Errorf("mtlsAuthHandler.GetCertificateForIncomingConnection() leaf certificate is nil")
+					t.Errorf("mutualAuthHandler.GetCertificateForIncomingConnection() leaf certificate is nil")
 				}
 				if len(got.Leaf.URIs) == 0 {
-					t.Errorf("mtlsAuthHandler.GetCertificateForIncomingConnection() leaf certificate has no URIs")
+					t.Errorf("mutualAuthHandler.GetCertificateForIncomingConnection() leaf certificate has no URIs")
 				}
 				gotURI := got.Leaf.URIs[0].String()
 				if !reflect.DeepEqual(gotURI, tt.wantURI) {
-					t.Errorf("mtlsAuthHandler.GetCertificateForIncomingConnection() = %v, want %v", got, tt.wantURI)
+					t.Errorf("mutualAuthHandler.GetCertificateForIncomingConnection() = %v, want %v", got, tt.wantURI)
 				}
 			}
 
@@ -320,8 +320,8 @@ func Test_mtlsAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 func Test_mtlsAuthHandler_authenticate(t *testing.T) {
 	certMap, keyMap, caPool := generateTestCertificates(t)
 
-	tls := &mtlsAuthHandler{
-		cfg:  MTLSConfig{MTLSListenerPort: getRandomOpenPort(t)},
+	tls := &mutualAuthHandler{
+		cfg:  MutualAuthConfig{MutualAuthListenerPort: getRandomOpenPort(t)},
 		log:  log,
 		cert: &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
 	}
@@ -394,11 +394,11 @@ func Test_mtlsAuthHandler_authenticate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tls.authenticate(tt.args.ar)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("mtlsAuthHandler.authenticate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("mutualAuthHandler.authenticate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("mtlsAuthHandler.authenticate() = %v, want %v", got, tt.want)
+				t.Errorf("mutualAuthHandler.authenticate() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -56,7 +56,7 @@ var FakeCellClient = cell.Module(
 
 // ClientConfig contains the configuration for the SPIRE client.
 type ClientConfig struct {
-	AuthMTLSEnabled              bool          `mapstructure:"mesh-auth-mtls-enabled"`
+	MutualAuthEnabled            bool          `mapstructure:"mesh-auth-mutual-enabled"`
 	SpireAgentSocketPath         string        `mapstructure:"mesh-auth-spire-agent-socket"`
 	SpireServerAddress           string        `mapstructure:"mesh-auth-spire-server-address"`
 	SpireServerConnectionTimeout time.Duration `mapstructure:"mesh-auth-spire-server-connection-timeout"`
@@ -65,10 +65,10 @@ type ClientConfig struct {
 
 // Flags adds the flags used by ClientConfig.
 func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
-	flags.BoolVar(&cfg.AuthMTLSEnabled,
-		"mesh-auth-mtls-enabled",
+	flags.BoolVar(&cfg.MutualAuthEnabled,
+		"mesh-auth-mutual-enabled",
 		false,
-		"The flag to enable mTLS for the SPIRE server.")
+		"The flag to enable mutual authentication for the SPIRE server.")
 	flags.StringVar(&cfg.SpireAgentSocketPath,
 		"mesh-auth-spire-agent-socket",
 		"/run/spire/sockets/agent/agent.sock",
@@ -96,7 +96,7 @@ type Client struct {
 // NewClient creates a new SPIRE client.
 // If the mTLS is not enabled, it returns a noop client.
 func NewClient(lc hive.Lifecycle, cfg ClientConfig, log logrus.FieldLogger) identity.Provider {
-	if !cfg.AuthMTLSEnabled {
+	if !cfg.MutualAuthEnabled {
 		return &noopClient{}
 	}
 	client := &Client{

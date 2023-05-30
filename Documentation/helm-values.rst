@@ -89,7 +89,7 @@
      - bool
      - ``true``
    * - authentication.mutual.spire.install.enabled
-     - Enable SPIRE installation. This will only take effect only if auth.mTLS.spire.enabled is true
+     - Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true
      - bool
      - ``false``
    * - authentication.mutual.spire.install.namespace

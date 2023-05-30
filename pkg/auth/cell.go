@@ -31,15 +31,13 @@ var Cell = cell.Module(
 	cell.Invoke(newManager),
 	cell.ProvidePrivate(
 		newSignalRegistration,
-		// Null auth handler provides support for auth type "null" - which always succeeds.
-		newNullAuthHandler,
 		// MTLS auth handler provides support for auth type "mtls-*" - which performs mTLS authentication.
 		newMTLSAuthHandler,
 		// Always fail auth handler provides support for auth type "always-fail" - which always fails.
 		newAlwaysFailAuthHandler,
 	),
 	cell.Config(config{MeshAuthQueueSize: 1024}),
-	cell.Config(MTLSConfig{}),
+	cell.Config(MutualAuthConfig{}),
 )
 
 type config struct {

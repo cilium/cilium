@@ -30,8 +30,8 @@ type mtlsParams struct {
 	CertificateProvider certs.CertificateProvider
 }
 
-func newMTLSAuthHandler(lc hive.Lifecycle, cfg MTLSConfig, params mtlsParams, log logrus.FieldLogger) authHandlerResult {
-	if cfg.MTLSListenerPort == 0 {
+func newMTLSAuthHandler(lc hive.Lifecycle, cfg MutualAuthConfig, params mtlsParams, log logrus.FieldLogger) authHandlerResult {
+	if cfg.MutualAuthListenerPort == 0 {
 		log.Info("mutual authentication handler is disabled as no port is configured")
 		return authHandlerResult{}
 	}
@@ -39,7 +39,7 @@ func newMTLSAuthHandler(lc hive.Lifecycle, cfg MTLSConfig, params mtlsParams, lo
 		log.Fatal("No certificate provider configured, but one is required. Please check if the spire flags are configured.")
 	}
 
-	mtls := &mtlsAuthHandler{
+	mtls := &mutualAuthHandler{
 		cfg:  cfg,
 		log:  log.WithField(logfields.LogSubsys, "mtls-auth-handler"),
 		cert: params.CertificateProvider,
@@ -52,18 +52,19 @@ func newMTLSAuthHandler(lc hive.Lifecycle, cfg MTLSConfig, params mtlsParams, lo
 	}
 }
 
-type MTLSConfig struct {
-	MTLSListenerPort int `mapstructure:"mesh-auth-mtls-listener-port"`
+type MutualAuthConfig struct {
+	MutualAuthListenerPort int `mapstructure:"mesh-auth-mutual-listener-port"`
 }
 
-func (cfg MTLSConfig) Flags(flags *pflag.FlagSet) {
-	flags.IntVar(&cfg.MTLSListenerPort, "mesh-auth-mtls-listener-port", 0, "Port on which the Cilium Agent will perfom mTLS handshakes between other Agents")
+func (cfg MutualAuthConfig) Flags(flags *pflag.FlagSet) {
+	flags.IntVar(&cfg.MutualAuthListenerPort, "mesh-auth-mutual-listener-port", 0,
+		"Port on which the Cilium Agent will perform mutual authentication handshakes between other Agents")
 }
 
-type mtlsAuthHandler struct {
+type mutualAuthHandler struct {
 	cell.In
 
-	cfg MTLSConfig
+	cfg MutualAuthConfig
 	log logrus.FieldLogger
 
 	cert certs.CertificateProvider
@@ -71,7 +72,7 @@ type mtlsAuthHandler struct {
 	cancelSocketListen context.CancelFunc
 }
 
-func (m *mtlsAuthHandler) authenticate(ar *authRequest) (*authResponse, error) {
+func (m *mutualAuthHandler) authenticate(ar *authRequest) (*authResponse, error) {
 	if ar == nil {
 		return nil, errors.New("authRequest is nil")
 	}
@@ -86,9 +87,9 @@ func (m *mtlsAuthHandler) authenticate(ar *authRequest) (*authResponse, error) {
 	}
 
 	// set up TCP connection
-	conn, err := net.Dial("tcp", net.JoinHostPort(ar.remoteNodeIP, strconv.Itoa(m.cfg.MTLSListenerPort)))
+	conn, err := net.Dial("tcp", net.JoinHostPort(ar.remoteNodeIP, strconv.Itoa(m.cfg.MutualAuthListenerPort)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial %s:%d: %w", ar.remoteNodeIP, m.cfg.MTLSListenerPort, err)
+		return nil, fmt.Errorf("failed to dial %s:%d: %w", ar.remoteNodeIP, m.cfg.MutualAuthListenerPort, err)
 	}
 	defer conn.Close()
 
@@ -140,18 +141,18 @@ func (m *mtlsAuthHandler) authenticate(ar *authRequest) (*authResponse, error) {
 	}, nil
 }
 
-func (m *mtlsAuthHandler) authType() policy.AuthType {
+func (m *mutualAuthHandler) authType() policy.AuthType {
 	return policy.AuthTypeSpire
 }
 
-func (m *mtlsAuthHandler) listenForConnections(upstreamCtx context.Context, ready chan<- struct{}) {
+func (m *mutualAuthHandler) listenForConnections(upstreamCtx context.Context, ready chan<- struct{}) {
 	// set up TCP listener
 
 	ctx, cancel := context.WithCancel(upstreamCtx)
 	defer cancel()
 
 	var lc net.ListenConfig
-	l, err := lc.Listen(ctx, "tcp", fmt.Sprintf(":%d", m.cfg.MTLSListenerPort))
+	l, err := lc.Listen(ctx, "tcp", fmt.Sprintf(":%d", m.cfg.MutualAuthListenerPort))
 	if err != nil {
 		m.log.WithError(err).Fatal("Failed to start mTLS listener")
 	}
@@ -160,7 +161,7 @@ func (m *mtlsAuthHandler) listenForConnections(upstreamCtx context.Context, read
 		l.Close()
 	}()
 
-	m.log.WithField(logfields.Port, m.cfg.MTLSListenerPort).Info("Started mTLS listener")
+	m.log.WithField(logfields.Port, m.cfg.MutualAuthListenerPort).Info("Started mTLS listener")
 	ready <- struct{}{} // signal to hive that we are ready to accept connections
 
 	for {
@@ -177,7 +178,7 @@ func (m *mtlsAuthHandler) listenForConnections(upstreamCtx context.Context, read
 	}
 }
 
-func (m *mtlsAuthHandler) handleConnection(ctx context.Context, conn net.Conn) {
+func (m *mutualAuthHandler) handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
 	caBundle, err := m.cert.GetTrustBundle()
@@ -199,7 +200,7 @@ func (m *mtlsAuthHandler) handleConnection(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func (m *mtlsAuthHandler) GetCertificateForIncomingConnection(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (m *mutualAuthHandler) GetCertificateForIncomingConnection(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	m.log.WithField("SNI", info.ServerName).Debug("Got new TLS connection")
 	id, err := m.cert.SNIToNumericIdentity(info.ServerName)
 	if err != nil {
@@ -209,7 +210,7 @@ func (m *mtlsAuthHandler) GetCertificateForIncomingConnection(info *tls.ClientHe
 	return m.cert.GetCertificateForIdentity(id)
 }
 
-func (m *mtlsAuthHandler) onStart(ctx hive.HookContext) error {
+func (m *mutualAuthHandler) onStart(ctx hive.HookContext) error {
 	m.log.Info("Starting mTLS auth handler")
 
 	listenCtx, cancel := context.WithCancel(context.Background())
@@ -221,14 +222,14 @@ func (m *mtlsAuthHandler) onStart(ctx hive.HookContext) error {
 	return nil
 }
 
-func (m *mtlsAuthHandler) onStop(ctx hive.HookContext) error {
+func (m *mutualAuthHandler) onStop(ctx hive.HookContext) error {
 	m.log.Info("Stopping mTLS auth handler")
 	m.cancelSocketListen()
 	return nil
 }
 
 // verifyPeerCertificate is used for Go's TLS library to verify certificates
-func (m *mtlsAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, caBundle *x509.CertPool, certChains [][]*x509.Certificate) (*time.Time, error) {
+func (m *mutualAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, caBundle *x509.CertPool, certChains [][]*x509.Certificate) (*time.Time, error) {
 	if len(certChains) == 0 {
 		return nil, fmt.Errorf("no certificate chains found")
 	}
@@ -273,6 +274,6 @@ func (m *mtlsAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, ca
 	return expirationTime, nil
 }
 
-func (m *mtlsAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
+func (m *mutualAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
 	return m.cert.SubscribeToRotatedIdentities()
 }

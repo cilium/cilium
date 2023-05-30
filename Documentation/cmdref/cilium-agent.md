@@ -243,7 +243,7 @@ cilium-agent [flags]
       --log-driver strings                                      Logging endpoints to use for example syslog
       --log-opt map                                             Log driver options for cilium-agent, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}
       --log-system-load                                         Enable periodic logging of system load
-      --mesh-auth-mtls-listener-port int                        Port on which the Cilium Agent will perfom mTLS handshakes between other Agents
+      --mesh-auth-mutual-listener-port int                      Port on which the Cilium Agent will perform mutual authentication handshakes between other Agents
       --mesh-auth-queue-size int                                Queue size for the auth manager (default 1024)
       --mesh-auth-rotated-identities-queue-size int             The size of the queue for signaling rotated identities. (default 1024)
       --mesh-auth-spiffe-trust-domain string                    The trust domain for the SPIFFE identity. (default "spiffe.cilium")
