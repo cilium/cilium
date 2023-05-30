@@ -188,6 +188,12 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 		return fmt.Errorf("Cannot get XFRM state: %s", err)
 	}
 
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.SPI:           new.Spi,
+		logfields.SourceIP:      new.Src,
+		logfields.DestinationIP: new.Dst,
+	})
+
 	// Check if the XFRM state already exists
 	for _, s := range states {
 		if xfrmIPEqual(s.Src, new.Src) && xfrmIPEqual(s.Dst, new.Dst) &&
@@ -197,16 +203,47 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 		}
 	}
 
+	oldXFRMMark := &netlink.XfrmMark{
+		Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(new.Spi)),
+		Mask:  linux_defaults.IPsecOldMarkMaskOut,
+	}
+	for _, s := range states {
+		// This is the XFRM OUT state from a previous Cilium version.
+		// Because its mark matches the new mark (0xXXXX3e00/0xffffff00 ∈
+		// 0x3e00/0xff00), the kernel considers the two states conflict and we
+		// won't be able to add the new one until the old one is removed.
+		//
+		// Thus, we temporarily remove the old, conflicting XFRM state and
+		// re-add it in a defer. In between the removal of the old state and
+		// the addition of the new, we can have a packet drops due to the
+		// missing state. These drops should be limited to the specific node
+		// pair we are handling here and the window during which they can
+		// happen should be really small. This is also specific to the upgrade
+		// and can be removed in v1.15. Finally, this shouldn't happen with ENI
+		// and Azure IPAM modes because they don't have such conflicting states.
+		if xfrmIPEqual(s.Src, new.Src) && xfrmIPEqual(s.Dst, new.Dst) &&
+			xfrmMarkEqual(s.OutputMark, new.OutputMark) &&
+			xfrmMarkEqual(s.Mark, oldXFRMMark) && s.Spi == new.Spi {
+			err := netlink.XfrmStateDel(&s)
+			if err != nil {
+				scopedLog.WithError(err).Error("Failed to remove old XFRM state")
+			} else {
+				scopedLog.Infof("Temporarily removed old XFRM state")
+				defer func(oldXFRMState netlink.XfrmState) {
+					if err := netlink.XfrmStateAdd(&oldXFRMState); err != nil {
+						scopedLog.WithError(err).Errorf("Failed to re-add old XFRM state")
+					}
+				}(s)
+			}
+		}
+	}
+
 	// It doesn't exist so let's attempt to add it.
 	firstAttemptErr := netlink.XfrmStateAdd(new)
 	if !os.IsExist(firstAttemptErr) {
 		return firstAttemptErr
 	}
-	log.WithFields(logrus.Fields{
-		logfields.SPI:           new.Spi,
-		logfields.SourceIP:      new.Src,
-		logfields.DestinationIP: new.Dst,
-	}).Warn("Failed to add XFRM state due to conflicting state")
+	scopedLog.Error("Failed to add XFRM state due to conflicting state")
 
 	// An existing state conflicts with this one. We need to remove the
 	// existing one first.
