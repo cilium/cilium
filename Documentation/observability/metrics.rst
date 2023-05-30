@@ -192,10 +192,12 @@ Prometheus namespace. Etcd metrics are exported under the ``etcd_`` Prometheus n
 Installation
 ------------
 
-You can enable metrics for ``clustermesh-apiserver`` with the Helm value
-``clustermesh.apiserver.metrics.enabled=true``.
-To enable metrics for the sidecar etcd instance, use
-``clustermesh.apiserver.metrics.etcd.enabled=true``.
+You can enable the metrics for different Cluster Mesh API Server components by
+setting the following values:
+
+* clustermesh-apiserver: ``clustermesh.apiserver.metrics.enabled=true``
+* kvstoremesh: ``clustermesh.apiserver.metrics.kvstoremesh.enabled=true``
+* sidecar etcd instance: ``clustermesh.apiserver.metrics.etcd.enabled=true``
 
 .. parsed-literal::
 
@@ -203,9 +205,11 @@ To enable metrics for the sidecar etcd instance, use
      --namespace kube-system \\
      --set clustermesh.useAPIServer=true \\
      --set clustermesh.apiserver.metrics.enabled=true \\
+     --set clustermesh.apiserver.metrics.kvstoremesh.enabled=true \\
      --set clustermesh.apiserver.metrics.etcd.enabled=true
 
-The ports can be configured via ``clustermesh.apiserver.metrics.port`` and
+You can figure the ports by way of ``clustermesh.apiserver.metrics.port``,
+``clustermesh.apiserver.metrics.kvstoremesh.port`` and
 ``clustermesh.apiserver.metrics.etcd.port`` respectively.
 
 You can automatically create a
