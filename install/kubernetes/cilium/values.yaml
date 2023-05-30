@@ -2680,6 +2680,46 @@ clustermesh:
         #     cpu: 100m
         #     memory: 100Mi
 
+    kvstoremesh:
+      # -- Enable KVStoreMesh. KVStoreMesh caches the information retrieved
+      # from the remote clusters in the local etcd instance.
+      enabled: false
+
+      # -- KVStoreMesh image.
+      image:
+        override: ~
+        repository: "quay.io/cilium/kvstoremesh-ci"
+        tag: "latest"
+        # kvstoremesh-digest
+        digest: ""
+        useDigest: false
+        pullPolicy: "Always"
+
+      # -- Additional KVStoreMesh arguments.
+      extraArgs: []
+
+      # -- Additional KVStoreMesh environment variables.
+      extraEnv: []
+
+      # -- Resource requests and limits for the KVStoreMesh container
+      resources: {}
+        # requests:
+        #   cpu: 100m
+        #   memory: 64Mi
+        # limits:
+        #   cpu: 1000m
+        #   memory: 1024M
+
+      # -- Additional KVStoreMesh volumeMounts.
+      extraVolumeMounts: []
+
+      # -- KVStoreMesh Security context
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
@@ -2895,6 +2935,12 @@ clustermesh:
       # -- Configure the port the apiserver metric server listens on.
       port: 9962
 
+      kvstoremesh:
+        # -- Enables exporting KVStoreMesh metrics in OpenMetrics format.
+        enabled: true
+         # -- Configure the port the KVStoreMesh metric server listens on.
+        port: 9964
+
       etcd:
         # -- Enables exporting etcd metrics in OpenMetrics format.
         enabled: false
@@ -2921,6 +2967,14 @@ clustermesh:
         relabelings: ~
         # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
         metricRelabelings: ~
+
+        kvstoremesh:
+          # -- Interval for scrape metrics (KVStoreMesh metrics)
+          interval: "10s"
+          # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
+          relabelings: ~
+          # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
+          metricRelabelings: ~
 
         etcd:
           # -- Interval for scrape metrics (etcd metrics)

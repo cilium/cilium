@@ -218,6 +218,68 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+      {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+      - name: kvstoremesh
+        image: {{ include "cilium.image" .Values.clustermesh.apiserver.kvstoremesh.image | quote }}
+        imagePullPolicy: {{ .Values.clustermesh.apiserver.kvstoremesh.image.pullPolicy }}
+        command:
+        - /usr/bin/kvstoremesh
+        args:
+        {{- if .Values.debug.enabled }}
+        - --debug
+        {{- end }}
+        - --cluster-name=$(CLUSTER_NAME)
+        - --cluster-id=$(CLUSTER_ID)
+        - --kvstore-opt=etcd.config=/var/lib/cilium/etcd-config.yaml
+        - --kvstore-opt=etcd.qps=100
+        - --kvstore-opt=etcd.maxInflight=10
+        - --clustermesh-config=/var/lib/cilium/clustermesh
+        {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
+        - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        env:
+        - name: CLUSTER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: cilium-config
+              key: cluster-name
+        - name: CLUSTER_ID
+          valueFrom:
+            configMapKeyRef:
+              name: cilium-config
+              key: cluster-id
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.extraEnv }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
+        ports:
+        - name: kvmesh-metrics
+          containerPort: {{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
+          protocol: TCP
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: etcd-admin-client
+          mountPath: /var/lib/cilium/etcd-secrets
+          readOnly: true
+        - name: kvstoremesh-secrets
+          mountPath: /var/lib/cilium/clustermesh
+          readOnly: true
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
       volumes:
       - name: etcd-server-secrets
         projected:
@@ -272,6 +334,29 @@ spec:
       {{- end }}
       - name: etcd-data-dir
         emptyDir: {}
+      {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+      - name: kvstoremesh-secrets
+        projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          sources:
+          - secret:
+              name: cilium-kvstoremesh
+              # note: items are not explicitly listed here, since the entries of this secret
+              # depend on the peers configured, and that would cause a restart of this pod
+              # at every addition/removal. Leaving the field empty makes each secret entry
+              # to be automatically projected into the volume as a file whose name is the key.
+          - secret:
+              name: clustermesh-apiserver-remote-cert
+              optional: true
+              items:
+              - key: tls.key
+                path: common-etcd-client.key
+              - key: tls.crt
+                path: common-etcd-client.crt
+              - key: ca.crt
+                path: common-etcd-client-ca.crt
+      {{- end }}
       {{- with .Values.clustermesh.apiserver.extraVolumes }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
@@ -302,5 +387,14 @@ spec:
       {{- with .Values.clustermesh.apiserver.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if and .Values.clustermesh.config.enabled .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+      hostAliases:
+      {{- range $cluster := .Values.clustermesh.config.clusters }}
+      {{- range $ip := $cluster.ips }}
+      - ip: {{ $ip }}
+        hostnames: [ "{{ $cluster.name }}.{{ $.Values.clustermesh.config.domain }}" ]
+      {{- end }}
+      {{- end }}
       {{- end }}
 {{- end }}

@@ -392,6 +392,34 @@
      - Clustermesh API server image.
      - object
      - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/clustermesh-apiserver-ci","tag":"latest","useDigest":false}``
+   * - clustermesh.apiserver.kvstoremesh.enabled
+     - Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance.
+     - bool
+     - ``false``
+   * - clustermesh.apiserver.kvstoremesh.extraArgs
+     - Additional KVStoreMesh arguments.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.kvstoremesh.extraEnv
+     - Additional KVStoreMesh environment variables.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.kvstoremesh.extraVolumeMounts
+     - Additional KVStoreMesh volumeMounts.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.kvstoremesh.image
+     - KVStoreMesh image.
+     - object
+     - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/kvstoremesh-ci","tag":"latest","useDigest":false}``
+   * - clustermesh.apiserver.kvstoremesh.resources
+     - Resource requests and limits for the KVStoreMesh container
+     - object
+     - ``{}``
+   * - clustermesh.apiserver.kvstoremesh.securityContext
+     - KVStoreMesh Security context
+     - object
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - clustermesh.apiserver.metrics.enabled
      - Enables exporting apiserver metrics in OpenMetrics format.
      - bool
@@ -408,6 +436,14 @@
      - Configure the port the etcd metric server listens on.
      - int
      - ``9963``
+   * - clustermesh.apiserver.metrics.kvstoremesh.enabled
+     - Enables exporting KVStoreMesh metrics in OpenMetrics format.
+     - bool
+     - ``true``
+   * - clustermesh.apiserver.metrics.kvstoremesh.port
+     - Configure the port the KVStoreMesh metric server listens on.
+     - int
+     - ``9964``
    * - clustermesh.apiserver.metrics.port
      - Configure the port the apiserver metric server listens on.
      - int
@@ -436,6 +472,18 @@
      - Interval for scrape metrics (apiserver metrics)
      - string
      - ``"10s"``
+   * - clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.interval
+     - Interval for scrape metrics (KVStoreMesh metrics)
+     - string
+     - ``"10s"``
+   * - clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.metricRelabelings
+     - Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.relabelings
+     - Relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
+     - string
+     - ``nil``
    * - clustermesh.apiserver.metrics.serviceMonitor.labels
      - Labels to add to ServiceMonitor clustermesh-apiserver
      - object

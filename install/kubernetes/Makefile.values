@@ -15,6 +15,7 @@ ifeq ($(RELEASE),yes)
     export CILIUM_OPERATOR_BASE_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/operator
     export CLUSTERMESH_APISERVER_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/clustermesh-apiserver
     export HUBBLE_RELAY_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/hubble-relay
+    export KVSTOREMESH_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/kvstoremesh
 else
     export CILIUM_BRANCH:=main
     export PULL_POLICY:=Always
@@ -24,6 +25,7 @@ else
     export CILIUM_VERSION:=latest
     export CLUSTERMESH_APISERVER_REPO:=${CI_REGISTRY}/${CI_ORG}/clustermesh-apiserver-ci
     export HUBBLE_RELAY_REPO:=${CI_REGISTRY}/${CI_ORG}/hubble-relay-ci
+    export KVSTOREMESH_REPO:=${CI_REGISTRY}/${CI_ORG}/kvstoremesh-ci
 endif
 
 ifndef CILIUM_BRANCH
