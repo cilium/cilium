@@ -20,9 +20,10 @@ import (
 
 // peeringState helper struct containing peering information of BGP neighbor
 type peeringState struct {
-	peerASN     uint32
-	peerAddr    string
-	peerSession string
+	peerASN         uint32
+	peerAddr        string
+	peerSession     string
+	holdTimeSeconds int64 // applied hold time, as negotiated with the peer during the session setup
 }
 
 // Test_NeighborAddDel validates neighbor add and delete are working as expected. Test validates this using
@@ -43,23 +44,27 @@ func Test_NeighborAddDel(t *testing.T) {
 				{
 					PeerAddress: dummies[instance1Link].ipv4.String(),
 					PeerASN:     int(gobgpASN),
+					HoldTime:    meta_v1.Duration{Duration: 3 * time.Second}, // must be lower than default (90s) to be applied on the peer
 				},
 				{
 					PeerAddress: dummies[instance2Link].ipv4.String(),
 					PeerASN:     int(gobgpASN2),
+					HoldTime:    meta_v1.Duration{Duration: 6 * time.Second}, // must be lower than default (90s) to be applied on the peer
 				},
 			},
 			waitState: []string{"ESTABLISHED"},
 			expectedPeerStates: []peeringState{
 				{
-					peerASN:     gobgpASN,
-					peerAddr:    dummies[instance1Link].ipv4.Addr().String(),
-					peerSession: types.SessionEstablished.String(),
+					peerASN:         gobgpASN,
+					peerAddr:        dummies[instance1Link].ipv4.Addr().String(),
+					peerSession:     types.SessionEstablished.String(),
+					holdTimeSeconds: 3,
 				},
 				{
-					peerASN:     gobgpASN2,
-					peerAddr:    dummies[instance2Link].ipv4.Addr().String(),
-					peerSession: types.SessionEstablished.String(),
+					peerASN:         gobgpASN2,
+					peerAddr:        dummies[instance2Link].ipv4.Addr().String(),
+					peerSession:     types.SessionEstablished.String(),
+					holdTimeSeconds: 6,
 				},
 			},
 		},
@@ -115,9 +120,10 @@ func Test_NeighborAddDel(t *testing.T) {
 				var runningState []peeringState
 				for _, peer := range peers {
 					runningState = append(runningState, peeringState{
-						peerASN:     uint32(peer.PeerAsn),
-						peerAddr:    peer.PeerAddress,
-						peerSession: peer.SessionState,
+						peerASN:         uint32(peer.PeerAsn),
+						peerAddr:        peer.PeerAddress,
+						peerSession:     peer.SessionState,
+						holdTimeSeconds: peer.AppliedHoldTimeSeconds,
 					})
 				}
 				return assert.ElementsMatch(t, step.expectedPeerStates, runningState, step.description)
