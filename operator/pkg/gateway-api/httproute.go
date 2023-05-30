@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -28,7 +29,7 @@ const (
 	gatewayIndex        = "gatewayIndex"
 )
 
-type httpRouteChecker func(ctx context.Context, client client.Client, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error)
+type httpRouteChecker func(ctx context.Context, client client.Client, grants *gatewayv1alpha2.ReferenceGrantList, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error)
 
 // httpRouteReconciler reconciles a HTTPRoute object
 type httpRouteReconciler struct {

@@ -8,6 +8,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 )
 
@@ -53,7 +54,7 @@ func GatewayAPI(input Input) []model.HTTPListener {
 			for _, rule := range r.Spec.Rules {
 				bes := make([]model.Backend, 0, len(rule.BackendRefs))
 				for _, be := range rule.BackendRefs {
-					if !isReferenceAllowed(r.GetNamespace(), be, input.ReferenceGrants) {
+					if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("HTTPRoute"), input.ReferenceGrants) {
 						continue
 					}
 					if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
@@ -147,29 +148,6 @@ func filterRoute(gw gatewayv1beta1.Gateway, listener gatewayv1beta1.Listener, ro
 	}
 
 	return res
-}
-
-// isReferenceAllowed returns true if the reference is allowed by the reference grant.
-// TODO(tam): only HTTPRoute with Service is supported right now.
-// We need to support other routes (e.g. grpc, tls, etc.) later.
-func isReferenceAllowed(originatingNamespace string, be gatewayv1beta1.HTTPBackendRef, grants []gatewayv1alpha2.ReferenceGrant) bool {
-	if be.Namespace == nil || string(*be.Namespace) == originatingNamespace {
-		return true
-	}
-	for _, g := range grants {
-		for _, from := range g.Spec.From {
-			if from.Group == gatewayv1beta1.GroupName &&
-				from.Kind == "HTTPRoute" && (string)(from.Namespace) == originatingNamespace {
-				for _, to := range g.Spec.To {
-					if to.Group == corev1.GroupName && to.Kind == "Service" &&
-						(to.Name == nil || string(*to.Name) == string(be.Name)) {
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
 }
 
 func toHostname(hostname *gatewayv1beta1.Hostname) string {

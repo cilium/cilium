@@ -15,8 +15,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -54,11 +56,17 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}()
 
+	// check if this cert is allowed to be used by this gateway
+	grants := &gatewayv1alpha2.ReferenceGrantList{}
+	if err := r.Client.List(ctx, grants); err != nil {
+		return fail(err)
+	}
+
 	for _, fn := range []httpRouteChecker{
 		validateService,
 		validateGateway,
 	} {
-		if res, err := fn(ctx, r.Client, hr); err != nil {
+		if res, err := fn(ctx, r.Client, grants, hr); err != nil {
 			return res, err
 		}
 	}
@@ -67,7 +75,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return success()
 }
 
-func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error) {
+func validateService(ctx context.Context, c client.Client, grants *gatewayv1alpha2.ReferenceGrantList, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error) {
 	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
 		logfields.Controller: "httpRoute",
 		logfields.Resource:   client.ObjectKeyFromObject(hr),
@@ -76,13 +84,16 @@ func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 	for _, rule := range hr.Spec.Rules {
 		for _, be := range rule.BackendRefs {
 			ns := namespaceDerefOr(be.Namespace, hr.GetNamespace())
-			if ns != hr.GetNamespace() {
+
+			if ns != hr.GetNamespace() && !helpers.IsBackendReferenceAllowed(hr.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("HTTPRoute"), grants.Items) {
+				// no reference grants, update the status for all the parents
 				for _, parent := range hr.Spec.ParentRefs {
 					mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
 						httpRefNotPermittedRouteCondition(hr, "Cross namespace references are not allowed"),
 					})
 				}
-				continue
+
+				return success()
 			}
 
 			if !IsService(be.BackendObjectReference) {
@@ -115,7 +126,7 @@ func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 	return success()
 }
 
-func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error) {
+func validateGateway(ctx context.Context, c client.Client, _ *gatewayv1alpha2.ReferenceGrantList, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error) {
 	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
 		logfields.Controller: "httpRoute",
 		logfields.Resource:   client.ObjectKeyFromObject(hr),
