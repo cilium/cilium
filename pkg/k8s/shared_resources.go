@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -29,10 +30,31 @@ var (
 		"Shared Kubernetes resources",
 
 		cell.Provide(
-			localPodResource,
 			serviceResource,
-			localNodeResource,
-			localCiliumNodeResource,
+			func(lc hive.Lifecycle, cs client.Clientset) (LocalNodeResource, error) {
+				return nodeResource(
+					lc, cs,
+					func(opts *metav1.ListOptions) {
+						opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
+					},
+				)
+			},
+			func(lc hive.Lifecycle, cs client.Clientset) (LocalCiliumNodeResource, error) {
+				return ciliumNodeResource(
+					lc, cs,
+					func(opts *metav1.ListOptions) {
+						opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
+					},
+				)
+			},
+			func(lc hive.Lifecycle, cs client.Clientset) (LocalPodResource, error) {
+				return podResource(
+					lc, cs,
+					func(opts *metav1.ListOptions) {
+						opts.FieldSelector = fields.ParseSelectorOrDie("spec.nodeName=" + nodeTypes.GetName()).String()
+					},
+				)
+			},
 			namespaceResource,
 			lbIPPoolsResource,
 			ciliumIdentityResource,
@@ -61,16 +83,18 @@ type SharedResources struct {
 // objects scheduled on the node we are currently running on.
 type LocalPodResource resource.Resource[*slim_corev1.Pod]
 
-func localPodResource(lc hive.Lifecycle, cs client.Clientset) (LocalPodResource, error) {
+func podResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*slim_corev1.PodList](cs.Slim().CoreV1().Pods(""))
-	lw = utils.ListerWatcherWithFields(lw, fields.ParseSelectorOrDie("spec.nodeName="+nodeTypes.GetName()))
-	return LocalPodResource(resource.New[*slim_corev1.Pod](lc, lw)), nil
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.PodList](cs.Slim().CoreV1().Pods("")),
+		opts...,
+	)
+	return resource.New[*slim_corev1.Pod](lc, lw), nil
 }
 
-func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
+func serviceResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Service], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -78,8 +102,10 @@ func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[
 	if err != nil {
 		return nil, err
 	}
-	lw := utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services(""))
-	lw = utils.ListerWatcherWithModifier(lw, optsModifier)
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services("")),
+		append(opts, optsModifier)...,
+	)
 	return resource.New[*slim_corev1.Service](lc, lw), nil
 }
 
@@ -87,76 +113,94 @@ func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[
 // associated with the node we are currently running on.
 type LocalNodeResource resource.Resource[*slim_corev1.Node]
 
-func localNodeResource(lc hive.Lifecycle, cs client.Clientset) (LocalNodeResource, error) {
+func nodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Node], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*slim_corev1.NodeList](cs.Slim().CoreV1().Nodes())
-	lw = utils.ListerWatcherWithFields(lw, fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName()))
-	return LocalNodeResource(resource.New[*slim_corev1.Node](lc, lw)), nil
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.NodeList](cs.Slim().CoreV1().Nodes()),
+		opts...,
+	)
+	return resource.New[*slim_corev1.Node](lc, lw), nil
 }
 
 // LocalCiliumNodeResource is a resource.Resource[*cilium_api_v2.Node] but one which will only stream updates for the
 // CiliumNode object associated with the node we are currently running on.
 type LocalCiliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]
 
-func localCiliumNodeResource(lc hive.Lifecycle, cs client.Clientset) (LocalCiliumNodeResource, error) {
+func ciliumNodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](cs.CiliumV2().CiliumNodes())
-	lw = utils.ListerWatcherWithFields(lw, fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName()))
-	return LocalCiliumNodeResource(resource.New[*cilium_api_v2.CiliumNode](lc, lw)), nil
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](cs.CiliumV2().CiliumNodes()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumNode](lc, lw), nil
 }
 
-func namespaceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Namespace], error) {
+func namespaceResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Namespace], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*slim_corev1.NamespaceList](cs.Slim().CoreV1().Namespaces())
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.NamespaceList](cs.Slim().CoreV1().Namespaces()),
+		opts...,
+	)
 	return resource.New[*slim_corev1.Namespace](lc, lw), nil
 }
 
-func lbIPPoolsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool], error) {
+func lbIPPoolsResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumLoadBalancerIPPoolList](
-		cs.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumLoadBalancerIPPoolList](cs.CiliumV2alpha1().CiliumLoadBalancerIPPools()),
+		opts...,
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool](lc, lw), nil
 }
 
-func ciliumIdentityResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumIdentity], error) {
+func ciliumIdentityResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumIdentity], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumIdentityList](
-		cs.CiliumV2().CiliumIdentities(),
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumIdentityList](cs.CiliumV2().CiliumIdentities()),
+		opts...,
 	)
 	return resource.New[*cilium_api_v2.CiliumIdentity](lc, lw), nil
 }
 
-func ciliumNetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {
+func ciliumNetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNetworkPolicyList](cs.CiliumV2().CiliumNetworkPolicies(""))
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNetworkPolicyList](cs.CiliumV2().CiliumNetworkPolicies("")),
+		opts...,
+	)
 	return resource.New[*cilium_api_v2.CiliumNetworkPolicy](lc, lw), nil
 }
 
-func ciliumClusterwideNetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy], error) {
+func ciliumClusterwideNetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumClusterwideNetworkPolicyList](cs.CiliumV2().CiliumClusterwideNetworkPolicies())
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumClusterwideNetworkPolicyList](cs.CiliumV2().CiliumClusterwideNetworkPolicies()),
+		opts...,
+	)
 	return resource.New[*cilium_api_v2.CiliumClusterwideNetworkPolicy](lc, lw), nil
 }
 
-func ciliumCIDRGroupResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup], error) {
+func ciliumCIDRGroupResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	lw := utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumCIDRGroupList](cs.CiliumV2alpha1().CiliumCIDRGroups())
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumCIDRGroupList](cs.CiliumV2alpha1().CiliumCIDRGroups()),
+		opts...,
+	)
 	return resource.New[*cilium_api_v2alpha1.CiliumCIDRGroup](lc, lw), nil
 }
