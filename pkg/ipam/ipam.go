@@ -131,7 +131,9 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
 		}
 	case ipamOption.IPAMClusterPoolV2:
-		log.Info("Initializing ClusterPool v2 IPAM")
+		log.
+			WithField(logfields.Hint, "IPAM mode cluster-pool-v2beta is deprecated. Please use multi-pool IPAM instead.").
+			Info("Initializing ClusterPool v2 IPAM")
 
 		if c.IPv6Enabled() {
 			ipam.IPv6Allocator = newClusterPoolAllocator(IPv6, c, owner, k8sEventReg, clientset)

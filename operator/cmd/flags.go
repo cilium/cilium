@@ -202,14 +202,14 @@ func init() {
 	option.BindEnv(Vp, option.EnableIPv4Name)
 
 	flags.StringSlice(operatorOption.ClusterPoolIPv4CIDR, []string{},
-		fmt.Sprintf("IPv4 CIDR Range for Pods in cluster. Requires '%s=%s|%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2,
+		fmt.Sprintf("IPv4 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv4Name, "true"))
 	option.BindEnv(Vp, operatorOption.ClusterPoolIPv4CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv4, 24,
-		fmt.Sprintf("Mask size for each IPv4 podCIDR per node. Requires '%s=%s|%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2,
+		fmt.Sprintf("Mask size for each IPv4 podCIDR per node. Requires '%s=%s' and '%s=%s'",
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv4Name, "true"))
 	option.BindEnv(Vp, operatorOption.NodeCIDRMaskSizeIPv4)
 
@@ -217,14 +217,14 @@ func init() {
 	option.BindEnv(Vp, option.EnableIPv6Name)
 
 	flags.StringSlice(operatorOption.ClusterPoolIPv6CIDR, []string{},
-		fmt.Sprintf("IPv6 CIDR Range for Pods in cluster. Requires '%s=%s|%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2,
+		fmt.Sprintf("IPv6 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv6Name, "true"))
 	option.BindEnv(Vp, operatorOption.ClusterPoolIPv6CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv6, 112,
-		fmt.Sprintf("Mask size for each IPv6 podCIDR per node. Requires '%s=%s|%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2,
+		fmt.Sprintf("Mask size for each IPv6 podCIDR per node. Requires '%s=%s' and '%s=%s'",
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv6Name, "true"))
 	option.BindEnv(Vp, operatorOption.NodeCIDRMaskSizeIPv6)
 
