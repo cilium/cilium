@@ -87,12 +87,17 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		mgr = store.NewWatchStoreManagerImmediate(rc.name)
 	}
 
-	mgr.Register(nodeStore.NodeStorePrefix, func(ctx context.Context) {
-		rc.remoteNodes.Watch(ctx, backend, path.Join(nodeStore.NodeStorePrefix, rc.name))
+	adapter := func(prefix string) string { return prefix }
+	if capabilities.Cached {
+		adapter = kvstore.StateToCachePrefix
+	}
+
+	mgr.Register(adapter(nodeStore.NodeStorePrefix), func(ctx context.Context) {
+		rc.remoteNodes.Watch(ctx, backend, path.Join(adapter(nodeStore.NodeStorePrefix), rc.name))
 	})
 
-	mgr.Register(serviceStore.ServiceStorePrefix, func(ctx context.Context) {
-		rc.remoteServices.Watch(ctx, backend, path.Join(serviceStore.ServiceStorePrefix, rc.name))
+	mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
+		rc.remoteServices.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
 	})
 
 	mgr.Register(ipcache.IPIdentitiesPath, func(ctx context.Context) {
