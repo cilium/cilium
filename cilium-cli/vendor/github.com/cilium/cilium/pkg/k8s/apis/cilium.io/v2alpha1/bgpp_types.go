@@ -62,6 +62,24 @@ type CiliumBGPPeeringPolicySpec struct {
 	VirtualRouters []CiliumBGPVirtualRouter `json:"virtualRouters"`
 }
 
+type CiliumBGPNeighborGracefulRestart struct {
+	// Enabled flag, when set enables graceful restart capability.
+	//
+	// +kubebuilder:validation:Optional
+	Enabled bool `json:"enabled"`
+	// RestartTime is the estimated time it will take for the BGP
+	// session to be re-established with peer after a restart.
+	// After this period, peer will remove stale routes. This is
+	// described RFC 4724 section 4.2.
+	//
+	// Default is 120s if empty or zero.
+	// Rounded internally to the nearest whole second.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Format=duration
+	RestartTime metav1.Duration `json:"restartTime"`
+}
+
 // CiliumBGPNeighbor is a neighboring peer for use in a
 // CiliumBGPVirtualRouter configuration.
 type CiliumBGPNeighbor struct {
@@ -88,18 +106,23 @@ type CiliumBGPNeighbor struct {
 	ConnectRetryTime metav1.Duration `json:"connectRetryTime,omitempty"`
 	// HoldTime defines the initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
 	// The default value for the HoldTime (if empty or zero) is 90 seconds.
-	// Rounded internally to the nearest whole second.
+	// Rounded internally to the nearest whole second. Updating this value will cause a session reset.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Format=duration
 	HoldTime metav1.Duration `json:"holdTime,omitempty"`
 	// KeepaliveTime defines the initial value for the BGP KeepaliveTimer (RFC 4271, Section 8).
 	// The default value for the KeepaliveTime (if empty or zero) is 1/3 of the HoldTime.
-	// Rounded internally to the nearest whole second.
+	// Rounded internally to the nearest whole second. Updating this value will cause a session reset.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Format=duration
 	KeepAliveTime metav1.Duration `json:"keepAliveTime,omitempty"`
+	// GracefulRestart defines graceful restart parameters which are negotiated
+	// with this neighbor.
+	//
+	// +kubebuilder:validation:Optional
+	GracefulRestart CiliumBGPNeighborGracefulRestart `json:"gracefulRestart,omitempty"`
 }
 
 // CiliumBGPVirtualRouter defines a discrete BGP virtual router configuration.

@@ -10,23 +10,23 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
-// AuthType is a string identifying a supported authentication type
-type AuthType string
+// AuthenticationMode is a string identifying a supported authentication type
+type AuthenticationMode string
 
 const (
-	AuthTypeNull       AuthType = "null"        // Always succeeds
-	AuthTypeMTLSSpiffe AuthType = "mtls-spiffe" // Mutual TLS with SPIFFE as certificate provider
-	AuthTypeAlwaysFail AuthType = "always-fail"
+	AuthenticationModeDisabled   AuthenticationMode = "disabled" // Always succeeds
+	AuthenticationModeRequired   AuthenticationMode = "required" // Mutual TLS with SPIFFE as certificate provider by default
+	AuthenticationModeAlwaysFail AuthenticationMode = "test-always-fail"
 )
 
-// Auth specifies the kind of cryptographic authentication required for the traffic to
+// Authentication specifies the kind of cryptographic authentication required for the traffic to
 // be allowed.
-type Auth struct {
-	// Type is the required authentication type for the allowed traffic, if any.
+type Authentication struct {
+	// Mode is the required authentication mode for the allowed traffic, if any.
 	//
-	// +kubebuilder:validation:Enum=null;mtls-spiffe;always-fail
+	// +kubebuilder:validation:Enum=disabled;required;test-always-fail
 	// +kubebuilder:validation:Required
-	Type AuthType `json:"type"`
+	Mode AuthenticationMode `json:"mode"`
 }
 
 // +kubebuilder:validation:Type=object

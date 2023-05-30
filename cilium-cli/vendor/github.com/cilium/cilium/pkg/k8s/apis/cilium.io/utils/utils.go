@@ -149,7 +149,7 @@ func parseToCiliumIngressRule(namespace string, es api.EndpointSelector, inRules
 				copy(retRules[i].ICMPs, ing.ICMPs)
 			}
 			retRules[i].IngressCommonRule = parseToCiliumIngressCommonRule(namespace, es, ing.IngressCommonRule)
-			retRules[i].Auth = ing.Auth.DeepCopy()
+			retRules[i].Authentication = ing.Authentication.DeepCopy()
 			retRules[i].SetAggregatedSelectors()
 		}
 	}
@@ -244,7 +244,7 @@ func parseToCiliumEgressRule(namespace string, es api.EndpointSelector, inRules 
 			}
 
 			retRules[i].EgressCommonRule = parseToCiliumEgressCommonRule(namespace, es, egr.EgressCommonRule)
-			retRules[i].Auth = egr.Auth
+			retRules[i].Authentication = egr.Authentication
 			retRules[i].SetAggregatedSelectors()
 		}
 	}
