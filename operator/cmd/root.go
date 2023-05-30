@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/identitygc"
+	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
@@ -125,7 +126,7 @@ var (
 		WithLeaderLifecycle(
 			// The CRDs registration should be the first operation to be invoked after the operator is elected leader.
 			apis.RegisterCRDsCell,
-			k8s.SharedResourcesCell,
+			operatorK8s.ResourcesCell,
 
 			lbipam.Cell,
 			auth.Cell,
@@ -359,7 +360,7 @@ func kvstoreEnabled() bool {
 
 var legacyCell = cell.Invoke(registerLegacyOnLeader)
 
-func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, resources k8s.SharedResources) {
+func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:       ctx,
@@ -378,7 +379,7 @@ type legacyOnLeader struct {
 	cancel    context.CancelFunc
 	clientset k8sClient.Clientset
 	wg        sync.WaitGroup
-	resources k8s.SharedResources
+	resources operatorK8s.Resources
 }
 
 func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {

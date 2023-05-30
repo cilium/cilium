@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	k8s_metrics "k8s.io/client-go/tools/metrics"
 
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -278,7 +279,7 @@ type K8sWatcher struct {
 
 	cfg WatcherConfiguration
 
-	sharedResources k8s.SharedResources
+	sharedResources agentK8s.Resources
 }
 
 func NewK8sWatcher(
@@ -296,7 +297,7 @@ func NewK8sWatcher(
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
-	sharedResources k8s.SharedResources,
+	sharedResources agentK8s.Resources,
 	serviceCache *k8s.ServiceCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
