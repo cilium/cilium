@@ -170,7 +170,7 @@ jobs:
       github.event_name == 'pull_request'
     strategy:
       fail-fast: false
-      max-parallel: 8
+      max-parallel: 16
       matrix:
         include:
           # See https://github.com/cilium/cilium/issues/20606 for configuration table
