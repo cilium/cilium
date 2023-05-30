@@ -13,8 +13,10 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/clustermesh/internal"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
@@ -80,7 +82,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		config := cmtypes.CiliumClusterConfig{
 			ID: uint32(i),
 		}
-		err := SetClusterConfig(ctx, cluster, &config, kvstore.Client())
+		err := cmutils.SetClusterConfig(ctx, cluster, &config, kvstore.Client())
 		c.Assert(err, IsNil)
 	}
 
@@ -98,14 +100,15 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	defer ipc.Shutdown()
 
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(c), Configuration{
-		Config: Config{ClusterMeshConfig: dir},
-
+		Config:                internal.Config{ClusterMeshConfig: dir},
 		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
 		NodeKeyCreator:        testNodeCreator,
 		NodeObserver:          &testObserver{},
 		ServiceMerger:         s.svcCache,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
+		Metrics:               newMetrics(),
+		InternalMetrics:       internal.MetricsProvider(subsystem)(),
 	})
 	c.Assert(s.mesh, Not(IsNil))
 

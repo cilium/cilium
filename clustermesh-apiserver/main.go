@@ -25,8 +25,8 @@ import (
 	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
 	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
-	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
@@ -538,7 +538,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backe
 		},
 	}
 
-	if err := clustermesh.SetClusterConfig(context.Background(), cfg.clusterName, &config, backend); err != nil {
+	if err := cmutils.SetClusterConfig(context.Background(), cfg.clusterName, &config, backend); err != nil {
 		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}
 

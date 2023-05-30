@@ -4,8 +4,7 @@
 package clustermesh
 
 import (
-	"github.com/spf13/pflag"
-
+	"github.com/cilium/cilium/pkg/clustermesh/internal"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -34,14 +33,8 @@ var Cell = cell.Module(
 		return types.ClusterIDName{ClusterID: cfg.ClusterID, ClusterName: cfg.ClusterName}
 	}),
 
-	cell.Config(Config{}),
+	cell.Config(internal.Config{}),
+
+	cell.Metric(newMetrics),
+	cell.Metric(internal.MetricsProvider(subsystem)),
 )
-
-type Config struct {
-	// ClusterMeshConfig is the path to the clustermesh configuration directory.
-	ClusterMeshConfig string
-}
-
-func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.String("clustermesh-config", def.ClusterMeshConfig, "Path to the ClusterMesh configuration directory")
-}

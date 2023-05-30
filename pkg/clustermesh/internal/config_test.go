@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package clustermesh
+package internal
 
 import (
+	"context"
 	"crypto/sha256"
 	"os"
 	"path"
+	"testing"
 	"time"
 
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -20,6 +23,22 @@ const (
 	content1 = "endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2379\n"
 	content2 = "endpoints:\n- https://cluster1.cilium-etcd.cilium.svc:2380\n"
 )
+
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type ClusterMeshTestSuite struct{}
+
+var _ = Suite(&ClusterMeshTestSuite{})
+
+type fakeRemoteCluster struct{}
+
+func (*fakeRemoteCluster) Run(context.Context, kvstore.BackendOperations, *types.CiliumClusterConfig) error {
+	return nil
+}
+func (*fakeRemoteCluster) Stop()   {}
+func (*fakeRemoteCluster) Remove() {}
 
 func writeFile(c *C, name, content string) {
 	err := os.WriteFile(name, []byte(content), 0644)
@@ -97,11 +116,14 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	// Create an indirect link, as in case of Kubernetes COnfigMaps/Secret mounted inside pods.
 	c.Assert(os.Symlink(path.Join(dataDir, "cluster2"), file2), IsNil)
 
-	cm := NewClusterMesh(hivetest.Lifecycle(c), Configuration{
-		Config:        Config{ClusterMeshConfig: baseDir},
-		ClusterIDName: types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
+	gcm := NewClusterMesh(Configuration{
+		Config:           Config{ClusterMeshConfig: baseDir},
+		ClusterIDName:    types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
+		NewRemoteCluster: func(string, StatusFunc) RemoteCluster { return &fakeRemoteCluster{} },
+		Metrics:          MetricsProvider("clustermesh")(),
 	})
-	c.Assert(cm, Not(IsNil))
+	cm := &gcm
+	hivetest.Lifecycle(c).Append(cm)
 
 	// wait for cluster1 and cluster2 to appear
 	c.Assert(testutils.WaitUntil(func() bool {
