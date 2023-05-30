@@ -818,6 +818,13 @@ func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam IPFamily) []string 
 	return cmd
 }
 
+func (ct *ConnectivityTest) DigCommand(peer TestPeer, ipFam IPFamily) []string {
+	cmd := []string{"dig", "+time=2", "kubernetes"}
+
+	cmd = append(cmd, fmt.Sprintf("@%s", peer.Address(ipFam)))
+	return cmd
+}
+
 func (ct *ConnectivityTest) RandomClientPod() *Pod {
 	for _, p := range ct.clientPods {
 		return &p

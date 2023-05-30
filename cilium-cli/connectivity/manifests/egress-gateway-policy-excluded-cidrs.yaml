@@ -1,0 +1,18 @@
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: cegp-sample-excluded-cidrs
+spec:
+  selectors:
+  - podSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: cilium-test
+        kind: client
+  destinationCIDRs:
+  - 0.0.0.0/0
+  excludedCIDRs:
+  - NODE_WITHOUT_CILIUM_PLACEHOLDER/32
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        kubernetes.io/hostname: NODE_NAME_PLACEHOLDER
