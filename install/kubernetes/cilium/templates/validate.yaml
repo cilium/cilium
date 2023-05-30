@@ -64,8 +64,8 @@
   {{- end }}
 {{- end }}
 
-{{- if .Values.auth.mTLS.spire.install.enabled }}
-  {{- if not .Values.auth.mTLS.spire.enabled }}
+{{- if .Values.authentication.mutual.spire.install.enabled }}
+  {{- if not .Values.authentication.mutual.spire.enabled }}
     {{ fail "SPIRE installation requires .Values.auth.mTLS.enabled=true and .Values.auth.mTLS.spire.enabled=true" }}
   {{- end }}
 {{- end }}

@@ -41,7 +41,7 @@ k8sServiceHost: ""
 k8sServicePort: ""
 
 cluster:
-  # -- Name of the cluster. Only required for Cluster Mesh and mTLS auth with SPIRE.
+  # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
   name: default
   # -- (int) Unique ID of the cluster. Must be unique across all connected
   # clusters and in the range of 1 to 255. Only required for Cluster Mesh,
@@ -2937,9 +2937,13 @@ sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
   enabled: false
 
-auth:
-  mTLS:
-    # -- Port on the agent where mTLS handshakes between agents will be performed
+# Configuration for types of authentication for Cilium
+authentication:
+  # Configuration for Cilium's service-to-service mutual authentication using TLS handshakes.
+  # Note that this is not full mTLS support without also enabling encryption of some form.
+  # Current encryption options are Wireguard or IPSec, configured in encryption block above.
+  mutual:
+    # -- Port on the agent where mutual authentication handshakes between agents will be performed
     port: 4250
     # Settings for SPIRE
     spire:
@@ -2948,7 +2952,7 @@ auth:
       # -- Settings to control the SPIRE installation and configuration
       install:
         # -- Enable SPIRE installation.
-        # This will only take effect only if auth.mTLS.spire.enabled is true
+        # This will only take effect only if authentication.mutual.spire.enabled is true
         enabled: false
         # -- SPIRE namespace to install into
         namespace: cilium-spire

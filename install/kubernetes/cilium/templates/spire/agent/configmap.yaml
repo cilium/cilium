@@ -1,9 +1,9 @@
-{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: spire-agent
-  namespace: {{ .Values.auth.mTLS.spire.install.namespace }}
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
 data:
   agent.conf: |
     agent {
@@ -11,12 +11,12 @@ data:
       log_level = "ERROR"
       server_address = "spire-server"
       server_port = "8081"
-      socket_path = {{ .Values.auth.mTLS.spire.agentSocketPath | quote }}
-      admin_socket_path = {{ .Values.auth.mTLS.spire.adminSocketPath | quote }}
+      socket_path = {{ .Values.authentication.mutual.spire.agentSocketPath | quote }}
+      admin_socket_path = {{ .Values.authentication.mutual.spire.adminSocketPath | quote }}
       trust_bundle_path = "/run/spire/bundle/bundle.crt"
-      trust_domain = {{ .Values.auth.mTLS.spire.trustDomain | quote }}
+      trust_domain = {{ .Values.authentication.mutual.spire.trustDomain | quote }}
       authorized_delegates = [
-        "spiffe://{{ .Values.auth.mTLS.spire.trustDomain }}/cilium-agent",
+        "spiffe://{{ .Values.authentication.mutual.spire.trustDomain }}/cilium-agent",
       ]
     }
 
@@ -34,7 +34,7 @@ data:
 
       WorkloadAttestor "k8s" {
         plugin_data {
-          skip_kubelet_verification = {{ .Values.auth.mTLS.spire.install.agent.skipKubeletVerification }}
+          skip_kubelet_verification = {{ .Values.authentication.mutual.spire.install.agent.skipKubeletVerification }}
         }
       }
     }

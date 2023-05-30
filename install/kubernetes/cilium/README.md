@@ -60,32 +60,32 @@ contributors across the globe, there is almost always someone available to help.
 | aksbyocni.enabled | bool | `false` | Enable AKS BYOCNI integration. Note that this is incompatible with AKS clusters not created in BYOCNI mode: use Azure integration (`azure.enabled`) instead. |
 | alibabacloud.enabled | bool | `false` | Enable AlibabaCloud ENI integration |
 | annotateK8sNode | bool | `false` | Annotate k8s node upon initialization with Cilium's metadata. |
-| auth.mTLS.port | int | `4250` | Port on the agent where mTLS handshakes between agents will be performed |
-| auth.mTLS.spire.adminSocketPath | string | `"/run/spire/sockets/admin.sock"` | SPIRE socket path where the SPIRE delegated api agent is listening |
-| auth.mTLS.spire.agentSocketPath | string | `"/run/spire/sockets/agent/agent.sock"` | SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator |
-| auth.mTLS.spire.connectionTimeout | string | `"30s"` | SPIRE connection timeout |
-| auth.mTLS.spire.enabled | bool | `false` | Enable SPIRE integration |
-| auth.mTLS.spire.install | object | `{"agent":{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true},"enabled":false,"namespace":"cilium-spire","server":{"annotations":{},"ca":{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}},"dataStorage":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null},"image":"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f","initContainers":[],"labels":{},"service":{"annotations":{},"labels":{},"type":"ClusterIP"},"serviceAccount":{"create":true,"name":"spire-server"}}}` | Settings to control the SPIRE installation and configuration |
-| auth.mTLS.spire.install.agent | object | `{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true}` | SPIRE agent configuration |
-| auth.mTLS.spire.install.agent.annotations | object | `{}` | SPIRE agent annotations |
-| auth.mTLS.spire.install.agent.image | string | `"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823"` | SPIRE agent image |
-| auth.mTLS.spire.install.agent.labels | object | `{}` | SPIRE agent labels |
-| auth.mTLS.spire.install.agent.serviceAccount | object | `{"create":true,"name":"spire-agent"}` | SPIRE agent service account |
-| auth.mTLS.spire.install.agent.skipKubeletVerification | bool | `true` | SPIRE Workload Attestor kubelet verification. |
-| auth.mTLS.spire.install.enabled | bool | `false` | Enable SPIRE installation. This will only take effect only if auth.mTLS.spire.enabled is true |
-| auth.mTLS.spire.install.namespace | string | `"cilium-spire"` | SPIRE namespace to install into |
-| auth.mTLS.spire.install.server.annotations | object | `{}` | SPIRE server annotations |
-| auth.mTLS.spire.install.server.ca | object | `{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}}` | SPIRE CA configuration |
-| auth.mTLS.spire.install.server.ca.keyType | string | `"rsa-4096"` | SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported |
-| auth.mTLS.spire.install.server.ca.subject | object | `{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}` | SPIRE CA Subject |
-| auth.mTLS.spire.install.server.dataStorage | object | `{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null}` | SPIRE server datastorage configuration |
-| auth.mTLS.spire.install.server.image | string | `"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f"` | SPIRE server image |
-| auth.mTLS.spire.install.server.initContainers | list | `[]` | SPIRE server init containers |
-| auth.mTLS.spire.install.server.labels | object | `{}` | SPIRE server labels |
-| auth.mTLS.spire.install.server.service | object | `{"annotations":{},"labels":{},"type":"ClusterIP"}` | SPIRE server service configuration |
-| auth.mTLS.spire.install.server.serviceAccount | object | `{"create":true,"name":"spire-server"}` | SPIRE server service account |
-| auth.mTLS.spire.serverAddress | string | `"spire-server.cilium-spire.svc:8081"` | SPIRE server address |
-| auth.mTLS.spire.trustDomain | string | `"spiffe.cilium"` | SPIFFE trust domain to use for fetching certificates |
+| authentication.mutual.port | int | `4250` | Port on the agent where mutual authentication handshakes between agents will be performed |
+| authentication.mutual.spire.adminSocketPath | string | `"/run/spire/sockets/admin.sock"` | SPIRE socket path where the SPIRE delegated api agent is listening |
+| authentication.mutual.spire.agentSocketPath | string | `"/run/spire/sockets/agent/agent.sock"` | SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator |
+| authentication.mutual.spire.connectionTimeout | string | `"30s"` | SPIRE connection timeout |
+| authentication.mutual.spire.enabled | bool | `false` | Enable SPIRE integration |
+| authentication.mutual.spire.install | object | `{"agent":{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true},"enabled":false,"namespace":"cilium-spire","server":{"annotations":{},"ca":{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}},"dataStorage":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null},"image":"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f","initContainers":[],"labels":{},"service":{"annotations":{},"labels":{},"type":"ClusterIP"},"serviceAccount":{"create":true,"name":"spire-server"}}}` | Settings to control the SPIRE installation and configuration |
+| authentication.mutual.spire.install.agent | object | `{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true}` | SPIRE agent configuration |
+| authentication.mutual.spire.install.agent.annotations | object | `{}` | SPIRE agent annotations |
+| authentication.mutual.spire.install.agent.image | string | `"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823"` | SPIRE agent image |
+| authentication.mutual.spire.install.agent.labels | object | `{}` | SPIRE agent labels |
+| authentication.mutual.spire.install.agent.serviceAccount | object | `{"create":true,"name":"spire-agent"}` | SPIRE agent service account |
+| authentication.mutual.spire.install.agent.skipKubeletVerification | bool | `true` | SPIRE Workload Attestor kubelet verification. |
+| authentication.mutual.spire.install.enabled | bool | `false` | Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true |
+| authentication.mutual.spire.install.namespace | string | `"cilium-spire"` | SPIRE namespace to install into |
+| authentication.mutual.spire.install.server.annotations | object | `{}` | SPIRE server annotations |
+| authentication.mutual.spire.install.server.ca | object | `{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}}` | SPIRE CA configuration |
+| authentication.mutual.spire.install.server.ca.keyType | string | `"rsa-4096"` | SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported |
+| authentication.mutual.spire.install.server.ca.subject | object | `{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}` | SPIRE CA Subject |
+| authentication.mutual.spire.install.server.dataStorage | object | `{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null}` | SPIRE server datastorage configuration |
+| authentication.mutual.spire.install.server.image | string | `"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f"` | SPIRE server image |
+| authentication.mutual.spire.install.server.initContainers | list | `[]` | SPIRE server init containers |
+| authentication.mutual.spire.install.server.labels | object | `{}` | SPIRE server labels |
+| authentication.mutual.spire.install.server.service | object | `{"annotations":{},"labels":{},"type":"ClusterIP"}` | SPIRE server service configuration |
+| authentication.mutual.spire.install.server.serviceAccount | object | `{"create":true,"name":"spire-server"}` | SPIRE server service account |
+| authentication.mutual.spire.serverAddress | string | `"spire-server.cilium-spire.svc:8081"` | SPIRE server address |
+| authentication.mutual.spire.trustDomain | string | `"spiffe.cilium"` | SPIFFE trust domain to use for fetching certificates |
 | autoDirectNodeRoutes | bool | `false` | Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment. |
 | azure.enabled | bool | `false` | Enable Azure integration. Note that this is incompatible with AKS clusters created in BYOCNI mode: use AKS BYOCNI integration (`aksbyocni.enabled`) instead. |
 | bandwidthManager | object | `{"bbr":false,"enabled":false}` | Enable bandwidth manager to optimize TCP and UDP workloads and allow for rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation. |
@@ -131,7 +131,7 @@ contributors across the globe, there is almost always someone available to help.
 | cleanBpfState | bool | `false` | Clean all eBPF datapath state from the initContainer of the cilium-agent DaemonSet.  WARNING: Use with care! |
 | cleanState | bool | `false` | Clean all local Cilium state from the initContainer of the cilium-agent DaemonSet. Implies cleanBpfState: true.  WARNING: Use with care! |
 | cluster.id | int | `0` | Unique ID of the cluster. Must be unique across all connected clusters and in the range of 1 to 255. Only required for Cluster Mesh, may be 0 if Cluster Mesh is not used. |
-| cluster.name | string | `"default"` | Name of the cluster. Only required for Cluster Mesh and mTLS auth with SPIRE. |
+| cluster.name | string | `"default"` | Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE. |
 | clustermesh.apiserver.affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for clustermesh.apiserver |
 | clustermesh.apiserver.etcd.image | object | `{"digest":"sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3","override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4","useDigest":true}` | Clustermesh API server etcd image. |
 | clustermesh.apiserver.etcd.init.resources | object | `{}` | Specifies the resources for etcd init container in the apiserver |
