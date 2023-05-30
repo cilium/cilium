@@ -220,22 +220,21 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 #endif
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
-		if (ct_state) {
-			ct_state->rev_nat_index = entry->rev_nat_index;
-			if (dir == CT_SERVICE) {
-				ct_state->backend_id = entry->backend_id;
-				ct_state->syn = syn;
-			} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
+
+		ct_state->rev_nat_index = entry->rev_nat_index;
+		if (dir == CT_SERVICE) {
+			ct_state->backend_id = entry->backend_id;
+			ct_state->syn = syn;
+		} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
 #ifndef DISABLE_LOOPBACK_LB
-				ct_state->loopback = entry->lb_loopback;
+			ct_state->loopback = entry->lb_loopback;
 #endif
-				ct_state->node_port = entry->node_port;
-				ct_state->dsr = entry->dsr;
-				ct_state->proxy_redirect = entry->proxy_redirect;
-				ct_state->from_l7lb = entry->from_l7lb;
-				ct_state->from_tunnel = entry->from_tunnel;
-				ct_state->ifindex = entry->ifindex;
-			}
+			ct_state->node_port = entry->node_port;
+			ct_state->dsr = entry->dsr;
+			ct_state->proxy_redirect = entry->proxy_redirect;
+			ct_state->from_l7lb = entry->from_l7lb;
+			ct_state->from_tunnel = entry->from_tunnel;
+			ct_state->ifindex = entry->ifindex;
 		}
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
