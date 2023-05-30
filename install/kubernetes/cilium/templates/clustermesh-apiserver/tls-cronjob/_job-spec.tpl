@@ -1,6 +1,6 @@
 {{- define "clustermesh-apiserver-generate-certs.job.spec" }}
 {{- $certValiditySecondsStr := printf "%ds" (mul .Values.clustermesh.apiserver.tls.auto.certValidityDuration 24 60 60) -}}
-{{- $clustermeshServerSANs := concat (list "*.mesh.cilium.io")
+{{- $clustermeshServerSANs := concat (list "*.mesh.cilium.io" (printf "clustermesh-apiserver.%s.svc" .Release.Namespace))
   .Values.clustermesh.apiserver.tls.server.extraDnsNames
   .Values.clustermesh.apiserver.tls.server.extraIpAddresses
 -}}
