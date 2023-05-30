@@ -2337,7 +2337,7 @@ nodeinit:
   image:
     override: ~
     repository: "quay.io/cilium/startup-script"
-    tag: "d69851597ea019af980891a4628fb36b7880ec26"
+    tag: "62093c5c233ea914bfa26a10ba41f8780d9b737f"
     pullPolicy: "Always"
 
   # -- The priority class to use for the nodeinit pod.

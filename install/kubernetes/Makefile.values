@@ -38,7 +38,7 @@ export CILIUM_ETCD_OPERATOR_REPO:=quay.io/cilium/cilium-etcd-operator
 export CILIUM_ETCD_OPERATOR_VERSION:=v2.0.7
 export CILIUM_ETCD_OPERATOR_DIGEST:=sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc
 export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
-export CILIUM_NODEINIT_VERSION:=d69851597ea019af980891a4628fb36b7880ec26
+export CILIUM_NODEINIT_VERSION:=62093c5c233ea914bfa26a10ba41f8780d9b737f
 
 export ETCD_REPO:=quay.io/coreos/etcd
 export ETCD_VERSION:=v3.5.4
