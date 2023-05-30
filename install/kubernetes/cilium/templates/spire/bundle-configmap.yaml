@@ -1,7 +1,7 @@
-{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: spire-bundle
-  namespace: {{ .Values.auth.mTLS.spire.install.namespace }}
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
 {{- end }}

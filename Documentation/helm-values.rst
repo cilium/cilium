@@ -40,107 +40,107 @@
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
      - ``false``
-   * - auth.mTLS.port
-     - Port on the agent where mTLS handshakes between agents will be performed
+   * - authentication.mutual.port
+     - Port on the agent where mutual authentication handshakes between agents will be performed
      - int
      - ``4250``
-   * - auth.mTLS.spire.adminSocketPath
+   * - authentication.mutual.spire.adminSocketPath
      - SPIRE socket path where the SPIRE delegated api agent is listening
      - string
      - ``"/run/spire/sockets/admin.sock"``
-   * - auth.mTLS.spire.agentSocketPath
+   * - authentication.mutual.spire.agentSocketPath
      - SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator
      - string
      - ``"/run/spire/sockets/agent/agent.sock"``
-   * - auth.mTLS.spire.connectionTimeout
+   * - authentication.mutual.spire.connectionTimeout
      - SPIRE connection timeout
      - string
      - ``"30s"``
-   * - auth.mTLS.spire.enabled
+   * - authentication.mutual.spire.enabled
      - Enable SPIRE integration
      - bool
      - ``false``
-   * - auth.mTLS.spire.install
+   * - authentication.mutual.spire.install
      - Settings to control the SPIRE installation and configuration
      - object
      - ``{"agent":{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true},"enabled":false,"namespace":"cilium-spire","server":{"annotations":{},"ca":{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}},"dataStorage":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null},"image":"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f","initContainers":[],"labels":{},"service":{"annotations":{},"labels":{},"type":"ClusterIP"},"serviceAccount":{"create":true,"name":"spire-server"}}}``
-   * - auth.mTLS.spire.install.agent
+   * - authentication.mutual.spire.install.agent
      - SPIRE agent configuration
      - object
      - ``{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true}``
-   * - auth.mTLS.spire.install.agent.annotations
+   * - authentication.mutual.spire.install.agent.annotations
      - SPIRE agent annotations
      - object
      - ``{}``
-   * - auth.mTLS.spire.install.agent.image
+   * - authentication.mutual.spire.install.agent.image
      - SPIRE agent image
      - string
      - ``"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823"``
-   * - auth.mTLS.spire.install.agent.labels
+   * - authentication.mutual.spire.install.agent.labels
      - SPIRE agent labels
      - object
      - ``{}``
-   * - auth.mTLS.spire.install.agent.serviceAccount
+   * - authentication.mutual.spire.install.agent.serviceAccount
      - SPIRE agent service account
      - object
      - ``{"create":true,"name":"spire-agent"}``
-   * - auth.mTLS.spire.install.agent.skipKubeletVerification
+   * - authentication.mutual.spire.install.agent.skipKubeletVerification
      - SPIRE Workload Attestor kubelet verification.
      - bool
      - ``true``
-   * - auth.mTLS.spire.install.enabled
+   * - authentication.mutual.spire.install.enabled
      - Enable SPIRE installation. This will only take effect only if auth.mTLS.spire.enabled is true
      - bool
      - ``false``
-   * - auth.mTLS.spire.install.namespace
+   * - authentication.mutual.spire.install.namespace
      - SPIRE namespace to install into
      - string
      - ``"cilium-spire"``
-   * - auth.mTLS.spire.install.server.annotations
+   * - authentication.mutual.spire.install.server.annotations
      - SPIRE server annotations
      - object
      - ``{}``
-   * - auth.mTLS.spire.install.server.ca
+   * - authentication.mutual.spire.install.server.ca
      - SPIRE CA configuration
      - object
      - ``{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}}``
-   * - auth.mTLS.spire.install.server.ca.keyType
+   * - authentication.mutual.spire.install.server.ca.keyType
      - SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported
      - string
      - ``"rsa-4096"``
-   * - auth.mTLS.spire.install.server.ca.subject
+   * - authentication.mutual.spire.install.server.ca.subject
      - SPIRE CA Subject
      - object
      - ``{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}``
-   * - auth.mTLS.spire.install.server.dataStorage
+   * - authentication.mutual.spire.install.server.dataStorage
      - SPIRE server datastorage configuration
      - object
      - ``{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null}``
-   * - auth.mTLS.spire.install.server.image
+   * - authentication.mutual.spire.install.server.image
      - SPIRE server image
      - string
      - ``"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f"``
-   * - auth.mTLS.spire.install.server.initContainers
+   * - authentication.mutual.spire.install.server.initContainers
      - SPIRE server init containers
      - list
      - ``[]``
-   * - auth.mTLS.spire.install.server.labels
+   * - authentication.mutual.spire.install.server.labels
      - SPIRE server labels
      - object
      - ``{}``
-   * - auth.mTLS.spire.install.server.service
+   * - authentication.mutual.spire.install.server.service
      - SPIRE server service configuration
      - object
      - ``{"annotations":{},"labels":{},"type":"ClusterIP"}``
-   * - auth.mTLS.spire.install.server.serviceAccount
+   * - authentication.mutual.spire.install.server.serviceAccount
      - SPIRE server service account
      - object
      - ``{"create":true,"name":"spire-server"}``
-   * - auth.mTLS.spire.serverAddress
+   * - authentication.mutual.spire.serverAddress
      - SPIRE server address
      - string
      - ``"spire-server.cilium-spire.svc:8081"``
-   * - auth.mTLS.spire.trustDomain
+   * - authentication.mutual.spire.trustDomain
      - SPIFFE trust domain to use for fetching certificates
      - string
      - ``"spiffe.cilium"``
@@ -325,7 +325,7 @@
      - int
      - ``0``
    * - cluster.name
-     - Name of the cluster. Only required for Cluster Mesh and mTLS auth with SPIRE.
+     - Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
      - string
      - ``"default"``
    * - clustermesh.apiserver.affinity

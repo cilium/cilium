@@ -1,19 +1,19 @@
-{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
 apiVersion: v1
 kind: Service
 metadata:
   name: spire-server
-  namespace: {{ .Values.auth.mTLS.spire.install.namespace }}
-  {{- with .Values.auth.mTLS.spire.install.server.service.annotations }}
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+  {{- with .Values.authentication.mutual.spire.install.server.service.annotations }}
   annotations:
     {{- toYaml . | nindent 8 }}
   {{- end }}
-  {{- with .Values.auth.mTLS.spire.install.server.service.labels }}
+  {{- with .Values.authentication.mutual.spire.install.server.service.labels }}
   labels:
     {{- toYaml . | nindent 8 }}
   {{- end }}
 spec:
-  type: {{ .Values.auth.mTLS.spire.install.server.service.type }}
+  type: {{ .Values.authentication.mutual.spire.install.server.service.type }}
   ports:
   - name: grpc
     port: 8081

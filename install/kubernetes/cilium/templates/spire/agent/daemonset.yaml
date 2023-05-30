@@ -1,16 +1,16 @@
-{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: spire-agent
-  namespace: {{ .Values.auth.mTLS.spire.install.namespace }}
-  {{- with .Values.auth.mTLS.spire.install.server.annotations }}
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+  {{- with .Values.authentication.mutual.spire.install.server.annotations }}
   annotations:
     {{- toYaml . | nindent 8 }}
   {{- end }}
   labels:
     app: spire-agent
-  {{- with .Values.auth.mTLS.spire.install.server.labels }}
+  {{- with .Values.authentication.mutual.spire.install.server.labels }}
     {{- toYaml . | nindent 8 }}
   {{- end }}
 spec:
@@ -19,14 +19,14 @@ spec:
       app: spire-agent
   template:
     metadata:
-      namespace: {{ .Values.auth.mTLS.spire.install.namespace }}
+      namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
       labels:
         app: spire-agent
     spec:
       hostPID: true
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      serviceAccountName: {{ .Values.auth.mTLS.spire.install.agent.serviceAccount.name }}
+      serviceAccountName: {{ .Values.authentication.mutual.spire.install.agent.serviceAccount.name }}
       initContainers:
         - name: init
           image: docker.io/library/busybox:1.35.0@sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b
@@ -37,7 +37,7 @@ spec:
               {{- tpl (.Files.Get "files/spire/wait-for-spire.bash") . | nindent 14 }}
       containers:
         - name: spire-agent
-          image: {{ .Values.auth.mTLS.spire.install.agent.image }}
+          image: {{ .Values.authentication.mutual.spire.install.agent.image }}
           args: ["-config", "/run/spire/config/agent.conf"]
           volumeMounts:
             - name: spire-config
