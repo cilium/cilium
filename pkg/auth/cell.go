@@ -110,6 +110,6 @@ type authHandlerResult struct {
 
 func newNullAuthHandler() authHandlerResult {
 	return authHandlerResult{
-		AuthHandler: &nullAuthHandler{},
+		AuthHandler: &disabledAuthHandler{},
 	}
 }

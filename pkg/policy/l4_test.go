@@ -149,7 +149,7 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			c.Assert(r.GetAuthType(), Equals, AuthTypeNone)
+			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 
@@ -157,7 +157,7 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			c.Assert(r.GetAuthType(), Equals, AuthTypeNone)
+			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 	}
@@ -178,7 +178,7 @@ func (s *PolicyTestSuite) TestCreateL4FilterAuthRequired(c *C) {
 		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 	}
 
-	auth := &api.Auth{Type: api.AuthTypeNull}
+	auth := &api.Authentication{Mode: api.AuthenticationModeDisabled}
 	for _, selector := range selectors {
 		eps := []api.EndpointSelector{selector}
 		// Regardless of ingress/egress, we should end up with
@@ -188,7 +188,7 @@ func (s *PolicyTestSuite) TestCreateL4FilterAuthRequired(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			c.Assert(r.GetAuthType(), Equals, AuthTypeNull)
+			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 
@@ -196,7 +196,7 @@ func (s *PolicyTestSuite) TestCreateL4FilterAuthRequired(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			c.Assert(r.GetAuthType(), Equals, AuthTypeNull)
+			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 	}

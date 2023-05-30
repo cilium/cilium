@@ -803,10 +803,9 @@ These types correspond to definitions in pkg/policy/l4.go
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| NONE | 0 |  |
-| NULL | 1 |  |
-| MTLS_SPIFFE | 2 |  |
-| ALWAYS_FAIL | 3 |  |
+| DISABLED | 0 |  |
+| SPIRE | 1 |  |
+| TEST_ALWAYS_FAIL | 2 |  |
 
 
 
