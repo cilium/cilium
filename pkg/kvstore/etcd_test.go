@@ -1676,7 +1676,7 @@ var _ = Suite(&EtcdRateLimiterSuite{})
 func (e *EtcdRateLimiterSuite) setupWithRateLimiter() {
 	// The rate limiter is configured with max QPS and burst both
 	// configured to the provided value for rate limit option.
-	setupDummyWithConfigOpts("etcd", map[string]string{
+	SetupDummyWithConfigOpts("etcd", map[string]string{
 		EtcdRateLimitOption: fmt.Sprintf("%d", e.maxQPS),
 	})
 
