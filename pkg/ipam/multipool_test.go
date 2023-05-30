@@ -4,6 +4,7 @@
 package ipam
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -111,13 +112,134 @@ func Test_MultiPoolManager(t *testing.T) {
 	assert.Error(t, err, ipallocator.ErrAllocated)
 	assert.Nil(t, faultyAllocation)
 
-	// allocation from an unknown pool should return an error
+	// Allocation from an unknown pool should create a new pending allocation
+	jupiterIPv4CIDR := cidr.MustParseCIDR("192.168.1.0/16")
+	juptierIPv6CIDR := cidr.MustParseCIDR("fc00:33::/96")
+
 	faultyAllocation, err = c.allocateIP(net.ParseIP("192.168.1.1"), "jupiter-pod-0", "jupiter", IPv4, false)
-	assert.ErrorContains(t, err, "unknown pool")
+	assert.ErrorContains(t, err, "pool not (yet) available")
 	assert.Nil(t, faultyAllocation)
 	faultyAllocation, err = c.allocateNext("jupiter-pod-1", "jupiter", IPv6, false)
-	assert.ErrorContains(t, err, "unknown pool")
+	assert.ErrorContains(t, err, "pool not (yet) available")
 	assert.Nil(t, faultyAllocation)
+	// Try again. This should still fail, but not request an additional third IP
+	// (since the owner has already attempted to allocate). This however sets
+	// upstreamSync to 'true', which should populate .Spec.IPAM.Pools.Requested
+	// with pending requests for the "jupiter" pool
+	faultyAllocation, err = c.allocateNext("jupiter-pod-1", "jupiter", IPv6, true)
+	assert.ErrorContains(t, err, "pool not (yet) available")
+	assert.Nil(t, faultyAllocation)
+
+	// Check if the agent now requests one IPv4 and one IPv6 IP for the jupiter pool
+	assert.Equal(t, <-events, "upsert")
+	currentNode = fakeK8sCiliumNodeAPI.currentNode()
+	assert.Equal(t, []types.IPAMPoolRequest{
+		{
+			Pool: "default",
+			Needed: types.IPAMPoolDemand{
+				IPv4Addrs: 32, // 1 allocated + 16 pre-allocate, rounded up to multiple of 16
+				IPv6Addrs: 16, // 0 allocated + 16 pre-allocate
+			},
+		},
+		{
+			Pool: "jupiter",
+			Needed: types.IPAMPoolDemand{
+				IPv4Addrs: 1, // 1 pending, no pre-allocate
+				IPv6Addrs: 1, // 1 pending, no pre-allocate
+			},
+		},
+		{
+			Pool: "mars",
+			Needed: types.IPAMPoolDemand{
+				IPv4Addrs: 8, // 0 allocated + 8 pre-allocate
+				IPv6Addrs: 8, // 0 allocated + 8 pre-allocate
+			},
+		},
+	}, currentNode.Spec.IPAM.Pools.Requested)
+
+	// Assign the jupiter pool
+	currentNode.Spec.IPAM.Pools.Allocated = []types.IPAMPoolAllocation{
+		{
+			Pool: "default",
+			CIDRs: []types.IPAMPodCIDR{
+				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
+				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
+			},
+		},
+		{
+			Pool: "jupiter",
+			CIDRs: []types.IPAMPodCIDR{
+				types.IPAMPodCIDR(jupiterIPv4CIDR.String()),
+				types.IPAMPodCIDR(juptierIPv6CIDR.String()),
+			},
+		},
+		{
+			Pool: "mars",
+			CIDRs: []types.IPAMPodCIDR{
+				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
+				types.IPAMPodCIDR(marsIPv4CIDR1.String()),
+			},
+		},
+	}
+	fakeK8sCiliumNodeAPI.updateNode(currentNode)
+	assert.Equal(t, <-events, "upsert")
+
+	c.waitForPool(context.TODO(), IPv4, "jupiter")
+	c.waitForPool(context.TODO(), IPv6, "jupiter")
+
+	// Allocations should now succeed
+	jupiterIP0 := net.ParseIP("192.168.1.1")
+	allocatedJupiterIP0, err := c.allocateIP(jupiterIP0, "jupiter-pod-0", "jupiter", IPv4, false)
+	assert.Nil(t, err)
+	assert.True(t, jupiterIP0.Equal(allocatedJupiterIP0.IP))
+	allocatedJupiterIP1, err := c.allocateNext("jupiter-pod-1", "jupiter", IPv6, false)
+	assert.Nil(t, err)
+	assert.True(t, juptierIPv6CIDR.Contains(allocatedJupiterIP1.IP))
+
+	// Release IPs from jupiter pool. This should fully remove it from both
+	// "requested" and "allocated"
+	err = c.releaseIP(allocatedJupiterIP0.IP, "jupiter", IPv4, false)
+	assert.Nil(t, err)
+	err = c.releaseIP(allocatedJupiterIP1.IP, "jupiter", IPv6, true) // triggers sync
+	assert.Nil(t, err)
+
+	// Wait for agent to release jupiter CIDRs
+	assert.Equal(t, <-events, "upsert")
+	currentNode = fakeK8sCiliumNodeAPI.currentNode()
+	assert.Equal(t, types.IPAMPoolSpec{
+		Requested: []types.IPAMPoolRequest{
+			{
+				Pool: "default",
+				Needed: types.IPAMPoolDemand{
+					IPv4Addrs: 32, // 1 allocated + 16 pre-allocate, rounded up to multiple of 16
+					IPv6Addrs: 16, // 0 allocated + 16 pre-allocate
+				},
+			},
+			{
+				Pool: "mars",
+				Needed: types.IPAMPoolDemand{
+					IPv4Addrs: 8, // 0 allocated + 8 pre-allocate
+					IPv6Addrs: 8, // 0 allocated + 8 pre-allocate
+				},
+			},
+		},
+		Allocated: []types.IPAMPoolAllocation{
+			{
+				Pool: "default",
+				CIDRs: []types.IPAMPodCIDR{
+					types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
+					types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
+				},
+			},
+			{
+				Pool: "mars",
+				CIDRs: []types.IPAMPodCIDR{
+					types.IPAMPodCIDR(marsIPv4CIDR1.String()),
+					types.IPAMPodCIDR(marsIPv6CIDR1.String()),
+				},
+			},
+		},
+	}, currentNode.Spec.IPAM.Pools)
 
 	// exhaust mars ipv4 pool (/27 contains 30 IPs)
 	allocatedMarsIPs := []net.IP{}
