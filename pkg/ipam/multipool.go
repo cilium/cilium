@@ -279,10 +279,10 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 	}
 
 	sort.Slice(requested, func(i, j int) bool {
-		return requested[i].Pool > requested[j].Pool
+		return requested[i].Pool < requested[j].Pool
 	})
 	sort.Slice(allocated, func(i, j int) bool {
-		return allocated[i].Pool > allocated[j].Pool
+		return allocated[i].Pool < allocated[j].Pool
 	})
 	newNode.Spec.IPAM.Pools.Requested = requested
 	newNode.Spec.IPAM.Pools.Allocated = allocated
