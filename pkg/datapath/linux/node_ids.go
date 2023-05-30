@@ -77,19 +77,25 @@ func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
 	return n.nodeIPsByIDs[nodeID]
 }
 
-// allocateIDForNode allocates a new ID for the given node if one hasn't already
-// been assigned. If any of the node IPs have an ID associated, then all other
-// node IPs receive the same. This might happen if we allocated a node ID from
-// the ipcache, where we don't have all node IPs but only one.
-func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
+// getNodeIDForNode gets the node ID for the given node if one was allocated
+// for any of the node IP addresses. If none if found, 0 is returned.
+func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 	nodeID := uint16(0)
-
-	// Did we already allocate a node ID for any IP of that node?
 	for _, addr := range node.IPAddresses {
 		if id, exists := n.nodeIDsByIPs[addr.IP.String()]; exists {
 			nodeID = id
 		}
 	}
+	return nodeID
+}
+
+// allocateIDForNode allocates a new ID for the given node if one hasn't already
+// been assigned. If any of the node IPs have an ID associated, then all other
+// node IPs receive the same. This might happen if we allocated a node ID from
+// the ipcache, where we don't have all node IPs but only one.
+func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
+	// Did we already allocate a node ID for any IP of that node?
+	nodeID := n.getNodeIDForNode(node)
 
 	if nodeID == 0 {
 		nodeID = uint16(n.nodeIDs.AllocateID())
