@@ -14,3 +14,19 @@ spec:
     nodeSelector:
       matchLabels:
         kubernetes.io/hostname: NODE_NAME_PLACEHOLDER
+---
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: cegp-sample-echo-service
+spec:
+  selectors:
+  - podSelector:
+      matchLabels:
+        kind: echo
+  destinationCIDRs:
+  - 0.0.0.0/0
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        kubernetes.io/hostname: NODE_NAME_PLACEHOLDER

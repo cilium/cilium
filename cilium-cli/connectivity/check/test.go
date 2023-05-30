@@ -9,6 +9,7 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -419,12 +420,24 @@ func (t *Test) WithK8SPolicy(policy string) *Test {
 	return t
 }
 
+const (
+	NoExcludedCIDRs = iota
+	ExternalNodeExcludedCIDRs
+)
+
+// CiliumEgressGatewayPolicyParams is used to configure how a CiliumEgressGatewayPolicy template should be configured
+// before being applied.
+type CiliumEgressGatewayPolicyParams struct {
+	// ExcludedCIDRs controls how the ExcludedCIDRs property should be configured
+	ExcludedCIDRs int
+}
+
 // WithCiliumEgressGatewayPolicy takes a string containing a YAML policy
 // document and adds the cilium egress gateway polic(y)(ies) to the scope of the
 // Test, to be applied when the test starts running. When calling this method,
 // note that the egress gateway enabled feature requirement is applied directly
 // here.
-func (t *Test) WithCiliumEgressGatewayPolicy(policy string) *Test {
+func (t *Test) WithCiliumEgressGatewayPolicy(policy string, params CiliumEgressGatewayPolicyParams) *Test {
 	pl, err := parseCiliumEgressGatewayPolicyYAML(policy)
 	if err != nil {
 		t.Fatalf("Parsing policy YAML: %s", err)
@@ -445,13 +458,28 @@ func (t *Test) WithCiliumEgressGatewayPolicy(policy string) *Test {
 			}
 		}
 
+		// Set the egress gateway node
 		egressGatewayNode := t.EgressGatewayNode()
 		if egressGatewayNode == "" {
 			t.Fatalf("Cannot find egress gateway node")
 		}
 
-		// Set the egress gateway node
 		pl[i].Spec.EgressGateway.NodeSelector.MatchLabels["kubernetes.io/hostname"] = egressGatewayNode
+
+		// Set the excluded CIDRs
+		pl[i].Spec.ExcludedCIDRs = []v2.IPv4CIDR{}
+
+		switch params.ExcludedCIDRs {
+		case ExternalNodeExcludedCIDRs:
+			for _, nodeWithoutCiliumIP := range t.Context().params.NodesWithoutCiliumIPs {
+				if parsedIP := net.ParseIP(nodeWithoutCiliumIP.IP); parsedIP.To4() == nil {
+					continue
+				}
+
+				cidr := v2.IPv4CIDR(fmt.Sprintf("%s/32", nodeWithoutCiliumIP.IP))
+				pl[i].Spec.ExcludedCIDRs = append(pl[i].Spec.ExcludedCIDRs, cidr)
+			}
+		}
 	}
 
 	if err := t.addCEGPs(pl...); err != nil {

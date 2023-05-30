@@ -669,6 +669,10 @@ func (c *Client) ListCiliumEnvoyConfigs(ctx context.Context, namespace string, o
 	return c.CiliumClientset.CiliumV2().CiliumEnvoyConfigs(namespace).List(ctx, options)
 }
 
+func (c *Client) GetNode(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Node, error) {
+	return c.Clientset.CoreV1().Nodes().Get(ctx, name, opts)
+}
+
 func (c *Client) ListNodes(ctx context.Context, options metav1.ListOptions) (*corev1.NodeList, error) {
 	return c.Clientset.CoreV1().Nodes().List(ctx, options)
 }
