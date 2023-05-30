@@ -650,7 +650,7 @@ data:
   enable-node-port: {{ .Values.nodePort.enabled | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "range" }}
-  node-port-range: {{ .Values.nodePort.range | quote }}
+  node-port-range: {{ get .Values.nodePort "range" | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "directRoutingDevice" }}
   direct-routing-device: {{ .Values.nodePort.directRoutingDevice | quote }}
