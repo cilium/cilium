@@ -11,12 +11,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 // LoggingHook is a hook for logrus which counts error and warning messages as a
 // Prometheus metric.
 type LoggingHook struct {
-	metric CounterVec
+	metric metric.Vec[metric.Counter]
 }
 
 // NewLoggingHook returns a new instance of LoggingHook for the given Cilium
@@ -27,7 +28,7 @@ func NewLoggingHook(component string) *LoggingHook {
 	// cilium-health - GH-4268) is planned.
 
 	// Pick a metric for the component.
-	var metric CounterVec
+	var metric metric.Vec[metric.Counter]
 	switch component {
 	case components.CiliumAgentName:
 		metric = ErrorsWarnings

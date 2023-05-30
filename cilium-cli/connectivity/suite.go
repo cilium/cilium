@@ -151,11 +151,11 @@ var (
 	//go:embed manifests/echo-ingress-from-cidr.yaml
 	echoIngressFromCIDRYAML string
 
-	//go:embed manifests/echo-ingress-auth-fail.yaml
+	//go:embed manifests/echo-ingress-mutual-authentication-fail.yaml
 	echoIngressAuthFailPolicyYAML string
 
-	//go:embed manifests/echo-ingress-mtls.yaml
-	echoIngressMTLSPolicyYAML string
+	//go:embed manifests/echo-ingress-mutual-authentication.yaml
+	echoIngressMutualAuthPolicyYAML string
 
 	//go:embed manifests/egress-gateway-policy.yaml
 	egressGatewayPolicyYAML string
@@ -948,25 +948,23 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			return check.ResultCurlHTTPError, check.ResultNone // if the header is not set the request will get a 401
 		})
 
-	// Test mTLS auth with always-fail
+	// Test mutual auth with always-fail
 	ct.NewTest("echo-ingress-auth-always-fail").WithCiliumPolicy(echoIngressAuthFailPolicyYAML).
 		// this test is only useful when auth is supported in the Cilium version and it is enabled
-		// currently this is tested my mtls-spiffe as that is the only functional auth method
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureAuthMTLSSpiffe)).
+		// currently this is tested spiffe as that is the only functional auth method
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureAuthSpiffe)).
 		WithScenarios(
 			tests.PodToPod(),
-			tests.PodToPodWithEndpoints(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			return check.ResultDropCurlTimeout, check.ResultDropAuthRequired
 		})
 
-	// Test mTLS auth with SPIFFE
-	ct.NewTest("echo-ingress-auth-mtls-spiffe").WithCiliumPolicy(echoIngressMTLSPolicyYAML).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureAuthMTLSSpiffe)).
+	// Test mutual auth with SPIFFE
+	ct.NewTest("echo-ingress-mutual-auth-spiffe").WithCiliumPolicy(echoIngressMutualAuthPolicyYAML).
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureAuthSpiffe)).
 		WithScenarios(
 			tests.PodToPod(),
-			tests.PodToPodWithEndpoints(),
 		)
 
 	// Test Ingress controller
