@@ -279,7 +279,7 @@ type K8sWatcher struct {
 
 	cfg WatcherConfiguration
 
-	sharedResources agentK8s.Resources
+	resources agentK8s.Resources
 }
 
 func NewK8sWatcher(
@@ -297,7 +297,7 @@ func NewK8sWatcher(
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
-	sharedResources agentK8s.Resources,
+	resources agentK8s.Resources,
 	serviceCache *k8s.ServiceCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
@@ -321,7 +321,7 @@ func NewK8sWatcher(
 		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
 		envoyConfigManager:    envoyConfigManager,
 		cfg:                   cfg,
-		sharedResources:       sharedResources,
+		resources:             resources,
 	}
 }
 

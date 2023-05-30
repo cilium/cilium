@@ -87,8 +87,8 @@ func (r *ruleImportMetadataCache) get(cnp *types.SlimCNP) (policyImportMetadata,
 func (k *K8sWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Clientset) {
 	var cnpSynced, ccnpSynced, cidrGroupSynced atomic.Bool
 	go func() {
-		cnpEvents := k.sharedResources.CiliumNetworkPolicies.Events(ctx)
-		ccnpEvents := k.sharedResources.CiliumClusterwideNetworkPolicies.Events(ctx)
+		cnpEvents := k.resources.CiliumNetworkPolicies.Events(ctx)
+		ccnpEvents := k.resources.CiliumClusterwideNetworkPolicies.Events(ctx)
 
 		// cnpCache contains both CNPs and CCNPs, stored using a common intermediate
 		// representation (*types.SlimCNP). The cache is indexed on resource.Key,
@@ -99,7 +99,7 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Cl
 		cnpCache := make(map[resource.Key]*types.SlimCNP)
 
 		cidrGroupCache := make(map[string]*cilium_v2_alpha1.CiliumCIDRGroup)
-		cidrGroupEvents := k.sharedResources.CIDRGroups.Events(ctx)
+		cidrGroupEvents := k.resources.CIDRGroups.Events(ctx)
 
 		// cidrGroupPolicies is the set of policies that are referencing CiliumCIDRGroup objects.
 		cidrGroupPolicies := make(map[resource.Key]struct{})

@@ -42,7 +42,7 @@ func (k *K8sWatcher) namespacesInit() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	events := k.sharedResources.Namespaces.Events(ctx)
+	events := k.resources.Namespaces.Events(ctx)
 
 	go func() {
 		for {
@@ -121,7 +121,7 @@ func (k *K8sWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespac
 		},
 	}
 
-	store, err := k.sharedResources.Namespaces.Store(context.Background())
+	store, err := k.resources.Namespaces.Store(context.Background())
 	if err != nil {
 		return nil, err
 	}

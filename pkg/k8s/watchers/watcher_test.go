@@ -34,7 +34,7 @@ type K8sWatcherSuite struct{}
 
 var _ = Suite(&K8sWatcherSuite{})
 
-var emptySharedResources = agentK8s.Resources{}
+var emptyResources = agentK8s.Resources{}
 
 type fakeWatcherConfiguration struct{}
 
@@ -202,7 +202,7 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
-		emptySharedResources,
+		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
 	)
 	go w.k8sServiceHandler()
@@ -527,7 +527,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
-		emptySharedResources,
+		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
 	)
 	go w.k8sServiceHandler()
@@ -681,7 +681,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
-		emptySharedResources,
+		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
 	)
 	go w.k8sServiceHandler()
@@ -1164,7 +1164,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
-		emptySharedResources,
+		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
 	)
 	go w.k8sServiceHandler()
@@ -1481,7 +1481,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
-		emptySharedResources,
+		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
 	)
 	go w.k8sServiceHandler()
@@ -1791,7 +1791,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
-		emptySharedResources,
+		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
 	)
 	go w.k8sServiceHandler()
@@ -2715,7 +2715,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
-		emptySharedResources,
+		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
 	)
 	go w.k8sServiceHandler()
