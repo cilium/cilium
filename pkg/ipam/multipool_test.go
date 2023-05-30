@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -255,4 +256,55 @@ func Test_neededIPCeil(t *testing.T) {
 			assert.Equalf(t, tt.want, neededIPCeil(tt.numIP, tt.preAlloc), "neededIPCeil(%v, %v)", tt.numIP, tt.preAlloc)
 		})
 	}
+}
+
+func Test_pendingAllocationsPerPool(t *testing.T) {
+	var now time.Time
+	elapseTime := func(duration time.Duration) {
+		now = now.Add(duration)
+	}
+
+	pending := pendingAllocationsPerPool{
+		pools: map[Pool]pendingAllocationsPerOwner{},
+		clock: func() time.Time {
+			return now
+		},
+	}
+
+	pending.upsertPendingAllocation("test", "default/xwing", IPv4)
+	pending.upsertPendingAllocation("other", "foo", IPv4)
+	pending.upsertPendingAllocation("other", "foo", IPv6)
+	pending.upsertPendingAllocation("other", "bar", IPv4)
+	pending.upsertPendingAllocation("other", "bar", IPv6)
+	pending.upsertPendingAllocation("other", "baz-ipv6-only", IPv6)
+
+	elapseTime(30 * time.Second) // first time jump
+
+	pending.upsertPendingAllocation("test", "default/tiefighter", IPv4) // new
+	pending.upsertPendingAllocation("other", "foo", IPv4)               // renewal
+	pending.upsertPendingAllocation("other", "foo", IPv6)               // renewal
+
+	// Nothing should expire
+	pending.removeExpiredEntries()
+	assert.Equal(t, 2, pending.pendingForPool("test", IPv4))
+	assert.Equal(t, 0, pending.pendingForPool("test", IPv6))
+	assert.Equal(t, 2, pending.pendingForPool("other", IPv4))
+	assert.Equal(t, 3, pending.pendingForPool("other", IPv6))
+
+	elapseTime(pendingAllocationTTL) // second time jump
+
+	// This should clean up everything before the first time jump
+	pending.removeExpiredEntries()
+	assert.Equal(t, 1, pending.pendingForPool("test", IPv4))
+	assert.Equal(t, 0, pending.pendingForPool("test", IPv6))
+	assert.Equal(t, 1, pending.pendingForPool("other", IPv4))
+	assert.Equal(t, 1, pending.pendingForPool("other", IPv6))
+
+	// Mark entries on "other" pool as allocated
+	pending.markAsAllocated("other", "foo", IPv4)
+	assert.Equal(t, 0, pending.pendingForPool("other", IPv4))
+	assert.Equal(t, 1, pending.pendingForPool("other", IPv6))
+	pending.markAsAllocated("other", "foo", IPv6)
+	assert.Equal(t, 0, pending.pendingForPool("other", IPv4))
+	assert.Equal(t, 0, pending.pendingForPool("other", IPv6))
 }
