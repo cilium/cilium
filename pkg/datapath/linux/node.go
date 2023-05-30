@@ -107,6 +107,10 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 	}
 }
 
+func (l *linuxNodeHandler) Name() string {
+	return "linux-node-datapath"
+}
+
 // updateTunnelMapping is called when a node update is received while running
 // with encapsulation mode enabled. The CIDR and IP of both the old and new
 // node are provided as context. The caller expects the tunnel mapping in the

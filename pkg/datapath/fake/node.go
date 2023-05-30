@@ -28,6 +28,10 @@ func NewNodeHandler() *FakeNodeHandler {
 	return &FakeNodeHandler{Nodes: make(map[string]nodeTypes.Node)}
 }
 
+func (n *FakeNodeHandler) Name() string {
+	return "fake-node-handler"
+}
+
 func (n *FakeNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()

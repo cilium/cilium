@@ -113,6 +113,10 @@ func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore) (*Agent, 
 	}, nil
 }
 
+func (a *Agent) Name() string {
+	return "wireguard-agent"
+}
+
 // Close is called when the agent stops
 func (a *Agent) Close() error {
 	a.RLock()

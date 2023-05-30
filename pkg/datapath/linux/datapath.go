@@ -47,6 +47,10 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager
 	return dp
 }
 
+func (l *linuxDatapath) Name() string {
+	return "linux-datapath"
+}
+
 // Node returns the handler for node events
 func (l *linuxDatapath) Node() datapath.NodeHandler {
 	return l.node
