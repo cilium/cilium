@@ -65,8 +65,8 @@ func Test_MultiPoolManager(t *testing.T) {
 		Spec: ciliumv2.NodeSpec{IPAM: types.IPAMSpec{
 			Pools: types.IPAMPoolSpec{
 				Requested: []types.IPAMPoolRequest{
-					{Pool: "mars", Needed: types.IPAMPoolDemand{IPv4Addrs: 8, IPv6Addrs: 8}},
 					{Pool: "default", Needed: types.IPAMPoolDemand{IPv4Addrs: 16, IPv6Addrs: 16}},
+					{Pool: "mars", Needed: types.IPAMPoolDemand{IPv4Addrs: 8, IPv6Addrs: 8}},
 				},
 				Allocated: []types.IPAMPoolAllocation{},
 			},
@@ -81,17 +81,17 @@ func Test_MultiPoolManager(t *testing.T) {
 	// Assign CIDR to pools (i.e. this simulates the operator logic)
 	currentNode.Spec.IPAM.Pools.Allocated = []types.IPAMPoolAllocation{
 		{
-			Pool: "mars",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
-				types.IPAMPodCIDR(marsIPv4CIDR1.String()),
-			},
-		},
-		{
 			Pool: "default",
 			CIDRs: []types.IPAMPodCIDR{
 				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
 				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
+			},
+		},
+		{
+			Pool: "mars",
+			CIDRs: []types.IPAMPodCIDR{
+				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
+				types.IPAMPodCIDR(marsIPv4CIDR1.String()),
 			},
 		},
 	}
@@ -139,16 +139,17 @@ func Test_MultiPoolManager(t *testing.T) {
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, []types.IPAMPoolRequest{
 		{
-			Pool: "mars",
-			Needed: types.IPAMPoolDemand{
-				IPv4Addrs: 40, // 30 allocated + 8 pre-allocate, rounded up to multiple of 8
-				IPv6Addrs: 8,
-			}},
-		{
 			Pool: "default",
 			Needed: types.IPAMPoolDemand{
 				IPv4Addrs: 32, // 1 allocated + 16 pre-allocate, rounded up to multiple of 16
 				IPv6Addrs: 16,
+			},
+		},
+		{
+			Pool: "mars",
+			Needed: types.IPAMPoolDemand{
+				IPv4Addrs: 40, // 30 allocated + 8 pre-allocate, rounded up to multiple of 8
+				IPv6Addrs: 8,
 			},
 		},
 	}, currentNode.Spec.IPAM.Pools.Requested)
@@ -158,18 +159,18 @@ func Test_MultiPoolManager(t *testing.T) {
 	// Assign additional mars IPv4 CIDR
 	currentNode.Spec.IPAM.Pools.Allocated = []types.IPAMPoolAllocation{
 		{
+			Pool: "default",
+			CIDRs: []types.IPAMPodCIDR{
+				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
+				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
+			},
+		},
+		{
 			Pool: "mars",
 			CIDRs: []types.IPAMPodCIDR{
 				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
 				types.IPAMPodCIDR(marsIPv4CIDR1.String()),
 				types.IPAMPodCIDR(marsIPv4CIDR2.String()),
-			},
-		},
-		{
-			Pool: "default",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
-				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
 			},
 		},
 	}
@@ -190,16 +191,17 @@ func Test_MultiPoolManager(t *testing.T) {
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, []types.IPAMPoolRequest{
 		{
-			Pool: "mars",
-			Needed: types.IPAMPoolDemand{
-				IPv4Addrs: 16, // 1 allocated + 8 pre-allocate, rounded up to multiple of 8
-				IPv6Addrs: 8,
-			}},
-		{
 			Pool: "default",
 			Needed: types.IPAMPoolDemand{
 				IPv4Addrs: 32, // 1 allocated + 16 pre-allocate, rounded up to multiple of 16
 				IPv6Addrs: 16,
+			},
+		},
+		{
+			Pool: "mars",
+			Needed: types.IPAMPoolDemand{
+				IPv4Addrs: 16, // 1 allocated + 8 pre-allocate, rounded up to multiple of 8
+				IPv6Addrs: 8,
 			},
 		},
 	}, currentNode.Spec.IPAM.Pools.Requested)
@@ -207,17 +209,17 @@ func Test_MultiPoolManager(t *testing.T) {
 	// Initial mars CIDR should have been marked as released now
 	assert.Equal(t, []types.IPAMPoolAllocation{
 		{
-			Pool: "mars",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(marsIPv4CIDR2.String()),
-				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
-			},
-		},
-		{
 			Pool: "default",
 			CIDRs: []types.IPAMPodCIDR{
 				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
 				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
+			},
+		},
+		{
+			Pool: "mars",
+			CIDRs: []types.IPAMPodCIDR{
+				types.IPAMPodCIDR(marsIPv4CIDR2.String()),
+				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
 			},
 		},
 	}, currentNode.Spec.IPAM.Pools.Allocated)
