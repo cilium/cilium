@@ -65,7 +65,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		validateService,
 		validateGateway,
 	} {
-		if res, err := fn(ctx, r.Client, hr, grants); err != nil {
+		if res, err := fn(ctx, r.Client, grants, hr); err != nil {
 			return res, err
 		}
 	}
@@ -74,7 +74,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return success()
 }
 
-func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HTTPRoute, grants *gatewayv1beta1.ReferenceGrantList) (ctrl.Result, error) {
+func validateService(ctx context.Context, c client.Client, grants *gatewayv1beta1.ReferenceGrantList, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error) {
 	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
 		logfields.Controller: "httpRoute",
 		logfields.Resource:   client.ObjectKeyFromObject(hr),
@@ -133,7 +133,7 @@ func validateService(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 	return success()
 }
 
-func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HTTPRoute, _ *gatewayv1beta1.ReferenceGrantList) (ctrl.Result, error) {
+func validateGateway(ctx context.Context, c client.Client, _ *gatewayv1beta1.ReferenceGrantList, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error) {
 	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
 		logfields.Controller: "httpRoute",
 		logfields.Resource:   client.ObjectKeyFromObject(hr),

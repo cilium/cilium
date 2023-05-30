@@ -29,7 +29,7 @@ const (
 	gatewayIndex        = "gatewayIndex"
 )
 
-type httpRouteChecker func(ctx context.Context, client client.Client, hr *gatewayv1beta1.HTTPRoute, grants *gatewayv1beta1.ReferenceGrantList) (ctrl.Result, error)
+type httpRouteChecker func(ctx context.Context, client client.Client, grants *gatewayv1beta1.ReferenceGrantList, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error)
 
 // httpRouteReconciler reconciles a HTTPRoute object
 type httpRouteReconciler struct {
