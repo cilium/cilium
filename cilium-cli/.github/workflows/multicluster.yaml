@@ -119,16 +119,8 @@ jobs:
             --disk-type pd-standard \
             --disk-size 10GB \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
-            --preemptible
-
-      - name: Get cluster 2 credentials
-        run: |
-          gcloud container clusters get-credentials ${{ env.clusterName2 }} --zone ${{ env.zone }}
-
-      - name: Create gcloud-free kubeconfig for cluster 2
-        run: |
-          .github/get-kubeconfig.sh
-          mv kubeconfig kubeconfig-cluster2
+            --preemptible \
+            --async
 
       - name: Create GKE cluster 1
         run: |
@@ -145,7 +137,23 @@ jobs:
             --disk-type pd-standard \
             --disk-size 10GB \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
-            --preemptible
+            --preemptible \
+            --async
+
+      - name: Wait for clusters to be provisioned
+        run: |
+          while [ "$(gcloud container operations list --filter="status=RUNNING AND targetLink~${{ env.clusterNameBase }}" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 10
+          done
+
+      - name: Get cluster 2 credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.clusterName2 }} --zone ${{ env.zone }}
+
+      - name: Create gcloud-free kubeconfig for cluster 2
+        run: |
+          .github/get-kubeconfig.sh
+          mv kubeconfig kubeconfig-cluster2
 
       - name: Get cluster 1 credentials
         run: |
