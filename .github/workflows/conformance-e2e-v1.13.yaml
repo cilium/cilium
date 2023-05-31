@@ -1,0 +1,507 @@
+name: Cilium Conformance E2E (ci-e2e-1.13)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  issue_comment:
+    types:
+      - created
+  # Run once a day
+  schedule:
+    - cron:  '0 10 * * *'
+  ### FOR TESTING PURPOSES
+  # This workflow runs in the context of `main`, and ignores changes to
+  # workflow files in PRs. For testing changes to this workflow from a PR:
+  # - Make sure the PR uses a branch from the base repository (requires write
+  #   privileges). It will not work with a branch from a fork (missing secrets).
+  # - Uncomment the `pull_request` event below, commit separately with a `DO
+  #   NOT MERGE` message, and push to the PR. As long as the commit is present,
+  #   any push to the PR will trigger this workflow.
+  # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
+  #   will disappear from the PR checks: please provide a direct link to the
+  #   successful workflow run (can be found from Actions tab) in a comment.
+  #
+  #
+  pull_request: {}
+  ###
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # So that Sibz/github-status-action can write into the status API
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - issue_comment: PR number
+  #   - pull_request: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing:
+  # - schedule: {name} schedule {SHA}
+  # - issue_comment: {name} issue_comment {PR number}
+  # - pull_request: {name} pull_request {PR number}
+  #
+  # Note: for `issue_comment` triggers, we additionally need to filter out based
+  # on comment content, otherwise any comment will interrupt workflow runs.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-e2e-1.13' ||
+        github.event.comment.body == '/test-backport-1.13'
+      ) && github.event.issue.number) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number)
+    }}
+  cancel-in-progress: true
+
+env:
+  # renovate is disabled in this workflow until https://github.com/cilium/cilium-cli/issues/1627 is resolved.
+  # renovate_disabled: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.14.5
+  cilium_cli_ci_version:
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-e2e-1.13' ||
+        github.event.comment.body == '/test-backport-1.13'
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      # Because we run on issue comments, we need to checkout the code for
+      # paths-filter to work.
+      - name: Checkout code
+        if: ${{ github.event.issue.pull_request }}
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          persist-credentials: false
+      - name: Retrieve pull request's base and head
+        if: ${{ github.event.issue.pull_request }}
+        id: pr
+        run: |
+          curl ${{ github.event.issue.pull_request.url }} > pr.json
+          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
+          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
+      - name: Check code changes
+        if: ${{ github.event.issue.pull_request }}
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        id: tested-tree
+        with:
+          base: ${{ steps.pr.outputs.base }}
+          ref: ${{ steps.pr.outputs.head }}
+          filters: |
+            src:
+              - '!(test|Documentation)/**'
+
+  setup-report:
+    runs-on: ubuntu-latest
+    needs: check_changes
+    name: Set commit status
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            curl https://api.github.com/repos/cilium/cilium/branches/v1.13 > branch.json
+            SHA=$(jq -r '.commit.sha' branch.json)
+          else
+            SHA=${{ github.sha }}
+          fi
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Set commit status to pending
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: E2E conformance tests in progress...
+          state: pending
+          target_url: ${{ env.check_url }}
+
+  skip-test-run:
+    # If the modified files are not relevant for this test then we can skip
+    # this test and mark it as successful.
+    if: github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'false'
+    runs-on: ubuntu-latest
+    needs: setup-report
+    name: Set commit status to success (skipped)
+    steps:
+      - name: Set commit status to success
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.setup-report.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: E2E conformance tests skipped
+          state: success
+          target_url: ${{ env.check_url }}
+
+  setup-and-test:
+    runs-on: ubuntu-latest-4cores-16gb
+    needs: setup-report
+    name: Setup & Test
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-e2e-1.13' ||
+        (github.event.comment.body == '/test-backport-1.13' && needs.check_changes.outputs.tested == 'true')
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        include:
+          # See https://github.com/cilium/cilium/issues/20606 for configuration table
+          - name: '1'
+            kernel: '4.19-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'vxlan'
+
+          - name: '2'
+            kernel: '5.4-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'disabled'
+
+          - name: '3'
+            kernel: '5.10-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'disabled'
+            endpoint-routes: 'true'
+
+          - name: '4'
+            kernel: '5.10-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'strict'
+            tunnel: 'vxlan'
+            lb-mode: 'snat'
+            endpoint-routes: 'true'
+            egress-gateway: 'true'
+
+          - name: '5'
+            kernel: '5.15-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'strict'
+            tunnel: 'disabled'
+            lb-mode: 'dsr'
+            endpoint-routes: 'true'
+            egress-gateway: 'true'
+            host-fw: 'true'
+
+          - name: '6'
+            kernel: '6.0-20230420.212204'
+            kube-proxy: 'none'
+            kpr: 'strict'
+            tunnel: 'vxlan'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            host-fw: 'true'
+            lb-acceleration: 'testing-only'
+
+          - name: '7'
+            kernel: 'bpf-next-20230420.212204'
+            kube-proxy: 'none'
+            kpr: 'strict'
+            tunnel: 'disabled'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            lb-acceleration: 'testing-only'
+
+          - name: '8'
+            kernel: 'bpf-next-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'geneve'
+            endpoint-routes: 'true'
+
+          - name: '9'
+            kernel: '4.19-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            ipv6: 'false' # https://github.com/cilium/cilium/issues/23461
+
+          - name: '10'
+            kernel: '5.4-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+
+          - name: '11'
+            kernel: '5.10-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'true'
+
+          - name: '12'
+            kernel: '5.10-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'strict'
+            tunnel: 'vxlan'
+            encryption: 'wireguard'
+            encryption-node: 'false'
+            lb-mode: 'snat'
+            endpoint-routes: 'true'
+            egress-gateway: 'true'
+
+          - name: '13'
+            kernel: '5.15-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'strict'
+            tunnel: 'disabled'
+            encryption: 'wireguard'
+            encryption-node: 'false'
+            lb-mode: 'dsr'
+            endpoint-routes: 'true'
+            egress-gateway: 'true'
+
+          - name: '14'
+            kernel: 'bpf-next-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'geneve'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'true'
+
+    timeout-minutes: 60
+    steps:
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          SHA="${{ needs.setup-report.outputs.sha }}"
+          CILIUM_INSTALL_DEFAULTS="--wait \
+            --chart-directory=./install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.eventBufferCapacity=65535 \
+            --helm-set=bpf.monitorAggregation=none \
+            --nodes-without-cilium=kind-worker3 \
+            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
+          TUNNEL="--helm-set-string=tunnel=${{ matrix.tunnel }}"
+          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
+            TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
+            TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
+          fi
+          LB_MODE=""
+          if [ "${{ matrix.lb-mode }}" != "" ]; then
+            LB_MODE="--helm-set-string=loadBalancer.mode=${{ matrix.lb-mode }}"
+          fi
+          ENDPOINT_ROUTES=""
+          if [ "${{ matrix.endpoint-routes }}" == "true" ]; then
+            ENDPOINT_ROUTES="--helm-set-string=endpointRoutes.enabled=true"
+          fi
+          IPV6=""
+          if [ "${{ matrix.ipv6 }}" != "false" ]; then
+            IPV6="--helm-set=ipv6.enabled=true"
+          fi
+          MASQ=""
+          if [ "${{ matrix.kpr }}" == "strict" ]; then
+            # BPF-masq requires KPR=strict.
+            # Disable IPv6 until https://github.com/cilium/cilium/issues/14350 has been resolved
+            MASQ="--helm-set=bpf.masquerade=true --helm-set=enableIPv6Masquerade=false"
+          fi
+          EGRESS_GATEWAY=""
+          if [ "${{ matrix.egress-gateway }}" == "true" ]; then
+            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true"
+          fi
+          LB_ACCELERATION=""
+          if [ "${{ matrix.lb-acceleration }}" != "" ]; then
+            LB_ACCELERATION="--helm-set=loadBalancer.acceleration=${{ matrix.lb-acceleration }}"
+          fi
+
+          ENCRYPT=""
+          if [ "${{ matrix.encryption }}" != "" ]; then
+            ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
+            if [ "${{ matrix.encryption-node }}" != "" ]; then
+              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ matrix.encryption-node }}"
+            fi
+          fi
+
+          HOST_FW=""
+          if [ "${{ matrix.host-fw }}" == "true" ]; then
+            HOST_FW="--helm-set=hostFirewall.enabled=true"
+          fi
+
+          L7=""
+          if [ "${{ matrix.egress-gateway }}" == "true" ] || [ "${{ matrix.encryption }}" == "wireguard" ]; then
+            L7="--helm-set=l7Proxy=false"
+          fi
+
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${L7}"
+          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
+
+      - name: Checkout pull request for Helm chart
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          ref: ${{ needs.setup-report.outputs.sha }}
+          persist-credentials: false
+
+      - name: Install Cilium CLI-cli
+        uses: cilium/cilium-cli@d4c49cddefadf11852cd5bbde0bbd9e0b2c67d43 # v0.14.3
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
+          binary-name: cilium-cli
+          binary-dir: ./
+
+      - name: Provision LVH VMs
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
+        with:
+          test-name: e2e-conformance
+          image-version: ${{ matrix.kernel }}
+          host-mount: ./
+          cpu: 4
+          dns-resolver: '1.1.1.1'
+          install-dependencies: 'true'
+          cmd: |
+            git config --global --add safe.directory /host
+
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.setup-report.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Run tests
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+
+            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+            if [ "${{ matrix.encryption }}" == "ipsec" ]; then
+              kubectl create -n kube-system secret generic cilium-ipsec-keys \
+                --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+            fi
+
+            CILIUM_CLI_MODE=helm ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+            ./cilium-cli status --wait
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+
+            ./contrib/scripts/kind-down.sh
+
+      - name: Fetch artifacts
+        if: ${{ !success() }}
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            kubectl get pods --all-namespaces -o wide
+            ./cilium-cli status
+            mkdir -p cilium-sysdumps
+            ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
+          retention-days: 5
+
+  report-success:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to success
+    if: ${{ success() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.setup-report.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: E2E conformance tests successful
+          state: success
+          target_url: ${{ env.check_url }}
+
+  report-failure:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to failure
+    if: ${{ failure() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.setup-report.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: E2E conformance tests failed
+          state: failure
+          target_url: ${{ env.check_url }}
+
+  report-cancelled:
+    runs-on: ubuntu-latest
+    needs: [setup-report, setup-and-test]
+    name: Set commit status to cancelled
+    if: ${{ cancelled() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.setup-report.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: E2E conformance tests cancelled
+          state: error
+          target_url: ${{ env.check_url }}
