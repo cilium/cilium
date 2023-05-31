@@ -358,3 +358,9 @@ jobs:
           path: |
             cilium-junits/*.xml
           retention-days: 2
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@86789108ea0fd9be947a4232dd560e2fa3b9467a # v0.0.1
+        with:
+          junit-directory: "cilium-junits"
