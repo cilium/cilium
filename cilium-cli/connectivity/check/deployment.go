@@ -49,6 +49,11 @@ const (
 	hostNetNSDeploymentNameNonCilium = "host-netns-non-cilium" // runs on non-Cilium test nodes
 	kindHostNetNS                    = "host-netns"
 
+	migrateSvcClientDeploymentName = "migrate-svc-client"
+	migrateSvcServerDeploymentName = "migrate-svc-server"
+	migrateSvcServiceName          = "migrate-svc"
+	KindMigrateSvc                 = "migrate-svc"
+
 	EchoServerHostPort = 40000
 
 	IngressServiceName         = "ingress-service"
@@ -584,6 +589,67 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		return nil
 	}
 
+	// Deploy migrate-svc-client, migrate-svc-server and migrate-svc
+	if ct.params.UpgradeTestSetup {
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, migrateSvcServerDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), migrateSvcServerDeploymentName)
+			migrateSvcServerDeployment := newDeployment(deploymentParameters{
+				Name:     migrateSvcServerDeploymentName,
+				Kind:     KindMigrateSvc,
+				Image:    "docker.io/cilium/migrate-svc-test:v0.0.2",
+				Replicas: 3,
+				Labels:   map[string]string{"app": "migrate-svc-server"},
+				Command:  []string{"/server", "8000"},
+				Port:     8000,
+			})
+			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(migrateSvcServerDeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s: %w", migrateSvcServerDeploymentName, err)
+			}
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, migrateSvcServerDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %w", migrateSvcServerDeployment, err)
+			}
+		}
+
+		_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, migrateSvcServiceName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), migrateSvcServiceName)
+			svc := newService(migrateSvcServiceName, map[string]string{"app": "migrate-svc-server"}, nil, "http", 8000)
+			_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, migrateSvcClientDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), migrateSvcClientDeploymentName)
+			migrateSvcClientDeployment := newDeployment(deploymentParameters{
+				Name:     migrateSvcClientDeploymentName,
+				Kind:     KindMigrateSvc,
+				Image:    "docker.io/cilium/migrate-svc-test:v0.0.2",
+				Replicas: 5,
+				Labels:   map[string]string{"app": "migrate-svc-client"},
+				Port:     8000,
+				Command: []string{
+					"/client",
+					fmt.Sprintf("migrate-svc.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
+				},
+			})
+
+			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(migrateSvcClientDeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s: %w", migrateSvcClientDeploymentName, err)
+			}
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, migrateSvcClientDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %w", migrateSvcClientDeployment, err)
+			}
+		}
+	}
+
 	if ct.params.MultiCluster != "" {
 		if ct.params.ForceDeploy {
 			if err := ct.deleteDeployments(ctx, ct.clients.dst); err != nil {
@@ -950,6 +1016,11 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		}
 	}
 
+	if ct.params.IncludeUpgradeTest {
+		srcList = append(srcList, migrateSvcClientDeploymentName)
+		dstList = append(dstList, migrateSvcServerDeploymentName)
+	}
+
 	if (ct.params.MultiCluster != "" || !ct.params.SingleNode) && !ct.params.Perf {
 		dstList = append(dstList, echoOtherNodeDeploymentName)
 	}
@@ -967,10 +1038,14 @@ func (ct *ConnectivityTest) deleteDeployments(ctx context.Context, client *k8s.C
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, clientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, client2DeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, migrateSvcClientDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, migrateSvcServerDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, clientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, client2DeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, migrateSvcClientDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, migrateSvcServerDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.DeleteOptions{})
