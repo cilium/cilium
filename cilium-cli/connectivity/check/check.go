@@ -64,7 +64,10 @@ type Parameters struct {
 	JunitFile             string
 	JunitProperties       map[string]string
 
-	FlushCT bool
+	IncludeUpgradeTest    bool
+	UpgradeTestSetup      bool
+	UpgradeTestResultPath string
+	FlushCT               bool
 
 	K8sVersion           string
 	HelmChartDirectory   string
