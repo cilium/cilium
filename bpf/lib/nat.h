@@ -1347,7 +1347,7 @@ static __always_inline bool
 snat_v6_needs_ct(struct ipv6_ct_tuple *tuple,
 		 const struct ipv6_nat_target *target)
 {
-	if (!ipv6_addrcmp(&tuple->saddr, &target->addr)) {
+	if (ipv6_addr_equals(&tuple->saddr, &target->addr)) {
 		/* Host-local connection. */
 		return true;
 	}
@@ -1450,7 +1450,7 @@ static __always_inline int snat_v6_icmp_rewrite_embedded(struct __ctx_buff *ctx,
 {
 	struct csum_offset csum = {};
 
-	if (ipv6_addrcmp(&state->to_daddr, &tuple->daddr) == 0 &&
+	if (ipv6_addr_equals(&state->to_daddr, &tuple->daddr) &&
 	    state->to_dport == tuple->dport)
 		return 0;
 
@@ -1515,7 +1515,7 @@ static __always_inline int snat_v6_rewrite_egress(struct __ctx_buff *ctx,
 	__be32 sum;
 	int ret;
 
-	if (!ipv6_addrcmp(&state->to_saddr, &tuple->saddr) &&
+	if (ipv6_addr_equals(&state->to_saddr, &tuple->saddr) &&
 	    state->to_sport == tuple->sport)
 		return 0;
 	sum = csum_diff(&tuple->saddr, 16, &state->to_saddr, 16, 0);
@@ -1566,7 +1566,7 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 	__be32 sum;
 	int ret;
 
-	if (!ipv6_addrcmp(&state->to_daddr, &tuple->daddr) &&
+	if (ipv6_addr_equals(&state->to_daddr, &tuple->daddr) &&
 	    state->to_dport == tuple->dport)
 		return 0;
 	sum = csum_diff(&tuple->daddr, 16, &state->to_daddr, 16, 0);
@@ -1687,7 +1687,7 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 	}
 #endif /* ENABLE_DSR_HYBRID */
 	/* See snat_v4_prepare_state(). */
-	return !ipv6_addrcmp((union v6addr *)&ip6->saddr, addr);
+	return ipv6_addr_equals((union v6addr *)&ip6->saddr, addr);
 }
 
 static __always_inline __maybe_unused int

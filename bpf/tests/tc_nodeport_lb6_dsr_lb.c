@@ -248,9 +248,9 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->nexthdr != NEXTHDR_DEST)
 		test_fatal("l3 header doesn't indicate DSR extension");
 
-	if (ipv6_addrcmp((union v6addr *)&l3->saddr, &client_ip) != 0)
+	if (!ipv6_addr_equals((union v6addr *)&l3->saddr, &client_ip))
 		test_fatal("src IP has changed");
-	if (ipv6_addrcmp((union v6addr *)&l3->daddr, &backend_ip) != 0)
+	if (!ipv6_addr_equals((union v6addr *)&l3->daddr, &backend_ip))
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
 
 	if (opt->hdr.nexthdr != IPPROTO_TCP)
@@ -264,7 +264,7 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	if (opt->port != FRONTEND_PORT)
 		test_fatal("port in DSR extension is bad")
-	if (ipv6_addrcmp((union v6addr *)&opt->addr, &frontend_ip) != 0)
+	if (!ipv6_addr_equals((union v6addr *)&opt->addr, &frontend_ip))
 		test_fatal("addr in DSR extension is bad")
 
 	if (l4->source != CLIENT_PORT)

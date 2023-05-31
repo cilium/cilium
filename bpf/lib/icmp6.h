@@ -314,7 +314,7 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 
 	BPF_V6(router, ROUTER_IP);
 
-	if (ipv6_addrcmp(&target, &router) == 0) {
+	if (ipv6_addr_equals(&target, &router)) {
 		union macaddr router_mac = NODE_MAC;
 
 		return send_icmp6_ndisc_adv(ctx, nh_off, &router_mac, true);
