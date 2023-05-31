@@ -113,6 +113,8 @@ func newManager(params authManagerParams) error {
 		return fmt.Errorf("failed to register signal authentication job: %w", err)
 	}
 
+	registerReAuthenticationJob(jobGroup, mgr, params.AuthHandlers)
+
 	mapGC := newAuthMapGC(mapCache, params.IPCache)
 
 	registerGCJobs(jobGroup, mapGC, params)
@@ -120,6 +122,14 @@ func newManager(params authManagerParams) error {
 	params.Lifecycle.Append(jobGroup)
 
 	return nil
+}
+
+func registerReAuthenticationJob(jobGroup job.Group, mgr *authManager, authHandlers []authHandler) {
+	for _, ah := range authHandlers {
+		if ah != nil && ah.subscribeToRotatedIdentities() != nil {
+			jobGroup.Add(job.Observer("auth re-authentication", mgr.handleCertificateRotationEvent, stream.FromChannel(ah.subscribeToRotatedIdentities())))
+		}
+	}
 }
 
 func registerSignalAuthenticationJob(jobGroup job.Group, mgr *authManager, sm signal.SignalManager, config config) error {
