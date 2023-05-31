@@ -125,6 +125,10 @@
         // want to update them automatically.
         "go.universe.tf/metallb",
         "github.com/cilium/metallb",
+        // go.universe.tf/metallb depends on github.com/mdlayher/arp, and
+        // https://github.com/mdlayher/arp/commit/6706a2966875c189c24afd003ffe801ff69542a1
+        // is not backward compatible.
+        "github.com/mdlayher/arp",
         "github.com/miekg/dns",
         "github.com/cilium/dns",
         "sigs.k8s.io/controller-tools",
