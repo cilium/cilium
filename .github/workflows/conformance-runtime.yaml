@@ -321,6 +321,18 @@ jobs:
             export GOTEST_FORMATTER="/root/go/bin/go-junit-report -set-exit-code -iocopy -out test/runtime.xml"
             make tests-privileged NO_COLOR=1
 
+      - name: Debug failure on VM
+        # Only debug the failure on the LVH that have Cilium running as a service,
+        # which is 'agent' and 'datapath' focus.
+        if:  ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
+        timeout-minutes: 10
+        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        with:
+          provision: 'false'
+          cmd: |
+            journalctl --no-pager -xeu cilium.service
+            systemctl status cilium.service
+
       - name: Fetch artifacts
         if: ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         shell: bash
