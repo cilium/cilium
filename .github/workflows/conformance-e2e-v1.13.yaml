@@ -325,8 +325,7 @@ jobs:
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=hubble.eventBufferCapacity=65535 \
-            --rollback=false \
-            --config monitor-aggregation=none \
+            --helm-set=bpf.monitorAggregation=none \
             --nodes-without-cilium=kind-worker3 \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
           TUNNEL="--helm-set-string=tunnel=${{ matrix.tunnel }}"
@@ -363,9 +362,9 @@ jobs:
 
           ENCRYPT=""
           if [ "${{ matrix.encryption }}" != "" ]; then
-            ENCRYPT="--encryption=${{ matrix.encryption }}"
+            ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
             if [ "${{ matrix.encryption-node }}" != "" ]; then
-              ENCRYPT+=" --node-encryption=${{ matrix.encryption-node }}"
+              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ matrix.encryption-node }}"
             fi
           fi
 
@@ -423,7 +422,14 @@ jobs:
           cmd: |
             cd /host/
             ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
-            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+            if [ "${{ matrix.encryption }}" == "ipsec" ]; then
+              kubectl create -n kube-system secret generic cilium-ipsec-keys \
+                --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+            fi
+
+            CILIUM_CLI_MODE=helm ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
             kubectl -n kube-system exec daemonset/cilium -- cilium status
