@@ -2082,7 +2082,7 @@ func initClockSourceOption() {
 
 	if option.Config.EnableBPFClockProbe {
 		if probes.HaveProgramHelper(ebpf.XDP, asm.FnJiffies64) == nil {
-			t, err := bpf.GetJtime()
+			t, err := probes.Jiffies()
 			if err == nil && t > 0 {
 				option.Config.ClockSource = option.ClockSourceJiffies
 			}
