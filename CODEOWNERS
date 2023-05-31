@@ -270,7 +270,6 @@ Makefile* @cilium/build
 /daemon/cmd/metrics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
 /daemon/cmd/prefilter.go @cilium/sig-datapath
-/daemon/cmd/proxy.go @cilium/proxy
 /daemon/cmd/state.go @cilium/endpoint
 /daemon/cmd/cells*.go @cilium/sig-foundations
 /Documentation/ @cilium/docs-structure
