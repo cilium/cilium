@@ -370,7 +370,7 @@ jobs:
           fi
           EGRESS_GATEWAY=""
           if [ "${{ matrix.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true"
+            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true --helm-set=debug.enabled=true"
           fi
           LB_ACCELERATION=""
           if [ "${{ matrix.lb-acceleration }}" != "" ]; then
