@@ -64,7 +64,6 @@ env:
   # RuntimeDatapathMonitorTest With Sample Containers cilium monitor check --related-to
   # RuntimeDatapathMonitorTest With Sample Containers cilium monitor check --to
   # RuntimeDatapathMonitorTest With Sample Containers Cilium monitor event types
-  # RuntimeDatapathMonitorTest With Sample Containers Cilium monitor verbose mode
   # RuntimeDatapathMonitorTest With Sample Containers delivers the same information to multiple monitors
   ###
   privileged: "RuntimeDatapathPrivilegedUnitTests"
