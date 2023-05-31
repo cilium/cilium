@@ -484,6 +484,13 @@ func getSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
 	return ipSecXfrmMarkGetSPI(policy.Mark.Value)
 }
 
+func getNodeIDFromXfrmMark(mark *netlink.XfrmMark) uint16 {
+	if mark == nil {
+		return 0
+	}
+	return uint16(mark.Value >> 16)
+}
+
 func generateEncryptMark(spi uint8, nodeID uint16) *netlink.XfrmMark {
 	val := ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, spi)
 	val |= uint32(nodeID) << 16
@@ -514,38 +521,39 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID 
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func ipsecDeleteXfrmState(ip net.IP) {
+func ipsecDeleteXfrmState(nodeID uint16) {
 	scopedLog := log.WithFields(logrus.Fields{
-		"remote-ip": ip,
+		logfields.NodeID: nodeID,
 	})
 
 	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
-		scopedLog.WithError(err).Warning("deleting xfrm state, xfrm state list error")
+		scopedLog.WithError(err).Warning("Failed to list XFRM states for deletion")
 		return
 	}
 	for _, s := range xfrmStateList {
-		if ip.Equal(s.Dst) {
+		if getNodeIDFromXfrmMark(s.Mark) == nodeID {
 			if err := netlink.XfrmStateDel(&s); err != nil {
-				scopedLog.WithError(err).Warning("deleting xfrm state failed")
+				scopedLog.WithError(err).Warning("Failed to delete XFRM state")
 			}
 		}
 	}
 }
 
-func ipsecDeleteXfrmPolicy(ip net.IP) {
+func ipsecDeleteXfrmPolicy(nodeID uint16) {
 	scopedLog := log.WithFields(logrus.Fields{
-		"remote-ip": ip,
+		logfields.NodeID: nodeID,
 	})
 
 	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
-		scopedLog.WithError(err).Warning("deleting policy state, xfrm policy list error")
+		scopedLog.WithError(err).Warning("Failed to list XFRM policies for deletion")
+		return
 	}
 	for _, p := range xfrmPolicyList {
-		if ip.Equal(p.Dst.IP) {
+		if getNodeIDFromXfrmMark(p.Mark) == nodeID {
 			if err := netlink.XfrmPolicyDel(&p); err != nil {
-				scopedLog.WithError(err).Warning("deleting xfrm policy failed")
+				scopedLog.WithError(err).Warning("Failed to delete XFRM policy")
 			}
 		}
 	}
@@ -647,9 +655,9 @@ func UpsertIPsecEndpointPolicy(local, remote *net.IPNet, localTmpl, remoteTmpl n
 }
 
 // DeleteIPsecEndpoint deletes a endpoint associated with the remote IP address
-func DeleteIPsecEndpoint(remote net.IP) {
-	ipsecDeleteXfrmState(remote)
-	ipsecDeleteXfrmPolicy(remote)
+func DeleteIPsecEndpoint(nodeID uint16) {
+	ipsecDeleteXfrmState(nodeID)
+	ipsecDeleteXfrmPolicy(nodeID)
 }
 
 func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {

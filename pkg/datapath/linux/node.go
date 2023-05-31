@@ -1566,11 +1566,18 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
 }
 
 func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
+	scopedLog := log.WithField(logfields.NodeName, oldNode.Name)
+	scopedLog.Debugf("Removing IPsec configuration for node")
+
+	nodeID := n.getNodeIDForNode(oldNode)
+	if nodeID == 0 {
+		scopedLog.Warning("No node ID found for node.")
+	}
+	ipsec.DeleteIPsecEndpoint(nodeID)
+
 	if n.nodeConfig.EnableIPv4 && oldNode.IPv4AllocCIDR != nil {
-		ciliumInternalIPv4 := oldNode.GetCiliumInternalIP(false)
 		old4RouteNet := &net.IPNet{IP: oldNode.IPv4AllocCIDR.IP, Mask: oldNode.IPv4AllocCIDR.Mask}
 		n.deleteNodeIPSecOutRoute(old4RouteNet)
-		ipsec.DeleteIPsecEndpoint(ciliumInternalIPv4)
 		if n.nodeConfig.EncryptNode {
 			if remoteIPv4 := oldNode.GetNodeIP(false); remoteIPv4 != nil {
 				exactMask := net.IPv4Mask(255, 255, 255, 255)
@@ -1581,10 +1588,8 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 	}
 
 	if n.nodeConfig.EnableIPv6 && oldNode.IPv6AllocCIDR != nil {
-		ciliumInternalIPv6 := oldNode.GetCiliumInternalIP(true)
 		old6RouteNet := &net.IPNet{IP: oldNode.IPv6AllocCIDR.IP, Mask: oldNode.IPv6AllocCIDR.Mask}
 		n.deleteNodeIPSecOutRoute(old6RouteNet)
-		ipsec.DeleteIPsecEndpoint(ciliumInternalIPv6)
 		if n.nodeConfig.EncryptNode {
 			if remoteIPv6 := oldNode.GetNodeIP(true); remoteIPv6 != nil {
 				exactMask := net.CIDRMask(128, 128)
