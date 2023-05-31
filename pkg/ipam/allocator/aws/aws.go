@@ -8,8 +8,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
@@ -91,7 +89,7 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 		eniCreationTags = ec2shim.MergeTags(eniCreationTags, a.eniGCTags)
 	}
 
-	a.client = ec2shim.NewClient(ec2.NewFromConfig(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
+	a.client = ec2shim.NewClient(cfg, aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
 		operatorOption.Config.IPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
 		operatorOption.Config.AWSUsePrimaryAddress)
 
