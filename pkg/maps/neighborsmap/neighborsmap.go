@@ -71,16 +71,16 @@ type Value struct {
 const SizeOfNeighValue = int(unsafe.Sizeof(Value{}))
 
 // String converts the key into a human readable string format.
-func (k *Key4) String() string             { return k.ipv4.String() }
-func (k *Key4) DeepCopyMapKey() bpf.MapKey { return &Key4{} }
+func (k *Key4) String() string  { return k.ipv4.String() }
+func (k *Key4) New() bpf.MapKey { return &Key4{} }
 
 // String converts the key into a human readable string format.
-func (k *Key6) String() string             { return k.ipv6.String() }
-func (k *Key6) DeepCopyMapKey() bpf.MapKey { return &Key6{} }
+func (k *Key6) String() string  { return k.ipv6.String() }
+func (k *Key6) New() bpf.MapKey { return &Key6{} }
 
 // String converts the value into a human readable string format.
-func (v *Value) String() string                 { return v.macaddr.String() }
-func (k *Value) DeepCopyMapValue() bpf.MapValue { return &Value{} }
+func (v *Value) String() string    { return v.macaddr.String() }
+func (k *Value) New() bpf.MapValue { return &Value{} }
 
 // InitMaps creates the nodeport neighbors maps in the kernel.
 func InitMaps(ipv4, ipv6 bool) error {

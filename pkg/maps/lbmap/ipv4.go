@@ -175,10 +175,10 @@ func NewRevNat4Key(value uint16) *RevNat4Key {
 	return &RevNat4Key{value}
 }
 
-func (k *RevNat4Key) Map() *bpf.Map              { return RevNat4Map }
-func (k *RevNat4Key) String() string             { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
-func (k *RevNat4Key) DeepCopyMapKey() bpf.MapKey { return &RevNat4Key{} }
-func (k *RevNat4Key) GetKey() uint16             { return k.Key }
+func (k *RevNat4Key) Map() *bpf.Map   { return RevNat4Map }
+func (k *RevNat4Key) String() string  { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
+func (k *RevNat4Key) New() bpf.MapKey { return &RevNat4Key{} }
+func (k *RevNat4Key) GetKey() uint16  { return k.Key }
 
 // ToNetwork converts RevNat4Key to network byte order.
 func (k *RevNat4Key) ToNetwork() RevNatKey {
@@ -218,7 +218,7 @@ func (v *RevNat4Value) String() string {
 	return net.JoinHostPort(vHost.Address.String(), fmt.Sprintf("%d", vHost.Port))
 }
 
-func (v *RevNat4Value) DeepCopyMapValue() bpf.MapValue { return &RevNat4Value{} }
+func (v *RevNat4Value) New() bpf.MapValue { return &RevNat4Value{} }
 
 type pad2uint8 [2]uint8
 
@@ -256,7 +256,7 @@ func (k *Service4Key) String() string {
 	return addr
 }
 
-func (k *Service4Key) DeepCopyMapKey() bpf.MapKey { return &Service4Key{} }
+func (k *Service4Key) New() bpf.MapKey { return &Service4Key{} }
 
 func (k *Service4Key) IsIPv6() bool            { return false }
 func (k *Service4Key) IsSurrogate() bool       { return k.GetAddress().IsUnspecified() }
@@ -299,16 +299,12 @@ type Service4Value struct {
 	Pad       pad2uint8 `align:"pad"`
 }
 
-func (s *Service4Value) New() ServiceValue {
-	return &Service4Value{}
-}
+func (s *Service4Value) New() bpf.MapValue { return &Service4Value{} }
 
 func (s *Service4Value) String() string {
 	sHost := s.ToHost().(*Service4Value)
 	return fmt.Sprintf("%d %d (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.RevNat, sHost.Flags, sHost.Flags2)
 }
-
-func (s *Service4Value) DeepCopyMapValue() bpf.MapValue { return &Service4Value{} }
 
 func (s *Service4Value) SetCount(count int)   { s.Count = uint16(count) }
 func (s *Service4Value) GetCount() int        { return int(s.Count) }
@@ -365,7 +361,7 @@ func NewBackend4KeyV3(id loadbalancer.BackendID) *Backend4KeyV3 {
 }
 
 func (k *Backend4KeyV3) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend4KeyV3) DeepCopyMapKey() bpf.MapKey      { return &Backend4KeyV3{} }
+func (k *Backend4KeyV3) New() bpf.MapKey                 { return &Backend4KeyV3{} }
 func (k *Backend4KeyV3) Map() *bpf.Map                   { return Backend4MapV3 }
 func (k *Backend4KeyV3) SetID(id loadbalancer.BackendID) { k.ID = id }
 func (k *Backend4KeyV3) GetID() loadbalancer.BackendID   { return k.ID }
@@ -375,7 +371,7 @@ type Backend4Key struct {
 }
 
 func (k *Backend4Key) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend4Key) DeepCopyMapKey() bpf.MapKey      { return &Backend4Key{} }
+func (k *Backend4Key) New() bpf.MapKey                 { return &Backend4Key{} }
 func (k *Backend4Key) Map() *bpf.Map                   { return Backend4Map }
 func (k *Backend4Key) SetID(id loadbalancer.BackendID) { k.ID = uint16(id) }
 func (k *Backend4Key) GetID() loadbalancer.BackendID   { return loadbalancer.BackendID(k.ID) }
@@ -410,7 +406,7 @@ func (v *Backend4Value) String() string {
 	return fmt.Sprintf("%s://%s:%d", vHost.Proto, vHost.Address, vHost.Port)
 }
 
-func (b *Backend4Value) DeepCopyMapValue() bpf.MapValue { return &Backend4Value{} }
+func (b *Backend4Value) New() bpf.MapValue { return &Backend4Value{} }
 
 func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend4Value) GetIPCluster() cmtypes.AddrCluster {
@@ -472,7 +468,7 @@ func (v *Backend4ValueV3) String() string {
 	return fmt.Sprintf("%s://%s", vHost.Proto, cmtypes.AddrClusterFrom(vHost.Address.Addr(), uint32(vHost.ClusterID)).String())
 }
 
-func (b *Backend4ValueV3) DeepCopyMapValue() bpf.MapValue { return &Backend4ValueV3{} }
+func (b *Backend4ValueV3) New() bpf.MapValue { return &Backend4ValueV3{} }
 
 func (b *Backend4ValueV3) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend4ValueV3) GetIPCluster() cmtypes.AddrCluster {
@@ -568,14 +564,14 @@ func (k *SockRevNat4Key) String() string {
 	return fmt.Sprintf("[%s]:%d, %d", k.address, k.port, k.cookie)
 }
 
-func (k *SockRevNat4Key) DeepCopyMapKey() bpf.MapKey { return &SockRevNat4Key{} }
+func (k *SockRevNat4Key) New() bpf.MapKey { return &SockRevNat4Key{} }
 
 // String converts the value into a human readable string format.
 func (v *SockRevNat4Value) String() string {
 	return fmt.Sprintf("[%s]:%d, %d", v.address, v.port, v.revNatIndex)
 }
 
-func (v *SockRevNat4Value) DeepCopyMapValue() bpf.MapValue { return &SockRevNat4Value{} }
+func (v *SockRevNat4Value) New() bpf.MapValue { return &SockRevNat4Value{} }
 
 // CreateSockRevNat4Map creates the reverse NAT sock map.
 func CreateSockRevNat4Map() error {

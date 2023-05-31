@@ -127,7 +127,7 @@ type AuthKey struct {
 func (r *AuthKey) String() string {
 	return fmt.Sprintf("localIdentity=%d, remoteIdentity=%d, remoteNodeID=%d, authType=%d", r.LocalIdentity, r.RemoteIdentity, r.RemoteNodeID, r.AuthType)
 }
-func (r *AuthKey) DeepCopyMapKey() bpf.MapKey { return &AuthKey{} }
+func (r *AuthKey) New() bpf.MapKey { return &AuthKey{} }
 
 // AuthInfo implements the bpf.MapValue interface.
 //

@@ -39,14 +39,14 @@ func (k *FragmentKey) String() string {
 	return fmt.Sprintf("%s --> %s, %d, %d", k.sourceAddr, k.destAddr, k.proto, k.id)
 }
 
-func (k *FragmentKey) DeepCopyMapKey() bpf.MapKey { return &FragmentKey{} }
+func (k *FragmentKey) New() bpf.MapKey { return &FragmentKey{} }
 
 // String converts the value into a human readable string format.
 func (v *FragmentValue) String() string {
 	return fmt.Sprintf("%d, %d", v.destPort, v.sourcePort)
 }
 
-func (v *FragmentValue) DeepCopyMapValue() bpf.MapValue { return &FragmentValue{} }
+func (v *FragmentValue) New() bpf.MapValue { return &FragmentValue{} }
 
 // InitMap creates the signal map in the kernel.
 func InitMap(mapEntries int) error {

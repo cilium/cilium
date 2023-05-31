@@ -174,7 +174,7 @@ func (k *CtKey4) String() string {
 	return fmt.Sprintf("%s:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
 
-func (k *CtKey4) DeepCopyMapKey() bpf.MapKey { return &CtKey4{} }
+func (k *CtKey4) New() bpf.MapKey { return &CtKey4{} }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
@@ -254,7 +254,7 @@ func (k *CtKey4Global) String() string {
 	return fmt.Sprintf("%s:%d --> %s:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
 }
 
-func (k *CtKey4Global) DeepCopyMapKey() bpf.MapKey { return &CtKey4Global{} }
+func (k *CtKey4Global) New() bpf.MapKey { return &CtKey4Global{} }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
@@ -329,7 +329,7 @@ func (k *CtKey6) String() string {
 	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
 
-func (k *CtKey6) DeepCopyMapKey() bpf.MapKey { return &CtKey6{} }
+func (k *CtKey6) New() bpf.MapKey { return &CtKey6{} }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
@@ -412,7 +412,7 @@ func (k *CtKey6Global) String() string {
 	return fmt.Sprintf("[%s]:%d --> [%s]:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
 }
 
-func (k *CtKey6Global) DeepCopyMapKey() bpf.MapKey { return &CtKey6Global{} }
+func (k *CtKey6Global) New() bpf.MapKey { return &CtKey6Global{} }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
@@ -569,4 +569,4 @@ func (c *CtEntry) String() string {
 	return c.StringWithTimeDiff(nil)
 }
 
-func (c *CtEntry) DeepCopyMapValue() bpf.MapValue { return &CtEntry{} }
+func (c *CtEntry) New() bpf.MapValue { return &CtEntry{} }

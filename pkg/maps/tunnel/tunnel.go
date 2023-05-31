@@ -87,7 +87,7 @@ func (k TunnelKey) String() string {
 	return "nil"
 }
 
-func (k *TunnelKey) DeepCopyMapKey() bpf.MapKey { return &TunnelKey{} }
+func (k *TunnelKey) New() bpf.MapKey { return &TunnelKey{} }
 
 type TunnelValue struct {
 	TunnelIP
@@ -103,7 +103,7 @@ func (k TunnelValue) String() string {
 	return "nil"
 }
 
-func (k *TunnelValue) DeepCopyMapValue() bpf.MapValue { return &TunnelValue{} }
+func (k *TunnelValue) New() bpf.MapValue { return &TunnelValue{} }
 
 // ToIP converts the TunnelIP into a net.IP structure.
 func (v TunnelIP) toIP() net.IP {

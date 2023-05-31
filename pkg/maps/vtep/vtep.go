@@ -43,7 +43,7 @@ func (k Key) String() string {
 	return k.IP.String()
 }
 
-func (k *Key) DeepCopyMapKey() bpf.MapKey { return &Key{} }
+func (k *Key) New() bpf.MapKey { return &Key{} }
 
 // NewKey returns an Key based on the provided IP address and mask.
 func NewKey(ip net.IP) Key {
@@ -69,7 +69,7 @@ func (v *VtepEndpointInfo) String() string {
 		v.VtepMAC, v.TunnelEndpoint)
 }
 
-func (v *VtepEndpointInfo) DeepCopyMapValue() bpf.MapValue { return &VtepEndpointInfo{} }
+func (v *VtepEndpointInfo) New() bpf.MapValue { return &VtepEndpointInfo{} }
 
 // Map represents an VTEP BPF map.
 type Map struct {

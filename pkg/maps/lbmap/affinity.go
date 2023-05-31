@@ -89,11 +89,11 @@ func (k *AffinityMatchKey) String() string {
 	return fmt.Sprintf("%d %d", kHost.BackendID, kHost.RevNATID)
 }
 
-func (k *AffinityMatchKey) DeepCopyMapKey() bpf.MapKey { return &AffinityMatchKey{} }
+func (k *AffinityMatchKey) New() bpf.MapKey { return &AffinityMatchKey{} }
 
 // String converts the value into a human readable string format
-func (v *AffinityMatchValue) String() string                 { return "" }
-func (v *AffinityMatchValue) DeepCopyMapValue() bpf.MapValue { return &AffinityMatchValue{} }
+func (v *AffinityMatchValue) String() string    { return "" }
+func (v *AffinityMatchValue) New() bpf.MapValue { return &AffinityMatchValue{} }
 
 // ToNetwork returns the key in the network byte order
 func (k *AffinityMatchKey) ToNetwork() *AffinityMatchKey {
@@ -141,15 +141,15 @@ func (k *Affinity4Key) String() string {
 	return fmt.Sprintf("%d %d %d", k.ClientID, k.NetNSCookie, k.RevNATID)
 }
 
-func (k *Affinity4Key) DeepCopyMapKey() bpf.MapKey { return &Affinity4Key{} }
+func (k *Affinity4Key) New() bpf.MapKey { return &Affinity4Key{} }
 
 // String converts the key into a human readable string format.
 func (k *Affinity6Key) String() string {
 	return fmt.Sprintf("%d %d %d", k.ClientID, k.NetNSCookie, k.RevNATID)
 }
 
-func (k *Affinity6Key) DeepCopyMapKey() bpf.MapKey { return &Affinity6Key{} }
+func (k *Affinity6Key) New() bpf.MapKey { return &Affinity6Key{} }
 
 // String converts the value into a human readable string format.
-func (v *AffinityValue) String() string                 { return fmt.Sprintf("%d %d", v.BackendID, v.LastUsed) }
-func (v *AffinityValue) DeepCopyMapValue() bpf.MapValue { return &AffinityValue{} }
+func (v *AffinityValue) String() string    { return fmt.Sprintf("%d %d", v.BackendID, v.LastUsed) }
+func (v *AffinityValue) New() bpf.MapValue { return &AffinityValue{} }
