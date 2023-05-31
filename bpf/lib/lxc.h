@@ -27,7 +27,7 @@ int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
 
 	BPF_V6(valid, LXC_IP);
 
-	return !ipv6_addrcmp((union v6addr *) &ip6->saddr, &valid);
+	return ipv6_addr_equals((union v6addr *)&ip6->saddr, &valid);
 #else
 	return 0;
 #endif

@@ -25,7 +25,7 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 	};
 
 	dmasked.p3 = daddr->p3;
-	return ipv6_addrcmp(&dprobe, &dmasked) == 0;
+	return ipv6_addr_equals(&dprobe, &dmasked);
 }
 
 static __always_inline __maybe_unused bool is_v4_in_v6_rfc8215(const union v6addr *daddr)
@@ -41,7 +41,7 @@ static __always_inline __maybe_unused bool is_v4_in_v6_rfc8215(const union v6add
 	};
 
 	dmasked.p3 = daddr->p3;
-	return ipv6_addrcmp(&dprobe, &dmasked) == 0;
+	return ipv6_addr_equals(&dprobe, &dmasked);
 }
 
 static __always_inline __maybe_unused

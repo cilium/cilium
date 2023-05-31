@@ -199,10 +199,10 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the endpoint MAC")
 
-	if (ipv6_addrcmp((union v6addr *)&l3->saddr, &client_ip) != 0)
+	if (!ipv6_addr_equals((union v6addr *)&l3->saddr, &client_ip))
 		test_fatal("src IP has changed");
 
-	if (ipv6_addrcmp((union v6addr *)&l3->daddr, &backend_ip) != 0)
+	if (!ipv6_addr_equals((union v6addr *)&l3->daddr, &backend_ip))
 		test_fatal("dst IP has changed");
 
 	if (l3->nexthdr != NEXTHDR_DEST)
@@ -219,7 +219,7 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 
 	if (opt->port != FRONTEND_PORT)
 		test_fatal("port in DSR extension has changed")
-	if (ipv6_addrcmp((union v6addr *)&opt->addr, &frontend_ip) != 0)
+	if (!ipv6_addr_equals((union v6addr *)&opt->addr, &frontend_ip))
 		test_fatal("addr in DSR extension has changed")
 
 	if (l4->source != CLIENT_PORT)
@@ -253,7 +253,7 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	nat_entry = snat_v6_lookup(&tuple);
 	if (!nat_entry)
 		test_fatal("no SNAT entry for DSR found");
-	if (ipv6_addrcmp((union v6addr *)&nat_entry->to_saddr, &frontend_ip) != 0)
+	if (!ipv6_addr_equals((union v6addr *)&nat_entry->to_saddr, &frontend_ip))
 		test_fatal("SNAT entry has wrong address");
 	if (nat_entry->to_sport != FRONTEND_PORT)
 		test_fatal("SNAT entry has wrong port");
@@ -346,10 +346,10 @@ int check_reply(const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the client MAC")
 
-	if (ipv6_addrcmp((union v6addr *)&l3->saddr, &frontend_ip) != 0)
+	if (!ipv6_addr_equals((union v6addr *)&l3->saddr, &frontend_ip))
 		test_fatal("src IP hasn't been RevNATed to frontend IP");
 
-	if (ipv6_addrcmp((union v6addr *)&l3->daddr, &client_ip) != 0)
+	if (!ipv6_addr_equals((union v6addr *)&l3->daddr, &client_ip))
 		test_fatal("dst IP has changed");
 
 	if (l4->source != FRONTEND_PORT)
