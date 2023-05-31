@@ -102,16 +102,8 @@ jobs:
           # Run the connectivity test in non-default namespace (i.e. not cilium-test)
           cilium connectivity test --debug --all-flows --test-namespace test-namespace \
             --include-unsafe-tests \
-            --collect-sysdump-on-failure --junit-file connectivity-${{ matrix.mode }}.xml \
-            --junit-property mode=${{ matrix.mode }}
-
-      - name: Upload junit output
-        if: ${{ always() }}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        with:
-          name: connectivity-${{ matrix.mode }}.xml
-          path: connectivity-${{ matrix.mode }}.xml
-          retention-days: 5
+            --collect-sysdump-on-failure --junit-file cilium-junit-${{ matrix.mode }}-1.xml \
+            --junit-property mode=${{ matrix.mode }} --junit-property type=no-tunnel
 
       - name: Uninstall cilium
         run: |
@@ -154,16 +146,16 @@ jobs:
         run: |
           cilium connectivity test --debug --force-deploy --all-flows --test-namespace test-namespace \
             --include-unsafe-tests \
-            --collect-sysdump-on-failure --junit-file connectivity-ipsec-${{ matrix.mode }}.xml \
-            --junit-property mode=${{ matrix.mode }}
+            --collect-sysdump-on-failure --junit-file cilium-junit-${{ matrix.mode }}-2.xml \
+            --junit-property mode=${{ matrix.mode }} --junit-property type=ipsec
 
-      - name: Upload junit output
+      - name: Upload JUnit
         if: ${{ always() }}
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
-          name: connectivity-ipsec-${{ matrix.mode }}.xml
-          path: connectivity-ipsec-${{ matrix.mode }}.xml
-          retention-days: 5
+          name: cilium-junits
+          path: cilium-junit*.xml
+          retention-days: 2
 
       - name: Cleanup
         if: ${{ always() }}
@@ -306,16 +298,16 @@ jobs:
         run: |
           cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug \
             --include-unsafe-tests \
-            --collect-sysdump-on-failure --junit-file connectivity-clustermesh.xml \
-            --junit-property mode=clustermesh
+            --collect-sysdump-on-failure --junit-file cilium-junit-clustermesh-1.xml \
+            --junit-property mode=clustermesh --junit-property type=ipsec
 
-      - name: Upload junit output
+      - name: Upload JUnit
         if: ${{ always() }}
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
-          name: connectivity-clustermesh.xml
-          path: connectivity-clustermesh.xml
-          retention-days: 5
+          name: cilium-junits
+          path: cilium-junit*.xml
+          retention-days: 2
 
       - name: Cleanup
         if: ${{ always() }}
