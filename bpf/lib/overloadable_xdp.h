@@ -192,8 +192,15 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 		{
 			struct genevehdr *geneve = (void *)udp + sizeof(*udp);
 
-			if (opt_len > 0)
+			if (opt_len > 0) {
+				struct geneve_opt_hdr *opt_hdr;
+
 				memcpy((void *)geneve + sizeof(*geneve), opt, opt_len);
+
+				opt_hdr = (struct geneve_opt_hdr *)opt;
+				if (opt_hdr->type & GENEVE_OPT_TYPE_CRIT)
+					geneve->critical = 1;
+			}
 
 			geneve->opt_len = (__u8)(opt_len >> 2);
 			geneve->protocol_type = bpf_htons(ETH_P_TEB);
@@ -244,6 +251,7 @@ static __always_inline __maybe_unused int
 ctx_set_tunnel_opt(struct xdp_md *ctx, void *opt, __u32 opt_len)
 {
 	const __u32 geneve_off = ETH_HLEN + sizeof(struct iphdr) + sizeof(struct udphdr);
+	struct geneve_opt_hdr *opt_hdr = (struct geneve_opt_hdr *)opt;
 	struct genevehdr geneve;
 
 	/* add free space after GENEVE header: */
@@ -259,6 +267,8 @@ ctx_set_tunnel_opt(struct xdp_md *ctx, void *opt, __u32 opt_len)
 		return DROP_INVALID;
 
 	geneve.opt_len += (__u8)(opt_len >> 2);
+	if (opt_hdr->type & GENEVE_OPT_TYPE_CRIT)
+		geneve.critical = 1;
 
 	if (ctx_store_bytes(ctx, geneve_off, &geneve, sizeof(geneve), 0) < 0)
 		return DROP_WRITE_ERROR;
