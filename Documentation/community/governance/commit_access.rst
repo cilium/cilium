@@ -415,12 +415,15 @@ the :ref:`vote_limit`.
     at *[date and time]* is now closed with the following results:
 
     YES: *[count of yes votes]* (*[% of voters]*)
-
     NO: *[count of no votes]* (*[% of voters]*)
-
     ABSTAIN: *[count of abstentions]* (*[% of voters]*)
 
-    Based on these results committer status *[is/is NOT]* granted and *[she/he/they]* 
+    With the Company Block Vote Limit applied:
+
+    YES: [per-company block vote formula] + [...block vote formula] = [total] votes
+    NO: [count of no votes] votes
+
+    Based on these results committer status *[is/is NOT]* granted and *[she/he/they]*
     *[will/will NOT]* be added to the list of Cilium maintainers at the CNCF.
 
 Invitation to Accepted Committer
@@ -525,10 +528,13 @@ the :ref:`vote_limit`.
     at *[date and time]* is now closed with the following results:
 
     -  YES: *[count of yes votes]* (*[% of voters]*)
-
     -  NO: *[count of no votes]* (*[% of voters]*)
-
     -  ABSTAIN: *[count of abstentions]* (*[% of voters]*)
+
+    With the Company Block Vote Limit applied:
+
+    YES: [per-company block vote formula] + [...block vote formula] = [total] votes
+    NO: [count of no votes] votes
 
     Based on these results commit access *[is/is NOT]* revoked. The following
     reasons for retaining commit access were proposed in NO votes:
