@@ -56,6 +56,28 @@ func (k *K8sInstaller) detectDatapathMode(withKPR bool) error {
 		return nil
 	}
 
+	vals, err := k.getHelmValues()
+	if err != nil {
+		return err
+	}
+
+	routingMode := ""
+	for _, val := range vals {
+		val, ok := val.(string)
+		if ok && strings.HasPrefix(val, "routingMode") {
+			routingMode = strings.Split(val, "=")[1]
+		}
+
+	}
+	if routingMode == "native" {
+		k.params.DatapathMode = DatapathNative
+		return nil
+	}
+	if routingMode == "tunnel" {
+		k.params.DatapathMode = DatapathTunnel
+		return nil
+	}
+
 	switch k.flavor.Kind {
 	case k8s.KindKind:
 		k.params.DatapathMode = DatapathTunnel
