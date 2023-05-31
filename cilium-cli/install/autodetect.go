@@ -190,8 +190,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 	}
 
 	k.autodetectKubeProxy(ctx)
-	k.autoEnableBPFMasq()
-	return nil
+	return k.autoEnableBPFMasq()
 }
 
 func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context) error {
@@ -261,12 +260,22 @@ func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context) error {
 	return nil
 }
 
-func (k *K8sInstaller) autoEnableBPFMasq() {
+func (k *K8sInstaller) autoEnableBPFMasq() error {
+	vals, err := k.getHelmValues()
+	if err != nil {
+		return err
+	}
+
 	// Auto-enable BPF masquerading if KPR=strict and IPv6=disabled
 	foundKPRStrict := k.params.KubeProxyReplacement == "strict"
 	foundMasq := false
 	enabledIPv6 := false
-	for _, param := range k.params.HelmOpts.Values {
+	for _, param := range vals {
+		param, ok := param.(string)
+		if !ok {
+			continue
+		}
+
 		if !foundKPRStrict && param == "kubeProxyReplacement=strict" {
 			foundKPRStrict = true
 			continue
@@ -285,4 +294,6 @@ func (k *K8sInstaller) autoEnableBPFMasq() {
 		k.params.HelmOpts.Values = append(k.params.HelmOpts.Values,
 			"bpf.masquerade=true")
 	}
+
+	return nil
 }
