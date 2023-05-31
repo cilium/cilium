@@ -122,6 +122,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		CacheStatus:       params.CacheStatus,
 	})
 	idAlloc.ipcache = ipc
+	iao.policy.GetSelectorCache().SetIPCache(ipc)
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(hc hive.HookContext) error {
@@ -375,10 +376,11 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		epsToBumpRevision: endpointsToBumpRevision,
 		endpointsToRegen:  endpointsToRegen,
 		newRev:            newRev,
-		upsertPrefixes:    prefixes,
-		releasePrefixes:   removedPrefixes,
-		source:            opts.Source,
-		resource:          opts.Resource,
+		// XXX: these are commented out for debugging
+		//upsertPrefixes:    prefixes,
+		//releasePrefixes:   removedPrefixes,
+		source:   opts.Source,
+		resource: opts.Resource,
 	}
 
 	ev := eventqueue.NewEvent(r)
@@ -438,7 +440,7 @@ func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *
 	//   this operation completes regardless of whether the BPF ipcache or
 	//   policymap gets updated first, so the ordering is not consequential.
 	if len(releasePrefixes) != 0 {
-		r.d.ipcache.RemovePrefixes(releasePrefixes, r.source, r.resource)
+		//r.d.ipcache.RemovePrefixes(releasePrefixes, r.source, r.resource)
 	}
 
 	// Bump revision of endpoints which don't need to be regenerated.
@@ -482,7 +484,7 @@ func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *
 	// SelectorCache / Endpoints to do an incremental identity update to
 	// the datapath maps (if necessary).
 	if len(upsertPrefixes) != 0 {
-		r.d.ipcache.UpsertPrefixes(upsertPrefixes, r.source, r.resource)
+		//r.d.ipcache.UpsertPrefixes(upsertPrefixes, r.source, r.resource)
 	}
 }
 

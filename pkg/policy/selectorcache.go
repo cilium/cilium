@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -18,12 +19,14 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 // CachedSelector represents an identity selector owned by the selector cache
@@ -154,6 +157,11 @@ type identitySelector interface {
 	// held when calling wg.Wait().
 	notifyUsers(sc *SelectorCache, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup)
 
+	// selectedCIDRs should return the set of statically-selected cidrs, not
+	// dynamic (in the case of FQDN). These CIDRs will then be allocated
+	// in the ipcache.
+	selectedCIDRs() []netip.Prefix
+
 	numUsers() int
 }
 
@@ -195,6 +203,11 @@ type userNotification struct {
 	wg       *sync.WaitGroup
 }
 
+type ipcacheManager interface {
+	UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) []*identity.NumericIdentity
+	RemovePrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID)
+}
+
 // SelectorCache caches identities, identity selectors, and the
 // subsets of identities each selector selects.
 type SelectorCache struct {
@@ -203,6 +216,9 @@ type SelectorCache struct {
 	// idAllocator is used to allocate and release identities. It is used
 	// by the NameManager to manage identities corresponding to FQDNs.
 	idAllocator cache.IdentityAllocator
+
+	// ipcache is used to insert CIDRs in to the ipcache. (This will also allocate identities for them).
+	ipcache ipcacheManager
 
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
@@ -304,6 +320,10 @@ func NewSelectorCache(allocator cache.IdentityAllocator, ids cache.IdentityCache
 // to be provided upon DNS lookups which corespond to said FQDNSelector.
 func (sc *SelectorCache) SetLocalIdentityNotifier(pop identityNotifier) {
 	sc.localIdentityNotifier = pop
+}
+
+func (sc *SelectorCache) SetIPCache(ipc ipcacheManager) {
+	sc.ipcache = ipc
 }
 
 var (
@@ -545,6 +565,10 @@ func (f *fqdnSelector) fetchIdentityMappings() []identity.NumericIdentity {
 	return ids
 }
 
+func (f *fqdnSelector) selectedCIDRs() []netip.Prefix {
+	return nil
+}
+
 // releaseIdentityMappings must be called exactly once for each selector that
 // is removed from the selectorcache, in order to release local identity
 // references held in the selector's cachedSelections.
@@ -643,6 +667,10 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 func (l *labelIdentitySelector) fetchIdentityMappings() []identity.NumericIdentity {
 	// labelIdentitySelectors don't retain identity references, so no-op.
 	return nil
+}
+
+func (l *labelIdentitySelector) selectedCIDRs() []netip.Prefix {
+	return api.CIDRSFromSelector(l.selector)
 }
 
 //
@@ -901,6 +929,21 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 		newIDSel.namespaces = namespaces
 	}
 
+	// Allocate identities for any CIDR selectors used here
+	prefixes := newIDSel.selectedCIDRs()
+	if len(prefixes) > 0 {
+		log.WithField("prefixes", prefixes).Debug("Upsering selector CIDRs in to the ipcache")
+		ids := sc.ipcache.UpsertPrefixes(prefixes, source.Generated, sc.ipcacheResource(newIDSel.String()))
+
+		// Since we know the generated IDs will be needed by this selector, we can already insert
+		// them in to the cache.
+		for _, id := range ids {
+			if id != nil {
+				newIDSel.cachedSelections[*id] = struct{}{}
+			}
+		}
+	}
+
 	// Add the initial user
 	newIDSel.users[user] = struct{}{}
 
@@ -931,6 +974,11 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	if exists {
 		if sel.removeUser(user, sc.localIdentityNotifier) {
 			delete(sc.selectors, key)
+			prefixes := sel.selectedCIDRs()
+			if len(prefixes) > 0 {
+				log.WithField("prefixes", prefixes).Debug("removing CIDR selector prefixes ")
+				sc.ipcache.RemovePrefixes(prefixes, source.Generated, sc.ipcacheResource(sel.String()))
+			}
 			identitiesToRelease = sel.fetchIdentityMappings()
 		}
 	}
@@ -1099,4 +1147,8 @@ func (sc *SelectorCache) GetLabels(id identity.NumericIdentity) labels.LabelArra
 		return labels.LabelArray{}
 	}
 	return ident.lbls
+}
+
+func (sc *SelectorCache) ipcacheResource(suffix string) ipcacheTypes.ResourceID {
+	return ipcacheTypes.ResourceID("selectorcache:" + suffix) // XXX: make this unique
 }

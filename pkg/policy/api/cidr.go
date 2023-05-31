@@ -187,3 +187,20 @@ func addrsToCIDRRules(addrs []netip.Addr) []CIDRRule {
 // A CIDR Group is a list of CIDRs whose IP addresses should be considered as a
 // same entity when applying fromCIDRGroupRefs policies on incoming network traffic.
 type CIDRGroupRef string
+
+func CIDRSFromSelector(n EndpointSelector) []netip.Prefix {
+	labels := n.GetKeysWithPrefix(labels.LabelSourceCIDR)
+	if len(labels) == 0 {
+		return nil
+	}
+	out := make([]netip.Prefix, 0, len(labels))
+	for _, label := range labels {
+		// label has "cidr:" prefix
+		pfx, err := netip.ParsePrefix(label[5:])
+		if err != nil { // skip invalid prefixes
+			continue
+		}
+		out = append(out, pfx)
+	}
+	return out
+}
