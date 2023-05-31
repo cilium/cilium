@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -56,6 +57,9 @@ type Configuration struct {
 
 	// ClusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
+
+	// ServiceIPGetter, if not nil, is used to create a custom dialer for service resolution.
+	ServiceIPGetter k8s.ServiceIPGetter
 
 	Metrics         Metrics
 	InternalMetrics internal.Metrics
@@ -110,6 +114,7 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 		Config:                       c.Config,
 		ClusterIDName:                c.ClusterIDName,
 		ClusterSizeDependantInterval: c.ClusterSizeDependantInterval,
+		ServiceIPGetter:              c.ServiceIPGetter,
 
 		NewRemoteCluster: cm.newRemoteCluster,
 
