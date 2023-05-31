@@ -76,35 +76,54 @@ type metadata struct {
 	// 'queuedPrefixes'. Each time label injection is triggered, it will
 	// process the metadata changes for these prefixes and potentially
 	// generate updates into the ipcache, policy engine and datapath.
+	// Prefixes may optionally have a list of numeric identities that
+	// have already been allocated synchronously, and should be released
+	// upon successful update (to ensure the reference count is correct).
+	// There could be more than one identity for a given CIDR, since multiple
+	// queued calls could have changed the labels of a cidr and, thus,
+	// allocated multiple identities.
 	queuedChangesMU lock.Mutex
-	queuedPrefixes  map[netip.Prefix]struct{}
+	queuedPrefixes  prefixToIDs
 }
+
+type prefixToIDs map[netip.Prefix][]identity.NumericIdentity
 
 func newMetadata() *metadata {
 	return &metadata{
 		m:              make(map[netip.Prefix]PrefixInfo),
-		queuedPrefixes: make(map[netip.Prefix]struct{}),
+		queuedPrefixes: make(map[netip.Prefix][]identity.NumericIdentity),
 	}
 }
 
-func (m *metadata) dequeuePrefixUpdates() (modifiedPrefixes []netip.Prefix) {
+func (m *metadata) dequeuePrefixUpdates() (modifiedPrefixes prefixToIDs) {
 	m.queuedChangesMU.Lock()
-	modifiedPrefixes = make([]netip.Prefix, 0, len(m.queuedPrefixes))
-	for p := range m.queuedPrefixes {
-		modifiedPrefixes = append(modifiedPrefixes, p)
-	}
-	m.queuedPrefixes = make(map[netip.Prefix]struct{})
+	modifiedPrefixes = m.queuedPrefixes
+	m.queuedPrefixes = make(prefixToIDs)
 	m.queuedChangesMU.Unlock()
 
 	return
 }
 
+// enqueuePrefixUpdates inserts one or more prefixes in the queue to be updated,
+// without any identities to clean up.
 func (m *metadata) enqueuePrefixUpdates(prefixes ...netip.Prefix) {
 	m.queuedChangesMU.Lock()
 	defer m.queuedChangesMU.Unlock()
 
 	for _, prefix := range prefixes {
-		m.queuedPrefixes[prefix] = struct{}{}
+		// leave unchanged if extant, insert nil if not
+		m.queuedPrefixes[prefix] = m.queuedPrefixes[prefix]
+	}
+}
+
+// enqueuePrefixIdUpdates inserts prefixes in the queue to inject (and additional ids to release)
+// We need to track identities to release on a per-prefix basis, since injection for each prefix can
+// theoretically fail.
+func (m *metadata) enqueuePrefixIdUpdates(prefixToIDs map[netip.Prefix][]identity.NumericIdentity) {
+	m.queuedChangesMU.Lock()
+	defer m.queuedChangesMU.Unlock()
+	for prefix, ids := range prefixToIDs {
+		m.queuedPrefixes[prefix] = append(m.queuedPrefixes[prefix], ids...)
 	}
 }
 
@@ -166,7 +185,7 @@ func (m *metadata) getLocked(prefix netip.Prefix) PrefixInfo {
 // Returns the CIDRs that were not yet processed, for example due to an
 // unexpected error while processing the identity updates for those CIDRs
 // The caller should attempt to retry injecting labels for those CIDRs.
-func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.Prefix) (remainingPrefixes []netip.Prefix, err error) {
+func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes prefixToIDs) (remainingPrefixes prefixToIDs, err error) {
 	if ipc.IdentityAllocator == nil {
 		return modifiedPrefixes, ErrLocalIdentityAllocatorUninitialized
 	}
@@ -185,8 +204,14 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 
 	var (
 		// previouslyAllocatedIdentities maps IP Prefix -> Identity for
-		// old identities where the prefix will now map to a new identity
+		// old identities where the prefix will now map to a new identity.
+		// Only used to silence an inocuous warning message.
 		previouslyAllocatedIdentities = make(map[netip.Prefix]Identity)
+
+		// idsToRelease is the list of identities for which we have taken a reference
+		// which we need to release.
+		idsToRelease = make([]identity.NumericIdentity, 0, len(modifiedPrefixes))
+
 		// idsToAdd stores the identities that must be updated via the
 		// selector cache.
 		idsToAdd    = make(map[identity.NumericIdentity]labels.LabelArray)
@@ -198,11 +223,16 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 
 	ipc.metadata.RLock()
 
-	for i, prefix := range modifiedPrefixes {
+	for prefix, extraIDs := range modifiedPrefixes {
 		pstr := prefix.String()
 		oldID, entryExists := ipc.LookupByIP(pstr)
 		oldTunnelIP, oldEncryptionKey := ipc.GetHostIPCache(pstr)
 		prefixInfo := ipc.metadata.getLocked(prefix)
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.IPAddr:   prefix,
+			logfields.Identity: oldID,
+			logfields.Labels:   prefixInfo.ToLabels(),
+		}).Debug("cdc - ipcache upsert")
 		if prefixInfo == nil {
 			if !entryExists {
 				// Already deleted, no new metadata to associate
@@ -231,7 +261,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				}).Warning(
 					"Failed to allocate new identity while handling change in labels associated with a prefix.",
 				)
-				remainingPrefixes = modifiedPrefixes[i:]
+				remainingPrefixes[prefix] = extraIDs
 				err = fmt.Errorf("failed to allocate new identity during label injection: %w", err)
 				break
 			}
@@ -274,6 +304,8 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// releasing the previous reference.
 			previouslyAllocatedIdentities[prefix] = oldID
 
+			idsToRelease = append(idsToRelease, oldID.ID)
+
 			// If all associated metadata for this prefix has been removed,
 			// and the existing IPCache entry was never touched by any other
 			// subsystem using the old Upsert API, then we can safely remove
@@ -282,6 +314,8 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				entriesToDelete[prefix] = oldID
 			}
 		}
+
+		idsToRelease = append(idsToRelease, extraIDs...)
 	}
 	// Don't hold lock while calling UpdateIdentities, as it will otherwise run into a deadlock
 	ipc.metadata.RUnlock()
@@ -324,8 +358,8 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		}
 	}
 
-	for _, id := range previouslyAllocatedIdentities {
-		realID := ipc.IdentityAllocator.LookupIdentityByID(ctx, id.ID)
+	for _, id := range idsToRelease {
+		realID := ipc.IdentityAllocator.LookupIdentityByID(ctx, id)
 		if realID == nil {
 			continue
 		}
@@ -347,7 +381,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		// since those other subsystems should have their own cleanup
 		// logic for handling the removal of these identities.
 		if released {
-			idsToDelete[id.ID] = nil // SelectorCache removal
+			idsToDelete[id] = nil // SelectorCache removal
 		}
 	}
 	if len(idsToDelete) > 0 {
@@ -565,9 +599,9 @@ func (ipc *IPCache) TriggerLabelInjection() {
 			DoFunc: func(ctx context.Context) error {
 				var err error
 
-				idsToModify := ipc.metadata.dequeuePrefixUpdates()
-				idsToModify, err = ipc.InjectLabels(ctx, idsToModify)
-				ipc.metadata.enqueuePrefixUpdates(idsToModify...)
+				prefixes := ipc.metadata.dequeuePrefixUpdates()
+				prefixes, err = ipc.InjectLabels(ctx, prefixes)
+				ipc.metadata.enqueuePrefixIdUpdates(prefixes)
 
 				return err
 			},

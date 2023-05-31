@@ -473,16 +473,42 @@ func (ipc *IPCache) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.Re
 // labels with these prefixes, thereby making these prefixes selectable in
 // policy via local ("CIDR") identities.
 //
+// It will return a list of identities corresponding the supplied prefixes.
+// The identity for a given prefix may be nil, as allocation may fail. Callers
+// should handle this accordingly.
+//
 // This will trigger asynchronous calculation of any datapath updates necessary
 // to implement the logic associated with the new CIDR labels.
-func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) {
+func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) []*identity.NumericIdentity {
+	out := make([]*identity.NumericIdentity, 0, len(prefixes))
+	updates := make(prefixToIDs, len(prefixes))
 	ipc.metadata.Lock()
 	for _, p := range prefixes {
 		ipc.metadata.upsertLocked(p, src, resource, cidr.GetCIDRLabels(p))
-		ipc.metadata.enqueuePrefixUpdates(p)
+
+		// Allocate and ID for this cidr synchronously.
+		// We will need to release this ID when injectLabels finishes.
+		prefixInfo := ipc.metadata.getLocked(p)
+		// it is safe to use context.Background here, since we are only dealing with CIDRs here, which have
+		// local identity and thus don't need a timeout for allocation.
+		pid, _, err := ipc.resolveIdentity(context.Background(), p, prefixInfo, identity.InvalidIdentity)
+		if err != nil {
+			// An error here is OK; it means that, for whatever reason, we failed to
+			// allocate an ID for the prefix. We will try again when InjectLabels is (eventually)
+			// called.
+			log.WithError(err).WithField(logfields.IPAddr, p).Warn("failed to allocate identity for prefix in UpsertPrefixes (will retry)")
+			ipc.metadata.enqueuePrefixUpdates(p)
+			out = append(out, nil)
+		} else {
+			out = append(out, &pid.ID)
+			// enqueue prefix for upsert and ID for release (to keep the bookkeeping straight)
+			updates[p] = []identity.NumericIdentity{pid.ID}
+		}
 	}
 	ipc.metadata.Unlock()
+	ipc.metadata.enqueuePrefixIdUpdates(updates)
 	ipc.TriggerLabelInjection()
+	return out
 }
 
 // RemovePrefixes removes the association between the prefixes and the CIDR
