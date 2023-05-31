@@ -37,7 +37,6 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    enum trace_reason ct_reason, __u32 monitor, int *ifindex)
 {
 	__u32 node_id;
-	int ret;
 
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
@@ -50,13 +49,11 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
-	ret = ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni,
-				 NULL, 0, ifindex);
-	if (ret == CTX_ACT_REDIRECT)
-		send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
-				  ct_reason, monitor);
+	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
+			  ct_reason, monitor);
 
-	return ret;
+	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni,
+				  NULL, 0, ifindex);
 }
 
 static __always_inline int
@@ -245,7 +242,6 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			__u32 monitor, int *ifindex)
 {
 	__u32 node_id;
-	int ret;
 
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
@@ -258,13 +254,11 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
-	ret = ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni, opt,
-				 opt_len, ifindex);
-	if (ret == CTX_ACT_REDIRECT)
-		send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
-				  ct_reason, monitor);
+	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
+			  ct_reason, monitor);
 
-	return ret;
+	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni, opt,
+				  opt_len, ifindex);
 }
 
 static __always_inline void
