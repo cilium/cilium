@@ -172,6 +172,9 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 
 	initSysdumpFlags(cmd, &params.SysdumpOptions, "sysdump-", hooks)
 
+	cmd.Flags().BoolVar(&params.IncludeUpgradeTest, "include-upgrade-test", false, "Include upgrade test")
+	cmd.Flags().BoolVar(&params.UpgradeTestSetup, "upgrade-test-setup", false, "Set up upgrade test dependencies")
+	cmd.Flags().StringVar(&params.UpgradeTestResultPath, "upgrade-test-result-path", "/tmp/cilium-upgrade-test-restart-counts", "Upgrade test temporary result file (used internally)")
 	cmd.Flags().BoolVar(&params.FlushCT, "flush-ct", false, "Flush conntrack of Cilium on each node")
 
 	hooks.AddConnectivityTestFlags(cmd.Flags())
