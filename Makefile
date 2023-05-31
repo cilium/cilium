@@ -463,6 +463,8 @@ kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Ciliu
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
+		--agent-image=$(LOCAL_AGENT_IMAGE) \
+		--operator-image=$(LOCAL_OPERATOR_IMAGE) \
 		--version=
 	@echo "  INSTALL cilium on clustermesh2 cluster"
 	kubectl config use kind-clustermesh2
@@ -471,6 +473,8 @@ kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Ciliu
 		--inherit-ca kind-clustermesh1 \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
+		--agent-image=$(LOCAL_AGENT_IMAGE) \
+		--operator-image=$(LOCAL_OPERATOR_IMAGE) \
 		--version=
 	@echo "  Enabling clustermesh"
 	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
