@@ -478,7 +478,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	SkipContextIf(func() bool {
-		return helpers.SkipQuarantined() || helpers.DoesNotRunOnNetNextKernel()
+		return false && (helpers.SkipQuarantined() || helpers.DoesNotRunOnNetNextKernel())
 	}, "High-scale IPcache", func() {
 		const hsIPcacheFile = "high-scale-ipcache.yaml"
 
@@ -505,7 +505,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 
-			cmd := fmt.Sprintf("bpftool map update pinned %scilium_world_cidrs4 key 0 0 0 0 0 0 0 0 value 1", bpffsDir)
+			cmd := fmt.Sprintf("ls %s", bpffsDir)
+			err := kubectl.CiliumExecUntilMatchOnAll(cmd, "cilium_world_cidrs4")
+			Expect(err).ToNot(HaveOccurred(), "not all cilium-pods have cilium_world_cidrs4 bpf map after timeout")
+
+			cmd = fmt.Sprintf("bpftool map update pinned %scilium_world_cidrs4 key 0 0 0 0 0 0 0 0 value 1", bpffsDir)
 			kubectl.CiliumExecMustSucceedOnAll(context.TODO(), cmd)
 
 			hsIPcacheYAML := helpers.ManifestGet(kubectl.BasePath(), hsIPcacheFile)
@@ -513,7 +517,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			// We need a longer timeout here because of the larger number of
 			// pods that need to be deployed.
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l type=client", 2*helpers.HelperTimeout)
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l type=client", 2*helpers.HelperTimeout)
 			Expect(err).ToNot(HaveOccurred(), "Client pods not ready after timeout")
 		}
 

@@ -2926,6 +2926,23 @@ func (kub *Kubectl) CiliumExecUntilMatch(pod, cmd, substr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
+// CiliumExecUntilMatchOnAll does the same as CiliumExecUntilMatch, just that
+// it checks the given substring is present in stdout of the specified command
+// on all cilium-agent pods.
+func (kub *Kubectl) CiliumExecUntilMatchOnAll(cmd, substr string) error {
+	pods, err := kub.GetCiliumPods()
+	gomega.Expect(err).Should(gomega.BeNil(), "failed to retrieve Cilium pods")
+
+	for _, pod := range pods {
+		err = kub.CiliumExecUntilMatch(pod, cmd, substr)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // WaitForCiliumInitContainerToFinish waits for all Cilium init containers to
 // finish
 func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
