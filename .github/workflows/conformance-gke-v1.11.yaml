@@ -172,6 +172,7 @@ jobs:
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`.
   installation-and-connectivity:
+    name: "Installation and Connectivity Test"
     needs: [check_changes, setup-report]
     if: |
       (github.event_name == 'issue_comment' && (
@@ -182,6 +183,8 @@ jobs:
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      job_name: "Installation and Connectivity Test"
     strategy:
       matrix:
         include:
@@ -197,7 +200,6 @@ jobs:
         - type: "tunnel-ipsec"
           index: "4"
           cilium-install-opts: "--encryption=ipsec --datapath-mode=tunnel"
-    name: installation-and-connectivity ${{ matrix.type }}
 
     steps:
       - name: Checkout main branch to access local actions
@@ -321,9 +323,15 @@ jobs:
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
-      - name: Run connectivity test
+      - name: Make JUnit report directory
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          mkdir -p cilium-junits
+
+      - name: Run connectivity test (${{ matrix.index }}, ${{ matrix.type }})
+        run: |
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.index }}, ${{ matrix.type }}).xml" \
+          --junit-property github_job_step="Run connectivity test (${{ matrix.index }}, ${{ matrix.type }})"
 
       - name: Post-test information gathering
         if: ${{ !success() }}
@@ -346,9 +354,23 @@ jobs:
         if: ${{ !success() }}
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
-          name: cilium-sysdump-${{ matrix.type }}
+          name: cilium-sysdumps
           path: cilium-sysdump-*.zip
           retention-days: 5
+
+      - name: Upload JUnits
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+          retention-days: 2
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
 
   report-success:
     runs-on: ubuntu-latest

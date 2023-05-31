@@ -168,6 +168,8 @@ jobs:
       )) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
+    env:
+      job_name: 'Setup & Test'
     strategy:
       fail-fast: false
       max-parallel: 16
@@ -392,6 +394,20 @@ jobs:
           CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
           echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
 
+          JUNIT=""
+          for NAME in ${{ matrix.kube-proxy }} ${{ matrix.tunnel }} ${{ matrix.lb-mode }} ${{ matrix.encryption }} ${{ matrix.endpoint-routes }}; do
+            if [[ "${NAME}" != "" ]] && [[ "${NAME}" != "disabled" ]] && [[ "${NAME}" != "none" ]]; then
+              if [[ "${JUNIT}" != "" ]]; then
+                JUNIT+="-"
+              fi
+              if [[ "${NAME}" == "true" ]];then
+                NAME="endpoint-routes"
+              fi
+              JUNIT+="${NAME}"
+            fi
+          done
+          echo junit_type="${JUNIT}" >> $GITHUB_OUTPUT
+
       - name: Checkout pull request for Helm chart
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
@@ -426,7 +442,7 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.setup-report.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Run tests
+      - name: Run tests (${{ join(matrix.*, ', ') }})
         uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
         with:
           provision: 'false'
@@ -445,9 +461,13 @@ jobs:
             ./cilium-cli status --wait
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
+            mkdir -p cilium-junits
+
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
 
             ./contrib/scripts/kind-down.sh
 
@@ -470,6 +490,20 @@ jobs:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
           retention-days: 5
+
+      - name: Upload JUnits
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+          retention-days: 2
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
 
   report-success:
     runs-on: ubuntu-latest
