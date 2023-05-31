@@ -441,7 +441,8 @@ jobs:
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+              --debug=true
 
             ./contrib/scripts/kind-down.sh
 
