@@ -4,10 +4,15 @@
 package k8s
 
 import (
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
+
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
@@ -28,6 +33,21 @@ var (
 			k8s.LBIPPoolsResource,
 			k8s.CiliumIdentityResource,
 			k8s.CiliumPodIPPoolResource,
+
+			func(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumEndpoint], error) {
+				return k8s.CiliumEndpointResource[*cilium_api_v2.CiliumEndpoint](
+					lc, cs,
+					func() runtime.Object {
+						return &cilium_api_v2.CiliumEndpoint{}
+					},
+					transformToCiliumEndpoint,
+					cache.Indexers{
+						cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+						identityIndex:        identityIndexFunc,
+					},
+					opts...,
+				)
+			},
 		),
 	)
 )
@@ -41,4 +61,5 @@ type Resources struct {
 	LBIPPools        resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
 	Identities       resource.Resource[*cilium_api_v2.CiliumIdentity]
 	CiliumPodIPPools resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
+	CiliumEndpoints  resource.Resource[*cilium_api_v2.CiliumEndpoint]
 }
