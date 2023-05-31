@@ -171,8 +171,6 @@ type EgressGatewayManager interface {
 	OnDeleteEgressPolicy(configID types.NamespacedName)
 	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
 	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
-	OnUpdateNode(node nodeTypes.Node)
-	OnDeleteNode(node nodeTypes.Node)
 }
 
 type envoyConfigManager interface {

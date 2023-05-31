@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -121,6 +123,7 @@ type Params struct {
 	CacheStatus       k8s.CacheStatus
 	IdentityAllocator identityCache.IdentityAllocator
 	PolicyMap         egressmap.PolicyMap
+	NodeManager       nodeManager.NodeManager
 
 	Lifecycle hive.Lifecycle
 }
@@ -147,6 +150,7 @@ func NewEgressGatewayManager(p Params) *Manager {
 			if probes.HaveLargeInstructionLimit() != nil {
 				return fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 			}
+			p.NodeManager.Subscribe(manager)
 
 			manager.runReconciliationAfterK8sSync(ctx)
 			return nil
@@ -285,20 +289,41 @@ func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	manager.reconcile(eventDeleteEndpoint)
 }
 
-// OnUpdateNode is the event handler for node additions and updates.
-func (manager *Manager) OnUpdateNode(node nodeTypes.Node) {
+// NodeAdd is the event handler for node additions.
+func (manager *Manager) NodeAdd(node nodeTypes.Node) error {
+	return manager.onNodeUpsert(node)
+}
+
+// NodeUpdate is the event handler for node updates.
+func (manager *Manager) NodeUpdate(old, new nodeTypes.Node) error {
+	return manager.onNodeUpsert(new)
+}
+
+func (manager *Manager) onNodeUpsert(node nodeTypes.Node) error {
+	if node.Cluster != option.Config.ClusterName {
+		// FIXME egw doesn't support cluster mesh
+		return nil
+	}
+
 	manager.Lock()
 	defer manager.Unlock()
 	manager.nodeDataStore[node.Name] = node
 	manager.onChangeNodeLocked(eventUpdateNode)
+	return nil
 }
 
-// OnDeleteNode is the event handler for node deletions.
-func (manager *Manager) OnDeleteNode(node nodeTypes.Node) {
+// NodeDelete is the event handler for node deletions.
+func (manager *Manager) NodeDelete(node nodeTypes.Node) error {
+	if node.Cluster != option.Config.ClusterName {
+		// FIXME egw doesn't support cluster mesh
+		return nil
+	}
+
 	manager.Lock()
 	defer manager.Unlock()
 	delete(manager.nodeDataStore, node.Name)
 	manager.onChangeNodeLocked(eventDeleteNode)
+	return nil
 }
 
 func (manager *Manager) onChangeNodeLocked(e eventType) {
@@ -310,6 +335,12 @@ func (manager *Manager) onChangeNodeLocked(e eventType) {
 		return manager.nodes[i].Name < manager.nodes[j].Name
 	})
 	manager.reconcile(e)
+}
+
+// Implement the part of datapath/types.NodeHandler we don't care about.
+func (manager *Manager) NodeValidateImplementation(node nodeTypes.Node) error { return nil }
+func (manager *Manager) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
+	return nil
 }
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {

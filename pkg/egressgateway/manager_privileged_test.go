@@ -165,10 +165,10 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	close(k.cacheStatus)
 
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
-	egressGatewayManager.OnUpdateNode(node1)
+	egressGatewayManager.NodeAdd(node1)
 
 	node2 := newCiliumNode(node2, node2IP, nodeGroup2Labels)
-	egressGatewayManager.OnUpdateNode(node2)
+	egressGatewayManager.NodeAdd(node2)
 
 	// Create a new policy
 	policy1 := newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface1)

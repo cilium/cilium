@@ -51,9 +51,6 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 						valid = true
 						n := nodeTypes.ParseCiliumNode(ciliumNode)
 						errs := k.CiliumNodeChain.OnAddCiliumNode(ciliumNode, swgNodes)
-						if k.egressGatewayManager != nil {
-							k.egressGatewayManager.OnUpdateNode(n)
-						}
 						if n.IsLocal() {
 							return
 						}
@@ -84,9 +81,6 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 							}
 							n := nodeTypes.ParseCiliumNode(ciliumNode)
 							errs := k.CiliumNodeChain.OnUpdateCiliumNode(oldCN, ciliumNode, swgNodes)
-							if k.egressGatewayManager != nil {
-								k.egressGatewayManager.OnUpdateNode(n)
-							}
 							if isLocal {
 								return
 							}
@@ -104,9 +98,6 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 					}
 					valid = true
 					n := nodeTypes.ParseCiliumNode(ciliumNode)
-					if k.egressGatewayManager != nil {
-						k.egressGatewayManager.OnDeleteNode(n)
-					}
 					errs := k.CiliumNodeChain.OnDeleteCiliumNode(ciliumNode, swgNodes)
 					if errs != nil {
 						valid = false
