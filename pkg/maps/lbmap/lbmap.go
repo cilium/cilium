@@ -336,7 +336,7 @@ func (*LBBPFMap) DumpAffinityMatches() (datapathTypes.BackendIDByServiceIDSet, e
 	matches := datapathTypes.BackendIDByServiceIDSet{}
 
 	parse := func(key bpf.MapKey, value bpf.MapValue) {
-		matchKey := key.DeepCopyMapKey().(*AffinityMatchKey).ToHost()
+		matchKey := key.(*AffinityMatchKey).ToHost()
 		svcID := matchKey.RevNATID
 		backendID := matchKey.BackendID
 
@@ -440,13 +440,13 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(BackendKey)
-		backendValue := value.DeepCopyMapValue().(BackendValue).ToHost()
+		backendValue := value.(BackendValue).ToHost()
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		svcKey := key.DeepCopyMapKey().(ServiceKey).ToHost()
-		svcValue := value.DeepCopyMapValue().(ServiceValue).ToHost()
+		svcKey := key.(ServiceKey).ToHost()
+		svcValue := value.(ServiceValue).ToHost()
 
 		fe := svcFrontend(svcKey, svcValue)
 
@@ -524,7 +524,7 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 		// No need to deep copy the key because we are using the ID which
 		// is a value.
 		backendKey := key.(BackendKey)
-		backendValue := value.DeepCopyMapValue().(BackendValue).ToHost()
+		backendValue := value.(BackendValue).ToHost()
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
