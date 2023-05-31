@@ -534,6 +534,10 @@ func (t *Test) WithFeatureRequirements(reqs ...FeatureRequirement) *Test {
 // podCIDR => nodeIP routes needs to be installed on a node which doesn't run
 // Cilium before running the test (and removed after the test completion).
 func (t *Test) WithIPRoutesFromOutsideToPodCIDRs() *Test {
+	if !t.Context().Params().IncludeUnsafeTests {
+		t.Fatal("WithIPRoutesFromOutsideToPodCIDRs() requires enabling --include-unsafe-tests")
+	}
+
 	t.installIPRoutesFromOutsideToPodCIDRs = true
 
 	return t
