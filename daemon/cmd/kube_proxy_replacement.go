@@ -394,6 +394,9 @@ func finishKubeProxyReplacementInit() error {
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		// KPR=strict is needed or we might rely on netfilter.
+		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict:
+			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
 		// All cases below still need to be implemented ...
 		case option.Config.EnableEndpointRoutes && option.Config.EnableIPv6:
 			msg = fmt.Sprintf("BPF host routing is currently not supported with %s when IPv6 is enabled.", option.EnableEndpointRoutes)
