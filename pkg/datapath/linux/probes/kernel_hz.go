@@ -53,6 +53,23 @@ func KernelHZ() (uint16, error) {
 	return nearest(hz, hzValues)
 }
 
+// Jiffies returns the kernel's internal timestamp in jiffies read from
+// /proc/schedstat.
+func Jiffies() (uint64, error) {
+	f, err := os.Open("/proc/schedstat")
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	k, err := readSchedstat(f)
+	if err != nil {
+		return 0, err
+	}
+
+	return k.k, nil
+}
+
 // readSchedstat expects to read /proc/schedstat and returns the first line
 // matching 'timestamp %d'. Upon return, f is rewound to allow reuse.
 //

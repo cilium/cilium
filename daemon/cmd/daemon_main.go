@@ -2044,11 +2044,11 @@ func initClockSourceOption() {
 
 	if option.Config.EnableBPFClockProbe {
 		if probes.HaveProgramHelper(ebpf.XDP, asm.FnJiffies64) == nil {
-			t, err := bpf.GetJtime()
+			t, err := probes.Jiffies()
 			if err == nil && t > 0 {
 				option.Config.ClockSource = option.ClockSourceJiffies
 			} else {
-				log.WithError(err).Warningf("Auto-disabling %q feature since kernel doesn't expose %q.", option.EnableBPFClockProbe, bpf.TimerInfoFilepath)
+				log.WithError(err).Warningf("Auto-disabling %q feature since kernel doesn't expose jiffies", option.EnableBPFClockProbe)
 				option.Config.EnableBPFClockProbe = false
 			}
 		} else {

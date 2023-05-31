@@ -14,6 +14,16 @@ func TestKernelHZ(t *testing.T) {
 	}
 }
 
+func TestJiffies(t *testing.T) {
+	j, err := Jiffies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if j == 0 {
+		t.Fatal("unexpected zero jiffies reading")
+	}
+}
+
 func TestNearest(t *testing.T) {
 	var tests = []struct {
 		name   string
