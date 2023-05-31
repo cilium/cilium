@@ -24,15 +24,15 @@ type Key4 struct {
 	Address   types.IPv4
 }
 
-func (k *Key4) String() string             { return fmt.Sprintf("%s", k.Address) }
-func (k *Key4) DeepCopyMapKey() bpf.MapKey { return &Key4{} }
+func (k *Key4) String() string  { return fmt.Sprintf("%s", k.Address) }
+func (k *Key4) New() bpf.MapKey { return &Key4{} }
 
 type Value struct {
 	Pad uint8 // not used
 }
 
-func (v *Value) String() string                 { return "" }
-func (v *Value) DeepCopyMapValue() bpf.MapValue { return &Value{} }
+func (v *Value) String() string    { return "" }
+func (v *Value) New() bpf.MapValue { return &Value{} }
 
 var (
 	ipMasq4Map *bpf.Map

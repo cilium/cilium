@@ -65,7 +65,7 @@ func (k *NatKey4) GetNextHeader() u8proto.U8proto {
 	return k.NextHeader
 }
 
-func (k *NatKey4) DeepCopyMapKey() bpf.MapKey { return &NatKey4{} }
+func (k *NatKey4) New() bpf.MapKey { return &NatKey4{} }
 
 // NatKey6 is needed to provide NatEntry type to Lookup values
 type NatKey6 struct {
@@ -101,4 +101,4 @@ func (k *NatKey6) GetNextHeader() u8proto.U8proto {
 	return k.NextHeader
 }
 
-func (k *NatKey6) DeepCopyMapKey() bpf.MapKey { return &NatKey6{} }
+func (k *NatKey6) New() bpf.MapKey { return &NatKey6{} }

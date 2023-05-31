@@ -69,7 +69,7 @@ func (k Key) String() string {
 	return cmtypes.PrefixClusterFrom(addr, prefixLen, clusterID).String()
 }
 
-func (k *Key) DeepCopyMapKey() bpf.MapKey { return &Key{} }
+func (k *Key) New() bpf.MapKey { return &Key{} }
 
 func (k Key) IPNet() *net.IPNet {
 	cidr := &net.IPNet{}
@@ -147,7 +147,7 @@ func (v *RemoteEndpointInfo) String() string {
 		v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.NodeID)
 }
 
-func (v *RemoteEndpointInfo) DeepCopyMapValue() bpf.MapValue { return &RemoteEndpointInfo{} }
+func (v *RemoteEndpointInfo) New() bpf.MapValue { return &RemoteEndpointInfo{} }
 
 // Map represents an IPCache BPF map.
 type Map struct {

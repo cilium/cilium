@@ -120,7 +120,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		}
 	}
 
-	zeroValue := svcVal.New()
+	zeroValue := svcVal.New().(ServiceValue)
 	zeroValue.SetRevNat(int(p.ID)) // TODO change to uint16
 	revNATKey := zeroValue.RevNatKey()
 	revNATValue := svcKey.RevNatValue()
@@ -128,7 +128,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, svcVal.New(), len(backends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
+	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
 		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)

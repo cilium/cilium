@@ -35,11 +35,11 @@ type TestValue struct {
 	Value uint32
 }
 
-func (k *TestKey) String() string         { return fmt.Sprintf("key=%d", k.Key) }
-func (k *TestKey) DeepCopyMapKey() MapKey { return &TestKey{} }
+func (k *TestKey) String() string { return fmt.Sprintf("key=%d", k.Key) }
+func (k *TestKey) New() MapKey    { return &TestKey{} }
 
-func (v *TestValue) String() string             { return fmt.Sprintf("value=%d", v.Value) }
-func (v *TestValue) DeepCopyMapValue() MapValue { return &TestValue{} }
+func (v *TestValue) String() string { return fmt.Sprintf("value=%d", v.Value) }
+func (v *TestValue) New() MapValue  { return &TestValue{} }
 
 var _ = Suite(&BPFPrivilegedTestSuite{})
 

@@ -40,14 +40,14 @@ func (k *Index) String() string {
 	return fmt.Sprintf("%d", uint32(*k))
 }
 
-func (k *Index) DeepCopyMapKey() bpf.MapKey { return new(Index) }
+func (k *Index) New() bpf.MapKey { return new(Index) }
 
 // String pretty print the config Value.
 func (v *Value) String() string {
 	return fmt.Sprintf("%d", uint64(*v))
 }
 
-func (v *Value) DeepCopyMapValue() bpf.MapValue { return new(Value) }
+func (v *Value) New() bpf.MapValue { return new(Value) }
 
 // Map provides access to the eBPF map configmap.
 type Map interface {

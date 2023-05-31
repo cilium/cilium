@@ -30,8 +30,8 @@ type EdtId struct {
 	Id uint64 `align:"id"`
 }
 
-func (k *EdtId) String() string             { return fmt.Sprintf("%d", int(k.Id)) }
-func (k *EdtId) DeepCopyMapKey() bpf.MapKey { return &EdtId{} }
+func (k *EdtId) String() string  { return fmt.Sprintf("%d", int(k.Id)) }
+func (k *EdtId) New() bpf.MapKey { return &EdtId{} }
 
 type EdtInfo struct {
 	Bps             uint64    `align:"bps"`
@@ -40,8 +40,8 @@ type EdtInfo struct {
 	Pad             [4]uint64 `align:"pad"`
 }
 
-func (v *EdtInfo) String() string                 { return fmt.Sprintf("%d", int(v.Bps)) }
-func (v *EdtInfo) DeepCopyMapValue() bpf.MapValue { return &EdtInfo{} }
+func (v *EdtInfo) String() string    { return fmt.Sprintf("%d", int(v.Bps)) }
+func (v *EdtInfo) New() bpf.MapValue { return &EdtInfo{} }
 
 var (
 	throttleMap     *bpf.Map

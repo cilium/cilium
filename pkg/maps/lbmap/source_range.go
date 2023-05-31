@@ -49,7 +49,7 @@ func (k *SourceRangeKey4) String() string {
 	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
 }
 
-func (k *SourceRangeKey4) DeepCopyMapKey() bpf.MapKey { return &SourceRangeKey4{} }
+func (k *SourceRangeKey4) New() bpf.MapKey { return &SourceRangeKey4{} }
 
 func (k *SourceRangeKey4) ToNetwork() SourceRangeKey {
 	n := *k
@@ -92,7 +92,7 @@ func (k *SourceRangeKey6) String() string {
 	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
 }
 
-func (k *SourceRangeKey6) DeepCopyMapKey() bpf.MapKey { return &SourceRangeKey6{} }
+func (k *SourceRangeKey6) New() bpf.MapKey { return &SourceRangeKey6{} }
 
 func (k *SourceRangeKey6) ToNetwork() SourceRangeKey {
 	n := *k
@@ -127,8 +127,8 @@ type SourceRangeValue struct {
 	Pad uint8 // not used
 }
 
-func (v *SourceRangeValue) String() string                 { return "" }
-func (v *SourceRangeValue) DeepCopyMapValue() bpf.MapValue { return &SourceRangeValue{} }
+func (v *SourceRangeValue) String() string    { return "" }
+func (v *SourceRangeValue) New() bpf.MapValue { return &SourceRangeValue{} }
 
 var (
 	// SourceRange4Map is the BPF map for storing IPv4 service source ranges to

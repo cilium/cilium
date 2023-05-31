@@ -138,7 +138,7 @@ func NewEndpointKey(ip net.IP) *EndpointKey {
 	}
 }
 
-func (k *EndpointKey) DeepCopyMapKey() bpf.MapKey { return &EndpointKey{} }
+func (k *EndpointKey) New() bpf.MapKey { return &EndpointKey{} }
 
 // IsHost returns true if the EndpointInfo represents a host IP
 func (v *EndpointInfo) IsHost() bool {
@@ -161,7 +161,7 @@ func (v *EndpointInfo) String() string {
 	)
 }
 
-func (v *EndpointInfo) DeepCopyMapValue() bpf.MapValue { return &EndpointInfo{} }
+func (v *EndpointInfo) New() bpf.MapValue { return &EndpointInfo{} }
 
 // WriteEndpoint updates the BPF map with the endpoint information and links
 // the endpoint information to all keys provided.

@@ -29,7 +29,7 @@ type CaptureWcard6 struct {
 
 type CaptureRule6 CaptureRule
 
-func (k *CaptureWcard6) DeepCopyMapKey() bpf.MapKey { return &CaptureWcard6{} }
+func (k *CaptureWcard6) New() bpf.MapKey { return &CaptureWcard6{} }
 
 func (k *CaptureWcard6) Dump(sb *strings.Builder) {
 	sb.WriteString(fmt.Sprintf("[%s/%d]:%d -> [%s/%d]:%d %s ",
@@ -60,7 +60,7 @@ func (k *CaptureWcard6) Map() *bpf.Map {
 	return &CaptureMap6().Map
 }
 
-func (v *CaptureRule6) DeepCopyMapValue() bpf.MapValue { return &CaptureRule6{} }
+func (v *CaptureRule6) New() bpf.MapValue { return &CaptureRule6{} }
 
 func (v *CaptureRule6) Dump(sb *strings.Builder) {
 	sb.WriteString(fmt.Sprintf("ID:%d CapLen:%d\n",

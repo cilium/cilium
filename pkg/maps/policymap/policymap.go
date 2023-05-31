@@ -100,7 +100,7 @@ func (pe *PolicyEntry) String() string {
 	return fmt.Sprintf("%d %d %d", pe.GetProxyPort(), pe.Packets, pe.Bytes)
 }
 
-func (pe *PolicyEntry) DeepCopyMapValue() bpf.MapValue { return &PolicyEntry{} }
+func (pe *PolicyEntry) New() bpf.MapValue { return &PolicyEntry{} }
 
 // PolicyKey represents a key in the BPF policy map for an endpoint. It must
 // match the layout of policy_key in bpf/lib/common.h.
@@ -181,12 +181,12 @@ type CallValue struct {
 }
 
 // String converts the key into a human readable string format.
-func (k *CallKey) String() string             { return strconv.FormatUint(uint64(k.index), 10) }
-func (k *CallKey) DeepCopyMapKey() bpf.MapKey { return &CallKey{} }
+func (k *CallKey) String() string  { return strconv.FormatUint(uint64(k.index), 10) }
+func (k *CallKey) New() bpf.MapKey { return &CallKey{} }
 
 // String converts the value into a human readable string format.
-func (v *CallValue) String() string                 { return strconv.FormatUint(uint64(v.progID), 10) }
-func (v *CallValue) DeepCopyMapValue() bpf.MapValue { return &CallValue{} }
+func (v *CallValue) String() string    { return strconv.FormatUint(uint64(v.progID), 10) }
+func (v *CallValue) New() bpf.MapValue { return &CallValue{} }
 
 func (pe *PolicyEntry) Add(oPe PolicyEntry) {
 	pe.Packets += oPe.Packets
@@ -257,7 +257,7 @@ func (key *PolicyKey) String() string {
 	return fmt.Sprintf("%s: %d %s", trafficDirectionString, key.Identity, portProtoStr)
 }
 
-func (key *PolicyKey) DeepCopyMapKey() bpf.MapKey { return &PolicyKey{} }
+func (key *PolicyKey) New() bpf.MapKey { return &PolicyKey{} }
 
 // NewKey returns a PolicyKey representing the specified parameters in network
 // byte-order.

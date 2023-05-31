@@ -51,7 +51,7 @@ func (k *TupleKey6) String() string {
 	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
 
-func (k *TupleKey6) DeepCopyMapKey() bpf.MapKey { return &TupleKey6{} }
+func (k *TupleKey6) New() bpf.MapKey { return &TupleKey6{} }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.

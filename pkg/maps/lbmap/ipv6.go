@@ -76,10 +76,10 @@ func NewRevNat6Key(value uint16) *RevNat6Key {
 	return &RevNat6Key{value}
 }
 
-func (v *RevNat6Key) Map() *bpf.Map              { return RevNat6Map }
-func (v *RevNat6Key) String() string             { return fmt.Sprintf("%d", v.ToHost().(*RevNat6Key).Key) }
-func (v *RevNat6Key) DeepCopyMapKey() bpf.MapKey { return &RevNat6Key{} }
-func (v *RevNat6Key) GetKey() uint16             { return v.Key }
+func (v *RevNat6Key) Map() *bpf.Map   { return RevNat6Map }
+func (v *RevNat6Key) String() string  { return fmt.Sprintf("%d", v.ToHost().(*RevNat6Key).Key) }
+func (v *RevNat6Key) New() bpf.MapKey { return &RevNat6Key{} }
+func (v *RevNat6Key) GetKey() uint16  { return v.Key }
 
 // ToNetwork converts RevNat6Key to network byte order.
 func (v *RevNat6Key) ToNetwork() RevNatKey {
@@ -105,7 +105,7 @@ func (v *RevNat6Value) String() string {
 	return net.JoinHostPort(vHost.Address.String(), fmt.Sprintf("%d", vHost.Port))
 }
 
-func (v *RevNat6Value) DeepCopyMapValue() bpf.MapValue { return &RevNat6Value{} }
+func (v *RevNat6Value) New() bpf.MapValue { return &RevNat6Value{} }
 
 // ToNetwork converts RevNat6Value to network byte order.
 func (v *RevNat6Value) ToNetwork() RevNatValue {
@@ -153,7 +153,7 @@ func (k *Service6Key) String() string {
 	}
 }
 
-func (k *Service6Key) DeepCopyMapKey() bpf.MapKey { return &Service6Key{} }
+func (k *Service6Key) New() bpf.MapKey { return &Service6Key{} }
 
 func (k *Service6Key) IsIPv6() bool            { return true }
 func (k *Service6Key) IsSurrogate() bool       { return k.GetAddress().IsUnspecified() }
@@ -196,16 +196,12 @@ type Service6Value struct {
 	Pad       pad2uint8 `align:"pad"`
 }
 
-func (s *Service6Value) New() ServiceValue {
-	return &Service6Value{}
-}
+func (s *Service6Value) New() bpf.MapValue { return &Service6Value{} }
 
 func (s *Service6Value) String() string {
 	sHost := s.ToHost().(*Service6Value)
 	return fmt.Sprintf("%d %d (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.RevNat, sHost.Flags, sHost.Flags2)
 }
-
-func (s *Service6Value) DeepCopyMapValue() bpf.MapValue { return &Service6Value{} }
 
 func (s *Service6Value) SetCount(count int)   { s.Count = uint16(count) }
 func (s *Service6Value) GetCount() int        { return int(s.Count) }
@@ -261,7 +257,7 @@ func NewBackend6KeyV3(id loadbalancer.BackendID) *Backend6KeyV3 {
 }
 
 func (k *Backend6KeyV3) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend6KeyV3) DeepCopyMapKey() bpf.MapKey      { return &Backend6KeyV3{} }
+func (k *Backend6KeyV3) New() bpf.MapKey                 { return &Backend6KeyV3{} }
 func (k *Backend6KeyV3) Map() *bpf.Map                   { return Backend6MapV3 }
 func (k *Backend6KeyV3) SetID(id loadbalancer.BackendID) { k.ID = id }
 func (k *Backend6KeyV3) GetID() loadbalancer.BackendID   { return k.ID }
@@ -271,7 +267,7 @@ type Backend6Key struct {
 }
 
 func (k *Backend6Key) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend6Key) DeepCopyMapKey() bpf.MapKey      { return &Backend6Key{} }
+func (k *Backend6Key) New() bpf.MapKey                 { return &Backend6Key{} }
 func (k *Backend6Key) Map() *bpf.Map                   { return Backend6Map }
 func (k *Backend6Key) SetID(id loadbalancer.BackendID) { k.ID = uint16(id) }
 func (k *Backend6Key) GetID() loadbalancer.BackendID   { return loadbalancer.BackendID(k.ID) }
@@ -305,7 +301,7 @@ func (v *Backend6Value) String() string {
 	vHost := v.ToHost().(*Backend6Value)
 	return fmt.Sprintf("%s://[%s]:%d", vHost.Proto, vHost.Address, vHost.Port)
 }
-func (v *Backend6Value) DeepCopyMapValue() bpf.MapValue { return &Backend6Value{} }
+func (v *Backend6Value) New() bpf.MapValue { return &Backend6Value{} }
 
 func (b *Backend6Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend6Value) GetIPCluster() cmtypes.AddrCluster {
@@ -367,7 +363,7 @@ func (v *Backend6ValueV3) String() string {
 	return fmt.Sprintf("%s://%s", vHost.Proto, cmtypes.AddrClusterFrom(vHost.Address.Addr(), uint32(vHost.ClusterID)))
 }
 
-func (v *Backend6ValueV3) DeepCopyMapValue() bpf.MapValue { return &Backend6ValueV3{} }
+func (v *Backend6ValueV3) New() bpf.MapValue { return &Backend6ValueV3{} }
 
 func (b *Backend6ValueV3) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend6ValueV3) GetIPCluster() cmtypes.AddrCluster {
@@ -469,14 +465,14 @@ func (k *SockRevNat6Key) String() string {
 	return fmt.Sprintf("[%s]:%d, %d", k.address, k.port, k.cookie)
 }
 
-func (k *SockRevNat6Key) DeepCopyMapKey() bpf.MapKey { return &SockRevNat6Key{} }
+func (k *SockRevNat6Key) New() bpf.MapKey { return &SockRevNat6Key{} }
 
 // String converts the value into a human readable string format.
 func (v *SockRevNat6Value) String() string {
 	return fmt.Sprintf("[%s]:%d, %d", v.address, v.port, v.revNatIndex)
 }
 
-func (v *SockRevNat6Value) DeepCopyMapValue() bpf.MapValue { return &SockRevNat6Value{} }
+func (v *SockRevNat6Value) New() bpf.MapValue { return &SockRevNat6Value{} }
 
 // CreateSockRevNat6Map creates the reverse NAT sock map.
 func CreateSockRevNat6Map() error {

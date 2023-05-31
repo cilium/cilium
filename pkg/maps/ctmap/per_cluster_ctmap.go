@@ -91,15 +91,15 @@ type PerClusterCTMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterCTMapKey) String() string             { return strconv.FormatUint(uint64(k.ClusterID), 10) }
-func (k *PerClusterCTMapKey) DeepCopyMapKey() bpf.MapKey { return &PerClusterCTMapKey{} }
+func (k *PerClusterCTMapKey) String() string  { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (k *PerClusterCTMapKey) New() bpf.MapKey { return &PerClusterCTMapKey{} }
 
 type PerClusterCTMapVal struct {
 	Fd uint32
 }
 
-func (v *PerClusterCTMapVal) String() string                 { return fmt.Sprintf("fd=%d", v.Fd) }
-func (v *PerClusterCTMapVal) DeepCopyMapValue() bpf.MapValue { return &PerClusterCTMapVal{} }
+func (v *PerClusterCTMapVal) String() string    { return fmt.Sprintf("fd=%d", v.Fd) }
+func (v *PerClusterCTMapVal) New() bpf.MapValue { return &PerClusterCTMapVal{} }
 
 // Init a "real" global per-cluster CT maps
 func InitPerClusterCTMaps(outerMapNamePrefix string, ipv4, ipv6 bool) error {

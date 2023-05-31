@@ -65,15 +65,15 @@ type PerClusterNATMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterNATMapKey) String() string             { return strconv.FormatUint(uint64(k.ClusterID), 10) }
-func (n *PerClusterNATMapKey) DeepCopyMapKey() bpf.MapKey { return &PerClusterNATMapKey{} }
+func (k *PerClusterNATMapKey) String() string  { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (n *PerClusterNATMapKey) New() bpf.MapKey { return &PerClusterNATMapKey{} }
 
 type PerClusterNATMapVal struct {
 	Fd uint32
 }
 
-func (v *PerClusterNATMapVal) String() string                 { return fmt.Sprintf("fd=%d", v.Fd) }
-func (n *PerClusterNATMapVal) DeepCopyMapValue() bpf.MapValue { return &PerClusterNATMapVal{} }
+func (v *PerClusterNATMapVal) String() string    { return fmt.Sprintf("fd=%d", v.Fd) }
+func (n *PerClusterNATMapVal) New() bpf.MapValue { return &PerClusterNATMapVal{} }
 
 func newPerClusterNATMap(name string, v4 bool, innerMapEntries int) (*PerClusterNATMap, error) {
 	var (

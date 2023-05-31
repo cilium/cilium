@@ -26,13 +26,13 @@ type PlumbingValue struct {
 func (k *PlumbingKey) String() string {
 	return fmt.Sprintf("Endpoint: %d", k.key)
 }
-func (k *PlumbingKey) DeepCopyMapKey() bpf.MapKey { return &PlumbingKey{} }
+func (k *PlumbingKey) New() bpf.MapKey { return &PlumbingKey{} }
 
 func (v *PlumbingValue) String() string {
 	return fmt.Sprintf("fd: %d", v.fd)
 }
 
-func (k *PlumbingValue) DeepCopyMapValue() bpf.MapValue { return &PlumbingValue{} }
+func (k *PlumbingValue) New() bpf.MapValue { return &PlumbingValue{} }
 
 // RemoveGlobalMapping removes the mapping from the specified endpoint ID to
 // the BPF policy program for that endpoint.

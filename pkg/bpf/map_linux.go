@@ -35,15 +35,15 @@ var ErrMaxLookup = errors.New("maximum number of lookups reached")
 type MapKey interface {
 	fmt.Stringer
 
-	// DeepCopyMapKey returns a deep copy of the map key
-	DeepCopyMapKey() MapKey
+	// New must return a pointer to a new MapKey.
+	New() MapKey
 }
 
 type MapValue interface {
 	fmt.Stringer
 
-	// DeepCopyMapValue returns a deep copy of the map value
-	DeepCopyMapValue() MapValue
+	// New must return a pointer to a new MapValue.
+	New() MapValue
 }
 
 type cacheEntry struct {
@@ -566,15 +566,15 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	defer m.lock.RUnlock()
 
 	// Don't need deep copies here, only fresh pointers.
-	mk := m.key.DeepCopyMapKey()
-	mv := m.value.DeepCopyMapValue()
+	mk := m.key.New()
+	mv := m.value.New()
 
 	i := m.m.Iterate()
 	for i.Next(mk, mv) {
 		cb(mk, mv)
 
-		mk = m.key.DeepCopyMapKey()
-		mv = m.value.DeepCopyMapValue()
+		mk = m.key.New()
+		mv = m.value.New()
 	}
 
 	return i.Err()
@@ -614,10 +614,10 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 	}
 
 	var (
-		prevKey    = m.key.DeepCopyMapKey()
-		currentKey = m.key.DeepCopyMapKey()
-		nextKey    = m.key.DeepCopyMapKey()
-		value      = m.value.DeepCopyMapValue()
+		prevKey    = m.key.New()
+		currentKey = m.key.New()
+		nextKey    = m.key.New()
+		value      = m.value.New()
 
 		prevKeyValid = false
 	)
@@ -690,7 +690,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 		// Prepare keys to move to the next iteration.
 		prevKey = currentKey
 		currentKey = nextKey
-		nextKey = m.key.DeepCopyMapKey()
+		nextKey = m.key.New()
 		prevKeyValid = true
 	}
 
@@ -740,7 +740,7 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 		duration = spanstat.Start()
 	}
 
-	value := m.value.DeepCopyMapValue()
+	value := m.value.New()
 	err := m.m.Lookup(key, value)
 
 	if metrics.BPFSyscallDuration.IsEnabled() {
@@ -951,7 +951,7 @@ func (m *Map) DeleteAll() error {
 		return err
 	}
 
-	mk := m.key.DeepCopyMapKey()
+	mk := m.key.New()
 	mv := make([]byte, m.ValueSize())
 
 	defer m.deleteAllMapEvent()

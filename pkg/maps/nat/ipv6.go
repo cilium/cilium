@@ -60,4 +60,4 @@ func (n *NatEntry6) ToHost() NatEntry {
 	return &x
 }
 
-func (n *NatEntry6) DeepCopyMapValue() bpf.MapValue { return &NatEntry6{} }
+func (n *NatEntry6) New() bpf.MapValue { return &NatEntry6{} }

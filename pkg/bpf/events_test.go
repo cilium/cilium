@@ -50,5 +50,5 @@ func TestEventsSubscribe(t *testing.T) {
 
 type IntTestKey uint32
 
-func (k IntTestKey) String() string         { return fmt.Sprintf("key=%d", k) }
-func (k IntTestKey) DeepCopyMapKey() MapKey { return new(IntTestKey) }
+func (k IntTestKey) String() string { return fmt.Sprintf("key=%d", k) }
+func (k IntTestKey) New() MapKey    { return new(IntTestKey) }
