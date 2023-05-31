@@ -4,14 +4,17 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/auth/certs"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -105,6 +108,71 @@ func Test_authManager_authenticate(t *testing.T) {
 	}
 }
 
+func Test_authManager_handleAuthRequest(t *testing.T) {
+	authHandlers := []authHandler{
+		&alwaysPassAuthHandler{},
+	}
+
+	am, err := newAuthManager(authHandlers, nil, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, am)
+
+	handleAuthCalled := false
+	am.handleAuthenticationFunc = func(_ *authManager, k authKey, reAuth bool) {
+		handleAuthCalled = true
+		assert.False(t, reAuth)
+		assert.Equal(t, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: 100}, k)
+	}
+
+	err = am.handleAuthRequest(context.Background(), signalAuthKey{LocalIdentity: 1, RemoteIdentity: 2, RemoteNodeID: 0, AuthType: 100, Pad: 0})
+	assert.NoError(t, err)
+	assert.True(t, handleAuthCalled)
+}
+
+func Test_authManager_handleCertificateRotationEvent_Error(t *testing.T) {
+	authHandlers := []authHandler{
+		&alwaysPassAuthHandler{},
+	}
+	aMap := &fakeAuthMap{
+		failGet: true,
+	}
+
+	am, err := newAuthManager(authHandlers, aMap, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, am)
+
+	err = am.handleCertificateRotationEvent(context.Background(), certs.CertificateRotationEvent{Identity: identity.NumericIdentity(10)})
+	assert.ErrorContains(t, err, "failed to get all auth map entries: failed to list entries")
+}
+
+func Test_authManager_handleCertificateRotationEvent(t *testing.T) {
+	authHandlers := []authHandler{
+		&alwaysPassAuthHandler{},
+	}
+	aMap := &fakeAuthMap{
+		entries: map[authKey]authInfo{
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
+			{localIdentity: 2, remoteIdentity: 3, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
+			{localIdentity: 3, remoteIdentity: 4, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
+		},
+	}
+
+	am, err := newAuthManager(authHandlers, aMap, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, am)
+
+	handleAuthCalled := false
+	am.handleAuthenticationFunc = func(_ *authManager, k authKey, reAuth bool) {
+		handleAuthCalled = true
+		assert.True(t, reAuth)
+		assert.True(t, k.localIdentity == 2 || k.remoteIdentity == 2)
+	}
+
+	err = am.handleCertificateRotationEvent(context.Background(), certs.CertificateRotationEvent{Identity: identity.NumericIdentity(2)})
+	assert.NoError(t, err)
+	assert.True(t, handleAuthCalled)
+}
+
 // Fake IPCache
 type fakeIPCache struct {
 	nodeIdMappings map[uint16]string
@@ -151,6 +219,7 @@ func (r *fakeAuthHandler) subscribeToRotatedIdentities() <-chan certs.Certificat
 type fakeAuthMap struct {
 	entries    map[authKey]authInfo
 	failDelete bool
+	failGet    bool
 }
 
 func (r *fakeAuthMap) Delete(key authKey) error {
@@ -173,10 +242,18 @@ func (r *fakeAuthMap) DeleteIf(predicate func(key authKey, info authInfo) bool) 
 }
 
 func (r *fakeAuthMap) All() (map[authKey]authInfo, error) {
+	if r.failGet {
+		return nil, errors.New("failed to list entries")
+	}
+
 	return r.entries, nil
 }
 
 func (r *fakeAuthMap) Get(key authKey) (authInfo, error) {
+	if r.failGet {
+		return authInfo{}, errors.New("failed to get entry")
+	}
+
 	v, ok := r.entries[key]
 	if !ok {
 		return authInfo{}, errors.New("authinfo not available")
