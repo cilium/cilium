@@ -250,15 +250,27 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 __be16 svc_port,
 						 int *ifindex, int *ohead)
 {
+	__be16 src_port = tunnel_gen_src_port_v6();
 	struct remote_endpoint_info *info;
+	struct geneve_dsr_opt6 gopt;
 	union v6addr *dst;
 	bool need_opt = true;
 	__u16 encap_len = sizeof(struct ipv6hdr) + sizeof(struct udphdr) +
 		sizeof(struct genevehdr) + ETH_HLEN;
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(*ip6);
+	__u32 dst_sec_identity;
+	__be32 tunnel_endpoint;
 	__u16 total_len = 0;
 	__u8 nexthdr = ip6->nexthdr;
 	int hdrlen;
+
+	dst = (union v6addr *)&ip6->daddr;
+	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
+	if (!info || info->tunnel_endpoint == 0)
+		return DROP_NO_TUNNEL_ENDPOINT;
+
+	tunnel_endpoint = info->tunnel_endpoint;
+	dst_sec_identity = info->sec_identity;
 
 	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
 	if (hdrlen < 0)
@@ -275,8 +287,10 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 			need_opt = false;
 	}
 
-	if (need_opt)
+	if (need_opt) {
 		encap_len += sizeof(struct geneve_dsr_opt6);
+		set_geneve_dsr_opt6(svc_port, svc_addr, &gopt);
+	}
 
 	total_len = encap_len + payload_len;
 
@@ -285,42 +299,30 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 		return DROP_FRAG_NEEDED;
 	}
 
-	dst = (union v6addr *)&ip6->daddr;
-	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
-	if (info && info->tunnel_endpoint != 0) {
-		__be16 src_port = tunnel_gen_src_port_v6();
+	if (need_opt)
+		return  __encap_with_nodeid_opt(ctx,
+						IPV4_DIRECT_ROUTING,
+						src_port,
+						tunnel_endpoint,
+						WORLD_ID,
+						dst_sec_identity,
+						NOT_VTEP_DST,
+						&gopt,
+						sizeof(gopt),
+						(enum trace_reason)CT_NEW,
+						TRACE_PAYLOAD_LEN,
+						ifindex);
 
-		if (need_opt) {
-			struct geneve_dsr_opt6 gopt;
-
-			set_geneve_dsr_opt6(svc_port, svc_addr, &gopt);
-			return  __encap_with_nodeid_opt(ctx,
-							IPV4_DIRECT_ROUTING,
-							src_port,
-							info->tunnel_endpoint,
-							WORLD_ID,
-							info->sec_identity,
-							NOT_VTEP_DST,
-							&gopt,
-							sizeof(gopt),
-							(enum trace_reason)CT_NEW,
-							TRACE_PAYLOAD_LEN,
-							ifindex);
-		}
-
-		return __encap_with_nodeid(ctx,
-					   IPV4_DIRECT_ROUTING,
-					   src_port,
-					   info->tunnel_endpoint,
-					   WORLD_ID,
-					   info->sec_identity,
-					   NOT_VTEP_DST,
-					   (enum trace_reason)CT_NEW,
-					   TRACE_PAYLOAD_LEN,
-					   ifindex);
-	}
-
-	return DROP_NO_TUNNEL_ENDPOINT;
+	return __encap_with_nodeid(ctx,
+				   IPV4_DIRECT_ROUTING,
+				   src_port,
+				   tunnel_endpoint,
+				   WORLD_ID,
+				   dst_sec_identity,
+				   NOT_VTEP_DST,
+				   (enum trace_reason)CT_NEW,
+				   TRACE_PAYLOAD_LEN,
+				   ifindex);
 }
 #endif /* DSR_ENCAP_MODE */
 
@@ -1581,11 +1583,22 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 						 struct iphdr *ip4, __be32 svc_addr,
 						 __be16 svc_port, int *ifindex, __be16 *ohead)
 {
+	__be16 src_port = tunnel_gen_src_port_v4();
 	struct remote_endpoint_info *info = NULL;
+	struct geneve_dsr_opt4 gopt;
 	bool need_opt = true;
 	__u16 encap_len = sizeof(struct iphdr) + sizeof(struct udphdr) +
 		sizeof(struct genevehdr) + ETH_HLEN;
+	__u32 dst_sec_identity;
+	__be32 tunnel_endpoint;
 	__u16 total_len = 0;
+
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+	if (!info || info->tunnel_endpoint == 0)
+		return DROP_NO_TUNNEL_ENDPOINT;
+
+	tunnel_endpoint = info->tunnel_endpoint;
+	dst_sec_identity = info->sec_identity;
 
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
@@ -1602,8 +1615,10 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 			need_opt = false;
 	}
 
-	if (need_opt)
+	if (need_opt) {
 		encap_len += sizeof(struct geneve_dsr_opt4);
+		set_geneve_dsr_opt4(svc_port, svc_addr, &gopt);
+	}
 
 	total_len = encap_len + bpf_ntohs(ip4->tot_len);
 
@@ -1612,41 +1627,30 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 		return DROP_FRAG_NEEDED;
 	}
 
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
-	if (info && info->tunnel_endpoint != 0) {
-		__be16 src_port = tunnel_gen_src_port_v4();
+	if (need_opt)
+		return  __encap_with_nodeid_opt(ctx,
+						IPV4_DIRECT_ROUTING,
+						src_port,
+						tunnel_endpoint,
+						WORLD_ID,
+						dst_sec_identity,
+						NOT_VTEP_DST,
+						&gopt,
+						sizeof(gopt),
+						(enum trace_reason)CT_NEW,
+						TRACE_PAYLOAD_LEN,
+						ifindex);
 
-		if (need_opt) {
-			struct geneve_dsr_opt4 gopt;
-
-			set_geneve_dsr_opt4(svc_port, svc_addr, &gopt);
-			return  __encap_with_nodeid_opt(ctx,
-							IPV4_DIRECT_ROUTING,
-							src_port,
-							info->tunnel_endpoint,
-							WORLD_ID,
-							info->sec_identity,
-							NOT_VTEP_DST,
-							&gopt,
-							sizeof(gopt),
-							(enum trace_reason)CT_NEW,
-							TRACE_PAYLOAD_LEN,
-							ifindex);
-		}
-
-		return __encap_with_nodeid(ctx,
-					   IPV4_DIRECT_ROUTING,
-					   src_port,
-					   info->tunnel_endpoint,
-					   WORLD_ID,
-					   info->sec_identity,
-					   NOT_VTEP_DST,
-					   (enum trace_reason)CT_NEW,
-					   TRACE_PAYLOAD_LEN,
-					   ifindex);
-	}
-
-	return DROP_NO_TUNNEL_ENDPOINT;
+	return __encap_with_nodeid(ctx,
+				   IPV4_DIRECT_ROUTING,
+				   src_port,
+				   tunnel_endpoint,
+				   WORLD_ID,
+				   dst_sec_identity,
+				   NOT_VTEP_DST,
+				   (enum trace_reason)CT_NEW,
+				   TRACE_PAYLOAD_LEN,
+				   ifindex);
 }
 #endif /* DSR_ENCAP_MODE */
 
