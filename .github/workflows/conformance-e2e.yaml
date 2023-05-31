@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -65,8 +65,8 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.6
-  cilium_cli_ci_version:
+  cilium_cli_version:
+  cilium_cli_ci_version: 3becbf29a44def5ef6adf3de7ebd7e18003f1f77
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -180,12 +180,15 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
+            upgrade: 'true'
+            downgrade: 'false'
 
           - name: '2'
             kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
+            upgrade: 'true'
 
           - name: '3'
             kernel: '5.10-20230420.212204'
@@ -193,6 +196,7 @@ jobs:
             kpr: 'disabled'
             tunnel: 'disabled'
             endpoint-routes: 'true'
+            upgrade: 'true'
 
           - name: '4'
             kernel: '5.10-20230420.212204'
@@ -202,6 +206,8 @@ jobs:
             lb-mode: 'snat'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            upgrade: 'true'
+            downgrade: 'false'
 
           - name: '5'
             kernel: '5.15-20230420.212204'
@@ -212,6 +218,7 @@ jobs:
             endpoint-routes: 'true'
             egress-gateway: 'true'
             host-fw: 'true'
+            upgrade: 'true'
 
           - name: '6'
             kernel: '6.0-20230420.212204'
@@ -222,6 +229,8 @@ jobs:
             egress-gateway: 'true'
             host-fw: 'true'
             lb-acceleration: 'testing-only'
+            upgrade: 'true'
+            downgrade: 'false'
 
           - name: '7'
             kernel: 'bpf-next-20230420.212204'
@@ -231,6 +240,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
+            upgrade: 'true'
 
           - name: '8'
             kernel: 'bpf-next-20230420.212204'
@@ -238,6 +248,8 @@ jobs:
             kpr: 'disabled'
             tunnel: 'geneve'
             endpoint-routes: 'true'
+            upgrade: 'true'
+            downgrade: 'false'
 
           - name: '9'
             kernel: '4.19-20230420.212204'
@@ -246,6 +258,8 @@ jobs:
             tunnel: 'vxlan'
             encryption: 'ipsec'
             encryption-node: 'false'
+            upgrade: 'true'
+            downgrade: 'false'
 
           - name: '10'
             kernel: '5.4-20230420.212204'
@@ -254,6 +268,7 @@ jobs:
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
+            upgrade: 'true'
 
           - name: '11'
             kernel: '5.10-20230420.212204'
@@ -263,6 +278,7 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
+            upgrade: 'true'
 
           - name: '12'
             kernel: '5.10-20230420.212204'
@@ -274,6 +290,8 @@ jobs:
             lb-mode: 'snat'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            upgrade: 'true'
+            downgrade: 'false'
 
           - name: '13'
             kernel: '5.15-20230420.212204'
@@ -285,6 +303,7 @@ jobs:
             lb-mode: 'dsr'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            upgrade: 'true'
 
           - name: '14'
             kernel: '6.0-20230420.212204'
@@ -314,6 +333,7 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
+            upgrade: 'true'
 
     timeout-minutes: 60
     steps:
@@ -322,15 +342,23 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
+          path: main
       - name: Set Environment Variables
-        uses: ./.github/actions/set-env-variables
+        uses: ./main/.github/actions/set-env-variables
+
+      - name: Checkout v1.13.3 branch to foobar
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          ref: v1.13.3
+          persist-credentials: false
+          path: v113
 
       - name: Set up job variables
         id: vars
         run: |
           SHA="${{ needs.setup-report.outputs.sha }}"
-          CILIUM_INSTALL_DEFAULTS="--wait \
-            --chart-directory=./install/kubernetes/cilium \
+          CILIUM_VSN=" \
+            --chart-directory=/host/main/install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
@@ -339,7 +367,9 @@ jobs:
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.image.tag=${SHA}"
+          CILIUM_INSTALL_DEFAULTS="--wait \
+            --helm-set=cluster.name=default \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=bpf.monitorAggregation=none \
             --nodes-without-cilium=kind-worker3 \
@@ -390,13 +420,16 @@ jobs:
           fi
 
           CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
-          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
+          CONFIG_WITH_VSN="${CILIUM_VSN} ${CONFIG}"
+          echo "cilium_install_defaults=${CONFIG_WITH_VSN}" >> $GITHUB_OUTPUT
+          echo "cilium_install_defaults_without_version=${CONFIG}" >> $GITHUB_OUTPUT
 
       - name: Checkout pull request for Helm chart
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ needs.setup-report.outputs.sha }}
           persist-credentials: false
+          path: pull-request
 
       - name: Install Cilium CLI-cli
         uses: cilium/cilium-cli@d610d6e2774e29aef9565bad935e3b4943d541af # v0.14.5
@@ -416,7 +449,9 @@ jobs:
           dns-resolver: '1.1.1.1'
           install-dependencies: 'true'
           cmd: |
-            git config --global --add safe.directory /host
+            git config --global --add safe.directory /host/pull-request
+            git config --global --add safe.directory /host/main
+            git config --global --add safe.directory /host/v113
 
       - name: Wait for images to be available
         timeout-minutes: 10
@@ -428,11 +463,12 @@ jobs:
 
       - name: Run tests
         uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
+        if: ${{ matrix.upgrade == 'TODO' }}
         with:
           provision: 'false'
           cmd: |
             cd /host/
-            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+            ./pull-request/contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
 
             kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
             if [ "${{ matrix.encryption }}" == "ipsec" ]; then
@@ -448,6 +484,90 @@ jobs:
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+
+            ./contrib/scripts/kind-down.sh
+
+      - name: Fetch artifacts
+        if: ${{ !success() }}
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            kubectl get pods --all-namespaces -o wide
+            ./cilium-cli status
+            mkdir -p cilium-sysdumps
+            ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
+          retention-days: 5
+
+      - name: Run upgrade tests
+        if: ${{ matrix.upgrade == 'true' }}
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            cd pull-request
+            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+            cd /host
+
+            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+            if [ "${{ matrix.encryption }}" == "ipsec" ]; then
+              kubectl create -n kube-system secret generic cilium-ipsec-keys \
+                --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+            fi
+
+            EXTRAS_V13=""
+            if [ "${{ matrix.encryption }}" == "wireguard" ]; then
+              EXTRAS_V13=" --helm-set=l7Proxy=false"
+            fi
+            CILIUM_CLI_MODE=helm ./cilium-cli install \
+              --chart-directory=/host/v113/install/kubernetes/cilium   --helm-set=image.repository=quay.io/cilium/cilium-ci   --helm-set=image.useDigest=false   --helm-set=image.tag=12f802e8a8dcb01eecd3af2cdd5430ac82d2df42   --helm-set=operator.image.repository=quay.io/cilium/operator   --helm-set=operator.image.suffix=-ci   --helm-set=operator.image.tag=12f802e8a8dcb01eecd3af2cdd5430ac82d2df42   --helm-set=operator.image.useDigest=false   --helm-set=hubble.relay.image.repository=quay.io/cilium/hubble-relay-ci   --helm-set=hubble.relay.image.tag=12f802e8a8dcb01eecd3af2cdd5430ac82d2df42 \
+            --cluster-name=default ${{ steps.vars.outputs.cilium_install_defaults_without_version }} \$EXTRAS_V13
+
+            ./cilium-cli status --wait
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+            ./cilium-cli connectivity test --upgrade --upgrade-setup || true
+            ./cilium-cli connectivity test --test asdf || true
+            sleep 60
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+
+            CILIUM_CLI_MODE=helm ./cilium-cli upgrade --cluster-name=default ${{ steps.vars.outputs.cilium_install_defaults }}
+
+            ./cilium-cli status --wait
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+
+            if [ "${{ matrix.downgrade }}" != "false" ]; then
+
+            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+              --chart-directory=/host/v113/install/kubernetes/cilium   --helm-set=image.repository=quay.io/cilium/cilium-ci   --helm-set=image.useDigest=false   --helm-set=image.tag=12f802e8a8dcb01eecd3af2cdd5430ac82d2df42   --helm-set=operator.image.repository=quay.io/cilium/operator   --helm-set=operator.image.suffix=-ci   --helm-set=operator.image.tag=12f802e8a8dcb01eecd3af2cdd5430ac82d2df42   --helm-set=operator.image.useDigest=false   --helm-set=hubble.relay.image.repository=quay.io/cilium/hubble-relay-ci   --helm-set=hubble.relay.image.tag=12f802e8a8dcb01eecd3af2cdd5430ac82d2df42 \
+            --cluster-name=default ${{ steps.vars.outputs.cilium_install_defaults_without_version }} \$EXTRAS_V13
+
+            ./cilium-cli status --wait
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+
+            fi
+
+            cd pull-request
 
             ./contrib/scripts/kind-down.sh
 
