@@ -3348,15 +3348,20 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
 	}
 
+	// Ensure CiliumEndpointSlice is enabled only if CiliumEndpointCRD is enabled too.
+	c.EnableCiliumEndpointSlice = vp.GetBool(EnableCiliumEndpointSlice)
+	if c.EnableCiliumEndpointSlice && c.DisableCiliumEndpointCRD {
+		log.Fatalf("Running Cilium with %s=%t requires %s set to false to enable CiliumEndpoint CRDs.",
+			EnableCiliumEndpointSlice, c.EnableCiliumEndpointSlice, DisableCiliumEndpointCRDName)
+	}
+
 	c.IdentityAllocationMode = vp.GetString(IdentityAllocationMode)
 	switch c.IdentityAllocationMode {
 	// This is here for tests. Some call Populate without the normal init
 	case "":
 		c.IdentityAllocationMode = IdentityAllocationModeKVstore
-
 	case IdentityAllocationModeKVstore, IdentityAllocationModeCRD:
 		// c.IdentityAllocationMode is set above
-
 	default:
 		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD)
 	}
@@ -3421,7 +3426,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.HubbleMonitorEvents = vp.GetStringSlice(HubbleMonitorEvents)
 
 	c.DisableIptablesFeederRules = vp.GetStringSlice(DisableIptablesFeederRules)
-	c.EnableCiliumEndpointSlice = vp.GetBool(EnableCiliumEndpointSlice)
 
 	// Hidden options
 	c.CompilerFlags = vp.GetStringSlice(CompilerFlags)

@@ -397,7 +397,8 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	isLeader.Store(true)
 
 	// If CiliumEndpointSlice feature is enabled, create CESController, start CEP watcher and run controller.
-	if legacy.clientset.IsEnabled() && !option.Config.DisableCiliumEndpointCRD && option.Config.EnableCiliumEndpointSlice {
+	// Knowing CES are enabled only if CiliumEndpoint CRD are enabled too.
+	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumEndpointSlice {
 		log.Info("Create and run CES controller, start CEP watcher")
 		// Initialize  the CES controller
 		cesController := ces.NewCESController(
