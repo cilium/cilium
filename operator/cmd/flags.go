@@ -61,14 +61,16 @@ func init() {
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
 	option.BindEnv(Vp, option.ConfigDir)
 
-	flags.Bool(option.DisableCNPStatusUpdates, false, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)`)
-	flags.MarkHidden(option.DisableCNPStatusUpdates)
+	flags.Bool(option.DisableCNPStatusUpdates, true, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)`)
+	flags.MarkDeprecated(option.DisableCNPStatusUpdates, "This option will be removed in v1.15 (disabled CNP Status Updates by default)")
 	option.BindEnv(Vp, option.DisableCNPStatusUpdates)
 
 	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
+	flags.MarkDeprecated(option.K8sEventHandover, "This option will be removed in v1.15 (disabled CNP Status Updates by default)")
 	option.BindEnv(Vp, option.K8sEventHandover)
 
 	flags.Duration(operatorOption.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
+	flags.MarkDeprecated(operatorOption.CNPNodeStatusGCInterval, "This option will be removed in v1.15 (disabled by default)")
 	option.BindEnv(Vp, operatorOption.CNPNodeStatusGCInterval)
 
 	flags.Bool(operatorOption.SkipCNPStatusStartupClean, false, `If set to true, the operator will not clean up CNP node status updates at startup`)
