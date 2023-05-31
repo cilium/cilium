@@ -51,6 +51,10 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateRespo
 
 		peerState := &models.BgpPeer{}
 
+		if peer.Transport != nil {
+			peerState.PeerPort = int64(peer.Transport.RemotePort)
+		}
+
 		if peer.Conf != nil {
 			peerState.LocalAsn = int64(peer.Conf.LocalAsn)
 			peerState.PeerAddress = peer.Conf.NeighborAddress

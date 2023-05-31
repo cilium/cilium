@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -25,6 +27,7 @@ var (
 	neighbor64125 = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:          64125,
 		PeerAddress:      "192.168.0.1/32",
+		PeerPort:         pointer.Int(types.DefaultPeerPort),
 		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
 		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
 		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
@@ -34,6 +37,7 @@ var (
 	neighbor64125Update = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:          64125,
 		PeerAddress:      "192.168.0.1/32",
+		PeerPort:         pointer.Int(types.DefaultPeerPort),
 		ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
 		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
 		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
@@ -43,6 +47,7 @@ var (
 	neighbor64125UpdateGR = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:          64125,
 		PeerAddress:      "192.168.0.1/32",
+		PeerPort:         pointer.Int(types.DefaultPeerPort),
 		ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
 		HoldTime:         metav1.Duration{Duration: 30 * time.Second},
 		KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
@@ -56,6 +61,7 @@ var (
 	neighbor64125UpdateGRTimer = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:          64125,
 		PeerAddress:      "192.168.0.1/32",
+		PeerPort:         pointer.Int(types.DefaultPeerPort),
 		ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
 		HoldTime:         metav1.Duration{Duration: 30 * time.Second},
 		KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
@@ -68,6 +74,7 @@ var (
 	neighbor64126 = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:          64126,
 		PeerAddress:      "192.168.66.1/32",
+		PeerPort:         pointer.Int(types.DefaultPeerPort),
 		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
 		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
 		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
@@ -77,6 +84,7 @@ var (
 	neighbor64126Update = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:          64126,
 		PeerAddress:      "192.168.66.1/32",
+		PeerPort:         pointer.Int(types.DefaultPeerPort),
 		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
 		HoldTime:         metav1.Duration{Duration: 12 * time.Second},
 		KeepAliveTime:    metav1.Duration{Duration: 4 * time.Second},
@@ -103,6 +111,7 @@ var (
 	neighbor64128 = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:          64128,
 		PeerAddress:      "192.168.77.1/32",
+		PeerPort:         pointer.Int(types.DefaultPeerPort),
 		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
 		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
 		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
@@ -130,6 +139,21 @@ func TestGetPeerState(t *testing.T) {
 			neighbors: []*v2alpha1api.CiliumBGPNeighbor{neighbor64125},
 			localASN:  64124,
 			errStr:    "",
+		},
+		{
+			name: "test add neighbor with port",
+			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
+				{
+					PeerASN:          64125,
+					PeerAddress:      "192.168.0.1/32",
+					PeerPort:         pointer.Int(175),
+					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
+					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+				},
+			},
+			localASN: 64124,
+			errStr:   "",
 		},
 		{
 			name: "test add + update neighbors",

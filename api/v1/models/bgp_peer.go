@@ -15,6 +15,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // BgpPeer State of a BGP Peer
@@ -67,6 +68,11 @@ type BgpPeer struct {
 	// Peer AS Number
 	PeerAsn int64 `json:"peer-asn,omitempty"`
 
+	// TCP port number of peer
+	// Maximum: 65535
+	// Minimum: 1
+	PeerPort int64 `json:"peer-port,omitempty"`
+
 	// BGP peer operational state as described here
 	// https://www.rfc-editor.org/rfc/rfc4271#section-8.2.2
 	//
@@ -85,6 +91,10 @@ func (m *BgpPeer) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateGracefulRestart(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validatePeerPort(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -134,6 +144,22 @@ func (m *BgpPeer) validateGracefulRestart(formats strfmt.Registry) error {
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *BgpPeer) validatePeerPort(formats strfmt.Registry) error {
+	if swag.IsZero(m.PeerPort) { // not required
+		return nil
+	}
+
+	if err := validate.MinimumInt("peer-port", "body", m.PeerPort, 1, false); err != nil {
+		return err
+	}
+
+	if err := validate.MaximumInt("peer-port", "body", m.PeerPort, 65535, false); err != nil {
+		return err
 	}
 
 	return nil

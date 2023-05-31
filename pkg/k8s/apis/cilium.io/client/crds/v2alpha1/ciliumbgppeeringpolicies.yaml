@@ -187,6 +187,14 @@ spec:
                               a single host.
                             format: cidr
                             type: string
+                          peerPort:
+                            default: 179
+                            description: PeerPort is the TCP port of the peer. 1-65535
+                              is the range of valid port numbers that can be specified.
+                              If unset, defaults to 179.
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
                         required:
                         - peerASN
                         - peerAddress

@@ -90,6 +90,14 @@ type CiliumBGPNeighbor struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Format=cidr
 	PeerAddress string `json:"peerAddress"`
+	// PeerPort is the TCP port of the peer. 1-65535 is the range of
+	// valid port numbers that can be specified. If unset, defaults to 179.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:default=179
+	PeerPort *int `json:"peerPort,omitempty"`
 	// PeerASN is the ASN of the peer BGP router.
 	// Supports extended 32bit ASNs
 	//
