@@ -67,14 +67,15 @@ var _ = SkipDescribeIf(
 				frr = applyFRRTemplate(kubectl, ni)
 				kubectl.ApplyDefault(frr).ExpectSuccess("Unable to apply rendered template %s", frr)
 
-				Eventually(func() string {
-					frrPod, err := kubectl.GetPodsIPs(helpers.KubeSystemNamespace, "app=frr")
-					if _, ok := frrPod["frr"]; err != nil || !ok {
-						return ""
-					}
-					routerIP = frrPod["frr"]
-					return routerIP
-				}, 30*time.Second, 1*time.Second).Should(Not(BeEmpty()), "BGP router is not ready")
+				err := kubectl.WaitForSinglePod("kube-system", "frr", 30*time.Second)
+				ExpectWithOffset(1, err).ShouldNot(HaveOccurred(), "Failed to wait for FRR Pod")
+
+				frrPod, err := kubectl.GetPodsIPs(helpers.KubeSystemNamespace, "app=frr")
+				ExpectWithOffset(1, err).ShouldNot(HaveOccurred(), "Cannot determine FRR Pod IPs")
+
+				var ok bool
+				routerIP, ok = frrPod["frr"]
+				Expect(ok).To(BeTrue())
 
 				bgpConfigMap = applyBGPCMTemplate(kubectl, routerIP)
 				kubectl.ApplyDefault(bgpConfigMap).ExpectSuccess("Unable to apply BGP ConfigMap %s", bgpConfigMap)
@@ -92,7 +93,6 @@ var _ = SkipDescribeIf(
 				demoDS = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
 				kubectl.ApplyDefault(demoDS).ExpectSuccess("Unable to apply %s", demoDS)
 
-				var err error
 				ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.K8s1)
 				ExpectWithOffset(1, err).ShouldNot(HaveOccurred(), "Cannot determine cilium pod name")
 				ciliumPodK8s2, err = kubectl.GetCiliumPodOnNode(helpers.K8s2)
