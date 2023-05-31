@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -266,7 +267,7 @@ func DumpEntriesWithTimeDiff(m CtMap, clockSource *models.ClockSource) (string, 
 			return fmt.Sprintf("remaining: %d sec(s)", diff)
 		}
 	} else if clockSource.Mode == models.ClockSourceModeJiffies {
-		now, err := bpf.GetJtime()
+		now, err := probes.Jiffies()
 		if err != nil {
 			return "", err
 		}
@@ -580,7 +581,7 @@ func GC(m *Map, filter *GCFilter) int {
 			t, _ = bpf.GetMtime()
 			t = t / 1000000000
 		} else {
-			t, _ = bpf.GetJtime()
+			t, _ = probes.Jiffies()
 		}
 		filter.Time = uint32(t)
 	}
