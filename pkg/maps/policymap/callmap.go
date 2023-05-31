@@ -15,14 +15,10 @@ type PolicyPlumbingMap struct {
 	*bpf.Map
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type PlumbingKey struct {
 	key uint32
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type PlumbingValue struct {
 	fd uint32
 }
@@ -30,10 +26,13 @@ type PlumbingValue struct {
 func (k *PlumbingKey) String() string {
 	return fmt.Sprintf("Endpoint: %d", k.key)
 }
+func (k *PlumbingKey) DeepCopyMapKey() bpf.MapKey { return &PlumbingKey{} }
 
 func (v *PlumbingValue) String() string {
 	return fmt.Sprintf("fd: %d", v.fd)
 }
+
+func (k *PlumbingValue) DeepCopyMapValue() bpf.MapValue { return &PlumbingValue{} }
 
 // RemoveGlobalMapping removes the mapping from the specified endpoint ID to
 // the BPF policy program for that endpoint.

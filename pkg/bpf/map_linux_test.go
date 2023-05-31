@@ -36,10 +36,10 @@ type TestValue struct {
 }
 
 func (k *TestKey) String() string         { return fmt.Sprintf("key=%d", k.Key) }
-func (k *TestKey) DeepCopyMapKey() MapKey { return &TestKey{k.Key} }
+func (k *TestKey) DeepCopyMapKey() MapKey { return &TestKey{} }
 
 func (v *TestValue) String() string             { return fmt.Sprintf("value=%d", v.Value) }
-func (v *TestValue) DeepCopyMapValue() MapValue { return &TestValue{v.Value} }
+func (v *TestValue) DeepCopyMapValue() MapValue { return &TestValue{} }
 
 var _ = Suite(&BPFPrivilegedTestSuite{})
 

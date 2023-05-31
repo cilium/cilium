@@ -32,8 +32,6 @@ type NatKey interface {
 }
 
 // NatKey4 is needed to provide NatEntry type to Lookup values
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type NatKey4 struct {
 	tuple.TupleKey4Global
 }
@@ -67,9 +65,9 @@ func (k *NatKey4) GetNextHeader() u8proto.U8proto {
 	return k.NextHeader
 }
 
+func (k *NatKey4) DeepCopyMapKey() bpf.MapKey { return &NatKey4{} }
+
 // NatKey6 is needed to provide NatEntry type to Lookup values
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type NatKey6 struct {
 	tuple.TupleKey6Global
 }
@@ -102,3 +100,5 @@ func (k *NatKey6) ToHost() NatKey {
 func (k *NatKey6) GetNextHeader() u8proto.U8proto {
 	return k.NextHeader
 }
+
+func (k *NatKey6) DeepCopyMapKey() bpf.MapKey { return &NatKey6{} }

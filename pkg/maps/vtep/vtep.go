@@ -35,8 +35,6 @@ const (
 // Key implements the bpf.MapKey interface.
 //
 // Must be in sync with struct vtep_key in <bpf/lib/common.h>
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key struct {
 	IP types.IPv4 `align:"vtep_ip"`
 }
@@ -44,6 +42,8 @@ type Key struct {
 func (k Key) String() string {
 	return k.IP.String()
 }
+
+func (k *Key) DeepCopyMapKey() bpf.MapKey { return &Key{} }
 
 // NewKey returns an Key based on the provided IP address and mask.
 func NewKey(ip net.IP) Key {
@@ -59,8 +59,6 @@ func NewKey(ip net.IP) Key {
 
 // VtepEndpointInfo implements the bpf.MapValue interface. It contains the
 // VTEP endpoint MAC and IP.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type VtepEndpointInfo struct {
 	VtepMAC        mac.Uint64MAC `align:"vtep_mac"`
 	TunnelEndpoint types.IPv4    `align:"tunnel_endpoint"`
@@ -70,6 +68,8 @@ func (v *VtepEndpointInfo) String() string {
 	return fmt.Sprintf("vtepmac=%s tunnelendpoint=%s",
 		v.VtepMAC, v.TunnelEndpoint)
 }
+
+func (v *VtepEndpointInfo) DeepCopyMapValue() bpf.MapValue { return &VtepEndpointInfo{} }
 
 // Map represents an VTEP BPF map.
 type Map struct {

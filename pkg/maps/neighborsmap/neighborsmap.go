@@ -49,15 +49,11 @@ func neighMapsGet() (*bpf.Map, *bpf.Map) {
 }
 
 // Key4 is the IPv4 for the IP-to-MAC address mappings.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key4 struct {
 	ipv4 types.IPv4
 }
 
 // Key6 is the IPv6 for the IP-to-MAC address mappings.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key6 struct {
 	ipv6 types.IPv6
 }
@@ -66,8 +62,6 @@ type Key6 struct {
 const SizeofNeighKey6 = int(unsafe.Sizeof(Key6{}))
 
 // Value is the MAC address for the IP-to-MAC address mappings.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Value struct {
 	macaddr types.MACAddr
 	_       uint16
@@ -77,13 +71,16 @@ type Value struct {
 const SizeOfNeighValue = int(unsafe.Sizeof(Value{}))
 
 // String converts the key into a human readable string format.
-func (k *Key4) String() string { return k.ipv4.String() }
+func (k *Key4) String() string             { return k.ipv4.String() }
+func (k *Key4) DeepCopyMapKey() bpf.MapKey { return &Key4{} }
 
 // String converts the key into a human readable string format.
-func (k *Key6) String() string { return k.ipv6.String() }
+func (k *Key6) String() string             { return k.ipv6.String() }
+func (k *Key6) DeepCopyMapKey() bpf.MapKey { return &Key6{} }
 
 // String converts the value into a human readable string format.
-func (v *Value) String() string { return v.macaddr.String() }
+func (v *Value) String() string                 { return v.macaddr.String() }
+func (k *Value) DeepCopyMapValue() bpf.MapValue { return &Value{} }
 
 // InitMaps creates the nodeport neighbors maps in the kernel.
 func InitMaps(ipv4, ipv6 bool) error {

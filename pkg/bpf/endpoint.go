@@ -21,7 +21,6 @@ const (
 // EndpointKey represents the key value of the endpoints BPF map
 //
 // Must be in sync with struct endpoint_key in <bpf/lib/common.h>
-// +k8s:deepcopy-gen=true
 type EndpointKey struct {
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
 	IP        types.IPv6 `align:"$union0"`

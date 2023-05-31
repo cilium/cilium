@@ -29,18 +29,7 @@ type CaptureWcard4 struct {
 
 type CaptureRule4 CaptureRule
 
-func (k *CaptureWcard4) DeepCopyMapKey() bpf.MapKey {
-	return &CaptureWcard4{
-		DestAddr: k.DestAddr,
-		SrcAddr:  k.SrcAddr,
-		DestPort: k.DestPort,
-		SrcPort:  k.SrcPort,
-		NextHdr:  k.NextHdr,
-		DestMask: k.DestMask,
-		SrcMask:  k.SrcMask,
-		Flags:    k.Flags,
-	}
-}
+func (k *CaptureWcard4) DeepCopyMapKey() bpf.MapKey { return &CaptureWcard4{} }
 
 func (k *CaptureWcard4) Dump(sb *strings.Builder) {
 	sb.WriteString(fmt.Sprintf("%s/%d:%d -> %s/%d:%d %s ",
@@ -71,13 +60,7 @@ func (k *CaptureWcard4) Map() *bpf.Map {
 	return &CaptureMap4().Map
 }
 
-func (v *CaptureRule4) DeepCopyMapValue() bpf.MapValue {
-	return &CaptureRule4{
-		RuleId:   v.RuleId,
-		Reserved: v.Reserved,
-		CapLen:   v.CapLen,
-	}
-}
+func (v *CaptureRule4) DeepCopyMapValue() bpf.MapValue { return &CaptureRule4{} }
 
 func (v *CaptureRule4) Dump(sb *strings.Builder) {
 	sb.WriteString(fmt.Sprintf("ID:%d CapLen:%d\n",

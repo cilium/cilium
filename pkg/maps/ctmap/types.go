@@ -145,9 +145,6 @@ type CtKey interface {
 	GetTupleKey() tuple.TupleKey
 }
 
-// CtKey4 is needed to provide CtEntry type to Lookup values
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type CtKey4 struct {
 	tuple.TupleKey4
 }
@@ -176,6 +173,8 @@ func (k *CtKey4) GetFlags() uint8 {
 func (k *CtKey4) String() string {
 	return fmt.Sprintf("%s:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
+
+func (k *CtKey4) DeepCopyMapKey() bpf.MapKey { return &CtKey4{} }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
@@ -220,9 +219,6 @@ func (k *CtKey4) GetTupleKey() tuple.TupleKey {
 	return &k.TupleKey4
 }
 
-// CtKey4Global is needed to provide CtEntry type to Lookup values
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type CtKey4Global struct {
 	tuple.TupleKey4Global
 }
@@ -257,6 +253,8 @@ func (k *CtKey4Global) GetFlags() uint8 {
 func (k *CtKey4Global) String() string {
 	return fmt.Sprintf("%s:%d --> %s:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
 }
+
+func (k *CtKey4Global) DeepCopyMapKey() bpf.MapKey { return &CtKey4Global{} }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
@@ -304,8 +302,6 @@ func (k *CtKey4Global) GetTupleKey() tuple.TupleKey {
 }
 
 // CtKey6 is needed to provide CtEntry type to Lookup values
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type CtKey6 struct {
 	tuple.TupleKey6
 }
@@ -332,6 +328,8 @@ func (k *CtKey6) GetFlags() uint8 {
 func (k *CtKey6) String() string {
 	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
+
+func (k *CtKey6) DeepCopyMapKey() bpf.MapKey { return &CtKey6{} }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
@@ -377,8 +375,6 @@ func (k *CtKey6) GetTupleKey() tuple.TupleKey {
 }
 
 // CtKey6Global is needed to provide CtEntry type to Lookup values
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type CtKey6Global struct {
 	tuple.TupleKey6Global
 }
@@ -415,6 +411,8 @@ func (k *CtKey6Global) GetFlags() uint8 {
 func (k *CtKey6Global) String() string {
 	return fmt.Sprintf("[%s]:%d --> [%s]:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
 }
+
+func (k *CtKey6Global) DeepCopyMapKey() bpf.MapKey { return &CtKey6Global{} }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
@@ -462,8 +460,6 @@ func (k *CtKey6Global) GetTupleKey() tuple.TupleKey {
 }
 
 // CtEntry represents an entry in the connection tracking table.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type CtEntry struct {
 	RxPackets uint64 `align:"rx_packets"`
 	RxBytes   uint64 `align:"$union0"`
@@ -572,3 +568,5 @@ func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
 func (c *CtEntry) String() string {
 	return c.StringWithTimeDiff(nil)
 }
+
+func (c *CtEntry) DeepCopyMapValue() bpf.MapValue { return &CtEntry{} }

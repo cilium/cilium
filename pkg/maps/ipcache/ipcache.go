@@ -29,8 +29,6 @@ const (
 // Key implements the bpf.MapKey interface.
 //
 // Must be in sync with struct ipcache_key in <bpf/lib/maps.h>
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key struct {
 	Prefixlen uint32 `align:"lpm_key"`
 	Pad1      uint16 `align:"pad1"`
@@ -70,6 +68,8 @@ func (k Key) String() string {
 
 	return cmtypes.PrefixClusterFrom(addr, prefixLen, clusterID).String()
 }
+
+func (k *Key) DeepCopyMapKey() bpf.MapKey { return &Key{} }
 
 func (k Key) IPNet() *net.IPNet {
 	cidr := &net.IPNet{}
@@ -134,8 +134,6 @@ func NewKey(ip net.IP, mask net.IPMask, clusterID uint8) Key {
 
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
 // security identity of a remote endpoint.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type RemoteEndpointInfo struct {
 	SecurityIdentity uint32     `align:"sec_identity"`
 	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
@@ -148,6 +146,8 @@ func (v *RemoteEndpointInfo) String() string {
 	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s nodeid=%d",
 		v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.NodeID)
 }
+
+func (v *RemoteEndpointInfo) DeepCopyMapValue() bpf.MapValue { return &RemoteEndpointInfo{} }
 
 // Map represents an IPCache BPF map.
 type Map struct {

@@ -37,8 +37,6 @@ type SourceRangeKey interface {
 var _ SourceRangeKey = (*SourceRangeKey4)(nil)
 var _ SourceRangeKey = (*SourceRangeKey6)(nil)
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type SourceRangeKey4 struct {
 	PrefixLen uint32     `align:"lpm_key"`
 	RevNATID  uint16     `align:"rev_nat_id"`
@@ -50,6 +48,9 @@ func (k *SourceRangeKey4) String() string {
 	kHost := k.ToHost().(*SourceRangeKey4)
 	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
 }
+
+func (k *SourceRangeKey4) DeepCopyMapKey() bpf.MapKey { return &SourceRangeKey4{} }
+
 func (k *SourceRangeKey4) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
@@ -79,8 +80,6 @@ func (k *SourceRangeKey4) GetRevNATID() uint16 {
 	return k.RevNATID
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type SourceRangeKey6 struct {
 	PrefixLen uint32     `align:"lpm_key"`
 	RevNATID  uint16     `align:"rev_nat_id"`
@@ -92,6 +91,9 @@ func (k *SourceRangeKey6) String() string {
 	kHost := k.ToHost().(*SourceRangeKey6)
 	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
 }
+
+func (k *SourceRangeKey6) DeepCopyMapKey() bpf.MapKey { return &SourceRangeKey6{} }
+
 func (k *SourceRangeKey6) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
@@ -121,13 +123,12 @@ func (k *SourceRangeKey6) GetRevNATID() uint16 {
 	return k.RevNATID
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type SourceRangeValue struct {
 	Pad uint8 // not used
 }
 
-func (v *SourceRangeValue) String() string { return "" }
+func (v *SourceRangeValue) String() string                 { return "" }
+func (v *SourceRangeValue) DeepCopyMapValue() bpf.MapValue { return &SourceRangeValue{} }
 
 var (
 	// SourceRange4Map is the BPF map for storing IPv4 service source ranges to

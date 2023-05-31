@@ -167,8 +167,6 @@ var _ Backend = (*Backend4)(nil)
 var _ Backend = (*Backend4V2)(nil)
 var _ Backend = (*Backend4V3)(nil)
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type RevNat4Key struct {
 	Key uint16
 }
@@ -177,9 +175,10 @@ func NewRevNat4Key(value uint16) *RevNat4Key {
 	return &RevNat4Key{value}
 }
 
-func (k *RevNat4Key) Map() *bpf.Map  { return RevNat4Map }
-func (k *RevNat4Key) String() string { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
-func (k *RevNat4Key) GetKey() uint16 { return k.Key }
+func (k *RevNat4Key) Map() *bpf.Map              { return RevNat4Map }
+func (k *RevNat4Key) String() string             { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
+func (k *RevNat4Key) DeepCopyMapKey() bpf.MapKey { return &RevNat4Key{} }
+func (k *RevNat4Key) GetKey() uint16             { return k.Key }
 
 // ToNetwork converts RevNat4Key to network byte order.
 func (k *RevNat4Key) ToNetwork() RevNatKey {
@@ -195,8 +194,6 @@ func (k *RevNat4Key) ToHost() RevNatKey {
 	return &h
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type RevNat4Value struct {
 	Address types.IPv4 `align:"address"`
 	Port    uint16     `align:"port"`
@@ -221,25 +218,13 @@ func (v *RevNat4Value) String() string {
 	return net.JoinHostPort(vHost.Address.String(), fmt.Sprintf("%d", vHost.Port))
 }
 
-type pad2uint8 [2]uint8
+func (v *RevNat4Value) DeepCopyMapValue() bpf.MapValue { return &RevNat4Value{} }
 
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *pad2uint8) DeepCopyInto(out *pad2uint8) {
-	copy(out[:], in[:])
-	return
-}
+type pad2uint8 [2]uint8
 
 type pad3uint8 [3]uint8
 
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *pad3uint8) DeepCopyInto(out *pad3uint8) {
-	copy(out[:], in[:])
-	return
-}
-
 // Service4Key must match 'struct lb4_key' in "bpf/lib/common.h".
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Service4Key struct {
 	Address     types.IPv4 `align:"address"`
 	Port        uint16     `align:"dport"`
@@ -270,6 +255,8 @@ func (k *Service4Key) String() string {
 	}
 	return addr
 }
+
+func (k *Service4Key) DeepCopyMapKey() bpf.MapKey { return &Service4Key{} }
 
 func (k *Service4Key) IsIPv6() bool            { return false }
 func (k *Service4Key) IsSurrogate() bool       { return k.GetAddress().IsUnspecified() }
@@ -303,8 +290,6 @@ func (k *Service4Key) ToHost() ServiceKey {
 }
 
 // Service4Value must match 'struct lb4_service_v2' in "bpf/lib/common.h".
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Service4Value struct {
 	BackendID uint32    `align:"$union0"`
 	Count     uint16    `align:"count"`
@@ -322,6 +307,8 @@ func (s *Service4Value) String() string {
 	sHost := s.ToHost().(*Service4Value)
 	return fmt.Sprintf("%d %d (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.RevNat, sHost.Flags, sHost.Flags2)
 }
+
+func (s *Service4Value) DeepCopyMapValue() bpf.MapValue { return &Service4Value{} }
 
 func (s *Service4Value) SetCount(count int)   { s.Count = uint16(count) }
 func (s *Service4Value) GetCount() int        { return int(s.Count) }
@@ -369,8 +356,6 @@ func (s *Service4Value) ToHost() ServiceValue {
 	return &h
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Backend4KeyV3 struct {
 	ID loadbalancer.BackendID
 }
@@ -380,24 +365,22 @@ func NewBackend4KeyV3(id loadbalancer.BackendID) *Backend4KeyV3 {
 }
 
 func (k *Backend4KeyV3) String() string                  { return fmt.Sprintf("%d", k.ID) }
+func (k *Backend4KeyV3) DeepCopyMapKey() bpf.MapKey      { return &Backend4KeyV3{} }
 func (k *Backend4KeyV3) Map() *bpf.Map                   { return Backend4MapV3 }
 func (k *Backend4KeyV3) SetID(id loadbalancer.BackendID) { k.ID = id }
 func (k *Backend4KeyV3) GetID() loadbalancer.BackendID   { return k.ID }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Backend4Key struct {
 	ID uint16
 }
 
 func (k *Backend4Key) String() string                  { return fmt.Sprintf("%d", k.ID) }
+func (k *Backend4Key) DeepCopyMapKey() bpf.MapKey      { return &Backend4Key{} }
 func (k *Backend4Key) Map() *bpf.Map                   { return Backend4Map }
 func (k *Backend4Key) SetID(id loadbalancer.BackendID) { k.ID = uint16(id) }
 func (k *Backend4Key) GetID() loadbalancer.BackendID   { return loadbalancer.BackendID(k.ID) }
 
 // Backend4Value must match 'struct lb4_backend' in "bpf/lib/common.h".
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Backend4Value struct {
 	Address types.IPv4      `align:"address"`
 	Port    uint16          `align:"port"`
@@ -427,6 +410,8 @@ func (v *Backend4Value) String() string {
 	return fmt.Sprintf("%s://%s:%d", vHost.Proto, vHost.Address, vHost.Port)
 }
 
+func (b *Backend4Value) DeepCopyMapValue() bpf.MapValue { return &Backend4Value{} }
+
 func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend4Value) GetIPCluster() cmtypes.AddrCluster {
 	return cmtypes.AddrClusterFrom(b.Address.Addr(), 0)
@@ -447,8 +432,6 @@ func (v *Backend4Value) ToHost() BackendValue {
 	return &h
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Backend4ValueV3 struct {
 	Address   types.IPv4      `align:"address"`
 	Port      uint16          `align:"port"`
@@ -488,6 +471,8 @@ func (v *Backend4ValueV3) String() string {
 	vHost := v.ToHost().(*Backend4ValueV3)
 	return fmt.Sprintf("%s://%s", vHost.Proto, cmtypes.AddrClusterFrom(vHost.Address.Addr(), uint32(vHost.ClusterID)).String())
 }
+
+func (b *Backend4ValueV3) DeepCopyMapValue() bpf.MapValue { return &Backend4ValueV3{} }
 
 func (b *Backend4ValueV3) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend4ValueV3) GetIPCluster() cmtypes.AddrCluster {
@@ -564,8 +549,6 @@ func (b *Backend4) GetValue() BackendValue { return b.Value }
 
 // SockRevNat4Key is the tuple with address, port and cookie used as key in
 // the reverse NAT sock map.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type SockRevNat4Key struct {
 	cookie  uint64     `align:"cookie"`
 	address types.IPv4 `align:"address"`
@@ -574,8 +557,6 @@ type SockRevNat4Key struct {
 }
 
 // SockRevNat4Value is an entry in the reverse NAT sock map.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type SockRevNat4Value struct {
 	address     types.IPv4 `align:"address"`
 	port        int16      `align:"port"`
@@ -587,10 +568,14 @@ func (k *SockRevNat4Key) String() string {
 	return fmt.Sprintf("[%s]:%d, %d", k.address, k.port, k.cookie)
 }
 
+func (k *SockRevNat4Key) DeepCopyMapKey() bpf.MapKey { return &SockRevNat4Key{} }
+
 // String converts the value into a human readable string format.
 func (v *SockRevNat4Value) String() string {
 	return fmt.Sprintf("[%s]:%d, %d", v.address, v.port, v.revNatIndex)
 }
+
+func (v *SockRevNat4Value) DeepCopyMapValue() bpf.MapValue { return &SockRevNat4Value{} }
 
 // CreateSockRevNat4Map creates the reverse NAT sock map.
 func CreateSockRevNat4Map() error {
