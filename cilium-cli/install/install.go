@@ -43,6 +43,7 @@ import (
 
 const (
 	DatapathTunnel    = "tunnel"
+	DatapathNative    = "native"
 	DatapathAwsENI    = "aws-eni"
 	DatapathGKE       = "gke"
 	DatapathAzure     = "azure"
