@@ -110,7 +110,7 @@ func (g *GoBGPServer) AddNeighbor(ctx context.Context, n types.NeighborRequest) 
 		Peer: peer,
 	}
 	if err = g.server.AddPeer(ctx, peerReq); err != nil {
-		return fmt.Errorf("failed while adding peer %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
+		return fmt.Errorf("failed while adding peer %v:%v with ASN %v: %w", n.Neighbor.PeerAddress, *n.Neighbor.PeerPort, n.Neighbor.PeerASN, err)
 	}
 	return nil
 }
@@ -128,12 +128,12 @@ func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n types.NeighborReques
 	}
 	updateRes, err := g.server.UpdatePeer(ctx, peerReq)
 	if err != nil {
-		return fmt.Errorf("failed while updating peer %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
+		return fmt.Errorf("failed while updating peer %v:%v with ASN %v: %w", n.Neighbor.PeerAddress, *n.Neighbor.PeerPort, n.Neighbor.PeerASN, err)
 	}
 
 	// perform full / soft peer reset if necessary
 	if needsHardReset || updateRes.NeedsSoftResetIn {
-		g.logger.Infof("Resetting peer %s (ASN %d) due to a config change", peer.Conf.NeighborAddress, peer.Conf.PeerAsn)
+		g.logger.Infof("Resetting peer %s:%v (ASN %d) due to a config change", peer.Conf.NeighborAddress, *n.Neighbor.PeerPort, peer.Conf.PeerAsn)
 		resetReq := &gobgp.ResetPeerRequest{
 			Address:       peer.Conf.NeighborAddress,
 			Communication: "Peer configuration changed",
@@ -143,7 +143,7 @@ func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n types.NeighborReques
 			resetReq.Direction = gobgp.ResetPeerRequest_IN
 		}
 		if err = g.server.ResetPeer(ctx, resetReq); err != nil {
-			return fmt.Errorf("failed while resetting peer %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
+			return fmt.Errorf("failed while resetting peer %v:%v in ASN %v: %w", n.Neighbor.PeerAddress, *n.Neighbor.PeerPort, n.Neighbor.PeerASN, err)
 		}
 	}
 
@@ -160,6 +160,11 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 	}
 	peerAddr := prefix.Addr()
 
+	peerPort := uint32(types.DefaultPeerPort)
+	if n.PeerPort != nil {
+		peerPort = uint32(*n.PeerPort)
+	}
+
 	var existingPeer *gobgp.Peer
 	if isUpdate {
 		// If this is an update, try retrieving the existing Peer.
@@ -172,8 +177,13 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 		}
 		// use only necessary parts of the existing peer struct
 		peer = &gobgp.Peer{
-			Conf:     existingPeer.Conf,
-			AfiSafis: existingPeer.AfiSafis,
+			Conf:      existingPeer.Conf,
+			Transport: existingPeer.Transport,
+			AfiSafis:  existingPeer.AfiSafis,
+		}
+		// Update the peer port if needed.
+		if existingPeer.Transport.RemotePort != peerPort {
+			peer.Transport.RemotePort = peerPort
 		}
 	} else {
 		// Create a new peer
@@ -181,6 +191,9 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 			Conf: &gobgp.PeerConf{
 				NeighborAddress: peerAddr.String(),
 				PeerAsn:         uint32(n.PeerASN),
+			},
+			Transport: &gobgp.Transport{
+				RemotePort: peerPort,
 			},
 			// tells the peer we are capable of unicast IPv4 and IPv6
 			// advertisements.
@@ -203,9 +216,9 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 	// when calling AddPeer / UpdatePeer / ListPeer, we set it explicitly to a wildcard address
 	// based on peer's address family, to not cause unnecessary connection resets upon update.
 	if peerAddr.Is4() {
-		peer.Transport = &gobgp.Transport{LocalAddress: wildcardIPv4Addr}
+		peer.Transport.LocalAddress = wildcardIPv4Addr
 	} else {
-		peer.Transport = &gobgp.Transport{LocalAddress: wildcardIPv6Addr}
+		peer.Transport.LocalAddress = wildcardIPv6Addr
 	}
 
 	// Enable multi-hop for eBGP if non-zero TTL is provided

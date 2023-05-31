@@ -18,6 +18,14 @@ func (in *CiliumBGPNeighbor) DeepEqual(other *CiliumBGPNeighbor) bool {
 	if in.PeerAddress != other.PeerAddress {
 		return false
 	}
+	if (in.PeerPort == nil) != (other.PeerPort == nil) {
+		return false
+	} else if in.PeerPort != nil {
+		if *in.PeerPort != *other.PeerPort {
+			return false
+		}
+	}
+
 	if in.PeerASN != other.PeerASN {
 		return false
 	}

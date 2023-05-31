@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/utils/pointer"
 
 	"github.com/cilium/workerpool"
 
@@ -435,6 +436,9 @@ func (c *Controller) applyPolicyDefaults(policy *v2alpha1api.CiliumBGPPeeringPol
 	for _, r := range p.Spec.VirtualRouters {
 		for j := range r.Neighbors {
 			n := &r.Neighbors[j]
+			// Set neighbor default port for peering if unspecified. This is done by kube-apiserver
+			// but added here for non-k8s environments, tests, etc.
+			setDefaultPeerPort(n)
 			if n.ConnectRetryTime.Duration == 0 {
 				n.ConnectRetryTime.Duration = types.DefaultBGPConnectRetryTime
 			}
@@ -477,4 +481,12 @@ func (c *Controller) validatePolicy(policy *v2alpha1api.CiliumBGPPeeringPolicy) 
 		}
 	}
 	return nil
+}
+
+// setDefaultPeerPort sets the PeerPort of the provided neighbor
+// to defaultPeerPort (179) if unset.
+func setDefaultPeerPort(n *v2alpha1api.CiliumBGPNeighbor) {
+	if n.PeerPort == nil {
+		n.PeerPort = pointer.Int(types.DefaultPeerPort)
+	}
 }

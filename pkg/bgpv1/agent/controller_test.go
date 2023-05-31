@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/mock"
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodeaddr "github.com/cilium/cilium/pkg/node"
@@ -141,7 +142,9 @@ func TestControllerSanity(t *testing.T) {
 				defaulted := false
 				for _, r := range p.Spec.VirtualRouters {
 					for _, n := range r.Neighbors {
-						if n.ConnectRetryTime.Duration != 0 &&
+						if n.PeerPort != nil &&
+							*n.PeerPort == types.DefaultPeerPort &&
+							n.ConnectRetryTime.Duration != 0 &&
 							n.HoldTime.Duration != 0 &&
 							n.KeepAliveTime.Duration != 0 &&
 							n.GracefulRestart.RestartTime.Duration != 0 {

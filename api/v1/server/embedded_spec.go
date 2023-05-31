@@ -1861,6 +1861,12 @@ func init() {
           "description": "Peer AS Number",
           "type": "integer"
         },
+        "peer-port": {
+          "description": "TCP port number of peer",
+          "type": "integer",
+          "maximum": 65535,
+          "minimum": 1
+        },
         "session-state": {
           "description": "BGP peer operational state as described here\nhttps://www.rfc-editor.org/rfc/rfc4271#section-8.2.2\n",
           "type": "string"
@@ -6801,6 +6807,12 @@ func init() {
         "peer-asn": {
           "description": "Peer AS Number",
           "type": "integer"
+        },
+        "peer-port": {
+          "description": "TCP port number of peer",
+          "type": "integer",
+          "maximum": 65535,
+          "minimum": 1
         },
         "session-state": {
           "description": "BGP peer operational state as described here\nhttps://www.rfc-editor.org/rfc/rfc4271#section-8.2.2\n",
