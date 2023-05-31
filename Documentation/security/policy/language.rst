@@ -304,8 +304,9 @@ have ``external:yes`` set as the label.
 Limitations
 ~~~~~~~~~~~
 
-``toServices`` statements cannot be combined with ``toPorts`` statements in the
-same rule.
+``toServices`` statements must not be combined with ``toPorts`` statements in the
+same rule. In the presence of a ``toPorts`` statement, ``toServices`` does nothing
+and as a result all egress traffic to port(s) specified by ``toPorts`` is allowed.
 
 .. _Entities based:
 
