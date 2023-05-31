@@ -110,17 +110,9 @@ func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 
 type pad3uint32 [3]uint32
 
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *pad3uint32) DeepCopyInto(out *pad3uint32) {
-	copy(out[:], in[:])
-	return
-}
-
 // EndpointInfo represents the value of the endpoints BPF map.
 //
 // Must be in sync with struct endpoint_info in <bpf/lib/common.h>
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type EndpointInfo struct {
 	IfIndex uint32 `align:"ifindex"`
 	Unused  uint16 `align:"unused"`
@@ -134,8 +126,6 @@ type EndpointInfo struct {
 	Pad     pad3uint32    `align:"pad"`
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type EndpointKey struct {
 	bpf.EndpointKey
 }
@@ -147,6 +137,8 @@ func NewEndpointKey(ip net.IP) *EndpointKey {
 		EndpointKey: bpf.NewEndpointKey(ip, 0),
 	}
 }
+
+func (k *EndpointKey) DeepCopyMapKey() bpf.MapKey { return &EndpointKey{} }
 
 // IsHost returns true if the EndpointInfo represents a host IP
 func (v *EndpointInfo) IsHost() bool {
@@ -168,6 +160,8 @@ func (v *EndpointInfo) String() string {
 		v.NodeMAC,
 	)
 }
+
+func (v *EndpointInfo) DeepCopyMapValue() bpf.MapValue { return &EndpointInfo{} }
 
 // WriteEndpoint updates the BPF map with the endpoint information and links
 // the endpoint information to all keys provided.

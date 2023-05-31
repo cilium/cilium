@@ -114,8 +114,6 @@ func (m *l2ResponderMap) IterateWithCallback(cb IterateCallback) error {
 // AuthKey implements the bpf.MapKey interface.
 //
 // Must be in sync with struct auth_key in <bpf/lib/common.h>
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type L2ResponderKey struct {
 	IP      types.IPv4 `align:"ip"`
 	IfIndex uint32     `align:"ifindex"`
@@ -135,8 +133,6 @@ func newAuthKey(ip net.IP, ifIndex uint32) L2ResponderKey {
 // L2ResponderStats implements the bpf.MapValue interface.
 //
 // Must be in sync with struct l2_responder_v4_stats in <bpf/lib/common.h>
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type L2ResponderStats struct {
 	ResponsesSent uint64 `align:"responses_sent"`
 }

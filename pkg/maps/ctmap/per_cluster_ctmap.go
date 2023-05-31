@@ -87,21 +87,19 @@ type PerClusterCTMap struct {
 	m mapType
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type PerClusterCTMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterCTMapKey) String() string { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (k *PerClusterCTMapKey) String() string             { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (k *PerClusterCTMapKey) DeepCopyMapKey() bpf.MapKey { return &PerClusterCTMapKey{} }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type PerClusterCTMapVal struct {
 	Fd uint32
 }
 
-func (v *PerClusterCTMapVal) String() string { return fmt.Sprintf("fd=%d", v.Fd) }
+func (v *PerClusterCTMapVal) String() string                 { return fmt.Sprintf("fd=%d", v.Fd) }
+func (v *PerClusterCTMapVal) DeepCopyMapValue() bpf.MapValue { return &PerClusterCTMapVal{} }
 
 // Init a "real" global per-cluster CT maps
 func InitPerClusterCTMaps(outerMapNamePrefix string, ipv4, ipv6 bool) error {

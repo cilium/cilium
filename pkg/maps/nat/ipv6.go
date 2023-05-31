@@ -7,14 +7,13 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 )
 
 // NatEntry6 represents an IPv6 entry in the NAT table.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type NatEntry6 struct {
 	Created uint64     `align:"created"`
 	NeedsCT uint64     `align:"needs_ct"`
@@ -60,3 +59,5 @@ func (n *NatEntry6) ToHost() NatEntry {
 	x.Port = byteorder.NetworkToHost16(n.Port)
 	return &x
 }
+
+func (n *NatEntry6) DeepCopyMapValue() bpf.MapValue { return &NatEntry6{} }

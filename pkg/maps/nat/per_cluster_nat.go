@@ -61,21 +61,19 @@ type PerClusterNATMap struct {
 	innerMapEntries int
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type PerClusterNATMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterNATMapKey) String() string { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (k *PerClusterNATMapKey) String() string             { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (n *PerClusterNATMapKey) DeepCopyMapKey() bpf.MapKey { return &PerClusterNATMapKey{} }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type PerClusterNATMapVal struct {
 	Fd uint32
 }
 
-func (v *PerClusterNATMapVal) String() string { return fmt.Sprintf("fd=%d", v.Fd) }
+func (v *PerClusterNATMapVal) String() string                 { return fmt.Sprintf("fd=%d", v.Fd) }
+func (n *PerClusterNATMapVal) DeepCopyMapValue() bpf.MapValue { return &PerClusterNATMapVal{} }
 
 func newPerClusterNATMap(name string, v4 bool, innerMapEntries int) (*PerClusterNATMap, error) {
 	var (

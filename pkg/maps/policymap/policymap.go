@@ -100,10 +100,10 @@ func (pe *PolicyEntry) String() string {
 	return fmt.Sprintf("%d %d %d", pe.GetProxyPort(), pe.Packets, pe.Bytes)
 }
 
+func (pe *PolicyEntry) DeepCopyMapValue() bpf.MapValue { return &PolicyEntry{} }
+
 // PolicyKey represents a key in the BPF policy map for an endpoint. It must
 // match the layout of policy_key in bpf/lib/common.h.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type PolicyKey struct {
 	Prefixlen        uint32 `align:"lpm_key"`
 	Identity         uint32 `align:"sec_label"`
@@ -132,8 +132,6 @@ const (
 
 // PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
 // match the layout of policy_entry in bpf/lib/common.h.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type PolicyEntry struct {
 	ProxyPortNetwork uint16           `align:"proxy_port"` // In network byte-order
 	Flags            policyEntryFlags `align:"deny"`
@@ -173,24 +171,22 @@ func getPolicyEntryFlags(p policyEntryFlagParams) policyEntryFlags {
 }
 
 // CallKey is the index into the prog array map.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type CallKey struct {
 	index uint32
 }
 
 // CallValue is the program ID in the prog array map.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type CallValue struct {
 	progID uint32
 }
 
 // String converts the key into a human readable string format.
-func (k *CallKey) String() string { return strconv.FormatUint(uint64(k.index), 10) }
+func (k *CallKey) String() string             { return strconv.FormatUint(uint64(k.index), 10) }
+func (k *CallKey) DeepCopyMapKey() bpf.MapKey { return &CallKey{} }
 
 // String converts the value into a human readable string format.
-func (v *CallValue) String() string { return strconv.FormatUint(uint64(v.progID), 10) }
+func (v *CallValue) String() string                 { return strconv.FormatUint(uint64(v.progID), 10) }
+func (v *CallValue) DeepCopyMapValue() bpf.MapValue { return &CallValue{} }
 
 func (pe *PolicyEntry) Add(oPe PolicyEntry) {
 	pe.Packets += oPe.Packets
@@ -260,6 +256,8 @@ func (key *PolicyKey) String() string {
 	portProtoStr := key.PortProtoString()
 	return fmt.Sprintf("%s: %d %s", trafficDirectionString, key.Identity, portProtoStr)
 }
+
+func (key *PolicyKey) DeepCopyMapKey() bpf.MapKey { return &PolicyKey{} }
 
 // NewKey returns a PolicyKey representing the specified parameters in network
 // byte-order.

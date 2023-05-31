@@ -13,15 +13,11 @@ import (
 )
 
 // EncryptKey is the context ID for the encryption session
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type EncryptKey struct {
 	key uint32 `align:"ctx"`
 }
 
 // EncryptValue is ID assigned to the keys
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type EncryptValue struct {
 	encryptKeyID uint8
 }
@@ -31,10 +27,14 @@ func (k EncryptKey) String() string {
 	return fmt.Sprintf("%d", k.key)
 }
 
+func (k EncryptKey) DeepCopyMapKey() bpf.MapKey { return &EncryptKey{} }
+
 // String pretty print the encryption key index.
 func (v EncryptValue) String() string {
 	return fmt.Sprintf("%d", v.encryptKeyID)
 }
+
+func (v EncryptValue) DeepCopyMapValue() bpf.MapValue { return &EncryptValue{} }
 
 func newEncryptKey(key uint32) *EncryptKey {
 	return &EncryptKey{

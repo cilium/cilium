@@ -19,22 +19,20 @@ const (
 	MaxEntries = 16384
 )
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key4 struct {
 	PrefixLen uint32
 	Address   types.IPv4
 }
 
-func (k *Key4) String() string { return fmt.Sprintf("%s", k.Address) }
+func (k *Key4) String() string             { return fmt.Sprintf("%s", k.Address) }
+func (k *Key4) DeepCopyMapKey() bpf.MapKey { return &Key4{} }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Value struct {
 	Pad uint8 // not used
 }
 
-func (v *Value) String() string { return "" }
+func (v *Value) String() string                 { return "" }
+func (v *Value) DeepCopyMapValue() bpf.MapValue { return &Value{} }
 
 var (
 	ipMasq4Map *bpf.Map

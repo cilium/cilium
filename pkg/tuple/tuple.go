@@ -32,23 +32,3 @@ type TupleKey interface {
 	// Returns flags containing the direction of the tuple key.
 	GetFlags() uint8
 }
-
-type buff256uint8 [256]uint8
-
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *buff256uint8) DeepCopyInto(out *buff256uint8) {
-	copy(out[:], in[:])
-	return
-}
-
-// TupleValStub is a dummy, unused.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type TupleValStub struct {
-	buff buff256uint8
-}
-
-// String stub method.
-func (t *TupleValStub) String() string {
-	return "<TupleValStub>"
-}

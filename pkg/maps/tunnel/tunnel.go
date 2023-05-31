@@ -69,8 +69,6 @@ type TunnelIP struct {
 	Family uint8      `align:"family"`
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type TunnelKey struct {
 	TunnelIP
 	ClusterID uint8  `align:"cluster_id"`
@@ -89,8 +87,8 @@ func (k TunnelKey) String() string {
 	return "nil"
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+func (k *TunnelKey) DeepCopyMapKey() bpf.MapKey { return &TunnelKey{} }
+
 type TunnelValue struct {
 	TunnelIP
 	Key    uint8  `align:"key"`
@@ -104,6 +102,8 @@ func (k TunnelValue) String() string {
 	}
 	return "nil"
 }
+
+func (k *TunnelValue) DeepCopyMapValue() bpf.MapValue { return &TunnelValue{} }
 
 // ToIP converts the TunnelIP into a net.IP structure.
 func (v TunnelIP) toIP() net.IP {

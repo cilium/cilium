@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/ebpf"
 )
@@ -115,8 +116,6 @@ func (m *authMap) IterateWithCallback(cb IterateCallback) error {
 // AuthKey implements the bpf.MapKey interface.
 //
 // Must be in sync with struct auth_key in <bpf/lib/common.h>
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type AuthKey struct {
 	LocalIdentity  uint32 `align:"local_sec_label"`
 	RemoteIdentity uint32 `align:"remote_sec_label"`
@@ -128,12 +127,11 @@ type AuthKey struct {
 func (r *AuthKey) String() string {
 	return fmt.Sprintf("localIdentity=%d, remoteIdentity=%d, remoteNodeID=%d, authType=%d", r.LocalIdentity, r.RemoteIdentity, r.RemoteNodeID, r.AuthType)
 }
+func (r *AuthKey) DeepCopyMapKey() bpf.MapKey { return &AuthKey{} }
 
 // AuthInfo implements the bpf.MapValue interface.
 //
 // Must be in sync with struct auth_info in <bpf/lib/common.h>
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type AuthInfo struct {
 	Expiration utime.UTime `align:"expiration"`
 }

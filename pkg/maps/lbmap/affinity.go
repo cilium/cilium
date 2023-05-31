@@ -65,16 +65,12 @@ func initAffinity(params InitParams) {
 	}
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type AffinityMatchKey struct {
 	BackendID loadbalancer.BackendID `align:"backend_id"`
 	RevNATID  uint16                 `align:"rev_nat_id"`
 	Pad       uint16                 `align:"pad"`
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type AffinityMatchValue struct {
 	Pad uint8 `align:"pad"`
 }
@@ -93,8 +89,11 @@ func (k *AffinityMatchKey) String() string {
 	return fmt.Sprintf("%d %d", kHost.BackendID, kHost.RevNATID)
 }
 
+func (k *AffinityMatchKey) DeepCopyMapKey() bpf.MapKey { return &AffinityMatchKey{} }
+
 // String converts the value into a human readable string format
-func (v *AffinityMatchValue) String() string { return "" }
+func (v *AffinityMatchValue) String() string                 { return "" }
+func (v *AffinityMatchValue) DeepCopyMapValue() bpf.MapValue { return &AffinityMatchValue{} }
 
 // ToNetwork returns the key in the network byte order
 func (k *AffinityMatchKey) ToNetwork() *AffinityMatchKey {
@@ -113,8 +112,6 @@ func (k *AffinityMatchKey) ToHost() *AffinityMatchKey {
 }
 
 // Affinity4Key is the Go representation of lb4_affinity_key
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Affinity4Key struct {
 	ClientID    uint64 `align:"client_id"`
 	RevNATID    uint16 `align:"rev_nat_id"`
@@ -124,8 +121,6 @@ type Affinity4Key struct {
 }
 
 // Affinity6Key is the Go representation of lb6_affinity_key
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Affinity6Key struct {
 	ClientID    types.IPv6 `align:"client_id"`
 	RevNATID    uint16     `align:"rev_nat_id"`
@@ -135,8 +130,6 @@ type Affinity6Key struct {
 }
 
 // AffinityValue is the Go representing of lb_affinity_value
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type AffinityValue struct {
 	LastUsed  uint64 `align:"last_used"`
 	BackendID uint32 `align:"backend_id"`
@@ -148,10 +141,15 @@ func (k *Affinity4Key) String() string {
 	return fmt.Sprintf("%d %d %d", k.ClientID, k.NetNSCookie, k.RevNATID)
 }
 
+func (k *Affinity4Key) DeepCopyMapKey() bpf.MapKey { return &Affinity4Key{} }
+
 // String converts the key into a human readable string format.
 func (k *Affinity6Key) String() string {
 	return fmt.Sprintf("%d %d %d", k.ClientID, k.NetNSCookie, k.RevNATID)
 }
 
+func (k *Affinity6Key) DeepCopyMapKey() bpf.MapKey { return &Affinity6Key{} }
+
 // String converts the value into a human readable string format.
-func (v *AffinityValue) String() string { return fmt.Sprintf("%d %d", v.BackendID, v.LastUsed) }
+func (v *AffinityValue) String() string                 { return fmt.Sprintf("%d %d", v.BackendID, v.LastUsed) }
+func (v *AffinityValue) DeepCopyMapValue() bpf.MapValue { return &AffinityValue{} }

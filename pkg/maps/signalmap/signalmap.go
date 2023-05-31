@@ -19,24 +19,22 @@ const (
 )
 
 // Key is the index into the prog array map.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key struct {
 	index uint32
 }
 
 // Value is the program ID in the prog array map.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Value struct {
 	progID uint32
 }
 
 // String converts the key into a human readable string format.
-func (k *Key) String() string { return fmt.Sprintf("%d", k.index) }
+func (k *Key) String() string             { return fmt.Sprintf("%d", k.index) }
+func (k *Key) DeepCopyMapKey() bpf.MapKey { return &Key{} }
 
 // String converts the value into a human readable string format.
-func (v *Value) String() string { return fmt.Sprintf("%d", v.progID) }
+func (v *Value) String() string                 { return fmt.Sprintf("%d", v.progID) }
+func (v *Value) DeepCopyMapValue() bpf.MapValue { return &Value{} }
 
 type signalMap struct {
 	oldBpfMap  *bpf.Map
