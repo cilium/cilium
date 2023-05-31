@@ -5,6 +5,7 @@ package helpers
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -185,6 +186,8 @@ func NewDeploymentManager() *DeploymentManager {
 
 // SetKubectl sets the kubectl client to use
 func (m *DeploymentManager) SetKubectl(kubectl *Kubectl) {
+	debug.PrintStack()
+	fmt.Println("[tom-debug] setting kubectl")
 	m.kubectl = kubectl
 }
 
