@@ -13,12 +13,14 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -46,6 +48,9 @@ type remoteCluster struct {
 
 	// clusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	clusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
+
+	// serviceIPGetter, if not nil, is used to create a custom dialer for service resolution.
+	serviceIPGetter k8s.ServiceIPGetter
 
 	// changed receives an event when the remote cluster configuration has
 	// changed and is closed when the configuration file was removed
@@ -287,10 +292,18 @@ func (rc *remoteCluster) makeEtcdOpts() map[string]string {
 }
 
 func (rc *remoteCluster) makeExtraOpts() kvstore.ExtraOptions {
+	var dialOpts []grpc.DialOption
+	if rc.serviceIPGetter != nil {
+		// Allow to resolve service names without depending on the DNS. This prevents the need
+		// for setting the DNSPolicy to ClusterFirstWithHostNet when running in host network.
+		dialOpts = append(dialOpts, grpc.WithContextDialer(k8s.CreateCustomDialer(rc.serviceIPGetter, rc.getLogger())))
+	}
+
 	return kvstore.ExtraOptions{
 		NoLockQuorumCheck:            true,
 		ClusterName:                  rc.name,
 		ClusterSizeDependantInterval: rc.clusterSizeDependantInterval,
+		DialOption:                   dialOpts,
 	}
 }
 
