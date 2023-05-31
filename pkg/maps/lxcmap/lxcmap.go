@@ -227,12 +227,12 @@ func DeleteElement(f EndpointFrontend) []error {
 }
 
 // DumpToMap dumps the contents of the lxcmap into a map and returns it
-func DumpToMap() (map[string]*EndpointInfo, error) {
-	m := map[string]*EndpointInfo{}
+func DumpToMap() (map[string]EndpointInfo, error) {
+	m := map[string]EndpointInfo{}
 	callback := func(key bpf.MapKey, value bpf.MapValue) {
-		if info, ok := value.DeepCopyMapValue().(*EndpointInfo); ok {
+		if info, ok := value.(*EndpointInfo); ok {
 			if endpointKey, ok := key.(*EndpointKey); ok {
-				m[endpointKey.ToIP().String()] = info
+				m[endpointKey.ToIP().String()] = *info
 			}
 		}
 	}

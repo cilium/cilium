@@ -186,7 +186,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 	log.Info("Restoring endpoints...")
 
 	var (
-		existingEndpoints map[string]*lxcmap.EndpointInfo
+		existingEndpoints map[string]lxcmap.EndpointInfo
 		err               error
 	)
 
