@@ -99,30 +99,30 @@ func TestMetricsIncrease(t *testing.T) {
 	}
 
 	tt := map[string]struct {
-		before dto.MetricFamily
-		after  dto.MetricFamily
+		before *dto.MetricFamily
+		after  *dto.MetricFamily
 		err    bool
 	}{
 		"metric increases": {
-			before: ciliumForwardCountTotalBefore,
-			after:  ciliumForwardCountTotalAfter,
+			before: &ciliumForwardCountTotalBefore,
+			after:  &ciliumForwardCountTotalAfter,
 			err:    false,
 		},
 		"metrics are equals": {
-			before: ciliumForwardCountTotalBefore,
-			after:  ciliumForwardCountTotalBefore,
+			before: &ciliumForwardCountTotalBefore,
+			after:  &ciliumForwardCountTotalBefore,
 			err:    true,
 		},
 		"metric decreases": {
-			before: ciliumForwardCountTotalAfter,
-			after:  ciliumForwardCountTotalBefore,
+			before: &ciliumForwardCountTotalAfter,
+			after:  &ciliumForwardCountTotalBefore,
 			err:    true,
 		},
 	}
 
 	for name, tc := range tt {
 		t.Run(name, func(t *testing.T) {
-			err := metricsIncrease(&tc.before, &tc.after)
+			err := metricsIncrease(tc.before, tc.after)
 			if tc.err {
 				assert.Error(t, err)
 			} else {
