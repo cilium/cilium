@@ -205,6 +205,20 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		return ct.Run(ctx)
 	}
 
+	// Upgrade Test
+	if ct.Params().IncludeUpgradeTest {
+		ct.NewTest("post-upgrade").WithScenarios(
+			tests.NoInterruptedConnections(),
+		)
+
+		if ct.Params().UpgradeTestSetup {
+			// Exit early, as --upgrade-setup is only needed to deploy pods which
+			// will be used by another invocation of "cli connectivity test" (with
+			// include --include-upgrade-tests"
+			return ct.Run(ctx)
+		}
+	}
+
 	// Run all tests without any policies in place.
 	noPoliciesScenarios := []check.Scenario{
 		tests.PodToPod(),
