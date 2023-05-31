@@ -16,7 +16,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.3
+  cilium_cli_version: v0.14.5
   cilium_cli_ci_version:
   KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config.yaml

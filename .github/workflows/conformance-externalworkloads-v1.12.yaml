@@ -70,7 +70,7 @@ env:
   vmStartupScript: .github/gcp-vm-startup.sh
   k8s_version: 1.24
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.3
+  cilium_cli_version: v0.14.5
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
@@ -206,7 +206,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@d4c49cddefadf11852cd5bbde0bbd9e0b2c67d43 # v0.14.3
+        uses: cilium/cilium-cli@d610d6e2774e29aef9565bad935e3b4943d541af # v0.14.5
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
