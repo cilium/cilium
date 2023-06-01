@@ -300,7 +300,7 @@ func (rc *remoteCluster) makeEtcdOpts() map[string]string {
 
 	for key, value := range option.Config.KVStoreOpt {
 		switch key {
-		case kvstore.EtcdRateLimitOption, kvstore.EtcdListLimitOption,
+		case kvstore.EtcdRateLimitOption, kvstore.EtcdMaxInflightOption, kvstore.EtcdListLimitOption,
 			kvstore.EtcdOptionKeepAliveHeartbeat, kvstore.EtcdOptionKeepAliveTimeout:
 			opts[key] = value
 		}

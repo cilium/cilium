@@ -73,6 +73,11 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 		metrics.KVStoreQuorumErrors,
 		metrics.KVStoreSyncQueueSize,
 		metrics.KVStoreInitialSyncCompleted,
+		metrics.APILimiterProcessingDuration,
+		metrics.APILimiterWaitDuration,
+		metrics.APILimiterRequestsInFlight,
+		metrics.APILimiterRateLimit,
+		metrics.APILimiterAdjustmentFactor,
 	)
 
 	mux := http.NewServeMux()

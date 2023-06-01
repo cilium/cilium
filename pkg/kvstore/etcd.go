@@ -35,6 +35,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
+	ciliumrate "github.com/cilium/cilium/pkg/rate"
+	ciliumratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
@@ -51,6 +53,9 @@ const (
 
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
+
+	// EtcdMaxInflightOption specifies maximum inflight concurrent kv store operations
+	EtcdMaxInflightOption = "etcd.maxInflight"
 
 	// EtcdListLimitOption limits the number of results retrieved in one batch
 	// by ListAndWatch operations. A 0 value equals to no limit.
@@ -136,6 +141,13 @@ func newEtcdModule() backendModule {
 					return err
 				},
 			},
+			EtcdMaxInflightOption: &backendOption{
+				description: "Maximum inflight concurrent kv store operations; defaults to etcd.qps if unset",
+				validate: func(v string) error {
+					_, err := strconv.Atoi(v)
+					return err
+				},
+			},
 			EtcdListLimitOption: &backendOption{
 				description: "Max number of results retrieved in one batch by ListAndWatch operations (0 = no limit)",
 				validate: func(v string) error {
@@ -186,6 +198,7 @@ type clientOptions struct {
 	KeepAliveHeartbeat time.Duration
 	KeepAliveTimeout   time.Duration
 	RateLimit          int
+	MaxInflight        int
 	ListBatchSize      int
 }
 
@@ -201,6 +214,14 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 
 	if o, ok := e.opts[EtcdRateLimitOption]; ok && o.value != "" {
 		clientOptions.RateLimit, _ = strconv.Atoi(o.value)
+	}
+
+	if o, ok := e.opts[EtcdMaxInflightOption]; ok && o.value != "" {
+		clientOptions.MaxInflight, _ = strconv.Atoi(o.value)
+	}
+
+	if clientOptions.MaxInflight == 0 {
+		clientOptions.MaxInflight = clientOptions.RateLimit
 	}
 
 	if o, ok := e.opts[EtcdListLimitOption]; ok && o.value != "" {
@@ -248,6 +269,7 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 		"KeepAliveHeartbeat": clientOptions.KeepAliveHeartbeat,
 		"KeepAliveTimeout":   clientOptions.KeepAliveTimeout,
 		"RateLimit":          clientOptions.RateLimit,
+		"MaxInflight":        clientOptions.MaxInflight,
 		"ListLimit":          clientOptions.ListBatchSize,
 	}).Info("Creating etcd client")
 
@@ -332,7 +354,7 @@ type etcdClient struct {
 
 	extraOptions *ExtraOptions
 
-	limiter       *rate.Limiter
+	limiter       *ciliumrate.APILimiter
 	listBatchSize int
 
 	lastHeartbeat time.Time
@@ -628,6 +650,12 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	var ls concurrency.Session
 	errorChan := make(chan error)
 
+	limiter := ciliumrate.NewAPILimiter(makeSessionName("etcd", opts), ciliumrate.APILimiterParameters{
+		RateLimit:        rate.Limit(clientOptions.RateLimit),
+		RateBurst:        clientOptions.RateLimit,
+		ParallelRequests: clientOptions.MaxInflight,
+	}, ciliumratemetrics.APILimiterObserver())
+
 	ec := &etcdClient{
 		client:               c,
 		config:               config,
@@ -638,7 +666,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		latestStatusSnapshot: "Waiting for initial connection to be established",
 		stopStatusChecker:    make(chan struct{}),
 		extraOptions:         opts,
-		limiter:              rate.NewLimiter(rate.Limit(clientOptions.RateLimit), clientOptions.RateLimit),
+		limiter:              limiter,
 		listBatchSize:        clientOptions.ListBatchSize,
 		statusCheckErrors:    make(chan error, 128),
 	}
@@ -842,8 +870,15 @@ func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) 
 		increaseMetric(path, metricDelete, "DeletePrefix", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		return Hint(err)
+	}
+
 	_, err = e.client.Delete(ctx, path, client.WithPrefix())
+	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
+	lr.Error(err)
+
 	if err == nil {
 		e.leaseManager.ReleasePrefix(path)
 	}
@@ -904,13 +939,18 @@ reList:
 		default:
 		}
 
-		e.limiter.Wait(ctx)
+		lr, err := e.limiter.Wait(ctx)
+		if err != nil {
+			continue
+		}
 		kvs, revision, err := e.paginatedList(ctx, scopedLog, w.Prefix)
 		if err != nil {
+			lr.Error(err)
 			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
 			errLimiter.Wait(ctx)
 			continue
 		}
+		lr.Done()
 		errLimiter.Reset()
 
 		for _, key := range kvs {
@@ -957,9 +997,22 @@ reList:
 	recreateWatcher:
 		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
 
-		e.limiter.Wait(ctx)
+		lr, err = e.limiter.Wait(ctx)
+		if err != nil {
+			select {
+			case <-e.client.Ctx().Done():
+				return
+			case <-ctx.Done():
+				return
+			default:
+				goto recreateWatcher
+			}
+		}
+
 		etcdWatch := e.client.Watch(client.WithRequireLeader(ctx), w.Prefix,
 			client.WithPrefix(), client.WithRev(nextRev))
+		lr.Done()
+
 		for {
 			select {
 			case <-e.client.Ctx().Done():
@@ -1064,7 +1117,6 @@ func (e *etcdClient) determineEndpointStatus(ctx context.Context, endpointAddres
 
 	e.getLogger().Debugf("Checking status to etcd endpoint %s", endpointAddress)
 
-	e.limiter.Wait(ctxTimeout)
 	status, err := e.client.Status(ctxTimeout, endpointAddress)
 	if err != nil {
 		return fmt.Sprintf("%s - %s", endpointAddress, err), Hint(err)
@@ -1173,7 +1225,11 @@ func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker)
 		increaseMetric(key, metricRead, "GetLocked", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		return nil, Hint(err)
+	}
+
 	opGet := client.OpGet(key)
 	cmp := lock.Comparator().(client.Cmp)
 	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opGet).Commit()
@@ -1182,9 +1238,11 @@ func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker)
 	}
 
 	if err != nil {
+		lr.Error(err)
 		return nil, Hint(err)
 	}
 
+	lr.Done()
 	getR := txnReply.Responses[0].GetResponseRange()
 	// RangeResponse
 	if getR.Count == 0 {
@@ -1200,11 +1258,17 @@ func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error)
 		increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	e.limiter.Wait(ctx)
-	getR, err := e.client.Get(ctx, key)
+	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
 		return nil, Hint(err)
 	}
+
+	getR, err := e.client.Get(ctx, key)
+	if err != nil {
+		lr.Error(err)
+		return nil, Hint(err)
+	}
+	lr.Done()
 
 	if getR.Count == 0 {
 		return nil, nil
@@ -1219,7 +1283,11 @@ func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock 
 		increaseMetric(prefix, metricRead, "GetPrefixLocked", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		return "", nil, Hint(err)
+	}
+
 	opGet := client.OpGet(prefix, client.WithPrefix(), client.WithLimit(1))
 	cmp := lock.Comparator().(client.Cmp)
 	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opGet).Commit()
@@ -1228,8 +1296,11 @@ func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock 
 	}
 
 	if err != nil {
+		lr.Error(err)
 		return "", nil, Hint(err)
 	}
+	lr.Done()
+
 	getR := txnReply.Responses[0].GetResponseRange()
 
 	if getR.Count == 0 {
@@ -1245,11 +1316,17 @@ func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (k string, bv
 		increaseMetric(prefix, metricRead, "GetPrefix", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	e.limiter.Wait(ctx)
-	getR, err := e.client.Get(ctx, prefix, client.WithPrefix(), client.WithLimit(1))
+	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
 		return "", nil, Hint(err)
 	}
+
+	getR, err := e.client.Get(ctx, prefix, client.WithPrefix(), client.WithLimit(1))
+	if err != nil {
+		lr.Error(err)
+		return "", nil, Hint(err)
+	}
+	lr.Done()
 
 	if getR.Count == 0 {
 		return "", nil, nil
@@ -1264,8 +1341,14 @@ func (e *etcdClient) Set(ctx context.Context, key string, value []byte) (err err
 		increaseMetric(key, metricSet, "Set", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		return Hint(err)
+	}
+
 	_, err = e.client.Put(ctx, key, string(value))
+	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
+	lr.Error(err)
 	return Hint(err)
 }
 
@@ -1276,7 +1359,11 @@ func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLock
 		increaseMetric(key, metricDelete, "DeleteLocked", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		return Hint(err)
+	}
+
 	opDel := client.OpDelete(key)
 	cmp := lock.Comparator().(client.Cmp)
 	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opDel).Commit()
@@ -1287,6 +1374,8 @@ func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLock
 		e.leaseManager.Release(key)
 	}
 
+	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
+	lr.Error(err)
 	return Hint(err)
 }
 
@@ -1297,8 +1386,15 @@ func (e *etcdClient) Delete(ctx context.Context, key string) (err error) {
 		increaseMetric(key, metricDelete, "Delete", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		return Hint(err)
+	}
+
 	_, err = e.client.Delete(ctx, key)
+	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
+	lr.Error(err)
+
 	if err == nil {
 		e.leaseManager.Release(key)
 	}
@@ -1329,25 +1425,30 @@ func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byt
 
 	var txnReply *client.TxnResponse
 
-	e.limiter.Wait(ctx)
+	var leaseID client.LeaseID
 	if lease {
-		leaseID, err := e.leaseManager.GetLeaseID(ctx, key)
+		leaseID, err = e.leaseManager.GetLeaseID(ctx, key)
 		if err != nil {
 			return Hint(err)
 		}
-
-		opPut := client.OpPut(key, string(value), client.WithLease(leaseID))
-		cmp := lock.Comparator().(client.Cmp)
-		txnReply, err = e.client.Txn(ctx).If(cmp).Then(opPut).Commit()
-		e.leaseManager.CancelIfExpired(err, leaseID)
-	} else {
-		opPut := client.OpPut(key, string(value))
-		cmp := lock.Comparator().(client.Cmp)
-		txnReply, err = e.client.Txn(ctx).If(cmp).Then(opPut).Commit()
 	}
+
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		return Hint(err)
+	}
+
+	opPut := client.OpPut(key, string(value), client.WithLease(leaseID))
+	cmp := lock.Comparator().(client.Cmp)
+	txnReply, err = e.client.Txn(ctx).If(cmp).Then(opPut).Commit()
+	e.leaseManager.CancelIfExpired(err, leaseID)
+
 	if err == nil && !txnReply.Succeeded {
 		err = ErrLockLeaseExpired
 	}
+
+	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
+	lr.Error(err)
 	return Hint(err)
 }
 
@@ -1362,21 +1463,24 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 		return
 	}
 
+	var leaseID client.LeaseID
 	if lease {
-		leaseID, err := e.leaseManager.GetLeaseID(ctx, key)
+		leaseID, err = e.leaseManager.GetLeaseID(ctx, key)
 		if err != nil {
 			return Hint(err)
 		}
+	}
 
-		e.limiter.Wait(ctx)
-		_, err = e.client.Put(ctx, key, string(value), client.WithLease(leaseID))
-		e.leaseManager.CancelIfExpired(err, leaseID)
-
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
 		return Hint(err)
 	}
 
-	e.limiter.Wait(ctx)
-	_, err = e.client.Put(ctx, key, string(value))
+	_, err = e.client.Put(ctx, key, string(value), client.WithLease(leaseID))
+	e.leaseManager.CancelIfExpired(err, leaseID)
+
+	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
+	lr.Error(err)
 	return Hint(err)
 }
 
@@ -1391,9 +1495,16 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 	}
 
 	duration := spanstat.Start()
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
+		return false, Hint(err)
+	}
+
 	cnds := lock.Comparator().(client.Cmp)
 	txnresp, err := e.client.Txn(ctx).If(cnds).Then(client.OpGet(key)).Commit()
+	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
+	lr.Error(err)
 
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 
@@ -1433,8 +1544,15 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 	}
 
 	duration := spanstat.Start()
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
+		return false, Hint(err)
+	}
+
 	getR, err := e.client.Get(ctx, key)
+	// Using lr.Error for convenience, as it matches lr.Done() when err is nil
+	lr.Error(err)
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	// On error, attempt update blindly
 	if err != nil || getR.Count == 0 {
@@ -1478,13 +1596,20 @@ func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value [
 		client.OpGet(key),
 	}
 
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		increaseMetric(key, metricSet, "CreateOnlyLocked", duration.EndError(err).Total(), err)
+		return false, Hint(err)
+	}
+
 	txnresp, err := e.client.Txn(ctx).If(cnds...).Then(*req).Else(opGets...).Commit()
 	increaseMetric(key, metricSet, "CreateOnlyLocked", duration.EndError(err).Total(), err)
 	if err != nil {
+		lr.Error(err)
 		e.leaseManager.CancelIfExpired(err, leaseID)
 		return false, Hint(err)
 	}
+	lr.Done()
 
 	// The txn can failed for the following reasons:
 	//  - Key version is not zero;
@@ -1530,14 +1655,20 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 	req := e.createOpPut(key, value, leaseID)
 	cond := client.Compare(client.Version(key), "=", 0)
 
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		return false, Hint(err)
+	}
+
 	txnresp, err := e.client.Txn(ctx).If(cond).Then(*req).Commit()
 
 	if err != nil {
+		lr.Error(err)
 		e.leaseManager.CancelIfExpired(err, leaseID)
 		return false, Hint(err)
 	}
 
+	lr.Done()
 	return txnresp.Succeeded, nil
 }
 
@@ -1559,13 +1690,20 @@ func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, va
 	req := e.createOpPut(key, value, leaseID)
 	cond := client.Compare(client.Version(condKey), "!=", 0)
 
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
+		return Hint(err)
+	}
+
 	txnresp, err := e.client.Txn(ctx).If(cond).Then(*req).Commit()
 	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
 	if err != nil {
+		lr.Error(err)
 		e.leaseManager.CancelIfExpired(err, leaseID)
 		return Hint(err)
 	}
+	lr.Done()
 
 	if !txnresp.Succeeded {
 		return fmt.Errorf("create was unsuccessful")
@@ -1600,7 +1738,11 @@ func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock
 		increaseMetric(prefix, metricRead, "ListPrefixLocked", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	e.limiter.Wait(ctx)
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		return nil, Hint(err)
+	}
+
 	opGet := client.OpGet(prefix, client.WithPrefix())
 	cmp := lock.Comparator().(client.Cmp)
 	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opGet).Commit()
@@ -1608,8 +1750,10 @@ func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock
 		err = ErrLockLeaseExpired
 	}
 	if err != nil {
+		lr.Error(err)
 		return nil, Hint(err)
 	}
+	lr.Done()
 	getR := txnReply.Responses[0].GetResponseRange()
 
 	pairs := KeyValuePairs(make(map[string]Value, getR.Count))
@@ -1631,11 +1775,17 @@ func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValueP
 		increaseMetric(prefix, metricRead, "ListPrefix", duration.EndError(err).Total(), err)
 	}(spanstat.Start())
 
-	e.limiter.Wait(ctx)
-	getR, err := e.client.Get(ctx, prefix, client.WithPrefix())
+	lr, err := e.limiter.Wait(ctx)
 	if err != nil {
 		return nil, Hint(err)
 	}
+
+	getR, err := e.client.Get(ctx, prefix, client.WithPrefix())
+	if err != nil {
+		lr.Error(err)
+		return nil, Hint(err)
+	}
+	lr.Done()
 
 	pairs := KeyValuePairs(make(map[string]Value, getR.Count))
 	for i := int64(0); i < getR.Count; i++ {
