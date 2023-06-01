@@ -498,6 +498,12 @@ Users (Alphabetically)
       U: CNI (instead of amazon-vpc-cni-k8s), DefaultDeny(Zero Trust), Hubble, CiliumNetworkPolicy, CiliumClusterwideNetworkPolicy, EKS
       L: https://schubergphilis.com/en
       Q: @stimmerman @shoekstra @mbaumann
+      
+    * N: SIGHUP
+      D: SIGHUP integrated Cilium as a supported CNI for KFD (Kubernetes Fury Distribution), our enterprise-grade OSS reference architecture 
+      U: Available supported CNI
+      L: https://sighup.io, https://github.com/sighupio/fury-kubernetes-networking
+      Q: @jnardiello @nutellino
 
     * N: SmileDirectClub
       D: SmileDirectClub is using Cilium in manufacturing clusters (self-hosted on vSphere and AWS EC2)
