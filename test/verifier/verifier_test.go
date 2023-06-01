@@ -87,6 +87,12 @@ func TestVerifier(t *testing.T) {
 	kernelVersion, source := getCIKernelVersion(t)
 	t.Logf("CI kernel version: %s (%s)", kernelVersion, source)
 
+	cmd := exec.Command("make", "-C", "bpf/", "clean")
+	cmd.Dir = *ciliumBasePath
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to clean bpf objects: %v\ncommand output: %s", err, out)
+	}
+
 	for _, bpfProgram := range []struct {
 		name      string
 		macroName string
@@ -124,12 +130,6 @@ func TestVerifier(t *testing.T) {
 
 			name := fmt.Sprintf("%s_%d", bpfProgram.name, i)
 			t.Run(name, func(t *testing.T) {
-				cmd := exec.Command("make", "-C", "bpf/", "clean")
-				cmd.Dir = *ciliumBasePath
-				if out, err := cmd.CombinedOutput(); err != nil {
-					t.Fatalf("Failed to clean bpf objects: %v\ncommand output: %s", err, out)
-				}
-
 				cmd = exec.Command("make", "-C", "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
 				cmd.Dir = *ciliumBasePath
 				cmd.Env = append(cmd.Env,
