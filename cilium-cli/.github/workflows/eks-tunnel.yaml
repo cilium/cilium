@@ -27,7 +27,7 @@ concurrency:
 
 env:
   region: us-east-2
-  cilium_version: v1.13.2
+  cilium_version: v1.13.3
   kubectl_version: v1.23.6
 
 jobs:
