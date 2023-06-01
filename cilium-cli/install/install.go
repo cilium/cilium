@@ -243,7 +243,7 @@ type k8sInstallerImplementation interface {
 	PatchDeployment(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.Deployment, error)
 	CheckDeploymentStatus(ctx context.Context, namespace, deployment string) error
 	DeleteNamespace(ctx context.Context, namespace string, opts metav1.DeleteOptions) error
-	CreateNamespace(ctx context.Context, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error)
+	CreateNamespace(ctx context.Context, namespace *corev1.Namespace, opts metav1.CreateOptions) (*corev1.Namespace, error)
 	GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 	DeletePod(ctx context.Context, namespace, name string, options metav1.DeleteOptions) error
@@ -873,7 +873,8 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 	secretsNamespace := k.getSecretNamespace()
 	if len(secretsNamespace) != 0 {
-		if _, err := k.client.CreateNamespace(ctx, secretsNamespace, metav1.CreateOptions{}); err != nil {
+		namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: secretsNamespace}}
+		if _, err := k.client.CreateNamespace(ctx, namespace, metav1.CreateOptions{}); err != nil {
 			return err
 		}
 		k.pushRollbackStep(func(ctx context.Context) {
