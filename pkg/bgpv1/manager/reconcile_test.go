@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -560,6 +561,16 @@ func TestLBServiceReconciler(t *testing.T) {
 	svc1NonLB := svc1.DeepCopy()
 	svc1NonLB.Spec.Type = slim_corev1.ServiceTypeClusterIP
 
+	svc1ETPLocal := svc1.DeepCopy()
+	svc1ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyTypeLocal
+
+	svc1ETPLocalTwoIngress := svc1TwoIngress.DeepCopy()
+	svc1ETPLocalTwoIngress.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyTypeLocal
+
+	svc1IPv6ETPLocal := svc1.DeepCopy()
+	svc1IPv6ETPLocal.Status.LoadBalancer.Ingress[0] = slim_corev1.LoadBalancerIngress{IP: ingressV6}
+	svc1IPv6ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyTypeLocal
+
 	svc2NonDefault := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      svc2NonDefaultName.Name,
@@ -576,6 +587,126 @@ func TestLBServiceReconciler(t *testing.T) {
 						IP: ingressV4_2,
 					},
 				},
+			},
+		},
+	}
+
+	eps1IPv4Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+
+	eps1IPv4Remote := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv4Mixed := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("10.0.0.1"): {
+				NodeName: "node1",
+			},
+			cmtypes.MustParseAddrCluster("10.0.0.2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv6Local := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv6",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv6",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::1"): {
+				NodeName: "node1",
+			},
+		},
+	}
+
+	eps1IPv6Remote := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv6",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv6",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::2"): {
+				NodeName: "node2",
+			},
+		},
+	}
+
+	eps1IPv6Mixed := &k8s.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "svc-1-ipv4",
+			Namespace: "default",
+		},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID: k8s.ServiceID{
+				Name:      "svc-1",
+				Namespace: "default",
+			},
+			EndpointSliceName: "svc-1-ipv4",
+		},
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
+			cmtypes.MustParseAddrCluster("fd00:10::1"): {
+				NodeName: "node1",
+			},
+			cmtypes.MustParseAddrCluster("fd00:10::2"): {
+				NodeName: "node2",
 			},
 		},
 	}
@@ -740,6 +871,143 @@ func TestLBServiceReconciler(t *testing.T) {
 			advertised:         map[resource.Key][]string{},
 			upsertedServices:   []*slim_corev1.Service{svc1NonLB},
 			updated:            map[resource.Key][]string{},
+		},
+		// Service without endpoints
+		{
+			name:               "etp-local-no-endpoints",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{},
+			updated:            map[resource.Key][]string{},
+		},
+		// externalTrafficPolicy=Local && IPv4 && single slice && local endpoint
+		{
+			name:               "etp-local-ipv4-single-slice-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Local},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && IPv4 && single slice && remote endpoint
+		{
+			name:               "etp-local-ipv4-single-slice-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Remote},
+			updated:            map[resource.Key][]string{},
+		},
+		// externalTrafficPolicy=Local && IPv4 && single slice && mixed endpoint
+		{
+			name:               "etp-local-ipv4-single-slice-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv4Mixed},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && IPv6 && single slice && local endpoint
+		{
+			name:               "etp-local-ipv6-single-slice-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Local},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV6Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && IPv6 && single slice && remote endpoint
+		{
+			name:               "etp-local-ipv6-single-slice-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Remote},
+			updated:            map[resource.Key][]string{},
+		},
+		// externalTrafficPolicy=Local && IPv6 && single slice && mixed endpoint
+		{
+			name:               "etp-local-ipv6-single-slice-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1IPv6ETPLocal},
+			upsertedEndpoints:  []*k8s.Endpoints{eps1IPv6Mixed},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV6Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && Dual && two slices && local endpoint
+		{
+			name:               "etp-local-dual-two-slices-local",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Local,
+				eps1IPv6Local,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+					ingressV6Prefix,
+				},
+			},
+		},
+		// externalTrafficPolicy=Local && Dual && two slices && remote endpoint
+		{
+			name:               "etp-local-dual-two-slices-remote",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Remote,
+				eps1IPv6Remote,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {},
+			},
+		},
+		// externalTrafficPolicy=Local && Dual && two slices && mixed endpoint
+		{
+			name:               "etp-local-dual-two-slices-mixed",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised:         map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1ETPLocalTwoIngress},
+			upsertedEndpoints: []*k8s.Endpoints{
+				eps1IPv4Mixed,
+				eps1IPv6Mixed,
+			},
+			updated: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+					ingressV6Prefix,
+				},
+			},
 		},
 	}
 	for _, tt := range table {
