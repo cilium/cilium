@@ -513,6 +513,73 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 }
 
 func TestLBServiceReconciler(t *testing.T) {
+	blueSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
+	redSelector := slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "red"}}
+	svc1Name := resource.Key{Name: "svc-1", Namespace: "default"}
+	svc1NonDefaultName := resource.Key{Name: "svc-1", Namespace: "non-default"}
+	svc2NonDefaultName := resource.Key{Name: "svc-2", Namespace: "non-default"}
+	ingressV4 := "192.168.0.1"
+	ingressV4_2 := "192.168.0.2"
+	ingressV4Prefix := ingressV4 + "/32"
+	ingressV4Prefix_2 := ingressV4_2 + "/32"
+	ingressV6 := "fd00:192:168::1"
+	ingressV6Prefix := ingressV6 + "/128"
+
+	svc1 := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc1Name.Name,
+			Namespace: svc1Name.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type: slim_corev1.ServiceTypeLoadBalancer,
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{
+				Ingress: []slim_corev1.LoadBalancerIngress{
+					{
+						IP: ingressV4,
+					},
+				},
+			},
+		},
+	}
+
+	svc1TwoIngress := svc1.DeepCopy()
+	svc1TwoIngress.Status.LoadBalancer.Ingress =
+		append(svc1TwoIngress.Status.LoadBalancer.Ingress,
+			slim_corev1.LoadBalancerIngress{IP: ingressV6})
+
+	svc1RedLabel := svc1.DeepCopy()
+	svc1RedLabel.ObjectMeta.Labels = redSelector.MatchLabels
+
+	svc1NonDefault := svc1.DeepCopy()
+	svc1NonDefault.Namespace = svc1NonDefaultName.Namespace
+	svc1NonDefault.Status.LoadBalancer.Ingress[0] = slim_corev1.LoadBalancerIngress{IP: ingressV4_2}
+
+	svc1NonLB := svc1.DeepCopy()
+	svc1NonLB.Spec.Type = slim_corev1.ServiceTypeClusterIP
+
+	svc2NonDefault := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      svc2NonDefaultName.Name,
+			Namespace: svc2NonDefaultName.Namespace,
+			Labels:    blueSelector.MatchLabels,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Type: slim_corev1.ServiceTypeLoadBalancer,
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{
+				Ingress: []slim_corev1.LoadBalancerIngress{
+					{
+						IP: ingressV4_2,
+					},
+				},
+			},
+		},
+	}
+
 	var table = []struct {
 		// name of the test case
 		name string
@@ -538,202 +605,86 @@ func TestLBServiceReconciler(t *testing.T) {
 		// Add 1 ingress
 		{
 			name:               "lb-svc-1-ingress",
-			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
-			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
 			advertised:         make(map[resource.Key][]string),
-			upsertedServices: []*slim_corev1.Service{
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-1",
-						Namespace: "default",
-						Labels: map[string]string{
-							"color": "blue",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeLoadBalancer,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "1.2.3.4",
-								},
-							},
-						},
-					},
-				},
-			},
+			upsertedServices:   []*slim_corev1.Service{svc1},
 			updated: map[resource.Key][]string{
-				{Name: "svc-1", Namespace: "default"}: {
-					"1.2.3.4/32",
+				svc1Name: {
+					ingressV4Prefix,
 				},
 			},
 		},
 		// Add 2 ingress
 		{
 			name:               "lb-svc-2-ingress",
-			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
-			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
 			advertised:         make(map[resource.Key][]string),
-			upsertedServices: []*slim_corev1.Service{
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-1",
-						Namespace: "default",
-						Labels: map[string]string{
-							"color": "blue",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeLoadBalancer,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "1.2.3.4",
-								},
-								{
-									IP: "ff::2.3.4.5",
-								},
-							},
-						},
-					},
-				},
-			},
+			upsertedServices:   []*slim_corev1.Service{svc1TwoIngress},
 			updated: map[resource.Key][]string{
-				{Name: "svc-1", Namespace: "default"}: {
-					"1.2.3.4/32",
-					"ff::2.3.4.5/128",
+				svc1Name: {
+					ingressV4Prefix,
+					ingressV6Prefix,
 				},
 			},
 		},
 		// Delete service
 		{
 			name:               "delete-svc",
-			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
-			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
 			advertised: map[resource.Key][]string{
-				{Name: "svc-1", Namespace: "default"}: {
-					"1.2.3.4/32",
+				svc1Name: {
+					ingressV4Prefix,
 				},
 			},
 			deletedServices: []resource.Key{
-				{Name: "svc-1", Namespace: "default"},
+				svc1Name,
 			},
 			updated: map[resource.Key][]string{},
 		},
 		// Update service to no longer match
 		{
 			name:               "update-service-no-match",
-			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
-			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
 			advertised: map[resource.Key][]string{
-				{Name: "svc-1", Namespace: "default"}: {
-					"1.2.3.4/32",
+				svc1Name: {
+					ingressV4Prefix,
 				},
 			},
-			upsertedServices: []*slim_corev1.Service{
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-1",
-						Namespace: "default",
-						Labels: map[string]string{
-							"color": "red",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeLoadBalancer,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "1.2.3.4",
-								},
-							},
-						},
-					},
-				},
-			},
-			updated: map[resource.Key][]string{},
+			upsertedServices: []*slim_corev1.Service{svc1RedLabel},
+			updated:          map[resource.Key][]string{},
 		},
 		// Update vRouter to no longer match
 		{
 			name:               "update-vrouter-selector",
-			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
-			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "red"}},
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &redSelector,
 			advertised: map[resource.Key][]string{
-				{Name: "svc-1", Namespace: "default"}: {
-					"1.2.3.4/32",
+				svc1Name: {
+					ingressV4Prefix,
 				},
 			},
-			upsertedServices: []*slim_corev1.Service{
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-1",
-						Namespace: "default",
-						Labels: map[string]string{
-							"color": "blue",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeLoadBalancer,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "1.2.3.4",
-								},
-							},
-						},
-					},
-				},
-			},
-			updated: map[resource.Key][]string{},
+			upsertedServices: []*slim_corev1.Service{svc1},
+			updated:          map[resource.Key][]string{},
 		},
 		// 1 -> 2 ingress
 		{
 			name:               "update-1-to-2-ingress",
-			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
-			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
 			advertised: map[resource.Key][]string{
-				{Name: "svc-1", Namespace: "default"}: {
-					"1.2.3.4/32",
+				svc1Name: {
+					ingressV4Prefix,
 				},
 			},
-			upsertedServices: []*slim_corev1.Service{
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-1",
-						Namespace: "default",
-						Labels: map[string]string{
-							"color": "blue",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeLoadBalancer,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "1.2.3.4",
-								},
-								{
-									IP: "2.3.4.5",
-								},
-							},
-						},
-					},
-				},
-			},
+			upsertedServices: []*slim_corev1.Service{svc1TwoIngress},
 			updated: map[resource.Key][]string{
-				{Name: "svc-1", Namespace: "default"}: {
-					"1.2.3.4/32",
-					"2.3.4.5/32",
+				svc1Name: {
+					ingressV4Prefix,
+					ingressV6Prefix,
 				},
 			},
 		},
@@ -743,30 +694,8 @@ func TestLBServiceReconciler(t *testing.T) {
 			oldServiceSelector: nil,
 			newServiceSelector: nil,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices: []*slim_corev1.Service{
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-1",
-						Namespace: "default",
-						Labels: map[string]string{
-							"color": "blue",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeLoadBalancer,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "1.2.3.4",
-								},
-							},
-						},
-					},
-				},
-			},
-			updated: map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1},
+			updated:            map[resource.Key][]string{},
 		},
 		// Namespace selector
 		{
@@ -775,52 +704,12 @@ func TestLBServiceReconciler(t *testing.T) {
 			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.namespace": "default"}},
 			advertised:         map[resource.Key][]string{},
 			upsertedServices: []*slim_corev1.Service{
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-1",
-						Namespace: "default",
-						Labels: map[string]string{
-							"color": "blue",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeLoadBalancer,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "1.2.3.4",
-								},
-							},
-						},
-					},
-				},
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-2",
-						Namespace: "non-default",
-						Labels: map[string]string{
-							"color": "blue",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeLoadBalancer,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "2.3.4.5",
-								},
-							},
-						},
-					},
-				},
+				svc1,
+				svc2NonDefault,
 			},
 			updated: map[resource.Key][]string{
-				{Name: "svc-1", Namespace: "default"}: {
-					"1.2.3.4/32",
+				svc1Name: {
+					ingressV4Prefix,
 				},
 			},
 		},
@@ -831,88 +720,26 @@ func TestLBServiceReconciler(t *testing.T) {
 			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"io.kubernetes.service.name": "svc-1"}},
 			advertised:         map[resource.Key][]string{},
 			upsertedServices: []*slim_corev1.Service{
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-1",
-						Namespace: "default",
-						Labels: map[string]string{
-							"color": "blue",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeLoadBalancer,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "1.2.3.4",
-								},
-							},
-						},
-					},
-				},
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-1",
-						Namespace: "non-default",
-						Labels: map[string]string{
-							"color": "blue",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeLoadBalancer,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "2.3.4.5",
-								},
-							},
-						},
-					},
-				},
+				svc1,
+				svc1NonDefault,
 			},
 			updated: map[resource.Key][]string{
-				{Name: "svc-1", Namespace: "default"}: {
-					"1.2.3.4/32",
+				svc1Name: {
+					ingressV4Prefix,
 				},
-				{Name: "svc-1", Namespace: "non-default"}: {
-					"2.3.4.5/32",
+				svc1NonDefaultName: {
+					ingressV4Prefix_2,
 				},
 			},
 		},
 		// No-LB service
 		{
 			name:               "non-lb svc",
-			oldServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
-			newServiceSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}},
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
 			advertised:         map[resource.Key][]string{},
-			upsertedServices: []*slim_corev1.Service{
-				{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:      "svc-1",
-						Namespace: "default",
-						Labels: map[string]string{
-							"color": "blue",
-						},
-					},
-					Spec: slim_corev1.ServiceSpec{
-						Type: slim_corev1.ServiceTypeClusterIP,
-					},
-					Status: slim_corev1.ServiceStatus{
-						LoadBalancer: slim_corev1.LoadBalancerStatus{
-							Ingress: []slim_corev1.LoadBalancerIngress{
-								{
-									IP: "1.2.3.4",
-								},
-							},
-						},
-					},
-				},
-			},
-			updated: map[resource.Key][]string{},
+			upsertedServices:   []*slim_corev1.Service{svc1NonLB},
+			updated:            map[resource.Key][]string{},
 		},
 	}
 	for _, tt := range table {
