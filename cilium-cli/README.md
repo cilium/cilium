@@ -395,7 +395,7 @@ To install using Cilium's [OCI dev chart repository](https://quay.io/repository/
 
 To upgrade to a specific version of Cilium:
 
-    cilium upgrade --version v1.13.2
+    cilium upgrade --version v1.13.3
 
 To upgrade using a local Helm chart:
 
@@ -409,8 +409,8 @@ Note that `upgrade` does not mean you can only upgrade to a newer version than w
 currently installed. Similar to `helm upgrade`, `cilium upgrade` can be used to downgrade
 to a previous version. For example:
 
-     cilium install --version 1.13.2
-     cilium upgrade --version 1.12.9
+     cilium install --version 1.13.3
+     cilium upgrade --version 1.12.10
 
 Please read [the upgrade guide](https://docs.cilium.io/en/stable/operations/upgrade/)
 carefully before upgrading Cilium to understand all the necessary steps. In particular,
@@ -421,11 +421,11 @@ resources and non-default Helm values without actually performing an upgrade:
 To see the difference between the current Kubernetes resources in a live cluster and what would
 be applied:
 
-    cilium upgrade --version v1.13.2 --dry-run | kubectl diff -f -
+    cilium upgrade --version v1.13.3 --dry-run | kubectl diff -f -
 
 To see the non-default Helm values that would be used during upgrade:
 
-    cilium upgrade --version v1.13.2 --dry-run-helm-values
+    cilium upgrade --version v1.13.3 --dry-run-helm-values
 
 > **Note**
 > You can use external diff tools such as [dyff](https://github.com/homeport/dyff) to make
