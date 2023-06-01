@@ -212,27 +212,32 @@ fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 
 static __always_inline int
 fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
-		struct ipv6hdr *ip6, const bool needs_l2_check,
-		__s8 *fib_err, int iif, int *oif)
+		struct ipv6hdr *ip6 __maybe_unused, const bool needs_l2_check,
+		__s8 *fib_err __maybe_unused, int *oif)
 {
-	struct bpf_fib_lookup_padded fib_params = {
-		.l = {
-			.family		= AF_INET6,
-			.ifindex	= iif,
-		},
-	};
+	struct bpf_fib_lookup_padded fib_params __maybe_unused = {0};
+	__s8 skip_fib __maybe_unused = BPF_FIB_LKUP_RET_NO_NEIGH;
 	int ret;
 
-	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
-		       (union v6addr *)&ip6->saddr);
-	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
-		       (union v6addr *)&ip6->daddr);
+#ifndef ENABLE_SKIP_FIB
+	ret = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr, 0);
+	*fib_err = (__s8)ret;
 
 	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-	return fib_redirect(ctx, needs_l2_check, &fib_params, fib_err, oif);
+	return fib_do_redirect(ctx, needs_l2_check, &fib_params, fib_err, oif);
+#else
+	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
+	if (unlikely(ret != CTX_ACT_OK))
+		return ret;
+
+	*fib_err = skip_fib;
+
+	*oif = DIRECT_ROUTING_DEV_IFINDEX;
+	return fib_do_redirect(ctx, needs_l2_check, NULL, fib_err, oif);
+#endif
 }
 #endif /* ENABLE_IPV6 */
 
@@ -256,24 +261,33 @@ fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 
 static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
-		struct iphdr *ip4, const bool needs_l2_check,
-		__s8 *fib_err, int iif, int *oif)
+		struct iphdr *ip4 __maybe_unused, const bool needs_l2_check,
+		__s8 *fib_err __maybe_unused, int *oif)
 {
-	struct bpf_fib_lookup_padded fib_params = {
-		.l = {
-			.family		= AF_INET,
-			.ifindex	= iif,
-			.ipv4_src	= ip4->saddr,
-			.ipv4_dst	= ip4->daddr,
-		},
-	};
+	struct bpf_fib_lookup_padded fib_params __maybe_unused = {0};
+	__s8 skip_fib __maybe_unused = BPF_FIB_LKUP_RET_NO_NEIGH;
 	int ret;
+
+#ifndef ENABLE_SKIP_FIB
+	ret = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, 0);
+	*fib_err = (__s8)ret;
 
 	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-	return fib_redirect(ctx, needs_l2_check, &fib_params, fib_err, oif);
+	return fib_do_redirect(ctx, needs_l2_check, &fib_params, fib_err, oif);
+#else
+	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
+	if (unlikely(ret != CTX_ACT_OK))
+		return ret;
+
+	*fib_err = skip_fib;
+
+	*oif = DIRECT_ROUTING_DEV_IFINDEX;
+	return fib_do_redirect(ctx, needs_l2_check, NULL, fib_err, oif);
+#endif
+
 }
 #endif /* ENABLE_IPV4 */
 #endif /* __LIB_FIB_H_ */
