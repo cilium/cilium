@@ -11,7 +11,7 @@ import (
 // TLSClientConfig returns a TLS configuration which verifies and authorizes
 // the server X509-SVID.
 func TLSClientConfig(bundle x509bundle.Source, authorizer Authorizer, opts ...Option) *tls.Config {
-	config := new(tls.Config)
+	config := newTLSConfig()
 	HookTLSClientConfig(config, bundle, authorizer, opts...)
 	return config
 }
@@ -58,7 +58,7 @@ func WithTrace(trace Trace) Option {
 // MTLSClientConfig returns a TLS configuration which presents an X509-SVID
 // to the server and verifies and authorizes the server X509-SVID.
 func MTLSClientConfig(svid x509svid.Source, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) *tls.Config {
-	config := new(tls.Config)
+	config := newTLSConfig()
 	HookMTLSClientConfig(config, svid, bundle, authorizer, opts...)
 	return config
 }
@@ -78,7 +78,7 @@ func HookMTLSClientConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 // to the server and verifies the server certificate using provided roots (or
 // the system roots if nil).
 func MTLSWebClientConfig(svid x509svid.Source, roots *x509.CertPool, opts ...Option) *tls.Config {
-	config := new(tls.Config)
+	config := newTLSConfig()
 	HookMTLSWebClientConfig(config, svid, roots, opts...)
 	return config
 }
@@ -95,7 +95,7 @@ func HookMTLSWebClientConfig(config *tls.Config, svid x509svid.Source, roots *x5
 // TLSServerConfig returns a TLS configuration which presents an X509-SVID
 // to the client and does not require or verify client certificates.
 func TLSServerConfig(svid x509svid.Source, opts ...Option) *tls.Config {
-	config := new(tls.Config)
+	config := newTLSConfig()
 	HookTLSServerConfig(config, svid, opts...)
 	return config
 }
@@ -110,7 +110,7 @@ func HookTLSServerConfig(config *tls.Config, svid x509svid.Source, opts ...Optio
 // MTLSServerConfig returns a TLS configuration which presents an X509-SVID
 // to the client and requires, verifies, and authorizes client X509-SVIDs.
 func MTLSServerConfig(svid x509svid.Source, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) *tls.Config {
-	config := new(tls.Config)
+	config := newTLSConfig()
 	HookMTLSServerConfig(config, svid, bundle, authorizer, opts...)
 	return config
 }
@@ -131,7 +131,7 @@ func HookMTLSServerConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 // server certificate to the client and requires, verifies, and authorizes
 // client X509-SVIDs.
 func MTLSWebServerConfig(cert *tls.Certificate, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) *tls.Config {
-	config := new(tls.Config)
+	config := newTLSConfig()
 	HookMTLSWebServerConfig(config, cert, bundle, authorizer, opts...)
 	return config
 }
@@ -234,7 +234,16 @@ func getTLSCertificate(svid x509svid.Source, trace Trace) (*tls.Certificate, err
 	return cert, nil
 }
 
+func newTLSConfig() *tls.Config {
+	return &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+}
+
 func resetAuthFields(config *tls.Config) {
+	if config.MinVersion < tls.VersionTLS12 {
+		config.MinVersion = tls.VersionTLS12
+	}
 	config.Certificates = nil
 	config.ClientAuth = tls.NoClientCert
 	config.GetCertificate = nil

@@ -85,9 +85,8 @@ type CreateRouteTableRequest struct {
 // CreateRouteTableResponse is the response struct for api CreateRouteTable
 type CreateRouteTableResponse struct {
 	*responses.BaseResponse
-	RequestId     string `json:"RequestId" xml:"RequestId"`
-	RouteTableId  string `json:"RouteTableId" xml:"RouteTableId"`
-	AssociateType string `json:"AssociateType" xml:"AssociateType"`
+	RequestId    string `json:"RequestId" xml:"RequestId"`
+	RouteTableId string `json:"RouteTableId" xml:"RouteTableId"`
 }
 
 // CreateCreateRouteTableRequest creates a request to invoke CreateRouteTable API

@@ -108,6 +108,7 @@ type DescribeVpcAttributeResponse struct {
 	AssociatedCens       AssociatedCensInDescribeVpcAttribute      `json:"AssociatedCens" xml:"AssociatedCens"`
 	CloudResources       CloudResourcesInDescribeVpcAttribute      `json:"CloudResources" xml:"CloudResources"`
 	Ipv6CidrBlocks       Ipv6CidrBlocksInDescribeVpcAttribute      `json:"Ipv6CidrBlocks" xml:"Ipv6CidrBlocks"`
+	Tags                 TagsInDescribeVpcAttribute                `json:"Tags" xml:"Tags"`
 }
 
 // CreateDescribeVpcAttributeRequest creates a request to invoke DescribeVpcAttribute API

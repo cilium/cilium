@@ -157,7 +157,7 @@ var netProtocols = []string{
 	"udplite",
 }
 
-// NetProtoCounters returns network statistics for the entire system
+// ProtoCounters returns network statistics for the entire system
 // If protocols is empty then all protocols are returned, otherwise
 // just the protocols in the list are returned.
 // Available protocols:

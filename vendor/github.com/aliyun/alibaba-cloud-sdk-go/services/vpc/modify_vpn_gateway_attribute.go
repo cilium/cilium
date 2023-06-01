@@ -85,21 +85,24 @@ type ModifyVpnGatewayAttributeRequest struct {
 // ModifyVpnGatewayAttributeResponse is the response struct for api ModifyVpnGatewayAttribute
 type ModifyVpnGatewayAttributeResponse struct {
 	*responses.BaseResponse
-	VpcId          string `json:"VpcId" xml:"VpcId"`
-	Status         string `json:"Status" xml:"Status"`
-	InternetIp     string `json:"InternetIp" xml:"InternetIp"`
-	Spec           string `json:"Spec" xml:"Spec"`
-	CreateTime     int64  `json:"CreateTime" xml:"CreateTime"`
-	AutoPropagate  bool   `json:"AutoPropagate" xml:"AutoPropagate"`
-	VpnGatewayId   string `json:"VpnGatewayId" xml:"VpnGatewayId"`
-	IntranetIp     string `json:"IntranetIp" xml:"IntranetIp"`
-	EndTime        int64  `json:"EndTime" xml:"EndTime"`
-	VSwitchId      string `json:"VSwitchId" xml:"VSwitchId"`
-	RequestId      string `json:"RequestId" xml:"RequestId"`
-	Description    string `json:"Description" xml:"Description"`
-	EnableBgp      bool   `json:"EnableBgp" xml:"EnableBgp"`
-	BusinessStatus string `json:"BusinessStatus" xml:"BusinessStatus"`
-	Name           string `json:"Name" xml:"Name"`
+	VpcId                      string `json:"VpcId" xml:"VpcId"`
+	Status                     string `json:"Status" xml:"Status"`
+	InternetIp                 string `json:"InternetIp" xml:"InternetIp"`
+	Spec                       string `json:"Spec" xml:"Spec"`
+	CreateTime                 int64  `json:"CreateTime" xml:"CreateTime"`
+	AutoPropagate              bool   `json:"AutoPropagate" xml:"AutoPropagate"`
+	VpnGatewayId               string `json:"VpnGatewayId" xml:"VpnGatewayId"`
+	IntranetIp                 string `json:"IntranetIp" xml:"IntranetIp"`
+	EndTime                    int64  `json:"EndTime" xml:"EndTime"`
+	VSwitchId                  string `json:"VSwitchId" xml:"VSwitchId"`
+	RequestId                  string `json:"RequestId" xml:"RequestId"`
+	Description                string `json:"Description" xml:"Description"`
+	EnableBgp                  bool   `json:"EnableBgp" xml:"EnableBgp"`
+	BusinessStatus             string `json:"BusinessStatus" xml:"BusinessStatus"`
+	Name                       string `json:"Name" xml:"Name"`
+	DisasterRecoveryInternetIp string `json:"DisasterRecoveryInternetIp" xml:"DisasterRecoveryInternetIp"`
+	DisasterRecoveryVSwitchId  string `json:"DisasterRecoveryVSwitchId" xml:"DisasterRecoveryVSwitchId"`
+	SslVpnInternetIp           string `json:"SslVpnInternetIp" xml:"SslVpnInternetIp"`
 }
 
 // CreateModifyVpnGatewayAttributeRequest creates a request to invoke ModifyVpnGatewayAttribute API

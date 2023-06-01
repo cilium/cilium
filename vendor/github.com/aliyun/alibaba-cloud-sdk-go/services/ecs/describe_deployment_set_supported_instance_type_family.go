@@ -75,6 +75,7 @@ type DescribeDeploymentSetSupportedInstanceTypeFamilyRequest struct {
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	Strategy             string           `position:"Query" name:"Strategy"`
 }
 
 // DescribeDeploymentSetSupportedInstanceTypeFamilyResponse is the response struct for api DescribeDeploymentSetSupportedInstanceTypeFamily
