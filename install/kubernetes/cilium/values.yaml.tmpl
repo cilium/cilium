@@ -1760,24 +1760,24 @@ proxy:
   # container image names
   sidecarImageRegex: "cilium/istio_proxy"
 
-# -- Configure Cilium Envoy options.
+# Configure Cilium Envoy options.
 envoy:
-  # Enable Envoy Proxy in standalone DaemonSet.
+  # -- Enable Envoy Proxy in standalone DaemonSet.
   enabled: false
 
   log:
-    # The format string to use for laying out the log message metadata of Envoy.
+    # -- The format string to use for laying out the log message metadata of Envoy.
     format: "[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"
-    # Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
+    # -- Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
     path: ""
 
-  # Time in seconds after which a TCP connection attempt times out
+  # -- Time in seconds after which a TCP connection attempt times out
   connectTimeoutSeconds: 2
-  # ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
+  # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
   maxRequestsPerConnection: 0
-  # Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
+  # -- Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
   maxConnectionDurationSeconds: 0
-  # Set Envoy upstream HTTP idle connection timeout seconds.
+  # -- Set Envoy upstream HTTP idle connection timeout seconds.
   # Does not apply to connections with pending requests. Default 60s
   idleTimeoutDurationSeconds: 60
 
@@ -1820,6 +1820,8 @@ envoy:
   # -- TCP port for the health API.
   healthPort: 9878
 
+  # -- cilium-envoy update strategy
+  # ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/#updating-a-daemonset
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
@@ -1920,6 +1922,7 @@ envoy:
   dnsPolicy: ~
 
   prometheus:
+    # -- Enable prometheus metrics for cilium-envoy
     enabled: true
     serviceMonitor:
       # -- Enable service monitors.
@@ -1942,6 +1945,7 @@ envoy:
           replacement: ${1}
       # -- Metrics relabeling configs for the ServiceMonitor cilium-envoy
       metricRelabelings: ~
+    # -- Serve prometheus metrics for cilium-envoy on the configured port
     port: "9964"
 
 # -- Enable use of the remote node identity.

@@ -323,6 +323,7 @@ configSources
 configmap
 configs
 conformant
+connectTimeoutSeconds
 connectionTimeout
 conntrack
 conntrackGCInterval
@@ -563,6 +564,7 @@ identityChangeGracePeriod
 identityGCInterval
 identityHeartbeatTimeout
 idleConnectionGracePeriod
+idleTimeoutDurationSeconds
 ie
 ifindex
 imagePullSecrets
@@ -718,7 +720,9 @@ masqLinkLocal
 masterDevice
 matchLabels
 matchPattern
+maxConnectionDurationSeconds
 maxDeferredConnectionDeletes
+maxRequestsPerConnection
 maxUnavailable
 mc
 mediabot
