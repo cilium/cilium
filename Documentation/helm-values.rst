@@ -348,6 +348,10 @@
      - Security context to be added to clustermesh-apiserver etcd containers
      - object
      - ``{}``
+   * - clustermesh.apiserver.extraArgs
+     - Additional clustermesh-apiserver arguments.
+     - list
+     - ``[]``
    * - clustermesh.apiserver.extraEnv
      - Additional clustermesh-apiserver environment variables.
      - list
