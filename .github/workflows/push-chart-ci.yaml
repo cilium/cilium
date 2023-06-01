@@ -3,7 +3,9 @@ name: Chart CI Push
 on:
   # run after the image build completes
   workflow_run:
-    workflows: ["Image CI Build"]
+    workflows:
+      - Image CI Build
+      - Hot Fix Image Release Build
     types:
       - completed
   # allow manually triggering it as well, for existing refs
