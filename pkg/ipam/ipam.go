@@ -108,7 +108,7 @@ type Metadata interface {
 }
 
 // NewIPAM returns a new IP address manager
-func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, k8sEventReg K8sEventRegister, localNode k8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
+func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, localNode k8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
 	ipam := &IPAM{
 		nodeAddressing:   nodeAddressing,
 		config:           c,
@@ -153,11 +153,11 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		log.Info("Initializing CRD-based IPAM")
 		if c.IPv6Enabled() {
-			ipam.IPv6Allocator = newCRDAllocator(IPv6, c, owner, clientset, k8sEventReg, mtuConfig)
+			ipam.IPv6Allocator = newCRDAllocator(IPv6, c, owner, clientset, localNode, mtuConfig)
 		}
 
 		if c.IPv4Enabled() {
-			ipam.IPv4Allocator = newCRDAllocator(IPv4, c, owner, clientset, k8sEventReg, mtuConfig)
+			ipam.IPv4Allocator = newCRDAllocator(IPv4, c, owner, clientset, localNode, mtuConfig)
 		}
 	case ipamOption.IPAMDelegatedPlugin:
 		log.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")
