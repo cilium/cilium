@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"testing"
 	"unsafe"
 
 	. "github.com/cilium/checkmate"
@@ -773,4 +775,33 @@ func (s *BPFPrivilegedTestSuite) TestCreateUnpinned(c *C) {
 	got, err := m.Lookup(k)
 	c.Assert(err, IsNil)
 	c.Assert(got, checker.DeepEquals, v)
+}
+
+func BenchmarkMapLookup(b *testing.B) {
+	b.ReportAllocs()
+
+	m := NewMap("", MapTypeHash, &TestKey{},
+		int(unsafe.Sizeof(TestKey{})),
+		&TestValue{},
+		int(unsafe.Sizeof(TestValue{})),
+		1,
+		BPF_F_NO_PREALLOC,
+		ConvertKeyValue)
+
+	if err := m.CreateUnpinned(); err != nil {
+		b.Fatal(err)
+	}
+
+	k := TestKey{Key: 0}
+	if err := m.Update(&k, &TestValue{Value: 1}); err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		if _, err := m.Lookup(&k); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
