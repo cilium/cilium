@@ -40,7 +40,7 @@ struct {
  * conntrack instance we are using.
  */
 struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u32);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
@@ -54,7 +54,7 @@ struct {
 } PER_CLUSTER_CT_TCP6 __section_maps_btf;
 
 struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u32);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
@@ -138,7 +138,7 @@ struct per_cluster_ct_map4_inner_map {
 #endif
 
 struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u32);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
@@ -156,7 +156,7 @@ struct {
 #endif
 
 struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u32);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);

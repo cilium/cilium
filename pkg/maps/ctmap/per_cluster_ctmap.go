@@ -4,12 +4,8 @@
 package ctmap
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"strconv"
-
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/ebpf"
 
@@ -332,7 +328,7 @@ func newPerClusterCTMap(name string, m mapType) (*PerClusterCTMap, error) {
 
 	om := bpf.NewMapWithInnerSpec(
 		name,
-		ebpf.ArrayOfMaps,
+		ebpf.HashOfMaps,
 		&PerClusterCTMapKey{},
 		&PerClusterCTMapVal{},
 		perClusterCTMapMaxEntries,
@@ -340,6 +336,8 @@ func newPerClusterCTMap(name string, m mapType) (*PerClusterCTMap, error) {
 		inner,
 	)
 
+	// Open and/or pin the outer maps to bpffs to allow the ELF loader to find
+	// them at load time.
 	if err := om.OpenOrCreate(); err != nil {
 		return nil, err
 	}
@@ -364,13 +362,11 @@ func (om *PerClusterCTMap) updateClusterCTMap(clusterID uint32) error {
 
 	im := om.newInnerMap(clusterID)
 
-	if err := im.OpenOrCreate(); err != nil {
+	// Inner maps are opened by reading their IDs back from the outer map.
+	// Don't pin them to avoid having to manage the pins' lifecycles.
+	if err := im.CreateUnpinned(); err != nil {
 		return err
 	}
-
-	// Close the file descriptor, but won't unpin because we don't want to
-	// lookup outer map (lookup of map-in-map is slow because it involves
-	// RCU synchronization) and want to open inner map from bpffs.
 	defer im.Close()
 
 	if err := om.Update(
@@ -388,19 +384,6 @@ func (om *PerClusterCTMap) deleteClusterCTMap(clusterID uint32) error {
 		return fmt.Errorf("invalid clusterID %d, clusterID should be 1 - %d", clusterID, cmtypes.ClusterIDMax)
 	}
 
-	im := om.newInnerMap(clusterID)
-
-	if err := im.Open(); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil
-		}
-		return err
-	}
-
-	// Release opened file descriptor and bpffs entry
-	im.Close()
-	im.Unpin()
-
 	// Detach inner map from outer map. At this point, no
 	// one should have the reference of the inner map after
 	// this call.
@@ -416,9 +399,17 @@ func (om *PerClusterCTMap) getClusterMap(clusterID uint32) (*Map, error) {
 		return nil, fmt.Errorf("invalid clusterID %d, clusterID should be 1 - %d", clusterID, cmtypes.ClusterIDMax)
 	}
 
+	v, err := om.Lookup(&PerClusterCTMapKey{clusterID})
+	if err != nil {
+		return nil, fmt.Errorf("no inner map for clusterID %d: %w", clusterID, err)
+	}
+	id := v.(*PerClusterCTMapVal)
+
 	im := om.newInnerMap(clusterID)
 
-	if err := im.Open(); err != nil {
+	// Writing to an outer map takes a file descriptor, but returns a bpf map id
+	// when read back.
+	if err := im.OpenFromID(ebpf.MapID(id.Fd)); err != nil {
 		return nil, fmt.Errorf("open inner map: %w", err)
 	}
 
@@ -442,24 +433,26 @@ func (om *PerClusterCTMap) getAllClusterMaps() ([]*Map, error) {
 		}
 	}()
 
-	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
-		im, err = om.getClusterMap(i)
-		if errors.Is(err, unix.ENOENT) {
-			continue
-		}
+	var k PerClusterCTMapKey
+	v := make([]byte, om.ValueSize())
+
+	i := om.Iterate()
+	for i.Next(&k, &v) {
+		im, err = om.getClusterMap(k.ClusterID)
 		if err != nil {
 			return nil, err
 		}
 		innerMaps = append(innerMaps, im)
 	}
 
+	if err := i.Err(); err != nil {
+		return nil, fmt.Errorf("iterating outer map %s: %w", om.Name(), err)
+	}
+
 	return innerMaps, nil
 }
 
 func (om *PerClusterCTMap) cleanup() {
-	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
-		om.deleteClusterCTMap(i)
-	}
 	om.Unpin()
 	om.Close()
 }

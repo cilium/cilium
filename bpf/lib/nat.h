@@ -135,7 +135,7 @@ struct per_cluster_snat_mapping_ipv4_inner_map {
 #endif
 
 struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u32);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
@@ -1292,7 +1292,7 @@ struct {
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u32);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
