@@ -21,8 +21,8 @@ static const char fib_dmac[6] = {0x13, 0x37, 0x13, 0x37, 0x13, 0x37};
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		     __maybe_unused int plen, __maybe_unused __u32 flags)
 {
-	memcpy(params->smac, fib_smac, sizeof(fib_smac));
-	memcpy(params->dmac, fib_dmac, sizeof(fib_dmac));
+	__bpf_memcpy_builtin(params->smac, fib_smac, ETH_ALEN);
+	__bpf_memcpy_builtin(params->dmac, fib_dmac, ETH_ALEN);
 	return 0;
 }
 
@@ -187,7 +187,7 @@ int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	__u32 *status_code = data;
 
-	if (*status_code != XDP_TX) test_fatal("status code != XDP_TX");
+	if (*status_code != XDP_TX) test_fatal("status code != XDP_TX %d", *status_code);
 
 	data += sizeof(__u32);
 
