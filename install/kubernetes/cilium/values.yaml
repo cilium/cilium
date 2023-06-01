@@ -2644,6 +2644,9 @@ clustermesh:
     # -- Number of replicas run for the clustermesh-apiserver deployment.
     replicas: 1
 
+    # -- Additional clustermesh-apiserver arguments.
+    extraArgs: []
+
     # -- Additional clustermesh-apiserver environment variables.
     extraEnv: []
 

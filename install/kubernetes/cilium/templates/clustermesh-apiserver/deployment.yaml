@@ -162,6 +162,9 @@ spec:
         {{- if .Values.clustermesh.apiserver.metrics.enabled }}
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.port }}
         {{- end }}
+        {{- with .Values.clustermesh.apiserver.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
         env:
         - name: CLUSTER_NAME
           valueFrom:
