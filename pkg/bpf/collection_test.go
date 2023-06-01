@@ -120,3 +120,36 @@ func TestInlineGlobalData(t *testing.T) {
 		t.Errorf("unexpected Instruction constant: want: 0x%x, got: 0x%x", want, got)
 	}
 }
+
+func TestInlineBSS(t *testing.T) {
+	// Rewrite references to .bss in the absence of any maps.
+	spec := &ebpf.CollectionSpec{
+		ByteOrder: binary.LittleEndian,
+		Programs: map[string]*ebpf.ProgramSpec{
+			"prog1": {
+				Instructions: asm.Instructions{
+					asm.LoadMapValue(asm.R8, 0, 0).WithReference(".bss"),
+					asm.Return(),
+				},
+			},
+		},
+	}
+
+	if err := inlineGlobalData(spec); err != nil {
+		t.Fatal(err)
+	}
+
+	insns := spec.Programs["prog1"].Instructions
+
+	if want, got := 0, int(insns[0].Constant); want != got {
+		t.Errorf("unexpected Instruction constant: want: 0x%x, got: 0x%x", want, got)
+	}
+
+	if want, got := asm.LoadImmOp(asm.DWord), insns[0].OpCode; want != got {
+		t.Errorf("unexpected Instruction OpCode: want: %s, got: %s", want, got)
+	}
+
+	if want, got := asm.R8, insns[0].Dst; want != got {
+		t.Errorf("unexpected Instruction OpCode: want: %s, got: %s", want, got)
+	}
+}

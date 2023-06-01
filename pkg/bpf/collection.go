@@ -238,10 +238,6 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 	if err != nil {
 		return err
 	}
-	if vars == nil {
-		// No static data, nothing to replace.
-		return nil
-	}
 
 	// Don't attempt to create an empty map .bss in the kernel.
 	delete(spec.Maps, ".bss")
@@ -260,6 +256,10 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 
 			if ins.Reference() != globalDataMap {
 				return fmt.Errorf("global constants must be in %s, but found reference to %s", globalDataMap, ins.Reference())
+			}
+
+			if vars == nil {
+				return fmt.Errorf("found instruction referring to %s, but no global data map is present", globalDataMap)
 			}
 
 			// Get the offset of the read within the target map,
