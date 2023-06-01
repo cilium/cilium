@@ -40,4 +40,5 @@ type CommonBandwidthPackage struct {
 	HasReservationData            string                                                   `json:"HasReservationData" xml:"HasReservationData"`
 	SecurityProtectionTypes       SecurityProtectionTypesInDescribeCommonBandwidthPackages `json:"SecurityProtectionTypes" xml:"SecurityProtectionTypes"`
 	PublicIpAddresses             PublicIpAddressesInDescribeCommonBandwidthPackages       `json:"PublicIpAddresses" xml:"PublicIpAddresses"`
+	Tags                          TagsInDescribeCommonBandwidthPackages                    `json:"Tags" xml:"Tags"`
 }
