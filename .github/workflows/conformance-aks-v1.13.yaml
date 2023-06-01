@@ -266,6 +266,10 @@ jobs:
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
 
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
       - name: Port forward Relay
         run: |
           cilium hubble port-forward&
@@ -298,6 +302,10 @@ jobs:
       - name: Enable Relay
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
 
       - name: Port forward Relay
         run: |
