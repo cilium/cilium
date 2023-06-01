@@ -203,37 +203,11 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      # Load Ubuntu cache from GitHub
-      - name: Load ${{ matrix.name }} Ubuntu packages from GitHub
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
-        id: ubuntu-cache
-        with:
-          path: /tmp/.ubuntu-pkgs
-          key: ${{ runner.os }}-ubuntu-pkgs-bpf-next-20230526.100931
-
-      - name: Download LVH dependencies
-        if: ${{ steps.ubuntu-cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          sudo apt update
-          sudo apt-get clean
-          sudo apt-get -d -y --no-install-recommends install cpu-checker qemu-system-x86 libvirt-daemon-system libvirt-clients bridge-utils virtinst virt-manager
-          sudo mkdir -p /tmp/.ubuntu-pkgs
-          sudo cp /var/cache/apt/archives/*.deb /tmp/.ubuntu-pkgs
-
-      - name: Install LVH dependencies
-        shell: bash
-        run: |
-          # Disable auto update of man-db for every package
-          sudo rm /var/lib/man-db/auto-update
-          sudo cp /tmp/.ubuntu-pkgs/*.deb /var/cache/apt/archives/
-          sudo apt-get -y --no-install-recommends install /tmp/.ubuntu-pkgs/*.deb
-          sudo kvm-ok
-
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
         with:
           test-name: runtime-tests
+          install-dependencies: true
           image-version: bpf-next-20230526.100931@sha256:859602be3f66a359d9d20f23505b7df5c46d21f174b336a5bc4dd4f9ea558b54
           host-mount: ./
           cpu: 4
@@ -256,7 +230,7 @@ jobs:
 
       - name: Setup runtime
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
         with:
           provision: 'false'
           cmd: |
@@ -310,7 +284,7 @@ jobs:
       - name: Runtime privileged tests [junit]
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 20
-        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
         with:
           provision: 'false'
           cmd: |
