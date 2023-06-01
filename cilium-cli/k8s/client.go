@@ -315,8 +315,8 @@ func (c *Client) CheckDeploymentStatus(ctx context.Context, namespace, deploymen
 	return nil
 }
 
-func (c *Client) CreateNamespace(ctx context.Context, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
-	return c.Clientset.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}, opts)
+func (c *Client) CreateNamespace(ctx context.Context, namespace *corev1.Namespace, opts metav1.CreateOptions) (*corev1.Namespace, error) {
+	return c.Clientset.CoreV1().Namespaces().Create(ctx, namespace, opts)
 }
 
 func (c *Client) GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error) {
