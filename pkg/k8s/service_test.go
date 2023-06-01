@@ -1007,7 +1007,7 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 	})
 
 	clusterService := NewClusterService(id, svc, endpoints)
-	c.Assert(clusterService, check.DeepEquals, serviceStore.ClusterService{
+	c.Assert(clusterService, checker.DeepEquals, serviceStore.ClusterService{
 		Name:      "foo",
 		Namespace: "bar",
 		Labels:    map[string]string{"foo": "bar"},

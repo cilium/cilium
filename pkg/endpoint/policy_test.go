@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -40,7 +41,7 @@ func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
 	})
 
 	c.Assert(ep.visibilityPolicy, check.Not(check.Equals), nil)
-	c.Assert(ep.visibilityPolicy.Ingress["80/TCP"], check.DeepEquals, &policy.VisibilityMetadata{
+	c.Assert(ep.visibilityPolicy.Ingress["80/TCP"], checker.DeepEquals, &policy.VisibilityMetadata{
 		Parser:  policy.ParserTypeHTTP,
 		Port:    uint16(80),
 		Proto:   u8proto.TCP,
