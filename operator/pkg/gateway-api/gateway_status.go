@@ -22,12 +22,6 @@ func setGatewayProgrammed(gw *gatewayv1beta1.Gateway, ready bool, msg string) *g
 	return gw
 }
 
-// setGatewayReady inserts or updates the Ready condition for the provided Gateway resource.
-func setGatewayReady(gw *gatewayv1beta1.Gateway, ready bool, msg string) *gatewayv1beta1.Gateway {
-	gw.Status.Conditions = merge(gw.Status.Conditions, gatewayStatusReadyCondition(gw, ready, msg))
-	return gw
-}
-
 func gatewayStatusAcceptedCondition(gw *gatewayv1beta1.Gateway, accepted bool, msg string) metav1.Condition {
 	switch accepted {
 	case true:
