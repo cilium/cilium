@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -74,7 +75,7 @@ type multiPoolManager struct {
 
 var _ Allocator = (*multiPoolAllocator)(nil)
 
-func newMultiPoolManager(conf Configuration, nodeWatcher nodeWatcher, owner Owner, clientset nodeUpdater) *multiPoolManager {
+func newMultiPoolManager(conf Configuration, localNode k8s.LocalCiliumNodeResource, owner Owner, clientset nodeUpdater) *multiPoolManager {
 	preallocMap, err := parsePreAllocMap(option.Config.IPAMMultiPoolNodePreAlloc)
 	if err != nil {
 		log.WithError(err).Fatalf("Invalid %s flag value", option.IPAMMultiPoolNodePreAlloc)
@@ -107,12 +108,33 @@ func newMultiPoolManager(conf Configuration, nodeWatcher nodeWatcher, owner Owne
 	}
 
 	// Subscribe to CiliumNode updates
-	nodeWatcher.RegisterCiliumNodeSubscriber(c)
+	go c.handleNodeEvents(context.TODO(), localNode)
 	owner.UpdateCiliumNodeResource()
 
 	c.waitForAllPools()
 
 	return c
+}
+
+func (m *multiPoolManager) handleNodeEvents(ctx context.Context, localNode k8s.LocalCiliumNodeResource) {
+	events := localNode.Events(ctx)
+
+	for {
+		e, ok := <-events
+		if !ok {
+			return
+		}
+		n := e.Object
+		switch e.Kind {
+		case resource.Upsert:
+			m.ciliumNodeUpdated(n)
+		case resource.Delete:
+			log.WithField(logfields.Node, n).Warning("Local CiliumNode deleted. IPAM will continue on last seen version")
+		}
+
+		e.Done(nil)
+	}
+
 }
 
 // waitForAllPools waits for all pools in preallocMap to have IPs available.
@@ -335,30 +357,6 @@ func (m *multiPoolManager) upsertPoolLocked(poolName string, podCIDRs []types.IP
 	case m.poolsUpdated <- struct{}{}:
 	default:
 	}
-}
-
-func (m *multiPoolManager) OnAddCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
-	if k8s.IsLocalCiliumNode(node) {
-		m.ciliumNodeUpdated(node)
-	}
-
-	return nil
-}
-
-func (m *multiPoolManager) OnUpdateCiliumNode(oldNode, newNode *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
-	if k8s.IsLocalCiliumNode(newNode) {
-		m.ciliumNodeUpdated(newNode)
-	}
-
-	return nil
-}
-
-func (m *multiPoolManager) OnDeleteCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
-	if k8s.IsLocalCiliumNode(node) {
-		log.WithField(logfields.Node, node).Warning("Local CiliumNode deleted. IPAM will continue on last seen version")
-	}
-
-	return nil
 }
 
 func (m *multiPoolManager) dump(family Family) (allocated map[string]string, status string) {

@@ -142,7 +142,7 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		}
 	case ipamOption.IPAMMultiPool:
 		log.Info("Initializing MultiPool IPAM")
-		manager := newMultiPoolManager(c, k8sEventReg, owner, clientset.CiliumV2().CiliumNodes())
+		manager := newMultiPoolManager(c, localNode, owner, clientset.CiliumV2().CiliumNodes())
 
 		if c.IPv6Enabled() {
 			ipam.IPv6Allocator = manager.Allocator(IPv6)
