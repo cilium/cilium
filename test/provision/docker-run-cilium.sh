@@ -32,7 +32,7 @@ if [ "$1" = "uninstall" ] ; then
     exit 0
 fi
 
-DOCKER_OPTS=" -d --log-driver local --restart always"
+DOCKER_OPTS=" --rm -ti --log-driver local"
 DOCKER_OPTS+=" --privileged --network host --cap-add NET_ADMIN --cap-add SYS_MODULE"
 # Run cilium agent in the host's cgroup namespace so that
 # socket-based load balancing works as expected.
@@ -52,7 +52,7 @@ if [ -n "$(${SUDO} docker ps -a -q -f label=app=cilium)" ]; then
 fi
 
 echo "Launching Cilium agent $CILIUM_IMAGE with params $CILIUM_OPTS"
-${SUDO} docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE /bin/bash -c "groupadd -f cilium && cilium-agent $CILIUM_OPTS"
+${SUDO} docker create --name cilium $DOCKER_OPTS $CILIUM_IMAGE /bin/bash -c "groupadd -f cilium && cilium-agent $CILIUM_OPTS"
 
 # Copy Cilium CLI
 ${SUDO} docker cp cilium:/usr/bin/cilium /usr/bin/
@@ -65,3 +65,5 @@ if ! command -v "clang" >/dev/null 2>&1; then
   ${SUDO} docker cp cilium:/usr/local/bin/llc /usr/bin/
   ${SUDO} docker cp cilium:/usr/local/bin/tc /usr/bin/
 fi
+
+${SUDO} docker start -ai cilium
