@@ -1,0 +1,7 @@
+contact_links:
+  - name: Get Enterprise Support
+    url: https://cilium.io/enterprise/
+    about: See Cilium Enterprise Distributions and Trainings
+  - name: Join Slack
+    url: https://cilium.io/slack
+    about: Join the Cilium & eBPF Slack for conversation and quick questions
