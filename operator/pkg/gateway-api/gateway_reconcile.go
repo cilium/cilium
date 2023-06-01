@@ -144,8 +144,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return fail(err)
 	}
 
-	setGatewayReady(gw, true, "Gateway successfully configured")
-
 	// Step 4: Update the status of the Gateway
 	if err = r.setAddressStatus(ctx, gw); err != nil {
 		scopedLog.WithError(err).Error("Address is not ready")
@@ -351,7 +349,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 			conds = append(conds, gatewayListenerInvalidRouteKinds(gw, "Invalid Route Kinds"))
 			isValid = false
 		} else {
-			conds = append(conds, gatewayListenerProgrammedCondition(gw, true, "Listener Ready"))
+			conds = append(conds, gatewayListenerProgrammedCondition(gw, true, "Listener Programmed"))
 			conds = append(conds, gatewayListenerAcceptedCondition(gw, true, "Listener Accepted"))
 		}
 
