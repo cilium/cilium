@@ -35,8 +35,8 @@ var (
 		PeerASN:          64125,
 		PeerAddress:      "192.168.0.1/32",
 		ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
-		HoldTime:         metav1.Duration{Duration: 30 * time.Second},
-		KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
+		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
 	}
 
 	// enabled graceful restart

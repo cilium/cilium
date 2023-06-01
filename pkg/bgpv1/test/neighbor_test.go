@@ -19,6 +19,12 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var (
+	// maxNeighborTestDuration is allowed time for the Neighbor tests execution
+	// (on average we need about 20 - 25s to finish the tests due to BGP timers etc.)
+	maxNeighborTestDuration = 40 * time.Second
+)
+
 // peeringState helper struct containing peering information of BGP neighbor
 type peeringState struct {
 	peerASN         uint32
@@ -48,7 +54,7 @@ func Test_NeighborAddDel(t *testing.T) {
 				{
 					PeerAddress: dummies[instance1Link].ipv4.String(),
 					PeerASN:     int(gobgpASN),
-					HoldTime:    meta_v1.Duration{Duration: 3 * time.Second}, // must be lower than default (90s) to be applied on the peer
+					HoldTime:    meta_v1.Duration{Duration: 9 * time.Second}, // must be lower than default (90s) to be applied on the peer
 				},
 				{
 					PeerAddress: dummies[instance2Link].ipv4.String(),
@@ -62,13 +68,43 @@ func Test_NeighborAddDel(t *testing.T) {
 					peerASN:         gobgpASN,
 					peerAddr:        dummies[instance1Link].ipv4.Addr().String(),
 					peerSession:     types.SessionEstablished.String(),
-					holdTimeSeconds: 3,
+					holdTimeSeconds: 9,
 				},
 				{
 					peerASN:         gobgpASN2,
 					peerAddr:        dummies[instance2Link].ipv4.Addr().String(),
 					peerSession:     types.SessionEstablished.String(),
 					holdTimeSeconds: 6,
+				},
+			},
+		},
+		{
+			description: "update both neighbors",
+			neighbors: []cilium_api_v2alpha1.CiliumBGPNeighbor{
+				{
+					PeerAddress: dummies[instance1Link].ipv4.String(),
+					PeerASN:     int(gobgpASN),
+					HoldTime:    meta_v1.Duration{Duration: 6 * time.Second}, // updated, must be lower than the previous value to be applied on the peer
+				},
+				{
+					PeerAddress: dummies[instance2Link].ipv4.String(),
+					PeerASN:     int(gobgpASN2),
+					HoldTime:    meta_v1.Duration{Duration: 3 * time.Second}, // updated, must be lower than the previous value to be applied on the peer
+				},
+			},
+			waitState: []string{"ESTABLISHED"},
+			expectedPeerStates: []peeringState{
+				{
+					peerASN:         gobgpASN,
+					peerAddr:        dummies[instance1Link].ipv4.Addr().String(),
+					peerSession:     types.SessionEstablished.String(),
+					holdTimeSeconds: 6,
+				},
+				{
+					peerASN:         gobgpASN2,
+					peerAddr:        dummies[instance2Link].ipv4.Addr().String(),
+					peerSession:     types.SessionEstablished.String(),
+					holdTimeSeconds: 3,
 				},
 			},
 		},
@@ -80,7 +116,7 @@ func Test_NeighborAddDel(t *testing.T) {
 		},
 	}
 
-	testCtx, testDone := context.WithTimeout(context.Background(), maxTestDuration)
+	testCtx, testDone := context.WithTimeout(context.Background(), maxNeighborTestDuration)
 	defer testDone()
 
 	// test setup, we configure two gobgp instances here.
