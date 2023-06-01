@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -124,7 +125,7 @@ type crdWatcher struct {
 var crdWatcherInit sync.Once
 var sharedCRDWatcher *crdWatcher
 
-func newCRDWatcher(conf Configuration, nodeWatcher nodeWatcher, owner Owner, nodeUpdater nodeUpdater) *crdWatcher {
+func newCRDWatcher(conf Configuration, localNode k8s.LocalCiliumNodeResource, owner Owner, nodeUpdater nodeUpdater) *crdWatcher {
 	k8sController := controller.NewManager()
 	k8sUpdater, err := trigger.NewTrigger(trigger.Parameters{
 		MinInterval: 15 * time.Second,
@@ -155,10 +156,31 @@ func newCRDWatcher(conf Configuration, nodeWatcher nodeWatcher, owner Owner, nod
 	}
 
 	// Subscribe to CiliumNode updates
-	nodeWatcher.RegisterCiliumNodeSubscriber(c)
+	go c.handleNodeEvents(context.TODO(), localNode)
 	owner.UpdateCiliumNodeResource()
 
 	return c
+}
+
+func (c *crdWatcher) handleNodeEvents(ctx context.Context, localNode k8s.LocalCiliumNodeResource) {
+	events := localNode.Events(ctx)
+
+	for {
+		e, ok := <-events
+		if !ok {
+			return
+		}
+
+		n := e.Object
+		switch e.Kind {
+		case resource.Upsert:
+			c.localNodeUpdated(n)
+		case resource.Delete:
+			log.WithField(logfields.Node, n).Warning("Local CiliumNode deleted. IPAM will continue on last seen version")
+		}
+
+		e.Done(nil)
+	}
 }
 
 func (c *crdWatcher) localNodeUpdated(newNode *ciliumv2.CiliumNode) {
@@ -233,29 +255,6 @@ func (c *crdWatcher) localNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	c.node = newNode
 }
 
-func (c *crdWatcher) OnAddCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
-	if k8s.IsLocalCiliumNode(node) {
-		c.localNodeUpdated(node)
-	}
-
-	return nil
-}
-
-func (c *crdWatcher) OnUpdateCiliumNode(oldNode, newNode *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
-	if k8s.IsLocalCiliumNode(newNode) {
-		c.localNodeUpdated(newNode)
-	}
-
-	return nil
-}
-
-func (c *crdWatcher) OnDeleteCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
-	if k8s.IsLocalCiliumNode(node) {
-		log.WithField(logfields.Node, node).Warning("Local CiliumNode deleted. IPAM will continue on last seen version")
-	}
-
-	return nil
-}
 
 func (c *crdWatcher) updateCiliumNodeStatus(ctx context.Context) error {
 	var ipv4Pool, ipv6Pool *podCIDRPool
@@ -346,10 +345,10 @@ type clusterPoolAllocator struct {
 	pool *podCIDRPool
 }
 
-func newClusterPoolAllocator(family Family, conf Configuration, owner Owner, k8sEventReg K8sEventRegister, clientset client.Clientset) Allocator {
+func newClusterPoolAllocator(family Family, conf Configuration, owner Owner, localNode k8s.LocalCiliumNodeResource, clientset client.Clientset) Allocator {
 	crdWatcherInit.Do(func() {
 		nodeClient := clientset.CiliumV2().CiliumNodes()
-		sharedCRDWatcher = newCRDWatcher(conf, k8sEventReg, owner, nodeClient)
+		sharedCRDWatcher = newCRDWatcher(conf, localNode, owner, nodeClient)
 	})
 
 	var pool *podCIDRPool
