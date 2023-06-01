@@ -64,6 +64,8 @@ type Parameters struct {
 	JunitFile             string
 	JunitProperties       map[string]string
 
+	FlushCT bool
+
 	K8sVersion           string
 	HelmChartDirectory   string
 	HelmValuesSecretName string

@@ -172,6 +172,8 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 
 	initSysdumpFlags(cmd, &params.SysdumpOptions, "sysdump-", hooks)
 
+	cmd.Flags().BoolVar(&params.FlushCT, "flush-ct", false, "Flush conntrack of Cilium on each node")
+
 	hooks.AddConnectivityTestFlags(cmd.Flags())
 
 	return cmd
