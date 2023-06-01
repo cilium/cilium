@@ -3618,58 +3618,6 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 		return
 	}
 
-	ReportOnPod := func(pod string) {
-		logger := kub.Logger().WithField("CiliumPod", pod)
-
-		logsPath := filepath.Join(kub.BasePath(), testPath)
-
-		// Get bugtool output. Since bugtool output is dumped in the pod's filesystem,
-		// copy it over with `kubectl cp`.
-		bugtoolCmd := fmt.Sprintf("%s exec -n %s %s -- %s %s",
-			KubectlCmd, namespace, pod, CiliumBugtool, CiliumBugtoolArgs)
-		res := kub.ExecContext(ctx, bugtoolCmd, ExecOptions{SkipLog: true})
-		if !res.WasSuccessful() {
-			logger.Errorf("%s failed: %s", bugtoolCmd, res.CombineOutput().String())
-			return
-		}
-		// Default output directory is /tmp for bugtool.
-		res = kub.ExecContext(ctx, fmt.Sprintf("%s exec -n %s %s -- ls /tmp/", KubectlCmd, namespace, pod))
-		tmpList := res.ByLines()
-		for _, line := range tmpList {
-			// Only copy over bugtool output to directory.
-			if !strings.Contains(line, CiliumBugtool) {
-				continue
-			}
-
-			res = kub.ExecContext(ctx, fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s /tmp/%[4]s",
-				KubectlCmd, namespace, pod, line),
-				ExecOptions{SkipLog: true})
-			if !res.WasSuccessful() {
-				logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
-				continue
-			}
-
-			archiveName := filepath.Join(logsPath, fmt.Sprintf("bugtool-%s", pod))
-			res = kub.ExecContext(ctx, fmt.Sprintf("mkdir -p %q", archiveName))
-			if !res.WasSuccessful() {
-				logger.WithField("cmd", res.GetCmd()).Errorf(
-					"cannot create bugtool archive folder: %s", res.CombineOutput())
-				continue
-			}
-
-			cmd := fmt.Sprintf("tar -xf /tmp/%s -C %q --strip-components=1", line, archiveName)
-			res = kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
-			if !res.WasSuccessful() {
-				logger.WithField("cmd", cmd).Errorf(
-					"Cannot untar bugtool output: %s", res.CombineOutput())
-				continue
-			}
-			//Remove bugtool artifact, so it'll be not used if any other fail test
-			_ = kub.ExecPodCmdBackground(ctx, namespace, pod, "cilium-agent", fmt.Sprintf("rm /tmp/%s", line))
-		}
-
-	}
-
 	pods, err := kub.GetCiliumPodsContext(ctx, namespace)
 	if err != nil {
 		kub.Logger().WithError(err).Error("cannot retrieve cilium pods on ReportDump")
@@ -3691,7 +3639,6 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 	kub.reportMapContext(kvstoreCmdCtx, testPath, ciliumKubCLICommandsKVStore, namespace, CiliumSelector)
 
 	for _, pod := range pods {
-		ReportOnPod(pod)
 		kub.GatherCiliumCoreDumps(ctx, pod)
 	}
 }
