@@ -189,10 +189,10 @@ jobs:
           cilium-install-opts: "--datapath-mode=tunnel"
         - type: "ipsec"
           index: "3"
-          cilium-install-opts: "--encryption=ipsec"
+          cilium-install-opts: "--helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
         - type: "tunnel-ipsec"
           index: "4"
-          cilium-install-opts: "--encryption=ipsec --datapath-mode=tunnel"
+          cilium-install-opts: "--helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec --datapath-mode=tunnel"
     name: installation-and-connectivity ${{ matrix.type }}
 
     steps:
@@ -220,18 +220,15 @@ jobs:
             --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --helm-set=clustermesh.apiserver.image.tag=${SHA} \
             --helm-set=clustermesh.apiserver.image.useDigest=false \
+            --helm-set=hubble.relay.enabled=true \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
-            --wait=false \
-            --rollback=false \
-            --config monitor-aggregation=none \
-            --version="
-          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
-            --relay-version=${SHA}"
+            --helm-set=bpf.monitorAggregation=none \
+            --wait=false"
+
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target google.com --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
@@ -308,11 +305,12 @@ jobs:
 
       - name: Install Cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.cilium-install-opts }}
+          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.cilium-install-opts }}
 
-      - name: Enable Relay
+      - name: Wait for Cilium to be ready
         run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          cilium status --wait
+          kubectl get pods -n kube-system
 
       - name: Port forward Relay
         run: |
