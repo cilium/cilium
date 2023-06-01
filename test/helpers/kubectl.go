@@ -3647,14 +3647,6 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 // directory
 func (kub *Kubectl) GatherLogs(ctx context.Context) {
 	reportCmds := map[string]string{
-		"kubectl get pods --all-namespaces -o json":                          "pods.json",
-		"kubectl get services --all-namespaces -o json":                      "svc.json",
-		"kubectl get nodes -o json":                                          "nodes.json",
-		"kubectl get cn -o json":                                             "ciliumnodes.json",
-		"kubectl get ds --all-namespaces -o json":                            "ds.json",
-		"kubectl get cnp --all-namespaces -o json":                           "cnp.json",
-		"kubectl get cep --all-namespaces -o json":                           "cep.json",
-		"kubectl get netpol --all-namespaces -o json":                        "netpol.json",
 		"kubectl describe pods --all-namespaces":                             "pods_status.txt",
 		"kubectl get replicationcontroller --all-namespaces -o json":         "replicationcontroller.json",
 		"kubectl get deployment --all-namespaces -o json":                    "deployment.json",
@@ -3663,12 +3655,6 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 		"kubectl get serviceaccount --all-namespaces -o json":                "serviceaccounts.json",
 		"kubectl get clusterrole -o json":                                    "clusterroles.json",
 		"kubectl get clusterrolebinding -o json":                             "clusterrolebindings.json",
-
-		fmt.Sprintf("kubectl get cm cilium-config -n %s -o json", CiliumNamespace):                                                   "cilium-config.json",
-		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps -c clean-cilium-state --tail -1", CiliumNamespace):            "cilium-init-container-logs.txt",
-		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps -c clean-cilium-state --previous --tail -1", CiliumNamespace): "cilium-init-container-logs-previous.txt",
-		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps --all-containers --tail -1", CiliumNamespace):                 "cilium-combined-logs.txt",
-		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps --all-containers --previous --tail -1", CiliumNamespace):      "cilium-combined-logs-previous.txt",
 	}
 
 	kub.GeneratePodLogGatheringCommands(ctx, reportCmds)
