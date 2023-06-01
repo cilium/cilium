@@ -8,6 +8,7 @@
 #include <netdev_config.h>
 #include <filter_config.h>
 
+
 #define SKIP_POLICY_MAP 1
 
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the

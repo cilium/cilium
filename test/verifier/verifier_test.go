@@ -87,6 +87,12 @@ func TestVerifier(t *testing.T) {
 	kernelVersion, source := getCIKernelVersion(t)
 	t.Logf("CI kernel version: %s (%s)", kernelVersion, source)
 
+	cmd := exec.Command("make", "-C", "bpf/", "clean")
+	cmd.Dir = *ciliumBasePath
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to clean bpf objects: %v\ncommand output: %s", err, out)
+	}
+
 	for _, bpfProgram := range []struct {
 		name      string
 		macroName string
@@ -112,6 +118,8 @@ func TestVerifier(t *testing.T) {
 			macroName: "MAX_LB_OPTIONS",
 		},
 	} {
+		objFile := path.Join(*ciliumBasePath, "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
+
 		file, err := os.Open(getDatapathConfigFile(t, kernelVersion, bpfProgram.name))
 		if err != nil {
 			t.Fatalf("Unable to open list of datapath configurations for %s: %v", bpfProgram.name, err)
@@ -124,12 +132,6 @@ func TestVerifier(t *testing.T) {
 
 			name := fmt.Sprintf("%s_%d", bpfProgram.name, i)
 			t.Run(name, func(t *testing.T) {
-				cmd := exec.Command("make", "-C", "bpf/", "clean")
-				cmd.Dir = *ciliumBasePath
-				if out, err := cmd.CombinedOutput(); err != nil {
-					t.Fatalf("Failed to clean bpf objects: %v\ncommand output: %s", err, out)
-				}
-
 				cmd = exec.Command("make", "-C", "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
 				cmd.Dir = *ciliumBasePath
 				cmd.Env = append(cmd.Env,
@@ -141,7 +143,7 @@ func TestVerifier(t *testing.T) {
 				}
 
 				// Parse the compiled object into a CollectionSpec.
-				spec, err := bpf.LoadCollectionSpec(path.Join(*ciliumBasePath, "bpf", fmt.Sprintf("%s.o", bpfProgram.name)))
+				spec, err := bpf.LoadCollectionSpec(objFile)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -177,6 +179,10 @@ func TestVerifier(t *testing.T) {
 						LogLevel: ebpf.LogLevelBranch,
 					},
 				})
+				// Rename object file to avoid subsequent runs to overwrite it,
+				// so we can keep it for CI's artifact upload.
+				os.Rename(objFile, path.Join(*ciliumBasePath, "bpf", fmt.Sprintf("%s_%d.o", bpfProgram.name, i)))
+
 				var ve *ebpf.VerifierError
 				if errors.As(err, &ve) {
 					var buf bytes.Buffer

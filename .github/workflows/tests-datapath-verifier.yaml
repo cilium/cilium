@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -216,7 +216,6 @@ jobs:
               /cilium/verifier.test -test.v -test.parallel=1 -cilium-base-path /cilium -ci-kernel-version ${{ matrix.ci-kernel }}
 
       - name: Fetch artifacts
-        if: ${{ !success() }}
         uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
         with:
           provision: 'false'
@@ -227,10 +226,9 @@ jobs:
             find test/verifier -name "*.log" -exec cp {} datapath-verifier/ \;
 
       - name: Upload artifacts
-        if: ${{ !success() }}
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
-          name: datapath-verifier
+          name: datapath-verifier ${{ matrix.kernel }}
           path: datapath-verifier
           retention-days: 5
 
