@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -100,11 +101,6 @@ var (
 
 	mockFile string
 	cfg      configuration
-
-	// Holds the backend retrieved from the promise. This global variable is used
-	// temporarily while the refactoring of the clustermesh-apiserver is in progress
-	// to reduce the amount of modifications required in this first step.
-	backend kvstore.BackendOperations
 )
 
 func init() {
@@ -153,20 +149,19 @@ func registerHooks(lc hive.Lifecycle, params parameters) error {
 				return errors.New("Kubernetes client not configured, cannot continue.")
 			}
 
-			var err error
-			backend, err = params.BackendPromise.Await(ctx)
+			backend, err := params.BackendPromise.Await(ctx)
 			if err != nil {
 				return err
 			}
 
-			startServer(ctx, params.Clientset, params.Resources)
+			startServer(ctx, params.Clientset, backend, params.Resources)
 			return nil
 		},
 	})
 	return nil
 }
 
-func readMockFile(ctx context.Context, path string) error {
+func readMockFile(ctx context.Context, path string, backend kvstore.BackendOperations) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("unable to open file %s: %s", path, err)
@@ -502,7 +497,7 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 	}
 }
 
-func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, resources apiserverK8s.Resources) {
+func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backend kvstore.BackendOperations, resources apiserverK8s.Resources) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cfg.clusterName,
 		"cluster-id":   cfg.clusterID,
@@ -538,7 +533,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, resou
 
 	ctx := context.Background()
 	if mockFile != "" {
-		if err := readMockFile(ctx, mockFile); err != nil {
+		if err := readMockFile(ctx, mockFile, backend); err != nil {
 			log.WithError(err).Fatal("Unable to read mock file")
 		}
 	} else {
