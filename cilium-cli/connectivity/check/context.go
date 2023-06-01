@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -381,6 +382,26 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 
 	if err := ct.writeJunit(); err != nil {
 		ct.Failf("writing to junit file %s failed: %s", ct.Params().JunitFile, err)
+	}
+
+	if ct.Params().FlushCT {
+		var wg sync.WaitGroup
+
+		wg.Add(len(ct.CiliumPods()))
+		for _, ciliumPod := range ct.CiliumPods() {
+			cmd := strings.Split("cilium bpf ct flush global", " ")
+			go func(ctx context.Context, pod Pod) {
+				defer wg.Done()
+
+				ct.Debugf("Flushing CT entries in %s/%s", pod.Pod.Namespace, pod.Pod.Name)
+				_, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
+				if err != nil {
+					ct.Fatal("failed to flush ct entries: %w", err)
+				}
+			}(ctx, ciliumPod)
+		}
+
+		wg.Wait()
 	}
 
 	// Report the test results.
