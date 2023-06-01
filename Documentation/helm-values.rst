@@ -904,18 +904,22 @@
      - Update ENI Adapter limits from the EC2 API
      - bool
      - ``true``
-   * - envoy
-     - Configure Cilium Envoy options.
-     - object
-     - ``{"affinity":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}},"connectTimeoutSeconds":2,"dnsPolicy":null,"enabled":false,"extraArgs":[],"extraContainers":[],"extraEnv":[],"extraHostPathMounts":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":9878,"idleTimeoutDurationSeconds":60,"image":{"digest":"sha256:f165787c05050a4d57c5940dcd59de03cafecff9c02965a1d076c2b2935505d8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.7-384b5008dce426eba89af8ef17f52e4fb066ff40","useDigest":true},"livenessProbe":{"failureThreshold":10,"periodSeconds":30},"log":{"format":"[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v","path":""},"maxConnectionDurationSeconds":0,"maxRequestsPerConnection":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"podSecurityContext":{},"priorityClassName":null,"prometheus":{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}},"readinessProbe":{"failureThreshold":3,"periodSeconds":30},"resources":{},"rollOutPods":false,"securityContext":{"capabilities":{"envoy":["NET_ADMIN","SYS_ADMIN"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}},"startupProbe":{"failureThreshold":105,"periodSeconds":2},"terminationGracePeriodSeconds":1,"tolerations":[{"operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}}``
    * - envoy.affinity
      - Affinity for cilium-envoy.
      - object
      - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - envoy.connectTimeoutSeconds
+     - Time in seconds after which a TCP connection attempt times out
+     - int
+     - ``2``
    * - envoy.dnsPolicy
      - DNS policy for Cilium envoy pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
      - string
      - ``nil``
+   * - envoy.enabled
+     - Enable Envoy Proxy in standalone DaemonSet.
+     - bool
+     - ``false``
    * - envoy.extraArgs
      - Additional envoy container arguments.
      - list
@@ -944,6 +948,10 @@
      - TCP port for the health API.
      - int
      - ``9878``
+   * - envoy.idleTimeoutDurationSeconds
+     - Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s
+     - int
+     - ``60``
    * - envoy.image
      - Envoy container image.
      - object
@@ -956,6 +964,22 @@
      - interval between checks of the liveness probe
      - int
      - ``30``
+   * - envoy.log.format
+     - The format string to use for laying out the log message metadata of Envoy.
+     - string
+     - ``"[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"``
+   * - envoy.log.path
+     - Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
+     - string
+     - ``""``
+   * - envoy.maxConnectionDurationSeconds
+     - Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
+     - int
+     - ``0``
+   * - envoy.maxRequestsPerConnection
+     - ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
+     - int
+     - ``0``
    * - envoy.nodeSelector
      - Node selector for cilium-envoy.
      - object
@@ -976,6 +1000,14 @@
      - The priority class to use for cilium-envoy.
      - string
      - ``nil``
+   * - envoy.prometheus.enabled
+     - Enable prometheus metrics for cilium-envoy
+     - bool
+     - ``true``
+   * - envoy.prometheus.port
+     - Serve prometheus metrics for cilium-envoy on the configured port
+     - string
+     - ``"9964"``
    * - envoy.prometheus.serviceMonitor.annotations
      - Annotations to add to ServiceMonitor cilium-envoy
      - object
@@ -1044,6 +1076,10 @@
      - Node tolerations for envoy scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
      - ``[{"operator":"Exists"}]``
+   * - envoy.updateStrategy
+     - cilium-envoy update strategy ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/#updating-a-daemonset
+     - object
+     - ``{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}``
    * - etcd.clusterDomain
      - Cluster domain for cilium-etcd-operator.
      - string
