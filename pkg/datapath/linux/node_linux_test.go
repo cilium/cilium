@@ -1886,6 +1886,7 @@ refetch11:
 }
 
 func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *check.C) {
+	c.Skip("Skipping due flakiness. See https://github.com/cilium/cilium/issues/22373 for more info")
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
