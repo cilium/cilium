@@ -13,9 +13,8 @@ cilium-dbg service update [flags]
 ```
       --backend-weights uints           Backend weights (100 default, 0 means maintenance state, only for maglev mode) (default [])
       --backends strings                Backend address or addresses (<IP:Port>)
-      --frontend string                 Frontend address
+      --frontend string                 Service frontend
   -h, --help                            help for update
-      --id uint                         Identifier
       --k8s-cluster-internal            Set service as cluster-internal for externalTrafficPolicy=Local xor internalTrafficPolicy=Local
       --k8s-ext-traffic-policy string   Set service with k8s externalTrafficPolicy as {Local,Cluster} (default "Cluster")
       --k8s-external                    Set service as a k8s ExternalIPs

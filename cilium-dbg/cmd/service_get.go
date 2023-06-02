@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"os"
-	"strconv"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -16,16 +15,11 @@ import (
 
 // serviceGetCmd represents the service_get command
 var serviceGetCmd = &cobra.Command{
-	Use:    "get <service id>",
+	Use:    "get <service frontend>",
 	Short:  "Display service information",
 	PreRun: requireServiceID,
 	Run: func(cmd *cobra.Command, args []string) {
-		svcIDstr := args[0]
-		id, err := strconv.ParseInt(svcIDstr, 0, 64)
-		if err != nil {
-			Fatalf("Unable to parse service ID: %s", svcIDstr)
-		}
-
+		id := args[0]
 		svc, err := client.GetServiceID(id)
 		if err != nil {
 			Fatalf("Cannot get service '%v': %s\n", id, err)

@@ -5,7 +5,7 @@
 Display service information
 
 ```
-cilium-dbg service get <service id> [flags]
+cilium-dbg service get <service frontend> [flags]
 ```
 
 ### Options

@@ -5,7 +5,7 @@
 Delete a service
 
 ```
-cilium-dbg service delete { <service id> | --all } [flags]
+cilium-dbg service delete { <service frontend> | --all } [flags]
 ```
 
 ### Options

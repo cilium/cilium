@@ -31,14 +31,10 @@ type ServiceSpec struct {
 	Flags *ServiceSpecFlags `json:"flags,omitempty"`
 
 	// Frontend address
-	// Required: true
-	FrontendAddress *FrontendAddress `json:"frontend-address"`
-
-	// Unique identification
-	ID int64 `json:"id,omitempty"`
+	FrontendAddress *FrontendAddress `json:"frontend-address,omitempty"`
 
 	// Update all services selecting the backends with their given states
-	// (id and frontend are ignored)
+	// (frontend is ignored)
 	//
 	UpdateServices bool `json:"updateServices,omitempty"`
 }
@@ -111,9 +107,8 @@ func (m *ServiceSpec) validateFlags(formats strfmt.Registry) error {
 }
 
 func (m *ServiceSpec) validateFrontendAddress(formats strfmt.Registry) error {
-
-	if err := validate.Required("frontend-address", "body", m.FrontendAddress); err != nil {
-		return err
+	if swag.IsZero(m.FrontendAddress) { // not required
+		return nil
 	}
 
 	if m.FrontendAddress != nil {

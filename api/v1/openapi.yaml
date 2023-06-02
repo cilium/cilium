@@ -665,7 +665,7 @@ paths:
       tags:
       - service
       parameters:
-      - "$ref": "#/parameters/service-id"
+      - "$ref": "#/parameters/service-frontend"
       responses:
         '200':
           description: Success
@@ -678,7 +678,7 @@ paths:
       tags:
       - service
       parameters:
-      - "$ref": "#/parameters/service-id"
+      - "$ref": "#/parameters/service-frontend"
       - "$ref": "#/parameters/service-config"
       responses:
         '200':
@@ -712,7 +712,7 @@ paths:
       tags:
       - service
       parameters:
-      - "$ref": "#/parameters/service-id"
+      - "$ref": "#/parameters/service-frontend"
       responses:
         '200':
           description: Success
@@ -1274,12 +1274,12 @@ parameters:
     in: body
     schema:
       "$ref": "#/definitions/TraceSelector"
-  service-id:
+  service-frontend:
     name: id
-    description: ID of service
+    description: Service address, port, protocol and scope (<IP>:<port>:<proto>(:<scope>))
     required: true
     in: path
-    type: integer
+    type: string
   service-address:
     name: address
     description: Service address configuration
@@ -3006,7 +3006,6 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/Port"
-
   FrontendAddress:
     description: |
       Layer 4 address. The protocol is currently ignored, all services will
@@ -3126,12 +3125,7 @@ definitions:
   ServiceSpec:
     description: Configuration of a service
     type: object
-    required:
-    - frontend-address
     properties:
-      id:
-        description: Unique identification
-        type: integer
       frontend-address:
         description: Frontend address
         "$ref": "#/definitions/FrontendAddress"
@@ -3195,7 +3189,7 @@ definitions:
       updateServices:
         description: |
           Update all services selecting the backends with their given states
-          (id and frontend are ignored)
+          (frontend is ignored)
         type: boolean
 
   ServiceStatus:

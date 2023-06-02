@@ -105,7 +105,14 @@ nsenter -t $(docker inspect nginx -f '{{ .State.Pid }}') -n /bin/sh -c \
     "ip a a dev eth0 ${LB_VIP}/32"
 
 docker exec -t lb-node docker exec -t cilium-lb \
-    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --k8s-node-port
+    cilium-dbg service update --frontend "${LB_VIP}:80:TCP" --backends "${WORKER_IP}:80" --k8s-node-port
+
+# Validate get & list
+docker exec -t lb-node docker exec -t cilium-lb \
+    cilium-dbg service get "${LB_VIP}:80:TCP"
+
+docker exec -t lb-node docker exec -t cilium-lb \
+    cilium-dbg service list
 
 LB_NODE_IP=$(docker exec lb-node ip -o -4 a s eth0 | awk '{print $4}' | cut -d/ -f1)
 ip r a "${LB_VIP}/32" via "$LB_NODE_IP"
@@ -131,7 +138,7 @@ done
 
 # Set nginx to maintenance
 docker exec -t lb-node docker exec -t cilium-lb \
-    cilium-dbg service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --backend-weights "0" --k8s-node-port
+    cilium-dbg service update --frontend "${LB_VIP}:80:TCP" --backends "${WORKER_IP}:80" --backend-weights "0" --k8s-node-port
 
 # Do not stop on error
 set +e
@@ -143,8 +150,14 @@ for i in $(seq 1 10); do
         exit -1;
     fi
 done
+set -e
+
+# Delete the frontend
+docker exec -t lb-node docker exec -t cilium-lb \
+    cilium service delete "${LB_VIP}:80:TCP"
 
 # Cleanup
+set +e
 docker rm -f lb-node
 docker rm -f nginx
 docker network rm cilium-l4lb

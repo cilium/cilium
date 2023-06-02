@@ -4,9 +4,11 @@
 package loadbalancer
 
 import (
+	"strings"
 	"testing"
 
 	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
@@ -358,6 +360,52 @@ func TestL3n4AddrID_Strings(t *testing.T) {
 				t.Errorf("L3n4AddrID.StringWithProtocol() = %s, want %s", strWithProtocol, tt.stringWithProtocol)
 			}
 		})
+	}
+}
+
+func TestL3n4AddrIDFromModelID(t *testing.T) {
+	valid := []string{
+		"1.2.3.4:80:TCP:i",
+		"1.2.3.4:80:TCP", // scope omitted => external
+		"1.2.3.4:80:UDP:i",
+		"1.2.3.4:80:UDP",
+
+		"[2001::1]:80:TCP:i",
+		"[2001::1]:80:TCP",
+
+		"[2001::1]:80:UDP:i",
+		"[2001::1]:80:UDP",
+	}
+
+	for _, s := range valid {
+		addr, err := NewL3n4AddrFromModelID(s)
+		require.NoError(t, err, "Expected valid address %s to parse", s)
+		fromModel := addr.ModelID()
+		require.True(t, strings.HasPrefix(fromModel, s), "Expected valid input %q to be prefix of parsed value %q", s, fromModel)
+		addr2, err := NewL3n4AddrFromModelID(fromModel)
+		require.NoError(t, err)
+		require.Equal(t, addr, addr2, "Expected the addresses to match")
+
+	}
+
+	invalid := []string{
+		"garbage",
+		"1.2:99999",
+		"1.2.3.4",
+		"1.2.3.4:99999:T",
+		"1.2.3.4:99999:TCP",
+		"1.2.3.4:80",
+		"1.2.3.4:80:TCP:internal", // only :i is
+		"1.2.3.4:80:TCP:e",        // recognized
+		"1.2.3.4:80:TCP:external", // as a scope.
+		"2001::1:80:TCP",
+		"[2001:1]:80:",
+		"[2001:80:TCP",
+	}
+
+	for _, s := range invalid {
+		addr, err := NewL3n4AddrFromModelID(s)
+		require.Error(t, err, "Expected parsing of address %s to fail, instead parsed: %+v", s, addr)
 	}
 }
 

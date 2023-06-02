@@ -31,9 +31,6 @@ type ServiceManager interface {
 	// GetDeepCopyServiceByFrontend returns a deep-copy of the service that matches the Frontend address.
 	GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.SVC, bool)
 
-	// GetDeepCopyServiceByID returns a deep-copy of a service identified with the given ID.
-	GetDeepCopyServiceByID(id lb.ServiceID) (*lb.SVC, bool)
-
 	// GetLastUpdatedTs retrieves the last updated timestamp.
 	GetLastUpdatedTs() time.Time
 

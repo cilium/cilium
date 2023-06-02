@@ -287,9 +287,8 @@ Add a new loadbalancer
 
 .. code-block:: shell-session
 
-    cilium-dbg service update --frontend 127.0.0.1:80 \
-        --backends 127.0.0.2:90,127.0.0.3:90 \
-        --id 20
+    cilium-dbg service update --frontend 127.0.0.1:80:TCP \
+        --backends 127.0.0.2:90,127.0.0.3:90
 
 eBPF
 ----

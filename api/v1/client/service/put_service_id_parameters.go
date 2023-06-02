@@ -17,7 +17,6 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
@@ -75,9 +74,9 @@ type PutServiceIDParams struct {
 
 	/* ID.
 
-	   ID of service
+	   Service address, port, protocol and scope (<IP>:<port>:<proto>(:<scope>))
 	*/
-	ID int64
+	ID string
 
 	timeout    time.Duration
 	Context    context.Context
@@ -144,13 +143,13 @@ func (o *PutServiceIDParams) SetConfig(config *models.ServiceSpec) {
 }
 
 // WithID adds the id to the put service ID params
-func (o *PutServiceIDParams) WithID(id int64) *PutServiceIDParams {
+func (o *PutServiceIDParams) WithID(id string) *PutServiceIDParams {
 	o.SetID(id)
 	return o
 }
 
 // SetID adds the id to the put service ID params
-func (o *PutServiceIDParams) SetID(id int64) {
+func (o *PutServiceIDParams) SetID(id string) {
 	o.ID = id
 }
 
@@ -168,7 +167,7 @@ func (o *PutServiceIDParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.
 	}
 
 	// path param id
-	if err := r.SetPathParam("id", swag.FormatInt64(o.ID)); err != nil {
+	if err := r.SetPathParam("id", o.ID); err != nil {
 		return err
 	}
 
