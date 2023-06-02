@@ -66,7 +66,7 @@ type EndpointPolicy struct {
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
-	LookupRedirectPortLocked(ingress bool, protocol string, port uint16) uint16
+	LookupRedirectPort(ingress bool, protocol string, port uint16) uint16
 	GetNamedPort(ingress bool, name string, proto uint8) uint16
 	GetNamedPortLocked(ingress bool, name string, proto uint8) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
@@ -178,7 +178,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 					// only lookup once for each filter
 					// Use 'destPort' from the key as it is already resolved
 					// from a named port if needed.
-					proxyport = p.PolicyOwner.LookupRedirectPortLocked(filter.Ingress, string(filter.Protocol), keyFromFilter.DestPort)
+					proxyport = p.PolicyOwner.LookupRedirectPort(filter.Ingress, string(filter.Protocol), keyFromFilter.DestPort)
 					lookupDone = true
 				}
 				entry.ProxyPort = proxyport

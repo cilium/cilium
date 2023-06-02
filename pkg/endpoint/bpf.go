@@ -266,16 +266,13 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				finalizeList.Append(finalizeFunc)
 				revertStack.Push(revertFunc)
 
-				if e.realizedRedirects == nil {
-					e.realizedRedirects = make(map[string]uint16)
-				}
-				if _, found := e.realizedRedirects[proxyID]; !found {
+				if _, found := e.realizedRedirects.Load(proxyID); !found {
 					revertStack.Push(func() error {
-						delete(e.realizedRedirects, proxyID)
+						e.realizedRedirects.Delete(proxyID)
 						return nil
 					})
 				}
-				e.realizedRedirects[proxyID] = redirectPort
+				e.realizedRedirects.Store(proxyID, redirectPort)
 
 				desiredRedirects[proxyID] = true
 
@@ -392,16 +389,13 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		finalizeList.Append(finalizeFunc)
 		revertStack.Push(revertFunc)
 
-		if e.realizedRedirects == nil {
-			e.realizedRedirects = make(map[string]uint16)
-		}
-		if _, found := e.realizedRedirects[proxyID]; !found {
+		if _, found := e.realizedRedirects.Load(proxyID); !found {
 			revertStack.Push(func() error {
-				delete(e.realizedRedirects, proxyID)
+				e.realizedRedirects.Delete(proxyID)
 				return nil
 			})
 		}
-		e.realizedRedirects[proxyID] = redirectPort
+		e.realizedRedirects.Store(proxyID, redirectPort)
 
 		desiredRedirects[proxyID] = true
 
@@ -497,24 +491,27 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 
 	var finalizeList revert.FinalizeList
 	var revertStack revert.RevertStack
-	removedRedirects := make(map[string]uint16, len(e.realizedRedirects))
-	updatedStats := make(map[uint16]*models.ProxyStatistics, len(e.realizedRedirects))
+	removedRedirects := make(map[string]uint16)
+	updatedStats := make(map[uint16]*models.ProxyStatistics)
 
-	for id, redirectPort := range e.realizedRedirects {
+	//for id, redirectPort := range e.realizedRedirects {
+	e.realizedRedirects.Range(func(k, v any) bool {
+		id := k.(string)
+		redirectPort := v.(uint16)
 		// Remove only the redirects that are not required.
 		if desiredRedirects[id] {
-			continue
+			return true
 		}
 
 		err, finalizeFunc, revertFunc := e.proxy.RemoveRedirect(id, proxyWaitGroup)
 		if err != nil {
 			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
-			continue
+			return true
 		}
 		finalizeList.Append(finalizeFunc)
 		revertStack.Push(revertFunc)
 
-		delete(e.realizedRedirects, id)
+		e.realizedRedirects.Delete(id)
 		removedRedirects[id] = redirectPort
 
 		// Update the endpoint API model to report that no redirect is
@@ -529,7 +526,8 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 			e.getLogger().WithField(logfields.L4PolicyID, id).Warn("Proxy stats not found")
 		}
 		e.proxyStatisticsMutex.Unlock()
-	}
+		return true
+	})
 
 	return finalizeList.Finalize,
 		func() error {
@@ -543,7 +541,7 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 			e.proxyStatisticsMutex.Unlock()
 
 			for id, redirectPort := range removedRedirects {
-				e.realizedRedirects[id] = redirectPort
+				e.realizedRedirects.Store(id, redirectPort)
 			}
 
 			err := revertStack.Revert()
@@ -1193,14 +1191,14 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	if e.visibilityPolicy != nil {
 		for _, visMeta := range e.visibilityPolicy.Ingress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
-			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, nil)
+			if redirectPort, exists := e.realizedRedirects.Load(proxyID); exists && redirectPort.(uint16) != 0 {
+				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort.(uint16), visMeta, adds, nil)
 			}
 		}
 		for _, visMeta := range e.visibilityPolicy.Egress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
-			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, adds, nil)
+			if redirectPort, exists := e.realizedRedirects.Load(proxyID); exists && redirectPort.(uint16) != 0 {
+				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort.(uint16), visMeta, adds, nil)
 			}
 		}
 	}
@@ -1224,7 +1222,12 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 		// due to the fact that proxies may not yet have bound to a specific port when a proxy
 		// policy is first instantiated.
 		if entry.IsRedirectEntry() {
-			entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
+			pp, exists := e.realizedRedirects.Load(policy.ProxyIDFromKey(e.ID, keyToAdd))
+			if !exists {
+				entry.ProxyPort = 0
+			} else {
+				entry.ProxyPort = pp.(uint16)
+			}
 		}
 		if !e.addPolicyKey(keyToAdd, entry, true) {
 			errors++
@@ -1288,7 +1291,13 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 			// bound to a specific port when a proxy policy is first instantiated.
 			if entry.IsRedirectEntry() {
 				// Will change to 0 if on a sidecar
-				entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
+				pp, exists := e.realizedRedirects.Load(policy.ProxyIDFromKey(e.ID, keyToAdd))
+				if !exists {
+					entry.ProxyPort = 0
+				} else {
+					entry.ProxyPort = pp.(uint16)
+				}
+
 			}
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++

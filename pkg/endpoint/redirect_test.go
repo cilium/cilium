@@ -247,15 +247,15 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	c.Assert(ok, check.Equals, true)
 	c.Assert(v.ProxyPort, check.Equals, httpPort)
 	pID := policy.ProxyID(ep.ID, false, u8proto.TCP.String(), uint16(80))
-	p, ok := ep.realizedRedirects[pID]
+	p, ok := ep.realizedRedirects.Load(pID)
 	c.Assert(ok, check.Equals, true)
-	c.Assert(p, check.Equals, httpPort)
+	c.Assert(p.(uint16), check.Equals, httpPort)
 
 	// Check that the egress redirect is removed when the redirects have been
 	// updated.
 	ep.removeOldRedirects(d, cmp)
 	// Egress redirect should be removed.
-	_, ok = ep.realizedRedirects[pID]
+	_, ok = ep.realizedRedirects.Load(pID)
 	c.Assert(ok, check.Equals, false)
 
 	// Check that all redirects are removed when no visibility policy applies.
@@ -268,5 +268,10 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	d, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
 	ep.removeOldRedirects(d, cmp)
-	c.Assert(len(ep.realizedRedirects), check.Equals, 0)
+	len := 0
+	ep.realizedRedirects.Range(func(_, _ any) bool {
+		len++
+		return true
+	})
+	c.Assert(len, check.Equals, 0)
 }

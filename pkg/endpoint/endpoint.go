@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -302,7 +303,7 @@ type Endpoint struct {
 	// successfully added into a proxy for this endpoint, to the redirect's
 	// proxy port number.
 	// You must hold Endpoint.mutex to read or write it.
-	realizedRedirects map[string]uint16
+	realizedRedirects sync.Map
 
 	// ctCleaned indicates whether the conntrack table has already been
 	// cleaned when this endpoint was first created
@@ -1118,7 +1119,7 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	// Remove restored rules of cleaned endpoint
 	e.owner.RemoveRestoredDNSRules(e.ID)
 
-	if e.SecurityIdentity != nil && len(e.realizedRedirects) > 0 {
+	if e.SecurityIdentity != nil {
 		// Passing a new map of nil will purge all redirects
 		finalize, _ := e.removeOldRedirects(nil, proxyWaitGroup)
 		if finalize != nil {
