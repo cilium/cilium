@@ -300,7 +300,7 @@ jobs:
         # which is 'agent' and 'datapath' focus.
         if:  ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
         with:
           provision: 'false'
           cmd: |
@@ -346,6 +346,6 @@ jobs:
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
-        uses: aanm/junit2md@86789108ea0fd9be947a4232dd560e2fa3b9467a # v0.0.1
+        uses: aanm/junit2md@1e41aea8f6f25ee91330bc2fbcaa79dfec333fc9 # v0.0.2
         with:
           junit-directory: "cilium-junits"
