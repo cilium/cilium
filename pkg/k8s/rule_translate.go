@@ -221,7 +221,7 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 	return toReleasePrefixes, nil
 }
 
-// PreprocessRules translates rules that apply to headless services
+// PreprocessRules translates egress rules that apply to external services (ToServices)
 func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 
 	cache.mutex.Lock()
