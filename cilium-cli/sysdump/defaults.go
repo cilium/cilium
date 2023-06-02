@@ -51,6 +51,7 @@ const (
 	DefaultTetragonBugtoolPrefix             = "tetragon-bugtool"
 	DefaultTetragonCLICommand                = "tetra"
 	DefaultTetragonTracingPolicy             = "tetragontracingpolicy-<ts>.yaml"
+	DefaultTetragonTracingPolicyNamespaced   = "tetragontracingpolicynamespaced-<ts>.yaml"
 )
 
 var (
