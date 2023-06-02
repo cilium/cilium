@@ -723,8 +723,18 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
+	// regenerate policy without holding the lock.
+	// This is because policy generation needs the ipcache to make progress, and the ipcache needs to call
+	// endpoint.ApplyPolicyMapChanges()
+	stats.policyCalculation.Start()
+	policyResult, err := e.regeneratePolicy()
+	stats.policyCalculation.End(err == nil)
+	if err != nil {
+		return false, fmt.Errorf("unable to regenerate policy for '%s': %w", e.StringID(), err)
+	}
+
 	stats.waitingForLock.Start()
-	err := e.lockAlive()
+	err = e.lockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
 		return false, err
@@ -757,6 +767,12 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		close(datapathRegenCtxt.ctCleaned)
 	}
 
+	// Set the computed policy as the "incoming" policy. This can fail if
+	// the endpoint's security identity changed during or after policy calculation.
+	if err := e.setDesiredPolicy(policyResult); err != nil {
+		return false, err
+	}
+
 	// We cannot obtain the rules while e.mutex is held, because obtaining
 	// fresh DNSRules requires the IPCache lock (which must not be taken while
 	// holding e.mutex to avoid deadlocks). Therefore, rules are obtained
@@ -765,12 +781,6 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if option.Config.DryMode {
-
-		// Compute policy for this endpoint.
-		if err = e.regeneratePolicy(); err != nil {
-			return false, fmt.Errorf("Unable to regenerate policy: %s", err)
-		}
-
 		_ = e.updateAndOverrideEndpointOptions(nil)
 
 		// Dry mode needs Network Policy Updates, but the proxy wait group must
@@ -807,12 +817,6 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
 	if e.SecurityIdentity != nil {
-		stats.policyCalculation.Start()
-		err = e.regeneratePolicy()
-		stats.policyCalculation.End(err == nil)
-		if err != nil {
-			return false, fmt.Errorf("unable to regenerate policy for '%s': %s", e.StringID(), err)
-		}
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
 
@@ -843,6 +847,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		//
 		// Do this before updating the bpf policy maps below, so that the proxy listeners have a chance to be
 		// ready when new traffic is redirected to them.
+		// note: unlike regeneratePolicy, updateNetworkPolicy requires the endpoint read lock
 		stats.proxyPolicyCalculation.Start()
 		err, networkPolicyRevertFunc := e.updateNetworkPolicy(datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyPolicyCalculation.End(err == nil)
