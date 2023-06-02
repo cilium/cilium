@@ -565,6 +565,9 @@ func (in *NodeSpec) DeepEqual(other *NodeSpec) bool {
 		}
 	}
 
+	if in.ProviderID != other.ProviderID {
+		return false
+	}
 	if ((in.Taints != nil) && (other.Taints != nil)) || ((in.Taints == nil) != (other.Taints == nil)) {
 		in, other := &in.Taints, &other.Taints
 		if other == nil {

@@ -509,8 +509,8 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	}
 
 	if sr.Proxy != nil {
-		fmt.Fprintf(w, "Proxy Status:\tOK, ip %s, %d redirects active on ports %s\n",
-			sr.Proxy.IP, sr.Proxy.TotalRedirects, sr.Proxy.PortRange)
+		fmt.Fprintf(w, "Proxy Status:\tOK, ip %s, %d redirects active on ports %s, Envoy: %s\n",
+			sr.Proxy.IP, sr.Proxy.TotalRedirects, sr.Proxy.PortRange, sr.Proxy.EnvoyDeploymentMode)
 		if sd.AllRedirects && sr.Proxy.TotalRedirects > 0 {
 			out := make([]string, 0, len(sr.Proxy.Redirects)+1)
 			for _, r := range sr.Proxy.Redirects {

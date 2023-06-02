@@ -66,7 +66,7 @@ type DeleteIpamIPParams struct {
 
 	/* IP.
 
-	   IP address or owner name
+	   IP address
 	*/
 	IP string
 

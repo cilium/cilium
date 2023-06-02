@@ -39,7 +39,7 @@ type CIDRRule struct {
 	// CIDR is a CIDR prefix / IP Block.
 	//
 	// +kubebuilder:validation:OneOf
-	Cidr CIDR `json:"cidr"`
+	Cidr CIDR `json:"cidr,omitempty"`
 
 	// CIDRGroupRef is a reference to a CiliumCIDRGroup object.
 	// A CiliumCIDRGroup contains a list of CIDRs that the endpoint, subject to

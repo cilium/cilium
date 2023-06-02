@@ -32,10 +32,11 @@ type Qdisc interface {
 // has a handle, a parent and a refcnt. The root qdisc of a device should
 // have parent == HANDLE_ROOT.
 type QdiscAttrs struct {
-	LinkIndex int
-	Handle    uint32
-	Parent    uint32
-	Refcnt    uint32 // read only
+	LinkIndex    int
+	Handle       uint32
+	Parent       uint32
+	Refcnt       uint32 // read only
+	IngressBlock *uint32
 }
 
 func (q QdiscAttrs) String() string {

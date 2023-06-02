@@ -266,6 +266,7 @@ type Bridge struct {
 	AgeingTime        *uint32
 	HelloTime         *uint32
 	VlanFiltering     *bool
+	VlanDefaultPVID   *uint16
 }
 
 func (bridge *Bridge) Attrs() *LinkAttrs {
@@ -1166,6 +1167,7 @@ type Gretun struct {
 	EncapFlags uint16
 	EncapSport uint16
 	EncapDport uint16
+	FlowBased  bool
 }
 
 func (gretun *Gretun) Attrs() *LinkAttrs {
@@ -1209,6 +1211,7 @@ func (gtp *GTP) Type() string {
 }
 
 // Virtual XFRM Interfaces
+//
 //	Named "xfrmi" to prevent confusion with XFRM objects
 type Xfrmi struct {
 	LinkAttrs

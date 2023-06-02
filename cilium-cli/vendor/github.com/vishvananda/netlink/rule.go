@@ -26,6 +26,8 @@ type Rule struct {
 	Dport             *RulePortRange
 	Sport             *RulePortRange
 	IPProto           int
+	UIDRange          *RuleUIDRange
+	Protocol          uint8
 }
 
 func (r Rule) String() string {
@@ -65,4 +67,15 @@ func NewRulePortRange(start, end uint16) *RulePortRange {
 type RulePortRange struct {
 	Start uint16
 	End   uint16
+}
+
+// NewRuleUIDRange creates rule uid range.
+func NewRuleUIDRange(start, end uint32) *RuleUIDRange {
+	return &RuleUIDRange{Start: start, End: end}
+}
+
+// RuleUIDRange represents rule uid range.
+type RuleUIDRange struct {
+	Start uint32
+	End   uint32
 }
