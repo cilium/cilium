@@ -282,6 +282,8 @@ jobs:
           --helm-set=clustermesh.useAPIServer=true \
           --helm-set=clustermesh.apiserver.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci:${SHA} \
           --helm-set=clustermesh.apiserver.image.useDigest=false \
+          --helm-set=authentication.mutual.spire.enabled=false \
+          --helm-set=authentication.mutual.spire.install.enabled=false \
           "
 
         CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
