@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium-cli/clustermesh"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 )
 
@@ -46,6 +47,12 @@ func NewK8sUninstaller(client k8sInstallerImplementation, p UninstallParameters)
 		client: client,
 		params: p,
 	}
+
+	// Version detection / validation is unnecessary in Helm mode.
+	if utils.IsInHelmMode() {
+		return uninstaller
+	}
+
 	ciliumVersion, err := client.GetRunningCiliumVersion(context.Background(), p.Namespace)
 	if err != nil {
 		uninstaller.Log("Error getting Cilium Version: %s", err)
