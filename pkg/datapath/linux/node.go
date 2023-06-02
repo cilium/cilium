@@ -460,18 +460,24 @@ func (n *linuxNodeHandler) familyEnabled(c *cidr.CIDR) bool {
 	return (c.IP.To4() != nil && n.nodeConfig.EnableIPv4) || (c.IP.To4() == nil && n.nodeConfig.EnableIPv6)
 }
 
-func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*cidr.CIDR, isLocalNode bool) {
+func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*cidr.CIDR, isLocalNode bool) error {
+	var errs error
 	addedAuxRoutes, removedAuxRoutes := cidr.DiffCIDRLists(old, new)
 	for _, prefix := range addedAuxRoutes {
 		if prefix != nil {
-			n.updateNodeRoute(prefix, n.familyEnabled(prefix), isLocalNode)
+			if err := n.updateNodeRoute(prefix, n.familyEnabled(prefix), isLocalNode); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to add aux route %q: %w", prefix, err))
+			}
 		}
 	}
 	for _, prefix := range removedAuxRoutes {
 		if rt, _ := n.lookupNodeRoute(prefix, isLocalNode); rt != nil {
-			n.deleteNodeRoute(prefix, isLocalNode)
+			if err := n.deleteNodeRoute(prefix, isLocalNode); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove aux route %q: %w", prefix, err))
+			}
 		}
 	}
+	return errs
 }
 
 func (n *linuxNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
@@ -1235,11 +1241,16 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		}
 	}
 
+	// Local node update
 	if newNode.IsLocal() {
 		isLocalNode = true
 		if n.nodeConfig.EnableLocalNodeRoute {
-			n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode)
-			n.updateOrRemoveNodeRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode)
+			if err := n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to enable local node route: update ipv4 routes: %w", err))
+			}
+			if err := n.updateOrRemoveNodeRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to enable local node route: update ipv6 routes: %w", err))
+			}
 		}
 		if n.subnetEncryption() {
 			n.enableSubnetIPsec(n.nodeConfig.IPv4PodSubnets, n.nodeConfig.IPv6PodSubnets)
@@ -1247,7 +1258,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		if firstAddition && n.nodeConfig.EnableIPSec {
 			n.registerIpsecMetricOnce()
 		}
-		return nil
+		return errs
 	}
 
 	if n.nodeConfig.EnableAutoDirectRouting {
@@ -1284,20 +1295,28 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		updateTunnelMapping(oldPrefixCluster6, newPrefixCluster6, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
-			n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode)
-			n.updateOrRemoveNodeRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode)
+			if err := n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv4: %w", err))
+			}
+			if err := n.updateOrRemoveNodeRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv6: %w", err))
+			}
 		}
 
-		return nil
+		return errs
 	} else if firstAddition {
 		for _, ipv4AllocCIDR := range newAllIP4AllocCidrs {
 			if rt, _ := n.lookupNodeRoute(ipv4AllocCIDR, isLocalNode); rt != nil {
-				n.deleteNodeRoute(ipv4AllocCIDR, isLocalNode)
+				if err := n.deleteNodeRoute(ipv4AllocCIDR, isLocalNode); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to apply initial sync (no encapsulation): delete ipv4 route: %w", err))
+				}
 			}
 		}
 		for _, ipv6AllocCIDR := range newAllIP6AllocCidrs {
 			if rt, _ := n.lookupNodeRoute(ipv6AllocCIDR, isLocalNode); rt != nil {
-				n.deleteNodeRoute(ipv6AllocCIDR, isLocalNode)
+				if err := n.deleteNodeRoute(ipv6AllocCIDR, isLocalNode); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to apply initial sync (no encapsulation): delete ipv6 route: %w", err))
+				}
 			}
 		}
 	}
