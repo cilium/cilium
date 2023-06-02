@@ -6,7 +6,6 @@ package watchers
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +23,7 @@ import (
 	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -38,7 +38,7 @@ var (
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})
-	kvs               *store.SharedStore
+	kvs               store.SyncStore
 )
 
 func k8sEventMetric(scope, action string) {
@@ -53,27 +53,32 @@ func k8sServiceHandler(ctx context.Context, clusterName string, shared bool, clu
 		svc.Cluster = clusterName
 		svc.ClusterID = clusterID
 
-		log.WithFields(logrus.Fields{
+		scopedLog := log.WithFields(logrus.Fields{
 			logfields.K8sSvcName:   event.ID.Name,
 			logfields.K8sNamespace: event.ID.Namespace,
 			"action":               event.Action.String(),
 			"service":              event.Service.String(),
 			"endpoints":            event.Endpoints.String(),
 			"shared":               event.Service.Shared,
-		}).Debug("Kubernetes service definition changed")
+		})
+		scopedLog.Debug("Kubernetes service definition changed")
 
 		if shared && !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
-			kvs.DeleteLocalKey(ctx, &svc)
+			kvs.DeleteKey(ctx, &svc)
 			return
 		}
 
 		switch event.Action {
 		case k8s.UpdateService:
-			kvs.UpdateLocalKeySync(ctx, &svc)
+			if err := kvs.UpsertKey(ctx, &svc); err != nil {
+				// An error is triggered only in case it concerns service marshaling,
+				// as kvstore operations are automatically re-tried in case of error.
+				scopedLog.WithError(err).Warning("Failed synchronizing service")
+			}
 
 		case k8s.DeleteService:
-			kvs.DeleteLocalKey(ctx, &svc)
+			kvs.DeleteKey(ctx, &svc)
 		}
 	}
 	for {
@@ -102,11 +107,20 @@ type ServiceSyncConfiguration interface {
 	utils.ServiceConfiguration
 }
 
+type ServiceSyncParameters struct {
+	ServiceSyncConfiguration
+
+	Clientset  k8sClient.Clientset
+	Services   resource.Resource[*slim_corev1.Service]
+	Backend    store.SyncStoreBackend
+	SharedOnly bool
+}
+
 // StartSynchronizingServices starts a controller for synchronizing services from k8s to kvstore
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], shared bool, cfg ServiceSyncConfiguration) {
+func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters) {
 	log.Info("Starting to synchronize k8s services to kvstore")
 
 	serviceOptsModifier, err := utils.GetServiceListOptionsModifier(cfg)
@@ -117,23 +131,17 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 	readyChan := make(chan struct{}, 0)
 
 	go func() {
-		store, err := store.JoinSharedStore(store.Configuration{
-			Prefix:                  serviceStore.ServiceStorePrefix,
-			SynchronizationInterval: 5 * time.Minute,
-			KeyCreator: func() store.Key {
-				return &serviceStore.ClusterService{}
-			},
-			Backend:  nil,
-			Observer: nil,
-			Context:  ctx,
-		})
-
-		if err != nil {
-			log.WithError(err).Fatal("Unable to join kvstore store to announce services")
+		if cfg.Backend == nil {
+			// Needs to be assigned in a separate goroutine, since it might block
+			// if the client is not yet initialized.
+			cfg.Backend = kvstore.Client()
 		}
 
+		store := store.NewWorkqueueSyncStore(cfg.Backend, serviceStore.ServiceStorePrefix,
+			store.WSSWithSourceClusterName(cfg.LocalClusterName()))
 		kvs = store
 		close(readyChan)
+		store.Run(ctx)
 	}()
 
 	swgSvcs := lock.NewStoppableWaitGroup()
@@ -141,7 +149,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 
 	// Start populating the service cache
 	go func() {
-		for ev := range services.Events(ctx) {
+		for ev := range cfg.Services.Events(ctx) {
 			switch ev.Kind {
 			case resource.Sync:
 				// Wait until service cache updates have been fully processed.
@@ -167,7 +175,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 	switch {
 	case k8s.SupportsEndpointSlice():
 		var endpointSliceEnabled bool
-		endpointController, endpointSliceEnabled = endpointSlicesInit(ctx, wg, clientset.Slim(), swgEps)
+		endpointController, endpointSliceEnabled = endpointSlicesInit(ctx, wg, cfg.Clientset.Slim(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if endpointSliceEnabled {
 			// endpointController has been kicked off already inside
@@ -182,7 +190,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 		}
 		fallthrough
 	default:
-		endpointController = endpointsInit(clientset.Slim(), swgEps, serviceOptsModifier)
+		endpointController = endpointsInit(cfg.Clientset.Slim(), swgEps, serviceOptsModifier)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -190,13 +198,21 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 		}()
 	}
 
+	go func() {
+		<-k8sSvcCacheSynced
+		cache.WaitForCacheSync(ctx.Done(), endpointController.HasSynced)
+
+		log.Info("Initial list of services successfully received from Kubernetes")
+		kvs.Synced(ctx)
+	}()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
 		<-readyChan
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(ctx, cfg.LocalClusterName(), shared, cfg.LocalClusterID())
+		k8sServiceHandler(ctx, cfg.LocalClusterName(), cfg.SharedOnly, cfg.LocalClusterID())
 	}()
 }
 
@@ -370,7 +386,7 @@ type ServiceGetter struct {
 func NewServiceGetter(sc *k8s.ServiceCache) *ServiceGetter {
 	return &ServiceGetter{
 		shortCutK8sCache: sc,
-		k8sCache:         &K8sSvcCache,
+		k8sCache:         K8sSvcCache,
 	}
 }
 

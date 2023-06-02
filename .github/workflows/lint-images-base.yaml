@@ -38,3 +38,6 @@ jobs:
         with:
           entrypoint: make
           args: -C images check-runtime-image check-builder-image
+
+      - name: Check Cilium Envoy image
+        run: make -C images check-envoy-image

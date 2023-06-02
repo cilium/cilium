@@ -14,11 +14,13 @@ import (
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	http_connection_manager_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_extensions_filters_network_tcp_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -51,6 +53,8 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 							UpgradeConfigs: []*http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
 								{UpgradeType: "websocket"},
 							},
+							UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+							SkipXffAppend:    false,
 							HttpFilters: []*http_connection_manager_v3.HttpFilter{
 								{
 									Name: "envoy.filters.http.router",
@@ -201,6 +205,153 @@ var basicHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 				}),
 			},
 			{Any: toAny(toEnvoyCluster("default", "my-service", "8080"))},
+		},
+	},
+}
+
+// basicTLSListeners is the internal model representation of the simple TLS listeners
+var basicTLSListeners = []model.TLSListener{
+	{
+		Name: "prod-web-gw",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "my-gateway",
+				Namespace: "default",
+				Group:     "gateway.networking.k8s.io",
+				Version:   "v1alpha2",
+				Kind:      "Gateway",
+			},
+		},
+		Address:  "",
+		Port:     443,
+		Hostname: "*",
+		Routes: []model.TLSRoute{
+			{
+				Hostnames: []string{"foo.com"},
+				Backends: []model.Backend{
+					{
+						Name:      "my-service",
+						Namespace: "default",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var basicTLSListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-my-gateway",
+		Namespace: "default",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "my-gateway",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-my-gateway",
+				Namespace: "default",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "my-service",
+				Namespace: "default",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{
+				Any: toAny(&envoy_config_listener.Listener{
+					Name: "listener",
+					FilterChains: []*envoy_config_listener.FilterChain{{
+						FilterChainMatch: &envoy_config_listener.FilterChainMatch{
+							ServerNames:       []string{"foo.com"},
+							TransportProtocol: "tls",
+						},
+						Filters: []*envoy_config_listener.Filter{
+							{
+								Name: "envoy.filters.network.tcp_proxy",
+								ConfigType: &envoy_config_listener.Filter_TypedConfig{
+									TypedConfig: toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{
+										StatPrefix: "default/my-service:8080",
+										ClusterSpecifier: &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
+											Cluster: "default/my-service:8080",
+										},
+									}),
+								},
+							},
+						},
+					}},
+					ListenerFilters: []*envoy_config_listener.ListenerFilter{
+						{
+							Name: "envoy.filters.listener.tls_inspector",
+							ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+								TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+							},
+						},
+					},
+					SocketOptions: []*envoy_config_core_v3.SocketOption{
+						{
+							Description: "Enable TCP keep-alive (default to enabled)",
+							Level:       syscall.SOL_SOCKET,
+							Name:        syscall.SO_KEEPALIVE,
+							Value: &envoy_config_core_v3.SocketOption_IntValue{
+								IntValue: 1,
+							},
+							State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+						},
+						{
+							Description: "TCP keep-alive idle time (in seconds) (defaults to 10s)",
+							Level:       syscall.IPPROTO_TCP,
+							Name:        syscall.TCP_KEEPIDLE,
+							Value: &envoy_config_core_v3.SocketOption_IntValue{
+								IntValue: 10,
+							},
+							State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+						},
+						{
+							Description: "TCP keep-alive probe intervals (in seconds) (defaults to 5s)",
+							Level:       syscall.IPPROTO_TCP,
+							Name:        syscall.TCP_KEEPINTVL,
+							Value: &envoy_config_core_v3.SocketOption_IntValue{
+								IntValue: 5,
+							},
+							State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+						},
+						{
+							Description: "TCP keep-alive probe max failures.",
+							Level:       syscall.IPPROTO_TCP,
+							Name:        syscall.TCP_KEEPCNT,
+							Value: &envoy_config_core_v3.SocketOption_IntValue{
+								IntValue: 10,
+							},
+							State: envoy_config_core_v3.SocketOption_STATE_LISTENING,
+						},
+					},
+				}),
+			},
+			{
+				Any: toAny(&envoy_config_cluster_v3.Cluster{
+					Name: "default/my-service:8080",
+					ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+						Type: envoy_config_cluster_v3.Cluster_EDS,
+					},
+					ConnectTimeout: &durationpb.Duration{Seconds: int64(5)},
+					LbPolicy:       envoy_config_cluster_v3.Cluster_ROUND_ROBIN,
+					OutlierDetection: &envoy_config_cluster_v3.OutlierDetection{
+						SplitExternalLocalOriginErrors: true,
+					},
+				}),
+			},
 		},
 	},
 }
@@ -2759,6 +2910,9 @@ func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Clust
 		Name: fmt.Sprintf("%s/%s:%s", namespace, name, port),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_upstreams_http_v3.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{Seconds: int64(60)},
+				},
 				UpstreamProtocolOptions: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamProtocolConfig{
 					UseDownstreamProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamHttpConfig{
 						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},

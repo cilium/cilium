@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -32,6 +31,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
-	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -58,7 +57,7 @@ const (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
 
 type k8sGetters interface {
-	GetK8sNode(ctx context.Context, nodeName string) (*corev1.Node, error)
+	GetK8sNode(ctx context.Context, nodeName string) (*slim_corev1.Node, error)
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
 }
 
@@ -328,7 +327,7 @@ func (n *NodeDiscovery) UpdateLocalNode() {
 
 // LocalNode syncs the localNode object with the information stored in the node
 // package and then returns a copy of the localNode object
-func (n *NodeDiscovery) LocalNode() *types.Node {
+func (n *NodeDiscovery) LocalNode() *nodeTypes.Node {
 	n.localNodeLock.Lock()
 	defer n.localNodeLock.Unlock()
 
@@ -454,8 +453,9 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 
 	nodeResource.ObjectMeta.Labels = k8sNodeParsed.Labels
 
-	localCN := n.localNode.ToCiliumNode()
-	nodeResource.ObjectMeta.Annotations = localCN.Annotations
+	// This is for syncing relevant node annotations from the k8s node to the
+	// CiliumNode object
+	nodeResource.ObjectMeta.Annotations = k8sNodeParsed.GetCiliumAnnotations()
 
 	for _, k8sAddress := range k8sNodeAddresses {
 		// Do not add CiliumNodeInternalIP from the k8sNodeAddress. The source

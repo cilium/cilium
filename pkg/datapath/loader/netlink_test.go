@@ -8,8 +8,8 @@ package loader
 import (
 	"fmt"
 
+	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -24,7 +24,7 @@ type NetlinkTestSuite struct {
 var _ = Suite(&NetlinkTestSuite{})
 
 func (s *NetlinkTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	s.prevConfigEnableIPv4 = option.Config.EnableIPv4
 	s.prevConfigEnableIPv6 = option.Config.EnableIPv6

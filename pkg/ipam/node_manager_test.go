@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	check "github.com/cilium/checkmate"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"

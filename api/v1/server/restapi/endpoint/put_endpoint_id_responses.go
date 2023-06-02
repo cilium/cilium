@@ -84,6 +84,31 @@ func (o *PutEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer ru
 	}
 }
 
+// PutEndpointIDForbiddenCode is the HTTP code returned for type PutEndpointIDForbidden
+const PutEndpointIDForbiddenCode int = 403
+
+/*
+PutEndpointIDForbidden Forbidden
+
+swagger:response putEndpointIdForbidden
+*/
+type PutEndpointIDForbidden struct {
+}
+
+// NewPutEndpointIDForbidden creates PutEndpointIDForbidden with default headers values
+func NewPutEndpointIDForbidden() *PutEndpointIDForbidden {
+
+	return &PutEndpointIDForbidden{}
+}
+
+// WriteResponse to the client
+func (o *PutEndpointIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // PutEndpointIDExistsCode is the HTTP code returned for type PutEndpointIDExists
 const PutEndpointIDExistsCode int = 409
 

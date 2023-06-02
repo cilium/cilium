@@ -44,7 +44,6 @@ import (
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/azure"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/flannel"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/generic-veth"
-	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/portmap"
 	"github.com/cilium/cilium/plugins/cilium-cni/lib"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
@@ -120,21 +119,20 @@ func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfiguratio
 
 func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (*models.IPAMResponse, func(context.Context), error) {
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
-	// TODO: this will be configurable e.g. by pod annotations when using multi-homing
-	pool := ""
-	ipam, err := client.IPAMAllocate("", podName, pool, true)
+
+	ipam, err := client.IPAMAllocate("", podName, "", true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to allocate IP via local cilium agent: %w", err)
 	}
 
 	if ipam.Address == nil {
-		return nil, nil, fmt.Errorf("Invalid IPAM response, missing addressing")
+		return nil, nil, fmt.Errorf("invalid IPAM response, missing addressing")
 	}
 
 	releaseFunc := func(context.Context) {
 		if ipam.Address != nil {
-			releaseIP(client, ipam.Address.IPV4, pool)
-			releaseIP(client, ipam.Address.IPV6, pool)
+			releaseIP(client, ipam.Address.IPV4, ipam.Address.IPV4PoolName)
+			releaseIP(client, ipam.Address.IPV6, ipam.Address.IPV6PoolName)
 		}
 	}
 
@@ -327,7 +325,7 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 
 	gwIP := net.ParseIP(gw)
 	if gwIP == nil {
-		return nil, nil, fmt.Errorf("Invalid gateway address: %s", gw)
+		return nil, nil, fmt.Errorf("invalid gateway address: %s", gw)
 	}
 
 	return &cniTypesV1.IPConfig{
@@ -410,8 +408,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		return
 	}
 
-	if len(n.NetConf.RawPrevResult) != 0 && n.Name != chainingapi.DefaultConfigName {
-		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
+	// If CNI ADD gives us a PrevResult, we're a chained plugin and *must* detect a
+	// valid chained mode. If no chained mode we understand is specified, error out.
+	// Otherwise, continue with normal plugin execution.
+	if len(n.NetConf.RawPrevResult) != 0 {
+		if chainAction, err := getChainedAction(n, logger); chainAction != nil {
 			var (
 				res *cniTypesV1.Result
 				ctx = chainingapi.PluginContext{
@@ -422,17 +423,20 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 				}
 			)
 
-			if chainAction.ImplementsAdd() {
-				res, err = chainAction.Add(context.TODO(), ctx, c)
-				if err != nil {
-					return
-				}
-				logger.Debugf("Returning result %#v", res)
-				err = cniTypes.PrintResult(res, n.CNIVersion)
-				return
+			res, err = chainAction.Add(context.TODO(), ctx, c)
+			if err != nil {
+				logger.WithError(err).Warn("Chained ADD failed")
+				return err
 			}
+			logger.Debugf("Returning result %#v", res)
+			return cniTypes.PrintResult(res, n.CNIVersion)
+		} else if err != nil {
+			logger.WithError(err).Error("Invalid chaining mode")
+			return err
 		} else {
-			logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
+			// no chained action supplied; this is an error
+			logger.Error("CNI PrevResult supplied, but not in chaining mode -- this is invalid, please set chaining-mode in CNI configuration")
+			return fmt.Errorf("CNI PrevResult supplied, but not in chaining mode -- this is invalid, please set chaining-mode in CNI configuration")
 		}
 	}
 
@@ -541,6 +545,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	if ipv6IsEnabled(ipam) {
 		ep.Addressing.IPV6 = ipam.Address.IPV6
+		ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
 		ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, &state, int(conf.RouteMTU))
@@ -554,6 +559,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	if ipv4IsEnabled(ipam) {
 		ep.Addressing.IPV4 = ipam.Address.IPV4
+		ep.Addressing.IPV4PoolName = ipam.Address.IPV4PoolName
 		ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, &state, int(conf.RouteMTU))
@@ -604,7 +610,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if err = c.EndpointCreate(ep); err != nil {
 		logger.WithError(err).WithFields(logrus.Fields{
 			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-		err = fmt.Errorf("Unable to create endpoint: %s", err)
+		err = fmt.Errorf("unable to create endpoint: %s", err)
 		return
 	}
 
@@ -657,21 +663,24 @@ func cmdDel(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to connect to Cilium agent: %w", err)
 	}
 
-	if n.Name != chainingapi.DefaultConfigName {
-		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
-			ctx := chainingapi.PluginContext{
+	// If this is a chained plugin, then "delegate" to the special chaining mode and be done.
+	// Note: DEL always has PrevResult set, so that doesn't tell us if we're chained. Given
+	// that a CNI ADD could not have succeeded with an invalid chained mode, we should always
+	// find a valid chained mode
+	if chainAction, err := getChainedAction(n, logger); chainAction != nil {
+		var (
+			ctx = chainingapi.PluginContext{
 				Logger:  logger,
 				Args:    args,
 				CniArgs: cniArgs,
 				NetConf: n,
 			}
+		)
 
-			if chainAction.ImplementsDelete() {
-				return chainAction.Delete(context.TODO(), ctx, c)
-			}
-		} else {
-			logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
-		}
+		return chainAction.Delete(context.TODO(), ctx, c)
+	} else if err != nil {
+		logger.WithError(err).Error("Invalid chaining mode")
+		return err
 	}
 
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
@@ -762,25 +771,23 @@ func cmdCheck(args *skel.CmdArgs) error {
 
 	// If this is a chained plugin, then "delegate" to the special chaining mode and be done
 	// Note: CHECK always has PrevResult set, so that doesn't tell us if we're chained.
-	if n.Name != chainingapi.DefaultConfigName {
-		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
-			var (
-				ctx = chainingapi.PluginContext{
-					Logger:  logger,
-					Args:    args,
-					CniArgs: cniArgs,
-					NetConf: n,
-				}
-			)
+	if chainAction, err := getChainedAction(n, logger); chainAction != nil {
+		var (
+			ctx = chainingapi.PluginContext{
+				Logger:  logger,
+				Args:    args,
+				CniArgs: cniArgs,
+				NetConf: n,
+			}
+		)
 
-			// err is nil on success
-			err := chainAction.Check(context.TODO(), ctx, c)
-			logger.Debugf("Chained CHECK %s returned %s", n.Name, err)
-			return err
-
-		} else {
-			logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
-		}
+		// err is nil on success
+		err := chainAction.Check(context.TODO(), ctx, c)
+		logger.Debugf("Chained CHECK %s returned %s", n.Name, err)
+		return err
+	} else if err != nil {
+		logger.WithError(err).Error("Invalid chaining mode")
+		return err
 	}
 
 	// mechanical: parse PrevResult
@@ -877,4 +884,38 @@ func verifyInterface(netns ns.NetNS, ifName string, expected *cniTypesV1.Result)
 
 		return nil
 	})
+}
+
+// getChainedAction retrieves the desired chained action. It returns nil if there
+// is no chained action, and error if there is a configured chained action but it is
+// invalid.
+func getChainedAction(n *types.NetConf, logger *logrus.Entry) (chainingapi.ChainingPlugin, error) {
+	if n.ChainingMode != "" {
+		chainAction := chainingapi.Lookup(n.ChainingMode)
+		if chainAction == nil {
+			return nil, fmt.Errorf("invalid chaining-mode %s", n.ChainingMode)
+		}
+
+		logger.Infof("Using chained plugin %s", n.ChainingMode)
+		return chainAction, nil
+	}
+
+	// Chained action can either be explicitly enabled, or implicitly based on
+	// network name.
+	// Portmap is a special case; we used it to signify that the portmap plugin
+	// is included later in the chain, but we should treat it as a standard plugin.
+	if n.Name != chainingapi.DefaultConfigName && n.Name != "portmap" {
+		chainAction := chainingapi.Lookup(n.Name)
+		if chainAction == nil {
+			// In this case, we are just being called with a different network name;
+			// there isn't any chaining happening.
+			return nil, nil
+		}
+
+		logger.Infof("Using chained plugin %s", n.Name)
+		return chainAction, nil
+	}
+
+	// OK to return nil, nil if chaining isn't enabled.
+	return nil, nil
 }

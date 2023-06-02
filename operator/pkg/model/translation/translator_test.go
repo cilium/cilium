@@ -188,14 +188,14 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 	}
 }
 
-func TestSharedIngressTranslator_getListener(t *testing.T) {
+func TestSharedIngressTranslator_getHTTPRouteListener(t *testing.T) {
 	i := &defaultTranslator{
 		name:             "cilium-ingress",
 		namespace:        "kube-system",
 		secretsNamespace: "cilium-secrets",
 	}
 
-	res := i.getListener(&model.Model{
+	res := i.getHTTPRouteListener(&model.Model{
 		HTTP: []model.HTTPListener{
 			{
 				TLS: []model.TLSSecret{
@@ -321,7 +321,7 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 	}
 }
 
-func TestSharedIngressTranslator_getRouteConfiguration(t *testing.T) {
+func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 	type args struct {
 		m *model.Model
 	}
@@ -394,7 +394,7 @@ func TestSharedIngressTranslator_getRouteConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res := i.getRouteConfiguration(tt.args.m)
+			res := i.getEnvoyHTTPRouteConfiguration(tt.args.m)
 			require.Len(t, res, len(tt.expectedRouteVHMap))
 
 			for i := 0; i < len(tt.expectedRouteVHMap); i++ {

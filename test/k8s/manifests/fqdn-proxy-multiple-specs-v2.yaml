@@ -27,7 +27,7 @@ specs:
         dns:
         - matchPattern: "*"
   - toFQDNs:
-    - matchPattern: "jenkins.cilium.io"
+    - matchPattern: "cilium.io"
   endpointSelector:
     matchLabels:
       id: app3

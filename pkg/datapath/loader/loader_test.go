@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/ebpf/rlimit"
 
@@ -53,7 +53,7 @@ func Test(t *testing.T) {
 }
 
 func (s *LoaderTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	tmpDir, err := os.MkdirTemp("/tmp/", "cilium_")
 	if err != nil {

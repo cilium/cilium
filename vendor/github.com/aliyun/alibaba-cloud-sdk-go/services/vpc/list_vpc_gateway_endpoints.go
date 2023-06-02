@@ -71,15 +71,23 @@ func (client *Client) ListVpcGatewayEndpointsWithCallback(request *ListVpcGatewa
 // ListVpcGatewayEndpointsRequest is the request struct for api ListVpcGatewayEndpoints
 type ListVpcGatewayEndpointsRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	EndpointId           string           `position:"Query" name:"EndpointId"`
-	NextToken            string           `position:"Query" name:"NextToken"`
-	ServiceName          string           `position:"Query" name:"ServiceName"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	EndpointName         string           `position:"Query" name:"EndpointName"`
-	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
+	ResourceOwnerId      requests.Integer               `position:"Query" name:"ResourceOwnerId"`
+	EndpointId           string                         `position:"Query" name:"EndpointId"`
+	ResourceGroupId      string                         `position:"Query" name:"ResourceGroupId"`
+	NextToken            string                         `position:"Query" name:"NextToken"`
+	ServiceName          string                         `position:"Query" name:"ServiceName"`
+	ResourceOwnerAccount string                         `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                         `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer               `position:"Query" name:"OwnerId"`
+	Tags                 *[]ListVpcGatewayEndpointsTags `position:"Query" name:"Tags"  type:"Repeated"`
+	EndpointName         string                         `position:"Query" name:"EndpointName"`
+	MaxResults           requests.Integer               `position:"Query" name:"MaxResults"`
+}
+
+// ListVpcGatewayEndpointsTags is a repeated param struct in ListVpcGatewayEndpointsRequest
+type ListVpcGatewayEndpointsTags struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // ListVpcGatewayEndpointsResponse is the response struct for api ListVpcGatewayEndpoints

@@ -88,14 +88,14 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		// Watch for changes to HTTPRoute, but not the status
-		For(&gatewayv1beta1.HTTPRoute{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		// Watch for changes to HTTPRoute
+		For(&gatewayv1beta1.HTTPRoute{}).
 		// Watch for changes to Backend services
 		Watches(&source.Kind{Type: &corev1.Service{}}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Gateways and enqueue HTTPRoutes that reference them,
-		// only if there is a change in the spec
 		Watches(&source.Kind{Type: &gatewayv1beta1.Gateway{}}, r.enqueueRequestForGateway(),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(
+				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName)))).
 		Complete(r)
 }
 

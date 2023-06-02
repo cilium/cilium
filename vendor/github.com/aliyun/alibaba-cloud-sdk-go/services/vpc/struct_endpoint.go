@@ -25,5 +25,7 @@ type Endpoint struct {
 	PolicyDocument        string   `json:"PolicyDocument" xml:"PolicyDocument"`
 	CreationTime          string   `json:"CreationTime" xml:"CreationTime"`
 	EndpointStatus        string   `json:"EndpointStatus" xml:"EndpointStatus"`
+	ResourceGroupId       string   `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	AssociatedRouteTables []string `json:"AssociatedRouteTables" xml:"AssociatedRouteTables"`
+	Tags                  []Tag    `json:"Tags" xml:"Tags"`
 }

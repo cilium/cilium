@@ -83,6 +83,7 @@ type DescribeResourcesModificationRequest struct {
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	DestinationResource  string           `position:"Query" name:"DestinationResource"`
 	ZoneId               string           `position:"Query" name:"ZoneId"`
+	Conditions           *[]string        `position:"Query" name:"Conditions"  type:"Repeated"`
 }
 
 // DescribeResourcesModificationResponse is the response struct for api DescribeResourcesModification

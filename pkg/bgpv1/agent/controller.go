@@ -6,15 +6,17 @@ package agent
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/workerpool"
 
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/ip"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimlabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -24,6 +26,9 @@ import (
 	nodeaddr "github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
+
+// minHoldTime represents the minimal BGP hold time duration
+const minHoldTime = 3 * time.Second
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
@@ -86,9 +91,27 @@ type ControlPlaneState struct {
 	// control plane is running on.
 	Annotations AnnotationMap
 	// The current IPv4 address of the agent, reachable externally.
-	IPv4 net.IP
+	IPv4 netip.Addr
 	// The current IPv6 address of the agent, reachable externally.
-	IPv6 net.IP
+	IPv6 netip.Addr
+}
+
+// ResolveRouterID resolves router ID, if we have an annotation and it can be
+// parsed into a valid ipv4 address use it. If not, determine if Cilium is
+// configured with an IPv4 address, if so use it. If neither, return an error,
+// we cannot assign an router ID.
+func (cstate *ControlPlaneState) ResolveRouterID(localASN int) (string, error) {
+	if _, ok := cstate.Annotations[localASN]; ok {
+		if parsed, err := netip.ParseAddr(cstate.Annotations[localASN].RouterID); err == nil && !parsed.IsUnspecified() {
+			return parsed.String(), nil
+		}
+	}
+
+	if !cstate.IPv4.IsUnspecified() {
+		return cstate.IPv4.String(), nil
+	}
+
+	return "", fmt.Errorf("router id not specified by annotation and no IPv4 address assigned by cilium, cannot resolve router id for virtual router with local ASN %v", localASN)
 }
 
 type policyLister interface {
@@ -349,6 +372,14 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		return nil
 	}
 
+	// apply policy defaults to have consistent default config across sub-systems
+	policy = c.applyPolicyDefaults(policy)
+
+	err = c.validatePolicy(policy)
+	if err != nil {
+		return fmt.Errorf("invalid BGP peering policy %s: %w", policy.Name, err)
+	}
+
 	// parse any virtual router specific attributes defined on this node via
 	// kubernetes annotations
 	//
@@ -369,12 +400,15 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("failed to retrieve Node's pod CIDR ranges: %w", err)
 	}
 
+	ipv4, _ := ip.AddrFromIP(nodeaddr.GetIPv4())
+	ipv6, _ := ip.AddrFromIP(nodeaddr.GetIPv6())
+
 	// define our current point-in-time control plane state.
 	state := &ControlPlaneState{
 		PodCIDRs:    podCIDRs,
 		Annotations: annoMap,
-		IPv4:        nodeaddr.GetIPv4(),
-		IPv6:        nodeaddr.GetIPv6(),
+		IPv4:        ipv4,
+		IPv6:        ipv6,
 	}
 
 	// call bgp sub-systems required to apply this policy's BGP topology.
@@ -390,4 +424,49 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 // BGP servers and peers.
 func (c *Controller) FullWithdrawal(ctx context.Context) {
 	_ = c.BGPMgr.ConfigurePeers(ctx, nil, nil) // cannot fail, no need for error handling
+}
+
+// applyPolicyDefaults applies default values on the CiliumBGPPeeringPolicy.
+func (c *Controller) applyPolicyDefaults(policy *v2alpha1api.CiliumBGPPeeringPolicy) *v2alpha1api.CiliumBGPPeeringPolicy {
+	p := policy.DeepCopy() // deepcopy to not modify the policy object in store
+	for _, r := range p.Spec.VirtualRouters {
+		for j := range r.Neighbors {
+			n := &r.Neighbors[j]
+			if n.ConnectRetryTime.Duration == 0 {
+				n.ConnectRetryTime.Duration = types.DefaultBGPConnectRetryTime
+			}
+			if n.HoldTime.Duration == 0 {
+				// RFC4271 Sec 4.4 says that hold time can be 0 and has a special meaning that disables keepalive.
+				// However, as GoBGP defaults the hold time for 0 value, it cannot be 0 in our case.
+				n.HoldTime.Duration = types.DefaultBGPHoldTime
+			}
+			if n.KeepAliveTime.Duration == 0 {
+				n.KeepAliveTime.Duration = n.HoldTime.Duration / 3
+			}
+		}
+	}
+	return p
+}
+
+// validatePolicy validates the CiliumBGPPeeringPolicy.
+func (c *Controller) validatePolicy(policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
+	for _, r := range policy.Spec.VirtualRouters {
+		for _, n := range r.Neighbors {
+			if n.ConnectRetryTime.Duration < 0 {
+				return fmt.Errorf("connectRetryTime is negative for peer ASN %d, IP %s", n.PeerASN, n.PeerAddress)
+			}
+			if n.HoldTime.Duration < minHoldTime {
+				// RFC4271 Sec 4.2 says that the hold time MUST be zero or at least 3 seconds.
+				// However, as GoBGP defaults the hold time for 0 value, it cannot be 0 in our case.
+				return fmt.Errorf("holdTime is lower than %v for peer ASN %d, IP %s", minHoldTime, n.PeerASN, n.PeerAddress)
+			}
+			if n.KeepAliveTime.Duration < 0 {
+				return fmt.Errorf("keepAliveTime is negative for peer ASN %d, IP %s", n.PeerASN, n.PeerAddress)
+			}
+			if n.KeepAliveTime.Duration > n.HoldTime.Duration {
+				return fmt.Errorf("keepAliveTime time larger than holdTime for peer ASN %d, IP %s", n.PeerASN, n.PeerAddress)
+			}
+		}
+	}
+	return nil
 }

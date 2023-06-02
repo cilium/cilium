@@ -75,14 +75,13 @@ func MapCreate() error {
 			&EncryptValue{},
 			int(unsafe.Sizeof(EncryptValue{})),
 			MaxEntries,
-			0, 0,
+			0,
 			bpf.ConvertKeyValue,
 		).WithCache().
 			WithEvents(option.Config.GetEventBufferConfig(MapName))
 	})
 
-	_, err := encryptMap.OpenOrCreate()
-	return err
+	return encryptMap.OpenOrCreate()
 }
 
 // MapUpdateContext updates the encrypt state with ctxID to use the new keyID

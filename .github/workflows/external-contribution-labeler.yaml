@@ -33,7 +33,7 @@ jobs:
         # permissions.
         if: ${{ steps.check_secret.outputs.is_CHECK_TEAM_ORG_APP_ID_set == 'true' }}
         id: get_token
-        uses: cilium/actions-app-token@350a14155dd9be79227f081310f4d77fdf792e76 # v1.0.0
+        uses: cilium/actions-app-token@350a14155dd9be79227f081310f4d77fdf792e76 # v0.21.0
         with:
           APP_PEM: ${{ secrets.CHECK_TEAM_ORG_PEM }}
           APP_ID: ${{ secrets.CHECK_TEAM_ORG_APP_ID }}

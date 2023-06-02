@@ -18,6 +18,7 @@
     "test/kubernetes-test.sh",
     "test/packet/scripts/install.sh",
     "install/kubernetes/cilium/templates/spire/**",
+    "install/kubernetes/cilium/values.yaml.tmpl",
   ],
   postUpdateOptions: [
     "gomodTidy"
@@ -52,6 +53,7 @@
     "enabled": true
   },
   "labels": [
+    "renovate/stop-updating",
     "kind/enhancement",
     "release-note/misc"
   ],
@@ -123,6 +125,8 @@
         // want to update them automatically.
         "go.universe.tf/metallb",
         "github.com/cilium/metallb",
+        // metallb is still using an old version of "github.com/mdlayher/arp"
+        "github.com/mdlayher/arp",
         "github.com/miekg/dns",
         "github.com/cilium/dns",
         "sigs.k8s.io/controller-tools",
@@ -153,9 +157,23 @@
       // Images that directly use docker.io/library/golang for building.
       "groupName": "golang-images",
       "matchFiles": [
+        "contrib/backporting/Dockerfile",
         "images/cilium-docker-plugin/Dockerfile",
         "images/clustermesh-apiserver/Dockerfile",
         "images/hubble-relay/Dockerfile",
+        "images/operator/Dockerfile"
+      ],
+      "schedule": [
+        "on friday"
+      ]
+    },
+    {
+      // Images that directly use docker.io/library/alpine for building.
+      "groupName": "alpine-images",
+      "matchFiles": [
+        "contrib/coccinelle/Dockerfile",
+        "images/cache/Dockerfile",
+        "images/clustermesh-apiserver/Dockerfile",
         "images/operator/Dockerfile"
       ],
       "schedule": [
@@ -227,9 +245,17 @@
       "matchPackageNames": [
         "docker.io/library/alpine"
       ],
-      "allowedVersions": "<3.17",
+      "allowedVersions": "<3.18",
       "matchBaseBranches": [
         "v1.13",
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.17",
+      "matchBaseBranches": [
         "v1.12",
         "v1.11"
       ]
@@ -311,13 +337,14 @@
     },
     {
       "fileMatch": [
-        "^\\.github/workflows/[^/]+\\.yaml$"
+        "^\\.github/workflows/[^/]+\\.ya?ml$"
       ],
       // This regex manages version strings in GitHub actions workflow files,
       // similar to the examples shown here:
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)"
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION: (?<currentValue>.*)"
       ]
     },
     {
@@ -341,8 +368,8 @@
     },
     {
       "fileMatch": [
-	"^test/kubernetes-test\\.sh$",
-	"^test/packet/scripts/install\\.sh$"
+        "^test/kubernetes-test\\.sh$",
+        "^test/packet/scripts/install\\.sh$"
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\""

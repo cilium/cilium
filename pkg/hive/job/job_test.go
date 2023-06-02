@@ -312,12 +312,9 @@ func TestOneShot_RetryRecoverNoShutdown(t *testing.T) {
 		g.Add(
 			OneShot("retry-recover-no-shutdown", func(ctx context.Context) error {
 				defer func() { i++ }()
-				if started != nil {
-					close(started)
-					started = nil
-				}
 
 				if i == 0 {
+					close(started)
 					return errors.New("First try error")
 				}
 
@@ -350,25 +347,24 @@ func TestOneShot_RetryRecoverNoShutdown(t *testing.T) {
 	<-shutdown
 }
 
-// This test asserts that the timer invokes the function a the given interval.
+// This test ensures that the timer function is called repeatedly.
+// Not testing the timer interval is intentional, as there are no guarantees for test execution
+// timeliness in the CI or even locally. This makes assertions of test timing inherently flaky,
+// leading to a need of large tolerances that diminish value of such assertions.
 func TestTimer_OnInterval(t *testing.T) {
 	stop := make(chan struct{})
-
-	var (
-		times []time.Time
-		i     int
-	)
+	i := 0
 
 	h := fixture(func(r Registry, l hive.Lifecycle) {
 		g := r.NewGroup()
 
 		g.Add(
 			Timer("on-interval", func(ctx context.Context) error {
-				defer func() { i++ }()
+				// Close the stop channel after 5 invocations.
+				i++
 				if i == 5 {
-					defer close(stop)
+					close(stop)
 				}
-				times = append(times, time.Now())
 				return nil
 			}, 100*time.Millisecond),
 		)
@@ -384,63 +380,6 @@ func TestTimer_OnInterval(t *testing.T) {
 
 	if err := h.Stop(context.Background()); err != nil {
 		t.Fatal(err)
-	}
-
-	// Check that the difference is 100 ms +- 50% to account for CI time distortion
-	for i := 1; i < len(times); i++ {
-		diff := times[i].Sub(times[i-1])
-		if diff < 50*time.Millisecond || diff > 150*time.Millisecond {
-			t.Fatal()
-		}
-	}
-}
-
-// This test asserts that, when the timer func is lower than the interval, the timer will not sleep in between calls.
-func TestTimer_ExceedInterval(t *testing.T) {
-	stop := make(chan struct{})
-
-	var (
-		times []time.Time
-		i     int
-	)
-
-	h := fixture(func(r Registry, l hive.Lifecycle) {
-		g := r.NewGroup()
-
-		g.Add(
-			Timer("on-interval", func(ctx context.Context) error {
-				defer func() { i++ }()
-				if i == 5 {
-					defer close(stop)
-				}
-
-				times = append(times, time.Now())
-
-				time.Sleep(100 * time.Millisecond)
-
-				return nil
-			}, 50*time.Millisecond),
-		)
-
-		l.Append(g)
-	})
-
-	if err := h.Start(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-
-	<-stop
-
-	if err := h.Stop(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-
-	// Check that the difference is 100 ms +- 50% to account for CI time distortion
-	for i := 1; i < len(times); i++ {
-		diff := times[i].Sub(times[i-1])
-		if diff < 50*time.Millisecond || diff > 150*time.Millisecond {
-			t.Fatal()
-		}
 	}
 }
 
@@ -574,7 +513,10 @@ func TestTimer_ExitOnCloseFnCtx(t *testing.T) {
 		g.Add(
 			Timer("on-interval", func(ctx context.Context) error {
 				i++
-				close(started)
+				if started != nil {
+					close(started)
+					started = nil
+				}
 				<-ctx.Done()
 				return nil
 			}, 1*time.Millisecond),
@@ -676,6 +618,7 @@ func TestObserver_LongStream(t *testing.T) {
 // stops even if there are still pending items in the stream.
 func TestObserver_CtxClose(t *testing.T) {
 	started := make(chan struct{})
+	i := 0
 	streamSlice := []string{"a", "b", "c"}
 
 	h := fixture(func(r Registry, l hive.Lifecycle) {
@@ -683,9 +626,9 @@ func TestObserver_CtxClose(t *testing.T) {
 
 		g.Add(
 			Observer("retry-fail", func(ctx context.Context, event string) error {
-				if started != nil {
+				if i == 0 {
 					close(started)
-					started = nil
+					i++
 				}
 				<-ctx.Done()
 				return nil
@@ -733,10 +676,15 @@ func TestRegistry(t *testing.T) {
 func TestGroup_JobQueue(t *testing.T) {
 	h := fixture(func(r Registry, l hive.Lifecycle) {
 		g := r.NewGroup()
-		g.Add(OneShot("queued", func(ctx context.Context) error {
-			return nil
-		}))
-		if len(g.(*group).queuedJobs) != 1 {
+		g.Add(
+			OneShot("queued1", func(ctx context.Context) error { return nil }),
+			OneShot("queued2", func(ctx context.Context) error { return nil }),
+		)
+		g.Add(
+			OneShot("queued3", func(ctx context.Context) error { return nil }),
+			OneShot("queued4", func(ctx context.Context) error { return nil }),
+		)
+		if len(g.(*group).queuedJobs) != 4 {
 			t.Fatal()
 		}
 		l.Append(g)

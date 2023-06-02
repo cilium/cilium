@@ -144,6 +144,9 @@ func init() {
               "$ref": "#/definitions/Error"
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "500": {
             "description": "Recompilation failed",
             "schema": {
@@ -267,6 +270,9 @@ func init() {
             },
             "x-go-name": "Invalid"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "409": {
             "description": "Endpoint already exists",
             "x-go-name": "Exists"
@@ -312,6 +318,9 @@ func init() {
             },
             "x-go-name": "Invalid"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "Endpoint not found"
           },
@@ -345,6 +354,9 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Invalid"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Endpoint does not exist"
@@ -415,6 +427,9 @@ func init() {
           "400": {
             "description": "Invalid configuration request",
             "x-go-name": "Invalid"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Endpoint not found"
@@ -511,6 +526,9 @@ func init() {
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Endpoint not found"
@@ -618,6 +636,9 @@ func init() {
             "schema": {
               "$ref": "#/definitions/Error"
             }
+          },
+          "403": {
+            "description": "Forbidden"
           }
         }
       }
@@ -879,6 +900,9 @@ func init() {
               "$ref": "#/definitions/IPAMResponse"
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "502": {
             "description": "Allocation failure",
             "schema": {
@@ -914,6 +938,9 @@ func init() {
             "description": "Invalid IP address",
             "x-go-name": "Invalid"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "409": {
             "description": "IP already allocated",
             "x-go-name": "Exists"
@@ -938,7 +965,7 @@ func init() {
         "summary": "Release an allocated IP address",
         "parameters": [
           {
-            "$ref": "#/parameters/ipam-release-arg"
+            "$ref": "#/parameters/ipam-ip"
           },
           {
             "$ref": "#/parameters/ipam-pool"
@@ -951,6 +978,9 @@ func init() {
           "400": {
             "description": "Invalid IP address",
             "x-go-name": "Invalid"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "IP address not found"
@@ -1150,6 +1180,9 @@ func init() {
             },
             "x-go-name": "InvalidPolicy"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "460": {
             "description": "Invalid path",
             "schema": {
@@ -1193,6 +1226,9 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Invalid"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Policy not found"
@@ -1262,6 +1298,9 @@ func init() {
               "$ref": "#/definitions/Prefilter"
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "461": {
             "description": "Invalid CIDR prefix",
             "schema": {
@@ -1294,6 +1333,9 @@ func init() {
             "schema": {
               "$ref": "#/definitions/Prefilter"
             }
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "461": {
             "description": "Invalid CIDR prefix",
@@ -1393,6 +1435,9 @@ func init() {
           "201": {
             "description": "Created"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "500": {
             "description": "Error while creating recorder",
             "schema": {
@@ -1415,6 +1460,9 @@ func init() {
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Recorder not found"
@@ -1491,6 +1539,9 @@ func init() {
           "201": {
             "description": "Created"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "460": {
             "description": "Invalid frontend in service configuration",
             "schema": {
@@ -1535,6 +1586,9 @@ func init() {
           "200": {
             "description": "Success"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "Service not found"
           },
@@ -1566,12 +1620,20 @@ func init() {
           "description": "UUID of IPv4 expiration timer",
           "type": "string"
         },
+        "ipv4-pool-name": {
+          "description": "IPAM pool from which this IPv4 address was allocated",
+          "type": "string"
+        },
         "ipv6": {
           "description": "IPv6 address",
           "type": "string"
         },
         "ipv6-expiration-uuid": {
           "description": "UUID of IPv6 expiration timer",
+          "type": "string"
+        },
+        "ipv6-pool-name": {
+          "description": "IPAM pool from which this IPv6 address was allocated",
           "type": "string"
         }
       }
@@ -1739,6 +1801,26 @@ func init() {
     "BgpPeer": {
       "description": "State of a BGP Peer\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "applied-hold-time-seconds": {
+          "description": "Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.\nThe applied value holds the value that is in effect on the current BGP session.\n",
+          "type": "integer"
+        },
+        "applied-keep-alive-time-seconds": {
+          "description": "Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.\nThe applied value holds the value that is in effect on the current BGP session.\n",
+          "type": "integer"
+        },
+        "configured-hold-time-seconds": {
+          "description": "Configured initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.\nThe configured value will be used for negotiation with the peer during the BGP session establishment.\n",
+          "type": "integer"
+        },
+        "configured-keep-alive-time-seconds": {
+          "description": "Configured initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.\nThe applied value may be different than the configured value, as it depends on the negotiated hold time interval.\n",
+          "type": "integer"
+        },
+        "connect-retry-time-seconds": {
+          "description": "Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8) in seconds",
+          "type": "integer"
+        },
         "families": {
           "description": "BGP peer address family state",
           "type": "array",
@@ -3884,6 +3966,14 @@ func init() {
       "description": "Status of proxy\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "envoy-deployment-mode": {
+          "description": "Deployment mode of Envoy L7 proxy",
+          "type": "string",
+          "enum": [
+            "embedded",
+            "external"
+          ]
+        },
         "ip": {
           "description": "IP address that the proxy listens on",
           "type": "string"
@@ -4562,13 +4652,6 @@ func init() {
       "name": "pool",
       "in": "query"
     },
-    "ipam-release-arg": {
-      "type": "string",
-      "description": "IP address or owner name",
-      "name": "ip",
-      "in": "path",
-      "required": true
-    },
     "labels": {
       "description": "List of labels\n",
       "name": "labels",
@@ -4798,6 +4881,9 @@ func init() {
               "$ref": "#/definitions/Error"
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "500": {
             "description": "Recompilation failed",
             "schema": {
@@ -4939,6 +5025,9 @@ func init() {
             },
             "x-go-name": "Invalid"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "409": {
             "description": "Endpoint already exists",
             "x-go-name": "Exists"
@@ -4988,6 +5077,9 @@ func init() {
             },
             "x-go-name": "Invalid"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "Endpoint not found"
           },
@@ -5030,6 +5122,9 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Invalid"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Endpoint does not exist"
@@ -5108,6 +5203,9 @@ func init() {
           "400": {
             "description": "Invalid configuration request",
             "x-go-name": "Invalid"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Endpoint not found"
@@ -5216,6 +5314,9 @@ func init() {
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Endpoint not found"
@@ -5339,6 +5440,9 @@ func init() {
             "schema": {
               "$ref": "#/definitions/Error"
             }
+          },
+          "403": {
+            "description": "Forbidden"
           }
         }
       }
@@ -5637,6 +5741,9 @@ func init() {
               "$ref": "#/definitions/IPAMResponse"
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "502": {
             "description": "Allocation failure",
             "schema": {
@@ -5680,6 +5787,9 @@ func init() {
             "description": "Invalid IP address",
             "x-go-name": "Invalid"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "409": {
             "description": "IP already allocated",
             "x-go-name": "Exists"
@@ -5705,7 +5815,7 @@ func init() {
         "parameters": [
           {
             "type": "string",
-            "description": "IP address or owner name",
+            "description": "IP address",
             "name": "ip",
             "in": "path",
             "required": true
@@ -5723,6 +5833,9 @@ func init() {
           "400": {
             "description": "Invalid IP address",
             "x-go-name": "Invalid"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "IP address not found"
@@ -5939,6 +6052,9 @@ func init() {
             },
             "x-go-name": "InvalidPolicy"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "460": {
             "description": "Invalid path",
             "schema": {
@@ -5982,6 +6098,9 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Invalid"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Policy not found"
@@ -6057,6 +6176,9 @@ func init() {
               "$ref": "#/definitions/Prefilter"
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "461": {
             "description": "Invalid CIDR prefix",
             "schema": {
@@ -6095,6 +6217,9 @@ func init() {
             "schema": {
               "$ref": "#/definitions/Prefilter"
             }
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "461": {
             "description": "Invalid CIDR prefix",
@@ -6208,6 +6333,9 @@ func init() {
           "201": {
             "description": "Created"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "500": {
             "description": "Error while creating recorder",
             "schema": {
@@ -6234,6 +6362,9 @@ func init() {
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "404": {
             "description": "Recorder not found"
@@ -6324,6 +6455,9 @@ func init() {
           "201": {
             "description": "Created"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "460": {
             "description": "Invalid frontend in service configuration",
             "schema": {
@@ -6372,6 +6506,9 @@ func init() {
           "200": {
             "description": "Success"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "Service not found"
           },
@@ -6403,12 +6540,20 @@ func init() {
           "description": "UUID of IPv4 expiration timer",
           "type": "string"
         },
+        "ipv4-pool-name": {
+          "description": "IPAM pool from which this IPv4 address was allocated",
+          "type": "string"
+        },
         "ipv6": {
           "description": "IPv6 address",
           "type": "string"
         },
         "ipv6-expiration-uuid": {
           "description": "UUID of IPv6 expiration timer",
+          "type": "string"
+        },
+        "ipv6-pool-name": {
+          "description": "IPAM pool from which this IPv6 address was allocated",
           "type": "string"
         }
       }
@@ -6576,6 +6721,26 @@ func init() {
     "BgpPeer": {
       "description": "State of a BGP Peer\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "applied-hold-time-seconds": {
+          "description": "Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.\nThe applied value holds the value that is in effect on the current BGP session.\n",
+          "type": "integer"
+        },
+        "applied-keep-alive-time-seconds": {
+          "description": "Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.\nThe applied value holds the value that is in effect on the current BGP session.\n",
+          "type": "integer"
+        },
+        "configured-hold-time-seconds": {
+          "description": "Configured initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.\nThe configured value will be used for negotiation with the peer during the BGP session establishment.\n",
+          "type": "integer"
+        },
+        "configured-keep-alive-time-seconds": {
+          "description": "Configured initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.\nThe applied value may be different than the configured value, as it depends on the negotiated hold time interval.\n",
+          "type": "integer"
+        },
+        "connect-retry-time-seconds": {
+          "description": "Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8) in seconds",
+          "type": "integer"
+        },
         "families": {
           "description": "BGP peer address family state",
           "type": "array",
@@ -9172,6 +9337,14 @@ func init() {
       "description": "Status of proxy\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "envoy-deployment-mode": {
+          "description": "Deployment mode of Envoy L7 proxy",
+          "type": "string",
+          "enum": [
+            "embedded",
+            "external"
+          ]
+        },
         "ip": {
           "description": "IP address that the proxy listens on",
           "type": "string"
@@ -9917,13 +10090,6 @@ func init() {
       "type": "string",
       "name": "pool",
       "in": "query"
-    },
-    "ipam-release-arg": {
-      "type": "string",
-      "description": "IP address or owner name",
-      "name": "ip",
-      "in": "path",
-      "required": true
     },
     "labels": {
       "description": "List of labels\n",

@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+spec:
+  replicas: 50
+  selector:
+    matchLabels:
+      type: server
+  template:
+    metadata:
+      labels:
+        type: server
+    spec:
+      containers:
+      - name: web
+        image: quay.io/cilium/echoserver:1.10.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+spec:
+  replicas: 50
+  selector:
+    matchLabels:
+      type: client
+  template:
+    metadata:
+      labels:
+        type: client
+    spec:
+      containers:
+      - name: web
+        image: quay.io/cilium/demo-client:1.0
+        imagePullPolicy: IfNotPresent
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - http:80/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - http:80/public
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: http
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    type: server

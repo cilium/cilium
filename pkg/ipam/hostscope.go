@@ -8,9 +8,8 @@ import (
 	"math/big"
 	"net"
 
-	"github.com/cilium/ipam/service/ipallocator"
-
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 )
 
 type hostScopeAllocator struct {
@@ -48,7 +47,8 @@ func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string
 }
 
 func (h *hostScopeAllocator) Release(ip net.IP, pool Pool) error {
-	return h.allocator.Release(ip)
+	h.allocator.Release(ip)
+	return nil
 }
 
 func (h *hostScopeAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {

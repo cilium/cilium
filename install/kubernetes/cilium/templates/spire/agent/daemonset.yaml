@@ -53,7 +53,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /live
-              port: 8080
+              port: 4251
             failureThreshold: 2
             initialDelaySeconds: 15
             periodSeconds: 60
@@ -61,7 +61,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /ready
-              port: 8080
+              port: 4251
             initialDelaySeconds: 5
             periodSeconds: 5
       volumes:

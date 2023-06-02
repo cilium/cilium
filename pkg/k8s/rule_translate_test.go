@@ -7,7 +7,7 @@ import (
 	"net"
 	"sort"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -340,7 +340,7 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 
 	rules := api.Rules{&rule1}
 
-	err := PreprocessRules(rules, &cache)
+	err := PreprocessRules(rules, cache)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule1.Egress[0].ToCIDRSet), Equals, 1)

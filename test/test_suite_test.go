@@ -325,7 +325,7 @@ var _ = AfterEach(func() {
 		zipFilePath := filepath.Join(helpers.TestResultsPath, zipFileName)
 
 		_, err := exec.Command(
-			"/bin/bash", "-c",
+			"/usr/bin/env", "bash", "-c",
 			fmt.Sprintf("zip -qr \"%s\" \"%s\"", zipFilePath, path)).CombinedOutput()
 		if err != nil {
 			log.WithError(err).Errorf("cannot create zip file '%s'", zipFilePath)

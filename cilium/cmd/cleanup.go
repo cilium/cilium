@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/socketlb"
 )
 
 // cleanupCmd represents the cleanup command
@@ -223,7 +224,8 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		}
 		toBeRemoved = append(toBeRemoved, section)
 	}
-
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("socketlb bpf programs at %s",
+		defaults.DefaultCgroupRoot))
 	toBeRemoved = append(toBeRemoved, fmt.Sprintf("mounted cgroupv2 at %s",
 		defaults.DefaultCgroupRoot))
 	toBeRemoved = append(toBeRemoved, fmt.Sprintf("library code in %s",
@@ -253,6 +255,7 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 	funcs := []cleanupFunc{
 		cleanupTCFilters,
 		cleanupXDPs,
+		removeSocketLBPrograms,
 	}
 	if !c.bpfOnly {
 		funcs = append(funcs, cleanupRoutesAndLinks)
@@ -366,6 +369,14 @@ func revertCNIBackup() error {
 			origFileName := strings.TrimSuffix(path, ".cilium_bak")
 			return os.Rename(path, origFileName)
 		})
+}
+
+func removeSocketLBPrograms() error {
+	if err := socketlb.Disable(); err != nil {
+		return fmt.Errorf("Failed to detach all socketlb bpf programs from %s: %w", defaults.DefaultCgroupRoot, err)
+	}
+	fmt.Println("removed all socketlb bpf programs")
+	return nil
 }
 
 func unmountCgroup() error {

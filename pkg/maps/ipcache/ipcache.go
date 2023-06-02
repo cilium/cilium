@@ -171,7 +171,7 @@ func newIPCacheMap(name string) *bpf.Map {
 		&RemoteEndpointInfo{},
 		int(unsafe.Sizeof(RemoteEndpointInfo{})),
 		MaxEntries,
-		bpf.BPF_F_NO_PREALLOC, 0,
+		bpf.BPF_F_NO_PREALLOC,
 		bpf.ConvertKeyValue)
 }
 
@@ -204,10 +204,4 @@ func IPCacheMap() *Map {
 		ipcache = NewMap(Name)
 	})
 	return ipcache
-}
-
-// Reopen attempts to close and re-open the IPCache map at the standard path
-// on the filesystem.
-func Reopen() error {
-	return IPCacheMap().Reopen()
 }

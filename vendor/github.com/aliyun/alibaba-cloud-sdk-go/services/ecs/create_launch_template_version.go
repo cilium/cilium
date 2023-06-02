@@ -165,6 +165,7 @@ type CreateLaunchTemplateVersionResponse struct {
 	*responses.BaseResponse
 	LaunchTemplateVersionNumber int64  `json:"LaunchTemplateVersionNumber" xml:"LaunchTemplateVersionNumber"`
 	RequestId                   string `json:"RequestId" xml:"RequestId"`
+	LaunchTemplateId            string `json:"LaunchTemplateId" xml:"LaunchTemplateId"`
 }
 
 // CreateCreateLaunchTemplateVersionRequest creates a request to invoke CreateLaunchTemplateVersion API

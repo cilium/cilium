@@ -48,7 +48,7 @@ use ``operator.prometheus.enabled=true``.
      --set operator.prometheus.enabled=true
 
 The ports can be configured via ``prometheus.port``,
-``proxy.prometheus.port``, or ``operator.prometheus.port`` respectively.
+``envoy.prometheus.port``, or ``operator.prometheus.port`` respectively.
 
 When metrics are enabled, all Cilium components will have the following
 annotations. They can be used to signal Prometheus whether to scrape metrics:
@@ -174,6 +174,39 @@ only scrape exemplars when the `exemplars storage feature is enabled
 OpenMetrics imposes a few additional requirements on metrics names and labels,
 so this functionality is currently opt-in, though we believe all of the Hubble
 metrics conform to the OpenMetrics requirements.
+
+
+Cluster Mesh API Server Metrics
+===============================
+
+Cluster Mesh API Server metrics provide insights into both the state of the
+``clustermesh-apiserver`` process and the sidecar etcd instance.
+Cluster Mesh API Server metrics are exported under the ``cilium_clustermesh_apiserver_``
+Prometheus namespace. Etcd metrics are exported under the ``etcd_`` Prometheus namespace.
+
+
+Installation
+------------
+
+You can enable metrics for ``clustermesh-apiserver`` with the Helm value
+``clustermesh.apiserver.metrics.enabled=true``.
+To enable metrics for the sidecar etcd instance, use
+``clustermesh.apiserver.metrics.etcd.enabled=true``.
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set clustermesh.useAPIServer=true \\
+     --set clustermesh.apiserver.metrics.enabled=true \\
+     --set clustermesh.apiserver.metrics.etcd.enabled=true
+
+The ports can be configured via ``clustermesh.apiserver.metrics.port`` and
+``clustermesh.apiserver.metrics.etcd.port`` respectively.
+
+You can automatically create a
+`Prometheus Operator <https://github.com/prometheus-operator/prometheus-operator>`_
+``ServiceMonitor`` by setting ``clustermesh.apiserver.metrics.serviceMonitor.enabled=true``.
 
 Example Prometheus & Grafana Deployment
 =======================================
@@ -426,8 +459,10 @@ KVstore
 Name                                     Labels                                       Default    Description
 ======================================== ============================================ ========== ========================================================
 ``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Enabled    Duration of kvstore operation
-``kvstore_events_queue_seconds``         ``action``, ``scope``                        Enabled    Duration of seconds of time received event was blocked before it could be queued
+``kvstore_events_queue_seconds``         ``action``, ``scope``                        Enabled    Seconds waited before a received event was queued
 ``kvstore_quorum_errors_total``          ``error``                                    Enabled    Number of quorum errors
+``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Enabled    Number of elements queued for synchronization in the kvstore
+``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Enabled    Whether the initial synchronization from/to the kvstore has completed
 ======================================== ============================================ ========== ========================================================
 
 Agent
@@ -855,3 +890,33 @@ Options
 """""""
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
+
+clustermesh-apiserver
+---------------------
+
+Configuration
+^^^^^^^^^^^^^
+
+To expose any metrics, invoke ``clustermesh-apiserver`` with the
+``--prometheus-serve-addr`` option. This option takes a ``IP:Port`` pair but
+passing an empty IP (e.g. ``:9962``) will bind the server to all available
+interfaces (there is usually only one in a container).
+
+Exported Metrics
+^^^^^^^^^^^^^^^^
+
+All metrics are exported under the ``cilium_clustermesh_apiserver_``
+Prometheus namespace.
+
+KVstore
+~~~~~~~
+
+======================================== ============================================ ========================================================
+Name                                     Labels                                       Description
+======================================== ============================================ ========================================================
+``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Duration of kvstore operation
+``kvstore_events_queue_seconds``         ``action``, ``scope``                        Seconds waited before a received event was queued
+``kvstore_quorum_errors_total``          ``error``                                    Number of quorum errors
+``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Number of elements queued for synchronization in the kvstore
+``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Whether the initial synchronization from/to the kvstore has completed
+======================================== ============================================ ========================================================

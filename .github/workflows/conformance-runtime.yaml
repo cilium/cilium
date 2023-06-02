@@ -1,0 +1,351 @@
+name: Cilium Runtime
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request:
+    paths-ignore:
+      - 'Documentation/**'
+  push:
+    branches:
+      - main
+      - ft/main/**
+    paths-ignore:
+      - 'Documentation/**'
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+env:
+  # List of Runtime tests
+  # <description>: <Regex that matches the tests in the section>
+  ###
+  agent: "RuntimeAgent|RuntimeSSHTests"
+  # RuntimeAgentChaos Cilium agent Checking for file-descriptor leak
+  # RuntimeAgentChaos Cilium agent removing leftover Cilium interfaces
+  # RuntimeAgentChaos Connectivity over restarts Checking that during restart no traffic is dropped using Egress + Ingress Traffic
+  # RuntimeAgentChaos Endpoint Endpoint recovery on restart
+  # RuntimeAgentChaos KVStore Delete event on KVStore with CIDR identities
+  # RuntimeAgentChaos KVStore Validate that delete events on KVStore do not release in use identities
+  # RuntimeAgentFQDNPolicies Can update L7 DNS policy rules
+  # RuntimeAgentFQDNPolicies CNAME follow
+  # RuntimeAgentFQDNPolicies DNS proxy policy works if Cilium stops
+  # RuntimeAgentFQDNPolicies Enforces L3 policy even when no IPs are inserted
+  # RuntimeAgentFQDNPolicies Enforces ToFQDNs policy
+  # RuntimeAgentFQDNPolicies Implements matchPattern: *
+  # RuntimeAgentFQDNPolicies Interaction with other ToCIDR rules
+  # RuntimeAgentFQDNPolicies Roundrobin DNS
+  # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) L3-dependent L7/HTTP with toFQDN updates proxy policy
+  # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) Policy addition after DNS lookup
+  # RuntimeAgentFQDNPolicies Validate dns-proxy monitor information
+  # RuntimeAgentFQDNPolicies With verbose policy logs Validates DNSSEC responses
+  # RuntimeAgentKVStoreTest KVStore tests Consul KVStore
+  # RuntimeAgentKVStoreTest KVStore tests Etcd KVStore
+  # RuntimeAgentPolicies Init Policy Default Drop Test tests egress
+  # RuntimeAgentPolicies Init Policy Default Drop Test tests ingress
+  # RuntimeAgentPolicies Init Policy Default Drop Test With PolicyAuditMode tests egress
+  # RuntimeAgentPolicies Init Policy Default Drop Test With PolicyAuditMode tests ingress
+  # RuntimeAgentPolicies Init Policy Test Init Egress Policy Test
+  # RuntimeAgentPolicies Init Policy Test Init Ingress Policy Test
+  # RuntimeAgentPolicies TestsEgressToHost Tests Egress To Host
+  # RuntimeAgentPolicies TestsEgressToHost Tests egress with CIDR+L4 policy
+  # RuntimeAgentPolicies TestsEgressToHost Tests egress with CIDR+L4 policy to external https service
+  # RuntimeAgentPolicies TestsEgressToHost Tests egress with CIDR+L7 policy
+  # RuntimeAgentPolicies Tests Endpoint Connectivity Functions After Daemon Configuration Is Updated
+  # RuntimeAgentPolicies Tests EntityNone as a deny-all
+  # RuntimeSSHTests Should fail when context times out
+  ###
+  datapath: "RuntimeDatapathConntrackInVethModeTest|RuntimeDatapathMonitorTest"
+  # RuntimeDatapathConntrackInVethModeTest Conntrack-related configuration options for endpoints
+  # RuntimeDatapathMonitorTest With Sample Containers checks container ids match monitor output
+  # RuntimeDatapathMonitorTest With Sample Containers cilium monitor check --from
+  # RuntimeDatapathMonitorTest With Sample Containers cilium monitor check --related-to
+  # RuntimeDatapathMonitorTest With Sample Containers cilium monitor check --to
+  # RuntimeDatapathMonitorTest With Sample Containers Cilium monitor event types
+  # RuntimeDatapathMonitorTest With Sample Containers delivers the same information to multiple monitors
+  ###
+  privileged: "RuntimeDatapathPrivilegedUnitTests"
+  # RuntimeDatapathPrivilegedUnitTests Run Tests
+  ###
+
+jobs:
+  # Pre-build the ginkgo binary so that we don't have to build it for all
+  # runners.
+  build-ginkgo-binary:
+    runs-on: ubuntu-latest
+    name: Build Ginkgo Runtime
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request }} ]; then
+            SHA=${{ github.event.pull_request.head.sha }}
+          else
+            SHA=${{ github.sha }}
+          fi
+
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      # Load Ginkgo build from GitHub
+      - name: Load ginkgo runtime from GH cache
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        id: cache
+        with:
+          path: /tmp/.ginkgo-build/
+          key: ${{ runner.os }}-ginkgo-runtime-${{ hashFiles('**/*.go') }}
+
+      - name: Install Go
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.20.4
+
+      - name: Build Ginkgo
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          go install github.com/onsi/ginkgo/ginkgo@v1.16.5
+          mkdir -p /tmp/.ginkgo-build
+
+      - name: Build Test
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          cd test
+          /home/runner/go/bin/ginkgo build
+          strip test.test
+          tar -cz test.test -f test.tgz
+
+      - name: Store Ginkgo Test in GitHub cache path
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.ginkgo-build/
+          if [ -f test/test.tgz ]; then
+            cp test/test.tgz /tmp/.ginkgo-build/
+            echo "file copied"
+          fi
+
+      - name: Waiting for images
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+  setup-and-test:
+    needs: build-ginkgo-binary
+    runs-on:
+      group: ginkgo-runners
+    name: Runtime Test
+    env:
+      # GitHub doesn't provide a way to retrieve the name of a job so we have
+      # to repeated it here.
+      job_name: "Runtime Test"
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        focus:
+          - "agent"
+          - "datapath"
+          - "privileged"
+
+    timeout-minutes: 20
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request }} ]; then
+            SHA=${{ github.event.pull_request.head.sha }}
+          else
+            SHA=${{ github.sha }}
+          fi
+
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+          case ${{ matrix.focus }} in
+              agent)
+                  focus="${{ env.agent }}"
+                  ;;
+              datapath)
+                  focus="${{ env.datapath }}"
+                  ;;
+              privileged)
+                  focus="${{ env.privileged }}"
+                  ;;
+              *)
+                  echo "focus group not found!"
+                  ;;
+          esac
+
+          echo "focus=${focus}" >> $GITHUB_OUTPUT
+
+      - name: Checkout pull request for tests
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Provision LVH VMs
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        with:
+          test-name: runtime-tests
+          install-dependencies: true
+          image-version: bpf-next-20230526.100931@sha256:859602be3f66a359d9d20f23505b7df5c46d21f174b336a5bc4dd4f9ea558b54
+          host-mount: ./
+          cpu: 4
+          mem: 12G
+          dns-resolver: '1.1.1.1'
+
+      # Load Ginkgo build from GitHub
+      - name: Load ${{ matrix.name }} Ginkgo build from GitHub
+        uses: actions/cache/restore@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        id: cache
+        with:
+          path: /tmp/.ginkgo-build/
+          key: ${{ runner.os }}-ginkgo-runtime-${{ hashFiles('**/*.go') }}
+
+      - name: Copy Ginkgo binary
+        shell: bash
+        run: |
+          cd test/
+          tar -xf /tmp/.ginkgo-build/test.tgz
+
+      - name: Setup runtime
+        timeout-minutes: 10
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        with:
+          provision: 'false'
+          cmd: |
+            mkdir -p /root/go/src/github.com/cilium/
+            ln -s /host /root/go/src/github.com/cilium/cilium
+            mkdir -p /home/root/go/src/github.com/cilium/
+            ln -s /host /home/root/go/src/github.com/cilium/cilium
+            cp -r /host/test/provision /tmp
+            git config --global --add safe.directory /host
+            export CILIUM_IMAGE=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
+            export CILIUM_DOCKER_PLUGIN_IMAGE=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docker-plugin-ci:${{ steps.vars.outputs.sha }}
+            export PROVISION_EXTERNAL_WORKLOAD=false
+            export VMUSER=root
+            echo '127.0.0.1 localhost' >> /etc/hosts
+            echo '::1 localhost' >> /etc/hosts
+            /tmp/provision/runtime_install.sh
+            service docker restart
+
+      - name: Runtime tests [junit]
+        if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          cat > test/cilium-ssh-config.txt << EOF
+          Host runtime
+            HostName 127.0.0.1
+            User root
+            Port 2222
+            UserKnownHostsFile /dev/null
+            StrictHostKeyChecking no
+            PasswordAuthentication no
+            LogLevel FATAL
+          EOF
+          cd test
+          export INTEGRATION_TESTS=true
+          ./test.test \
+          --ginkgo.focus="${{ steps.vars.outputs.focus }}" \
+          --ginkgo.skip="${{ matrix.skip }}" \
+          --ginkgo.seed=1679952881 \
+          --ginkgo.v -- \
+          -cilium.provision=false \
+          -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+          -cilium.tag=${{ steps.vars.outputs.sha }}  \
+          -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+          -cilium.operator-tag=${{ steps.vars.outputs.sha }} \
+          -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+          -cilium.hubble-relay-tag=${{ steps.vars.outputs.sha }} \
+          -cilium.operator-suffix=-ci \
+          -cilium.SSHConfig="cat ./cilium-ssh-config.txt"
+
+      - name: Runtime privileged tests [junit]
+        if: ${{ matrix.focus == 'privileged' }}
+        timeout-minutes: 20
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            # Install go-junit-report to generate junit files for the
+            # privileged tests.
+            go install github.com/jstemmer/go-junit-report/v2@7fde4641acef5b92f397a8baf8309d1a45d608cc
+            export GOTEST_FORMATTER="/root/go/bin/go-junit-report -set-exit-code -iocopy -out test/runtime.xml"
+            make tests-privileged NO_COLOR=1
+
+      - name: Debug failure on VM
+        # Only debug the failure on the LVH that have Cilium running as a service,
+        # which is 'agent' and 'datapath' focus.
+        if:  ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
+        timeout-minutes: 10
+        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        with:
+          provision: 'false'
+          cmd: |
+            journalctl --no-pager -xeu cilium.service
+            systemctl status cilium.service
+
+      - name: Fetch artifacts
+        if: ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
+        shell: bash
+        run: |
+          tar -zcf test_results-${{ join(matrix.*, '-') }}.tar.gz ./test/test_results
+
+      - name: Upload artifacts
+        if: ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-sysdumps
+          path: |
+            test_results-*.tar.gz
+          retention-days: 5
+
+      - name: Fetch JUnits
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cd test/
+          # junit_filename needs to be the same as the Job Name presented on the
+          # GH web UI - In the Summary page of a workflow run, left column
+          # "Jobs" - so that we can map the junit file to the right job - step
+          # pair on datastudio.
+          junit_filename="${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml"
+          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+
+      - name: Upload JUnits
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-junits
+          path: |
+            cilium-junits/*.xml
+          retention-days: 2
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@86789108ea0fd9be947a4232dd560e2fa3b9467a # v0.0.1
+        with:
+          junit-directory: "cilium-junits"

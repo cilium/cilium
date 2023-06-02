@@ -17,6 +17,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -28,7 +29,6 @@ import (
 	"time"
 
 	"github.com/dgryski/go-farm"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	apb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"

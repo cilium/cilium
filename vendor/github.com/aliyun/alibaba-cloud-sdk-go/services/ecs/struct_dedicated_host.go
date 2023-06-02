@@ -40,6 +40,7 @@ type DedicatedHost struct {
 	DedicatedHostId                       string                                                `json:"DedicatedHostId" xml:"DedicatedHostId"`
 	Sockets                               int                                                   `json:"Sockets" xml:"Sockets"`
 	MachineId                             string                                                `json:"MachineId" xml:"MachineId"`
+	DedicatedHostOwnerId                  int64                                                 `json:"DedicatedHostOwnerId" xml:"DedicatedHostOwnerId"`
 	SupportedInstanceTypeFamilies         SupportedInstanceTypeFamiliesInDescribeDedicatedHosts `json:"SupportedInstanceTypeFamilies" xml:"SupportedInstanceTypeFamilies"`
 	SupportedCustomInstanceTypeFamilies   SupportedCustomInstanceTypeFamilies                   `json:"SupportedCustomInstanceTypeFamilies" xml:"SupportedCustomInstanceTypeFamilies"`
 	SupportedInstanceTypesList            SupportedInstanceTypesListInDescribeDedicatedHosts    `json:"SupportedInstanceTypesList" xml:"SupportedInstanceTypesList"`

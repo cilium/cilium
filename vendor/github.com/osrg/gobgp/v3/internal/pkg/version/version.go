@@ -18,7 +18,7 @@ package version
 import "fmt"
 
 const MAJOR uint = 3
-const MINOR uint = 13
+const MINOR uint = 14
 const PATCH uint = 0
 
 var COMMIT string = ""

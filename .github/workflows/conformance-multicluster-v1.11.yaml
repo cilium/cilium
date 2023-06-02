@@ -71,7 +71,8 @@ env:
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
   k8s_version: 1.23
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.2
+  cilium_cli_version: v0.14.5
+  cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
@@ -203,21 +204,19 @@ jobs:
           persist-credentials: false
 
       - name: Install Cilium CLI
-        run: |
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
+        uses: cilium/cilium-cli@d610d6e2774e29aef9565bad935e3b4943d541af # v0.14.5
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@e8df18b60c5dd38ba618c121b779307266153fbf # v1.1.0
+        uses: google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033 # v1.1.1
         with:
           credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587 # v1.1.0
+        uses: google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b # v1.1.1
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           version: "405.0.0"
@@ -237,14 +236,17 @@ jobs:
             --zone ${{ env.zone }} \
             --cluster-version ${{ env.k8s_version }} \
             --enable-ip-alias \
-            --create-subnetwork="" \
+            --create-subnetwork="range=/26" \
+            --cluster-ipv4-cidr="/21" \
+            --services-ipv4-cidr="/24" \
             --image-type COS_CONTAINERD \
             --num-nodes 2 \
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
             --disk-size 10GB \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
-            --preemptible
+            --preemptible \
+            --async
 
       - name: Create GKE cluster 2
         run: |
@@ -253,14 +255,23 @@ jobs:
             --zone ${{ env.zone }} \
             --cluster-version ${{ env.k8s_version }} \
             --enable-ip-alias \
-            --create-subnetwork="" \
+            --create-subnetwork="range=/26" \
+            --cluster-ipv4-cidr="/21" \
+            --services-ipv4-cidr="/24" \
             --image-type COS_CONTAINERD \
             --num-nodes 2 \
             --machine-type e2-custom-2-4096 \
             --disk-type pd-standard \
             --disk-size 10GB \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
-            --preemptible
+            --preemptible \
+            --async
+
+      - name: Wait for clusters to be provisioned
+        run: |
+          while [ "$(gcloud container operations list --filter="status=RUNNING AND targetLink~${{ env.clusterNameBase }}" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 10
+          done
 
       - name: Allow cross-cluster traffic
         run: |

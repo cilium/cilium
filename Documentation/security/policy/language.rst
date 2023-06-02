@@ -329,6 +329,10 @@ kube-apiserver
     The kube-apiserver entity represents the kube-apiserver in a Kubernetes
     cluster. This entity represents both deployments of the kube-apiserver:
     within the cluster and outside of the cluster.
+ingress
+    The ingress entity represents the Cilium Envoy instance that handles ingress
+    L7 traffic. Be aware that this also applies for pod-to-pod traffic within
+    the same cluster when using ingress endpoints (also known as *hairpinning*).
 cluster
     Cluster is the logical group of all network endpoints inside of the local
     cluster. This includes all Cilium-managed endpoints of the local cluster,

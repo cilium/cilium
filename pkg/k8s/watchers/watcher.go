@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	k8s_metrics "k8s.io/client-go/tools/metrics"
 
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -219,7 +220,7 @@ type K8sWatcher struct {
 	k8sAPIGroups synced.APIGroups
 
 	// K8sSvcCache is a cache of all Kubernetes services and endpoints
-	K8sSvcCache k8s.ServiceCache
+	K8sSvcCache *k8s.ServiceCache
 
 	// NodeChain is the root of a notification chain for k8s Node events.
 	// This NodeChain allows registration of subscriber.Node implementations.
@@ -278,7 +279,7 @@ type K8sWatcher struct {
 
 	cfg WatcherConfiguration
 
-	sharedResources k8s.SharedResources
+	resources agentK8s.Resources
 }
 
 func NewK8sWatcher(
@@ -296,11 +297,12 @@ func NewK8sWatcher(
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
-	sharedResources k8s.SharedResources,
+	resources agentK8s.Resources,
+	serviceCache *k8s.ServiceCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		clientset:             clientset,
-		K8sSvcCache:           k8s.NewServiceCache(datapath.LocalNodeAddressing()),
+		K8sSvcCache:           serviceCache,
 		endpointManager:       endpointManager,
 		nodeDiscoverManager:   nodeDiscoverManager,
 		policyManager:         policyManager,
@@ -319,7 +321,7 @@ func NewK8sWatcher(
 		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
 		envoyConfigManager:    envoyConfigManager,
 		cfg:                   cfg,
-		sharedResources:       sharedResources,
+		resources:             resources,
 	}
 }
 

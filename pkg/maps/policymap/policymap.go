@@ -442,7 +442,7 @@ func newMap(path string) *PolicyMap {
 			&PolicyEntry{},
 			sizeofPolicyEntry,
 			MaxEntries,
-			flags, 0,
+			flags,
 			bpf.ConvertKeyValue,
 		),
 	}
@@ -451,14 +451,14 @@ func newMap(path string) *PolicyMap {
 // OpenOrCreate opens (or creates) a policy map at the specified path, which
 // is used to govern which peer identities can communicate with the endpoint
 // protected by this map.
-func OpenOrCreate(path string) (*PolicyMap, bool, error) {
+func OpenOrCreate(path string) (*PolicyMap, error) {
 	m := newMap(path)
-	isNewMap, err := m.OpenOrCreate()
-	return m, isNewMap, err
+	err := m.OpenOrCreate()
+	return m, err
 }
 
 // Create creates a policy map at the specified path.
-func Create(path string) (bool, error) {
+func Create(path string) error {
 	m := newMap(path)
 	return m.Create()
 }
@@ -487,10 +487,9 @@ func InitCallMaps(haveEgressCallMap bool) error {
 		int(unsafe.Sizeof(CallValue{})),
 		int(PolicyCallMaxEntries),
 		0,
-		0,
 		bpf.ConvertKeyValue,
 	)
-	_, err := policyCallMap.Create()
+	err := policyCallMap.Create()
 
 	if err == nil && haveEgressCallMap {
 		policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
@@ -501,11 +500,10 @@ func InitCallMaps(haveEgressCallMap bool) error {
 			int(unsafe.Sizeof(CallValue{})),
 			int(PolicyCallMaxEntries),
 			0,
-			0,
 			bpf.ConvertKeyValue,
 		)
 
-		_, err = policyEgressCallMap.Create()
+		err = policyEgressCallMap.Create()
 	}
 	return err
 }

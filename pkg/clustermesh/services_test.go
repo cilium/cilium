@@ -10,12 +10,14 @@ import (
 	"path"
 	"time"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -41,7 +43,7 @@ func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(clusterSuffix, backe
 }
 
 type ClusterMeshServicesTestSuite struct {
-	svcCache   k8s.ServiceCache
+	svcCache   *k8s.ServiceCache
 	testDir    string
 	mesh       *ClusterMesh
 	randomName string
@@ -54,6 +56,9 @@ func (s *ClusterMeshServicesTestSuite) SetUpSuite(c *C) {
 }
 
 func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	kvstore.SetupDummy("etcd")
 
 	s.randomName = rand.RandomString()
@@ -66,7 +71,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(nil)
 	dir, err := os.MkdirTemp("", "multicluster")
 	s.testDir = dir
 	c.Assert(err, IsNil)
@@ -75,7 +80,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		config := cmtypes.CiliumClusterConfig{
 			ID: uint32(i),
 		}
-		err := SetClusterConfig(cluster, &config, kvstore.Client())
+		err := SetClusterConfig(ctx, cluster, &config, kvstore.Client())
 		c.Assert(err, IsNil)
 	}
 
@@ -87,38 +92,30 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	err = os.WriteFile(config2, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 	})
 	defer ipc.Shutdown()
-	cm, err := NewClusterMesh(Configuration{
-		Name:                  "test2",
-		ConfigDirectory:       dir,
+
+	s.mesh = NewClusterMesh(hivetest.Lifecycle(c), Configuration{
+		Config: Config{ClusterMeshConfig: dir},
+
+		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
 		NodeKeyCreator:        testNodeCreator,
-		nodeObserver:          &testObserver{},
-		ServiceMerger:         &s.svcCache,
+		NodeObserver:          &testObserver{},
+		ServiceMerger:         s.svcCache,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
 	})
-	c.Assert(err, IsNil)
-	c.Assert(cm, Not(IsNil))
-
-	s.mesh = cm
+	c.Assert(s.mesh, Not(IsNil))
 
 	// wait for both clusters to appear in the list of cm clusters
 	c.Assert(testutils.WaitUntil(func() bool {
-		return cm.NumReadyClusters() == 2
+		return s.mesh.NumReadyClusters() == 2
 	}, 10*time.Second), IsNil)
 }
 
 func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
-	if s.mesh != nil {
-		s.mesh.Close()
-		s.mesh.conf.RemoteIdentityWatcher.Close()
-	}
-
 	os.RemoveAll(s.testDir)
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
 	kvstore.Client().Close(context.TODO())

@@ -20,6 +20,7 @@ type Input struct {
 	GatewayClass    gatewayv1beta1.GatewayClass
 	Gateway         gatewayv1beta1.Gateway
 	HTTPRoutes      []gatewayv1beta1.HTTPRoute
+	TLSRoutes       []gatewayv1alpha2.TLSRoute
 	ReferenceGrants []gatewayv1alpha2.ReferenceGrant
 	Services        []corev1.Service
 }
@@ -27,8 +28,9 @@ type Input struct {
 // GatewayAPI translates Gateway API resources into a model.
 // The current implementation only supports HTTPRoute.
 // TODO(tam): Support GatewayClass
-func GatewayAPI(input Input) []model.HTTPListener {
-	var res []model.HTTPListener
+func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
+	var resHTTP []model.HTTPListener
+	var resTLS []model.TLSListener
 
 	for _, l := range input.Gateway.Spec.Listeners {
 		if l.Protocol != gatewayv1beta1.HTTPProtocolType &&
@@ -37,9 +39,21 @@ func GatewayAPI(input Input) []model.HTTPListener {
 			continue
 		}
 
-		var routes []model.HTTPRoute
+		var httpRoutes []model.HTTPRoute
+		var tlsRoutes []model.TLSRoute
 
-		for _, r := range filterRoute(input.Gateway, l, input.HTTPRoutes) {
+		for _, r := range input.HTTPRoutes {
+			isListener := false
+			for _, parent := range r.Spec.ParentRefs {
+				if parent.SectionName == nil || *parent.SectionName == l.Name {
+					isListener = true
+					break
+				}
+			}
+			if !isListener {
+				continue
+			}
+
 			computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(l.Hostname))
 			// No matching host, skip this route
 			if len(computedHost) == 0 {
@@ -53,14 +67,14 @@ func GatewayAPI(input Input) []model.HTTPListener {
 			for _, rule := range r.Spec.Rules {
 				bes := make([]model.Backend, 0, len(rule.BackendRefs))
 				for _, be := range rule.BackendRefs {
-					if !isReferenceAllowed(r.GetNamespace(), be, input.ReferenceGrants) {
+					if !isReferenceAllowed(r.GetNamespace(), be.BackendRef, input.ReferenceGrants) {
 						continue
 					}
 					if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
 						continue
 					}
 					if serviceExists(string(be.Name), namespaceDerefOr(be.Namespace, r.Namespace), input.Services) {
-						bes = append(bes, toBackend(be, r.Namespace))
+						bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
 					}
 				}
 
@@ -99,7 +113,7 @@ func GatewayAPI(input Input) []model.HTTPListener {
 				}
 
 				if len(rule.Matches) == 0 {
-					routes = append(routes, model.HTTPRoute{
+					httpRoutes = append(httpRoutes, model.HTTPRoute{
 						Hostnames:              computedHost,
 						Backends:               bes,
 						DirectResponse:         dr,
@@ -110,7 +124,7 @@ func GatewayAPI(input Input) []model.HTTPListener {
 				}
 
 				for _, match := range rule.Matches {
-					routes = append(routes, model.HTTPRoute{
+					httpRoutes = append(httpRoutes, model.HTTPRoute{
 						Hostnames:              computedHost,
 						PathMatch:              toPathMatch(match),
 						HeadersMatch:           toHeaderMatch(match),
@@ -126,7 +140,7 @@ func GatewayAPI(input Input) []model.HTTPListener {
 			}
 		}
 
-		res = append(res, model.HTTPListener{
+		resHTTP = append(resHTTP, model.HTTPListener{
 			Name: string(l.Name),
 			Sources: []model.FullyQualifiedResource{
 				{
@@ -141,11 +155,72 @@ func GatewayAPI(input Input) []model.HTTPListener {
 			Port:     uint32(l.Port),
 			Hostname: toHostname(l.Hostname),
 			TLS:      toTLS(l.TLS, input.Gateway.GetNamespace()),
-			Routes:   routes,
+			Routes:   httpRoutes,
+		})
+
+		for _, r := range input.TLSRoutes {
+			isListener := false
+			for _, parent := range r.Spec.ParentRefs {
+				if parent.SectionName == nil || *parent.SectionName == l.Name {
+					isListener = true
+					break
+				}
+			}
+			if !isListener {
+				continue
+			}
+
+			computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(l.Hostname))
+			// No matching host, skip this route
+			if len(computedHost) == 0 {
+				continue
+			}
+
+			if len(computedHost) == 1 && computedHost[0] == allHosts {
+				computedHost = nil
+			}
+
+			for _, rule := range r.Spec.Rules {
+				bes := make([]model.Backend, 0, len(rule.BackendRefs))
+				for _, be := range rule.BackendRefs {
+					if !isReferenceAllowed(r.GetNamespace(), be, input.ReferenceGrants) {
+						continue
+					}
+					if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
+						continue
+					}
+					if serviceExists(string(be.Name), namespaceDerefOr(be.Namespace, r.Namespace), input.Services) {
+						bes = append(bes, backendToModelBackend(be, r.Namespace))
+					}
+				}
+
+				tlsRoutes = append(tlsRoutes, model.TLSRoute{
+					Hostnames: computedHost,
+					Backends:  bes,
+				})
+
+			}
+		}
+
+		resTLS = append(resTLS, model.TLSListener{
+			Name: string(l.Name),
+			Sources: []model.FullyQualifiedResource{
+				{
+					Name:      input.Gateway.GetName(),
+					Namespace: input.Gateway.GetNamespace(),
+					Group:     input.Gateway.GroupVersionKind().Group,
+					Version:   input.Gateway.GroupVersionKind().Version,
+					Kind:      input.Gateway.GroupVersionKind().Kind,
+					UID:       string(input.Gateway.GetUID()),
+				},
+			},
+			Port:     uint32(l.Port),
+			Hostname: toHostname(l.Hostname),
+			Routes:   tlsRoutes,
 		})
 	}
 
-	return res
+	return resHTTP, resTLS
 }
 
 func toHTTPRequestRedirectFilter(redirect *gatewayv1beta1.HTTPRequestRedirectFilter) *model.HTTPRequestRedirectFilter {
@@ -172,36 +247,18 @@ func toHTTPRequestRedirectFilter(redirect *gatewayv1beta1.HTTPRequestRedirectFil
 	}
 }
 
-func filterRoute(gw gatewayv1beta1.Gateway, listener gatewayv1beta1.Listener, routes []gatewayv1beta1.HTTPRoute) []gatewayv1beta1.HTTPRoute {
-	var res []gatewayv1beta1.HTTPRoute
-
-	for _, r := range routes {
-		for _, parent := range r.Spec.ParentRefs {
-			if gw.GetName() != string(parent.Name) ||
-				gw.GetNamespace() != namespaceDerefOr(parent.Namespace, r.Namespace) {
-				continue
-			}
-			if parent.SectionName != nil && *parent.SectionName != listener.Name {
-				continue
-			}
-			res = append(res, r)
-		}
-	}
-
-	return res
-}
-
 // isReferenceAllowed returns true if the reference is allowed by the reference grant.
-// TODO(tam): only HTTPRoute with Service is supported right now.
-// We need to support other routes (e.g. grpc, tls, etc.) later.
-func isReferenceAllowed(originatingNamespace string, be gatewayv1beta1.HTTPBackendRef, grants []gatewayv1alpha2.ReferenceGrant) bool {
+// TODO(tam): only HTTP and TLS with Service is supported right now.
+// We need to support other routes (e.g. grpc, etc.) later.
+func isReferenceAllowed(originatingNamespace string, be gatewayv1beta1.BackendRef, grants []gatewayv1alpha2.ReferenceGrant) bool {
 	if be.Namespace == nil || string(*be.Namespace) == originatingNamespace {
 		return true
 	}
 	for _, g := range grants {
 		for _, from := range g.Spec.From {
-			if from.Group == gatewayv1beta1.GroupName &&
-				from.Kind == "HTTPRoute" && (string)(from.Namespace) == originatingNamespace {
+			if ((from.Group == gatewayv1beta1.GroupName && from.Kind == "HTTPRoute") ||
+				(from.Group == gatewayv1alpha2.GroupName && from.Kind == "TLSRoute")) &&
+				(string)(from.Namespace) == originatingNamespace {
 				for _, to := range g.Spec.To {
 					if to.Group == corev1.GroupName && to.Kind == "Service" &&
 						(to.Name == nil || string(*to.Name) == string(be.Name)) {
@@ -230,7 +287,7 @@ func serviceExists(svcName, svcNamespace string, services []corev1.Service) bool
 	return false
 }
 
-func toBackend(be gatewayv1beta1.HTTPBackendRef, defaultNamespace string) model.Backend {
+func backendToModelBackend(be gatewayv1beta1.BackendRef, defaultNamespace string) model.Backend {
 	ns := namespaceDerefOr(be.Namespace, defaultNamespace)
 	var port *model.BackendPort
 
@@ -239,6 +296,7 @@ func toBackend(be gatewayv1beta1.HTTPBackendRef, defaultNamespace string) model.
 			Port: uint32(*be.Port),
 		}
 	}
+
 	return model.Backend{
 		Name:      string(be.Name),
 		Namespace: ns,

@@ -4,6 +4,7 @@ option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
 
 import "spire/api/types/selector.proto";
 import "spire/api/types/spiffeid.proto";
+import "google/protobuf/wrappers.proto";
 
 message Agent {
     // Output only. SPIFFE ID of the agent.
@@ -23,6 +24,9 @@ message Agent {
 
     // Output only. Whether or not the agent is banned.
     bool banned = 6;
+
+    // Output only. Whether or not the agent can re-attest.
+    bool can_reattest = 7;
 }
 
 message AgentMask {
@@ -40,4 +44,7 @@ message AgentMask {
 
     // banned field mask
     bool banned = 6;
+
+    // can_reattest field mask
+    bool can_reattest = 7;
 }

@@ -55,7 +55,7 @@ type Controller struct {
 
 // NewController returns a new gateway controller, which is implemented
 // using the controller-runtime library.
-func NewController(enableSecretSync bool, secretsNamespace string) (*Controller, error) {
+func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSeconds int) (*Controller, error) {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		// Disable controller metrics server in favour of cilium's metrics server.
@@ -78,11 +78,12 @@ func NewController(enableSecretSync bool, secretsNamespace string) (*Controller,
 	}
 
 	gwReconciler := &gatewayReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		SecretsNamespace: secretsNamespace,
-		Model:            m,
-		controllerName:   controllerName,
+		Client:             mgr.GetClient(),
+		Scheme:             mgr.GetScheme(),
+		SecretsNamespace:   secretsNamespace,
+		Model:              m,
+		controllerName:     controllerName,
+		IdleTimeoutSeconds: idleTimeoutSeconds,
 	}
 	if err = gwReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err
@@ -94,6 +95,15 @@ func NewController(enableSecretSync bool, secretsNamespace string) (*Controller,
 		Model:  m,
 	}
 	if err = hrReconciler.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+
+	tlsReconciler := &tlsRouteReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Model:  m,
+	}
+	if err = tlsReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
 
@@ -266,6 +276,13 @@ func onlyStatusChanged() predicate.Predicate {
 			case *gatewayv1beta1.HTTPRoute:
 				o, _ := e.ObjectOld.(*gatewayv1beta1.HTTPRoute)
 				n, ok := e.ObjectNew.(*gatewayv1beta1.HTTPRoute)
+				if !ok {
+					return false
+				}
+				return !cmp.Equal(o.Status, n.Status, option)
+			case *gatewayv1alpha2.TLSRoute:
+				o, _ := e.ObjectOld.(*gatewayv1alpha2.TLSRoute)
+				n, ok := e.ObjectNew.(*gatewayv1alpha2.TLSRoute)
 				if !ok {
 					return false
 				}

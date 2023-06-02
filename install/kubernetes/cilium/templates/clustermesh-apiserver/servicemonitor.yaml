@@ -1,0 +1,57 @@
+{{- if and
+  (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer)
+  (or .Values.clustermesh.apiserver.metrics.enabled .Values.clustermesh.apiserver.metrics.etcd.enabled)
+  .Values.clustermesh.apiserver.metrics.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: clustermesh-apiserver
+  namespace: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.namespace | default .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: clustermesh-apiserver
+      app.kubernetes.io/component: metrics
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  endpoints:
+  {{- if .Values.clustermesh.apiserver.metrics.enabled }}
+  - port: apiserv-metrics
+    interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.interval | quote }}
+    honorLabels: true
+    path: /metrics
+    {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
+  - port: etcd-metrics
+    interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.interval | quote }}
+    honorLabels: true
+    path: /metrics
+    {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

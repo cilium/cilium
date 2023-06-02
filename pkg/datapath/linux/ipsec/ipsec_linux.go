@@ -427,11 +427,8 @@ func removeStalePolicies(family int) {
 				continue
 			}
 		case netlink.XFRM_DIR_IN:
-			if p.Src.String() != wildcardCIDRv4.String() ||
-				p.Mark.Mask != linux_defaults.IPsecMarkMaskIn {
-				// This XFRM IN policy was not installed by a previous version of Cilium.
-				continue
-			}
+			// The XFRM IN policies didn't change so we don't want to remove them.
+			continue
 		default:
 			continue
 		}
@@ -458,19 +455,11 @@ func removeStaleStates(family int) {
 
 		if s.Mark.Mask == linux_defaults.IPsecOldMarkMaskOut &&
 			s.Mark.Value == ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(s.Spi)) {
-			// This XFRM state was installed by Cilium.
+			// This XFRM state was installed by a previous version of Cilium.
 			if err := netlink.XfrmStateDel(&s); err == nil {
 				scopedLog.Info("Removed stale XFRM OUT state")
 			} else {
 				scopedLog.WithError(err).Error("Failed to remove stale XFRM OUT state")
-			}
-		} else if s.Mark.Mask == linux_defaults.IPsecMarkMaskIn &&
-			s.Mark.Value == linux_defaults.RouteMarkDecrypt {
-			// This XFRM state was installed by Cilium.
-			if err := netlink.XfrmStateDel(&s); err == nil {
-				scopedLog.Info("Removed stale XFRM IN state")
-			} else {
-				scopedLog.WithError(err).Error("Failed to remove stale XFRM IN state")
 			}
 		}
 	}
@@ -493,6 +482,13 @@ func getSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
 	}
 
 	return ipSecXfrmMarkGetSPI(policy.Mark.Value)
+}
+
+func getNodeIDFromXfrmMark(mark *netlink.XfrmMark) uint16 {
+	if mark == nil {
+		return 0
+	}
+	return uint16(mark.Value >> 16)
 }
 
 func generateEncryptMark(spi uint8, nodeID uint16) *netlink.XfrmMark {
@@ -525,38 +521,39 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID 
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func ipsecDeleteXfrmState(ip net.IP) {
+func ipsecDeleteXfrmState(nodeID uint16) {
 	scopedLog := log.WithFields(logrus.Fields{
-		"remote-ip": ip,
+		logfields.NodeID: nodeID,
 	})
 
 	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
-		scopedLog.WithError(err).Warning("deleting xfrm state, xfrm state list error")
+		scopedLog.WithError(err).Warning("Failed to list XFRM states for deletion")
 		return
 	}
 	for _, s := range xfrmStateList {
-		if ip.Equal(s.Dst) {
+		if getNodeIDFromXfrmMark(s.Mark) == nodeID {
 			if err := netlink.XfrmStateDel(&s); err != nil {
-				scopedLog.WithError(err).Warning("deleting xfrm state failed")
+				scopedLog.WithError(err).Warning("Failed to delete XFRM state")
 			}
 		}
 	}
 }
 
-func ipsecDeleteXfrmPolicy(ip net.IP) {
+func ipsecDeleteXfrmPolicy(nodeID uint16) {
 	scopedLog := log.WithFields(logrus.Fields{
-		"remote-ip": ip,
+		logfields.NodeID: nodeID,
 	})
 
 	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
-		scopedLog.WithError(err).Warning("deleting policy state, xfrm policy list error")
+		scopedLog.WithError(err).Warning("Failed to list XFRM policies for deletion")
+		return
 	}
 	for _, p := range xfrmPolicyList {
-		if ip.Equal(p.Dst.IP) {
+		if getNodeIDFromXfrmMark(p.Mark) == nodeID {
 			if err := netlink.XfrmPolicyDel(&p); err != nil {
-				scopedLog.WithError(err).Warning("deleting xfrm policy failed")
+				scopedLog.WithError(err).Warning("Failed to delete XFRM policy")
 			}
 		}
 	}
@@ -658,9 +655,9 @@ func UpsertIPsecEndpointPolicy(local, remote *net.IPNet, localTmpl, remoteTmpl n
 }
 
 // DeleteIPsecEndpoint deletes a endpoint associated with the remote IP address
-func DeleteIPsecEndpoint(remote net.IP) {
-	ipsecDeleteXfrmState(remote)
-	ipsecDeleteXfrmPolicy(remote)
+func DeleteIPsecEndpoint(nodeID uint16) {
+	ipsecDeleteXfrmState(nodeID)
+	ipsecDeleteXfrmPolicy(nodeID)
 }
 
 func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {

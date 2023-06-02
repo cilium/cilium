@@ -234,10 +234,10 @@ spec:
           containerPort: {{ .Values.prometheus.port }}
           hostPort: {{ .Values.prometheus.port }}
           protocol: TCP
-        {{- if .Values.proxy.prometheus.enabled }}
+        {{- if and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled (not .Values.envoy.enabled) }}
         - name: envoy-metrics
-          containerPort: {{ .Values.proxy.prometheus.port }}
-          hostPort: {{ .Values.proxy.prometheus.port }}
+          containerPort: {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
+          hostPort: {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
           protocol: TCP
         {{- end }}
         {{- end }}
@@ -269,6 +269,11 @@ spec:
         {{- if .Values.auth.mTLS.spire.enabled }}
         - name: spire-agent-socket
           mountPath: {{ dir .Values.auth.mTLS.spire.adminSocketPath }}
+          readOnly: false
+        {{- end }}
+        {{- if .Values.envoy.enabled }}
+        - name: envoy-sockets
+          mountPath: /var/run/cilium/envoy/sockets
           readOnly: false
         {{- end }}
         {{- if not .Values.securityContext.privileged }}
@@ -670,7 +675,9 @@ spec:
             cpu: 100m
             memory: 10Mi
         securityContext:
-          {{- if not .Values.securityContext.privileged }}
+          {{- if .Values.securityContext.privileged }}
+          privileged: true
+          {{- else }}
           seLinuxOptions:
             {{- with .Values.securityContext.seLinuxOptions }}
             {{- toYaml . | nindent 12 }}
@@ -770,6 +777,13 @@ spec:
       - name: spire-agent-socket
         hostPath:
           path: {{ dir .Values.auth.mTLS.spire.adminSocketPath }}
+          type: DirectoryOrCreate
+      {{- end }}
+      {{- if .Values.envoy.enabled }}
+      # Sharing socket with Cilium Envoy on the same node by using a host path
+      - name: envoy-sockets
+        hostPath:
+          path: "{{ .Values.daemon.runPath }}/envoy/sockets"
           type: DirectoryOrCreate
       {{- end }}
       {{- if .Values.kubeConfigPath }}

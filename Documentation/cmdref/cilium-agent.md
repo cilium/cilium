@@ -63,6 +63,7 @@ cilium-agent [flags]
       --cluster-name string                                     Name of the cluster (default "default")
       --clustermesh-config string                               Path to the ClusterMesh configuration directory
       --cni-chaining-mode string                                Enable CNI chaining with the specified plugin (default "none")
+      --cni-chaining-target string                              CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.
       --cni-exclusive                                           Whether to remove other CNI configurations
       --cni-log-file string                                     Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")
       --config string                                           Configuration file (default "$HOME/ciliumd.yaml")
@@ -101,6 +102,7 @@ cilium-agent [flags]
       --enable-external-ips                                     Enable k8s service externalIPs feature (requires enabling enable-node-port) (default true)
       --enable-health-check-nodeport                            Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
       --enable-health-checking                                  Enable connectivity health checking (default true)
+      --enable-high-scale-ipcache                               Enable the high scale mode for ipcache
       --enable-host-firewall                                    Enable host network policies
       --enable-host-legacy-routing                              Enable the legacy host forwarding model which does not bypass upper stack in host namespace
       --enable-host-port                                        Enable k8s hostPort mapping feature (requires enabling enable-node-port) (default true)
@@ -147,12 +149,13 @@ cilium-agent [flags]
       --enable-xdp-prefilter                                    Enable XDP prefiltering
       --enable-xt-socket-fallback                               Enable fallback for missing xt_socket module (default true)
       --encrypt-interface string                                Transparent encryption interface
-      --encrypt-node                                            Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard)
+      --encrypt-node                                            Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)
       --endpoint-queue-size int                                 Size of EventQueue per-endpoint (default 25)
       --endpoint-status strings                                 Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
       --envoy-config-timeout duration                           Timeout duration for Envoy Config acknowledgements (default 2m0s)
       --envoy-log string                                        Path to a separate Envoy log file, if any
       --exclude-local-address strings                           Exclude CIDR from being recognized as local address
+      --external-envoy-proxy                                    whether the Envoy is deployed externally in form of a DaemonSet or not
       --fixed-identity-mapping map                              Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns
       --gops-port uint16                                        Port for gops server to listen on (default 9890)
   -h, --help                                                    help for cilium-agent
@@ -190,6 +193,7 @@ cilium-agent [flags]
       --ip-masq-agent-config-path string                        ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
       --ipam string                                             Backend to use for IPAM (default "cluster-pool")
       --ipam-cilium-node-update-rate duration                   Maximum rate at which the CiliumNode custom resource is updated (default 15s)
+      --ipam-multi-pool-pre-allocation map                      Defines how the minimum number of IPs a node should pre-allocate from each pool (default default=8)
       --ipsec-key-file string                                   Path to IPSec key file
       --ipsec-key-rotation-duration duration                    Maximum duration of the IPsec key rotation. The previous key will be removed after that delay. (default 5m0s)
       --iptables-lock-timeout duration                          Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
@@ -234,8 +238,8 @@ cilium-agent [flags]
       --log-driver strings                                      Logging endpoints to use for example syslog
       --log-opt map                                             Log driver options for cilium-agent, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}
       --log-system-load                                         Enable periodic logging of system load
-      --mesh-auth-monitor-queue-size int                        Queue size for the auth monitor (default 1024)
       --mesh-auth-mtls-listener-port int                        Port on which the Cilium Agent will perfom mTLS handshakes between other Agents
+      --mesh-auth-queue-size int                                Queue size for the auth manager (default 1024)
       --mesh-auth-rotated-identities-queue-size int             The size of the queue for signaling rotated identities. (default 1024)
       --mesh-auth-spiffe-trust-domain string                    The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-admin-socket string                     The path for the SPIRE admin agent Unix socket.
@@ -259,6 +263,7 @@ cilium-agent [flags]
       --prometheus-serve-addr string                            IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off) (default ":9962")
       --proxy-connect-timeout uint                              Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 2)
       --proxy-gid uint                                          Group ID for proxy control plane sockets. (default 1337)
+      --proxy-idle-timeout-seconds int                          Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s (default 60)
       --proxy-max-connection-duration-seconds int               Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
       --proxy-max-requests-per-connection int                   Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)
       --proxy-prometheus-port int                               Port to serve Envoy metrics on. Default 0 (disabled).

@@ -41,6 +41,31 @@ func (o *DeleteServiceIDOK) WriteResponse(rw http.ResponseWriter, producer runti
 	rw.WriteHeader(200)
 }
 
+// DeleteServiceIDForbiddenCode is the HTTP code returned for type DeleteServiceIDForbidden
+const DeleteServiceIDForbiddenCode int = 403
+
+/*
+DeleteServiceIDForbidden Forbidden
+
+swagger:response deleteServiceIdForbidden
+*/
+type DeleteServiceIDForbidden struct {
+}
+
+// NewDeleteServiceIDForbidden creates DeleteServiceIDForbidden with default headers values
+func NewDeleteServiceIDForbidden() *DeleteServiceIDForbidden {
+
+	return &DeleteServiceIDForbidden{}
+}
+
+// WriteResponse to the client
+func (o *DeleteServiceIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // DeleteServiceIDNotFoundCode is the HTTP code returned for type DeleteServiceIDNotFound
 const DeleteServiceIDNotFoundCode int = 404
 

@@ -94,10 +94,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.20.3
+          go-version: 1.20.4
       - name: Cache LLVM and Clang
         id: cache-llvm
         uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
@@ -132,10 +132,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.20.3
+          go-version: 1.20.4
       - name: Cache LLVM and Clang
         id: cache-llvm
         uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
@@ -161,7 +161,7 @@ jobs:
         env:
           # Disable coverage report for these test cases since they are hitting
           # https://github.com/cilium/coverbee/issues/7
-          NOCOVER_PATTERN: "inter_cluster_snat_clusterip.*|session_affinity_test.o|tc_egressgw_redirect.o|tc_egressgw_snat.o|tc_nodeport_lb4_dsr_backend.o|tc_nodeport_lb4_dsr_lb.o|tc_nodeport_lb4_nat_backend.o|tc_nodeport_lb4_nat_lb.o|xdp_nodeport_lb4_dsr_lb.o|xdp_nodeport_lb4_nat_backend.o|xdp_nodeport_lb4_nat_lb.o|xdp_nodeport_lb4_test.o|bpf_nat_tests.o"
+          NOCOVER_PATTERN: "inter_cluster_snat_clusterip.*|session_affinity_test.o|tc_egressgw_redirect.o|tc_egressgw_snat.o|tc_nodeport_lb4_dsr_backend.o|tc_nodeport_lb4_dsr_lb.o|tc_nodeport_lb4_nat_backend.o|tc_nodeport_lb4_nat_lb.o|tc_nodeport_lb6_dsr_backend.o|tc_nodeport_lb6_dsr_lb.o|xdp_nodeport_lb4_dsr_lb.o|xdp_nodeport_lb4_nat_backend.o|xdp_nodeport_lb4_nat_lb.o|xdp_nodeport_lb4_test.o|xdp_nodeport_lb6_dsr_lb.o|bpf_nat_tests.o"
         run: |
           make -C test run_bpf_tests COVER=1 NOCOVER="$NOCOVER_PATTERN" || (echo "Run 'make -C test run_bpf_tests COVER=1 NOCOVER=\"$NOCOVER_PATTERN\"' locally to investigate failures"; exit 1)
       - name: Archive code coverage results

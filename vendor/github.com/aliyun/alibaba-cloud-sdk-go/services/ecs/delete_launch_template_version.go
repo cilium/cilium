@@ -83,7 +83,8 @@ type DeleteLaunchTemplateVersionRequest struct {
 // DeleteLaunchTemplateVersionResponse is the response struct for api DeleteLaunchTemplateVersion
 type DeleteLaunchTemplateVersionResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
+	RequestId              string                 `json:"RequestId" xml:"RequestId"`
+	LaunchTemplateVersions LaunchTemplateVersions `json:"LaunchTemplateVersions" xml:"LaunchTemplateVersions"`
 }
 
 // CreateDeleteLaunchTemplateVersionRequest creates a request to invoke DeleteLaunchTemplateVersion API

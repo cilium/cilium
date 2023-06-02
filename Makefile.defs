@@ -1,7 +1,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 
 # define a function replacing spaces with commas in a list
@@ -39,7 +39,7 @@ DOCKER_BUILD_FLAGS?=
 
 # use gsed if avaiable, otherwise use sed.
 # gsed is needed for MacOS to make in-place replacement work correctly.
-SED ?= $(if $(shell command -v gsed), gsed, sed)
+SED ?= $(if $(shell command -v gsed),gsed,sed)
 
 # Set DOCKER_DEV_ACCOUNT with "cilium" by default
 ifeq ($(DOCKER_DEV_ACCOUNT),)
@@ -64,6 +64,7 @@ endif
 
 CONSUL_IMAGE=consul:1.7.2
 
+export CILIUM_CLI ?= cilium
 export GO ?= go
 
 # go build/test/clean flags
@@ -120,7 +121,7 @@ endif
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
     CILIUM_ENVOY_REF=$(shell sed -E -e 's/^FROM (--[^ ]* )*([^ ]*) as cilium-envoy/\2/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
     CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:(.*-)?([^:@]*).*/\2/p;d')
-    GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+    GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/proxy.requiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
 endif
 
 # Use git only if in a Git repo, otherwise find the files from the file system

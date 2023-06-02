@@ -77,6 +77,7 @@ type AllocateEipAddressRequest struct {
 	ISP                     string           `position:"Query" name:"ISP"`
 	Description             string           `position:"Query" name:"Description"`
 	ResourceGroupId         string           `position:"Query" name:"ResourceGroupId"`
+	Zone                    string           `position:"Query" name:"Zone"`
 	Netmode                 string           `position:"Query" name:"Netmode"`
 	InstanceChargeType      string           `position:"Query" name:"InstanceChargeType"`
 	Period                  requests.Integer `position:"Query" name:"Period"`

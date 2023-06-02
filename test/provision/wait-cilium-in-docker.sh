@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Wait for cilium agent to become available
 for ((i = 0 ; i < 12; i++)); do

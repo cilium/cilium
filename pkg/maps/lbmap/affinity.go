@@ -39,7 +39,7 @@ func initAffinity(params InitParams) {
 		&AffinityMatchValue{},
 		int(unsafe.Sizeof(AffinityMatchValue{})),
 		AffinityMapMaxEntries,
-		0, 0,
+		0,
 		bpf.ConvertKeyValue,
 	).WithCache().WithPressureMetric().
 		WithEvents(option.Config.GetEventBufferConfig(AffinityMatchMapName))
@@ -54,7 +54,6 @@ func initAffinity(params InitParams) {
 			int(unsafe.Sizeof(AffinityValue{})),
 			AffinityMapMaxEntries,
 			0,
-			0,
 			bpf.ConvertKeyValue,
 		)
 	}
@@ -68,7 +67,6 @@ func initAffinity(params InitParams) {
 			&AffinityValue{},
 			int(unsafe.Sizeof(AffinityValue{})),
 			AffinityMapMaxEntries,
-			0,
 			0,
 			bpf.ConvertKeyValue,
 		)

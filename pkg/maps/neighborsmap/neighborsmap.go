@@ -36,7 +36,6 @@ func neighMapsGet() (*bpf.Map, *bpf.Map) {
 			int(unsafe.Sizeof(Value{})),
 			option.Config.NeighMapEntriesGlobal,
 			0,
-			0,
 			bpf.ConvertKeyValue,
 		)
 		neigh6Map = bpf.NewMap(Map6Name,
@@ -46,7 +45,6 @@ func neighMapsGet() (*bpf.Map, *bpf.Map) {
 			&Value{},
 			int(unsafe.Sizeof(Value{})),
 			option.Config.NeighMapEntriesGlobal,
-			0,
 			0,
 			bpf.ConvertKeyValue,
 		)
@@ -112,12 +110,12 @@ func (k Key6) NewValue() bpf.MapValue { return &Value{} }
 func InitMaps(ipv4, ipv6 bool) error {
 	neigh4Map, neigh6Map := neighMapsGet()
 	if ipv4 {
-		if _, err := neigh4Map.Create(); err != nil {
+		if err := neigh4Map.Create(); err != nil {
 			return err
 		}
 	}
 	if ipv6 {
-		if _, err := neigh6Map.Create(); err != nil {
+		if err := neigh6Map.Create(); err != nil {
 			return err
 		}
 	}

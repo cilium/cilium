@@ -41,6 +41,11 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif
 
 #define TUNNEL_PORT 8472
+#define TUNNEL_PROTOCOL_VXLAN 1
+#define TUNNEL_PROTOCOL_GENEVE 2
+#ifndef TUNNEL_PROTOCOL
+#define TUNNEL_PROTOCOL TUNNEL_PROTOCOL_VXLAN
+#endif
 
 #define HOST_ID 1
 #define WORLD_ID 2
@@ -95,6 +100,10 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif /* ENABLE_NODEPORT */
 #define CAPTURE4_RULES cilium_capture4_rules
 #define CAPTURE4_SIZE 16384
+# ifdef ENABLE_HIGH_SCALE_IPCACHE
+#  define IPV4_NATIVE_ROUTING_CIDR 0xffff0000
+#  define IPV4_NATIVE_ROUTING_CIDR_LEN 16
+# endif /* ENABLE_HIGH_SCALE_IPCACHE */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
@@ -163,7 +172,6 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CONFIG_MAP_SIZE 256
 #define IPCACHE_MAP_SIZE 512000
 #define NODE_MAP_SIZE 16384
-#define EGRESS_POLICY_MAP_SIZE 16384
 #define SRV6_VRF_MAP_SIZE 16384
 #define SRV6_POLICY_MAP_SIZE 16384
 #define SRV6_SID_MAP_SIZE 16384
@@ -194,6 +202,10 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define LB4_HEALTH_MAP test_cilium_lb4_health
 #define LB6_HEALTH_MAP test_cilium_lb6_health
 #endif /* ENABLE_NODEPORT || ENABLE_HOST_FIREWALL */
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
+# define WORLD_CIDRS4_MAP test_cilium_world_cidrs4
+# define WORLD_CIDRS4_MAP_SIZE 16384
+#endif /* ENABLE_HIGH_SCALE_IPCACHE */
 
 #ifdef ENABLE_NODEPORT
 #ifdef ENABLE_IPV4
@@ -214,7 +226,9 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #  define IPV4_RSS_PREFIX_BITS 32
 # endif
 # ifdef ENABLE_IPV6
-#  define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
+#  ifndef IPV6_DIRECT_ROUTING
+#   define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
+#  endif
 #  define IPV6_RSS_PREFIX IPV6_DIRECT_ROUTING
 #  define IPV6_RSS_PREFIX_BITS 128
 # endif

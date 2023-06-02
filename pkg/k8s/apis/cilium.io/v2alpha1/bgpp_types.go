@@ -79,6 +79,27 @@ type CiliumBGPNeighbor struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
 	PeerASN int `json:"peerASN"`
+	// ConnectRetryTime defines the initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
+	// The default value for the ConnectRetryTime (if empty or zero) is 120 seconds.
+	// Rounded internally to the nearest whole second.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Format=duration
+	ConnectRetryTime metav1.Duration `json:"connectRetryTime,omitempty"`
+	// HoldTime defines the initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
+	// The default value for the HoldTime (if empty or zero) is 90 seconds.
+	// Rounded internally to the nearest whole second.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Format=duration
+	HoldTime metav1.Duration `json:"holdTime,omitempty"`
+	// KeepaliveTime defines the initial value for the BGP KeepaliveTimer (RFC 4271, Section 8).
+	// The default value for the KeepaliveTime (if empty or zero) is 1/3 of the HoldTime.
+	// Rounded internally to the nearest whole second.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Format=duration
+	KeepAliveTime metav1.Duration `json:"keepAliveTime,omitempty"`
 }
 
 // CiliumBGPVirtualRouter defines a discrete BGP virtual router configuration.

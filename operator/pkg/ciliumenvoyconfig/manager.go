@@ -30,8 +30,9 @@ type svcEvent string
 type Manager struct {
 	envoyConfigManager *envoyConfigManager
 
-	queue      workqueue.RateLimitingInterface
-	maxRetries int
+	queue              workqueue.RateLimitingInterface
+	maxRetries         int
+	idleTimeoutSeconds int
 
 	client       client.Clientset
 	serviceStore cache.Store
@@ -40,17 +41,18 @@ type Manager struct {
 }
 
 // New returns a new Manager for CiliumEnvoyConfig
-func New(ctx context.Context, client client.Clientset, indexer cache.Store, ports []string, algorithm string) (*Manager, error) {
+func New(ctx context.Context, client client.Clientset, indexer cache.Store, ports []string, algorithm string, idleTimeoutSeconds int) (*Manager, error) {
 	manager := &Manager{
-		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		client:       client,
-		serviceStore: indexer,
-		maxRetries:   10,
-		ports:        ports,
-		algorithm:    algorithm,
+		queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		client:             client,
+		serviceStore:       indexer,
+		maxRetries:         10,
+		idleTimeoutSeconds: idleTimeoutSeconds,
+		ports:              ports,
+		algorithm:          algorithm,
 	}
 
-	envoyConfigManager, err := newEnvoyConfigManager(ctx, client, manager.maxRetries)
+	envoyConfigManager, err := newEnvoyConfigManager(ctx, client, manager.maxRetries, manager.idleTimeoutSeconds)
 	if err != nil {
 		return nil, err
 	}

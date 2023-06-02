@@ -142,7 +142,7 @@ func getOrOpenMap(epname string, ipv4 bool, proto u8proto.U8proto) (*bpf.Map, er
 	if m == nil {
 		var err error
 		// Open the map and leave it open
-		m, err = bpf.OpenMap(mapname)
+		m, err = bpf.OpenMap(bpf.MapPath(mapname))
 		if err != nil {
 			return nil, fmt.Errorf("Can not open CT map %s: %s", mapname, err)
 		}

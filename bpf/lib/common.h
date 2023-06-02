@@ -59,7 +59,7 @@
 /* XFER_FLAGS that get transferred from XDP to SKB */
 enum {
 	XFER_PKT_NO_SVC		= (1 << 0),  /* Skip upper service handling. */
-	XFER_PKT_ENCAP		= (1 << 1),  /* needs encap, tunnel info is in metadata. */
+	XFER_UNUSED		= (1 << 1),
 	XFER_PKT_SNAT_DONE	= (1 << 2),  /* SNAT is done */
 };
 
@@ -216,13 +216,6 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 #define revalidate_data_pull(ctx, data, data_end, ip)			\
 	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), true)
 
-/* revalidate_data_maybe_pull() does the same as revalidate_data_pull()
- * except that the skb data pull is controlled by the "pull" argument.
- */
-#define revalidate_data_maybe_pull(ctx, data, data_end, ip, pull)	\
-	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), pull)
-
-
 /* revalidate_data() initializes the provided pointers from the ctx.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise.
@@ -232,13 +225,11 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
-#define BPF_V6_1(dst, ...)	BPF_V6_4(dst, __VA_ARGS__)
-#define BPF_V6_4(dst, a1, a2, a3, a4)		\
+#define BPF_V6_1(dst, ...)	BPF_V6_2(dst, __VA_ARGS__)
+#define BPF_V6_2(dst, a1, a2)		\
 	({					\
-		dst.p1 = a1;			\
-		dst.p2 = a2;			\
-		dst.p3 = a3;			\
-		dst.p4 = a4;			\
+		dst.d1 = a1;			\
+		dst.d2 = a2;			\
 	})
 
 #define ENDPOINT_KEY_IPV4 1
@@ -299,11 +290,12 @@ struct tunnel_value {
 struct endpoint_info {
 	__u32		ifindex;
 	__u16		unused; /* used to be sec_label, no longer used */
-	__u16           lxc_id;
+	__u16		lxc_id;
 	__u32		flags;
 	mac_t		mac;
 	mac_t		node_mac;
-	__u32		pad[4];
+	__u32		sec_id;
+	__u32		pad[3];
 };
 
 struct edt_id {
@@ -372,7 +364,7 @@ struct policy_entry {
 struct auth_key {
 	__u32       local_sec_label;
 	__u32       remote_sec_label;
-	__u16       remote_node_id;
+	__u16       remote_node_id; /* zero for local node */
 	__u8        auth_type;
 	__u8        pad;
 };
@@ -776,25 +768,23 @@ enum {
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
 #define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
-#define CB_ENCAP_NODEID		CB_SRC_LABEL	/* XDP */
 	CB_IFINDEX,
 #define	CB_NAT_46X64		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V6_1		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
-#define CB_ENCAP_SECLABEL	CB_IFINDEX	/* XDP */
 #define CB_CLUSTER_ID_EGRESS	CB_IFINDEX	/* Alias, non-overlapping */
+#define CB_HSIPC_ADDR_V4	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 #define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
-#define CB_ENCAP_DSTID		CB_POLICY	/* XDP */
 #define	CB_CLUSTER_ID_INGRESS	CB_POLICY	/* Alias, non-overlapping */
+#define CB_HSIPC_PORT		CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT,
 #define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
 #define CB_SRV6_SID_4		CB_NAT		/* Alias, non-overlapping */
-#define CB_ENCAP_PORT		CB_NAT		/* XDP */
 	CB_CT_STATE,
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_CT_STATE	/* Alias, non-overlapping,
@@ -803,7 +793,6 @@ enum {
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_FROM_TUNNEL		CB_CT_STATE	/* Alias, non-overlapping */
-#define CB_ENCAP_ADDR		CB_CT_STATE /* XDP */
 };
 
 /* Magic values for CB_FROM_HOST.
@@ -1102,7 +1091,11 @@ struct lb_affinity_match {
 
 struct ct_state {
 	__u16 rev_nat_index;
+#ifndef DISABLE_LOOPBACK_LB
 	__u16 loopback:1,
+#else
+	__u16 loopback_disabled:1,
+#endif
 	      node_port:1,
 	      dsr:1,
 	      syn:1,
@@ -1111,8 +1104,10 @@ struct ct_state {
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 	      reserved:8;
+#ifndef DISABLE_LOOPBACK_LB
 	__be32 addr;
 	__be32 svc_addr;
+#endif
 	__u32 src_sec_id;
 	__u16 ifindex;
 	__u32 backend_id;	/* Backend ID in lb4_backends */
@@ -1234,6 +1229,16 @@ struct genevehdr {
 	__u8 vni[3];
 	__u8 reserved;
 };
+
+struct vxlanhdr {
+	__be32 vx_flags;
+	__be32 vx_vni;
+};
+
+/* Older kernels don't support the larger tunnel key structure and we don't
+ * need it since we only want to retrieve the tunnel ID anyway.
+ */
+#define TUNNEL_KEY_WITHOUT_SRC_IP offsetof(struct bpf_tunnel_key, local_ipv4)
 
 #include "overloadable.h"
 

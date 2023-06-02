@@ -327,7 +327,8 @@ Annotations:
 * Egress Gateway policies now drop matching traffic when no
   gateway nodes can be found. Previously, traffic would be allowed without
   being rerouted towards an Egress Gateway.
-
+* If Gateway API feature is enabled, please upgrade related CRDs to v0.6.x. This is
+  mainly for ReferenceGrant resource version change (i.e. from v1alpha2 to v1beta1).
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -410,6 +411,8 @@ Helm Options
 * Values ``clustermesh.apiserver.tls.ca.cert`` and ``clustermesh.apiserver.tls.ca.key``
   are deprecated in favor of ``tls.ca.cert`` and ``tls.ca.key`` respectively, and
   will be removed in v1.15.
+* Values ``proxy.prometheus.enabled`` and ``proxy.prometheus.port`` are deprecated in favor of
+  their ``envoy.prometheus.*`` counterparts.
 
 .. _earlier_upgrade_notes:
 

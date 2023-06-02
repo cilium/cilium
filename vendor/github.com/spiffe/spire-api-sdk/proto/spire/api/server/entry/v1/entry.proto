@@ -7,6 +7,7 @@ import "spire/api/types/federateswith.proto";
 import "spire/api/types/selector.proto";
 import "spire/api/types/spiffeid.proto";
 import "spire/api/types/status.proto";
+import "google/protobuf/wrappers.proto";
 
 // Manages registration entries stored by the SPIRE Server.
 service Entry {
@@ -60,6 +61,7 @@ message ListEntriesRequest {
         spire.api.types.SPIFFEID by_parent_id = 2;
         spire.api.types.SelectorMatch by_selectors = 3;
         spire.api.types.FederatesWithMatch by_federates_with = 4;
+        google.protobuf.StringValue by_hint = 5;
     }
 
     // Filters the entries returned in the response.

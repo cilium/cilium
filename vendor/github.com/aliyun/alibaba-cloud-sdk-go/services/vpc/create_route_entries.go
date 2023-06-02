@@ -87,6 +87,7 @@ type CreateRouteEntriesRouteEntries struct {
 	NextHopType  string `name:"NextHopType"`
 	Name         string `name:"Name"`
 	Describption string `name:"Describption"`
+	Description  string `name:"Description"`
 }
 
 // CreateRouteEntriesResponse is the response struct for api CreateRouteEntries

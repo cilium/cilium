@@ -12,8 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
 const (
@@ -24,15 +22,15 @@ const (
 type Map interface {
 	// Lookup returns the auth map object associated with the provided
 	// (local identity, remote identity, remote host id, auth type) quadruple.
-	Lookup(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) (*AuthInfo, error)
+	Lookup(key AuthKey) (AuthInfo, error)
 
 	// Update inserts or updates the auth map object associated with the provided
 	// (local identity, remote identity, remote host id, auth type) quadruple.
-	Update(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType, expiration utime.UTime) error
+	Update(key AuthKey, expiration utime.UTime) error
 
 	// Delete deletes the auth map object associated with the provided
 	// (local identity, remote identity, remote host id, auth type) quadruple.
-	Delete(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) error
+	Delete(key AuthKey) error
 
 	// IterateWithCallback iterates through all the keys/values of an auth map,
 	// passing each key/value pair to the cb callback.
@@ -85,24 +83,19 @@ func (m *authMap) close() error {
 	return nil
 }
 
-func (m *authMap) Update(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType, expiration utime.UTime) error {
-	key := newAuthKey(localIdentity, remoteIdentity, remoteNodeID, authType)
+func (m *authMap) Update(key AuthKey, expiration utime.UTime) error {
 	val := AuthInfo{Expiration: expiration}
 	return m.bpfMap.Update(key, val, 0)
 }
 
-func (m *authMap) Delete(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) error {
-	key := newAuthKey(localIdentity, remoteIdentity, remoteNodeID, authType)
+func (m *authMap) Delete(key AuthKey) error {
 	return m.bpfMap.Delete(key)
 }
 
-func (m *authMap) Lookup(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) (*AuthInfo, error) {
-	key := newAuthKey(localIdentity, remoteIdentity, remoteNodeID, authType)
+func (m *authMap) Lookup(key AuthKey) (AuthInfo, error) {
 	val := AuthInfo{}
-
-	err := m.bpfMap.Lookup(&key, &val)
-
-	return &val, err
+	err := m.bpfMap.Lookup(key, &val)
+	return val, err
 }
 
 // IterateCallback represents the signature of the callback function
@@ -139,15 +132,6 @@ func (r *AuthKey) NewValue() bpf.MapValue { return &AuthInfo{} }
 
 func (r *AuthKey) String() string {
 	return fmt.Sprintf("localIdentity=%d, remoteIdentity=%d, remoteNodeID=%d, authType=%d", r.LocalIdentity, r.RemoteIdentity, r.RemoteNodeID, r.AuthType)
-}
-
-func newAuthKey(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType) AuthKey {
-	return AuthKey{
-		LocalIdentity:  localIdentity.Uint32(),
-		RemoteIdentity: remoteIdentity.Uint32(),
-		RemoteNodeID:   remoteNodeID,
-		AuthType:       authType.Uint8(),
-	}
 }
 
 // AuthInfo implements the bpf.MapValue interface.

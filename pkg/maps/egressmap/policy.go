@@ -8,11 +8,17 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
+
+	"github.com/spf13/pflag"
 )
 
 const (
+	PolicyMapName = "cilium_egress_gw_policy_v4"
 	// PolicyStaticPrefixBits represents the size in bits of the static
 	// prefix part of an egress policy key (i.e. the source IP).
 	PolicyStaticPrefixBits = uint32(unsafe.Sizeof(types.IPv4{}) * 8)
@@ -33,41 +39,74 @@ type EgressPolicyVal4 struct {
 	GatewayIP types.IPv4 `align:"gateway_ip"`
 }
 
-// egressPolicyMap is the internal representation of an egress policy map.
-type egressPolicyMap struct {
-	*ebpf.Map
+type PolicyConfig struct {
+	// EgressGatewayPolicyMapMax is the maximum number of entries
+	// allowed in the BPF egress gateway policy map.
+	EgressGatewayPolicyMapMax int
 }
 
-// initEgressPolicyMap initializes the egress policy map.
-func initEgressPolicyMap(policyMapName string, maxPolicyEntries int, create bool) error {
-	var m *ebpf.Map
+var DefaultPolicyConfig = PolicyConfig{
+	EgressGatewayPolicyMapMax: 1 << 14,
+}
 
-	if create {
-		m = ebpf.NewMap(&ebpf.MapSpec{
-			Name:       policyMapName,
-			Type:       ebpf.LPMTrie,
-			KeySize:    uint32(unsafe.Sizeof(EgressPolicyKey4{})),
-			ValueSize:  uint32(unsafe.Sizeof(EgressPolicyVal4{})),
-			MaxEntries: uint32(maxPolicyEntries),
-			Pinning:    ebpf.PinByName,
-		})
+func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
+	flags.Int("egress-gateway-policy-map-max", def.EgressGatewayPolicyMapMax, "Maximum number of entries in egress gateway policy map")
+}
 
-		if err := m.OpenOrCreate(); err != nil {
-			return err
-		}
-	} else {
-		var err error
+// PolicyMap is used to communicate EGW policies to the datapath.
+type PolicyMap interface {
+	Lookup(sourceIP net.IP, destCIDR net.IPNet) (*EgressPolicyVal4, error)
+	Update(sourceIP net.IP, destCIDR net.IPNet, egressIP, gatewayIP net.IP) error
+	Delete(sourceIP net.IP, destCIDR net.IPNet) error
+	IterateWithCallback(EgressPolicyIterateCallback) error
+}
 
-		if m, err = ebpf.LoadRegisterMap(policyMapName); err != nil {
-			return err
-		}
+// policyMap is the internal representation of an egress policy map.
+type policyMap struct {
+	m *ebpf.Map
+}
+
+func createPolicyMapFromDaemonConfig(daemonConfig *option.DaemonConfig, lc hive.Lifecycle, cfg PolicyConfig) bpf.MapOut[PolicyMap] {
+	if !daemonConfig.EnableIPv4EgressGateway {
+		return bpf.NewMapOut[PolicyMap](nil)
 	}
 
-	EgressPolicyMap = &egressPolicyMap{
-		m,
+	return bpf.NewMapOut(CreatePolicyMap(lc, cfg))
+}
+
+func CreatePolicyMap(lc hive.Lifecycle, cfg PolicyConfig) PolicyMap {
+	return createPolicyMap(lc, cfg, ebpf.PinByName)
+}
+
+func createPolicyMap(lc hive.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *policyMap {
+	m := ebpf.NewMap(&ebpf.MapSpec{
+		Name:       PolicyMapName,
+		Type:       ebpf.LPMTrie,
+		KeySize:    uint32(unsafe.Sizeof(EgressPolicyKey4{})),
+		ValueSize:  uint32(unsafe.Sizeof(EgressPolicyVal4{})),
+		MaxEntries: uint32(cfg.EgressGatewayPolicyMapMax),
+		Pinning:    pinning,
+	})
+
+	lc.Append(hive.Hook{
+		OnStart: func(hive.HookContext) error {
+			return m.OpenOrCreate()
+		},
+		OnStop: func(hive.HookContext) error {
+			return m.Close()
+		},
+	})
+
+	return &policyMap{m}
+}
+
+func OpenPinnedPolicyMap() (PolicyMap, error) {
+	m, err := ebpf.LoadRegisterMap(PolicyMapName)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return &policyMap{m}, nil
 }
 
 // NewEgressPolicyKey4 returns a new EgressPolicyKey4 object representing the
@@ -138,29 +177,29 @@ func (v *EgressPolicyVal4) String() string {
 
 // Lookup returns the egress policy object associated with the provided (source
 // IP, destination CIDR) tuple.
-func (m *egressPolicyMap) Lookup(sourceIP net.IP, destCIDR net.IPNet) (*EgressPolicyVal4, error) {
+func (m *policyMap) Lookup(sourceIP net.IP, destCIDR net.IPNet) (*EgressPolicyVal4, error) {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR.IP, destCIDR.Mask)
 	val := EgressPolicyVal4{}
 
-	err := m.Map.Lookup(&key, &val)
+	err := m.m.Lookup(&key, &val)
 
 	return &val, err
 }
 
 // Update updates the (sourceIP, destCIDR) egress policy entry with the provided
 // egress and gateway IPs.
-func (m *egressPolicyMap) Update(sourceIP net.IP, destCIDR net.IPNet, egressIP, gatewayIP net.IP) error {
+func (m *policyMap) Update(sourceIP net.IP, destCIDR net.IPNet, egressIP, gatewayIP net.IP) error {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR.IP, destCIDR.Mask)
 	val := NewEgressPolicyVal4(egressIP, gatewayIP)
 
-	return m.Map.Update(key, val, 0)
+	return m.m.Update(key, val, 0)
 }
 
 // Delete deletes the (sourceIP, destCIDR) egress policy entry.
-func (m *egressPolicyMap) Delete(sourceIP net.IP, destCIDR net.IPNet) error {
+func (m *policyMap) Delete(sourceIP net.IP, destCIDR net.IPNet) error {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR.IP, destCIDR.Mask)
 
-	return m.Map.Delete(key)
+	return m.m.Delete(key)
 }
 
 // EgressPolicyIterateCallback represents the signature of the callback function
@@ -170,8 +209,8 @@ type EgressPolicyIterateCallback func(*EgressPolicyKey4, *EgressPolicyVal4)
 
 // IterateWithCallback iterates through all the keys/values of an egress policy
 // map, passing each key/value pair to the cb callback.
-func (m egressPolicyMap) IterateWithCallback(cb EgressPolicyIterateCallback) error {
-	return m.Map.IterateWithCallback(&EgressPolicyKey4{}, &EgressPolicyVal4{},
+func (m policyMap) IterateWithCallback(cb EgressPolicyIterateCallback) error {
+	return m.m.IterateWithCallback(&EgressPolicyKey4{}, &EgressPolicyVal4{},
 		func(k, v interface{}) {
 			key := k.(*EgressPolicyKey4)
 			value := v.(*EgressPolicyVal4)

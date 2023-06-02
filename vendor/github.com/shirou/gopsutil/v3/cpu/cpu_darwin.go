@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/shoenig/go-m1cpu"
 	"github.com/tklauser/go-sysconf"
 	"golang.org/x/sys/unix"
 )
@@ -85,11 +86,15 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 	c.CacheSize = int32(cacheSize)
 	c.VendorID, _ = unix.Sysctl("machdep.cpu.vendor")
 
-	// Use the rated frequency of the CPU. This is a static value and does not
-	// account for low power or Turbo Boost modes.
-	cpuFrequency, err := unix.SysctlUint64("hw.cpufrequency")
-	if err == nil {
-		c.Mhz = float64(cpuFrequency) / 1000000.0
+	if m1cpu.IsAppleSilicon() {
+		c.Mhz = float64(m1cpu.PCoreHz() / 1_000_000)
+	} else {
+		// Use the rated frequency of the CPU. This is a static value and does not
+		// account for low power or Turbo Boost modes.
+		cpuFrequency, err := unix.SysctlUint64("hw.cpufrequency")
+		if err == nil {
+			c.Mhz = float64(cpuFrequency) / 1000000.0
+		}
 	}
 
 	return append(ret, c), nil

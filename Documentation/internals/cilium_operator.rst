@@ -50,6 +50,14 @@ Cilium. The following custom resources are registered by the Cilium Operator:
 -  CiliumExternalWorkload
 -  CiliumIdentity
 -  CiliumLocalRedirectPolicy
+-  CiliumEgressGatewayPolicy
+-  CiliumEndpointSlice
+-  CiliumClusterwideEnvoyConfig
+-  CiliumEnvoyConfig
+-  CiliumBGPPeeringPolicy
+-  CiliumLoadBalancerIPPool
+-  CiliumNodeConfig
+-  CiliumCIDRGroup
 
 IPAM
 ~~~~
@@ -76,6 +84,12 @@ mode:
 - AWS - ``cilium-operator-aws``
 
 For more information on IPAM visit :ref:`address_management`.
+
+Load Balancer IP Address Management
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When :ref:`lb_ipam` is used, Cilium Operator manages IP address
+for ``type: LoadBalancer`` services.
 
 KVStore operations
 ~~~~~~~~~~~~~~~~~~

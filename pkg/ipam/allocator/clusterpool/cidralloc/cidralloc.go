@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/ipam/cidrset"
-
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/cidrset"
 )
 
 type CIDRAllocator interface {

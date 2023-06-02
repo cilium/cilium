@@ -11,10 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
-	"github.com/cilium/cilium/pkg/probe"
 )
 
 type preFilterMapType int
@@ -36,24 +33,12 @@ const (
 
 type preFilterMaps [mapCount]*cidrmap.CIDRMap
 
-type preFilterConfig struct {
-	dyn4Enabled bool
-	dyn6Enabled bool
-	fix4Enabled bool
-	fix6Enabled bool
-}
-
 // PreFilter holds global info on related CIDR maps participating in prefilter
 type PreFilter struct {
 	maps     preFilterMaps
-	config   preFilterConfig
 	revision int64
 	mutex    lock.RWMutex
 }
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "prefilter")
-)
 
 // WriteConfig dumps the configuration for the corresponding header file
 func (p *PreFilter) WriteConfig(fw io.Writer) {
@@ -68,18 +53,10 @@ func (p *PreFilter) WriteConfig(fw io.Writer) {
 	fmt.Fprintf(fw, "#define CIDR6_HMAP_NAME %s\n", path.Base(p.maps[prefixesV6Fix].String()))
 	fmt.Fprintf(fw, "#define CIDR6_LMAP_NAME %s\n", path.Base(p.maps[prefixesV6Dyn].String()))
 
-	if p.config.fix4Enabled {
-		fmt.Fprintf(fw, "#define CIDR4_FILTER\n")
-		if p.config.dyn4Enabled {
-			fmt.Fprintf(fw, "#define CIDR4_LPM_PREFILTER\n")
-		}
-	}
-	if p.config.fix6Enabled {
-		fmt.Fprintf(fw, "#define CIDR6_FILTER\n")
-		if p.config.dyn6Enabled {
-			fmt.Fprintf(fw, "#define CIDR6_LPM_PREFILTER\n")
-		}
-	}
+	fmt.Fprintf(fw, "#define CIDR4_FILTER\n")
+	fmt.Fprintf(fw, "#define CIDR4_LPM_PREFILTER\n")
+	fmt.Fprintf(fw, "#define CIDR6_FILTER\n")
+	fmt.Fprintf(fw, "#define CIDR6_LPM_PREFILTER\n")
 }
 
 func (p *PreFilter) dumpOneMap(which preFilterMapType, to []string) []string {
@@ -202,7 +179,6 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 	var maxelems uint32
 	var path string
 	var err error
-	var skip bool
 
 	switch which {
 	case prefixesV4Dyn:
@@ -210,31 +186,26 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 		prefixdyn = true
 		maxelems = maxLKeys
 		path = bpf.MapPath(cidrmap.MapName + "v4_dyn")
-		skip = p.config.dyn4Enabled == false
 	case prefixesV4Fix:
 		prefixlen = net.IPv4len * 8
 		prefixdyn = false
 		maxelems = maxHKeys
 		path = bpf.MapPath(cidrmap.MapName + "v4_fix")
-		skip = p.config.fix4Enabled == false
 	case prefixesV6Dyn:
 		prefixlen = net.IPv6len * 8
 		prefixdyn = true
 		maxelems = maxLKeys
 		path = bpf.MapPath(cidrmap.MapName + "v6_dyn")
-		skip = p.config.dyn6Enabled == false
 	case prefixesV6Fix:
 		prefixlen = net.IPv6len * 8
 		prefixdyn = false
 		maxelems = maxHKeys
 		path = bpf.MapPath(cidrmap.MapName + "v6_fix")
-		skip = p.config.fix4Enabled == false
 	}
-	if skip == false {
-		p.maps[which], _, err = cidrmap.OpenMapElems(path, prefixlen, prefixdyn, maxelems)
-		if err != nil {
-			return err
-		}
+
+	p.maps[which], err = cidrmap.OpenMapElems(path, prefixlen, prefixdyn, maxelems)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -250,19 +221,8 @@ func (p *PreFilter) init() (*PreFilter, error) {
 
 // NewPreFilter returns prefilter handle
 func NewPreFilter() (*PreFilter, error) {
-	haveLPM := probe.HaveFullLPM()
-	if !haveLPM {
-		log.Warning("Kernel too old for full LPM map support. Needs kernel 4.16 or higher. Only enabling /32 and /128 prefixes for prefilter.")
-	}
-	c := preFilterConfig{
-		dyn4Enabled: haveLPM,
-		dyn6Enabled: haveLPM,
-		fix4Enabled: true,
-		fix6Enabled: true,
-	}
 	p := &PreFilter{
 		revision: 1,
-		config:   c,
 	}
 	// Only needed here given we access pinned maps.
 	p.mutex.Lock()

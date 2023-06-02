@@ -6,7 +6,7 @@ package ctmap
 import (
 	"unsafe"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/ebpf/rlimit"
 
@@ -29,7 +29,7 @@ func init() {
 }
 
 func (k *CTMapPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
@@ -38,7 +38,7 @@ func (k *CTMapPrivilegedTestSuite) SetUpSuite(c *C) {
 
 func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 	m := newMap(MapNameTCP4Global+"_test", mapTypeIPv4TCPGlobal)
-	_, err := m.OpenOrCreate()
+	err := m.OpenOrCreate()
 	defer m.Map.Unpin()
 	c.Assert(err, IsNil)
 
@@ -71,7 +71,7 @@ func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 	for i := 0; i < c.N; i++ {
 		key.DestPort = uint16(i % 0xFFFF)
 		key.SourcePort = uint16(i / 0xFFFF)
-		err := bpf.UpdateElement(m.Map.GetFd(), m.Map.Name(), unsafe.Pointer(key), unsafe.Pointer(value), 0)
+		err := m.Map.Update(key, value)
 		c.Assert(err, IsNil)
 	}
 
@@ -98,7 +98,7 @@ func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 	// Init maps
 	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
-	_, err := natMap.OpenOrCreate()
+	err := natMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer natMap.Map.Unpin()
 
@@ -108,7 +108,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 		100, natMap)
 
 	ctMap := newMap(ctMapName, mapTypeIPv4AnyGlobal)
-	_, err = ctMap.OpenOrCreate()
+	err = ctMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMap.Map.Unpin()
 
@@ -134,8 +134,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 		TxBytes:   216,
 		Lifetime:  37459,
 	}
-	err = bpf.UpdateElement(ctMap.Map.GetFd(), ctMap.Map.Name(), unsafe.Pointer(ctKey),
-		unsafe.Pointer(ctVal), 0)
+	err = ctMap.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
 
 	natKey := &nat.NatKey4{
@@ -151,13 +150,12 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 		},
 	}
 	natVal := &nat.NatEntry4{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv4{192, 168, 61, 11},
-		Port:      0x3195,
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv4{192, 168, 61, 11},
+		Port:    0x3195,
 	}
-	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
-		unsafe.Pointer(natVal), 0)
+	err = natMap.Map.Update(natKey, natVal)
 	c.Assert(err, IsNil)
 	natKey = &nat.NatKey4{
 		TupleKey4Global: tuple.TupleKey4Global{
@@ -172,13 +170,12 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 		},
 	}
 	natVal = &nat.NatEntry4{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv4{192, 168, 61, 11},
-		Port:      0x3195,
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv4{192, 168, 61, 11},
+		Port:    0x3195,
 	}
-	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
-		unsafe.Pointer(natVal), 0)
+	err = natMap.Map.Update(natKey, natVal)
 	c.Assert(err, IsNil)
 
 	buf := make(map[string][]string)
@@ -210,7 +207,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	// Init maps
 	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
-	_, err := natMap.OpenOrCreate()
+	err := natMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer natMap.Map.Unpin()
 
@@ -219,7 +216,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
 		100, natMap)
 	ctMapAny := newMap(ctMapAnyName, mapTypeIPv4AnyGlobal)
-	_, err = ctMapAny.OpenOrCreate()
+	err = ctMapAny.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMapAny.Map.Unpin()
 
@@ -228,7 +225,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
 		100, natMap)
 	ctMapTCP := newMap(ctMapTCPName, mapTypeIPv4TCPGlobal)
-	_, err = ctMapTCP.OpenOrCreate()
+	err = ctMapTCP.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMapTCP.Map.Unpin()
 
@@ -270,8 +267,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		TxBytes:   216,
 		Lifetime:  37459,
 	}
-	err = bpf.UpdateElement(ctMapAny.Map.GetFd(), ctMapAny.Map.Name(), unsafe.Pointer(ctKey),
-		unsafe.Pointer(ctVal), 0)
+	err = ctMapAny.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
 
 	natKey := &nat.NatKey4{
@@ -287,13 +283,12 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		},
 	}
 	natVal := &nat.NatEntry4{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv4{10, 23, 32, 45},
-		Port:      0x51d6,
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv4{10, 23, 32, 45},
+		Port:    0x51d6,
 	}
-	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
-		unsafe.Pointer(natVal), 0)
+	err = natMap.Map.Update(natKey, natVal)
 	c.Assert(err, IsNil)
 	natKey = &nat.NatKey4{
 		TupleKey4Global: tuple.TupleKey4Global{
@@ -308,13 +303,12 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		},
 	}
 	natVal = &nat.NatEntry4{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv4{10, 23, 32, 45},
-		Port:      0x50d6,
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv4{10, 23, 32, 45},
+		Port:    0x50d6,
 	}
-	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
-		unsafe.Pointer(natVal), 0)
+	err = natMap.Map.Update(natKey, natVal)
 	c.Assert(err, IsNil)
 
 	stats := PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
@@ -329,7 +323,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(len(buf), Equals, 2)
 
 	// Now remove the CT entry which should remove both NAT entries
-	err = bpf.DeleteElement(ctMapAny.Map.GetFd(), unsafe.Pointer(ctKey))
+	err = ctMapAny.Map.Delete(ctKey)
 	c.Assert(err, IsNil)
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 	c.Assert(stats.IngressDeleted, Equals, uint32(1))
@@ -343,8 +337,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(len(buf), Equals, 0)
 
 	// Create only CT_INGRESS NAT entry which should be removed
-	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
-		unsafe.Pointer(natVal), 0)
+	err = natMap.Map.Update(natKey, natVal)
 	c.Assert(err, IsNil)
 
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
@@ -380,8 +373,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		TxBytes:   216,
 		Lifetime:  37459,
 	}
-	err = bpf.UpdateElement(ctMapTCP.Map.GetFd(), ctMapTCP.Map.Name(), unsafe.Pointer(ctKey),
-		unsafe.Pointer(ctVal), 0)
+	err = ctMapTCP.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
 
 	natKey = &nat.NatKey4{
@@ -401,8 +393,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		Addr:    types.IPv4{10, 0, 2, 20},
 		Port:    0x409c,
 	}
-	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
-		unsafe.Pointer(natVal), 0)
+	err = natMap.Map.Update(natKey, natVal)
 	c.Assert(err, IsNil)
 
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
@@ -417,7 +408,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(len(buf), Equals, 1)
 
 	// Now remove the CT entry which should remove the NAT entry
-	err = bpf.DeleteElement(ctMapTCP.Map.GetFd(), unsafe.Pointer(ctKey))
+	err = ctMapTCP.Map.Delete(ctKey)
 	c.Assert(err, IsNil)
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
 	c.Assert(stats.IngressAlive, Equals, uint32(0))
@@ -455,8 +446,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		TxBytes:   216,
 		Lifetime:  37459,
 	}
-	err = bpf.UpdateElement(ctMapTCP.Map.GetFd(), ctMapTCP.Map.Name(), unsafe.Pointer(ctKey),
-		unsafe.Pointer(ctVal), 0)
+	err = ctMapTCP.Map.Update(ctKey, ctVal)
 	c.Assert(err, IsNil)
 
 	natKey = &nat.NatKey4{
@@ -476,8 +466,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		Addr:    types.IPv4{10, 0, 2, 20},
 		Port:    0x409c,
 	}
-	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
-		unsafe.Pointer(natVal), 0)
+	err = natMap.Map.Update(natKey, natVal)
 	c.Assert(err, IsNil)
 
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
@@ -492,7 +481,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(len(buf), Equals, 1)
 
 	// Now remove the CT entry which should remove the NAT entry
-	err = bpf.DeleteElement(ctMapTCP.Map.GetFd(), unsafe.Pointer(ctKey))
+	err = ctMapTCP.Map.Delete(ctKey)
 	c.Assert(err, IsNil)
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
 	c.Assert(stats.IngressAlive, Equals, uint32(0))
@@ -508,7 +497,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	// Let's check IPv6
 
 	natMapV6 := nat.NewMap("cilium_nat_any6_test", false, 1000)
-	_, err = natMapV6.OpenOrCreate()
+	err = natMapV6.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer natMapV6.Map.Unpin()
 
@@ -517,7 +506,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
 		100, natMapV6)
 	ctMapAnyV6 := newMap(ctMapAnyName, mapTypeIPv6AnyGlobal)
-	_, err = ctMapAnyV6.OpenOrCreate()
+	err = ctMapAnyV6.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMapAnyV6.Map.Unpin()
 
@@ -526,7 +515,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
 		100, natMapV6)
 	ctMapTCPV6 := newMap(ctMapTCPName, mapTypeIPv6TCPGlobal)
-	_, err = ctMapTCP.OpenOrCreate()
+	err = ctMapTCP.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMapTCPV6.Map.Unpin()
 
@@ -543,13 +532,12 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		},
 	}
 	natValV6 := &nat.NatEntry6{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv6{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
-		Port:      0x51d6,
+		Created: 37400,
+		NeedsCT: 1,
+		Addr:    types.IPv6{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+		Port:    0x51d6,
 	}
-	err = bpf.UpdateElement(natMapV6.Map.GetFd(), natMapV6.Map.Name(), unsafe.Pointer(natKeyV6),
-		unsafe.Pointer(natValV6), 0)
+	err = natMapV6.Map.Update(natKeyV6, natValV6)
 	c.Assert(err, IsNil)
 
 	stats = PurgeOrphanNATEntries(ctMapTCPV6, ctMapAnyV6)

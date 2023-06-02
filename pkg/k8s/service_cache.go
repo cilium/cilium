@@ -95,8 +95,8 @@ type ServiceCache struct {
 }
 
 // NewServiceCache returns a new ServiceCache
-func NewServiceCache(nodeAddressing types.NodeAddressing) ServiceCache {
-	return ServiceCache{
+func NewServiceCache(nodeAddressing types.NodeAddressing) *ServiceCache {
+	return &ServiceCache{
 		services:          map[ServiceID]*Service{},
 		endpoints:         map[ServiceID]*EndpointSlices{},
 		externalEndpoints: map[ServiceID]externalEndpoints{},
@@ -499,7 +499,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 
 		for ip, e := range localEndpoints.Backends {
 			e.Preferred = svcFound && svc.IncludeExternal && svc.ServiceAffinity == serviceAffinityLocal
-			endpoints.Backends[ip] = e
+			endpoints.Backends[ip] = e.DeepCopy()
 		}
 	}
 
@@ -522,7 +522,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 						}).Warning("Conflicting service backend IP")
 					} else {
 						e.Preferred = svc.ServiceAffinity == serviceAffinityRemote
-						endpoints.Backends[ip] = e
+						endpoints.Backends[ip] = e.DeepCopy()
 					}
 				}
 			}
@@ -739,13 +739,13 @@ func (s *ServiceCache) DebugStatus() string {
 
 // Implementation of subscriber.Node
 
-func (s *ServiceCache) OnAddNode(node *core_v1.Node, swg *lock.StoppableWaitGroup) error {
+func (s *ServiceCache) OnAddNode(node *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
 	s.updateSelfNodeLabels(node.GetLabels(), swg)
 
 	return nil
 }
 
-func (s *ServiceCache) OnUpdateNode(oldNode, newNode *core_v1.Node,
+func (s *ServiceCache) OnUpdateNode(oldNode, newNode *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
 	s.updateSelfNodeLabels(newNode.GetLabels(), swg)
@@ -753,7 +753,7 @@ func (s *ServiceCache) OnUpdateNode(oldNode, newNode *core_v1.Node,
 	return nil
 }
 
-func (s *ServiceCache) OnDeleteNode(node *core_v1.Node,
+func (s *ServiceCache) OnDeleteNode(node *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
 	return nil

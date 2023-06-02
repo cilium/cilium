@@ -6,7 +6,7 @@ package loadbalancer
 import (
 	"testing"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )

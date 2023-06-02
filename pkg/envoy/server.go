@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,7 +15,6 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_mysql_proxy "github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3"
-	envoy_config_bootstrap "github.com/cilium/proxy/go/envoy/config/bootstrap/v3"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
@@ -28,14 +26,12 @@ import (
 	envoy_mongo_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
-	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -152,10 +148,6 @@ type XDSServer struct {
 	stopServer context.CancelFunc
 }
 
-func getXDSPath(stateDir string) string {
-	return filepath.Join(stateDir, "xds.sock")
-}
-
 func toAny(pb proto.Message) *anypb.Any {
 	a, err := anypb.New(pb)
 	if err != nil {
@@ -165,23 +157,23 @@ func toAny(pb proto.Message) *anypb.Any {
 }
 
 // StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(ipcache IPCacheEventSource, stateDir string) *XDSServer {
-	xdsPath := getXDSPath(stateDir)
+func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) *XDSServer {
+	xdsSocketPath := getXDSSocketPath(envoySocketDir)
 
-	os.Remove(xdsPath)
-	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsPath, Net: "unix"})
+	os.Remove(xdsSocketPath)
+	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsSocketPath, Net: "unix"})
 	if err != nil {
-		log.WithError(err).Fatalf("Envoy: Failed to open xDS listen socket at %s", xdsPath)
+		log.WithError(err).Fatalf("Envoy: Failed to open xDS listen socket at %s", xdsSocketPath)
 	}
 
 	// Make the socket accessible by owner and group only. Group access is needed for Istio
 	// sidecar proxies.
-	if err = os.Chmod(xdsPath, 0660); err != nil {
-		log.WithError(err).Fatalf("Envoy: Failed to change mode of xDS listen socket at %s", xdsPath)
+	if err = os.Chmod(xdsSocketPath, 0660); err != nil {
+		log.WithError(err).Fatalf("Envoy: Failed to change mode of xDS listen socket at %s", xdsSocketPath)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
-	if err = os.Chown(xdsPath, -1, option.Config.ProxyGID); err != nil {
-		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", xdsPath)
+	if err = os.Chown(xdsSocketPath, -1, option.Config.ProxyGID); err != nil {
+		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", xdsSocketPath)
 	}
 
 	ldsCache := xds.NewCache()
@@ -243,8 +235,8 @@ func StartXDSServer(ipcache IPCacheEventSource, stateDir string) *XDSServer {
 	}, 5*time.Second)
 
 	return &XDSServer{
-		socketPath:             xdsPath,
-		accessLogPath:          getAccessLogPath(stateDir),
+		socketPath:             xdsSocketPath,
+		accessLogPath:          getAccessLogSocketPath(envoySocketDir),
 		listenerMutator:        ldsMutator,
 		listeners:              make(map[string]*Listener),
 		routeMutator:           rdsMutator,
@@ -263,7 +255,7 @@ func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
 		Name: "cilium.l7policy",
 		ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
 			TypedConfig: toAny(&cilium.L7Policy{
-				AccessLogPath:  getAccessLogPath(option.Config.RunDir),
+				AccessLogPath:  getAccessLogSocketPath(GetSocketDir(option.Config.RunDir)),
 				Denied_403Body: option.Config.HTTP403Message,
 			}),
 		},
@@ -278,7 +270,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	retryTimeout := int64(option.Config.HTTPRetryTimeout) //seconds
 
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
-		StatPrefix: "proxy",
+		StatPrefix:       "proxy",
+		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+		SkipXffAppend:    true,
 		HttpFilters: []*envoy_config_http.HttpFilter{
 			getCiliumHttpFilter(),
 			{
@@ -533,7 +527,9 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 
 	s.addListener(metricsListenerName, func() *envoy_config_listener.Listener {
 		hcmConfig := &envoy_config_http.HttpConnectionManager{
-			StatPrefix: metricsListenerName,
+			StatPrefix:       metricsListenerName,
+			UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+			SkipXffAppend:    true,
 			HttpFilters: []*envoy_config_http.HttpFilter{{
 				Name: "envoy.filters.http.router",
 				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
@@ -1210,179 +1206,6 @@ var ciliumXDS = &envoy_config_core.ConfigSource{
 	},
 }
 
-func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
-	connectTimeout := int64(option.Config.ProxyConnectTimeout) // in seconds
-
-	useDownstreamProtocol := map[string]*anypb.Any{
-		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
-			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
-				MaxRequestsPerConnection: wrapperspb.UInt32(uint32(option.Config.ProxyMaxRequestsPerConnection)),
-				MaxConnectionDuration:    durationpb.New(option.Config.ProxyMaxConnectionDuration * time.Second),
-			},
-			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
-				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
-			},
-		}),
-	}
-
-	useDownstreamProtocolAutoSNI := map[string]*anypb.Any{
-		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
-			UpstreamHttpProtocolOptions: &envoy_config_core.UpstreamHttpProtocolOptions{
-				//	Setting AutoSni or AutoSanValidation options here may crash
-				//	Envoy, when Cilium Network filter already passes these from
-				//	downstream to upstream.
-			},
-			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
-				MaxRequestsPerConnection: wrapperspb.UInt32(uint32(option.Config.ProxyMaxRequestsPerConnection)),
-				MaxConnectionDuration:    durationpb.New(option.Config.ProxyMaxConnectionDuration * time.Second),
-			},
-			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
-				UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{},
-			},
-		}),
-	}
-
-	http2ProtocolOptions := map[string]*anypb.Any{
-		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
-			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig_{
-				ExplicitHttpConfig: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
-				},
-			},
-		}),
-	}
-
-	bs := &envoy_config_bootstrap.Bootstrap{
-		Node: &envoy_config_core.Node{Id: nodeId, Cluster: cluster},
-		StaticResources: &envoy_config_bootstrap.Bootstrap_StaticResources{
-			Clusters: []*envoy_config_cluster.Cluster{
-				{
-					Name:                          egressClusterName,
-					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocol,
-				},
-				{
-					Name:                          egressTLSClusterName,
-					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
-					TransportSocket: &envoy_config_core.TransportSocket{
-						Name: "cilium.tls_wrapper",
-						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
-							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
-						},
-					},
-				},
-				{
-					Name:                          ingressClusterName,
-					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocol,
-				},
-				{
-					Name:                          ingressTLSClusterName,
-					ClusterDiscoveryType:          &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
-					ConnectTimeout:                &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:               &durationpb.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
-					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
-					TransportSocket: &envoy_config_core.TransportSocket{
-						Name: "cilium.tls_wrapper",
-						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
-							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
-						},
-					},
-				},
-				{
-					Name:                 CiliumXDSClusterName,
-					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
-					ConnectTimeout:       &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					LbPolicy:             envoy_config_cluster.Cluster_ROUND_ROBIN,
-					LoadAssignment: &envoy_config_endpoint.ClusterLoadAssignment{
-						ClusterName: CiliumXDSClusterName,
-						Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{
-							LbEndpoints: []*envoy_config_endpoint.LbEndpoint{{
-								HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
-									Endpoint: &envoy_config_endpoint.Endpoint{
-										Address: &envoy_config_core.Address{
-											Address: &envoy_config_core.Address_Pipe{
-												Pipe: &envoy_config_core.Pipe{Path: xdsSock}},
-										},
-									},
-								},
-							}},
-						}},
-					},
-					TypedExtensionProtocolOptions: http2ProtocolOptions,
-				},
-				{
-					Name:                 adminClusterName,
-					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
-					ConnectTimeout:       &durationpb.Duration{Seconds: connectTimeout, Nanos: 0},
-					LbPolicy:             envoy_config_cluster.Cluster_ROUND_ROBIN,
-					LoadAssignment: &envoy_config_endpoint.ClusterLoadAssignment{
-						ClusterName: adminClusterName,
-						Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{
-							LbEndpoints: []*envoy_config_endpoint.LbEndpoint{{
-								HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
-									Endpoint: &envoy_config_endpoint.Endpoint{
-										Address: &envoy_config_core.Address{
-											Address: &envoy_config_core.Address_Pipe{
-												Pipe: &envoy_config_core.Pipe{Path: adminPath}},
-										},
-									},
-								},
-							}},
-						}},
-					},
-				},
-			},
-		},
-		DynamicResources: &envoy_config_bootstrap.Bootstrap_DynamicResources{
-			LdsConfig: ciliumXDS,
-			CdsConfig: ciliumXDS,
-		},
-		Admin: &envoy_config_bootstrap.Admin{
-			Address: &envoy_config_core.Address{
-				Address: &envoy_config_core.Address_Pipe{
-					Pipe: &envoy_config_core.Pipe{Path: adminPath},
-				},
-			},
-		},
-		LayeredRuntime: &envoy_config_bootstrap.LayeredRuntime{
-			Layers: []*envoy_config_bootstrap.RuntimeLayer{
-				{
-					Name: "static_layer_0",
-					LayerSpecifier: &envoy_config_bootstrap.RuntimeLayer_StaticLayer{
-						StaticLayer: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"overload": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-								"global_downstream_max_connections": {Kind: &structpb.Value_NumberValue{NumberValue: 50000}},
-							}}}},
-						}},
-					},
-				},
-			},
-		},
-	}
-
-	log.Debugf("Envoy: Bootstrap: %s", bs)
-	data, err := proto.Marshal(bs)
-	if err != nil {
-		log.WithError(err).Fatal("Envoy: Error marshaling Envoy bootstrap")
-	}
-	err = os.WriteFile(filePath, data, 0644)
-	if err != nil {
-		log.WithError(err).Fatal("Envoy: Error writing Envoy bootstrap file")
-	}
-}
-
 func getCiliumTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
 	return &cilium.TLSContext{
 		TrustedCa:        tls.TrustedCA,
@@ -1841,23 +1664,6 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 
 		return nil
 	}
-}
-
-// UseCurrentNetworkPolicy inserts a Completion to the WaitGroup if the current network policy has not yet been acked.
-// 'wg' may not be nil.
-func (s *XDSServer) UseCurrentNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	// If there are no listeners configured, the local node's Envoy proxy won't
-	// query for network policies and therefore will never ACK them, and we'd
-	// wait forever.
-	if !ep.HasSidecarProxy() && s.proxyListeners == 0 {
-		return
-	}
-
-	nodeIDs := getNodeIDs(ep, policy)
-	s.NetworkPolicyMutator.UseCurrent(NetworkPolicyTypeURL, nodeIDs, wg)
 }
 
 // RemoveNetworkPolicy removes network policies relevant to the specified

@@ -11,7 +11,6 @@ import (
 	"path"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
@@ -49,6 +48,9 @@ type CachingIdentityAllocator struct {
 
 	identitiesPath string
 
+	// This field exists is to hand out references that are either for sending
+	// and receiving. It should not be used directly without converting it first
+	// to a AllocatorEventSendChan or AllocatorEventRecvChan.
 	events  allocator.AllocatorEventChan
 	watcher identityWatcher
 
@@ -132,14 +134,13 @@ type IdentityAllocator interface {
 // invocation of this function will have an effect. The Caller must have
 // initialized well known identities before calling this (by calling
 // identity.InitWellKnownIdentities()).
-// client and identityStore are only used by the CRD identity allocator,
-// currently, and identityStore may be nil.
+// The client is only used by the CRD identity allocator currently.
 // Returns a channel which is closed when initialization of the allocator is
 // completed.
 // TODO: identity backends are initialized directly in this function, pulling
 // in dependencies on kvstore and k8s. It would be better to decouple this,
 // since the backends are an interface.
-func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interface, identityStore cache.Store) <-chan struct{} {
+func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interface) <-chan struct{} {
 	m.setupMutex.Lock()
 	defer m.setupMutex.Unlock()
 
@@ -158,9 +159,16 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		"cluster-id": option.Config.ClusterID,
 	}).Info("Allocating identities between range")
 
+	// In the case of the allocator being closed, we need to create a new events channel
+	// and start a new watch.
+	if m.events == nil {
+		m.events = make(allocator.AllocatorEventChan, eventsQueueSize)
+		m.watcher.watch(m.events)
+	}
+
 	// Asynchronously set up the global identity allocator since it connects
 	// to the kvstore.
-	go func(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan, minID, maxID idpool.ID) {
+	go func(owner IdentityAllocatorOwner, events allocator.AllocatorEventSendChan, minID, maxID idpool.ID) {
 		m.setupMutex.Lock()
 		defer m.setupMutex.Unlock()
 
@@ -179,10 +187,6 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 		case option.IdentityAllocationModeCRD:
 			log.Debug("Identity allocation backed by CRD")
-			if identityStore != nil {
-				// ListAndWatch overwrites the store.
-				log.Warnf("Ignoring provided identityStore")
-			}
 			backend, err = identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
 				Store:   nil,
 				Client:  client,
@@ -212,6 +216,8 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 	return m.globalIdentityAllocatorInitialized
 }
 
+const eventsQueueSize = 1024
+
 // InitIdentityAllocator creates the the identity allocator. Only the first
 // invocation of this function will have an effect. The Caller must have
 // initialized well known identities before calling this (by calling
@@ -236,7 +242,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 		owner:                              owner,
 		identitiesPath:                     IdentitiesPath,
 		watcher:                            watcher,
-		events:                             make(allocator.AllocatorEventChan, 1024),
+		events:                             make(allocator.AllocatorEventChan, eventsQueueSize),
 	}
 	m.watcher.watch(m.events)
 
@@ -264,7 +270,10 @@ func (m *CachingIdentityAllocator) Close() {
 
 	m.IdentityAllocator.Delete()
 	if m.events != nil {
-		close(m.events)
+		// Have the now only remaining writing party close the events channel,
+		// to ensure we don't panic with 'send on closed channel'.
+		m.localIdentities.close()
+		m.events = nil
 	}
 
 	m.IdentityAllocator = nil

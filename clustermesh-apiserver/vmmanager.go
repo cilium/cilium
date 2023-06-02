@@ -43,18 +43,21 @@ type VMManager struct {
 
 	ciliumExternalWorkloadStore    cache.Store
 	ciliumExternalWorkloadInformer cache.Controller
+
+	backend kvstore.BackendOperations
 }
 
-func NewVMManager(clientset k8sClient.Clientset) *VMManager {
+func NewVMManager(clientset k8sClient.Clientset, backend kvstore.BackendOperations) *VMManager {
 	m := &VMManager{
 		ciliumClient: clientset,
+		backend:      backend,
 	}
 	m.identityAllocator = identityCache.NewCachingIdentityAllocator(m)
 
 	if option.Config.EnableWellKnownIdentities {
 		identity.InitWellKnownIdentities(option.Config)
 	}
-	m.identityAllocator.InitIdentityAllocator(clientset, identityStore)
+	m.identityAllocator.InitIdentityAllocator(clientset)
 	m.startCiliumExternalWorkloadWatcher(clientset)
 	return m
 }
@@ -449,7 +452,7 @@ func (m *VMManager) syncKVStoreKey(ctx context.Context, key store.LocalKey) erro
 	// Update key in kvstore, overwrite an eventual existing key, attach
 	// lease to expire entry when agent dies and never comes back up.
 	k := path.Join(nodeStore.NodeRegisterStorePrefix, key.GetKeyName())
-	if _, err := kvstore.Client().UpdateIfDifferent(ctx, k, jsonValue, true); err != nil {
+	if _, err := m.backend.UpdateIfDifferent(ctx, k, jsonValue, true); err != nil {
 		return err
 	}
 

@@ -4,9 +4,7 @@
 package watchers
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 
 	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -15,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 var (
@@ -48,6 +46,8 @@ spec:
                 route:
                   cluster: "envoy-admin"
                   prefix_rewrite: "/stats/prometheus"
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
 `)
@@ -56,9 +56,6 @@ spec:
 func (s *K8sWatcherSuite) TestParseEnvoySpec(c *C) {
 	jsonBytes, err := yaml.YAMLToJSON([]byte(envoySpec))
 	c.Assert(err, IsNil)
-	var buf bytes.Buffer
-	json.Indent(&buf, jsonBytes, "", "\t")
-	fmt.Printf("JSON spec:\n%s\n", buf.String())
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)

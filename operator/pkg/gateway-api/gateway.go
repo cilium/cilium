@@ -8,6 +8,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -17,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -31,10 +34,12 @@ const (
 // gatewayReconciler reconciles a Gateway object
 type gatewayReconciler struct {
 	client.Client
-	Scheme           *runtime.Scheme
-	SecretsNamespace string
-	controllerName   string
-	Model            *internalModel
+	Scheme             *runtime.Scheme
+	SecretsNamespace   string
+	IdleTimeoutSeconds int
+
+	controllerName string
+	Model          *internalModel
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -60,6 +65,11 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// always update status always at least for observedGeneration value.
 		Watches(&source.Kind{Type: &gatewayv1beta1.HTTPRoute{}},
 			r.enqueueRequestForOwningHTTPRoute(),
+			builder.WithPredicates(onlyStatusChanged())).
+		// Watch TLS Route status changes, there is one assumption that any change in spec will
+		// always update status always at least for observedGeneration value.
+		Watches(&source.Kind{Type: &gatewayv1alpha2.TLSRoute{}},
+			r.enqueueRequestForOwningTLSRoute(),
 			builder.WithPredicates(onlyStatusChanged())).
 		// Watch related secrets used to configure TLS
 		Watches(&source.Kind{Type: &corev1.Secret{}}, r.enqueueRequestForTLSSecret(),
@@ -139,39 +149,76 @@ func (r *gatewayReconciler) enqueueRequestForOwningResource() handler.EventHandl
 // belonging to the given Gateway
 func (r *gatewayReconciler) enqueueRequestForOwningHTTPRoute() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: gateway,
-			logfields.Resource:   a.GetName(),
-		})
-
-		var reqs []reconcile.Request
-
 		hr, ok := a.(*gatewayv1beta1.HTTPRoute)
 		if !ok {
 			return nil
 		}
 
-		for _, parent := range hr.Spec.ParentRefs {
-			if !IsGateway(parent) {
-				continue
-			}
-
-			ns := namespaceDerefOr(parent.Namespace, hr.GetNamespace())
-			scopedLog.WithFields(logrus.Fields{
-				logfields.K8sNamespace: ns,
-				logfields.Resource:     parent.Name,
-				httpRoute:              hr.GetName(),
-			}).Info("Enqueued gateway for HTTPRoute")
-
-			reqs = append(reqs, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: ns,
-					Name:      string(parent.Name),
-				},
-			})
-		}
-		return reqs
+		return getReconcileRequestsForRoute(context.Background(), r.Client, a, hr.Spec.CommonRouteSpec)
 	})
+}
+
+// enqueueRequestForOwningTLSRoute returns an event handler for any changes with TLS Routes
+// belonging to the given Gateway
+func (r *gatewayReconciler) enqueueRequestForOwningTLSRoute() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+		hr, ok := a.(*gatewayv1alpha2.TLSRoute)
+		if !ok {
+			return nil
+		}
+
+		return getReconcileRequestsForRoute(context.Background(), r.Client, a, hr.Spec.CommonRouteSpec)
+	})
+}
+
+func getReconcileRequestsForRoute(ctx context.Context, c client.Client, object metav1.Object, route gatewayv1beta1.CommonRouteSpec) []reconcile.Request {
+	var reqs []reconcile.Request
+
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.Controller: gateway,
+		logfields.Resource: types.NamespacedName{
+			Namespace: object.GetNamespace(),
+			Name:      object.GetName(),
+		},
+	})
+
+	for _, parent := range route.ParentRefs {
+		if !IsGateway(parent) {
+			continue
+		}
+
+		gw := &gatewayv1beta1.Gateway{}
+		if err := c.Get(ctx, types.NamespacedName{
+			Namespace: namespaceDerefOr(parent.Namespace, object.GetNamespace()),
+			Name:      string(parent.Name),
+		}, gw); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				scopedLog.WithError(err).Error("Failed to get Gateway")
+			}
+			continue
+		}
+
+		if !hasMatchingController(ctx, c, controllerName)(gw) {
+			scopedLog.Debug("Gateway does not have matching controller, skipping")
+			continue
+		}
+
+		ns := namespaceDerefOr(parent.Namespace, object.GetNamespace())
+		scopedLog.WithFields(logrus.Fields{
+			logfields.K8sNamespace: ns,
+			logfields.Resource:     parent.Name,
+			logfields.Route:        object.GetName(),
+		}).Info("Enqueued gateway for Route")
+
+		reqs = append(reqs, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: ns,
+				Name:      string(parent.Name),
+			},
+		})
+	}
+
+	return reqs
 }
 
 // enqueueRequestForOwningTLSCertificate returns an event handler for any changes with TLS secrets

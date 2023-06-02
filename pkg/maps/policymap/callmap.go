@@ -73,7 +73,7 @@ func RemoveGlobalMapping(id uint32, haveEgressCallMap bool) error {
 // descriptors, which allows tail calling into the policy datapath code from
 // other BPF programs.
 func OpenCallMap(name string) (*PolicyPlumbingMap, error) {
-	m, err := bpf.OpenMap(name)
+	m, err := bpf.OpenMap(bpf.MapPath(name))
 	if err != nil {
 		return nil, err
 	}

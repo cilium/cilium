@@ -28,20 +28,11 @@ func listLocalAddresses(family int) ([]net.IP, error) {
 		return nil, err
 	}
 
-	for _, addr := range addrs {
-		if addr.Scope > option.Config.AddressScopeMax {
-			continue
-		}
-		if ip.ListContainsIP(ipsToExclude, addr.IP) {
-			continue
-		}
-		if addr.IP.IsLoopback() || addr.IP.IsLinkLocalUnicast() {
-			continue
-		}
+	filteredIPs := filterLocalAddresses(addrs, ipsToExclude, option.Config.AddressScopeMax)
+	addresses = append(addresses, filteredIPs...)
 
-		addresses = append(addresses, addr.IP)
-	}
-
+	// If AddressScopeMax is a scope more broad (numerically less than) than SCOPE_LINK then include
+	// all addresses at SCOPE_LINK which are assigned to the Cilium host device.
 	if option.Config.AddressScopeMax < int(netlink.SCOPE_LINK) {
 		if hostDevice, err := netlink.LinkByName(defaults.HostDevice); hostDevice != nil && err == nil {
 			addrs, err = netlink.AddrList(hostDevice, family)
@@ -57,6 +48,28 @@ func listLocalAddresses(family int) ([]net.IP, error) {
 	}
 
 	return addresses, nil
+}
+
+func filterLocalAddresses(addrs []netlink.Addr, ipsToExclude []net.IP, addrScopeMax int) []net.IP {
+	var filteredIPs []net.IP
+	for _, addr := range addrs {
+		// This address is at a scope which is more narrow (numerically greater than) the configured
+		// max address scope. For example, if this addr is SCOPE_NOWHERE, and our addrScopeMax is
+		// SCOPE_LINK, then we do NOT treat the address as a local address. Similarly, if this addr
+		// is SCOPE_HOST, and our addrScopeMax is SCOPE_LINK, we do NOT treat the address as a local
+		// address.
+		if addr.Scope > addrScopeMax {
+			continue
+		}
+		if ip.ListContainsIP(ipsToExclude, addr.IP) {
+			continue
+		}
+		if addr.IP.IsLoopback() {
+			continue
+		}
+		filteredIPs = append(filteredIPs, addr.IP)
+	}
+	return filteredIPs
 }
 
 type addressFamilyIPv4 struct{}

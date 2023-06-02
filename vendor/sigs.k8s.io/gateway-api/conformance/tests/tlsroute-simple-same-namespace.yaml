@@ -1,0 +1,35 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: gateway-conformance-infra-test
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: gateway-tlsroute
+    namespace: gateway-conformance-infra
+  hostnames:
+  - abc.example.com
+  rules:
+  - backendRefs:
+    - name: tls-backend
+      port: 443
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway-tlsroute
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: https
+      port: 443
+      protocol: TLS
+      hostname: "*.example.com"
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+        - kind: TLSRoute
+      tls:
+        mode: Passthrough

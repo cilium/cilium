@@ -19,6 +19,7 @@ package suite
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -54,13 +55,48 @@ const (
 
 	// This option indicates GatewayClass will update the observedGeneration in it's conditions when reconciling
 	SupportGatewayClassObservedGenerationBump SupportedFeature = "GatewayClassObservedGenerationBump"
+
+	// This option indicates support for HTTPRoute port redirect (extended conformance).
+	SupportHTTPRoutePortRedirect SupportedFeature = "HTTPRoutePortRedirect"
+
+	// This option indicates support for HTTPRoute scheme redirect (extended conformance).
+	SupportHTTPRouteSchemeRedirect SupportedFeature = "HTTPRouteSchemeRedirect"
+
+	// This option indicates support for HTTPRoute path redirect (experimental conformance).
+	SupportHTTPRoutePathRedirect SupportedFeature = "HTTPRoutePathRedirect"
+
+	// This option indicates support for HTTPRoute host rewrite (experimental conformance)
+	SupportHTTPRouteHostRewrite SupportedFeature = "HTTPRouteHostRewrite"
+
+	// This option indicates support for HTTPRoute path rewrite (experimental conformance)
+	SupportHTTPRoutePathRewrite SupportedFeature = "HTTPRoutePathRewrite"
 )
 
 // StandardCoreFeatures are the features that are required to be conformant with
 // the Core API features that are part of the Standard release channel.
-var StandardCoreFeatures = map[SupportedFeature]bool{
-	SupportReferenceGrant: true,
-}
+var StandardCoreFeatures = sets.New(
+	SupportReferenceGrant,
+)
+
+// AllFeatures contains all the supported features and can be used to run all
+// conformance tests with `all-features` flag.
+//
+// Note that the AllFeatures must in sync with defined features when the
+// feature constants change.
+var AllFeatures = sets.New(
+	SupportReferenceGrant,
+	SupportTLSRoute,
+	SupportHTTPRouteQueryParamMatching,
+	SupportHTTPRouteMethodMatching,
+	SupportHTTPResponseHeaderModification,
+	SupportRouteDestinationPortMatching,
+	SupportGatewayClassObservedGenerationBump,
+	SupportHTTPRoutePortRedirect,
+	SupportHTTPRouteSchemeRedirect,
+	SupportHTTPRoutePathRedirect,
+	SupportHTTPRouteHostRewrite,
+	SupportHTTPRoutePathRewrite,
+)
 
 // ConformanceTestSuite defines the test suite used to run Gateway API
 // conformance tests.
@@ -73,8 +109,9 @@ type ConformanceTestSuite struct {
 	Cleanup           bool
 	BaseManifests     string
 	Applier           kubernetes.Applier
-	SupportedFeatures map[SupportedFeature]bool
+	SupportedFeatures sets.Set[SupportedFeature]
 	TimeoutConfig     config.TimeoutConfig
+	SkipTests         sets.Set[string]
 }
 
 // Options can be used to initialize a ConformanceTestSuite.
@@ -95,9 +132,13 @@ type Options struct {
 
 	// CleanupBaseResources indicates whether or not the base test
 	// resources such as Gateways should be cleaned up after the run.
-	CleanupBaseResources bool
-	SupportedFeatures    map[SupportedFeature]bool
-	TimeoutConfig        config.TimeoutConfig
+	CleanupBaseResources       bool
+	SupportedFeatures          sets.Set[SupportedFeature]
+	EnableAllSupportedFeatures bool
+	TimeoutConfig              config.TimeoutConfig
+	// SkipTests contains all the tests not to be run and can be used to opt out
+	// of specific tests
+	SkipTests []string
 }
 
 // New returns a new ConformanceTestSuite.
@@ -109,13 +150,13 @@ func New(s Options) *ConformanceTestSuite {
 		roundTripper = &roundtripper.DefaultRoundTripper{Debug: s.Debug, TimeoutConfig: s.TimeoutConfig}
 	}
 
-	if s.SupportedFeatures == nil {
+	if s.EnableAllSupportedFeatures == true {
+		s.SupportedFeatures = AllFeatures
+	} else if s.SupportedFeatures == nil {
 		s.SupportedFeatures = StandardCoreFeatures
 	} else {
-		for feature, val := range StandardCoreFeatures {
-			if _, ok := s.SupportedFeatures[feature]; !ok {
-				s.SupportedFeatures[feature] = val
-			}
+		for feature := range StandardCoreFeatures {
+			s.SupportedFeatures.Insert(feature)
 		}
 	}
 
@@ -132,6 +173,7 @@ func New(s Options) *ConformanceTestSuite {
 		},
 		SupportedFeatures: s.SupportedFeatures,
 		TimeoutConfig:     s.TimeoutConfig,
+		SkipTests:         sets.New(s.SkipTests...),
 	}
 
 	// apply defaults
@@ -146,7 +188,7 @@ func New(s Options) *ConformanceTestSuite {
 // in the cluster. It also ensures that all relevant resources are ready.
 func (suite *ConformanceTestSuite) Setup(t *testing.T) {
 	t.Logf("Test Setup: Ensuring GatewayClass has been accepted")
-	suite.ControllerName = kubernetes.GWCMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.GatewayClassName)
+	suite.ControllerName = kubernetes.GWCMustHaveAcceptedConditionTrue(t, suite.Client, suite.TimeoutConfig, suite.GatewayClassName)
 
 	suite.Applier.GatewayClass = suite.GatewayClassName
 	suite.Applier.ControllerName = suite.ControllerName
@@ -158,6 +200,8 @@ func (suite *ConformanceTestSuite) Setup(t *testing.T) {
 	secret := kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-web-backend", "certificate", []string{"*"})
 	suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
 	secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-infra", "tls-validity-checks-certificate", []string{"*"})
+	suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
+	secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-infra", "tls-passthrough-checks-certificate", []string{"abc.example.com"})
 	suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
 
 	t.Logf("Test Setup: Ensuring Gateways and Pods from base manifests are ready")
@@ -199,9 +243,15 @@ func (test *ConformanceTest) Run(t *testing.T, suite *ConformanceTestSuite) {
 	// Check that all features exercised by the test have been opted into by
 	// the suite.
 	for _, feature := range test.Features {
-		if supported, ok := suite.SupportedFeatures[feature]; !ok || !supported {
+		if !suite.SupportedFeatures.Has(feature) {
 			t.Skipf("Skipping %s: suite does not support %s", test.ShortName, feature)
 		}
+	}
+
+	// check that the test should not be skipped
+	if suite.SkipTests.Has(test.ShortName) {
+		t.Logf("Skipping %s", test.ShortName)
+		return
 	}
 
 	for _, manifestLocation := range test.Manifests {

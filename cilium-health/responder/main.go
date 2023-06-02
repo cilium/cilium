@@ -5,7 +5,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 
@@ -32,7 +34,7 @@ func main() {
 	srv := responder.NewServer(listen)
 	defer srv.Shutdown()
 	go func() {
-		if err := srv.Serve(); err != nil {
+		if err := srv.Serve(); !errors.Is(err, http.ErrServerClosed) {
 			fmt.Fprintf(os.Stderr, "error while listening: %s\n", err.Error())
 			cancel()
 		}

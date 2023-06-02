@@ -54,15 +54,18 @@ type constructorNode struct {
 	// Type information about constructor results.
 	resultList resultList
 
-	// order of this node in each Scopes' graphHolders.
+	// Order of this node in each Scopes' graphHolders.
 	orders map[*Scope]int
 
-	// scope this node is part of
+	// Scope this node is part of.
 	s *Scope
 
-	// scope this node was originally provided to.
+	// Scope this node was originally provided to.
 	// This is different from s if and only if the constructor was Provided with ExportOption.
 	origS *Scope
+
+	// Callback for this provided function, if there is one.
+	callback Callback
 }
 
 type constructorOptions struct {
@@ -72,6 +75,7 @@ type constructorOptions struct {
 	ResultGroup string
 	ResultAs    []interface{}
 	Location    *digreflect.Func
+	Callback    Callback
 }
 
 func newConstructorNode(ctor interface{}, s *Scope, origS *Scope, opts constructorOptions) (*constructorNode, error) {
@@ -111,6 +115,7 @@ func newConstructorNode(ctor interface{}, s *Scope, origS *Scope, opts construct
 		orders:     make(map[*Scope]int),
 		s:          s,
 		origS:      origS,
+		callback:   opts.Callback,
 	}
 	s.newGraphNode(n, n.orders)
 	return n, nil
@@ -142,6 +147,24 @@ func (n *constructorNode) Call(c containerStore) (err error) {
 		}
 	}
 
+	args, err := n.paramList.BuildList(c)
+	if err != nil {
+		return errArgumentsFailed{
+			Func:   n.location,
+			Reason: err,
+		}
+	}
+
+	if n.callback != nil {
+		// Wrap in separate func to include PanicErrors
+		defer func() {
+			n.callback(CallbackInfo{
+				Name:  fmt.Sprintf("%v.%v", n.location.Package, n.location.Name),
+				Error: err,
+			})
+		}()
+	}
+
 	if n.s.recoverFromPanics {
 		defer func() {
 			if p := recover(); p != nil {
@@ -153,17 +176,9 @@ func (n *constructorNode) Call(c containerStore) (err error) {
 		}()
 	}
 
-	args, err := n.paramList.BuildList(c)
-	if err != nil {
-		return errArgumentsFailed{
-			Func:   n.location,
-			Reason: err,
-		}
-	}
-
 	receiver := newStagingContainerWriter()
 	results := c.invoker()(reflect.ValueOf(n.ctor), args)
-	if err := n.resultList.ExtractList(receiver, false /* decorating */, results); err != nil {
+	if err = n.resultList.ExtractList(receiver, false /* decorating */, results); err != nil {
 		return errConstructorFailed{Func: n.location, Reason: err}
 	}
 
@@ -173,7 +188,6 @@ func (n *constructorNode) Call(c containerStore) (err error) {
 	// container.
 	receiver.Commit(n.s)
 	n.called = true
-
 	return nil
 }
 

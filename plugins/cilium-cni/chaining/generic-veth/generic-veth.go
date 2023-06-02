@@ -26,10 +26,6 @@ import (
 
 type GenericVethChainer struct{}
 
-func (f *GenericVethChainer) ImplementsAdd() bool {
-	return true
-}
-
 func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginContext, cli *client.Client) (res *cniTypesVer.Result, err error) {
 	err = cniVersion.ParsePrevResult(&pluginCtx.NetConf.NetConf)
 	if err != nil {
@@ -187,10 +183,6 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	res = prevRes
 
 	return
-}
-
-func (f *GenericVethChainer) ImplementsDelete() bool {
-	return true
 }
 
 func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext, delClient *lib.DeletionFallbackClient) (err error) {

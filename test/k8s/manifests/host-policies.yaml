@@ -93,3 +93,19 @@ specs:
     - toEntities:
       - health
       - world
+  - description: "Allow ICMP/ICMPv6 traffic on all nodes"
+    nodeSelector: {}
+    ingress:
+    - icmps:
+      - fields:
+        - type: 8
+          family: IPv4
+        - type: 128
+          family: IPv6
+    egress:
+    - icmps:
+      - fields:
+        - type: 8
+          family: IPv4
+        - type: 128
+          family: IPv6

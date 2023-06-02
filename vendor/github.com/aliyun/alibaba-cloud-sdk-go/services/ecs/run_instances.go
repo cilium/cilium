@@ -112,6 +112,7 @@ type RunInstancesRequest struct {
 	DedicatedHostId                          string                          `position:"Query" name:"DedicatedHostId"`
 	SpotDuration                             requests.Integer                `position:"Query" name:"SpotDuration"`
 	SecurityGroupIds                         *[]string                       `position:"Query" name:"SecurityGroupIds"  type:"Repeated"`
+	NetworkOptions                           RunInstancesNetworkOptions      `position:"Query" name:"NetworkOptions"  type:"Struct"`
 	SystemDiskSize                           string                          `position:"Query" name:"SystemDisk.Size"`
 	ImageFamily                              string                          `position:"Query" name:"ImageFamily"`
 	LaunchTemplateName                       string                          `position:"Query" name:"LaunchTemplateName"`
@@ -187,6 +188,11 @@ type RunInstancesArn struct {
 	RoleType      string `name:"RoleType"`
 	Rolearn       string `name:"Rolearn"`
 	AssumeRoleFor string `name:"AssumeRoleFor"`
+}
+
+// RunInstancesNetworkOptions is a repeated param struct in RunInstancesRequest
+type RunInstancesNetworkOptions struct {
+	EnableJumboFrame string `name:"EnableJumboFrame"`
 }
 
 // RunInstancesTag is a repeated param struct in RunInstancesRequest

@@ -29,6 +29,13 @@ func ValidateClusterID(clusterID uint32) error {
 
 type CiliumClusterConfig struct {
 	ID uint32 `json:"id,omitempty"`
+
+	Capabilities CiliumClusterConfigCapabilities `json:"capabilities,omitempty"`
+}
+
+type CiliumClusterConfigCapabilities struct {
+	// Supports per-prefix "synced" canaries
+	SyncedCanaries bool `json:"syncedCanaries,omitempty"`
 }
 
 func (c0 *CiliumClusterConfig) IsCompatible(c1 *CiliumClusterConfig) error {
@@ -51,4 +58,10 @@ func (c0 *CiliumClusterConfig) IsCompatible(c1 *CiliumClusterConfig) error {
 		}
 	}
 	return nil
+}
+
+// ClusterIDName groups together the ClusterID and the ClusterName
+type ClusterIDName struct {
+	ClusterID   uint32
+	ClusterName string
 }

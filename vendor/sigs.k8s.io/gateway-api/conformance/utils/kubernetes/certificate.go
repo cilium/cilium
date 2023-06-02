@@ -71,7 +71,7 @@ func MustCreateSelfSignedCertSecret(t *testing.T, namespace, secretName string, 
 	return newSecret
 }
 
-// generateRSACert generates a basic self signed certificate valir for a year
+// generateRSACert generates a basic self signed certificate valid for a year
 func generateRSACert(host string, keyOut, certOut io.Writer) error {
 	priv, err := rsa.GenerateKey(rand.Reader, rsaBits)
 	if err != nil {

@@ -91,14 +91,14 @@ func newConfigMap() *configMap {
 			&value,
 			int(unsafe.Sizeof(value)),
 			MaxEntries,
-			0, 0,
+			0,
 			bpf.ConvertKeyValue,
 		),
 	}
 }
 
 func (m *configMap) init() error {
-	if _, err := m.bpfMap.OpenOrCreate(); err != nil {
+	if err := m.bpfMap.OpenOrCreate(); err != nil {
 		return fmt.Errorf("failed to init bpf map: %w", err)
 	}
 

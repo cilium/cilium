@@ -102,6 +102,10 @@ type MtuConfiguration interface {
 	GetDeviceMTU() int
 }
 
+type Metadata interface {
+	GetIPPoolForPod(owner string) (pool string, err error)
+}
+
 // NewIPAM returns a new IP address manager
 func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
 	ipam := &IPAM{
@@ -135,6 +139,16 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		if c.IPv4Enabled() {
 			ipam.IPv4Allocator = newClusterPoolAllocator(IPv4, c, owner, k8sEventReg, clientset)
 		}
+	case ipamOption.IPAMMultiPool:
+		log.Info("Initializing MultiPool IPAM")
+		manager := newMultiPoolManager(c, k8sEventReg, owner, clientset.CiliumV2().CiliumNodes())
+
+		if c.IPv6Enabled() {
+			ipam.IPv6Allocator = manager.Allocator(IPv6)
+		}
+		if c.IPv4Enabled() {
+			ipam.IPv4Allocator = manager.Allocator(IPv4)
+		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		log.Info("Initializing CRD-based IPAM")
 		if c.IPv6Enabled() {
@@ -157,6 +171,12 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 	}
 
 	return ipam
+}
+
+// WithMetadata sets an optional Metadata provider, which IPAM will use to
+// determine what IPAM pool an IP owner should allocate its IP from
+func (ipam *IPAM) WithMetadata(m Metadata) {
+	ipam.metadata = m
 }
 
 // getIPOwner returns the owner for an IP in a particular pool or the empty

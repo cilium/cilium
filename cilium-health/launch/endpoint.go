@@ -245,11 +245,13 @@ func LaunchAsEndpoint(baseCtx context.Context,
 
 	if healthIPv6 := node.GetEndpointHealthIPv6(); healthIPv6 != nil {
 		info.Addressing.IPV6 = healthIPv6.String()
+		info.Addressing.IPV6PoolName = ipamOption.PoolDefault
 		ip6Address = &net.IPNet{IP: healthIPv6, Mask: defaults.ContainerIPv6Mask}
 		healthIP = healthIPv6
 	}
 	if healthIPv4 := node.GetEndpointHealthIPv4(); healthIPv4 != nil {
 		info.Addressing.IPV4 = healthIPv4.String()
+		info.Addressing.IPV4PoolName = ipamOption.PoolDefault
 		ip4Address = &net.IPNet{IP: healthIPv4, Mask: defaults.ContainerIPv4Mask}
 		healthIP = healthIPv4
 	}

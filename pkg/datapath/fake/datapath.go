@@ -36,6 +36,14 @@ func (f *FakeDatapath) Node() datapath.NodeHandler {
 	return f.node
 }
 
+func (f *FakeDatapath) NodeIDs() datapath.NodeIDHandler {
+	return f.node
+}
+
+func (f *FakeDatapath) NodeNeighbors() datapath.NodeNeighbors {
+	return f.node
+}
+
 func (f *FakeDatapath) FakeNode() *FakeNodeHandler {
 	return f.node
 }

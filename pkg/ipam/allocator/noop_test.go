@@ -6,7 +6,7 @@ package allocator
 import (
 	"net"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 )
 
 func (e *AllocatorSuite) TestNoOpAllocator(c *check.C) {

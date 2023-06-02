@@ -1,0 +1,12 @@
+{{- if and .Values.envoy.enabled (not .Values.preflight.enabled) }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-envoy-config
+  namespace: {{ .Release.Namespace }}
+data:
+{{- (tpl (.Files.Glob "files/cilium-envoy/configmap/bootstrap-config.json").AsConfig .) | nindent 2 }}
+
+{{- end }}

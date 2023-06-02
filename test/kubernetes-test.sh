@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Comment for the '--set identityChangeGracePeriod="0s"'
 # We need to change the identity as quickly as possible as there
@@ -71,7 +71,7 @@ git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} 
 cd kubernetes
 
 # renovate: datasource=golang-version depName=go
-GO_VERSION="1.20.3"
+GO_VERSION="1.20.4"
 sudo rm -fr /usr/local/go
 curl -LO https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz

@@ -13,6 +13,7 @@ type Options struct {
 	SharedLBServiceName     string
 	CiliumNamespace         string
 	DefaultLoadbalancerMode string
+	IdleTimeoutSeconds      int
 }
 
 // DefaultIngressOptions specifies default values for cilium ingress controller.
@@ -24,6 +25,7 @@ var DefaultIngressOptions = Options{
 	SharedLBServiceName:     "cilium-ingress",
 	CiliumNamespace:         "kube-system",
 	DefaultLoadbalancerMode: "shared",
+	IdleTimeoutSeconds:      60,
 }
 
 // Option customizes the configuration of cilium ingress controller
@@ -89,6 +91,14 @@ func WithCiliumNamespace(ciliumNamespace string) Option {
 func WithDefaultLoadbalancerMode(defaultLoadbalancerMode string) Option {
 	return func(o *Options) error {
 		o.DefaultLoadbalancerMode = defaultLoadbalancerMode
+		return nil
+	}
+}
+
+// WithIdleTimeoutSeconds configures the default idle timeout
+func WithIdleTimeoutSeconds(idleTimeoutSeconds int) Option {
+	return func(o *Options) error {
+		o.IdleTimeoutSeconds = idleTimeoutSeconds
 		return nil
 	}
 }

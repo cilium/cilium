@@ -4,7 +4,9 @@
 package launch
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
@@ -86,7 +88,7 @@ func (ch *CiliumHealth) runServer() {
 	os.Remove(defaults.SockPath)
 	go func() {
 		defer ch.server.Shutdown()
-		if err := ch.server.Serve(); err != nil {
+		if err := ch.server.Serve(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.WithError(err).Error("Failed to serve cilium-health API")
 		}
 	}()

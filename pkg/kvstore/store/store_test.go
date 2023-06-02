@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -80,10 +80,10 @@ type TestType struct {
 
 var _ = TestType{}
 
-func (t *TestType) GetKeyName() string          { return t.Name }
-func (t *TestType) DeepKeyCopy() LocalKey       { return &TestType{Name: t.Name} }
-func (t *TestType) Marshal() ([]byte, error)    { return json.Marshal(t) }
-func (t *TestType) Unmarshal(data []byte) error { return json.Unmarshal(data, t) }
+func (t *TestType) GetKeyName() string                    { return t.Name }
+func (t *TestType) DeepKeyCopy() LocalKey                 { return &TestType{Name: t.Name} }
+func (t *TestType) Marshal() ([]byte, error)              { return json.Marshal(t) }
+func (t *TestType) Unmarshal(_ string, data []byte) error { return json.Unmarshal(data, t) }
 
 type opCounter struct {
 	deleted int

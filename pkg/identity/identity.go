@@ -113,6 +113,12 @@ func (id *Identity) IsWellKnown() bool {
 	return WellKnown.lookupByNumericIdentity(id.ID) != nil
 }
 
+// IsWellKnownIdentity returns true if the identity represents a well-known
+// identity, false otherwise.
+func IsWellKnownIdentity(id NumericIdentity) bool {
+	return WellKnown.lookupByNumericIdentity(id) != nil
+}
+
 // NewIdentityFromLabelArray creates a new identity
 func NewIdentityFromLabelArray(id NumericIdentity, lblArray labels.LabelArray) *Identity {
 	var lbls labels.Labels

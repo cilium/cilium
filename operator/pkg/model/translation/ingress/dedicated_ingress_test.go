@@ -214,8 +214,9 @@ func Test_translator_Translate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &DedicatedIngressTranslator{
-				secretsNamespace: "cilium-secrets",
-				enforceHTTPs:     tt.args.enforceHTTPs,
+				secretsNamespace:   "cilium-secrets",
+				enforceHTTPs:       tt.args.enforceHTTPs,
+				idleTimeoutSeconds: 60,
 			}
 
 			cec, _, _, err := trans.Translate(tt.args.m)

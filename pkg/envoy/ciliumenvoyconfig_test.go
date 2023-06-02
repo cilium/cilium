@@ -4,7 +4,6 @@
 package envoy
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 type JSONSuite struct{}
@@ -101,6 +100,8 @@ resources:
               route:
                 cluster: "envoy-admin"
                 prefix_rewrite: "/stats/prometheus"
+        use_remote_address: true
+        skip_xff_append: true
         http_filters:
         - name: envoy.filters.http.router
 `
@@ -139,6 +140,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
       transport_socket:
@@ -157,9 +160,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfig))
 	c.Assert(err, IsNil)
-	// var buf bytes.Buffer
-	// json.Indent(&buf, jsonBytes, "", "\t")
-	// fmt.Printf("JSON spec:\n%s\n", buf.String())
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
@@ -240,6 +240,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
 `
@@ -248,9 +250,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigInvalid))
 	c.Assert(err, IsNil)
-	// var buf bytes.Buffer
-	// json.Indent(&buf, jsonBytes, "", "\t")
-	// fmt.Printf("JSON spec:\n%s\n", buf.String())
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
@@ -313,6 +312,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
 `
@@ -321,9 +322,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigNoAddress))
 	c.Assert(err, IsNil)
-	// var buf bytes.Buffer
-	// json.Indent(&buf, jsonBytes, "", "\t")
-	// fmt.Printf("JSON spec:\n%s\n", buf.String())
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
@@ -388,6 +386,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
   - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
@@ -436,9 +436,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
 	c.Assert(err, IsNil)
-	// var buf bytes.Buffer
-	// json.Indent(&buf, jsonBytes, "", "\t")
-	// fmt.Printf("JSON spec:\n%s\n", buf.String())
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
@@ -599,10 +596,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigTCPProxy))
 	c.Assert(err, IsNil)
 
-	var buf bytes.Buffer
-	json.Indent(&buf, jsonBytes, "", "\t")
-	fmt.Printf("JSON spec:\n%s\n", buf.String())
-
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
@@ -704,6 +697,8 @@ spec:
                   - upgrade_type: CONNECT
                     connect_config:
                       allow_post: true
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
           http2_protocol_options:
@@ -730,10 +725,6 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
 	portAllocator := NewMockPortAllocator()
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigTCPProxyTermination))
 	c.Assert(err, IsNil)
-
-	var buf bytes.Buffer
-	json.Indent(&buf, jsonBytes, "", "\t")
-	fmt.Printf("JSON spec:\n%s\n", buf.String())
 
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)

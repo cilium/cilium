@@ -31,7 +31,6 @@ __source_file_name_to_id(const char *const header_name)
 	_strcase_(103, "egress_policies.h");
 	_strcase_(104, "icmp6.h");
 	_strcase_(105, "nodeport.h");
-	_strcase_(106, "encap.h");
 
 	return 0;
 }

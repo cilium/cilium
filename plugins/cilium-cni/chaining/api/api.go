@@ -43,17 +43,9 @@ type ChainingPlugin interface {
 	// previous plugin. It must return a CNI result or an error.
 	Add(ctx context.Context, pluginContext PluginContext, client *client.Client) (res *cniTypesVer.Result, err error)
 
-	// ImplementsAdd returns true if the chaining plugin implements its own
-	// add logic
-	ImplementsAdd() bool
-
 	// Delete is called on CNI DELETE. It is given the plugin context from
 	// the previous plugin.
 	Delete(ctx context.Context, pluginContext PluginContext, delClient *lib.DeletionFallbackClient) (err error)
-
-	// ImplementsDelete returns true if the chaining plugin implements its
-	// own delete logic
-	ImplementsDelete() bool
 
 	// Check is called on CNI CHECK. The plugin should verify (to the best of its
 	// ability) that everything is reasonably configured, else return error.

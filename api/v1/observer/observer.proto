@@ -5,6 +5,7 @@ syntax = "proto3";
 
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
 import public "flow/flow.proto";
 import "relay/relay.proto";
 
@@ -105,6 +106,16 @@ message GetFlowsRequest {
 
     // Until this time for returned flows. Incompatible with `number`.
     google.protobuf.Timestamp until = 8;
+
+    // Experimental contains fields that are not stable yet. Support for
+    // experimental features is always optional and subject to change.
+    message Experimental {
+        // FieldMask allows clients to limit flow's fields that will be returned.
+        // For example, {paths: ["source.id", "destination.id"]} will return flows
+        // with only these two fields set.
+        google.protobuf.FieldMask field_mask = 1;
+    }
+    Experimental experimental = 999;
 }
 
 // GetFlowsResponse contains either a flow or a protocol message.

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/sirupsen/logrus"
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

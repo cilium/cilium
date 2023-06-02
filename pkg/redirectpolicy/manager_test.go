@@ -6,7 +6,7 @@ package redirectpolicy
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -31,7 +31,7 @@ type ManagerSuite struct {
 var _ = Suite(&ManagerSuite{})
 
 func (s *ManagerSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 type fakeSvcManager struct {

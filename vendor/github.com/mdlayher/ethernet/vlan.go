@@ -18,14 +18,12 @@ const (
 	VLANMax = 0xfff
 )
 
-var (
-	// ErrInvalidVLAN is returned when a VLAN tag is invalid due to one of the
-	// following reasons:
-	//   - Priority of greater than 7 is detected
-	//   - ID of greater than 4094 (0xffe) is detected
-	//   - A customer VLAN does not follow a service VLAN (when using Q-in-Q)
-	ErrInvalidVLAN = errors.New("invalid VLAN")
-)
+// ErrInvalidVLAN is returned when a VLAN tag is invalid due to one of the
+// following reasons:
+//   - Priority of greater than 7 is detected
+//   - ID of greater than 4094 (0xffe) is detected
+//   - A customer VLAN does not follow a service VLAN (when using Q-in-Q)
+var ErrInvalidVLAN = errors.New("invalid VLAN")
 
 // Priority is an IEEE P802.1p priority level.  Priority can be any value from
 // 0 to 7.

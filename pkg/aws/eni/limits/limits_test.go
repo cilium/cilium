@@ -6,7 +6,7 @@ package limits
 import (
 	"testing"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/operator/option"
 )

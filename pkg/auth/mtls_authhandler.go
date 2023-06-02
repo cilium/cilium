@@ -86,9 +86,9 @@ func (m *mtlsAuthHandler) authenticate(ar *authRequest) (*authResponse, error) {
 	}
 
 	// set up TCP connection
-	conn, err := net.Dial("tcp", net.JoinHostPort(ar.remoteHostIP.String(), strconv.Itoa(m.cfg.MTLSListenerPort)))
+	conn, err := net.Dial("tcp", net.JoinHostPort(ar.remoteNodeIP, strconv.Itoa(m.cfg.MTLSListenerPort)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial %s:%d: %w", ar.remoteHostIP.String(), m.cfg.MTLSListenerPort, err)
+		return nil, fmt.Errorf("failed to dial %s:%d: %w", ar.remoteNodeIP, m.cfg.MTLSListenerPort, err)
 	}
 	defer conn.Close()
 

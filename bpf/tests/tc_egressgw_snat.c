@@ -194,15 +194,8 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, boo
 		test_fatal("bad TX packet count (expected %u, actual %u)",
 			   tx_packets, ct_entry->tx_packets)
 	if (ct_entry->rx_packets != rx_packets)
-#ifdef ISSUE_25110_FIXED
-		/* This test fails until this issue is fixed:
-		 * https://github.com/cilium/cilium/issues/25110
-		 */
 		test_fatal("bad RX packet count (expected %u, actual %u)",
 			   rx_packets, ct_entry->rx_packets)
-#else
-		;
-#endif
 
 	tuple.saddr = CLIENT_IP;
 	tuple.daddr = EXTERNAL_SVC_IP;

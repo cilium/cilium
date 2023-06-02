@@ -19,6 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
@@ -53,11 +54,13 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -72,14 +75,11 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
-	nodemanager "github.com/cilium/cilium/pkg/node/manager"
-	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/recorder"
@@ -120,7 +120,7 @@ type Daemon struct {
 	statusResponse     models.StatusResponse
 	statusCollector    *status.Collector
 
-	monitorAgent *monitoragent.Agent
+	monitorAgent monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
 	deviceManager *linuxdatapath.DeviceManager
@@ -168,6 +168,9 @@ type Daemon struct {
 
 	k8sWatcher *watchers.K8sWatcher
 
+	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
+	endpointMetadataFetcher endpointMetadataFetcher
+
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
@@ -186,6 +189,8 @@ type Daemon struct {
 	egressGatewayManager *egressgateway.Manager
 
 	cgroupManager *manager.CgroupManager
+
+	ipamMetadata *ipamMetadata.Manager
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -270,14 +275,15 @@ func (d *Daemon) init() error {
 	if !option.Config.DryMode {
 		bandwidth.InitBandwidthManager()
 
-		if err := d.createNodeConfigHeaderfile(); err != nil {
-			return fmt.Errorf("failed while creating node config header file: %w", err)
-		}
-
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 
+		if err := linuxdatapath.NodeEnsureLocalIPRule(); errors.Is(err, unix.EEXIST) {
+			log.WithError(err).Warn("Failed to ensure local IP rules")
+		} else if err != nil {
+			return fmt.Errorf("failed to ensure local IP rules: %w", err)
+		}
 	}
 
 	return nil
@@ -415,7 +421,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	// Check the kernel if we can make use of managed neighbor entries which
 	// simplifies and fully 'offloads' L2 resolution handling to the kernel.
-	probeManagedNeighborSupport()
+	if !option.Config.DryMode {
+		if err := probes.HaveManagedNeighbors(); err == nil {
+			log.Info("Using Managed Neighbor Kernel support")
+			option.Config.ARPPingKernelManaged = true
+		}
+	}
 
 	// Do the partial kube-proxy replacement initialization before creating BPF
 	// maps. Otherwise, some maps might not be created (e.g. session affinity).
@@ -525,11 +536,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		policy:               params.Policy,
 		policyUpdater:        params.PolicyUpdater,
 		egressGatewayManager: params.EgressGatewayManager,
+		ipamMetadata:         params.IPAMMetadataManager,
 		cniConfigManager:     params.CNIConfigManager,
-	}
-
-	if option.Config.RunMonitorAgent {
-		d.monitorAgent = monitoragent.NewAgent(ctx)
+		clustermesh:          params.ClusterMesh,
+		monitorAgent:         params.MonitorAgent,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -569,7 +579,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		ipcachemap.IPCacheMap().Close()
 	}
 
-	if err := d.initPolicy(params.AuthManager); err != nil {
+	if err := d.initPolicy(); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
 
@@ -663,7 +673,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		option.Config,
 		d.ipcache,
 		d.cgroupManager,
-		params.SharedResources,
+		params.Resources,
+		params.ServiceCache,
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
 
@@ -677,16 +688,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 	if option.Config.EnableServiceTopology {
-		d.k8sWatcher.RegisterNodeSubscriber(&d.k8sWatcher.K8sSvcCache)
+		d.k8sWatcher.RegisterNodeSubscriber(d.k8sWatcher.K8sSvcCache)
 	}
 
 	// watchers.NewCiliumNodeUpdater needs to be registered *after* d.endpointManager
 	d.k8sWatcher.RegisterNodeSubscriber(watchers.NewCiliumNodeUpdater(d.nodeDiscovery))
 
-	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+	d.redirectPolicyManager.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
 	if option.Config.BGPAnnounceLBIP {
-		d.bgpSpeaker.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+		d.bgpSpeaker.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 	}
 
 	bootstrapStats.daemonInit.End(true)
@@ -739,10 +750,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.WithField(logfields.Ingress, restoredIngressIPs).Info("Restored ingress IPs")
 	}
 
-	// Now that BPF maps are opened, we can restore node IDs to the node
-	// manager.
-	d.datapath.Node().RestoreNodeIDs()
-
 	// Read the service IDs of existing services from the BPF map and
 	// reserve them. This must be done *before* connecting to the
 	// Kubernetes apiserver and serving the API to ensure service IDs are
@@ -757,7 +764,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bootstrapStats.restore.End(true)
 	}
 
-	debug.RegisterStatusObject("k8s-service-cache", &d.k8sWatcher.K8sSvcCache)
+	debug.RegisterStatusObject("k8s-service-cache", d.k8sWatcher.K8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
 	debug.RegisterStatusObject("ongoing-endpoint-creations", d.endpointCreations)
 
@@ -904,6 +911,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			log.WithError(err).Error("failed to initialize wireguard agent")
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
+
+		params.NodeManager.Subscribe(params.WGAgent)
 	}
 
 	// Perform an early probe on the underlying kernel on whether BandwidthManager
@@ -1002,15 +1011,18 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			log.WithError(err).Errorf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
 			return nil, nil, fmt.Errorf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
 		}
-		if !probe.HaveFullLPM() {
-			log.WithError(err).Error("BPF ip-masq-agent needs kernel 4.16 or newer")
-			return nil, nil, fmt.Errorf("BPF ip-masq-agent needs kernel 4.16 or newer")
-		}
 	}
-	if option.Config.EnableHostFirewall && len(option.Config.GetDevices()) == 0 {
-		msg := "host firewall's external facing device could not be determined. Use --%s to specify."
-		log.WithError(err).Errorf(msg, option.Devices)
-		return nil, nil, fmt.Errorf(msg, option.Devices)
+	if len(option.Config.GetDevices()) == 0 {
+		if option.Config.EnableHostFirewall {
+			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
+			log.WithError(err).Errorf(msg, option.Devices)
+			return nil, nil, fmt.Errorf(msg, option.Devices)
+		}
+		if option.Config.EnableHighScaleIPcache {
+			msg := "External facing device for high-scale IPcache could not be determined. Use --%s to specify."
+			log.WithError(err).Errorf(msg, option.Devices)
+			return nil, nil, fmt.Errorf(msg, option.Devices)
+		}
 	}
 	if option.Config.EnableSCTP {
 		if probes.HaveLargeInstructionLimit() != nil {
@@ -1084,7 +1096,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.nodeDiscovery.JoinCluster(nodeTypes.GetName())
 
 		// Start services watcher
-		serviceStore.JoinClusterServices(&d.k8sWatcher.K8sSvcCache, option.Config)
+		serviceStore.JoinClusterServices(d.k8sWatcher.K8sSvcCache, option.Config)
 	}
 
 	// Start IPAM
@@ -1162,9 +1174,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		// Ignore the channel returned by this function, as we want the global
 		// identity allocator to run asynchronously.
 		realIdentityAllocator := d.identityAllocator
-		realIdentityAllocator.InitIdentityAllocator(params.Clientset, nil)
-
-		d.bootstrapClusterMesh(params.NodeManager)
+		realIdentityAllocator.InitIdentityAllocator(params.Clientset)
 	}
 
 	// Must be done at least after initializing BPF LB-related maps
@@ -1181,23 +1191,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if err != nil {
 		log.WithError(err).Error("error encountered while updating DNS datapath rules.")
 		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)
-	}
-
-	// We can only attach the monitor agent once cilium_event has been set up.
-	if option.Config.RunMonitorAgent {
-		err = d.monitorAgent.AttachToEventsMap(defaults.MonitorBufferPages)
-		if err != nil {
-			log.WithError(err).Error("encountered error configuring run monitor agent")
-			return nil, nil, fmt.Errorf("encountered error configuring run monitor agent: %w", err)
-		}
-
-		if option.Config.EnableMonitor {
-			err = monitoragent.ServeMonitorAPI(d.monitorAgent)
-			if err != nil {
-				log.WithError(err).Error("encountered error configuring run monitor agent")
-				return nil, nil, fmt.Errorf("encountered error configuring run monitor agent: %w", err)
-			}
-		}
 	}
 
 	// Start the controller for periodic sync. The purpose of the
@@ -1262,33 +1255,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	return &d, restoredEndpoints, nil
 }
 
-func (d *Daemon) bootstrapClusterMesh(nodeMngr nodemanager.NodeManager) {
-	bootstrapStats.clusterMeshInit.Start()
-	if path := option.Config.ClusterMeshConfig; path != "" {
-		if option.Config.ClusterID == 0 {
-			log.Info("Cluster-ID is not specified, skipping ClusterMesh initialization")
-		} else {
-			log.WithField("path", path).Info("Initializing ClusterMesh routing")
-			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
-				Name:                  option.Config.ClusterName,
-				NodeName:              nodeTypes.GetName(),
-				ConfigDirectory:       path,
-				NodeKeyCreator:        nodeStore.KeyCreator,
-				ServiceMerger:         &d.k8sWatcher.K8sSvcCache,
-				NodeManager:           nodeMngr,
-				RemoteIdentityWatcher: d.identityAllocator,
-				IPCache:               d.ipcache,
-			})
-			if err != nil {
-				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
-			}
-
-			d.clustermesh = clustermesh
-		}
-	}
-	bootstrapStats.clusterMeshInit.End(true)
-}
-
 // ReloadOnDeviceChange regenerates device related information and reloads the datapath.
 // The devices is the new set of devices that replaces the old set.
 func (d *Daemon) ReloadOnDeviceChange(devices []string) {
@@ -1308,15 +1274,6 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 			d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
 			d.controllers.TriggerController(syncHostIPsController)
 		}
-	}
-
-	// Recreate node_config.h to reflect the mac addresses of the new devices.
-	d.compilationMutex.Lock()
-	err := d.createNodeConfigHeaderfile()
-	d.compilationMutex.Unlock()
-	if err != nil {
-		log.WithError(err).Warn("Failed to re-create node config header")
-		return
 	}
 
 	// Reload the datapath.
@@ -1411,4 +1368,8 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 		return nil
 	}
 	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
+}
+
+type endpointMetadataFetcher interface {
+	Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error)
 }

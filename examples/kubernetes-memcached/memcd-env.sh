@@ -1,4 +1,4 @@
-#/bin/bash
+#!/usr/bin/env bash
 #define ENV variables for memcached demo
 MEMCD_SERVER_POD=$(kubectl get pods -l app=memcd-server -o jsonpath='{.items[0].metadata.name}')
 AWING_POD=$(kubectl get pods -l app=a-wing -o jsonpath='{.items[0].metadata.name}')

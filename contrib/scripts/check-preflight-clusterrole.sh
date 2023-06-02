@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 cd install/kubernetes/cilium/templates
 echo "Checking for differences between preflight and agent clusterrole"

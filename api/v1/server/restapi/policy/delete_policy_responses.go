@@ -104,6 +104,31 @@ func (o *DeletePolicyInvalid) WriteResponse(rw http.ResponseWriter, producer run
 	}
 }
 
+// DeletePolicyForbiddenCode is the HTTP code returned for type DeletePolicyForbidden
+const DeletePolicyForbiddenCode int = 403
+
+/*
+DeletePolicyForbidden Forbidden
+
+swagger:response deletePolicyForbidden
+*/
+type DeletePolicyForbidden struct {
+}
+
+// NewDeletePolicyForbidden creates DeletePolicyForbidden with default headers values
+func NewDeletePolicyForbidden() *DeletePolicyForbidden {
+
+	return &DeletePolicyForbidden{}
+}
+
+// WriteResponse to the client
+func (o *DeletePolicyForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // DeletePolicyNotFoundCode is the HTTP code returned for type DeletePolicyNotFound
 const DeletePolicyNotFoundCode int = 404
 

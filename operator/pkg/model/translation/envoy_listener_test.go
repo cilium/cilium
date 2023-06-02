@@ -16,9 +16,9 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 )
 
-func TestNewListener(t *testing.T) {
+func TestNewHTTPListener(t *testing.T) {
 	t.Run("without TLS", func(t *testing.T) {
-		res, err := NewListener("dummy-name", "dummy-secret-namespace", nil)
+		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -31,7 +31,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("TLS", func(t *testing.T) {
-		res, err := NewListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
+		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
 		})
@@ -78,5 +78,21 @@ func TestNewListener(t *testing.T) {
 		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-1", secretNames[0])
 		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-2", secretNames[1])
 
+	})
+}
+
+func TestNewSNIListener(t *testing.T) {
+	t.Run("normal SNI listener", func(t *testing.T) {
+		res, err := NewSNIListener("dummy-name", map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}})
+		require.Nil(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.Nil(t, err)
+
+		require.Equal(t, "dummy-name", listener.Name)
+		require.Len(t, listener.GetListenerFilters(), 1)
+		require.Len(t, listener.GetFilterChains(), 1)
+		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
 	})
 }

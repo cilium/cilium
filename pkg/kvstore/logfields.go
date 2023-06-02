@@ -38,6 +38,9 @@ const (
 	// fieldNumEntries is the number of entries in the result
 	fieldNumEntries = "numEntries"
 
+	// fieldRemainingEntries is the number of entries still to be retrieved
+	fieldRemainingEntries = "remainingEntries"
+
 	// fieldAttachLease is true if the key must be attached to a lease
 	fieldAttachLease = "attachLease"
 

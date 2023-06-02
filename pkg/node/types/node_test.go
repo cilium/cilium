@@ -7,7 +7,7 @@ import (
 	"net"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -197,6 +197,9 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 		IPv6IngressIP:           net.ParseIP("c0de::2"),
 		NodeIdentity:            uint32(12345),
 		WireguardPubKey:         "6kiIGGPvMiadJ1brWTVfSGXheE3e3k5GjDTxfjMLYx8=",
+		Annotations: map[string]string{
+			annotation.BGPVRouterAnnoPrefix + "64512": "router-id=172.0.0.3",
+		},
 	}
 
 	n := nodeResource.ToCiliumNode()
@@ -205,7 +208,8 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 			Name:      "foo",
 			Namespace: "",
 			Annotations: map[string]string{
-				annotation.WireguardPubKey: "6kiIGGPvMiadJ1brWTVfSGXheE3e3k5GjDTxfjMLYx8=",
+				annotation.WireguardPubKey:                "6kiIGGPvMiadJ1brWTVfSGXheE3e3k5GjDTxfjMLYx8=",
+				annotation.BGPVRouterAnnoPrefix + "64512": "router-id=172.0.0.3",
 			},
 		},
 		Spec: ciliumv2.NodeSpec{

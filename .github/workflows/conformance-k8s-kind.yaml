@@ -21,11 +21,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  kind_version: v0.17.0
+  kind_version: v0.19.0
   cluster_name: cilium-testing
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.2
-  k8s_version: v1.26.0
+  cilium_cli_version: v0.14.5
+  cilium_cli_ci_version:
+  k8s_version: v1.27.1
 
 jobs:
   kubernetes-e2e:
@@ -157,12 +158,10 @@ jobs:
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        run: |
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
+        uses: cilium/cilium-cli@d610d6e2774e29aef9565bad935e3b4943d541af # v0.14.5
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Checkout code
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
@@ -203,7 +202,7 @@ jobs:
           # LoadBalancer|GCE|ExternalIP : require a cloud provider, some of them are GCE specifics
           # Netpol|NetworkPolicy : network policies, demand significant resources and use to be slow, better to run in a different job
           # Aggregator : Flaky, https://github.com/cilium/cilium/issues/24622.
-          # same.port.number.but.different.protocols|HostPort : #9207
+          # same.port.number.but.different.protocols|HostPort|should.serve.endpoints.on.same.port.and.different.protocols : #9207
           # rejected : Kubernetes expect Services without endpoints associated to REJECT the connection to notify the client, Cilium silently drops the packet
           # externalTrafficPolicy : needs investigation
 
@@ -212,7 +211,7 @@ jobs:
           export E2E_REPORT_DIR=${PWD}/_artifacts
           /usr/local/bin/ginkgo --nodes=25                \
             --focus="\[Conformance\]|\[sig-network\]"     \
-            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|Aggregator|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols"   \
+            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|Aggregator|rejected|externalTrafficPolicy|HostPort|same.port.number.but.different.protocols|should.serve.endpoints.on.same.port.and.different.protocols"   \
             /usr/local/bin/e2e.test                       \
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
@@ -248,7 +247,7 @@ jobs:
 
       - name: Upload Kubernetes e2e Junit Reports
         if: ${{ success() }}
-        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3
         with:
           name: kubernetes-e2e-junit
           path: './_artifacts/*.xml'

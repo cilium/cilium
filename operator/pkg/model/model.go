@@ -13,6 +13,26 @@ import (
 // of various types of Kubernetes config to Cilium config.
 type Model struct {
 	HTTP []HTTPListener `json:"http,omitempty"`
+	TLS  []TLSListener  `json:"tls,omitempty"`
+}
+
+func (m *Model) GetListeners() []Listener {
+	var listeners []Listener
+
+	for _, l := range m.HTTP {
+		listeners = append(listeners, &l)
+	}
+
+	for _, l := range m.TLS {
+		listeners = append(listeners, &l)
+	}
+
+	return listeners
+}
+
+type Listener interface {
+	GetSources() []FullyQualifiedResource
+	GetPort() uint32
 }
 
 // HTTPListener holds configuration for any listener that terminates and proxies HTTP
@@ -44,6 +64,50 @@ type HTTPListener struct {
 	Routes []HTTPRoute `json:"routes,omitempty"`
 	// Service configuration
 	Service *Service `json:"service,omitempty"`
+}
+
+func (l *HTTPListener) GetSources() []FullyQualifiedResource {
+	return l.Sources
+}
+
+func (l *HTTPListener) GetPort() uint32 {
+	return l.Port
+}
+
+// TLSListener holds configuration for any listener that proxies TLS
+// based on the SNI value.
+// Each holds the configuration info for one distinct TLS listener, by
+//   - Hostname
+//   - Address
+//   - Port
+type TLSListener struct {
+	// Name of the TLSListener
+	Name string `json:"name,omitempty"`
+	// Sources is a slice of fully qualified resources this TLSListener is sourced
+	// from.
+	Sources []FullyQualifiedResource `json:"sources,omitempty"`
+	// IPAddress that the listener should listen on.
+	// The string must be parseable as an IP address.
+	Address string `json:"address,omitempty"`
+	// Port on which the service can be expected to be accessed by clients.
+	Port uint32 `json:"port,omitempty"`
+	// Hostname that the listener should match.
+	// Wildcards are supported in prefix or suffix forms, or the special wildcard `*`.
+	// An empty list means that the Listener should match all hostnames.
+	Hostname string `json:"hostname,omitempty"`
+	// Routes associated with traffic to the service.
+	// An empty list means that traffic will not be routed.
+	Routes []TLSRoute `json:"routes,omitempty"`
+	// Service configuration
+	Service *Service `json:"service,omitempty"`
+}
+
+func (l *TLSListener) GetSources() []FullyQualifiedResource {
+	return l.Sources
+}
+
+func (l *TLSListener) GetPort() uint32 {
+	return l.Port
 }
 
 // Service holds the configuration for desired Service details
@@ -192,6 +256,15 @@ func (r *HTTPRoute) GetMatchKey() string {
 	}
 
 	return sb.String()
+}
+
+// TLSRoute holds all the details needed to route TLS traffic to a backend.
+type TLSRoute struct {
+	Name string `json:"name,omitempty"`
+	// Hostnames that the route should match
+	Hostnames []string `json:"hostnames,omitempty"`
+	// Backend is the backend handling the requests
+	Backends []Backend `json:"backends,omitempty"`
 }
 
 // StringMatch describes various types of string matching.

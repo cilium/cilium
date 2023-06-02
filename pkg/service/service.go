@@ -527,7 +527,7 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	}
 
 	for _, m := range toOpen {
-		if _, err := m.OpenOrCreate(); err != nil {
+		if err := m.OpenOrCreate(); err != nil {
 			return err
 		}
 	}

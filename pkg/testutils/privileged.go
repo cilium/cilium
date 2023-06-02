@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 )
 
 const (
@@ -22,12 +22,6 @@ func PrivilegedTest(tb testing.TB) {
 
 	if os.Getenv(privilegedEnv) == "" {
 		tb.Skip(fmt.Sprintf("Set %s to run this test", privilegedEnv))
-	}
-}
-
-func PrivilegedCheck(c *check.C) {
-	if os.Getenv(privilegedEnv) == "" {
-		c.Skip(fmt.Sprintf("Set %s to run this test", privilegedEnv))
 	}
 }
 

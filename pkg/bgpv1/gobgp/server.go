@@ -6,14 +6,21 @@ package gobgp
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
+	"time"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
+	"github.com/sirupsen/logrus"
 	apb "google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/resource"
+)
+
+const (
+	wildcardIPv4Addr = "0.0.0.0"
+	wildcardIPv6Addr = "::"
 )
 
 var (
@@ -31,54 +38,42 @@ var (
 	}
 )
 
-// Advertisement is a container object which associates a net.IPNet with a
-// gobgp.Path.
-//
-// The `Net` field makes comparing this Advertisement with another IPNet encoded
-// prefixes simple.
-//
-// The `Path` field is a gobgp.Path object which can be forwarded to our server's
-// WithdrawPath method, making withdrawing an advertised route simple.
-type Advertisement struct {
-	Net  *net.IPNet
-	Path *gobgp.Path
-}
+// GoBGPServer is wrapper on top of go bgp server implementation
+type GoBGPServer struct {
+	logger *logrus.Entry
 
-// ServerWithConfig is a container for grouping a gobgp BgpServer with the
-// Cilium's BGP control plane related configuration.
-//
-// It exports a method set for manipulating the BgpServer. However, this
-// struct is a dumb object. The calling code is required to keep the BgpServer's
-// configuration and associated configuration fields in sync.
-type ServerWithConfig struct {
+	// asn is local AS number
+	asn uint32
+
 	// a gobgp backed BgpServer configured in accordance to the accompanying
 	// CiliumBGPVirtualRouter configuration.
-	Server *server.BgpServer
-	// The CiliumBGPVirtualRouter configuration which drives the configuration
-	// of the above BgpServer.
-	//
-	// If this field is nil it means the above BgpServer has had no
-	// configuration applied to it.
-	Config *v2alpha1api.CiliumBGPVirtualRouter
-	// Holds any announced PodCIDR routes.
-	PodCIDRAnnouncements []Advertisement
-	// Holds any announced Service routes.
-	ServiceAnnouncements map[resource.Key][]Advertisement
+	server *server.BgpServer
 }
 
-// NewServerWithConfig will start an underlying BgpServer utilizing startReq
-// for its initial configuration.
-//
-// The returned ServerWithConfig has a nil CiliumBGPVirtualRouter config, and is
-// ready to be provided to ReconcileBGPConfig.
-//
-// Canceling the provided context will kill the BgpServer along with calling the
-// underlying BgpServer's Stop() method.
-func NewServerWithConfig(ctx context.Context, startReq *gobgp.StartBgpRequest) (*ServerWithConfig, error) {
-	logger := NewServerLogger(log.Logger, startReq.Global.Asn)
+// NewGoBGPServerWithConfig returns instance of go bgp router wrapper.
+func NewGoBGPServerWithConfig(ctx context.Context, log *logrus.Entry, params types.ServerParameters) (types.Router, error) {
+	logger := NewServerLogger(log.Logger, LogParams{
+		AS:        params.Global.ASN,
+		Component: "gobgp.BgpServerInstance",
+		SubSys:    "bgp-control-plane",
+	})
 
 	s := server.NewBgpServer(server.LoggerOption(logger))
 	go s.Serve()
+
+	startReq := &gobgp.StartBgpRequest{
+		Global: &gobgp.Global{
+			Asn:        params.Global.ASN,
+			RouterId:   params.Global.RouterID,
+			ListenPort: params.Global.ListenPort,
+		},
+	}
+
+	if params.Global.RouteSelectionOptions != nil {
+		startReq.Global.RouteSelectionOptions = &gobgp.RouteSelectionOptionsConfig{
+			AdvertiseInactiveRoutes: params.Global.RouteSelectionOptions.AdvertiseInactiveRoutes,
+		}
+	}
 
 	if err := s.StartBgp(ctx, startReq); err != nil {
 		return nil, fmt.Errorf("failed starting BGP server: %w", err)
@@ -97,28 +92,75 @@ func NewServerWithConfig(ctx context.Context, startReq *gobgp.StartBgpRequest) (
 		return nil, fmt.Errorf("failed to configure logging for virtual router with local-asn %v: %w", startReq.Global.Asn, err)
 	}
 
-	return &ServerWithConfig{
-		Server:               s,
-		Config:               nil,
-		PodCIDRAnnouncements: []Advertisement{},
-		ServiceAnnouncements: make(map[resource.Key][]Advertisement),
+	return &GoBGPServer{
+		logger: log,
+		asn:    params.Global.ASN,
+		server: s,
 	}, nil
 }
 
 // AddNeighbor will add the CiliumBGPNeighbor to the gobgp.BgpServer, creating
 // a BGP peering connection.
-func (sc *ServerWithConfig) AddNeighbor(ctx context.Context, n *v2alpha1api.CiliumBGPNeighbor) error {
-	// cilium neighbor uses CIDR string, gobgp neighbor uses IP string, convert.
-	var ip net.IP
-	var err error
-	if ip, _, err = net.ParseCIDR(n.PeerAddress); err != nil {
-		// unlikely, we validate this on CR write to k8s api.
-		return fmt.Errorf("failed to parse PeerAddress: %w", err)
+func (g *GoBGPServer) AddNeighbor(ctx context.Context, n types.NeighborRequest) error {
+	peer, err := g.getPeerConfig(ctx, n.Neighbor, false)
+	if err != nil {
+		return err
 	}
 	peerReq := &gobgp.AddPeerRequest{
-		Peer: &gobgp.Peer{
+		Peer: peer,
+	}
+	if err = g.server.AddPeer(ctx, peerReq); err != nil {
+		return fmt.Errorf("failed while adding peer %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
+	}
+	return nil
+}
+
+// UpdateNeighbor will update the existing CiliumBGPNeighbor in the gobgp.BgpServer.
+func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n types.NeighborRequest) error {
+	peer, err := g.getPeerConfig(ctx, n.Neighbor, true)
+	if err != nil {
+		return err
+	}
+	peerReq := &gobgp.UpdatePeerRequest{
+		DoSoftResetIn: true, // should perform soft reset only if needed
+		Peer:          peer,
+	}
+	if _, err = g.server.UpdatePeer(ctx, peerReq); err != nil {
+		return fmt.Errorf("failed while updating peer %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
+	}
+	return nil
+}
+
+// getPeerConfig returns GoBGP Peer configuration for the provided CiliumBGPNeighbor.
+func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBGPNeighbor, isUpdate bool) (*gobgp.Peer, error) {
+	// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
+	prefix, err := netip.ParsePrefix(n.PeerAddress)
+	if err != nil {
+		// unlikely, we validate this on CR write to k8s api.
+		return nil, fmt.Errorf("failed to parse PeerAddress: %w", err)
+	}
+	peerAddr := prefix.Addr()
+
+	var peer *gobgp.Peer
+	if isUpdate {
+		// If this is an update, try retrieving the existing Peer.
+		// This is necessary as many Peer fields are defaulted internally in GoBGP,
+		// and if they were not set, the update would always cause BGP peer reset.
+		// This will not fail if the peer is not found for whatever reason.
+		existingPeer, err := g.getExistingPeer(ctx, peerAddr, uint32(n.PeerASN))
+		if err != nil {
+			return nil, fmt.Errorf("failed retrieving peer: %w", err)
+		}
+		// use only necessary parts of the existing peer struct
+		peer = &gobgp.Peer{
+			Conf:     existingPeer.Conf,
+			AfiSafis: existingPeer.AfiSafis,
+		}
+	} else {
+		// Create a new peer
+		peer = &gobgp.Peer{
 			Conf: &gobgp.PeerConf{
-				NeighborAddress: ip.String(),
+				NeighborAddress: peerAddr.String(),
 				PeerAsn:         uint32(n.PeerASN),
 			},
 			// tells the peer we are capable of unicast IPv4 and IPv6
@@ -135,29 +177,66 @@ func (sc *ServerWithConfig) AddNeighbor(ctx context.Context, n *v2alpha1api.Cili
 					},
 				},
 			},
-		},
+		}
 	}
-	if err = sc.Server.AddPeer(ctx, peerReq); err != nil {
-		return fmt.Errorf("failed while adding peer %v %v: %w", n.PeerAddress, n.PeerASN, err)
+
+	// As GoBGP defaulting of peer's Transport.LocalAddress follows different paths
+	// when calling AddPeer / UpdatePeer / ListPeer, we set it explicitly to a wildcard address
+	// based on peer's address family, to not cause unnecessary connection resets upon update.
+	if peerAddr.Is4() {
+		peer.Transport = &gobgp.Transport{LocalAddress: wildcardIPv4Addr}
+	} else {
+		peer.Transport = &gobgp.Transport{LocalAddress: wildcardIPv6Addr}
 	}
-	return nil
+
+	if peer.Timers == nil {
+		peer.Timers = &gobgp.Timers{}
+	}
+	peer.Timers.Config = &gobgp.TimersConfig{
+		// If any of the timers is not set (zero), it will be defaulted at the gobgp level.
+		// However, they should be already defaulted at this point.
+		ConnectRetry:      uint64(n.ConnectRetryTime.Round(time.Second).Seconds()),
+		HoldTime:          uint64(n.HoldTime.Round(time.Second).Seconds()),
+		KeepaliveInterval: uint64(n.KeepAliveTime.Round(time.Second).Seconds()),
+	}
+	return peer, nil
+}
+
+// getExistingPeer returns the existing GoBGP Peer matching provided peer address and ASN.
+// If no such peer can be found, error is returned.
+func (g *GoBGPServer) getExistingPeer(ctx context.Context, peerAddr netip.Addr, peerASN uint32) (*gobgp.Peer, error) {
+	var res *gobgp.Peer
+	fn := func(peer *gobgp.Peer) {
+		pIP, err := netip.ParseAddr(peer.Conf.NeighborAddress)
+		if err == nil && pIP == peerAddr && peer.Conf.PeerAsn == peerASN {
+			res = peer
+		}
+	}
+
+	err := g.server.ListPeer(ctx, &gobgp.ListPeerRequest{Address: peerAddr.String()}, fn)
+	if err != nil {
+		return nil, fmt.Errorf("listing peers failed: %w", err)
+	}
+	if res == nil {
+		return nil, fmt.Errorf("could not find existing peer with ASN: %d and IP: %s", peerASN, peerAddr)
+	}
+	return res, nil
 }
 
 // RemoveNeighbor will remove the CiliumBGPNeighbor from the gobgp.BgpServer,
 // disconnecting the BGP peering connection.
-func (sc *ServerWithConfig) RemoveNeighbor(ctx context.Context, n *v2alpha1api.CiliumBGPNeighbor) error {
-	// cilium neighbor uses CIDR string, gobgp neighbor uses IP string, convert.
-	var ip net.IP
-	var err error
-	if ip, _, err = net.ParseCIDR(n.PeerAddress); err != nil {
+func (g *GoBGPServer) RemoveNeighbor(ctx context.Context, n types.NeighborRequest) error {
+	// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
+	prefix, err := netip.ParsePrefix(n.Neighbor.PeerAddress)
+	if err != nil {
 		// unlikely, we validate this on CR write to k8s api.
 		return fmt.Errorf("failed to parse PeerAddress: %w", err)
 	}
 	peerReq := &gobgp.DeletePeerRequest{
-		Address: ip.String(),
+		Address: prefix.Addr().String(),
 	}
-	if err := sc.Server.DeletePeer(ctx, peerReq); err != nil {
-		return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
+	if err := g.server.DeletePeer(ctx, peerReq); err != nil {
+		return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
 	}
 	return nil
 }
@@ -176,18 +255,20 @@ func (sc *ServerWithConfig) RemoveNeighbor(ctx context.Context, n *v2alpha1api.C
 //
 // An Advertisement is returned which may be passed to WithdrawPath to remove
 // this Advertisement.
-func (sc *ServerWithConfig) AdvertisePath(ctx context.Context, ip *net.IPNet) (Advertisement, error) {
+func (g *GoBGPServer) AdvertisePath(ctx context.Context, p types.PathRequest) (types.PathResponse, error) {
 	var err error
 	var path *gobgp.Path
+	var resp *gobgp.AddPathResponse
+	prefix := p.Advert.Prefix
+
 	origin, _ := apb.New(&gobgp.OriginAttribute{
 		Origin: 0,
 	})
 	switch {
-	case ip.IP.To4() != nil:
-		prefixLen, _ := ip.Mask.Size()
+	case prefix.Addr().Is4():
 		nlri, _ := apb.New(&gobgp.IPAddressPrefix{
-			PrefixLen: uint32(prefixLen),
-			Prefix:    ip.IP.String(),
+			PrefixLen: uint32(prefix.Bits()),
+			Prefix:    prefix.Addr().String(),
 		})
 		// Currently, we only support advertising locally originated paths (the paths generated in Cilium
 		// node itself, not the paths received from another BGP Peer or redistributed from another routing
@@ -212,14 +293,13 @@ func (sc *ServerWithConfig) AdvertisePath(ctx context.Context, ip *net.IPNet) (A
 			Nlri:   nlri,
 			Pattrs: []*apb.Any{nextHop, origin},
 		}
-		_, err = sc.Server.AddPath(ctx, &gobgp.AddPathRequest{
+		resp, err = g.server.AddPath(ctx, &gobgp.AddPathRequest{
 			Path: path,
 		})
-	case ip.IP.To16() != nil:
-		prefixLen, _ := ip.Mask.Size()
+	case prefix.Addr().Is6():
 		nlri, _ := apb.New(&gobgp.IPAddressPrefix{
-			PrefixLen: uint32(prefixLen),
-			Prefix:    ip.IP.String(),
+			PrefixLen: uint32(prefix.Bits()),
+			Prefix:    prefix.Addr().String(),
 		})
 		nlriAttrs, _ := apb.New(&gobgp.MpReachNLRIAttribute{ // MP BGP NLRI
 			Family: GoBGPIPv6Family,
@@ -232,27 +312,35 @@ func (sc *ServerWithConfig) AdvertisePath(ctx context.Context, ip *net.IPNet) (A
 			Nlri:   nlri,
 			Pattrs: []*apb.Any{nlriAttrs, origin},
 		}
-		_, err = sc.Server.AddPath(ctx, &gobgp.AddPathRequest{
+		resp, err = g.server.AddPath(ctx, &gobgp.AddPathRequest{
 			Path: path,
 		})
 	default:
-		return Advertisement{}, fmt.Errorf("provided IP returned nil for both IPv4 and IPv6 lengths: %v", len(ip.IP))
+		return types.PathResponse{}, fmt.Errorf("unknown address family for prefix %s", prefix.String())
 	}
 	if err != nil {
-		return Advertisement{}, err
+		return types.PathResponse{}, err
 	}
-	return Advertisement{
-		ip,
-		path,
+	return types.PathResponse{
+		Advert: types.Advertisement{
+			Prefix:        prefix,
+			GoBGPPathUUID: resp.Uuid,
+		},
 	}, err
 }
 
 // WithdrawPath withdraws an Advertisement produced by AdvertisePath from this
 // BgpServer.
-func (sc *ServerWithConfig) WithdrawPath(ctx context.Context, advert Advertisement) error {
-	err := sc.Server.DeletePath(ctx, &gobgp.DeletePathRequest{
-		Family: advert.Path.Family,
-		Path:   advert.Path,
+func (g *GoBGPServer) WithdrawPath(ctx context.Context, p types.PathRequest) error {
+	err := g.server.DeletePath(ctx, &gobgp.DeletePathRequest{
+		Uuid: p.Advert.GoBGPPathUUID,
 	})
 	return err
+}
+
+// Stop closes gobgp server
+func (g *GoBGPServer) Stop() {
+	if g.server != nil {
+		g.server.Stop()
+	}
 }

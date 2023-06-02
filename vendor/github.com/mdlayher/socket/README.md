@@ -12,3 +12,12 @@ used directly in end user applications.
 
 Any use of package socket should be guarded by build tags, as one would also
 use when importing the `syscall` or `golang.org/x/sys` packages.
+
+## Stability
+
+See the [CHANGELOG](./CHANGELOG.md) file for a description of changes between
+releases.
+
+This package only supports the two most recent major versions of Go, mirroring
+Go's own release policy. Older versions of Go may lack critical features and bug
+fixes which are necessary for this package to function correctly.

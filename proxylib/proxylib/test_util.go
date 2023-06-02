@@ -4,12 +4,12 @@
 package proxylib
 
 import (
+	. "github.com/cilium/checkmate"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/sirupsen/logrus"
-	. "gopkg.in/check.v1"
 )
 
 func (ins *Instance) CheckInsertPolicyText(c *C, version string, policies []string) {

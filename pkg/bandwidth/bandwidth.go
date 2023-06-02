@@ -170,7 +170,7 @@ func InitBandwidthManager() {
 
 	log.Info("Setting up BPF bandwidth manager")
 
-	if _, err := bwmap.ThrottleMap().OpenOrCreate(); err != nil {
+	if err := bwmap.ThrottleMap().OpenOrCreate(); err != nil {
 		log.WithError(err).Fatal("Failed to access ThrottleMap")
 	}
 

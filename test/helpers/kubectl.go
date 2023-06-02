@@ -3297,7 +3297,7 @@ func (kub *Kubectl) CiliumReport(commands ...string) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 
 	go func() {
 		defer wg.Done()
@@ -3307,6 +3307,11 @@ func (kub *Kubectl) CiliumReport(commands ...string) {
 	go func() {
 		defer wg.Done()
 		kub.DumpCiliumCommandOutput(ctx, CiliumNamespace)
+	}()
+
+	go func() {
+		defer wg.Done()
+		kub.CollectSysdump(ctx)
 	}()
 
 	kub.CiliumCheckReport(ctx)
@@ -3332,6 +3337,24 @@ func (kub *Kubectl) CiliumReport(commands ...string) {
 	for _, res := range results {
 		res.WaitUntilFinish()
 		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+	}
+}
+
+func (kub *Kubectl) CollectSysdump(ctx context.Context) {
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+		return
+	}
+
+	logsPath := filepath.Join(kub.BasePath(), testPath)
+
+	// We need to get into the root directory because the CLI doesn't yet
+	// support absolute path. Once https://github.com/cilium/cilium-cli/pull/1552
+	// is installed in test VM images, we can remove this.
+	res := kub.ExecContext(ctx, fmt.Sprintf("cd / && cilium-cli sysdump --output-filename %s/cilium-sysdump", logsPath))
+	if !res.WasSuccessful() {
+		log.WithError(res.GetError()).Errorf("failed to collect sysdump")
 	}
 }
 

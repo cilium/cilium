@@ -8,9 +8,9 @@ import (
 	"net"
 	"testing"
 
+	. "github.com/cilium/checkmate"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -81,8 +81,8 @@ func containsIP(allowedIPs []net.IPNet, ipnet *net.IPNet) bool {
 
 func newTestAgent(ctx context.Context) (*Agent, *ipcache.IPCache) {
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
-		Context:     ctx,
-		NodeHandler: &mockNodeHandler{},
+		Context:       ctx,
+		NodeIDHandler: &mockNodeHandler{},
 	})
 	wgAgent := &Agent{
 		wgClient:         &fakeWgClient{},
@@ -236,4 +236,8 @@ type mockNodeHandler struct{}
 
 func (m *mockNodeHandler) AllocateNodeID(_ net.IP) uint16 {
 	return 0
+}
+
+func (m *mockNodeHandler) GetNodeIP(_ uint16) string {
+	return ""
 }

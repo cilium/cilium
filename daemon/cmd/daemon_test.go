@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/prometheus/client_golang/prometheus"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/api/v1/models"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
@@ -21,6 +21,7 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/envoy"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
@@ -31,7 +32,11 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
+	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/signalmap"
+	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/metrics"
+	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -77,6 +82,12 @@ func setupTestDirectories() {
 
 	option.Config.RunDir = tempRunDir
 	option.Config.StateDir = tempRunDir
+
+	socketDir := envoy.GetSocketDir(tempRunDir)
+	err = os.MkdirAll(socketDir, 0700)
+	if err != nil {
+		panic("creating envoy socket directory failed")
+	}
 }
 
 func TestMain(m *testing.M) {
@@ -159,8 +170,11 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
+			func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 			func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
+			func() egressmap.PolicyMap { return nil },
 		),
+		monitorAgent.Cell,
 		ControlPlane,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p

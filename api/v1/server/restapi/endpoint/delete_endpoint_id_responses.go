@@ -128,6 +128,31 @@ func (o *DeleteEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer
 	}
 }
 
+// DeleteEndpointIDForbiddenCode is the HTTP code returned for type DeleteEndpointIDForbidden
+const DeleteEndpointIDForbiddenCode int = 403
+
+/*
+DeleteEndpointIDForbidden Forbidden
+
+swagger:response deleteEndpointIdForbidden
+*/
+type DeleteEndpointIDForbidden struct {
+}
+
+// NewDeleteEndpointIDForbidden creates DeleteEndpointIDForbidden with default headers values
+func NewDeleteEndpointIDForbidden() *DeleteEndpointIDForbidden {
+
+	return &DeleteEndpointIDForbidden{}
+}
+
+// WriteResponse to the client
+func (o *DeleteEndpointIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // DeleteEndpointIDNotFoundCode is the HTTP code returned for type DeleteEndpointIDNotFound
 const DeleteEndpointIDNotFoundCode int = 404
 

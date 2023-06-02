@@ -21,7 +21,7 @@ var Cell = cell.Module(
 	cell.Provide(newAuthMap),
 )
 
-func newAuthMap(lifecycle hive.Lifecycle) MapOut {
+func newAuthMap(lifecycle hive.Lifecycle) bpf.MapOut[Map] {
 	authMap := newMap(option.Config.AuthMapEntries)
 
 	lifecycle.Append(hive.Hook{
@@ -33,15 +33,5 @@ func newAuthMap(lifecycle hive.Lifecycle) MapOut {
 		},
 	})
 
-	return MapOut{
-		AuthMap: authMap,
-		BpfMap:  authMap,
-	}
-}
-
-type MapOut struct {
-	cell.Out
-
-	AuthMap Map
-	BpfMap  bpf.BpfMap `group:"bpf-maps"`
+	return bpf.NewMapOut(Map(authMap))
 }

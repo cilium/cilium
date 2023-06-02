@@ -195,6 +195,38 @@ select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
 }
 #endif
 
+#if defined ENABLE_IPV4 || defined ENABLE_IPV6
+static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
+					      enum ct_dir dir, __u32 reason)
+{
+	__u32 dst = 0;
+	__u32 dst_id = 0;
+	enum metric_dir m_dir = METRIC_EGRESS;
+	__u32 src_label = 0;
+
+	switch (dir) {
+	case CT_EGRESS:
+		dst_id = 0;
+		dst = 0;
+		src_label = SECLABEL;
+		m_dir = METRIC_EGRESS;
+		break;
+	case CT_INGRESS:
+		dst = SECLABEL;
+		dst_id = LXC_ID;
+		src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
+		m_dir = METRIC_INGRESS;
+		break;
+	/* ingress/egress only for now */
+	default:
+		__throw_build_bug();
+	}
+
+	return send_drop_notify(ctx, src_label, dst, dst_id, reason,
+				CTX_ACT_DROP, m_dir);
+}
+#endif /* ENABLE_IPV4 || ENABLE_IPV6 */
+
 #define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
 declare_tailcall_if(CONDITION, ID)						\
 int NAME(struct __ctx_buff *ctx)						\
@@ -206,13 +238,13 @@ int NAME(struct __ctx_buff *ctx)						\
 	void *data, *data_end;							\
 	struct iphdr *ip4;							\
 	__u32 zero = 0;								\
-	void *map;									\
+	void *map;								\
 										\
 	ct_state = (struct ct_state *)&ct_buffer.ct_state;			\
 	tuple = (struct ipv4_ct_tuple *)&ct_buffer.tuple;			\
 										\
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))			\
-		return DROP_INVALID;						\
+		return drop_for_direction(ctx, DIR, DROP_INVALID);		\
 										\
 	tuple->nexthdr = ip4->protocol;						\
 	tuple->daddr = ip4->daddr;						\
@@ -220,17 +252,16 @@ int NAME(struct __ctx_buff *ctx)						\
 										\
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);					\
 										\
-	map = select_ct_map4(ctx, DIR, tuple);				\
-	if (!map)									\
-		return DROP_CT_NO_MAP_FOUND;					\
-											\
-	ct_buffer.ret = ct_lookup4(map, tuple, ctx, l4_off,		\
+	map = select_ct_map4(ctx, DIR, tuple);					\
+	if (!map)								\
+		return drop_for_direction(ctx, DIR, DROP_CT_NO_MAP_FOUND);	\
+										\
+	ct_buffer.ret = ct_lookup4(map, tuple, ctx, l4_off,			\
 				   DIR, ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
-		return ct_buffer.ret;						\
-										\
+		return drop_for_direction(ctx, DIR, ct_buffer.ret);		\
 	if (map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)	\
-		return DROP_INVALID_TC_BUFFER;					\
+		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER);	\
 										\
 	invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);			\
 	return ret;								\
@@ -252,7 +283,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	tuple = (struct ipv6_ct_tuple *)&ct_buffer.tuple;			\
 										\
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))			\
-		return DROP_INVALID;						\
+		return drop_for_direction(ctx, DIR, DROP_INVALID);		\
 										\
 	tuple->nexthdr = ip6->nexthdr;						\
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);		\
@@ -267,10 +298,11 @@ int NAME(struct __ctx_buff *ctx)						\
 	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off,	\
 				   DIR, ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
-		return ct_buffer.ret;						\
+		return drop_for_direction(ctx, DIR, ct_buffer.ret);		\
 										\
 	if (map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)	\
-		return DROP_INVALID_TC_BUFFER;					\
+		return drop_for_direction(ctx, DIR,				\
+			DROP_INVALID_TC_BUFFER);				\
 										\
 	invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);			\
 	return ret;								\
@@ -341,6 +373,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	__u8 auth_type = 0;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
 
@@ -430,15 +463,18 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dst_sec_identity,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
-	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(SECLABEL, *dst_sec_identity, node_id, (__u8)*ext_err);
+	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+		auth_type = (__u8)*ext_err;
+		verdict = auth_lookup(ctx, SECLABEL, *dst_sec_identity, node_id, auth_type);
+	}
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
 		send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 1,
 					   verdict, proxy_port,
-					   policy_match_type, audited);
+					   policy_match_type, audited,
+					   auth_type);
 	}
 
 	if (verdict != CTX_ACT_OK)
@@ -595,7 +631,7 @@ ct_recreate6:
 		 * the packet needs IPSec encap so push ctx to stack for encap, or
 		 * (c) packet was redirected to tunnel device so return.
 		 */
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, 0, 0, encrypt_key,
 					     &key, node_id, SECLABEL, *dst_sec_identity,
 					     &trace);
 		if (ret == CTX_ACT_OK)
@@ -775,6 +811,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	struct ct_buffer4 *ct_buffer;
 	__u8 audited = 0;
+	__u8 auth_type = 0;
 	bool has_l4_header = false;
 	enum ct_status ct_status;
 	__u16 proxy_port = 0;
@@ -862,15 +899,18 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	verdict = policy_can_egress4(ctx, tuple, SECLABEL, *dst_sec_identity,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
-	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(SECLABEL, *dst_sec_identity, node_id, (__u8)*ext_err);
+	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+		auth_type = (__u8)*ext_err;
+		verdict = auth_lookup(ctx, SECLABEL, *dst_sec_identity, node_id, auth_type);
+	}
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
 		send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 0,
 					   verdict, proxy_port,
-					   policy_match_type, audited);
+					   policy_match_type, audited,
+					   auth_type);
 	}
 
 	if (verdict != CTX_ACT_OK)
@@ -1084,7 +1124,7 @@ skip_egress_gateway:
 		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
+			return __encap_and_redirect_with_nodeid(ctx, 0, vtep->tunnel_endpoint,
 								SECLABEL, WORLD_ID,
 								WORLD_ID, &trace);
 		}
@@ -1092,7 +1132,7 @@ skip_egress_gateway:
 skip_vtep:
 #endif
 
-#ifdef TUNNEL_MODE
+#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
 	{
 		struct tunnel_key key = {};
 
@@ -1115,9 +1155,9 @@ skip_vtep:
 		}
 #endif
 
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, node_id, SECLABEL, *dst_sec_identity,
-					     &trace);
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, ip4->saddr,
+					     ip4->daddr, encrypt_key, &key, node_id,
+					     SECLABEL, *dst_sec_identity, &trace);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack
@@ -1138,7 +1178,7 @@ skip_vtep:
 		else
 			return ret;
 	}
-#endif /* TUNNEL_MODE */
+#endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
 
@@ -1193,7 +1233,7 @@ pass_to_stack:
 #endif
 	}
 
-#if defined(TUNNEL_MODE) || defined(ENABLE_EGRESS_GATEWAY)
+#if defined(TUNNEL_MODE) || defined(ENABLE_EGRESS_GATEWAY) || defined(ENABLE_HIGH_SCALE_IPCACHE)
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_sec_identity, 0, 0,
@@ -1381,6 +1421,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	__u32 monitor = 0;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	__u8 auth_type = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1454,15 +1495,18 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		struct remote_endpoint_info *sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
 
-		if (sep)
-			verdict = auth_lookup(SECLABEL, src_label, sep->node_id, (__u8)*ext_err);
+		if (sep) {
+			auth_type = (__u8)*ext_err;
+			verdict = auth_lookup(ctx, SECLABEL, src_label, sep->node_id, auth_type);
+		}
 	}
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, src_label, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 1,
-					   verdict, *proxy_port, policy_match_type, audited);
+					   verdict, *proxy_port, policy_match_type, audited,
+					   auth_type);
 
 	if (verdict != CTX_ACT_OK)
 		return verdict;
@@ -1684,6 +1728,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	__u8 auth_type = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1777,14 +1822,17 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		struct remote_endpoint_info *sep = lookup_ip4_remote_endpoint(orig_sip, 0);
 
-		if (sep)
-			verdict = auth_lookup(SECLABEL, src_label, sep->node_id, (__u8)*ext_err);
+		if (sep) {
+			auth_type = (__u8)*ext_err;
+			verdict = auth_lookup(ctx, SECLABEL, src_label, sep->node_id, auth_type);
+		}
 	}
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, src_label, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 0,
-					   verdict, *proxy_port, policy_match_type, audited);
+					   verdict, *proxy_port, policy_match_type, audited,
+					   auth_type);
 
 	if (verdict != CTX_ACT_OK)
 		return verdict;
@@ -2150,7 +2198,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
-	ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 	switch (proto) {
 #if defined(ENABLE_ARP_PASSTHROUGH) || defined(ENABLE_ARP_RESPONDER)
@@ -2160,12 +2207,42 @@ int cil_to_container(struct __ctx_buff *ctx)
 #endif
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+# ifdef ENABLE_HIGH_SCALE_IPCACHE
+	if (identity == WORLD_ID) {
+		struct endpoint_info *ep;
+		void *data, *data_end;
+		struct ipv6hdr *ip6;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
+		if (ep)
+			identity = ep->sec_id;
+	}
+# endif /* ENABLE_HIGH_SCALE_IPCACHE */
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ep_tail_call(ctx, CILIUM_CALL_IPV6_CT_INGRESS);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+# ifdef ENABLE_HIGH_SCALE_IPCACHE
+	if (identity == WORLD_ID) {
+		struct endpoint_info *ep;
+		void *data, *data_end;
+		struct iphdr *ip4;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		ep = __lookup_ip4_endpoint(ip4->saddr);
+		if (ep)
+			identity = ep->sec_id;
+	}
+# endif /* ENABLE_HIGH_SCALE_IPCACHE */
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_CT_INGRESS);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;

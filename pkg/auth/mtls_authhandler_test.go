@@ -350,7 +350,7 @@ func Test_mtlsAuthHandler_authenticate(t *testing.T) {
 				ar: &authRequest{
 					localIdentity:  id1000,
 					remoteIdentity: id1001,
-					remoteHostIP:   GetLoopBackIP(t),
+					remoteNodeIP:   GetLoopBackIP(t),
 				},
 			},
 			want: &authResponse{
@@ -363,7 +363,7 @@ func Test_mtlsAuthHandler_authenticate(t *testing.T) {
 				ar: &authRequest{
 					localIdentity:  id1000,
 					remoteIdentity: idbad1,
-					remoteHostIP:   GetLoopBackIP(t),
+					remoteNodeIP:   GetLoopBackIP(t),
 				},
 			},
 			wantErr: true,
@@ -374,7 +374,7 @@ func Test_mtlsAuthHandler_authenticate(t *testing.T) {
 				ar: &authRequest{
 					localIdentity:  idbad1,
 					remoteIdentity: id1001,
-					remoteHostIP:   GetLoopBackIP(t),
+					remoteNodeIP:   GetLoopBackIP(t),
 				},
 			},
 			wantErr: true,
@@ -414,17 +414,17 @@ func getRandomOpenPort(t *testing.T) int {
 	return addr.Port
 }
 
-func GetLoopBackIP(t *testing.T) net.IP {
+func GetLoopBackIP(t *testing.T) string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		t.Fatalf("failed to get interface addresses: %v", err)
 	}
 	for _, address := range addrs {
 		if ipnet, ok := address.(*net.IPNet); ok && ipnet.IP.IsLoopback() {
-			return ipnet.IP
+			return ipnet.IP.String()
 		}
 	}
 
 	t.Fatalf("failed to get loopback IP")
-	return nil
+	return ""
 }

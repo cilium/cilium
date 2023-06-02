@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	etcdAPI "go.etcd.io/etcd/client/v3"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -2015,4 +2015,64 @@ func (e *EtcdRateLimiterSuite) TestRateLimiter(c *C) {
 			e.cleanKVPairs(c, key, e.txnCount)
 		}
 	}
+}
+
+func (e *EtcdSuite) TestPaginatedList(c *C) {
+	const prefix = "list/paginated"
+	ctx := context.Background()
+
+	run := func(batch int) {
+		keys := map[string]struct{}{
+			path.Join(prefix, "immortal-finch"):   {},
+			path.Join(prefix, "rare-goshawk"):     {},
+			path.Join(prefix, "cunning-bison"):    {},
+			path.Join(prefix, "amusing-tick"):     {},
+			path.Join(prefix, "prepared-shark"):   {},
+			path.Join(prefix, "exciting-mustang"): {},
+			path.Join(prefix, "ethical-ibex"):     {},
+			path.Join(prefix, "accepted-kite"):    {},
+			path.Join(prefix, "model-javelin"):    {},
+			path.Join(prefix, "inviting-hog"):     {},
+		}
+
+		defer func(previous int) {
+			Client().(*etcdClient).listBatchSize = previous
+			c.Assert(Client().DeletePrefix(ctx, prefix), IsNil)
+		}(Client().(*etcdClient).listBatchSize)
+		Client().(*etcdClient).listBatchSize = batch
+
+		var expected int64
+		for key := range keys {
+			res, err := Client().(*etcdClient).client.Put(ctx, key, "value")
+			expected = res.Header.Revision
+			c.Assert(err, IsNil)
+		}
+
+		kvs, found, err := Client().(*etcdClient).paginatedList(ctx, log, prefix)
+		c.Assert(err, IsNil)
+
+		for _, kv := range kvs {
+			key := string(kv.Key)
+			if _, ok := keys[key]; !ok {
+				c.Fatalf("Retrieved unexpected key, key: %s", key)
+			}
+			delete(keys, key)
+		}
+
+		c.Assert(keys, HasLen, 0)
+
+		// There is no guarantee that found == expected, because new operations might have occurred in parallel.
+		if found < expected {
+			c.Fatalf("Next revision (%d) is lower than the one of the last update (%d)", found, expected)
+		}
+	}
+
+	// Batch size = 1
+	run(1)
+
+	// Batch size = 4
+	run(4)
+
+	// Batch size = 11
+	run(11)
 }

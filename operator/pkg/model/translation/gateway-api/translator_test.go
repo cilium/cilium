@@ -32,6 +32,15 @@ func Test_translator_Translate(t *testing.T) {
 			want: basicHTTPListenersCiliumEnvoyConfig,
 		},
 		{
+			name: "Basic TLS SNI Listener",
+			args: args{
+				m: &model.Model{
+					TLS: basicTLSListeners,
+				},
+			},
+			want: basicTLSListenersCiliumEnvoyConfig,
+		},
+		{
 			name: "Conformance/HTTPRouteSimpleSameNamespace",
 			args: args{
 				m: &model.Model{
@@ -151,7 +160,9 @@ func Test_translator_Translate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			trans := &translator{}
+			trans := &translator{
+				idleTimeoutSeconds: 60,
+			}
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 			require.Equal(t, tt.want, cec, "CiliumEnvoyConfig did not match")

@@ -148,6 +148,13 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 		return isConnected
 	}
 
+	// Disable watching pods if we are in high-scale mode. We don't need to
+	// insert pod IPs into the ipcache.
+	if option.Config.EnableHighScaleIPcache {
+		asyncControllers.Done()
+		return
+	}
+
 	// We will watch for pods on th entire cluster to keep existing
 	// functionality untouched. If we are running with CiliumEndpoint CRD
 	// enabled then it means that we can simply watch for pods that are created
@@ -737,11 +744,12 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 }
 
 func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs k8sTypes.IPSlice) error {
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   newPod.ObjectMeta.Name,
+		logfields.K8sNamespace: newPod.ObjectMeta.Namespace,
+	})
+
 	if newPod.Spec.HostNetwork {
-		logger := log.WithFields(logrus.Fields{
-			logfields.K8sPodName:   newPod.ObjectMeta.Name,
-			logfields.K8sNamespace: newPod.ObjectMeta.Namespace,
-		})
 		logger.Debug("Pod is using host networking")
 		return nil
 	}

@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -60,6 +61,8 @@ const (
 	initArgEndpointRoutes
 	initArgProxyRule
 	initTCFilterPriority
+	initDefaultRTProto
+	initLocalRulePriority
 	initArgMax
 )
 
@@ -87,6 +90,20 @@ func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) erro
 
 	if err := l.templateCache.WriteNetdevConfig(f, o); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (l *Loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
+	nodeConfigPath := option.Config.GetNodeConfigPath()
+	f, err := os.Create(nodeConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to create node configuration file at %s: %w", nodeConfigPath, err)
+	}
+	defer f.Close()
+
+	if err = l.templateCache.WriteNodeConfig(f, o.LocalConfig()); err != nil {
+		return fmt.Errorf("failed to write node configuration file at %s: %w", nodeConfigPath, err)
 	}
 	return nil
 }
@@ -148,6 +165,7 @@ func addENIRules(sysSettings []sysctl.Setting, nodeAddressing datapath.NodeAddre
 		Mark:     linux_defaults.MarkMultinodeNodeport,
 		Mask:     linux_defaults.MaskMultinodeNodeport,
 		Table:    route.MainTable,
+		Protocol: linux_defaults.RTProto,
 	}); err != nil {
 		return nil, fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
 	}
@@ -175,23 +193,25 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 		return nil
 	}
 
+	l.ipsecMu.Lock()
+	defer l.ipsecMu.Unlock()
+
 	interfaces := option.Config.EncryptInterface
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		// IPAMENI mode supports multiple network facing interfaces that
 		// will all need Encrypt logic applied in order to decrypt any
 		// received encrypted packets. This logic will attach to all
-		// !veth devices. Only use if user has not configured interfaces.
-		if len(interfaces) == 0 {
-			if links, err := netlink.LinkList(); err == nil {
-				for _, link := range links {
-					isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
-					if err == nil && !isVirtual {
-						interfaces = append(interfaces, link.Attrs().Name)
-					}
+		// !veth devices.
+		interfaces = nil
+		if links, err := netlink.LinkList(); err == nil {
+			for _, link := range links {
+				isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
+				if err == nil && !isVirtual {
+					interfaces = append(interfaces, link.Attrs().Name)
 				}
 			}
-			option.Config.EncryptInterface = interfaces
 		}
+		option.Config.EncryptInterface = interfaces
 	}
 
 	// No interfaces is valid in tunnel disabled case
@@ -266,11 +286,7 @@ func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
-	var (
-		args []string
-	)
-
-	args = make([]string, initArgMax)
+	args := make([]string, initArgMax)
 
 	sysSettings := []sysctl.Setting{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
@@ -286,6 +302,35 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	defer func() { firstInitialization = false }()
 
 	l.init(o.Datapath(), o.LocalConfig())
+
+	var mode baseDeviceMode
+	encapProto := option.TunnelDisabled
+	switch {
+	case option.Config.TunnelingEnabled():
+		mode = tunnelMode
+		encapProto = option.Config.TunnelProtocol
+	case option.Config.EnableHealthDatapath:
+		mode = option.DSRDispatchIPIP
+		sysSettings = append(sysSettings,
+			sysctl.Setting{Name: "net.core.fb_tunnels_only_for_init_net",
+				Val: "2", IgnoreErr: true})
+	default:
+		mode = directMode
+	}
+	args[initArgMode] = string(mode)
+
+	// Datapath initialization
+	hostDev1, hostDev2, err := SetupBaseDevice(deviceMTU)
+	if err != nil {
+		return fmt.Errorf("failed to setup base devices in mode %s: %w", mode, err)
+	}
+	args[initArgHostDev1] = hostDev1.Attrs().Name
+	args[initArgHostDev2] = hostDev2.Attrs().Name
+
+	if err := l.writeNodeConfigHeader(o); err != nil {
+		log.WithError(err).Error("Unable to write node config header")
+		return err
+	}
 
 	if err := l.writeNetdevHeader("./", o); err != nil {
 		log.WithError(err).Warn("Unable to write netdev header")
@@ -344,25 +389,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgDevices] = "<nil>"
 	}
 
-	var mode baseDeviceMode
-	encapProto := option.TunnelDisabled
-	switch {
-	case option.Config.TunnelingEnabled():
-		mode = tunnelMode
-		encapProto = option.Config.TunnelProtocol
-	case option.Config.EnableHealthDatapath:
-		mode = option.DSRDispatchIPIP
-		sysSettings = append(sysSettings,
-			sysctl.Setting{Name: "net.core.fb_tunnels_only_for_init_net",
-				Val: "2", IgnoreErr: true})
-	default:
-		mode = directMode
-	}
-	args[initArgMode] = string(mode)
-
-	if !option.Config.TunnelingEnabled() && option.Config.EnableIPv4EgressGateway {
-		// Tunnel is required for egress traffic under this config
-		encapProto = option.Config.TunnelProtocol
+	if !option.Config.TunnelingEnabled() {
+		if option.Config.EnableIPv4EgressGateway || option.Config.EnableHighScaleIPcache {
+			// Tunnel is required for egress traffic under this config
+			encapProto = option.Config.TunnelProtocol
+		}
 	}
 
 	if !option.Config.TunnelingEnabled() &&
@@ -412,14 +443,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	sysctl.ApplySettings(sysSettings)
 
-	// Datapath initialization
-	hostDev1, hostDev2, err := SetupBaseDevice(deviceMTU)
-	if err != nil {
-		return fmt.Errorf("failed to setup base devices in mode %s: %w", mode, err)
-	}
-	args[initArgHostDev1] = hostDev1.Attrs().Name
-	args[initArgHostDev2] = hostDev2.Attrs().Name
-
 	if option.Config.InstallIptRules && option.Config.EnableL7Proxy {
 		args[initArgProxyRule] = "true"
 	} else {
@@ -427,6 +450,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	args[initTCFilterPriority] = "<nil>"
+	args[initDefaultRTProto] = strconv.Itoa(linux_defaults.RTProto)
+	args[initLocalRulePriority] = strconv.Itoa(linux_defaults.RulePriorityLocalLookup)
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
@@ -474,8 +499,19 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		log.WithError(err).Fatal("C and Go structs alignment check failed")
 	}
 
-	if err := l.reinitializeIPSec(ctx); err != nil {
-		return err
+	if option.Config.EnableIPSec {
+		if err := compileNetwork(ctx); err != nil {
+			log.WithError(err).Fatal("failed to compile encryption programs")
+		}
+
+		if err := l.reinitializeIPSec(ctx); err != nil {
+			return err
+		}
+
+		if firstInitialization {
+			// Start a background worker to reinitialize IPsec if links change.
+			l.reloadIPSecOnLinkChanges()
+		}
 	}
 
 	if err := l.reinitializeOverlay(ctx, encapProto); err != nil {

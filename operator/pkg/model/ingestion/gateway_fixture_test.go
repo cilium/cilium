@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -33,6 +34,71 @@ var sameNamespaceGateway = gatewayv1beta1.Gateway{
 				AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
 					Namespaces: &gatewayv1beta1.RouteNamespaces{
 						From: model.AddressOf(gatewayv1beta1.NamespacesFromSame),
+					},
+				},
+			},
+		},
+	},
+}
+
+// Base manifest
+// https://github.com/kubernetes-sigs/gateway-api/blob/v0.6.1/conformance/base/tls-route-simple-same-namespace.yaml
+var sameNamespaceTLSGateway = gatewayv1beta1.Gateway{
+	TypeMeta: metav1.TypeMeta{
+		Kind:       "Gateway",
+		APIVersion: "gateway.networking.k8s.io/v1beta1",
+	},
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "gateway-tlsroute",
+		Namespace: "gateway-conformance-infra",
+	},
+	Spec: gatewayv1beta1.GatewaySpec{
+		GatewayClassName: "cilium",
+		Listeners: []gatewayv1beta1.Listener{
+			{
+				Name:     "https",
+				Port:     443,
+				Protocol: gatewayv1beta1.TLSProtocolType,
+				AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
+					Namespaces: &gatewayv1beta1.RouteNamespaces{
+						From: model.AddressOf(gatewayv1beta1.NamespacesFromSame),
+					},
+				},
+				TLS: &gatewayv1beta1.GatewayTLSConfig{
+					Mode: model.AddressOf(gatewayv1beta1.TLSModePassthrough),
+				},
+			},
+		},
+	},
+}
+
+// Base manifest
+// https://github.com/kubernetes-sigs/gateway-api/blob/v0.6.1/conformance/base/tls-route-simple-same-namespace.yaml
+var sameNamespaceTLSRoute = gatewayv1alpha2.TLSRoute{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "gateway-conformance-infra-test",
+		Namespace: "gateway-conformance-infra",
+	},
+	Spec: gatewayv1alpha2.TLSRouteSpec{
+		CommonRouteSpec: gatewayv1alpha2.CommonRouteSpec{
+			ParentRefs: []gatewayv1beta1.ParentReference{
+				{
+					Name:      "gateway-tlsroute",
+					Namespace: model.AddressOf[gatewayv1beta1.Namespace]("gateway-conformance-infra"),
+				},
+			},
+		},
+		Hostnames: []gatewayv1beta1.Hostname{
+			"abc.example.com",
+		},
+		Rules: []gatewayv1alpha2.TLSRouteRule{
+			{
+				BackendRefs: []gatewayv1alpha2.BackendRef{
+					{
+						BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+							Name: "tls-backend",
+							Port: model.AddressOf[gatewayv1beta1.PortNumber](443),
+						},
 					},
 				},
 			},
@@ -97,6 +163,7 @@ var allServices = []corev1.Service{
 	appBackEndV1Service,
 	appBackEndV2Service,
 	webBackendService,
+	tlsBackendService,
 }
 
 var infraBackEndV1Service = corev1.Service{
@@ -204,6 +271,25 @@ var webBackendService = corev1.Service{
 		},
 		Selector: map[string]string{
 			"app": "web-backend",
+		},
+	},
+}
+
+var tlsBackendService = corev1.Service{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "tls-backend",
+		Namespace: "gateway-conformance-infra",
+	},
+	Spec: corev1.ServiceSpec{
+		Ports: []corev1.ServicePort{
+			{
+				Protocol:   "tcp",
+				Port:       443,
+				TargetPort: intstr.FromInt(8443),
+			},
+		},
+		Selector: map[string]string{
+			"app": "tls-backend",
 		},
 	},
 }

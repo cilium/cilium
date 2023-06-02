@@ -88,7 +88,7 @@ const (
 type Allocator struct {
 	// events is a channel which will receive AllocatorEvent as IDs are
 	// added, modified or removed from the allocator
-	events AllocatorEventChan
+	events AllocatorEventSendChan
 
 	// keyType is an instance of the type to be used as allocator key.
 	keyType AllocatorKey
@@ -345,7 +345,7 @@ func WithBackend(backend Backend) AllocatorOption {
 // read while NewAllocator() is being called to ensure that the channel does
 // not block indefinitely while NewAllocator() emits events on it while
 // populating the initial cache.
-func WithEvents(events AllocatorEventChan) AllocatorOption {
+func WithEvents(events AllocatorEventSendChan) AllocatorOption {
 	return func(a *Allocator) { a.events = events }
 }
 
@@ -381,7 +381,7 @@ func WithoutGC() AllocatorOption {
 // GetEvents returns the events channel given to the allocator when
 // constructed.
 // Note: This channel is not owned by the allocator!
-func (a *Allocator) GetEvents() AllocatorEventChan {
+func (a *Allocator) GetEvents() AllocatorEventSendChan {
 	return a.events
 }
 
@@ -866,6 +866,10 @@ func (a *Allocator) startLocalKeySync() {
 
 // AllocatorEventChan is a channel to receive allocator events on
 type AllocatorEventChan chan AllocatorEvent
+
+// Send- and receive-only versions of the above.
+type AllocatorEventRecvChan = <-chan AllocatorEvent
+type AllocatorEventSendChan = chan<- AllocatorEvent
 
 // AllocatorEvent is an event sent over AllocatorEventChan
 type AllocatorEvent struct {

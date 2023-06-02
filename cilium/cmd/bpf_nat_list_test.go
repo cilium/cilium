@@ -6,7 +6,7 @@ package cmd
 import (
 	"encoding/json"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/checker"
@@ -46,16 +46,16 @@ var (
 		},
 	}
 	natValue4 = nat.NatEntry4{
-		Created:   12345,
-		HostLocal: 6789,
-		Addr:      types.IPv4{10, 10, 10, 3},
-		Port:      byteorder.HostToNetwork16(53),
+		Created: 12345,
+		NeedsCT: 6789,
+		Addr:    types.IPv4{10, 10, 10, 3},
+		Port:    byteorder.HostToNetwork16(53),
 	}
 	natValue6 = nat.NatEntry6{
-		Created:   12345,
-		HostLocal: 6789,
-		Addr:      types.IPv6{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53},
-		Port:      byteorder.HostToNetwork16(53),
+		Created: 12345,
+		NeedsCT: 6789,
+		Addr:    types.IPv6{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53},
+		Port:    byteorder.HostToNetwork16(53),
 	}
 )
 

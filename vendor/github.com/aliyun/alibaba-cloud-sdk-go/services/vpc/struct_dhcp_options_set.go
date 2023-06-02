@@ -23,5 +23,7 @@ type DhcpOptionsSet struct {
 	DhcpOptionsSetName        string      `json:"DhcpOptionsSetName" xml:"DhcpOptionsSetName"`
 	AssociateVpcCount         int         `json:"AssociateVpcCount" xml:"AssociateVpcCount"`
 	OwnerId                   int64       `json:"OwnerId" xml:"OwnerId"`
+	ResourceGroupId           string      `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	DhcpOptions               DhcpOptions `json:"DhcpOptions" xml:"DhcpOptions"`
+	Tags                      []Tag       `json:"Tags" xml:"Tags"`
 }

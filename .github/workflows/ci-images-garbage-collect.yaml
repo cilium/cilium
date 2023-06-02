@@ -9,13 +9,14 @@ permissions: read-all
 
 jobs:
   scruffy:
+    if: github.repository_owner == 'cilium'
     name: scruffy
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           fetch-depth: 0
-      - uses: docker://quay.io/cilium/scruffy:v0.0.2@sha256:6492638de03f4afd05ccb487f995766ebc8f2cddf034ee211107b3b4a0cf7aa7
+      - uses: docker://quay.io/cilium/scruffy:v0.0.3@sha256:ca997451b739cbf03c204cb2523a671c31c61edc606aa5d20dc3560bc7f25bc7
         with:
           entrypoint: scruffy
           args: --git-repository=./ --stable-branches=origin/main,origin/v1.9,origin/v1.10,origin/v1.11,origin/v1.12,origin/v1.13

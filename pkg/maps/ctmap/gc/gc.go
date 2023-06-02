@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/signal"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ct-gc")
@@ -42,7 +41,6 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 	)
 
 	go func() {
-		var wakeup = make(chan signal.SignalData)
 		ipv4Orig := ipv4
 		ipv6Orig := ipv6
 		triggeredBySignal := false
@@ -110,38 +108,37 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 			if initialScan {
 				close(initialScanComplete)
 				initialScan = false
-
-				signal.RegisterChannel(signal.SignalWakeGC, wakeup)
-				signal.SetupSignalListener()
-				signal.MuteChannel(signal.SignalWakeGC)
 			}
 
 			triggeredBySignal = false
-			signal.UnmuteChannel(signal.SignalWakeGC)
+			unmuteSignals()
 			select {
 			case x := <-wakeup:
+				// mute before draining so that no more wakeups are queued just
+				// after we have drained
+				muteSignals()
 				triggeredBySignal = true
 				ipv4 = false
 				ipv6 = false
-				if x == signal.SignalProtoV4 {
+				if x == SignalProtoV4 {
 					ipv4 = true
-				} else if x == signal.SignalProtoV6 {
+				} else if x == SignalProtoV6 {
 					ipv6 = true
 				}
 				// Drain current queue since we just woke up anyway.
 				for len(wakeup) > 0 {
 					x := <-wakeup
-					if x == signal.SignalProtoV4 {
+					if x == SignalProtoV4 {
 						ipv4 = true
-					} else if x == signal.SignalProtoV6 {
+					} else if x == SignalProtoV6 {
 						ipv6 = true
 					}
 				}
 			case <-ctTimer.After(ctmap.GetInterval(maxDeleteRatio)):
+				muteSignals()
 				ipv4 = ipv4Orig
 				ipv6 = ipv6Orig
 			}
-			signal.MuteChannel(signal.SignalWakeGC)
 		}
 	}()
 

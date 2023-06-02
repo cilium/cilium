@@ -10,11 +10,13 @@
 #define ___EP_CONFIG____
 
 #ifndef LXC_IP
-#define LXC_IP_1 bpf_htonl((0xbe) << 24 | (0xef) << 16 | (0) << 8 | (0))
-#define LXC_IP_2 bpf_htonl((0) << 24 | (0) << 16 | (0) << 8 | (0x01))
-#define LXC_IP_3 bpf_htonl((0) << 24 | (0) << 16 | (0) << 8 | (0x01))
-#define LXC_IP_4 bpf_htonl((0x01) << 24 | (0x65) << 16 | (0x82) << 8 | (0xbc))
-#define LXC_IP { { LXC_IP_1, LXC_IP_2, LXC_IP_3, LXC_IP_4 } }
+#define LXC_IP_1 bpf_cpu_to_be64( \
+		(__u64)(0xbe) << 56 | (__u64)(0xef) << 48 | (__u64)(0) << 40 | (__u64)(0) << 32 | \
+		(0) << 24 | (0) << 16 | (0) << 8 | (0x01))
+#define LXC_IP_2 bpf_cpu_to_be64( \
+		(__u64)(0) << 56 | (__u64)(0) << 48 | (__u64)(0) << 40 | (__u64)(0x01) << 32 | \
+		(0x01) << 24 | (0x65) << 16 | (0x82) << 8 | (0xbc))
+#define LXC_IP { { LXC_IP_1, LXC_IP_2 } }
 #endif /* LXC_IP */
 
 #ifndef LXC_IPV4

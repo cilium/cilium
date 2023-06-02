@@ -41,6 +41,31 @@ func (o *DeleteRecorderIDOK) WriteResponse(rw http.ResponseWriter, producer runt
 	rw.WriteHeader(200)
 }
 
+// DeleteRecorderIDForbiddenCode is the HTTP code returned for type DeleteRecorderIDForbidden
+const DeleteRecorderIDForbiddenCode int = 403
+
+/*
+DeleteRecorderIDForbidden Forbidden
+
+swagger:response deleteRecorderIdForbidden
+*/
+type DeleteRecorderIDForbidden struct {
+}
+
+// NewDeleteRecorderIDForbidden creates DeleteRecorderIDForbidden with default headers values
+func NewDeleteRecorderIDForbidden() *DeleteRecorderIDForbidden {
+
+	return &DeleteRecorderIDForbidden{}
+}
+
+// WriteResponse to the client
+func (o *DeleteRecorderIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // DeleteRecorderIDNotFoundCode is the HTTP code returned for type DeleteRecorderIDNotFound
 const DeleteRecorderIDNotFoundCode int = 404
 

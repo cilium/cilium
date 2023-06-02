@@ -6,7 +6,7 @@ package logging
 import (
 	"time"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func (s *LoggingSuite) TestLimiter(c *C) {

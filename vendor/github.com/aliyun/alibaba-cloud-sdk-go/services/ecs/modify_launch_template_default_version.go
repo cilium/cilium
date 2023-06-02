@@ -83,7 +83,8 @@ type ModifyLaunchTemplateDefaultVersionRequest struct {
 // ModifyLaunchTemplateDefaultVersionResponse is the response struct for api ModifyLaunchTemplateDefaultVersion
 type ModifyLaunchTemplateDefaultVersionResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
+	RequestId        string `json:"RequestId" xml:"RequestId"`
+	LaunchTemplateId string `json:"LaunchTemplateId" xml:"LaunchTemplateId"`
 }
 
 // CreateModifyLaunchTemplateDefaultVersionRequest creates a request to invoke ModifyLaunchTemplateDefaultVersion API

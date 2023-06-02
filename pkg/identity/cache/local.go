@@ -22,10 +22,10 @@ type localIdentityCache struct {
 	nextNumericIdentity identity.NumericIdentity
 	minID               identity.NumericIdentity
 	maxID               identity.NumericIdentity
-	events              allocator.AllocatorEventChan
+	events              allocator.AllocatorEventSendChan
 }
 
-func newLocalIdentityCache(minID, maxID identity.NumericIdentity, events allocator.AllocatorEventChan) *localIdentityCache {
+func newLocalIdentityCache(minID, maxID identity.NumericIdentity, events allocator.AllocatorEventSendChan) *localIdentityCache {
 	return &localIdentityCache{
 		identitiesByID:      map[identity.NumericIdentity]*identity.Identity{},
 		identitiesByLabels:  map[string]*identity.Identity{},
@@ -190,4 +190,16 @@ func (l *localIdentityCache) GetIdentities() map[identity.NumericIdentity]*ident
 	}
 
 	return cache
+}
+
+// close closes the events channel. The local identity cache is the writing
+// party, hence also needs to close the channel.
+func (l *localIdentityCache) close() {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	if l.events != nil {
+		close(l.events)
+		l.events = nil
+	}
 }

@@ -63,7 +63,7 @@ codeowners.rst: $(ROOT_DIR)/CODEOWNERS
 .PHONY: update-codeowners
 update-codeowners: codeowners.rst
 
-check: builder-image update-cmdref update-helm-values update-codeowners ## Validate command and Helm references, as well as policy examples.
+check: builder-image api-flaggen update-cmdref update-helm-values update-codeowners ## Validate command and Helm references, as well as policy examples.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
@@ -72,27 +72,25 @@ check: builder-image update-cmdref update-helm-values update-codeowners ## Valid
 	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
 	@$(ECHO_CHECK) codeowners.rst
 	$(QUIET) ./check-codeowners.sh
+	@$(ECHO_CHECK) configuration/api-restrictions-table.rst
+	$(QUIET) ./check-flaggen.sh
 
 ifeq ($(V),0)
 SPHINX_OPTS += -q
 endif
 
+.PHONY: api-flaggen
+api-flaggen:
+	@$(ECHO_GEN) api-flags
+	$(QUIET)$(GO) run $(ROOT_DIR)/tools/api-flaggen \
+		2>/dev/null \
+		> configuration/api-restrictions-table.rst
+
 copy-api:
 	@$(ECHO_GEN)_api
 	$(QUIET)cp -r ../api/. _api
 
-# $(HELM_DOCS_IMAGE), necessary to update the reference for Helm values,
-# attempts to run a Go binary compiled for x86_64. Skip the update on other
-# architectures by making update-helm-values an empty target, unless the user
-# passes a compatible image.
-HELM_VALUES_DEP := $(HELM_VALUES)
-ifneq ($(shell uname -m),x86_64)
-  ifeq ($(origin HELM_DOCS_IMAGE), file)
-    $(info Documentation: skipping update for the Helm reference (image needs x86_64))
-    HELM_VALUES_DEP :=
-  endif
-endif
-update-helm-values: $(HELM_VALUES_DEP) ## Update the Helm reference documentation.
+update-helm-values: $(HELM_VALUES) ## Update the Helm reference documentation.
 
 HELM_DOCS_ROOT_PATH := $(DOCKER_CTR_ROOT_DIR)
 HELM_DOCS_CHARTS_DIR := $(HELM_DOCS_ROOT_PATH)/install/kubernetes

@@ -17,6 +17,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	"go.etcd.io/etcd/client/pkg/v3/tlsutil"
 	client "go.etcd.io/etcd/client/v3"
@@ -44,11 +45,15 @@ const (
 	EtcdAddrOption               = "etcd.address"
 	isEtcdOperatorOption         = "etcd.operator"
 	EtcdOptionConfig             = "etcd.config"
-	etcdOptionKeepAliveHeartbeat = "etcd.keepaliveHeartbeat"
-	etcdOptionKeepAliveTimeout   = "etcd.keepaliveTimeout"
+	EtcdOptionKeepAliveHeartbeat = "etcd.keepaliveHeartbeat"
+	EtcdOptionKeepAliveTimeout   = "etcd.keepaliveTimeout"
 
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
+
+	// EtcdListLimitOption limits the number of results retrieved in one batch
+	// by ListAndWatch operations. A 0 value equals to no limit.
+	EtcdListLimitOption = "etcd.limit"
 
 	minRequiredVersionStr = ">=3.1.0"
 
@@ -107,14 +112,14 @@ func newEtcdModule() backendModule {
 			EtcdOptionConfig: &backendOption{
 				description: "Path to etcd configuration file",
 			},
-			etcdOptionKeepAliveTimeout: &backendOption{
+			EtcdOptionKeepAliveTimeout: &backendOption{
 				description: "Timeout after which an unanswered heartbeat triggers the connection to be closed",
 				validate: func(v string) error {
 					_, err := time.ParseDuration(v)
 					return err
 				},
 			},
-			etcdOptionKeepAliveHeartbeat: &backendOption{
+			EtcdOptionKeepAliveHeartbeat: &backendOption{
 				description: "Heartbeat interval to keep gRPC connection alive",
 				validate: func(v string) error {
 					_, err := time.ParseDuration(v)
@@ -123,6 +128,13 @@ func newEtcdModule() backendModule {
 			},
 			EtcdRateLimitOption: &backendOption{
 				description: "Rate limit in kv store operations per second",
+				validate: func(v string) error {
+					_, err := strconv.Atoi(v)
+					return err
+				},
+			},
+			EtcdListLimitOption: &backendOption{
+				description: "Max number of results retrieved in one batch by ListAndWatch operations (0 = no limit)",
 				validate: func(v string) error {
 					_, err := strconv.Atoi(v)
 					return err
@@ -171,6 +183,7 @@ type clientOptions struct {
 	KeepAliveHeartbeat time.Duration
 	KeepAliveTimeout   time.Duration
 	RateLimit          int
+	ListBatchSize      int
 }
 
 func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
@@ -180,17 +193,22 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 		KeepAliveHeartbeat: 15 * time.Second,
 		KeepAliveTimeout:   25 * time.Second,
 		RateLimit:          defaults.KVstoreQPS,
+		ListBatchSize:      256,
 	}
 
 	if o, ok := e.opts[EtcdRateLimitOption]; ok && o.value != "" {
 		clientOptions.RateLimit, _ = strconv.Atoi(o.value)
 	}
 
-	if o, ok := e.opts[etcdOptionKeepAliveTimeout]; ok && o.value != "" {
+	if o, ok := e.opts[EtcdListLimitOption]; ok && o.value != "" {
+		clientOptions.ListBatchSize, _ = strconv.Atoi(o.value)
+	}
+
+	if o, ok := e.opts[EtcdOptionKeepAliveTimeout]; ok && o.value != "" {
 		clientOptions.KeepAliveTimeout, _ = time.ParseDuration(o.value)
 	}
 
-	if o, ok := e.opts[etcdOptionKeepAliveHeartbeat]; ok && o.value != "" {
+	if o, ok := e.opts[EtcdOptionKeepAliveHeartbeat]; ok && o.value != "" {
 		clientOptions.KeepAliveHeartbeat, _ = time.ParseDuration(o.value)
 	}
 
@@ -227,6 +245,7 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 		"KeepAliveHeartbeat": clientOptions.KeepAliveHeartbeat,
 		"KeepAliveTimeout":   clientOptions.KeepAliveTimeout,
 		"RateLimit":          clientOptions.RateLimit,
+		"ListLimit":          clientOptions.ListBatchSize,
 	}).Info("Creating etcd client")
 
 	for {
@@ -311,7 +330,8 @@ type etcdClient struct {
 
 	extraOptions *ExtraOptions
 
-	limiter *rate.Limiter
+	limiter       *rate.Limiter
+	listBatchSize int
 
 	lastHeartbeat time.Time
 }
@@ -705,6 +725,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		stopStatusChecker:    make(chan struct{}),
 		extraOptions:         opts,
 		limiter:              rate.NewLimiter(rate.Limit(clientOptions.RateLimit), clientOptions.RateLimit),
+		listBatchSize:        clientOptions.ListBatchSize,
 		statusCheckErrors:    make(chan error, 128),
 	}
 
@@ -982,8 +1003,7 @@ reList:
 		}
 
 		e.limiter.Wait(ctx)
-		res, err := e.client.Get(ctx, w.Prefix, client.WithPrefix(),
-			client.WithSerializable())
+		kvs, revision, err := e.paginatedList(ctx, scopedLog, w.Prefix)
 		if err != nil {
 			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
 			errLimiter.Wait(ctx)
@@ -991,33 +1011,25 @@ reList:
 		}
 		errLimiter.Reset()
 
-		nextRev := res.Header.Revision + 1
-		scopedLog.Debugf("List response from etcd len=%d: %+v", res.Count, res)
-
-		if res.Count > 0 {
-			for _, key := range res.Kvs {
-				t := EventTypeCreate
-				if localCache.Exists(key.Key) {
-					t = EventTypeModify
-				}
-
-				localCache.MarkInUse(key.Key)
-				scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
-
-				queueStart := spanstat.Start()
-				w.Events <- KeyValueEvent{
-					Key:   string(key.Key),
-					Value: key.Value,
-					Typ:   t,
-				}
-				trackEventQueued(string(key.Key), t, queueStart.End(true).Total())
+		for _, key := range kvs {
+			t := EventTypeCreate
+			if localCache.Exists(key.Key) {
+				t = EventTypeModify
 			}
+
+			localCache.MarkInUse(key.Key)
+			scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
+
+			queueStart := spanstat.Start()
+			w.Events <- KeyValueEvent{
+				Key:   string(key.Key),
+				Value: key.Value,
+				Typ:   t,
+			}
+			trackEventQueued(string(key.Key), t, queueStart.End(true).Total())
 		}
 
-		// More keys to be read, call Get() again
-		if res.More {
-			continue
-		}
+		nextRev := revision + 1
 
 		// Send out deletion events for all keys that were deleted
 		// between our last known revision and the latest revision
@@ -1108,6 +1120,39 @@ reList:
 				}
 			}
 		}
+	}
+}
+
+func (e *etcdClient) paginatedList(ctx context.Context, log *logrus.Entry, prefix string) (kvs []*mvccpb.KeyValue, revision int64, err error) {
+	start, end := prefix, client.GetPrefixRangeEnd(prefix)
+
+	for {
+		res, err := e.client.Get(ctx, start, client.WithRange(end),
+			client.WithSort(client.SortByKey, client.SortAscend),
+			client.WithRev(revision), client.WithSerializable(),
+			client.WithLimit(int64(e.listBatchSize)),
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		log.WithFields(logrus.Fields{
+			fieldNumEntries:       len(res.Kvs),
+			fieldRemainingEntries: res.Count - int64(len(res.Kvs)),
+		}).Debug("Received list response from etcd")
+
+		if kvs == nil {
+			kvs = make([]*mvccpb.KeyValue, 0, res.Count)
+		}
+
+		kvs = append(kvs, res.Kvs...)
+
+		revision = res.Header.Revision
+		if !res.More || len(res.Kvs) == 0 {
+			return kvs, revision, nil
+		}
+
+		start = string(res.Kvs[len(res.Kvs)-1].Key) + "\x00"
 	}
 }
 
@@ -1357,7 +1402,7 @@ func (e *etcdClient) createOpPut(key string, value []byte, leaseID client.LeaseI
 	return &op
 }
 
-// UpdateIfLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
+// UpdateIfLocked updates a key if the client is still holding the given lock.
 func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) error {
 	if err := e.waitForInitialSession(ctx); err != nil {
 		return err

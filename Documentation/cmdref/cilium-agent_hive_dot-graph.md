@@ -18,13 +18,17 @@ cilium-agent hive dot-graph [flags]
 
 ```
       --certificates-directory string                    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
+      --clustermesh-config string                        Path to the ClusterMesh configuration directory
       --cni-chaining-mode string                         Enable CNI chaining with the specified plugin (default "none")
+      --cni-chaining-target string                       CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.
       --cni-exclusive                                    Whether to remove other CNI configurations
       --cni-log-file string                              Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")
+      --egress-gateway-policy-map-max int                Maximum number of entries in egress gateway policy map (default 16384)
       --enable-cilium-api-server-access strings          List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-health-api-server-access strings   List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-k8s                                       Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                         Enable discovery of Kubernetes API groups and resources with the discovery API
+      --enable-monitor                                   Enable the monitor unix domain socket server (default true)
       --gops-port uint16                                 Port for gops server to listen on (default 9890)
       --install-egress-gateway-routes                    Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
       --k8s-api-server string                            Kubernetes API server URL
@@ -32,11 +36,12 @@ cilium-agent hive dot-graph [flags]
       --k8s-client-qps float32                           Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration                   Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                       Absolute path of the kubernetes kubeconfig file
-      --mesh-auth-monitor-queue-size int                 Queue size for the auth monitor (default 1024)
       --mesh-auth-mtls-listener-port int                 Port on which the Cilium Agent will perfom mTLS handshakes between other Agents
+      --mesh-auth-queue-size int                         Queue size for the auth manager (default 1024)
       --mesh-auth-rotated-identities-queue-size int      The size of the queue for signaling rotated identities. (default 1024)
       --mesh-auth-spiffe-trust-domain string             The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-admin-socket string              The path for the SPIRE admin agent Unix socket.
+      --monitor-queue-size int                           Size of the event queue when reading monitor events
       --pprof                                            Enable serving pprof debugging API
       --pprof-address string                             Address that pprof listens on (default "localhost")
       --pprof-port uint16                                Port that pprof listens on (default 6060)

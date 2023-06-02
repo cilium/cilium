@@ -59,6 +59,7 @@ $(SUBDIRS): force ## Execute default make target(make all) for the provided subd
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
 tests-privileged: ## Run Go tests including ones that require elevated privileges.
+	@$(ECHO_CHECK) running privileged tests...
 	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
 		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
@@ -112,6 +113,7 @@ integration-tests: start-kvstores ## Run Go tests including ones that are marked
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
 endif
+	@$(ECHO_CHECK) running integration tests...
 	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 	$(MAKE) stop-kvstores
@@ -411,7 +413,7 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to microk8s
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_OPERATOR_IMAGE)
 
 kind: ## Create a kind cluster for Cilium development.
-	$(QUIET)./contrib/scripts/kind.sh
+	SED=$(SED) $(QUIET)./contrib/scripts/kind.sh
 
 kind-down: ## Destroy a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind-down.sh
@@ -457,27 +459,27 @@ $(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
 kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
 	kubectl config use kind-clustermesh1
-	-cilium uninstall >/dev/null
-	cilium install \
+	-$(CILIUM_CLI) uninstall >/dev/null
+	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
 		--version=
 	@echo "  INSTALL cilium on clustermesh2 cluster"
 	kubectl config use kind-clustermesh2
-	-cilium uninstall >/dev/null
-	cilium install \
+	-$(CILIUM_CLI) uninstall >/dev/null
+	$(CILIUM_CLI) install \
 		--inherit-ca kind-clustermesh1 \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
 		--version=
 	@echo "  Enabling clustermesh"
-	cilium clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
-	cilium clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
-	cilium clustermesh status --context kind-clustermesh1 --wait
-	cilium clustermesh status --context kind-clustermesh2 --wait
-	cilium clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
-	cilium clustermesh status --context kind-clustermesh1 --wait
-	cilium clustermesh status --context kind-clustermesh2 --wait
+	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
+	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
+	$(CILIUM_CLI) clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
+	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
 
 
 .PHONY: kind-ready
@@ -516,20 +518,25 @@ kind-install-cilium: kind-ready ## Install a local Cilium version into the clust
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
-	-cilium uninstall >/dev/null
+	-$(CILIUM_CLI) uninstall >/dev/null
 	# cilium-cli's --wait flag doesn't work, so we just force it to run
 	# in the background instead and wait for the resources to be available.
 	# https://github.com/cilium/cilium-cli/issues/1070
-	cilium install \
+	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-values.yaml \
 		--version= \
 		>/dev/null 2>&1 &
 
+.PHONY: kind-uninstall-cilium
+kind-uninstall-cilium: ## Uninstall Cilium from the cluster.
+	@echo "  UNINSTALL cilium"
+	-$(CILIUM_CLI) uninstall
+
 .PHONY: kind-check-cilium
 kind-check-cilium:
 	@echo "  CHECK  cilium is ready..."
-	cilium status --wait --wait-duration 1s >/dev/null 2>/dev/null
+	$(CILIUM_CLI) status --wait --wait-duration 1s >/dev/null 2>/dev/null
 
 # Template for kind debug targets. Parameters are:
 # $(1) agent target

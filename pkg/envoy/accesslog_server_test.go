@@ -6,8 +6,8 @@ package envoy
 import (
 	"encoding/json"
 
+	. "github.com/cilium/checkmate"
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )

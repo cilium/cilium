@@ -23,6 +23,8 @@ type backendOption struct {
 
 type backendOptions map[string]*backendOption
 
+type ClusterSizeDependantIntervalFunc func(baseInterval time.Duration) time.Duration
+
 // ExtraOptions represents any options that can not be represented in a textual
 // format and need to be set programmatically.
 type ExtraOptions struct {
@@ -30,7 +32,7 @@ type ExtraOptions struct {
 
 	// ClusterSizeDependantInterval defines the function to calculate
 	// intervals based on cluster size
-	ClusterSizeDependantInterval func(baseInterval time.Duration) time.Duration
+	ClusterSizeDependantInterval ClusterSizeDependantIntervalFunc
 
 	// NoLockQuorumCheck disables the lock acquisition quorum check
 	NoLockQuorumCheck bool
@@ -155,18 +157,18 @@ type BackendOperations interface {
 	// Set sets value of key
 	Set(ctx context.Context, key string, value []byte) error
 
-	// Delete deletes a key
+	// Delete deletes a key. It does not return an error if the key does not exist.
 	Delete(ctx context.Context, key string) error
 
-	// DeleteIfLocked deletes a key if the client is still holding the given lock.
+	// DeleteIfLocked deletes a key if the client is still holding the given lock. It does not return an error if the key does not exist.
 	DeleteIfLocked(ctx context.Context, key string, lock KVLocker) error
 
 	DeletePrefix(ctx context.Context, path string) error
 
-	// Update atomically creates a key or fails if it already exists
+	// Update creates or updates a key.
 	Update(ctx context.Context, key string, value []byte, lease bool) error
 
-	// UpdateIfLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
+	// UpdateIfLocked updates a key if the client is still holding the given lock.
 	UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) error
 
 	// UpdateIfDifferent updates a key if the value is different

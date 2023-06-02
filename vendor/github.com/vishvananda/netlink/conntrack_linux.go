@@ -149,20 +149,26 @@ type ConntrackFlow struct {
 	TimeStart  uint64
 	TimeStop   uint64
 	TimeOut    uint32
+	Labels     []byte
 }
 
 func (s *ConntrackFlow) String() string {
 	// conntrack cmd output:
-	// udp      17 src=127.0.0.1 dst=127.0.0.1 sport=4001 dport=1234 packets=5 bytes=532 [UNREPLIED] src=127.0.0.1 dst=127.0.0.1 sport=1234 dport=4001 packets=10 bytes=1078 mark=0
+	// udp      17 src=127.0.0.1 dst=127.0.0.1 sport=4001 dport=1234 packets=5 bytes=532 [UNREPLIED] src=127.0.0.1 dst=127.0.0.1 sport=1234 dport=4001 packets=10 bytes=1078 mark=0 labels=0x00000000050012ac4202010000000000
 	//             start=2019-07-26 01:26:21.557800506 +0000 UTC stop=1970-01-01 00:00:00 +0000 UTC timeout=30(sec)
 	start := time.Unix(0, int64(s.TimeStart))
 	stop := time.Unix(0, int64(s.TimeStop))
 	timeout := int32(s.TimeOut)
-	return fmt.Sprintf("%s\t%d src=%s dst=%s sport=%d dport=%d packets=%d bytes=%d\tsrc=%s dst=%s sport=%d dport=%d packets=%d bytes=%d mark=0x%x start=%v stop=%v timeout=%d(sec)",
+	res := fmt.Sprintf("%s\t%d src=%s dst=%s sport=%d dport=%d packets=%d bytes=%d\tsrc=%s dst=%s sport=%d dport=%d packets=%d bytes=%d mark=0x%x ",
 		nl.L4ProtoMap[s.Forward.Protocol], s.Forward.Protocol,
 		s.Forward.SrcIP.String(), s.Forward.DstIP.String(), s.Forward.SrcPort, s.Forward.DstPort, s.Forward.Packets, s.Forward.Bytes,
 		s.Reverse.SrcIP.String(), s.Reverse.DstIP.String(), s.Reverse.SrcPort, s.Reverse.DstPort, s.Reverse.Packets, s.Reverse.Bytes,
-		s.Mark, start, stop, timeout)
+		s.Mark)
+	if len(s.Labels) > 0 {
+		res += fmt.Sprintf("labels=0x%x ", s.Labels)
+	}
+	res += fmt.Sprintf("start=%v stop=%v timeout=%d(sec)", start, stop, timeout)
+	return res
 }
 
 // This method parse the ip tuple structure
@@ -306,6 +312,12 @@ func parseConnectionMark(r *bytes.Reader) (mark uint32) {
 	return
 }
 
+func parseConnectionLabels(r *bytes.Reader) (label []byte) {
+	label = make([]byte, 16) // netfilter defines 128 bit labels value
+	binary.Read(r, nl.NativeEndian(), &label)
+	return
+}
+
 func parseRawData(data []byte) *ConntrackFlow {
 	s := &ConntrackFlow{}
 	// First there is the Nfgenmsg header
@@ -351,6 +363,8 @@ func parseRawData(data []byte) *ConntrackFlow {
 			switch t {
 			case nl.CTA_MARK:
 				s.Mark = parseConnectionMark(reader)
+			case nl.CTA_LABELS:
+				s.Labels = parseConnectionLabels(reader)
 			case nl.CTA_TIMEOUT:
 				s.TimeOut = parseTimeOut(reader)
 			case nl.CTA_STATUS, nl.CTA_USE, nl.CTA_ID:
@@ -406,6 +420,8 @@ const (
 	ConntrackReplyAnyIP                        // Match source or destination reply IP
 	ConntrackOrigSrcPort                       // --orig-port-src port    Source port in original direction
 	ConntrackOrigDstPort                       // --orig-port-dst port    Destination port in original direction
+	ConntrackMatchLabels                       // --label label1,label2   Labels used in entry
+	ConntrackUnmatchLabels                     // --label label1,label2   Labels not used in entry
 	ConntrackNatSrcIP    = ConntrackReplySrcIP // deprecated use instead ConntrackReplySrcIP
 	ConntrackNatDstIP    = ConntrackReplyDstIP // deprecated use instead ConntrackReplyDstIP
 	ConntrackNatAnyIP    = ConntrackReplyAnyIP // deprecated use instead ConntrackReplyAnyIP
@@ -421,6 +437,7 @@ type ConntrackFilter struct {
 	ipNetFilter map[ConntrackFilterType]*net.IPNet
 	portFilter  map[ConntrackFilterType]uint16
 	protoFilter uint8
+	labelFilter map[ConntrackFilterType][][]byte
 }
 
 // AddIPNet adds a IP subnet to the conntrack filter
@@ -474,10 +491,34 @@ func (f *ConntrackFilter) AddProtocol(proto uint8) error {
 	return nil
 }
 
+// AddLabels adds the provided list (zero or more) of labels to the conntrack filter
+// ConntrackFilterType here can be either:
+// 1) ConntrackMatchLabels: This matches every flow that has a label value (len(flow.Labels) > 0)
+//    against the list of provided labels. If `flow.Labels` contains ALL the provided labels
+//    it is considered a match. This can be used when you want to match flows that contain
+//    one or more labels.
+// 2) ConntrackUnmatchLabels:  This matches every flow that has a label value (len(flow.Labels) > 0)
+//    against the list of provided labels. If `flow.Labels` does NOT contain ALL the provided labels
+//    it is considered a match. This can be used when you want to match flows that don't contain
+//    one or more labels.
+func (f *ConntrackFilter) AddLabels(tp ConntrackFilterType, labels [][]byte) error {
+	if len(labels) == 0 {
+		return errors.New("Invalid length for provided labels")
+	}
+	if f.labelFilter == nil {
+		f.labelFilter = make(map[ConntrackFilterType][][]byte)
+	}
+	if _, ok := f.labelFilter[tp]; ok {
+		return errors.New("Filter attribute already present")
+	}
+	f.labelFilter[tp] = labels
+	return nil
+}
+
 // MatchConntrackFlow applies the filter to the flow and returns true if the flow matches the filter
 // false otherwise
 func (f *ConntrackFilter) MatchConntrackFlow(flow *ConntrackFlow) bool {
-	if len(f.ipNetFilter) == 0 && len(f.portFilter) == 0 && f.protoFilter == 0 {
+	if len(f.ipNetFilter) == 0 && len(f.portFilter) == 0 && f.protoFilter == 0 && len(f.labelFilter) == 0 {
 		// empty filter always not match
 		return false
 	}
@@ -528,6 +569,29 @@ func (f *ConntrackFilter) MatchConntrackFlow(flow *ConntrackFlow) bool {
 		// -orig-port-dst port	Destination port from original direction
 		if elem, found := f.portFilter[ConntrackOrigDstPort]; match && found {
 			match = match && elem == flow.Forward.DstPort
+		}
+	}
+
+	// Label filter
+	if len(f.labelFilter) > 0 {
+		if len(flow.Labels) > 0 {
+			// --label label1,label2 in conn entry;
+			// every label passed should be contained in flow.Labels for a match to be true
+			if elem, found := f.labelFilter[ConntrackMatchLabels]; match && found {
+				for _, label := range elem {
+					match = match && (bytes.Contains(flow.Labels, label))
+				}
+			}
+			// --label label1,label2 in conn entry;
+			// every label passed should be not contained in flow.Labels for a match to be true
+			if elem, found := f.labelFilter[ConntrackUnmatchLabels]; match && found {
+				for _, label := range elem {
+					match = match && !(bytes.Contains(flow.Labels, label))
+				}
+			}
+		} else {
+			// flow doesn't contain labels, so it doesn't contain or notContain any provided matches
+			match = false
 		}
 	}
 

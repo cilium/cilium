@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -131,7 +132,7 @@ func EnableMetrics(log logrus.FieldLogger, metricsServer string, m []string, grp
 	}
 	go func() {
 		err := <-errChan
-		if err != nil {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.WithError(err).Error("Unable to initialize metrics server")
 		}
 	}()

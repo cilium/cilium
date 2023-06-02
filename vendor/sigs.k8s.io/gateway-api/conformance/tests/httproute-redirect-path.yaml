@@ -1,0 +1,73 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: redirect-path
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /original-prefix
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /replacement-prefix
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /full
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /full-path-replacement
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /path-and-host
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        hostname: example.org
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /replacement-prefix
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /path-and-status
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /replacement-prefix
+        statusCode: 301
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /full-path-and-host
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        hostname: example.org
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /replacement-full
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /full-path-and-status
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /replacement-full
+        statusCode: 301

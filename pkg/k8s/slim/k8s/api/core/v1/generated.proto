@@ -335,6 +335,10 @@ message NodeSpec {
   // +patchStrategy=merge
   repeated string podCIDRs = 7;
 
+  // ID of the node assigned by the cloud provider in the format: <ProviderName>://<ProviderSpecificNodeID>
+  // +optional
+  optional string providerID = 3;
+
   // If specified, the node's taints.
   // +optional
   repeated Taint taints = 5;

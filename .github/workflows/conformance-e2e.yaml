@@ -65,7 +65,8 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.2
+  cilium_cli_version: v0.14.5
+  cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -169,32 +170,32 @@ jobs:
       github.event_name == 'pull_request'
     strategy:
       fail-fast: false
-      max-parallel: 8
+      max-parallel: 16
       matrix:
         include:
           # See https://github.com/cilium/cilium/issues/20606 for configuration table
 
           - name: '1'
-            kernel: '4.19-main'
+            kernel: '4.19-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
 
           - name: '2'
-            kernel: '5.4-main'
+            kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
 
           - name: '3'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
             endpoint-routes: 'true'
 
           - name: '4'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -203,7 +204,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '5'
-            kernel: '5.15-main'
+            kernel: '5.15-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -213,7 +214,7 @@ jobs:
             host-fw: 'true'
 
           - name: '6'
-            kernel: '6.0-main'
+            kernel: '6.0-20230420.212204'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -223,7 +224,7 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '7'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -232,14 +233,14 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '8'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'geneve'
             endpoint-routes: 'true'
 
           - name: '9'
-            kernel: '4.19-main'
+            kernel: '4.19-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
@@ -247,7 +248,7 @@ jobs:
             encryption-node: 'false'
 
           - name: '10'
-            kernel: '5.4-main'
+            kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
@@ -255,7 +256,7 @@ jobs:
             encryption-node: 'false'
 
           - name: '11'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
@@ -264,7 +265,7 @@ jobs:
             endpoint-routes: 'true'
 
           - name: '12'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -275,7 +276,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '13'
-            kernel: '5.15-main'
+            kernel: '5.15-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -286,7 +287,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '14'
-            kernel: '6.0-main'
+            kernel: '6.0-20230420.212204'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -296,7 +297,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '15'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -306,7 +307,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '16'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'geneve'
@@ -339,13 +340,13 @@ jobs:
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
-            --rollback=false \
-            --config monitor-aggregation=none \
+            --helm-set=hubble.eventBufferCapacity=65535 \
+            --helm-set=bpf.monitorAggregation=none \
             --nodes-without-cilium=kind-worker3 \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
           TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
+            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16 --helm-set-string=tunnel=disabled"
             TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
           fi
           LB_MODE=""
@@ -368,7 +369,7 @@ jobs:
           fi
           EGRESS_GATEWAY=""
           if [ "${{ matrix.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true"
+            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true --helm-set=debug.enabled=true"
           fi
           LB_ACCELERATION=""
           if [ "${{ matrix.lb-acceleration }}" != "" ]; then
@@ -377,9 +378,9 @@ jobs:
 
           ENCRYPT=""
           if [ "${{ matrix.encryption }}" != "" ]; then
-            ENCRYPT="--encryption=${{ matrix.encryption }}"
+            ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
             if [ "${{ matrix.encryption-node }}" != "" ]; then
-              ENCRYPT+=" --node-encryption=${{ matrix.encryption-node }}"
+              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ matrix.encryption-node }}"
             fi
           fi
 
@@ -397,20 +398,16 @@ jobs:
           ref: ${{ needs.setup-report.outputs.sha }}
           persist-credentials: false
 
-      - name: Install cilium-cli
-        shell: bash
-        run: |
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          mkdir cilium-cli-tmp
-          tar xzvfC cilium-linux-amd64.tar.gz cilium-cli-tmp
-          mv ./cilium-cli-tmp/cilium cilium-cli
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          rmdir cilium-cli-tmp
-          ./cilium-cli version
+      - name: Install Cilium CLI-cli
+        uses: cilium/cilium-cli@d610d6e2774e29aef9565bad935e3b4943d541af # v0.14.5
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
+          binary-name: cilium-cli
+          binary-dir: ./
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
         with:
           test-name: e2e-conformance
           image-version: ${{ matrix.kernel }}
@@ -430,26 +427,33 @@ jobs:
           done
 
       - name: Run tests
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
         with:
           provision: 'false'
           cmd: |
             cd /host/
             ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
-            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+            if [ "${{ matrix.encryption }}" == "ipsec" ]; then
+              kubectl create -n kube-system secret generic cilium-ipsec-keys \
+                --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+            fi
+
+            CILIUM_CLI_MODE=helm ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-            ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
-            ./cilium-cli connectivity test --collect-sysdump-on-failure \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+
             ./contrib/scripts/kind-down.sh
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@657fd0df35e4edfd7815efdae14ca44ea1e74897 # v0.0.4
         with:
           provision: 'false'
           cmd: |

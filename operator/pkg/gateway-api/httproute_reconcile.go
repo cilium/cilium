@@ -138,10 +138,14 @@ func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 			continue
 		}
 
+		if !hasMatchingController(ctx, c, controllerName)(gw) {
+			continue
+		}
+
 		if !isAllowed(ctx, c, gw, hr) {
 			// Gateway is not attachable, update the status for this HTTPRoute
 			mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
-				httpRouteAcceptedCondition(hr, false, "HTTPRoute is not allowed"),
+				httpRouteNotAllowedByListenersCondition(hr, "HTTPRoute is not allowed"),
 			})
 			continue
 		}
@@ -162,7 +166,7 @@ func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 			}
 		}
 
-		if len(computeHosts(gw, hr)) == 0 {
+		if len(computeHosts(gw, hr.Spec.Hostnames)) == 0 {
 			// No matching host, update the status for this HTTPRoute
 			mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
 				httpNoMatchingListenerHostnameRouteCondition(hr, "No matching listener hostname"),

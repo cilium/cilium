@@ -166,11 +166,12 @@ type Key interface {
 	Marshal() ([]byte, error)
 
 	// Unmarshal is called when an update from the kvstore is received. The
+	// prefix configured for the store is removed from the key, and the
 	// byte slice passed to the function is coming from the Marshal
 	// function from another collaborator. The function must unmarshal and
 	// update the underlying data type. It is typically a good idea to use
 	// json.Unmarshal to implement this function.
-	Unmarshal(data []byte) error
+	Unmarshal(key string, data []byte) error
 }
 
 // LocalKey is a Key owned by the local store instance
@@ -179,6 +180,24 @@ type LocalKey interface {
 
 	// DeepKeyCopy must return a deep copy of the key
 	DeepKeyCopy() LocalKey
+}
+
+// KVPair represents a basic implementation of the LocalKey interface
+type KVPair struct{ Key, Value string }
+
+func NewKVPair(key, value string) *KVPair { return &KVPair{Key: key, Value: value} }
+func KVPairCreator() Key                  { return &KVPair{} }
+
+func (kv *KVPair) GetKeyName() string       { return kv.Key }
+func (kv *KVPair) Marshal() ([]byte, error) { return []byte(kv.Value), nil }
+
+func (kv *KVPair) Unmarshal(key string, data []byte) error {
+	kv.Key, kv.Value = key, string(data)
+	return nil
+}
+
+func (kv *KVPair) DeepKeyCopy() LocalKey {
+	return NewKVPair(kv.Key, kv.Value)
 }
 
 // JoinSharedStore creates a new shared store based on the provided
@@ -391,7 +410,7 @@ func (s *SharedStore) getLogger() *logrus.Entry {
 
 func (s *SharedStore) updateKey(name string, value []byte) error {
 	newKey := s.conf.KeyCreator()
-	if err := newKey.Unmarshal(value); err != nil {
+	if err := newKey.Unmarshal(name, value); err != nil {
 		return err
 	}
 

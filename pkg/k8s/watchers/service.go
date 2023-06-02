@@ -36,7 +36,7 @@ func (k *K8sWatcher) serviceEventLoop(synced *atomic.Bool, swg *lock.StoppableWa
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	events := k.sharedResources.Services.Events(ctx)
+	events := k.resources.Services.Events(ctx)
 	for {
 		select {
 		case <-k.stop:

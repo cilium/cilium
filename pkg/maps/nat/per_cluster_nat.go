@@ -6,24 +6,23 @@ package nat
 import (
 	"errors"
 	"fmt"
-	"os"
+	"io/fs"
 	"strconv"
-	"syscall"
 	"unsafe"
 
-	"golang.org/x/sys/unix"
+	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
-	mapNamePerClusterSnat4Global = "cilium_per_cluster_snat_v4_external"
-	mapNamePerClusterSnat6Global = "cilium_per_cluster_snat_v6_external"
-	innerMapNamePrefix4          = MapNameSnat4Global + "_"
-	innerMapNamePrefix6          = MapNameSnat6Global + "_"
-	perClusterNATMapMaxEntries   = cmtypes.ClusterIDMax + 1
+	PerClusterNATOuterMapPrefix     = "cilium_per_cluster_snat_"
+	perClusterNATIPv4OuterMapSuffix = "v4_external"
+	perClusterNATIPv6OuterMapSuffix = "v6_external"
+	perClusterNATMapMaxEntries      = cmtypes.ClusterIDMax + 1
 )
 
 // Global interface to interact with IPv4 and v6 NAT maps. We can choose the
@@ -95,34 +94,25 @@ func newPerClusterNATMap(name string, v4 bool, innerMapEntries int) (*PerCluster
 		valSize = uint32(unsafe.Sizeof(NatEntry6{}))
 	}
 
-	fd, err := bpf.CreateMap(
-		bpf.MapTypeLRUHash,
-		keySize,
-		valSize,
-		uint32(innerMapEntries),
-		0, 0,
-		name+"_tmp",
-	)
-	if err != nil {
-		return nil, err
+	inner := &ebpf.MapSpec{
+		Type:       ebpf.LRUHash,
+		KeySize:    keySize,
+		ValueSize:  valSize,
+		MaxEntries: uint32(innerMapEntries),
 	}
 
-	defer syscall.Close(fd)
-
-	om := bpf.NewMap(
+	om := bpf.NewMapWithInnerSpec(
 		name,
 		bpf.MapTypeArrayOfMaps,
 		&PerClusterNATMapKey{},
-		int(unsafe.Sizeof(PerClusterNATMapKey{})),
 		&PerClusterNATMapVal{},
-		int(unsafe.Sizeof(PerClusterNATMapVal{})),
 		perClusterNATMapMaxEntries,
 		0,
-		uint32(fd),
+		inner,
 		bpf.ConvertKeyValue,
 	)
 
-	if _, err := om.OpenOrCreate(); err != nil {
+	if err := om.OpenOrCreate(); err != nil {
 		return nil, err
 	}
 
@@ -137,23 +127,14 @@ func (om *PerClusterNATMap) newInnerMap(name string) *Map {
 	return NewMap(name, om.v4, om.innerMapEntries)
 }
 
-func (om *PerClusterNATMap) getInnerMapName(clusterID uint32) string {
-	if om.v4 {
-		return innerMapNamePrefix4 + strconv.FormatUint(uint64(clusterID), 10)
-	} else {
-		return innerMapNamePrefix6 + strconv.FormatUint(uint64(clusterID), 10)
-	}
-}
-
 func (om *PerClusterNATMap) updateClusterNATMap(clusterID uint32) error {
 	if err := cmtypes.ValidateClusterID(clusterID); err != nil {
 		return err
 	}
 
-	im := om.newInnerMap(om.getInnerMapName(clusterID))
+	im := om.newInnerMap(getInnerMapName(om.Name(), clusterID))
 
-	_, err := im.OpenOrCreate()
-	if err != nil {
+	if err := im.OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -161,7 +142,7 @@ func (om *PerClusterNATMap) updateClusterNATMap(clusterID uint32) error {
 
 	if err := om.Update(
 		&PerClusterNATMapKey{clusterID},
-		&PerClusterNATMapVal{uint32(im.GetFd())},
+		&PerClusterNATMapVal{uint32(im.FD())},
 	); err != nil {
 		return err
 	}
@@ -174,9 +155,12 @@ func (om *PerClusterNATMap) deleteClusterNATMap(clusterID uint32) error {
 		return err
 	}
 
-	im := om.newInnerMap(om.getInnerMapName(clusterID))
+	im := om.newInnerMap(getInnerMapName(om.Name(), clusterID))
 
-	if _, err := im.OpenOrCreate(); err != nil {
+	if err := im.Open(); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		return err
 	}
 
@@ -199,27 +183,28 @@ func (om *PerClusterNATMap) getClusterNATMap(clusterID uint32) (*Map, error) {
 		return nil, err
 	}
 
-	im := om.newInnerMap(om.getInnerMapName(clusterID))
+	im := om.newInnerMap(getInnerMapName(om.Name(), clusterID))
 
 	if err := im.Open(); err != nil {
-		if pathErr, ok := err.(*os.PathError); ok && errors.Is(pathErr.Err, unix.ENOENT) {
-			return nil, nil
-		}
+		return nil, fmt.Errorf("open inner map: %w", err)
 	}
 
 	return im, nil
 }
 
 func (om *PerClusterNATMap) cleanup() {
-	for i := uint32(1); i < perClusterNATMapMaxEntries; i++ {
-		om.deleteClusterNATMap(i)
+	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
+		err := om.deleteClusterNATMap(i)
+		if err != nil {
+			log.WithError(err).WithField(logfields.ClusterID, i).Error("Failed to cleanup per-cluster NAT map")
+		}
 	}
 	om.Unpin()
 	om.Close()
 }
 
-func InitPerClusterNATMaps(ipv4, ipv6 bool, innerMapEntries int) error {
-	gm, err := newPerClusterNATMaps(ipv4, ipv6, innerMapEntries)
+func InitPerClusterNATMaps(outerMapNamePrefix string, ipv4, ipv6 bool, innerMapEntries int) error {
+	gm, err := newPerClusterNATMaps(outerMapNamePrefix, ipv4, ipv6, innerMapEntries)
 	if err != nil {
 		return err
 	}
@@ -229,7 +214,11 @@ func InitPerClusterNATMaps(ipv4, ipv6 bool, innerMapEntries int) error {
 	return nil
 }
 
-func newPerClusterNATMaps(ipv4, ipv6 bool, innerMapEntries int) (*perClusterNATMaps, error) {
+func getInnerMapName(outerMapName string, clusterID uint32) string {
+	return outerMapName + "_" + strconv.FormatUint(uint64(clusterID), 10)
+}
+
+func newPerClusterNATMaps(outerMapNamePrefix string, ipv4, ipv6 bool, innerMapEntries int) (*perClusterNATMaps, error) {
 	var err error
 
 	gm := &perClusterNATMaps{}
@@ -246,14 +235,14 @@ func newPerClusterNATMaps(ipv4, ipv6 bool, innerMapEntries int) (*perClusterNATM
 	}()
 
 	if ipv4 {
-		gm.v4Map, err = newPerClusterNATMap(mapNamePerClusterSnat4Global, true, innerMapEntries)
+		gm.v4Map, err = newPerClusterNATMap(outerMapNamePrefix+perClusterNATIPv4OuterMapSuffix, true, innerMapEntries)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if ipv6 {
-		gm.v6Map, err = newPerClusterNATMap(mapNamePerClusterSnat6Global, false, innerMapEntries)
+		gm.v6Map, err = newPerClusterNATMap(outerMapNamePrefix+perClusterNATIPv6OuterMapSuffix, false, innerMapEntries)
 		if err != nil {
 			return nil, err
 		}
@@ -405,7 +394,7 @@ func (gm *dummyPerClusterNATMaps) GetClusterNATMap(clusterID uint32, v4 bool) (*
 }
 
 func (gm *dummyPerClusterNATMaps) Cleanup() {
-	for i := uint32(1); i < perClusterNATMapMaxEntries; i++ {
+	for i := uint32(1); i <= cmtypes.ClusterIDMax; i++ {
 		gm.DeleteClusterNATMaps(i)
 	}
 	gm.v4Map = nil

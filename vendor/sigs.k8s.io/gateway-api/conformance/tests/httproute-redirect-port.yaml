@@ -1,0 +1,45 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: redirect-port
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /port
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        port: 8083
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /port-and-host
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        hostname: example.org
+        port: 8083
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /port-and-status
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        port: 8083
+        statusCode: 301
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /port-and-host-and-status
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        port: 8083
+        hostname: example.org
+        statusCode: 302

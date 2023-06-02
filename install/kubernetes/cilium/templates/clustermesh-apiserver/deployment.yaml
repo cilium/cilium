@@ -51,6 +51,11 @@ spec:
         - |
           rm -rf /var/run/etcd/*;
           /usr/local/bin/etcd --data-dir=/var/run/etcd --name=clustermesh-apiserver --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379 --initial-cluster-token=clustermesh-apiserver --initial-cluster-state=new --auto-compaction-retention=1 &
+
+          # The following key needs to be created before that the cilium agents
+          # have the possibility of connecting to etcd.
+          etcdctl put cilium/.has-cluster-config true
+
           etcdctl user add root --no-password;
           etcdctl user grant-role root root;
           etcdctl user add admin-{{ .Values.cluster.name }} --no-password;
@@ -101,6 +106,10 @@ spec:
         - --advertise-client-urls=https://[$(HOSTNAME_IP)]:2379
         - --initial-cluster-token=clustermesh-apiserver
         - --auto-compaction-retention=1
+        {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
+        - --listen-metrics-urls=http://[$(HOSTNAME_IP)]:{{ .Values.clustermesh.apiserver.metrics.etcd.port }}
+        - --metrics={{ .Values.clustermesh.apiserver.metrics.etcd.mode }}
+        {{- end }}
         env:
         - name: ETCDCTL_API
           value: "3"
@@ -108,6 +117,15 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        ports:
+        - name: etcd
+          containerPort: 2379
+          protocol: TCP
+        {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
+        - name: etcd-metrics
+          containerPort: {{ .Values.clustermesh.apiserver.metrics.etcd.port }}
+          protocol: TCP
+        {{- end }}
         volumeMounts:
         - name: etcd-server-secrets
           mountPath: /var/lib/etcd-secrets
@@ -140,6 +158,10 @@ spec:
         - --cluster-users-enabled
         - --cluster-users-config-path=/var/lib/cilium/etcd-config/users.yaml
         {{- end }}
+        - --enable-external-workloads={{ .Values.externalWorkloads.enabled }}
+        {{- if .Values.clustermesh.apiserver.metrics.enabled }}
+        - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.port }}
+        {{- end }}
         env:
         - name: CLUSTER_NAME
           valueFrom:
@@ -165,6 +187,12 @@ spec:
               optional: true
         {{- with .Values.clustermesh.apiserver.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        {{- if .Values.clustermesh.apiserver.metrics.enabled }}
+        ports:
+        - name: apiserv-metrics
+          containerPort: {{ .Values.clustermesh.apiserver.metrics.port }}
+          protocol: TCP
         {{- end }}
         {{- with .Values.clustermesh.apiserver.resources }}
         resources:

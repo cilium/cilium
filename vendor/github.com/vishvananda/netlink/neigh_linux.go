@@ -370,10 +370,9 @@ func NeighSubscribeWithOptions(ch chan<- NeighUpdate, done <-chan struct{}, opti
 func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <-chan struct{}, cberr func(error), listExisting bool) error {
 	s, err := nl.SubscribeAt(newNs, curNs, unix.NETLINK_ROUTE, unix.RTNLGRP_NEIGH)
 	makeRequest := func(family int) error {
-		req := pkgHandle.newNetlinkRequest(unix.RTM_GETNEIGH,
-			unix.NLM_F_DUMP)
-		infmsg := nl.NewIfInfomsg(family)
-		req.AddData(infmsg)
+		req := pkgHandle.newNetlinkRequest(unix.RTM_GETNEIGH, unix.NLM_F_DUMP)
+		ndmsg := &Ndmsg{Family: uint8(family)}
+		req.AddData(ndmsg)
 		if err := s.Send(req); err != nil {
 			return err
 		}
@@ -427,12 +426,12 @@ func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <
 					continue
 				}
 				if m.Header.Type == unix.NLMSG_ERROR {
-					error := int32(native.Uint32(m.Data[0:4]))
-					if error == 0 {
+					nError := int32(native.Uint32(m.Data[0:4]))
+					if nError == 0 {
 						continue
 					}
 					if cberr != nil {
-						cberr(syscall.Errno(-error))
+						cberr(syscall.Errno(-nError))
 					}
 					return
 				}

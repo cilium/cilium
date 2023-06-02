@@ -66,6 +66,31 @@ func (o *DeleteIpamIPInvalid) WriteResponse(rw http.ResponseWriter, producer run
 	rw.WriteHeader(400)
 }
 
+// DeleteIpamIPForbiddenCode is the HTTP code returned for type DeleteIpamIPForbidden
+const DeleteIpamIPForbiddenCode int = 403
+
+/*
+DeleteIpamIPForbidden Forbidden
+
+swagger:response deleteIpamIpForbidden
+*/
+type DeleteIpamIPForbidden struct {
+}
+
+// NewDeleteIpamIPForbidden creates DeleteIpamIPForbidden with default headers values
+func NewDeleteIpamIPForbidden() *DeleteIpamIPForbidden {
+
+	return &DeleteIpamIPForbidden{}
+}
+
+// WriteResponse to the client
+func (o *DeleteIpamIPForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // DeleteIpamIPNotFoundCode is the HTTP code returned for type DeleteIpamIPNotFound
 const DeleteIpamIPNotFoundCode int = 404
 

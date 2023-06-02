@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
+	apiserverK8s "github.com/cilium/cilium/clustermesh-apiserver/k8s"
+	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
 	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -35,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -46,20 +47,24 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 type configuration struct {
-	clusterName      string
-	clusterID        uint32
-	serviceProxyName string
+	clusterName             string
+	clusterID               uint32
+	serviceProxyName        string
+	enableExternalWorkloads bool
 }
 
 func (c configuration) LocalClusterName() string {
@@ -89,6 +94,8 @@ var (
 			}
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
+			// Overwrite the metrics namespace with the one specific for the ClusterMesh API Server
+			metrics.Namespace = metrics.CiliumClusterMeshAPIServerNamespace
 			option.Config.Populate(vp)
 			if option.Config.Debug {
 				log.Logger.SetLevel(logrus.DebugLevel)
@@ -103,6 +110,11 @@ var (
 	ciliumNodeStore *store.SharedStore
 
 	identityStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+
+	// Holds the backend retrieved from the promise. This global variable is used
+	// temporarily while the refactoring of the clustermesh-apiserver is in progress
+	// to reduce the amount of modifications required in this first step.
+	backend kvstore.BackendOperations
 )
 
 func init() {
@@ -115,8 +127,14 @@ func init() {
 
 		gops.Cell(defaults.GopsPortApiserver),
 		k8sClient.Cell,
-		k8s.SharedResourcesCell,
+		apiserverK8s.ResourcesCell,
+
+		kvstore.Cell(kvstore.EtcdBackendName),
+		cell.Provide(func() *kvstore.ExtraOptions { return nil }),
+		heartbeat.Cell,
+
 		healthAPIServerCell,
+		cmmetrics.Cell,
 		usersManagementCell,
 
 		cell.Invoke(registerHooks),
@@ -126,13 +144,28 @@ func init() {
 	vp = rootHive.Viper()
 }
 
-func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) error {
+type parameters struct {
+	cell.In
+
+	Clientset      k8sClient.Clientset
+	Services       resource.Resource[*slim_corev1.Service]
+	BackendPromise promise.Promise[kvstore.BackendOperations]
+}
+
+func registerHooks(lc hive.Lifecycle, params parameters) error {
 	lc.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {
-			if !clientset.IsEnabled() {
+			if !params.Clientset.IsEnabled() {
 				return errors.New("Kubernetes client not configured, cannot continue.")
 			}
-			startServer(ctx, clientset, services)
+
+			var err error
+			backend, err = params.BackendPromise.Await(ctx)
+			if err != nil {
+				return err
+			}
+
+			startServer(ctx, params.Clientset, params.Services)
 			return nil
 		},
 	})
@@ -222,20 +255,6 @@ func runApiserver() error {
 
 	flags.StringVar(&mockFile, "mock-file", "", "Read from mock file")
 
-	flags.Duration(option.KVstoreConnectivityTimeout, defaults.KVstoreConnectivityTimeout, "Time after which an incomplete kvstore operation  is considered failed")
-	option.BindEnv(vp, option.KVstoreConnectivityTimeout)
-
-	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
-	flags.MarkHidden(option.KVstoreLeaseTTL)
-	option.BindEnv(vp, option.KVstoreLeaseTTL)
-
-	flags.Duration(option.KVstorePeriodicSync, defaults.KVstorePeriodicSync, "Periodic KVstore synchronization interval")
-	option.BindEnv(vp, option.KVstorePeriodicSync)
-
-	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
-		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
-	option.BindEnv(vp, option.KVStoreOpt)
-
 	flags.StringVar(&cfg.serviceProxyName, option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
 	option.BindEnv(vp, option.K8sServiceProxyName)
 
@@ -247,6 +266,11 @@ func runApiserver() error {
 
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enable support of Kubernetes EndpointSlice")
 	option.BindEnv(vp, option.K8sEnableEndpointSlice)
+
+	// The default values is set to true to match the existing behavior in case
+	// the flag is not configured (for instance by the legacy cilium CLI).
+	flags.BoolVar(&cfg.enableExternalWorkloads, option.EnableExternalWorkloads, true, "Enable support for external workloads")
+	option.BindEnv(vp, option.EnableExternalWorkloads)
 
 	vp.BindPFlags(flags)
 
@@ -295,10 +319,10 @@ func updateIdentity(obj interface{}) {
 		return
 	}
 
-	keyEncoded := []byte(kvstore.Client().Encode(key))
+	keyEncoded := []byte(backend.Encode(key))
 	log.WithFields(logrus.Fields{"key": keyPath, "value": string(keyEncoded)}).Info("Updating identity in etcd")
 
-	_, err := kvstore.Client().UpdateIfDifferent(context.Background(), keyPath, keyEncoded, true)
+	_, err := backend.UpdateIfDifferent(context.Background(), keyPath, keyEncoded, true)
 	if err != nil {
 		log.WithError(err).Warningf("Unable to update identity %s in etcd", keyPath)
 	}
@@ -317,7 +341,7 @@ func deleteIdentity(obj interface{}) {
 	}
 
 	keyPath := path.Join(identityCache.IdentitiesPath, "id", identity.Name)
-	err := kvstore.Client().Delete(context.Background(), keyPath)
+	err := backend.Delete(context.Background(), keyPath)
 	if err != nil {
 		log.WithError(err).Warningf("Unable to delete identity %s in etcd", keyPath)
 	}
@@ -445,7 +469,7 @@ func updateEndpoint(oldEp, newEp *types.CiliumEndpoint) {
 					continue
 				}
 
-				_, err = kvstore.Client().UpdateIfDifferent(context.Background(), keyPath, marshaledEntry, true)
+				_, err = backend.UpdateIfDifferent(context.Background(), keyPath, marshaledEntry, true)
 				if err != nil {
 					log.WithError(err).Warningf("Unable to update endpoint %s in etcd", keyPath)
 				} else {
@@ -477,7 +501,7 @@ func updateEndpoint(oldEp, newEp *types.CiliumEndpoint) {
 			if !found {
 				// Delete the old IPs from the kvstore:
 				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace, oldIP)
-				if err := kvstore.Client().Delete(context.Background(), keyPath); err != nil {
+				if err := backend.Delete(context.Background(), keyPath); err != nil {
 					log.WithError(err).
 						WithFields(logrus.Fields{
 							"path": keyPath,
@@ -503,7 +527,7 @@ func deleteEndpoint(obj interface{}) {
 				}
 
 				keyPath := path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace, ip)
-				if err := kvstore.Client().Delete(context.Background(), keyPath); err != nil {
+				if err := backend.Delete(context.Background(), keyPath); err != nil {
 					log.WithError(err).Warningf("Unable to delete endpoint %s in etcd", keyPath)
 				}
 			}
@@ -564,32 +588,32 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 		synced.SyncCRDs(startCtx, clientset, synced.AllCiliumCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 	}
 
-	mgr := NewVMManager(clientset)
-
 	var err error
-	if err = kvstore.Setup(context.Background(), "etcd", option.Config.KVStoreOpt, nil); err != nil {
-		log.WithError(err).Fatal("Unable to connect to etcd")
-	}
 
 	config := cmtypes.CiliumClusterConfig{
 		ID: cfg.clusterID,
 	}
 
-	if err := clustermesh.SetClusterConfig(cfg.clusterName, &config, kvstore.Client()); err != nil {
+	if err := clustermesh.SetClusterConfig(context.Background(), cfg.clusterName, &config, backend); err != nil {
 		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}
 
-	_, err = store.JoinSharedStore(store.Configuration{
-		Prefix:               nodeStore.NodeRegisterStorePrefix,
-		KeyCreator:           nodeStore.RegisterKeyCreator,
-		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
-		Observer:             mgr,
-	})
-	if err != nil {
-		log.WithError(err).Fatal("Unable to set up node register store in etcd")
+	if cfg.enableExternalWorkloads {
+		mgr := NewVMManager(clientset, backend)
+		_, err = store.JoinSharedStore(store.Configuration{
+			Backend:              backend,
+			Prefix:               nodeStore.NodeRegisterStorePrefix,
+			KeyCreator:           nodeStore.RegisterKeyCreator,
+			SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
+			Observer:             mgr,
+		})
+		if err != nil {
+			log.WithError(err).Fatal("Unable to set up node register store in etcd")
+		}
 	}
 
 	ciliumNodeStore, err = store.JoinSharedStore(store.Configuration{
+		Backend:    backend,
 		Prefix:     nodeStore.NodeStorePrefix,
 		KeyCreator: nodeStore.KeyCreator,
 	})
@@ -605,22 +629,15 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 		synchronizeIdentities(clientset)
 		synchronizeNodes(clientset)
 		synchronizeCiliumEndpoints(clientset)
-		operatorWatchers.StartSynchronizingServices(context.Background(), &sync.WaitGroup{}, clientset, services, false, cfg)
-	}
+		operatorWatchers.StartSynchronizingServices(context.Background(), &sync.WaitGroup{}, operatorWatchers.ServiceSyncParameters{
+			ServiceSyncConfiguration: cfg,
 
-	go func() {
-		timer, timerDone := inctimer.New()
-		defer timerDone()
-		for {
-			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
-			err := kvstore.Client().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
-			if err != nil {
-				log.WithError(err).Warning("Unable to update heartbeat key")
-			}
-			cancel()
-			<-timer.After(kvstore.HeartbeatWriteInterval)
-		}
-	}()
+			Clientset:  clientset,
+			Services:   services,
+			Backend:    backend,
+			SharedOnly: !cfg.enableExternalWorkloads,
+		})
+	}
 
 	log.Info("Initialization complete")
 }

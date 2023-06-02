@@ -43,6 +43,9 @@ const (
 
 	// PprofPortOperator is the default value for pprof in the operator
 	PprofPortOperator = 6061
+
+	// DefaultProxyIdleTimeoutSeconds is the default value for the proxy idle timeout
+	DefaultProxyIdleTimeoutSeconds = 60
 )
 
 const (
@@ -116,6 +119,9 @@ const (
 
 	// IPAMInstanceTagFilter are optional tags used to filter instances for ENI discovery ; only used with AWS IPAM mode for now
 	IPAMInstanceTags = "instance-tags-filter"
+
+	// IPAMMultiPoolMap are IP pool definitions used for the multi-pool IPAM mode.
+	IPAMMultiPoolMap = "multi-pool-map"
 
 	// ClusterPoolIPv4CIDR is the cluster's IPv4 CIDR to allocate
 	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
@@ -259,6 +265,9 @@ const (
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by GatewayAPI and CEC.
 	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
 
+	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
+	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
+
 	// EnableGatewayAPI enables support of Gateway API
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableGatewayAPI = "enable-gateway-api"
@@ -399,6 +408,9 @@ type OperatorConfig struct {
 	// per node.
 	NodeCIDRMaskSizeIPv6 int
 
+	// IPAMMultiPoolMap are IP pool definitions used for the multi-pool IPAM mode.
+	IPAMMultiPoolMap map[string]string
+
 	// AWS options
 
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
@@ -512,6 +524,9 @@ type OperatorConfig struct {
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC for Gateway API.
 	GatewayAPISecretsNamespace string
 
+	// ProxyIdleTimeoutSeconds is the idle timeout for the proxy to upstream cluster
+	ProxyIdleTimeoutSeconds int
+
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace string
 
@@ -577,6 +592,10 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
 	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
 	c.GatewayAPISecretsNamespace = vp.GetString(GatewayAPISecretsNamespace)
+	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
+	if c.ProxyIdleTimeoutSeconds == 0 {
+		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds
+	}
 	c.EnableIngressSecretsSync = vp.GetBool(EnableIngressSecretsSync)
 	c.EnableGatewayAPISecretsSync = vp.GetBool(EnableGatewayAPISecretsSync)
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
@@ -671,6 +690,12 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	} else {
 		c.ENIGarbageCollectionTags = m
 	}
+
+	if m, err := command.GetStringMapStringE(vp, IPAMMultiPoolMap); err != nil {
+		log.Fatalf("unable to parse %s: %s", IPAMMultiPoolMap, err)
+	} else {
+		c.IPAMMultiPoolMap = m
+	}
 }
 
 // Config represents the operator configuration.
@@ -678,6 +703,7 @@ var Config = &OperatorConfig{
 	IPAMSubnetsIDs:           make([]string, 0),
 	IPAMSubnetsTags:          make(map[string]string),
 	IPAMInstanceTags:         make(map[string]string),
+	IPAMMultiPoolMap:         make(map[string]string),
 	AWSInstanceLimitMapping:  make(map[string]string),
 	ENITags:                  make(map[string]string),
 	ENIGarbageCollectionTags: make(map[string]string),

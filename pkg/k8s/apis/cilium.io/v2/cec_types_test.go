@@ -5,13 +5,12 @@ package v2
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"sigs.k8s.io/yaml"
 
+	. "github.com/cilium/checkmate"
 	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
-	. "gopkg.in/check.v1"
 )
 
 var (
@@ -39,6 +38,8 @@ var (
               route:
                 cluster: "envoy-admin"
                 prefix_rewrite: "/stats/prometheus"
+        use_remote_address: true
+        skip_xff_append: true
         http_filters:
         - name: envoy.filters.http.router
 `)
@@ -50,7 +51,6 @@ func (s *CiliumV2Suite) TestParseEnvoySpec(c *C) {
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(envoySpec))
 	c.Assert(err, IsNil)
-	fmt.Printf("\nJSON spec:\n%s\n", string(jsonBytes))
 	cec := &CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, &cec.Spec)
 	c.Assert(err, IsNil)

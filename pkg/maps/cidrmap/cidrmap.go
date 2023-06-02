@@ -6,8 +6,10 @@ package cidrmap
 import (
 	"fmt"
 	"net"
+	"path"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -25,7 +27,7 @@ const (
 // CIDRMap refers to an LPM trie map at 'path'.
 type CIDRMap struct {
 	path      string
-	Fd        int
+	m         *ebpf.Map
 	AddrSize  int // max prefix length in bytes, 4 for IPv4, 16 for IPv6
 	Prefixlen uint32
 
@@ -40,7 +42,12 @@ const (
 
 type cidrKey struct {
 	Prefixlen uint32
-	Net       [16]byte
+
+	// v4 LPM maps have 8-byte key sizes even though the 20-byte cidrKey is used
+	// for map ops. This hack relies on passing unsafe.Pointers to the cidrKey so
+	// the kernel only accesses Prefixlen (4 bytes) and the first 4 bytes of Net.
+	// v4 net.IPNets are packed into those 4 first bytes.
+	Net [16]byte
 }
 
 func (cm *CIDRMap) cidrKeyInit(cidr net.IPNet) (key cidrKey) {
@@ -80,7 +87,7 @@ func (cm *CIDRMap) InsertCIDR(cidr net.IPNet) error {
 		return err
 	}
 	log.WithField(logfields.Path, cm.path).Debugf("Inserting CIDR entry %s", cidr.String())
-	return bpf.UpdateElement(cm.Fd, cm.path, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
+	return cm.m.Update(unsafe.Pointer(&key), unsafe.Pointer(&entry), ebpf.UpdateAny)
 }
 
 // DeleteCIDR deletes an entry from 'cm' with key 'cidr'.
@@ -90,14 +97,14 @@ func (cm *CIDRMap) DeleteCIDR(cidr net.IPNet) error {
 		return err
 	}
 	log.WithField(logfields.Path, cm.path).Debugf("Removing CIDR entry %s", cidr.String())
-	return bpf.DeleteElement(cm.Fd, unsafe.Pointer(&key))
+	return cm.m.Delete(unsafe.Pointer(&key))
 }
 
 // CIDRExists returns true if 'cidr' exists in map 'cm'
 func (cm *CIDRMap) CIDRExists(cidr net.IPNet) bool {
 	key := cm.cidrKeyInit(cidr)
 	var entry [LPM_MAP_VALUE_SIZE]byte
-	return bpf.LookupElement(cm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
+	return cm.m.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
 }
 
 // CIDRNext returns next CIDR entry in map 'cm'
@@ -106,8 +113,7 @@ func (cm *CIDRMap) CIDRNext(cidr *net.IPNet) *net.IPNet {
 	if cidr != nil {
 		key = cm.cidrKeyInit(*cidr)
 	}
-	err := bpf.GetNextKey(cm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&keyNext))
-	if err != nil {
+	if err := cm.m.NextKey(unsafe.Pointer(&key), unsafe.Pointer(&keyNext)); err != nil {
 		return nil
 	}
 	out := cm.keyCidrInit(keyNext)
@@ -140,50 +146,49 @@ func (cm *CIDRMap) Close() error {
 	if cm == nil {
 		return nil
 	}
-	return bpf.ObjClose(cm.Fd)
+	return cm.m.Close()
 }
 
 // OpenMapElems is the same as OpenMap only with defined maxelem as argument.
-func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*CIDRMap, bool, error) {
-	typeMap := bpf.MapTypeLPMTrie
+func OpenMapElems(pinPath string, prefixlen int, prefixdyn bool, maxelem uint32) (*CIDRMap, error) {
+	mapType := ebpf.LPMTrie
 	prefix := 0
 
 	if !prefixdyn {
-		typeMap = bpf.MapTypeHash
+		mapType = ebpf.Hash
 		prefix = prefixlen
 	}
 	if prefixlen <= 0 {
-		return nil, false, fmt.Errorf("prefixlen must be > 0")
+		return nil, fmt.Errorf("prefixlen must be > 0")
 	}
 	bytes := (prefixlen-1)/8 + 1
-	fd, isNewMap, err := bpf.OpenOrCreateMap(
-		path,
-		typeMap,
-		uint32(unsafe.Sizeof(uint32(0))+uintptr(bytes)),
-		uint32(LPM_MAP_VALUE_SIZE),
-		maxelem,
-		bpf.BPF_F_NO_PREALLOC, 0, true,
-	)
+	m, err := bpf.OpenOrCreateMap(&ebpf.MapSpec{
+		Name:       path.Base(pinPath),
+		Type:       mapType,
+		KeySize:    uint32(unsafe.Sizeof(uint32(0)) + uintptr(bytes)),
+		ValueSize:  uint32(LPM_MAP_VALUE_SIZE),
+		MaxEntries: maxelem,
+		Flags:      bpf.BPF_F_NO_PREALLOC,
+		Pinning:    ebpf.PinByName,
+	}, path.Dir(pinPath))
 
 	if err != nil {
-		scopedLog := log.WithError(err).WithField(logfields.Path, path)
+		scopedLog := log.WithError(err).WithField(logfields.Path, pinPath)
 		scopedLog.Warning("Failed to create CIDR map")
-		return nil, false, err
-	}
-
-	m := &CIDRMap{
-		path:            path,
-		Fd:              fd,
-		AddrSize:        bytes,
-		Prefixlen:       uint32(prefix),
-		PrefixIsDynamic: prefixdyn,
+		return nil, err
 	}
 
 	log.WithFields(logrus.Fields{
-		logfields.Path: path,
-		"fd":           fd,
-		"LPM":          typeMap == bpf.MapTypeLPMTrie,
+		logfields.Path: pinPath,
+		"fd":           m.FD(),
+		"LPM":          m.Type() == ebpf.LPMTrie,
 	}).Debug("Created CIDR map")
 
-	return m, isNewMap, nil
+	return &CIDRMap{
+		path:            pinPath,
+		m:               m,
+		AddrSize:        bytes,
+		Prefixlen:       uint32(prefix),
+		PrefixIsDynamic: prefixdyn,
+	}, nil
 }

@@ -43,6 +43,7 @@ type provideOptions struct {
 	As       []interface{}
 	Location *digreflect.Func
 	Exported bool
+	Callback Callback
 }
 
 func (o *provideOptions) Validate() error {
@@ -50,10 +51,6 @@ func (o *provideOptions) Validate() error {
 		if len(o.Name) > 0 {
 			return newErrInvalidInput(
 				fmt.Sprintf("cannot use named values with value groups: name:%q provided with group:%q", o.Name, o.Group), nil)
-		}
-		if len(o.As) > 0 {
-			return newErrInvalidInput(
-				fmt.Sprintf("cannot use dig.As with value groups: dig.As provided with group:%q", o.Group), nil)
 		}
 	}
 
@@ -471,6 +468,7 @@ func (s *Scope) provide(ctor interface{}, opts provideOptions) (err error) {
 			ResultGroup: opts.Group,
 			ResultAs:    opts.As,
 			Location:    opts.Location,
+			Callback:    opts.Callback,
 		},
 	)
 	if err != nil {
@@ -639,6 +637,10 @@ func (cv connectionVisitor) Visit(res result) resultVisitor {
 		// value there.
 		k := key{group: r.Group, t: r.Type}
 		cv.keyPaths[k] = path
+		for _, asType := range r.As {
+			k := key{group: r.Group, t: asType}
+			cv.keyPaths[k] = path
+		}
 	}
 
 	return cv

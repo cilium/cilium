@@ -4,7 +4,9 @@
 package serve
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 
@@ -239,5 +241,9 @@ func runServe(vp *viper.Viper) error {
 			agent.Close()
 		}
 	}()
-	return srv.Serve()
+
+	if err := srv.Serve(); !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }

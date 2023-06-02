@@ -12,15 +12,18 @@ import (
 	"testing"
 	"time"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -52,7 +55,7 @@ type testNode struct {
 }
 
 func (n *testNode) GetKeyName() string {
-	return path.Join(n.Name, n.Cluster)
+	return path.Join(n.Cluster, n.Name)
 }
 
 func (n *testNode) DeepKeyCopy() store.LocalKey {
@@ -66,7 +69,7 @@ func (n *testNode) Marshal() ([]byte, error) {
 	return json.Marshal(n)
 }
 
-func (n *testNode) Unmarshal(data []byte) error {
+func (n *testNode) Unmarshal(_ string, data []byte) error {
 	return json.Unmarshal(data, n)
 }
 
@@ -92,13 +95,21 @@ func (o *testObserver) OnDelete(k store.NamedKey) {
 }
 
 func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	kvstore.SetupDummy("etcd")
-	defer kvstore.Client().Close(context.TODO())
+	defer func() {
+		kvstore.Client().DeletePrefix(context.TODO(), kvstore.ClusterConfigPrefix)
+		kvstore.Client().DeletePrefix(context.TODO(), kvstore.SyncedPrefix)
+		kvstore.Client().DeletePrefix(context.TODO(), nodeStore.NodeStorePrefix)
+		kvstore.Client().Close(ctx)
+	}()
 
 	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 
 	dir, err := os.MkdirTemp("", "multicluster")
@@ -116,7 +127,12 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 			ID: uint32(i),
 		}
 
-		err = SetClusterConfig(name, &config, kvstore.Client())
+		if name == "cluster2" {
+			// Cluster2 supports synced canaries
+			config.Capabilities.SyncedCanaries = true
+		}
+
+		err = SetClusterConfig(ctx, name, &config, kvstore.Client())
 		c.Assert(err, IsNil)
 	}
 
@@ -132,26 +148,29 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	err = os.WriteFile(config3, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 	})
 	defer ipc.Shutdown()
-	cm, err := NewClusterMesh(Configuration{
-		Name:                  "test2",
-		ConfigDirectory:       dir,
+
+	cm := NewClusterMesh(hivetest.Lifecycle(c), Configuration{
+		Config: Config{ClusterMeshConfig: dir},
+
+		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
 		NodeKeyCreator:        testNodeCreator,
-		nodeObserver:          &testObserver{},
+		NodeObserver:          &testObserver{},
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
 	})
-	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
 
+	nodesWSS := store.NewWorkqueueSyncStore(kvstore.Client(), nodeStore.NodeStorePrefix,
+		store.WSSWithSourceClusterName("cluster2"), // The one which is tested with sync canaries
+	)
+	go nodesWSS.Run(ctx)
 	nodeNames := []string{"foo", "bar", "baz"}
 
-	// wait for both clusters to appear in the list of cm clusters
+	// wait for all clusters to appear in the list of cm clusters
 	c.Assert(testutils.WaitUntil(func() bool {
 		return cm.NumReadyClusters() == 3
 	}, 10*time.Second), IsNil)
@@ -160,12 +179,15 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	for _, rc := range cm.clusters {
 		rc.mutex.RLock()
 		for _, name := range nodeNames {
-			err = rc.remoteNodes.UpdateLocalKeySync(context.TODO(), &testNode{Name: name, Cluster: rc.name})
+			nodesWSS.UpsertKey(ctx, &testNode{Name: name, Cluster: rc.name})
 			c.Assert(err, IsNil)
 		}
 		rc.mutex.RUnlock()
 	}
 	cm.mutex.RUnlock()
+
+	// Write the sync canary for cluster2
+	nodesWSS.Synced(ctx)
 
 	// wait for all cm nodes in both clusters to appear in the node list
 	c.Assert(testutils.WaitUntil(func() bool {
@@ -202,6 +224,4 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		defer nodesMutex.RUnlock()
 		return len(nodes) == 0
 	}, 10*time.Second), IsNil)
-
-	cm.Close()
 }

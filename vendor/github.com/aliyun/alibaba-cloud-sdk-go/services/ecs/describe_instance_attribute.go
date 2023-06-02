@@ -106,6 +106,7 @@ type DescribeInstanceAttributeResponse struct {
 	ZoneId                  string                                      `json:"ZoneId" xml:"ZoneId"`
 	InternetChargeType      string                                      `json:"InternetChargeType" xml:"InternetChargeType"`
 	CreditSpecification     string                                      `json:"CreditSpecification" xml:"CreditSpecification"`
+	EnableJumboFrame        bool                                        `json:"EnableJumboFrame" xml:"EnableJumboFrame"`
 	SecurityGroupIds        SecurityGroupIdsInDescribeInstanceAttribute `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	PublicIpAddress         PublicIpAddressInDescribeInstanceAttribute  `json:"PublicIpAddress" xml:"PublicIpAddress"`
 	InnerIpAddress          InnerIpAddressInDescribeInstanceAttribute   `json:"InnerIpAddress" xml:"InnerIpAddress"`
