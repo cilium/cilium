@@ -168,6 +168,8 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=authentication.mutual.spire.enabled=false \
+            --helm-set=authentication.mutual.spire.install.enabled=false \
             --helm-set=bpf.monitorAggregation=none \
             --wait=false \
             --rollback=false \
