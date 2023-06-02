@@ -191,11 +191,11 @@ ct_entry_expired_rebalance(const struct ct_entry *entry)
 	return READ_ONCE(entry->last_tx_report) + wait_time <= bpf_mono_now();
 }
 
-static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
-					const void *tuple, int action, enum ct_dir dir,
-					struct ct_state *ct_state,
-					bool is_tcp, union tcp_flags seen_flags,
-					__u32 *monitor)
+/* Returns CT_NEW, CT_REOPENED or CT_ESTABLISHED. */
+static __always_inline enum ct_status
+__ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
+	    int action, enum ct_dir dir, struct ct_state *ct_state,
+	    bool is_tcp, union tcp_flags seen_flags, __u32 *monitor)
 {
 	bool syn = seen_flags.value & TCP_FLAG_SYN;
 	struct ct_entry *entry;
@@ -370,7 +370,7 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
-	int ret;
+	enum ct_status ret;
 
 	if (is_tcp) {
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
@@ -407,7 +407,7 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 				  is_tcp, tcp_flags, monitor);
 	}
 out:
-	cilium_dbg(ctx, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
+	cilium_dbg(ctx, DBG_CT_VERDICT, ret, ct_state->rev_nat_index);
 	return ret;
 }
 
@@ -713,7 +713,7 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
-	int ret;
+	enum ct_status ret;
 
 	if (is_tcp && has_l4_header) {
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
@@ -753,7 +753,7 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 				  is_tcp, tcp_flags, monitor);
 	}
 out:
-	cilium_dbg(ctx, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
+	cilium_dbg(ctx, DBG_CT_VERDICT, ret, ct_state->rev_nat_index);
 	return ret;
 }
 
