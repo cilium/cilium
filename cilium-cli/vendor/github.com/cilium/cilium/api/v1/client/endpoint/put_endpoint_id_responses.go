@@ -38,6 +38,12 @@ func (o *PutEndpointIDReader) ReadResponse(response runtime.ClientResponse, cons
 			return nil, err
 		}
 		return nil, result
+	case 403:
+		result := NewPutEndpointIDForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 409:
 		result := NewPutEndpointIDExists()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -169,6 +175,57 @@ func (o *PutEndpointIDInvalid) readResponse(response runtime.ClientResponse, con
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
+
+	return nil
+}
+
+// NewPutEndpointIDForbidden creates a PutEndpointIDForbidden with default headers values
+func NewPutEndpointIDForbidden() *PutEndpointIDForbidden {
+	return &PutEndpointIDForbidden{}
+}
+
+/*
+PutEndpointIDForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PutEndpointIDForbidden struct {
+}
+
+// IsSuccess returns true when this put endpoint Id forbidden response has a 2xx status code
+func (o *PutEndpointIDForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put endpoint Id forbidden response has a 3xx status code
+func (o *PutEndpointIDForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put endpoint Id forbidden response has a 4xx status code
+func (o *PutEndpointIDForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put endpoint Id forbidden response has a 5xx status code
+func (o *PutEndpointIDForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put endpoint Id forbidden response a status code equal to that given
+func (o *PutEndpointIDForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *PutEndpointIDForbidden) Error() string {
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdForbidden ", 403)
+}
+
+func (o *PutEndpointIDForbidden) String() string {
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdForbidden ", 403)
+}
+
+func (o *PutEndpointIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

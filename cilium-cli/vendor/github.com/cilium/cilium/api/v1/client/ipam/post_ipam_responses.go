@@ -32,6 +32,12 @@ func (o *PostIpamReader) ReadResponse(response runtime.ClientResponse, consumer 
 			return nil, err
 		}
 		return result, nil
+	case 403:
+		result := NewPostIpamForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 502:
 		result := NewPostIpamFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -102,6 +108,57 @@ func (o *PostIpamCreated) readResponse(response runtime.ClientResponse, consumer
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
 		return err
 	}
+
+	return nil
+}
+
+// NewPostIpamForbidden creates a PostIpamForbidden with default headers values
+func NewPostIpamForbidden() *PostIpamForbidden {
+	return &PostIpamForbidden{}
+}
+
+/*
+PostIpamForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PostIpamForbidden struct {
+}
+
+// IsSuccess returns true when this post ipam forbidden response has a 2xx status code
+func (o *PostIpamForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post ipam forbidden response has a 3xx status code
+func (o *PostIpamForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post ipam forbidden response has a 4xx status code
+func (o *PostIpamForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post ipam forbidden response has a 5xx status code
+func (o *PostIpamForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post ipam forbidden response a status code equal to that given
+func (o *PostIpamForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *PostIpamForbidden) Error() string {
+	return fmt.Sprintf("[POST /ipam][%d] postIpamForbidden ", 403)
+}
+
+func (o *PostIpamForbidden) String() string {
+	return fmt.Sprintf("[POST /ipam][%d] postIpamForbidden ", 403)
+}
+
+func (o *PostIpamForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

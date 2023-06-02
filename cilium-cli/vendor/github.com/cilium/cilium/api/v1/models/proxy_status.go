@@ -10,11 +10,13 @@ package models
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // ProxyStatus Status of proxy
@@ -23,6 +25,10 @@ import (
 //
 // swagger:model ProxyStatus
 type ProxyStatus struct {
+
+	// Deployment mode of Envoy L7 proxy
+	// Enum: [embedded external]
+	EnvoyDeploymentMode string `json:"envoy-deployment-mode,omitempty"`
 
 	// IP address that the proxy listens on
 	IP string `json:"ip,omitempty"`
@@ -44,6 +50,10 @@ type ProxyStatus struct {
 func (m *ProxyStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateEnvoyDeploymentMode(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateRedirects(formats); err != nil {
 		res = append(res, err)
 	}
@@ -51,6 +61,48 @@ func (m *ProxyStatus) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+var proxyStatusTypeEnvoyDeploymentModePropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["embedded","external"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		proxyStatusTypeEnvoyDeploymentModePropEnum = append(proxyStatusTypeEnvoyDeploymentModePropEnum, v)
+	}
+}
+
+const (
+
+	// ProxyStatusEnvoyDeploymentModeEmbedded captures enum value "embedded"
+	ProxyStatusEnvoyDeploymentModeEmbedded string = "embedded"
+
+	// ProxyStatusEnvoyDeploymentModeExternal captures enum value "external"
+	ProxyStatusEnvoyDeploymentModeExternal string = "external"
+)
+
+// prop value enum
+func (m *ProxyStatus) validateEnvoyDeploymentModeEnum(path, location string, value string) error {
+	if err := validate.EnumCase(path, location, value, proxyStatusTypeEnvoyDeploymentModePropEnum, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *ProxyStatus) validateEnvoyDeploymentMode(formats strfmt.Registry) error {
+	if swag.IsZero(m.EnvoyDeploymentMode) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateEnvoyDeploymentModeEnum("envoy-deployment-mode", "body", m.EnvoyDeploymentMode); err != nil {
+		return err
+	}
+
 	return nil
 }
 

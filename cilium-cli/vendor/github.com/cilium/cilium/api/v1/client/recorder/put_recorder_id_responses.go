@@ -38,6 +38,12 @@ func (o *PutRecorderIDReader) ReadResponse(response runtime.ClientResponse, cons
 			return nil, err
 		}
 		return result, nil
+	case 403:
+		result := NewPutRecorderIDForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPutRecorderIDFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -147,6 +153,57 @@ func (o *PutRecorderIDCreated) String() string {
 }
 
 func (o *PutRecorderIDCreated) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewPutRecorderIDForbidden creates a PutRecorderIDForbidden with default headers values
+func NewPutRecorderIDForbidden() *PutRecorderIDForbidden {
+	return &PutRecorderIDForbidden{}
+}
+
+/*
+PutRecorderIDForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PutRecorderIDForbidden struct {
+}
+
+// IsSuccess returns true when this put recorder Id forbidden response has a 2xx status code
+func (o *PutRecorderIDForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put recorder Id forbidden response has a 3xx status code
+func (o *PutRecorderIDForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put recorder Id forbidden response has a 4xx status code
+func (o *PutRecorderIDForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put recorder Id forbidden response has a 5xx status code
+func (o *PutRecorderIDForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put recorder Id forbidden response a status code equal to that given
+func (o *PutRecorderIDForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *PutRecorderIDForbidden) Error() string {
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdForbidden ", 403)
+}
+
+func (o *PutRecorderIDForbidden) String() string {
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdForbidden ", 403)
+}
+
+func (o *PutRecorderIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

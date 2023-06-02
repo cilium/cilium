@@ -96,7 +96,7 @@ func MapStringStructToSlice(m map[string]struct{}) []string {
 //
 // See https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/cpumask.h?h=v4.19#n50
 // for more details.
-func GetNumPossibleCPUs(log *logrus.Entry) int {
+func GetNumPossibleCPUs(log logrus.FieldLogger) int {
 	f, err := os.Open(PossibleCPUSysfsPath)
 	if err != nil {
 		log.WithError(err).Errorf("unable to open %q", PossibleCPUSysfsPath)
@@ -107,7 +107,7 @@ func GetNumPossibleCPUs(log *logrus.Entry) int {
 	return getNumPossibleCPUsFromReader(log, f)
 }
 
-func getNumPossibleCPUsFromReader(log *logrus.Entry, r io.Reader) int {
+func getNumPossibleCPUsFromReader(log logrus.FieldLogger, r io.Reader) int {
 	out, err := safeio.ReadAllLimit(r, safeio.KB)
 	if err != nil {
 		log.WithError(err).Errorf("unable to read %q to get CPU count", PossibleCPUSysfsPath)

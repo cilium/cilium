@@ -32,6 +32,12 @@ func (o *DeleteServiceIDReader) ReadResponse(response runtime.ClientResponse, co
 			return nil, err
 		}
 		return result, nil
+	case 403:
+		result := NewDeleteServiceIDForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 404:
 		result := NewDeleteServiceIDNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -96,6 +102,57 @@ func (o *DeleteServiceIDOK) String() string {
 }
 
 func (o *DeleteServiceIDOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewDeleteServiceIDForbidden creates a DeleteServiceIDForbidden with default headers values
+func NewDeleteServiceIDForbidden() *DeleteServiceIDForbidden {
+	return &DeleteServiceIDForbidden{}
+}
+
+/*
+DeleteServiceIDForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type DeleteServiceIDForbidden struct {
+}
+
+// IsSuccess returns true when this delete service Id forbidden response has a 2xx status code
+func (o *DeleteServiceIDForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete service Id forbidden response has a 3xx status code
+func (o *DeleteServiceIDForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete service Id forbidden response has a 4xx status code
+func (o *DeleteServiceIDForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete service Id forbidden response has a 5xx status code
+func (o *DeleteServiceIDForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete service Id forbidden response a status code equal to that given
+func (o *DeleteServiceIDForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *DeleteServiceIDForbidden) Error() string {
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdForbidden ", 403)
+}
+
+func (o *DeleteServiceIDForbidden) String() string {
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdForbidden ", 403)
+}
+
+func (o *DeleteServiceIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

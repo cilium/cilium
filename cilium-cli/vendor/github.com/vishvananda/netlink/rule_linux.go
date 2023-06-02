@@ -168,6 +168,15 @@ func ruleHandle(rule *Rule, req *nl.NetlinkRequest) error {
 		req.AddData(nl.NewRtAttr(nl.FRA_SPORT_RANGE, b))
 	}
 
+	if rule.UIDRange != nil {
+		b := rule.UIDRange.toRtAttrData()
+		req.AddData(nl.NewRtAttr(nl.FRA_UID_RANGE, b))
+	}
+
+	if rule.Protocol > 0 {
+		req.AddData(nl.NewRtAttr(nl.FRA_PROTOCOL, nl.Uint8Attr(rule.Protocol)))
+	}
+
 	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
 	return err
 }
@@ -262,6 +271,10 @@ func (h *Handle) RuleListFiltered(family int, filter *Rule, filterMask uint64) (
 				rule.Dport = NewRulePortRange(native.Uint16(attrs[j].Value[0:2]), native.Uint16(attrs[j].Value[2:4]))
 			case nl.FRA_SPORT_RANGE:
 				rule.Sport = NewRulePortRange(native.Uint16(attrs[j].Value[0:2]), native.Uint16(attrs[j].Value[2:4]))
+			case nl.FRA_UID_RANGE:
+				rule.UIDRange = NewRuleUIDRange(native.Uint32(attrs[j].Value[0:4]), native.Uint32(attrs[j].Value[4:8]))
+			case nl.FRA_PROTOCOL:
+				rule.Protocol = uint8(attrs[j].Value[0])
 			}
 		}
 
@@ -297,5 +310,12 @@ func (pr *RulePortRange) toRtAttrData() []byte {
 	b := [][]byte{make([]byte, 2), make([]byte, 2)}
 	native.PutUint16(b[0], pr.Start)
 	native.PutUint16(b[1], pr.End)
+	return bytes.Join(b, []byte{})
+}
+
+func (pr *RuleUIDRange) toRtAttrData() []byte {
+	b := [][]byte{make([]byte, 4), make([]byte, 4)}
+	native.PutUint32(b[0], pr.Start)
+	native.PutUint32(b[1], pr.End)
 	return bytes.Join(b, []byte{})
 }
