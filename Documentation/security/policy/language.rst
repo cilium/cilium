@@ -284,8 +284,8 @@ namespace ``default``.
         .. literalinclude:: ../../../examples/policies/l3/service/service.json
 
 This example shows how to allow all endpoints with the label ``id=app2``
-to talk to all endpoints of all kubernetes headless services which
-have ``head:none`` set as the label.
+to talk to all endpoints of all kubernetes services without selectors which
+have ``external:yes`` set as the label.
 
 .. only:: html
 
