@@ -725,12 +725,6 @@ func GetK8sNodeIP() net.IP {
 	return n.GetK8sNodeIP()
 }
 
-func SetWireguardPubKey(key string) {
-	localNode.Update(func(n *LocalNode) {
-		n.WireguardPubKey = key
-	})
-}
-
 func GetWireguardPubKey() string {
 	return getLocalNode().WireguardPubKey
 }

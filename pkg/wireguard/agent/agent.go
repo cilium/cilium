@@ -62,10 +62,11 @@ type wireguardClient interface {
 // the public key of peer discovered via the node manager.
 type Agent struct {
 	lock.RWMutex
-	wgClient   wireguardClient
-	ipCache    *ipcache.IPCache
-	listenPort int
-	privKey    wgtypes.Key
+	localNodeStore *node.LocalNodeStore
+	wgClient       wireguardClient
+	ipCache        *ipcache.IPCache
+	listenPort     int
+	privKey        wgtypes.Key
 
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
@@ -78,7 +79,7 @@ type Agent struct {
 }
 
 // NewAgent creates a new Wireguard Agent
-func NewAgent(privKeyPath string) (*Agent, error) {
+func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore) (*Agent, error) {
 	key, err := loadOrGeneratePrivKey(privKeyPath)
 	if err != nil {
 		return nil, err
@@ -89,12 +90,17 @@ func NewAgent(privKeyPath string) (*Agent, error) {
 		return nil, err
 	}
 
-	node.SetWireguardPubKey(key.PublicKey().String())
+	optOut := false
+	localNodeStore.Update(func(localNode *node.LocalNode) {
+		optOut = localNode.OptOutNodeEncryption
+		localNode.WireguardPubKey = key.PublicKey().String()
+	})
 
 	return &Agent{
-		wgClient:   wgClient,
-		privKey:    key,
-		listenPort: listenPort,
+		localNodeStore: localNodeStore,
+		wgClient:       wgClient,
+		privKey:        key,
+		listenPort:     listenPort,
 
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
@@ -103,7 +109,7 @@ func NewAgent(privKeyPath string) (*Agent, error) {
 
 		cleanup: []func(){},
 
-		nodeToNodeEncryption: option.Config.EncryptNode && !node.GetOptOutNodeEncryption(),
+		nodeToNodeEncryption: option.Config.EncryptNode && !optOut,
 	}, nil
 }
 
@@ -596,7 +602,7 @@ func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
 
 	var nodeEncryptionStatus = "Disabled"
 	if option.Config.EncryptNode {
-		if node.GetOptOutNodeEncryption() {
+		if !a.nodeToNodeEncryption {
 			nodeEncryptionStatus = "OptedOut"
 		} else {
 			nodeEncryptionStatus = "Enabled"
