@@ -285,17 +285,22 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 	}
 
 	var (
-		oldXFRMMark = &netlink.XfrmMark{
+		oldXFRMOutMark = &netlink.XfrmMark{
 			Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(new.Spi)),
 			Mask:  linux_defaults.IPsecOldMarkMaskOut,
+		}
+		oldXFRMInMark = &netlink.XfrmMark{
+			Value: linux_defaults.RouteMarkDecrypt,
+			Mask:  linux_defaults.IPsecMarkBitMask,
 		}
 		errs = resiliency.NewErrorSet("failed to delete old xfrm states", len(states))
 	)
 	for _, s := range states {
-		// This is the XFRM OUT state from a previous Cilium version.
-		// Because its mark matches the new mark (0xXXXX3e00/0xffffff00 ∈
-		// 0x3e00/0xff00), the kernel considers the two states conflict and we
-		// won't be able to add the new one until the old one is removed.
+		// This is either the XFRM OUT state or the XFRM IN state from a
+		// previous Cilium version. Because their marks match the new mark
+		// (e.g., 0xXXXX3e00/0xffffff00 ∈ 0x3e00/0xff00), the kernel considers
+		// the two states conflict and we won't be able to add the new ones
+		// until the old one is removed.
 		//
 		// Thus, we temporarily remove the old, conflicting XFRM state and
 		// re-add it in a defer. In between the removal of the old state and
@@ -303,20 +308,31 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 		// missing state. These drops should be limited to the specific node
 		// pair we are handling here and the window during which they can
 		// happen should be really small. This is also specific to the upgrade
-		// and can be removed in v1.15. Finally, this shouldn't happen with ENI
-		// and Azure IPAM modes because they don't have such conflicting states.
-		if xfrmIPEqual(s.Src, new.Src) && xfrmIPEqual(s.Dst, new.Dst) &&
-			xfrmMarkEqual(s.Mark, oldXFRMMark) && s.Spi == new.Spi {
+		// and can be removed in v1.16.
+		if s.Spi == new.Spi && xfrmIPEqual(s.Dst, new.Dst) {
+			var dir string
+			// The old XFRM IN state matches on 0.0.0.0 so it conflicts even
+			// though the source IP addresses of old and new are different.
+			// Thus, we don't need to compare source IP addresses for the IN
+			// states.
+			if xfrmIPEqual(s.Src, new.Src) && xfrmMarkEqual(s.Mark, oldXFRMOutMark) {
+				dir = "OUT"
+			} else if xfrmMarkEqual(s.Mark, oldXFRMInMark) {
+				dir = "IN"
+			} else {
+				continue
+			}
+
 			err := netlink.XfrmStateDel(&s)
 			if err != nil {
-				errs.Add(fmt.Errorf("failed to remove old xfrm state %s: %w", s.String(), err))
+				errs.Add(fmt.Errorf("Failed to remove old XFRM %s state %s: %w", dir, s.String(), err))
 			} else {
-				scopedLog.Infof("Temporarily removed old XFRM state")
-				defer func(oldXFRMState netlink.XfrmState) {
+				scopedLog.Infof("Temporarily removed old XFRM %s state", dir)
+				defer func(oldXFRMState netlink.XfrmState, dir string) {
 					if err := netlink.XfrmStateAdd(&oldXFRMState); err != nil {
-						scopedLog.WithError(err).Errorf("Failed to re-add old XFRM state")
+						scopedLog.WithError(err).Errorf("Failed to re-add old XFRM %s state", dir)
 					}
-				}(s)
+				}(s, dir)
 			}
 		}
 	}
