@@ -21,6 +21,17 @@ func (in *CiliumBGPNeighbor) DeepEqual(other *CiliumBGPNeighbor) bool {
 	if in.PeerASN != other.PeerASN {
 		return false
 	}
+	if in.ConnectRetryTime != other.ConnectRetryTime {
+		return false
+	}
+
+	if in.HoldTime != other.HoldTime {
+		return false
+	}
+
+	if in.KeepAliveTime != other.KeepAliveTime {
+		return false
+	}
 
 	return true
 }
