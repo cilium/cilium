@@ -217,10 +217,12 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 		}
 	}
 
+	fwMark := 0
 	cfg := wgtypes.Config{
 		PrivateKey:   &a.privKey,
 		ListenPort:   &a.listenPort,
 		ReplacePeers: false,
+		FirewallMark: &fwMark,
 	}
 	if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
 		return fmt.Errorf("failed to configure wireguard device: %w", err)
