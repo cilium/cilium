@@ -89,6 +89,7 @@ const (
 	CTA_USE            = 11
 	CTA_ID             = 12
 	CTA_TIMESTAMP      = 20
+	CTA_LABELS         = 22
 )
 
 // enum ctattr_tuple {

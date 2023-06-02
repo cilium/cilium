@@ -47,6 +47,9 @@ const (
 	// Labels are any label, they may not be relevant to the security identity.
 	Labels = "labels"
 
+	// Source is the label or node information source
+	Source = "source"
+
 	// Controller is the name of the controller to log it.
 	Controller = "controller"
 
@@ -254,6 +257,9 @@ const (
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"
 
+	// ClusterID is the ID of the cluster
+	ClusterID = "clusterID"
+
 	// AddrCluster is a pair of IP address and ClusterID
 	AddrCluster = "addrCluster"
 
@@ -361,6 +367,16 @@ const (
 
 	// Tunnel is the tunnel name
 	Tunnel = "tunnel"
+
+	// TunnelPeer is the tunnel peer address
+	TunnelPeer = "tunnelPeer"
+
+	// ConflictingTunnelPeer is the address of a tunnel peer which conflicts
+	// with TunnelPeer
+	ConflictingTunnelPeer = "conflictingTunnelPeer"
+
+	// Type is the address type
+	Type = "type"
 
 	// Selector is a selector of any sort: endpoint, CIDR, toFQDNs
 	Selector = "Selector"
@@ -542,6 +558,10 @@ const (
 	// Key is the identity of the encryption key
 	Key = "key"
 
+	// ConflictingKey is the identity of the encryption key which conflicts with
+	// Key
+	ConflictingKey = "conflictingKey"
+
 	// URL represents a Uniform Resource Locator.
 	URL = "url"
 
@@ -694,4 +714,16 @@ const (
 
 	// CIDRGroupRef is a references to a CiliumCIDRGroup object.
 	CIDRGroupRef = "cidrGroupRef"
+
+	// Workers represents the number of workers.
+	Workers = "workers"
+
+	// Event identifies the type of an event.
+	Event = "event"
+
+	// Prefix identifies a given prefix.
+	Prefix = "prefix"
+
+	// Value identifies a generic value (e.g., of a key/value pair).
+	Value = "value"
 )

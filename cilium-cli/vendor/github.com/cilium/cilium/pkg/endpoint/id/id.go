@@ -6,7 +6,7 @@ package id
 import (
 	"fmt"
 	"math"
-	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 )
@@ -70,13 +70,16 @@ func NewID(prefix PrefixType, id string) string {
 	return string(prefix) + ":" + id
 }
 
-// NewIPPrefixID returns an identifier based on the IP address specified
-func NewIPPrefixID(ip net.IP) string {
-	if ip.To4() != nil {
-		return NewID(IPv4Prefix, ip.String())
+// NewIPPrefixID returns an identifier based on the IP address specified. If ip
+// is invalid, an empty string is returned.
+func NewIPPrefixID(ip netip.Addr) string {
+	if ip.IsValid() {
+		if ip.Is4() {
+			return NewID(IPv4Prefix, ip.String())
+		}
+		return NewID(IPv6Prefix, ip.String())
 	}
-
-	return NewID(IPv6Prefix, ip.String())
+	return ""
 }
 
 // splitID splits ID into prefix and id. No validation is performed on prefix.

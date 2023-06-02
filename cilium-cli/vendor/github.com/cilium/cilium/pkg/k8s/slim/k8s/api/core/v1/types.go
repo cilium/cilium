@@ -965,6 +965,10 @@ type NodeSpec struct {
 	// +patchStrategy=merge
 	PodCIDRs []string `json:"podCIDRs,omitempty" protobuf:"bytes,7,opt,name=podCIDRs" patchStrategy:"merge"`
 
+	// ID of the node assigned by the cloud provider in the format: <ProviderName>://<ProviderSpecificNodeID>
+	// +optional
+	ProviderID string `json:"providerID,omitempty" protobuf:"bytes,3,opt,name=providerID"`
+
 	// If specified, the node's taints.
 	// +optional
 	Taints []Taint `json:"taints,omitempty" protobuf:"bytes,5,opt,name=taints"`
