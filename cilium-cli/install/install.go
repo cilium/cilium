@@ -418,7 +418,10 @@ func (p *Parameters) validate() error {
 
 		p.configOverwrites[t[0]] = t[1]
 	}
-	if p.AgentImage != "" || p.OperatorImage != "" || p.RelayImage != "" {
+	if utils.IsInHelmMode() {
+		// Version validation logic does not apply to Helm mode.
+		return nil
+	} else if p.AgentImage != "" || p.OperatorImage != "" || p.RelayImage != "" {
 		return nil
 	} else if err := utils.CheckVersion(p.Version); err != nil {
 		return err
