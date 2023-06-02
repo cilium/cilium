@@ -124,7 +124,7 @@ func (f fakePoolAllocator) RestoreFinished() {}
 
 func (s *IPAMSuite) TestLock(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 
 	// Since the IPs we have allocated to the endpoints might or might not
 	// be in the allocrange specified in cilium, we need to specify them
@@ -146,7 +146,7 @@ func (s *IPAMSuite) TestLock(c *C) {
 
 func (s *IPAMSuite) TestExcludeIP(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	ipv4 = ipv4.Next()
@@ -177,7 +177,7 @@ func (s *IPAMSuite) TestDeriveFamily(c *C) {
 
 func (s *IPAMSuite) TestIPAMMetadata(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 	ipam.IPv4Allocator = newFakePoolAllocator(map[string]string{
 		"default": "10.10.0.0/16",
 		"test":    "192.168.178.0/24",
@@ -254,7 +254,7 @@ func (s *IPAMSuite) TestLegacyAllocatorIPAMMetadata(c *C) {
 	// AllocationResult is always set to PoolDefault, regardless of the requested
 	// pool
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 	ipam.WithMetadata(fakeMetadataFunc(func(owner string) (pool string, err error) {
 		return "some-pool", nil
 	}))

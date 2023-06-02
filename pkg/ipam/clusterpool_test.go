@@ -650,6 +650,7 @@ func TestNewCRDWatcher(t *testing.T) {
 
 			fakeConfig := &testConfiguration{}
 			fakeK8sEventRegister := &ownerMock{}
+			fakeResource := &resourceMock{}
 			events := make(chan string, 1)
 			fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPI{
 				node: &ciliumv2.CiliumNode{},
@@ -662,7 +663,7 @@ func TestNewCRDWatcher(t *testing.T) {
 			}
 
 			// Test that the watcher updates the CiliumNode CRD.
-			c := newCRDWatcher(fakeConfig, fakeK8sCiliumNodeAPI, fakeK8sEventRegister, fakeK8sCiliumNodeAPI)
+			c := newCRDWatcher(fakeConfig, fakeResource, fakeK8sEventRegister, fakeK8sCiliumNodeAPI)
 			c.localNodeUpdated(&ciliumv2.CiliumNode{
 				Spec: ciliumv2.NodeSpec{
 					IPAM: types.IPAMSpec{
@@ -785,6 +786,7 @@ func TestNewCRDWatcher_restoreFinished(t *testing.T) {
 
 	fakeConfig := &testConfiguration{}
 	fakeK8sEventRegister := &ownerMock{}
+	fakeResource := &resourceMock{}
 	events := make(chan string, 1)
 	fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPI{
 		node: &ciliumv2.CiliumNode{},
@@ -796,7 +798,7 @@ func TestNewCRDWatcher_restoreFinished(t *testing.T) {
 		},
 	}
 
-	c := newCRDWatcher(fakeConfig, fakeK8sEventRegister, fakeK8sEventRegister, fakeK8sCiliumNodeAPI)
+	c := newCRDWatcher(fakeConfig, fakeResource, fakeK8sEventRegister, fakeK8sCiliumNodeAPI)
 	c.localNodeUpdated(&ciliumv2.CiliumNode{
 		Spec: ciliumv2.NodeSpec{
 			IPAM: types.IPAMSpec{

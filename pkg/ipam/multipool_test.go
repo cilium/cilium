@@ -22,6 +22,7 @@ import (
 
 func Test_MultiPoolManager(t *testing.T) {
 	fakeConfig := &testConfiguration{}
+	fakeResource := &resourceMock{}
 	fakeOwner := &ownerMock{}
 	events := make(chan string, 1)
 	fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPI{
@@ -33,7 +34,7 @@ func Test_MultiPoolManager(t *testing.T) {
 			events <- "upsert"
 		},
 	}
-	c := newMultiPoolManager(fakeConfig, fakeK8sCiliumNodeAPI, fakeOwner, fakeK8sCiliumNodeAPI)
+	c := newMultiPoolManager(fakeConfig, fakeResource, fakeOwner, fakeK8sCiliumNodeAPI)
 	// set custom preAllocMap to not rely on option.Config in unit tests
 	c.preallocMap = preAllocMap{
 		"default": 16,
