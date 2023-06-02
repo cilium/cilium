@@ -90,20 +90,19 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node, nodeID uint16) e
 	// the mark fields. This uses XFRM_OUTPUT_MARK added in 4.14 kernels.
 	zeroMark := option.Config.EnableEndpointRoutes
 
-	return errors.Join(
-		errs,
-		n.enableIPsecIPv4(newNode, nodeID, zeroMark),
-		n.enableIPsecIPv6(newNode, nodeID, zeroMark),
-	)
+	if n.nodeConfig.EnableIPv4 && (newNode.IPv4AllocCIDR != nil || n.subnetEncryption()) {
+		errs = errors.Join(errs, n.enableIPsecIPv4(newNode, nodeID, zeroMark))
+	}
+	if n.nodeConfig.EnableIPv6 && (newNode.IPv6AllocCIDR != nil || n.subnetEncryption()) {
+		errs = errors.Join(errs, n.enableIPsecIPv6(newNode, nodeID, zeroMark))
+	}
+
+	return errs
 }
 
 func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint16, zeroMark bool) error {
 	var spi uint8
 	var errs error
-
-	if !n.nodeConfig.EnableIPv4 || (newNode.IPv4AllocCIDR == nil && !n.subnetEncryption()) {
-		return nil
-	}
 
 	wildcardIP := net.ParseIP(wildcardIPv4)
 	wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
@@ -191,10 +190,6 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint16, zeroMark bool) error {
 	var errs error
 	var spi uint8
-
-	if !n.nodeConfig.EnableIPv6 || (newNode.IPv6AllocCIDR == nil && !n.subnetEncryption()) {
-		return nil
-	}
 
 	wildcardIP := net.ParseIP(wildcardIPv6)
 	wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 128)}
