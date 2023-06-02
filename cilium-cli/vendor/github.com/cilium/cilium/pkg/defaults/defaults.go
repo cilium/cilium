@@ -366,6 +366,10 @@ const (
 	// CiliumNode.Spec.IPAM.PreAllocate if no value is set
 	IPAMPreAllocation = 8
 
+	// IPAMMultiPoolPreAllocation is the default value for multi-pool IPAM
+	// pre-allocations
+	IPAMMultiPoolPreAllocation = "default=8"
+
 	// ENIFirstInterfaceIndex is the default value for
 	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set.
 	ENIFirstInterfaceIndex = 0
@@ -478,6 +482,11 @@ const (
 	// for local traffic
 	EnableIdentityMark = true
 
+	// EnableHighScaleIPcache enables the special ipcache mode for high scale
+	// clusters. The ipcache content will be reduced to the strict minimum and
+	// traffic will be encapsulated to carry security identities.
+	EnableHighScaleIPcache = false
+
 	// K8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
 	// for the support of Leases in Kubernetes when there is an error in discovering
 	// API groups using Discovery API.
@@ -507,6 +516,9 @@ const (
 
 	// TunnelProtocol is the default tunneling protocol
 	TunnelProtocol = "vxlan"
+
+	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
+	UseCiliumInternalIPForIPsec = false
 
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN = 8472

@@ -330,6 +330,19 @@ func NewIfInfomsgChild(parent *RtAttr, family int) *IfInfomsg {
 	return msg
 }
 
+type Uint32Bitfield struct {
+	Value    uint32
+	Selector uint32
+}
+
+func (a *Uint32Bitfield) Serialize() []byte {
+	return (*(*[SizeofUint32Bitfield]byte)(unsafe.Pointer(a)))[:]
+}
+
+func DeserializeUint32Bitfield(data []byte) *Uint32Bitfield {
+	return (*Uint32Bitfield)(unsafe.Pointer(&data[0:SizeofUint32Bitfield][0]))
+}
+
 type Uint32Attribute struct {
 	Type  uint16
 	Value uint32

@@ -38,6 +38,12 @@ func (o *DeleteIpamIPReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
+	case 403:
+		result := NewDeleteIpamIPForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 404:
 		result := NewDeleteIpamIPNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -159,6 +165,57 @@ func (o *DeleteIpamIPInvalid) String() string {
 }
 
 func (o *DeleteIpamIPInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	return nil
+}
+
+// NewDeleteIpamIPForbidden creates a DeleteIpamIPForbidden with default headers values
+func NewDeleteIpamIPForbidden() *DeleteIpamIPForbidden {
+	return &DeleteIpamIPForbidden{}
+}
+
+/*
+DeleteIpamIPForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type DeleteIpamIPForbidden struct {
+}
+
+// IsSuccess returns true when this delete ipam Ip forbidden response has a 2xx status code
+func (o *DeleteIpamIPForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete ipam Ip forbidden response has a 3xx status code
+func (o *DeleteIpamIPForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete ipam Ip forbidden response has a 4xx status code
+func (o *DeleteIpamIPForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete ipam Ip forbidden response has a 5xx status code
+func (o *DeleteIpamIPForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete ipam Ip forbidden response a status code equal to that given
+func (o *DeleteIpamIPForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *DeleteIpamIPForbidden) Error() string {
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpForbidden ", 403)
+}
+
+func (o *DeleteIpamIPForbidden) String() string {
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpForbidden ", 403)
+}
+
+func (o *DeleteIpamIPForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

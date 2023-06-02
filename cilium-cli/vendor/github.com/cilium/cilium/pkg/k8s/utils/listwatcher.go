@@ -67,3 +67,10 @@ func ListerWatcherWithModifier(lw cache.ListerWatcher, optsModifier func(*metav1
 		optsModifier: optsModifier,
 	}
 }
+
+func ListerWatcherWithModifiers(lw cache.ListerWatcher, opts ...func(*metav1.ListOptions)) cache.ListerWatcher {
+	for _, opt := range opts {
+		lw = ListerWatcherWithModifier(lw, opt)
+	}
+	return lw
+}

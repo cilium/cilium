@@ -26,11 +26,17 @@ type AddressPair struct {
 	// UUID of IPv4 expiration timer
 	IPV4ExpirationUUID string `json:"ipv4-expiration-uuid,omitempty"`
 
+	// IPAM pool from which this IPv4 address was allocated
+	IPV4PoolName string `json:"ipv4-pool-name,omitempty"`
+
 	// IPv6 address
 	IPV6 string `json:"ipv6,omitempty"`
 
 	// UUID of IPv6 expiration timer
 	IPV6ExpirationUUID string `json:"ipv6-expiration-uuid,omitempty"`
+
+	// IPAM pool from which this IPv6 address was allocated
+	IPV6PoolName string `json:"ipv6-pool-name,omitempty"`
 }
 
 // Validate validates this address pair
