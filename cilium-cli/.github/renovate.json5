@@ -91,6 +91,10 @@
         "github.com/cilium/controller-tools",
         // We update this dependency manually together with envoy proxy updates
         "github.com/cilium/proxy",
+        // We need v1.0.6-0.20210604193023-d5e0c0615ace from pflag, but
+        // renovate wants to downgrade to 1.0.5. Can be removed if pflag ever
+        // tags a new release.
+        "github.com/spf13/pflag",
       ],
       "matchPackagePatterns": [
         // k8s dependencies will be updated manually in lockstep.
