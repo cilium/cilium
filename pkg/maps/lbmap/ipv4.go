@@ -6,6 +6,7 @@ package lbmap
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -297,7 +298,7 @@ func NewService4Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, 
 
 func (k *Service4Key) String() string {
 	kHost := k.ToHost().(*Service4Key)
-	addr := net.JoinHostPort(kHost.Address.String(), fmt.Sprintf("%d", kHost.Port))
+	addr := net.JoinHostPort(kHost.Address.String(), strconv.Itoa(int(kHost.Port)))
 	if kHost.Scope == loadbalancer.ScopeInternal {
 		addr += "/i"
 	}
