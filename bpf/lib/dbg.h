@@ -60,7 +60,7 @@ enum {
 				 */
 	DBG_CT_LOOKUP4_2,       /* arg1: (nexthdr << 8) | flags
 				 * arg2: direction
-				 * arg3: unused
+				 * arg3: scope
 				 */
 	DBG_CT_CREATED4,        /* arg1: (unused << 16) | rev_nat_index
 				 * arg2: src sec-id
@@ -72,7 +72,7 @@ enum {
 				 */
 	DBG_CT_LOOKUP6_2,       /* arg1: (nexthdr << 8) | flags
 				 * arg2: direction
-				 * arg3: unused
+				 * arg3: scope
 				 */
 	DBG_CT_CREATED6,        /* arg1: (unused << 16) | rev_nat_index
 				 * arg2: src sec-id

@@ -62,6 +62,7 @@ static __always_inline int mock_ct_lazy_lookup4(__maybe_unused const void *map,
 						__maybe_unused bool has_l4_header,
 						__maybe_unused int action,
 						__maybe_unused enum ct_dir dir,
+						__maybe_unused enum ct_scope scope,
 						__maybe_unused struct ct_state *ct_state,
 						__maybe_unused __u32 *monitor)
 {
