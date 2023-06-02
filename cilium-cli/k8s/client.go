@@ -1111,3 +1111,7 @@ func (c *Client) CreateEphemeralContainer(ctx context.Context, pod *corev1.Pod, 
 func (c *Client) ListTetragonTracingPolicies(ctx context.Context, opts metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyList, error) {
 	return c.TetragonClientset.CiliumV1alpha1().TracingPolicies().List(ctx, opts)
 }
+
+func (c *Client) ListTetragonTracingPoliciesNamespaced(ctx context.Context, namespace string, opts metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyNamespacedList, error) {
+	return c.TetragonClientset.CiliumV1alpha1().TracingPoliciesNamespaced(namespace).List(ctx, opts)
+}
