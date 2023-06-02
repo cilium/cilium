@@ -102,6 +102,7 @@ Fields
 
        virtualRouters[*].neighbors: A list of neighbors to peer with
            neighbors[*].peerAddress: The address of the peer neighbor
+           neighbors[*].peerPort: Optional TCP port number of the neighbor. 1-65535 are valid values and defaults to 179 when unspecified.
            neighbors[*].peerASN: The ASN of the peer
            neighbors[*].eBGPMultihopTTL: (optional) Time To Live (TTL) value used in BGP packets. 0 if eBGP multi-hop feature is disabled.
            neighbors[*].connectRetryTime: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8). Defaults to 120 seconds.
