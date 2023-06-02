@@ -828,6 +828,43 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 	c.Assert(created, Equals, false)
 }
 
+//Tests whether backends with TerminatingState as initial state are properly
+//considered as Terminating backends
+func (m *ManagerTestSuite) TestTerminatingStateAsInitialState(c *C) {
+	terminatingBackends := []lb.Backend{
+		*lb.NewBackendWithState(0, lb.TCP, net.ParseIP("10.0.0.10"), 8080,
+			lb.BackendStateTerminating, false),
+	}
+
+	//terminatingBackends in first position to make sure upsert's logic
+	//order properly backends (active first then terminating)
+	backends := append(terminatingBackends, backends1...)
+	p := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends,
+		Type:                      lb.SVCTypeClusterIP,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           false,
+		SessionAffinityTimeoutSec: 0,
+		Name:                      "svc-zeta",
+		Namespace:                 "ns-zeta",
+	}
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, len(backends))
+	//
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, len(backends1))
+	//Here we confirm that backend in terminating state is put at the map's tail
+	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[0].ID, Equals, lb.BackendID(2))
+	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[1].ID, Equals, lb.BackendID(3))
+	c.Assert(m.lbmap.ServiceByID[uint16(id1)].Backends[2].ID, Equals, lb.BackendID(1))
+	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
+}
+
 // Tests whether upsert service handles terminating backends, whereby terminating
 // backends are not added to the service map, but are added to the backends and
 // affinity maps.
