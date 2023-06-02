@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -69,7 +70,7 @@ var Cell = cell.Module(
 	}),
 )
 
-func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
+func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *wg.Agent {
 	var wgAgent *wg.Agent
 	if option.Config.EnableWireguard {
 		if option.Config.EnableIPSec {
@@ -79,7 +80,7 @@ func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
 
 		var err error
 		privateKeyPath := filepath.Join(option.Config.StateDir, wgTypes.PrivKeyFilename)
-		wgAgent, err = wg.NewAgent(privateKeyPath)
+		wgAgent, err = wg.NewAgent(privateKeyPath, localNodeStore)
 		if err != nil {
 			log.Fatalf("failed to initialize wireguard: %s", err)
 		}
