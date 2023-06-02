@@ -403,6 +403,21 @@ type SVC struct {
 	LoopbackHostport          bool
 }
 
+// ModelID returns the Frontend in the "IPv4:Port:Protocol[:Scope]" format for IPv4 and
+// "[IPv6]:Port:Protocol[:Scope]" format for IPv6. Used by the Cilium REST API for unique
+// service identification.
+func (s *SVC) ModelID() string {
+	a := s.Frontend
+	var scope string
+	if a.Scope == ScopeInternal {
+		scope = ":i"
+	}
+	if a.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d:%s%s", a.AddrCluster.String(), a.Port, a.Protocol, scope)
+	}
+	return fmt.Sprintf("%s:%d:%s%s", a.AddrCluster.String(), a.Port, a.Protocol, scope)
+}
+
 func (s *SVC) GetModel() *models.Service {
 	var natPolicy string
 	type backendPlacement struct {
@@ -414,12 +429,10 @@ func (s *SVC) GetModel() *models.Service {
 		return nil
 	}
 
-	id := int64(s.Frontend.ID)
 	if s.NatPolicy != SVCNatPolicyNone {
 		natPolicy = string(s.NatPolicy)
 	}
 	spec := &models.ServiceSpec{
-		ID:               id,
 		FrontendAddress:  s.Frontend.GetModel(),
 		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
@@ -622,6 +635,61 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr, Scope: scope}, nil
 }
 
+// tokenizeID tokenizes string by ':', but with "[...]" escaped.
+// e.g. "baz:[:foo:]:bar -> [baz,:foo:,bar]
+func tokenizeID(s string) []string {
+	var (
+		tokens  []string
+		current []rune
+		quoted  bool
+	)
+	for _, c := range s {
+		switch {
+		case c == ':' && !quoted:
+			tokens = append(tokens, string(current))
+			current = nil
+		case c == '[' && !quoted:
+			quoted = true
+		case c == ']' && quoted:
+			quoted = false
+		default:
+			current = append(current, c)
+		}
+	}
+	if len(current) > 0 {
+		tokens = append(tokens, string(current))
+	}
+	return tokens
+}
+
+func NewL3n4AddrFromModelID(id string) (*L3n4Addr, error) {
+	formatError := fmt.Errorf(
+		"invalid service frontend %q, expected \"<ip>:<port>:<proto>(:i)\" "+
+			"e.g. 1.2.3.4:80:TCP (IPv4, external scope) or [2001::1]:443:TCP:i (IPv6, internal scope)", id)
+
+	tokens := tokenizeID(id)
+	if len(tokens) < 3 {
+		return nil, formatError
+	}
+	var model models.FrontendAddress
+	model.IP = tokens[0]
+	port, err := strconv.ParseUint(tokens[1], 10, 16)
+	if err != nil {
+		return nil, formatError
+	}
+	model.Port = uint16(port)
+	model.Protocol = tokens[2]
+	model.Scope = models.FrontendAddressScopeExternal
+	if len(tokens) == 4 {
+		if tokens[3] != "i" {
+			return nil, formatError
+		}
+		model.Scope = models.FrontendAddressScopeInternal
+	}
+
+	return NewL3n4AddrFromModel(&model)
+}
+
 // NewBackend creates the Backend struct instance from given params.
 // The default state for the returned Backend is BackendStateActive.
 func NewBackend(id BackendID, protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16) *Backend {
@@ -709,9 +777,10 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 		scope = models.FrontendAddressScopeInternal
 	}
 	return &models.FrontendAddress{
-		IP:    a.AddrCluster.String(),
-		Port:  a.Port,
-		Scope: scope,
+		IP:       a.AddrCluster.String(),
+		Port:     a.Port,
+		Protocol: strings.ToLower(a.Protocol),
+		Scope:    scope,
 	}
 }
 
@@ -763,6 +832,20 @@ func (a *L3n4Addr) StringID() string {
 	// This does not include the protocol right now as the datapath does
 	// not include the protocol in the lookup of the service IP.
 	return a.String()
+}
+
+// ModelID returns the Frontend in the "IPv4:Port:Protocol[:i]" format for IPv4 and
+// "[IPv6]:Port:Protocol[:i]" format for IPv6. Used by the Cilium REST API for unique
+// service frontend identification..
+func (a *L3n4Addr) ModelID() string {
+	var scope string
+	if a.Scope == ScopeInternal {
+		scope = ":i"
+	}
+	if a.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d:%s%s", a.AddrCluster.String(), a.Port, a.Protocol, scope)
+	}
+	return fmt.Sprintf("%s:%d:%s%s", a.AddrCluster.String(), a.Port, a.Protocol, scope)
 }
 
 // Hash calculates a unique string of the L3n4Addr e.g for use as a key in maps.

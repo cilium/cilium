@@ -27,16 +27,11 @@ var (
 	k8sIntTrafficPolicy string
 	k8sClusterInternal  bool
 	localRedirect       bool
-	idU                 uint64
 	frontend            string
 	backends            []string
 	backendStates       []string
 	backendWeights      []uint
 )
-
-func warnIdTypeDeprecation() {
-	fmt.Printf("Deprecation warning: --id parameter will change from int to string in v1.14\n")
-}
 
 // serviceUpdateCmd represents the service_update command
 var serviceUpdateCmd = &cobra.Command{
@@ -49,7 +44,7 @@ var serviceUpdateCmd = &cobra.Command{
 
 func init() {
 	ServiceCmd.AddCommand(serviceUpdateCmd)
-	serviceUpdateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
+	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Service frontend")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sExternalIPs, "k8s-external", "", false, "Set service as a k8s ExternalIPs")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sNodePort, "k8s-node-port", "", false, "Set service as a k8s NodePort")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sLoadBalancer, "k8s-load-balancer", "", false, "Set service as a k8s LoadBalancer")
@@ -58,30 +53,9 @@ func init() {
 	serviceUpdateCmd.Flags().StringVarP(&k8sExtTrafficPolicy, "k8s-ext-traffic-policy", "", "Cluster", "Set service with k8s externalTrafficPolicy as {Local,Cluster}")
 	serviceUpdateCmd.Flags().StringVarP(&k8sIntTrafficPolicy, "k8s-int-traffic-policy", "", "Cluster", "Set service with k8s internalTrafficPolicy as {Local,Cluster}")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sClusterInternal, "k8s-cluster-internal", "", false, "Set service as cluster-internal for externalTrafficPolicy=Local xor internalTrafficPolicy=Local")
-	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses (<IP:Port>)")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backendStates, "states", "", []string{}, "Backend state(s) as {active(default),terminating,quarantined,maintenance}")
 	serviceUpdateCmd.Flags().UintSliceVarP(&backendWeights, "backend-weights", "", []uint{}, "Backend weights (100 default, 0 means maintenance state, only for maglev mode)")
-}
-
-func parseFrontendAddress(address string) *models.FrontendAddress {
-	frontend, err := net.ResolveTCPAddr("tcp", address)
-	if err != nil {
-		Fatalf("Unable to parse frontend address: %s\n", err)
-	}
-
-	scope := models.FrontendAddressScopeExternal
-	if k8sClusterInternal {
-		scope = models.FrontendAddressScopeInternal
-	}
-
-	// FIXME support more than TCP
-	return &models.FrontendAddress{
-		IP:       frontend.IP.String(),
-		Port:     uint16(frontend.Port),
-		Protocol: models.FrontendAddressProtocolTCP,
-		Scope:    scope,
-	}
 }
 
 func boolToInt(set bool) int {
@@ -92,37 +66,43 @@ func boolToInt(set bool) int {
 }
 
 func updateService(cmd *cobra.Command, args []string) {
-	warnIdTypeDeprecation()
-
-	id := int64(idU)
-	fa := parseFrontendAddress(frontend)
-	skipFrontendCheck := false
-
 	var spec *models.ServiceSpec
-	svc, err := client.GetServiceID(id)
-	switch {
-	case id == 0 && frontend == "" && len(backends) != 0:
-		// When service ID is 0 and frontend is not specified, the intended use
-		// of the API is to update backend state(s) for service(s) selecting those
-		// backend(s).
+
+	// Frontend address. If nil, then we're updating backend states.
+	var fa *loadbalancer.L3n4Addr
+
+	if frontend == "" && len(backends) != 0 {
+		// When service frontend is unspecified the intended use
+		// of the API is to update backend state(s) for service(s)
+		// selecting those backend(s).
 		if len(backendStates) == 0 {
 			Fatalf("Cannot update empty backend states")
 		}
-		spec = &models.ServiceSpec{ID: 0}
-		skipFrontendCheck = true
+		spec = &models.ServiceSpec{}
 		spec.UpdateServices = true
 		fmt.Printf("Updating backend states \n")
+	} else {
+		var err error
+		fa, err = loadbalancer.NewL3n4AddrFromModelID(frontend)
+		if err != nil {
+			Fatalf("Cannot update service: %s", err)
+		}
 
-	case err == nil && (svc.Status == nil || svc.Status.Realized == nil):
-		Fatalf("Cannot update service %d: empty state", id)
+		svc, err := client.GetServiceID(fa.ModelID())
+		switch {
+		case err == nil && (svc.Status == nil || svc.Status.Realized == nil):
+			Fatalf("Cannot update service %q: empty state", frontend)
 
-	case err == nil:
-		spec = svc.Status.Realized
-		fmt.Printf("Updating existing service with id '%v'\n", id)
+		case err == nil:
+			spec = svc.Status.Realized
+			fmt.Printf("Updating existing service %q\n", frontend)
 
-	default:
-		spec = &models.ServiceSpec{ID: id}
-		fmt.Printf("Creating new service with id '%v'\n", id)
+		default:
+			spec = &models.ServiceSpec{
+				FrontendAddress: fa.GetModel(),
+			}
+			fmt.Printf("Creating new service %q\n", fa.ModelID())
+		}
 	}
 
 	// This can happen when we create a new service or when the service returned
@@ -160,8 +140,6 @@ func updateService(cmd *cobra.Command, args []string) {
 	} else {
 		spec.Flags.IntTrafficPolicy = models.ServiceSpecFlagsIntTrafficPolicyCluster
 	}
-
-	spec.FrontendAddress = fa
 
 	if len(backends) == 0 {
 		fmt.Printf("Reading backend list from stdin...\n")
@@ -212,7 +190,7 @@ func updateService(cmd *cobra.Command, args []string) {
 		// Backend ID will be set by the daemon
 		be := loadbalancer.NewBackend(0, loadbalancer.TCP, cmtypes.MustAddrClusterFromIP(beAddr.IP), uint16(beAddr.Port))
 
-		if !skipFrontendCheck && fa.Port == 0 && beAddr.Port != 0 {
+		if fa != nil && fa.Port == 0 && beAddr.Port != 0 {
 			Fatalf("L4 backend found (%v) with L3 frontend", beAddr)
 		}
 
@@ -235,7 +213,7 @@ func updateService(cmd *cobra.Command, args []string) {
 		spec.BackendAddresses = append(spec.BackendAddresses, ba)
 	}
 
-	if created, err := client.PutServiceID(id, spec); err != nil {
+	if created, err := client.PutServiceID(fa.ModelID(), spec); err != nil {
 		Fatalf("Cannot add/update service: %s %+v", err, spec)
 	} else if created {
 		fmt.Printf("Added service with %d backends\n", len(spec.BackendAddresses))

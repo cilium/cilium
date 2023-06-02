@@ -1052,22 +1052,6 @@ func (s *Service) DeleteService(frontend lb.L3n4Addr) (bool, error) {
 	return false, nil
 }
 
-// GetDeepCopyServiceByID returns a deep-copy of a service identified with
-// the given ID.
-//
-// If a service cannot be found, returns false.
-func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.SVC, bool) {
-	s.RLock()
-	defer s.RUnlock()
-
-	svc, found := s.svcByID[lb.ID(id)]
-	if !found {
-		return nil, false
-	}
-
-	return svc.deepCopyToLBSVC(), true
-}
-
 // GetDeepCopyServices returns a deep-copy of all installed services.
 func (s *Service) GetDeepCopyServices() []*lb.SVC {
 	s.RLock()

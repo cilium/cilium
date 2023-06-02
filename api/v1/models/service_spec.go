@@ -34,11 +34,8 @@ type ServiceSpec struct {
 	// Required: true
 	FrontendAddress *FrontendAddress `json:"frontend-address"`
 
-	// Unique identification
-	ID int64 `json:"id,omitempty"`
-
 	// Update all services selecting the backends with their given states
-	// (id and frontend are ignored)
+	// (id and frontend is ignored)
 	//
 	UpdateServices bool `json:"updateServices,omitempty"`
 }

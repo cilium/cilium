@@ -17,7 +17,6 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
 )
 
 // NewDeleteServiceIDParams creates a new DeleteServiceIDParams object,
@@ -67,9 +66,9 @@ type DeleteServiceIDParams struct {
 
 	/* ID.
 
-	   ID of service
+	   Service address, port, protocol and scope (<IP>:<port>:<proto>(:<scope>))
 	*/
-	ID int64
+	ID string
 
 	timeout    time.Duration
 	Context    context.Context
@@ -125,13 +124,13 @@ func (o *DeleteServiceIDParams) SetHTTPClient(client *http.Client) {
 }
 
 // WithID adds the id to the delete service ID params
-func (o *DeleteServiceIDParams) WithID(id int64) *DeleteServiceIDParams {
+func (o *DeleteServiceIDParams) WithID(id string) *DeleteServiceIDParams {
 	o.SetID(id)
 	return o
 }
 
 // SetID adds the id to the delete service ID params
-func (o *DeleteServiceIDParams) SetID(id int64) {
+func (o *DeleteServiceIDParams) SetID(id string) {
 	o.ID = id
 }
 
@@ -144,7 +143,7 @@ func (o *DeleteServiceIDParams) WriteToRequest(r runtime.ClientRequest, reg strf
 	var res []error
 
 	// path param id
-	if err := r.SetPathParam("id", swag.FormatInt64(o.ID)); err != nil {
+	if err := r.SetPathParam("id", o.ID); err != nil {
 		return err
 	}
 

@@ -1632,7 +1632,7 @@ func init() {
         "summary": "Retrieve configuration of a service",
         "parameters": [
           {
-            "$ref": "#/parameters/service-id"
+            "$ref": "#/parameters/service-frontend"
           }
         ],
         "responses": {
@@ -1654,7 +1654,7 @@ func init() {
         "summary": "Create or update service",
         "parameters": [
           {
-            "$ref": "#/parameters/service-id"
+            "$ref": "#/parameters/service-frontend"
           },
           {
             "$ref": "#/parameters/service-config"
@@ -1707,7 +1707,7 @@ func init() {
         "summary": "Delete a service",
         "parameters": [
           {
-            "$ref": "#/parameters/service-id"
+            "$ref": "#/parameters/service-frontend"
           }
         ],
         "responses": {
@@ -4746,12 +4746,8 @@ func init() {
           "description": "Frontend address",
           "$ref": "#/definitions/FrontendAddress"
         },
-        "id": {
-          "description": "Unique identification",
-          "type": "integer"
-        },
         "updateServices": {
-          "description": "Update all services selecting the backends with their given states\n(id and frontend are ignored)\n",
+          "description": "Update all services selecting the backends with their given states\n(id and frontend is ignored)\n",
           "type": "boolean"
         }
       }
@@ -5247,9 +5243,9 @@ func init() {
         "$ref": "#/definitions/ServiceSpec"
       }
     },
-    "service-id": {
-      "type": "integer",
-      "description": "ID of service",
+    "service-frontend": {
+      "type": "string",
+      "description": "Service address, port, protocol and scope (\u003cIP\u003e:\u003cport\u003e:\u003cproto\u003e(:\u003cscope\u003e))",
       "name": "id",
       "in": "path",
       "required": true
@@ -7087,8 +7083,8 @@ func init() {
         "summary": "Retrieve configuration of a service",
         "parameters": [
           {
-            "type": "integer",
-            "description": "ID of service",
+            "type": "string",
+            "description": "Service address, port, protocol and scope (\u003cIP\u003e:\u003cport\u003e:\u003cproto\u003e(:\u003cscope\u003e))",
             "name": "id",
             "in": "path",
             "required": true
@@ -7113,8 +7109,8 @@ func init() {
         "summary": "Create or update service",
         "parameters": [
           {
-            "type": "integer",
-            "description": "ID of service",
+            "type": "string",
+            "description": "Service address, port, protocol and scope (\u003cIP\u003e:\u003cport\u003e:\u003cproto\u003e(:\u003cscope\u003e))",
             "name": "id",
             "in": "path",
             "required": true
@@ -7176,8 +7172,8 @@ func init() {
         "summary": "Delete a service",
         "parameters": [
           {
-            "type": "integer",
-            "description": "ID of service",
+            "type": "string",
+            "description": "Service address, port, protocol and scope (\u003cIP\u003e:\u003cport\u003e:\u003cproto\u003e(:\u003cscope\u003e))",
             "name": "id",
             "in": "path",
             "required": true
@@ -10670,12 +10666,8 @@ func init() {
           "description": "Frontend address",
           "$ref": "#/definitions/FrontendAddress"
         },
-        "id": {
-          "description": "Unique identification",
-          "type": "integer"
-        },
         "updateServices": {
-          "description": "Update all services selecting the backends with their given states\n(id and frontend are ignored)\n",
+          "description": "Update all services selecting the backends with their given states\n(id and frontend is ignored)\n",
           "type": "boolean"
         }
       }
@@ -11239,9 +11231,9 @@ func init() {
         "$ref": "#/definitions/ServiceSpec"
       }
     },
-    "service-id": {
-      "type": "integer",
-      "description": "ID of service",
+    "service-frontend": {
+      "type": "string",
+      "description": "Service address, port, protocol and scope (\u003cIP\u003e:\u003cport\u003e:\u003cproto\u003e(:\u003cscope\u003e))",
       "name": "id",
       "in": "path",
       "required": true

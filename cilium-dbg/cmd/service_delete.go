@@ -5,18 +5,27 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var deleteAll bool
 
+func frontendAddressAsID(fa *models.FrontendAddress) string {
+	a, err := loadbalancer.NewL3n4AddrFromModel(fa)
+	if err != nil {
+		Fatalf("Invalid frontend address: %s", err)
+	}
+	return a.ModelID()
+}
+
 // serviceDeleteCmd represents the service_delete command
 var serviceDeleteCmd = &cobra.Command{
-	Use:   "delete { <service id> | --all }",
+	Use:   "delete { <service frontend> | --all }",
 	Short: "Delete a service",
 	Run: func(cmd *cobra.Command, args []string) {
 		if deleteAll {
@@ -31,26 +40,21 @@ var serviceDeleteCmd = &cobra.Command{
 					continue
 				}
 
-				if err := client.DeleteServiceID(svc.Status.Realized.ID); err != nil {
-					log.WithError(err).WithField(logfields.ServiceID, svc.Status.Realized.ID).Error("Cannot delete service")
+				id := frontendAddressAsID(svc.Status.Realized.FrontendAddress)
+				if err := client.DeleteServiceID(id); err != nil {
+					log.WithError(err).WithField(logfields.ServiceID, id).Error("Cannot delete service")
 				}
 			}
 
 			return
 		}
 
-		warnIdTypeDeprecation()
-
+		frontend := args[0]
 		requireServiceID(cmd, args)
-		if id, err := strconv.ParseInt(args[0], 0, 64); err != nil {
+		if err := client.DeleteServiceID(frontend); err != nil {
 			Fatalf("%s", err)
-		} else {
-			if err := client.DeleteServiceID(id); err != nil {
-				Fatalf("%s", err)
-			}
-
-			fmt.Printf("Service %d deleted successfully\n", id)
 		}
+		fmt.Printf("Service %q deleted successfully\n", frontend)
 	},
 }
 

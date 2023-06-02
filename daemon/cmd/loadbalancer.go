@@ -4,9 +4,6 @@
 package cmd
 
 import (
-	"fmt"
-	"sync"
-
 	"github.com/go-openapi/runtime/middleware"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -17,23 +14,10 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 )
 
-var warnIdTypeDeprecationOnce sync.Once
-
-func warnIdTypeDeprecation() {
-	warnIdTypeDeprecationOnce.Do(func() {
-		log.Warning("Deprecation: The type of {id} in /service/{id} will change from int to string in v1.14")
-	})
-}
-
 func putServiceIDHandler(d *Daemon, params PutServiceIDParams) middleware.Responder {
-	warnIdTypeDeprecation()
-
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
 
-	if params.Config.ID == 0 {
-		if !params.Config.UpdateServices {
-			return api.Error(PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
-		}
+	if params.Config.UpdateServices {
 		backends := []*loadbalancer.Backend{}
 		for _, v := range params.Config.BackendAddresses {
 			b, err := loadbalancer.NewBackendFromBackendModel(v)
@@ -51,11 +35,16 @@ func putServiceIDHandler(d *Daemon, params PutServiceIDParams) middleware.Respon
 	f, err := loadbalancer.NewL3n4AddrFromModel(params.Config.FrontendAddress)
 	if err != nil {
 		return api.Error(PutServiceIDInvalidFrontendCode, err)
+	} else {
+		// Check that FrontendAddress matches with the ID
+		fID, err := loadbalancer.NewL3n4AddrFromModelID(params.ID)
+		if err != nil || !fID.DeepEqual(f) {
+			return api.Error(PutServiceIDInvalidFrontendCode, err)
+		}
 	}
 
 	frontend := loadbalancer.L3n4AddrID{
 		L3n4Addr: *f,
-		ID:       loadbalancer.ID(params.Config.ID),
 	}
 	backends := []*loadbalancer.Backend{}
 	for _, v := range params.Config.BackendAddresses {
@@ -116,12 +105,8 @@ func putServiceIDHandler(d *Daemon, params PutServiceIDParams) middleware.Respon
 		IntTrafficPolicy:    svcIntTrafficPolicy,
 		HealthCheckNodePort: svcHealthCheckNodePort,
 	}
-	created, id, err := d.svc.UpsertService(p)
-	if err == nil && id != frontend.ID {
-		return api.Error(PutServiceIDInvalidFrontendCode,
-			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
-				id, frontend.ID))
-	} else if err != nil {
+	created, _, err := d.svc.UpsertService(p)
+	if err != nil {
 		return api.Error(PutServiceIDFailureCode, err)
 	} else if created {
 		return NewPutServiceIDCreated()
@@ -131,11 +116,16 @@ func putServiceIDHandler(d *Daemon, params PutServiceIDParams) middleware.Respon
 }
 
 func deleteServiceIDHandler(d *Daemon, params DeleteServiceIDParams) middleware.Responder {
-	warnIdTypeDeprecation()
-
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /service/{id} request")
 
-	found, err := d.svc.DeleteServiceByID(loadbalancer.ServiceID(params.ID))
+	frontend, err := loadbalancer.NewL3n4AddrFromModelID(params.ID)
+	if err != nil {
+		log.WithError(err).WithField(logfields.ServiceID, params.ID).
+			Warn("DELETE /service/{id}: error parsing ID")
+		return api.Error(DeleteServiceIDFailureCode, err)
+	}
+
+	found, err := d.svc.DeleteService(*frontend)
 	switch {
 	case err != nil:
 		log.WithError(err).WithField(logfields.ServiceID, params.ID).
@@ -149,11 +139,16 @@ func deleteServiceIDHandler(d *Daemon, params DeleteServiceIDParams) middleware.
 }
 
 func getServiceIDHandler(d *Daemon, params GetServiceIDParams) middleware.Responder {
-	warnIdTypeDeprecation()
-
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service/{id} request")
 
-	if svc, ok := d.svc.GetDeepCopyServiceByID(loadbalancer.ServiceID(params.ID)); ok {
+	frontend, err := loadbalancer.NewL3n4AddrFromModelID(params.ID)
+	if err != nil {
+		log.WithError(err).WithField(logfields.ServiceID, params.ID).
+			Warn("DELETE /service/{id}: error parsing ID")
+		return api.Error(DeleteServiceIDFailureCode, err)
+	}
+
+	if svc, ok := d.svc.GetDeepCopyServiceByFrontend(*frontend); ok {
 		return NewGetServiceIDOK().WithPayload(svc.GetModel())
 	}
 	return NewGetServiceIDNotFound()

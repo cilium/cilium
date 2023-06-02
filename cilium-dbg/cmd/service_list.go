@@ -52,12 +52,11 @@ func listServices(cmd *cobra.Command, args []string) {
 }
 
 func printServiceList(w *tabwriter.Writer, list []*models.Service) {
-	fmt.Fprintln(w, "ID\tFrontend\tService Type\tBackend\t")
+	fmt.Fprintln(w, "Frontend\tService Type\tBackend\t")
 
 	type ServiceOutput struct {
-		ID               int64
+		ID               string
 		ServiceType      string
-		FrontendAddress  string
 		BackendAddresses []string
 	}
 	svcs := []ServiceOutput{}
@@ -65,12 +64,6 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 	for _, svc := range list {
 		if svc.Status == nil || svc.Status.Realized == nil {
 			fmt.Fprint(os.Stderr, "error parsing svc: empty state")
-			continue
-		}
-
-		feA, err := loadbalancer.NewL3n4AddrFromModel(svc.Status.Realized.FrontendAddress)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error parsing frontend %+v", svc.Status.Realized.FrontendAddress)
 			continue
 		}
 
@@ -91,9 +84,8 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 		}
 
 		SvcOutput := ServiceOutput{
-			ID:               svc.Status.Realized.ID,
+			ID:               frontendAddressAsID(svc.Status.Realized.FrontendAddress),
 			ServiceType:      svc.Spec.Flags.Type,
-			FrontendAddress:  feA.String(),
 			BackendAddresses: backendAddresses,
 		}
 
@@ -112,19 +104,18 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 		var str string
 
 		if len(service.BackendAddresses) == 0 {
-			str = fmt.Sprintf("%d\t%s\t%s\t\t",
-				service.ID, service.FrontendAddress, service.ServiceType)
+			str = fmt.Sprintf("%s\t%s\t\t", service.ID, service.ServiceType)
 			fmt.Fprintln(w, str)
 			continue
 		}
 
-		str = fmt.Sprintf("%d\t%s\t%s\t%s\t",
-			service.ID, service.FrontendAddress, service.ServiceType,
+		str = fmt.Sprintf("%s\t%s\t%s\t",
+			service.ID, service.ServiceType,
 			service.BackendAddresses[0])
 		fmt.Fprintln(w, str)
 
 		for _, bkaddr := range service.BackendAddresses[1:] {
-			str := fmt.Sprintf("\t\t\t%s\t", bkaddr)
+			str := fmt.Sprintf("\t\t%s\t", bkaddr)
 			fmt.Fprintln(w, str)
 		}
 	}
