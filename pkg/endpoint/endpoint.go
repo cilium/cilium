@@ -244,7 +244,9 @@ type Endpoint struct {
 	logLimiter logging.Limiter
 
 	// policyRevision is the policy revision this endpoint is currently on
-	// to modify this field please use endpoint.setPolicyRevision instead
+	// to modify this field please use endpoint.setPolicyRevision instead.
+	//
+	// To write, both ep.mutex and ep.buildMutex must be held.
 	policyRevision uint64
 
 	// policyRevisionSignals contains a map of PolicyRevision signals that
@@ -267,7 +269,8 @@ type Endpoint struct {
 	proxyStatistics map[string]*models.ProxyStatistics
 
 	// nextPolicyRevision is the policy revision that the endpoint has
-	// updated to and that will become effective with the next regenerate
+	// updated to and that will become effective with the next regenerate.
+	// Must hold the endpoint mutex *and* buildMutex to write, and either to read.
 	nextPolicyRevision uint64
 
 	// forcePolicyCompute full endpoint policy recomputation
@@ -298,7 +301,8 @@ type Endpoint struct {
 	// realizedRedirects maps the ID of each proxy redirect that has been
 	// successfully added into a proxy for this endpoint, to the redirect's
 	// proxy port number.
-	// You must hold Endpoint.mutex to read or write it.
+	// You must hold Endpoint.mutex AND Endpoint.buildMutex to write to it,
+	// and either (or both) of those locks to read from it.
 	realizedRedirects map[string]uint16
 
 	// ctCleaned indicates whether the conntrack table has already been
@@ -311,8 +315,13 @@ type Endpoint struct {
 	// for all endpoints that have the same Identity.
 	selectorPolicy policy.SelectorPolicy
 
+	// desiredPolicy is the policy calculated during regeneration. After
+	// successful regeneration, it is copied to realizedPolicy
+	// To write, both ep.mutex and ep.buildMutex must be held.
 	desiredPolicy *policy.EndpointPolicy
 
+	// realizedPolicy is the policy that has most recently been applied.
+	// ep.mutex must be held.
 	realizedPolicy *policy.EndpointPolicy
 
 	visibilityPolicy *policy.VisibilityPolicy
@@ -1963,6 +1972,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 // SetPolicyRevision sets the endpoint's policy revision with the given
 // revision.
 func (e *Endpoint) SetPolicyRevision(rev uint64) {
+	// Wait for any in-progress regenerations to finish.
+	e.buildMutex.Lock()
+	defer e.buildMutex.Unlock()
+
 	if err := e.lockAlive(); err != nil {
 		return
 	}

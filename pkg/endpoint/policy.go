@@ -88,7 +88,7 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter) string {
 // lookupRedirectPort returns the redirect L4 proxy port for the given L4
 // policy map key, in host byte order. Returns 0 if not found or the
 // filter doesn't require a redirect.
-// Must be called with Endpoint.mutex held.
+// Must be called with either Endpoint.mutex or Endpoint.buildMutex held for reading.
 func (e *Endpoint) LookupRedirectPortLocked(ingress bool, protocol string, port uint16) uint16 {
 	return e.realizedRedirects[policy.ProxyID(e.ID, ingress, protocol, port)]
 }
@@ -128,6 +128,13 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 	})
 }
 
+type policyGenerateResult struct {
+	policyRevision   uint64
+	selectorPolicy   policy.SelectorPolicy
+	endpointPolicy   *policy.EndpointPolicy
+	identityRevision int
+}
+
 // regeneratePolicy computes the policy for the given endpoint based off of the
 // rules in regeneration.Owner's policy repository.
 //
@@ -137,80 +144,166 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 // however, and it is possible that policy update succeeds for some endpoints,
 // while it fails for other endpoints.
 //
-// Returns:
-//  - err: any error in obtaining information for computing policy, or if
-// policy could not be generated given the current set of rules in the
-// repository.
-// Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy() (retErr error) {
-	var forceRegeneration bool
+// Failure may be due to any error in obtaining information for computing policy,
+// or if policy could not be generated given the current set of rules in the repository.
+//
+// endpoint lock must NOT be held. This is because the ipcache needs to be able to
+// make progress while generating policy, and *that* needs the endpoint unlocked to call
+// ep.ApplyPolicyMapChanges. Specifically, computing policy may cause identity allocation
+// which requires ipcache progress.
+//
+// buildMutex MUST be held, and not released until setDesiredPolicy and
+// updateRealizedState have been called
+//
+// There are a few fields that depend on this exact configuration of locking:
+//   - ep.desiredPolicy: ep.mutex must be locked between writing this and committing to
+//     the policy maps, or else policy drops may occur
+//   - ep.policyRevision: ep.mutex and ep.buildMutex must be held to write to this
+//   - ep.selectorPolicy: this may be nulled if the endpoints identity changes; we must
+//     check for this when committing. ep.mutex must be held
+//   - ep.realizedRedirects: this is read by external callers as part of policy generation,
+//     so ep.mutex must not be required to read this. Instead, both ep.mutex and ep.buildMutex
+//     must be held to write to this (i.e. we are deep in regeneration)
+//
+// Returns a result that should be passed to setDesiredPolicy after the endpoint's
+// write lock has been acquired, or err if recomputing policy failed.
+func (e *Endpoint) regeneratePolicy() (*policyGenerateResult, error) {
+	var err error
+
+	// lock the endpoint, read our values, then unlock
+	err = e.rlockAlive()
+	if err != nil {
+		return nil, err
+	}
 
 	// No point in calculating policy if endpoint does not have an identity yet.
 	if e.SecurityIdentity == nil {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
-		return nil
+		e.runlock()
+		return nil, nil
 	}
+
+	// Copy out some values we care about, then unlock
+	forcePolicyCompute := e.forcePolicyCompute
+	securityIdentity := e.SecurityIdentity
+
+	// We are computing policy; set this to false.
+	// We do this now, not in setDesiredPolicy(), because if another caller
+	// comes in and forces computation, we should leave that for the *next*
+	// regeneration.
+	e.forcePolicyCompute = false
+
+	result := &policyGenerateResult{
+		selectorPolicy:   e.selectorPolicy,
+		endpointPolicy:   e.desiredPolicy,
+		identityRevision: e.identityRevision,
+	}
+	e.runlock()
 
 	e.getLogger().Debug("Starting policy recalculation...")
 	stats := &policyRegenerationStatistics{}
 	stats.totalTime.Start()
+	defer func() {
+		stats.totalTime.End(err == nil)
+		e.updatePolicyRegenerationStatistics(stats, forcePolicyCompute, err)
+	}()
 
 	stats.waitingForPolicyRepository.Start()
 	repo := e.policyGetter.GetPolicyRepository()
-	repo.Mutex.RLock()
-	revision := repo.GetRevision()
-	defer repo.Mutex.RUnlock()
+	repo.Mutex.RLock() // Be sure to release this lock!
 	stats.waitingForPolicyRepository.End(true)
 
-	// Recompute policy for this endpoint only if not already done for this revision.
-	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision {
-		e.getLogger().WithFields(logrus.Fields{
-			"policyRevision.next": e.nextPolicyRevision,
-			"policyRevision.repo": revision,
-			"policyChanged":       e.nextPolicyRevision > e.policyRevision,
-		}).Debug("Skipping unnecessary endpoint policy recalculation")
+	result.policyRevision = repo.GetRevision()
 
-		return nil
+	// Recompute policy for this endpoint only if not already done for this revision
+	// and identity.
+	if e.nextPolicyRevision >= result.policyRevision &&
+		e.desiredPolicy != nil && result.selectorPolicy != nil {
+
+		if !forcePolicyCompute {
+			e.getLogger().WithFields(logrus.Fields{
+				"policyRevision.next": e.nextPolicyRevision,
+				"policyRevision.repo": result.policyRevision,
+				"policyChanged":       e.nextPolicyRevision > e.policyRevision,
+			}).Debug("Skipping unnecessary endpoint policy recalculation")
+			repo.Mutex.RUnlock()
+			return result, nil
+		} else {
+			e.getLogger().Debug("Forced policy recalculation")
+		}
 	}
 
 	stats.policyCalculation.Start()
-	if e.selectorPolicy == nil {
+	defer func() { stats.policyCalculation.End(err == nil) }()
+	if result.selectorPolicy == nil {
 		// Upon initial insertion or restore, there's currently no good
 		// trigger point to ensure that the security Identity is
 		// assigned after the endpoint is added to the endpointmanager
 		// (and hence also the identitymanager). In that case, detect
 		// that the selectorPolicy is not set and find it.
-		e.selectorPolicy = repo.GetPolicyCache().Lookup(e.SecurityIdentity)
-		if e.selectorPolicy == nil {
+		result.selectorPolicy = repo.GetPolicyCache().Lookup(securityIdentity)
+		if result.selectorPolicy == nil {
 			err := fmt.Errorf("no cached selectorPolicy found")
 			e.getLogger().WithError(err).Warning("Failed to regenerate from cached policy")
-			return err
+			repo.Mutex.RUnlock()
+			return result, err
 		}
 	}
-	// TODO: GH-7515: This should be triggered closer to policy change
-	// handlers, but for now let's just update it here.
-	if err := repo.GetPolicyCache().UpdatePolicy(e.SecurityIdentity); err != nil {
+
+	// UpdatePolicy ensures the SelectorPolicy is fully resolved.
+	// Endpoint lock must not be held!
+	// TODO: GH-7515: Consider ways to compute policy outside of the
+	// endpoint regeneration process, ideally as part of the policy change
+	// handler.
+	err = repo.GetPolicyCache().UpdatePolicy(securityIdentity)
+	if err != nil {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
-		return err
+		repo.Mutex.RUnlock()
+		return nil, err
 	}
-	calculatedPolicy := e.selectorPolicy.Consume(e)
+	repo.Mutex.RUnlock() // Done with policy repository; release this now as Consume() can be slow
 
-	stats.policyCalculation.End(true)
+	// Consume converts a SelectorPolicy in to an EndpointPolicy
+	result.endpointPolicy = result.selectorPolicy.Consume(e)
+	return result, nil
+}
 
-	// This marks the e.desiredPolicy different from the previously realized policy
-	e.desiredPolicy = calculatedPolicy
+// setDesiredPolicy updates the endpoint with the results of a policy calculation.
+//
+// The endpoint write lock must be held and not released until the desired policy has
+// been pushed in to the policymaps via `syncPolicyMap`. This is so that we block
+// ApplyPolicyMapChanges, which has the effect of blocking the ipcache from updating
+// the ipcache bpf map. It is required that any pending changes are pushed in to
+// the policymap before the ipcache map, otherwise endpoints could experience transient
+// policy drops.
+//
+// Specifically, since policy is calculated asynchronously from the ipcacache's apply loop,
+// it is probable that the new policy diverges from the bpf PolicyMap. So, we cannot safely
+// consume incremental changes (and thus allow the ipcache to continue) until we have
+// successfully performed a full sync with the endpoints PolicyMap. Otherwise,
+// the ipcache may remove an identity from the ipcache that the bpf PolicyMap is still
+// relying on.
+func (e *Endpoint) setDesiredPolicy(res *policyGenerateResult) error {
+	// nil result means endpoint had no identity while policy was calculated
+	if res == nil {
+		if e.SecurityIdentity != nil {
+			e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
+			return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
+		}
 
-	if e.forcePolicyCompute {
-		forceRegeneration = true     // Options were changed by the caller.
-		e.forcePolicyCompute = false // Policies just computed
-		e.getLogger().Debug("Forced policy recalculation")
+		return nil
+	}
+	// if the security identity changed, reject the policy computation
+	if e.identityRevision != res.identityRevision {
+		e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
+		return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
 	}
 
 	// Set the revision of this endpoint to the current revision of the policy
 	// repository.
-	e.setNextPolicyRevision(revision)
-
-	e.updatePolicyRegenerationStatistics(stats, forceRegeneration, retErr)
+	e.setNextPolicyRevision(res.policyRevision)
+	e.selectorPolicy = res.selectorPolicy
+	e.desiredPolicy = res.endpointPolicy
 
 	return nil
 }
