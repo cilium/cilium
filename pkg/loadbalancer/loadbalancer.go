@@ -4,10 +4,13 @@
 package loadbalancer
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -731,6 +734,12 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	}
 }
 
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return &bytes.Buffer{}
+	},
+}
+
 // String returns the L3n4Addr in the "IPv4:Port[/Scope]" format for IPv4 and
 // "[IPv6]:Port[/Scope]" format for IPv6.
 func (a *L3n4Addr) String() string {
@@ -738,10 +747,26 @@ func (a *L3n4Addr) String() string {
 	if a.Scope == ScopeInternal {
 		scope = "/i"
 	}
+	addr := a.AddrCluster.String()
+	port := strconv.FormatUint(uint64(a.Port), 10)
+	buffer := bufferPool.Get().(*bytes.Buffer)
+	defer func() {
+		buffer.Reset()
+		bufferPool.Put(buffer)
+	}()
 	if a.IsIPv6() {
-		return fmt.Sprintf("[%s]:%d%s", a.AddrCluster.String(), a.Port, scope)
+		buffer.WriteString("[")
+		buffer.WriteString(addr)
+		buffer.WriteString("]:")
+		buffer.WriteString(port)
+		buffer.WriteString(scope)
+		return buffer.String()
 	}
-	return fmt.Sprintf("%s:%d%s", a.AddrCluster.String(), a.Port, scope)
+	buffer.WriteString(addr)
+	buffer.WriteString(":")
+	buffer.WriteString(port)
+	buffer.WriteString(scope)
+	return buffer.String()
 }
 
 // StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
