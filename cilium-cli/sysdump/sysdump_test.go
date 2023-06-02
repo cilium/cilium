@@ -521,3 +521,16 @@ func (c *fakeClient) GetNamespace(_ context.Context, ns string, _ metav1.GetOpti
 		},
 	}
 }
+
+func (c *fakeClient) ListTetragonTracingPoliciesNamespaced(_ context.Context, _ string, _ metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyNamespacedList, error) {
+	ret := tetragonv1alpha1.TracingPolicyNamespacedList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "List",
+			APIVersion: "v1",
+		},
+		ListMeta: metav1.ListMeta{},
+		Items:    []tetragonv1alpha1.TracingPolicyNamespaced{},
+	}
+
+	return &ret, nil
+}

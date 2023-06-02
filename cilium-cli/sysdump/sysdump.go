@@ -1152,6 +1152,14 @@ func (c *Collector) Run() error {
 				if err := c.WriteYAML(DefaultTetragonTracingPolicy, v); err != nil {
 					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
 				}
+
+				vn, err := c.Client.ListTetragonTracingPoliciesNamespaced(ctx, corev1.NamespaceAll, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Tetragon namespaced tracing policies: %w", err)
+				}
+				if err := c.WriteYAML(DefaultTetragonTracingPolicyNamespaced, vn); err != nil {
+					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
+				}
 				return nil
 			},
 		},
