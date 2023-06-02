@@ -39,6 +39,7 @@ Everybody listed is a committer as per governance definition.
  * [Michi Mutsuzaki] (Isovalent)
  * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
+ * [Nick Young] (Isovalent)
  * [Nicolas Busseneau] (Isovalent)
  * [Nirmoy Das] (AMD)
  * [Paul Chaignon] (Isovalent)
@@ -101,6 +102,7 @@ project.
 [Michi Mutsuzaki]: https://github.com/michi-covalent
 [Natália Réka Ivánkó]: https://github.com/sharlns
 [Nathan Sweet]: https://github.com/nathanjsweet
+[Nick Young]: https://github.com/youngnick
 [Nicolas Busseneau]: https://github.com/nbusseneau
 [Nirmoy Das]: https://github.com/nirmoy
 [Paul Chaignon]: https://github.com/pchaigno
