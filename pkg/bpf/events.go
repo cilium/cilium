@@ -231,29 +231,20 @@ func (m *Map) IsEventsEnabled() bool {
 
 func (eb *eventsBuffer) add(e *Event) {
 	eb.buffer.Add(e)
-	var activeSubs []*Handle
-	activeSubsLock := &lock.Mutex{}
-	wg := &sync.WaitGroup{}
+	activeSubs := make([]*Handle, 0, len(eb.subscriptions))
 	for i, sub := range eb.subscriptions {
 		if sub.isClosed() { // sub will be removed.
 			continue
 		}
-		wg.Add(1)
-		go func(sub *Handle, i int) {
-			defer wg.Done()
-			if sub.isFull() {
-				err := fmt.Errorf("timed out waiting to send sub map event")
-				log.WithError(err).Warnf("subscription channel buffer %d was full, closing subscription", i)
-				sub.close(err)
-			} else {
-				sub.c <- e
-				activeSubsLock.Lock()
-				activeSubs = append(activeSubs, sub)
-				activeSubsLock.Unlock()
-			}
-		}(sub, i)
+		select {
+		case sub.c <- e:
+			activeSubs = append(activeSubs, sub)
+		default:
+			err := fmt.Errorf("timed out waiting to send sub map event")
+			log.WithError(err).Warnf("subscription channel buffer %d was full, closing subscription", i)
+			sub.close(err)
+		}
 	}
-	wg.Wait()
 	eb.subsLock.Lock()
 	defer eb.subsLock.Unlock()
 	eb.subscriptions = activeSubs
