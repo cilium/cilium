@@ -1,0 +1,164 @@
+name: Chart CI Push
+
+on:
+  # run after the image build completes
+  workflow_run:
+    workflows: ["Image CI Build"]
+    types:
+      - completed
+  # allow manually triggering it as well, for existing refs
+  workflow_dispatch:
+    inputs:
+      checkout_ref:
+        description: 'Git ref to build. This needs to be a full commit SHA.'
+        required: true
+
+  # To test: uncomment this and update it to your branch name and push to the branch.
+  # push:
+  #   branches:
+  #     - ft/main/<your_branch>
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # So that Sibz/github-status-action can write into the status API
+  statuses: write
+
+concurrency:
+  group: |
+    ${{ github.workflow }}-${{ github.event_name }}-${{
+      (github.event_name == 'workflow_dispatch' && inputs.checkout_ref) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha)
+    }}
+  cancel-in-progress: true
+
+env:
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  push-charts:
+    runs-on: ubuntu-20.04
+    # we also check for push events in case someone is testing the workflow by uncommenting the push trigger above.
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
+    steps:
+    - name: Checkout GitHub main
+      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      with:
+        ref: ${{ github.event.repository.default_branch }}
+        persist-credentials: false
+
+    - name: Set Environment Variables
+      uses: ./.github/actions/set-env-variables
+
+    - name: Get triggering event ref
+      id: get-ref
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch"  ]]; then
+          echo ref="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
+          echo sha="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+          if [[ "${{ github.event.workflow_run.head_repository.fork }}" == "true"  ]]; then
+            # use the SHA on forks since the head_branch won't exist in the upstream repository
+            echo ref="${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+          else
+            echo ref="${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          fi
+          echo sha="${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event_name }}" == "push" ]]; then
+          echo ref="${{ github.ref }}" >> $GITHUB_OUTPUT
+          echo sha="${{ github.sha }}" >> $GITHUB_OUTPUT
+        else
+          echo "Invalid event type"
+          exit 1
+        fi
+
+    - name: Set commit status to pending
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ steps.get-ref.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Helm push in progress
+        state: pending
+        target_url: ${{ env.check_url }}
+
+    - name: Checkout Source Code
+      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      with:
+        persist-credentials: false
+        # checkout ref not SHA so we can get useful branch names (see previous comments)
+        ref: ${{ steps.get-ref.outputs.ref }}
+        # required for git describe
+        fetch-depth: 0
+    - id: get-version
+      run: |
+        echo "chart_version=$(./contrib/scripts/print-chart-version.sh)" | tee -a $GITHUB_OUTPUT
+
+    - name: Push charts
+      uses: cilium/reusable-workflows/.github/actions/push-helm-chart@6ae27958f2f37545bf48e44106b73df05b1f6d12 # v0.1.0
+      with:
+        name: cilium
+        path: install/kubernetes/cilium
+        version: ${{ steps.get-version.outputs.chart_version }}
+        values_file_changes: |
+          {
+
+            "image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci",
+            "image.tag": "${{ steps.get-ref.outputs.sha }}",
+            "preflight.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci",
+            "preflight.image.tag": "${{ steps.get-ref.outputs.sha }}",
+            "operator.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator",
+            "operator.image.suffix": "-ci",
+            "operator.image.tag": "${{ steps.get-ref.outputs.sha }}",
+            "hubble.relay.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci",
+            "hubble.relay.image.tag": "${{ steps.get-ref.outputs.sha }}",
+            "clustermesh.apiserver.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci",
+            "clustermesh.apiserver.image.tag": "${{ steps.get-ref.outputs.sha }}"
+          }
+        registry: quay.io
+        registry_namespace: ${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}
+        registry_username: ${{ secrets.QUAY_CHARTS_DEV_USERNAME }}
+        registry_password: ${{ secrets.QUAY_CHARTS_DEV_PASSWORD }}
+
+    - name: Print helm command
+      run: |
+        echo "Example commands:"
+        echo helm template -n kube-system oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version ${{ steps.get-version.outputs.chart_version }}
+        echo helm install cilium -n kube-system  oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version ${{ steps.get-version.outputs.chart_version }}
+
+    - name: Set commit status to success
+      if: ${{ success() }}
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ steps.get-ref.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Helm push successful
+        state: success
+        target_url: ${{ env.check_url }}
+
+    - name: Set commit status to failure
+      if: ${{ failure() }}
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ steps.get-ref.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Helm push failed
+        state: failure
+        target_url: ${{ env.check_url }}
+
+    - name: Set commit status to cancelled
+      if: ${{ cancelled() }}
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ steps.get-ref.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Helm push cancelled
+        state: error
+        target_url: ${{ env.check_url }}
