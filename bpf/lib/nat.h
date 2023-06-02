@@ -350,7 +350,7 @@ static __always_inline int snat_v4_track_connection(struct __ctx_buff *ctx,
 	ipv4_ct_tuple_swap_ports(&tmp);
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tmp), &tmp, ctx, off, has_l4_header,
-			      ct_action, where, &ct_state, &monitor);
+			      ct_action, where, SCOPE_BIDIR, &ct_state, &monitor);
 	if (ret < 0) {
 		return ret;
 	} else if (ret == CT_NEW) {
@@ -1479,7 +1479,7 @@ static __always_inline int snat_v6_track_connection(struct __ctx_buff *ctx,
 	ipv6_ct_tuple_swap_ports(&tmp);
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tmp), &tmp, ctx, off, ct_action,
-			      where, &ct_state, &monitor);
+			      where, SCOPE_BIDIR, &ct_state, &monitor);
 	if (ret < 0) {
 		return ret;
 	} else if (ret == CT_NEW) {

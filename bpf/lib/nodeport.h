@@ -680,7 +680,7 @@ int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
 	}
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
-			      CT_EGRESS, &ct_state, &monitor);
+			      CT_EGRESS, SCOPE_BIDIR, &ct_state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 	case CT_REOPENED:
@@ -1061,7 +1061,7 @@ skip_service_lookup:
 		struct ct_state ct_state = {};
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
-				      CT_EGRESS, &ct_state, &monitor);
+				      CT_EGRESS, SCOPE_BIDIR, &ct_state, &monitor);
 		switch (ret) {
 		case CT_REPLY:
 			ipv6_ct_tuple_reverse(&tuple);
@@ -1153,7 +1153,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 		return CTX_ACT_OK;
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
-			      CT_INGRESS, &ct_state, &trace->monitor);
+			      CT_INGRESS, SCOPE_BIDIR, &ct_state, &trace->monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 
@@ -1216,7 +1216,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 		goto out;
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
-			      CT_INGRESS, &ct_state, &monitor);
+			      CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
 				  &tuple, REV_NAT_F_TUPLE_SADDR);
@@ -1972,7 +1972,8 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 	}
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
-			      has_l4_header, ACTION_CREATE, CT_EGRESS, &ct_state, &monitor);
+			      has_l4_header, ACTION_CREATE, CT_EGRESS, SCOPE_BIDIR,
+			      &ct_state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 	/* Maybe we can be a bit more selective about CT_REOPENED?
@@ -2338,7 +2339,8 @@ skip_service_lookup:
 		struct ct_state ct_state = {};
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
-				      ACTION_CREATE, CT_EGRESS, &ct_state, &monitor);
+				      ACTION_CREATE, CT_EGRESS, SCOPE_BIDIR,
+				      &ct_state, &monitor);
 		switch (ret) {
 		case CT_REPLY:
 			/* SVC request should never be considered a reply, so this
@@ -2426,7 +2428,8 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 		return CTX_ACT_OK;
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
-			      ACTION_CREATE, CT_INGRESS, &ct_state, &trace->monitor);
+			      ACTION_CREATE, CT_INGRESS, SCOPE_BIDIR, &ct_state,
+			      &trace->monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 
@@ -2524,7 +2527,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 		goto out;
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
-			      ACTION_CREATE, CT_INGRESS, &ct_state, &monitor);
+			      ACTION_CREATE, CT_INGRESS, SCOPE_BIDIR, &ct_state, &monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		reason = TRACE_REASON_CT_REPLY;
 		ret = lb4_rev_nat(ctx, l3_off, l4_off, &ct_state, &tuple,

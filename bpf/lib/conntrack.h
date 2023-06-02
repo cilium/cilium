@@ -23,6 +23,12 @@ enum {
 	ACTION_CLOSE,
 };
 
+enum ct_scope {
+	SCOPE_FORWARD,
+	SCOPE_REVERSE,
+	SCOPE_BIDIR,
+};
+
 #ifdef ENABLE_IPV4
 struct ct_buffer4 {
 	struct ipv4_ct_tuple tuple;
@@ -365,8 +371,8 @@ ipv6_ct_tuple_swap_ports(struct ipv6_ct_tuple *tuple)
 
 static __always_inline int
 __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx,
-	     int l4_off, int action, enum ct_dir dir, struct ct_state *ct_state,
-	     __u32 *monitor)
+	     int l4_off, int action, enum ct_dir dir, enum ct_scope scope,
+	     struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
@@ -380,32 +386,37 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 			action = ACTION_CLOSE;
 	}
 
-	/* Lookup the reverse direction
-	 *
-	 * This will find an existing flow in the reverse direction.
-	 * The reverse direction is the one where reverse nat index is stored.
-	 */
 	cilium_dbg3(ctx, DBG_CT_LOOKUP6_1, (__u32)tuple->saddr.p4, (__u32)tuple->daddr.p4,
 		    (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
-	cilium_dbg3(ctx, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
-	ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state, is_tcp,
-			  tcp_flags, monitor);
-	if (ret != CT_NEW) {
-		if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
-			if (unlikely(tuple->flags & TUPLE_F_RELATED))
-				ret = CT_RELATED;
-			else
-				ret = CT_REPLY;
-		}
-		goto out;
-	}
+	cilium_dbg3(ctx, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags,
+		    dir, scope);
 
-	/* Lookup entry in forward direction */
-	if (dir != CT_SERVICE) {
+	switch (scope) {
+	case SCOPE_REVERSE:
+	case SCOPE_BIDIR:
+		/* Lookup in the reverse direction first: */
+		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state, is_tcp,
+				  tcp_flags, monitor);
+		if (ret != CT_NEW) {
+			if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
+				if (unlikely(tuple->flags & TUPLE_F_RELATED))
+					ret = CT_RELATED;
+				else
+					ret = CT_REPLY;
+			}
+			goto out;
+		}
+
+		if (scope != SCOPE_BIDIR)
+			goto out;
+
+		/* now lookup in forward direction: */
+	case SCOPE_FORWARD:
 		ipv6_ct_tuple_reverse(tuple);
 		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
 	}
+
 out:
 	cilium_dbg(ctx, DBG_CT_VERDICT, ret, ct_state->rev_nat_index);
 	return ret;
@@ -415,7 +426,7 @@ out:
 static __always_inline int
 ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple,
 		struct __ctx_buff *ctx, int l4_off, int action, enum ct_dir dir,
-		struct ct_state *ct_state, __u32 *monitor)
+		enum ct_scope scope, struct ct_state *ct_state, __u32 *monitor)
 {
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -433,7 +444,7 @@ ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple,
 	else
 		return DROP_CT_INVALID_HDR;
 
-	return __ct_lookup6(map, tuple, ctx, l4_off, action, dir,
+	return __ct_lookup6(map, tuple, ctx, l4_off, action, dir, scope,
 			    ct_state, monitor);
 }
 
@@ -518,7 +529,8 @@ static __always_inline int ct_lookup6(const void *map,
 		return DROP_CT_UNKNOWN_PROTO;
 	}
 
-	return __ct_lookup6(map, tuple, ctx, action, l4_off, dir, ct_state, monitor);
+	return __ct_lookup6(map, tuple, ctx, action, l4_off, dir, SCOPE_BIDIR,
+			    ct_state, monitor);
 }
 
 static __always_inline int
@@ -709,7 +721,7 @@ ct_is_reply4(const void *map, struct __ctx_buff *ctx, int off,
 static __always_inline int
 __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
 	     int l4_off, bool has_l4_header, int action, enum ct_dir dir,
-	     struct ct_state *ct_state, __u32 *monitor)
+	     enum ct_scope scope, struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
@@ -723,35 +735,39 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 			action = ACTION_CLOSE;
 	}
 
-	/* Lookup the reverse direction
-	 *
-	 * This will find an existing flow in the reverse direction.
-	 */
 #ifndef QUIET_CT
 	cilium_dbg3(ctx, DBG_CT_LOOKUP4_1, tuple->saddr, tuple->daddr,
 		    (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
-	cilium_dbg3(ctx, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
+	cilium_dbg3(ctx, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags,
+		    dir, scope);
 #endif
-	ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state, is_tcp,
-			  tcp_flags, monitor);
-	if (ret != CT_NEW) {
-		if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
-			if (unlikely(tuple->flags & TUPLE_F_RELATED))
-				ret = CT_RELATED;
-			else
-				ret = CT_REPLY;
+
+	switch (scope) {
+	case SCOPE_REVERSE:
+	case SCOPE_BIDIR:
+		/* Lookup in the reverse direction first: */
+		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state, is_tcp,
+				  tcp_flags, monitor);
+		if (ret != CT_NEW) {
+			if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
+				if (unlikely(tuple->flags & TUPLE_F_RELATED))
+					ret = CT_RELATED;
+				else
+					ret = CT_REPLY;
+			}
+			goto out;
 		}
-		goto out;
-	}
 
-	relax_verifier();
+		if (scope != SCOPE_BIDIR)
+			goto out;
 
-	/* Lookup entry in forward direction */
-	if (dir != CT_SERVICE) {
+		/* now lookup in forward direction: */
+	case SCOPE_FORWARD:
 		ipv4_ct_tuple_reverse(tuple);
 		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
 	}
+
 out:
 	cilium_dbg(ctx, DBG_CT_VERDICT, ret, ct_state->rev_nat_index);
 	return ret;
@@ -779,8 +795,8 @@ out:
 static __always_inline int
 ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple,
 		struct __ctx_buff *ctx, int l4_off, bool has_l4_header,
-		int action, enum ct_dir dir, struct ct_state *ct_state,
-		__u32 *monitor)
+		int action, enum ct_dir dir, enum ct_scope scope,
+		struct ct_state *ct_state, __u32 *monitor)
 {
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -799,7 +815,7 @@ ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple,
 		return DROP_CT_INVALID_HDR;
 
 	return __ct_lookup4(map, tuple, ctx, l4_off, has_l4_header,
-			    action, dir, ct_state, monitor);
+			    action, dir, scope, ct_state, monitor);
 }
 
 /* Offset must point to IPv4 header */
@@ -832,7 +848,7 @@ static __always_inline int ct_lookup4(const void *map,
 		return action;
 
 	return __ct_lookup4(map, tuple, ctx, off, has_l4_header,
-			    action, dir, ct_state, monitor);
+			    action, dir, SCOPE_BIDIR, ct_state, monitor);
 }
 
 /* Offset must point to IPv6 */
