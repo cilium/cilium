@@ -212,6 +212,11 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	return resyncStart
 }
 
+func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) time.Time {
+	// Resync for a separate instance is not implemented yet, fallback to full resync.
+	return m.Resync(ctx)
+}
+
 // UpdateENI updates the ENI definition of an ENI for a particular instance. If
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.

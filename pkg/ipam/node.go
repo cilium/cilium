@@ -113,6 +113,10 @@ type Node struct {
 	// limiting.
 	k8sSync *trigger.Trigger
 
+	// instanceSync is the trigger used to fetch instance information
+	// with external APIs or systems.
+	instanceSync *trigger.Trigger
+
 	// ops is the IPAM implementation to used for this node
 	ops NodeOperations
 
@@ -367,6 +371,12 @@ func (n *Node) InstanceID() (id string) {
 	}
 	n.mutex.RUnlock()
 	return
+}
+
+func (n *Node) instanceAPISync(ctx context.Context, instanceID string) (time.Time, bool) {
+	syncTime := n.manager.instancesAPI.InstanceSync(ctx, instanceID)
+	success := !syncTime.IsZero()
+	return syncTime, success
 }
 
 // UpdatedResource is called when an update to the CiliumNode has been
@@ -955,7 +965,7 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 	n.poolMaintenanceComplete()
 	n.recalculate()
 	if instanceMutated || err != nil {
-		n.manager.resyncTrigger.Trigger()
+		n.instanceSync.Trigger()
 	}
 	return err
 }
