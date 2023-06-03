@@ -62,6 +62,30 @@ func NewClient(vpcClient *vpc.Client, client *ecs.Client, metrics MetricsAPI, ra
 	}
 }
 
+// GetInstance returns the instance including its ENIs by the given instanceID
+func (c *Client) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
+	instance := ipamTypes.Instance{}
+	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+
+	networkInterfaceSets, err := c.describeNetworkInterfacesByInstance(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, iface := range networkInterfaceSets {
+		ifId := iface.NetworkInterfaceId
+		_, eni, err := parseENI(&iface, vpcs, subnets)
+		if err != nil {
+			return nil, err
+		}
+
+		instance.Interfaces[ifId] = ipamTypes.InterfaceRevision{
+			Resource: eni,
+		}
+	}
+	return &instance, nil
+}
+
 // GetInstances returns the list of all instances including their ENIs as instanceMap
 func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
 	instances := ipamTypes.NewInstanceMap()
@@ -396,6 +420,35 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ecs.NetworkIn
 		} else {
 			req.NextToken = resp.NextToken
 		}
+	}
+
+	return result, nil
+}
+
+func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instanceID string) ([]ecs.NetworkInterfaceSet, error) {
+	var result []ecs.NetworkInterfaceSet
+
+	for i := 1; ; {
+		req := ecs.CreateDescribeNetworkInterfacesRequest()
+		req.PageNumber = requests.NewInteger(i)
+		req.PageSize = requests.NewInteger(1000)
+		req.InstanceId = instanceID
+		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		resp, err := c.ecsClient.DescribeNetworkInterfaces(req)
+		if err != nil {
+			return nil, err
+		}
+		if len(resp.NetworkInterfaceSets.NetworkInterfaceSet) == 0 {
+			break
+		}
+
+		for _, v := range resp.NetworkInterfaceSets.NetworkInterfaceSet {
+			result = append(result, v)
+		}
+		if resp.TotalCount < resp.PageNumber*resp.PageSize {
+			break
+		}
+		i++
 	}
 
 	return result, nil

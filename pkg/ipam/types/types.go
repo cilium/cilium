@@ -410,6 +410,13 @@ func NewInstanceMap() *InstanceMap {
 	return &InstanceMap{data: map[string]*Instance{}}
 }
 
+// UpdateInstance updates the interfaces map for a particular instance.
+func (m *InstanceMap) UpdateInstance(instanceID string, instance *Instance) {
+	m.mutex.Lock()
+	m.data[instanceID] = instance
+	m.mutex.Unlock()
+}
+
 // Update updates the definition of an interface for a particular instance. If
 // the interface is already known, the definition is updated, otherwise the
 // interface is added to the instance.

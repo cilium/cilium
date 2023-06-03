@@ -99,6 +99,11 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	return resyncStart
 }
 
+func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) time.Time {
+	// Resync for a separate instance is not implemented yet, fallback to full resync.
+	return m.Resync(ctx)
+}
+
 // DeleteInstance delete instance from m.instances
 func (m *InstancesManager) DeleteInstance(instanceID string) {
 	m.mutex.Lock()
