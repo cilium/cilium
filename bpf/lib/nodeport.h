@@ -1951,7 +1951,7 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, CT_SERVICE, &tuple);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2195,7 +2195,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, CT_SERVICE, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE) {
 			is_svc_proto = false;
@@ -2397,7 +2397,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, CT_SERVICE, &tuple);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
@@ -2497,7 +2497,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, CT_SERVICE, &tuple);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)

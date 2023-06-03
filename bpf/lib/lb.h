@@ -1147,6 +1147,7 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
  * @arg ip4		Pointer to L3 header
  * @arg l3_off		Offset to L3 header
  * @arg l4_off		Offset to L4 header
+ * @arg dir		CT direction
  * @arg tuple		CT tuple
  *
  * Returns:
@@ -1156,7 +1157,7 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
  */
 static __always_inline int
 lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
-		  struct ipv4_ct_tuple *tuple)
+		  enum ct_dir dir __maybe_unused, struct ipv4_ct_tuple *tuple)
 {
 	int ret;
 
@@ -1173,8 +1174,7 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
 #ifdef ENABLE_IPV4_FRAGMENTS
-		ret = ipv4_handle_fragmentation(ctx, ip4, *l4_off,
-						CT_EGRESS,
+		ret = ipv4_handle_fragmentation(ctx, ip4, *l4_off, dir,
 						(struct ipv4_frag_l4ports *)&tuple->dport,
 						NULL);
 #else

@@ -90,7 +90,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, CT_SERVICE, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
