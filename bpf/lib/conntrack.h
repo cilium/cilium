@@ -708,7 +708,7 @@ ipv4_ct_reverse_tuple_daddr(const struct ipv4_ct_tuple *rtuple)
 static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 						    int off,
 						    enum ct_dir dir __maybe_unused,
-						    struct ipv4_ct_tuple *tuple,
+						    __be16 *ports,
 						    bool *has_l4_header __maybe_unused)
 {
 #ifdef ENABLE_IPV4_FRAGMENTS
@@ -722,11 +722,10 @@ static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 		return DROP_CT_INVALID_HDR;
 
 	return ipv4_handle_fragmentation(ctx, ip4, off, dir,
-				    (struct ipv4_frag_l4ports *)&tuple->dport,
+				    (struct ipv4_frag_l4ports *)ports,
 				    has_l4_header);
 #else
-	/* load sport + dport into tuple */
-	if (ctx_load_bytes(ctx, off, &tuple->dport, 4) < 0)
+	if (l4_load_ports(ctx, off, ports) < 0)
 		return DROP_CT_INVALID_HDR;
 #endif
 
@@ -780,7 +779,8 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, has_l4_header);
+		err = ipv4_ct_extract_l4_ports(ctx, off, dir, &tuple->dport,
+					       has_l4_header);
 		if (err < 0)
 			return err;
 
