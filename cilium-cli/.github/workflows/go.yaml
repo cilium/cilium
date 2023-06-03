@@ -28,7 +28,7 @@ jobs:
       uses: golangci/golangci-lint-action@08e2f20817b15149a52b5b3ebe7de50aff2ba8c5 # v3.4.0
       with:
         # renovate: datasource=docker depName=golangci/golangci-lint
-        version: v1.53.1
+        version: v1.53.2
         args: --config=.golangci.yml --verbose
         skip-cache: true
 
