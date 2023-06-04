@@ -197,6 +197,10 @@ func (c *Client) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("unable to connect to SPIRE server %s", c.cfg.SpireServerAddress)
 	}
 
+	if len(id) == 0 {
+		return nil
+	}
+
 	entries, err := c.listEntries(ctx, id)
 	if err != nil {
 		if strings.Contains(err.Error(), notFoundError) {
@@ -217,6 +221,32 @@ func (c *Client) Delete(ctx context.Context, id string) error {
 	})
 
 	return err
+}
+
+func (c *Client) List(ctx context.Context) ([]string, error) {
+	entries, err := c.entry.ListEntries(ctx, &entryv1.ListEntriesRequest{
+		Filter: &entryv1.ListEntriesRequest_Filter{
+			ByParentId: &types.SPIFFEID{
+				TrustDomain: c.cfg.SpiffeTrustDomain,
+				Path:        defaultParentID,
+			},
+			BySelectors: &types.SelectorMatch{
+				Selectors: defaultSelectors,
+				Match:     types.SelectorMatch_MATCH_EXACT,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(entries.Entries) == 0 {
+		return nil, nil
+	}
+	var ids = make([]string, 0, len(entries.Entries))
+	for _, e := range entries.Entries {
+		ids = append(ids, e.Id)
+	}
+	return ids, nil
 }
 
 // listEntries returns the list of entries for the given ID.
