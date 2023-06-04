@@ -47,6 +47,13 @@ var Cell = cell.Module(
 	cell.Provide(NewClient),
 )
 
+var FakeCellClient = cell.Module(
+	"fake-spire-client",
+	"Fake Spire Server API Client",
+	cell.Config(ClientConfig{}),
+	cell.Provide(NewFakeClient),
+)
+
 // ClientConfig contains the configuration for the SPIRE client.
 type ClientConfig struct {
 	AuthMTLSEnabled              bool          `mapstructure:"mesh-auth-mtls-enabled"`
