@@ -91,7 +91,7 @@ jobs:
 
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
           echo "owner=${OWNER}" >> $GITHUB_OUTPUT
-          echo "name=${{ github.event.repository.name }}-${{ github.run_id }}-${{ matrix.mode }}" >> $GITHUB_OUTPUT
+          echo "name=${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}" >> $GITHUB_OUTPUT
 
       - name: Create AKS cluster
         run: |

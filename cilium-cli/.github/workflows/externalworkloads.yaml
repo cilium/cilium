@@ -43,8 +43,8 @@ jobs:
     steps:
       - name: Set cluster name
         run: |
-          echo "clusterName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ matrix.mode }}-vm" >> $GITHUB_ENV
-          echo "vmName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ matrix.mode }}-vm" >> $GITHUB_ENV
+          echo "clusterName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}-vm" >> $GITHUB_ENV
+          echo "vmName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}-vm" >> $GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
