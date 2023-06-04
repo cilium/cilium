@@ -49,6 +49,7 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 	defer gcTimerDone()
 	for {
 		now := time.Now()
+
 		keysToDelete, gcStats, err := igc.allocator.RunGC(igc.rateLimiter, keysToDeletePrev)
 		gcDuration := time.Since(now)
 		if err != nil {
@@ -59,6 +60,14 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 				metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(igc.failedRuns))
 			}
 		} else {
+			// Best effort to run auth identity GC
+			err = igc.runAuthGC(ctx, keysToDeletePrev)
+			if err != nil {
+				igc.logger.WithField("identities-to-delete", keysToDeletePrev).
+					WithError(err).
+					Warning("Unable to run auth identity garbage collector")
+			}
+
 			keysToDeletePrev = keysToDelete
 
 			if igc.enableMetrics {
@@ -95,4 +104,18 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 			"identities-to-delete": keysToDeletePrev,
 		}).Debug("Will delete identities if they are still unused")
 	}
+}
+
+func (igc *GC) runAuthGC(ctx context.Context, staleKeys map[string]uint64) error {
+	// Wait until we can delete an identity
+	if err := igc.rateLimiter.Wait(ctx); err != nil {
+		return err
+	}
+
+	for k := range staleKeys {
+		if err := igc.authIdentityClient.Delete(ctx, k); err != nil {
+			return err
+		}
+	}
+	return nil
 }

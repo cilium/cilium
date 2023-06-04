@@ -17,6 +17,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	authIdentity "github.com/cilium/cilium/operator/auth/identity"
+	"github.com/cilium/cilium/operator/auth/spire"
 	"github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -38,11 +40,13 @@ func TestIdentitiesGC(t *testing.T) {
 	)
 
 	var clientset k8sClient.Clientset
+	var authIdentityClient authIdentity.Provider
 
 	hive := hive.New(
 		// provide a fake clientset
 		k8sClient.FakeClientCell,
-
+		// provide a fake spire client
+		spire.FakeCellClient,
 		// provide resources
 		k8s.ResourcesCell,
 
@@ -67,8 +71,9 @@ func TestIdentitiesGC(t *testing.T) {
 		}),
 
 		// initial setup for the test
-		cell.Invoke(func(c k8sClient.Clientset) error {
+		cell.Invoke(func(c k8sClient.Clientset, authClient authIdentity.Provider) error {
 			clientset = c
+			authIdentityClient = authClient
 			if err := setupK8sNodes(clientset); err != nil {
 				return err
 			}
@@ -78,8 +83,13 @@ func TestIdentitiesGC(t *testing.T) {
 			if err := setupCiliumEndpoint(clientset); err != nil {
 				return err
 			}
+			if err := setupAuthIdentities(authIdentityClient); err != nil {
+				return err
+			}
+
 			return nil
 		}),
+
 		cell.Invoke(setupCiliumEndpointWatcher),
 		cell.Invoke(registerGC),
 	)
@@ -121,6 +131,19 @@ func TestIdentitiesGC(t *testing.T) {
 	}
 	if identities.Items[0].Name != "99999" {
 		t.Fatalf("expected Cilium identity \"99999\", got %q", identities.Items[0].Name)
+	}
+
+	authIdentities, err := authIdentityClient.List(ctx)
+	if err != nil {
+		t.Fatalf("unable to list Cilium Auth identities: %s", err)
+	}
+
+	if len(authIdentities) != 1 {
+		t.Fatalf("expected 1 Cilium Auth identity, got %d", len(authIdentities))
+	}
+
+	if authIdentities[0] != "99999" {
+		t.Fatalf("expected Cilium Auth identity \"99999\", got %q", authIdentities[0])
 	}
 
 	if err := hive.Stop(ctx); err != nil {
@@ -192,6 +215,16 @@ func setupCiliumIdentities(clientset k8sClient.Clientset) error {
 			Create(context.Background(), identity, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create identity %v: %w", identity, err)
 		}
+	}
+	return nil
+}
+
+func setupAuthIdentities(client authIdentity.Provider) error {
+	if err := client.Upsert(context.Background(), "88888"); err != nil {
+		return err
+	}
+	if err := client.Upsert(context.Background(), "99999"); err != nil {
+		return err
 	}
 	return nil
 }
