@@ -214,7 +214,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv4_ct_tuple *otuple,
 					       struct ipv4_nat_entry *ostate,
 					       const struct ipv4_nat_target *target,
-					       bool needs_ct)
+					       bool needs_ct, __s8 *ext_err)
 {
 	int ret = DROP_NAT_NO_MAPPING, retries;
 	struct ipv4_nat_entry rstate;
@@ -260,7 +260,14 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 
 	if (retries > SNAT_SIGNAL_THRES)
 		send_signal_nat_fill_up(ctx, SIGNAL_PROTO_V4);
-	return !ret ? 0 : DROP_NAT_NO_MAPPING;
+
+	if (ret < 0) {
+		if (ext_err)
+			*ext_err = (__s8)ret;
+		return DROP_NAT_NO_MAPPING;
+	}
+
+	return 0;
 }
 
 static __always_inline bool
@@ -334,7 +341,8 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 			   struct ipv4_nat_entry *tmp,
 			   __u32 off,
 			   const struct ipv4_nat_target *target,
-			   struct trace_ctx *trace)
+			   struct trace_ctx *trace,
+			   __s8 *ext_err)
 {
 	bool needs_ct;
 	int ret;
@@ -350,7 +358,8 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (*state)
 		return NAT_CONTINUE_XLATE;
 	else
-		return snat_v4_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct);
+		return snat_v4_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct,
+					   ext_err);
 }
 
 static __always_inline int
@@ -748,7 +757,7 @@ skip_egress_gateway:
 
 static __always_inline __maybe_unused int
 snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
-	    struct trace_ctx *trace)
+	    struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_nat_entry *state, tmp;
@@ -808,7 +817,7 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	if (snat_v4_nat_can_skip(target, &tuple, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_nat_handle_mapping(ctx, &tuple, has_l4_header, ct_action, &state, &tmp,
-					 off, target, trace);
+					 off, target, trace, ext_err);
 	if (ret > 0)
 		return CTX_ACT_OK;
 	if (ret < 0)
@@ -1016,7 +1025,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv6_ct_tuple *otuple,
 					       struct ipv6_nat_entry *ostate,
 					       const struct ipv6_nat_target *target,
-					       bool needs_ct)
+					       bool needs_ct, __s8 *ext_err)
 {
 	int ret = DROP_NAT_NO_MAPPING, retries;
 	struct ipv6_nat_entry rstate;
@@ -1062,7 +1071,14 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 
 	if (retries > SNAT_SIGNAL_THRES)
 		send_signal_nat_fill_up(ctx, SIGNAL_PROTO_V6);
-	return !ret ? 0 : DROP_NAT_NO_MAPPING;
+
+	if (ret < 0) {
+		if (ext_err)
+			*ext_err = (__s8)ret;
+		return DROP_NAT_NO_MAPPING;
+	}
+
+	return 0;
 }
 
 static __always_inline bool
@@ -1122,7 +1138,8 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 			   struct ipv6_nat_entry *tmp,
 			   __u32 off,
 			   const struct ipv6_nat_target *target,
-			   struct trace_ctx *trace)
+			   struct trace_ctx *trace,
+			   __s8 *ext_err)
 {
 	bool needs_ct;
 	int ret;
@@ -1138,7 +1155,8 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (*state)
 		return NAT_CONTINUE_XLATE;
 	else
-		return snat_v6_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct);
+		return snat_v6_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct,
+					   ext_err);
 }
 
 static __always_inline int
@@ -1359,7 +1377,7 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 
 static __always_inline __maybe_unused int
 snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
-	    struct trace_ctx *trace)
+	    struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct icmp6hdr icmp6hdr __align_stack_8;
 	struct ipv6_nat_entry *state, tmp;
@@ -1427,7 +1445,7 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	if (snat_v6_nat_can_skip(target, &tuple, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v6_nat_handle_mapping(ctx, &tuple, ct_action, &state, &tmp,
-					 off, target, trace);
+					 off, target, trace, ext_err);
 	if (ret > 0)
 		return CTX_ACT_OK;
 	if (ret < 0)
