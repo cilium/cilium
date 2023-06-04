@@ -134,7 +134,8 @@ static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple
 
 static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  const union v6addr *addr,
-						  struct trace_ctx *trace)
+						  struct trace_ctx *trace,
+						  __s8 *ext_err)
 {
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -145,7 +146,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	ipv6_addr_copy(&target.addr, addr);
 
 	ret = snat_v6_needed(ctx, addr) ?
-	      snat_v6_nat(ctx, &target, trace) : CTX_ACT_OK;
+	      snat_v6_nat(ctx, &target, trace, ext_err) : CTX_ACT_OK;
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -834,7 +835,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	bool l2_hdr_required = true;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, ext_err = 0;
+	__s8 ext_err = 0;
+	int ret;
 
 #ifdef TUNNEL_MODE
 	struct remote_endpoint_info *info;
@@ -870,7 +872,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		verdict = ret;
 	}
 #endif
-	ret = snat_v6_nat(ctx, &target, &trace);
+	ret = snat_v6_nat(ctx, &target, &trace, &ext_err);
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
@@ -906,7 +908,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 
 	ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params), 0);
 	if (ret != 0) {
-		ext_err = ret;
+		ext_err = (__s8)ret;
 		ret = DROP_NO_FIB;
 		goto drop_err;
 	}
@@ -1363,6 +1365,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 	enum trace_point obs_point;
+	__s8 ext_err = 0;
 	int ret;
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	union v6addr addr = { .p1 = 0 };
@@ -1375,9 +1378,10 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv6(ctx, &addr, &trace);
+	ret = nodeport_snat_fwd_ipv6(ctx, &addr, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP,
+						  METRIC_EGRESS);
 
 	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
 
@@ -1449,7 +1453,8 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 }
 
 static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
-						  struct trace_ctx *trace)
+						  struct trace_ctx *trace,
+						  __s8 *ext_err)
 {
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -1462,7 +1467,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 	snat_needed = snat_v4_prepare_state(ctx, &target);
 	if (snat_needed)
-		ret = snat_v4_nat(ctx, &target, trace);
+		ret = snat_v4_nat(ctx, &target, trace, ext_err);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -2051,7 +2056,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct iphdr *ip4;
 	bool l2_hdr_required = true;
-	int ret, ext_err = 0;
+	__s8 ext_err = 0;
+	int ret;
 
 #ifdef TUNNEL_MODE
 	struct remote_endpoint_info *info;
@@ -2097,7 +2103,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		verdict = ret;
 	}
 #endif
-	ret = snat_v4_nat(ctx, &target, &trace);
+	ret = snat_v4_nat(ctx, &target, &trace, &ext_err);
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
@@ -2117,7 +2123,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 	ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params), 0);
 	if (ret != 0) {
-		ext_err = ret;
+		ext_err = (__s8)ret;
 		ret = DROP_NO_FIB;
 		goto drop_err;
 	}
@@ -2626,6 +2632,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 	enum trace_point obs_point;
+	__s8 ext_err = 0;
 	int ret;
 
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
@@ -2634,9 +2641,10 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv4(ctx, &trace);
+	ret = nodeport_snat_fwd_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP,
+						  METRIC_EGRESS);
 
 	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
 
