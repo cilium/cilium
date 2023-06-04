@@ -47,10 +47,10 @@ jobs:
       # Note: These names currently approach the limit of 40 characters
       - name: Set mode-specific names
         run: |
-          echo "clusterNameBase=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ matrix.mode }}" >> $GITHUB_ENV
-          echo "clusterName1=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ matrix.mode }}-1" >> $GITHUB_ENV
-          echo "clusterName2=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ matrix.mode }}-2" >> $GITHUB_ENV
-          echo "firewallRuleName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ matrix.mode}}" >> $GITHUB_ENV
+          echo "clusterNameBase=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}" >> $GITHUB_ENV
+          echo "clusterName1=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}-1" >> $GITHUB_ENV
+          echo "clusterName2=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode }}-2" >> $GITHUB_ENV
+          echo "firewallRuleName=${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mode}}" >> $GITHUB_ENV
 
       - name: Install kubectl
         run: |
