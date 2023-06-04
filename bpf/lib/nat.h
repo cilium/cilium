@@ -35,8 +35,6 @@ struct nat_entry {
 	__u64 pad2;		/* Future use. */
 };
 
-#define NAT_CONTINUE_XLATE	0
-
 #ifdef HAVE_LARGE_INSN_LIMIT
 # define SNAT_COLLISION_RETRIES		128
 # define SNAT_SIGNAL_THRES		64
@@ -329,7 +327,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 	}
 
 	if (*state)
-		return NAT_CONTINUE_XLATE;
+		return 0;
 	else
 		return snat_v4_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct,
 					   ext_err);
@@ -375,7 +373,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 	}
 
 	if (*state)
-		return NAT_CONTINUE_XLATE;
+		return 0;
 
 	return DROP_NAT_NO_MAPPING;
 }
@@ -935,8 +933,6 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 	ret = snat_v4_nat_handle_mapping(ctx, tuple, has_l4_header, action,
 					 &state, &tmp, l4_off, target, ext_err);
-	if (ret > 0)
-		return CTX_ACT_OK;
 	if (ret < 0)
 		return ret;
 
@@ -1148,8 +1144,6 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_rev_nat_handle_mapping(ctx, &tuple, has_l4_header, ct_action, &state,
 					     off, target);
-	if (ret > 0)
-		return CTX_ACT_OK;
 	if (ret < 0)
 		return ret;
 
@@ -1376,7 +1370,7 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 	}
 
 	if (*state)
-		return NAT_CONTINUE_XLATE;
+		return 0;
 	else
 		return snat_v6_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct,
 					   ext_err);
@@ -1414,7 +1408,7 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 	}
 
 	if (*state)
-		return NAT_CONTINUE_XLATE;
+		return 0;
 
 	return DROP_NAT_NO_MAPPING;
 }
@@ -1739,8 +1733,6 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 	ret = snat_v6_nat_handle_mapping(ctx, tuple, action, &state, &tmp,
 					 l4_off, target, ext_err);
-	if (ret > 0)
-		return CTX_ACT_OK;
 	if (ret < 0)
 		return ret;
 
@@ -1966,8 +1958,6 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	if (snat_v6_rev_nat_can_skip(target, &tuple))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v6_rev_nat_handle_mapping(ctx, &tuple, ct_action, &state, off);
-	if (ret > 0)
-		return CTX_ACT_OK;
 	if (ret < 0)
 		return ret;
 
