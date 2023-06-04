@@ -351,9 +351,10 @@ static __always_inline int snat_v4_track_connection(struct __ctx_buff *ctx,
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tmp), &tmp, ctx, off, has_l4_header,
 			      ct_action, where, SCOPE_BIDIR, &ct_state, &monitor);
-	if (ret < 0) {
+	if (ret < 0)
 		return ret;
-	} else if (ret == CT_NEW) {
+
+	if (ret == CT_NEW && where == CT_EGRESS) {
 		ret = ct_create4(get_ct_map4(&tmp), NULL, &tmp, ctx,
 				 where, &ct_state, false, false, ext_err);
 		if (IS_ERR(ret))
@@ -1480,9 +1481,10 @@ static __always_inline int snat_v6_track_connection(struct __ctx_buff *ctx,
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tmp), &tmp, ctx, off, ct_action,
 			      where, SCOPE_BIDIR, &ct_state, &monitor);
-	if (ret < 0) {
+	if (ret < 0)
 		return ret;
-	} else if (ret == CT_NEW) {
+
+	if (ret == CT_NEW && where == CT_EGRESS) {
 		ret = ct_create6(get_ct_map6(&tmp), NULL, &tmp, ctx, where,
 				 &ct_state, false, false, ext_err);
 		if (IS_ERR(ret))
