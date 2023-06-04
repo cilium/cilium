@@ -197,7 +197,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv4_ct_tuple *otuple,
 					       struct ipv4_nat_entry *ostate,
 					       const struct ipv4_nat_target *target,
-					       bool needs_ct)
+					       bool needs_ct, __s8 *ext_err)
 {
 	int ret = DROP_NAT_NO_MAPPING, retries;
 	struct ipv4_nat_entry rstate;
@@ -248,7 +248,14 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 
 	if (retries > SNAT_SIGNAL_THRES)
 		send_signal_nat_fill_up(ctx, SIGNAL_PROTO_V4);
-	return !ret ? 0 : DROP_NAT_NO_MAPPING;
+
+	if (ret < 0) {
+		if (ext_err)
+			*ext_err = (__s8)ret;
+		return DROP_NAT_NO_MAPPING;
+	}
+
+	return 0;
 }
 
 static __always_inline bool
@@ -328,7 +335,8 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (*state)
 		return NAT_CONTINUE_XLATE;
 	else
-		return snat_v4_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct);
+		return snat_v4_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct,
+					   ext_err);
 }
 
 static __always_inline int
@@ -1303,7 +1311,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv6_ct_tuple *otuple,
 					       struct ipv6_nat_entry *ostate,
 					       const struct ipv6_nat_target *target,
-					       bool needs_ct)
+					       bool needs_ct, __s8 *ext_err)
 {
 	int ret = DROP_NAT_NO_MAPPING, retries;
 	struct ipv6_nat_entry rstate;
@@ -1349,7 +1357,14 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 
 	if (retries > SNAT_SIGNAL_THRES)
 		send_signal_nat_fill_up(ctx, SIGNAL_PROTO_V6);
-	return !ret ? 0 : DROP_NAT_NO_MAPPING;
+
+	if (ret < 0) {
+		if (ext_err)
+			*ext_err = (__s8)ret;
+		return DROP_NAT_NO_MAPPING;
+	}
+
+	return 0;
 }
 
 static __always_inline bool
@@ -1409,7 +1424,8 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (*state)
 		return NAT_CONTINUE_XLATE;
 	else
-		return snat_v6_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct);
+		return snat_v6_new_mapping(ctx, tuple, (*state = tmp), target, needs_ct,
+					   ext_err);
 }
 
 static __always_inline int
