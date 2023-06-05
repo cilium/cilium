@@ -74,6 +74,11 @@ const (
 
 	// L2AnnouncementName is the full name of Cilium L2 announcement policy
 	L2AnnouncementName = L2AnnouncementPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumPodIPPool (CPIP)
+	CPIPPluralName     = "ciliumpodippools"
+	CPIPKindDefinition = "CiliumPodIPPool"
+	CPIPName           = CPIPPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -129,6 +134,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumCIDRGroupList{},
 		&CiliumL2AnnouncementPolicy{},
 		&CiliumL2AnnouncementPolicyList{},
+		&CiliumPodIPPool{},
+		&CiliumPodIPPoolList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
