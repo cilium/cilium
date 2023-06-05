@@ -94,6 +94,11 @@ Users (Alphabetically)
       U: Hubble for Visibility, Cilium as Mesh between Services
       L: https://www.ayedo.de/
 
+    * N: Bloomberg
+      D: Bloomberg leverages Cilium to construct data sandboxes that restrict users from distributing data outside the sandbox.
+      U: Acess control, Networking, Hubble for observability
+      L: https://www.bloomberg.com/professional/solution/bquant/
+
     * N: ByteDance
       D: ByteDance is using Cilium as CNI plug-in for self-hosted Kubernetes.
       U: CNI, Networking
