@@ -454,7 +454,6 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 	if (hdrlen < 0)
 		return hdrlen;
 
-#ifdef ENABLE_HOST_FIREWALL
 	if (likely(nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_host_handle(ctx);
 		if (ret == SKIP_HOST_FIREWALL)
@@ -462,7 +461,6 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 		if (IS_ERR(ret))
 			return ret;
 	}
-#endif /* ENABLE_HOST_FIREWALL */
 
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
 		src_id = HOST_ID;
@@ -1389,11 +1387,11 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	__u16 __maybe_unused proto = 0;
 	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
 #ifdef ENABLE_HOST_FIREWALL
 	__s8 ext_err = 0;
+	__u16 proto = 0;
 #endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
@@ -1425,7 +1423,7 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 #endif
 
 #ifdef ENABLE_HOST_FIREWALL
-	if (!proto && !validate_ethertype(ctx, &proto)) {
+	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
 	}
