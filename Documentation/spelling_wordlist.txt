@@ -626,6 +626,7 @@ keepDeprecatedLabels
 keepDeprecatedProbes
 keyFile
 keyType
+keyWatcher
 keyless
 keypair
 keyspace
