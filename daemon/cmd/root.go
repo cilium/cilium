@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -37,6 +38,7 @@ var (
 )
 
 func init() {
+	uuid.EnableRandPool()
 	setupSleepBeforeFatal()
 
 	Vp = agentHive.Viper()
