@@ -1432,7 +1432,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 
 		port := uint16(l4.Port)
 		if port == 0 && l4.PortName != "" {
-			port = ep.GetNamedPortLocked(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
+			port = ep.GetNamedPort(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
 			if port == 0 {
 				continue
 			}

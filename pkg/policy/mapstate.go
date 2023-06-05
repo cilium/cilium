@@ -775,7 +775,7 @@ func (keys MapState) AllowsL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 
 	// resolve named port
 	if port == 0 && l4.PortName != "" {
-		port = policyOwner.GetNamedPortLocked(l4.Ingress, l4.PortName, proto)
+		port = policyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
 		if port == 0 {
 			return false
 		}

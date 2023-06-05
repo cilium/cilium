@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -293,10 +294,12 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 }
 
 // getNamedPortsModel returns the endpoint's NamedPorts object.
-//
-// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
-	k8sPorts := e.k8sPorts
+	var k8sPorts types.NamedPortMap
+	if p := e.k8sPorts.Load(); p != nil {
+		k8sPorts = *p
+	}
+
 	// keep named ports ordered to avoid the unnecessary updates to
 	// kube-apiserver
 	names := make([]string, 0, len(k8sPorts))
