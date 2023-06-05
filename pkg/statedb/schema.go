@@ -30,6 +30,6 @@ var (
 		Name:         string(IPIndex),
 		AllowMissing: false,
 		Unique:       false,
-		Indexer:      &IPIndexer{Field: "IP"},
+		Indexer:      &IPFieldIndex{Field: "IP"},
 	}
 )
