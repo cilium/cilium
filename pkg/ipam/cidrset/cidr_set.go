@@ -5,6 +5,7 @@
 package cidrset
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -182,6 +183,14 @@ func (s *CidrSet) AllocateNext() (*net.IPNet, error) {
 // CidrSet.
 func (s *CidrSet) InRange(cidr *net.IPNet) bool {
 	return s.clusterCIDR.Contains(cidr.IP.Mask(s.clusterCIDR.Mask)) || cidr.Contains(s.clusterCIDR.IP.Mask(cidr.Mask))
+}
+
+// IsClusterCIDR returns true if the given CIDR is equal to this CidrSet's cluster CIDR.
+func (s *CidrSet) IsClusterCIDR(cidr *net.IPNet) bool {
+	if len(cidr.IP) != len(s.clusterCIDR.IP) || len(cidr.Mask) != len(s.clusterCIDR.Mask) {
+		return false
+	}
+	return cidr.IP.Equal(s.clusterCIDR.IP) && bytes.Equal(cidr.Mask, s.clusterCIDR.Mask)
 }
 
 func (s *CidrSet) getBeginningAndEndIndices(cidr *net.IPNet) (begin, end int, err error) {
