@@ -8,6 +8,7 @@ import (
 	"net"
 
 	"github.com/sirupsen/logrus"
+	"go.uber.org/multierr"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -93,7 +94,9 @@ func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 // been assigned. If any of the node IPs have an ID associated, then all other
 // node IPs receive the same. This might happen if we allocated a node ID from
 // the ipcache, where we don't have all node IPs but only one.
-func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
+func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) (uint16, error) {
+	var acc error
+
 	// Did we already allocate a node ID for any IP of that node?
 	nodeID := n.getNodeIDForNode(node)
 
@@ -101,6 +104,7 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 		nodeID = uint16(n.nodeIDs.AllocateID())
 		if nodeID == uint16(idpool.NoID) {
 			log.WithField(logfields.NodeName, node.Name).Error("No more IDs available for nodes")
+			acc = multierr.Append(acc, fmt.Errorf("no available node ID %q", node.Name))
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.NodeID:   nodeID,
@@ -119,13 +123,16 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 				logfields.NodeID: nodeID,
 				logfields.IPAddr: ip,
 			}).Error("Failed to map node IP address to allocated ID")
+			acc = multierr.Append(acc,
+				fmt.Errorf("map IP %q with node ID %q: %w", nodeID, nodeID, err))
 		}
 	}
-	return nodeID
+	return nodeID, acc
 }
 
 // deallocateIDForNode deallocates the node ID for the given node, if it was allocated.
-func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
+func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) error {
+	var acc error
 	nodeID := n.nodeIDsByIPs[oldNode.IPAddresses[0].IP.String()]
 	for _, addr := range oldNode.IPAddresses {
 		id := n.nodeIDsByIPs[addr.IP.String()]
@@ -134,10 +141,14 @@ func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
 				logfields.NodeName: oldNode.Name,
 				logfields.IPAddr:   addr.IP,
 			}).Errorf("Found two node IDs (%d and %d) for the same node", id, nodeID)
+			acc = multierr.Append(acc, fmt.Errorf("found two node IDs (%d and %d) for the same node", id, nodeID))
 		}
 	}
 
-	n.deallocateNodeIDLocked(nodeID)
+	if err := n.deallocateNodeIDLocked(nodeID); err != nil {
+		acc = multierr.Append(acc, fmt.Errorf("deallocate node ID %d: %w", nodeID, err))
+	}
+	return acc
 }
 
 // DeallocateNodeID deallocates the given node ID, if it was allocated.
@@ -147,7 +158,8 @@ func (n *linuxNodeHandler) DeallocateNodeID(nodeID uint16) {
 	n.deallocateNodeIDLocked(nodeID)
 }
 
-func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
+func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) error {
+	var acc error
 	for ip, id := range n.nodeIDsByIPs {
 		if nodeID == id {
 			if err := n.unmapNodeID(ip); err != nil {
@@ -155,6 +167,7 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
 					logfields.NodeID: nodeID,
 					logfields.IPAddr: ip,
 				}).Warn("Failed to remove a node IP to node ID mapping")
+				acc = multierr.Append(acc, fmt.Errorf("unmap IP %q with node ID %q: %w", ip, nodeID, err))
 			}
 		}
 	}
@@ -163,6 +176,7 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
 		log.WithField(logfields.NodeID, nodeID).Warn("Attempted to deallocate a node ID that wasn't allocated")
 	}
 	log.WithField(logfields.NodeID, nodeID).Debug("Deallocate node ID")
+	return acc
 }
 
 // mapNodeID adds a node ID <> IP mapping into the local in-memory map of the

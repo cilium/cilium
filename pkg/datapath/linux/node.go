@@ -298,7 +298,7 @@ func (n *linuxNodeHandler) updateDirectRoutes(oldCIDRs, newCIDRs []*cidr.CIDR, o
 		if firstAddition {
 			acc = errors.Join(acc, n.deleteAllDirectRoutes(newCIDRs, newIP))
 		}
-		return nil
+		return acc
 	}
 
 	var addedCIDRs, removedCIDRs []*cidr.CIDR
