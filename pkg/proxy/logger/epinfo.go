@@ -27,7 +27,7 @@ type EndpointInfoSource interface {
 	// implementation.
 	ConntrackName() string
 	ConntrackNameLocked() string
-	GetNamedPortLocked(ingress bool, name string, proto uint8) uint16
+	GetNamedPort(ingress bool, name string, proto uint8) uint16
 }
 
 // EndpointUpdater returns information about an endpoint being proxied and
