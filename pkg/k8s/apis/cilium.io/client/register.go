@@ -93,40 +93,100 @@ var (
 	comparableCRDSchemaVersion = versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion)
 )
 
-type crdCreationFn func(clientset apiextensionsclient.Interface) error
+type CRDList struct {
+	Name     string
+	FullName string
+}
+
+// Returns a map of CRDs
+func CustomResourceDefinitionList() map[string]*CRDList {
+	return map[string]*CRDList{
+		synced.CRDResourceName(k8sconstv2.CNPName): {
+			Name:     CNPCRDName,
+			FullName: k8sconstv2.CNPName,
+		},
+		synced.CRDResourceName(k8sconstv2.CCNPName): {
+			Name:     CCNPCRDName,
+			FullName: k8sconstv2.CCNPName,
+		},
+		synced.CRDResourceName(k8sconstv2.CNName): {
+			Name:     CNCRDName,
+			FullName: k8sconstv2.CNName,
+		},
+		synced.CRDResourceName(k8sconstv2.CIDName): {
+			Name:     CIDCRDName,
+			FullName: k8sconstv2.CIDName,
+		},
+		synced.CRDResourceName(k8sconstv2.CEPName): {
+			Name:     CEPCRDName,
+			FullName: k8sconstv2.CEPName,
+		},
+		synced.CRDResourceName(k8sconstv2.CEWName): {
+			Name:     CEWCRDName,
+			FullName: k8sconstv2.CEWName,
+		},
+		synced.CRDResourceName(k8sconstv2.CLRPName): {
+			Name:     CLRPCRDName,
+			FullName: k8sconstv2.CLRPName,
+		},
+		synced.CRDResourceName(k8sconstv2.CEGPName): {
+			Name:     CEGPCRDName,
+			FullName: k8sconstv2.CEGPName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.CESName): {
+			Name:     CESCRDName,
+			FullName: k8sconstv2alpha1.CESName,
+		},
+		synced.CRDResourceName(k8sconstv2.CCECName): {
+			Name:     CCECCRDName,
+			FullName: k8sconstv2.CCECName,
+		},
+		synced.CRDResourceName(k8sconstv2.CECName): {
+			Name:     CECCRDName,
+			FullName: k8sconstv2.CECName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.BGPPName): {
+			Name:     BGPPCRDName,
+			FullName: k8sconstv2alpha1.BGPPName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.LBIPPoolName): {
+			Name:     LBIPPoolCRDName,
+			FullName: k8sconstv2alpha1.LBIPPoolName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.CNCName): {
+			Name:     CNCCRDName,
+			FullName: k8sconstv2alpha1.CNCName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.CCGName): {
+			Name:     CCGCRDName,
+			FullName: k8sconstv2alpha1.CCGName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.L2AnnouncementName): {
+			Name:     L2AnnouncementCRDName,
+			FullName: k8sconstv2alpha1.L2AnnouncementName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.CPIPName): {
+			Name:     CPIPCRDName,
+			FullName: k8sconstv2alpha1.CPIPName,
+		},
+	}
+}
 
 // CreateCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
 func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) error {
 	g, _ := errgroup.WithContext(context.Background())
 
-	resourceToCreateFnMapping := map[string]crdCreationFn{
-		synced.CRDResourceName(k8sconstv2.CNPName):                  createCRD(CNPCRDName, k8sconstv2.CNPName),
-		synced.CRDResourceName(k8sconstv2.CCNPName):                 createCRD(CCNPCRDName, k8sconstv2.CCNPName),
-		synced.CRDResourceName(k8sconstv2.CNName):                   createCRD(CNCRDName, k8sconstv2.CNName),
-		synced.CRDResourceName(k8sconstv2.CIDName):                  createCRD(CIDCRDName, k8sconstv2.CIDName),
-		synced.CRDResourceName(k8sconstv2.CEPName):                  createCRD(CEPCRDName, k8sconstv2.CEPName),
-		synced.CRDResourceName(k8sconstv2.CEWName):                  createCRD(CEWCRDName, k8sconstv2.CEWName),
-		synced.CRDResourceName(k8sconstv2.CLRPName):                 createCRD(CLRPCRDName, k8sconstv2.CLRPName),
-		synced.CRDResourceName(k8sconstv2.CEGPName):                 createCRD(CEGPCRDName, k8sconstv2.CEGPName),
-		synced.CRDResourceName(k8sconstv2alpha1.CESName):            createCRD(CESCRDName, k8sconstv2alpha1.CESName),
-		synced.CRDResourceName(k8sconstv2.CCECName):                 createCRD(CCECCRDName, k8sconstv2.CCECName),
-		synced.CRDResourceName(k8sconstv2.CECName):                  createCRD(CECCRDName, k8sconstv2.CECName),
-		synced.CRDResourceName(k8sconstv2alpha1.BGPPName):           createCRD(BGPPCRDName, k8sconstv2alpha1.BGPPName),
-		synced.CRDResourceName(k8sconstv2alpha1.LBIPPoolName):       createCRD(LBIPPoolCRDName, k8sconstv2alpha1.LBIPPoolName),
-		synced.CRDResourceName(k8sconstv2alpha1.CNCName):            createCRD(CNCCRDName, k8sconstv2alpha1.CNCName),
-		synced.CRDResourceName(k8sconstv2alpha1.CCGName):            createCRD(CCGCRDName, k8sconstv2alpha1.CCGName),
-		synced.CRDResourceName(k8sconstv2alpha1.L2AnnouncementName): createCRD(L2AnnouncementCRDName, k8sconstv2alpha1.L2AnnouncementName),
-		synced.CRDResourceName(k8sconstv2alpha1.CPIPName):           createCRD(CPIPCRDName, k8sconstv2alpha1.CPIPName),
-	}
+	crds := CustomResourceDefinitionList()
+
 	for _, r := range synced.AllCiliumCRDResourceNames() {
-		fn, ok := resourceToCreateFnMapping[r]
-		if !ok {
+		if crd, ok := crds[r]; ok {
+			g.Go(func() error {
+				return createCRD(crd.Name, crd.FullName)(clientset)
+			})
+		} else {
 			log.Fatalf("Unknown resource %s. Please update pkg/k8s/apis/cilium.io/client to understand this type.", r)
 		}
-		g.Go(func() error {
-			return fn(clientset)
-		})
 	}
 
 	return g.Wait()

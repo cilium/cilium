@@ -640,6 +640,9 @@ update-authors: ## Update AUTHORS file for Cilium repository.
 	@contrib/scripts/extract_authors.sh >> AUTHORS
 	@cat .authors.aux >> AUTHORS
 
+generate-crd-docs: ## Generate CRD List for documentation
+	$(QUIET)$(GO) run ./tools/crdlistgen
+
 test-docs: ## Build HTML documentation.
 	$(MAKE) -C Documentation html
 

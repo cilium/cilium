@@ -43,21 +43,7 @@ CRD Registration
 The default behavior of the Cilium Operator is to register the CRDs used by
 Cilium. The following custom resources are registered by the Cilium Operator:
 
--  :ref:`CiliumNetworkPolicy`
--  :ref:`CiliumClusterwideNetworkPolicy`
--  :ref:`CiliumEndpoint <CiliumEndpoint>`
--  CiliumNode
--  CiliumExternalWorkload
--  CiliumIdentity
--  CiliumLocalRedirectPolicy
--  CiliumEgressGatewayPolicy
--  CiliumEndpointSlice
--  CiliumClusterwideEnvoyConfig
--  CiliumEnvoyConfig
--  CiliumBGPPeeringPolicy
--  CiliumLoadBalancerIPPool
--  CiliumNodeConfig
--  CiliumCIDRGroup
+.. include:: ../crdlist.rst
 
 IPAM
 ~~~~
