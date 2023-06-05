@@ -97,7 +97,7 @@ Users (Alphabetically)
     * N: Bloomberg
       D: Bloomberg leverages Cilium to construct data sandboxes that restrict users from distributing data outside the sandbox.
       U: Acess control, Networking, Hubble for observability
-      L: https://www.bloomberg.com/professional/solution/bquant/
+      L: https://www.bloomberg.com/
 
     * N: ByteDance
       D: ByteDance is using Cilium as CNI plug-in for self-hosted Kubernetes.
