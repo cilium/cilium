@@ -25,18 +25,6 @@ const (
 	kindSecret    = "Secret"
 )
 
-func IsGateway(parent gatewayv1beta1.ParentReference) bool {
-	return (parent.Kind == nil || *parent.Kind == kindGateway) && (parent.Group == nil || *parent.Group == gatewayv1beta1.GroupName)
-}
-
-func IsService(be gatewayv1beta1.BackendObjectReference) bool {
-	return (be.Kind == nil || *be.Kind == kindService) && (be.Group == nil || *be.Group == corev1.GroupName)
-}
-
-func IsSecret(secret gatewayv1beta1.SecretObjectReference) bool {
-	return (secret.Kind == nil || *secret.Kind == kindSecret) && (secret.Group == nil || *secret.Group == corev1.GroupName)
-}
-
 func GatewayAddressTypePtr(addr gatewayv1beta1.AddressType) *gatewayv1beta1.AddressType {
 	return &addr
 }

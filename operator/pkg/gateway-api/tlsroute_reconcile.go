@@ -13,11 +13,10 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -61,61 +60,62 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return fail(fmt.Errorf("failed to retrieve reference grants: %w", err))
 	}
 
+	// input for the validators
+	i := &routechecks.TLSRouteInput{
+		Ctx:      ctx,
+		Logger:   scopedLog.WithField(logfields.Resource, tr),
+		Client:   r.Client,
+		Grants:   grants,
+		TLSRoute: tr,
+	}
+
 	// gateway validators
 	for _, parent := range tr.Spec.ParentRefs {
-		ns := helpers.NamespaceDerefOr(parent.Namespace, tr.GetNamespace())
-		gw := &gatewayv1beta1.Gateway{}
 
-		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, gw); err != nil {
+		// set acceptance to okay, this wil be overwritten in checks if needed
+		i.SetParentCondition(parent, metav1.Condition{
+			Type:    conditionStatusAccepted,
+			Status:  metav1.ConditionTrue,
+			Reason:  conditionReasonAccepted,
+			Message: "Accepted TLSRoute",
+		})
 
-			// pass the error to the status
-			mergeTLSRouteStatusConditions(tr, parent, []metav1.Condition{
-				tlsRouteAcceptedCondition(tr, false, err.Error()),
-			})
-
-			if !k8serrors.IsNotFound(err) {
-				// if it is not just a not found error, we should return the error as something is bad
-				return fail(err)
-			}
-
-			// Gateway does not exist skip further checks
-			continue
-		}
+		// set status to okay, this wil be overwritten in checks if needed
+		i.SetAllParentCondition(metav1.Condition{
+			Type:    string(gatewayv1beta1.RouteConditionResolvedRefs),
+			Status:  metav1.ConditionTrue,
+			Reason:  string(gatewayv1beta1.RouteReasonResolvedRefs),
+			Message: "Service reference is valid",
+		})
 
 		// run the actual validators
-		for _, fn := range []gatewayParentValidatonFunc{
-			checkGatewayAllowedForNamespace,
-			checkGatewayRouteKindAllowed,
-			checkMatchingGatewayPorts,
-			checkMatchingGatewayHostnames,
+		for _, fn := range []routechecks.CheckGatewayFunc{
+			routechecks.CheckGatewayAllowedForNamespace,
+			routechecks.CheckGatewayRouteKindAllowed,
+			routechecks.CheckGatewayMatchingPorts,
+			routechecks.CheckGatewayMatchingHostnames,
+			routechecks.CheckGatewayMatchingSection,
 		} {
-			if res, continueCheck, err := fn(ctx, scopedLog.WithField(logfields.Resource, tr), r.Client, parent, gw, tr); err != nil || !continueCheck {
-				return res, err
+			continueCheck, err := fn(i, parent)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			if !continueCheck {
+				break
 			}
 		}
-
-		// Gateway is attachable, update the status for this HTTPRoute
-		mergeTLSRouteStatusConditions(tr, parent, []metav1.Condition{
-			tlsRouteAcceptedCondition(tr, true, tlsRouteAcceptedMessage),
-		})
 	}
 
 	// backend validators
 
-	// set status to okay, this wil be overwritten in checks if needed
-	for _, parent := range tr.Spec.ParentRefs {
-		mergeTLSRouteStatusConditions(tr, parent, []metav1.Condition{
-			tlsRouteResolvedRefsOkayCondition(tr, "Service reference is valid"),
-		})
-	}
-
-	for _, fn := range []backendValidationFunc{
-		checkAgainstCrossNamespaceReferences,
-		checkBackendIsService,
-		checkBackendIsExistingService,
+	for _, fn := range []routechecks.CheckRuleFunc{
+		routechecks.CheckAgainstCrossNamespaceBackendReferences,
+		routechecks.CheckBackendIsService,
+		routechecks.CheckBackendIsExistingService,
 	} {
-		if res, continueCheck, err := fn(ctx, scopedLog.WithField(logfields.Resource, tr), r.Client, grants, tr); err != nil || !continueCheck {
-			return res, err
+		if continueCheck, err := fn(i); err != nil || !continueCheck {
+			return ctrl.Result{}, err
 		}
 	}
 
