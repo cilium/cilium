@@ -746,6 +746,10 @@ const (
 	// previous IPsec key from the node.
 	IPsecKeyRotationDuration = "ipsec-key-rotation-duration"
 
+	// Enable watcher for IPsec key. If disabled, a restart of the agent will
+	// be necessary on key rotations.
+	EnableIPsecKeyWatcher = "enable-ipsec-key-watcher"
+
 	// IPSecKeyFileName is the name of the option for ipsec key file
 	IPSecKeyFileName = "ipsec-key-file"
 
@@ -1670,6 +1674,10 @@ type DaemonConfig struct {
 	// Duration of the IPsec key rotation. After that time, we will clean the
 	// previous IPsec key from the node.
 	IPsecKeyRotationDuration time.Duration
+
+	// Enable watcher for IPsec key. If disabled, a restart of the agent will
+	// be necessary on key rotations.
+	EnableIPsecKeyWatcher bool
 
 	// EnableWireguard enables Wireguard encryption
 	EnableWireguard bool
@@ -3056,6 +3064,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPTablesRandomFully = vp.GetBool(IPTablesRandomFully)
 	c.IPSecKeyFile = vp.GetString(IPSecKeyFileName)
 	c.IPsecKeyRotationDuration = vp.GetDuration(IPsecKeyRotationDuration)
+	c.EnableIPsecKeyWatcher = vp.GetBool(EnableIPsecKeyWatcher)
 	c.MonitorAggregation = vp.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
 	c.MTU = vp.GetInt(MTUName)

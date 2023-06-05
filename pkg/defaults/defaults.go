@@ -220,6 +220,10 @@ const (
 	// the IPsec key is changing.
 	IPsecKeyRotationDuration = 5 * time.Minute
 
+	// Enable watcher for IPsec key. If disabled, a restart of the agent will
+	// be necessary on key rotations.
+	EnableIPsecKeyWatcher = true
+
 	// EncryptNode enables encrypting traffic from host networking applications
 	// which are not part of Cilium manged pods.
 	EncryptNode = false

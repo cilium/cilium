@@ -112,6 +112,7 @@ cilium-agent [flags]
       --enable-identity-mark                                    Enable setting identity mark for local traffic (default true)
       --enable-ip-masq-agent                                    Enable BPF ip-masq-agent
       --enable-ipsec                                            Enable IPSec support
+      --enable-ipsec-key-watcher                                Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
       --enable-ipv4                                             Enable IPv4 support (default true)
       --enable-ipv4-egress-gateway                              Enable egress gateway for IPv4
       --enable-ipv4-fragment-tracking                           Enable IPv4 fragments tracking for L4-based lookups (default true)
