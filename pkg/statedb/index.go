@@ -6,17 +6,18 @@ package statedb
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"reflect"
 	"strings"
 )
 
-type IPIndexer struct {
+type IPFieldIndex struct {
 	Field string
 }
 
 var ipType = reflect.TypeOf(net.IP{})
 
-func (ii *IPIndexer) FromObject(obj interface{}) (bool, []byte, error) {
+func (ii *IPFieldIndex) FromObject(obj interface{}) (bool, []byte, error) {
 	v := reflect.ValueOf(obj)
 	v = reflect.Indirect(v) // Dereference the pointer if any
 
@@ -37,13 +38,17 @@ func (ii *IPIndexer) FromObject(obj interface{}) (bool, []byte, error) {
 	return true, []byte(ip), nil
 }
 
-func (ii *IPIndexer) FromArgs(args ...interface{}) ([]byte, error) {
+func (ii *IPFieldIndex) FromArgs(args ...interface{}) ([]byte, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("must provide only a single argument")
 	}
 	switch arg := args[0].(type) {
 	case string:
-		return net.ParseIP(arg), nil
+		if ip := net.ParseIP(arg); ip != nil {
+			return ip, nil
+		} else {
+			return nil, fmt.Errorf("failed to parse IP %q", arg)
+		}
 	case net.IP:
 		return arg, nil
 	case []byte:
@@ -57,7 +62,7 @@ func (ii *IPIndexer) FromArgs(args ...interface{}) ([]byte, error) {
 	}
 }
 
-func (ii *IPIndexer) PrefixFromArgs(args ...interface{}) ([]byte, error) {
+func (ii *IPFieldIndex) PrefixFromArgs(args ...interface{}) ([]byte, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("must provide only a single argument")
 	}
@@ -72,6 +77,97 @@ func (ii *IPIndexer) PrefixFromArgs(args ...interface{}) ([]byte, error) {
 		return nil,
 			fmt.Errorf("argument must be a net.IP, string or byte slice: %#v", args[0])
 	}
+}
+
+// IPNetFieldIndex is to index an a net.IPNet field.
+// Constructs an index key "<IP bytes>\n<mask bytes>".
+type IPNetFieldIndex struct {
+	Field string
+}
+
+func (i *IPNetFieldIndex) FromObject(obj interface{}) (bool, []byte, error) {
+	v := reflect.ValueOf(obj)
+	v = reflect.Indirect(v) // Dereference the pointer if any
+	fv := v.FieldByName(i.Field)
+	if !fv.IsValid() {
+		return false, nil,
+			fmt.Errorf("field '%s' for %#v is invalid", i.Field, obj)
+	}
+	fv = reflect.Indirect(fv) // Dereference the pointer if any
+	val, ok := fv.Interface().(net.IPNet)
+	if !ok {
+		return false, nil, fmt.Errorf("field is of type %s; want a net.IPNet", fv.Type())
+	}
+	out := make([]byte, 0, len(val.IP)+1+len(val.Mask))
+	out = append(out, val.IP...)
+	out = append(out, byte('\n'))
+	out = append(out, val.Mask...)
+	return true, out, nil
+}
+
+func (i *IPNetFieldIndex) FromArgs(args ...interface{}) ([]byte, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("must provide only a single argument")
+	}
+	v := reflect.ValueOf(args[0])
+	if !v.IsValid() {
+		return []byte{}, nil
+	}
+	v = reflect.Indirect(v) // Dereference the pointer if any
+	val, ok := v.Interface().(net.IPNet)
+	if !ok {
+		return nil, fmt.Errorf("field is of type %T; want a net.IPNet", args[0])
+	}
+	out := make([]byte, 0, len(val.IP)+1+len(val.Mask))
+	out = append(out, val.IP...)
+	out = append(out, byte('\n'))
+	out = append(out, val.Mask...)
+	return out, nil
+}
+
+// NetIPPrefixFieldIndex for indexing a netip.Prefix field.
+type NetIPPrefixFieldIndex struct {
+	Field string
+}
+
+func (i *NetIPPrefixFieldIndex) FromObject(obj interface{}) (bool, []byte, error) {
+	v := reflect.ValueOf(obj)
+	v = reflect.Indirect(v) // Dereference the pointer if any
+	fv := v.FieldByName(i.Field)
+	if !fv.IsValid() {
+		return false, nil,
+			fmt.Errorf("field '%s' for %#v is invalid", i.Field, obj)
+	}
+	fv = reflect.Indirect(fv) // Dereference the pointer if any
+	val, ok := fv.Interface().(netip.Prefix)
+	if !ok {
+		return false, nil, fmt.Errorf("FromObject: field is of type %s; want a netip.Prefix", fv.Type())
+	}
+	out, err := val.MarshalBinary()
+	if err != nil {
+		return false, nil, err
+	}
+	return true, out, nil
+}
+
+func (i *NetIPPrefixFieldIndex) FromArgs(args ...interface{}) ([]byte, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("must provide only a single argument")
+	}
+	v := reflect.ValueOf(args[0])
+	if !v.IsValid() {
+		return []byte{}, nil
+	}
+	v = reflect.Indirect(v) // Dereference the pointer if any
+	val, ok := v.Interface().(netip.Prefix)
+	if !ok {
+		return nil, fmt.Errorf("FromArgs: field is of type %T; want a netip.Prefix", args[0])
+	}
+	out, err := val.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // StringerSliceFieldIndex builds an index from a field on an object that is a
