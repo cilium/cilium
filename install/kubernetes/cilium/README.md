@@ -246,6 +246,7 @@ contributors across the globe, there is almost always someone available to help.
 | encryption.interface | string | `""` | Deprecated in favor of encryption.ipsec.interface. To be removed in 1.15. The interface to use for encrypted traffic. This option is only effective when encryption.type is set to ipsec. |
 | encryption.ipsec.interface | string | `""` | The interface to use for encrypted traffic. |
 | encryption.ipsec.keyFile | string | `""` | Name of the key file inside the Kubernetes secret configured via secretName. |
+| encryption.ipsec.keyWatcher | bool | `true` | Enable the key watcher. If disabled, a restart of the agent will be necessary on key rotations. |
 | encryption.ipsec.mountPath | string | `""` | Path to mount the secret inside the Cilium pod. |
 | encryption.ipsec.secretName | string | `""` | Name of the Kubernetes secret containing the encryption keys. |
 | encryption.keyFile | string | `"keys"` | Deprecated in favor of encryption.ipsec.keyFile. To be removed in 1.15. Name of the key file inside the Kubernetes secret configured via secretName. This option is only effective when encryption.type is set to ipsec. |

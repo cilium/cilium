@@ -784,6 +784,10 @@
      - Name of the key file inside the Kubernetes secret configured via secretName.
      - string
      - ``""``
+   * - encryption.ipsec.keyWatcher
+     - Enable the key watcher. If disabled, a restart of the agent will be necessary on key rotations.
+     - bool
+     - ``true``
    * - encryption.ipsec.mountPath
      - Path to mount the secret inside the Cilium pod.
      - string

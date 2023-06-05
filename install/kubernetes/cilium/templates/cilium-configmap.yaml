@@ -548,6 +548,9 @@ data:
     {{- else if .Values.encryption.interface }}
   encrypt-interface: {{ .Values.encryption.interface }}
     {{- end }}
+    {{- if hasKey .Values.encryption.ipsec "keyWatcher" }}
+  enable-ipsec-key-watcher: {{ .Values.encryption.ipsec.keyWatcher | quote }}
+    {{- end }}
   {{- else if eq .Values.encryption.type "wireguard" }}
   enable-wireguard: {{ .Values.encryption.enabled | quote }}
     {{- if .Values.encryption.wireguard.userspaceFallback }}
