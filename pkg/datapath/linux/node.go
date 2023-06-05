@@ -158,7 +158,7 @@ func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP ne
 	case oldCIDR.IsValid() && newCIDR.IsValid() && !oldCIDR.Equal(newCIDR):
 		if err := deleteTunnelMapping(oldCIDR, false); err != nil {
 			acc = errors.Join(acc,
-				fmt.Errorf("delete tunnel mapping (oldCIDR: %s): %w", oldCIDR, newIP))
+				fmt.Errorf("delete tunnel mapping (oldCIDR: %s, newIP: %s): %w", oldCIDR, newIP, err))
 		}
 	}
 	return acc
@@ -707,7 +707,7 @@ type NextHop struct {
 func (n *linuxNodeHandler) insertNeighborCommon(scopedLog *logrus.Entry, ctx context.Context, nextHop NextHop, link netlink.Link, refresh bool) {
 	if refresh {
 		if lastPing, found := n.neighLastPingByNextHop[nextHop.Name]; found &&
-			time.Now().Sub(lastPing) < option.Config.ARPPingRefreshPeriod {
+			time.Since(lastPing) < option.Config.ARPPingRefreshPeriod {
 			// Last ping was issued less than option.Config.ARPPingRefreshPeriod
 			// ago, so skip it (e.g. to avoid ddos'ing the same GW if nodes are
 			// L3 connected)
