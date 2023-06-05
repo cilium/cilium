@@ -15,6 +15,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
+	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 // Allocator implements allocator.AllocatorProvider
@@ -86,11 +87,11 @@ func (a *Allocator) Init(ctx context.Context) (err error) {
 		}
 
 		log.WithFields(logrus.Fields{
-			"pool-name":     poolName,
-			"ipv4-cidrs":    pool.ipv4CIDRs,
-			"ipv4-masksize": pool.ipv4MaskSize,
-			"ipv6-cidrs":    pool.ipv6CIDRs,
-			"ipv6-masksize": pool.ipv6MaskSize,
+			"pool-name":      poolName,
+			"ipv4-cidrs":     pool.ipv4CIDRs,
+			"ipv4-mask-size": pool.ipv4MaskSize,
+			"ipv6-cidrs":     pool.ipv6CIDRs,
+			"ipv6-mask-size": pool.ipv6MaskSize,
 		}).Debug("adding pool")
 		if addErr := a.poolAlloc.AddPool(poolName, pool.ipv4CIDRs, pool.ipv4MaskSize, pool.ipv6CIDRs, pool.ipv6MaskSize); addErr != nil {
 			err = errors.Join(err, fmt.Errorf("failed to add IP pool %s to allocator: %w", poolName, addErr))
@@ -103,4 +104,39 @@ func (a *Allocator) Init(ctx context.Context) (err error) {
 
 func (a *Allocator) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
 	return NewNodeHandler(a.poolAlloc, getterUpdater), nil
+}
+
+func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error {
+	log.WithFields(logrus.Fields{
+		"pool-name":      pool.Name,
+		"ipv4-cidrs":     pool.Spec.IPv4.CIDRs,
+		"ipv4-mask-size": pool.Spec.IPv4.MaskSize,
+		"ipv6-cidrs":     pool.Spec.IPv6.CIDRs,
+		"ipv6-mask-size": pool.Spec.IPv6.MaskSize,
+	}).Debug("upserting pool")
+
+	ipv4CIDRs := make([]string, len(pool.Spec.IPv4.CIDRs))
+	for i, cidr := range pool.Spec.IPv4.CIDRs {
+		ipv4CIDRs[i] = string(cidr)
+	}
+	ipv6CIDRs := make([]string, len(pool.Spec.IPv6.CIDRs))
+	for i, cidr := range pool.Spec.IPv6.CIDRs {
+		ipv6CIDRs[i] = string(cidr)
+	}
+
+	return a.poolAlloc.UpsertPool(
+		pool.Name,
+		ipv4CIDRs,
+		int(pool.Spec.IPv4.MaskSize),
+		ipv6CIDRs,
+		int(pool.Spec.IPv6.MaskSize),
+	)
+}
+
+func (a *Allocator) DeletePool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error {
+	log.WithFields(logrus.Fields{
+		"pool-name": pool.Name,
+	}).Debug("deleting pool")
+
+	return a.poolAlloc.DeletePool(pool.Name)
 }

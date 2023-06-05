@@ -349,6 +349,112 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	assert.ErrorContains(t, err, `failed to parse CIDR of pool "ipv4-only"`)
 }
 
+func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
+	p := NewPoolAllocator()
+
+	_, exists := p.pools["jupiter"]
+	assert.False(t, exists)
+	err := p.AddPool("jupiter",
+		[]string{"10.100.0.0/16", "10.200.0.0/16"}, 24,
+		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
+	)
+	assert.NoError(t, err)
+	_, exists = p.pools["jupiter"]
+	assert.True(t, exists)
+
+	// Adding a pool with the same name as an existing one fails and leave the existing pool
+	// intact.
+	err = p.AddPool("jupiter",
+		[]string{"10.10.0.0/16", "10.20.0.0/16"}, 24,
+		[]string{"fe00:100::/80", "fb00:200::/80"}, 96,
+	)
+	assert.ErrorContains(t, err, `pool "jupiter" already exists`)
+	jupiter, exists := p.pools["jupiter"]
+	assert.True(t, exists)
+	assert.Equal(t, jupiter.v4MaskSize, 24)
+	assert.Equal(t, jupiter.v6MaskSize, 96)
+	assert.True(t, jupiter.hasCIDR(netip.MustParsePrefix("10.100.0.0/16")))
+	assert.True(t, jupiter.hasCIDR(netip.MustParsePrefix("10.200.0.0/16")))
+	assert.True(t, jupiter.hasCIDR(netip.MustParsePrefix("fd00:100::/80")))
+	assert.True(t, jupiter.hasCIDR(netip.MustParsePrefix("fc00:100::/80")))
+
+	// Upserting a non-existing pool adds it
+	_, exists = p.pools["mars"]
+	assert.False(t, exists)
+	err = p.UpsertPool("mars",
+		[]string{"10.10.0.0/16", "10.20.0.0/16"}, 24,
+		[]string{"fe00:100::/80", "fb00:200::/80"}, 96,
+	)
+	assert.NoError(t, err)
+	mars, exists := p.pools["mars"]
+	assert.True(t, exists)
+	assert.Equal(t, mars.v4MaskSize, 24)
+	assert.Equal(t, mars.v6MaskSize, 96)
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fb00:200::/80")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
+
+	// IPv4 mask size cannot be changed on existing pool
+	err = p.UpsertPool("mars",
+		[]string{"10.10.0.0/16", "10.30.0.0/16"}, 25,
+		[]string{"fa00:100::/80", "fb00:200::/80"}, 97,
+	)
+	assert.ErrorContains(t, err, `cannot change IPv4 mask size in existing pool "mars"`)
+	mars, exists = p.pools["mars"]
+	assert.True(t, exists)
+	assert.Equal(t, mars.v4MaskSize, 24)
+	assert.Equal(t, mars.v6MaskSize, 96)
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fb00:200::/80")))
+
+	// IPv6 mask size cannot be changed on existing pool
+	err = p.UpsertPool("mars",
+		[]string{"10.1.0.0/16", "10.3.0.0/16"}, 24,
+		[]string{"fa00:100::/80", "fb00:200::/80"}, 97,
+	)
+	assert.ErrorContains(t, err, `cannot change IPv6 mask size in existing pool "mars"`)
+	mars, exists = p.pools["mars"]
+	assert.True(t, exists)
+	assert.Equal(t, mars.v4MaskSize, 24)
+	assert.Equal(t, mars.v6MaskSize, 96)
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fb00:200::/80")))
+
+	// Changes in pool CIDRs are reflected in internal bookkeeping after upsert
+	err = p.UpsertPool("mars",
+		[]string{"10.1.0.0/16", "10.3.0.0/16", "10.10.0.0/16"}, 24,
+		[]string{"fa00:100::/80", "fc00:200::/80", "fe00:100::/80"}, 96,
+	)
+	assert.NoError(t, err)
+	mars, exists = p.pools["mars"]
+	assert.True(t, exists)
+	assert.Equal(t, mars.v4MaskSize, 24)
+	assert.Equal(t, mars.v6MaskSize, 96)
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.1.0.0/16")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.3.0.0/16")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
+	assert.False(t, mars.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fa00:100::/80")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fc00:200::/80")))
+	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
+	assert.False(t, mars.hasCIDR(netip.MustParsePrefix("fb00:200::/80")))
+
+	// Deleting a non-existing pool fails
+	err = p.DeletePool("saturn")
+	assert.ErrorContains(t, err, `pool "saturn" requested for deletion doesn't exist`)
+
+	// Deleting an existing pool removes it completely
+	err = p.DeletePool("jupiter")
+	assert.NoError(t, err)
+	_, exists = p.pools["jupiter"]
+	assert.False(t, exists)
+}
+
 func Test_addrsInPrefix(t *testing.T) {
 	mustParseBigInt := func(s string) *big.Int {
 		r := new(big.Int)
