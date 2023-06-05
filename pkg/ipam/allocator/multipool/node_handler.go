@@ -12,11 +12,9 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
-
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type NodeHandler struct {
@@ -26,7 +24,6 @@ type NodeHandler struct {
 	nodeUpdater ipam.CiliumNodeGetterUpdater
 
 	nodesPendingAllocation map[string]*v2.CiliumNode
-	nodesPendingK8sUpdate  map[string]*v2.CiliumNode
 
 	controllerManager *controller.Manager
 }
@@ -38,7 +35,6 @@ func NewNodeHandler(manager *PoolAllocator, nodeUpdater ipam.CiliumNodeGetterUpd
 		poolManager:            manager,
 		nodeUpdater:            nodeUpdater,
 		nodesPendingAllocation: map[string]*v2.CiliumNode{},
-		nodesPendingK8sUpdate:  map[string]*v2.CiliumNode{},
 		controllerManager:      controller.NewManager(),
 	}
 }
