@@ -140,6 +140,17 @@ func CiliumCIDRGroupResource(lc hive.Lifecycle, cs client.Clientset, opts ...fun
 	return resource.New[*cilium_api_v2alpha1.CiliumCIDRGroup](lc, lw), nil
 }
 
+func CiliumPodIPPoolResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumPodIPPoolList](cs.CiliumV2alpha1().CiliumPodIPPools()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumPodIPPool](lc, lw), nil
+}
+
 func EndpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*Endpoints], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
