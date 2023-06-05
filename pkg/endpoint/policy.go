@@ -40,29 +40,7 @@ import (
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
 	if ingress {
 		// Ingress only needs the ports of the POD itself
-		k8sPorts, err := e.GetK8sPorts()
-		if err != nil {
-			if e.logLimiter.Allow() {
-				e.getLogger().WithFields(logrus.Fields{
-					logfields.PortName:         name,
-					logfields.Protocol:         u8proto.U8proto(proto).String(),
-					logfields.TrafficDirection: "ingress",
-				}).WithError(err).Warning("Skipping named port")
-			}
-			return 0
-		}
-		return e.getNamedPortIngress(k8sPorts, name, proto)
-	}
-	// egress needs named ports of all the pods
-	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
-}
-
-// GetNamedPortLocked returns port for the given name. May return an invalid (0) port
-// Must be called with e.mutex held.
-func (e *Endpoint) GetNamedPortLocked(ingress bool, name string, proto uint8) uint16 {
-	if ingress {
-		// Ingress only needs the ports of the POD itself
-		return e.getNamedPortIngress(e.k8sPorts, name, proto)
+		return e.getNamedPortIngress(e.GetK8sPorts(), name, proto)
 	}
 	// egress needs named ports of all the pods
 	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
@@ -99,7 +77,7 @@ func (e *Endpoint) getNamedPortEgress(npMap policy.NamedPortMultiMap, name strin
 func (e *Endpoint) proxyID(l4 *policy.L4Filter) string {
 	port := uint16(l4.Port)
 	if port == 0 && l4.PortName != "" {
-		port = e.GetNamedPortLocked(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
+		port = e.GetNamedPort(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
 		if port == 0 {
 			return ""
 		}
@@ -705,13 +683,12 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName
-				namedPorts := e.k8sPorts
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, namedPorts); err != nil {
+				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, e.GetK8sPorts()); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
 				}
 				return nil

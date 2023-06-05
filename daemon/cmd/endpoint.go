@@ -390,9 +390,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
 			ep.SetPod(pod)
-			if err := ep.SetK8sMetadata(cp); err != nil {
-				return invalidDataError(ep, fmt.Errorf("Invalid ContainerPorts %v: %s", cp, err))
-			}
+			ep.SetK8sMetadata(cp)
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
 			if _, ok := annotations[bandwidth.IngressBandwidth]; ok {

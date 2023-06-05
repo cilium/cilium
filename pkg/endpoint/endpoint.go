@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -232,13 +233,10 @@ type Endpoint struct {
 
 	// k8sPorts contains container ports associated in the pod.
 	// It is used to enforce k8s network policies with port names.
-	k8sPorts policy.NamedPortMap
+	k8sPorts atomic.Value
 
 	// logLimiter rate limits potentially repeating warning logs
 	logLimiter logging.Limiter
-
-	// k8sPortsSet keep track when k8sPorts was set at least one time.
-	hasK8sMetadata bool
 
 	// policyRevision is the policy revision this endpoint is currently on
 	// to modify this field please use endpoint.setPolicyRevision instead
@@ -1198,9 +1196,8 @@ func (e *Endpoint) SetK8sNamespace(name string) {
 // SetK8sMetadata sets the k8s container ports specified by kubernetes.
 // Note that once put in place, the new k8sPorts is never changed,
 // so that the map can be used concurrently without keeping locks.
-// Reading the 'e.k8sPorts' member (the "map pointer") *itself* requires the endpoint lock!
 // Can't really error out as that might break backwards compatibility.
-func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) error {
+func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) {
 	k8sPorts := make(policy.NamedPortMap, len(containerPorts))
 	for _, cp := range containerPorts {
 		if cp.Name == "" {
@@ -1212,33 +1209,21 @@ func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) er
 			continue
 		}
 	}
-	if len(k8sPorts) == 0 {
-		k8sPorts = nil // nil map with no storage
-	}
-	e.mutex.Lock()
-	e.hasK8sMetadata = true
-	e.k8sPorts = k8sPorts
-	e.mutex.Unlock()
-	return nil
+	e.k8sPorts.Store(k8sPorts)
 }
 
 // GetK8sPorts returns the k8sPorts, which must not be modified by the caller
-func (e *Endpoint) GetK8sPorts() (k8sPorts policy.NamedPortMap, err error) {
-	err = e.rlockAlive()
-	if err != nil {
-		return nil, err
+func (e *Endpoint) GetK8sPorts() (k8sPorts policy.NamedPortMap) {
+	if p := e.k8sPorts.Load(); p != nil {
+		k8sPorts = p.(policy.NamedPortMap)
 	}
-	k8sPorts = e.k8sPorts
-	e.mutex.RUnlock()
-	return k8sPorts, nil
+	return k8sPorts
 }
 
 // HaveK8sMetadata returns true once hasK8sMetadata was set
 func (e *Endpoint) HaveK8sMetadata() (metadataSet bool) {
-	e.mutex.RLock()
-	metadataSet = e.hasK8sMetadata
-	e.mutex.RUnlock()
-	return
+	p := e.k8sPorts.Load()
+	return p != nil
 }
 
 // K8sNamespaceAndPodNameIsSet returns true if the pod name is set

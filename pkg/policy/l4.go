@@ -342,7 +342,7 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 
 	// resolve named port
 	if port == 0 && l4Filter.PortName != "" {
-		port = policyOwner.GetNamedPortLocked(l4Filter.Ingress, l4Filter.PortName, proto)
+		port = policyOwner.GetNamedPort(l4Filter.Ingress, l4Filter.PortName, proto)
 		if port == 0 {
 			return keysToAdd
 		}
