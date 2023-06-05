@@ -1,7 +1,7 @@
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  name: cilium
+  name: cilium-gateway
   namespace: default
 spec:
   gatewayClassName: cilium
@@ -40,22 +40,23 @@ spec:
   hostnames:
   - hipstershop.cilium.rocks
   parentRefs:
-  - name: cilium
+  - name: cilium-gateway
   rules:
-  - backendRefs:
-    - name: productcatalogservice
-      port: 3550
-    matches:
+  - matches:
     - path:
         type: PathPrefix
         value: /hipstershop.ProductCatalogService
-  - backendRefs:
-    - name: currencyservice
-      port: 7000
-    matches:
+    backendRefs:
+    - name: productcatalogservice
+      port: 3550
+  - matches:
     - path:
         type: PathPrefix
         value: /hipstershop.CurrencyService
+    backendRefs:
+    - name: currencyservice
+      port: 7000
+      
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -66,19 +67,19 @@ spec:
   hostnames:
   - bookinfo.cilium.rocks
   parentRefs:
-  - name: cilium
+  - name: cilium-gateway
   rules:
-  - backendRefs:
-    - name: details
-      port: 9080
-    matches:
+  - matches:
     - path:
         type: PathPrefix
         value: /details
-  - backendRefs:
-    - name: productpage
+    backendRefs:
+    - name: details
       port: 9080
-    matches:
+  - matches:
     - path:
         type: PathPrefix
         value: /
+    backendRefs:
+    - name: productpage
+      port: 9080

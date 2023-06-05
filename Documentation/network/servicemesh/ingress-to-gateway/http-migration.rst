@@ -10,9 +10,9 @@
 HTTP Migration Example
 **********************
 
-In this example, we will show how to take an existing Ingress configuration and migrate it to the equivalent Gateway API resource.
+This example shows how to take an existing Ingress configuration and migrate it to the equivalent Gateway API resource.
 
-We will use the Cilium :ref:`gs_ingress_http` as the starting Ingress configuration. 
+It uses the Cilium :ref:`gs_ingress_http` as the starting Ingress configuration. 
 The same approach will apply to other controllers, albeit each Ingress controller configuration varies.
 
 The example Ingress configuration routes traffic to backend services from the
@@ -63,7 +63,7 @@ The entry point is a combination of an IP address and port through which the dat
             apiVersion: gateway.networking.k8s.io/v1beta1
             kind: Gateway
             metadata:
-              name: cilium
+              name: cilium-gateway
             spec:
               gatewayClassName: cilium
               listeners:
@@ -117,22 +117,23 @@ When using Ingress or Gateway API, routing rules need to be defined to attach ap
             kind: HTTPRoute
             spec:
               parentRefs:
-              - name: cilium
+              - name: cilium-gateway
             rules:
-            - backendRefs:
-              - name: productpage
-                port: 9080
-              matches:
+            - matches:
               - path:
                   type: PathPrefix
                   value: /
-            - backendRefs:
-              - name: details
+              backendRefs:
+              - name: productpage
                 port: 9080
-              matches:
+            - matches:
               - path:
                   type: PathPrefix
                   value: /details
+              backendRefs:
+              - name: details
+                port: 9080
+              
 
 - Selecting Data Plane to Attach to:
 
@@ -161,7 +162,7 @@ Both Ingress and Gateway API resources need to be explicitly attached to a Datap
             apiVersion: gateway.networking.k8s.io/v1beta1
             kind: Gateway
             metadata:
-              name: cilium
+              name: cilium-gateway
               namespace: default
             spec:
               gatewayClassName: cilium
@@ -171,7 +172,7 @@ Both Ingress and Gateway API resources need to be explicitly attached to a Datap
             kind: HTTPRoute
             spec:
               parentRefs:
-              - name: cilium
+              - name: cilium-gateway
 
 
 Review Equivalent Gateway Configuration
@@ -181,7 +182,7 @@ You'll find the equivalent final Gateway and HTTPRoute definition in ``http-migr
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/http-migration.yaml
 
-The above example creates a Gateway named ``cilium`` that listens on port 80 for HTTP traffic.
+The above example creates a Gateway named ``cilium-gateway`` that listens on port 80 for HTTP traffic.
 Two routes are defined, one for ``/details`` to the ``details`` service, and
 one for ``/`` to the ``productpage`` service.
 
