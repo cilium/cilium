@@ -78,6 +78,9 @@ The policy in ``yaml`` form is defined below:
        - peerAddress: 'fc00:f853:ccd:e793::50/128'
          peerASN: 64512
          eBGPMultihopTTL: 10
+         connectRetryTime: "120s"
+         holdTime: "90s"
+         keepAliveTime: "30s"
          gracefulRestart:
             enabled: true
             restartTime: "20s"
@@ -101,6 +104,9 @@ Fields
            neighbors[*].peerAddress: The address of the peer neighbor
            neighbors[*].peerASN: The ASN of the peer
            neighbors[*].eBGPMultihopTTL: (optional) Time To Live (TTL) value used in BGP packets. 0 if eBGP multi-hop feature is disabled.
+           neighbors[*].connectRetryTime: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8). Defaults to 120 seconds.
+           neighbors[*].holdTime: Initial value for the BGP HoldTimer (RFC 4271, Section 4.2). Defaults to 90 seconds.
+           neighbors[*].keepAliveTime: Initial value for the BGP KeepaliveTimer (RFC 4271, Section 8). Defaults to 1/3 of the HoldTime.
            neighbors[*].gracefulRestart.enabled: The flag to enable graceful restart capability.
            neighbors[*].gracefulRestart.restartTime: The restart time advertised to the peer (RFC 4724 section 4.2).
 
@@ -260,6 +266,21 @@ If this is desired the following annotation can be provided
 ::
 
    cilium.io/bgp-virtual-router.{asn}="local-port=45450"
+
+Neighbors
+^^^^^^^^^
+
+Each ``CiliumBGPVirtualRouter`` can contain multiple ``CiliumBGPNeighbor`` sections,
+each specifying configuration for a neighboring BGP peer of the Virtual Router.
+Each neighbor is uniquely identified by the address and the ASN of the peer, and can
+contain additional configuration specific for the given BGP peering, such as BGP timer
+values, graceful restart configuration and others.
+
+.. warning::
+
+   Change of an existing neighbor configuration can cause reset of the existing BGP
+   peering connection, which results in route flaps and transient packet loss while
+   the session reestablishes and peers exchange their routes.
 
 Service announcements
 ---------------------
