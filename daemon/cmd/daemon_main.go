@@ -417,6 +417,9 @@ func initializeFlags() {
 	flags.String(option.IPSecKeyFileName, "", "Path to IPSec key file")
 	option.BindEnv(option.IPSecKeyFileName)
 
+	flags.Bool(option.EnableIPsecKeyWatcher, defaults.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
+	option.BindEnv(option.EnableIPsecKeyWatcher)
+
 	flags.Bool(option.EnableWireguard, false, "Enable wireguard")
 	option.BindEnv(option.EnableWireguard)
 

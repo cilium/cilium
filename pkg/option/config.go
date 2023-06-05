@@ -713,6 +713,10 @@ const (
 	// EnableIPSecName is the name of the option to enable IPSec
 	EnableIPSecName = "enable-ipsec"
 
+	// Enable watcher for IPsec key. If disabled, a restart of the agent will
+	// be necessary on key rotations.
+	EnableIPsecKeyWatcher = "enable-ipsec-key-watcher"
+
 	// IPSecKeyFileName is the name of the option for ipsec key file
 	IPSecKeyFileName = "ipsec-key-file"
 
@@ -1575,6 +1579,10 @@ type DaemonConfig struct {
 
 	// IPSec key file for stored keys
 	IPSecKeyFile string
+
+	// Enable watcher for IPsec key. If disabled, a restart of the agent will
+	// be necessary on key rotations.
+	EnableIPsecKeyWatcher bool
 
 	// EnableWireguard enables Wireguard encryption
 	EnableWireguard bool
@@ -2916,6 +2924,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPTablesLockTimeout = viper.GetDuration(IPTablesLockTimeout)
 	c.IPTablesRandomFully = viper.GetBool(IPTablesRandomFully)
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
+	c.EnableIPsecKeyWatcher = viper.GetBool(EnableIPsecKeyWatcher)
 	c.EnableMonitor = viper.GetBool(EnableMonitorName)
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
