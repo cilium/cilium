@@ -592,6 +592,7 @@ kata
 keepDeprecatedLabels
 keepDeprecatedProbes
 keyFile
+keyWatcher
 keyless
 keypair
 keyspace
