@@ -62,6 +62,8 @@ func (n *NodeHandler) Delete(resource *v2.CiliumNode) {
 			Warning("Errors while release node and its CIDRs")
 	}
 
+	delete(n.nodesPendingAllocation, resource.Name)
+
 	// Make sure any pending update controller is stopped
 	n.controllerManager.RemoveController(controllerName(resource.Name))
 }
