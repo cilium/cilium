@@ -467,6 +467,9 @@ data:
     {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
     {{- end }}
+    {{- if hasKey .Values.encryption.ipsec "keyWatcher" }}
+  enable-ipsec-key-watcher: {{ .Values.encryption.ipsec.keyWatcher | quote }}
+    {{- end }}
   {{- else if eq .Values.encryption.type "wireguard" }}
   enable-wireguard: {{ .Values.encryption.enabled | quote }}
     {{- if .Values.encryption.wireguard.userspaceFallback }}
