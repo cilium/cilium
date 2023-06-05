@@ -189,12 +189,14 @@ jobs:
             ipfamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'iptables'
+            kvstoremesh: true
 
           - name: '2'
             tunnel: 'disabled'
             ipfamily: 'ipv4'
             encryption: 'wireguard'
             kube-proxy: 'none'
+            kvstoremesh: false
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '3'
@@ -202,6 +204,7 @@ jobs:
             ipfamily: 'ipv4'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
+            kvstoremesh: true
 
           # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
           # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
@@ -210,6 +213,7 @@ jobs:
             ipfamily: 'ipv6'
             encryption: 'disabled'
             kube-proxy: 'none'
+            kvstoremesh: false
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '5'
@@ -217,18 +221,21 @@ jobs:
             ipfamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
+            kvstoremesh: true
 
           - name: '6'
             tunnel: 'vxlan'
             ipfamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'none'
+            kvstoremesh: false
 
           - name: '7'
             tunnel: 'vxlan'
             ipfamily: 'ipv4'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
+            kvstoremesh: true
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '8'
@@ -236,6 +243,7 @@ jobs:
             ipfamily: 'ipv4'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
+            kvstoremesh: false
 
         # Tunneling is currently not supported in case of ipv6-only clusters (#17240)
         #  - name: '9'
@@ -243,12 +251,14 @@ jobs:
         #    ipfamily: 'ipv6'
         #    encryption: 'disabled'
         #    kube-proxy: 'none'
+        #    kvstoremesh: true
 
           - name: '10'
             tunnel: 'vxlan'
             ipfamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
+            kvstoremesh: false
 
     steps:
     - name: Checkout GitHub main
@@ -282,8 +292,11 @@ jobs:
           --helm-set=hubble.relay.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
           --helm-set=hubble.relay.image.useDigest=false \
           --helm-set=clustermesh.useAPIServer=true \
+          --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.kvstoremesh }} \
           --helm-set=clustermesh.apiserver.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci:${SHA} \
           --helm-set=clustermesh.apiserver.image.useDigest=false \
+          --helm-set=clustermesh.apiserver.kvstoremesh.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/kvstoremesh-ci:${SHA} \
+          --helm-set=clustermesh.apiserver.kvstoremesh.image.useDigest=false \
           "
 
         CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
