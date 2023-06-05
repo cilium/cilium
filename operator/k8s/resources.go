@@ -27,6 +27,7 @@ var (
 			k8s.EndpointsResource,
 			k8s.LBIPPoolsResource,
 			k8s.CiliumIdentityResource,
+			k8s.CiliumPodIPPoolResource,
 		),
 	)
 )
@@ -35,8 +36,9 @@ var (
 type Resources struct {
 	cell.In
 
-	Services   resource.Resource[*slim_corev1.Service]
-	Endpoints  resource.Resource[*k8s.Endpoints]
-	LBIPPools  resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-	Identities resource.Resource[*cilium_api_v2.CiliumIdentity]
+	Services         resource.Resource[*slim_corev1.Service]
+	Endpoints        resource.Resource[*k8s.Endpoints]
+	LBIPPools        resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
+	Identities       resource.Resource[*cilium_api_v2.CiliumIdentity]
+	CiliumPodIPPools resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
 }

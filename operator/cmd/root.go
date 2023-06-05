@@ -459,6 +459,12 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
 		}
 
+		if pooledAlloc, ok := alloc.(operatorWatchers.PooledAllocatorProvider); ok {
+			// The following operation will block until all pools are restored, thus it
+			// is safe to continue starting node allocation right after return.
+			operatorWatchers.StartIPPoolAllocator(legacy.ctx, legacy.clientset, pooledAlloc, legacy.resources.CiliumPodIPPools)
+		}
+
 		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset})
 		if err != nil {
 			log.WithError(err).Fatalf("Unable to start %s allocator", ipamMode)
