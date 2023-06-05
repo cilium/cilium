@@ -84,6 +84,16 @@ func releaseCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) error 
 	return fmt.Errorf("released cidr %s was not part the pool", cidr)
 }
 
+func hasCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) bool {
+	ipnet := ip.PrefixToIPNet(cidr)
+	for _, alloc := range allocators {
+		if alloc.IsClusterCIDR(ipnet) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *cidrPool) allocCIDR(family ipam.Family) (netip.Prefix, error) {
 	switch family {
 	case ipam.IPv4:
@@ -108,5 +118,13 @@ func (c *cidrPool) releaseCIDR(cidr netip.Prefix) error {
 		return releaseCIDR(c.v4, cidr)
 	} else {
 		return releaseCIDR(c.v6, cidr)
+	}
+}
+
+func (c *cidrPool) hasCIDR(cidr netip.Prefix) bool {
+	if cidr.Addr().Is4() {
+		return hasCIDR(c.v4, cidr)
+	} else {
+		return hasCIDR(c.v6, cidr)
 	}
 }
