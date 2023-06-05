@@ -21,6 +21,9 @@ import (
 var (
 	// maxTestDuration is allowed time for test execution
 	maxTestDuration = 15 * time.Second
+
+	// maxGracefulRestartTestDuration is max allowed time for graceful restart test
+	maxGracefulRestartTestDuration = 1 * time.Minute
 )
 
 // Test_PodCIDRAdvert validates pod IPv4/v6 subnet is advertised, withdrawn and modified on node addresses change.
