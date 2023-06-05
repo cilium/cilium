@@ -214,8 +214,11 @@ data:
   skip-crd-creation: "true"
 {{- end }}
 
-{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
+{{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
   enable-envoy-config: "true"
+  {{- if .Values.envoyConfig.enabled }}
+  envoy-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
+  {{- end }}
 {{- end }}
 
 {{- if .Values.ingressController.enabled }}

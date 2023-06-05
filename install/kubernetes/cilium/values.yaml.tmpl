@@ -650,6 +650,19 @@ enableK8sEventHandover: false
 # -- Enable CiliumEndpointSlice feature.
 enableCiliumEndpointSlice: false
 
+envoyConfig:
+  # -- Enable CiliumEnvoyConfig CRD
+  # CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
+  enabled: false
+
+  # -- SecretsNamespace is the namespace in which envoy SDS will retrieve secrets from.
+  secretsNamespace:
+    # -- Create secrets namespace for CiliumEnvoyConfig CRDs.
+    create: true
+
+    # -- Name of secret namespace which Cilium agents are given read access to.
+    name: cilium-secrets
+
 ingressController:
   # -- Enable cilium ingress controller
   # This will automatically set enable-envoy-config as well.
@@ -1669,7 +1682,7 @@ loadBalancer:
     #
     # Applicable values:
     #   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.
-    #   - disabled: Disable L7 load balancing.
+    #   - disabled: Disable L7 load balancing via service annotation.
     backend: disabled
     # -- List of ports from service to be automatically redirected to above backend.
     # Any service exposing one of these ports will be automatically redirected.
