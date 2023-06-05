@@ -22,6 +22,10 @@ func TestPoolAllocator(t *testing.T) {
 		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
 	)
 	assert.NoError(t, err)
+	defaultPool, exists := p.pools["default"]
+	assert.True(t, exists)
+	assert.Equal(t, defaultPool.v4MaskSize, 24)
+	assert.Equal(t, defaultPool.v6MaskSize, 96)
 
 	// node1 is a node which has some previously allocated CIDRs
 	node1 := &v2.CiliumNode{
