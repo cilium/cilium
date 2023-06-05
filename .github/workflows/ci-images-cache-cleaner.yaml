@@ -33,6 +33,8 @@ jobs:
 
           - name: clustermesh-apiserver
 
+          - name: kvstoremesh
+
           - name: docker-plugin
 
     steps:
