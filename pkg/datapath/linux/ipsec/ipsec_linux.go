@@ -929,6 +929,10 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 }
 
 func StartKeyfileWatcher(ctx context.Context, keyfilePath string, nodediscovery *nodediscovery.NodeDiscovery, nodeHandler datapath.NodeHandler) error {
+	if !option.Config.EnableIPsecKeyWatcher {
+		return nil
+	}
+
 	watcher, err := fswatcher.New([]string{keyfilePath})
 	if err != nil {
 		return err
