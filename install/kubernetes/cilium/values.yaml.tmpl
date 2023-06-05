@@ -756,6 +756,10 @@ encryption:
     # necessary on key rotations.
     keyWatcher: true
 
+    # -- Maximum duration of the IPsec key rotation. The previous key will be
+    # removed after that delay.
+    keyRotationDuration: "5m"
+
   wireguard:
     # -- Enables the fallback to the user-space implementation.
     userspaceFallback: false
