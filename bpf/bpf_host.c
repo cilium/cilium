@@ -139,15 +139,15 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    const bool from_host __maybe_unused,
 	    __s8 *ext_err __maybe_unused)
 {
-	struct ct_buffer6 __maybe_unused ct_buffer = {};
+#ifdef ENABLE_HOST_FIREWALL
+	struct ct_buffer6 ct_buffer = {};
+	bool need_hostfw = false;
+#endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	int __maybe_unused ret;
 	int hdrlen;
 	__u8 nexthdr;
-#ifdef ENABLE_HOST_FIREWALL
-	bool need_hostfw = false;
-#endif /* ENABLE_HOST_FIREWALL */
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -207,9 +207,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 		if (map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)
 			return DROP_INVALID_TC_BUFFER;
 	}
-#endif /* ENABLE_HOST_FIREWALL */
 
-#ifdef ENABLE_HOST_FIREWALL
 skip_host_firewall:
 	ctx_store_meta(ctx, CB_FROM_HOST,
 		       (need_hostfw ? FROM_HOST_FLAG_NEED_HOSTFW : 0));
@@ -227,7 +225,6 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	__u32 __maybe_unused from_host_raw;
-	struct ct_buffer6 __maybe_unused *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
@@ -236,16 +233,15 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct endpoint_info *ep;
 	int ret;
 
-#ifdef ENABLE_HOST_FIREWALL
-	from_host_raw = ctx_load_meta(ctx, CB_FROM_HOST);
-	ctx_store_meta(ctx, CB_FROM_HOST, 0);
-#endif /* ENABLE_HOST_FIREWALL */
-
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 #ifdef ENABLE_HOST_FIREWALL
+	from_host_raw = ctx_load_meta(ctx, CB_FROM_HOST);
+	ctx_store_meta(ctx, CB_FROM_HOST, 0);
+
 	if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
+		struct ct_buffer6 *ct_buffer;
 		__u32 zero = 0;
 		__u32 remote_id = WORLD_ID;
 
@@ -533,13 +529,13 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    const bool from_host __maybe_unused,
 	    __s8 *ext_err __maybe_unused)
 {
-	struct ct_buffer4 __maybe_unused ct_buffer = {};
-	void *data, *data_end;
-	struct iphdr *ip4;
 #ifdef ENABLE_HOST_FIREWALL
+	struct ct_buffer4 ct_buffer = {};
 	bool need_hostfw = false;
 	bool is_host_id = false;
 #endif /* ENABLE_HOST_FIREWALL */
+	void *data, *data_end;
+	struct iphdr *ip4;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -621,23 +617,21 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	__u32 __maybe_unused from_host_raw;
-	struct ct_buffer4 __maybe_unused *ct_buffer = NULL;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct remote_endpoint_info *info;
 	struct endpoint_info *ep;
 	int ret;
 
-#ifdef ENABLE_HOST_FIREWALL
-	from_host_raw = ctx_load_meta(ctx, CB_FROM_HOST);
-	ctx_store_meta(ctx, CB_FROM_HOST, 0);
-#endif /* ENABLE_HOST_FIREWALL */
-
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 #ifdef ENABLE_HOST_FIREWALL
+	from_host_raw = ctx_load_meta(ctx, CB_FROM_HOST);
+	ctx_store_meta(ctx, CB_FROM_HOST, 0);
+
 	if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
+		struct ct_buffer4 *ct_buffer;
 		__u32 zero = 0;
 		__u32 remote_id = 0;
 
