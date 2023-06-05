@@ -28,8 +28,6 @@ const (
 	gatewayIndex        = "gatewayIndex"
 )
 
-type httpRouteChecker func(ctx context.Context, client client.Client, grants *gatewayv1beta1.ReferenceGrantList, hr *gatewayv1beta1.HTTPRoute) (ctrl.Result, error)
-
 // httpRouteReconciler reconciles a HTTPRoute object
 type httpRouteReconciler struct {
 	client.Client
@@ -49,7 +47,7 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			var backendServices []string
 			for _, rule := range hr.Spec.Rules {
 				for _, backend := range rule.BackendRefs {
-					if !IsService(backend.BackendObjectReference) {
+					if !helpers.IsService(backend.BackendObjectReference) {
 						continue
 					}
 					backendServices = append(backendServices,
@@ -71,7 +69,7 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			hr := rawObj.(*gatewayv1beta1.HTTPRoute)
 			var gateways []string
 			for _, parent := range hr.Spec.ParentRefs {
-				if !IsGateway(parent) {
+				if !helpers.IsGateway(parent) {
 					continue
 				}
 				gateways = append(gateways,

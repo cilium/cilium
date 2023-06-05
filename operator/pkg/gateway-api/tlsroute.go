@@ -43,7 +43,7 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			var backendServices []string
 			for _, rule := range hr.Spec.Rules {
 				for _, backend := range rule.BackendRefs {
-					if !IsService(backend.BackendObjectReference) {
+					if !helpers.IsService(backend.BackendObjectReference) {
 						continue
 					}
 					backendServices = append(backendServices,
@@ -65,7 +65,7 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			hr := rawObj.(*gatewayv1alpha2.TLSRoute)
 			var gateways []string
 			for _, parent := range hr.Spec.ParentRefs {
-				if !IsGateway(parent) {
+				if !helpers.IsGateway(parent) {
 					continue
 				}
 				gateways = append(gateways,
