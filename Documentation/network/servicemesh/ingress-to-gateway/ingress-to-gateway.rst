@@ -12,7 +12,7 @@ Migrating from Ingress to Gateway
 
 The Gateway API is not only the long-term successor to the Ingress API ; it also supports use cases beyond HTTP/HTTPS-based applications.
 
-In this section, we will highlight some of the limitations with Ingress, explain some of the benefits of the Gateway API before explaining 
+This section highlights some of the limitations with Ingress, explains some of the benefits of the Gateway API and describes 
 some of the options available with migrating from Ingress API to Gateway API.
 
 Ingress API Limitations
@@ -61,9 +61,10 @@ it was assumed that developers managed and created Ingress and Services resource
 
 In many of the more complex deployments however, there are various personas involved:
 
-- Infrastructure Provider: the cloud provider (AWS, Azure, GCP) for example
-- Cluster Operator: responsible for the the administration of a cluster
-- Application Developer: responsible for defining application configuration and service composition
+- Infrastructure Provider: responsible for the administration of the underlying infrastructure. For example, the cloud provider (AWS, Azure, GCP) when using 
+  their managed services or the infrastructure/network team when running Kubernetes on-premises.
+- Cluster Operator: responsible for the the administration of a cluster.
+- Application Developer: responsible for defining application configuration and service composition.
 
 By decomposing the Ingress API into several Gateway API objects, personas will be assigned the right access and privileges that their responsibilities require.
 
@@ -84,7 +85,7 @@ Ingress Annotations Migration
 #############################
 
 Most Ingress controllers make the use of annotations to provide support for specific features, such as HTTP request manipulation and routing. 
-As highlighted above, the Gateway API model avoids the use of implementation-specific annotations where possible to provide a portable configuration.
+As highlighted in the earlier section about its benefits, the Gateway API model avoids the use of implementation-specific annotations where possible to provide a portable configuration.
 
 Therefore, porting implementation-specific Ingress annotations to a Gateway API resource rarely applies. 
 Instead, the Gateway API provides native support for some of these features, including:
@@ -96,7 +97,7 @@ Instead, the Gateway API provides native support for some of these features, inc
 Examples
 ########
 
-Please refer to one of the below examples on how to migrate to 
+Please refer to one of the following examples on how to migrate to 
 Cilium's Gateway API features:
 
 .. toctree::

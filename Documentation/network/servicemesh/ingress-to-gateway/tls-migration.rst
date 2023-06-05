@@ -134,21 +134,21 @@ To create the equivalent TLS termination configuration, you must consider the fo
             apiVersion: gateway.networking.k8s.io/v1beta1
             kind: HTTPRoute
             metadata:
-            name: hipstershop-cilium-rocks
-            namespace: default
+              name: hipstershop-cilium-rocks
+              namespace: default
             spec:
               hostnames:
               - hipstershop.cilium.rocks
               parentRefs:
-              - name: cilium
+              - name: cilium-gateway
               rules:
               - matches:
                 - path:
-                  type: PathPrefix
-                  value: /hipstershop.ProductCatalogService
-              backendRefs:
-              - name: productcatalogservice
-                port: 3550
+                    type: PathPrefix
+                    value: /hipstershop.ProductCatalogService
+                backendRefs:
+                - name: productcatalogservice
+                  port: 3550
 
 Review Equivalent Gateway Configuration
 =======================================

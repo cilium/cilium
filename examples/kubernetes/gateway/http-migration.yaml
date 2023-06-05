@@ -2,7 +2,7 @@
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  name: cilium
+  name: cilium-gateway
   namespace: default
 spec:
   gatewayClassName: cilium
@@ -18,19 +18,20 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - name: cilium
+  - name: cilium-gateway
   rules:
-  - backendRefs:
-    - name: productpage
-      port: 9080
-    matches:
+  - matches:
     - path:
         type: PathPrefix
         value: /
-  - backendRefs:
-    - name: details
+    backendRefs:
+    - name: productpage
       port: 9080
-    matches:
+  - matches:
     - path:
         type: PathPrefix
         value: /details
+    backendRefs:
+    - name: details
+      port: 9080
+
