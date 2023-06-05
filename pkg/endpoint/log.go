@@ -66,7 +66,7 @@ func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
 //
 // Note: You must hold Endpoint.mutex.Lock() to synchronize logger pointer
 // updates if the endpoint is already exposed. Callers that create new
-// endopoints do not need locks to call this.
+// endpoints do not need locks to call this.
 func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	e.updatePolicyLogger(fields)
 	epLogger := e.logger.Load()
@@ -109,12 +109,12 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	l := baseLogger.WithFields(logrus.Fields{
 		logfields.LogSubsys:              subsystem,
 		logfields.EndpointID:             e.ID,
-		logfields.ContainerID:            e.getShortContainerID(),
+		logfields.ContainerID:            e.getShortContainerIDLocked(),
 		logfields.DatapathPolicyRevision: e.policyRevision,
 		logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
 		logfields.IPv4:                   e.GetIPv4Address(),
 		logfields.IPv6:                   e.GetIPv6Address(),
-		logfields.K8sPodName:             e.getK8sNamespaceAndPodName(),
+		logfields.K8sPodName:             e.GetK8sNamespaceAndPodName(),
 	})
 
 	if e.SecurityIdentity != nil {
@@ -167,12 +167,12 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 		policyLogger = policyLogger.WithFields(logrus.Fields{
 			logfields.LogSubsys:              subsystem,
 			logfields.EndpointID:             e.ID,
-			logfields.ContainerID:            e.getShortContainerID(),
+			logfields.ContainerID:            e.getShortContainerIDLocked(),
 			logfields.DatapathPolicyRevision: e.policyRevision,
 			logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
 			logfields.IPv4:                   e.GetIPv4Address(),
 			logfields.IPv6:                   e.GetIPv6Address(),
-			logfields.K8sPodName:             e.getK8sNamespaceAndPodName(),
+			logfields.K8sPodName:             e.GetK8sNamespaceAndPodName(),
 		})
 
 		if e.SecurityIdentity != nil {
