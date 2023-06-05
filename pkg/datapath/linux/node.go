@@ -226,7 +226,7 @@ func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.R
 
 	routes, err = netlink.RouteGet(nodeIP)
 	if err != nil {
-		err = fmt.Errorf("unable to lookup route for node %s: %s", nodeIP, err)
+		err = fmt.Errorf("unable to lookup route for node %s: %w", nodeIP, err)
 		return
 	}
 
@@ -407,7 +407,7 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 		}
 
 		if n.nodeAddressing.IPv6().PrimaryExternal() == nil {
-			return route.Route{}, fmt.Errorf("External IPv6 address unavailable")
+			return route.Route{}, fmt.Errorf("external IPv6 address unavailable")
 		}
 
 		// For ipv6, kernel will reject "ip r a $cidr via $ipv6_cilium_host dev cilium_host"
@@ -1513,14 +1513,14 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 	rule.Mark = linux_defaults.RouteMarkDecrypt
 	if err := route.DeleteRule(netlink.FAMILY_V4, rule); err != nil {
 		if !os.IsNotExist(err) {
-			return fmt.Errorf("Delete previous IPv4 decrypt rule failed: %s", err)
+			return fmt.Errorf("delete previous IPv4 decrypt rule failed: %w", err)
 		}
 	}
 
 	rule.Mark = linux_defaults.RouteMarkEncrypt
 	if err := route.DeleteRule(netlink.FAMILY_V4, rule); err != nil {
 		if !os.IsNotExist(err) {
-			return fmt.Errorf("Delete previousa IPv4 encrypt rule failed: %s", err)
+			return fmt.Errorf("delete previousa IPv4 encrypt rule failed: %w", err)
 		}
 	}
 
@@ -1531,14 +1531,14 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 	rule.Mark = linux_defaults.RouteMarkDecrypt
 	if err := route.DeleteRule(netlink.FAMILY_V6, rule); err != nil {
 		if !os.IsNotExist(err) && !errors.Is(err, unix.EAFNOSUPPORT) {
-			return fmt.Errorf("Delete previous IPv6 decrypt rule failed: %s", err)
+			return fmt.Errorf("delete previous IPv6 decrypt rule failed: %w", err)
 		}
 	}
 
 	rule.Mark = linux_defaults.RouteMarkEncrypt
 	if err := route.DeleteRule(netlink.FAMILY_V6, rule); err != nil {
 		if !os.IsNotExist(err) && !errors.Is(err, unix.EAFNOSUPPORT) {
-			return fmt.Errorf("Delete previous IPv6 encrypt rule failed: %s", err)
+			return fmt.Errorf("delete previous IPv6 encrypt rule failed: %w", err)
 		}
 	}
 	return nil
