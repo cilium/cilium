@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"reflect"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -17,7 +18,6 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/dig"
 	"go.uber.org/multierr"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
@@ -213,7 +213,7 @@ func (h *Hive) Run() error {
 func (h *Hive) waitForSignalOrShutdown() error {
 	signals := make(chan os.Signal, 1)
 	defer signal.Stop(signals)
-	signal.Notify(signals, os.Interrupt, unix.SIGINT, unix.SIGTERM)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	select {
 	case sig := <-signals:
 		log.WithField("signal", sig).Info("Signal received")
