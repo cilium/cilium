@@ -440,6 +440,7 @@ endpointmanager
 enforceHttps
 eni
 eniTags
+envoyConfig
 envoySecretNamespace
 etcd
 ethernet

@@ -1135,7 +1135,10 @@ const (
 	// Flag to enable BGP control plane features
 	EnableBGPControlPlane = "enable-bgp-control-plane"
 
-	// IngressSecretsNamespace is the namespace having tls secrets used by CEC.
+	// EnvoySecretsNamespace is the namespace having secrets used by CEC.
+	EnvoySecretsNamespace = "envoy-secrets-namespace"
+
+	// IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller.
 	IngressSecretsNamespace = "ingress-secrets-namespace"
 
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API.
@@ -3456,7 +3459,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
 
 	// Envoy secrets namespaces to watch
-	params := []string{IngressSecretsNamespace, GatewayAPISecretsNamespace}
+	params := []string{EnvoySecretsNamespace, IngressSecretsNamespace, GatewayAPISecretsNamespace}
 	var nsList = make([]string, 0, len(params))
 	for _, param := range params {
 		ns := vp.GetString(param)

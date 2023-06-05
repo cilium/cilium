@@ -55,3 +55,21 @@ subjects:
   namespace: {{ .Release.Namespace }}
 {{- end}}
 
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.envoyConfig.enabled .Values.envoyConfig.secretsNamespace.name}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-envoy-config-secrets
+  namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-envoy-config-secrets
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.cilium.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{- end}}
