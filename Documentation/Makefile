@@ -56,6 +56,11 @@ update-cmdref: builder-image cilium-build ## Update the command reference docume
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
+.PHONY: update-crdlist
+update-crdlist:
+	@$(ECHO_GEN)crdlist
+	make -C ../ generate-crd-docs
+
 codeowners.rst: $(ROOT_DIR)/CODEOWNERS
 	@$(ECHO_GEN)$@
 	$(QUIET)$(DOCKER_RUN) ./update-codeowners.sh
@@ -63,7 +68,7 @@ codeowners.rst: $(ROOT_DIR)/CODEOWNERS
 .PHONY: update-codeowners
 update-codeowners: codeowners.rst
 
-check: builder-image api-flaggen update-cmdref update-helm-values update-codeowners ## Validate command and Helm references, as well as policy examples.
+check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners ## Validate command and Helm references, as well as policy examples.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
@@ -74,6 +79,8 @@ check: builder-image api-flaggen update-cmdref update-helm-values update-codeown
 	$(QUIET) ./check-codeowners.sh
 	@$(ECHO_CHECK) configuration/api-restrictions-table.rst
 	$(QUIET) ./check-flaggen.sh
+	@$(ECHO_CHECK) crdlist.rst
+	$(QUIET) ./check-crdlist.sh
 
 ifeq ($(V),0)
 SPHINX_OPTS += -q
