@@ -12,6 +12,9 @@ import (
 	"math/big"
 	"math/bits"
 	"net"
+	"net/netip"
+
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -191,6 +194,12 @@ func (s *CidrSet) IsClusterCIDR(cidr *net.IPNet) bool {
 		return false
 	}
 	return cidr.IP.Equal(s.clusterCIDR.IP) && bytes.Equal(cidr.Mask, s.clusterCIDR.Mask)
+}
+
+// Prefix returns the CidrSet's prefix.
+func (s *CidrSet) Prefix() netip.Prefix {
+	prefix, _ := netipx.FromStdIPNet(s.clusterCIDR)
+	return prefix
 }
 
 func (s *CidrSet) getBeginningAndEndIndices(cidr *net.IPNet) (begin, end int, err error) {
