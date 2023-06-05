@@ -185,7 +185,7 @@ func getReconcileRequestsForRoute(ctx context.Context, c client.Client, object m
 	})
 
 	for _, parent := range route.ParentRefs {
-		if !IsGateway(parent) {
+		if !helpers.IsGateway(parent) {
 			continue
 		}
 
