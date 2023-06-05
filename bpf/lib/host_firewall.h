@@ -165,7 +165,6 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			   struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {};
-	struct ct_state *ct_state = &ct_buffer->ct_state;
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	__u16 node_id = 0;
 	int ret = ct_buffer->ret;
@@ -205,7 +204,6 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_sec_identity;
-		ct_state_new.node_port = ct_state->node_port;
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create6 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
@@ -435,7 +433,6 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 			   struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {};
-	struct ct_state *ct_state = &ct_buffer->ct_state;
 	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	__u16 node_id = 0;
 	int ret = ct_buffer->ret;
@@ -484,7 +481,6 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_sec_identity;
-		ct_state_new.node_port = ct_state->node_port;
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create4 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
