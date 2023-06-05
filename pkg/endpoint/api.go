@@ -272,10 +272,12 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 }
 
 // getNamedPortsModel returns the endpoint's NamedPorts object.
-//
-// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
-	k8sPorts := e.k8sPorts
+	var k8sPorts policy.NamedPortMap
+	if p := e.k8sPorts.Load(); p != nil {
+		k8sPorts = p.(policy.NamedPortMap)
+	}
+
 	// keep named ports ordered to avoid the unnecessary updates to
 	// kube-apiserver
 	names := make([]string, 0, len(k8sPorts))
