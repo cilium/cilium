@@ -81,6 +81,9 @@ const (
 
 	// L2AnnouncementCRDName is the full name of the CiliumL2AnnouncementPolicy CRD.
 	L2AnnouncementCRDName = k8sconstv2alpha1.L2AnnouncementKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CPIPCRDName is the full name of the CiliumPodIPPool CRD.
+	CPIPCRDName = k8sconstv2alpha1.CPIPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 var (
@@ -114,6 +117,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv2alpha1.CNCName):            createCRD(CNCCRDName, k8sconstv2alpha1.CNCName),
 		synced.CRDResourceName(k8sconstv2alpha1.CCGName):            createCRD(CCGCRDName, k8sconstv2alpha1.CCGName),
 		synced.CRDResourceName(k8sconstv2alpha1.L2AnnouncementName): createCRD(L2AnnouncementCRDName, k8sconstv2alpha1.L2AnnouncementName),
+		synced.CRDResourceName(k8sconstv2alpha1.CPIPName):           createCRD(CPIPCRDName, k8sconstv2alpha1.CPIPName),
 	}
 	for _, r := range synced.AllCiliumCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
@@ -176,6 +180,9 @@ var (
 
 	//go:embed crds/v2alpha1/ciliuml2announcementpolicies.yaml
 	crdsv2Alpha1CiliumL2AnnouncementPolicies []byte
+
+	//go:embed crds/v2alpha1/ciliumpodippools.yaml
+	crdsv2Alpha1CiliumPodIPPools []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -223,6 +230,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv2Alpha1CiliumCIDRGroups
 	case L2AnnouncementCRDName:
 		crdBytes = crdsv2Alpha1CiliumL2AnnouncementPolicies
+	case CPIPCRDName:
+		crdBytes = crdsv2Alpha1CiliumPodIPPools
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
