@@ -56,13 +56,9 @@
   {{- end }}
 {{- end }}
 
-{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
-  {{- if hasKey .Values "kubeProxyReplacement" }}
-    {{- if and (ne (toString .Values.kubeProxyReplacement) "strict") (ne (toString .Values.kubeProxyReplacement) "true") (not .Values.nodePort.enabled) }}
-      {{ fail "Ingress/Gateway API controller requires either .Values.kubeProxyReplacement to be set to 'true' or .Values.nodePort.enabled to 'true'" }}
-    {{- end }}
-  {{- else }}
-    {{ fail "Ingress/Gateway API controller requires either .Values.kubeProxyReplacement to be set to 'true' or .Values.nodePort.enabled to 'true'" }}
+{{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+  {{- if or (eq (toString .Values.kubeProxyReplacement) "disabled") (and (not (hasKey .Values "kubeProxyReplacement")) (not (semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility)))) }}
+    {{ fail "Ingress/Gateway API controller and EnvoyConfig require .Values.kubeProxyReplacement to be explicitly set to 'false' or 'true'" }}
   {{- end }}
 {{- end }}
 
