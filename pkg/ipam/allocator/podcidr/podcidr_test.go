@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -135,6 +136,10 @@ func (d *mockCIDRAllocator) IsClusterCIDR(cidr *net.IPNet) bool {
 		return d.OnIsClusterCIDR(cidr)
 	}
 	panic("d.IsClusterCIDR should not have been called!")
+}
+
+func (d *mockCIDRAllocator) Prefix() netip.Prefix {
+	return netip.MustParsePrefix("10.0.0.0/24")
 }
 
 type k8sNodeMock struct {
