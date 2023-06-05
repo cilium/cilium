@@ -120,7 +120,10 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 	agentOption.Config.EnableHealthCheckNodePort = false
 	agentOption.Config.Debug = true
 
-	operatorOption.Config.Populate(operatorCmd.Vp)
+	// The controlplane tests rely on the global Viper instance to correctly
+	// setup the operator. Thus, any reference to Vp is temporarily commented out.
+	// This will be fixed in a subsequent commit.
+	// operatorOption.Config.Populate(operatorCmd.Vp)
 
 	// Apply the test specific global configuration
 	modConfig(agentOption.Config, operatorOption.Config)
@@ -161,7 +164,7 @@ func (cpt *ControlPlaneTest) StartOperator(modCellConfig func(vp *viper.Viper)) 
 			cell.Provide(func() k8sClient.Clientset {
 				return cpt.clients
 			}),
-			operatorCmd.OperatorCell,
+			operatorCmd.ControlPlane,
 		),
 	}
 
