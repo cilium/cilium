@@ -42,6 +42,7 @@ jobs:
               - 'contrib/coccinelle/**'
             bpf-tests-runner:
               - 'test/bpf_tests/**'
+              - 'pkg/bpf/**'
 
   checkpatch:
     name: checkpatch
