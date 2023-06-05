@@ -194,7 +194,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New("test", &configMock{}, ipcacheMock)
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
 	mngr.Subscribe(dp)
 	c.Assert(err, check.IsNil)
 
@@ -266,7 +266,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New("test", &configMock{}, ipcacheMock)
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -348,7 +348,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := fake.NewNodeHandler()
-	mngr, err := New("test", &configMock{}, ipcacheMock)
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -369,7 +369,7 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := fake.NewNodeHandler()
-	mngr, err := New("test", &configMock{}, ipcacheMock)
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -401,7 +401,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	signalNodeHandler := newSignalNodeHandler()
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New("test", &configMock{}, ipcacheMock)
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
 	mngr.Subscribe(signalNodeHandler)
 	c.Assert(err, check.IsNil)
 	defer mngr.Stop(context.TODO())
@@ -445,7 +445,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 func (s *managerTestSuite) TestIpcache(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New("test", &configMock{}, ipcacheMock)
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -493,7 +493,7 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New("test", &configMock{}, ipcacheMock)
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -569,7 +569,7 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New("test", &configMock{RemoteNodeIdentity: true}, ipcacheMock)
+	mngr, err := New(&configMock{RemoteNodeIdentity: true}, ipcacheMock, NewNodeMetrics())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -645,7 +645,7 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New("test", &configMock{NodeEncryption: true, Encryption: true}, ipcacheMock)
+	mngr, err := New(&configMock{NodeEncryption: true, Encryption: true}, ipcacheMock, NewNodeMetrics())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -740,7 +740,7 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := New("test", &configMock{}, ipcacheMock)
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())

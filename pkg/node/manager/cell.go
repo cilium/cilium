@@ -20,6 +20,7 @@ var Cell = cell.Module(
 	"node-manager",
 	"Manages the collection of Cilium nodes",
 	cell.Provide(newAllNodeManager),
+	cell.Metric(NewNodeMetrics),
 )
 
 // Notifier is the interface the wraps Subscribe and Unsubscribe. An
@@ -64,8 +65,8 @@ type NodeManager interface {
 	StartNeighborRefresh(nh datapath.NodeNeighbors)
 }
 
-func newAllNodeManager(lc hive.Lifecycle, ipCache *ipcache.IPCache) (NodeManager, error) {
-	mngr, err := New("all", option.Config, ipCache)
+func newAllNodeManager(lc hive.Lifecycle, ipCache *ipcache.IPCache, nodeMetrics *nodeMetrics) (NodeManager, error) {
+	mngr, err := New(option.Config, ipCache, nodeMetrics)
 	if err != nil {
 		return nil, err
 	}
