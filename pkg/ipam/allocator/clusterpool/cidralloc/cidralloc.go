@@ -20,6 +20,7 @@ type CIDRAllocator interface {
 	IsAllocated(cidr *net.IPNet) (bool, error)
 	IsFull() bool
 	InRange(cidr *net.IPNet) bool
+	IsClusterCIDR(cidr *net.IPNet) bool
 }
 
 type ErrCIDRCollision struct {
