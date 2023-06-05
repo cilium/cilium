@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -83,6 +84,7 @@ func addrsInPrefix(p netip.Prefix) *big.Int {
 }
 
 type PoolAllocator struct {
+	mutex lock.RWMutex
 	pools map[string]cidrPool    // poolName -> pool
 	nodes map[string]poolToCIDRs // nodeName -> pool -> cidrs
 	ready bool
@@ -96,10 +98,15 @@ func NewPoolAllocator() *PoolAllocator {
 }
 
 func (p *PoolAllocator) RestoreFinished() {
+	p.mutex.Lock()
 	p.ready = true
+	p.mutex.Unlock()
 }
 
 func (p *PoolAllocator) AddPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	if _, ok := p.pools[poolName]; ok {
 		return fmt.Errorf("pool %q already exists", poolName)
 	}
@@ -123,6 +130,9 @@ func (p *PoolAllocator) AddPool(poolName string, ipv4CIDRs []string, ipv4MaskSiz
 }
 
 func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	// We first need to check for CIDRs which we want to occupy, i.e. mark as
 	// allocated to the node. This needs to happen before allocations, to avoid
 	// handing out the same CIDR twice.
@@ -194,6 +204,9 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 }
 
 func (p *PoolAllocator) ReleaseNode(nodeName string) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	// Release CIDRs back into pools
 	var err error
 	for poolName, cidrs := range p.nodes[nodeName] {
@@ -219,6 +232,9 @@ func (p *PoolAllocator) ReleaseNode(nodeName string) error {
 }
 
 func (p *PoolAllocator) AllocatedPools(targetNode string) (pools []types.IPAMPoolAllocation) {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
 	for poolName, cidrs := range p.nodes[targetNode] {
 		v4CIDRs := cidrs.v4.PodCIDRSlice()
 		v6CIDRs := cidrs.v6.PodCIDRSlice()
