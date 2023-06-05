@@ -118,6 +118,8 @@ func TestVerifier(t *testing.T) {
 			macroName: "MAX_LB_OPTIONS",
 		},
 	} {
+		initObjFile := path.Join(*ciliumBasePath, "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
+
 		file, err := os.Open(getDatapathConfigFile(t, kernelVersion, bpfProgram.name))
 		if err != nil {
 			t.Fatalf("Unable to open list of datapath configurations for %s: %v", bpfProgram.name, err)
@@ -140,8 +142,15 @@ func TestVerifier(t *testing.T) {
 					t.Fatalf("Failed to compile %s bpf objects: %v\ncommand output: %s", bpfProgram.name, err, out)
 				}
 
+				objFile := path.Join(*ciliumBasePath, "bpf", name+".o")
+				// Rename object file to avoid subsequent runs to overwrite it,
+				// so we can keep it for CI's artifact upload.
+				if err = os.Rename(initObjFile, objFile); err != nil {
+					t.Fatalf("Failed to rename %s to %s: %v", initObjFile, objFile, err)
+				}
+
 				// Parse the compiled object into a CollectionSpec.
-				spec, err := bpf.LoadCollectionSpec(path.Join(*ciliumBasePath, "bpf", fmt.Sprintf("%s.o", bpfProgram.name)))
+				spec, err := bpf.LoadCollectionSpec(objFile)
 				if err != nil {
 					t.Fatal(err)
 				}
