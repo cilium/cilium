@@ -13,6 +13,7 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	apiv1 "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
@@ -20,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -118,26 +120,22 @@ func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) 
 }
 
 func (s *EndpointManagerSuite) TestLookup(c *C) {
-	ep := endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-	mgr := NewEndpointManager(&dummyEpSyncher{})
 	type args struct {
 		id string
 	}
 	type want struct {
-		ep       *endpoint.Endpoint
+		ep       bool
 		err      error
 		errCheck Checker
 	}
 	tests := []struct {
-		name        string
-		setupArgs   func() args
-		setupWant   func() want
-		preTestRun  func()
-		postTestRun func()
+		name      string
+		setupArgs func() args
+		setupWant func() want
+		cm        apiv1.EndpointChangeRequest
 	}{
 		{
-			name:       "endpoint does not exist",
-			preTestRun: func() {},
+			name: "endpoint does not exist",
 			setupArgs: func() args {
 				return args{
 					"1234",
@@ -145,18 +143,16 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					ep:       nil,
+					ep:       false,
 					err:      nil,
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {},
 		},
 		{
 			name: "endpoint by cilium local ID",
-			preTestRun: func() {
-				ep.ID = 1234
-				mgr.expose(ep)
+			cm: apiv1.EndpointChangeRequest{
+				ID: 1234,
 			},
 			setupArgs: func() args {
 				return args{
@@ -165,22 +161,16 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					ep:       ep,
+					ep:       true,
 					err:      nil,
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.ID = 0
-			},
 		},
 		{
 			name: "endpoint by cilium global ID",
-			preTestRun: func() {
-				ep.ID = 1234
-				mgr.expose(ep)
+			cm: apiv1.EndpointChangeRequest{
+				ID: 1234,
 			},
 			setupArgs: func() args {
 				return args{
@@ -193,17 +183,11 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.ID = 0
-			},
 		},
 		{
 			name: "endpoint by container ID",
-			preTestRun: func() {
-				ep.SetContainerID("1234")
-				mgr.expose(ep)
+			cm: apiv1.EndpointChangeRequest{
+				ContainerID: "1234",
 			},
 			setupArgs: func() args {
 				return args{
@@ -212,22 +196,16 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					ep:       ep,
+					ep:       true,
 					err:      nil,
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.SetContainerID("")
-			},
 		},
 		{
 			name: "endpoint by docker endpoint ID",
-			preTestRun: func() {
-				ep.SetDockerEndpointID("1234")
-				mgr.expose(ep)
+			cm: apiv1.EndpointChangeRequest{
+				DockerEndpointID: "1234",
 			},
 			setupArgs: func() args {
 				return args{
@@ -236,22 +214,16 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					ep:       ep,
+					ep:       true,
 					err:      nil,
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.SetDockerEndpointID("")
-			},
 		},
 		{
 			name: "endpoint by container name",
-			preTestRun: func() {
-				ep.SetContainerName("foo")
-				mgr.expose(ep)
+			cm: apiv1.EndpointChangeRequest{
+				ContainerName: "foo",
 			},
 			setupArgs: func() args {
 				return args{
@@ -260,23 +232,17 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					ep:       ep,
+					ep:       true,
 					err:      nil,
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.SetContainerName("")
-			},
 		},
 		{
 			name: "endpoint by pod name",
-			preTestRun: func() {
-				ep.SetK8sNamespace("default")
-				ep.SetK8sPodName("foo")
-				mgr.expose(ep)
+			cm: apiv1.EndpointChangeRequest{
+				K8sNamespace: "default",
+				K8sPodName:   "foo",
 			},
 			setupArgs: func() args {
 				return args{
@@ -285,24 +251,18 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					ep:       ep,
+					ep:       true,
 					err:      nil,
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.SetK8sPodName("")
-			},
 		},
 		{
 			name: "endpoint by ipv4",
-			preTestRun: func() {
-				ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
-				ep.IPv4 = ipv4
-				c.Assert(err, IsNil)
-				mgr.expose(ep)
+			cm: apiv1.EndpointChangeRequest{
+				Addressing: &apiv1.AddressPair{
+					IPV4: "127.0.0.1",
+				},
 			},
 			setupArgs: func() args {
 				return args{
@@ -311,21 +271,14 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 			setupWant: func() want {
 				return want{
-					ep:       ep,
+					ep:       true,
 					err:      nil,
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.IPv4 = nil
-			},
 		},
 		{
 			name: "invalid ID",
-			preTestRun: func() {
-			},
 			setupArgs: func() args {
 				return args{
 					endpointid.NewID("foo", "bar"),
@@ -337,13 +290,9 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Not(Equals),
 				}
 			},
-			postTestRun: func() {
-			},
 		},
 		{
 			name: "invalid cilium ID",
-			preTestRun: func() {
-			},
 			setupArgs: func() args {
 				return args{
 					endpointid.NewID(endpointid.CiliumLocalIdPrefix, "bar"),
@@ -355,18 +304,26 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Not(Equals),
 				}
 			},
-			postTestRun: func() {
-			},
 		},
 	}
 	for _, tt := range tests {
-		tt.preTestRun()
+		ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), &tt.cm)
+		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
+		mgr := NewEndpointManager(&dummyEpSyncher{})
+
+		err = mgr.expose(ep)
+		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
+
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		got, err := mgr.Lookup(args.id)
 		c.Assert(err, want.errCheck, want.err, Commentf("Test Name: %s", tt.name))
-		c.Assert(got, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
-		tt.postTestRun()
+		if want.ep {
+			c.Assert(got, checker.DeepEquals, ep, Commentf("Test Name: %s", tt.name))
+		} else {
+			c.Assert(got, IsNil, Commentf("Test Name: %s", tt.name))
+		}
+		idallocator.ReallocatePool()
 	}
 }
 
@@ -441,69 +398,17 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 
 func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 3, endpoint.StateReady)
-	type args struct {
-		id string
-	}
-	type want struct {
-		ep       *endpoint.Endpoint
-		err      error
-		errCheck Checker
-	}
-	tests := []struct {
-		name        string
-		setupArgs   func() args
-		setupWant   func() want
-		preTestRun  func()
-		postTestRun func()
-	}{
-		{
-			name: "existing container ID",
-			preTestRun: func() {
-				ep.SetContainerID("foo")
-				mgr.expose(ep)
-			},
-			setupArgs: func() args {
-				return args{
-					"foo",
-				}
-			},
-			setupWant: func() want {
-				return want{
-					ep: ep,
-				}
-			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep.SetContainerID("")
-			},
-		},
-		{
-			name: "non-existing container ID",
-			preTestRun: func() {
-			},
-			setupArgs: func() args {
-				return args{
-					"foo",
-				}
-			},
-			setupWant: func() want {
-				return want{
-					ep: nil,
-				}
-			},
-			postTestRun: func() {
-			},
-		},
-	}
-	for _, tt := range tests {
-		tt.preTestRun()
-		args := tt.setupArgs()
-		want := tt.setupWant()
-		got := mgr.LookupContainerID(args.id)
-		c.Assert(got, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
-		tt.postTestRun()
-	}
+	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), &apiv1.EndpointChangeRequest{
+		ContainerID: "foo",
+	})
+	c.Assert(err, IsNil)
+	mgr.expose(ep)
+
+	good := mgr.LookupContainerID("foo")
+	c.Assert(good, checker.DeepEquals, ep)
+
+	bad := mgr.LookupContainerID("asdf")
+	c.Assert(bad, IsNil)
 }
 
 func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
@@ -596,8 +501,8 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 		{
 			name: "existing PodName",
 			preTestRun: func() {
-				ep.SetK8sNamespace("default")
-				ep.SetK8sPodName("foo")
+				ep.K8sNamespace = "default"
+				ep.K8sPodName = "foo"
 				mgr.expose(ep)
 			},
 			setupArgs: func() args {
@@ -644,64 +549,46 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
-	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 6, endpoint.StateReady)
-	type args struct {
-		ep *endpoint.Endpoint
-	}
+	var ep *endpoint.Endpoint
 	type want struct {
 		ep       *endpoint.Endpoint
 		err      error
 		errCheck Checker
 	}
 	tests := []struct {
-		name        string
-		setupArgs   func() args
-		setupWant   func() want
-		preTestRun  func()
-		postTestRun func()
+		name      string
+		cm        apiv1.EndpointChangeRequest
+		setupWant func() want
 	}{
 		{
 			name: "Updating all references",
-			preTestRun: func() {
-				ep.ID = 1
-				mgr.expose(ep)
-			},
-			setupArgs: func() args {
-				// Update endpoint before running test
-				ep.SetK8sNamespace("default")
-				ep.SetK8sPodName("foo")
-				ep.SetContainerID("container")
-				ep.SetDockerEndpointID("dockerendpointID")
-				ip, err := addressing.NewCiliumIPv4("127.0.0.1")
-				c.Assert(err, IsNil)
-				ep.IPv4 = ip
-				ep.SetContainerName("containername")
-				return args{
-					ep: ep,
-				}
+			cm: apiv1.EndpointChangeRequest{
+				K8sNamespace:     "default",
+				K8sPodName:       "foo",
+				ContainerID:      "container",
+				DockerEndpointID: "dockerendpointID",
+				Addressing: &apiv1.AddressPair{
+					IPV4: "127.0.0.1",
+				},
+				ContainerName: "containername",
 			},
 			setupWant: func() want {
 				return want{
 					ep: ep,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep.SetK8sNamespace("")
-				ep.SetK8sPodName("")
-				ep.SetContainerID("")
-				ep.SetDockerEndpointID("")
-				ep.IPv4 = nil
-				ep.SetContainerName("")
-			},
 		},
 	}
 	for _, tt := range tests {
-		tt.preTestRun()
-		args := tt.setupArgs()
+		var err error
+		ep, err = endpoint.NewEndpointFromChangeModel(context.Background(), s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), &tt.cm)
+		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
+		mgr := NewEndpointManager(&dummyEpSyncher{})
+
+		err = mgr.expose(ep)
+		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
 		want := tt.setupWant()
-		mgr.updateReferencesLocked(args.ep, args.ep.IdentifiersLocked())
+		mgr.updateReferencesLocked(ep, ep.IdentifiersLocked())
 
 		ep = mgr.LookupContainerID(want.ep.GetContainerID())
 		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
@@ -717,7 +604,6 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 
 		ep = mgr.LookupPodName(want.ep.GetK8sNamespaceAndPodName())
 		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
-		tt.postTestRun()
 	}
 }
 

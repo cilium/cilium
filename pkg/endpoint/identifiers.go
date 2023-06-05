@@ -7,7 +7,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/endpoint/id"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // GetContainerName returns the name of the container for the endpoint.
@@ -17,26 +16,18 @@ func (e *Endpoint) GetContainerName() string {
 	return e.containerName
 }
 
-// SetContainerName modifies the endpoint's container name
-func (e *Endpoint) SetContainerName(name string) {
-	e.unconditionalLock()
-	e.containerName = name
-	e.unlock()
-}
-
 // GetK8sPodName returns the name of the pod if the endpoint represents a
 // Kubernetes pod
 func (e *Endpoint) GetK8sPodName() string {
-	e.unconditionalRLock()
+	// const after creation
 	k8sPodName := e.K8sPodName
-	e.runlock()
 
 	return k8sPodName
 }
 
-// HumanStringLocked returns the endpoint's most human readable identifier as string
-func (e *Endpoint) HumanStringLocked() string {
-	if pod := e.getK8sNamespaceAndPodName(); pod != "" {
+// HumanString returns the endpoint's most human readable identifier as string
+func (e *Endpoint) HumanString() string {
+	if pod := e.GetK8sNamespaceAndPodName(); pod != "" {
 		return pod
 	}
 
@@ -46,34 +37,8 @@ func (e *Endpoint) HumanStringLocked() string {
 // GetK8sNamespaceAndPodName returns the corresponding namespace and pod
 // name for this endpoint.
 func (e *Endpoint) GetK8sNamespaceAndPodName() string {
-	e.unconditionalRLock()
-	defer e.runlock()
-
-	return e.getK8sNamespaceAndPodName()
-}
-
-func (e *Endpoint) getK8sNamespaceAndPodName() string {
+	// both fields are const after creation
 	return e.K8sNamespace + "/" + e.K8sPodName
-}
-
-// SetK8sPodName modifies the endpoint's pod name
-func (e *Endpoint) SetK8sPodName(name string) {
-	e.unconditionalLock()
-	e.K8sPodName = name
-	e.UpdateLogger(map[string]interface{}{
-		logfields.K8sPodName: e.getK8sNamespaceAndPodName(),
-	})
-	e.unlock()
-}
-
-// SetContainerID modifies the endpoint's container ID
-func (e *Endpoint) SetContainerID(id string) {
-	e.unconditionalLock()
-	e.containerID = id
-	e.UpdateLogger(map[string]interface{}{
-		logfields.ContainerID: e.getShortContainerID(),
-	})
-	e.unlock()
 }
 
 // GetContainerID returns the endpoint's container ID
@@ -88,50 +53,28 @@ func (e *Endpoint) GetContainerID() string {
 func (e *Endpoint) GetShortContainerID() string {
 	e.unconditionalRLock()
 	defer e.runlock()
-
-	return e.getShortContainerID()
+	return e.getShortContainerIDLocked()
 }
 
-func (e *Endpoint) getShortContainerID() string {
+func (e *Endpoint) getShortContainerIDLocked() string {
 	if e == nil {
 		return ""
 	}
 
+	cid := e.containerID
+
 	caplen := 10
-	if len(e.containerID) <= caplen {
-		return e.containerID
+	if len(cid) <= caplen {
+		return cid
 	}
 
-	return e.containerID[:caplen]
+	return cid[:caplen]
 
-}
-
-// SetDockerEndpointID modifies the endpoint's Docker Endpoint ID
-func (e *Endpoint) SetDockerEndpointID(id string) {
-	e.unconditionalLock()
-	e.dockerEndpointID = id
-	e.unlock()
 }
 
 func (e *Endpoint) GetDockerEndpointID() string {
-	e.unconditionalRLock()
-	defer e.runlock()
+	// const after creation
 	return e.dockerEndpointID
-}
-
-// SetDockerNetworkID modifies the endpoint's Docker Endpoint ID
-func (e *Endpoint) SetDockerNetworkID(id string) {
-	e.unconditionalLock()
-	e.dockerNetworkID = id
-	e.unlock()
-}
-
-// GetDockerNetworkID returns the endpoint's Docker Endpoint ID
-func (e *Endpoint) GetDockerNetworkID() string {
-	e.unconditionalRLock()
-	defer e.runlock()
-
-	return e.dockerNetworkID
 }
 
 // IdentifiersLocked fetches the set of attributes that uniquely identify the
@@ -158,7 +101,7 @@ func (e *Endpoint) IdentifiersLocked() id.Identifiers {
 		refs[id.ContainerNamePrefix] = e.containerName
 	}
 
-	if podName := e.getK8sNamespaceAndPodName(); podName != "" {
+	if podName := e.GetK8sNamespaceAndPodName(); podName != "" {
 		refs[id.PodNamePrefix] = podName
 	}
 	return refs

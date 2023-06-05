@@ -127,10 +127,12 @@ type Endpoint struct {
 	// mutex protects write operations to this endpoint structure
 	mutex lock.RWMutex
 
-	// containerName is the name given to the endpoint by the container runtime
+	// containerName is the name given to the endpoint by the container runtime.
+	// Mutable, must be read with the endpoint lock!
 	containerName string
 
-	// containerID is the container ID that docker has assigned to the endpoint
+	// containerID is the container ID that docker has assigned to the endpoint.
+	// Mutable, must be read with the endpoint lock!
 	containerID string
 
 	// dockerNetworkID is the network ID of the libnetwork network if the
@@ -138,7 +140,8 @@ type Endpoint struct {
 	dockerNetworkID string
 
 	// dockerEndpointID is the Docker network endpoint ID if managed by
-	// libnetwork
+	// libnetwork.
+	// immutable.
 	dockerEndpointID string
 
 	// ifName is the name of the host facing interface (veth pair) which
@@ -222,14 +225,16 @@ type Endpoint struct {
 	// compiled and installed.
 	bpfHeaderfileHash string
 
-	// K8sPodName is the Kubernetes pod name of the endpoint
+	// K8sPodName is the Kubernetes pod name of the endpoint.
+	// Immutable after Endpoint creation.
 	K8sPodName string
 
-	// K8sNamespace is the Kubernetes namespace of the endpoint
+	// K8sNamespace is the Kubernetes namespace of the endpoint.
+	// Immutable after Endpoint creation.
 	K8sNamespace string
 
 	// pod
-	pod *slim_corev1.Pod
+	pod atomic.Value
 
 	// k8sPorts contains container ports associated in the pod.
 	// It is used to enforce k8s network policies with port names.
@@ -1162,35 +1167,22 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 // GetK8sNamespace returns the name of the pod if the endpoint represents a
 // Kubernetes pod
 func (e *Endpoint) GetK8sNamespace() string {
-	e.unconditionalRLock()
+	// const after creation
 	ns := e.K8sNamespace
-	e.runlock()
 	return ns
 }
 
 // SetPod sets the pod related to this endpoint.
 func (e *Endpoint) SetPod(pod *slim_corev1.Pod) {
-	e.unconditionalLock()
-	e.pod = pod
-	e.unlock()
+	e.pod.Store(pod)
 }
 
 // GetPod retrieves the pod related to this endpoint
 func (e *Endpoint) GetPod() *slim_corev1.Pod {
-	e.unconditionalRLock()
-	pod := e.pod
-	e.runlock()
-	return pod
-}
-
-// SetK8sNamespace modifies the endpoint's pod name
-func (e *Endpoint) SetK8sNamespace(name string) {
-	e.unconditionalLock()
-	e.K8sNamespace = name
-	e.UpdateLogger(map[string]interface{}{
-		logfields.K8sPodName: e.getK8sNamespaceAndPodName(),
-	})
-	e.unlock()
+	if p := e.pod.Load(); p != nil {
+		return p.(*slim_corev1.Pod)
+	}
+	return nil
 }
 
 // SetK8sMetadata sets the k8s container ports specified by kubernetes.
@@ -1229,7 +1221,7 @@ func (e *Endpoint) HaveK8sMetadata() (metadataSet bool) {
 // K8sNamespaceAndPodNameIsSet returns true if the pod name is set
 func (e *Endpoint) K8sNamespaceAndPodNameIsSet() bool {
 	e.unconditionalLock()
-	podName := e.getK8sNamespaceAndPodName()
+	podName := e.GetK8sNamespaceAndPodName()
 	e.unlock()
 	return podName != "" && podName != "/"
 }
