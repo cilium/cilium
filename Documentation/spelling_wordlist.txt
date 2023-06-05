@@ -625,6 +625,7 @@ kata
 keepDeprecatedLabels
 keepDeprecatedProbes
 keyFile
+keyRotationDuration
 keyType
 keyWatcher
 keyless

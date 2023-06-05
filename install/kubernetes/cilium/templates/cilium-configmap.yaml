@@ -551,6 +551,9 @@ data:
     {{- if hasKey .Values.encryption.ipsec "keyWatcher" }}
   enable-ipsec-key-watcher: {{ .Values.encryption.ipsec.keyWatcher | quote }}
     {{- end }}
+    {{- if .Values.encryption.ipsec.keyRotationDuration }}
+  ipsec-key-rotation-duration: {{ include "validateDuration" .Values.encryption.ipsec.keyRotationDuration | quote }}
+    {{- end }}
   {{- else if eq .Values.encryption.type "wireguard" }}
   enable-wireguard: {{ .Values.encryption.enabled | quote }}
     {{- if .Values.encryption.wireguard.userspaceFallback }}

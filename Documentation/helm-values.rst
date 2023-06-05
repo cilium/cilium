@@ -784,6 +784,10 @@
      - Name of the key file inside the Kubernetes secret configured via secretName.
      - string
      - ``""``
+   * - encryption.ipsec.keyRotationDuration
+     - Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.
+     - string
+     - ``"5m"``
    * - encryption.ipsec.keyWatcher
      - Enable the key watcher. If disabled, a restart of the agent will be necessary on key rotations.
      - bool
