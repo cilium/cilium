@@ -26,8 +26,10 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-clusterpool-v2")
 
 type cidrPool struct {
-	v4 []cidralloc.CIDRAllocator
-	v6 []cidralloc.CIDRAllocator
+	v4         []cidralloc.CIDRAllocator
+	v6         []cidralloc.CIDRAllocator
+	v4MaskSize int
+	v6MaskSize int
 }
 
 type cidrSet map[netip.Prefix]struct{}
@@ -122,8 +124,10 @@ func (p *PoolAllocator) AddPool(poolName string, ipv4CIDRs []string, ipv4MaskSiz
 	}
 
 	p.pools[poolName] = cidrPool{
-		v4: v4,
-		v6: v6,
+		v4:         v4,
+		v6:         v6,
+		v4MaskSize: ipv4MaskSize,
+		v6MaskSize: ipv6MaskSize,
 	}
 
 	return nil
