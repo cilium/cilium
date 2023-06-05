@@ -693,6 +693,10 @@ encryption:
     # -- The interface to use for encrypted traffic.
     interface: ""
 
+    # -- Enable the key watcher. If disabled, a restart of the agent will be
+    # necessary on key rotations.
+    keyWatcher: true
+
   wireguard:
     # -- Enables the fallback to the user-space implementation.
     userspaceFallback: false
