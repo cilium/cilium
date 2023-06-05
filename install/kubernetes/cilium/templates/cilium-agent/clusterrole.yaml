@@ -95,6 +95,7 @@ rules:
   - ciliumnodeconfigs
   - ciliumcidrgroups
   - ciliuml2announcementpolicies
+  - ciliumpodippools
   verbs:
   - list
   - watch
