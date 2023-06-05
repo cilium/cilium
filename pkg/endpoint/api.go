@@ -459,6 +459,9 @@ func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 // purposes should a caller choose to try to regenerate this endpoint, as well
 // as an error if the Endpoint is being deleted, since there is no point in
 // changing an Endpoint if it is going to be deleted.
+//
+// Before adding any new fields here, check to see if they are assumed to be mutable after
+// endpoint creation!
 func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionState bool) (string, error) {
 	var (
 		changed bool

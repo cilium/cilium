@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -116,8 +117,8 @@ func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) 
 }
 
 func (s *EndpointManagerSuite) TestLookup(c *C) {
-	ep := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-	mgr := New(&dummyEpSyncher{})
+	var ep *endpoint.Endpoint
+	var mgr *endpointManager
 	type args struct {
 		id string
 	}
@@ -127,11 +128,10 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		errCheck Checker
 	}
 	tests := []struct {
-		name        string
-		setupArgs   func() args
-		setupWant   func() want
-		preTestRun  func()
-		postTestRun func()
+		name       string
+		setupArgs  func() args
+		setupWant  func() want
+		preTestRun func()
 	}{
 		{
 			name:       "endpoint does not exist",
@@ -148,13 +148,11 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {},
 		},
 		{
 			name: "endpoint by cilium local ID",
 			preTestRun: func() {
 				ep.ID = 1234
-				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				return args{
@@ -168,17 +166,11 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.ID = 0
-			},
 		},
 		{
 			name: "endpoint by cilium global ID",
 			preTestRun: func() {
 				ep.ID = 1234
-				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				return args{
@@ -191,17 +183,11 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.ID = 0
-			},
 		},
 		{
 			name: "endpoint by container ID",
 			preTestRun: func() {
-				ep.SetContainerID("1234")
-				mgr.expose(ep)
+				ep.SetContainerIDLocked("1234")
 			},
 			setupArgs: func() args {
 				return args{
@@ -215,17 +201,11 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.SetContainerID("")
-			},
 		},
 		{
 			name: "endpoint by docker endpoint ID",
 			preTestRun: func() {
-				ep.SetDockerEndpointID("1234")
-				mgr.expose(ep)
+				ep.SetDockerEndpointIDLocked("1234")
 			},
 			setupArgs: func() args {
 				return args{
@@ -239,17 +219,11 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.SetDockerEndpointID("")
-			},
 		},
 		{
 			name: "endpoint by container name",
 			preTestRun: func() {
-				ep.SetContainerName("foo")
-				mgr.expose(ep)
+				ep.SetContainerNameLocked("foo")
 			},
 			setupArgs: func() args {
 				return args{
@@ -263,18 +237,12 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.SetContainerName("")
-			},
 		},
 		{
 			name: "endpoint by pod name",
 			preTestRun: func() {
-				ep.SetK8sNamespace("default")
-				ep.SetK8sPodName("foo")
-				mgr.expose(ep)
+				ep.SetK8sNamespaceLocked("default")
+				ep.SetK8sPodNameLocked("foo")
 			},
 			setupArgs: func() args {
 				return args{
@@ -288,17 +256,11 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Equals,
 				}
 			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.SetK8sPodName("")
-			},
 		},
 		{
 			name: "endpoint by ipv4",
 			preTestRun: func() {
 				ep.IPv4 = netip.MustParseAddr("127.0.0.1")
-				mgr.expose(ep)
 			},
 			setupArgs: func() args {
 				return args{
@@ -311,11 +273,6 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					err:      nil,
 					errCheck: Equals,
 				}
-			},
-			postTestRun: func() {
-				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.IPv4 = netip.Addr{}
 			},
 		},
 		{
@@ -333,8 +290,6 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Not(Equals),
 				}
 			},
-			postTestRun: func() {
-			},
 		},
 		{
 			name: "invalid cilium ID",
@@ -351,18 +306,23 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 					errCheck: Not(Equals),
 				}
 			},
-			postTestRun: func() {
-			},
 		},
 	}
 	for _, tt := range tests {
+		ep = endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
+		mgr = New(&dummyEpSyncher{})
+
 		tt.preTestRun()
+
+		err := mgr.expose(ep)
+		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
+
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		got, err := mgr.Lookup(args.id)
 		c.Assert(err, want.errCheck, want.err, Commentf("Test Name: %s", tt.name))
 		c.Assert(got, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
-		tt.postTestRun()
+		idallocator.ReallocatePool()
 	}
 }
 
@@ -452,7 +412,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 		{
 			name: "existing container ID",
 			preTestRun: func() {
-				ep.SetContainerID("foo")
+				ep.SetContainerIDLocked("foo")
 				mgr.expose(ep)
 			},
 			setupArgs: func() args {
@@ -467,7 +427,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep.SetContainerID("")
+				ep.SetContainerIDLocked("")
 			},
 		},
 		{
@@ -582,8 +542,8 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 		{
 			name: "existing PodName",
 			preTestRun: func() {
-				ep.SetK8sNamespace("default")
-				ep.SetK8sPodName("foo")
+				ep.SetK8sNamespaceLocked("default")
+				ep.SetK8sPodNameLocked("foo")
 				mgr.expose(ep)
 			},
 			setupArgs: func() args {
@@ -653,12 +613,12 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 			},
 			setupArgs: func() args {
 				// Update endpoint before running test
-				ep.SetK8sNamespace("default")
-				ep.SetK8sPodName("foo")
-				ep.SetContainerID("container")
-				ep.SetDockerEndpointID("dockerendpointID")
+				ep.SetK8sNamespaceLocked("default")
+				ep.SetK8sPodNameLocked("foo")
+				ep.SetContainerIDLocked("container")
+				ep.SetDockerEndpointIDLocked("dockerendpointID")
 				ep.IPv4 = netip.MustParseAddr("127.0.0.1")
-				ep.SetContainerName("containername")
+				ep.SetContainerNameLocked("containername")
 				return args{
 					ep: ep,
 				}
@@ -670,12 +630,12 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep.SetK8sNamespace("")
-				ep.SetK8sPodName("")
-				ep.SetContainerID("")
-				ep.SetDockerEndpointID("")
+				ep.SetK8sNamespaceLocked("")
+				ep.SetK8sPodNameLocked("")
+				ep.SetContainerIDLocked("")
+				ep.SetDockerEndpointIDLocked("")
 				ep.IPv4 = netip.Addr{}
-				ep.SetContainerName("")
+				ep.SetContainerNameLocked("")
 			},
 		},
 	}
