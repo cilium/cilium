@@ -1232,6 +1232,14 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		// assumptions:
 		// 1. newNode is accessed only by reads.
 		// 2. It is safe to invoke insertNeighbor for the same node.
+		//
+		// Because neighbor inserts is not synced, we do not currently
+		// collect/ bubble up errors.
+		// Instead we just rely on logging errors as they come up in the
+		// neighbor update procedure.
+		//
+		// In v1.15, we will have the neighbor sync component report its own
+		// health via stored errors. 
 		go n.insertNeighbor(context.Background(), newNode, false)
 	}
 
