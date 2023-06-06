@@ -32,7 +32,7 @@ type mutualAuthParams struct {
 
 func newMutualAuthHandler(logger logrus.FieldLogger, lc hive.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams) authHandlerResult {
 	if cfg.MutualAuthListenerPort == 0 {
-		logger.Info("mutual authentication handler is disabled as no port is configured")
+		logger.Info("Mutual authentication handler is disabled as no port is configured")
 		return authHandlerResult{}
 	}
 	if params.CertificateProvider == nil {
@@ -41,7 +41,7 @@ func newMutualAuthHandler(logger logrus.FieldLogger, lc hive.Lifecycle, cfg Mutu
 
 	mAuthHandler := &mutualAuthHandler{
 		cfg:  cfg,
-		log:  logger.WithField(logfields.LogSubsys, "mutual-auth-handler"),
+		log:  logger,
 		cert: params.CertificateProvider,
 	}
 
@@ -169,7 +169,7 @@ func (m *mutualAuthHandler) listenForConnections(upstreamCtx context.Context, re
 		if err != nil {
 			m.log.WithError(err).Error("Failed to accept connection")
 			if errors.Is(err, net.ErrClosed) {
-				m.log.Info("mutual auth listener socket got closed")
+				m.log.Info("Mutual auth listener socket got closed")
 				return
 			}
 			continue
