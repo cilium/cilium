@@ -53,6 +53,8 @@ type Parameters struct {
 	IncludeUnsafeTests    bool
 	AgentPodSelector      string
 	NodeSelector          map[string]string
+	DeploymentAnnotations annotationsMap
+	NamespaceAnnotations  annotations
 	ExternalTarget        string
 	ExternalCIDR          string
 	ExternalIP            string
