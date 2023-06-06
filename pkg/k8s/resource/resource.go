@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 // Resource provides access to a Kubernetes resource through either
@@ -40,6 +41,8 @@ import (
 // The resource is lazy, e.g. it will not start the informer until a call
 // has been made to Events() or Store().
 type Resource[T k8sRuntime.Object] interface {
+	stream.Observable[Event[T]]
+
 	// Events returns a channel of events. Each event must be marked as handled
 	// with a call to Done(), otherwise no new events for this key will be emitted.
 	//
@@ -293,6 +296,10 @@ func WithErrorHandler(h ErrorHandler) EventsOpt {
 	return func(o *eventsOpts) {
 		o.errorHandler = h
 	}
+}
+
+func (r *resource[T]) Observe(ctx context.Context, next func(Event[T]), complete func(error)) {
+	stream.FromChannel(r.Events(ctx)).Observe(ctx, next, complete)
 }
 
 // Events subscribes the caller to resource events.

@@ -123,6 +123,10 @@ type fakeResource[T runtime.Object] struct {
 	store resource.Store[T]
 }
 
+func (fr *fakeResource[T]) Observe(ctx context.Context, next func(event resource.Event[T]), complete func(error)) {
+
+}
+
 func (fr *fakeResource[T]) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[T] {
 	return make(<-chan resource.Event[T])
 }
