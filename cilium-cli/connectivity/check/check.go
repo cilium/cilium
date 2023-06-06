@@ -4,9 +4,11 @@
 package check
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/flow"
@@ -85,6 +87,102 @@ type podCIDRs struct {
 type nodesWithoutCiliumIP struct {
 	IP   string
 	Mask int
+}
+
+type annotations map[string]string
+
+func marshalMap[M ~map[K]V, K comparable, V any](m *M) string {
+	if m == nil || len(*m) == 0 {
+		return "{}" // avoids printing "null" for nil map
+	}
+
+	b, err := json.Marshal(*m)
+	if err != nil {
+		return fmt.Sprintf("error: %s", err)
+	}
+	return string(b)
+}
+
+// String implements pflag.Value
+func (a *annotations) String() string {
+	return marshalMap(a)
+}
+
+// Set implements pflag.Value
+func (a *annotations) Set(s string) error {
+	return json.Unmarshal([]byte(s), a)
+}
+
+// Type implements pflag.Value
+func (a *annotations) Type() string {
+	return "json"
+}
+
+type annotationsMap map[string]annotations
+
+// String implements pflag.Value
+func (a *annotationsMap) String() string {
+	return marshalMap(a)
+}
+
+// Set implements pflag.Value
+func (a *annotationsMap) Set(s string) error {
+	var target annotationsMap
+	err := json.Unmarshal([]byte(s), &target)
+	if err != nil {
+		return err
+	} else if a == nil {
+		return nil
+	}
+
+	// Validate keys for Match function, `*` is only allowed at the end of the string
+	for key := range target {
+		_, suffix, ok := strings.Cut(key, "*")
+		if ok && len(suffix) > 0 {
+			return fmt.Errorf("invalid match key %q: wildcard only allowed at end of key", key)
+		}
+	}
+
+	*a = target
+	return nil
+}
+
+// Type implements pflag.Value
+func (a *annotationsMap) Type() string {
+	return "json"
+}
+
+// Match extracts the annotations for the matching component s. If the
+// annotation map contains s as a key, the corresponding value will be returned.
+// Otherwise, every map key containing a `*` character will be treated as
+// prefix pattern, i.e. a map key `foo*` will match the name `foobar`.
+func (a *annotationsMap) Match(name string) annotations {
+	// Invalid map or component name that contains a wildcard
+	if a == nil || strings.Contains(name, "*") {
+		return nil
+	}
+
+	// Direct match
+	if match, ok := (*a)[name]; ok {
+		return match
+	}
+
+	// Find the longest prefix match
+	var longestPrefix string
+	var longestMatch annotations
+	for pattern, match := range *a {
+		prefix, _, ok := strings.Cut(pattern, "*")
+		if !ok || !strings.HasPrefix(name, prefix) {
+			continue // not a matching pattern
+		}
+
+		if len(prefix) >= len(longestPrefix) {
+			longestPrefix = prefix
+			longestMatch = match
+		}
+	}
+
+	return longestMatch
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
