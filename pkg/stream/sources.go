@@ -9,7 +9,10 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-// Just creates an observable with a single item.
+// Just creates an observable that emits a single item and completes.
+//
+//	xs, err := ToSlice(ctx, Just(1))
+//	  => xs == []int{1}, err == nil
 func Just[T any](item T) Observable[T] {
 	return FuncObservable[T](
 		func(ctx context.Context, next func(T), complete func(error)) {
@@ -38,6 +41,10 @@ func Stuck[T any]() Observable[T] {
 }
 
 // Error creates an observable that fails immediately with given error.
+//
+//	failErr = errors.New("fail")
+//	xs, err := ToSlice(ctx, Error[int](failErr))
+//	  => xs == []int{}, err == failErr
 func Error[T any](err error) Observable[T] {
 	return FuncObservable[T](
 		func(ctx context.Context, next func(T), complete func(error)) {
@@ -45,12 +52,18 @@ func Error[T any](err error) Observable[T] {
 		})
 }
 
-// Empty creates an empty observable that completes immediately.
+// Empty creates an "empty" observable that completes immediately.
+//
+//	xs, err := ToSlice(Empty[int]())
+//	  => xs == []int{}, err == nil
 func Empty[T any]() Observable[T] {
 	return Error[T](nil)
 }
 
 // FromSlice converts a slice into an Observable.
+//
+//	ToSlice(ctx, FromSlice([]int{1,2,3})
+//	  => []int{1,2,3}
 func FromSlice[T any](items []T) Observable[T] {
 	// Emit items in chunks to reduce overhead of mutex in ctx.Err().
 	const chunkSize = 64
@@ -73,6 +86,20 @@ func FromSlice[T any](items []T) Observable[T] {
 
 // FromChannel creates an observable from a channel. The channel is consumed
 // by the first observer.
+//
+//	values := make(chan int)
+//	go func() {
+//		values <- 1
+//		values <- 2
+//		values <- 3
+//		close(values)
+//	}()
+//	obs := FromChannel(values)
+//	xs, err := ToSlice(ctx, obs)
+//	  => xs == []int{1,2,3}, err == nil
+//
+//	xs, err = ToSlice(ctx, obs)
+//	  => xs == []int{}, err == nil
 func FromChannel[T any](in <-chan T) Observable[T] {
 	return FuncObservable[T](
 		func(ctx context.Context, next func(T), complete func(error)) {
@@ -96,6 +123,8 @@ func FromChannel[T any](in <-chan T) Observable[T] {
 }
 
 // Range creates an observable that emits integers in range from...to-1.
+//
+//	ToSlice(ctx, Range(1,2,3)) => []int{1,2,3}
 func Range(from, to int) Observable[int] {
 	return FuncObservable[int](
 		func(ctx context.Context, next func(int), complete func(error)) {
@@ -136,6 +165,21 @@ var (
 )
 
 // Multicast creates an observable that "multicasts" the emitted items to all observers.
+//
+//	mcast, next, complete := Multicast[int]()
+//	next(1) // no observers, none receives this
+//	sub1 := ToChannel(ctx, mcast, WithBufferSize(10))
+//	sub2 := ToChannel(ctx, mcast, WithBufferSize(10))
+//	next(2)
+//	next(3)
+//	complete(nil)
+//	  => sub1 == sub2 == [2,3]
+//
+//	mcast, next, complete = Multicast[int](EmitLatest)
+//	next(1)
+//	next(2) // "EmitLatest" tells Multicast to keep this
+//	x, err := First(ctx, mcast)
+//	  => x == 2, err == nil
 func Multicast[T any](opts ...MulticastOpt) (mcast Observable[T], next func(T), complete func(error)) {
 	var (
 		mu          lock.Mutex

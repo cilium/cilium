@@ -11,10 +11,13 @@ import (
 )
 
 //
-// Operators transform the observable.
+// Operators transform the observable stream.
 //
 
 // Map applies a function onto values of an observable and emits the resulting values.
+//
+//	Map(Range(1,4), func(x int) int { return x * 2})
+//	  => [2,4,6]
 func Map[A, B any](src Observable[A], apply func(A) B) Observable[B] {
 	return FuncObservable[B](
 		func(ctx context.Context, next func(B), complete func(error)) {
@@ -26,6 +29,9 @@ func Map[A, B any](src Observable[A], apply func(A) B) Observable[B] {
 }
 
 // Filter only emits the values for which the provided predicate returns true.
+//
+//	Filter(Range(1,4), func(x int) int { return x%2 == 0 })
+//	  => [2]
 func Filter[T any](src Observable[T], pred func(T) bool) Observable[T] {
 	return FuncObservable[T](
 		func(ctx context.Context, next func(T), complete func(error)) {
@@ -43,6 +49,9 @@ func Filter[T any](src Observable[T], pred func(T) bool) Observable[T] {
 // Reduce takes an initial state, and a function 'reduce' that is called on each element
 // along with a state and returns an observable with a single item: the state produced
 // by the last call to 'reduce'.
+//
+//	Reduce(Range(1,4), 0, func(sum, item int) int { return sum + item })
+//	  => [(0+1+2+3)] => [6]
 func Reduce[Item, Result any](src Observable[Item], init Result, reduce func(Result, Item) Result) Observable[Result] {
 	result := init
 	return FuncObservable[Result](
@@ -62,6 +71,9 @@ func Reduce[Item, Result any](src Observable[Item], init Result, reduce func(Res
 }
 
 // Distinct skips adjacent equal values.
+//
+//	Distinct(FromSlice([]int{1,1,2,2,3})
+//	  => [1,2,3]
 func Distinct[T comparable](src Observable[T]) Observable[T] {
 	var prev T
 	first := true
@@ -133,7 +145,14 @@ func LimitRetries(shouldRetry RetryFunc, numRetries int) RetryFunc {
 }
 
 // ToMulticast makes 'src' a multicast observable, e.g. each observer will observe
-// the same sequence.
+// the same sequence. Useful for fanning out items to multiple observers from a source
+// that is consumed by the act of observing.
+//
+//	mcast, connect := ToMulticast(FromChannel(values))
+//	a := ToSlice(mcast)
+//	b := ToSlice(mcast)
+//	connect(ctx) // start!
+//	  => a == b
 func ToMulticast[T any](src Observable[T], opts ...MulticastOpt) (mcast Observable[T], connect func(context.Context)) {
 	mcast, next, complete := Multicast[T](opts...)
 	connect = func(ctx context.Context) {
