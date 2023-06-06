@@ -1018,6 +1018,7 @@ starfighter
 starfighters
 startup
 startupProbe
+statedb
 stateful
 statefulset
 statelessNat
