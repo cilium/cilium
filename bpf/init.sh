@@ -30,6 +30,7 @@ PROXY_RULE=${23}
 FILTER_PRIO=${24}
 DEFAULT_RTPROTO=${25}
 LOCAL_RULE_PRIO=${26}
+STALE_IP6_HOST=${27}
 
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
@@ -184,7 +185,9 @@ function encap_fail()
 	# If the host does not have an IPv6 address assigned, assign our generated host
 	# IP to make the host accessible to endpoints
 	if [ "$IP6_HOST" != "<nil>" ]; then
-                ip -6 addr flush dev $HOST_DEV1
+                if [ "$STALE_IP6_HOST" != "<nil>" ]; then
+                    ip -6 addr del $STALE_IP6_HOST dev $HOST_DEV1
+                fi
 		[ -n "$(ip -6 addr show to $IP6_HOST dev $HOST_DEV1)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then

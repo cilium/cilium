@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -63,6 +64,7 @@ const (
 	initTCFilterPriority
 	initDefaultRTProto
 	initLocalRulePriority
+	initArgStaleIPv6NodeIP
 	initArgMax
 )
 
@@ -372,8 +374,22 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		// Enable IPv6 for now
 		sysSettings = append(sysSettings,
 			sysctl.Setting{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
+
+		localIPv6CIDR := node.GetIPv6AllocRange()
+		addrs, err := link.GetIPv6Addresses(hostDev1.Attrs().Name)
+		if err != nil {
+			return err
+		}
+		args[initArgStaleIPv6NodeIP] = "<nil>"
+		for _, addr := range addrs {
+			if localIPv6CIDR.Contains(addr.IPNet.IP) {
+				args[initArgStaleIPv6NodeIP] = addr.IPNet.IP.String()
+				break
+			}
+		}
 	} else {
 		args[initArgIPv6NodeIP] = "<nil>"
+		args[initArgStaleIPv6NodeIP] = "<nil>"
 	}
 
 	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)
