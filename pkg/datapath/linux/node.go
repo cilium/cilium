@@ -1041,6 +1041,11 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark boo
 				upsertIPsecLog(err, "in NodeInternalIPv4", wildcardCIDR, cidr, spi)
 			}
 		} else {
+			/* Insert wildcard policy rules for traffic skipping back through host */
+			if err = ipsec.IpSecReplacePolicyFwd(wildcardCIDR, localIP); err != nil {
+				log.WithError(err).Warning("egress unable to replace policy fwd:")
+			}
+
 			localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
 			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, 0, ipsec.IPSecDirIn, false)
 			upsertIPsecLog(err, "in IPv4", localCIDR, wildcardCIDR, spi)
@@ -1075,11 +1080,6 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark boo
 			n.replaceNodeIPSecOutRoute(new4Net)
 			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
 			upsertIPsecLog(err, "out IPv4", localCIDR, remoteCIDR, spi)
-
-			/* Insert wildcard policy rules for traffic skipping back through host */
-			if err = ipsec.IpSecReplacePolicyFwd(remoteCIDR, remoteIP); err != nil {
-				log.WithError(err).Warning("egress unable to replace policy fwd:")
-			}
 		}
 	}
 }
