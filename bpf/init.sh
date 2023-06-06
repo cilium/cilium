@@ -184,6 +184,7 @@ function encap_fail()
 	# If the host does not have an IPv6 address assigned, assign our generated host
 	# IP to make the host accessible to endpoints
 	if [ "$IP6_HOST" != "<nil>" ]; then
+                ip -6 addr flush dev $HOST_DEV1
 		[ -n "$(ip -6 addr show to $IP6_HOST dev $HOST_DEV1)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
