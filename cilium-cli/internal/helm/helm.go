@@ -536,3 +536,27 @@ func Upgrade(
 
 	return helmClient.RunWithContext(ctx, defaults.HelmReleaseName, params.Chart, params.Values)
 }
+
+// GetParameters contains parameters for helm get operation.
+type GetParameters struct {
+	// Namespace in which the Helm release is installed.
+	Namespace string
+	// Name of the Helm release to get.
+	Name string
+}
+
+// Get returns the Helm release specified by GetParameters.
+func Get(
+	k8sClient genericclioptions.RESTClientGetter,
+	params GetParameters,
+) (*release.Release, error) {
+	actionConfig := action.Configuration{}
+	// Use the default Helm driver (Kubernetes secret).
+	helmDriver := ""
+	logger := func(format string, v ...interface{}) {}
+	if err := actionConfig.Init(k8sClient, params.Namespace, helmDriver, logger); err != nil {
+		return nil, err
+	}
+	helmClient := action.NewGet(&actionConfig)
+	return helmClient.Run(params.Name)
+}
