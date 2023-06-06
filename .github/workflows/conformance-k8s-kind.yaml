@@ -245,9 +245,16 @@ jobs:
           path: ./_artifacts/logs
           retention-days: 5
 
-      - name: Upload Kubernetes e2e Junit Reports
+      - name: Upload Kubernetes e2e Junit Reports [junit]
         if: ${{ success() }}
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3
         with:
           name: kubernetes-e2e-junit
           path: './_artifacts/*.xml'
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "_artifacts"
+
