@@ -772,6 +772,9 @@ func (c *consulClient) StatusCheckErrors() <-chan error {
 	return c.statusCheckErrors
 }
 
+// RegisterLeaseExpiredObserver is not implemented for the consul backend
+func (c *consulClient) RegisterLeaseExpiredObserver(prefix string, fn func(key string)) {}
+
 // UserEnforcePresence is not implemented for the consul backend
 func (c *consulClient) UserEnforcePresence(ctx context.Context, name string, roles []string) error {
 	return ErrNotImplemented

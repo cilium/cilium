@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -335,6 +336,8 @@ type etcdClient struct {
 	listBatchSize int
 
 	lastHeartbeat time.Time
+
+	leaseExpiredObservers sync.Map
 }
 
 func (e *etcdClient) getLogger() *logrus.Entry {
@@ -640,7 +643,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		statusCheckErrors:    make(chan error, 128),
 	}
 
-	ec.leaseManager = newEtcdLeaseManager(c, option.Config.KVstoreLeaseTTL, etcdMaxKeysPerLease, nil, ec.getLogger())
+	ec.leaseManager = newEtcdLeaseManager(c, option.Config.KVstoreLeaseTTL, etcdMaxKeysPerLease, ec.expiredLeaseObserver, ec.getLogger())
 
 	// create session in parallel as this is a blocking operation
 	go func() {
@@ -1696,6 +1699,26 @@ func (e *etcdClient) ListAndWatch(ctx context.Context, name, prefix string, chan
 	go e.Watch(ctx, w)
 
 	return w
+}
+
+// RegisterLeaseExpiredObserver registers a function which is executed when
+// the lease associated with a key having the given prefix is detected as expired.
+// If the function is nil, the previous observer (if any) is unregistered.
+func (e *etcdClient) RegisterLeaseExpiredObserver(prefix string, fn func(key string)) {
+	if fn == nil {
+		e.leaseExpiredObservers.Delete(prefix)
+	} else {
+		e.leaseExpiredObservers.Store(prefix, fn)
+	}
+}
+
+func (e *etcdClient) expiredLeaseObserver(key string) {
+	e.leaseExpiredObservers.Range(func(prefix, fn any) bool {
+		if strings.HasPrefix(key, prefix.(string)) {
+			fn.(func(string))(key)
+		}
+		return true
+	})
 }
 
 // UserEnforcePresence creates a user in etcd if not already present, and grants the specified roles.
