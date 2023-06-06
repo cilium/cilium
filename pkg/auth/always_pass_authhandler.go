@@ -26,7 +26,7 @@ func newAlwaysPassAuthHandler(logger logrus.FieldLogger) *alwaysPassAuthHandler 
 
 func (r *alwaysPassAuthHandler) authenticate(authReq *authRequest) (*authResponse, error) {
 	// Authentication trivially done
-	r.logger.Debugf("auth: Successfully authenticated request")
+	r.logger.Debug("Successfully authenticated request")
 
 	return &authResponse{
 		expirationTime: time.Now().Add(1 * time.Minute),
