@@ -17,6 +17,11 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 )
 
+const (
+	clusterName = "test-upgrade-downgrade"
+	clusterID   = "1"
+)
+
 var (
 	// These are set in BeforeAll
 	demoPath         string
@@ -170,6 +175,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"sleepAfterInit":     "true",
 			"operator.enabled":   "false ",
 			"hubble.tls.enabled": "false",
+			"cluster.name":       clusterName,
+			"cluster.id":         clusterID,
 		}
 		if imageName != "" {
 			opts["image.repository"] = imageName
@@ -242,6 +249,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"operator.image.repository":              "quay.io/cilium/operator",
 			"hubble.relay.image.repository":          "quay.io/cilium/hubble-relay-ci",
 			"clustermesh.apiserver.image.repository": "quay.io/cilium/clustermesh-apiserver-ci",
+			"cluster.name":                           clusterName,
+			"cluster.id":                             clusterID,
 		}
 
 		hasNewHelmValues := versioncheck.MustCompile(">=1.12.90")
