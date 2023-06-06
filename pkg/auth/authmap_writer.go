@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/ebpf"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/identity"
@@ -16,11 +17,13 @@ import (
 )
 
 type authMapWriter struct {
+	logger  logrus.FieldLogger
 	authMap authmap.Map
 }
 
-func newAuthMapWriter(authMap authmap.Map) *authMapWriter {
+func newAuthMapWriter(logger logrus.FieldLogger, authMap authmap.Map) *authMapWriter {
 	return &authMapWriter{
+		logger:  logger,
 		authMap: authMap,
 	}
 }
@@ -90,7 +93,7 @@ func (r *authMapWriter) DeleteIf(predicate func(key authKey, info authInfo) bool
 		if predicate(k, v) {
 			if err := r.Delete(k); err != nil {
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
-					log.Debugf("auth: failed to delete auth entry with key %s: entry already deleted", k)
+					r.logger.Debugf("auth: failed to delete auth entry with key %s: entry already deleted", k)
 					continue
 				}
 				return fmt.Errorf("failed to delete auth entry from map: %w", err)

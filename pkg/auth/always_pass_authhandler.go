@@ -6,6 +6,8 @@ package auth
 import (
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -13,11 +15,18 @@ import (
 // alwaysPassAuthHandler implements an authHandler by just authenticate every request
 // This is only for testing purpose.
 type alwaysPassAuthHandler struct {
+	logger logrus.FieldLogger
+}
+
+func newAlwaysPassAuthHandler(logger logrus.FieldLogger) *alwaysPassAuthHandler {
+	return &alwaysPassAuthHandler{
+		logger: logger,
+	}
 }
 
 func (r *alwaysPassAuthHandler) authenticate(authReq *authRequest) (*authResponse, error) {
 	// Authentication trivially done
-	log.Debugf("auth: Successfully authenticated request")
+	r.logger.Debugf("auth: Successfully authenticated request")
 
 	return &authResponse{
 		expirationTime: time.Now().Add(1 * time.Minute),

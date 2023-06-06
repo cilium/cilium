@@ -9,6 +9,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
@@ -25,6 +27,7 @@ func (key signalAuthKey) String() string {
 }
 
 type authManager struct {
+	logger       logrus.FieldLogger
 	ipCache      ipCache
 	authHandlers map[policy.AuthType]authHandler
 	authmap      authMap
@@ -57,7 +60,7 @@ type authResponse struct {
 	expirationTime time.Time
 }
 
-func newAuthManager(authHandlers []authHandler, authmap authMap, ipCache ipCache) (*authManager, error) {
+func newAuthManager(logger logrus.FieldLogger, authHandlers []authHandler, authmap authMap, ipCache ipCache) (*authManager, error) {
 	ahs := map[policy.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if ah == nil {
@@ -70,6 +73,7 @@ func newAuthManager(authHandlers []authHandler, authmap authMap, ipCache ipCache
 	}
 
 	return &authManager{
+		logger:                   logger,
 		authHandlers:             ahs,
 		authmap:                  authmap,
 		ipCache:                  ipCache,
@@ -87,7 +91,7 @@ func (a *authManager) handleAuthRequest(_ context.Context, key signalAuthKey) er
 		authType:       policy.AuthType(key.AuthType),
 	}
 
-	log.Debugf("auth: Handle authentication request for key %s", k)
+	a.logger.Debugf("auth: Handle authentication request for key %s", k)
 
 	a.handleAuthenticationFunc(a, k, false)
 
@@ -95,7 +99,7 @@ func (a *authManager) handleAuthRequest(_ context.Context, key signalAuthKey) er
 }
 
 func (a *authManager) handleCertificateRotationEvent(_ context.Context, event certs.CertificateRotationEvent) error {
-	log.Debugf("auth: Handle certificate rotation event for identity %s", event.Identity)
+	a.logger.Debugf("auth: Handle certificate rotation event for identity %s", event.Identity)
 
 	all, err := a.authmap.All()
 	if err != nil {
@@ -121,13 +125,13 @@ func handleAuthentication(a *authManager, k authKey, reAuth bool) {
 				// updated the authmap since the datapath issued the auth
 				// required signal.
 				if i, err := a.authmap.Get(key); err == nil && i.expiration.After(time.Now()) {
-					log.Debugf("auth: Already authenticated, skipped authentication for key %v", key)
+					a.logger.Debugf("auth: Already authenticated, skipped authentication for key %v", key)
 					return
 				}
 			}
 
 			if err := a.authenticate(key); err != nil {
-				log.WithError(err).Warningf("auth: Failed to authenticate request for key %v", key)
+				a.logger.WithError(err).Warningf("auth: Failed to authenticate request for key %v", key)
 			}
 		}(k)
 	}
@@ -156,7 +160,7 @@ func (a *authManager) clearPendingAuth(key authKey) {
 }
 
 func (a *authManager) authenticate(key authKey) error {
-	log.Debugf("auth: policy is requiring authentication type %s between local and remote identities %d<->%d",
+	a.logger.Debugf("auth: policy is requiring authentication type %s between local and remote identities %d<->%d",
 		key.authType, key.localIdentity, key.remoteIdentity)
 
 	// Authenticate according to the requested auth type
@@ -185,7 +189,7 @@ func (a *authManager) authenticate(key authKey) error {
 		return fmt.Errorf("failed to update BPF map in datapath: %w", err)
 	}
 
-	log.Debugf("auth: Successfully authenticated for type %s identity %d<->%d, remote host %s",
+	a.logger.Debugf("auth: Successfully authenticated for type %s identity %d<->%d, remote host %s",
 		key.authType, key.localIdentity, key.remoteIdentity, nodeIP)
 
 	return nil

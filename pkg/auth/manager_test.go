@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 
@@ -24,18 +25,18 @@ func Test_newAuthManager_clashingAuthHandlers(t *testing.T) {
 		&alwaysFailAuthHandler{},
 	}
 
-	am, err := newAuthManager(authHandlers, nil, nil)
+	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil)
 	assert.ErrorContains(t, err, "multiple handlers for auth type: test-always-fail")
 	assert.Nil(t, am)
 }
 
 func Test_newAuthManager(t *testing.T) {
 	authHandlers := []authHandler{
-		&alwaysPassAuthHandler{},
+		newAlwaysPassAuthHandler(logrus.New()),
 		&fakeAuthHandler{},
 	}
 
-	am, err := newAuthManager(authHandlers, nil, nil)
+	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
@@ -90,7 +91,8 @@ func Test_authManager_authenticate(t *testing.T) {
 				entries: map[authKey]authInfo{},
 			}
 			am, err := newAuthManager(
-				[]authHandler{&alwaysFailAuthHandler{}, &alwaysPassAuthHandler{}},
+				logrus.New(),
+				[]authHandler{&alwaysFailAuthHandler{}, newAlwaysPassAuthHandler(logrus.New())},
 				authMap,
 				newFakeIPCache(map[uint16]string{
 					2: "172.18.0.2",
@@ -109,11 +111,9 @@ func Test_authManager_authenticate(t *testing.T) {
 }
 
 func Test_authManager_handleAuthRequest(t *testing.T) {
-	authHandlers := []authHandler{
-		&alwaysPassAuthHandler{},
-	}
+	authHandlers := []authHandler{newAlwaysPassAuthHandler(logrus.New())}
 
-	am, err := newAuthManager(authHandlers, nil, nil)
+	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
@@ -130,14 +130,12 @@ func Test_authManager_handleAuthRequest(t *testing.T) {
 }
 
 func Test_authManager_handleCertificateRotationEvent_Error(t *testing.T) {
-	authHandlers := []authHandler{
-		&alwaysPassAuthHandler{},
-	}
+	authHandlers := []authHandler{newAlwaysPassAuthHandler(logrus.New())}
 	aMap := &fakeAuthMap{
 		failGet: true,
 	}
 
-	am, err := newAuthManager(authHandlers, aMap, nil)
+	am, err := newAuthManager(logrus.New(), authHandlers, aMap, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
@@ -146,9 +144,7 @@ func Test_authManager_handleCertificateRotationEvent_Error(t *testing.T) {
 }
 
 func Test_authManager_handleCertificateRotationEvent(t *testing.T) {
-	authHandlers := []authHandler{
-		&alwaysPassAuthHandler{},
-	}
+	authHandlers := []authHandler{newAlwaysPassAuthHandler(logrus.New())}
 	aMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
 			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
@@ -157,7 +153,7 @@ func Test_authManager_handleCertificateRotationEvent(t *testing.T) {
 		},
 	}
 
-	am, err := newAuthManager(authHandlers, aMap, nil)
+	am, err := newAuthManager(logrus.New(), authHandlers, aMap, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
