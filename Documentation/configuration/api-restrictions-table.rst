@@ -76,6 +76,7 @@ GetRecorderID         -
 GetRecorderMasks      -
 GetService            -
 GetServiceID          -
+GetStatedbDump        -
 PatchConfig           Updates the daemon configuration by applying the provided
                       ConfigurationMap and regenerates & recompiles all required
                       datapath components.
