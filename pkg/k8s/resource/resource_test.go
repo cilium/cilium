@@ -501,6 +501,64 @@ func TestResource_Retries(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestResource_Observe(t *testing.T) {
+	var (
+		nodeName = "some-node"
+		node     = &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            nodeName,
+				ResourceVersion: "0",
+			},
+			Status: corev1.NodeStatus{
+				Phase: "init",
+			},
+		}
+		fakeClient, cs = k8sClient.NewFakeClientset()
+		nodes          resource.Resource[*corev1.Node]
+	)
+
+	// Create the initial version of the node. Do this before anything
+	// starts watching the resources to avoid a race.
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		node.DeepCopy(), "")
+
+	hive := hive.New(
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		nodesResource,
+		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
+			nodes = r
+		}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	eventWg := sync.WaitGroup{}
+	completeWg := sync.WaitGroup{}
+
+	eventWg.Add(2)    // upsert & sync
+	completeWg.Add(1) // complete
+
+	nodes.Observe(ctx, func(e resource.Event[*corev1.Node]) {
+		e.Done(nil)
+		eventWg.Done()
+	}, func(err error) {
+		completeWg.Done()
+	})
+
+	eventWg.Wait()
+
+	// Stop the hive to stop the resource and trigger completion.
+	if err := hive.Stop(ctx); err != nil {
+		t.Fatalf("hive.Stop failed: %s", err)
+	}
+	completeWg.Wait()
+}
+
 //
 // Benchmarks
 //
