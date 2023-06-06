@@ -21,6 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/helm"
+	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium-cli/k8s"
 )
 
 const (
@@ -532,6 +535,26 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 				return nil
 			},
 		},
+	}
+
+	if utils.IsInHelmMode() {
+		tasks = append(tasks, statusTask{
+			name: "Helm chart version",
+			task: func(_ context.Context) error {
+				client, ok := k.client.(*k8s.Client)
+				if !ok {
+					return fmt.Errorf("failed to initialize Helm client")
+				}
+				release, err := helm.Get(client.RESTClientGetter, helm.GetParameters{
+					Namespace: k.params.Namespace,
+					Name:      defaults.HelmReleaseName,
+				})
+				if err != nil {
+					return err
+				}
+				status.HelmChartVersion = release.Chart.Metadata.Version
+				return nil
+			}})
 	}
 
 	// for the sake of sanity, don't get pod logs more than once
