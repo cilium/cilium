@@ -150,7 +150,7 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 //     the repository.
 //
 // endpoint lock must NOT be held!
-func (e *Endpoint) regeneratePolicy() (retErr error) {
+func (e *Endpoint) regeneratePolicy(ctx context.Context) (retErr error) {
 	var forceRegeneration bool
 	var err error
 
@@ -221,10 +221,18 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 		repo.Mutex.RUnlock()
 		return err
 	}
+	repo.Mutex.RUnlock()
+
+	tctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	selectorPolicy.AwaitIdentities(tctx)
+	if tctx.Err() != nil {
+		// XXX log
+	}
+
 	// Consume converts a SelectorPolicy in to an EndpointPolicy
 	desiredPolicy := selectorPolicy.Consume(e)
 
-	repo.Mutex.RUnlock()
 	stats.policyCalculation.End(true)
 
 	// We're done allocating, time to re-lock and commit
@@ -236,6 +244,8 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 
 	// Check to see that someone else didn't beat us to policy compilation.
 	// if so, then don't commit.
+	// In reality, this shouldn't happen since our only caller holds the compilation lock, but
+	// it's good to be paranoid.
 	if e.nextPolicyRevision > repoRevision ||
 		(!forcePolicyCompute && e.nextPolicyRevision == repoRevision) {
 		e.getLogger().WithFields(logrus.Fields{

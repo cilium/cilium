@@ -735,7 +735,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 
 	// regenerate policy without holding the lock
 	stats.policyCalculation.Start()
-	err := e.regeneratePolicy()
+	err := e.regeneratePolicy(regenContext.parentContext)
 	stats.policyCalculation.End(err == nil)
 	if err != nil {
 		return false, fmt.Errorf("unable to regenerate policy for '%s': %s", e.StringID(), err)

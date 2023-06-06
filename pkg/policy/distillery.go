@@ -4,6 +4,7 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
 
@@ -19,6 +20,8 @@ type SelectorPolicy interface {
 	// Consume returns the policy in terms of connectivity to peer
 	// Identities.
 	Consume(owner PolicyOwner) *EndpointPolicy
+
+	AwaitIdentities(context.Context)
 }
 
 // PolicyCache represents a cache of resolved policies for identities.
@@ -199,4 +202,8 @@ func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner) *EndpointPolicy {
 	// EndpointPolicy for this Identity and emit datapath deltas instead.
 	isHost := cip.identity.ID == identityPkg.ReservedIdentityHost
 	return cip.getPolicy().DistillPolicy(owner, isHost)
+}
+
+func (cip *cachedSelectorPolicy) AwaitIdentities(ctx context.Context) {
+	cip.getPolicy().awaitIdentities(ctx)
 }

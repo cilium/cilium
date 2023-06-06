@@ -4,6 +4,8 @@
 package policy
 
 import (
+	"context"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -37,6 +39,10 @@ func (p *selectorPolicy) Attach(ctx PolicyContext) {
 	if p.L4Policy != nil {
 		p.L4Policy.Attach(ctx)
 	}
+}
+
+func (p *selectorPolicy) awaitIdentities(ctx context.Context) {
+	p.L4Policy.awaitIdentities(ctx)
 }
 
 // EndpointPolicy is a structure which contains the resolved policy across all

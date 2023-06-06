@@ -4,6 +4,7 @@
 package dnsproxy
 
 import (
+	"context"
 	"regexp"
 	"testing"
 
@@ -228,4 +229,7 @@ func (m MockCachedSelector) IsNone() bool {
 
 func (m MockCachedSelector) String() string {
 	return m.key
+}
+
+func (m MockCachedSelector) AwaitIdentities(_ context.Context) {
 }

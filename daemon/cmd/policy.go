@@ -122,6 +122,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		CacheStatus:       params.CacheStatus,
 	})
 	idAlloc.ipcache = ipc
+	iao.policy.GetSelectorCache().SetIPCache(ipc)
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(hc hive.HookContext) error {
@@ -259,6 +260,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		logger.WithField(logfields.CiliumNetworkPolicy, sourceRules.String()).Info("Policy Add Request")
 	}
 
+	// Prefixes is kept only for the prefixLength tracker
 	prefixes := policy.GetCIDRPrefixes(sourceRules)
 	logger.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
@@ -375,8 +377,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		epsToBumpRevision: endpointsToBumpRevision,
 		endpointsToRegen:  endpointsToRegen,
 		newRev:            newRev,
-		upsertPrefixes:    prefixes,
-		releasePrefixes:   removedPrefixes,
 		source:            opts.Source,
 		resource:          opts.Resource,
 	}
@@ -402,8 +402,6 @@ type PolicyReactionEvent struct {
 	epsToBumpRevision *policy.EndpointSet
 	endpointsToRegen  *policy.EndpointSet
 	newRev            uint64
-	upsertPrefixes    []netip.Prefix
-	releasePrefixes   []netip.Prefix
 	source            source.Source
 	resource          ipcacheTypes.ResourceID
 }
@@ -413,7 +411,7 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 	// Wait until we have calculated which endpoints need to be selected
 	// across multiple goroutines.
 	r.wg.Wait()
-	r.reactToRuleUpdates(r.epsToBumpRevision, r.endpointsToRegen, r.newRev, r.upsertPrefixes, r.releasePrefixes)
+	r.reactToRuleUpdates(r.epsToBumpRevision, r.endpointsToRegen, r.newRev)
 }
 
 // reactToRuleUpdates does the following:
@@ -422,24 +420,8 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 //     in allEps, to revision rev.
 //   - wait for the all endpoint regenerations to be _queued_.
 //   - upsert or delete CIDR identities to the ipcache, as needed.
-func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64, upsertPrefixes, releasePrefixes []netip.Prefix) {
+func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64) {
 	var enqueueWaitGroup sync.WaitGroup
-
-	// Asynchronously remove the CIDRs from the IPCache, potentially
-	// causing release of the corresponding identities if now unused.
-	// We can proceed with policy regeneration for endpoints even without
-	// ensuring that the ipcache is updated because:
-	// - If another policy still selects the CIDR, the corresponding
-	//   identity will remain live due to the other CIDR. Policy update
-	//   is a no-op for that CIDR.
-	// - If the policy being deleted is the last policy referring to this
-	//   CIDR, then the policy rules will be updated to remove the allow
-	//   for the CIDR below. The traffic would begin to be dropped after
-	//   this operation completes regardless of whether the BPF ipcache or
-	//   policymap gets updated first, so the ordering is not consequential.
-	if len(releasePrefixes) != 0 {
-		r.d.ipcache.RemovePrefixes(releasePrefixes, r.source, r.resource)
-	}
 
 	// Bump revision of endpoints which don't need to be regenerated.
 	epsToBumpRevision.ForEachGo(&enqueueWaitGroup, func(epp policy.Endpoint) {
@@ -477,13 +459,6 @@ func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *
 	})
 
 	enqueueWaitGroup.Wait()
-
-	// Asynchronously allocate identities for new CIDRs and notify the
-	// SelectorCache / Endpoints to do an incremental identity update to
-	// the datapath maps (if necessary).
-	if len(upsertPrefixes) != 0 {
-		r.d.ipcache.UpsertPrefixes(upsertPrefixes, r.source, r.resource)
-	}
 }
 
 // PolicyDeleteEvent is a wrapper around deletion of policy rules with a given
@@ -597,7 +572,6 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 		epsToBumpRevision: epsToBumpRevision,
 		endpointsToRegen:  endpointsToRegen,
 		newRev:            rev,
-		releasePrefixes:   prefixes,
 		source:            opts.Source,
 		resource:          opts.Resource,
 	}

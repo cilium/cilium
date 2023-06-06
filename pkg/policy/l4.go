@@ -5,6 +5,7 @@ package policy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -471,6 +472,16 @@ func (l4 *L4Filter) GetPort() uint16 {
 // GetListener returns the optional listener name.
 func (l4 *L4Filter) GetListener() string {
 	return l4.Listener
+}
+
+func (l4 *L4Filter) awaitIdentities(ctx context.Context) {
+	for cs := range l4.PerSelectorPolicies {
+		cs.AwaitIdentities(ctx)
+	}
+
+	if l4.wildcard != nil {
+		l4.wildcard.AwaitIdentities(ctx)
+	}
 }
 
 // ToMapState converts filter into a MapState with two possible values:
@@ -1209,6 +1220,20 @@ func (l4 *L4Policy) Attach(ctx PolicyContext) {
 	ingressRedirects := l4.Ingress.attach(ctx, l4)
 	egressRedirects := l4.Egress.attach(ctx, l4)
 	l4.redirectTypes = ingressRedirects | egressRedirects
+}
+
+func (l4 *L4Policy) awaitIdentities(ctx context.Context) {
+	if l4 == nil {
+		return
+	}
+
+	for _, p := range l4.Ingress {
+		p.awaitIdentities(ctx)
+	}
+
+	for _, p := range l4.Egress {
+		p.awaitIdentities(ctx)
+	}
 }
 
 // IngressCoversContext checks if the receiver's ingress L4Policy contains

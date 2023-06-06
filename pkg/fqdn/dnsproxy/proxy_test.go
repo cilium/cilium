@@ -1116,6 +1116,9 @@ func (t selectorMock) String() string {
 	return t.key
 }
 
+func (t selectorMock) AwaitIdentities(_ context.Context) {
+}
+
 func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	const (
 		nEPs              = 10000

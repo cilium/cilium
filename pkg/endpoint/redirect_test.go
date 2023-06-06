@@ -173,7 +173,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return firstAnno, nil
 	})
-	err = ep.regeneratePolicy()
+	err = ep.regeneratePolicy(context.Background())
 	c.Assert(err, check.IsNil)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -196,7 +196,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return secondAnno, nil
 	})
-	err = ep.regeneratePolicy()
+	err = ep.regeneratePolicy(context.Background())
 	c.Assert(err, check.IsNil)
 	d, err, _, _ := ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
@@ -216,7 +216,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return thirdAnno, nil
 	})
-	err = ep.regeneratePolicy()
+	err = ep.regeneratePolicy(context.Background())
 	c.Assert(err, check.IsNil)
 	_, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
@@ -263,7 +263,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return noAnno, nil
 	})
-	err = ep.regeneratePolicy()
+	err = ep.regeneratePolicy(context.Background())
 	c.Assert(err, check.IsNil)
 	d, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)

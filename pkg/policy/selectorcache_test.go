@@ -4,6 +4,7 @@
 package policy
 
 import (
+	"context"
 	"sync"
 
 	. "github.com/cilium/checkmate"
@@ -227,6 +228,9 @@ func (cs *testCachedSelector) IsNone() bool {
 
 func (cs *testCachedSelector) String() string {
 	return cs.name
+}
+
+func (cs *testCachedSelector) AwaitIdentities(_ context.Context) {
 }
 
 func (ds *SelectorCacheTestSuite) SetUpTest(c *C) {

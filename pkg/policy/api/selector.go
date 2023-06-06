@@ -126,6 +126,22 @@ func (n EndpointSelector) HasKeyPrefix(prefix string) bool {
 	return false
 }
 
+func (n EndpointSelector) GetKeysWithPrefix(prefix string) []string {
+	var out []string
+	for k := range n.MatchLabels {
+		if strings.HasPrefix(k, prefix) {
+			out = append(out, k)
+		}
+	}
+	for _, v := range n.MatchExpressions {
+		if strings.HasPrefix(v.Key, prefix) {
+			out = append(out, v.Key)
+		}
+	}
+
+	return out
+}
+
 // HasKey checks if the endpoint selector contains the given key in
 // its MatchLabels map or in its MatchExpressions slice.
 func (n EndpointSelector) HasKey(key string) bool {
