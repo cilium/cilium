@@ -305,11 +305,18 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 		return fmt.Errorf("IPSec key missing")
 	}
 
+	wildcardIP := wildcardIPv4
+	wildcardCIDR := wildcardCIDRv4
+	if tmplDst.To4() == nil {
+		wildcardIP = wildcardIPv6
+		wildcardCIDR = wildcardCIDRv6
+	}
+
 	policy := ipSecNewPolicy()
 	policy.Dir = dir
-	policy.Dst = dst
 	if dir == netlink.XFRM_DIR_IN {
 		policy.Src = src
+		policy.Dst = dst
 		policy.Mark = &netlink.XfrmMark{
 			Mask: linux_defaults.IPsecMarkMaskIn,
 		}
@@ -324,7 +331,7 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 			optional = 1
 			// We set the source tmpl address to 0/0 to explicit that it
 			// doesn't matter.
-			tmplSrc = net.ParseIP("0.0.0.0")
+			tmplSrc = wildcardIP
 		} else {
 			policy.Mark.Value = linux_defaults.RouteMarkDecrypt
 		}
@@ -337,8 +344,8 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 		policy.Priority = linux_defaults.IPsecFwdPriority
 		// In case of fwd policies, we should tell the kernel the tmpl src
 		// doesn't matter; we want all fwd packets to go through.
-		tmplSrc = net.ParseIP("0.0.0.0")
-		policy.Src = &net.IPNet{IP: tmplSrc, Mask: net.IPv4Mask(0, 0, 0, 0)}
+		policy.Src = wildcardCIDR
+		policy.Dst = wildcardCIDR
 	}
 	ipSecAttachPolicyTempl(policy, key, tmplSrc, tmplDst, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
