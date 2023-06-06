@@ -34,6 +34,8 @@ type fakeBackend struct {
 
 	errorsOnUpdate map[string]uint
 	errorsOnDelete map[string]uint
+
+	leaseExpiredObserver func(key string)
 }
 
 func NewFakeBackend(t *testing.T, expectLease bool) *fakeBackend {
@@ -82,6 +84,10 @@ func (fb *fakeBackend) Delete(ctx context.Context, key string) error {
 	}
 
 	return nil
+}
+
+func (fb *fakeBackend) RegisterLeaseExpiredObserver(prefix string, fn func(key string)) {
+	fb.leaseExpiredObserver = fn
 }
 
 type fakeRateLimiter struct{ whenCalled, forgetCalled chan *KVPair }
@@ -159,6 +165,10 @@ func TestWorkqueueSyncStore(t *testing.T) {
 	store.DeleteKey(ctx, NewKVPair("key2", ""))
 	require.Equal(t, NewKVPair("/foo/bar/key2", ""), eventually(backend.deleted))
 	require.Equal(t, NewKVPair("/foo/bar/key2", ""), eventually(backend.deleted))
+
+	// Executing the lease expired observer should trigger a new update for the given key.
+	backend.leaseExpiredObserver("/foo/bar/key1")
+	require.Equal(t, NewKVPair("/foo/bar/key1", "valueC"), eventually(backend.updated))
 }
 
 func TestWorkqueueSyncStoreWithoutLease(t *testing.T) {
@@ -334,6 +344,23 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
 		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
 	}, WSSWithWorkers(10)))
+
+	// Assert that the synced key gets recreated if the corresponding lease expired
+	t.Run("lease-expiration", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		callback := func(ctx context.Context) {
+			backend.Update(ctx, "callback/executed", []byte{}, true)
+		}
+
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.Synced(ctx, callback)
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
+		require.Equal(t, NewKVPair("callback/executed", ""), eventually(backend.updated))
+		backend.leaseExpiredObserver("cilium/synced/qux/foo/bar")
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
+		// The callback shall not be executed a second time
+	}))
 }
 
 func TestWorkqueueSyncStoreMetrics(t *testing.T) {
