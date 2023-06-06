@@ -7,10 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/netip"
 	"runtime/pprof"
 	"time"
 
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -181,6 +185,11 @@ func (p *l2ResponderReconciler) partialReconciliation(maxRevIn uint64) (maxRev u
 			return nil
 		}
 
+		err = garpOnNewEntry(arMap, e.IP, idx)
+		if err != nil {
+			errs = errors.Join(errs, err)
+		}
+
 		err = arMap.Create(e.IP, uint32(idx))
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("create %s@%d: %w", e.IP, idx, err))
@@ -304,12 +313,36 @@ func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) 
 			continue
 		}
 
+		err = garpOnNewEntry(arMap, key.IP[:], int(key.IfIndex))
+		if err != nil {
+			errs = errors.Join(errs, err)
+		}
+
 		if err := arMap.Create(key.IP[:], key.IfIndex); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("create %s@%d: %w", key.IP, key.IfIndex, err))
 		}
 	}
 
 	return maxRev, errs
+}
+
+// If the given IP and network interface index does not yet exist in the l2 responder map,
+// a failover might have taken place. Therefor we should send out a gARP reply to let
+// the local network know the IP has moved to minimize downtime due to ARP caching.
+func garpOnNewEntry(arMap l2respondermap.Map, ip net.IP, ifIndex int) error {
+	_, err := arMap.Lookup(ip, uint32(ifIndex))
+	if !errors.Is(err, ebpf.ErrKeyNotExist) {
+		return nil
+	}
+
+	if netIP, ok := netip.AddrFromSlice(ip); ok {
+		err = garp.SendOnInterfaceIdx(ifIndex, netIP)
+		if err != nil {
+			return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
+		}
+	}
+
+	return nil
 }
 
 type cachingLinkResolver struct {
