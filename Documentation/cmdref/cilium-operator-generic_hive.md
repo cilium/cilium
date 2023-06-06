@@ -28,8 +28,8 @@ cilium-operator-generic hive [flags]
       --mesh-auth-mutual-enabled                             The flag to enable mutual authentication for the SPIRE server.
       --mesh-auth-spiffe-trust-domain string                 The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
-      --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc.cluster.local:8081")
-      --mesh-auth-spire-server-connection-timeout duration   SPIRE server endpoint. (default 10s)
+      --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc:8081")
+      --mesh-auth-spire-server-connection-timeout duration   SPIRE server connection timeout. (default 10s)
       --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
       --operator-pprof                                       Enable serving pprof debugging API
       --operator-pprof-address string                        Address that pprof listens on (default "localhost")
