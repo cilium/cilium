@@ -37,3 +37,8 @@ Cilium's Gateway API features:
    header
 
 More examples can be found `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v0.7.0/examples/standard>`_.
+
+Troubleshooting
+###############
+
+.. include:: troubleshooting.rst
