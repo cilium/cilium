@@ -108,6 +108,7 @@ jobs:
   # Pre-build the ginkgo binary so that we don't have to build it for all
   # runners.
   build-ginkgo-binary:
+    needs: check_changes
     runs-on: ubuntu-latest
     name: Build Ginkgo E2E
     timeout-minutes: 30
