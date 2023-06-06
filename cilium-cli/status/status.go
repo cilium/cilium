@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/internal/utils"
 )
 
 const (
@@ -105,6 +106,10 @@ type Status struct {
 	// CollectionErrors is the errors that accumulated while collecting the
 	// status
 	CollectionErrors []error `json:"collection_errors,omitempty"`
+
+	// HelmChartVersion is the Helm chart version that is currently installed.
+	// For Helm mode only.
+	HelmChartVersion string `json:"helm_chart_version,omitempty"`
 
 	mutex *sync.Mutex
 }
@@ -346,6 +351,9 @@ func (s *Status) Format() string {
 
 	fmt.Fprintf(w, "Cluster Pods:\t%s\n", formatPodsCount(s.PodsCount))
 
+	if utils.IsInHelmMode() {
+		fmt.Fprintf(w, "Helm chart version:\t%s\n", s.HelmChartVersion)
+	}
 	if len(s.ImageCount) > 0 {
 		header := "Image versions"
 		for name, imageCount := range s.ImageCount {
