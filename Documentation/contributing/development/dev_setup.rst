@@ -211,9 +211,9 @@ If you want to connect to the Kubernetes cluster running inside the developer VM
 
 .. code-block:: shell-session
 
-    $ export KUBECONFIG=$KUBECONFIG:$GOPATH/src/github.com/cilium/cilium/vagrant.kubeconfig
+    $ export KUBECONFIG=$KUBECONFIG:${PATH_TO_CILIUM_REPO}/vagrant.kubeconfig
 
-and add ``127.0.0.1 k8s1`` to your hosts file.
+where ``PATH_TO_CILIUM_REPO`` is the path of your local clone of the Cilium git repository. Also add ``127.0.0.1 k8s1`` to your hosts file.
 
 If you have any issue with the provided vagrant box
 ``cilium/ubuntu`` or need a different box format, you may
