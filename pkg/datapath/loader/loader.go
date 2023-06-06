@@ -110,10 +110,14 @@ func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 // We need this function when patching an object file for which symbols were
 // already substituted. During the first symbol substitutions, string symbols
 // were replaced such that:
-//   template_string -> string_for_endpoint
+//
+//	template_string -> string_for_endpoint
+//
 // Since we only want to replace one int symbol, we can nullify string
 // substitutions with:
-//   string_for_endpoint -> string_for_endpoint
+//
+//	string_for_endpoint -> string_for_endpoint
+//
 // We cannot simply pass an empty map as the agent would complain that some
 // symbol had no corresponding values.
 func nullifyStringSubstitutions(strings map[string]string) map[string]string {
@@ -368,18 +372,20 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	return nil
 }
 
-func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) error {
+func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) (err error) {
 	for _, iface := range option.Config.EncryptInterface {
-		finalize, err := replaceDatapath(ctx, iface, networkObj, symbolFromNetwork, dirIngress, false, "")
-		if err != nil {
-			log.WithField(logfields.Interface, iface).Fatal("Load encryption network failed")
+		finalize, replaceErr := replaceDatapath(ctx, iface, networkObj, symbolFromNetwork, dirIngress, false, "")
+		if replaceErr != nil {
+			log.WithField(logfields.Interface, iface).WithError(replaceErr).Error("Load encryption network failed")
+			// Return the error to the caller, but keep trying replacing other interfaces.
+			err = replaceErr
+		} else {
+			log.WithField(logfields.Interface, iface).Info("Encryption network program (re)loaded")
+			// Defer map removal until all interfaces' progs have been replaced.
+			defer finalize()
 		}
-		log.WithField(logfields.Interface, iface).Info("Encryption network program (re)loaded")
-
-		// Defer map removal until all interfaces' progs have been replaced.
-		defer finalize()
 	}
-	return nil
+	return
 }
 
 func (l *Loader) compileAndLoad(ctx context.Context, ep datapath.Endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
