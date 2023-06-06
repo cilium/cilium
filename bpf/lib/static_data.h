@@ -18,12 +18,13 @@
 #define fetch_ipv6(x) fetch_u64_i(x, 1), fetch_u64_i(x, 2)
 #define fetch_mac(x) { { fetch_u32_i(x, 1), (__u16)fetch_u32_i(x, 2) } }
 
+#define SEC_DEFINE __section(".data")
 /* DEFINE_* macros help to declare static data. */
-#define DEFINE_U16(NAME, value) volatile __u16 NAME = value
-#define DEFINE_U32(NAME, value) volatile __u32 NAME = value
-#define DEFINE_U32_I(NAME, i) volatile __u32 NAME ## _ ## i
-#define DEFINE_U64(NAME, value) volatile __u64 NAME = value
-#define DEFINE_U64_I(NAME, i) volatile __u64 NAME ## _ ## i
+#define DEFINE_U16(NAME, value) SEC_DEFINE volatile __u16 NAME = value
+#define DEFINE_U32(NAME, value) SEC_DEFINE volatile __u32 NAME = value
+#define DEFINE_U32_I(NAME, i) SEC_DEFINE volatile __u32 NAME ## _ ## i
+#define DEFINE_U64(NAME, value) SEC_DEFINE volatile __u64 NAME = value
+#define DEFINE_U64_I(NAME, i) SEC_DEFINE volatile __u64 NAME ## _ ## i
 
 #define DEFINE_IPV6(NAME, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16) \
 DEFINE_U64_I(NAME, 1) = bpf_cpu_to_be64( \
