@@ -2371,7 +2371,7 @@
    * - prometheus
      - Configure prometheus metrics on the configured port at /metrics
      - object
-     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}}``
+     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"trustCRDsExist":false}}``
    * - prometheus.metrics
      - Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). ref: https://docs.cilium.io/en/stable/observability/metrics/
      - string
@@ -2400,6 +2400,10 @@
      - Relabeling configs for the ServiceMonitor cilium-agent
      - list
      - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
+   * - prometheus.serviceMonitor.trustCRDsExist
+     - Set to ``true`` and helm will not check for monitoring.coreos.com/v1 CRDs before deploying
+     - bool
+     - ``false``
    * - proxy
      - Configure Istio proxy options.
      - object

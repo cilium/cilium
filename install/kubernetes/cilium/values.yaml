@@ -1735,6 +1735,9 @@ prometheus:
         replacement: ${1}
     # -- Metrics relabeling configs for the ServiceMonitor cilium-agent
     metricRelabelings: ~
+    # -- Set to `true` and helm will not check for monitoring.coreos.com/v1 CRDs before deploying
+    trustCRDsExist: false
+
   # -- Metrics that should be enabled or disabled from the default metric list.
   # The list is expected to be separated by a space. (+metric_foo to enable
   # metric_foo , -metric_bar to disable metric_bar).

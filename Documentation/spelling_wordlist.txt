@@ -332,6 +332,7 @@ containerd
 contrib
 coord
 coredns
+coreos
 cpsw
 cpu
 cpumap
@@ -1076,6 +1077,7 @@ tracepoint
 tracepoints
 transpiling
 triaged
+trustCRDsExist
 trustDomain
 ttlSecondsAfterFinished
 tunnelPort
