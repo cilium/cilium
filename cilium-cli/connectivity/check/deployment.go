@@ -104,6 +104,7 @@ type deploymentParameters struct {
 	NodeSelector   map[string]string
 	ReadinessProbe *corev1.Probe
 	Labels         map[string]string
+	Annotations    map[string]string
 	HostNetwork    bool
 	Tolerations    []corev1.Toleration
 }
@@ -132,6 +133,7 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 						"name": p.Name,
 						"kind": p.Kind,
 					},
+					Annotations: p.Annotations,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -393,7 +395,12 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	_, err := ct.clients.src.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", ct.clients.src.ClusterName(), ct.params.TestNamespace)
-		namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ct.params.TestNamespace}}
+		namespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        ct.params.TestNamespace,
+				Annotations: ct.params.NamespaceAnnotations,
+			},
+		}
 		_, err = ct.clients.src.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to create namespace %s: %s", ct.params.TestNamespace, err)
@@ -443,7 +450,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Labels: map[string]string{
 					"client": "role",
 				},
-				Command: []string{"/bin/bash", "-c", "sleep 10000000"},
+				Annotations: ct.params.DeploymentAnnotations.Match(nm.ClientName()),
+				Command:     []string{"/bin/bash", "-c", "sleep 10000000"},
 				Affinity: &corev1.Affinity{
 					NodeAffinity: &corev1.NodeAffinity{
 						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
@@ -480,9 +488,10 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Labels: map[string]string{
 					"server": "role",
 				},
-				Port:    5001,
-				Image:   ct.params.PerformanceImage,
-				Command: []string{"/bin/bash", "-c", "netserver;sleep 10000000"},
+				Annotations: ct.params.DeploymentAnnotations.Match(nm.ServerName()),
+				Port:        5001,
+				Image:       ct.params.PerformanceImage,
+				Command:     []string{"/bin/bash", "-c", "netserver;sleep 10000000"},
 				Affinity: &corev1.Affinity{
 					NodeAffinity: &corev1.NodeAffinity{
 						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
@@ -535,8 +544,9 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					Labels: map[string]string{
 						"client": "role",
 					},
-					Image:   ct.params.PerformanceImage,
-					Command: []string{"/bin/bash", "-c", "sleep 10000000"},
+					Annotations: ct.params.DeploymentAnnotations.Match(nm.ClientAcrossName()),
+					Image:       ct.params.PerformanceImage,
+					Command:     []string{"/bin/bash", "-c", "sleep 10000000"},
 					Affinity: &corev1.Affinity{
 						NodeAffinity: &corev1.NodeAffinity{
 							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
@@ -584,7 +594,12 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		_, err = ct.clients.dst.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", ct.clients.dst.ClusterName(), ct.params.TestNamespace)
-			namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ct.params.TestNamespace}}
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        ct.params.TestNamespace,
+					Annotations: ct.params.NamespaceAnnotations,
+				},
+			}
 			_, err = ct.clients.dst.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create namespace %s: %s", ct.params.TestNamespace, err)
@@ -658,13 +673,14 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		ct.Logf("✨ [%s] Deploying same-node deployment...", ct.clients.src.ClusterName())
 		containerPort := 8080
 		echoDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
-			Name:      echoSameNodeDeploymentName,
-			Kind:      kindEchoName,
-			Port:      containerPort,
-			NamedPort: "http-8080",
-			HostPort:  hostPort,
-			Image:     ct.params.JSONMockImage,
-			Labels:    map[string]string{"other": "echo"},
+			Name:        echoSameNodeDeploymentName,
+			Kind:        kindEchoName,
+			Port:        containerPort,
+			NamedPort:   "http-8080",
+			HostPort:    hostPort,
+			Image:       ct.params.JSONMockImage,
+			Labels:      map[string]string{"other": "echo"},
+			Annotations: ct.params.DeploymentAnnotations.Match(echoSameNodeDeploymentName),
 			Affinity: &corev1.Affinity{
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -701,6 +717,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Port:         8080,
 			Image:        ct.params.CurlImage,
 			Command:      []string{"/bin/ash", "-c", "sleep 10000000"},
+			Annotations:  ct.params.DeploymentAnnotations.Match(clientDeploymentName),
 			NodeSelector: ct.params.NodeSelector,
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(clientDeploymentName), metav1.CreateOptions{})
@@ -718,13 +735,14 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), client2DeploymentName)
 		clientDeployment := newDeployment(deploymentParameters{
-			Name:      client2DeploymentName,
-			Kind:      kindClientName,
-			NamedPort: "http-8080",
-			Port:      8080,
-			Image:     ct.params.CurlImage,
-			Command:   []string{"/bin/ash", "-c", "sleep 10000000"},
-			Labels:    map[string]string{"other": "client"},
+			Name:        client2DeploymentName,
+			Kind:        kindClientName,
+			NamedPort:   "http-8080",
+			Port:        8080,
+			Image:       ct.params.CurlImage,
+			Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+			Labels:      map[string]string{"other": "client"},
+			Annotations: ct.params.DeploymentAnnotations.Match(client2DeploymentName),
 			Affinity: &corev1.Affinity{
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -774,13 +792,14 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			ct.Logf("✨ [%s] Deploying other-node deployment...", ct.clients.dst.ClusterName())
 			containerPort := 8080
 			echoOtherNodeDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
-				Name:      echoOtherNodeDeploymentName,
-				Kind:      kindEchoName,
-				NamedPort: "http-8080",
-				Port:      containerPort,
-				HostPort:  hostPort,
-				Image:     ct.params.JSONMockImage,
-				Labels:    map[string]string{"first": "echo"},
+				Name:        echoOtherNodeDeploymentName,
+				Kind:        kindEchoName,
+				NamedPort:   "http-8080",
+				Port:        containerPort,
+				HostPort:    hostPort,
+				Image:       ct.params.JSONMockImage,
+				Labels:      map[string]string{"first": "echo"},
+				Annotations: ct.params.DeploymentAnnotations.Match(echoOtherNodeDeploymentName),
 				Affinity: &corev1.Affinity{
 					PodAntiAffinity: &corev1.PodAntiAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -863,6 +882,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				HostPort:       8080,
 				Image:          ct.params.JSONMockImage,
 				Labels:         map[string]string{"external": "echo"},
+				Annotations:    ct.params.DeploymentAnnotations.Match(echoExternalNodeDeploymentName),
 				NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
 				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
 				HostNetwork:    true,
