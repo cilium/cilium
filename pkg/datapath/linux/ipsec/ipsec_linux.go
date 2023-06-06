@@ -196,7 +196,6 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 	// Check if the XFRM state already exists
 	for _, s := range states {
 		if xfrmIPEqual(s.Src, new.Src) && xfrmIPEqual(s.Dst, new.Dst) &&
-			xfrmMarkEqual(s.OutputMark, new.OutputMark) &&
 			xfrmMarkEqual(s.Mark, new.Mark) && s.Spi == new.Spi {
 			return nil
 		}
@@ -221,7 +220,6 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 		// and can be removed in v1.15. Finally, this shouldn't happen with ENI
 		// and Azure IPAM modes because they don't have such conflicting states.
 		if xfrmIPEqual(s.Src, new.Src) && xfrmIPEqual(s.Dst, new.Dst) &&
-			xfrmMarkEqual(s.OutputMark, new.OutputMark) &&
 			xfrmMarkEqual(s.Mark, oldXFRMMark) && s.Spi == new.Spi {
 			err := netlink.XfrmStateDel(&s)
 			if err != nil {
