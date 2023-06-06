@@ -16,6 +16,7 @@
 #include "endian.h"
 #include "mono.h"
 #include "config.h"
+#include "tunnel.h"
 
 #ifndef AF_INET
 #define AF_INET 2
@@ -720,27 +721,6 @@ enum metric_dir {
 #define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
 #define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
 
-/* The high-order bit of the Geneve option type indicates that
- * this is a critical option.
- *
- * https://www.rfc-editor.org/rfc/rfc8926.html#name-tunnel-options
- */
-#define GENEVE_OPT_TYPE_CRIT	0x80
-
-/* Geneve option used to carry service addr and port for DSR.
- *
- * Class = 0x014B (Cilium according to [1])
- * Type  = 0x1   (vendor-specific)
- *
- * [1]: https://www.iana.org/assignments/nvo3/nvo3.xhtml#geneve-option-class
- */
-#define DSR_GENEVE_OPT_CLASS	0x014B
-#define DSR_GENEVE_OPT_TYPE	(GENEVE_OPT_TYPE_CRIT | 0x01)
-#define DSR_IPV4_GENEVE_OPT_LEN	\
-	((sizeof(struct geneve_dsr_opt4) - sizeof(struct geneve_opt_hdr)) / 4)
-#define DSR_IPV6_GENEVE_OPT_LEN	\
-	((sizeof(struct geneve_dsr_opt6) - sizeof(struct geneve_opt_hdr)) / 4)
-
 /* We cap key index at 4 bits because mark value is used to map ctx to key */
 #define MAX_KEY_INDEX 15
 
@@ -1208,56 +1188,6 @@ struct lpm_v6_key {
 struct lpm_val {
 	/* Just dummy for now. */
 	__u8 flags;
-};
-
-struct geneve_opt_hdr {
-	__be16 opt_class;
-	__u8 type;
-#ifdef __LITTLE_ENDIAN_BITFIELD
-	__u8 length:5,
-	     rsvd:3;
-#else
-	__u8 rsvd:3,
-	     length:5;
-#endif
-};
-
-struct geneve_dsr_opt4 {
-	struct geneve_opt_hdr hdr;
-	__be32	addr;
-	__be16	port;
-	__u16	pad;
-};
-
-struct geneve_dsr_opt6 {
-	struct geneve_opt_hdr hdr;
-	union v6addr addr;
-	__be16	port;
-	__u16	pad;
-};
-
-struct genevehdr {
-#ifdef __LITTLE_ENDIAN_BITFIELD
-	__u8 opt_len:6,
-	     ver:2;
-	__u8 rsvd:6,
-	     critical:1,
-	     control:1;
-#else
-	__u8 ver:2,
-	     opt_len:6;
-	__u8 control:1,
-	     critical:1,
-	     rsvd:6;
-#endif
-	__be16 protocol_type;
-	__u8 vni[3];
-	__u8 reserved;
-};
-
-struct vxlanhdr {
-	__be32 vx_flags;
-	__be32 vx_vni;
 };
 
 /* Older kernels don't support the larger tunnel key structure and we don't
