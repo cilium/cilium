@@ -1313,7 +1313,10 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb6(ctx, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
+
+#ifndef IS_BPF_LXC
 	edt_set_aggregate(ctx, 0);
+#endif
 	cilium_capture_out(ctx);
 	return ret;
 drop:
@@ -2664,7 +2667,10 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
+
+#ifndef IS_BPF_LXC
 	edt_set_aggregate(ctx, 0);
+#endif
 	cilium_capture_out(ctx);
 	return ret;
 }
