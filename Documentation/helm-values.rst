@@ -141,9 +141,9 @@
      - object
      - ``{"create":true,"name":"spire-server"}``
    * - authentication.mutual.spire.serverAddress
-     - SPIRE server address
+     - SPIRE server address used by Cilium Operator  As Cilium Operator is running in host network, please adjust operator.dnsPolicy to ClusterFirstWithHostNet if DNS resolution is required.  Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
      - string
-     - ``"spire-server.cilium-spire.svc:8081"``
+     - ``nil``
    * - authentication.mutual.spire.trustDomain
      - SPIFFE trust domain to use for fetching certificates
      - string
