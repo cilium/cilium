@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -47,6 +48,10 @@ type SyncStoreBackend interface {
 	Update(ctx context.Context, key string, value []byte, lease bool) error
 	// Delete deletes a key.
 	Delete(ctx context.Context, key string) error
+
+	// RegisterLeaseExpiredObserver registers a function which is executed when
+	// the lease associated with a key having the given prefix is detected as expired.
+	RegisterLeaseExpiredObserver(prefix string, fn func(key string))
 }
 
 // wqSyncStore implements the SyncStore interface leveraging a workqueue to
@@ -73,7 +78,7 @@ type wqSyncStore struct {
 	syncedMetric prometheus.Gauge
 }
 
-type syncCanary struct{}
+type syncCanary struct{ skipCallbacks bool }
 
 type WSSOpt func(*wqSyncStore)
 
@@ -140,6 +145,9 @@ func (wss *wqSyncStore) Run(ctx context.Context) {
 	wss.syncedMetric.Set(metrics.BoolToFloat64(false))
 	defer wss.syncedMetric.Set(metrics.BoolToFloat64(false))
 
+	wss.backend.RegisterLeaseExpiredObserver(wss.prefix, wss.handleExpiredLease)
+	wss.backend.RegisterLeaseExpiredObserver(wss.getSyncedKey(), wss.handleExpiredLease)
+
 	wss.log.WithField(logfields.Workers, wss.workers).Info("Starting workqueue-based sync store")
 	wg.Add(int(wss.workers))
 	for i := uint(0); i < wss.workers; i++ {
@@ -151,6 +159,9 @@ func (wss *wqSyncStore) Run(ctx context.Context) {
 	}
 
 	<-ctx.Done()
+
+	wss.backend.RegisterLeaseExpiredObserver(wss.prefix, nil)
+	wss.backend.RegisterLeaseExpiredObserver(wss.getSyncedKey(), nil)
 
 	wss.log.Info("Shutting down workqueue-based sync store")
 	wss.workqueue.ShutDown()
@@ -237,8 +248,8 @@ func (wss *wqSyncStore) processNextItem(ctx context.Context) bool {
 }
 
 func (wss *wqSyncStore) handle(ctx context.Context, key interface{}) error {
-	if _, ok := key.(syncCanary); ok {
-		return wss.handleSync(ctx)
+	if value, ok := key.(syncCanary); ok {
+		return wss.handleSync(ctx, value.skipCallbacks)
 	}
 
 	if value, ok := wss.state.Load(key); ok {
@@ -273,7 +284,7 @@ func (wss *wqSyncStore) handleDelete(ctx context.Context, key string) error {
 	return nil
 }
 
-func (wss *wqSyncStore) handleSync(ctx context.Context) error {
+func (wss *wqSyncStore) handleSync(ctx context.Context, skipCallbacks bool) error {
 	// This could be replaced by wss.toSync.Len() == 0 if it only existed...
 	syncCompleted := true
 	wss.pendingSync.Range(func(any, any) bool {
@@ -285,7 +296,7 @@ func (wss *wqSyncStore) handleSync(ctx context.Context) error {
 		return fmt.Errorf("there are still keys to be synchronized")
 	}
 
-	key := path.Join(kvstore.SyncedPrefix, wss.source, wss.syncedKey)
+	key := wss.getSyncedKey()
 	scopedLog := wss.log.WithField(logfields.Key, key)
 
 	err := wss.backend.Update(ctx, key, []byte(time.Now().Format(time.RFC3339)), wss.withLease)
@@ -298,11 +309,37 @@ func (wss *wqSyncStore) handleSync(ctx context.Context) error {
 	wss.syncedMetric.Set(metrics.BoolToFloat64(true))
 
 	// Execute any callback that might have been registered.
-	for _, callback := range wss.syncedCallbacks {
-		callback(ctx)
+	if !skipCallbacks {
+		for _, callback := range wss.syncedCallbacks {
+			callback(ctx)
+		}
 	}
 
 	return nil
+}
+
+// handleExpiredLease gets executed when the lease attached to a given key expired,
+// and is responsible for enqueuing the given key to recreate it.
+func (wss *wqSyncStore) handleExpiredLease(key string) {
+	defer wss.queuedMetric.Set(float64(wss.workqueue.Len()))
+
+	if key == wss.getSyncedKey() {
+		// Re-enqueue the creation of the sync canary, but make sure that
+		// the registered callbacks are not executed a second time.
+		wss.workqueue.Add(syncCanary{skipCallbacks: true})
+		return
+	}
+
+	key = strings.TrimPrefix(strings.TrimPrefix(key, wss.prefix), "/")
+	_, ok := wss.state.Load(key)
+	if ok {
+		wss.log.WithField(logfields.Key, key).Debug("enqueuing upsert request for key as the attached lease expired")
+		if !wss.synced.Load() {
+			wss.pendingSync.Store(key, struct{}{})
+		}
+
+		wss.workqueue.Add(key)
+	}
 }
 
 // keyPath returns the absolute kvstore path of a key
@@ -310,4 +347,8 @@ func (wss *wqSyncStore) keyPath(key string) string {
 	// WARNING - STABLE API: The composition of the absolute key path
 	// cannot be changed without breaking up and downgrades.
 	return path.Join(wss.prefix, key)
+}
+
+func (wss *wqSyncStore) getSyncedKey() string {
+	return path.Join(kvstore.SyncedPrefix, wss.source, wss.syncedKey)
 }
