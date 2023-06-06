@@ -67,6 +67,44 @@ env:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-ginkgo' ||
+        github.event.comment.body == '/test'
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      # Because we run on issue comments, we need to checkout the code for
+      # paths-filter to work.
+      - name: Checkout code
+        if: ${{ github.event.issue.pull_request }}
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          persist-credentials: false
+      - name: Retrieve pull request's base and head
+        if: ${{ github.event.issue.pull_request }}
+        id: pr
+        run: |
+          curl ${{ github.event.issue.pull_request.url }} > pr.json
+          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
+          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
+      - name: Check code changes
+        if: ${{ github.event.issue.pull_request }}
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        id: tested-tree
+        with:
+          base: ${{ steps.pr.outputs.base }}
+          ref: ${{ steps.pr.outputs.head }}
+          filters: |
+            src:
+              - '!(Documentation)/**'
+
   # Pre-build the ginkgo binary so that we don't have to build it for all
   # runners.
   build-ginkgo-binary:
