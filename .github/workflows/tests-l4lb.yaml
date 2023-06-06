@@ -71,47 +71,10 @@ env:
 
 jobs:
   check_changes:
-    name: Deduce required tests from code changes
-    if: |
-      (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-l4lb' ||
-        github.event.comment.body == '/test'
-      )) ||
-      github.event_name == 'schedule' ||
-      github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    outputs:
-      tested: ${{ steps.tested-tree.outputs.src }}
-    steps:
-      # Because we run on issue comments, we need to checkout the code for
-      # paths-filter to work.
-      - name: Checkout code
-        if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-        with:
-          persist-credentials: false
-      - name: Retrieve pull request's base and head
-        if: ${{ github.event.issue.pull_request }}
-        id: pr
-        run: |
-          curl ${{ github.event.issue.pull_request.url }} > pr.json
-          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
-          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
-      - name: Check code changes
-        if: ${{ github.event.issue.pull_request }}
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
-        id: tested-tree
-        with:
-          base: ${{ steps.pr.outputs.base }}
-          ref: ${{ steps.pr.outputs.head }}
-          filters: |
-            src:
-              - 'pkg/**'
-              - 'daemon/**'
-              - 'bpf/**'
-              - 'test/l4lb/**'
-              - 'test/nat46x64/**'
-              - 'images/**'
+    uses: ./.github/workflows/reusable-check-changes.yml
+    with:
+      filters_path: "./.github/actions/check-changes/conformance-tests-l4lb-filters.yaml"
+      issue_comment_specific_trigger: "/ci-l4lb"
 
   skip-test-run:
     # If the modified files are not relevant for this test then we can skip
@@ -120,24 +83,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: check_changes
     steps:
-    - name: Set up job variables
-      id: vars
-      run: |
-        if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-          PR_API_JSON=$(curl \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-          SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-        else
-          SHA=${{ github.sha }}
-        fi
-        echo "sha=${SHA}" >> $GITHUB_OUTPUT
     - name: Set commit status to success
       uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
       with:
         authToken: ${{ secrets.GITHUB_TOKEN }}
-        sha: ${{ steps.vars.outputs.sha }}
+        sha: ${{ needs.check_changes.outputs.head_sha }}
         context: ${{ github.workflow }}
         description: L4LB test skipped
         state: success
@@ -168,26 +118,11 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      - name: Set up job variables
-        id: vars
-        run: |
-          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-            PR_API_JSON=$(curl \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-          else
-            SHA=${{ github.sha }}
-          fi
-
-          echo sha=${SHA} >> $GITHUB_OUTPUT
-
       - name: Set commit status to pending
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.head_sha }}
           context: ${{ github.workflow }}
           description: L4LB test in progress...
           state: pending
@@ -209,7 +144,7 @@ jobs:
       - name: Checkout pull request for Helm chart
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ needs.check_changes.outputs.head_sha }}
           persist-credentials: false
           path: pull-request
 
@@ -217,15 +152,15 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ needs.check_changes.outputs.head_sha }} &> /dev/null; do sleep 45s; done
 
       - name: Run LoadBalancing test
         run: |
-          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
+          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ needs.check_changes.outputs.head_sha }}
 
       - name: Run NAT46x64 test
         run: |
-          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
+          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ needs.check_changes.outputs.head_sha }}
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
@@ -244,7 +179,7 @@ jobs:
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.head_sha }}
           context: ${{ github.workflow }}
           description: L4LB test successful
           state: success
@@ -255,7 +190,7 @@ jobs:
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.head_sha }}
           context: ${{ github.workflow }}
           description: L4LB test failed
           state: failure
@@ -266,7 +201,7 @@ jobs:
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.head_sha }}
           context: ${{ github.workflow }}
           description: L4LB test cancelled
           state: error

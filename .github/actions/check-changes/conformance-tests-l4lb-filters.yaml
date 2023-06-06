@@ -1,0 +1,9 @@
+src:
+  - 'pkg/**'
+  - 'daemon/**'
+  - 'bpf/**'
+  - 'test/l4lb/**'
+  - 'test/nat46x64/**'
+  - 'images/**'
+  - '.github/actions/check-changes/conformance-tests-l4lb-filters.yaml'
+  - '.github/workflows/tests-l4lb.yaml'

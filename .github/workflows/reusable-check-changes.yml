@@ -1,0 +1,65 @@
+name: Check For Changes
+
+on:
+  workflow_call:
+    inputs:
+      filters_path:
+        required: false
+        type: string
+      issue_comment_specific_trigger:
+        required: false
+        type: string
+      issue_comment_global_trigger:
+        required: false
+        type: string
+        default: "/test"
+    outputs:
+      tested:
+        description: "true if the tests should be executed"
+        value: ${{ jobs.check_changes.outputs.tested }}
+      head_sha:
+        description: "HEAD commit sha"
+        value: ${{ jobs.check_changes.outputs.head_sha }}
+
+jobs:
+  check_changes:
+    runs-on: ubuntu-latest
+    name: Deduce required tests from code changes
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+      head_sha: ${{ steps.pr.outputs.head }}
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == ${{ inputs.issue_comment_specific_trigger }} ||
+        github.event.comment.body == ${{ inputs.issue_comment_global_trigger }}
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    steps:
+    - name: Checkout code
+      if: ${{ github.event.issue.pull_request }}
+      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      with:
+        persist-credentials: false
+
+    - name: Retrieve pull request's base and head
+      id: pr
+      shell: bash
+      run: |
+        if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+          curl ${{ github.event.issue.pull_request.url }} > pr.json
+          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
+          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
+        else
+          echo "head=${{ github.sha }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Check code changes
+      if: ${{ github.event.issue.pull_request }}
+      uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+      id: tested-tree
+      with:
+        base: ${{ steps.pr.outputs.base }}
+        ref: ${{ steps.pr.outputs.head }}
+        # Path to file where filters are defined
+        filters: ${{ inputs.filters_path }}

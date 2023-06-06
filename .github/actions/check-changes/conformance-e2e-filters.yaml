@@ -1,0 +1,4 @@
+src:
+  - '!(test|Documentation)/**'
+  - '.github/actions/check-changes/conformance-e2e-filters.yaml'
+  - '.github/workflows/conformance-e2e.yaml'

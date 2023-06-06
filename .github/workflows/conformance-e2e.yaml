@@ -71,69 +71,21 @@ env:
 
 jobs:
   check_changes:
-    name: Deduce required tests from code changes
-    if: |
-      (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-e2e' ||
-        github.event.comment.body == '/test'
-      )) ||
-      github.event_name == 'schedule' ||
-      github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    outputs:
-      tested: ${{ steps.tested-tree.outputs.src }}
-    steps:
-      # Because we run on issue comments, we need to checkout the code for
-      # paths-filter to work.
-      - name: Checkout code
-        if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-        with:
-          persist-credentials: false
-      - name: Retrieve pull request's base and head
-        if: ${{ github.event.issue.pull_request }}
-        id: pr
-        run: |
-          curl ${{ github.event.issue.pull_request.url }} > pr.json
-          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
-          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
-      - name: Check code changes
-        if: ${{ github.event.issue.pull_request }}
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
-        id: tested-tree
-        with:
-          base: ${{ steps.pr.outputs.base }}
-          ref: ${{ steps.pr.outputs.head }}
-          filters: |
-            src:
-              - '!(test|Documentation)/**'
+    uses: ./.github/workflows/reusable-check-changes.yml
+    with:
+      filters_path: "./.github/actions/check-changes/conformance-e2e-filters.yaml"
+      issue_comment_specific_trigger: "/ci-e2e"
 
   setup-report:
     runs-on: ubuntu-latest
     needs: check_changes
     name: Set commit status
-    outputs:
-      sha: ${{ steps.vars.outputs.sha }}
     steps:
-      - name: Set up job variables
-        id: vars
-        run: |
-          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-            PR_API_JSON=$(curl \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-          else
-            SHA=${{ github.sha }}
-          fi
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-
       - name: Set commit status to pending
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.head_sha }}
           context: ${{ github.workflow }}
           description: E2E conformance tests in progress...
           state: pending
@@ -151,7 +103,7 @@ jobs:
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ needs.setup-report.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.head_sha }}
           context: ${{ github.workflow }}
           description: E2E conformance tests skipped
           state: success
@@ -335,13 +287,13 @@ jobs:
             --chart-directory=./install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
-            --helm-set=image.tag=${SHA} \
+            --helm-set=image.tag=${{ needs.check_changes.outputs.head_sha }} \
             --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
             --helm-set=operator.image.suffix=-ci \
-            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.tag=${{ needs.check_changes.outputs.head_sha }} \
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.image.tag=${{ needs.check_changes.outputs.head_sha }} \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=bpf.monitorAggregation=none \
             --nodes-without-cilium=kind-worker3 \
@@ -507,14 +459,14 @@ jobs:
 
   report-success:
     runs-on: ubuntu-latest
-    needs: [setup-report, setup-and-test]
+    needs: [check_changes, setup-and-test]
     name: Set commit status to success
     if: ${{ success() }}
     steps:
       - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ needs.setup-report.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.head_sha }}
           context: ${{ github.workflow }}
           description: E2E conformance tests successful
           state: success
@@ -522,14 +474,14 @@ jobs:
 
   report-failure:
     runs-on: ubuntu-latest
-    needs: [setup-report, setup-and-test]
+    needs: [check_changes, setup-and-test]
     name: Set commit status to failure
     if: ${{ failure() }}
     steps:
       - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ needs.setup-report.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.head_sha }}
           context: ${{ github.workflow }}
           description: E2E conformance tests failed
           state: failure
@@ -537,14 +489,14 @@ jobs:
 
   report-cancelled:
     runs-on: ubuntu-latest
-    needs: [setup-report, setup-and-test]
+    needs: [check_changes, setup-and-test]
     name: Set commit status to cancelled
     if: ${{ cancelled() }}
     steps:
       - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ needs.setup-report.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.head_sha }}
           context: ${{ github.workflow }}
           description: E2E conformance tests cancelled
           state: error
