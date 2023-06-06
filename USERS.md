@@ -183,7 +183,13 @@ Users (Alphabetically)
       U: Networking (CNI), Transparent Encryption (WG), 
       L: https://docs.edgeless.systems/constellation/architecture/networking
       Q: @m1ghtym0
- 
+
+    * N: Eficode
+      D: As a cloud-native and devops consulting firm, we have implemented Cilium on customer engagements
+      U: CNI, CiliumNetworkPolicy at L7, Hubble
+      L: https://eficode.com/
+      Q: @Andy Allred
+
     * N: Elastic Path
       D: Elastic Path is using Cilium in their CloudOps for Kubernetes production clusters
       U: CNI
