@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	. "github.com/cilium/checkmate"
+	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -83,7 +85,12 @@ func (cfg *kprConfig) verify(c *C) {
 }
 
 func (s *KPRSuite) SetUpTest(c *C) {
-	option.Config.Populate(Vp)
+	mockCmd := &cobra.Command{}
+
+	h := hive.New(Agent)
+	h.RegisterFlags(mockCmd.Flags())
+	InitGlobalFlags(mockCmd, h.Viper())
+	option.Config.Populate(h.Viper())
 	option.Config.DryMode = true
 }
 

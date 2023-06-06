@@ -405,11 +405,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	bootstrapStats.daemonInit.Start()
 
-	// Validate the daemon-specific global options.
-	if err := option.Config.Validate(Vp); err != nil {
-		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
-	}
-
 	// Validate configuration options that depend on other cells.
 	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !params.Clientset.IsEnabled() &&
 		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {

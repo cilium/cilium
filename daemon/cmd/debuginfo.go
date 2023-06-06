@@ -38,11 +38,14 @@ func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middlewar
 	dr.CiliumMemoryMap = memoryMap(os.Getpid())
 
 	dr.EnvironmentVariables = []string{}
-	for _, k := range Vp.AllKeys() {
-		// Assuming we are only getting strings
-		v := fmt.Sprintf("%s:%s", k, Vp.GetString(k))
-		dr.EnvironmentVariables = append(dr.EnvironmentVariables, v)
-	}
+	// The debuginfo handler relies on the global Viper instance to list
+	// the agent settings and their values. Thus, this is temporarily commented
+	// out and will be fixed in a subsequent commit.
+	// for _, k := range Vp.AllKeys() {
+	// 	// Assuming we are only getting strings
+	// 	v := fmt.Sprintf("%s:%s", k, Vp.GetString(k))
+	// 	dr.EnvironmentVariables = append(dr.EnvironmentVariables, v)
+	// }
 
 	dr.ServiceList = getServiceList(d.svc)
 
