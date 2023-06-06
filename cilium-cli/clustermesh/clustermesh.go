@@ -1949,32 +1949,36 @@ func getRelease(kc *k8s.Client, namespace string) (*release.Release, error) {
 	return release, nil
 }
 
-func (k *K8sClusterMesh) validateCAMatch(aiLocal, aiRemote *accessInformation) error {
+// validateCAMatch determines if the certificate authority certificate being
+// used by aiLocal and aiRemote uses a matching keypair. The bool return value
+// is true (keypairs match), false (keys do not match OR there was an error)
+func (k *K8sClusterMesh) validateCAMatch(aiLocal, aiRemote *accessInformation) (bool, error) {
 	caLocal := aiLocal.CA
 	block, _ := pem.Decode(caLocal)
 	if block == nil {
-		panic("failed to parse certificate PEM")
+		return false, fmt.Errorf("failed to parse certificate PEM for local CA cert")
 	}
 	localCert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	caRemote := aiRemote.CA
 	block, _ = pem.Decode(caRemote)
 	if block == nil {
-		panic("failed to parse certificate PEM")
+		return false, fmt.Errorf("failed to parse certificate PEM for remote CA cert")
 	}
 	remoteCert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Compare the x509 key identifier of each certificate
 	if !bytes.Equal(localCert.SubjectKeyId, remoteCert.SubjectKeyId) {
-		return fmt.Errorf("Local and Remote cluster cilium-ca certificate keys do not match")
+		// Note: For now, do NOT return an error. Warn about this condition at the call site.
+		return false, nil
 	}
-	return nil
+	return true, nil
 }
 
 // ConnectWithHelm enables clustermesh using a Helm Upgrade
@@ -1997,9 +2001,10 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	k.Log("✅ Detected Helm release with Cilium version %s", v)
 
 	if v < "1.14.0" {
-		// Helm-based clustermesh enable is only supported on Cilium v1.14+ due to a lack of support in earlier versions
-		// for autoconfigured certificates (tls.{crt,key}) for cluster members when running in certgen (cronJob) PKI
-		// mode
+		// Helm-based clustermesh enable is only supported on Cilium
+		// v1.14+ due to a lack of support in earlier versions for
+		// autoconfigured certificates (tls.{crt,key}) for cluster
+		// members when running in certgen (cronJob) PKI mode
 		k.Log("⚠️ Cilium Version is less than 1.14.0. Continuing in classic mode.")
 		return k.Connect(ctx)
 	}
@@ -2020,15 +2025,17 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	}
 
 	// Validate that CA certificates match between the two clusters
-	err = k.validateCAMatch(aiLocal, aiRemote)
+	match, err := k.validateCAMatch(aiLocal, aiRemote)
 	if err != nil {
 		return err
+	} else if !match {
+		k.Log("⚠️ Cilium CA certificates do not match between clusters. Multicluster features will be limited!")
 	}
 
 	// Get existing helm values for the local cluster
 	localHelmValues := localRelease.Config
 	// Expand those values to include the clustermesh configuration
-	localHelmValues, err = updateClustermeshConfig(localHelmValues, aiRemote)
+	localHelmValues, err = updateClustermeshConfig(localHelmValues, aiRemote, !match)
 	if err != nil {
 		return err
 	}
@@ -2041,7 +2048,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	}
 	remoteHelmValues := remoteRelease.Config
 	// Expand those values to include the clustermesh configuration
-	remoteHelmValues, err = updateClustermeshConfig(remoteHelmValues, aiLocal)
+	remoteHelmValues, err = updateClustermeshConfig(remoteHelmValues, aiLocal, !match)
 	if err != nil {
 		return err
 	}
@@ -2055,7 +2062,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	}
 
 	// Enable clustermesh using a Helm Upgrade command against our target cluster
-	k.Log("⚠️ Configuring Cilium in cluster '%s' to connect to cluster '%s'",
+	k.Log("ℹ️ Configuring Cilium in cluster '%s' to connect to cluster '%s'",
 		localClient.ClusterName(), remoteClient.ClusterName())
 	_, err = helm.Upgrade(ctx, localClient.RESTClientGetter, upgradeParams)
 	if err != nil {
@@ -2063,7 +2070,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	}
 
 	// Enable clustermesh using a Helm Upgrade command against the remote cluster
-	k.Log("⚠️ Configuring Cilium in cluster '%s' to connect to cluster '%s'",
+	k.Log("ℹ️ Configuring Cilium in cluster '%s' to connect to cluster '%s'",
 		remoteClient.ClusterName(), localClient.ClusterName())
 	upgradeParams.Values = remoteHelmValues
 	_, err = helm.Upgrade(ctx, remoteClient.RESTClientGetter, upgradeParams)
@@ -2076,7 +2083,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 }
 
 func updateClustermeshConfig(
-	values map[string]interface{}, aiRemote *accessInformation,
+	values map[string]interface{}, aiRemote *accessInformation, configTLS bool,
 ) (map[string]interface{}, error) {
 	// get current clusters config slice, if it exists
 	c, found, err := unstructured.NestedFieldCopy(values, "clustermesh", "config", "clusters")
@@ -2101,14 +2108,26 @@ func updateClustermeshConfig(
 		oldClusters = append(oldClusters, cluster)
 	}
 
-	// allocate new cluster entries
-	newClusters := []map[string]interface{}{
-		{
-			"name": aiRemote.ClusterName,
-			"ips":  []string{aiRemote.ServiceIPs[0]},
-			"port": aiRemote.ServicePort,
-		},
+	remoteCluster := map[string]interface{}{
+		"name": aiRemote.ClusterName,
+		"ips":  []string{aiRemote.ServiceIPs[0]},
+		"port": aiRemote.ServicePort,
 	}
+
+	// Only add TLS configuration if requested (probably because CA
+	// certs do not match among clusters). Note that this is a DEGRADED
+	// mode of operation in which client certificates will not be
+	// renewed automatically and cross-cluster Hubble does not operate.
+	if configTLS {
+		remoteCluster["tls"] = map[string]interface{}{
+			"cert":   base64.StdEncoding.EncodeToString(aiRemote.ClientCert),
+			"key":    base64.StdEncoding.EncodeToString(aiRemote.ClientKey),
+			"caCert": base64.StdEncoding.EncodeToString(aiRemote.CA),
+		}
+	}
+
+	// allocate new cluster entries
+	newClusters := []map[string]interface{}{remoteCluster}
 
 	// merge new clusters on top of old clusters
 	clusters := map[string]map[string]interface{}{}
