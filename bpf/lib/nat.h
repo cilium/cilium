@@ -363,7 +363,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple_snat), &tuple_snat,
 				      ctx, off, has_l4_header, ct_action, CT_EGRESS,
-				      SCOPE_BIDIR, &ct_state, &monitor);
+				      SCOPE_FORWARD, &ct_state, &monitor);
 		if (ret < 0)
 			return ret;
 
@@ -416,7 +416,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple_revsnat), &tuple_revsnat,
 				      ctx, off, has_l4_header, ct_action, CT_INGRESS,
-				      SCOPE_BIDIR, &ct_state, &monitor);
+				      SCOPE_REVERSE, &ct_state, &monitor);
 		if (ret < 0)
 			return ret;
 	}
@@ -1481,7 +1481,7 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple_snat), &tuple_snat,
 				      ctx, off, ct_action, CT_EGRESS,
-				      SCOPE_BIDIR, &ct_state, &monitor);
+				      SCOPE_FORWARD, &ct_state, &monitor);
 		if (ret < 0)
 			return ret;
 
@@ -1527,7 +1527,7 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple_revsnat), &tuple_revsnat,
 				      ctx, off, ct_action, CT_INGRESS,
-				      SCOPE_BIDIR, &ct_state, &monitor);
+				      SCOPE_REVERSE, &ct_state, &monitor);
 		if (ret < 0)
 			return ret;
 	}
