@@ -681,6 +681,20 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+
+  "/statedb/dump":
+    get:
+      produces:
+      - application/octet-stream
+      summary: Dump StateDB contents
+      tags:
+      - statedb
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: string
+            format: binary
   "/recorder":
     get:
       summary: Retrieve list of all recorders
