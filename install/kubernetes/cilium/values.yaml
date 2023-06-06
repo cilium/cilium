@@ -3051,8 +3051,13 @@ authentication:
               country: "US"
               organization: "SPIRE"
               commonName: "Cilium SPIRE CA"
-      # -- SPIRE server address
-      serverAddress: spire-server.cilium-spire.svc:8081
+      # -- SPIRE server address used by Cilium Operator
+      #
+      # If k8s Service DNS along with port number is used (e.g. <service-name>.<namespace>.svc(.*):<port-number> format),
+      # Cilium Operator will resolve its address by looking up the clusterIP from Service resource.
+      #
+      # Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
+      serverAddress: ~
       # -- SPIFFE trust domain to use for fetching certificates
       trustDomain: spiffe.cilium
       # -- SPIRE socket path where the SPIRE delegated api agent is listening

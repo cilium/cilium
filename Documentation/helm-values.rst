@@ -149,9 +149,9 @@
      - object
      - ``{"create":true,"name":"spire-server"}``
    * - authentication.mutual.spire.serverAddress
-     - SPIRE server address
+     - SPIRE server address used by Cilium Operator  If k8s Service DNS along with port number is used (e.g. :raw-html-m2r:`<service-name>`.\ :raw-html-m2r:`<namespace>`.svc(.*):\ :raw-html-m2r:`<port-number>` format), Cilium Operator will resolve its address by looking up the clusterIP from Service resource.  Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
      - string
-     - ``"spire-server.cilium-spire.svc:8081"``
+     - ``nil``
    * - authentication.mutual.spire.trustDomain
      - SPIFFE trust domain to use for fetching certificates
      - string

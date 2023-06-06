@@ -6,12 +6,17 @@ package spire
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/pkg/k8s/client"
 )
 
 type mockEntryClient struct {
@@ -399,4 +404,82 @@ func TestClient_Delete(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_resolvedK8sService(t *testing.T) {
+	_, c := client.NewFakeClientset()
+	_, _ = c.CoreV1().Services("dummy-namespace").Create(context.Background(), &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "valid-service",
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "10.0.0.1",
+		},
+		Status: corev1.ServiceStatus{},
+	}, metav1.CreateOptions{})
+	type args struct {
+		client  client.Clientset
+		address string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      *string
+		wantedErr error
+	}{
+		{
+			name: "address not following <service-name>.<ns>.svc(.*) format",
+			args: args{
+				address: "192.168.0.1:8081",
+			},
+			want: addressOf("192.168.0.1:8081"),
+		},
+		{
+			name: "another address not following <service-name>.<ns>.svc(.*) format",
+			args: args{
+				address: "my-spire-server.com:8081",
+			},
+			want: addressOf("my-spire-server.com:8081"),
+		},
+		{
+			name: "invalid service dns",
+			args: args{
+				address: "dummy-service.ns.svc:8081",
+				client:  c,
+			},
+			wantedErr: fmt.Errorf("services \"dummy-service\" not found"),
+		},
+		{
+			name: "valid k8s service dns, but no port",
+			args: args{
+				address: "valid-service.dummy-namespace.svc",
+				client:  c,
+			},
+			wantedErr: fmt.Errorf("address valid-service.dummy-namespace.svc: missing port in address"),
+		},
+		{
+			name: "valid k8s service dns",
+			args: args{
+				address: "valid-service.dummy-namespace.svc:8081",
+				client:  c,
+			},
+			want: addressOf("10.0.0.1:8081"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolvedK8sService(context.Background(), tt.args.client, tt.args.address)
+			if tt.wantedErr != nil && (err == nil || !reflect.DeepEqual(err.Error(), tt.wantedErr.Error())) {
+				t.Errorf("resolvedK8sService() error = %v, wantErr %v", err, tt.wantedErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("resolvedK8sService() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func addressOf[T any](v T) *T {
+	return &v
 }

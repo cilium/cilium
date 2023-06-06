@@ -6,6 +6,7 @@ package spire
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -18,11 +19,13 @@ import (
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/auth/identity"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -87,21 +90,30 @@ func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
 		"The trust domain for the SPIFFE identity.")
 }
 
+type params struct {
+	cell.In
+
+	K8sClient k8sClient.Clientset
+}
+
 type Client struct {
 	cfg   ClientConfig
 	log   logrus.FieldLogger
 	entry entryv1.EntryClient
+
+	k8sClient k8sClient.Clientset
 }
 
 // NewClient creates a new SPIRE client.
 // If the mutual authentication is not enabled, it returns a noop client.
-func NewClient(lc hive.Lifecycle, cfg ClientConfig, log logrus.FieldLogger) identity.Provider {
+func NewClient(params params, lc hive.Lifecycle, cfg ClientConfig, log logrus.FieldLogger) identity.Provider {
 	if !cfg.MutualAuthEnabled {
 		return &noopClient{}
 	}
 	client := &Client{
-		cfg: cfg,
-		log: log.WithField(logfields.LogSubsys, "spire-client"),
+		k8sClient: params.K8sClient,
+		cfg:       cfg,
+		log:       log.WithField(logfields.LogSubsys, "spire-client"),
 	}
 
 	lc.Append(hive.Hook{
@@ -135,6 +147,14 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 	timeoutCtx, cancelFunc := context.WithTimeout(ctx, c.cfg.SpireServerConnectionTimeout)
 	defer cancelFunc()
 
+	resolvedTarget, err := resolvedK8sService(ctx, c.k8sClient, c.cfg.SpireServerAddress)
+	if err != nil {
+		c.log.WithError(err).
+			WithField(logfields.URL, c.cfg.SpireServerAddress).
+			Warning("Unable to resolve SPIRE server address, using original value")
+		resolvedTarget = &c.cfg.SpireServerAddress
+	}
+
 	// This is blocking till the cilium-operator is registered in SPIRE.
 	source, err := workloadapi.NewX509Source(timeoutCtx,
 		workloadapi.WithClientOptions(
@@ -152,11 +172,20 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 	}
 
 	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(trustedDomain))
-	conn, err := grpc.Dial(c.cfg.SpireServerAddress, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+
+	c.log.WithFields(logrus.Fields{
+		logfields.Address: c.cfg.SpireServerAddress,
+		logfields.IPAddr:  resolvedTarget,
+	}).Info("Trying to connect to SPIRE server")
+	conn, err := grpc.Dial(*resolvedTarget, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection to SPIRE server: %w", err)
 	}
 
+	c.log.WithFields(logrus.Fields{
+		logfields.Address: c.cfg.SpireServerAddress,
+		logfields.IPAddr:  resolvedTarget,
+	}).Info("Connected to SPIRE server")
 	return conn, nil
 }
 
@@ -275,6 +304,30 @@ func (c *Client) listEntries(ctx context.Context, id string) (*entryv1.ListEntri
 			},
 		},
 	})
+}
+
+// resolvedK8sService resolves the given address to the IP address.
+// The input must be in the form of <service-name>.<namespace>.svc.*:<port-number>,
+// otherwise the original address is returned.
+func resolvedK8sService(ctx context.Context, client k8sClient.Clientset, address string) (*string, error) {
+	names := strings.Split(address, ".")
+	if len(names) < 3 || !strings.HasPrefix(names[2], "svc") {
+		return &address, nil
+	}
+
+	// retrieve the service and return its ClusterIP
+	svc, err := client.CoreV1().Services(names[1]).Get(ctx, names[0], metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+
+	res := net.JoinHostPort(svc.Spec.ClusterIP, port)
+	return &res, nil
 }
 
 func toPath(id string) string {
