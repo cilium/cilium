@@ -79,6 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
       # Because we run on issue comments, we need to checkout the code for
       # paths-filter to work.
@@ -88,22 +89,44 @@ jobs:
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
-        if: ${{ github.event.issue.pull_request }}
-        id: pr
+        id: sha
         run: |
-          curl ${{ github.event.issue.pull_request.url }} > pr.json
-          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
-          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            curl ${{ github.event.issue.pull_request.url }} > pr.json
+            echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
+            echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
+            echo "sha=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
+          else
+            echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
       - name: Check code changes
         if: ${{ github.event.issue.pull_request }}
         uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: tested-tree
         with:
-          base: ${{ steps.pr.outputs.base }}
-          ref: ${{ steps.pr.outputs.head }}
+          base: ${{ steps.sha.outputs.base }}
+          ref: ${{ steps.sha.outputs.head }}
           filters: |
             src:
               - '!(Documentation)/**'
+
+  skip-test-run:
+    # If the modified files are not relevant for this test then we can skip
+    # this test and mark it as successful.
+    if: github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'false'
+    runs-on: ubuntu-latest
+    needs: check_changes
+    name: Set commit status to success (skipped)
+    steps:
+      - name: Set commit status to success
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.check_changes.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Ginkgo test skipped
+          state: success
+          target_url: ${{ env.check_url }}
 
   # Pre-build the ginkgo binary so that we don't have to build it for all
   # runners.
@@ -120,26 +143,11 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     steps:
-      - name: Set up job variables
-        id: vars
-        run: |
-          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-            PR_API_JSON=$(curl \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-          else
-            SHA=${{ github.sha }}
-          fi
-
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-
       - name: Set commit status to pending
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.sha }}
           context: ${{ github.workflow }}
           description: Ginkgo test in progress...
           state: pending
@@ -148,7 +156,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ needs.check_changes.outputs.sha }}
           persist-credentials: false
 
       - name: Set Environment Variables
@@ -200,11 +208,11 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.check_changes.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
   setup-and-test:
-    needs: build-ginkgo-binary
+    needs: [check_changes, build-ginkgo-binary]
     runs-on:
       group: ginkgo-runners
     timeout-minutes: 35
@@ -569,25 +577,10 @@ jobs:
             focus: "f14-datapath-service-ns-xdp-2"
 
     steps:
-      - name: Set up job variables
-        id: vars
-        run: |
-          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-            PR_API_JSON=$(curl \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-          else
-            SHA=${{ github.sha }}
-          fi
-
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-
       - name: Checkout pull request for tests
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ needs.check_changes.outputs.sha }}
           persist-credentials: false
 
       - name: Set Environment Variables
@@ -691,11 +684,11 @@ jobs:
              -v -- \
              -cilium.provision=false \
              -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-             -cilium.tag=${{ steps.vars.outputs.sha }}  \
+             -cilium.tag=${{ needs.check_changes.outputs.sha }}  \
              -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-             -cilium.operator-tag=${{ steps.vars.outputs.sha }} \
+             -cilium.operator-tag=${{ needs.check_changes.outputs.sha }} \
              -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-             -cilium.hubble-relay-tag=${{ steps.vars.outputs.sha }} \
+             -cilium.hubble-relay-tag=${{ needs.check_changes.outputs.sha }} \
              -cilium.kubeconfig=/root/.kube/config \
              -cilium.provision-k8s=false \
              -cilium.operator-suffix=-ci"
@@ -707,11 +700,11 @@ jobs:
                --ginkgo.v -- \
                -cilium.provision=false \
                -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-               -cilium.tag=${{ steps.vars.outputs.sha }}  \
+               -cilium.tag=${{ needs.check_changes.outputs.sha }}  \
                -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-               -cilium.operator-tag=${{ steps.vars.outputs.sha }} \
+               -cilium.operator-tag=${{ needs.check_changes.outputs.sha }} \
                -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-               -cilium.hubble-relay-tag=${{ steps.vars.outputs.sha }} \
+               -cilium.hubble-relay-tag=${{ needs.check_changes.outputs.sha }} \
                -cilium.kubeconfig=/root/.kube/config \
                -cilium.provision-k8s=false \
                -cilium.operator-suffix=-ci
@@ -764,34 +757,46 @@ jobs:
         with:
           junit-directory: "cilium-junits"
 
-      - name: Set commit status to success
-        if: ${{ success() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-success:
+    runs-on: ubuntu-latest
+    needs: [check_changes, setup-and-test]
+    name: Set commit status to success
+    if: ${{ success() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.sha }}
           context: ${{ github.workflow }}
           description: Gingko test successful
           state: success
           target_url: ${{ env.check_url }}
 
-      - name: Set commit status to failure
-        if: ${{ failure() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-failure:
+    runs-on: ubuntu-latest
+    needs: [check_changes, setup-and-test]
+    name: Set commit status to failure
+    if: ${{ failure() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.sha }}
           context: ${{ github.workflow }}
           description: Gingko test failed
           state: failure
           target_url: ${{ env.check_url }}
 
-      - name: Set commit status to cancelled
-        if: ${{ cancelled() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-cancelled:
+    runs-on: ubuntu-latest
+    needs: [check_changes, setup-and-test]
+    name: Set commit status to cancelled
+    if: ${{ cancelled() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.check_changes.outputs.sha }}
           context: ${{ github.workflow }}
           description: Gingko test cancelled
           state: error
