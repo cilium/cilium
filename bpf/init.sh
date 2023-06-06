@@ -185,6 +185,7 @@ function encap_fail()
 	# If the host does not have an IPv6 address assigned, assign our generated host
 	# IP to make the host accessible to endpoints
 	if [ "$IP6_HOST" != "<nil>" ]; then
+                echo ">>>>>>>>>> $STALE_IP6_HOST"
                 if [ "$STALE_IP6_HOST" != "<nil>" ]; then
                     ip -6 addr del $STALE_IP6_HOST dev $HOST_DEV1
                 fi

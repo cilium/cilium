@@ -376,12 +376,14 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			sysctl.Setting{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
 
 		localIPv6CIDR := node.GetIPv6AllocRange()
+		fmt.Printf(">>>>> cidr %s\n", localIPv6CIDR.String())
 		addrs, err := link.GetIPv6Addresses(hostDev1.Attrs().Name)
 		if err != nil {
 			return err
 		}
 		args[initArgStaleIPv6NodeIP] = "<nil>"
 		for _, addr := range addrs {
+			fmt.Printf(">>>>> matching: %s\n", addr.IPNet.IP.String())
 			if localIPv6CIDR.Contains(addr.IPNet.IP) {
 				args[initArgStaleIPv6NodeIP] = addr.IPNet.IP.String()
 				break
