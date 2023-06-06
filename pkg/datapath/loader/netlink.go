@@ -366,15 +366,20 @@ func (l *Loader) reloadIPSecOnLinkChanges() {
 
 		for {
 			// Wait for first update or trigger before reinitializing.
+		getUpdate:
 			select {
-			case _, ok := <-updates:
+			case u, ok := <-updates:
 				if !ok {
 					return
+				}
+				// Ignore veth devices
+				if u.Type() == "veth" {
+					goto getUpdate
 				}
 			case <-trigger:
 			}
 
-			log.Info("Reinitializing IPsec due to link changes")
+			log.Info("Reinitializing IPsec due to device changes")
 			err := l.reinitializeIPSec(ctx)
 			if err != nil {
 				// We may fail if links have been removed during the reload. In this case
@@ -391,12 +396,18 @@ func (l *Loader) reloadIPSecOnLinkChanges() {
 				select {
 				case <-settled:
 					break settleLoop
-				case <-updates:
+				case u := <-updates:
+					// Ignore veth devices
+					if u.Type() == "veth" {
+						continue
+					}
+
+					// Trigger reinit immediately after
+					// settle duration has passed.
 					select {
 					case trigger <- struct{}{}:
 					default:
 					}
-					break settleLoop
 				}
 
 			}
