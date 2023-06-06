@@ -90,6 +90,7 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -216,6 +217,9 @@ type Daemon struct {
 	cniConfigManager cni.CNIConfigManager
 
 	l2announcer *l2announcer.L2Announcer
+
+	// statedb for implementing /statedb/dump
+	db statedb.DB
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -548,6 +552,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		monitorAgent:         params.MonitorAgent,
 		l2announcer:          params.L2Announcer,
 		l7Proxy:              params.L7Proxy,
+		db:                   params.DB,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
