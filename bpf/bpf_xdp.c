@@ -187,7 +187,8 @@ no_encap:
 		ret = nodeport_lb4(ctx, ip4, l3_off, 0, &ext_err);
 		if (ret == NAT_46X64_RECIRC) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-			ret = DROP_MISSED_TAIL_CALL;
+			return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+						      CTX_ACT_DROP, METRIC_INGRESS);
 		}
 	}
 
