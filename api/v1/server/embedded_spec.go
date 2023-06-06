@@ -1601,6 +1601,26 @@ func init() {
           }
         }
       }
+    },
+    "/statedb/dump": {
+      "get": {
+        "produces": [
+          "application/octet-stream"
+        ],
+        "tags": [
+          "statedb"
+        ],
+        "summary": "Dump StateDB contents",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -6583,6 +6603,26 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Failure"
+          }
+        }
+      }
+    },
+    "/statedb/dump": {
+      "get": {
+        "produces": [
+          "application/octet-stream"
+        ],
+        "tags": [
+          "statedb"
+        ],
+        "summary": "Dump StateDB contents",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
           }
         }
       }
