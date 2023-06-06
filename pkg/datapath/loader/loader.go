@@ -346,19 +346,21 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	return nil
 }
 
-func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) error {
+func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) (err error) {
 	progs := []progDefinition{{progName: symbolFromNetwork, direction: dirIngress}}
 	for _, iface := range option.Config.EncryptInterface {
-		finalize, err := replaceDatapath(ctx, iface, networkObj, progs, "")
-		if err != nil {
-			log.WithField(logfields.Interface, iface).WithError(err).Fatal("Load encryption network failed")
+		finalize, replaceErr := replaceDatapath(ctx, iface, networkObj, progs, "")
+		if replaceErr != nil {
+			log.WithField(logfields.Interface, iface).WithError(replaceErr).Error("Load encryption network failed")
+			// Return the error to the caller, but keep trying replacing other interfaces.
+			err = replaceErr
+		} else {
+			log.WithField(logfields.Interface, iface).Info("Encryption network program (re)loaded")
+			// Defer map removal until all interfaces' progs have been replaced.
+			defer finalize()
 		}
-		log.WithField(logfields.Interface, iface).Info("Encryption network program (re)loaded")
-
-		// Defer map removal until all interfaces' progs have been replaced.
-		defer finalize()
 	}
-	return nil
+	return
 }
 
 func (l *Loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, iface string) error {
