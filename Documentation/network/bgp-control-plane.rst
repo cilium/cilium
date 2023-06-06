@@ -337,37 +337,43 @@ a BGP control plane.
 Agent-Side Architecture
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Controller
-^^^^^^^^^^
+At a high level, the ``Agent-Side Control Plane`` is divided into the following
+sub-modules:
 
-The ``Agent-Side Control Plane`` implements a controller located in
-``pkg/bgpv1/agent/controller.go``.
+- Agent
+- Manager
+- Router
 
-The controller listens for ``CiliumBGPPeeringPolicy``, determines if a
-policy applies to its current host and if it does, captures some
-information about Cilium's current state then calls down to the
-implemented ``BGPRouterManager``.
 
-BGPRouterManager
-^^^^^^^^^^^^^^^^
+Agent
+^^^^^
 
-The ``BGPRouterManager`` is an interface used to define a declarative
-API between the ``Controller`` and instantiated BGP routers.
+The ``Agent`` implements a controller located in ``pkg/bgpv1/agent/controller.go``.
+
+The controller listens for ``CiliumBGPPeeringPolicy`` changes and 
+determines if the policy applies to its current host. 
+It will then capture some information about Cilium's current state 
+and pass down the desired state to ``Manager``.
+
+Manager
+^^^^^^^
+
+The ``Manager`` implements the interface ``BGPRouterManager``, which
+defines a declarative API between the ``Controller`` and instances of 
+BGP routers.
 
 The interface defines a single declarative method whose argument is the
 desired ``CiliumBGPPeeringPolicy`` (among a few others).
 
-The ``BGPRouterManager`` is in charge of pushing the
-``BGP Control Plane`` to the desired ``CiliumBGPPeeringPolicy`` or
-returning an error if it is not possible.
+The ``Manager`` is in charge of pushing the ``BGP Control Plane``
+to the desired ``CiliumBGPPeeringPolicy`` or returning an error if it 
+is not possible.
 
-GoBGP Implementation
-''''''''''''''''''''
+Implementation Details
+''''''''''''''''''''''
 
-The first implementation of ``BGPRouterManager`` utilizes the ``gobgp``
-package. You can find this implementation in ``pkg/bgpv1/gobgp``.
-
-This implementation will:
+``Manager`` implementation will take desired ``CiliumBGPPeeringPolicy``
+and translate into imperative router API calls :
 
 -  evaluate the desired ``CiliumBGPPeeringPolicy``
 -  create/remove the desired BGP routers
@@ -375,31 +381,39 @@ This implementation will:
 -  enable/disable any BGP server specific features
 -  inform the caller if the policy cannot be applied
 
-The GoBGP implementation is capable of evaluating each ``CiliumBGPVirtualRouter`` in isolation. This
-means when applying a ``CiliumBGPPeeringPolicy`` the GoBGP ``BGPRouterManager`` will attempt to
-create each ``CiliumBGPVirtualRouter``. If a particular ``CiliumBGPVirtualRouter`` fails to
-instantiate the error is logged and the ``BGPRouterManager`` will continue to the next
-``CiliumBGPVirtualRouter``, utilizing the aforementioned logic.
+The ``Manager`` evaluates each ``CiliumBGPVirtualRouter`` in isolation.
+While applying a ``CiliumBGPPeeringPolicy``, it will attempt to create each 
+``CiliumBGPVirtualRouter``.
 
-GoBGP BGPRouterManager Architecture
-***********************************
+If a particular ``CiliumBGPVirtualRouter`` fails to instantiate, the error 
+message is logged, and the ``Manager`` will continue to the next
+``CiliumBGPVirtualRouter``.
 
-It's worth expanding on how the ``gobgp`` implementation of the
-``BGPRouterManager`` works internally. This ``BGPRouterManager`` views each
-``CiliumBGPVirtualRouter`` as a BGP router instance. Each ``CiliumBGPVirtualRouter`` defines a local
-ASN, a router ID and a list of ``CiliumBGPNeighbors`` to peer with. This is enough for the
-``BGPRouterManager`` to create a ``BgpServer`` instance, which is the nomenclature defining a BGP
-speaker in ``gobgp``-package-parlance. This ``BGPRouterManager`` groups ``BgpServer`` instances by
-their local ASNs. This leads to the following rule: A ``CiliumBGPPeeringPolicy`` applying to node
-``A`` must not have two or more ``CiliumBGPVirtualRouters`` with the same ``localASN`` fields.
+It is worth expanding on how the ``Manager`` works internally.
+``Manager`` views each ``CiliumBGPVirtualRouter`` as a BGP router instance.
+Each ``CiliumBGPVirtualRouter`` is defined by a local ASN, a router ID and a 
+list of ``CiliumBGPNeighbors`` with whom it will establish peering.
 
-The ``gobgp`` ``BGPRouterManager`` employs a set of ``ConfigReconcilerFunc``\ (s) which perform the
-order-dependent reconciliation actions for each ``BgpServer`` it must reconcile. A
-``ConfigReconcilerFunc`` is simply a function with a typed signature.
+This is enough for the ``Manager`` to create a ``Router`` instance. 
+``Manager`` groups ``Router`` instances by their local ASNs. 
 
-.. code-block:: go
+.. note::
 
-   type ConfigReconcilerFunc func(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error
+   A ``CiliumBGPPeeringPolicy`` applying to a node must not have two or more
+   ``CiliumBGPVirtualRouters`` with the same ``localASN`` fields.
 
-See the source code at ``pkg/bgpv1/gobgp/reconcile.go`` for a more in
-depth explanation of how each ``ConfigReconcilerFunc`` is called.
+The ``Manager`` employs a set of ``Reconcilers`` which perform an
+order-dependent reconciliation action for each ``Router``.
+
+
+See the source code at ``pkg/bgpv1/manager/reconcile.go`` for a more in
+depth explanation on how each ``Reconcilers`` works.
+
+Router
+^^^^^^
+
+``BGP Control Plane`` utilizes ``GoBGP`` as the underlying routing agent.
+
+GoBGP client-side implementation is located in ``pkg/bgpv1/gobgp``.
+Implementation API adheres to the ``Router`` interface defined in ``pkg/bgpv1/types/bgp.go``.
+
