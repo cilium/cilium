@@ -26,7 +26,6 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	k8sTesting "k8s.io/client-go/testing"
 
-	agentCmd "github.com/cilium/cilium/daemon/cmd"
 	operatorCmd "github.com/cilium/cilium/operator/cmd"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
@@ -101,7 +100,10 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 	// Configure k8s and perform capability detection with the fake client.
 	version.Update(cpt.clients, true)
 
-	agentOption.Config.Populate(agentCmd.Vp)
+	// The controlplane tests rely on the global Viper instance to correctly
+	// setup the agent. Thus, any reference to Vp is temporarily commented out.
+	// This will be fixed in a subsequent commit.
+	// agentOption.Config.Populate(agentCmd.Vp)
 	agentOption.Config.IdentityAllocationMode = agentOption.IdentityAllocationModeCRD
 	agentOption.Config.DryMode = true
 	agentOption.Config.IPAM = ipamOption.IPAMKubernetes
