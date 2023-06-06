@@ -42,6 +42,9 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 )
 
+// ingressBandwidth represents the K8s ingress bandwidth Pod annotation (currently unsupported).
+const ingressBandwidth = "kubernetes.io/ingress-bandwidth"
+
 var errEndpointNotFound = errors.New("endpoint not found")
 
 type getEndpoint struct {
@@ -430,12 +433,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			}
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
-			if _, ok := annotations[bandwidth.IngressBandwidth]; ok {
+			if _, ok := annotations[ingressBandwidth]; ok {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
 					logfields.Annotations: logfields.Repr(annotations),
 				}).Warningf("Endpoint has %s annotation which is unsupported. This annotation is ignored.",
-					bandwidth.IngressBandwidth)
+					ingressBandwidth)
 			}
 			if _, ok := annotations[bandwidth.EgressBandwidth]; ok && !option.Config.EnableBandwidthManager {
 				log.WithFields(logrus.Fields{
