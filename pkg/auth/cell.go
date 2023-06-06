@@ -72,7 +72,9 @@ func (r config) Flags(flags *pflag.FlagSet) {
 type authManagerParams struct {
 	cell.In
 
+	Logger           logrus.FieldLogger
 	Lifecycle        hive.Lifecycle
+	JobRegistry      job.Registry
 	Config           config
 	IPCache          *ipcache.IPCache
 	AuthHandlers     []authHandler `group:"authHandlers"`
@@ -80,13 +82,11 @@ type authManagerParams struct {
 	SignalManager    signal.SignalManager
 	CiliumIdentities resource.Resource[*ciliumv2.CiliumIdentity]
 	CiliumNodes      resource.Resource[*ciliumv2.CiliumNode]
-	Logger           logrus.FieldLogger
-	JobRegistry      job.Registry
 }
 
 func newManager(params authManagerParams) error {
-	mapWriter := newAuthMapWriter(params.AuthMap)
-	mapCache := newAuthMapCache(mapWriter)
+	mapWriter := newAuthMapWriter(params.Logger, params.AuthMap)
+	mapCache := newAuthMapCache(params.Logger, mapWriter)
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(hookContext hive.HookContext) error {
@@ -103,7 +103,7 @@ func newManager(params authManagerParams) error {
 		job.WithPprofLabels(pprof.Labels("cell", "auth")),
 	)
 
-	mgr, err := newAuthManager(params.AuthHandlers, mapCache, params.IPCache)
+	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.IPCache)
 	if err != nil {
 		return fmt.Errorf("failed to create auth manager: %w", err)
 	}
@@ -114,7 +114,7 @@ func newManager(params authManagerParams) error {
 
 	registerReAuthenticationJob(jobGroup, mgr, params.AuthHandlers)
 
-	mapGC := newAuthMapGC(mapCache, params.IPCache)
+	mapGC := newAuthMapGC(params.Logger, mapCache, params.IPCache)
 
 	registerGCJobs(jobGroup, mapGC, params)
 
