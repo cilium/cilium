@@ -75,12 +75,12 @@ func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
 		"The path for the SPIRE admin agent Unix socket.")
 	flags.StringVar(&cfg.SpireServerAddress,
 		"mesh-auth-spire-server-address",
-		"spire-server.spire.svc.cluster.local:8081",
+		"spire-server.spire.svc:8081",
 		"SPIRE server endpoint.")
 	flags.DurationVar(&cfg.SpireServerConnectionTimeout,
 		"mesh-auth-spire-server-connection-timeout",
 		10*time.Second,
-		"SPIRE server endpoint.")
+		"SPIRE server connection timeout.")
 	flags.StringVar(&cfg.SpiffeTrustDomain,
 		"mesh-auth-spiffe-trust-domain",
 		"spiffe.cilium",
