@@ -409,7 +409,7 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 			    gopt.hdr.type == DSR_GENEVE_OPT_TYPE) {
 				*dsr = true;
 				*port = gopt.port;
-				ipv6_addr_copy(addr, &gopt.addr);
+				ipv6_addr_copy(addr, (union v6addr *)&gopt.addr);
 				return 0;
 			}
 		}
