@@ -2,7 +2,11 @@ set -e
 
 echo "Waiting for spire server to be reachable to start"
 
+{{- if .Values.authentication.mutual.spire.serverAddress }}
 ADDR="{{ .Values.authentication.mutual.spire.serverAddress }}"
+{{- else }}
+ADDR="spire-server.{{ .Values.authentication.mutual.spire.install.namespace}}.svc:8081"
+{{- end }}
 CONN_TIMEOUT="3"
 TIMEOUT="60"
 
