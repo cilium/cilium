@@ -167,8 +167,8 @@ func ctLookup4Info1(n *DebugMsg) string {
 }
 
 func ctLookup4Info2(n *DebugMsg) string {
-	return fmt.Sprintf("nexthdr=%d flags=%d",
-		n.Arg1>>8, n.Arg1&0xFF)
+	return fmt.Sprintf("nexthdr=%d flags=%d dir=%d scope=%d",
+		n.Arg1>>8, n.Arg1&0xFF, n.Arg2, n.Arg3)
 }
 
 func ctCreate4Info(n *DebugMsg) string {
