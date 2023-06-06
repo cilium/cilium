@@ -655,7 +655,7 @@ jobs:
           cd test/
           tar -xf /tmp/.ginkgo-build/test.tgz
 
-      - name: Run tests [junit]
+      - name: Run tests
         timeout-minutes: 40
         uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
         with:
@@ -748,7 +748,7 @@ jobs:
           junit_filename="${{ env.job_name }}.xml"
           for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
 
-      - name: Upload JUnits
+      - name: Upload JUnits [junit]
         if: ${{ always() }}
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:

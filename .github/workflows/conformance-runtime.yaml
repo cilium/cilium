@@ -249,7 +249,7 @@ jobs:
             /tmp/provision/runtime_install.sh
             service docker restart
 
-      - name: Runtime tests [junit]
+      - name: Runtime tests
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
         timeout-minutes: 20
         shell: bash
@@ -281,7 +281,7 @@ jobs:
           -cilium.operator-suffix=-ci \
           -cilium.SSHConfig="cat ./cilium-ssh-config.txt"
 
-      - name: Runtime privileged tests [junit]
+      - name: Runtime privileged tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 20
         uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
@@ -335,7 +335,7 @@ jobs:
           junit_filename="${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml"
           for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
 
-      - name: Upload JUnits
+      - name: Upload JUnits [junit]
         if: ${{ always() }}
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
