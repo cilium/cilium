@@ -30,7 +30,7 @@ import (
 // Actual authentication gets performed by an auth handler which is
 // responsible for the configured auth type on the corresponding policy.
 var Cell = cell.Module(
-	"auth-manager",
+	"auth",
 	"Authenticates requests as demanded by policy",
 
 	spire.Cell,
