@@ -359,6 +359,12 @@ Deprecated Options
   options are deprecated and will be removed in v1.15. There is no replacement for these
   flags as enabling them causes scalability and performance issues even in small clusters.
 
+Deprecated Commands
+~~~~~~~~~~~~~~~~~~~
+
+* The ``cilium endpoint regenerate`` command is deprecated and will be removed
+  in v1.15.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
