@@ -296,6 +296,7 @@ clientsets
 clockProbe
 cls
 clusterDomain
+clusterIP
 clusterPoolIPv
 clusterSize
 clustermesh
