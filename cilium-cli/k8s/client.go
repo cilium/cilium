@@ -938,6 +938,16 @@ func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.V
 }
 
 func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error) {
+	if utils.IsInHelmMode() {
+		release, err := helm.Get(c.RESTClientGetter, helm.GetParameters{
+			Namespace: namespace,
+			Name:      defaults.HelmReleaseName,
+		})
+		if err != nil {
+			return "", err
+		}
+		return release.Chart.Metadata.Version, nil
+	}
 	pods, err := c.ListPods(ctx, namespace, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector})
 	if err != nil {
 		return "", fmt.Errorf("unable to list cilium pods: %w", err)
