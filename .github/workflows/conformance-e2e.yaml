@@ -463,6 +463,7 @@ jobs:
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
             ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             mkdir -p cilium-junits

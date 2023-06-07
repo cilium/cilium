@@ -309,10 +309,15 @@ jobs:
         run: |
           CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.cilium-install-opts }}
 
+      - name: Wait for Spire to be ready and restart Cilium
+        run: |
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
+
       - name: Wait for Cilium to be ready
         run: |
           cilium status --wait
-          kubectl get pods -n kube-system
+          kubectl get pods --all-namespaces -o wide
 
       - name: Port forward Relay
         run: |
