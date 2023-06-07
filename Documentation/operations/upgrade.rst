@@ -434,6 +434,9 @@ Helm Options
   will be removed in v1.15.
 * Values ``proxy.prometheus.enabled`` and ``proxy.prometheus.port`` are deprecated in favor of
   their ``envoy.prometheus.*`` counterparts.
+* Value ``disableEndpointCRD`` is now a boolean type instead of a string. Instead of using "true"
+  or "false" as values, you should remove the quotes. For example in helm command, instead of
+  ``--set-string disableEndpointCRD="true"``, it should be replaced by ``--set disableEndpointCRD=true``.
 
 .. _earlier_upgrade_notes:
 

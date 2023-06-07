@@ -2039,7 +2039,7 @@ tunnelPort: 0
 MTU: 0
 
 # -- Disable the usage of CiliumEndpoint CRD.
-disableEndpointCRD: "false"
+disableEndpointCRD: false
 
 wellKnownIdentities:
   # -- Enable the use of well-known identities.

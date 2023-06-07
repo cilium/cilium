@@ -131,9 +131,9 @@ data:
   skip-cnp-status-startup-clean: "{{ .Values.operator.skipCNPStatusStartupClean }}"
 {{- end }}
 
-{{- if hasKey .Values "disableEndpointCRD" }}
+{{- if eq .Values.disableEndpointCRD true }}
   # Disable the usage of CiliumEndpoint CRD
-  disable-endpoint-crd: "{{ .Values.disableEndpointCRD }}"
+  disable-endpoint-crd: "true"
 {{- end }}
 
 {{- if .Values.identityChangeGracePeriod }}
