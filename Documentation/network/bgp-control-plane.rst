@@ -314,6 +314,13 @@ io.kubernetes.service.namespace ``.meta.namespace``
 io.kubernetes.service.name      ``.meta.name``
 =============================== ===================
 
+Semantics of the externalTrafficPolicy: Local
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When the service has ``externalTrafficPolicy: Local``, ``BGP Control Plane`` keeps track
+of the endpoints for the service on the local node and stops advertisement when there's
+no local endpoint.
+
 Architecture
 ------------
 
