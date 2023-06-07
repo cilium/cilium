@@ -529,10 +529,8 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret, verdict = 0, l3_off = ETH_HLEN, l4_off;
-	struct csum_offset csum_off = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
-	__be32 orig_dip;
 	__u32 __maybe_unused tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
 	__u16 __maybe_unused node_id = 0;
@@ -547,87 +545,19 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-/* If IPv4 fragmentation is disabled
- * AND a IPv4 fragmented packet is received,
- * then drop the packet.
- */
-#ifndef ENABLE_IPV4_FRAGMENTS
-	if (ipv4_is_fragment(ip4))
-		return DROP_FRAG_NOSUPPORT;
-#endif
-
 	has_l4_header = ipv4_has_l4_header(ip4);
 
 	tuple.nexthdr = ip4->protocol;
-
-	if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
-		return DROP_INVALID_SIP;
-
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-#ifdef ENABLE_PER_PACKET_LB
-	{
-		struct lb4_service *svc;
-		struct lb4_key key = {};
-
-		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off,
-				      CT_EGRESS);
-		if (IS_ERR(ret)) {
-			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
-				goto skip_service_lookup;
-			else
-				return ret;
-		}
-
-		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
-		if (svc) {
-			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
-					&csum_off, &key, &tuple, svc, &ct_state_new,
-					ip4->saddr, has_l4_header, false);
-			if (IS_ERR(ret))
-				return ret;
-			hairpin_flow |= ct_state_new.loopback;
-		}
-	}
-
-skip_service_lookup:
-#endif /* ENABLE_PER_PACKET_LB */
-
-	/* The verifier wants to see this assignment here in case the above goto
-	 * skip_service_lookup is hit. However, in the case the packet
-	 * is _not_ TCP or UDP we should not be using proxy logic anyways. For
-	 * correctness it must be below the service handler in case the service
-	 * logic re-writes the tuple daddr. In "theory" however the assignment
-	 * should be OK to move above goto label.
-	 */
-	orig_dip = tuple.daddr;
-
-	/* WARNING: ip4 offset check invalidated, revalidate before use */
-
-	/* Pass all outgoing packets through conntrack. This will create an
-	 * entry to allow reverse packets and return set cb[CB_POLICY] to
-	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
-	 * connection.
-	 */
-	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			    &ct_state, &monitor);
-	if (ct_ret < 0)
-		return ct_ret;
-
-	/* Check it this is return traffic to an ingress proxy. */
-	if ((ct_ret == CT_REPLY || ct_ret == CT_RELATED) && ct_state.proxy_redirect) {
-		/* Stack will do a socket match and deliver locally. */
-		return ctx_redirect_to_proxy4(ctx, &tuple, 0, false);
-	}
-
 	/* Determine the destination category for policy fallback. */
 	if (1) {
 		struct remote_endpoint_info *info;
 
-		info = lookup_ip4_remote_endpoint(orig_dip);
+		info = lookup_ip4_remote_endpoint(tuple.daddr);
 		if (info != NULL && info->sec_label) {
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
@@ -649,7 +579,29 @@ skip_service_lookup:
 		}
 
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   orig_dip, *dst_id);
+			   tuple.daddr, *dst_id);
+	}
+
+#ifdef ENABLE_PER_PACKET_LB
+	/* Restore ct_state from per packet lb handling in the previous tail call. */
+	lb4_ctx_restore_state(ctx, &ct_state_new, &tuple);
+	hairpin_flow = ct_state_new.loopback;
+#endif /* ENABLE_PER_PACKET_LB */
+
+	/* Pass all outgoing packets through conntrack. This will create an
+	 * entry to allow reverse packets and return set cb[CB_POLICY] to
+	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
+	 * connection.
+	 */
+	ct_ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
+			    &ct_state, &monitor);
+	if (ct_ret < 0)
+		return ct_ret;
+
+	/* Check it this is return traffic to an ingress proxy. */
+	if ((ct_ret == CT_REPLY || ct_ret == CT_RELATED) && ct_state.proxy_redirect) {
+		/* Stack will do a socket match and deliver locally. */
+		return ctx_redirect_to_proxy4(ctx, &tuple, 0, false);
 	}
 
 	/* When an endpoint connects to itself via service clusterIP, we need
@@ -733,6 +685,9 @@ ct_recreate4:
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state.rev_nat_index) {
+			struct csum_offset csum_off = {};
+
+			csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 			ret = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
 					  &ct_state, &tuple, 0, has_l4_header);
 			if (IS_ERR(ret))
@@ -756,8 +711,6 @@ ct_recreate4:
 	/* After L4 write in port mapping: revalidate for direct packet access */
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
-
-	orig_dip = ip4->daddr;
 
 	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
 	 * disabled. Otherwise, the packet will be dropped by the kernel if
@@ -852,7 +805,7 @@ skip_egress_gateway:
 	{
 		struct tunnel_key key = {};
 
-		key.ip4 = orig_dip & IPV4_MASK;
+		key.ip4 = ip4->daddr & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
 
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
@@ -927,9 +880,10 @@ encrypt_to_stack:
 	return CTX_ACT_OK;
 }
 
-declare_tailcall_if(__or3(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6),
-			  is_defined(DEBUG)), CILIUM_CALL_IPV4_FROM_LXC)
-int tail_handle_ipv4(struct __ctx_buff *ctx)
+declare_tailcall_if(__or(__or(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+			 __or(is_defined(ENABLE_PER_PACKET_LB), is_defined(DEBUG))),
+		    CILIUM_CALL_IPV4_FROM_LXC_CONT)
+int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 {
 	__u32 dst_id = 0;
 	int ret = handle_ipv4_from_lxc(ctx, &dst_id);
@@ -947,6 +901,74 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 	}
 #endif
 
+	return ret;
+}
+
+declare_tailcall_if(__or3(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6),
+			  is_defined(DEBUG)), CILIUM_CALL_IPV4_FROM_LXC)
+int tail_handle_ipv4(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+	int ret;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+/* If IPv4 fragmentation is disabled
+ * AND a IPv4 fragmented packet is received,
+ * then drop the packet.
+ */
+#ifndef ENABLE_IPV4_FRAGMENTS
+	if (ipv4_is_fragment(ip4))
+		return DROP_FRAG_NOSUPPORT;
+#endif
+
+	if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
+		return DROP_INVALID_SIP;
+
+#ifdef ENABLE_PER_PACKET_LB
+	{
+		struct ipv4_ct_tuple tuple = {};
+		int l3_off = ETH_HLEN, l4_off;
+		struct csum_offset csum_off = {};
+		struct ct_state ct_state_new = {};
+		bool has_l4_header;
+		struct lb4_service *svc;
+		struct lb4_key key = {};
+
+		has_l4_header = ipv4_has_l4_header(ip4);
+		tuple.nexthdr = ip4->protocol;
+		tuple.daddr = ip4->daddr;
+		tuple.saddr = ip4->saddr;
+
+		l4_off = l3_off + ipv4_hdrlen(ip4);
+
+		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off,
+				      CT_EGRESS);
+		if (IS_ERR(ret)) {
+			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+				goto skip_service_lookup;
+			else
+				return ret;
+		}
+
+		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+		if (svc) {
+			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
+					&csum_off, &key, &tuple, svc, &ct_state_new,
+					ip4->saddr, has_l4_header, false);
+			if (IS_ERR(ret))
+				return ret;
+		}
+skip_service_lookup:
+		/* Store state to be picked up on the continuation tail call. */
+		lb4_ctx_store_state(ctx, &ct_state_new);
+	}
+#endif /* ENABLE_PER_PACKET_LB */
+
+	invoke_tailcall_if(is_defined(ENABLE_PER_PACKET_LB),
+			   CILIUM_CALL_IPV4_FROM_LXC_CONT, tail_handle_ipv4_cont);
 	return ret;
 }
 
