@@ -579,7 +579,8 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		if nRetry > 0 {
 			// an error occurred and we can retry
 			scopedLog.WithError(err).Warningf("Unable to create %s proxy, retrying", ppName)
-			if option.Config.ToFQDNsProxyPort == 0 {
+			// Do not increment port for DNS when the port is set in config
+			if pp.proxyType != ProxyTypeDNS || option.Config.ToFQDNsProxyPort == 0 {
 				pp.proxyPort++
 			}
 		}
