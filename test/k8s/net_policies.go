@@ -699,10 +699,11 @@ var _ = SkipDescribeIf(func() bool {
 				// Masquerade function should be disabled
 				// because the request will fail if the reply packet's source address is rewritten
 				// when sending a request directly to the Pod from outside the cluster.
-				By("Reconfiguring Cilium to disable ipv4 masquerade")
+				By("Reconfiguring Cilium to disable masquerade")
 				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 					map[string]string{
 						"enableIPv4Masquerade": "false",
+						"enableIPv6Masquerade": "false",
 					})
 
 			})
@@ -780,6 +781,7 @@ var _ = SkipDescribeIf(func() bool {
 						map[string]string{
 							"remoteNodeIdentity":   "false",
 							"enableIPv4Masquerade": "false",
+							"enableIPv6Masquerade": "false",
 						})
 				})
 
@@ -800,6 +802,7 @@ var _ = SkipDescribeIf(func() bool {
 						map[string]string{
 							"remoteNodeIdentity":   "true",
 							"enableIPv4Masquerade": "false",
+							"enableIPv6Masquerade": "false",
 						})
 				})
 
