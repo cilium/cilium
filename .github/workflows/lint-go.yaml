@@ -190,7 +190,7 @@ jobs:
         run: |
           cd src/github.com/cilium/cilium
 
-          grep '# K8s' .github/workflows/conformance-ginkgo.yaml | \
+          grep '# K8s' .github/actions/ginkgo/main-focus.yaml | \
           sed -e 's/^[[:space:]]\+# //g' | \
           sort -u > /tmp/ginkgo-workflow-comments.txt
 
@@ -224,7 +224,7 @@ jobs:
             echo ""
             echo "Ginkgo tests out of sync with comments from GH workflow:"
             echo "$diff"
-            echo "Please fix the comments from .github/workflows/conformance-ginkgo.yaml accordingly"
+            echo "Please fix the comments from .github/actions/ginkgo/main-focus.yaml accordingly"
             echo ""
             exit 1
           fi
