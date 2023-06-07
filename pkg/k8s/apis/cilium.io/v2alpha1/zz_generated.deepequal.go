@@ -427,12 +427,20 @@ func (in *IPPoolSpec) DeepEqual(other *IPPoolSpec) bool {
 		return false
 	}
 
-	if !in.IPv4.DeepEqual(&other.IPv4) {
+	if (in.IPv4 == nil) != (other.IPv4 == nil) {
 		return false
+	} else if in.IPv4 != nil {
+		if !in.IPv4.DeepEqual(other.IPv4) {
+			return false
+		}
 	}
 
-	if !in.IPv6.DeepEqual(&other.IPv6) {
+	if (in.IPv6 == nil) != (other.IPv6 == nil) {
 		return false
+	} else if in.IPv6 != nil {
+		if !in.IPv6.DeepEqual(other.IPv6) {
+			return false
+		}
 	}
 
 	return true

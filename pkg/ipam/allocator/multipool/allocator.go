@@ -111,29 +111,39 @@ func (a *Allocator) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGett
 }
 
 func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error {
+	var ipv4CIDRs, ipv6CIDRs []string
+	var ipv4MaskSize, ipv6MaskSize int
+
+	if pool.Spec.IPv4 != nil {
+		ipv4MaskSize = int(pool.Spec.IPv4.MaskSize)
+		ipv4CIDRs = make([]string, len(pool.Spec.IPv4.CIDRs))
+		for i, cidr := range pool.Spec.IPv4.CIDRs {
+			ipv4CIDRs[i] = string(cidr)
+		}
+	}
+
+	if pool.Spec.IPv6 != nil {
+		ipv6MaskSize = int(pool.Spec.IPv6.MaskSize)
+		ipv6CIDRs = make([]string, len(pool.Spec.IPv6.CIDRs))
+		for i, cidr := range pool.Spec.IPv6.CIDRs {
+			ipv6CIDRs[i] = string(cidr)
+		}
+	}
+
 	log.WithFields(logrus.Fields{
 		"pool-name":      pool.Name,
-		"ipv4-cidrs":     pool.Spec.IPv4.CIDRs,
-		"ipv4-mask-size": pool.Spec.IPv4.MaskSize,
-		"ipv6-cidrs":     pool.Spec.IPv6.CIDRs,
-		"ipv6-mask-size": pool.Spec.IPv6.MaskSize,
+		"ipv4-cidrs":     ipv4CIDRs,
+		"ipv4-mask-size": ipv4MaskSize,
+		"ipv6-cidrs":     ipv6CIDRs,
+		"ipv6-mask-size": ipv6MaskSize,
 	}).Debug("upserting pool")
-
-	ipv4CIDRs := make([]string, len(pool.Spec.IPv4.CIDRs))
-	for i, cidr := range pool.Spec.IPv4.CIDRs {
-		ipv4CIDRs[i] = string(cidr)
-	}
-	ipv6CIDRs := make([]string, len(pool.Spec.IPv6.CIDRs))
-	for i, cidr := range pool.Spec.IPv6.CIDRs {
-		ipv6CIDRs[i] = string(cidr)
-	}
 
 	return a.poolAlloc.UpsertPool(
 		pool.Name,
 		ipv4CIDRs,
-		int(pool.Spec.IPv4.MaskSize),
+		ipv4MaskSize,
 		ipv6CIDRs,
-		int(pool.Spec.IPv6.MaskSize),
+		ipv6MaskSize,
 	)
 }
 
