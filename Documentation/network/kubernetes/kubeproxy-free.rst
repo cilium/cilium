@@ -678,9 +678,6 @@ each underlying device's driver must have native XDP support on all Cilium manag
 nodes. In addition, for performance reasons we recommend kernel >= 5.5 for
 the multi-device XDP acceleration.
 
-NodePort acceleration can be used with either direct routing (``routingMode=native``)
-or tunnel mode. Direct routing is recommended to achieve optimal performance.
-
 A list of drivers supporting XDP can be found in :ref:`the XDP documentation<xdp_drivers>`.
 
 The current Cilium kube-proxy XDP acceleration mode can also be introspected through
