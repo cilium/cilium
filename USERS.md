@@ -620,3 +620,7 @@ Users (Alphabetically)
       D: Yahoo is using Cilium for L4 North-South Load Balancing for Kubernetes Services
       L: https://www.youtube.com/watch?v=-C86fBMcp5Q
     
+    * N: ZeroHash 
+      D: Zero Hash is using Cilium as CNI for networking, security and monitoring features for Kubernetes clusters 
+      U: CNI/ENI Networking, Network policies, Hubble
+      Q: @eugenestarchenko
