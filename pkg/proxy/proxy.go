@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/rand"
@@ -471,6 +472,10 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		if nRetry > 0 {
 			// an error occurred and we can retry
 			scopedLog.WithError(err).Warningf("Unable to create %s proxy, retrying", pp.name)
+			// Do not increment port for DNS when the port is set in config
+			if pp.parserType != policy.ParserTypeDNS || option.Config.ToFQDNsProxyPort == 0 {
+				pp.proxyPort++
+			}
 		}
 
 		if !pp.configured {
