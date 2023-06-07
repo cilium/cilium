@@ -2351,14 +2351,14 @@ skip_service_lookup:
 			if (IS_ERR(ret))
 				return ret;
 #endif
-#ifndef ENABLE_MASQUERADE
+#ifndef ENABLE_MASQUERADE_IPV4
 			/* The packet is DSR-eligible, so we know for sure that it is
 			 * not reply traffic by a remote backend which would require
 			 * forwarding / revDNAT. If BPF-Masquerading is off, there is no
 			 * other reason to tail-call CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS.
 			 */
 			return CTX_ACT_OK;
-#endif
+#endif /* ENABLE_MASQUERADE_IPV4 */
 		}
 #endif /* ENABLE_DSR */
 
@@ -2709,7 +2709,7 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 
 #if !defined(ENABLE_DSR) ||						\
     (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
-     defined(ENABLE_MASQUERADE) ||					\
+     defined(ENABLE_MASQUERADE_IPV4) ||					\
     (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
 	if (!ctx_snat_done(ctx)) {
 		ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);

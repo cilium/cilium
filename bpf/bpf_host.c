@@ -844,10 +844,10 @@ int tail_handle_ipv4_from_host(struct __ctx_buff *ctx)
 {
 	__u32 ipcache_srcid = 0;
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE)
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4)
 	ipcache_srcid = ctx_load_meta(ctx, CB_IPCACHE_SRC_LABEL);
 	ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, 0);
-#endif
+#endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
 
 	return tail_handle_ipv4(ctx, ipcache_srcid, true);
 }
@@ -1148,13 +1148,13 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 					      from_host);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		if (from_host) {
-# if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE)
+# if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4)
 			/* If we don't rely on BPF-based masquerading, we need
 			 * to pass the srcid from ipcache to host firewall. See
 			 * comment in ipv4_host_policy_egress() for details.
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-# endif
+# endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_HOST);
 		} else {
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
@@ -1167,7 +1167,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		 */
 		return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
 					      CTX_ACT_OK, METRIC_INGRESS);
-#endif
+#endif /* ENABLE_IPV4 */
 	default:
 #ifdef ENABLE_HOST_FIREWALL
 		ret = send_drop_notify_error(ctx, identity, DROP_UNKNOWN_L3,

@@ -758,12 +758,12 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 		target->addr = IPV4_DIRECT_ROUTING;
 		return true;
 	}
-# ifdef ENABLE_MASQUERADE
+# ifdef ENABLE_MASQUERADE_IPV4
 	if (ip4->saddr == IPV4_MASQUERADE) {
 		target->addr = IPV4_MASQUERADE;
 		return true;
 	}
-# endif
+# endif /* ENABLE_MASQUERADE_IPV4 */
 #endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
 
 	local_ep = __lookup_ip4_endpoint(ip4->saddr);
@@ -789,7 +789,7 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 			     ipv4_hdrlen(ip4), &tuple, &is_reply);
 	}
 
-#ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
+#ifdef ENABLE_MASQUERADE_IPV4 /* SNAT local pod to world packets */
 # ifdef IS_BPF_OVERLAY
 	/* Do not MASQ when this function is executed from bpf_overlay
 	 * (IS_BPF_OVERLAY denotes this fact). Otherwise, a packet will
@@ -878,7 +878,7 @@ skip_egress_gateway:
 			return true;
 		}
 	}
-#endif /*ENABLE_MASQUERADE */
+#endif /*ENABLE_MASQUERADE_IPV4 */
 
 	return false;
 }
