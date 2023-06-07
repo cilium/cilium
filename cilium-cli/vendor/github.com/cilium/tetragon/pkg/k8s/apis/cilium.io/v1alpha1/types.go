@@ -152,6 +152,9 @@ type KProbeArg struct {
 	// will fetch at most 4096 bytes. In later kernels (>=5.4) tetragon
 	// supports fetching up to 327360 bytes if this flag is turned on
 	MaxData bool `json:"maxData"`
+	// +kubebuilder:validation:Optional
+	// Label to output in the JSON
+	Label string `json:"label"`
 }
 
 type BinarySelector struct {
@@ -279,6 +282,10 @@ type ActionSelector struct {
 	// +kubebuilder:validation:Optional
 	// A signal number for signal action
 	ArgSig uint32 `json:"argSig"`
+	// +kubebuilder:validation:Optional
+	// A time period within which repeated messages will not be posted. Can be specified in seconds (default or with
+	// 's' suffix), minutes ('m' suffix) or hours ('h' suffix).
+	RateLimit string `json:"rateLimit"`
 }
 
 type TracepointSpec struct {
