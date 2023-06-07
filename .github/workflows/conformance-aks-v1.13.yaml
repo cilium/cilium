@@ -66,7 +66,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
+  name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.8
