@@ -7,12 +7,8 @@ import (
 	"context"
 	"net/netip"
 	"testing"
-	"time"
 
 	"k8s.io/utils/pointer"
-
-	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -22,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/stretchr/testify/require"
 )
 
 // We use similar local listen ports as the tests in the pkg/bgpv1/test package.
@@ -234,14 +231,14 @@ func TestNeighborReconciler(t *testing.T) {
 		{
 			name: "update neighbor",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", ConnectRetryTimeSeconds: pointer.Int32(120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", ConnectRetryTimeSeconds: pointer.Int32(120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", ConnectRetryTimeSeconds: pointer.Int32(120)},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(types.DefaultPeerPort), ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int(types.DefaultPeerPort), ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int(types.DefaultPeerPort), ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(types.DefaultPeerPort), ConnectRetryTimeSeconds: pointer.Int32(99)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int(types.DefaultPeerPort), ConnectRetryTimeSeconds: pointer.Int32(120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int(types.DefaultPeerPort), ConnectRetryTimeSeconds: pointer.Int32(120)},
 			},
 			checks: checkTimers{
 				connectRetryTimer: true,
@@ -252,30 +249,30 @@ func TestNeighborReconciler(t *testing.T) {
 			name: "update neighbor - graceful restart",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
 				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(types.DefaultGRRestartTimeSeconds),
 				}},
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(types.DefaultGRRestartTimeSeconds),
 				}},
 				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(types.DefaultGRRestartTimeSeconds),
 				}},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
 				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(types.DefaultPeerPort), GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     false,
-					RestartTime: metav1.Duration{Duration: 0},
+					Enabled:            false,
+					RestartTimeSeconds: pointer.Int32(0),
 				}},
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int(types.DefaultPeerPort), GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(types.DefaultGRRestartTimeSeconds),
 				}},
 				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int(types.DefaultPeerPort), GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(types.DefaultGRRestartTimeSeconds),
 				}},
 			},
 			checks: checkTimers{
@@ -364,28 +361,20 @@ func TestNeighborReconciler(t *testing.T) {
 				}
 
 				if tt.checks.holdTimer {
-					toCiliumPeer.HoldTime = metav1.Duration{
-						Duration: time.Duration(peer.ConfiguredHoldTimeSeconds) * time.Second,
-					}
+					toCiliumPeer.HoldTimeSeconds = pointer.Int32(int32(peer.ConfiguredHoldTimeSeconds))
 				}
 
 				if tt.checks.connectRetryTimer {
-					toCiliumPeer.ConnectRetryTime = metav1.Duration{
-						Duration: time.Duration(peer.ConnectRetryTimeSeconds) * time.Second,
-					}
+					toCiliumPeer.ConnectRetryTimeSeconds = pointer.Int32(int32(peer.ConnectRetryTimeSeconds))
 				}
 
 				if tt.checks.keepaliveTimer {
-					toCiliumPeer.KeepAliveTime = metav1.Duration{
-						Duration: time.Duration(peer.ConfiguredKeepAliveTimeSeconds) * time.Second,
-					}
+					toCiliumPeer.KeepAliveTimeSeconds = pointer.Int32(int32(peer.ConfiguredKeepAliveTimeSeconds))
 				}
 
 				if tt.checks.grRestartTime {
 					toCiliumPeer.GracefulRestart.Enabled = peer.GracefulRestart.Enabled
-					toCiliumPeer.GracefulRestart.RestartTime = metav1.Duration{
-						Duration: time.Duration(peer.GracefulRestart.RestartTimeSeconds) * time.Second,
-					}
+					toCiliumPeer.GracefulRestart.RestartTimeSeconds = pointer.Int32(int32(peer.GracefulRestart.RestartTimeSeconds))
 				}
 
 				runningPeers = append(runningPeers, toCiliumPeer)

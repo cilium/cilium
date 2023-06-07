@@ -32,19 +32,31 @@ func (in *CiliumBGPNeighbor) DeepEqual(other *CiliumBGPNeighbor) bool {
 	if in.EBGPMultihopTTL != other.EBGPMultihopTTL {
 		return false
 	}
-	if in.ConnectRetryTime != other.ConnectRetryTime {
+	if (in.ConnectRetryTimeSeconds == nil) != (other.ConnectRetryTimeSeconds == nil) {
 		return false
+	} else if in.ConnectRetryTimeSeconds != nil {
+		if *in.ConnectRetryTimeSeconds != *other.ConnectRetryTimeSeconds {
+			return false
+		}
 	}
 
-	if in.HoldTime != other.HoldTime {
+	if (in.HoldTimeSeconds == nil) != (other.HoldTimeSeconds == nil) {
 		return false
+	} else if in.HoldTimeSeconds != nil {
+		if *in.HoldTimeSeconds != *other.HoldTimeSeconds {
+			return false
+		}
 	}
 
-	if in.KeepAliveTime != other.KeepAliveTime {
+	if (in.KeepAliveTimeSeconds == nil) != (other.KeepAliveTimeSeconds == nil) {
 		return false
+	} else if in.KeepAliveTimeSeconds != nil {
+		if *in.KeepAliveTimeSeconds != *other.KeepAliveTimeSeconds {
+			return false
+		}
 	}
 
-	if in.GracefulRestart != other.GracefulRestart {
+	if !in.GracefulRestart.DeepEqual(&other.GracefulRestart) {
 		return false
 	}
 
@@ -61,8 +73,12 @@ func (in *CiliumBGPNeighborGracefulRestart) DeepEqual(other *CiliumBGPNeighborGr
 	if in.Enabled != other.Enabled {
 		return false
 	}
-	if in.RestartTime != other.RestartTime {
+	if (in.RestartTimeSeconds == nil) != (other.RestartTimeSeconds == nil) {
 		return false
+	} else if in.RestartTimeSeconds != nil {
+		if *in.RestartTimeSeconds != *other.RestartTimeSeconds {
+			return false
+		}
 	}
 
 	return true
