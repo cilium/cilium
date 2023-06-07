@@ -199,6 +199,7 @@ authMapMax
 authMapMin
 authMode
 authenticator
+autoCreateCiliumPodIPPools
 autoDirectNodeRoutes
 autoMount
 autoProtectPortRange
@@ -746,7 +747,6 @@ mov
 mtls
 mul
 multi
-multiPoolMap
 multicore
 multihoming
 multinode

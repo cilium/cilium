@@ -106,7 +106,7 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 			log.WithError(err).WithFields(logrus.Fields{
 				"poolName": poolName,
 				"poolSpec": poolSpecStr,
-			}).Fatalf("Failed to parse IP pool spec in %q flag", operatorOption.IPAMMultiPoolMap)
+			}).Fatalf("Failed to parse IP pool spec in %q flag", operatorOption.IPAMAutoCreateCiliumPodIPPools)
 		}
 
 		pool := &cilium_v2alpha1.CiliumPodIPPool{
@@ -139,7 +139,7 @@ func StartIPPoolAllocator(
 ) {
 	log.Info("Starting CiliumPodIPPool allocator watcher")
 
-	multiPoolAutoCreatePools(ctx, clientset, operatorOption.Config.IPAMMultiPoolMap)
+	multiPoolAutoCreatePools(ctx, clientset, operatorOption.Config.IPAMAutoCreateCiliumPodIPPools)
 
 	synced := make(chan struct{})
 
