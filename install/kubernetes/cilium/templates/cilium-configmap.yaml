@@ -1086,6 +1086,10 @@ data:
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}
 
+  mesh-auth-queue-size: {{ .Values.authentication.queueSize | quote }}
+  mesh-auth-rotated-identities-queue-size: {{ .Values.authentication.rotatedIdentitiesQueueSize | quote }}
+  mesh-auth-expired-gc-interval: {{ include "validateDuration" .Values.authentication.expiredGCInterval | quote }}
+
 {{- if .Values.authentication.mutual.spire.enabled }}
   mesh-auth-mutual-enabled: "true"
   mesh-auth-mutual-listener-port: {{ .Values.authentication.mutual.port | quote }}

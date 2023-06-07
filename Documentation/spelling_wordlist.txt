@@ -441,6 +441,7 @@ ethernet
 ethtool
 eventBufferCapacity
 eventQueueSize
+expiredGCInterval
 extTrafficPolicy
 extendable
 extensibility
@@ -879,6 +880,7 @@ qede
 qemu
 quantiles
 queryable
+queueSize
 queueing
 rbac
 rc
@@ -920,6 +922,7 @@ roadmap
 rollOutCiliumPods
 rollOutPods
 rollout
+rotatedIdentitiesQueueSize
 routable
 routingMode
 rst

@@ -40,6 +40,10 @@
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
      - ``false``
+   * - authentication.expiredGCInterval
+     - Interval for garbage collection of expired auth map entries.
+     - string
+     - ``"15m0s"``
    * - authentication.mutual.port
      - Port on the agent where mutual authentication handshakes between agents will be performed
      - int
@@ -144,6 +148,14 @@
      - SPIFFE trust domain to use for fetching certificates
      - string
      - ``"spiffe.cilium"``
+   * - authentication.queueSize
+     - Buffer size of the channel Cilium uses to receive authentication events from the signal map.
+     - int
+     - ``1024``
+   * - authentication.rotatedIdentitiesQueueSize
+     - Buffer size of the channel Cilium uses to receive certificate expiration events from auth handlers.
+     - int
+     - ``1024``
    * - autoDirectNodeRoutes
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
