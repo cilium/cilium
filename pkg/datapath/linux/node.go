@@ -319,6 +319,15 @@ func (n *linuxNodeHandler) updateDirectRoutes(oldCIDRs, newCIDRs []*cidr.CIDR, o
 	for _, cidr := range addedCIDRs {
 		if routeSpec, err := installDirectRoute(cidr, newIP); err != nil {
 			log.WithError(err).Warningf("Unable to install direct node route %s", routeSpec.String())
+			// In the current implementation, this often fails because updates are tried for both ip families
+			// regardless if the Node has either ip types.
+			// At the time of this change we are only interested in bubbling up errors without affecting execution flow.
+			// Thus we are ignoring the error here for now.
+			//
+			// TODO(Tom): In the future we will want to avoid attempting to do the update if we know it will fail.
+			if newIP == nil && errors.Is(err, unix.ERANGE) {
+				return nil
+			}
 			return err
 		}
 	}
