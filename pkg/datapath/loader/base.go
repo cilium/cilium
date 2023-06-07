@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -64,7 +63,6 @@ const (
 	initTCFilterPriority
 	initDefaultRTProto
 	initLocalRulePriority
-	initArgStaleIPv6NodeIP
 	initArgMax
 )
 
@@ -377,21 +375,20 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 		localIPv6CIDR := node.GetIPv6AllocRange()
 		fmt.Printf(">>>>> cidr %s\n", localIPv6CIDR.String())
-		addrs, err := link.GetIPv6Addresses(hostDev1.Attrs().Name)
+		ciliumHostV6Addrs, err := netlink.AddrList(hostDev1, netlink.FAMILY_V6)
 		if err != nil {
 			return err
 		}
-		args[initArgStaleIPv6NodeIP] = "<nil>"
-		for _, addr := range addrs {
+		for _, addr := range ciliumHostV6Addrs {
 			fmt.Printf(">>>>> matching: %s\n", addr.IPNet.IP.String())
 			if localIPv6CIDR.Contains(addr.IPNet.IP) {
-				args[initArgStaleIPv6NodeIP] = addr.IPNet.IP.String()
-				break
+				if err := netlink.AddrDel(hostDev1, &addr); err != nil {
+					log.WithError(err).Errorf("failed to delete IPv6 address %s from %s", addr.IPNet.IP.String(), hostDev1.Attrs().Name)
+				}
 			}
 		}
 	} else {
 		args[initArgIPv6NodeIP] = "<nil>"
-		args[initArgStaleIPv6NodeIP] = "<nil>"
 	}
 
 	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)

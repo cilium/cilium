@@ -57,14 +57,6 @@ func GetHardwareAddr(ifName string) (mac.MAC, error) {
 	return mac.MAC(iface.Attrs().HardwareAddr), nil
 }
 
-func GetIPv6Addresses(ifName string) ([]netlink.Addr, error) {
-	iface, err := netlink.LinkByName(ifName)
-	if err != nil {
-		return nil, err
-	}
-	return netlink.AddrList(iface, netlink.FAMILY_V6)
-}
-
 func GetIfIndex(ifName string) (uint32, error) {
 	iface, err := netlink.LinkByName(ifName)
 	if err != nil {
