@@ -690,8 +690,8 @@
      - ``nil``
    * - disableEndpointCRD
      - Disable the usage of CiliumEndpoint CRD.
-     - string
-     - ``"false"``
+     - bool
+     - ``false``
    * - dnsPolicy
      - DNS policy for Cilium agent pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
      - string
