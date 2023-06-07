@@ -97,7 +97,7 @@ var (
 	wildcardIPv6   = net.ParseIP("0::0")
 	wildcardCIDRv6 = &net.IPNet{
 		IP:   wildcardIPv6,
-		Mask: net.CIDRMask(128, 128),
+		Mask: net.CIDRMask(0, 128),
 	}
 
 	defaultDropMark = &netlink.XfrmMark{
