@@ -57,7 +57,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb6(ctx, *identity, ext_err);
+		ret = nodeport_lb6(ctx, ip6, *identity, ext_err);
 		if (ret < 0)
 			return ret;
 	}

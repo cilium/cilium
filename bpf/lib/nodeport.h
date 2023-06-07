@@ -947,13 +947,12 @@ drop_err:
 
 /* See nodeport_lb4(). */
 static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
+					struct ipv6hdr *ip6,
 					__u32 src_sec_identity,
 					__s8 *ext_err)
 {
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple = {};
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
@@ -961,9 +960,6 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	__u32 monitor = 0;
 
 	cilium_capture_in(ctx);
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
