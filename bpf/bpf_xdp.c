@@ -255,13 +255,24 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb6(ctx, 0, &ext_err);
+		void *data, *data_end;
+		struct ipv6hdr *ip6;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
+		ret = nodeport_lb6(ctx, ip6, 0, &ext_err);
 		if (IS_ERR(ret))
-			return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
-							  CTX_ACT_DROP, METRIC_INGRESS);
+			goto drop_err;
 	}
 
 	return bpf_xdp_exit(ctx, ret);
+
+drop_err:
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+					  CTX_ACT_DROP, METRIC_INGRESS);
 }
 
 static __always_inline int check_v6_lb(struct __ctx_buff *ctx)

@@ -170,7 +170,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
 		if (!ctx_skip_nodeport(ctx)) {
-			ret = nodeport_lb6(ctx, secctx, ext_err);
+			ret = nodeport_lb6(ctx, ip6, secctx, ext_err);
 			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
 			 * traffic to L7 LB. Policy enforcement needs to take
 			 * place after L7 LB has processed the packet, so we
