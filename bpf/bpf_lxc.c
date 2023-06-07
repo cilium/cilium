@@ -1544,12 +1544,7 @@ skip_policy_enforcement:
 				 &ct_state_new, *proxy_port > 0, false, ext_err);
 		if (IS_ERR(ret))
 			return ret;
-
-		/* NOTE: tuple has been invalidated after this */
 	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 	reason = (enum trace_reason)*ct_status;
 	if (*proxy_port > 0) {
@@ -1872,12 +1867,7 @@ skip_policy_enforcement:
 				 &ct_state_new, *proxy_port > 0, false, ext_err);
 		if (IS_ERR(ret))
 			return ret;
-
-		/* NOTE: tuple has been invalidated after this */
 	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
 
 	reason = (enum trace_reason)*ct_status;
 	if (*proxy_port > 0) {
