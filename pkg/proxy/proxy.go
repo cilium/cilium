@@ -481,7 +481,6 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 	scopedLog := log.WithField(fieldProxyRedirectID, id)
 
 	var revertStack revert.RevertStack
-	revertFunc = revertStack.Revert
 	defer func() {
 		if err != nil {
 			// We ignore errors while reverting. This is best-effort.
@@ -489,8 +488,12 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 			// some functions in the revert stack (like removeRevertFunc)
 			// require it
 			p.mutex.Unlock()
-			revertFunc()
+			revertStack.Revert()
 			p.mutex.Lock()
+			finalizeFunc = nil
+			revertFunc = nil
+		} else {
+			revertFunc = revertStack.Revert
 		}
 	}()
 
