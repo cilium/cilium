@@ -123,16 +123,6 @@ func (p *PoolAllocator) addPool(poolName string, ipv4CIDRs []string, ipv4MaskSiz
 	return nil
 }
 
-func (p *PoolAllocator) AddPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int) error {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
-	if _, exists := p.pools[poolName]; exists {
-		return fmt.Errorf("pool %q already exists", poolName)
-	}
-	return p.addPool(poolName, ipv4CIDRs, ipv4MaskSize, ipv6CIDRs, ipv6MaskSize)
-}
-
 func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAllocator, newCIDRs []string, maskSize int) ([]cidralloc.CIDRAllocator, error) {
 	var newCIDRSets []cidralloc.CIDRAllocator
 	var alloc []string
