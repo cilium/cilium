@@ -873,6 +873,40 @@ drop_no_service:
 	tuple->flags = flags;
 	return DROP_NO_SERVICE;
 }
+
+/* lb6_ctx_store_state() stores per packet load balancing state to be picked
+ * up on the continuation tail call.
+ * Note that the IP headers are already xlated and the tuple is re-initialized
+ * from the xlated headers before restoring state.
+ * NOTE: if lb_skip_l4_dnat() this is not the case as xlate is skipped. We
+ * lose the updated tuple daddr in that case.
+ */
+static __always_inline void lb6_ctx_store_state(struct __ctx_buff *ctx,
+						const struct ct_state *state)
+{
+	ctx_store_meta(ctx, CB_BACKEND_ID, state->backend_id);
+	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index);
+}
+
+/* lb6_ctx_restore_state() restores per packet load balancing state from the
+ * previous tail call.
+ * tuple->flags does not need to be restored, as it will be reinitialized from
+ * the packet.
+ */
+static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
+						  struct ct_state *state)
+{
+	state->rev_nat_index = (__u16)ctx_load_meta(ctx, CB_CT_STATE);
+	/* Clear to not leak state to later stages of the datapath. */
+	ctx_store_meta(ctx, CB_CT_STATE, 0);
+
+	/* No loopback support for IPv6, see lb6_local() above. */
+
+	state->backend_id = ctx_load_meta(ctx, CB_BACKEND_ID);
+	/* Must clear to avoid policy bypass as CB_BACKEND_ID aliases CB_POLICY. */
+	ctx_store_meta(ctx, CB_BACKEND_ID, 0);
+}
+
 #else
 /* Stubs for v4-in-v6 socket cgroup hook case when only v4 is enabled to avoid
  * additional map management.
@@ -1454,6 +1488,48 @@ update_state:
 drop_no_service:
 		tuple->flags = flags;
 		return DROP_NO_SERVICE;
+}
+
+/* lb4_ctx_store_state() stores per packet load balancing state to be picked
+ * up on the continuation tail call.
+ * Note that the IP headers are already xlated and the tuple is re-initialized
+ * from the xlated headers before restoring state.
+ * NOTE: if lb_skip_l4_dnat() this is not the case as xlate is skipped. We
+ * lose the updated tuple daddr in that case.
+ */
+static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
+						const struct ct_state *state)
+{
+	ctx_store_meta(ctx, CB_BACKEND_ID, state->backend_id);
+	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+		       state->loopback);
+}
+
+/* lb4_ctx_restore_state() restores per packet load balancing state from the
+ * previous tail call.
+ * tuple->flags does not need to be restored, as it will be reinitialized from
+ * the packet.
+ */
+static __always_inline void lb4_ctx_restore_state(struct __ctx_buff *ctx,
+						  struct ct_state *state,
+						  const struct ipv4_ct_tuple *tuple  __maybe_unused)
+{
+	__u32 meta = ctx_load_meta(ctx, CB_CT_STATE);
+#ifndef DISABLE_LOOPBACK_LB
+	if (meta & 1) {
+		state->loopback = 1;
+		state->addr = IPV4_LOOPBACK;
+		state->svc_addr = tuple->daddr; /* backend address after xlate */
+	}
+#endif
+	state->rev_nat_index = meta >> 16;
+
+	/* Clear to not leak state to later stages of the datapath. */
+	ctx_store_meta(ctx, CB_CT_STATE, 0);
+
+	state->backend_id = ctx_load_meta(ctx, CB_BACKEND_ID);
+	/* must clear to avoid policy bypass as CB_BACKEND_ID aliases CB_POLICY. */
+	ctx_store_meta(ctx, CB_BACKEND_ID, 0);
 }
 #endif /* ENABLE_IPV4 */
 #endif /* __LB_H_ */
