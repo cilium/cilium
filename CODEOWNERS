@@ -469,6 +469,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/promise @cilium/sig-foundations
 /pkg/proxy/ @cilium/proxy
 /pkg/proxy/accesslog @cilium/api
+/pkg/rate/metrics @cilium/metrics
 /pkg/recorder @cilium/sig-datapath
 /pkg/redirectpolicy @cilium/sig-lb
 /pkg/safeio @cilium/sig-agent
