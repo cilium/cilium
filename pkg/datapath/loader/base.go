@@ -373,15 +373,14 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		sysSettings = append(sysSettings,
 			sysctl.Setting{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
 
-		localIPv6CIDR := node.GetIPv6AllocRange()
-		fmt.Printf(">>>>> cidr %s\n", localIPv6CIDR.String())
 		ciliumHostV6Addrs, err := netlink.AddrList(hostDev1, netlink.FAMILY_V6)
 		if err != nil {
 			return err
 		}
 		for _, addr := range ciliumHostV6Addrs {
-			fmt.Printf(">>>>> matching: %s\n", addr.IPNet.IP.String())
-			if localIPv6CIDR.Contains(addr.IPNet.IP) {
+			// Delete stale cilium_host IPv6 to make sure downgrade from 1.14 to 1.13 works:
+			// https://github.com/cilium/cilium/issues/25938
+			if addr.Scope == int(netlink.SCOPE_UNIVERSE) && addr.IP.String() != args[initArgIPv6NodeIP] {
 				if err := netlink.AddrDel(hostDev1, &addr); err != nil {
 					log.WithError(err).Errorf("failed to delete IPv6 address %s from %s", addr.IPNet.IP.String(), hostDev1.Attrs().Name)
 				}
