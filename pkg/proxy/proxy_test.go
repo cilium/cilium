@@ -8,7 +8,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/proxy/logger/test"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 
 	. "github.com/cilium/checkmate"
@@ -175,4 +180,58 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(pp.isStatic, Equals, false)
 	c.Assert(pp.nRedirects, Equals, 0)
 	c.Assert(pp.rulesPort, Equals, port3)
+}
+
+type fakeProxyPolicy struct{}
+
+func (p *fakeProxyPolicy) CopyL7RulesPerEndpoint() policy.L7DataMap {
+	return policy.L7DataMap{}
+}
+
+func (p *fakeProxyPolicy) GetL7Parser() policy.L7ParserType {
+	return policy.ParserTypeCRD
+}
+
+func (p *fakeProxyPolicy) GetIngress() bool {
+	return false
+}
+
+func (p *fakeProxyPolicy) GetPort() uint16 {
+	return uint16(80)
+}
+
+func (p *fakeProxyPolicy) GetListener() string {
+	return "nonexisting-listener"
+}
+
+func (s *ProxySuite) TestCreateOrUpdateRedirectMissingListener(c *C) {
+	mockDatapathUpdater := &MockDatapathUpdater{}
+
+	testRunDir := c.MkDir()
+	socketDir := envoy.GetSocketDir(testRunDir)
+	err := os.MkdirAll(socketDir, 0700)
+	c.Assert(err, IsNil)
+
+	p := StartProxySupport(10000, 20000, testRunDir, nil, nil, mockDatapathUpdater, nil,
+		testipcache.NewMockIPCache())
+
+	Identity := identity.NumericIdentity(123)
+	var ep logger.EndpointUpdater = &test.ProxyUpdaterMock{
+		Id:       1000,
+		Ipv4:     "10.0.0.1",
+		Ipv6:     "f00d::1",
+		Labels:   []string{"id.foo", "id.bar"},
+		Identity: Identity,
+	}
+
+	l4 := &fakeProxyPolicy{}
+
+	ctx := context.TODO()
+	wg := completion.NewWaitGroup(ctx)
+
+	proxyPort, err, finalizeFunc, revertFunc := p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", ep, wg)
+	c.Assert(proxyPort, Equals, uint16(0))
+	c.Assert(err, NotNil)
+	c.Assert(finalizeFunc, IsNil)
+	c.Assert(revertFunc, IsNil)
 }
