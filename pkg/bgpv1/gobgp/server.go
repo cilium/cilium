@@ -21,6 +21,9 @@ import (
 const (
 	wildcardIPv4Addr = "0.0.0.0"
 	wildcardIPv6Addr = "::"
+
+	// defaultIdleHoldTimeAfterReset defines time BGP session will stay idle after neighbor reset.
+	defaultIdleHoldTimeAfterReset = 5 * time.Second
 )
 
 var (
@@ -235,9 +238,10 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 	peer.Timers.Config = &gobgp.TimersConfig{
 		// If any of the timers is not set (zero), it will be defaulted at the gobgp level.
 		// However, they should be already defaulted at this point.
-		ConnectRetry:      uint64(n.ConnectRetryTime.Round(time.Second).Seconds()),
-		HoldTime:          uint64(n.HoldTime.Round(time.Second).Seconds()),
-		KeepaliveInterval: uint64(n.KeepAliveTime.Round(time.Second).Seconds()),
+		ConnectRetry:           uint64(n.ConnectRetryTime.Round(time.Second).Seconds()),
+		HoldTime:               uint64(n.HoldTime.Round(time.Second).Seconds()),
+		KeepaliveInterval:      uint64(n.KeepAliveTime.Round(time.Second).Seconds()),
+		IdleHoldTimeAfterReset: uint64(defaultIdleHoldTimeAfterReset.Seconds()),
 	}
 
 	// populate graceful restart config
