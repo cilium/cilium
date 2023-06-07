@@ -297,17 +297,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgIPv4NodeIP] = "<nil>"
 	}
 
-	if option.Config.EnableIPv6 {
-		args[initArgIPv6NodeIP] = node.GetIPv6().String()
-		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
-		// interface (https://github.com/docker/libnetwork/issues/1720)
-		// Enable IPv6 for now
-		sysSettings = append(sysSettings,
-			sysctl.Setting{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
-	} else {
-		args[initArgIPv6NodeIP] = "<nil>"
-	}
-
 	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)
 
 	if option.Config.EnableSocketLB {
@@ -390,8 +379,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 	}
 
-	sysctl.ApplySettings(sysSettings)
-
 	// Datapath initialization
 	hostDev1, hostDev2, err := SetupBaseDevice(deviceMTU)
 	if err != nil {
@@ -399,6 +386,41 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 	args[initArgHostDev1] = hostDev1.Attrs().Name
 	args[initArgHostDev2] = hostDev2.Attrs().Name
+
+	if option.Config.EnableIPv6 {
+		args[initArgIPv6NodeIP] = node.GetIPv6().String()
+		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
+		// interface (https://github.com/docker/libnetwork/issues/1720)
+		// Enable IPv6 for now
+		sysSettings = append(sysSettings,
+			sysctl.Setting{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
+
+		ciliumHostV6Addrs, err := netlink.AddrList(hostDev1, netlink.FAMILY_V6)
+		if err != nil {
+			return err
+		}
+		for _, addr := range ciliumHostV6Addrs {
+			// Delete stale cilium_host IPv6 to make sure downgrade from 1.14 to 1.13 works:
+			// https://github.com/cilium/cilium/issues/25938
+			if addr.Scope == int(netlink.SCOPE_UNIVERSE) && addr.IP.String() != args[initArgIPv6NodeIP] {
+				if err := netlink.AddrDel(hostDev1, &addr); err != nil {
+					log.WithFields(logrus.Fields{
+						logfields.IPv6:   addr.IPNet.IP.String(),
+						logfields.Device: hostDev1.Attrs().Name,
+					}).WithError(err).Error("failed to delete stale IPv6 from device")
+				} else {
+					log.WithFields(logrus.Fields{
+						logfields.IPv6:   addr.IPNet.IP.String(),
+						logfields.Device: hostDev1.Attrs().Name,
+					}).Info("successfully deleted stale IPv6 from device")
+				}
+			}
+		}
+	} else {
+		args[initArgIPv6NodeIP] = "<nil>"
+	}
+
+	sysctl.ApplySettings(sysSettings)
 
 	if option.Config.InstallIptRules && option.Config.EnableL7Proxy {
 		args[initArgProxyRule] = "true"
