@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-openapi/strfmt"
@@ -160,6 +161,20 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				rc.metricReadinessStatus.Set(metrics.BoolToFloat64(true))
 				defer rc.metricReadinessStatus.Set(metrics.BoolToFloat64(false))
 
+				ctx, cancel := context.WithCancel(ctx)
+				var wg sync.WaitGroup
+				wg.Add(1)
+
+				go func() {
+					rc.watchdog(ctx, backend)
+					wg.Done()
+				}()
+
+				defer func() {
+					cancel()
+					wg.Wait()
+				}()
+
 				if err := rc.Run(ctx, backend, config); err != nil {
 					rc.getLogger().WithError(err).Error("Connection to remote cluster failed")
 					return err
@@ -175,6 +190,27 @@ func (rc *remoteCluster) restartRemoteConnection() {
 			CancelDoFuncOnUpdate: true,
 		},
 	)
+}
+
+func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOperations) {
+	select {
+	case err, ok := <-backend.StatusCheckErrors():
+		if ok && err != nil {
+			rc.getLogger().WithError(err).Warning("Error observed on etcd connection, reconnecting etcd")
+			rc.mutex.Lock()
+			rc.failures++
+			rc.lastFailure = time.Now()
+			rc.metricLastFailureTimestamp.SetToCurrentTime()
+			rc.metricTotalFailures.Set(float64(rc.failures))
+			rc.metricReadinessStatus.Set(metrics.BoolToFloat64(rc.isReadyLocked()))
+			rc.mutex.Unlock()
+
+			rc.restartRemoteConnection()
+		}
+
+	case <-ctx.Done():
+		return
+	}
 }
 
 func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.BackendOperations, forceRequired bool) (*cmtypes.CiliumClusterConfig, error) {
@@ -280,43 +316,6 @@ func (rc *remoteCluster) onInsert() {
 			}
 		}
 	}()
-
-	go func() {
-		for {
-			select {
-			// terminate routine when remote cluster is removed
-			case _, ok := <-rc.changed:
-				if !ok {
-					return
-				}
-			default:
-			}
-
-			// wait for backend to appear
-			rc.mutex.RLock()
-			if rc.backend == nil {
-				rc.mutex.RUnlock()
-				time.Sleep(10 * time.Millisecond)
-				continue
-			}
-			statusCheckErrors := rc.backend.StatusCheckErrors()
-			rc.mutex.RUnlock()
-
-			err, ok := <-statusCheckErrors
-			if ok && err != nil {
-				rc.getLogger().WithError(err).Warning("Error observed on etcd connection, reconnecting etcd")
-				rc.mutex.Lock()
-				rc.failures++
-				rc.lastFailure = time.Now()
-				rc.metricLastFailureTimestamp.SetToCurrentTime()
-				rc.metricTotalFailures.Set(float64(rc.failures))
-				rc.metricReadinessStatus.Set(metrics.BoolToFloat64(rc.isReadyLocked()))
-				rc.mutex.Unlock()
-				rc.restartRemoteConnection()
-			}
-		}
-	}()
-
 }
 
 // onStop is executed when the clustermesh subsystem is being stopped.
