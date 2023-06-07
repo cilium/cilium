@@ -49,7 +49,7 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/cilium/charts v0.0.0-20230526205117-9c16d4d680bb
+# github.com/cilium/charts v0.0.0-20230601164911-0a270e4bf15f
 ## explicit; go 1.17
 github.com/cilium/charts
 # github.com/cilium/cilium v1.14.0-snapshot.3.0.20230606122222-31f6ab1ff5fb
@@ -153,7 +153,7 @@ github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
-# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230530162345-26256999192b
+# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230607130945-72fafb31bba4
 ## explicit; go 1.18
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1
