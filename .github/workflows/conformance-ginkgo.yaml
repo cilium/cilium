@@ -373,7 +373,8 @@ jobs:
           ###
           # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting
           # K8sDatapathConfig Check BPF masquerading with ip-masq-agent VXLAN
-          # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement
+          # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement with GENEVE and endpoint routes
+          # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement with VXLAN and no endpoint routes
           # K8sDatapathConfig Iptables Skip conntrack for pod traffic
           # K8sDatapathConfig IPv4Only Check connectivity with IPv6 disabled
           # K8sDatapathConfig IPv6 masquerading across K8s nodes, skipped due to native routing CIDR
@@ -398,6 +399,8 @@ jobs:
           # K8sDatapathServicesTest Checks N/S loadbalancing ClusterIP cannot be accessed externally when access is disabled
           # K8sDatapathServicesTest Checks N/S loadbalancing Supports IPv4 fragments
           # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, direct routing and dsr with geneve
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, direct routing and Hybrid-DSR with Geneve
+          # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, geneve tunnel, and Hybrid-DSR with Geneve
           # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, direct routing and Hybrid
           # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, geneve tunnel, dsr and Maglev
           - focus: "f11-datapath-service-ns-tc"
@@ -410,7 +413,6 @@ jobs:
           # K8sDatapathServicesTest Checks N/S loadbalancing Tests security id propagation in N/S LB requests fwd-ed over tunnel
           # K8sDatapathServicesTest Checks N/S loadbalancing Tests with direct routing and DSR
           # K8sDatapathServicesTest Checks N/S loadbalancing Tests with secondary NodePort device
-          # K8sDatapathServicesTest Checks N/S loadbalancing with L7 policy Tests NodePort with L7 Policy from outside
           - focus: "f12-datapath-service-ns-misc"
             cliFocus: "K8sDatapathServicesTest Checks N/S loadbalancing Tests externalIPs|K8sDatapathServicesTest Checks N/S loadbalancing Tests GH|K8sDatapathServicesTest Checks N/S loadbalancing Tests NodePort|K8sDatapathServicesTest Checks N/S loadbalancing Tests security|K8sDatapathServicesTest Checks N/S loadbalancing Tests with direct|K8sDatapathServicesTest Checks N/S loadbalancing Tests with secondary|K8sDatapathServicesTest Checks N/S loadbalancing with"
 
@@ -449,7 +451,7 @@ jobs:
             cliFocus: 'K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) TFTP|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) with'
 
           ###
-          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy)
+          # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) 
           # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) with externalTrafficPolicy=Local
           # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) with IPSec and externalTrafficPolicy=Local
           # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) with the host firewall and externalTrafficPolicy=Local
