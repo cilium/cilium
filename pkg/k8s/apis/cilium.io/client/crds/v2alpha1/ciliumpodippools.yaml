@@ -54,7 +54,6 @@ spec:
                     type: array
                   maskSize:
                     description: MaskSize is the mask size of the pool.
-                    format: int64
                     maximum: 32
                     minimum: 1
                     type: integer
@@ -76,7 +75,6 @@ spec:
                     type: array
                   maskSize:
                     description: MaskSize is the mask size of the pool.
-                    format: int64
                     maximum: 128
                     minimum: 1
                     type: integer

@@ -28,12 +28,12 @@ type IPPoolSpec struct {
 	// IPv4 specifies the IPv4 CIDRs and mask sizes of the pool
 	//
 	// +kubebuilder:validation:Optional
-	IPv4 IPv4PoolSpec `json:"ipv4"`
+	IPv4 *IPv4PoolSpec `json:"ipv4"`
 
 	// IPv6 specifies the IPv6 CIDRs and mask sizes of the pool
 	//
 	// +kubebuilder:validation:Optional
-	IPv6 IPv6PoolSpec `json:"ipv6"`
+	IPv6 *IPv6PoolSpec `json:"ipv6"`
 }
 
 type IPv4PoolSpec struct {
@@ -49,7 +49,7 @@ type IPv4PoolSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=32
 	// +kubebuilder:validation:ExclusiveMaximum=false
-	MaskSize uint64 `json:"maskSize"`
+	MaskSize uint8 `json:"maskSize"`
 }
 
 type IPv6PoolSpec struct {
@@ -65,7 +65,7 @@ type IPv6PoolSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=128
 	// +kubebuilder:validation:ExclusiveMaximum=false
-	MaskSize uint64 `json:"maskSize"`
+	MaskSize uint8 `json:"maskSize"`
 }
 
 // PoolCIDR is an IP pool CIDR.
