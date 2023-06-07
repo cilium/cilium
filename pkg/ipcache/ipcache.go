@@ -118,8 +118,6 @@ type IPCache struct {
 	// interface.
 	namedPorts namedPortMultiMapUpdater
 
-	cacheStatus k8s.CacheStatus
-
 	// Configuration provides pointers towards other agent components that
 	// the IPCache relies upon at runtime.
 	*Configuration
