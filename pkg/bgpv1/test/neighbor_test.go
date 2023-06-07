@@ -21,8 +21,8 @@ import (
 
 var (
 	// maxNeighborTestDuration is allowed time for the Neighbor tests execution
-	// (on average we need about 20 - 25s to finish the tests due to BGP timers etc.)
-	maxNeighborTestDuration = 40 * time.Second
+	// (on average we need about 35-40s to finish the tests due to BGP timers etc.)
+	maxNeighborTestDuration = 1 * time.Minute
 )
 
 // peeringState helper struct containing peering information of BGP neighbor
