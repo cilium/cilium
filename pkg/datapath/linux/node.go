@@ -1207,8 +1207,11 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		newIP6                                   = newNode.GetNodeIP(true)
 		oldKey, newKey                           uint8
 		isLocalNode                              = false
-		remoteNodeID                             = n.allocateIDForNode(newNode)
 	)
+	remoteNodeID, err := n.allocateIDForNode(newNode)
+	if err != nil {
+		errs = errors.Join(errs, fmt.Errorf("failed to allocate ID for node %s: %w", newNode.Name, err))
+	}
 
 	if oldNode != nil {
 		oldIP4Cidr = oldNode.IPv4AllocCIDR
@@ -1239,7 +1242,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		// neighbor update procedure.
 		//
 		// In v1.15, we will have the neighbor sync component report its own
-		// health via stored errors. 
+		// health via stored errors.
 		go n.insertNeighbor(context.Background(), newNode, false)
 	}
 

@@ -4,6 +4,7 @@
 package linux
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -72,7 +73,9 @@ func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 // been assigned. If any of the node IPs have an ID associated, then all other
 // node IPs receive the same. This might happen if we allocated a node ID from
 // the ipcache, where we don't have all node IPs but only one.
-func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
+func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) (uint16, error) {
+	var errs error
+
 	// Did we already allocate a node ID for any IP of that node?
 	nodeID := n.getNodeIDForNode(node)
 
@@ -80,6 +83,7 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 		nodeID = uint16(n.nodeIDs.AllocateID())
 		if nodeID == uint16(idpool.NoID) {
 			log.WithField(logfields.NodeName, node.Name).Error("No more IDs available for nodes")
+			errs = errors.Join(errs, fmt.Errorf("no available node ID %q", node.Name))
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.NodeID:   nodeID,
@@ -98,13 +102,16 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 				logfields.NodeID: nodeID,
 				logfields.IPAddr: ip,
 			}).Error("Failed to map node IP address to allocated ID")
+			errs = errors.Join(errs,
+				fmt.Errorf("failed to map IP %q with node ID %q: %w", nodeID, nodeID, err))
 		}
 	}
-	return nodeID
+	return nodeID, errs
 }
 
 // deallocateIDForNode deallocates the node ID for the given node, if it was allocated.
-func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
+func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) error {
+	var errs error
 	nodeIPs := make(map[string]bool)
 	nodeID := n.getNodeIDForNode(oldNode)
 
@@ -117,13 +124,16 @@ func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
 				logfields.NodeName: oldNode.Name,
 				logfields.IPAddr:   addr.IP,
 			}).Errorf("Found two node IDs (%d and %d) for the same node", id, nodeID)
+			errs = errors.Join(errs, fmt.Errorf("found two node IDs (%d and %d) for the same node", id, nodeID))
 		}
 	}
 
-	n.deallocateNodeIDLocked(nodeID, nodeIPs, oldNode.Name)
+	errs = errors.Join(n.deallocateNodeIDLocked(nodeID, nodeIPs, oldNode.Name))
+	return errs
 }
 
-func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16, nodeIPs map[string]bool, nodeName string) {
+func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16, nodeIPs map[string]bool, nodeName string) error {
+	var errs error
 	for ip, id := range n.nodeIDsByIPs {
 		if nodeID != id {
 			continue
@@ -149,6 +159,7 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16, nodeIPs map[str
 		log.WithField(logfields.NodeID, nodeID).Warn("Attempted to deallocate a node ID that wasn't allocated")
 	}
 	log.WithField(logfields.NodeID, nodeID).Debug("Deallocate node ID")
+	return errs
 }
 
 // mapNodeID adds a node ID <> IP mapping into the local in-memory map of the
