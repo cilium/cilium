@@ -10,84 +10,79 @@
 Migrating from Ingress to Gateway
 *********************************
 
-The Gateway API is not only the long-term successor to the Ingress API ; it also supports use cases beyond HTTP/HTTPS-based applications.
+The Gateway API is not only the long-term successor to the Ingress API, it also supports use cases beyond HTTP/HTTPS-based applications.
 
-This section highlights some of the limitations with Ingress, explains some of the benefits of the Gateway API and describes 
+This section highlights some of the limitations with Ingress, explains some of the benefits of the Gateway API, and describes 
 some of the options available with migrating from Ingress API to Gateway API.
 
 Ingress API Limitations
 #######################
 
-The development of the Gateway API stemmed from the realization that the Kubernetes Ingress API had some limitations.
+Development of the Gateway API stemmed from the realization that the Kubernetes Ingress API has some limitations.
 
-- Limited support for advanced routing:
+- Limited support for advanced routing
   
 The Ingress API supports basic routing based on path and host rules, but it lacks native support for more advanced routing 
 features such as traffic splitting, header modification, and URL rewriting.
 
-- Limited protocol support:
+- Limited protocol support
   
-The Ingress API only supports HTTP and HTTPS traffic, and does not natively support other protocols such as TCP or UDP.
-The specification of Ingress API was simply too limited and not extensible enough. To address these technical limitations, 
-software vendors and developers created vendor-specific annotations to provide these specific capabilities. But using annotations 
-ended up creating inconsistencies from one Ingress Controller to another. This means that, if you wanted to start using a different 
-Ingress Controller over another, you would likely face some conversion issues as annotations tend to be vendor-specific.
+The Ingress API only supports HTTP and HTTPS traffic, and does not natively support other protocols like TCP or UDP.
+The Ingress API specification was too limited and not extensible enough. To address these technical limitations, 
+software vendors and developers created vendor-specific annotations. However, using annotations 
+created inconsistencies from one Ingress Controller to another. For example, issues often arise when switching from one Ingress Controller to another because annotations are often vendor-specific.
 
-- Operational constraints:
+- Operational constraints
   
-Finally, the Ingress API suffers from operational constraints: it simply is not well-suited for multi-team clusters with shared load-balancing infrastructure.
+Finally, the Ingress API suffers from operational constraints: it is not well suited for multi-team clusters with shared load-balancing infrastructure.
 
-Benefits of Gateway API
+Benefits of the Gateway API
 #######################
 
-The Gateway API was designed from the ground up to address the Ingress API limitations. The team behind the Gateway API is a Kubernetes SIG-Network project.
+The Gateway API was designed to address the limitations of Ingress API. The [Kubernetes SIG-Network](https://github.com/kubernetes/community/tree/master/sig-network) team designs and maintains the Gateway API.
 
-.. note::
+For more information about the Gateway API, see `the Gateway API project page<https://gateway-api.sigs.k8s.io/>`_.
 
-    You can find out more information about the project on its `website <https://gateway-api.sigs.k8s.io/>`_.
-
-On the technical front, the Gateway API provides a centralized mechanism for managing and enforcing policies for external traffic, 
+The Gateway API provides a centralized mechanism for managing and enforcing policies for external traffic, 
 including HTTP routing, TLS termination, traffic splitting/weighting, and header modification.
 
-Native support for these features means annotations are no longer needed to provide support for features that are commonly required
-for ingress traffic patterns. This means that Gateway API resources are more portable from one Gateway API implementation to another.
+Native support of policies for external traffic means that annotations are no longer required to support ingress traffic patterns. This means that Gateway API resources are more portable from one Gateway API implementation to another.
 
 When customization is required, Gateway API provides several flexible models, including specific extension points to enable diverse 
-traffic patterns. As extensions are added, the Gateway API team will keep looking for common denominators and will promote features 
-to the API conformance to avoid going back to some of the chaos seen with extending Ingress API resources.
+traffic patterns. As the Gateway API team adds extensions, the team looks for common denominators and promotes features of API conformance to maximize the ease of extending Ingress API resources.
 
-Finally, the Gateway API implementation was designed with role-based persona in mind. The Ingress model was based on a model where 
-it was assumed that developers managed and created Ingress and Services resources themselves.
+Finally, the Gateway API is designed with role-based personas in mind. The Ingress model is based on a persona where 
+developers manage and create ingress and service resources themselves.
 
-In many of the more complex deployments however, there are various personas involved:
+In more complex deployments, more personas are involved:
 
-- Infrastructure Provider: responsible for the administration of the underlying infrastructure. For example, the cloud provider (AWS, Azure, GCP) when using 
-  their managed services or the infrastructure/network team when running Kubernetes on-premises.
-- Cluster Operator: responsible for the the administration of a cluster.
-- Application Developer: responsible for defining application configuration and service composition.
+- Infrastructure Providers administrate the managed services of a cloud provider, or the infrastructure/network team when running Kubernetes on-premises.
+- Cluster Operators are responsible for the administration of a cluster.
+- Application Developers are responsible for defining application configuration and service composition.
 
-By decomposing the Ingress API into several Gateway API objects, personas will be assigned the right access and privileges that their responsibilities require.
+By deconstructing the Ingress API into several Gateway API objects, personas gain the access and privileges that their responsibilities require.
 
-For example, application developers in a specific team would be allowed to create Route objects in a specified namespace 
-but would not be able to modify the Gateway configuration or edit Route objects in namespaces other than theirs.
+For example, application developers in a specific team could be assigned permissions to create Route objects in a specified namespace 
+without also gaining permissions to modify the Gateway configuration or edit Route objects in namespaces other than theirs.
 
 Migration Methods
 #################
 
-There are currently two primary methods to migrate Ingress API resources to Gateway API:
+There are two primary methods to migrate Ingress API resources to Gateway API:
 
-- *manual* - manually creating Gateway API resources based on existing Ingress API resources.
-- *automated*, creating rules using the `ingress2gateway tool <https://github.com/kubernetes-sigs/ingress2gateway>`_. 
-  This project reads Ingress resources from a Kubernetes cluster based on your current Kube Config. It will output YAML for equivalent Gateway API resources to stdout.
-  Note the ``ingress2gateway`` tool remains experimental at this stage.
+- *manual*: manually creating Gateway API resources based on existing Ingress API resources.
+- *automated*: creating rules using the `ingress2gateway tool <https://github.com/kubernetes-sigs/ingress2gateway>`_. 
+  The ingress2gateway project reads Ingress resources from a Kubernetes cluster based on your current Kube Config. It outputs YAML for equivalent Gateway API resources to stdout.
+.. note::
+    The ``ingress2gateway`` tool remains experimental and is not recommended for production.
 
 Ingress Annotations Migration
 #############################
 
-Most Ingress controllers make the use of annotations to provide support for specific features, such as HTTP request manipulation and routing. 
-As highlighted in the earlier section about its benefits, the Gateway API model avoids the use of implementation-specific annotations where possible to provide a portable configuration.
+Most Ingress controllers use annotations to provide support for specific features, such as HTTP request manipulation and routing. 
+As noted in `Benefits of the Gateway API`_, the Gateway API avoids implementation-specific annotations in order to provide a portable configuration.
 
-Therefore, porting implementation-specific Ingress annotations to a Gateway API resource rarely applies. 
+As a consequence, it's rare to port implementation-specific Ingress annotations to a Gateway API resource. 
 Instead, the Gateway API provides native support for some of these features, including:
 
 - Request/response manipulation
@@ -97,8 +92,7 @@ Instead, the Gateway API provides native support for some of these features, inc
 Examples
 ########
 
-Please refer to one of the following examples on how to migrate to 
-Cilium's Gateway API features:
+For examples of migrating to Cilium's Gateway API features, see:
 
 .. toctree::
    :maxdepth: 1
