@@ -516,10 +516,14 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		}
 	}()
 
+	proxyPortsMutex.Lock()
+	defer proxyPortsMutex.Unlock()
+
 	if redir, ok := p.redirects[id]; ok {
 		redir.mutex.Lock()
 
-		if redir.listener.proxyType == ProxyType(l4.GetL7Parser()) {
+		// Only consider configured (but not necessarily acked) proxy ports for update
+		if redir.listener.configured && redir.listener.proxyType == ProxyType(l4.GetL7Parser()) {
 			updateRevertFunc := redir.updateRules(l4)
 			revertStack.Push(updateRevertFunc)
 			var implUpdateRevertFunc revert.RevertFunc
@@ -541,6 +545,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 			return
 		}
 
+		// Stale or incompatible redirects get removed before a new one is created below
 		var removeRevertFunc revert.RevertFunc
 		err, finalizeFunc, removeRevertFunc = p.removeRedirect(id, wg)
 		redir.mutex.Unlock()
@@ -553,8 +558,6 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		revertStack.Push(removeRevertFunc)
 	}
 
-	proxyPortsMutex.Lock()
-	defer proxyPortsMutex.Unlock()
 	ppName, pp := findProxyPortByType(ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
 	if pp == nil {
 		err = proxyTypeNotFoundError(ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
