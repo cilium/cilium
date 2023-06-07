@@ -17,7 +17,7 @@ import (
 
 func TestPoolAllocator(t *testing.T) {
 	p := NewPoolAllocator()
-	err := p.AddPool("default",
+	err := p.UpsertPool("default",
 		[]string{"10.100.0.0/16", "10.200.0.0/16"}, 24,
 		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
 	)
@@ -259,7 +259,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	assert.ErrorContains(t, err, `failed to allocate ipv4 address for node "node1" from pool "no-exist"`)
 	assert.ErrorContains(t, err, `cannot allocate from non-existing pool: no-exist`)
 
-	err = p.AddPool("ipv4-only",
+	err = p.UpsertPool("ipv4-only",
 		[]string{"10.0.0.0/16"}, 24,
 		nil, 0,
 	)
@@ -276,12 +276,12 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	assert.ErrorContains(t, err, `failed to allocate ipv6 address for node "node1" from pool "ipv4-only"`)
 	assert.ErrorContains(t, err, `pool empty`)
 
-	err = p.AddPool("ipv4-only-same-cidr",
+	err = p.UpsertPool("ipv4-only-same-cidr",
 		[]string{"10.0.0.0/16"}, 24,
 		nil, 0,
 	)
 	assert.NoError(t, err)
-	err = p.AddPool("ipv6-only",
+	err = p.UpsertPool("ipv6-only",
 		nil, 0,
 		[]string{"fd00:100::/80"}, 96,
 	)
@@ -354,7 +354,7 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	_, exists := p.pools["jupiter"]
 	assert.False(t, exists)
-	err := p.AddPool("jupiter",
+	err := p.UpsertPool("jupiter",
 		[]string{"10.100.0.0/16", "10.200.0.0/16"}, 24,
 		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
 	)
@@ -362,13 +362,6 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	_, exists = p.pools["jupiter"]
 	assert.True(t, exists)
 
-	// Adding a pool with the same name as an existing one fails and leave the existing pool
-	// intact.
-	err = p.AddPool("jupiter",
-		[]string{"10.10.0.0/16", "10.20.0.0/16"}, 24,
-		[]string{"fe00:100::/80", "fb00:200::/80"}, 96,
-	)
-	assert.ErrorContains(t, err, `pool "jupiter" already exists`)
 	jupiter, exists := p.pools["jupiter"]
 	assert.True(t, exists)
 	assert.Equal(t, jupiter.v4MaskSize, 24)
