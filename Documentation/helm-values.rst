@@ -1772,6 +1772,10 @@
      - Configure IP Address Management mode. ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
      - string
      - ``"cluster-pool"``
+   * - ipam.operator.autoCreateCiliumPodIPPools
+     - IP pools to auto-create in multi-pool IPAM mode.
+     - object
+     - ``{}``
    * - ipam.operator.clusterPoolIPv4MaskSize
      - IPv4 CIDR mask size to delegate to individual nodes for IPAM.
      - int
@@ -1796,10 +1800,6 @@
      - The maximum queries per second when rate limiting access to external APIs. Also known as the bucket refill rate, which is used to refill the bucket up to the burst size capacity.
      - string
      - ``4.0``
-   * - ipam.operator.multiPoolMap
-     - IP pools defined for the multi-pool IPAM mode.
-     - object
-     - ``{}``
    * - ipv4.enabled
      - Enable IPv4 support.
      - bool

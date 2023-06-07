@@ -875,19 +875,19 @@ data:
 {{- end }}
 {{- if (eq $ipam "multi-pool") }}
   {{- $pools := list }}
-  {{- range $pool, $cidrs := .Values.ipam.operator.multiPoolMap }}
+  {{- range $pool, $spec := .Values.ipam.operator.autoCreateCiliumPodIPPools }}
     {{- $attrs := list }}
-    {{- if hasKey $cidrs "ipv4CIDRs" }}
-    {{- $attrs = append $attrs (printf "ipv4-cidrs:%s" (join "," $cidrs.ipv4CIDRs)) }}
-    {{- $attrs = append $attrs (printf "ipv4-mask-size:%s" (toString $cidrs.ipv4MaskSize)) }}
+    {{- if hasKey $spec "ipv4" }}
+    {{- $attrs = append $attrs (printf "ipv4-cidrs:%s" (join "," $spec.ipv4.cidrs)) }}
+    {{- $attrs = append $attrs (printf "ipv4-mask-size:%s" (toString $spec.ipv4.maskSize)) }}
     {{- end }}
-    {{- if hasKey $cidrs "ipv6CIDRs" }}
-    {{- $attrs = append $attrs (printf "ipv6-cidrs:%s" (join "," $cidrs.ipv6CIDRs)) }}
-    {{- $attrs = append $attrs (printf "ipv6-mask-size:%s" (toString $cidrs.ipv6MaskSize)) }}
+    {{- if hasKey $spec "ipv6" }}
+    {{- $attrs = append $attrs (printf "ipv6-cidrs:%s" (join "," $spec.ipv6.cidrs)) }}
+    {{- $attrs = append $attrs (printf "ipv6-mask-size:%s" (toString $spec.ipv6.maskSize)) }}
     {{- end }}
     {{- $pools = append $pools (printf "%s=%s" $pool (join ";" $attrs)) }}
   {{- end }}
-  multi-pool-map: {{ join "," $pools | quote }}
+  auto-create-cilium-pod-ip-pools: {{ join "," $pools | quote }}
 {{- end }}
 
 {{- if .Values.ipam.operator.externalAPILimitBurstSize }}

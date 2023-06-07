@@ -120,8 +120,8 @@ const (
 	// IPAMInstanceTagFilter are optional tags used to filter instances for ENI discovery ; only used with AWS IPAM mode for now
 	IPAMInstanceTags = "instance-tags-filter"
 
-	// IPAMMultiPoolMap are IP pool definitions used for the multi-pool IPAM mode.
-	IPAMMultiPoolMap = "multi-pool-map"
+	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
+	IPAMAutoCreateCiliumPodIPPools = "auto-create-cilium-pod-ip-pools"
 
 	// ClusterPoolIPv4CIDR is the cluster's IPv4 CIDR to allocate
 	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
@@ -408,8 +408,8 @@ type OperatorConfig struct {
 	// per node.
 	NodeCIDRMaskSizeIPv6 int
 
-	// IPAMMultiPoolMap are IP pool definitions used for the multi-pool IPAM mode.
-	IPAMMultiPoolMap map[string]string
+	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
+	IPAMAutoCreateCiliumPodIPPools map[string]string
 
 	// AWS options
 
@@ -691,20 +691,20 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 		c.ENIGarbageCollectionTags = m
 	}
 
-	if m, err := command.GetStringMapStringE(vp, IPAMMultiPoolMap); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMMultiPoolMap, err)
+	if m, err := command.GetStringMapStringE(vp, IPAMAutoCreateCiliumPodIPPools); err != nil {
+		log.Fatalf("unable to parse %s: %s", IPAMAutoCreateCiliumPodIPPools, err)
 	} else {
-		c.IPAMMultiPoolMap = m
+		c.IPAMAutoCreateCiliumPodIPPools = m
 	}
 }
 
 // Config represents the operator configuration.
 var Config = &OperatorConfig{
-	IPAMSubnetsIDs:           make([]string, 0),
-	IPAMSubnetsTags:          make(map[string]string),
-	IPAMInstanceTags:         make(map[string]string),
-	IPAMMultiPoolMap:         make(map[string]string),
-	AWSInstanceLimitMapping:  make(map[string]string),
-	ENITags:                  make(map[string]string),
-	ENIGarbageCollectionTags: make(map[string]string),
+	IPAMSubnetsIDs:                 make([]string, 0),
+	IPAMSubnetsTags:                make(map[string]string),
+	IPAMInstanceTags:               make(map[string]string),
+	IPAMAutoCreateCiliumPodIPPools: make(map[string]string),
+	AWSInstanceLimitMapping:        make(map[string]string),
+	ENITags:                        make(map[string]string),
+	ENIGarbageCollectionTags:       make(map[string]string),
 }
