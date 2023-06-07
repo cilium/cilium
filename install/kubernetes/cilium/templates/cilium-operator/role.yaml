@@ -6,7 +6,7 @@ metadata:
   name: cilium-operator-ingress-secrets
   namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
   labels:
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
 rules:
 - apiGroups:
   - ""
@@ -27,7 +27,7 @@ metadata:
   name: cilium-operator-gateway-secrets
   namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
   labels:
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
 rules:
 - apiGroups:
   - ""

@@ -154,3 +154,13 @@ Validate duration field, return validated duration, 0s when provided duration is
 0s
 {{- end }}
 {{- end }}
+
+{{/* Generate common labels */}}
+{{- define "cilium.labels" }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/version: "{{ replace "+" "_" .Chart.Version }}"
+app.kubernetes.io/part-of: cilium
+{{- if .Values.commonLabels}}
+{{ toYaml .Values.commonLabels }}
+{{- end }}
+{{- end }}

@@ -4,6 +4,8 @@ kind: ConfigMap
 metadata:
   name: spire-server
   namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+  labels:
+    {{ include "cilium.labels" . | indent 4 }}
 data:
   server.conf: |
     server {

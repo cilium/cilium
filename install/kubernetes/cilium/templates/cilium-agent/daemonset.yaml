@@ -18,7 +18,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: cilium
-    app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: cilium-agent
     {{- if .Values.keepDeprecatedLabels }}
     kubernetes.io/cluster-service: "true"
@@ -26,6 +25,7 @@ metadata:
       {{- fail "Invalid configuration: Installing Cilium on GKE with 'kubernetes.io/cluster-service' labels on 'kube-system' namespace causes Cilium DaemonSet to be removed by GKE. Either install Cilium on a different Namespace or install with '--set keepDeprecatedLabels=false'" }}
     {{- end }}
     {{- end }}
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   selector:
     matchLabels:
@@ -65,13 +65,13 @@ spec:
       labels:
         k8s-app: cilium
         app.kubernetes.io/name: cilium-agent
-        app.kubernetes.io/part-of: cilium
         {{- if .Values.keepDeprecatedLabels }}
         kubernetes.io/cluster-service: "true"
         {{- end }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{ include "cilium.labels" . | indent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

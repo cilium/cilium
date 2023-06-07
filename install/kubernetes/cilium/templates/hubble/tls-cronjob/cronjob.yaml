@@ -7,7 +7,7 @@ metadata:
   labels:
     k8s-app: hubble-generate-certs
     app.kubernetes.io/name: hubble-generate-certs
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
   annotations:
     {{- with .Values.certgen.annotations.cronJob }}
     {{- toYaml . | nindent 4 }}

@@ -8,6 +8,7 @@ metadata:
     {{- with .Values.hubble.relay.prometheus.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+    {{ include "cilium.labels" . | indent 4 }}
   annotations:
     {{- with .Values.hubble.relay.prometheus.serviceMonitor.annotations }}
     {{- toYaml . | nindent 4 }}

@@ -5,6 +5,8 @@ kind: ConfigMap
 metadata:
   name: hubble-ui-nginx
   namespace: {{ .Release.Namespace }}
+  labels:
+    {{ include "cilium.labels" . | indent 4 }}
 data:
   nginx.conf: {{ include "hubble-ui.nginx.conf" . | trim | quote }}
 {{- end }}

@@ -7,9 +7,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: cilium-pre-flight-check-deployment
-    app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: cilium-pre-flight-check
     kubernetes.io/cluster-service: "true"
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   {{- with $component.maxUnavailable }}
   maxUnavailable: {{ . }}

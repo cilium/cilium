@@ -7,6 +7,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: hubble-relay
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   clusterIP: None
   type: ClusterIP

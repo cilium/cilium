@@ -11,7 +11,7 @@ metadata:
   labels:
     k8s-app: hubble-ui
     app.kubernetes.io/name: hubble-ui
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   type: {{ .Values.hubble.ui.service.type | quote }}
   selector:

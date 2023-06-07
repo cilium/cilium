@@ -4,7 +4,7 @@ kind: ClusterRole
 metadata:
   name: hubble-generate-certs
   labels:
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
 rules:
   - apiGroups:
       - ""

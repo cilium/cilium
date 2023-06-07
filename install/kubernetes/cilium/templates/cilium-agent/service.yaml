@@ -8,7 +8,7 @@ metadata:
   labels:
     k8s-app: cilium
     app.kubernetes.io/name: cilium-agent
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   clusterIP: None
   type: ClusterIP
@@ -37,7 +37,7 @@ metadata:
   labels:
     k8s-app: cilium
     app.kubernetes.io/name: cilium-agent
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   clusterIP: None
   type: ClusterIP

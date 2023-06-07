@@ -7,7 +7,7 @@ kind: ClusterRole
 metadata:
   name: cilium-pre-flight
   labels:
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
 rules:
 - apiGroups:
   - networking.k8s.io

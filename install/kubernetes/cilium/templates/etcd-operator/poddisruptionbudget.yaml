@@ -9,7 +9,7 @@ metadata:
     io.cilium/app: etcd-operator
     name: cilium-etcd-operator
     app.kubernetes.io/name: cilium-etcd-operator
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   {{- with $component.maxUnavailable }}
   maxUnavailable: {{ . }}

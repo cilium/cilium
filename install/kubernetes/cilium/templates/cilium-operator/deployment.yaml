@@ -8,8 +8,8 @@ metadata:
   labels:
     io.cilium/app: operator
     name: cilium-operator
-    app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: cilium-operator
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   # See docs on ServerCapabilities.LeasesResourceLock in file pkg/k8s/version/version.go
   # for more details.
@@ -51,11 +51,11 @@ spec:
       labels:
         io.cilium/app: operator
         name: cilium-operator
-        app.kubernetes.io/part-of: cilium
         app.kubernetes.io/name: cilium-operator
         {{- with .Values.operator.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{ include "cilium.labels" . | indent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

@@ -11,10 +11,10 @@ metadata:
   labels:
     k8s-app: cilium
     app.kubernetes.io/name: cilium-operator
-    app.kubernetes.io/part-of: cilium
     {{- if $.Values.operator.dashboards.label }}
     {{ $.Values.operator.dashboards.label }}: {{ ternary $.Values.operator.dashboards.labelValue "1" (not (empty $.Values.operator.dashboards.labelValue)) | quote }}
     {{- end }}
+    {{ include "cilium.labels" . | indent 4 }}
   {{- with $.Values.operator.dashboards.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

@@ -5,7 +5,7 @@ metadata:
   name: clustermesh-apiserver-generate-certs
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

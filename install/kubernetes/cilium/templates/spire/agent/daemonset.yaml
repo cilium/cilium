@@ -13,6 +13,7 @@ metadata:
   {{- with .Values.authentication.mutual.spire.install.server.labels }}
     {{- toYaml . | nindent 8 }}
   {{- end }}
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   selector:
     matchLabels:
@@ -22,6 +23,7 @@ spec:
       namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
       labels:
         app: spire-agent
+        {{ include "cilium.labels" . | indent 8 }}
     spec:
       hostPID: true
       hostNetwork: true

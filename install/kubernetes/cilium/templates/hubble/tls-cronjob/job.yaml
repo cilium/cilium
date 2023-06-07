@@ -8,7 +8,7 @@ metadata:
   labels:
     k8s-app: hubble-generate-certs
     app.kubernetes.io/name: hubble-generate-certs
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     {{- with .Values.certgen.annotations.job }}

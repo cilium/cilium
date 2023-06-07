@@ -12,8 +12,8 @@ metadata:
   labels:
     k8s-app: cilium-envoy
     app.kubernetes.io/name: cilium-envoy
-    app.kubernetes.io/part-of: cilium
     io.cilium/app: proxy
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   clusterIP: None
   type: ClusterIP

@@ -5,6 +5,8 @@ kind: ResourceQuota
 metadata:
   name: cilium-resource-quota
   namespace: {{ .Release.Namespace }}
+  labels:
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   hard:
     pods: {{ .Values.resourceQuotas.cilium.hard.pods | quote }}
@@ -22,6 +24,8 @@ kind: ResourceQuota
 metadata:
   name: cilium-operator-resource-quota
   namespace: {{ .Release.Namespace }}
+  labels:
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   hard:
     pods: {{ .Values.resourceQuotas.operator.hard.pods | quote }}

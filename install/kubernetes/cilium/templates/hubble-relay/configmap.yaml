@@ -9,6 +9,8 @@ kind: ConfigMap
 metadata:
   name: hubble-relay-config
   namespace: {{ .Release.Namespace }}
+  labels:
+    {{ include "cilium.labels" . | indent 4 }}
 data:
   config.yaml: |
     cluster-name: {{ .Values.cluster.name }}

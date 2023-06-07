@@ -8,10 +8,10 @@ metadata:
   labels:
     k8s-app: hubble-ui
     app.kubernetes.io/name: hubble-ui
-    app.kubernetes.io/part-of: cilium
   {{- with .Values.hubble.ui.ingress.labels }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
+    {{ include "cilium.labels" . | indent 4 }}
   {{- with .Values.hubble.ui.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

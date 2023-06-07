@@ -8,9 +8,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: clustermesh-apiserver
-    app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: clustermesh-apiserver
     app.kubernetes.io/component: metrics
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   clusterIP: None
   type: ClusterIP

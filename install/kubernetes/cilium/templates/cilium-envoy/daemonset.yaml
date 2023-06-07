@@ -1,5 +1,4 @@
 {{- if and .Values.envoy.enabled (not .Values.preflight.enabled) }}
-
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -8,9 +7,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: cilium-envoy
-    app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: cilium-envoy
     name: cilium-envoy
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   selector:
     matchLabels:
@@ -43,10 +42,10 @@ spec:
         k8s-app: cilium-envoy
         name: cilium-envoy
         app.kubernetes.io/name: cilium-envoy
-        app.kubernetes.io/part-of: cilium
         {{- with .Values.envoy.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{ include "cilium.labels" . | indent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

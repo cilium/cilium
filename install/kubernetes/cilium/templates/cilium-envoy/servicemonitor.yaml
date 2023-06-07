@@ -6,10 +6,10 @@ metadata:
   name: cilium-envoy
   namespace: {{ .Values.envoy.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
   labels:
-    app.kubernetes.io/part-of: cilium
     {{- with .Values.envoy.prometheus.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+    {{ include "cilium.labels" . | indent 4 }}
   annotations:
     {{- with .Values.envoy.prometheus.serviceMonitor.annotations }}
     {{- toYaml . | nindent 4 }}

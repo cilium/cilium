@@ -7,7 +7,7 @@ metadata:
   labels:
     k8s-app: hubble-relay
     app.kubernetes.io/name: hubble-relay
-    app.kubernetes.io/part-of: cilium
+    {{ include "cilium.labels" . | indent 4 }}
 spec:
   replicas: {{ .Values.hubble.relay.replicas }}
   selector:
@@ -30,10 +30,10 @@ spec:
       labels:
         k8s-app: hubble-relay
         app.kubernetes.io/name: hubble-relay
-        app.kubernetes.io/part-of: cilium
         {{- with .Values.hubble.relay.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{ include "cilium.labels" . | indent 8 }}
     spec:
       {{- with .Values.hubble.relay.podSecurityContext }}
       securityContext:
