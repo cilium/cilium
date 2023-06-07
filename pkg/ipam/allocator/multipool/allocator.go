@@ -16,7 +16,11 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-multi-pool")
 
 // Allocator implements allocator.AllocatorProvider
 type Allocator struct {

@@ -19,12 +19,8 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-clusterpool-v2")
 
 type cidrPool struct {
 	v4         []cidralloc.CIDRAllocator
