@@ -598,7 +598,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 
 		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-			cDefinesMap["ENABLE_MASQUERADE"] = "1"
+			cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
 			cidr := datapath.RemoteSNATDstAddrExclusionCIDRv4()
 			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
 				fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(cidr.IP))
