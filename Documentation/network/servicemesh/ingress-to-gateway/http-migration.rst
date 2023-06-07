@@ -21,7 +21,7 @@ The example Ingress configuration routes traffic to backend services from the
 Review Ingress Configuration
 ============================
 
-You'll find the example Ingress definition in ``basic-ingress.yaml``.
+You can find the example Ingress definition in ``basic-ingress.yaml``.
 
 .. literalinclude:: ../../../../examples/kubernetes/servicemesh/basic-ingress.yaml
 
@@ -32,18 +32,18 @@ and ``/`` to the ``productpage`` service.
 Create Equivalent Gateway Configuration
 =======================================
 
-To create the equivalent Gateway configuration, you must consider the following:
+To create the equivalent Gateway configuration, consider the following:
 
 - Entry Point
 
-The entry point is a combination of an IP address and port through which the data plane is accessible to external clients.
+The entry point is a combination of an IP address and port through which external clients access the data plane.
 
 .. tabs::
 
     .. group-tab:: Ingress
         
         Every Ingress resource has two implicit entry points -- one for HTTP and the other for HTTPS traffic. 
-        An Ingress controller provides those entry points. Typically, they will either be shared by all Ingress resources, or every Ingress resource will get dedicated entry points.
+        An Ingress controller provides the entry points. Typically, entry points are either shared by all Ingress resources, or every Ingress resource has dedicated entry points.
 
         .. code-block:: shell-session
 
@@ -55,7 +55,7 @@ The entry point is a combination of an IP address and port through which the dat
     .. group-tab:: Gateway API
 
         In the Gateway API, entry points must be explicitly defined in a Gateway resource. 
-        For example, if you want the data plane to handle HTTP traffic on port 80, you need to define a listener for that traffic. 
+        For example, for the data plane to handle HTTP traffic on port 80, you must define a listener for that traffic. 
         Typically, a Gateway implementation provides a dedicated data plane for each Gateway resource.
 
         .. code-block:: shell-session
@@ -73,7 +73,7 @@ The entry point is a combination of an IP address and port through which the dat
 
 - Routing Rules
 
-When using Ingress or Gateway API, routing rules need to be defined to attach applications to those entry points.
+When using Ingress or Gateway API, routing rules must be defined to attach applications to those entry points.
 
 .. tabs::
 
@@ -81,7 +81,7 @@ When using Ingress or Gateway API, routing rules need to be defined to attach ap
         
         The path-based routing rules are configured in the Ingress resource map directly to the routing rules of the HTTPRoute.
 
-        In the Ingress, each hostname has separate routing rules, 
+        In the Ingress, each hostname has separate routing rules:
 
         .. code-block:: shell-session
 
@@ -137,13 +137,13 @@ When using Ingress or Gateway API, routing rules need to be defined to attach ap
 
 - Selecting Data Plane to Attach to:
 
-Both Ingress and Gateway API resources need to be explicitly attached to a Dataplane.  
+Both Ingress and Gateway API resources must be explicitly attached to a Dataplane.  
 
 .. tabs::
 
     .. group-tab:: Ingress
 
-        An Ingress resource must specify a class to select which Ingress controller to use. 
+        An Ingress resource must specify a class that selects which Ingress controller to use. 
 
         .. code-block:: shell-session
 
@@ -154,7 +154,7 @@ Both Ingress and Gateway API resources need to be explicitly attached to a Datap
 
     .. group-tab:: Gateway API
 
-        A Gateway resource must also specify a class: in our case, it will always be the ``cilium`` class. 
+        A Gateway resource must also specify a class: in this example, it is always the ``cilium`` class. 
         An HTTPRoute must specify which Gateway (or Gateways) to attach to via a ``parentRef``.
 
         .. code-block:: shell-session
@@ -178,7 +178,7 @@ Both Ingress and Gateway API resources need to be explicitly attached to a Datap
 Review Equivalent Gateway Configuration
 =======================================
 
-You'll find the equivalent final Gateway and HTTPRoute definition in ``http-migration.yaml``.
+You can find the equivalent final Gateway and HTTPRoute definition in ``http-migration.yaml``.
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/http-migration.yaml
 

@@ -10,15 +10,14 @@
 TLS Migration
 *************
 
-This migration example builds on the previous :ref:`gs_gateway_http_migration` and add TLS
-termination for two HTTP routes. For simplicity, the second route to ``productpage``
-is omitted.
+This migration example builds on the previous :ref:`gs_gateway_http_migration` and adds TLS
+termination for two HTTP routes. For simplicity, this example omits the second route to ``productpage``.
 
 
 Review Ingress Configuration
 ============================
 
-You'll find the example Ingress definition in ``tls-ingress.yaml``.
+You can find the example Ingress definition in ``tls-ingress.yaml``.
 
 .. literalinclude:: ../../../../examples/kubernetes/servicemesh/tls-ingress.yaml
 
@@ -153,7 +152,7 @@ To create the equivalent TLS termination configuration, you must consider the fo
 Review Equivalent Gateway Configuration
 =======================================
 
-You'll find the equivalent final Gateway and HTTPRoute definition in ``tls-migration.yaml``.
+You can find the equivalent final Gateway and HTTPRoute definition in ``tls-migration.yaml``.
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/tls-migration.yaml
 
