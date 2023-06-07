@@ -8,9 +8,6 @@ import (
 	"errors"
 	"net/netip"
 	"testing"
-	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/mock"
@@ -142,13 +139,11 @@ func TestControllerSanity(t *testing.T) {
 				defaulted := false
 				for _, r := range p.Spec.VirtualRouters {
 					for _, n := range r.Neighbors {
-						if n.PeerPort != nil &&
-							*n.PeerPort == types.DefaultPeerPort &&
-							n.ConnectRetryTime.Duration != 0 &&
-							n.HoldTime.Duration != 0 &&
-							n.KeepAliveTime.Duration != 0 &&
-							n.GracefulRestart.RestartTime.Duration != 0 {
-
+						if n.PeerPort != nil && *n.PeerPort == types.DefaultPeerPort &&
+							n.ConnectRetryTimeSeconds != nil && *n.ConnectRetryTimeSeconds == types.DefaultBGPConnectRetryTimeSeconds &&
+							n.HoldTimeSeconds != nil && *n.HoldTimeSeconds == types.DefaultBGPHoldTimeSeconds &&
+							n.KeepAliveTimeSeconds != nil && *n.KeepAliveTimeSeconds == types.DefaultBGPKeepAliveTimeSeconds &&
+							n.GracefulRestart.RestartTimeSeconds != nil && *n.GracefulRestart.RestartTimeSeconds == types.DefaultGRRestartTimeSeconds {
 							defaulted = true
 						}
 					}
@@ -237,74 +232,6 @@ func TestControllerSanity(t *testing.T) {
 			},
 			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
 				return errors.New("")
-			},
-			err: errors.New(""),
-		},
-		{
-			name: "connect retry time validation error",
-			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
-				p := wantPolicy.DeepCopy()
-				p.Spec.VirtualRouters = []v2alpha1api.CiliumBGPVirtualRouter{
-					{
-						LocalASN: 65001,
-						Neighbors: []v2alpha1api.CiliumBGPNeighbor{
-							{
-								PeerASN:          65000,
-								PeerAddress:      "172.0.0.1/32",
-								ConnectRetryTime: metav1.Duration{Duration: -1 * time.Second},
-							},
-						},
-					},
-				}
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{p}, nil
-			},
-			labels: func() (map[string]string, error) {
-				return map[string]string{
-					"bgp-policy": "a",
-				}, nil
-			},
-			annotations: func() (map[string]string, error) {
-				return map[string]string{}, nil
-			},
-			podCIDRs: func() ([]string, error) {
-				return []string{}, nil
-			},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
-				return nil
-			},
-			err: errors.New(""),
-		},
-		{
-			name: "hold time validation error",
-			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
-				p := wantPolicy.DeepCopy()
-				p.Spec.VirtualRouters = []v2alpha1api.CiliumBGPVirtualRouter{
-					{
-						LocalASN: 65001,
-						Neighbors: []v2alpha1api.CiliumBGPNeighbor{
-							{
-								PeerASN:     65000,
-								PeerAddress: "172.0.0.1/32",
-								HoldTime:    metav1.Duration{Duration: 1 * time.Second},
-							},
-						},
-					},
-				}
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{p}, nil
-			},
-			labels: func() (map[string]string, error) {
-				return map[string]string{
-					"bgp-policy": "a",
-				}, nil
-			},
-			annotations: func() (map[string]string, error) {
-				return map[string]string{}, nil
-			},
-			podCIDRs: func() ([]string, error) {
-				return []string{}, nil
-			},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
-				return nil
 			},
 			err: errors.New(""),
 		},

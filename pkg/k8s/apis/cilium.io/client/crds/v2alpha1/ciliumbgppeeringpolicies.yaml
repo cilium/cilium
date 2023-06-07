@@ -124,14 +124,14 @@ spec:
                         description: CiliumBGPNeighbor is a neighboring peer for use
                           in a CiliumBGPVirtualRouter configuration.
                         properties:
-                          connectRetryTime:
-                            description: ConnectRetryTime defines the initial value
-                              for the BGP ConnectRetryTimer (RFC 4271, Section 8).
-                              The default value for the ConnectRetryTime (if empty
-                              or zero) is 120 seconds. Rounded internally to the nearest
-                              whole second.
-                            format: duration
-                            type: string
+                          connectRetryTimeSeconds:
+                            default: 120
+                            description: ConnectRetryTimeSeconds defines the initial
+                              value for the BGP ConnectRetryTimer (RFC 4271, Section
+                              8).
+                            format: int32
+                            minimum: 1
+                            type: integer
                           eBGPMultihopTTL:
                             description: EBGPMultihopTTL controls the multi-hop feature
                               for eBGP peers. Its value defines the Time To Live (TTL)
@@ -149,32 +149,34 @@ spec:
                                 description: Enabled flag, when set enables graceful
                                   restart capability.
                                 type: boolean
-                              restartTime:
-                                description: "RestartTime is the estimated time it
-                                  will take for the BGP session to be re-established
+                              restartTimeSeconds:
+                                default: 120
+                                description: RestartTimeSeconds is the estimated time
+                                  it will take for the BGP session to be re-established
                                   with peer after a restart. After this period, peer
                                   will remove stale routes. This is described RFC
-                                  4724 section 4.2. \n Default is 120s if empty or
-                                  zero. Rounded internally to the nearest whole second."
-                                format: duration
-                                type: string
+                                  4724 section 4.2.
+                                format: int32
+                                minimum: 0
+                                type: integer
                             type: object
-                          holdTime:
-                            description: HoldTime defines the initial value for the
-                              BGP HoldTimer (RFC 4271, Section 4.2). The default value
-                              for the HoldTime (if empty or zero) is 90 seconds. Rounded
-                              internally to the nearest whole second. Updating this
-                              value will cause a session reset.
-                            format: duration
-                            type: string
-                          keepAliveTime:
-                            description: KeepaliveTime defines the initial value for
-                              the BGP KeepaliveTimer (RFC 4271, Section 8). The default
-                              value for the KeepaliveTime (if empty or zero) is 1/3
-                              of the HoldTime. Rounded internally to the nearest whole
-                              second. Updating this value will cause a session reset.
-                            format: duration
-                            type: string
+                          holdTimeSeconds:
+                            default: 90
+                            description: HoldTimeSeconds defines the initial value
+                              for the BGP HoldTimer (RFC 4271, Section 4.2). Updating
+                              this value will cause a session reset.
+                            format: int32
+                            minimum: 3
+                            type: integer
+                          keepAliveTimeSeconds:
+                            default: 30
+                            description: KeepaliveTimeSeconds defines the initial
+                              value for the BGP KeepaliveTimer (RFC 4271, Section
+                              8). It can not be larger than HoldTimeSeconds. Updating
+                              this value will cause a session reset.
+                            format: int32
+                            minimum: 1
+                            type: integer
                           peerASN:
                             description: PeerASN is the ASN of the peer BGP router.
                               Supports extended 32bit ASNs

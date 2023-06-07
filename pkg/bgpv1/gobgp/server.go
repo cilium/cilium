@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"time"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
 	"github.com/sirupsen/logrus"
 	apb "google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -22,8 +22,8 @@ const (
 	wildcardIPv4Addr = "0.0.0.0"
 	wildcardIPv6Addr = "::"
 
-	// defaultIdleHoldTimeAfterReset defines time BGP session will stay idle after neighbor reset.
-	defaultIdleHoldTimeAfterReset = 5 * time.Second
+	// defaultIdleHoldTimeAfterResetSeconds defines time BGP session will stay idle after neighbor reset.
+	defaultIdleHoldTimeAfterResetSeconds = 5
 )
 
 var (
@@ -236,12 +236,10 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 		peer.Timers = &gobgp.Timers{}
 	}
 	peer.Timers.Config = &gobgp.TimersConfig{
-		// If any of the timers is not set (zero), it will be defaulted at the gobgp level.
-		// However, they should be already defaulted at this point.
-		ConnectRetry:           uint64(n.ConnectRetryTime.Round(time.Second).Seconds()),
-		HoldTime:               uint64(n.HoldTime.Round(time.Second).Seconds()),
-		KeepaliveInterval:      uint64(n.KeepAliveTime.Round(time.Second).Seconds()),
-		IdleHoldTimeAfterReset: uint64(defaultIdleHoldTimeAfterReset.Seconds()),
+		ConnectRetry:           uint64(pointer.Int32Deref(n.ConnectRetryTimeSeconds, types.DefaultBGPConnectRetryTimeSeconds)),
+		HoldTime:               uint64(pointer.Int32Deref(n.HoldTimeSeconds, types.DefaultBGPHoldTimeSeconds)),
+		KeepaliveInterval:      uint64(pointer.Int32Deref(n.KeepAliveTimeSeconds, types.DefaultBGPKeepAliveTimeSeconds)),
+		IdleHoldTimeAfterReset: defaultIdleHoldTimeAfterResetSeconds,
 	}
 
 	// populate graceful restart config
@@ -249,7 +247,7 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 		peer.GracefulRestart = &gobgp.GracefulRestart{}
 	}
 	peer.GracefulRestart.Enabled = n.GracefulRestart.Enabled
-	peer.GracefulRestart.RestartTime = uint32(n.GracefulRestart.RestartTime.Round(time.Second).Seconds())
+	peer.GracefulRestart.RestartTime = uint32(pointer.Int32Deref(n.GracefulRestart.RestartTimeSeconds, types.DefaultGRRestartTimeSeconds))
 
 	for _, afiConf := range peer.AfiSafis {
 		if afiConf.MpGracefulRestart == nil {
