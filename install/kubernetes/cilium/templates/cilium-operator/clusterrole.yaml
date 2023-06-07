@@ -208,6 +208,12 @@ rules:
   - list
   - watch
 - apiGroups:
+    - cilium.io
+  resources:
+    - ciliumpodippools
+  verbs:
+    - create
+- apiGroups:
   - cilium.io
   resources:
   - ciliumloadbalancerippools/status
