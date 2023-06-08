@@ -1608,6 +1608,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
  #ifdef IS_BPF_OVERLAY
 	src_sec_identity = ctx_load_meta(ctx, CB_DSR_SRC_LABEL);
+	ctx_store_meta(ctx, CB_DSR_SRC_LABEL, 0);
  #endif
 
 	tunnel_endpoint = ip4->daddr;
@@ -2447,7 +2448,9 @@ redo:
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		ctx_store_meta(ctx, CB_PORT, key.dport);
 		ctx_store_meta(ctx, CB_ADDR_V4, key.address);
+# if defined(ENABLE_HIGH_SCALE_IPCACHE) && defined(IS_BPF_OVERLAY)
 		ctx_store_meta(ctx, CB_DSR_SRC_LABEL, src_sec_identity);
+# endif
 		ctx_store_meta(ctx, CB_DSR_L3_OFF, l3_off);
 #endif /* DSR_ENCAP_MODE */
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR);
