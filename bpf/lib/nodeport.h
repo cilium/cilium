@@ -1322,22 +1322,17 @@ drop:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
-	enum trace_point obs_point;
 	int ret;
 	__s8 ext_err = 0;
-
-#ifdef IS_BPF_OVERLAY
-	obs_point = TRACE_TO_OVERLAY;
-#else
-	obs_point = TRACE_TO_NETWORK;
-#endif
 
 	ret = nodeport_snat_fwd_ipv6(ctx, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, TRACE_REASON_UNKNOWN, 0);
+#ifdef IS_BPF_HOST
+	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0, 0, TRACE_REASON_UNKNOWN, 0);
+#endif
 
 	return ret;
 }
@@ -1382,20 +1377,15 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	int ret;
-	enum trace_point obs_point;
-
-#ifdef IS_BPF_OVERLAY
-	obs_point = TRACE_TO_OVERLAY;
-#else
-	obs_point = TRACE_TO_NETWORK;
-#endif
 
 	ret = __handle_nat_fwd_ipv6(ctx, &trace);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason,
+#ifdef IS_BPF_HOST
+	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0, 0, trace.reason,
 			  trace.monitor);
+#endif
 
 	return ret;
 }
@@ -2669,24 +2659,22 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-	enum trace_point obs_point;
 	int ret;
 	__s8 ext_err = 0;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
-
-#ifdef IS_BPF_OVERLAY
-	obs_point = TRACE_TO_OVERLAY;
-#else
-	obs_point = TRACE_TO_NETWORK;
-#endif
 
 	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, TRACE_REASON_UNKNOWN, 0);
+#ifdef IS_BPF_HOST
+	/* encap helpers already send a TRACE_TO_OVERLAY, so don't
+	 * send another one here when called from to-overlay.
+	 */
+	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0, 0, TRACE_REASON_UNKNOWN, 0);
+#endif
 
 	return ret;
 }
@@ -2740,23 +2728,21 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	int ret;
-	enum trace_point obs_point;
 	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
-
-#ifdef IS_BPF_OVERLAY
-	obs_point = TRACE_TO_OVERLAY;
-#else
-	obs_point = TRACE_TO_NETWORK;
-#endif
 
 	ret = __handle_nat_fwd_ipv4(ctx, cluster_id, &trace);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason,
+#ifdef IS_BPF_HOST
+	/* encap helpers already send a TRACE_TO_OVERLAY, so don't
+	 * send another one here when called from to-overlay.
+	 */
+	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0, 0, trace.reason,
 			  trace.monitor);
+#endif
 
 	return ret;
 }
