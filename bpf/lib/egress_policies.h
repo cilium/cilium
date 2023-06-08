@@ -4,6 +4,7 @@
 #ifndef __LIB_EGRESS_POLICIES_H_
 #define __LIB_EGRESS_POLICIES_H_
 
+#include "lib/fib.h"
 #include "lib/identity.h"
 
 #include "maps.h"
@@ -579,6 +580,59 @@ srv6_store_meta_sid(struct __ctx_buff *ctx, const union v6addr *sid)
 	ctx_store_meta(ctx, CB_SRV6_SID_4, sid->p4);
 }
 
+#ifdef ENABLE_IPV6
+/* SRv6 encapsulation occurs at the native-dev currently.
+ * Its possible that after encapsulation a fib entry exists which would actually
+ * route the IPv6 destination somewhere else.
+ *
+ * Therefore, this function performs an additional fib lookup on the encap'd
+ * packet to ensure we transmit it via the correct link and with the correct
+ * l2 addresses.
+ */
+static __always_inline int
+srv6_refib(struct __ctx_buff *ctx)
+{
+	struct bpf_fib_lookup_padded params = {0};
+	__u32 old_oif = ctx_get_ifindex(ctx);
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	__s8 fib_ret;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	fib_ret = (__s8)fib_lookup_v6(ctx, &params, ip6, BPF_FIB_LOOKUP_OUTPUT);
+
+	if (fib_ret && fib_ret != BPF_FIB_LKUP_RET_NO_NEIGH)
+		return DROP_NO_FIB;
+
+	switch (fib_ret) {
+	case BPF_FIB_LKUP_RET_SUCCESS:
+		/* We found an oif and ARP was successful.
+		 * We may need to redirect to the appropriate oif, if not
+		 * rewrite the layer 2 and continue processing.
+		 */
+		if (old_oif != params.l.ifindex)
+			return fib_do_redirect(ctx, true, &params, &fib_ret, (int *)&old_oif);
+
+		if (eth_store_daddr(ctx, params.l.dmac, 0) < 0)
+			return DROP_WRITE_ERROR;
+
+		break;
+	case BPF_FIB_LKUP_RET_NO_NEIGH:
+		/* In this case, we found an oif, but ARP failed.
+		 * We can't rule out that oif is a veth, in which ARP is not
+		 * strictly necessary to deliver the packet, since the kernel
+		 * can fill in the veth pair's dmac without it, we lets deliver
+		 * or redirect.
+		 */
+		if (old_oif != params.l.ifindex)
+			return fib_do_redirect(ctx, true, &params, &fib_ret, (int *)&old_oif);
+	};
+	return CTX_ACT_OK;
+}
+#endif /* ENABLE_IPV6 */
+
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SRV6_ENCAP)
 int tail_srv6_encap(struct __ctx_buff *ctx)
 {
@@ -590,14 +644,21 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 	vrf_id = ctx_load_meta(ctx, CB_SRV6_VRF_ID);
 
 	ret = srv6_handling(ctx, vrf_id, &dst_sid);
-
 	if (ret < 0)
 		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 
+#ifdef ENABLE_IPV6
+	ret = srv6_refib(ctx);
+	if (ret < 0)
+		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
+					      METRIC_EGRESS);
+#endif
+
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
 			  TRACE_REASON_UNKNOWN, 0);
-	return CTX_ACT_OK;
+
+	return ret;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SRV6_DECAP)
