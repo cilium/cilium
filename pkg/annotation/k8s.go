@@ -119,6 +119,12 @@ const (
 	WireguardPubKey      = NetworkPrefix + "/wg-pub-key"
 	WireguardPubKeyAlias = Prefix + ".network.wg-pub-key"
 
+	// HighScaleEncapsulate is an annotation set on a CiliumCIDRGRoup to specify that
+	// traffic destined for the CIDR(s) should or should not be encapsulated.
+	// The acceptable values are "true" and "false".
+	// This annotation has no effect when high-scale ipcache is not enabled.
+	HighScaleEncapsulate = NetworkPrefix + "/high-scale-encapsulate"
+
 	// BGPVRouterAnnoPrefix is the prefix used for all Virtual Router annotations
 	// Its just a prefix, because the ASN of the Router is part of the annotation itself
 	BGPVRouterAnnoPrefix = "cilium.io/bgp-virtual-router."
