@@ -1400,7 +1400,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = handle_nat_fwd_ipv6(ctx);
+	ret = __handle_nat_fwd_ipv6(ctx, &trace);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
