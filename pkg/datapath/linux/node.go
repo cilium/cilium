@@ -1400,6 +1400,7 @@ func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
 
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
+	var errs error
 	if oldNode.IsLocal() {
 		return nil
 	}
@@ -1408,19 +1409,31 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	oldIP6 := oldNode.GetNodeIP(true)
 
 	if n.nodeConfig.EnableAutoDirectRouting {
-		n.deleteDirectRoute(oldNode.IPv4AllocCIDR, oldIP4)
-		n.deleteDirectRoute(oldNode.IPv6AllocCIDR, oldIP6)
+		if err := n.deleteDirectRoute(oldNode.IPv4AllocCIDR, oldIP4); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes %w", err))
+		}
+		if err := n.deleteDirectRoute(oldNode.IPv6AllocCIDR, oldIP6); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes %w", err))
+		}
 	}
 
 	if n.nodeConfig.EnableEncapsulation {
 		oldPrefix4 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv4AllocCIDR, oldNode.ClusterID)
 		oldPrefix6 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv6AllocCIDR, oldNode.ClusterID)
-		deleteTunnelMapping(oldPrefix4, false)
-		deleteTunnelMapping(oldPrefix6, false)
+		if err := deleteTunnelMapping(oldPrefix4, false); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting tunnel mapping for ipv4: %w", err))
+		}
+		if err := deleteTunnelMapping(oldPrefix6, false); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting tunnel mapping for ipv6: %w", err))
+		}
 
 		if !n.nodeConfig.UseSingleClusterRoute {
-			n.deleteNodeRoute(oldNode.IPv4AllocCIDR, false)
-			n.deleteNodeRoute(oldNode.IPv6AllocCIDR, false)
+			if err := n.deleteNodeRoute(oldNode.IPv4AllocCIDR, false); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv4: %w", err))
+			}
+			if err := n.deleteNodeRoute(oldNode.IPv6AllocCIDR, false); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv6: %w", err))
+			}
 		}
 	}
 
@@ -1429,12 +1442,16 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	}
 
 	if n.nodeConfig.EnableIPSec {
-		n.deleteIPsec(oldNode)
+		if err := n.deleteIPsec(oldNode); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to delete old ipsec config: %w", err))
+		}
 	}
 
-	n.deallocateIDForNode(oldNode)
+	if err := n.deallocateIDForNode(oldNode); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("failed to deallocate old node ID: %w", err))
+	}
 
-	return nil
+	return errs
 }
 
 func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAddressingFamily, addressFamilyEnabled bool) {
@@ -1625,41 +1642,47 @@ func (n *linuxNodeHandler) replaceNodeExternalIPSecOutRoute(ip *net.IPNet) error
 }
 
 // The caller must ensure that the CIDR passed in must be non-nil.
-func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) {
+func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) error {
 	if ip.IP.To4() != nil {
 		if !n.nodeConfig.EnableIPv4 {
-			return
+			return nil
 		}
 	} else {
 		if !n.nodeConfig.EnableIPv6 {
-			return
+			return nil
 		}
 	}
 
 	if err := route.Delete(n.createNodeIPSecOutRoute(ip)); err != nil {
 		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to delete the IPsec route OUT from the host routing table")
+		return fmt.Errorf("failed to delete ipsec host route out: %w", err)
 	}
+	return nil
 }
 
 // The caller must ensure that the CIDR passed in must be non-nil.
-func (n *linuxNodeHandler) deleteNodeExternalIPSecOutRoute(ip *net.IPNet) {
+func (n *linuxNodeHandler) deleteNodeExternalIPSecOutRoute(ip *net.IPNet) error {
+	var errs error
 	if ip.IP.To4() != nil {
 		if !n.nodeConfig.EnableIPv4 {
-			return
+			return nil
 		}
 	} else {
 		if !n.nodeConfig.EnableIPv6 {
-			return
+			return nil
 		}
 	}
 
 	if err := route.Delete(n.createNodeExternalIPSecOutRoute(ip, true)); err != nil {
 		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to delete the IPsec route External OUT from the ipsec routing table")
+		errs = errors.Join(errs, fmt.Errorf("failed to delete ipsec route out: %w", err))
 	}
 
 	if err := route.Delete(n.createNodeExternalIPSecOutRoute(ip, false)); err != nil {
 		log.WithError(err).WithField(logfields.CIDR, ip).Error("Unable to delete the IPsec route External OUT from the host routing table")
+		errs = errors.Join(errs, fmt.Errorf("failed to delete ipsec host route out: %w", err))
 	}
+	return errs
 }
 
 // replaceNodeIPSecoInRoute replace the in IPSec routes in the host routing
@@ -1683,7 +1706,8 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) error {
 	return nil
 }
 
-func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
+func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) error {
+	var errs error
 	scopedLog := log.WithField(logfields.NodeName, oldNode.Name)
 	scopedLog.Debugf("Removing IPsec configuration for node")
 
@@ -1691,7 +1715,7 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 	if nodeID == 0 {
 		scopedLog.Warning("No node ID found for node.")
 	} else {
-		ipsec.DeleteIPsecEndpoint(nodeID)
+		errs = errors.Join(errs, ipsec.DeleteIPsecEndpoint(nodeID))
 	}
 
 	if n.nodeConfig.EnableIPv4 && oldNode.IPv4AllocCIDR != nil {
@@ -1699,13 +1723,13 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 		// This is only needed in IPAM modes where we install one route per
 		// remote pod CIDR.
 		if !n.subnetEncryption() {
-			n.deleteNodeIPSecOutRoute(old4RouteNet)
+			errs = errors.Join(errs, n.deleteNodeIPSecOutRoute(old4RouteNet))
 		}
 		if n.nodeConfig.EncryptNode {
 			if remoteIPv4 := oldNode.GetNodeIP(false); remoteIPv4 != nil {
 				exactMask := net.IPv4Mask(255, 255, 255, 255)
 				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
-				n.deleteNodeExternalIPSecOutRoute(ipsecRemote)
+				errs = errors.Join(errs, n.deleteNodeExternalIPSecOutRoute(ipsecRemote))
 			}
 		}
 	}
@@ -1720,10 +1744,11 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 			if remoteIPv6 := oldNode.GetNodeIP(true); remoteIPv6 != nil {
 				exactMask := net.CIDRMask(128, 128)
 				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: exactMask}
-				n.deleteNodeExternalIPSecOutRoute(ipsecRemote)
+				errs = errors.Join(errs, n.deleteNodeExternalIPSecOutRoute(ipsecRemote))
 			}
 		}
 	}
+	return errs
 }
 
 // NodeConfigurationChanged is called when the LocalNodeConfiguration has changed
