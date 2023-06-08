@@ -183,6 +183,7 @@ linked, either choice is valid.
         CONFIG_CGROUPS=y
         CONFIG_CGROUP_BPF=y
         CONFIG_PERF_EVENTS=y
+        CONFIG_SCHEDSTATS=y
 
 
 Requirements for Iptables-based Masquerading
