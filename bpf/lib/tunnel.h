@@ -77,4 +77,10 @@ struct vxlanhdr {
 	__be32 vx_vni;
 };
 
+static __always_inline __u32
+tunnel_vni_to_sec_identity(__be32 vni)
+{
+	return bpf_ntohl(vni) >> 8;
+}
+
 #endif /* __LIB_TUNNEL_H_ */
