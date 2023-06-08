@@ -400,6 +400,43 @@ ct_extract_ports6(struct __ctx_buff *ctx, int off,
 		  bool *has_l4_header __maybe_unused)
 {
 	switch (tuple->nexthdr) {
+	case IPPROTO_ICMPV6:
+		if (1) {
+			__be16 identifier = 0;
+			__u8 type;
+
+			if (ctx_load_bytes(ctx, off, &type, 1) < 0)
+				return DROP_CT_INVALID_HDR;
+			if ((type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY) &&
+			    ctx_load_bytes(ctx, off + offsetof(struct icmp6hdr,
+							       icmp6_dataun.u_echo.identifier),
+					    &identifier, 2) < 0)
+				return DROP_CT_INVALID_HDR;
+
+			tuple->sport = 0;
+			tuple->dport = 0;
+
+			switch (type) {
+			case ICMPV6_DEST_UNREACH:
+			case ICMPV6_PKT_TOOBIG:
+			case ICMPV6_TIME_EXCEED:
+			case ICMPV6_PARAMPROB:
+				tuple->flags |= TUPLE_F_RELATED;
+				break;
+
+			case ICMPV6_ECHO_REPLY:
+				tuple->sport = identifier;
+				break;
+
+			case ICMPV6_ECHO_REQUEST:
+				tuple->dport = identifier;
+				/* fall through */
+			default:
+				return ACTION_CREATE;
+			}
+		}
+		break;
+
 	/* TCP, UDP, and SCTP all have the ports at the same location */
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
@@ -410,14 +447,14 @@ ct_extract_ports6(struct __ctx_buff *ctx, int off,
 		if (l4_load_ports(ctx, off, &tuple->dport) < 0)
 			return DROP_CT_INVALID_HDR;
 
-		break;
+		return ACTION_CREATE;
 
 	default:
-		/* Can't handle ICMP or extension headers yet */
+		/* Can't handle extension headers yet */
 		return DROP_CT_UNKNOWN_PROTO;
 	}
 
-	return 0;
+	return ACTION_UNSPEC;
 }
 
 /* This defines the ct_is_reply6 function. */
@@ -510,7 +547,7 @@ static __always_inline int ct_lookup6(const void *map,
 				      enum ct_dir dir, struct ct_state *ct_state,
 				      __u32 *monitor)
 {
-	enum ct_action action = ACTION_UNSPEC;
+	int action;
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -528,61 +565,9 @@ static __always_inline int ct_lookup6(const void *map,
 	else
 		return DROP_CT_INVALID_HDR;
 
-	switch (tuple->nexthdr) {
-	case IPPROTO_ICMPV6:
-		if (1) {
-			__be16 identifier = 0;
-			__u8 type;
-
-			if (ctx_load_bytes(ctx, l4_off, &type, 1) < 0)
-				return DROP_CT_INVALID_HDR;
-			if ((type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY) &&
-			     ctx_load_bytes(ctx, l4_off + offsetof(struct icmp6hdr,
-								   icmp6_dataun.u_echo.identifier),
-					    &identifier, 2) < 0)
-				return DROP_CT_INVALID_HDR;
-
-			tuple->sport = 0;
-			tuple->dport = 0;
-
-			switch (type) {
-			case ICMPV6_DEST_UNREACH:
-			case ICMPV6_PKT_TOOBIG:
-			case ICMPV6_TIME_EXCEED:
-			case ICMPV6_PARAMPROB:
-				tuple->flags |= TUPLE_F_RELATED;
-				break;
-
-			case ICMPV6_ECHO_REPLY:
-				tuple->sport = identifier;
-				break;
-
-			case ICMPV6_ECHO_REQUEST:
-				tuple->dport = identifier;
-				/* fall through */
-			default:
-				action = ACTION_CREATE;
-				break;
-			}
-		}
-		break;
-
-	case IPPROTO_TCP:
-	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
-		/* load sport + dport into tuple */
-		if (ctx_load_bytes(ctx, l4_off, &tuple->dport, 4) < 0)
-			return DROP_CT_INVALID_HDR;
-
-		action = ACTION_CREATE;
-		break;
-
-	default:
-		/* Can't handle extension headers yet */
-		return DROP_CT_UNKNOWN_PROTO;
-	}
+	action = ct_extract_ports6(ctx, l4_off, dir, tuple, NULL);
+	if (action < 0)
+		return action;
 
 	return __ct_lookup6(map, tuple, ctx, action, l4_off, dir, SCOPE_BIDIR,
 			    ct_state, monitor);
