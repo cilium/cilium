@@ -1143,7 +1143,7 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 				isRedirect:      true,
 			},
 		},
-		Listener: "shared-cec/test",
+		Listener: "/shared-cec/test",
 		Ingress:  false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
 			cachedSelectorA: {nil},
@@ -1308,7 +1308,7 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 				isRedirect:      true,
 			},
 		},
-		Listener: "shared-cec/test",
+		Listener: "/shared-cec/test",
 		Ingress:  false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
 			cachedSelectorA: {nil},
