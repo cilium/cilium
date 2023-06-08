@@ -30,18 +30,18 @@ type mutualAuthParams struct {
 	CertificateProvider certs.CertificateProvider
 }
 
-func newMutualAuthHandler(logger logrus.FieldLogger, lc hive.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams) authHandlerResult {
+func newMutualAuthHandler(lc hive.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams, log logrus.FieldLogger) authHandlerResult {
 	if cfg.MutualAuthListenerPort == 0 {
-		logger.Info("mutual authentication handler is disabled as no port is configured")
+		log.Info("mutual authentication handler is disabled as no port is configured")
 		return authHandlerResult{}
 	}
 	if params.CertificateProvider == nil {
-		logger.Fatal("No certificate provider configured, but one is required. Please check if the spire flags are configured.")
+		log.Fatal("No certificate provider configured, but one is required. Please check if the spire flags are configured.")
 	}
 
 	mAuthHandler := &mutualAuthHandler{
 		cfg:  cfg,
-		log:  logger.WithField(logfields.LogSubsys, "mutual-auth-handler"),
+		log:  log.WithField(logfields.LogSubsys, "mutual-auth-handler"),
 		cert: params.CertificateProvider,
 	}
 

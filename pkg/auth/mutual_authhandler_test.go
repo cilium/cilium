@@ -20,8 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 )
@@ -235,7 +233,7 @@ func Test_mutualAuthHandler_verifyPeerCertificate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &mutualAuthHandler{
 				cfg:  MutualAuthConfig{MutualAuthListenerPort: 1234},
-				log:  logrus.New(),
+				log:  log,
 				cert: &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
 			}
 			got, err := m.verifyPeerCertificate(tt.args.id, tt.args.caBundle, tt.args.verifiedChains)
@@ -294,7 +292,7 @@ func Test_mutualAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &mutualAuthHandler{
 				cfg:  MutualAuthConfig{MutualAuthListenerPort: 1234},
-				log:  logrus.New(),
+				log:  log,
 				cert: &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
 			}
 			got, err := m.GetCertificateForIncomingConnection(tt.args.info)
@@ -324,7 +322,7 @@ func Test_mutualAuthHandler_authenticate(t *testing.T) {
 
 	mAuthHandler := &mutualAuthHandler{
 		cfg:  MutualAuthConfig{MutualAuthListenerPort: getRandomOpenPort(t)},
-		log:  logrus.New(),
+		log:  log,
 		cert: &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
 	}
 	mAuthHandler.onStart(context.Background())

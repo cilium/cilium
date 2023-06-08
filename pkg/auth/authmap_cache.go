@@ -8,22 +8,19 @@ import (
 	"fmt"
 
 	"github.com/cilium/ebpf"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
 
 type authMapCache struct {
-	logger            logrus.FieldLogger
 	authmap           authMap
 	cacheEntries      map[authKey]authInfo
 	cacheEntriesMutex lock.RWMutex
 }
 
-func newAuthMapCache(logger logrus.FieldLogger, authmap authMap) *authMapCache {
+func newAuthMapCache(authmap authMap) *authMapCache {
 	return &authMapCache{
-		logger:       logger,
 		authmap:      authmap,
 		cacheEntries: map[authKey]authInfo{},
 	}
@@ -86,7 +83,7 @@ func (r *authMapCache) DeleteIf(predicate func(key authKey, info authInfo) bool)
 			// delete every entry individually to keep the cache in sync in case of an error
 			if err := r.authmap.Delete(k); err != nil {
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
-					r.logger.Debugf("auth: failed to delete auth entry with key %s: entry already deleted", k)
+					log.Debugf("auth: failed to delete auth entry with key %s: entry already deleted", k)
 					continue
 				}
 				return fmt.Errorf("failed to delete auth entry from map: %w", err)
@@ -99,7 +96,7 @@ func (r *authMapCache) DeleteIf(predicate func(key authKey, info authInfo) bool)
 }
 
 func (r *authMapCache) restoreCache() error {
-	r.logger.Debug("auth: starting cache restore")
+	log.Debug("auth: starting cache restore")
 
 	all, err := r.authmap.All()
 	if err != nil {
@@ -109,6 +106,6 @@ func (r *authMapCache) restoreCache() error {
 		r.cacheEntries[k] = v
 	}
 
-	r.logger.Debugf("auth: restored %d entries", len(r.cacheEntries))
+	log.Debugf("auth: restored %d entries", len(r.cacheEntries))
 	return nil
 }

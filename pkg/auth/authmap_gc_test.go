@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -28,7 +27,7 @@ func Test_authMapGarbageCollector_initialSync(t *testing.T) {
 			{localIdentity: identity.NumericIdentity(2), remoteIdentity: identity.NumericIdentity(3), remoteNodeID: 11, authType: policy.AuthTypeDisabled}:  {expiration: time.Now().Add(-5 * time.Minute)},
 		},
 	}
-	am := newAuthMapGC(logrus.New(), authMap,
+	am := newAuthMapGC(authMap,
 		newFakeIPCache(map[uint16]string{
 			10: "172.18.0.3",
 		}),
@@ -64,12 +63,12 @@ func Test_authMapGarbageCollector_gc(t *testing.T) {
 			{localIdentity: identity.NumericIdentity(2), remoteIdentity: identity.NumericIdentity(3), remoteNodeID: 11, authType: policy.AuthTypeDisabled}:  {expiration: time.Now().Add(-5 * time.Minute)}, // expired
 		},
 	}
-
-	am := newAuthMapGC(logrus.New(), authMap,
-		newFakeIPCache(map[uint16]string{
+	am := authMapGarbageCollector{
+		authmap: authMap,
+		ipCache: newFakeIPCache(map[uint16]string{
 			10: "172.18.0.3",
 		}),
-	)
+	}
 
 	assert.Len(t, authMap.entries, 4)
 
@@ -95,7 +94,10 @@ func Test_authMapGarbageCollector_HandleNodeEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	am := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{}))
+	am := authMapGarbageCollector{
+		authmap: authMap,
+		ipCache: newFakeIPCache(map[uint16]string{}),
+	}
 
 	event := ciliumNodeEvent(resource.Delete, "172.18.0.3")
 	var eventErr error
@@ -112,7 +114,10 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	am := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{}))
+	am := authMapGarbageCollector{
+		authmap: authMap,
+		ipCache: newFakeIPCache(map[uint16]string{}),
+	}
 
 	event := ciliumIdentityEvent(resource.Delete, "4")
 	var eventErr error

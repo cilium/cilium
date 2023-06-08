@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/policy"
@@ -15,7 +14,6 @@ import (
 
 func Test_authMapCache_restoreCache(t *testing.T) {
 	am := authMapCache{
-		logger: logrus.New(),
 		authmap: &fakeAuthMap{
 			entries: map[authKey]authInfo{
 				{
@@ -48,7 +46,6 @@ func Test_authMapCache_restoreCache(t *testing.T) {
 
 func Test_authMapCache_allReturnsCopy(t *testing.T) {
 	am := authMapCache{
-		logger: logrus.New(),
 		authmap: &fakeAuthMap{
 			entries: map[authKey]authInfo{},
 		},

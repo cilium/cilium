@@ -9,8 +9,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/identity"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -18,7 +16,6 @@ import (
 )
 
 type authMapGarbageCollector struct {
-	logger  logrus.FieldLogger
 	authmap authMap
 	ipCache ipCache
 
@@ -26,9 +23,8 @@ type authMapGarbageCollector struct {
 	discoveredCiliumIdentities map[identity.NumericIdentity]struct{}
 }
 
-func newAuthMapGC(logger logrus.FieldLogger, authmap authMap, ipCache ipCache) *authMapGarbageCollector {
+func newAuthMapGC(authmap authMap, ipCache ipCache) *authMapGarbageCollector {
 	return &authMapGarbageCollector{
-		logger:  logger,
 		authmap: authmap,
 		ipCache: ipCache,
 		discoveredCiliumNodeIDs: map[uint16]struct{}{
@@ -44,20 +40,20 @@ func (r *authMapGarbageCollector) handleCiliumNodeEvent(_ context.Context, e res
 	switch e.Kind {
 	case resource.Upsert:
 		if r.discoveredCiliumNodeIDs != nil {
-			r.logger.Debug("auth: nodes discovered - getting node id")
+			log.Debug("auth: nodes discovered - getting node id")
 			remoteNodeIDs := r.remoteNodeIDs(e.Object)
 			for _, rID := range remoteNodeIDs {
 				r.discoveredCiliumNodeIDs[rID] = struct{}{}
 			}
 		}
 	case resource.Sync:
-		r.logger.Debug("auth: nodes synced - cleaning up missing nodes")
+		log.Debug("auth: nodes synced - cleaning up missing nodes")
 		if err = r.cleanupMissingNodes(); err != nil {
 			return fmt.Errorf("failed to cleanup missing nodes: %w", err)
 		}
 		r.discoveredCiliumNodeIDs = nil
 	case resource.Delete:
-		r.logger.Debugf("auth: node deleted - cleaning up: %s", e.Key.Name)
+		log.Debugf("auth: node deleted - cleaning up: %s", e.Key.Name)
 		if err = r.cleanupDeletedNode(e.Object); err != nil {
 			return fmt.Errorf("failed to cleanup deleted node: %w", err)
 		}
@@ -71,7 +67,7 @@ func (r *authMapGarbageCollector) handleCiliumIdentityEvent(_ context.Context, e
 	switch e.Kind {
 	case resource.Upsert:
 		if r.discoveredCiliumIdentities != nil {
-			r.logger.Debug("auth: identities discovered")
+			log.Debug("auth: identities discovered")
 			var id identity.NumericIdentity
 			id, err = identity.ParseNumericIdentity(e.Object.Name)
 			if err != nil {
@@ -80,12 +76,12 @@ func (r *authMapGarbageCollector) handleCiliumIdentityEvent(_ context.Context, e
 			r.discoveredCiliumIdentities[id] = struct{}{}
 		}
 	case resource.Sync:
-		r.logger.Debug("auth: identities synced - cleaning up missing identities")
+		log.Debug("auth: identities synced - cleaning up missing identities")
 		if err = r.cleanupMissingIdentities(); err != nil {
 			return fmt.Errorf("failed to cleanup missing identities: %w", err)
 		}
 	case resource.Delete:
-		r.logger.Debugf("auth: identity deleted - cleaning up: %s", e.Key.Name)
+		log.Debugf("auth: identity deleted - cleaning up: %s", e.Key.Name)
 		if err = r.cleanupDeletedIdentity(e.Object); err != nil {
 			return fmt.Errorf("failed to cleanup deleted identity: %w", err)
 		}
@@ -97,7 +93,7 @@ func (r *authMapGarbageCollector) handleCiliumIdentityEvent(_ context.Context, e
 func (r *authMapGarbageCollector) cleanupMissingNodes() error {
 	return r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
 		if _, ok := r.discoveredCiliumNodeIDs[key.remoteNodeID]; !ok {
-			r.logger.Debugf("auth: deleting entry due to removed remote node: %d", key.remoteNodeID)
+			log.Debugf("auth: deleting entry due to removed remote node: %d", key.remoteNodeID)
 			return true
 		}
 		return false
@@ -107,11 +103,11 @@ func (r *authMapGarbageCollector) cleanupMissingNodes() error {
 func (r *authMapGarbageCollector) cleanupMissingIdentities() error {
 	return r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
 		if _, ok := r.discoveredCiliumIdentities[key.localIdentity]; !ok {
-			r.logger.Debugf("auth: deleting entry due to removed local identity: %d", key.localIdentity)
+			log.Debugf("auth: deleting entry due to removed local identity: %d", key.localIdentity)
 			return true
 		}
 		if _, ok := r.discoveredCiliumIdentities[key.remoteIdentity]; !ok {
-			r.logger.Debugf("auth: deleting entry due to removed remote identity: %d", key.remoteIdentity)
+			log.Debugf("auth: deleting entry due to removed remote identity: %d", key.remoteIdentity)
 			return true
 		}
 		return false
@@ -124,7 +120,7 @@ func (r *authMapGarbageCollector) cleanupDeletedNode(node *ciliumv2.CiliumNode) 
 	return r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
 		for _, id := range remoteNodeIDs {
 			if key.remoteNodeID == id {
-				r.logger.Debugf("auth: deleting entry due to removed node: %d", id)
+				log.Debugf("auth: deleting entry due to removed node: %d", id)
 				return true
 			}
 		}
@@ -140,7 +136,7 @@ func (r *authMapGarbageCollector) cleanupDeletedIdentity(id *ciliumv2.CiliumIden
 
 	return r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
 		if key.localIdentity == idNumeric || key.remoteIdentity == idNumeric {
-			r.logger.Debugf("auth: deleting entry due to removed identity: %d", idNumeric)
+			log.Debugf("auth: deleting entry due to removed identity: %d", idNumeric)
 			return true
 		}
 		return false
@@ -148,11 +144,11 @@ func (r *authMapGarbageCollector) cleanupDeletedIdentity(id *ciliumv2.CiliumIden
 }
 
 func (r *authMapGarbageCollector) CleanupExpiredEntries(_ context.Context) error {
-	r.logger.Debug("auth: cleaning up expired entries")
+	log.Debug("auth: cleaning up expired entries")
 	now := time.Now()
 	err := r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
 		if info.expiration.Before(now) {
-			r.logger.Debugf("auth: deleting entry due to expiration: %s", info.expiration)
+			log.Debugf("auth: deleting entry due to expiration: %s", info.expiration)
 			return true
 		}
 		return false
