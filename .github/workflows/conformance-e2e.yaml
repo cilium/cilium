@@ -344,6 +344,8 @@ jobs:
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=bpf.monitorAggregation=none \
+            --helm-set=authentication.mutual.spire.enabled=true \
+            --helm-set=authentication.mutual.spire.install.enabled=true \
             --nodes-without-cilium=kind-worker3 \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
           TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
@@ -460,8 +462,11 @@ jobs:
             fi
 
             CILIUM_CLI_MODE=helm ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
             ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             mkdir -p cilium-junits
