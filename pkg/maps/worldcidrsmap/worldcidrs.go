@@ -4,6 +4,7 @@
 package worldcidrsmap
 
 import (
+	"fmt"
 	"net/netip"
 	"unsafe"
 
@@ -15,6 +16,17 @@ const (
 	MapMaxEntries = 1 << 14
 	MapName4      = "cilium_world_cidrs4"
 )
+
+type Map interface {
+	// Load initializes the map. If create is true, will create the map
+	// if missing. Otherwise, will return error if the map does not exist
+	Load(create bool) error
+
+	IterateWithCallback(cb WorldCIDRsIterateCallback) error
+
+	Add(cidrs ...netip.Prefix) error
+	Delete(cidrs ...netip.Prefix) error
+}
 
 // WorldCIDRKey4 is the key of a world CIDRs map.
 type WorldCIDRKey4 struct {
@@ -30,30 +42,35 @@ type WorldCIDRVal struct {
 
 // wolrdCIDRsMap is the internal representation of a world CIDRs map.
 type worldCIDRsMap struct {
-	*ebpf.Map
+	v4map *ebpf.Map
 }
 
-var (
-	WorldCIDRsMap *worldCIDRsMap
-)
-
-// InitWorldCIDRsMap initializes the world CIDRs map.
-func InitWorldCIDRsMap() error {
-	return initWorldCIDRsMap(MapName4, true)
+// newWorldCIDRsMap initializes the world CIDR map.
+func newWorldCIDRsMap() *worldCIDRsMap {
+	return &worldCIDRsMap{}
 }
 
-// OpenWorldCIDRsMap initializes the world CIDRs map.
-func OpenWorldCIDRsMap() error {
-	return initWorldCIDRsMap(MapName4, false)
+// LoadWorldCIDRsMap loads, but does not create, the world cidrs map for access
+// This is used for the CLI
+func LoadWorldCIDRsMap() (Map, error) {
+	m := newWorldCIDRsMap()
+
+	if err := m.Load(false); err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
 
-// initWorldCIDRsMap initializes the world CIDR map.
-func initWorldCIDRsMap(worldCIDRsMapName string, create bool) error {
-	var m *ebpf.Map
+// Load creates
+func (m *worldCIDRsMap) Load(create bool) error {
+	if m.v4map != nil {
+		return nil
+	}
 
 	if create {
-		m = ebpf.NewMap(&ebpf.MapSpec{
-			Name:       worldCIDRsMapName,
+		m.v4map = ebpf.NewMap(&ebpf.MapSpec{
+			Name:       MapName4,
 			Type:       ebpf.LPMTrie,
 			KeySize:    uint32(unsafe.Sizeof(WorldCIDRKey4{})),
 			ValueSize:  uint32(unsafe.Sizeof(WorldCIDRVal{})),
@@ -61,19 +78,17 @@ func initWorldCIDRsMap(worldCIDRsMapName string, create bool) error {
 			Pinning:    ebpf.PinByName,
 		})
 
-		if err := m.OpenOrCreate(); err != nil {
-			return err
+		if err := m.v4map.OpenOrCreate(); err != nil {
+			m.v4map = nil
+			return fmt.Errorf("failed to open or create bpf map %s: %w", MapName4, err)
 		}
 	} else {
 		var err error
 
-		if m, err = ebpf.LoadRegisterMap(worldCIDRsMapName); err != nil {
-			return err
+		m.v4map, err = ebpf.LoadRegisterMap(MapName4)
+		if err != nil {
+			return fmt.Errorf("failed to open bpf map %s: %w", MapName4, err)
 		}
-	}
-
-	WorldCIDRsMap = &worldCIDRsMap{
-		m,
 	}
 
 	return nil
@@ -114,11 +129,15 @@ func (m *worldCIDRsMap) Add(cidrs ...netip.Prefix) error {
 	vals := make([]WorldCIDRVal, 0, len(cidrs))
 
 	for _, cidr := range cidrs {
+		// TODO: ipv6 support
+		if cidr.Addr().Is6() {
+			continue
+		}
 		keys = append(keys, NewWorldCIDRKey4(cidr))
 		vals = append(vals, NewWorldCIDRVal())
 	}
 
-	_, err := m.Map.BatchUpdate(keys, vals, nil)
+	_, err := m.v4map.BatchUpdate(keys, vals, nil)
 	return err
 }
 
@@ -131,10 +150,14 @@ func (m *worldCIDRsMap) Delete(cidrs ...netip.Prefix) error {
 	keys := make([]WorldCIDRKey4, 0, len(cidrs))
 
 	for _, cidr := range cidrs {
+		// TODO: ipv6 support
+		if cidr.Addr().Is6() {
+			continue
+		}
 		keys = append(keys, NewWorldCIDRKey4(cidr))
 	}
 
-	_, err := m.Map.BatchDelete(keys, nil)
+	_, err := m.v4map.BatchDelete(keys, nil)
 	return err
 }
 
@@ -146,10 +169,15 @@ type WorldCIDRsIterateCallback func(netip.Prefix)
 // IterateWithCallback iterates through all the keys/values of a world CIDRs
 // map, passing each key/value pair to the cb callback.
 func (m worldCIDRsMap) IterateWithCallback(cb WorldCIDRsIterateCallback) error {
-	return m.Map.IterateWithCallback(&WorldCIDRKey4{}, &WorldCIDRVal{},
+	err := m.v4map.IterateWithCallback(&WorldCIDRKey4{}, &WorldCIDRVal{},
 		func(k, v interface{}) {
 			key := k.(*WorldCIDRKey4)
 			p := key.GetCIDR()
 			cb(p)
 		})
+
+	if err != nil {
+		return fmt.Errorf("failed to list map %s: %w", MapName4, err)
+	}
+	return nil
 }
