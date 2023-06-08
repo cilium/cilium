@@ -10,10 +10,10 @@
 HTTP Migration Example
 **********************
 
-This example shows how to take an existing Ingress configuration and migrate it to the equivalent Gateway API resource.
+This example shows you how to migrate an existing Ingress configuration to the equivalent Gateway API resource.
 
-It uses the Cilium :ref:`gs_ingress_http` as the starting Ingress configuration. 
-The same approach will apply to other controllers, albeit each Ingress controller configuration varies.
+The Cilium :ref:`gs_ingress_http` serves as the starting Ingress configuration. 
+The same approach applies to other controllers, though each Ingress controller configuration varies.
 
 The example Ingress configuration routes traffic to backend services from the
 ``bookinfo`` demo microservices app from the Istio project.
