@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"runtime/pprof"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/signal"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 // Cell invokes authManager which is responsible for request authentication.
@@ -137,15 +139,24 @@ func registerSignalAuthenticationJob(jobGroup job.Group, mgr *authManager, sm si
 func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, params authManagerParams) {
 	// Add identities based auth gc if k8s client is enabled
 	if params.CiliumIdentities != nil {
-		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumIdentity]]("auth identities gc", mapGC.handleCiliumIdentityEvent, params.CiliumIdentities))
+		jobGroup.Add(job.Observer("auth identities gc",
+			mapGC.handleCiliumIdentityEvent,
+			stream.FromChannel(params.CiliumIdentities.Events(context.Background())),
+		))
 	}
 
 	// Add node based auth gc if k8s client is enabled
 	if params.CiliumNodes != nil {
-		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumNode]]("auth nodes gc", mapGC.handleCiliumNodeEvent, params.CiliumNodes))
+		jobGroup.Add(job.Observer("auth nodes gc",
+			mapGC.handleCiliumNodeEvent,
+			stream.FromChannel(params.CiliumNodes.Events(context.Background())),
+		))
 	}
 
-	jobGroup.Add(job.Timer("auth expiration gc", mapGC.CleanupExpiredEntries, params.Config.MeshAuthExpiredGCInterval))
+	jobGroup.Add(job.Timer("auth expiration gc",
+		mapGC.CleanupExpiredEntries,
+		params.Config.MeshAuthExpiredGCInterval,
+	))
 }
 
 type authHandlerResult struct {
