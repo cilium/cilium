@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/signal"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 // Cell invokes authManager which is responsible for request authentication.
