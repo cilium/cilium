@@ -2976,14 +2976,14 @@ authentication:
     spire:
       # -- Enable SPIRE integration
       enabled: false
-      # -- Settings to control the SPIRE installation and configuration
+      # Settings to control the SPIRE installation and configuration
       install:
         # -- Enable SPIRE installation.
         # This will only take effect only if authentication.mutual.spire.enabled is true
         enabled: false
         # -- SPIRE namespace to install into
         namespace: cilium-spire
-        # -- SPIRE agent configuration
+        # SPIRE agent configuration
         agent:
           # -- SPIRE agent image
           image: ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823
@@ -3010,18 +3010,25 @@ authentication:
           annotations: {}
           # -- SPIRE server labels
           labels: {}
-          # -- SPIRE server service configuration
+          # SPIRE server service configuration
           service:
+            # -- Service type for the SPIRE server service
             type: ClusterIP
+            # -- Annotations to be added to the SPIRE server service
             annotations: {}
+            # -- Labels to be added to the SPIRE server service
             labels: {}
-          # -- SPIRE server datastorage configuration
+          # SPIRE server datastorage configuration
           dataStorage:
+            # -- Enable SPIRE server data storage
             enabled: true
+            # -- Size of the SPIRE server data storage
             size: 1Gi
+            # -- Access mode of the SPIRE server data storage
             accessMode: ReadWriteOnce
+            # -- StorageClass of the SPIRE server data storage
             storageClass: null
-          # -- SPIRE CA configuration
+          # SPIRE CA configuration
           ca:
             # -- SPIRE CA key type
             # AWS requires the use of RSA. EC cryptography is not supported
