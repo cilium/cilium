@@ -378,7 +378,7 @@ func exportPodCIDRReconciler(
 		ctx:       ctx,
 		name:      "pod CIDR",
 		component: "manager.exportPodCIDRReconciler",
-		enabled:   newc.ExportPodCIDR,
+		enabled:   *newc.ExportPodCIDR,
 
 		sc:   sc,
 		newc: newc,

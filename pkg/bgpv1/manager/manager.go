@@ -34,7 +34,7 @@ var (
 
 // LocalASNMap maps local ASNs to their associated BgpServers and server
 // configuration info.
-type LocalASNMap map[int]*ServerWithConfig
+type LocalASNMap map[int64]*ServerWithConfig
 
 type bgpRouterManagerParams struct {
 	cell.In

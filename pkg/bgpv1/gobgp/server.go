@@ -12,7 +12,6 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/server"
 	"github.com/sirupsen/logrus"
 	apb "google.golang.org/protobuf/types/known/anypb"
-	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -22,8 +21,8 @@ const (
 	wildcardIPv4Addr = "0.0.0.0"
 	wildcardIPv6Addr = "::"
 
-	// defaultIdleHoldTimeAfterResetSeconds defines time BGP session will stay idle after neighbor reset.
-	defaultIdleHoldTimeAfterResetSeconds = 5
+	// idleHoldTimeAfterResetSeconds defines time BGP session will stay idle after neighbor reset.
+	idleHoldTimeAfterResetSeconds = 5
 )
 
 var (
@@ -162,7 +161,7 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 		return peer, needsReset, fmt.Errorf("failed to parse PeerAddress: %w", err)
 	}
 	peerAddr := prefix.Addr()
-	peerPort := uint32(pointer.IntDeref(n.PeerPort, v2alpha1api.DefaultBGPPeerPort))
+	peerPort := uint32(*n.PeerPort)
 
 	var existingPeer *gobgp.Peer
 	if isUpdate {
@@ -221,10 +220,10 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 	}
 
 	// Enable multi-hop for eBGP if non-zero TTL is provided
-	if g.asn != uint32(n.PeerASN) && n.EBGPMultihopTTL > 0 {
+	if g.asn != uint32(n.PeerASN) && *n.EBGPMultihopTTL > 1 {
 		peer.EbgpMultihop = &gobgp.EbgpMultihop{
 			Enabled:     true,
-			MultihopTtl: uint32(n.EBGPMultihopTTL),
+			MultihopTtl: uint32(*n.EBGPMultihopTTL),
 		}
 	}
 
@@ -232,25 +231,26 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 		peer.Timers = &gobgp.Timers{}
 	}
 	peer.Timers.Config = &gobgp.TimersConfig{
-		ConnectRetry:           uint64(pointer.Int32Deref(n.ConnectRetryTimeSeconds, v2alpha1api.DefaultBGPConnectRetryTimeSeconds)),
-		HoldTime:               uint64(pointer.Int32Deref(n.HoldTimeSeconds, v2alpha1api.DefaultBGPHoldTimeSeconds)),
-		KeepaliveInterval:      uint64(pointer.Int32Deref(n.KeepAliveTimeSeconds, v2alpha1api.DefaultBGPKeepAliveTimeSeconds)),
-		IdleHoldTimeAfterReset: defaultIdleHoldTimeAfterResetSeconds,
+		ConnectRetry:           uint64(*n.ConnectRetryTimeSeconds),
+		HoldTime:               uint64(*n.HoldTimeSeconds),
+		KeepaliveInterval:      uint64(*n.KeepAliveTimeSeconds),
+		IdleHoldTimeAfterReset: idleHoldTimeAfterResetSeconds,
 	}
 
 	// populate graceful restart config
 	if peer.GracefulRestart == nil {
 		peer.GracefulRestart = &gobgp.GracefulRestart{}
 	}
-	peer.GracefulRestart.Enabled = n.GracefulRestart.Enabled
-	peer.GracefulRestart.RestartTime = uint32(pointer.Int32Deref(n.GracefulRestart.RestartTimeSeconds, v2alpha1api.DefaultBGPGRRestartTimeSeconds))
-
+	if n.GracefulRestart != nil && n.GracefulRestart.Enabled {
+		peer.GracefulRestart.Enabled = true
+		peer.GracefulRestart.RestartTime = uint32(*n.GracefulRestart.RestartTimeSeconds)
+	}
 	for _, afiConf := range peer.AfiSafis {
 		if afiConf.MpGracefulRestart == nil {
 			afiConf.MpGracefulRestart = &gobgp.MpGracefulRestart{}
 		}
 		afiConf.MpGracefulRestart.Config = &gobgp.MpGracefulRestartConfig{
-			Enabled: n.GracefulRestart.Enabled,
+			Enabled: peer.GracefulRestart.Enabled,
 		}
 	}
 

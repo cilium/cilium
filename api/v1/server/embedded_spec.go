@@ -1835,7 +1835,7 @@ func init() {
           "type": "integer"
         },
         "ebgp-multihop-ttl": {
-          "description": "Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.\n0 if eBGP multi-hop feature is disabled.\n",
+          "description": "Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.\n1 implies that eBGP multi-hop feature is disabled (only a single hop is allowed).\n",
           "type": "integer"
         },
         "families": {
@@ -6782,7 +6782,7 @@ func init() {
           "type": "integer"
         },
         "ebgp-multihop-ttl": {
-          "description": "Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.\n0 if eBGP multi-hop feature is disabled.\n",
+          "description": "Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.\n1 implies that eBGP multi-hop feature is disabled (only a single hop is allowed).\n",
           "type": "integer"
         },
         "families": {

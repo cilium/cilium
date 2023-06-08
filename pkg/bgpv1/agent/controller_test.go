@@ -127,7 +127,7 @@ func TestControllerSanity(t *testing.T) {
 							{
 								PeerASN:     65000,
 								PeerAddress: "172.0.0.1/32",
-								GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+								GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
 									Enabled: true,
 								},
 							},
@@ -137,26 +137,23 @@ func TestControllerSanity(t *testing.T) {
 				return []*v2alpha1api.CiliumBGPPeeringPolicy{p}, nil
 			},
 			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
-				defaulted := false
 				for _, r := range p.Spec.VirtualRouters {
 					for _, n := range r.Neighbors {
-						if n.PeerPort != nil &&
-							*n.PeerPort == v2alpha1api.DefaultBGPPeerPort &&
-							n.ConnectRetryTimeSeconds != nil &&
-							*n.ConnectRetryTimeSeconds == v2alpha1api.DefaultBGPConnectRetryTimeSeconds &&
-							n.HoldTimeSeconds != nil &&
-							*n.HoldTimeSeconds == v2alpha1api.DefaultBGPHoldTimeSeconds &&
-							n.KeepAliveTimeSeconds != nil &&
-							*n.KeepAliveTimeSeconds == v2alpha1api.DefaultBGPKeepAliveTimeSeconds &&
-							n.GracefulRestart.RestartTimeSeconds != nil &&
-							*n.GracefulRestart.RestartTimeSeconds == v2alpha1api.DefaultBGPGRRestartTimeSeconds {
-
-							defaulted = true
+						if n.PeerPort == nil ||
+							n.ConnectRetryTimeSeconds == nil ||
+							n.HoldTimeSeconds == nil ||
+							n.KeepAliveTimeSeconds == nil ||
+							n.GracefulRestart.RestartTimeSeconds == nil {
+							t.Fatalf("policy: %v not defaulted properly (nil)", p)
+						}
+						if *n.PeerPort != v2alpha1api.DefaultBGPPeerPort ||
+							*n.ConnectRetryTimeSeconds != v2alpha1api.DefaultBGPConnectRetryTimeSeconds ||
+							*n.HoldTimeSeconds != v2alpha1api.DefaultBGPHoldTimeSeconds ||
+							*n.KeepAliveTimeSeconds != v2alpha1api.DefaultBGPKeepAliveTimeSeconds ||
+							*n.GracefulRestart.RestartTimeSeconds != v2alpha1api.DefaultBGPGRRestartTimeSeconds {
+							t.Fatalf("policy: %v not defaulted properly (invalid value)", p)
 						}
 					}
-				}
-				if !defaulted {
-					t.Fatalf("policy: %v not defaulted properly", p)
 				}
 				return nil
 			},
