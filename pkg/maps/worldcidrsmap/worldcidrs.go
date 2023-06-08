@@ -4,7 +4,7 @@
 package worldcidrsmap
 
 import (
-	"net"
+	"net/netip"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/ebpf"
@@ -79,11 +79,11 @@ func initWorldCIDRsMap(worldCIDRsMapName string, create bool) error {
 	return nil
 }
 
-func NewWorldCIDRKey4(cidr *net.IPNet) WorldCIDRKey4 {
+func NewWorldCIDRKey4(cidr netip.Prefix) WorldCIDRKey4 {
 	key := WorldCIDRKey4{}
 
-	ones, _ := cidr.Mask.Size()
-	copy(key.IP[:], cidr.IP.To4())
+	ones := cidr.Bits()
+	key.IP = cidr.Addr().As4()
 	key.PrefixLen = uint32(ones)
 
 	return key
@@ -96,36 +96,52 @@ func NewWorldCIDRVal() WorldCIDRVal {
 }
 
 // Matches returns true if the cidr parameter matches the world CIDR key.
-func (k *WorldCIDRKey4) Matches(cidr *net.IPNet) bool {
-	return k.GetCIDR().String() == cidr.String()
+func (k *WorldCIDRKey4) Matches(cidr netip.Prefix) bool {
+	return k.GetCIDR() == cidr
 }
 
-func (k *WorldCIDRKey4) GetCIDR() *net.IPNet {
-	return &net.IPNet{
-		IP:   k.IP.IP(),
-		Mask: net.CIDRMask(int(k.PrefixLen), 32),
-	}
+func (k *WorldCIDRKey4) GetCIDR() netip.Prefix {
+	return netip.PrefixFrom(k.IP.Addr(), int(k.PrefixLen))
 }
 
 // Add adds the givenCIDR to the map.
-func (m *worldCIDRsMap) Add(cidr *net.IPNet) error {
-	key := NewWorldCIDRKey4(cidr)
-	val := NewWorldCIDRVal()
+func (m *worldCIDRsMap) Add(cidrs ...netip.Prefix) error {
+	if len(cidrs) == 0 {
+		return nil
+	}
 
-	return m.Map.Update(key, val, 0)
+	keys := make([]WorldCIDRKey4, 0, len(cidrs))
+	vals := make([]WorldCIDRVal, 0, len(cidrs))
+
+	for _, cidr := range cidrs {
+		keys = append(keys, NewWorldCIDRKey4(cidr))
+		vals = append(vals, NewWorldCIDRVal())
+	}
+
+	_, err := m.Map.BatchUpdate(keys, vals, nil)
+	return err
 }
 
 // Delete deletes the given CIDR from the map.
-func (m *worldCIDRsMap) Delete(cidr *net.IPNet) error {
-	key := NewWorldCIDRKey4(cidr)
+func (m *worldCIDRsMap) Delete(cidrs ...netip.Prefix) error {
+	if len(cidrs) == 0 {
+		return nil
+	}
 
-	return m.Map.Delete(key)
+	keys := make([]WorldCIDRKey4, 0, len(cidrs))
+
+	for _, cidr := range cidrs {
+		keys = append(keys, NewWorldCIDRKey4(cidr))
+	}
+
+	_, err := m.Map.BatchDelete(keys, nil)
+	return err
 }
 
 // WorldCIDRsIterateCallback represents the signature of the callback function
 // expected by the IterateWithCallback method, which in turn is used to iterate
 // all the keys/values of a world CIDR map.
-type WorldCIDRsIterateCallback func(*WorldCIDRKey4, *WorldCIDRVal)
+type WorldCIDRsIterateCallback func(netip.Prefix)
 
 // IterateWithCallback iterates through all the keys/values of a world CIDRs
 // map, passing each key/value pair to the cb callback.
@@ -133,8 +149,7 @@ func (m worldCIDRsMap) IterateWithCallback(cb WorldCIDRsIterateCallback) error {
 	return m.Map.IterateWithCallback(&WorldCIDRKey4{}, &WorldCIDRVal{},
 		func(k, v interface{}) {
 			key := k.(*WorldCIDRKey4)
-			value := v.(*WorldCIDRVal)
-
-			cb(key, value)
+			p := key.GetCIDR()
+			cb(p)
 		})
 }
