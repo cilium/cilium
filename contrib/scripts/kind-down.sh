@@ -11,9 +11,11 @@ fi
 
 default_cluster_name="kind"
 default_network="kind-cilium"
+default_secondary_network="${default_network}-secondary"
 
 for cluster in "${@:-${default_cluster_name}}"; do
     kind delete cluster --name "$cluster"
 done
 
 docker network rm ${default_network}
+docker network rm ${default_secondary_network}

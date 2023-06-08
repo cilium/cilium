@@ -15,6 +15,7 @@ default_service_subnet=""
 default_agent_port_prefix="234"
 default_operator_port_prefix="235"
 default_network="kind-cilium"
+default_secondary_network="${default_network}-secondary"
 
 PROG=${0}
 
@@ -40,7 +41,9 @@ agent_port_prefix="${AGENTPORTPREFIX:=${default_agent_port_prefix}}"
 operator_port_prefix="${OPERATORPORTPREFIX:=${default_operator_port_prefix}}"
 
 bridge_dev="br-${default_network}"
+bridge_dev_secondary="${bridge_dev}2"
 v6_prefix="fc00:c111::/64"
+v6_prefix_secondary="fc00:c112::/64"
 CILIUM_ROOT="$(git rev-parse --show-toplevel)"
 
 usage() {
@@ -125,6 +128,14 @@ if ! docker network inspect "${default_network}" >/dev/null 2>&1; then
     "${default_network}"
 fi
 
+if ! docker network inspect "${default_secondary_network}" >/dev/null 2>&1; then
+  docker network create -d=bridge \
+    -o "com.docker.network.bridge.enable_ip_masquerade=false" \
+    -o "com.docker.network.bridge.name=${bridge_dev_secondary}" \
+    --ipv6 --subnet "${v6_prefix_secondary}" \
+    "${default_secondary_network}"
+fi
+
 export KIND_EXPERIMENTAL_DOCKER_NETWORK="${default_network}"
 
 # create a cluster with the local registry enabled in containerd
@@ -150,6 +161,11 @@ kubeadmConfigPatches:
         "v": "3"
 EOF
 
+NODES=$(docker ps -a --filter label=io.x-k8s.kind.cluster=kind --format {{.Names}})
+for NODE in $NODES; do
+  docker network connect ${default_secondary_network} $NODE
+done
+
 if [ "${xdp}" = true ]; then
   if ! [ -f "${CILIUM_ROOT}/test/l4lb/bpf_xdp_veth_host.o" ]; then
     pushd "${CILIUM_ROOT}/test/l4lb/" > /dev/null
@@ -158,7 +174,7 @@ if [ "${xdp}" = true ]; then
   fi
 
   for ifc in /sys/class/net/"${bridge_dev}"/brif/*; do
-    ifc="${ifc#"/sys/class/net/${bridge_dev}/brif/"}"
+    ifc=$(echo $ifc | sed "s:/sys/class/net/${bridge_dev}.*/brif/::")
 
     # Attach a dummy XDP prog to the host side of the veth so that XDP_TX in the
     # pod side works.
