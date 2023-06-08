@@ -49,7 +49,7 @@ type BgpPeer struct {
 	ConnectRetryTimeSeconds int64 `json:"connect-retry-time-seconds,omitempty"`
 
 	// Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.
-	// 0 if eBGP multi-hop feature is disabled.
+	// 1 implies that eBGP multi-hop feature is disabled (only a single hop is allowed).
 	//
 	EbgpMultihopTTL int64 `json:"ebgp-multihop-ttl,omitempty"`
 

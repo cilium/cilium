@@ -29,9 +29,14 @@ func (in *CiliumBGPNeighbor) DeepEqual(other *CiliumBGPNeighbor) bool {
 	if in.PeerASN != other.PeerASN {
 		return false
 	}
-	if in.EBGPMultihopTTL != other.EBGPMultihopTTL {
+	if (in.EBGPMultihopTTL == nil) != (other.EBGPMultihopTTL == nil) {
 		return false
+	} else if in.EBGPMultihopTTL != nil {
+		if *in.EBGPMultihopTTL != *other.EBGPMultihopTTL {
+			return false
+		}
 	}
+
 	if (in.ConnectRetryTimeSeconds == nil) != (other.ConnectRetryTimeSeconds == nil) {
 		return false
 	} else if in.ConnectRetryTimeSeconds != nil {
@@ -56,8 +61,12 @@ func (in *CiliumBGPNeighbor) DeepEqual(other *CiliumBGPNeighbor) bool {
 		}
 	}
 
-	if !in.GracefulRestart.DeepEqual(&other.GracefulRestart) {
+	if (in.GracefulRestart == nil) != (other.GracefulRestart == nil) {
 		return false
+	} else if in.GracefulRestart != nil {
+		if !in.GracefulRestart.DeepEqual(other.GracefulRestart) {
+			return false
+		}
 	}
 
 	return true
@@ -143,9 +152,14 @@ func (in *CiliumBGPVirtualRouter) DeepEqual(other *CiliumBGPVirtualRouter) bool 
 	if in.LocalASN != other.LocalASN {
 		return false
 	}
-	if in.ExportPodCIDR != other.ExportPodCIDR {
+	if (in.ExportPodCIDR == nil) != (other.ExportPodCIDR == nil) {
 		return false
+	} else if in.ExportPodCIDR != nil {
+		if *in.ExportPodCIDR != *other.ExportPodCIDR {
+			return false
+		}
 	}
+
 	if (in.ServiceSelector == nil) != (other.ServiceSelector == nil) {
 		return false
 	} else if in.ServiceSelector != nil {

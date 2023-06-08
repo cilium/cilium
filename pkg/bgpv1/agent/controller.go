@@ -9,7 +9,6 @@ import (
 	"net/netip"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/utils/pointer"
 
 	"github.com/cilium/workerpool"
 
@@ -98,7 +97,7 @@ type ControlPlaneState struct {
 // parsed into a valid ipv4 address use it. If not, determine if Cilium is
 // configured with an IPv4 address, if so use it. If neither, return an error,
 // we cannot assign an router ID.
-func (cstate *ControlPlaneState) ResolveRouterID(localASN int) (string, error) {
+func (cstate *ControlPlaneState) ResolveRouterID(localASN int64) (string, error) {
 	if _, ok := cstate.Annotations[localASN]; ok {
 		if parsed, err := netip.ParseAddr(cstate.Annotations[localASN].RouterID); err == nil && !parsed.IsUnspecified() {
 			return parsed.String(), nil
@@ -366,7 +365,8 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	}
 
 	// apply policy defaults to have consistent default config across sub-systems
-	policy = c.applyPolicyDefaults(policy)
+	policy = policy.DeepCopy() // deepcopy to not modify the policy object in store
+	policy.SetDefaults()
 
 	err = c.validatePolicy(policy)
 	if err != nil {
@@ -425,47 +425,13 @@ func (c *Controller) FullWithdrawal(ctx context.Context) {
 	_ = c.BGPMgr.ConfigurePeers(ctx, nil, nil) // cannot fail, no need for error handling
 }
 
-// applyPolicyDefaults applies default values on the CiliumBGPPeeringPolicy.
-// This defaulting is normally done by kube-apiserver (based on CRD default markers), but ensured here for non-k8s environments, tests, etc.
-func (c *Controller) applyPolicyDefaults(policy *v2alpha1api.CiliumBGPPeeringPolicy) *v2alpha1api.CiliumBGPPeeringPolicy {
-	p := policy.DeepCopy() // deepcopy to not modify the policy object in store
-	for _, r := range p.Spec.VirtualRouters {
-		for j := range r.Neighbors {
-			n := &r.Neighbors[j]
-			if n.PeerPort == nil || *n.PeerPort == 0 {
-				n.PeerPort = pointer.Int(v2alpha1api.DefaultBGPPeerPort)
-			}
-			if n.ConnectRetryTimeSeconds == nil || *n.ConnectRetryTimeSeconds == 0 {
-				// As GoBGP defaults the ConnectRetryTime for 0 value, it cannot be 0 in our case.
-				n.ConnectRetryTimeSeconds = pointer.Int32(v2alpha1api.DefaultBGPConnectRetryTimeSeconds)
-			}
-			if n.HoldTimeSeconds == nil || *n.HoldTimeSeconds == 0 {
-				// RFC4271 Sec 4.4 says that hold time can be 0 and has a special meaning that disables keepalive.
-				// However, as GoBGP defaults the hold time for 0 value, it cannot be 0 in our case.
-				n.HoldTimeSeconds = pointer.Int32(v2alpha1api.DefaultBGPHoldTimeSeconds)
-			}
-			if n.KeepAliveTimeSeconds == nil || *n.KeepAliveTimeSeconds == 0 {
-				// As GoBGP defaults the KeepAliveTime for 0 value (to HoldTime / 3), it cannot be 0 in our case.
-				n.KeepAliveTimeSeconds = pointer.Int32(v2alpha1api.DefaultBGPKeepAliveTimeSeconds)
-			}
-			// apply graceful restart defaults
-			if n.GracefulRestart.Enabled &&
-				(n.GracefulRestart.RestartTimeSeconds == nil || *n.GracefulRestart.RestartTimeSeconds == 0) {
-				// As GoBGP defaults the RestartTimeSeconds for 0 value (to HoldTime), it cannot be 0 in our case.
-				n.GracefulRestart.RestartTimeSeconds = pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds)
-			}
-		}
-	}
-	return p
-}
-
 // validatePolicy validates the CiliumBGPPeeringPolicy.
 // The validation is normally done by kube-apiserver (based on CRD validation markers),
 // this validates only those constraints that cannot be enforced by them.
 func (c *Controller) validatePolicy(policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
 	for _, r := range policy.Spec.VirtualRouters {
 		for _, n := range r.Neighbors {
-			if err := n.ValidateTimers(); err != nil {
+			if err := n.Validate(); err != nil {
 				return err
 			}
 		}

@@ -13,6 +13,12 @@ import (
 )
 
 const (
+	// DefaultBGPExportPodCIDR defines the default value for ExportPodCIDR determining whether to export the Node's private CIDR block.
+	DefaultBGPExportPodCIDR = false
+	// DefaultBGPPeerPort defines the TCP port number of a CiliumBGPNeighbor when PeerPort is unspecified.
+	DefaultBGPPeerPort = 179
+	// DefaultBGPEBGPMultihopTTL defines the default value for the TTL value used in BGP packets sent to the eBGP neighbors.
+	DefaultBGPEBGPMultihopTTL = 1
 	// DefaultBGPConnectRetryTimeSeconds defines the default initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
 	DefaultBGPConnectRetryTimeSeconds = 120
 	// DefaultBGPHoldTimeSeconds defines the default initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
@@ -21,8 +27,6 @@ const (
 	DefaultBGPKeepAliveTimeSeconds = 30
 	// DefaultBGPGRRestartTimeSeconds defines default Restart Time for graceful restart (RFC 4724, section 4.2)
 	DefaultBGPGRRestartTimeSeconds = 120
-	// DefaultBGPPeerPort defines the TCP port number of a CiliumBGPNeighbor when PeerPort is unspecified.
-	DefaultBGPPeerPort = 179
 )
 
 // +genclient
@@ -66,10 +70,10 @@ type CiliumBGPPeeringPolicySpec struct {
 	// NodeSelector selects a group of nodes where this BGP Peering
 	// Policy applies.
 	//
-	// If nil this policy applies to all nodes.
+	// If empty / nil this policy applies to all nodes.
 	//
 	// +kubebuilder:validation:Optional
-	NodeSelector *slimv1.LabelSelector `json:"nodeSelector"`
+	NodeSelector *slimv1.LabelSelector `json:"nodeSelector,omitempty"`
 	// A list of CiliumBGPVirtualRouter(s) which instructs
 	// the BGP control plane how to instantiate virtual BGP routers.
 	//
@@ -81,7 +85,7 @@ type CiliumBGPPeeringPolicySpec struct {
 type CiliumBGPNeighborGracefulRestart struct {
 	// Enabled flag, when set enables graceful restart capability.
 	//
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	Enabled bool `json:"enabled"`
 	// RestartTimeSeconds is the estimated time it will take for the BGP
 	// session to be re-established with peer after a restart.
@@ -89,9 +93,10 @@ type CiliumBGPNeighborGracefulRestart struct {
 	// described RFC 4724 section 4.2.
 	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=2147483647
 	// +kubebuilder:default=120
-	RestartTimeSeconds *int32 `json:"restartTimeSeconds"`
+	RestartTimeSeconds *int32 `json:"restartTimeSeconds,omitempty"`
 }
 
 // CiliumBGPNeighbor is a neighboring peer for use in a
@@ -111,26 +116,29 @@ type CiliumBGPNeighbor struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=179
-	PeerPort *int `json:"peerPort,omitempty"`
+	PeerPort *int32 `json:"peerPort,omitempty"`
 	// PeerASN is the ASN of the peer BGP router.
 	// Supports extended 32bit ASNs
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
-	PeerASN int `json:"peerASN"`
+	PeerASN int64 `json:"peerASN"`
 	// EBGPMultihopTTL controls the multi-hop feature for eBGP peers.
 	// Its value defines the Time To Live (TTL) value used in BGP packets sent to the neighbor.
-	// When empty or zero, eBGP multi-hop feature is disabled. The value is ignored for iBGP peers.
+	// The value 1 implies that eBGP multi-hop feature is disabled (only a single hop is allowed).
+	// This field is ignored for iBGP peers.
 	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=255
-	EBGPMultihopTTL int `json:"eBGPMultihopTTL,omitempty"`
+	// +kubebuilder:default=1
+	EBGPMultihopTTL *int32 `json:"eBGPMultihopTTL,omitempty"`
 	// ConnectRetryTimeSeconds defines the initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=2147483647
 	// +kubebuilder:default=120
 	ConnectRetryTimeSeconds *int32 `json:"connectRetryTimeSeconds,omitempty"`
 	// HoldTimeSeconds defines the initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
@@ -138,6 +146,7 @@ type CiliumBGPNeighbor struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=3
+	// +kubebuilder:validation:Maximum=2147483647
 	// +kubebuilder:default=90
 	HoldTimeSeconds *int32 `json:"holdTimeSeconds,omitempty"`
 	// KeepaliveTimeSeconds defines the initial value for the BGP KeepaliveTimer (RFC 4271, Section 8).
@@ -145,13 +154,14 @@ type CiliumBGPNeighbor struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=2147483647
 	// +kubebuilder:default=30
 	KeepAliveTimeSeconds *int32 `json:"keepAliveTimeSeconds,omitempty"`
 	// GracefulRestart defines graceful restart parameters which are negotiated
-	// with this neighbor.
+	// with this neighbor. If empty / nil, the graceful restart capability is disabled.
 	//
 	// +kubebuilder:validation:Optional
-	GracefulRestart CiliumBGPNeighborGracefulRestart `json:"gracefulRestart,omitempty"`
+	GracefulRestart *CiliumBGPNeighborGracefulRestart `json:"gracefulRestart,omitempty"`
 }
 
 // CiliumBGPVirtualRouter defines a discrete BGP virtual router configuration.
@@ -162,19 +172,20 @@ type CiliumBGPVirtualRouter struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
-	LocalASN int `json:"localASN"`
+	LocalASN int64 `json:"localASN"`
 	// ExportPodCIDR determines whether to export the Node's private CIDR block
 	// to the configured neighbors.
 	//
 	// +kubebuilder:validation:Optional
-	ExportPodCIDR bool `json:"exportPodCIDR"`
+	// +kubebuilder:default=false
+	ExportPodCIDR *bool `json:"exportPodCIDR,omitempty"`
 	// ServiceSelector selects a group of load balancer services which this
 	// virtual router will announce.
 	//
-	// If nil no services will be announced.
+	// If empty / nil no services will be announced.
 	//
 	// +kubebuilder:validation:Optional
-	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector"`
+	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector,omitempty"`
 	// Neighbors is a list of neighboring BGP peers for this virtual router
 	//
 	// +kubebuilder:validation:Required
@@ -182,9 +193,55 @@ type CiliumBGPVirtualRouter struct {
 	Neighbors []CiliumBGPNeighbor `json:"neighbors"`
 }
 
-// ValidateTimers validates CiliumBGPNeighbor's timer configuration constraints
+// SetDefaults applies default values on the CiliumBGPPeeringPolicy.
+// This is normally done by kube-apiserver for fields with explicit static defaults,
+// the main use of this method is to avoid the need for nil-checks in the controller code.
+func (p *CiliumBGPPeeringPolicy) SetDefaults() {
+	for i := range p.Spec.VirtualRouters {
+		p.Spec.VirtualRouters[i].SetDefaults()
+	}
+}
+
+// SetDefaults applies default values on the CiliumBGPVirtualRouter.
+// This is normally done by kube-apiserver for fields with explicit static defaults,
+// the main use of this method is to avoid the need for nil-checks in the controller code.
+func (r *CiliumBGPVirtualRouter) SetDefaults() {
+	if r.ExportPodCIDR == nil {
+		r.ExportPodCIDR = pointer.Bool(DefaultBGPExportPodCIDR)
+	}
+	for i := range r.Neighbors {
+		r.Neighbors[i].SetDefaults()
+	}
+}
+
+// SetDefaults applies default values on the CiliumBGPNeighbor.
+// This is normally done by kube-apiserver for fields with explicit static defaults,
+// the main use of this method is to avoid the need for nil-checks in the controller code.
+func (n *CiliumBGPNeighbor) SetDefaults() {
+	if n.PeerPort == nil || *n.PeerPort == 0 {
+		n.PeerPort = pointer.Int32(DefaultBGPPeerPort)
+	}
+	if n.EBGPMultihopTTL == nil {
+		n.EBGPMultihopTTL = pointer.Int32(DefaultBGPEBGPMultihopTTL)
+	}
+	if n.ConnectRetryTimeSeconds == nil || *n.ConnectRetryTimeSeconds == 0 {
+		n.ConnectRetryTimeSeconds = pointer.Int32(DefaultBGPConnectRetryTimeSeconds)
+	}
+	if n.HoldTimeSeconds == nil || *n.HoldTimeSeconds == 0 {
+		n.HoldTimeSeconds = pointer.Int32(DefaultBGPHoldTimeSeconds)
+	}
+	if n.KeepAliveTimeSeconds == nil || *n.KeepAliveTimeSeconds == 0 {
+		n.KeepAliveTimeSeconds = pointer.Int32(DefaultBGPKeepAliveTimeSeconds)
+	}
+	if n.GracefulRestart != nil && n.GracefulRestart.Enabled &&
+		(n.GracefulRestart.RestartTimeSeconds == nil || *n.GracefulRestart.RestartTimeSeconds == 0) {
+		n.GracefulRestart.RestartTimeSeconds = pointer.Int32(DefaultBGPGRRestartTimeSeconds)
+	}
+}
+
+// Validate validates CiliumBGPNeighbor's configuration constraints
 // that can not be expressed using the kubebuilder validation markers.
-func (n *CiliumBGPNeighbor) ValidateTimers() error {
+func (n *CiliumBGPNeighbor) Validate() error {
 	keepAliveTime := pointer.Int32Deref(n.KeepAliveTimeSeconds, DefaultBGPKeepAliveTimeSeconds)
 	holdTime := pointer.Int32Deref(n.HoldTimeSeconds, DefaultBGPHoldTimeSeconds)
 	if keepAliveTime > holdTime {

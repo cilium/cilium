@@ -21,7 +21,7 @@ func TestAnnotation(t *testing.T) {
 		// expected parsed attributes
 		attr Attributes
 		// expected parsed asn
-		asn int
+		asn int64
 		// error nil or not
 		error error
 	}{

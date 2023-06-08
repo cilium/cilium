@@ -48,7 +48,8 @@ spec:
             properties:
               nodeSelector:
                 description: "NodeSelector selects a group of nodes where this BGP
-                  Peering Policy applies. \n If nil this policy applies to all nodes."
+                  Peering Policy applies. \n If empty / nil this policy applies to
+                  all nodes."
                 properties:
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.
@@ -108,12 +109,14 @@ spec:
                     router configuration.
                   properties:
                     exportPodCIDR:
+                      default: false
                       description: ExportPodCIDR determines whether to export the
                         Node's private CIDR block to the configured neighbors.
                       type: boolean
                     localASN:
                       description: LocalASN is the ASN of this virtual router. Supports
                         extended 32bit ASNs
+                      format: int64
                       maximum: 4294967295
                       minimum: 0
                       type: integer
@@ -130,20 +133,25 @@ spec:
                               value for the BGP ConnectRetryTimer (RFC 4271, Section
                               8).
                             format: int32
+                            maximum: 2147483647
                             minimum: 1
                             type: integer
                           eBGPMultihopTTL:
+                            default: 1
                             description: EBGPMultihopTTL controls the multi-hop feature
                               for eBGP peers. Its value defines the Time To Live (TTL)
-                              value used in BGP packets sent to the neighbor. When
-                              empty or zero, eBGP multi-hop feature is disabled. The
-                              value is ignored for iBGP peers.
+                              value used in BGP packets sent to the neighbor. The
+                              value 1 implies that eBGP multi-hop feature is disabled
+                              (only a single hop is allowed). This field is ignored
+                              for iBGP peers.
+                            format: int32
                             maximum: 255
-                            minimum: 0
+                            minimum: 1
                             type: integer
                           gracefulRestart:
                             description: GracefulRestart defines graceful restart
                               parameters which are negotiated with this neighbor.
+                              If empty / nil, the graceful restart capability is disabled.
                             properties:
                               enabled:
                                 description: Enabled flag, when set enables graceful
@@ -157,8 +165,11 @@ spec:
                                   will remove stale routes. This is described RFC
                                   4724 section 4.2.
                                 format: int32
-                                minimum: 0
+                                maximum: 2147483647
+                                minimum: 1
                                 type: integer
+                            required:
+                            - enabled
                             type: object
                           holdTimeSeconds:
                             default: 90
@@ -166,6 +177,7 @@ spec:
                               for the BGP HoldTimer (RFC 4271, Section 4.2). Updating
                               this value will cause a session reset.
                             format: int32
+                            maximum: 2147483647
                             minimum: 3
                             type: integer
                           keepAliveTimeSeconds:
@@ -175,11 +187,13 @@ spec:
                               8). It can not be larger than HoldTimeSeconds. Updating
                               this value will cause a session reset.
                             format: int32
+                            maximum: 2147483647
                             minimum: 1
                             type: integer
                           peerASN:
                             description: PeerASN is the ASN of the peer BGP router.
                               Supports extended 32bit ASNs
+                            format: int64
                             maximum: 4294967295
                             minimum: 0
                             type: integer
@@ -194,6 +208,7 @@ spec:
                             description: PeerPort is the TCP port of the peer. 1-65535
                               is the range of valid port numbers that can be specified.
                               If unset, defaults to 179.
+                            format: int32
                             maximum: 65535
                             minimum: 1
                             type: integer
@@ -205,8 +220,8 @@ spec:
                       type: array
                     serviceSelector:
                       description: "ServiceSelector selects a group of load balancer
-                        services which this virtual router will announce. \n If nil
-                        no services will be announced."
+                        services which this virtual router will announce. \n If empty
+                        / nil no services will be announced."
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector
