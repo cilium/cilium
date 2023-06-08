@@ -11,20 +11,6 @@ import (
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
-const (
-	// DefaultBGPConnectRetryTimeSeconds defines the default initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
-	DefaultBGPConnectRetryTimeSeconds = 120
-	// DefaultBGPHoldTimeSeconds defines the default initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
-	DefaultBGPHoldTimeSeconds = 90
-	// DefaultBGPKeepAliveTimeSeconds defines the default initial value for the BGP KeepaliveTimer (RFC 4271, Section 8).
-	DefaultBGPKeepAliveTimeSeconds = 30
-
-	// DefaultGRRestartTimeSeconds defines default Restart Time for graceful restart (RFC 4724, section 4.2)
-	DefaultGRRestartTimeSeconds = 120
-	// DefaultPeerPort is the TCP port number of a CiliumBGPNeighbor when PeerPort is unspecified.
-	DefaultPeerPort = 179
-)
-
 // BGPGlobal contains high level BGP configuration for given instance.
 type BGPGlobal struct {
 	ASN                   uint32
