@@ -512,6 +512,29 @@ func (m *Map) open() error {
 	return nil
 }
 
+// OpenFromID opens the map with the given bpf id and stores it in Map.
+func (m *Map) OpenFromID(id ebpf.MapID) error {
+	if m.m != nil {
+		return nil
+	}
+
+	em, err := ebpf.NewMapFromID(id)
+	if err != nil {
+		return fmt.Errorf("loading map by id %d: %w", id, err)
+	}
+
+	registerMap(m.path, m)
+
+	m.m = em
+
+	return nil
+}
+
+// Iterate returns an ebpf.MapIterator. See documentation of ebpf.Map.Iterate().
+func (m *Map) Iterate() *ebpf.MapIterator {
+	return m.m.Iterate()
+}
+
 func (m *Map) Close() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
