@@ -5,11 +5,9 @@ package auth
 
 import (
 	"errors"
-	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/policy"
@@ -121,16 +119,6 @@ func (r *fakeIPCache) GetNodeIP(id uint16) string {
 	return r.nodeIdMappings[id]
 }
 
-func (r *fakeIPCache) AllocateNodeID(hostIP net.IP) uint16 {
-	for id, ip := range r.nodeIdMappings {
-		if ip == hostIP.String() {
-			return id
-		}
-	}
-
-	return 9999
-}
-
 // Fake AuthHandler
 type fakeAuthHandler struct {
 }
@@ -150,26 +138,11 @@ func (r *fakeAuthHandler) subscribeToRotatedIdentities() <-chan certs.Certificat
 
 // Fake AuthMap
 type fakeAuthMap struct {
-	entries    map[authKey]authInfo
-	failDelete bool
+	entries map[authKey]authInfo
 }
 
 func (r *fakeAuthMap) Delete(key authKey) error {
-	if r.failDelete {
-		return errors.New("failed to delete entry")
-	}
-
 	delete(r.entries, key)
-	return nil
-}
-
-func (r *fakeAuthMap) DeleteIf(predicate func(key authKey, info authInfo) bool) error {
-	if r.failDelete {
-		return errors.New("failed to delete entry")
-	}
-
-	maps.DeleteFunc(r.entries, predicate)
-
 	return nil
 }
 
