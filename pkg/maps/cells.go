@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
+	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
 )
 
 // Cell contains all cells which are providing BPF Maps.
@@ -40,4 +41,7 @@ var Cell = cell.Module(
 
 	// Provides access to the L2 responder map.
 	l2respondermap.Cell,
+
+	// Provides access to the world cidrs map, used in high-scale ipcache mode
+	worldcidrsmap.Cell,
 )
