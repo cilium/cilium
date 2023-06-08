@@ -53,7 +53,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -561,7 +560,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	// Collect old CIDR identities
 	var oldNIDs []identity.NumericIdentity
-	var oldIngressIPs []*net.IPNet
+	var oldIngressIPs []netip.Prefix
 	if option.Config.RestoreState && !option.Config.DryMode {
 		if err := ipcachemap.IPCacheMap().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 			k := key.(*ipcachemap.Key)
@@ -571,12 +570,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				d.restoredCIDRs = append(d.restoredCIDRs, k.Prefix())
 				oldNIDs = append(oldNIDs, nid)
 			} else if nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero() {
-				oldIngressIPs = append(oldIngressIPs, k.IPNet())
-				ip := k.IPNet().IP
-				if ip.To4() != nil {
-					node.SetIngressIPv4(ip)
+				prefix := k.Prefix()
+				oldIngressIPs = append(oldIngressIPs, prefix)
+				addr := prefix.Addr()
+				if addr.Is4() {
+					node.SetIngressIPv4(addr.AsSlice())
 				} else {
-					node.SetIngressIPv6(ip)
+					node.SetIngressIPv6(addr.AsSlice())
 				}
 			}
 		}); err != nil && !os.IsNotExist(err) {
@@ -744,7 +744,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// Upsert restored local Ingress IPs
 	for _, ingressIP := range oldIngressIPs {
 		d.ipcache.UpsertLabels(
-			ip.IPNetToPrefix(ingressIP),
+			ingressIP,
 			labels.LabelIngress,
 			source.Restored,
 			ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", ""),
