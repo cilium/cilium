@@ -93,9 +93,7 @@ func (r *authMapWriter) DeleteIf(predicate func(key authKey, info authInfo) bool
 		if predicate(k, v) {
 			if err := r.Delete(k); err != nil {
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
-					r.logger.
-						WithField("key", k).
-						Debug("Failed to delete already deleted auth entry")
+					r.logger.Debugf("auth: failed to delete auth entry with key %s: entry already deleted", k)
 					continue
 				}
 				return fmt.Errorf("failed to delete auth entry from map: %w", err)

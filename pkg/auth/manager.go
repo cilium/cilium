@@ -91,9 +91,7 @@ func (a *authManager) handleAuthRequest(_ context.Context, key signalAuthKey) er
 		authType:       policy.AuthType(key.AuthType),
 	}
 
-	a.logger.
-		WithField("key", k).
-		Debug("Handle authentication request")
+	a.logger.Debugf("auth: Handle authentication request for key %s", k)
 
 	a.handleAuthenticationFunc(a, k, false)
 
@@ -101,9 +99,7 @@ func (a *authManager) handleAuthRequest(_ context.Context, key signalAuthKey) er
 }
 
 func (a *authManager) handleCertificateRotationEvent(_ context.Context, event certs.CertificateRotationEvent) error {
-	a.logger.
-		WithField("identity", event.Identity).
-		Debug("Handle certificate rotation event")
+	a.logger.Debugf("auth: Handle certificate rotation event for identity %s", event.Identity)
 
 	all, err := a.authmap.All()
 	if err != nil {
@@ -129,18 +125,13 @@ func handleAuthentication(a *authManager, k authKey, reAuth bool) {
 				// updated the authmap since the datapath issued the auth
 				// required signal.
 				if i, err := a.authmap.Get(key); err == nil && i.expiration.After(time.Now()) {
-					a.logger.
-						WithField("key", key).
-						Debug("Already authenticated, skipping authentication")
+					a.logger.Debugf("auth: Already authenticated, skipped authentication for key %v", key)
 					return
 				}
 			}
 
 			if err := a.authenticate(key); err != nil {
-				a.logger.
-					WithError(err).
-					WithField("key", key).
-					Warning("Failed to authenticate request")
+				a.logger.WithError(err).Warningf("auth: Failed to authenticate request for key %v", key)
 			}
 		}(k)
 	}
@@ -169,11 +160,8 @@ func (a *authManager) clearPendingAuth(key authKey) {
 }
 
 func (a *authManager) authenticate(key authKey) error {
-	a.logger.
-		WithField("auth_type", key.authType).
-		WithField("local_identity", key.localIdentity).
-		WithField("remote_identity", key.remoteIdentity).
-		Debug("Policy is requiring authentication")
+	a.logger.Debugf("auth: policy is requiring authentication type %s between local and remote identities %d<->%d",
+		key.authType, key.localIdentity, key.remoteIdentity)
 
 	// Authenticate according to the requested auth type
 	h, ok := a.authHandlers[key.authType]
@@ -201,12 +189,8 @@ func (a *authManager) authenticate(key authKey) error {
 		return fmt.Errorf("failed to update BPF map in datapath: %w", err)
 	}
 
-	a.logger.
-		WithField("auth_type", key.authType).
-		WithField("local_identity", key.localIdentity).
-		WithField("remote_identity", key.remoteIdentity).
-		WithField("remote_node_ip", nodeIP).
-		Debug("Successfully authenticated")
+	a.logger.Debugf("auth: Successfully authenticated for type %s identity %d<->%d, remote host %s",
+		key.authType, key.localIdentity, key.remoteIdentity, nodeIP)
 
 	return nil
 }

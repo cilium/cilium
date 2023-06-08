@@ -86,9 +86,7 @@ func (r *authMapCache) DeleteIf(predicate func(key authKey, info authInfo) bool)
 			// delete every entry individually to keep the cache in sync in case of an error
 			if err := r.authmap.Delete(k); err != nil {
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
-					r.logger.
-						WithField("key", k).
-						Debug("Failed to delete already deleted auth entry")
+					r.logger.Debugf("auth: failed to delete auth entry with key %s: entry already deleted", k)
 					continue
 				}
 				return fmt.Errorf("failed to delete auth entry from map: %w", err)
@@ -101,7 +99,7 @@ func (r *authMapCache) DeleteIf(predicate func(key authKey, info authInfo) bool)
 }
 
 func (r *authMapCache) restoreCache() error {
-	r.logger.Debug("Starting cache restore")
+	r.logger.Debug("auth: starting cache restore")
 
 	all, err := r.authmap.All()
 	if err != nil {
@@ -111,8 +109,6 @@ func (r *authMapCache) restoreCache() error {
 		r.cacheEntries[k] = v
 	}
 
-	r.logger.
-		WithField("cached_entries", len(r.cacheEntries)).
-		Debug("Restored entries")
+	r.logger.Debugf("auth: restored %d entries", len(r.cacheEntries))
 	return nil
 }
