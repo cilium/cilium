@@ -29,9 +29,8 @@ type authManager struct {
 	authHandlers map[policy.AuthType]authHandler
 	authmap      authMap
 
-	mutex                    lock.Mutex
-	pending                  map[authKey]struct{}
-	handleAuthenticationFunc func(a *authManager, k authKey, reAuth bool)
+	mutex   lock.Mutex
+	pending map[authKey]struct{}
 }
 
 // ipCache is the set of interactions the auth manager performs with the IPCache
@@ -57,7 +56,11 @@ type authResponse struct {
 	expirationTime time.Time
 }
 
-func newAuthManager(authHandlers []authHandler, authmap authMap, ipCache ipCache) (*authManager, error) {
+func newAuthManager(
+	authHandlers []authHandler,
+	authmap authMap,
+	ipCache ipCache,
+) (*authManager, error) {
 	ahs := map[policy.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if ah == nil {
@@ -70,11 +73,10 @@ func newAuthManager(authHandlers []authHandler, authmap authMap, ipCache ipCache
 	}
 
 	return &authManager{
-		authHandlers:             ahs,
-		authmap:                  authmap,
-		ipCache:                  ipCache,
-		pending:                  make(map[authKey]struct{}),
-		handleAuthenticationFunc: handleAuthentication,
+		authHandlers: ahs,
+		authmap:      authmap,
+		ipCache:      ipCache,
+		pending:      make(map[authKey]struct{}),
 	}, nil
 }
 
@@ -87,43 +89,16 @@ func (a *authManager) handleAuthRequest(_ context.Context, key signalAuthKey) er
 		authType:       policy.AuthType(key.AuthType),
 	}
 
-	log.Debugf("auth: Handle authentication request for key %s", k)
-
-	a.handleAuthenticationFunc(a, k, false)
-
-	return nil
-}
-
-func (a *authManager) handleCertificateRotationEvent(_ context.Context, event certs.CertificateRotationEvent) error {
-	log.Debugf("auth: Handle certificate rotation event for identity %s", event.Identity)
-
-	all, err := a.authmap.All()
-	if err != nil {
-		return fmt.Errorf("failed to get all auth map entries: %w", err)
-	}
-
-	for k := range all {
-		if k.localIdentity == event.Identity || k.remoteIdentity == event.Identity {
-			a.handleAuthenticationFunc(a, k, true)
-		}
-	}
-
-	return nil
-}
-
-func handleAuthentication(a *authManager, k authKey, reAuth bool) {
 	if a.markPendingAuth(k) {
 		go func(key authKey) {
 			defer a.clearPendingAuth(key)
 
-			if !reAuth {
-				// Check if the auth is actually required, as we might have
-				// updated the authmap since the datapath issued the auth
-				// required signal.
-				if i, err := a.authmap.Get(key); err == nil && i.expiration.After(time.Now()) {
-					log.Debugf("auth: Already authenticated, skipped authentication for key %v", key)
-					return
-				}
+			// Check if the auth is actually required, as we might have
+			// updated the authmap since the datapath issued the auth
+			// required signal.
+			if i, err := a.authmap.Get(key); err == nil && i.expiration.After(time.Now()) {
+				log.Debugf("auth: Already authenticated, skipped authentication for key %v", key)
+				return
 			}
 
 			if err := a.authenticate(key); err != nil {
@@ -131,6 +106,8 @@ func handleAuthentication(a *authManager, k authKey, reAuth bool) {
 			}
 		}(k)
 	}
+
+	return nil
 }
 
 // markPendingAuth checks if there is a pending authentication for the given key.
