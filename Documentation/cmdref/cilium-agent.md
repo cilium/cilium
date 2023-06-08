@@ -99,13 +99,13 @@ cilium-agent [flags]
       --enable-endpoint-health-checking                         Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                                  Use per endpoint routes instead of routing via cilium_host
       --enable-envoy-config                                     Enable Envoy Config CRDs
-      --enable-external-ips                                     Enable k8s service externalIPs feature (requires enabling enable-node-port) (default true)
+      --enable-external-ips                                     Enable k8s service externalIPs feature (requires enabling enable-node-port)
       --enable-health-check-nodeport                            Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
       --enable-health-checking                                  Enable connectivity health checking (default true)
       --enable-high-scale-ipcache                               Enable the high scale mode for ipcache
       --enable-host-firewall                                    Enable host network policies
       --enable-host-legacy-routing                              Enable the legacy host forwarding model which does not bypass upper stack in host namespace
-      --enable-host-port                                        Enable k8s hostPort mapping feature (requires enabling enable-node-port) (default true)
+      --enable-host-port                                        Enable k8s hostPort mapping feature (requires enabling enable-node-port)
       --enable-hubble                                           Enable hubble server
       --enable-hubble-recorder-api                              Enable the Hubble recorder API (default true)
       --enable-identity-mark                                    Enable setting identity mark for local traffic (default true)
@@ -228,7 +228,7 @@ cilium-agent [flags]
       --k8s-service-proxy-name string                           Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --k8s-watcher-endpoint-selector string                    K8s endpoint watcher will watch for these k8s endpoints (default "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager")
       --keep-config                                             When restoring state, keeps containers' configuration in place
-      --kube-proxy-replacement string                           Enable only selected features (will panic if any selected feature cannot be enabled) ("partial"), or enable all features (will panic if any feature cannot be enabled) ("strict"), or completely disable it (ignores any selected feature) ("disabled") (default "partial")
+      --kube-proxy-replacement string                           Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
       --kube-proxy-replacement-healthz-bind-address string      The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
       --kvstore string                                          Key-value store type
       --kvstore-connectivity-timeout duration                   Time after which an incomplete kvstore operation  is considered failed (default 2m0s)

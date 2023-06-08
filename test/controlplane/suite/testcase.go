@@ -115,7 +115,7 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 	agentOption.Config.Opts.SetBool(agentOption.Debug, true)
 	agentOption.Config.EnableIPSec = false
 	agentOption.Config.EnableIPv6 = false
-	agentOption.Config.KubeProxyReplacement = agentOption.KubeProxyReplacementStrict
+	agentOption.Config.KubeProxyReplacement = agentOption.KubeProxyReplacementTrue
 	agentOption.Config.EnableHostIPRestore = false
 	agentOption.Config.K8sRequireIPv6PodCIDR = false
 	agentOption.Config.K8sEnableK8sEndpointSlice = true
