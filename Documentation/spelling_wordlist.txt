@@ -167,6 +167,7 @@ Zannoni
 Zhou
 Zookeeper
 aarch
+accessMode
 admin
 adminSocketPath
 agentNotReadyTaintKey
@@ -1005,6 +1006,7 @@ statefulset
 statelessNat
 statsd
 stdout
+storageClass
 structs
 subclasses
 subcommand

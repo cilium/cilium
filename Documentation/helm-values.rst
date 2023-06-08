@@ -64,14 +64,6 @@
      - Enable SPIRE integration
      - bool
      - ``false``
-   * - authentication.mutual.spire.install
-     - Settings to control the SPIRE installation and configuration
-     - object
-     - ``{"agent":{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true},"enabled":false,"namespace":"cilium-spire","server":{"annotations":{},"ca":{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}},"dataStorage":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null},"image":"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f","initContainers":[],"labels":{},"service":{"annotations":{},"labels":{},"type":"ClusterIP"},"serviceAccount":{"create":true,"name":"spire-server"}}}``
-   * - authentication.mutual.spire.install.agent
-     - SPIRE agent configuration
-     - object
-     - ``{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true}``
    * - authentication.mutual.spire.install.agent.annotations
      - SPIRE agent annotations
      - object
@@ -104,10 +96,6 @@
      - SPIRE server annotations
      - object
      - ``{}``
-   * - authentication.mutual.spire.install.server.ca
-     - SPIRE CA configuration
-     - object
-     - ``{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}}``
    * - authentication.mutual.spire.install.server.ca.keyType
      - SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported
      - string
@@ -116,10 +104,22 @@
      - SPIRE CA Subject
      - object
      - ``{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}``
-   * - authentication.mutual.spire.install.server.dataStorage
-     - SPIRE server datastorage configuration
-     - object
-     - ``{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null}``
+   * - authentication.mutual.spire.install.server.dataStorage.accessMode
+     - Access mode of the SPIRE server data storage
+     - string
+     - ``"ReadWriteOnce"``
+   * - authentication.mutual.spire.install.server.dataStorage.enabled
+     - Enable SPIRE server data storage
+     - bool
+     - ``true``
+   * - authentication.mutual.spire.install.server.dataStorage.size
+     - Size of the SPIRE server data storage
+     - string
+     - ``"1Gi"``
+   * - authentication.mutual.spire.install.server.dataStorage.storageClass
+     - StorageClass of the SPIRE server data storage
+     - string
+     - ``nil``
    * - authentication.mutual.spire.install.server.image
      - SPIRE server image
      - string
@@ -132,10 +132,18 @@
      - SPIRE server labels
      - object
      - ``{}``
-   * - authentication.mutual.spire.install.server.service
-     - SPIRE server service configuration
+   * - authentication.mutual.spire.install.server.service.annotations
+     - Annotations to be added to the SPIRE server service
      - object
-     - ``{"annotations":{},"labels":{},"type":"ClusterIP"}``
+     - ``{}``
+   * - authentication.mutual.spire.install.server.service.labels
+     - Labels to be added to the SPIRE server service
+     - object
+     - ``{}``
+   * - authentication.mutual.spire.install.server.service.type
+     - Service type for the SPIRE server service
+     - string
+     - ``"ClusterIP"``
    * - authentication.mutual.spire.install.server.serviceAccount
      - SPIRE server service account
      - object
