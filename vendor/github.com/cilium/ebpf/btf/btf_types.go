@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"unsafe"
 )
 
 //go:generate stringer -linecomment -output=btf_types_string.go -type=FuncLinkage,VarLinkage,btfKind
@@ -193,13 +194,22 @@ func (bt *btfType) SetSize(size uint32) {
 	bt.SizeType = size
 }
 
+func (bt *btfType) Marshal(w io.Writer, bo binary.ByteOrder) error {
+	buf := make([]byte, unsafe.Sizeof(*bt))
+	bo.PutUint32(buf[0:], bt.NameOff)
+	bo.PutUint32(buf[4:], bt.Info)
+	bo.PutUint32(buf[8:], bt.SizeType)
+	_, err := w.Write(buf)
+	return err
+}
+
 type rawType struct {
 	btfType
 	data interface{}
 }
 
 func (rt *rawType) Marshal(w io.Writer, bo binary.ByteOrder) error {
-	if err := binary.Write(w, bo, &rt.btfType); err != nil {
+	if err := rt.btfType.Marshal(w, bo); err != nil {
 		return err
 	}
 

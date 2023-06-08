@@ -89,15 +89,6 @@ func (st *stringTable) lookup(offset uint32) (string, error) {
 	return st.strings[i], nil
 }
 
-func (st *stringTable) Length() int {
-	if len(st.offsets) == 0 || len(st.strings) == 0 {
-		return 0
-	}
-
-	last := len(st.offsets) - 1
-	return int(st.offsets[last]) + len(st.strings[last]) + 1
-}
-
 func (st *stringTable) Marshal(w io.Writer) error {
 	for _, str := range st.strings {
 		_, err := io.WriteString(w, str)
@@ -110,6 +101,11 @@ func (st *stringTable) Marshal(w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+// Num returns the number of strings in the table.
+func (st *stringTable) Num() int {
+	return len(st.strings)
 }
 
 // search is a copy of sort.Search specialised for uint32.
@@ -141,25 +137,19 @@ type stringTableBuilder struct {
 // newStringTableBuilder creates a builder with the given capacity.
 //
 // capacity may be zero.
-func newStringTableBuilder() *stringTableBuilder {
-	stb := &stringTableBuilder{0, make(map[string]uint32)}
-	// Ensure that the empty string is at index 0.
-	stb.append("")
-	return stb
-}
+func newStringTableBuilder(capacity int) *stringTableBuilder {
+	var stb stringTableBuilder
 
-// newStringTableBuilderFromTable creates a new builder from an existing string table.
-func newStringTableBuilderFromTable(contents *stringTable) *stringTableBuilder {
-	stb := &stringTableBuilder{0, make(map[string]uint32, len(contents.strings)+1)}
-	stb.append("")
-
-	for _, str := range contents.strings {
-		if str != "" {
-			stb.append(str)
-		}
+	if capacity == 0 {
+		// Use the runtime's small default size.
+		stb.strings = make(map[string]uint32)
+	} else {
+		stb.strings = make(map[string]uint32, capacity)
 	}
 
-	return stb
+	// Ensure that the empty string is at index 0.
+	stb.append("")
+	return &stb
 }
 
 // Add a string to the table.
@@ -203,19 +193,13 @@ func (stb *stringTableBuilder) Length() int {
 	return int(stb.length)
 }
 
-// Marshal a string table into its binary representation.
-func (stb *stringTableBuilder) Marshal() []byte {
-	buf := make([]byte, stb.Length())
-	stb.MarshalBuffer(buf)
-	return buf
-}
-
-// Marshal a string table into a pre-allocated buffer.
-//
-// The buffer must be at least of size Length().
-func (stb *stringTableBuilder) MarshalBuffer(buf []byte) {
+// AppendEncoded appends the string table to the end of the provided buffer.
+func (stb *stringTableBuilder) AppendEncoded(buf []byte) []byte {
+	n := len(buf)
+	buf = append(buf, make([]byte, stb.Length())...)
+	strings := buf[n:]
 	for str, offset := range stb.strings {
-		n := copy(buf[offset:], str)
-		buf[offset+uint32(n)] = 0
+		copy(strings[offset:], str)
 	}
+	return buf
 }

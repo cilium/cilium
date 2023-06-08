@@ -28,6 +28,7 @@ TARGETS := \
 	testdata/loader-clang-7 \
 	testdata/loader-clang-9 \
 	testdata/loader-$(CLANG) \
+	testdata/manyprogs \
 	testdata/btf_map_init \
 	testdata/invalid_map \
 	testdata/raw_tracepoint \
@@ -39,9 +40,15 @@ TARGETS := \
 	testdata/map_spin_lock \
 	testdata/subprog_reloc \
 	testdata/fwd_decl \
+	testdata/kconfig \
+	testdata/kconfig_config \
+	testdata/kfunc \
+	testdata/invalid-kfunc \
+	testdata/kfunc-kmod \
 	btf/testdata/relocs \
 	btf/testdata/relocs_read \
-	btf/testdata/relocs_read_tgt
+	btf/testdata/relocs_read_tgt \
+	cmd/bpf2go/testdata/minimal
 
 .PHONY: all clean container-all container-shell generate
 
@@ -49,12 +56,12 @@ TARGETS := \
 
 # Build all ELF binaries using a containerized LLVM toolchain.
 container-all:
-	${CONTAINER_ENGINE} run --rm ${CONTAINER_RUN_ARGS} \
+	+${CONTAINER_ENGINE} run --rm -ti ${CONTAINER_RUN_ARGS} \
 		-v "${REPODIR}":/ebpf -w /ebpf --env MAKEFLAGS \
 		--env CFLAGS="-fdebug-prefix-map=/ebpf=." \
 		--env HOME="/tmp" \
 		"${IMAGE}:${VERSION}" \
-		$(MAKE) all
+		make all
 
 # (debug) Drop the user into a shell inside the container as root.
 container-shell:
@@ -96,7 +103,7 @@ testdata/loader-%-eb.elf: testdata/loader.c
 	$(STRIP) -g $@
 
 .PHONY: generate-btf
-generate-btf: KERNEL_VERSION?=5.18
+generate-btf: KERNEL_VERSION?=5.19
 generate-btf:
 	$(eval TMP := $(shell mktemp -d))
 	curl -fL "$(CI_KERNEL_URL)/linux-$(KERNEL_VERSION).bz" -o "$(TMP)/bzImage"

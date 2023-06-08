@@ -28,7 +28,7 @@ type KprobeMultiOptions struct {
 	// limits the attach point to the function entry or return.
 	//
 	// Mutually exclusive with Symbols.
-	Addresses []uint64
+	Addresses []uintptr
 
 	// Cookies specifies arbitrary values that can be fetched from an eBPF
 	// program via `bpf_get_attach_cookie()`.

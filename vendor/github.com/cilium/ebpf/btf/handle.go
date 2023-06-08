@@ -30,21 +30,27 @@ func NewHandle(spec *Spec) (*Handle, error) {
 		return nil, fmt.Errorf("can't load %s BTF on %s", spec.byteOrder, internal.NativeEndian)
 	}
 
-	enc := newEncoder(kernelEncoderOptions, newStringTableBuilderFromTable(spec.strings))
-
-	for _, typ := range spec.types {
-		_, err := enc.Add(typ)
-		if err != nil {
-			return nil, fmt.Errorf("add %s: %w", typ, err)
-		}
+	if spec.firstTypeID != 0 {
+		return nil, fmt.Errorf("split BTF can't be loaded into the kernel")
 	}
 
-	btf, err := enc.Encode()
+	buf := getBuffer()
+	defer putBuffer(buf)
+
+	var stb *stringTableBuilder
+	if spec.strings != nil {
+		// Use the ELF string table as an estimate of the final
+		// string table size. We don't use the ELF string
+		// table since the types may have been changed in the meantime.
+		stb = newStringTableBuilder(spec.strings.Num())
+	}
+
+	err := marshalTypes(buf, spec.types, stb, kernelMarshalOptions())
 	if err != nil {
 		return nil, fmt.Errorf("marshal BTF: %w", err)
 	}
 
-	return newHandleFromRawBTF(btf)
+	return newHandleFromRawBTF(buf.Bytes())
 }
 
 func newHandleFromRawBTF(btf []byte) (*Handle, error) {
@@ -104,7 +110,10 @@ func NewHandleFromID(id ID) (*Handle, error) {
 }
 
 // Spec parses the kernel BTF into Go types.
-func (h *Handle) Spec() (*Spec, error) {
+//
+// base must contain type information for vmlinux if the handle is for
+// a kernel module. It may be nil otherwise.
+func (h *Handle) Spec(base *Spec) (*Spec, error) {
 	var btfInfo sys.BtfInfo
 	btfBuffer := make([]byte, h.size)
 	btfInfo.Btf, btfInfo.BtfSize = sys.NewSlicePointerLen(btfBuffer)
@@ -113,20 +122,11 @@ func (h *Handle) Spec() (*Spec, error) {
 		return nil, err
 	}
 
-	if !h.needsKernelBase {
-		return loadRawSpec(bytes.NewReader(btfBuffer), internal.NativeEndian, nil, nil)
+	if h.needsKernelBase && base == nil {
+		return nil, fmt.Errorf("missing base types")
 	}
 
-	base, fallback, err := kernelSpec()
-	if err != nil {
-		return nil, fmt.Errorf("load BTF base: %w", err)
-	}
-
-	if fallback {
-		return nil, fmt.Errorf("can't load split BTF without access to /sys")
-	}
-
-	return loadRawSpec(bytes.NewReader(btfBuffer), internal.NativeEndian, base.types, base.strings)
+	return loadRawSpec(bytes.NewReader(btfBuffer), internal.NativeEndian, base)
 }
 
 // Close destroys the handle.
@@ -200,7 +200,7 @@ func newHandleInfoFromFD(fd *sys.FD) (*HandleInfo, error) {
 	}, nil
 }
 
-// IsModule returns true if the BTF is for the kernel itself.
+// IsVmlinux returns true if the BTF is for the kernel itself.
 func (i *HandleInfo) IsVmlinux() bool {
 	return i.IsKernel && i.Name == "vmlinux"
 }

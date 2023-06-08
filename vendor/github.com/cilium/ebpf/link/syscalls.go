@@ -46,7 +46,7 @@ var haveProgAttach = internal.NewFeatureTest("BPF_PROG_ATTACH", "4.10", func() e
 	return nil
 })
 
-var haveProgAttachReplace = internal.NewFeatureTest("BPF_PROG_ATTACH atomic replacement", "5.5", func() error {
+var haveProgAttachReplace = internal.NewFeatureTest("BPF_PROG_ATTACH atomic replacement of MULTI progs", "5.5", func() error {
 	if err := haveProgAttach(); err != nil {
 		return err
 	}

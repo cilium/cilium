@@ -21,9 +21,9 @@ type QueryOptions struct {
 
 // QueryPrograms retrieves ProgramIDs associated with the AttachType.
 //
-// It only returns IDs of programs that were attached using PROG_ATTACH and not bpf_link.
-// Returns (nil, nil) if there are no programs attached to the queried kernel resource.
-// Calling QueryPrograms on a kernel missing PROG_QUERY will result in ErrNotSupported.
+// Returns (nil, nil) if there are no programs attached to the queried kernel
+// resource. Calling QueryPrograms on a kernel missing PROG_QUERY will result in
+// ErrNotSupported.
 func QueryPrograms(opts QueryOptions) ([]ebpf.ProgramID, error) {
 	if haveProgQuery() != nil {
 		return nil, fmt.Errorf("can't query program IDs: %w", ErrNotSupported)
