@@ -37,11 +37,11 @@ created inconsistencies from one Ingress Controller to another. For example, iss
 Finally, the Ingress API suffers from operational constraints: it is not well suited for multi-team clusters with shared load-balancing infrastructure.
 
 Benefits of the Gateway API
-#######################
+###########################
 
-The Gateway API was designed to address the limitations of Ingress API. The [Kubernetes SIG-Network](https://github.com/kubernetes/community/tree/master/sig-network) team designs and maintains the Gateway API.
+The Gateway API was designed to address the limitations of Ingress API. The `Kubernetes SIG-Network <https://github.com/kubernetes/community/tree/master/sig-network>`_ team designs and maintains the Gateway API.
 
-For more information about the Gateway API, see `the Gateway API project page<https://gateway-api.sigs.k8s.io/>`_.
+For more information about the Gateway API, see `the Gateway API project page <https://gateway-api.sigs.k8s.io/>`_.
 
 The Gateway API provides a centralized mechanism for managing and enforcing policies for external traffic, 
 including HTTP routing, TLS termination, traffic splitting/weighting, and header modification.
@@ -73,7 +73,9 @@ There are two primary methods to migrate Ingress API resources to Gateway API:
 - *manual*: manually creating Gateway API resources based on existing Ingress API resources.
 - *automated*: creating rules using the `ingress2gateway tool <https://github.com/kubernetes-sigs/ingress2gateway>`_. 
   The ingress2gateway project reads Ingress resources from a Kubernetes cluster based on your current Kube Config. It outputs YAML for equivalent Gateway API resources to stdout.
+
 .. note::
+  
     The ``ingress2gateway`` tool remains experimental and is not recommended for production.
 
 Ingress Annotations Migration
