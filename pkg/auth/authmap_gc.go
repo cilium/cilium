@@ -16,22 +16,30 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 type authMapGarbageCollector struct {
-	logger  logrus.FieldLogger
-	authmap authMap
-	ipCache ipCache
+	logger     logrus.FieldLogger
+	authmap    authMap
+	ipCache    ipCache
+	policyRepo policyRepository
 
 	discoveredCiliumNodeIDs    map[uint16]struct{}
 	discoveredCiliumIdentities map[identity.NumericIdentity]struct{}
 }
 
-func newAuthMapGC(logger logrus.FieldLogger, authmap authMap, ipCache ipCache) *authMapGarbageCollector {
+type policyRepository interface {
+	GetAuthTypes(localID, remoteID identity.NumericIdentity) policy.AuthTypes
+}
+
+func newAuthMapGC(logger logrus.FieldLogger, authmap authMap, ipCache ipCache, policyRepo policyRepository) *authMapGarbageCollector {
 	return &authMapGarbageCollector{
-		logger:  logger,
-		authmap: authmap,
-		ipCache: ipCache,
+		logger:     logger,
+		authmap:    authmap,
+		ipCache:    ipCache,
+		policyRepo: policyRepo,
+
 		discoveredCiliumNodeIDs: map[uint16]struct{}{
 			0: {}, // Local node 0 is always available
 		},
@@ -166,8 +174,30 @@ func (r *authMapGarbageCollector) cleanupDeletedIdentity(id *ciliumv2.CiliumIden
 	})
 }
 
-func (r *authMapGarbageCollector) CleanupExpiredEntries(_ context.Context) error {
+func (r *authMapGarbageCollector) cleanupEntriesWithoutAuthPolicy(_ context.Context) error {
 	r.logger.Debug("Cleaning up expired entries")
+
+	err := r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
+		authTypes := r.policyRepo.GetAuthTypes(key.localIdentity, key.remoteIdentity)
+
+		if _, ok := authTypes[key.authType]; !ok {
+			r.logger.
+				WithField("key", key).
+				WithField("auth_type", key.authType).
+				Debug("Deleting entry because no policy requires authentication")
+			return true
+		}
+		return false
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to cleanup entries without any auth policy: %w", err)
+	}
+	return nil
+}
+
+func (r *authMapGarbageCollector) cleanupExpiredEntries(_ context.Context) error {
+	r.logger.Debug("auth: cleaning up expired entries")
 	now := time.Now()
 	err := r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
 		if info.expiration.Before(now) {
