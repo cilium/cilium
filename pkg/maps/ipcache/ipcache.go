@@ -71,20 +71,6 @@ func (k Key) String() string {
 
 func (k *Key) New() bpf.MapKey { return &Key{} }
 
-func (k Key) IPNet() *net.IPNet {
-	cidr := &net.IPNet{}
-	prefixLen := k.Prefixlen - getStaticPrefixBits()
-	switch k.Family {
-	case bpf.EndpointKeyIPv4:
-		cidr.IP = net.IP(k.IP[:net.IPv4len])
-		cidr.Mask = net.CIDRMask(int(prefixLen), 32)
-	case bpf.EndpointKeyIPv6:
-		cidr.IP = net.IP(k.IP[:net.IPv6len])
-		cidr.Mask = net.CIDRMask(int(prefixLen), 128)
-	}
-	return cidr
-}
-
 func (k Key) Prefix() netip.Prefix {
 	var addr netip.Addr
 	prefixLen := int(k.Prefixlen - getStaticPrefixBits())
