@@ -58,11 +58,11 @@
 
 {{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
   {{- if hasKey .Values "kubeProxyReplacement" }}
-    {{- if and (ne .Values.kubeProxyReplacement "partial") (ne .Values.kubeProxyReplacement "strict") }}
-      {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+    {{- if and (ne (toString .Values.kubeProxyReplacement) "strict") (ne (toString .Values.kubeProxyReplacement) "true") (not .Values.nodePort.enabled) }}
+      {{ fail "Ingress/Gateway API controller requires either .Values.kubeProxyReplacement to be set to 'true' or .Values.nodePort.enabled to 'true'" }}
     {{- end }}
   {{- else }}
-    {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+    {{ fail "Ingress/Gateway API controller requires either .Values.kubeProxyReplacement to be set to 'true' or .Values.nodePort.enabled to 'true'" }}
   {{- end }}
 {{- end }}
 
