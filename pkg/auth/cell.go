@@ -20,6 +20,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/maps/authmap"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/stream"
 )
@@ -85,6 +86,7 @@ type authManagerParams struct {
 	SignalManager    signal.SignalManager
 	CiliumIdentities resource.Resource[*ciliumv2.CiliumIdentity]
 	CiliumNodes      resource.Resource[*ciliumv2.CiliumNode]
+	PolicyRepo       *policy.Repository
 }
 
 func newManager(params authManagerParams) error {
@@ -122,7 +124,7 @@ func newManager(params authManagerParams) error {
 
 	registerReAuthenticationJob(jobGroup, mgr, params.AuthHandlers)
 
-	mapGC := newAuthMapGC(params.Logger, mapCache, params.IPCache)
+	mapGC := newAuthMapGC(params.Logger, mapCache, params.IPCache, params.PolicyRepo)
 
 	registerGCJobs(jobGroup, mapGC, params)
 
@@ -164,7 +166,9 @@ func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, params a
 		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumNode]]("auth nodes gc", mapGC.handleCiliumNodeEvent, params.CiliumNodes))
 	}
 
-	jobGroup.Add(job.Timer("auth expiration gc", mapGC.CleanupExpiredEntries, params.Config.MeshAuthExpiredGCInterval))
+	jobGroup.Add(job.Timer("auth policies gc", mapGC.cleanupEntriesWithoutAuthPolicy, params.Config.MeshAuthExpiredGCInterval))
+
+	jobGroup.Add(job.Timer("auth expiration gc", mapGC.cleanupExpiredEntries, params.Config.MeshAuthExpiredGCInterval))
 }
 
 type authHandlerResult struct {
