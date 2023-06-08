@@ -226,7 +226,7 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 				peerAddr:               dummies[instance1Link].ipv4.Addr().String(),
 				peerSession:            types.SessionEstablished.String(),
 				gracefulRestartEnabled: true,
-				gracefulRestartTime:    int64(types.DefaultGRRestartTimeSeconds),
+				gracefulRestartTime:    int64(cilium_api_v2alpha1.DefaultBGPGRRestartTimeSeconds),
 			},
 		},
 		{

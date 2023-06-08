@@ -162,11 +162,7 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 		return peer, needsReset, fmt.Errorf("failed to parse PeerAddress: %w", err)
 	}
 	peerAddr := prefix.Addr()
-
-	peerPort := uint32(types.DefaultPeerPort)
-	if n.PeerPort != nil {
-		peerPort = uint32(*n.PeerPort)
-	}
+	peerPort := uint32(pointer.IntDeref(n.PeerPort, v2alpha1api.DefaultBGPPeerPort))
 
 	var existingPeer *gobgp.Peer
 	if isUpdate {
@@ -236,9 +232,9 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 		peer.Timers = &gobgp.Timers{}
 	}
 	peer.Timers.Config = &gobgp.TimersConfig{
-		ConnectRetry:           uint64(pointer.Int32Deref(n.ConnectRetryTimeSeconds, types.DefaultBGPConnectRetryTimeSeconds)),
-		HoldTime:               uint64(pointer.Int32Deref(n.HoldTimeSeconds, types.DefaultBGPHoldTimeSeconds)),
-		KeepaliveInterval:      uint64(pointer.Int32Deref(n.KeepAliveTimeSeconds, types.DefaultBGPKeepAliveTimeSeconds)),
+		ConnectRetry:           uint64(pointer.Int32Deref(n.ConnectRetryTimeSeconds, v2alpha1api.DefaultBGPConnectRetryTimeSeconds)),
+		HoldTime:               uint64(pointer.Int32Deref(n.HoldTimeSeconds, v2alpha1api.DefaultBGPHoldTimeSeconds)),
+		KeepaliveInterval:      uint64(pointer.Int32Deref(n.KeepAliveTimeSeconds, v2alpha1api.DefaultBGPKeepAliveTimeSeconds)),
 		IdleHoldTimeAfterReset: defaultIdleHoldTimeAfterResetSeconds,
 	}
 
@@ -247,7 +243,7 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 		peer.GracefulRestart = &gobgp.GracefulRestart{}
 	}
 	peer.GracefulRestart.Enabled = n.GracefulRestart.Enabled
-	peer.GracefulRestart.RestartTime = uint32(pointer.Int32Deref(n.GracefulRestart.RestartTimeSeconds, types.DefaultGRRestartTimeSeconds))
+	peer.GracefulRestart.RestartTime = uint32(pointer.Int32Deref(n.GracefulRestart.RestartTimeSeconds, v2alpha1api.DefaultBGPGRRestartTimeSeconds))
 
 	for _, afiConf := range peer.AfiSafis {
 		if afiConf.MpGracefulRestart == nil {

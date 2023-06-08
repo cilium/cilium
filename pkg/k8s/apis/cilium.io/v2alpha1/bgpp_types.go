@@ -4,9 +4,25 @@
 package v2alpha1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+)
+
+const (
+	// DefaultBGPConnectRetryTimeSeconds defines the default initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
+	DefaultBGPConnectRetryTimeSeconds = 120
+	// DefaultBGPHoldTimeSeconds defines the default initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
+	DefaultBGPHoldTimeSeconds = 90
+	// DefaultBGPKeepAliveTimeSeconds defines the default initial value for the BGP KeepaliveTimer (RFC 4271, Section 8).
+	DefaultBGPKeepAliveTimeSeconds = 30
+	// DefaultBGPGRRestartTimeSeconds defines default Restart Time for graceful restart (RFC 4724, section 4.2)
+	DefaultBGPGRRestartTimeSeconds = 120
+	// DefaultBGPPeerPort defines the TCP port number of a CiliumBGPNeighbor when PeerPort is unspecified.
+	DefaultBGPPeerPort = 179
 )
 
 // +genclient
@@ -164,4 +180,15 @@ type CiliumBGPVirtualRouter struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	Neighbors []CiliumBGPNeighbor `json:"neighbors"`
+}
+
+// ValidateTimers validates CiliumBGPNeighbor's timer configuration constraints
+// that can not be expressed using the kubebuilder validation markers.
+func (n *CiliumBGPNeighbor) ValidateTimers() error {
+	keepAliveTime := pointer.Int32Deref(n.KeepAliveTimeSeconds, DefaultBGPKeepAliveTimeSeconds)
+	holdTime := pointer.Int32Deref(n.HoldTimeSeconds, DefaultBGPHoldTimeSeconds)
+	if keepAliveTime > holdTime {
+		return fmt.Errorf("KeepAliveTimeSeconds larger than HoldTimeSeconds for peer ASN:%d IP:%s", n.PeerASN, n.PeerAddress)
+	}
+	return nil
 }

@@ -24,7 +24,7 @@ var (
 	neighbor64125 = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:                 64125,
 		PeerAddress:             "192.168.0.1/32",
-		PeerPort:                pointer.Int(types.DefaultPeerPort),
+		PeerPort:                pointer.Int(v2alpha1api.DefaultBGPPeerPort),
 		ConnectRetryTimeSeconds: pointer.Int32(99),
 		HoldTimeSeconds:         pointer.Int32(9),
 		KeepAliveTimeSeconds:    pointer.Int32(3),
@@ -34,7 +34,7 @@ var (
 	neighbor64125Update = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:                 64125,
 		PeerAddress:             "192.168.0.1/32",
-		PeerPort:                pointer.Int(types.DefaultPeerPort),
+		PeerPort:                pointer.Int(v2alpha1api.DefaultBGPPeerPort),
 		ConnectRetryTimeSeconds: pointer.Int32(101),
 		HoldTimeSeconds:         pointer.Int32(9),
 		KeepAliveTimeSeconds:    pointer.Int32(3),
@@ -44,7 +44,7 @@ var (
 	neighbor64125UpdateGR = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:                 64125,
 		PeerAddress:             "192.168.0.1/32",
-		PeerPort:                pointer.Int(types.DefaultPeerPort),
+		PeerPort:                pointer.Int(v2alpha1api.DefaultBGPPeerPort),
 		ConnectRetryTimeSeconds: pointer.Int32(101),
 		HoldTimeSeconds:         pointer.Int32(30),
 		KeepAliveTimeSeconds:    pointer.Int32(10),
@@ -58,7 +58,7 @@ var (
 	neighbor64125UpdateGRTimer = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:                 64125,
 		PeerAddress:             "192.168.0.1/32",
-		PeerPort:                pointer.Int(types.DefaultPeerPort),
+		PeerPort:                pointer.Int(v2alpha1api.DefaultBGPPeerPort),
 		ConnectRetryTimeSeconds: pointer.Int32(101),
 		HoldTimeSeconds:         pointer.Int32(30),
 		KeepAliveTimeSeconds:    pointer.Int32(10),
@@ -71,7 +71,7 @@ var (
 	neighbor64126 = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:                 64126,
 		PeerAddress:             "192.168.66.1/32",
-		PeerPort:                pointer.Int(types.DefaultPeerPort),
+		PeerPort:                pointer.Int(v2alpha1api.DefaultBGPPeerPort),
 		ConnectRetryTimeSeconds: pointer.Int32(99),
 		HoldTimeSeconds:         pointer.Int32(9),
 		KeepAliveTimeSeconds:    pointer.Int32(3),
@@ -81,7 +81,7 @@ var (
 	neighbor64126Update = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:                 64126,
 		PeerAddress:             "192.168.66.1/32",
-		PeerPort:                pointer.Int(types.DefaultPeerPort),
+		PeerPort:                pointer.Int(v2alpha1api.DefaultBGPPeerPort),
 		ConnectRetryTimeSeconds: pointer.Int32(99),
 		HoldTimeSeconds:         pointer.Int32(12),
 		KeepAliveTimeSeconds:    pointer.Int32(4),
@@ -108,7 +108,7 @@ var (
 	neighbor64128 = &v2alpha1api.CiliumBGPNeighbor{
 		PeerASN:                 64128,
 		PeerAddress:             "192.168.77.1/32",
-		PeerPort:                pointer.Int(types.DefaultPeerPort),
+		PeerPort:                pointer.Int(v2alpha1api.DefaultBGPPeerPort),
 		ConnectRetryTimeSeconds: pointer.Int32(99),
 		HoldTimeSeconds:         pointer.Int32(9),
 		KeepAliveTimeSeconds:    pointer.Int32(3),
@@ -307,15 +307,15 @@ func validatePeers(t *testing.T, localASN uint32, neighbors []*v2alpha1api.Ciliu
 		// validate basic data is returned correctly
 		require.Equal(t, int64(localASN), p.LocalAsn)
 
-		expConnectRetry := pointer.Int32Deref(n.ConnectRetryTimeSeconds, types.DefaultBGPConnectRetryTimeSeconds)
-		expHoldTime := pointer.Int32Deref(n.HoldTimeSeconds, types.DefaultBGPHoldTimeSeconds)
-		expKeepAlive := pointer.Int32Deref(n.KeepAliveTimeSeconds, pointer.Int32Deref(n.KeepAliveTimeSeconds, types.DefaultBGPKeepAliveTimeSeconds))
+		expConnectRetry := pointer.Int32Deref(n.ConnectRetryTimeSeconds, v2alpha1api.DefaultBGPConnectRetryTimeSeconds)
+		expHoldTime := pointer.Int32Deref(n.HoldTimeSeconds, v2alpha1api.DefaultBGPHoldTimeSeconds)
+		expKeepAlive := pointer.Int32Deref(n.KeepAliveTimeSeconds, pointer.Int32Deref(n.KeepAliveTimeSeconds, v2alpha1api.DefaultBGPKeepAliveTimeSeconds))
 		require.EqualValues(t, expConnectRetry, p.ConnectRetryTimeSeconds)
 		require.EqualValues(t, expHoldTime, p.ConfiguredHoldTimeSeconds)
 		require.EqualValues(t, expKeepAlive, p.ConfiguredKeepAliveTimeSeconds)
 
 		require.EqualValues(t, n.GracefulRestart.Enabled, p.GracefulRestart.Enabled)
-		expGRRestartTime := pointer.Int32Deref(n.GracefulRestart.RestartTimeSeconds, types.DefaultGRRestartTimeSeconds)
+		expGRRestartTime := pointer.Int32Deref(n.GracefulRestart.RestartTimeSeconds, v2alpha1api.DefaultBGPGRRestartTimeSeconds)
 		require.EqualValues(t, expGRRestartTime, p.GracefulRestart.RestartTimeSeconds)
 
 		if n.EBGPMultihopTTL > 0 {
