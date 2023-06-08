@@ -442,11 +442,13 @@ func TestTimer_DoubleTrigger(t *testing.T) {
 
 		g.Add(
 			Timer("on-interval", func(ctx context.Context) error {
-				defer func() { close(ran) }()
+				defer func(iter int) {
+					if iter == 0 {
+						close(ran)
+					}
+				}(i)
 
 				i++
-
-				time.Sleep(100 * time.Millisecond)
 
 				return nil
 			}, 1*time.Hour, WithTrigger(trigger)),
@@ -455,13 +457,15 @@ func TestTimer_DoubleTrigger(t *testing.T) {
 		l.Append(g)
 	})
 
+	// Trigger a few times before we start consuming events, these should coalesce
+	trigger.Trigger()
+	trigger.Trigger()
+	trigger.Trigger()
+
 	if err := h.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 
-	trigger.Trigger()
-	trigger.Trigger()
-	trigger.Trigger()
 	<-ran
 
 	if err := h.Stop(context.Background()); err != nil {
