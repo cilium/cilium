@@ -291,6 +291,7 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 	// "cilium.io/no-schedule=true"
 	if len(k.params.NodesWithoutCilium) != 0 {
 		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.CiliumScheduleAffinity...)
+		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.CiliumOperatorScheduleAffinity...)
 	}
 
 	// Store all the options passed by --config into helm extraConfig
