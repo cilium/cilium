@@ -175,7 +175,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 							// Since we are prepending CEC namespace and name to Routes name,
 							// we must do the same here to point to the correct Route resource.
 							if rds.RouteConfigName != "" {
-								rds.RouteConfigName = api.ResourceQualifiedName(cecNamespace, cecName, rds.RouteConfigName)
+								rds.RouteConfigName = api.ResourceQualifiedName(cecNamespace, cecName, rds.RouteConfigName, api.ForceNamespace)
 								updated = true
 							}
 							if rds.ConfigSource == nil {
@@ -238,7 +238,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 
 			name := listener.Name
-			listener.Name = api.ResourceQualifiedName(cecNamespace, cecName, listener.Name)
+			listener.Name = api.ResourceQualifiedName(cecNamespace, cecName, listener.Name, api.ForceNamespace)
 			resources.Listeners = append(resources.Listeners, listener)
 
 			log.Debugf("ParseResources: Parsed listener %q: %v", name, listener)
@@ -264,7 +264,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 
 			name := route.Name
-			route.Name = api.ResourceQualifiedName(cecNamespace, cecName, route.Name)
+			route.Name = api.ResourceQualifiedName(cecNamespace, cecName, route.Name, api.ForceNamespace)
 			resources.Routes = append(resources.Routes, route)
 
 			log.Debugf("ParseResources: Parsed route %q: %v", name, route)

@@ -802,7 +802,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 				ns = ""
 			default:
 			}
-			l4.Listener = api.ResourceQualifiedName(ns, resource.Name, pr.Listener.Name)
+			l4.Listener = api.ResourceQualifiedName(ns, resource.Name, pr.Listener.Name, api.ForceNamespace)
 			forceRedirect = true
 		}
 	}
