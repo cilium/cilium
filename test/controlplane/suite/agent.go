@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
+	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
@@ -85,6 +86,7 @@ func startCiliumAgent(t *testing.T, clientset k8sClient.Clientset, extraCell cel
 			func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 			func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
 			func() egressmap.PolicyMap { return nil },
+			func() worldcidrsmap.Map { return nil },
 		),
 		monitorAgent.Cell,
 		tables.Cell,

@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/worldcidrs"
 )
 
 var (
@@ -149,5 +150,8 @@ var (
 		// L2announcer resolves l2announcement policies, services, node labels and devices into a list of IPs+netdevs
 		// which need to be announced on the local network.
 		l2announcer.Cell,
+
+		// World CIDRs allow defining IPs that are outside of the Cilium domain.
+		worldcidrs.Cell,
 	)
 )
