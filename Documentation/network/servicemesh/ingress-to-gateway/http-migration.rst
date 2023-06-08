@@ -79,9 +79,9 @@ When using Ingress or Gateway API, routing rules must be defined to attach appli
 
     .. group-tab:: Ingress
         
-        The path-based routing rules are configured in the Ingress resource map directly to the routing rules of the HTTPRoute.
+        The path-based routing rules are configured in the Ingress resource.
 
-        In the Ingress, each hostname has separate routing rules:
+        In the Ingress resource, each hostname has separate routing rules:
 
         .. code-block:: shell-session
 
