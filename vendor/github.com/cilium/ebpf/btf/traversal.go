@@ -15,7 +15,7 @@ type postorderIterator struct {
 	// The root type. May be nil if skip(root) is true.
 	root Type
 
-	// Contains types which need to be either walked or passed to the callback.
+	// Contains types which need to be either walked or yielded.
 	types typeDeque
 	// Contains a boolean whether the type has been walked or not.
 	walked internal.Deque[bool]
@@ -26,9 +26,8 @@ type postorderIterator struct {
 	Type Type
 }
 
-// postorderTraversal calls fn for all types reachable from root.
-//
-// fn is invoked on children of root before root itself.
+// postorderTraversal iterates all types reachable from root by visiting the
+// leaves of the graph first.
 //
 // Types for which skip returns true are ignored. skip may be nil.
 func postorderTraversal(root Type, skip func(Type) (skip bool)) postorderIterator {

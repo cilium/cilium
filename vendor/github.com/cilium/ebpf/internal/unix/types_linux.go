@@ -35,6 +35,7 @@ const (
 	BPF_F_RDONLY_PROG         = linux.BPF_F_RDONLY_PROG
 	BPF_F_WRONLY_PROG         = linux.BPF_F_WRONLY_PROG
 	BPF_F_SLEEPABLE           = linux.BPF_F_SLEEPABLE
+	BPF_F_XDP_HAS_FRAGS       = linux.BPF_F_XDP_HAS_FRAGS
 	BPF_F_MMAPABLE            = linux.BPF_F_MMAPABLE
 	BPF_F_INNER_MAP           = linux.BPF_F_INNER_MAP
 	BPF_F_KPROBE_MULTI_RETURN = linux.BPF_F_KPROBE_MULTI_RETURN
@@ -49,9 +50,12 @@ const (
 	EPOLL_CLOEXEC             = linux.EPOLL_CLOEXEC
 	O_CLOEXEC                 = linux.O_CLOEXEC
 	O_NONBLOCK                = linux.O_NONBLOCK
+	PROT_NONE                 = linux.PROT_NONE
 	PROT_READ                 = linux.PROT_READ
 	PROT_WRITE                = linux.PROT_WRITE
+	MAP_ANON                  = linux.MAP_ANON
 	MAP_SHARED                = linux.MAP_SHARED
+	MAP_PRIVATE               = linux.MAP_PRIVATE
 	PERF_ATTR_SIZE_VER1       = linux.PERF_ATTR_SIZE_VER1
 	PERF_TYPE_SOFTWARE        = linux.PERF_TYPE_SOFTWARE
 	PERF_TYPE_TRACEPOINT      = linux.PERF_TYPE_TRACEPOINT
@@ -60,6 +64,7 @@ const (
 	PERF_EVENT_IOC_ENABLE     = linux.PERF_EVENT_IOC_ENABLE
 	PERF_EVENT_IOC_SET_BPF    = linux.PERF_EVENT_IOC_SET_BPF
 	PerfBitWatermark          = linux.PerfBitWatermark
+	PerfBitWriteBackward      = linux.PerfBitWriteBackward
 	PERF_SAMPLE_RAW           = linux.PERF_SAMPLE_RAW
 	PERF_FLAG_FD_CLOEXEC      = linux.PERF_FLAG_FD_CLOEXEC
 	RLIM_INFINITY             = linux.RLIM_INFINITY
@@ -77,6 +82,9 @@ const (
 	SIG_UNBLOCK               = linux.SIG_UNBLOCK
 	EM_NONE                   = linux.EM_NONE
 	EM_BPF                    = linux.EM_BPF
+	BPF_FS_MAGIC              = linux.BPF_FS_MAGIC
+	TRACEFS_MAGIC             = linux.TRACEFS_MAGIC
+	DEBUGFS_MAGIC             = linux.DEBUGFS_MAGIC
 )
 
 type Statfs_t = linux.Statfs_t

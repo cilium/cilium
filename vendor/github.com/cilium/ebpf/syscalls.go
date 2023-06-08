@@ -4,11 +4,23 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
+	"runtime"
 
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/sys"
+	"github.com/cilium/ebpf/internal/tracefs"
 	"github.com/cilium/ebpf/internal/unix"
+)
+
+var (
+	// pre-allocating these here since they may
+	// get called in hot code paths and cause
+	// unnecessary memory allocations
+	sysErrKeyNotExist  = sys.Error(ErrKeyNotExist, unix.ENOENT)
+	sysErrKeyExist     = sys.Error(ErrKeyExist, unix.EEXIST)
+	sysErrNotSupported = sys.Error(ErrNotSupported, sys.ENOTSUPP)
 )
 
 // invalidBPFObjNameChar returns true if char may not appear in
@@ -136,15 +148,15 @@ func wrapMapError(err error) error {
 	}
 
 	if errors.Is(err, unix.ENOENT) {
-		return sys.Error(ErrKeyNotExist, unix.ENOENT)
+		return sysErrKeyNotExist
 	}
 
 	if errors.Is(err, unix.EEXIST) {
-		return sys.Error(ErrKeyExist, unix.EEXIST)
+		return sysErrKeyExist
 	}
 
 	if errors.Is(err, sys.ENOTSUPP) {
-		return sys.Error(ErrNotSupported, sys.ENOTSUPP)
+		return sysErrNotSupported
 	}
 
 	if errors.Is(err, unix.E2BIG) {
@@ -261,4 +273,33 @@ var haveBPFToBPFCalls = internal.NewFeatureTest("bpf2bpf calls", "4.16", func() 
 	}
 	_ = fd.Close()
 	return nil
+})
+
+var haveSyscallWrapper = internal.NewFeatureTest("syscall wrapper", "4.17", func() error {
+	prefix := internal.PlatformPrefix()
+	if prefix == "" {
+		return fmt.Errorf("unable to find the platform prefix for (%s)", runtime.GOARCH)
+	}
+
+	args := tracefs.ProbeArgs{
+		Type:   tracefs.Kprobe,
+		Symbol: prefix + "sys_bpf",
+		Pid:    -1,
+	}
+
+	var err error
+	args.Group, err = tracefs.RandomGroup("ebpf_probe")
+	if err != nil {
+		return err
+	}
+
+	evt, err := tracefs.NewEvent(args)
+	if errors.Is(err, os.ErrNotExist) {
+		return internal.ErrNotSupported
+	}
+	if err != nil {
+		return err
+	}
+
+	return evt.Close()
 })
