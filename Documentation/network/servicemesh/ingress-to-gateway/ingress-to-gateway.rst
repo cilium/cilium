@@ -60,7 +60,7 @@ In more complex deployments, more personas are involved:
 - Cluster Operators are responsible for the administration of a cluster.
 - Application Developers are responsible for defining application configuration and service composition.
 
-By deconstructing the Ingress API into several Gateway API objects, personas gain the access and privileges that their responsibilities require.
+By deconstructing the Ingress API into several Gateway API objects, personas gain the specific access and privileges that their responsibilities require.
 
 For example, application developers in a specific team could be assigned permissions to create Route objects in a specified namespace 
 without also gaining permissions to modify the Gateway configuration or edit Route objects in namespaces other than theirs.

@@ -34,7 +34,7 @@ This example:
 Create Equivalent Gateway Configuration
 =======================================
 
-To create the equivalent TLS termination configuration, you must consider the following:
+To create the equivalent TLS termination configuration, consider the following:
 
 - TLS Termination
 
