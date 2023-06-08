@@ -182,7 +182,7 @@ You can find the equivalent final Gateway and HTTPRoute definition in ``http-mig
 
 .. literalinclude:: ../../../../examples/kubernetes/gateway/http-migration.yaml
 
-The above example creates a Gateway named ``cilium-gateway`` that listens on port 80 for HTTP traffic.
+The preceding example creates a Gateway named ``cilium-gateway`` that listens on port 80 for HTTP traffic.
 Two routes are defined, one for ``/details`` to the ``details`` service, and
 one for ``/`` to the ``productpage`` service.
 
