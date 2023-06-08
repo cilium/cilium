@@ -30,7 +30,7 @@ func ServiceResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	optsModifier, err := utils.GetServiceListOptionsModifier(option.Config)
+	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(option.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -155,12 +155,16 @@ func EndpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	optsModifier, err := utils.GetServiceListOptionsModifier(option.Config)
+	endpointsOptsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(option.Config)
 	if err != nil {
 		return nil, err
 	}
 
-	lw := &endpointsListerWatcher{cs: cs, optsModifier: optsModifier}
+	endpointSliceOpsModifier, err := utils.GetEndpointSliceListOptionsModifier()
+	if err != nil {
+		return nil, err
+	}
+	lw := &endpointsListerWatcher{cs: cs, endpointsOptsModifier: endpointsOptsModifier, endpointSlicesOptsModifier: endpointSliceOpsModifier}
 	return resource.New[*Endpoints](
 		lc,
 		lw,
@@ -173,9 +177,10 @@ func EndpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 // performs the capability check on first call to List/Watch. This allows constructing
 // the resource before the client has been started and capabilities have been probed.
 type endpointsListerWatcher struct {
-	cs           client.Clientset
-	optsModifier func(*metav1.ListOptions)
-	sourceObj    k8sRuntime.Object
+	cs                         client.Clientset
+	endpointsOptsModifier      func(*metav1.ListOptions)
+	endpointSlicesOptsModifier func(*metav1.ListOptions)
+	sourceObj                  k8sRuntime.Object
 
 	once                sync.Once
 	cachedListerWatcher cache.ListerWatcher
@@ -202,14 +207,15 @@ func (lw *endpointsListerWatcher) getListerWatcher() cache.ListerWatcher {
 				)
 				lw.sourceObj = &slim_discoveryv1beta1.EndpointSlice{}
 			}
+			lw.cachedListerWatcher = utils.ListerWatcherWithModifier(lw.cachedListerWatcher, lw.endpointSlicesOptsModifier)
 		} else {
 			log.Info("Using v1.Endpoints")
 			lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](
 				lw.cs.Slim().CoreV1().Endpoints(""),
 			)
 			lw.sourceObj = &slim_corev1.Endpoints{}
+			lw.cachedListerWatcher = utils.ListerWatcherWithModifier(lw.cachedListerWatcher, lw.endpointsOptsModifier)
 		}
-		lw.cachedListerWatcher = utils.ListerWatcherWithModifier(lw.cachedListerWatcher, lw.optsModifier)
 	})
 	return lw.cachedListerWatcher
 }
