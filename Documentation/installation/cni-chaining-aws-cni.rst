@@ -18,6 +18,8 @@ plugin is called to attach eBPF programs to the network devices set up by the
 AWS VPC CNI plugin in order to enforce network policies, perform load-balancing
 and provide encryption.
 
+.. image:: aws-cilium-architecture.png
+
 .. include:: cni-chaining-limitations.rst
 
 .. admonition:: Video
