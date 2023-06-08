@@ -809,11 +809,11 @@ enum {
 #define	CB_CLUSTER_ID_INGRESS	CB_POLICY	/* Alias, non-overlapping */
 #define CB_HSIPC_PORT		CB_POLICY	/* Alias, non-overlapping */
 #define CB_DSR_SRC_LABEL	CB_POLICY	/* Alias, non-overlapping */
-	CB_NAT,
-#define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
-#define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
-#define CB_SRV6_SID_4		CB_NAT		/* Alias, non-overlapping */
-#define CB_DSR_L3_OFF		CB_NAT		/* Alias, non-overlapping */
+	CB_3,
+#define	CB_ADDR_V6_3		CB_3		/* Alias, non-overlapping */
+#define	CB_FROM_HOST		CB_3		/* Alias, non-overlapping */
+#define CB_SRV6_SID_4		CB_3		/* Alias, non-overlapping */
+#define CB_DSR_L3_OFF		CB_3		/* Alias, non-overlapping */
 	CB_CT_STATE,
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_CT_STATE	/* Alias, non-overlapping,
