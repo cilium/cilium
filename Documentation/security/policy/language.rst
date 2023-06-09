@@ -859,10 +859,10 @@ Headers
 Allow GET /public
 ~~~~~~~~~~~~~~~~~
 
-The following example allows ``GET`` requests to the URL ``/public`` to be
-allowed to endpoints with the labels ``env:prod``, but requests to any other
-URL, or using another method, will be rejected. Requests on ports other than
-port 80 will be dropped.
+The following example allows ``GET`` requests to the URL ``/public`` from the
+endpoints with the labels ``env=prod`` to endpoints with the labels 
+``app=service``, but requests to any other URL, or using another method, will
+be rejected. Requests on ports other than port 80 will be dropped.
 
 .. only:: html
 
