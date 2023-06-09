@@ -317,7 +317,9 @@ func (c *controller) recordError(err error) {
 	c.lastErrorStamp = time.Now()
 	c.failureCount++
 	c.consecutiveErrors++
+
 	metrics.ControllerRuns.WithLabelValues(failure).Inc()
+	metrics.ControllerGroupRuns.WithLabelValues(c.name, failure).Inc()
 	metrics.ControllerRunsDuration.WithLabelValues(failure).Observe(c.lastDuration.Seconds())
 }
 
@@ -330,5 +332,6 @@ func (c *controller) recordSuccess() {
 	c.consecutiveErrors = 0
 
 	metrics.ControllerRuns.WithLabelValues(success).Inc()
+	metrics.ControllerGroupRuns.WithLabelValues(c.name, success).Inc()
 	metrics.ControllerRunsDuration.WithLabelValues(success).Observe(c.lastDuration.Seconds())
 }

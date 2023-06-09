@@ -154,6 +154,9 @@ const (
 	// started by cilium (Envoy, monitor, etc..)
 	LabelSubsystem = "subsystem"
 
+	// LabelControllerGroupName is the label used to identify controller-specific metrics
+	LabelControllerGroupName = "group_name"
+
 	// LabelKind is the kind of a label
 	LabelKind = "kind"
 
@@ -418,6 +421,9 @@ var (
 	// ControllerRuns is the number of times that a controller process runs.
 	ControllerRuns = NoOpCounterVec
 
+	// ControllerGroupRuns is the number of times that a process in a controller group runs.
+	ControllerGroupRuns = NoOpCounterVec
+
 	// ControllerRunsDuration the duration of the controller process in seconds
 	ControllerRunsDuration = NoOpObserverVec
 
@@ -604,6 +610,7 @@ type LegacyMetrics struct {
 	ServicesCount                    metric.Vec[metric.Counter]
 	ErrorsWarnings                   metric.Vec[metric.Counter]
 	ControllerRuns                   metric.Vec[metric.Counter]
+	ControllerGroupRuns              metric.Vec[metric.Counter]
 	ControllerRunsDuration           metric.Vec[metric.Observer]
 	SubprocessStart                  metric.Vec[metric.Counter]
 	KubernetesEventProcessed         metric.Vec[metric.Counter]
@@ -960,6 +967,13 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:       "controllers_runs_total",
 			Help:       "Number of times that a controller process was run labeled by completion status",
 		}, []string{LabelStatus}),
+
+		ControllerGroupRuns: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: Namespace + "_controllers_group_runs_total",
+			Namespace:  Namespace,
+			Name:       "controllers_group_runs_total",
+			Help:       "Number of times that a controller group was run labeled by completion status and controller name",
+		}, []string{LabelControllerGroupName, LabelStatus}),
 
 		ControllerRunsDuration: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_controllers_runs_duration_seconds",
@@ -1322,6 +1336,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ServicesCount = lm.ServicesCount
 	ErrorsWarnings = lm.ErrorsWarnings
 	ControllerRuns = lm.ControllerRuns
+	ControllerGroupRuns = lm.ControllerGroupRuns
 	ControllerRunsDuration = lm.ControllerRunsDuration
 	SubprocessStart = lm.SubprocessStart
 	KubernetesEventProcessed = lm.KubernetesEventProcessed
