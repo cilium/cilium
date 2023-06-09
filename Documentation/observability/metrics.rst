@@ -176,6 +176,8 @@ so this functionality is currently opt-in, though we believe all of the Hubble
 metrics conform to the OpenMetrics requirements.
 
 
+.. _clustermesh_apiserver_metrics:
+
 Cluster Mesh API Server Metrics
 ===============================
 
@@ -893,6 +895,8 @@ Options
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 
+.. _clustermesh_apiserver_metrics_reference:
+
 clustermesh-apiserver
 ---------------------
 
@@ -922,6 +926,19 @@ Name                                     Labels                                 
 ``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Number of elements queued for synchronization in the kvstore
 ``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Whether the initial synchronization from/to the kvstore has completed
 ======================================== ============================================ ========================================================
+
+API Rate Limiting
+~~~~~~~~~~~~~~~~~
+
+============================================== ================================ ========================================================
+Name                                           Labels                           Description
+============================================== ================================ ========================================================
+``api_limiter_processed_requests_total``       ``api_call``, ``outcome``        Total number of API requests processed
+``api_limiter_processing_duration_seconds``    ``api_call``, ``value``          Mean and estimated processing duration in seconds
+``api_limiter_rate_limit``                     ``api_call``, ``value``          Current rate limiting configuration (limit and burst)
+``api_limiter_requests_in_flight``             ``api_call``  ``value``          Current and maximum allowed number of requests in flight
+``api_limiter_wait_duration_seconds``          ``api_call``, ``value``          Mean, min, and max wait duration
+============================================== ================================ ========================================================
 
 .. _kvstoremesh_metrics_reference:
 
