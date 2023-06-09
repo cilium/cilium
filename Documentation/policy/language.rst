@@ -518,13 +518,18 @@ provided in DNS responses are allowed by Cilium in a similar manner to IPs in
 or are not know a priori, or when DNS is more convenient. To enforce policy on
 DNS requests themselves, see `Layer 7 Examples`_.
 
-IP information is captured from DNS responses per-Endpoint via a `DNS Proxy`_.
+.. note::
+
+	In order to associate domain names with IP addresses, Cilium intercepts
+	DNS responses per-Endpoint using a `DNS Proxy`_. This requires Cilium
+	to be configured with ``--enable-l7-proxy=true`` and an L7 policy allowing
+	DNS requests. For more details, see :ref:`DNS Obtaining Data`.
+
 An L3 `CIDR based`_ rule is generated for every ``toFQDNs``
 rule and applies to the same endpoints. The IP information is selected for
 insertion by ``matchName`` or ``matchPattern`` rules, and is collected from all
 DNS responses seen by Cilium on the node. Multiple selectors may be included in
-a single egress rule. See :ref:`DNS Obtaining Data` for information on
-collecting this IP data.
+a single egress rule.
 
 .. note:: The DNS Proxy is provided in each Cilium agent.
    As a result, DNS requests targeted by policies depend on the availability
