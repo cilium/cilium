@@ -114,8 +114,8 @@ github.com/cilium/cilium v1.14.0-snapshot.3.0.20230606122222-31f6ab1ff5fb h1:GKC
 github.com/cilium/cilium v1.14.0-snapshot.3.0.20230606122222-31f6ab1ff5fb/go.mod h1:NhS5So8b46JALwp1yj4A6Wrh55F51k6I5VHIeQLe6YI=
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc h1:tNEOByqRaBwlf1ANK/U/sd5oOIkxkPkpCVqaabxvU84=
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc/go.mod h1:e3IlAVfNqAllflbibAZEWOXOQ+Ynzk/dDozDxY7XnME=
-github.com/cilium/hubble v0.11.5 h1:1FGI+mNR+zx1B3jSqskmM4dV5smD/tuhTbXCdueuEfc=
-github.com/cilium/hubble v0.11.5/go.mod h1:pbR0F37lKRo8d9fNVe+oMmOKD67VYkm1gvjq1pVTdkc=
+github.com/cilium/hubble v0.11.6 h1:QvYOxER5tOPUTX8fILvxHSwkqyCycu8wxKVVUa0x6d0=
+github.com/cilium/hubble v0.11.6/go.mod h1:pbR0F37lKRo8d9fNVe+oMmOKD67VYkm1gvjq1pVTdkc=
 github.com/cilium/proxy v0.0.0-20230605062141-384b5008dce4 h1:/xljml3K0NLz0Ml2HOu4aXFXEgDdJHPrj0Me9S6chQ4=
 github.com/cilium/proxy v0.0.0-20230605062141-384b5008dce4/go.mod h1:ontBl/RX7G0GwcR38YQVp6d75MjIsL1FbBidVpn+F8I=
 github.com/cilium/tetragon/pkg/k8s v0.0.0-20230607130945-72fafb31bba4 h1:Zt4Zgoldp0HOFLAyxyXg4jUcS/zi4I2yqFJ0sBP5CAo=

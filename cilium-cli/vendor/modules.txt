@@ -132,7 +132,7 @@ github.com/cilium/cilium/pkg/slices
 github.com/cilium/cilium/pkg/spanstat
 github.com/cilium/cilium/pkg/version
 github.com/cilium/cilium/pkg/versioncheck
-# github.com/cilium/hubble v0.11.5
+# github.com/cilium/hubble v0.11.6
 ## explicit; go 1.19
 github.com/cilium/hubble/pkg/printer
 # github.com/cilium/proxy v0.0.0-20230605062141-384b5008dce4
