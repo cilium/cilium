@@ -104,7 +104,7 @@ jobs:
             echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
             echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
             echo "sha=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
-            echo "base_branch=${{ github.base_ref }}" >> $GITHUB_OUTPUT
+            echo "base_branch=$(jq -r '.base.ref' pr.json)" >> $GITHUB_OUTPUT
           else
             echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
             echo "base_branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
