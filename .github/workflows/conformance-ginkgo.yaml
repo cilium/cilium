@@ -100,7 +100,7 @@ jobs:
         id: sha
         run: |
           if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-            curl ${{ github.event.issue.pull_request.url }} > pr.json
+            curl ${{ github.event.issue.pull_request.url || github.event.pull_request.url }} > pr.json
             echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
             echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
             echo "sha=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
