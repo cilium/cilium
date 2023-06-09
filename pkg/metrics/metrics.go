@@ -1442,15 +1442,6 @@ func Reinitialize() {
 	}
 }
 
-// MustRegister adds the collector to the registry, exposing this metric to
-// prometheus scrapes.
-// It will panic on error.
-func MustRegister(c ...prometheus.Collector) {
-	withRegistry(func(reg *Registry) {
-		reg.MustRegister(c...)
-	})
-}
-
 // Register registers a collector
 func Register(c prometheus.Collector) error {
 	withRegistry(func(reg *Registry) {
