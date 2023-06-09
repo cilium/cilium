@@ -179,7 +179,7 @@ jobs:
             --helm-set=eni.enabled=false \
             --helm-set=ipam.mode=cluster-pool \
             --helm-set=tunnel=disabled \
-            --helm-set=bandwidthManager=false \
+            --helm-set=bandwidthManager.enabled=false \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
