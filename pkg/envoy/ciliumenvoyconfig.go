@@ -172,7 +172,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
-				fillInTransportSocketXDS(fc.TransportSocket)
+				fillInTransportSocketXDS(cecNamespace, cecName, fc.TransportSocket)
 				foundCiliumNetworkFilter := false
 				for i, filter := range fc.Filters {
 					if filter.Name == "cilium.network" {
@@ -318,7 +318,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 				}
 			}
 
-			fillInTransportSocketXDS(cluster.TransportSocket)
+			fillInTransportSocketXDS(cecNamespace, cecName, cluster.TransportSocket)
 
 			// Fill in EDS config source if unset
 			if enum := cluster.GetType(); enum == envoy_config_cluster.Cluster_EDS {
@@ -387,6 +387,10 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 					return Resources{}, fmt.Errorf("Duplicate Secret name %q", secret.Name)
 				}
 			}
+
+			name := secret.Name
+			secret.Name = api.ResourceQualifiedName(cecNamespace, cecName, name)
+
 			if validate {
 				if err := secret.Validate(); err != nil {
 					return Resources{}, fmt.Errorf("ParseResources: Could not validate Secret for cluster %q (%s)", secret.Name, err)
@@ -394,7 +398,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 			resources.Secrets = append(resources.Secrets, secret)
 
-			log.Debugf("ParseResources: Parsed secret: %s", secret.Name)
+			log.Debugf("ParseResources: Parsed secret: %s", name)
 
 		default:
 			return Resources{}, fmt.Errorf("Unsupported type: %s", typeURL)
@@ -856,26 +860,33 @@ func (s *XDSServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap 
 	return s.UpsertEnvoyResources(context.TODO(), resources, nil)
 }
 
-func fillInTlsContextXDS(tls *envoy_config_tls.CommonTlsContext) bool {
+func fillInTlsContextXDS(cecNamespace string, cecName string, tls *envoy_config_tls.CommonTlsContext) bool {
 	updated := false
+
+	qualify := func(sc *envoy_config_tls.SdsSecretConfig) {
+		if sc.SdsConfig == nil {
+			sc.SdsConfig = ciliumXDS
+			updated = true
+		}
+		name := sc.Name
+		sc.Name = api.ResourceQualifiedName(cecNamespace, cecName, sc.Name)
+		if sc.Name != name {
+			updated = true
+		}
+	}
+
 	if tls != nil {
 		for _, sc := range tls.TlsCertificateSdsSecretConfigs {
-			if sc.SdsConfig == nil {
-				sc.SdsConfig = ciliumXDS
-				updated = true
-			}
+			qualify(sc)
 		}
-		if sdsConfig := tls.GetValidationContextSdsSecretConfig(); sdsConfig != nil {
-			if sdsConfig.SdsConfig == nil {
-				sdsConfig.SdsConfig = ciliumXDS
-				updated = true
-			}
+		if sc := tls.GetValidationContextSdsSecretConfig(); sc != nil {
+			qualify(sc)
 		}
 	}
 	return updated
 }
 
-func fillInTransportSocketXDS(ts *envoy_config_core.TransportSocket) {
+func fillInTransportSocketXDS(cecNamespace string, cecName string, ts *envoy_config_core.TransportSocket) {
 	if ts != nil {
 		if tc := ts.GetTypedConfig(); tc != nil {
 			any, err := tc.UnmarshalNew()
@@ -885,11 +896,11 @@ func fillInTransportSocketXDS(ts *envoy_config_core.TransportSocket) {
 			var updated *anypb.Any
 			switch tls := any.(type) {
 			case *envoy_config_tls.DownstreamTlsContext:
-				if fillInTlsContextXDS(tls.CommonTlsContext) {
+				if fillInTlsContextXDS(cecNamespace, cecName, tls.CommonTlsContext) {
 					updated = toAny(tls)
 				}
 			case *envoy_config_tls.UpstreamTlsContext:
-				if fillInTlsContextXDS(tls.CommonTlsContext) {
+				if fillInTlsContextXDS(cecNamespace, cecName, tls.CommonTlsContext) {
 					updated = toAny(tls)
 				}
 			}
