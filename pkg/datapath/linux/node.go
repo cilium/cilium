@@ -1581,7 +1581,11 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 
 	if n.nodeConfig.EnableIPv4 && oldNode.IPv4AllocCIDR != nil {
 		old4RouteNet := &net.IPNet{IP: oldNode.IPv4AllocCIDR.IP, Mask: oldNode.IPv4AllocCIDR.Mask}
-		n.deleteNodeIPSecOutRoute(old4RouteNet)
+		// This is only needed in IPAM modes where we install one route per
+		// remote pod CIDR.
+		if !n.subnetEncryption() {
+			n.deleteNodeIPSecOutRoute(old4RouteNet)
+		}
 		if n.nodeConfig.EncryptNode {
 			if remoteIPv4 := oldNode.GetNodeIP(false); remoteIPv4 != nil {
 				exactMask := net.IPv4Mask(255, 255, 255, 255)
@@ -1593,7 +1597,10 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 
 	if n.nodeConfig.EnableIPv6 && oldNode.IPv6AllocCIDR != nil {
 		old6RouteNet := &net.IPNet{IP: oldNode.IPv6AllocCIDR.IP, Mask: oldNode.IPv6AllocCIDR.Mask}
-		n.deleteNodeIPSecOutRoute(old6RouteNet)
+		// See IPv4 case above.
+		if !n.subnetEncryption() {
+			n.deleteNodeIPSecOutRoute(old6RouteNet)
+		}
 		if n.nodeConfig.EncryptNode {
 			if remoteIPv6 := oldNode.GetNodeIP(true); remoteIPv6 != nil {
 				exactMask := net.CIDRMask(128, 128)
