@@ -1,5 +1,76 @@
 # Changelog
 
+## v1.13.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add agent flag `enable-ipsec-key-watcher` to allow users to disable the IPsec key watcher and thus require an agent restart for the key rotation to take effect. (Backport PR #25977, Upstream PR #25893, @pchaigno)
+* Updating documentation helm values now works also on arm64. (Backport PR #25731, Upstream PR #25422, @jrajahalme)
+
+**Bugfixes:**
+* Add drop notifications for various error paths in the datapath. (Backport PR #25503, Upstream PR #25183, @julianwiedmann)
+* bpf,datapath: read jiffies from /proc/schedstat (Backport PR #25855, Upstream PR #25795, @ti-mo)
+* Compare annotations before discarding CiliumNode updates. (Backport PR #25588, Upstream PR #25465, @LynneD)
+* CPU overhead regression introduced in v1.13 is fixed. (#25548, @jrajahalme)
+* Fix a bug due to which we would leak Linux XFRM policies, potentially leading to increased CPU consumption, when IPsec is enabled with Azure or ENI IPAM. (Backport PR #25897, Upstream PR #25784, @pchaigno)
+* Fix a bug that would cause connectivity drops of type XfrmInNoStates on upgrade when IPsec is enabled with ENI or Azure IPAM mode. (Backport PR #25897, Upstream PR #25724, @pchaigno)
+* Fix a bug that would cause connectivity drops of type XfrmOutPolBlock on upgrade when IPsec is enabled. (Backport PR #25897, Upstream PR #25735, @pchaigno)
+* Fix a possible deadlock when using WireGuard transparent encryption. (Backport PR #25855, Upstream PR #25419, @bimmlerd)
+* Fix a possible deadlock when using WireGuard transparent encryption. (Backport PR #25923, Upstream PR #25419, @bimmlerd)
+* Fix bug affecting EKS installations with IPsec encryption enabled, where Cilium wouldn't attach its IPsec BPF program to new ENI interfaces, resulting in connectivity loss between pods on remote nodes. (Backport PR #25897, Upstream PR #25744, @joamaki)
+* Fix downgrade path from 1.14 to 1.13 due to stale IPAM-allocated IPv6 on cilium_host (#25962, @jschwinger233)
+* Fix incorrect hubble flow data when HTTP requests contain an `x-forwarded-for` header by adding an explicit `use_remote_address: true` config to Envoy HTTP configuration to always use the actual remote address of the incoming connection rather than the value of `x-forwarded-for` header, which may originate from an untrusted source. This change has no effect on Cilium policy enforcement where the source security identity is always resolved before HTTP headers are parsed. Previous Cilium behavior of not adding `x-forwarded-for` headers is retained via an explicit `skip_xff_append: true` config setting, except for Cilium Ingress where the source IP address is now appended to `x-forwarded-for` header. (Backport PR #25731, Upstream PR #25674, @jrajahalme)
+* Fix leak of IPsec XFRM FWD policies in IPAM modes `cluster-pool`, `kubernetes`, and `crd` when nodes are deleted. Fix incorrect catch-all default-drop XFRM OUT policy for IPsec IPv6 traffic that could lead to leaking plain-text IPv6 traffic if combined with some other bug. (Backport PR #26079, Upstream PR #25953, @pchaigno)
+* Fix missing drop notifications on conntrack lookup failures when IPv4 and IPv6 are both enabled or socket-level load balancing is disabled. (Backport PR #25588, Upstream PR #25426, @bleggett)
+* Fix RevSNAT for ICMPv6 packets. (Backport PR #25503, Upstream PR #25306, @julianwiedmann)
+* Fix three issues in the bug fix to attach IPsec BPF programs to ENI interfaces: do not fatal if loading unexpectedly fails (which may happen if the device is suddenly deleted), ignore veth device changes in order not to reinitialize when new endpoints appear and wait 1 second for further device state changes between reinitializations. (Backport PR #25977, Upstream PR #25936, @joamaki)
+* Fixed Cilium agent crash when policy refers to a non-existing Envoy listener. (Backport PR #26079, Upstream PR #25969, @jrajahalme)
+* gateway-api: Race condition between routes and Gateway (Backport PR #25731, Upstream PR #25573, @sayboras)
+* gateway-api: Skip reconciliation for non-matching controller routes (Backport PR #25731, Upstream PR #25549, @sayboras)
+* helm: Correct typo in Ingress validation (Backport PR #25731, Upstream PR #25570, @sayboras)
+* Reject incorrect configuration enable-host-legacy-routing=false kube-proxy-replacement=partial. (Backport PR #25855, Upstream PR #25803, @pchaigno)
+
+**CI Changes:**
+* [v1.13 backport] test: Switch target FQDN (#25584, @nbusseneau)
+* Add github workflow to push development helm charts to quay.io (Backport PR #26087, Upstream PR #25205, @chancez)
+* hostfw tests flake workaround (Backport PR #25588, Upstream PR #25323, @tommyp1ckles)
+* Pick up the latest startup-script image (Backport PR #25855, Upstream PR #25774, @michi-covalent)
+* test/k8s: add host firewall workaround for svc host policy test. (Backport PR #25588, Upstream PR #25461, @tommyp1ckles)
+* test/k8s: for services test, wait for all applied manifests to delete (Backport PR #25503, Upstream PR #25341, @tommyp1ckles)
+* test/k8s: quarantine K8sDatapathServicesTest (Backport PR #25731, Upstream PR #25670, @aanm)
+* test/k8s: update host policies for firewall tests. (Backport PR #25503, Upstream PR #25374, @tommyp1ckles)
+* test: delete ginkgo test "NodePort with L7 Policy from outside" (Backport PR #25731, Upstream PR #25702, @jschwinger233)
+* test: prevent panic on k8s services host fw test on some runs. (Backport PR #25855, Upstream PR #25747, @tommyp1ckles)
+
+**Misc Changes:**
+* bpf: dsr: fix typo in tail_nodeport_dsr_ingress_ipv4() (Backport PR #25855, Upstream PR #25742, @julianwiedmann)
+* chore(deps): update all github action dependencies (v1.13) (patch) (#25704, @renovate[bot])
+* chore(deps): update cilium/actions-app-token action to v0.21.1 (v1.13) (#25865, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.11.6 (v1.13) (#26042, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.17.3 (v1.13) (#25852, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.17.3 (v1.13) (#25853, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.19.10 (v1.13) (#25857, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to ac58ff7 (v1.13) (#25547, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.11.6 (v1.13) (#25997, @renovate[bot])
+* docs: Add Bottlerocket OS to validated distros (Backport PR #25503, Upstream PR #25390, @nebril)
+* docs: document missing entity 'ingress' (Backport PR #25731, Upstream PR #25665, @mhofstetter)
+* docs: Fix broken link to backends leak issue (Backport PR #25503, Upstream PR #25278, @akhilles)
+* docs: Improve BGP Control Plane page (Backport PR #25731, Upstream PR #23939, @krouma)
+* gateway-api: Remove unused function check (#26058, @ferozsalam)
+* install: Fail helm if kube-proxy-replacement is not valid (Backport PR #25977, Upstream PR #25907, @jrajahalme)
+* ipsec: Fix cleanup of XFRM states and policies (Backport PR #26079, Upstream PR #26072, @pchaigno)
+* Slim down Node handler interface (Backport PR #25855, Upstream PR #25450, @bimmlerd)
+* Slim down Node handler interface (Backport PR #25923, Upstream PR #25450, @bimmlerd)
+* test/provision/compile.sh: Make usable from dev VM (Backport PR #25503, Upstream PR #25352, @jrajahalme)
+* Update network attacker sections of the threat model (Backport PR #25977, Upstream PR #25640, @ferozsalam)
+
+**Other Changes:**
+* envoy: Bump envoy version to v1.23.10 (#25884, @mhofstetter)
+* install: Update image digests for v1.13.3 (#25726, @thorn3r)
+* wireguard: Always unset fwMark (#25858, @brb)
+
 ## v1.13.3
 
 Summary of Changes
