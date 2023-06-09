@@ -343,31 +343,3 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 	}
 	return nil
 }
-
-func isReferenceAllowed(ctx context.Context, c client.Client, gw *gatewayv1beta1.Gateway, cert gatewayv1beta1.SecretObjectReference) (bool, error) {
-	// Secret is in the same namespace as the Gateway
-	if cert.Namespace == nil || string(*cert.Namespace) == gw.GetNamespace() {
-		return true, nil
-	}
-
-	// check if this cert is allowed to be used by this gateway
-	grants := &gatewayv1alpha2.ReferenceGrantList{}
-	if err := c.List(ctx, grants, client.InNamespace(*cert.Namespace)); err != nil {
-		return false, err
-	}
-
-	for _, g := range grants.Items {
-		for _, from := range g.Spec.From {
-			if from.Group == gatewayv1beta1.GroupName &&
-				from.Kind == kindGateway && (string)(from.Namespace) == gw.GetNamespace() {
-				for _, to := range g.Spec.To {
-					if to.Group == corev1.GroupName && to.Kind == kindSecret &&
-						(to.Name == nil || string(*to.Name) == string(cert.Name)) {
-						return true, nil
-					}
-				}
-			}
-		}
-	}
-	return false, nil
-}
