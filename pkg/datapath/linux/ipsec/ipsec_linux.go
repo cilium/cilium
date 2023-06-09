@@ -524,6 +524,13 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID 
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
+// Returns true if the given mark matches on the node ID. This works because
+// the node ID match is always in the first 16 bits.
+func matchesOnNodeID(mark *netlink.XfrmMark) bool {
+	return mark != nil &&
+		mark.Mask&linux_defaults.IPsecMarkMaskNodeID == linux_defaults.IPsecMarkMaskNodeID
+}
+
 func ipsecDeleteXfrmState(nodeID uint16) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeID: nodeID,
@@ -535,7 +542,7 @@ func ipsecDeleteXfrmState(nodeID uint16) {
 		return
 	}
 	for _, s := range xfrmStateList {
-		if getNodeIDFromXfrmMark(s.Mark) == nodeID {
+		if matchesOnNodeID(s.Mark) && getNodeIDFromXfrmMark(s.Mark) == nodeID {
 			if err := netlink.XfrmStateDel(&s); err != nil {
 				scopedLog.WithError(err).Warning("Failed to delete XFRM state")
 			}
@@ -554,7 +561,7 @@ func ipsecDeleteXfrmPolicy(nodeID uint16) {
 		return
 	}
 	for _, p := range xfrmPolicyList {
-		if getNodeIDFromXfrmMark(p.Mark) == nodeID {
+		if matchesOnNodeID(p.Mark) && getNodeIDFromXfrmMark(p.Mark) == nodeID {
 			if err := netlink.XfrmPolicyDel(&p); err != nil {
 				scopedLog.WithError(err).Warning("Failed to delete XFRM policy")
 			}
