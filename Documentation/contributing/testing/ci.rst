@@ -6,18 +6,21 @@
 
 .. _ci_jenkins:
 
-CI / Jenkins
-------------
+CI / Jenkins / GitHub Actions
+-----------------------------
 
-The main CI infrastructure is maintained at https://jenkins.cilium.io/
+The main CI infrastructure is maintained at https://jenkins.cilium.io/ and on
+GitHub Actions (GHA).
 
-Triggering Pull-Request Builds With Jenkins
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Triggering Pull-Request Builds
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To ensure that build resources are used judiciously, builds on Jenkins
-are manually triggered via comments on each pull-request that contain
-"trigger-phrases". Only members of the Cilium GitHub organization are
-allowed to trigger these jobs.
+To ensure that build resources are used judiciously, builds on Jenkins and some
+tests on GHA are manually triggered via comments on each pull-request that
+contain "trigger-phrases". Only members of the Cilium GitHub organization are
+allowed to trigger these jobs. Some GitHub Workflows are triggered on
+``pull_request`` events and not comment-based. The type of trigger is specific
+to each individual GitHub Workflow.
 
 Depending on the PR target branch, a specific set of jobs is marked as required,
 as per the `Cilium CI matrix`_. They will be automatically featured in PR checks
@@ -36,16 +39,14 @@ them all at once:
 | v1.11            | /test-backport-1.11      |
 +------------------+--------------------------+
 
-For ``main`` PRs: on top of ``/test``, one may use ``/test-missed-k8s`` to
-trigger all non-required K8s versions on Kernel 4.9 as per the `Cilium CI
-matrix`_.
-
 For a full list of Jenkins PR jobs, see `Jenkins (PR tab)
 <https://jenkins.cilium.io/view/PR/>`_. Trigger phrases are configured within
 each job's build triggers advanced options.
 
-There are some feature flags based on Pull Requests labels, the list of labels
-are the following:
+For a full list of GHA, see `GitHub Actions Page <https://github.com/cilium/cilium/actions>`_
+
+There are some Jenkins feature flags based on Pull Requests labels, the list of
+labels are the following:
 
 - ``area/containerd``: Enable containerd runtime on all Kubernetes test.
 - ``ci/net-next``: Run tests on net-next kernel. This causes the  ``/test``
@@ -53,13 +54,24 @@ are the following:
   different kernel, to merge a PR it must pass the CI without this flag.
 
 Retrigger specific jobs
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 For all PRs: one may manually retrigger a specific job (e.g. in case of a flake)
 with the individual trigger featured directly in the PR check's name (e.g. for
 ``K8s-1.20-kernel-4.9 (test-1.20-4.9)``, use ``/test-1.20-4.9``).
 
 This works for all displayed Jenkins tests.
+
+On GHA, the same can be achieved via the GitHub web UI, by re-triggering a new
+run on the jobs that have failed.
+
+.. image:: /images/gha-retry-1.png
+    :align: center
+
+and then
+
+.. image:: /images/gha-retry-2.png
+    :align: center
 
 Testing with race condition detection enabled
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -115,6 +127,173 @@ example patch that shows how this can be achieved.
                             podFilter := "k8s:zgroup=testapp"
 
                             //This test should run in each PR for now.
+
+Using GitHub Actions for testing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On GHA, running a specific set of Ginkgo tests (``conformance-ginkgo.yaml``)
+can also be accomplished by modifying the files under
+``.github/actions/ginkgo/`` by adding or removing entries.
+
+``main-focus.yaml``:
+
+    This file contains a list of tests to include and exclude. The ``cliFocus``
+    defined for each element in the "include" section is expanded to the
+    specific defined ``focus``. This mapping allows us to determine which regex
+    should be used with ``ginkgo --focus`` for each element in the "focus" list.
+    See :ref:`ginkgo-documentation` for more information about ``--focus`` flag.
+
+    Additionally, there is a list of excluded tests along with justifications
+    in the form of comments, explaining why each test is excluded based on
+    constraints defined in the ginkgo tests.
+
+    For more information, refer to
+    `GitHub's documentation on expanding matrix configurations <https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#expanding-or-adding-matrix-configurations>`__
+
+``main-k8s-versions.yaml``:
+
+    This file defines which kernel versions should be run with specific Kubernetes
+    (k8s) versions. It contains an "include" section where each entry consists of
+    a k8s version, IP family, Kubernetes image, and kernel version. These details
+    determine the combinations of k8s versions and kernel versions to be tested.
+
+``main-prs.yaml``:
+
+    This file specifies the k8s versions to be executed for each pull request (PR).
+    The list of k8s versions under the "k8s-version" section determines the matrix
+    of jobs that should be executed for CI when triggered by PRs.
+
+``main-scheduled.yaml``:
+
+    This file specifies the k8s versions to be executed on a regular basis. The
+    list of k8s versions under the "k8s-version" section determines the matrix of
+    jobs that should be executed for CI as part of scheduled jobs.
+
+Workflow interactions:
+
+    - The ``main-focus.yaml`` file helps define the test focus for CI jobs based on
+      specific criteria, expanding the ``cliFocus`` to determine the relevant
+      ``focus`` regex for ``ginkgo --focus``.
+
+    - The ``main-k8s-versions.yaml`` file defines the mapping between k8s versions
+      and the associated kernel versions to be tested.
+
+    - Both ``main-prs.yaml`` and ``main-scheduled.yaml`` files utilize the
+      "k8s-version" section to specify the k8s versions that should be included
+      in the job matrix for PRs and scheduled jobs respectively.
+
+    - These files collectively contribute to the generation of the job matrix
+      for GitHub Actions workflows, ensuring appropriate testing and validation
+      of the defined k8s versions.
+
+For example, to only run the test under ``f09-datapath-misc-2`` with Kubernetes
+version 1.26, the following files can be modified to have the following content:
+
+``main-focus.yaml``:
+
+   .. code-block:: yaml
+
+        ---
+        focus:
+        - "f09-datapath-misc-2"
+        include:
+          - focus: "f09-datapath-misc-2"
+            cliFocus: "K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig Transparent"
+
+``main-prs.yaml``:
+
+   .. code-block:: yaml
+
+        ---
+        k8s-version:
+          - "1.26"
+
+The ``main-k8s-versions.yaml`` and ``main-scheduled.yaml`` files can be left
+unmodified and this will result in the execution on the tests under
+``f09-datapath-misc-2`` for the ``k8s-version`` "``1.26``".
+
+
+Bisect process
+^^^^^^^^^^^^^^
+
+Bisecting Ginkgo tests (``conformance-ginkgo.yaml``) can be performed by
+modifying the workflow file, as well as modifying the files under
+``.github/actions/ginkgo/`` as explained in the previous section. The sections
+that need to be modified for the ``conformance-ginkgo.yaml`` can be found in
+form of comments inside that file under the ``on`` section and enable the
+event type of ``pull_request``. Additionally, the following section also needs
+to be modified:
+
+   .. code-block:: yaml
+
+        jobs:
+          check_changes:
+            name: Deduce required tests from code changes
+            [...]
+            outputs:
+              tested: ${{ steps.tested-tree.outputs.src }}
+              matrix_sha: ${{ steps.sha.outputs.sha }}
+              base_branch: ${{ steps.sha.outputs.base_branch }}
+              sha: ${{ steps.sha.outputs.sha }}
+              #
+              # For bisect uncomment the base_branch and 'sha' lines below and comment
+              # the two lines above this comment
+              #
+              #base_branch: <replace with the base branch name, should be 'main', not your branch name>
+              #sha: <replace with the SHA of an existing docker image tag that you want to bisect>
+
+As per the instructions, the ``base_branch`` needs to be uncommented and
+should point to the base branch name that we are testing. The ``sha`` must to
+point to the commit SHA that we want to bisect. **The SHA must point to an
+existing image tag under the ``quay.io/cilium/cilium-ci`` docker image
+repository**.
+
+It is possible to find out whether or not a SHA exists by running either
+``docker manifest inspect`` or ``docker buildx imagetools inspect``.
+This is an example output for the non-existing SHA ``22fa4bbd9a03db162f08c74c6ef260c015ecf25e``
+and existing SHA ``7b368923823e63c9824ea2b5ee4dc026bc4d5cd8``:
+
+
+   .. code-block:: shell
+
+        $ docker manifest inspect quay.io/cilium/cilium-ci:22fa4bbd9a03db162f08c74c6ef260c015ecf25e
+        ERROR: quay.io/cilium/cilium-ci:22fa4bbd9a03db162f08c74c6ef260c015ecf25e: not found
+
+        $ docker buildx imagetools inspect quay.io/cilium/cilium-ci:7b368923823e63c9824ea2b5ee4dc026bc4d5cd8
+        Name:      quay.io/cilium/cilium-ci:7b368923823e63c9824ea2b5ee4dc026bc4d5cd8
+        MediaType: application/vnd.docker.distribution.manifest.list.v2+json
+        Digest:    sha256:0b7d1078570e6979c3a3b98896e4a3811bff483834771abc5969660df38463b5
+
+        Manifests:
+          Name:      quay.io/cilium/cilium-ci:7b368923823e63c9824ea2b5ee4dc026bc4d5cd8@sha256:63dbffea393df2c4cc96ff340280e92d2191b6961912f70ff3b44a0dd2b73c74
+          MediaType: application/vnd.docker.distribution.manifest.v2+json
+          Platform:  linux/amd64
+
+          Name:      quay.io/cilium/cilium-ci:7b368923823e63c9824ea2b5ee4dc026bc4d5cd8@sha256:0c310ab0b7a14437abb5df46d62188f4b8b809f0a2091899b8151e5c0c578d09
+          MediaType: application/vnd.docker.distribution.manifest.v2+json
+          Platform:  linux/arm64
+
+Once the changes are committed and pushed into a draft Pull Request, it is
+possible to visualize the test results on the Pull Request's page.
+
+GitHub Test Results
+^^^^^^^^^^^^^^^^^^^
+
+Once the test finishes, its result is sent to the respective Pull Request's
+page.
+
+In case of a failure, it is possible to check with test failed by going over the
+summary of the test on the GitHub Workflow Run's page:
+
+
+.. image:: /images/gha-summary.png
+    :align: center
+
+
+On this example, the test ``K8sDatapathConfig Transparent encryption DirectRouting Check connectivity with transparent encryption and direct routing with bpf_host``
+failed. With the ``cilium-sysdumps`` artifact available for download we can
+retrieve it and perform further inspection to identify the cause for the
+failure. To investigate CI failures, see :ref:`ci_failure_triage`.
 
 Jobs Overview
 ~~~~~~~~~~~~~
