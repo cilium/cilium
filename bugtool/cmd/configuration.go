@@ -130,6 +130,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	if bpffsMountpoint := bpffsMountpoint(); bpffsMountpoint != "" {
 		commands = append(commands, []string{
 			// LB and CT map for debugging services; using bpftool for a reliable dump
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_auth_map", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_call_policy", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_calls_overlay_2", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_capture_cache", bpffsMountpoint),
@@ -370,6 +371,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium config -a",
 		"cilium encrypt status",
 		"cilium endpoint list",
+		"cilium bpf auth list",
 		"cilium bpf bandwidth list",
 		"cilium bpf tunnel list",
 		"cilium bpf lb list",
