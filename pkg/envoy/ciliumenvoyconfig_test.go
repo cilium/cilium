@@ -162,7 +162,12 @@ spec:
             tls_certificate_sds_secret_configs:
             - name: cilium-secrets/server-mtls
             validation_context_sds_secret_config:
-              name: cilium-secrets/server-mtls
+              name: validation_context
+  - "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret
+    name: validation_context
+    validation_context:
+      trusted_ca:
+        filename: /etc/ssl/certs/ca-certificates.crt
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
@@ -173,8 +178,9 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
 	c.Assert(cec.Spec.Resources, Not(IsNil))
-	c.Assert(cec.Spec.Resources, HasLen, 1)
+	c.Assert(cec.Spec.Resources, HasLen, 2)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret")
 
 	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false)
 	c.Assert(err, IsNil)
@@ -199,10 +205,14 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(tlsContext, Not(IsNil))
 	for _, sc := range tlsContext.TlsCertificateSdsSecretConfigs {
 		checkCiliumXDS(c, sc.SdsConfig)
+		// Check that the already qualified secret name was not changed
+		c.Assert(sc.Name, Equals, "cilium-secrets/server-mtls")
 	}
 	sdsConfig := tlsContext.GetValidationContextSdsSecretConfig()
 	c.Assert(sdsConfig, Not(IsNil))
 	checkCiliumXDS(c, sdsConfig.SdsConfig)
+	// Check that secret name was qualified
+	c.Assert(sdsConfig.Name, Equals, "namespace/name/validation_context")
 
 	c.Assert(chain.Filters, HasLen, 1)
 	c.Assert(chain.Filters[0].Name, Equals, "envoy.filters.network.http_connection_manager")
@@ -226,6 +236,11 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	//
 	c.Assert(hcm.HttpFilters, HasLen, 1)
 	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
+
+	//
+	// Check that secret name was qualified
+	//
+	c.Assert(resources.Secrets[0].Name, Equals, "namespace/name/validation_context")
 }
 
 var ciliumEnvoyConfigInvalid = `apiVersion: cilium.io/v2
