@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
-	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -183,24 +182,6 @@ func toSecureListenerFilterChain(serverNames []string, certName string) *envoy_c
 						TlsCertificateSdsSecretConfigs: []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
 							{
 								Name: certName,
-								SdsConfig: &envoy_config_core_v3.ConfigSource{
-									ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_ApiConfigSource{
-										ApiConfigSource: &envoy_config_core_v3.ApiConfigSource{
-											ApiType:             envoy_config_core_v3.ApiConfigSource_GRPC,
-											TransportApiVersion: envoy_config_core_v3.ApiVersion_V3,
-											GrpcServices: []*envoy_config_core_v3.GrpcService{
-												{
-													TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-														EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
-															ClusterName: envoy.CiliumXDSClusterName,
-														},
-													},
-												},
-											},
-										},
-									},
-									ResourceApiVersion: envoy_config_core_v3.ApiVersion_V3,
-								},
 							},
 						},
 					},
