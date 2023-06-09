@@ -162,7 +162,7 @@ func init() {
         "tags": [
           "daemon"
         ],
-        "summary": "Retrieve information about the agent and evironment for debugging",
+        "summary": "Retrieve information about the agent and environment for debugging",
         "responses": {
           "200": {
             "description": "Success",
@@ -4986,7 +4986,7 @@ func init() {
         "tags": [
           "daemon"
         ],
-        "summary": "Retrieve information about the agent and evironment for debugging",
+        "summary": "Retrieve information about the agent and environment for debugging",
         "responses": {
           "200": {
             "description": "Success",

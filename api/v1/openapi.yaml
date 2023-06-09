@@ -833,7 +833,7 @@ paths:
             "$ref": "#/definitions/Error"
   "/debuginfo":
     get:
-      summary: Retrieve information about the agent and evironment for debugging
+      summary: Retrieve information about the agent and environment for debugging
       tags:
       - daemon
       responses:
