@@ -246,36 +246,42 @@ func init() {
 		// When running with GC disabled, the Nodes Status updates should not be deleted.
 		test.
 			UpdateObjects(initialObjects...).
-			SetupEnvironment(func(_ *option.DaemonConfig, operatorCfg *operatorOption.OperatorConfig) {
-				operatorCfg.SkipCNPStatusStartupClean = true
-			}).
+			SetupEnvironment().
 			// check that CNPs contain status updates info before starting agent and operator
 			Eventually(func() error { return validateCNPs(test) }).
-			StartAgent().
-			StartOperator(func(vp *viper.Viper) {
-				vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
-			}).
-			Eventually(func() error { return validateCNPs(test) })
-
-		test.StopAgent()
-		test.StopOperator()
-		test.DeleteObjects(initialObjects...)
+			StartAgent(func(_ *option.DaemonConfig) {}).
+			StartOperator(
+				func(operatorCfg *operatorOption.OperatorConfig) {
+					operatorCfg.SkipCNPStatusStartupClean = true
+				},
+				func(vp *viper.Viper) {
+					vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
+				},
+			).
+			Eventually(func() error { return validateCNPs(test) }).
+			StopAgent().
+			StopOperator().
+			DeleteObjects(initialObjects...).
+			ClearEnvironment()
 
 		// When running with GC enabled, the Nodes Status updates should eventually be deleted.
 		test.
 			UpdateObjects(initialObjects...).
-			SetupEnvironment(func(_ *option.DaemonConfig, operatorCfg *operatorOption.OperatorConfig) {
-				operatorCfg.SkipCNPStatusStartupClean = false
-			}).
+			SetupEnvironment().
 			// check that CNPs contain status updates info before starting agent and operator
 			Eventually(func() error { return validateCNPs(test) }).
-			StartAgent().
-			StartOperator(func(vp *viper.Viper) {
-				vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
-			}).
-			Eventually(func() error { return validateCNPsAfterGC(test) })
-
-		test.StopAgent()
-		test.StopOperator()
+			StartAgent(func(_ *option.DaemonConfig) {}).
+			StartOperator(
+				func(operatorCfg *operatorOption.OperatorConfig) {
+					operatorCfg.SkipCNPStatusStartupClean = false
+				},
+				func(vp *viper.Viper) {
+					vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
+				},
+			).
+			Eventually(func() error { return validateCNPsAfterGC(test) }).
+			StopAgent().
+			StopOperator().
+			ClearEnvironment()
 	})
 }

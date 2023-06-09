@@ -8,8 +8,7 @@ import (
 	"path"
 	"testing"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
-	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/services/helpers"
 	"github.com/cilium/cilium/test/controlplane/suite"
@@ -28,8 +27,8 @@ func testGracefulTermination(t *testing.T) {
 
 	abs := func(f string) string { return path.Join(cwd, "services", "graceful-termination", f) }
 
-	modConfig := func(daemonCfg *agentOption.DaemonConfig, _ *operatorOption.OperatorConfig) {
-		daemonCfg.EnableK8sTerminatingEndpoint = true
+	modConfig := func(cfg *option.DaemonConfig) {
+		cfg.EnableK8sTerminatingEndpoint = true
 	}
 
 	k8sVersions := controlplane.K8sVersions()
@@ -40,8 +39,8 @@ func testGracefulTermination(t *testing.T) {
 	// Feed in initial state and start the agent.
 	test.
 		UpdateObjectsFromFile(abs("init.yaml")).
-		SetupEnvironment(modConfig).
-		StartAgent().
+		SetupEnvironment().
+		StartAgent(modConfig).
 
 		// Step 1: Initial creation of the services and backends
 		// lbmap1.golden: Shows graceful-term-svc service with an active backend
@@ -56,5 +55,6 @@ func testGracefulTermination(t *testing.T) {
 		// Step 3: Endpoint has now been removed from the endpoint slice.
 		// lbmap3.golden: The graceful-term-svc service no longer has any backeds
 		UpdateObjectsFromFile(abs("state3.yaml")).
-		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap3.golden"), test.Datapath) })
+		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap3.golden"), test.Datapath) }).
+		ClearEnvironment()
 }

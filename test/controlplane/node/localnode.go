@@ -14,13 +14,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
@@ -160,9 +159,10 @@ func init() {
 
 		test.
 			UpdateObjects(localNodeObject).
-			SetupEnvironment(func(*agentOption.DaemonConfig, *operatorOption.OperatorConfig) {}).
-			StartAgent(grabLNSCell, validateLNSInit).
+			SetupEnvironment().
+			StartAgent(func(*option.DaemonConfig) {}, grabLNSCell, validateLNSInit).
 			Eventually(func() error { return validateLocalNodeAgent(cs, lns) }).
-			StopAgent()
+			StopAgent().
+			ClearEnvironment()
 	})
 }

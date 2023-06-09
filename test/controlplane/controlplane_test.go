@@ -12,11 +12,9 @@ import (
 	_ "github.com/cilium/cilium/test/controlplane/services/dualstack"
 	_ "github.com/cilium/cilium/test/controlplane/services/graceful-termination"
 	_ "github.com/cilium/cilium/test/controlplane/services/nodeport"
+	"github.com/cilium/cilium/test/controlplane/suite"
 )
 
 func TestControlPlane(t *testing.T) {
-	// Controlplane tests rely on the removed global Viper instance.
-	// Thus, we temporarily disable them.
-	// This will be fixed in a subsequent commit.
-	// suite.RunSuite(t)
+	suite.RunSuite(t)
 }

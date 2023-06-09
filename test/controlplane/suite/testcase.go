@@ -4,13 +4,13 @@
 package suite
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	discov1 "k8s.io/api/discovery/v1"
@@ -26,13 +26,11 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	k8sTesting "k8s.io/client-go/testing"
 
+	agentCmd "github.com/cilium/cilium/daemon/cmd"
 	operatorCmd "github.com/cilium/cilium/operator/cmd"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -40,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/node/types"
 	agentOption "github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/proxy"
 )
 
 type trackerAndDecoder struct {
@@ -50,13 +47,15 @@ type trackerAndDecoder struct {
 
 type ControlPlaneTest struct {
 	t                 *testing.T
+	tempDir           string
 	validationTimeout time.Duration
-	nodeName          string
-	clients           *k8sClient.FakeClientset
-	trackers          []trackerAndDecoder
-	agentHandle       *agentHandle
-	operatorHandle    *operatorHandle
-	Datapath          *fakeDatapath.FakeDatapath
+
+	nodeName       string
+	clients        *k8sClient.FakeClientset
+	trackers       []trackerAndDecoder
+	agentHandle    *agentHandle
+	operatorHandle *operatorHandle
+	Datapath       *fakeDatapath.FakeDatapath
 }
 
 func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *ControlPlaneTest {
@@ -91,113 +90,102 @@ func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *Cont
 	}
 }
 
-// SetupEnvironment sets the fake k8s clients and the mock FQDN proxy required for control-plane testing.
-// Then, it loads the defaults values for both the daemon and the operator configurations.
-// Finally, it calls modConfig to overwrite testcase specific global options values.
-func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.DaemonConfig, *operatorOption.OperatorConfig)) *ControlPlaneTest {
+// SetupEnvironment sets the fake k8s clients, creates the fake datapath and
+// creates the test directories.
+func (cpt *ControlPlaneTest) SetupEnvironment() *ControlPlaneTest {
 	types.SetName(cpt.nodeName)
 
 	// Configure k8s and perform capability detection with the fake client.
 	version.Update(cpt.clients, true)
 
-	// The controlplane tests rely on the global Viper instance to correctly
-	// setup the agent. Thus, any reference to Vp is temporarily commented out.
-	// This will be fixed in a subsequent commit.
-	// agentOption.Config.Populate(agentCmd.Vp)
-	agentOption.Config.IdentityAllocationMode = agentOption.IdentityAllocationModeCRD
-	agentOption.Config.DryMode = true
-	agentOption.Config.IPAM = ipamOption.IPAMKubernetes
-	agentOption.Config.Opts = agentOption.NewIntOptions(&agentOption.DaemonMutableOptionLibrary)
-	agentOption.Config.Opts.SetBool(agentOption.DropNotify, true)
-	agentOption.Config.Opts.SetBool(agentOption.TraceNotify, true)
-	agentOption.Config.Opts.SetBool(agentOption.PolicyVerdictNotify, true)
-	agentOption.Config.Opts.SetBool(agentOption.Debug, true)
-	agentOption.Config.EnableIPSec = false
-	agentOption.Config.EnableIPv6 = false
-	agentOption.Config.KubeProxyReplacement = agentOption.KubeProxyReplacementTrue
-	agentOption.Config.EnableHostIPRestore = false
-	agentOption.Config.K8sRequireIPv6PodCIDR = false
-	agentOption.Config.K8sEnableK8sEndpointSlice = true
-	agentOption.Config.EnableL7Proxy = false
-	agentOption.Config.EnableHealthCheckNodePort = false
-	agentOption.Config.Debug = true
+	datapath := fakeDatapath.NewDatapath()
+	cpt.Datapath = datapath
 
-	// The controlplane tests rely on the global Viper instance to correctly
-	// setup the operator. Thus, any reference to Vp is temporarily commented out.
-	// This will be fixed in a subsequent commit.
-	// operatorOption.Config.Populate(operatorCmd.Vp)
+	cpt.tempDir = setupTestDirectories()
 
-	// Apply the test specific global configuration
-	modConfig(agentOption.Config, operatorOption.Config)
-
-	if agentOption.Config.EnableL7Proxy {
-		proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
-	}
 	return cpt
 }
 
-func (cpt *ControlPlaneTest) StartAgent(extraCells ...cell.Cell) *ControlPlaneTest {
+// ClearEnvironment removes all the test directories.
+func (cpt *ControlPlaneTest) ClearEnvironment() {
+	os.RemoveAll(cpt.tempDir)
+}
+
+func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig), extraCells ...cell.Cell) *ControlPlaneTest {
 	if cpt.agentHandle != nil {
 		cpt.t.Fatal("StartAgent() already called")
 	}
-	datapath, agentHandle, err := startCiliumAgent(cpt.t, cpt.clients, cell.Group(extraCells...))
+
+	cpt.agentHandle = &agentHandle{
+		t: cpt.t,
+	}
+
+	cpt.agentHandle.setupCiliumAgentHive(cpt.clients, cpt.Datapath, cell.Group(extraCells...))
+
+	mockCmd := &cobra.Command{}
+	cpt.agentHandle.hive.RegisterFlags(mockCmd.Flags())
+	agentCmd.InitGlobalFlags(mockCmd, cpt.agentHandle.hive.Viper())
+
+	cpt.agentHandle.populateCiliumAgentOptions(cpt.tempDir, modConfig)
+
+	daemon, err := cpt.agentHandle.startCiliumAgent()
 	if err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
-	cpt.agentHandle = &agentHandle
-	cpt.Datapath = datapath
+	cpt.agentHandle.d = daemon
+
 	return cpt
 }
 
-func (cpt *ControlPlaneTest) StopAgent() {
+func (cpt *ControlPlaneTest) StopAgent() *ControlPlaneTest {
 	cpt.agentHandle.tearDown()
 	cpt.agentHandle = nil
 	cpt.Datapath = nil
+
+	return cpt
 }
 
-func (cpt *ControlPlaneTest) StartOperator(modCellConfig func(vp *viper.Viper)) *ControlPlaneTest {
+func (cpt *ControlPlaneTest) StartOperator(
+	modConfig func(*operatorOption.OperatorConfig),
+	modCellConfig func(vp *viper.Viper),
+) *ControlPlaneTest {
 	if cpt.operatorHandle != nil {
 		cpt.t.Fatal("StartOperator() already called")
 	}
 
-	cpt.operatorHandle = &operatorHandle{
-		t: cpt.t,
-		hive: hive.New(
-			cell.Provide(func() k8sClient.Clientset {
-				return cpt.clients
-			}),
-			operatorCmd.ControlPlane,
-		),
-	}
+	h := setupCiliumOperatorHive(cpt.clients)
 
-	cpt.operatorHandle.hive.Viper().Set(apis.SkipCRDCreation, true)
+	mockCmd := &cobra.Command{}
+	h.RegisterFlags(mockCmd.Flags())
+	operatorCmd.InitGlobalFlags(mockCmd, h.Viper())
 
-	// Apply the test specific cells configuration
-	//
-	// Unlike global configuration options, cell-specific configuration options
-	// (i.e. the ones defined through cell.Config(...)) will not be loaded from
-	// agentOption or operatorOption, but from the *viper.Viper object bound to
-	// the test hive.
-	// modCellConfig function exposes the operator hive viper struct to each
-	// controlplane test, so to allow changing those options as needed.
-	modCellConfig(cpt.operatorHandle.hive.Viper())
+	populateCiliumOperatorOptions(h.Viper(), modConfig, modCellConfig)
+
+	h.Viper().Set(apis.SkipCRDCreation, true)
 
 	// Disable support for operator HA. This should be cleaned up
 	// by injecting the capabilities, or by supporting the leader
 	// election machinery in the controlplane tests.
 	version.DisableLeasesResourceLock()
 
-	err := cpt.operatorHandle.hive.Start(context.Background())
+	err := startCiliumOperator(h)
 	if err != nil {
 		cpt.t.Fatalf("Failed to start operator: %s", err)
+	}
+
+	cpt.operatorHandle = &operatorHandle{
+		t:    cpt.t,
+		hive: h,
 	}
 
 	return cpt
 }
 
-func (cpt *ControlPlaneTest) StopOperator() {
+func (cpt *ControlPlaneTest) StopOperator() *ControlPlaneTest {
 	cpt.operatorHandle.tearDown()
 	cpt.operatorHandle = nil
+
+	return cpt
 }
 
 func (cpt *ControlPlaneTest) UpdateObjects(objs ...k8sRuntime.Object) *ControlPlaneTest {

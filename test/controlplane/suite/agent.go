@@ -16,9 +16,11 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
@@ -28,15 +30,15 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
-	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/statedb"
 )
 
 type agentHandle struct {
-	t       *testing.T
-	d       *cmd.Daemon
-	tempDir string
+	t *testing.T
+	d *cmd.Daemon
+	p promise.Promise[*cmd.Daemon]
 
 	hive *hive.Hive
 }
@@ -56,22 +58,10 @@ func (h *agentHandle) tearDown() {
 	if h.d != nil {
 		h.d.Close()
 	}
-
-	os.RemoveAll(h.tempDir)
 }
 
-func startCiliumAgent(t *testing.T, clientset k8sClient.Clientset, extraCell cell.Cell) (*fakeDatapath.FakeDatapath, agentHandle, error) {
-	var (
-		err           error
-		handle        agentHandle
-		daemonPromise promise.Promise[*cmd.Daemon]
-	)
-
-	handle.t = t
-	handle.tempDir = setupTestDirectories()
-	fdp := fakeDatapath.NewDatapath()
-
-	handle.hive = hive.New(
+func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, dp *fakeDatapath.FakeDatapath, extraCell cell.Cell) {
+	h.hive = hive.New(
 		// Extra cell from the test case. Here as the first cell so it can
 		// insert lifecycle hooks before anything else.
 		extraCell,
@@ -79,7 +69,7 @@ func startCiliumAgent(t *testing.T, clientset k8sClient.Clientset, extraCell cel
 		// Provide the mocked infrastructure and datapath components
 		cell.Provide(
 			func() k8sClient.Clientset { return clientset },
-			func() datapath.Datapath { return fdp },
+			func() datapath.Datapath { return dp },
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
@@ -93,21 +83,55 @@ func startCiliumAgent(t *testing.T, clientset k8sClient.Clientset, extraCell cel
 		metrics.Cell,
 		cmd.ControlPlane,
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon]) {
-			daemonPromise = p
+			h.p = p
 		}),
 	)
+}
+
+func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(*option.DaemonConfig)) {
+	option.Config.Populate(h.hive.Viper())
+
+	option.Config.RunDir = testDir
+	option.Config.StateDir = testDir
+
+	// Apply the controlplane tests default configuration
+	option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
+	option.Config.DryMode = true
+	option.Config.IPAM = ipamOption.IPAMKubernetes
+	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
+	option.Config.Opts.SetBool(option.DropNotify, true)
+	option.Config.Opts.SetBool(option.TraceNotify, true)
+	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
+	option.Config.Opts.SetBool(option.Debug, true)
+	option.Config.EnableIPSec = false
+	option.Config.EnableIPv6 = false
+	option.Config.KubeProxyReplacement = option.KubeProxyReplacementTrue
+	option.Config.EnableHostIPRestore = false
+	option.Config.K8sRequireIPv6PodCIDR = false
+	option.Config.K8sEnableK8sEndpointSlice = true
+	option.Config.EnableL7Proxy = false
+	option.Config.EnableHealthCheckNodePort = false
+	option.Config.Debug = true
+
+	// Apply the test-specific agent configuration modifier
+	modConfig(option.Config)
 
 	// Unlike global configuration options, cell-specific configuration options
 	// (i.e. the ones defined through cell.Config(...)) must be set to the *viper.Viper
 	// object bound to the test hive.
-	handle.hive.Viper().Set(option.EndpointGCInterval, 0)
+	h.hive.Viper().Set(option.EndpointGCInterval, 0)
 
-	if err := handle.hive.Start(context.TODO()); err != nil {
-		return nil, agentHandle{}, err
+	if option.Config.EnableL7Proxy {
+		proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
+	}
+}
+
+func (h *agentHandle) startCiliumAgent() (*cmd.Daemon, error) {
+	if err := h.hive.Start(context.TODO()); err != nil {
+		return nil, err
 	}
 
-	handle.d, err = daemonPromise.Await(context.TODO())
-	return fdp, handle, err
+	return h.p.Await(context.TODO())
 }
 
 func setupTestDirectories() string {
@@ -115,7 +139,5 @@ func setupTestDirectories() string {
 	if err != nil {
 		panic(fmt.Sprintf("TempDir() failed: %s", err))
 	}
-	agentOption.Config.RunDir = tempDir
-	agentOption.Config.StateDir = tempDir
 	return tempDir
 }
