@@ -283,6 +283,42 @@ options:
   key in its corresponding ``CiliumNode`` CRD when a worker node's public key
   changes, given that the worker node will be unable to do so itself.
 
+Additionally to the above configuration options, you can also enable the
+N/S traffic encryption. With this option enabled, N/S traffic from an intermediate
+node to another node where the target backend is running will be encrypted
+
+.. tabs::
+
+    .. group-tab:: Cilium CLI
+
+       If you are deploying Cilium with the Cilium CLI, pass the following
+       options:
+
+       .. code-block:: shell-session
+
+          cilium install --encryption wireguard --node-encryption --lb-encryption
+
+    .. group-tab:: Helm
+
+       If you are deploying Cilium with Helm by following
+       :ref:`k8s_install_helm`, pass the following options:
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set encryption.enabled=true \\
+             --set encryption.type=wireguard \\
+             --set encryption.nodeEncryption=true \\
+             --set encryption.lbEncryption=true \\
+
+.. warning::
+
+  Currently, N/S traffic encryption doesn't work with the following configuration:
+
+  - NodePort XDP Acceleration
+  - Direct Server Return (DSR)
+
 Legal
 =====
 
