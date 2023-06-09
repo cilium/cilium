@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/l2responder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -69,6 +70,9 @@ var Cell = cell.Module(
 	// Gratuitous ARP event processor emits GARP packets on k8s pod creation events.
 	garp.Cell,
 
+	// This cell provides metrics for the IPSec datapath package
+	ipsec.Cell,
+
 	cell.Provide(func(dp types.Datapath) ipcache.NodeIDHandler {
 		return dp.NodeIDs()
 	}),
@@ -121,7 +125,7 @@ func newDatapath(params datapathParams) types.Datapath {
 			return nil
 		}})
 
-	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent, params.NodeMap)
+	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent, params.NodeMap, params.IPSecMetrics)
 
 	params.LC.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
@@ -144,4 +148,6 @@ type datapathParams struct {
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
 
 	NodeMap nodemap.Map
+
+	IPSecMetrics *ipsec.Metrics
 }

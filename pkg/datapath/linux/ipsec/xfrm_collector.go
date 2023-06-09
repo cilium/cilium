@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/procfs"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 const (
@@ -36,21 +37,28 @@ const (
 	labelErrorBundleCheck      = "bundle_check"
 )
 
-type xfrmCollector struct {
+type Metrics struct {
+	XfrmCollector *XfrmCollector
+}
+
+func NewIPSecMetrics() *Metrics {
+	return &Metrics{
+		XfrmCollector: newXFRMCollector(procfs.NewXfrmStat),
+	}
+}
+
+type XfrmCollector struct {
 	xfrmStatFunc func() (procfs.XfrmStat, error)
 
 	// Inbound errors
 	xfrmErrorDesc *prometheus.Desc
+	Enabled       bool
 }
 
-// NewXFRMCollector returns a new prometheus.Collector for /proc/net/xfrm_stat
+// newXFRMCollector returns a new prometheus.Collector for /proc/net/xfrm_stat
 // https://www.kernel.org/doc/Documentation/networking/xfrm_proc.txt
-func NewXFRMCollector() prometheus.Collector {
-	return newXFRMCollector(procfs.NewXfrmStat)
-}
-
-func newXFRMCollector(statFn func() (procfs.XfrmStat, error)) prometheus.Collector {
-	return &xfrmCollector{
+func newXFRMCollector(statFn func() (procfs.XfrmStat, error)) *XfrmCollector {
+	return &XfrmCollector{
 		xfrmStatFunc: statFn,
 
 		xfrmErrorDesc: prometheus.NewDesc(
@@ -61,11 +69,19 @@ func newXFRMCollector(statFn func() (procfs.XfrmStat, error)) prometheus.Collect
 	}
 }
 
-func (x *xfrmCollector) Describe(ch chan<- *prometheus.Desc) {
+func (x *XfrmCollector) Describe(ch chan<- *prometheus.Desc) {
+	if !x.Enabled {
+		return
+	}
+
 	ch <- x.xfrmErrorDesc
 }
 
-func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
+func (x *XfrmCollector) Collect(ch chan<- prometheus.Metric) {
+	if !x.Enabled {
+		return
+	}
+
 	stats, err := x.xfrmStatFunc()
 	if err != nil {
 		log.WithError(err).Error("Error while getting xfrm stats")
@@ -102,4 +118,22 @@ func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(x.xfrmErrorDesc, prometheus.GaugeValue, float64(stats.XfrmOutPolError), labelErrorTypeOutbound, labelErrorPolicy)
 	ch <- prometheus.MustNewConstMetric(x.xfrmErrorDesc, prometheus.GaugeValue, float64(stats.XfrmOutStateInvalid), labelErrorTypeOutbound, labelErrorStateInvalid)
 
+}
+
+func (x *XfrmCollector) IsEnabled() bool {
+	return x.Enabled
+}
+
+func (x *XfrmCollector) SetEnabled(enabled bool) {
+	x.Enabled = enabled
+}
+
+func (x *XfrmCollector) Opts() metric.Opts {
+	return metric.Opts{
+		ConfigName: prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_error"),
+		Namespace:  metrics.Namespace,
+		Subsystem:  subsystem,
+		Name:       "xfrm_error",
+		Disabled:   !x.Enabled,
+	}
 }

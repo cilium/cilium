@@ -12,10 +12,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -34,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -77,8 +74,7 @@ type linuxNodeHandler struct {
 	// reverse map of the above
 	nodeIPsByIDs map[uint16]string
 
-	ipsecMetricCollector prometheus.Collector
-	ipsecMetricOnce      sync.Once
+	ipsecMetricCollector *ipsec.XfrmCollector
 }
 
 var (
@@ -89,7 +85,12 @@ var (
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
-func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, nodeMap nodemap.Map) *linuxNodeHandler {
+func NewNodeHandler(
+	datapathConfig DatapathConfiguration,
+	nodeAddressing datapath.NodeAddressing,
+	nodeMap nodemap.Map,
+	ipsecMetrics *ipsec.Metrics,
+) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
@@ -103,7 +104,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
 		nodeIDsByIPs:           map[string]uint16{},
 		nodeIPsByIDs:           map[uint16]string{},
-		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
+		ipsecMetricCollector:   ipsecMetrics.XfrmCollector,
 	}
 }
 
@@ -510,10 +511,8 @@ func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8) {
 	}
 }
 
-func (n *linuxNodeHandler) registerIpsecMetricOnce() {
-	n.ipsecMetricOnce.Do(func() {
-		metrics.Register(n.ipsecMetricCollector)
-	})
+func (n *linuxNodeHandler) enableIpsecMetric() {
+	n.ipsecMetricCollector.SetEnabled(true)
 }
 
 func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
@@ -1213,7 +1212,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			n.enableSubnetIPsec(n.nodeConfig.IPv4PodSubnets, n.nodeConfig.IPv6PodSubnets)
 		}
 		if firstAddition && n.nodeConfig.EnableIPSec {
-			n.registerIpsecMetricOnce()
+			n.enableIpsecMetric()
 		}
 		return nil
 	}
@@ -1697,7 +1696,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if err := n.replaceHostRules(); err != nil {
 			log.WithError(err).Warning("Cannot replace Host rules")
 		}
-		n.registerIpsecMetricOnce()
+		n.enableIpsecMetric()
 	} else {
 		err := n.removeEncryptRules()
 		if err != nil {
