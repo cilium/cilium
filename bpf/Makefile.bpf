@@ -63,7 +63,7 @@ force:
 # TODO: revert addition of ignore MACRO_ARG_REUSE below once cilium-checkpatch
 # image is updated to ignore it.
 #
-CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:a8f73eced11c29d8c5003ba75071fb9ff91251e4@sha256:9fba31c924b0e675ee45dada3788ded045cd63c979fae3cddcb08636ed2e00da
+CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:1f2cfedb338eb1111cf478f2010841b95951dd91@sha256:dd437674392a27c48137d0580be44b97d842ae169d6901a3eb9891cbe2ff5936
 ifneq ($(CHECKPATCH_DEBUG),)
   # Run script with "bash -x"
   CHECKPATCH_IMAGE_AND_ENTRY := \
@@ -76,8 +76,9 @@ endif
 checkpatch:
 	@$(ECHO_CHECK) "(checkpatch)"
 	$(QUIET) $(CONTAINER_ENGINE) container run --rm \
-		--workdir /workspace \
-		--volume $(CURDIR)/..:/workspace \
+		--workdir $(realpath $(CURDIR)/..) \
+		--volume ~/.gitconfig:/.gitconfig \
+		--volume $(CURDIR)/..:$(realpath $(CURDIR)/..) \
 		--user "$(shell id -u):$(shell id -g)" \
 		-e GITHUB_REF=$(GITHUB_REF) -e GITHUB_REPOSITORY=$(GITHUB_REPOSITORY) \
 		$(CHECKPATCH_IMAGE_AND_ENTRY) $(CHECKPATCH_ARGS)
