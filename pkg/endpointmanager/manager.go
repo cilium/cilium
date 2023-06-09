@@ -183,7 +183,7 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 
 // InitMetrics hooks the endpointManager into the metrics subsystem. This can
 // only be done once, globally, otherwise the metrics library will panic.
-func (mgr *endpointManager) InitMetrics() {
+func (mgr *endpointManager) InitMetrics(registry *metrics.Registry) {
 	if option.Config.DryMode {
 		return
 	}
@@ -199,7 +199,7 @@ func (mgr *endpointManager) InitMetrics() {
 		},
 			func() float64 { return float64(len(mgr.GetEndpoints())) },
 		)
-		metrics.MustRegister(metrics.Endpoint)
+		registry.MustRegister(metrics.Endpoint)
 	})
 }
 
