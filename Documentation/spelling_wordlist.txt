@@ -664,6 +664,7 @@ kubernetes
 kubespray
 kvstore
 kvstoremesh
+kvstores
 labelsContext
 latencies
 lbExternalClusterIP
