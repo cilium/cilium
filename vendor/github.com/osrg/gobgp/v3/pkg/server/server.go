@@ -3354,7 +3354,7 @@ func (s *BgpServer) updateNeighbor(c *config.Neighbor) (needsSoftResetIn bool, e
 		peer.fsm.pConf.TtlSecurity.Config = c.TtlSecurity.Config
 		setTTL = true
 	}
-	if setTTL && peer.fsm.conn != nil {
+	if setTTL {
 		if err := setPeerConnTTL(peer.fsm); err != nil {
 			s.logger.Error("failed to set peer connection TTL",
 				log.Fields{

@@ -2,6 +2,7 @@ package kconfig
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -39,10 +40,11 @@ func Find() (*os.File, error) {
 }
 
 // Parse parses the kconfig file for which a reader is given.
-// All the CONFIG_* set will be put in the returned map as key with their
-// corresponding value as map value.
+// All the CONFIG_* which are in filter and which are set set will be
+// put in the returned map as key with their corresponding value as map value.
+// If filter is nil, no filtering will occur.
 // If the kconfig file is not valid, error will be returned.
-func Parse(source io.ReaderAt) (map[string]string, error) {
+func Parse(source io.ReaderAt, filter map[string]struct{}) (map[string]string, error) {
 	var r io.Reader
 	zr, err := gzip.NewReader(io.NewSectionReader(source, 0, math.MaxInt64))
 	if err != nil {
@@ -52,15 +54,19 @@ func Parse(source io.ReaderAt) (map[string]string, error) {
 		r = zr
 	}
 
-	ret := make(map[string]string)
+	ret := make(map[string]string, len(filter))
 
 	s := bufio.NewScanner(r)
-	for s.Scan() {
 
-		line := s.Text()
-		err = processKconfigLine(line, ret)
+	for s.Scan() {
+		line := s.Bytes()
+		err = processKconfigLine(line, ret, filter)
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse line: %w", err)
+		}
+
+		if filter != nil && len(ret) == len(filter) {
+			break
 		}
 	}
 
@@ -78,13 +84,13 @@ func Parse(source io.ReaderAt) (map[string]string, error) {
 // Golang translation of libbpf bpf_object__process_kconfig_line():
 // https://github.com/libbpf/libbpf/blob/fbd60dbff51c870f5e80a17c4f2fd639eb80af90/src/libbpf.c#L1874
 // It does the same checks but does not put the data inside the BPF map.
-func processKconfigLine(line string, m map[string]string) error {
+func processKconfigLine(line []byte, m map[string]string, filter map[string]struct{}) error {
 	// Ignore empty lines and "# CONFIG_* is not set".
-	if !strings.HasPrefix(line, "CONFIG_") {
+	if !bytes.HasPrefix(line, []byte("CONFIG_")) {
 		return nil
 	}
 
-	key, value, found := strings.Cut(line, "=")
+	key, value, found := bytes.Cut(line, []byte{'='})
 	if !found {
 		return fmt.Errorf("line %q does not contain separator '='", line)
 	}
@@ -93,12 +99,21 @@ func processKconfigLine(line string, m map[string]string) error {
 		return fmt.Errorf("line %q has no value", line)
 	}
 
-	// This can seem odd, but libbpf only sets the value the first type the key is
+	if filter != nil {
+		// NB: map[string(key)] gets special optimisation help from the compiler
+		// and doesn't allocate. Don't turn this into a variable.
+		_, ok := filter[string(key)]
+		if !ok {
+			return nil
+		}
+	}
+
+	// This can seem odd, but libbpf only sets the value the first time the key is
 	// met:
 	// https://github.com/torvalds/linux/blob/0d85b27b0cc6/tools/lib/bpf/libbpf.c#L1906-L1908
-	_, ok := m[key]
+	_, ok := m[string(key)]
 	if !ok {
-		m[key] = value
+		m[string(key)] = string(value)
 	}
 
 	return nil

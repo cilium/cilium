@@ -173,8 +173,8 @@ github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2 h1:/TjcgbZnbh
 github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2/go.mod h1:Fjjkur+OWg3is19QRyUYbdPm1KP1aMsVV/IurXYmO3c=
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc h1:tNEOByqRaBwlf1ANK/U/sd5oOIkxkPkpCVqaabxvU84=
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc/go.mod h1:e3IlAVfNqAllflbibAZEWOXOQ+Ynzk/dDozDxY7XnME=
-github.com/cilium/ebpf v0.10.1-0.20230607155358-5bc4c7c1cbff h1:qXyFjMxNb25ZXWuVU1Dg/TdjsD363Cgn8h/ndn1xO/E=
-github.com/cilium/ebpf v0.10.1-0.20230607155358-5bc4c7c1cbff/go.mod h1:WE7CZAnqOL2RouJ4f1uyNhqr2P4CCvXFIqdRDUgWsVs=
+github.com/cilium/ebpf v0.10.1-0.20230608125940-9444f0c545e0 h1:j/VgBKd3iOiGA0QKMAt7XgJ4lyeg3w3ZTytllLXCk34=
+github.com/cilium/ebpf v0.10.1-0.20230608125940-9444f0c545e0/go.mod h1:WE7CZAnqOL2RouJ4f1uyNhqr2P4CCvXFIqdRDUgWsVs=
 github.com/cilium/fake v0.4.0 h1:ATSUQaeKaBMJmSWQe+D0QYtiSA2WXOlisq4RbSkLdE8=
 github.com/cilium/fake v0.4.0/go.mod h1:21afzsL8AAyP1Mrz/qz5vCenHmtYxIJxnULri9ofXF8=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
@@ -748,8 +748,8 @@ github.com/opencontainers/image-spec v1.0.2/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zM
 github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b h1:FfH+VrHHk6Lxt9HdVS0PXzSXFyS2NbZKXv33FYPol0A=
 github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b/go.mod h1:AC62GU6hc0BrNm+9RK9VSiwa/EUe1bkIeFORAMcHvJU=
 github.com/osrg/gobgp v2.0.0+incompatible h1:91ARQbE1AtO0U4TIxHPJ7wYVZIqduyBwS1+FjlHlmrY=
-github.com/osrg/gobgp/v3 v3.15.1-0.20230605074248-03982e597eac h1:92rwa6xL1qlnmaW4KrWQgX/mpjOorjtwc3ioe1SCVn4=
-github.com/osrg/gobgp/v3 v3.15.1-0.20230605074248-03982e597eac/go.mod h1:tSUXn/s9uggSRTKP3IBeT5zI4ayOUX3O7fG5+n+SHPc=
+github.com/osrg/gobgp/v3 v3.15.0 h1:Zu4iL7EbBtRpVue61k0F3c3HdFZiTJV3uaveb7m92sM=
+github.com/osrg/gobgp/v3 v3.15.0/go.mod h1:tSUXn/s9uggSRTKP3IBeT5zI4ayOUX3O7fG5+n+SHPc=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pascaldekloe/goe v0.1.0 h1:cBOtyMzM9HTpWjXfbbunk26uA6nG3a8n06Wieeh0MwY=
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=

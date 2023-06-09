@@ -20,7 +20,7 @@ require (
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/customvet v0.0.0-20221207181232-aa8731fa2d27
 	github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2
-	github.com/cilium/ebpf v0.10.1-0.20230607155358-5bc4c7c1cbff
+	github.com/cilium/ebpf v0.10.1-0.20230608125940-9444f0c545e0
 	github.com/cilium/fake v0.4.0
 	github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	github.com/cilium/lumberjack/v2 v2.3.0
@@ -65,7 +65,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.6
-	github.com/osrg/gobgp/v3 v3.15.1-0.20230605074248-03982e597eac
+	github.com/osrg/gobgp/v3 v3.15.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/client_model v0.4.0
