@@ -333,6 +333,15 @@ Annotations:
   Egress rules in CiliumNetworkPolicy CRD. The old attribute name is no longer supported,
   please update your CiliumNetworkPolicy CRD accordingly. Also applicable values for this
   attribute are changed to ``disabled``, ``required`` and ``test-always-fail``.
+* Cilium agents now automatically clean up possible stale information about meshed
+  clusters after reconnecting to the corresponding remote kvstores (see :gh-issue:`24740`
+  for the rationale behind this change). This might lead to brief connectivity disruptions
+  towards remote pods and global services when v1.14 Cilium agents connect to older
+  versions of the *clustermesh-apiserver*, and the *clustermesh-apiserver* is restarted.
+  Please upgrade the *clustermesh-apiserver* in all clusters before the Cilium agents
+  to prevent the possibility of connectivity disruptions. Note: this issue does not
+  affect setups using a persistent etcd cluster instead of the ephemeral one bundled
+  with the *clustermesh-apiserver*.
 
 Removed Options
 ~~~~~~~~~~~~~~~
