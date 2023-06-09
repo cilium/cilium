@@ -97,6 +97,28 @@ func (old *Resources) ListenersAddedOrDeleted(new *Resources) bool {
 	return false
 }
 
+func qualifyRouteConfigurationResourceNames(namespace, name string, routeConfig *envoy_config_route.RouteConfiguration) {
+	// Strictly not a reference, and may be an empty string
+	routeConfig.Name = api.ResourceQualifiedName(namespace, name, routeConfig.Name, api.ForceNamespace)
+
+	for _, vhost := range routeConfig.VirtualHosts {
+		vhost.Name = api.ResourceQualifiedName(namespace, name, vhost.Name, api.ForceNamespace)
+		for _, rt := range vhost.Routes {
+			if action := rt.GetRoute(); action != nil {
+				if clusterName := action.GetCluster(); clusterName != "" {
+					action.GetClusterSpecifier().(*envoy_config_route.RouteAction_Cluster).Cluster =
+						api.ResourceQualifiedName(namespace, name, clusterName)
+				}
+				if weightedClusters := action.GetWeightedClusters(); weightedClusters != nil {
+					for _, cluster := range weightedClusters.GetClusters() {
+						cluster.Name = api.ResourceQualifiedName(namespace, name, cluster.Name)
+					}
+				}
+			}
+		}
+	}
+}
+
 // ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources
 // type cecNamespace and cecName parameters, if not empty, will be prepended to the Envoy resource
 // names.
@@ -183,6 +205,9 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 								updated = true
 							}
 						}
+						if routeConfig := hcmConfig.GetRouteConfig(); routeConfig != nil {
+							qualifyRouteConfigurationResourceNames(cecNamespace, cecName, routeConfig)
+						}
 						if listener.GetAddress() == nil {
 							foundCiliumL7Filter := false
 						loop:
@@ -239,6 +264,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 
 			name := listener.Name
 			listener.Name = api.ResourceQualifiedName(cecNamespace, cecName, listener.Name, api.ForceNamespace)
+
 			resources.Listeners = append(resources.Listeners, listener)
 
 			log.Debugf("ParseResources: Parsed listener %q: %v", name, listener)
@@ -257,14 +283,17 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 					return Resources{}, fmt.Errorf("Duplicate Route name %q", route.Name)
 				}
 			}
+
+			qualifyRouteConfigurationResourceNames(cecNamespace, cecName, route)
+
+			name := route.Name
+			route.Name = api.ResourceQualifiedName(cecNamespace, cecName, name, api.ForceNamespace)
+
 			if validate {
 				if err := route.Validate(); err != nil {
 					return Resources{}, fmt.Errorf("ParseResources: Could not validate RouteConfiguration (%s): %s", err, route.String())
 				}
 			}
-
-			name := route.Name
-			route.Name = api.ResourceQualifiedName(cecNamespace, cecName, route.Name, api.ForceNamespace)
 			resources.Routes = append(resources.Routes, route)
 
 			log.Debugf("ParseResources: Parsed route %q: %v", name, route)
@@ -296,15 +325,21 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 				}
 			}
 
+			if cluster.LoadAssignment != nil {
+				cluster.LoadAssignment.ClusterName = api.ResourceQualifiedName(cecNamespace, cecName, cluster.LoadAssignment.ClusterName)
+			}
+
+			name := cluster.Name
+			cluster.Name = api.ResourceQualifiedName(cecNamespace, cecName, name)
+
 			if validate {
 				if err := cluster.Validate(); err != nil {
 					return Resources{}, fmt.Errorf("ParseResources: Could not validate Cluster %q (%s): %s", cluster.Name, err, cluster.String())
 				}
 			}
-
 			resources.Clusters = append(resources.Clusters, cluster)
 
-			log.Debugf("ParseResources: Parsed cluster %q: %v", cluster.Name, cluster)
+			log.Debugf("ParseResources: Parsed cluster %q: %v", name, cluster)
 
 		case EndpointTypeURL:
 			endpoints, ok := message.(*envoy_config_endpoint.ClusterLoadAssignment)
@@ -320,6 +355,10 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 					return Resources{}, fmt.Errorf("Duplicate cluster_name %q", endpoints.ClusterName)
 				}
 			}
+
+			name := endpoints.ClusterName
+			endpoints.ClusterName = api.ResourceQualifiedName(cecNamespace, cecName, name)
+
 			if validate {
 				if err := endpoints.Validate(); err != nil {
 					return Resources{}, fmt.Errorf("ParseResources: Could not validate ClusterLoadAssignment for cluster %q (%s): %s", endpoints.ClusterName, err, endpoints.String())
@@ -327,7 +366,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 			resources.Endpoints = append(resources.Endpoints, endpoints)
 
-			log.Debugf("ParseResources: Parsed endpoints for cluster %q: %v", endpoints.ClusterName, endpoints)
+			log.Debugf("ParseResources: Parsed endpoints for cluster %q: %v", name, endpoints)
 
 		case SecretTypeURL:
 			secret, ok := message.(*envoy_config_tls.Secret)
