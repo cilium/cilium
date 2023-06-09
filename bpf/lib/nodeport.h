@@ -884,6 +884,12 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 
 	ctx_snat_done_set(ctx);
+
+#if defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION) && \
+    !defined(ENABLE_LB_ENCRYPTION) && __ctx_is == __ctx_skb
+	ctx_skip_wireguard_set(ctx);
+#endif
+
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
 		__be16 src_port = tunnel_gen_src_port_v6();
@@ -2195,6 +2201,12 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 
 	ctx_snat_done_set(ctx);
+
+#if defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION) && \
+    !defined(ENABLE_LB_ENCRYPTION) && __ctx_is == __ctx_skb
+	ctx_skip_wireguard_set(ctx);
+#endif
+
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
 		__be16 src_port = tunnel_gen_src_port_v4();

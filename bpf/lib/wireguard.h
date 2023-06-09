@@ -63,6 +63,14 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		goto out;
 	}
 
+	/* If users opt-out N/S traffic encryption with --encrypt-node=true
+	 * and --encrypt-lb=false, we skip the encryption for the traffic
+	 */
+#if defined(ENABLE_NODE_ENCRYPTION) && !defined(ENABLE_LB_ENCRYPTION)
+	if (ctx_skip_wireguard(ctx))
+		goto out;
+#endif
+
 	/* Redirect to the WireGuard tunnel device if the encryption is
 	 * required.
 	 *

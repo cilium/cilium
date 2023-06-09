@@ -145,6 +145,24 @@ ctx_skip_host_fw(struct __sk_buff *ctx)
 }
 #endif /* ENABLE_HOST_FIREWALL */
 
+#if defined(ENABLE_WIREGUARD) && defined(ENABLE_NODE_ENCRYPTION) && \
+    !defined(ENABLE_LB_ENCRYPTION)
+static __always_inline void
+ctx_skip_wireguard_set(struct __sk_buff *ctx)
+{
+	ctx->tc_index |= TC_INDEX_F_SKIP_WIREGUARD;
+}
+
+static __always_inline bool
+ctx_skip_wireguard(struct __sk_buff *ctx)
+{
+	volatile __u32 tc_index = ctx->tc_index;
+
+	ctx->tc_index &= ~TC_INDEX_F_SKIP_WIREGUARD;
+	return tc_index & TC_INDEX_F_SKIP_WIREGUARD;
+}
+#endif
+
 static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
 							 __u32 off)
 {
