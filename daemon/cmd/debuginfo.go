@@ -8,11 +8,13 @@ import (
 	"os"
 
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/spf13/cast"
 
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/debug"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -38,14 +40,9 @@ func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middlewar
 	dr.CiliumMemoryMap = memoryMap(os.Getpid())
 
 	dr.EnvironmentVariables = []string{}
-	// The debuginfo handler relies on the global Viper instance to list
-	// the agent settings and their values. Thus, this is temporarily commented
-	// out and will be fixed in a subsequent commit.
-	// for _, k := range Vp.AllKeys() {
-	// 	// Assuming we are only getting strings
-	// 	v := fmt.Sprintf("%s:%s", k, Vp.GetString(k))
-	// 	dr.EnvironmentVariables = append(dr.EnvironmentVariables, v)
-	// }
+	for k, v := range d.settings {
+		dr.EnvironmentVariables = append(dr.EnvironmentVariables, k+":"+v)
+	}
 
 	dr.ServiceList = getServiceList(d.svc)
 
@@ -65,4 +62,14 @@ func memoryMap(pid int) string {
 		return ""
 	}
 	return string(m)
+}
+
+type cellSettings map[string]string
+
+func daemonSettings(settings cell.AllSettings) cellSettings {
+	m := make(map[string]string, len(settings))
+	for k, v := range settings {
+		m[k] = cast.ToString(v)
+	}
+	return m
 }

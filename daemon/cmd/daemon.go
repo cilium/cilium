@@ -219,6 +219,9 @@ type Daemon struct {
 
 	// statedb for implementing /statedb/dump
 	db statedb.DB
+
+	// read-only map of all the hive settings
+	settings cellSettings
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -541,6 +544,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		l2announcer:          params.L2Announcer,
 		l7Proxy:              params.L7Proxy,
 		db:                   params.DB,
+		settings:             params.Settings,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)

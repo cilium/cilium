@@ -1590,6 +1590,9 @@ var daemonCell = cell.Module(
 
 	cell.Provide(newDaemonPromise),
 	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
+	// Provide a read-only copy of the current daemon settings to be consumed
+	// by the debuginfo API
+	cell.ProvidePrivate(daemonSettings),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
@@ -1625,6 +1628,7 @@ type daemonParams struct {
 	L7Proxy              *proxy.Proxy
 	DB                   statedb.DB
 	APILimiterSet        *rate.APILimiterSet
+	Settings             cellSettings
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
