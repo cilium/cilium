@@ -265,6 +265,11 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			name := listener.Name
 			listener.Name = api.ResourceQualifiedName(cecNamespace, cecName, listener.Name, api.ForceNamespace)
 
+			if validate {
+				if err := listener.Validate(); err != nil {
+					return Resources{}, fmt.Errorf("ParseResources: Could not validate Listener (%s): %s", err, listener.String())
+				}
+			}
 			resources.Listeners = append(resources.Listeners, listener)
 
 			log.Debugf("ParseResources: Parsed listener %q: %v", name, listener)
