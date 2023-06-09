@@ -1575,8 +1575,9 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 	nodeID := n.getNodeIDForNode(oldNode)
 	if nodeID == 0 {
 		scopedLog.Warning("No node ID found for node.")
+	} else {
+		ipsec.DeleteIPsecEndpoint(nodeID)
 	}
-	ipsec.DeleteIPsecEndpoint(nodeID)
 
 	if n.nodeConfig.EnableIPv4 && oldNode.IPv4AllocCIDR != nil {
 		old4RouteNet := &net.IPNet{IP: oldNode.IPv4AllocCIDR.IP, Mask: oldNode.IPv4AllocCIDR.Mask}
