@@ -362,6 +362,7 @@ Makefile* @cilium/build
 /install/kubernetes/ @cilium/sig-k8s @cilium/helm
 /install/kubernetes/cilium/templates/hubble* @cilium/sig-k8s @cilium/helm @cilium/sig-hubble
 jenkinsfiles @cilium/ci-structure
+/kvstoremesh @cilium/sig-clustermesh
 /LICENSE @cilium/tophat
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
