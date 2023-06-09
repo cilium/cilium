@@ -4,7 +4,6 @@
 package garp
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -12,49 +11,23 @@ import (
 	"github.com/mdlayher/arp"
 	"github.com/mdlayher/ethernet"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-const (
-	// GARPInterface is the interface used to send Gratuitous ARP messages.
-	GARPInterface = "garp-interface"
-)
-
-var Cell = cell.Module(
-	"garp",
-	"GARP",
-
-	cell.Provide(newGARPSender),
-
-	// This cell can't have a default config, it's entirely env dependent.
-	cell.Config(Config{}),
-)
-
-// Config contains the configuration for the GARP cell.
-type Config struct {
-	GARPInterface string
-}
-
-func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.String(GARPInterface, def.GARPInterface, "Interface used for sending gratuitous arp messages")
-}
 
 type Sender interface {
 	Send(netip.Addr) error
 }
 
 func newGARPSender(log logrus.FieldLogger, cfg Config) (Sender, error) {
-	if cfg.GARPInterface == "" {
-		return nil, errors.New("gratuitous arp sender interface undefined")
+	if cfg.L2PodAnnouncementsInterface == "" {
+		return nil, nil
 	}
 
-	iface, err := interfaceByName(cfg.GARPInterface)
+	iface, err := interfaceByName(cfg.L2PodAnnouncementsInterface)
 	if err != nil {
-		return nil, fmt.Errorf("gratuitous arp sender interface %q not found: %w", cfg.GARPInterface, err)
+		return nil, fmt.Errorf("gratuitous arp sender interface %q not found: %w", cfg.L2PodAnnouncementsInterface, err)
 	}
 
 	l := log.WithField(logfields.Interface, iface.Name)

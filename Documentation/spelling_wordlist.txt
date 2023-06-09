@@ -840,6 +840,7 @@ pmdabcc
 pmtuDiscovery
 png
 podAnnotations
+podAnnouncements
 podCIDR
 podDisruptionBudget
 podLabels

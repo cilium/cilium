@@ -973,6 +973,11 @@ data:
   {{- end}}
 {{- end}}
 
+{{- if .Values.l2podAnnouncements.enabled }}
+  enable-l2-pod-announcements: {{ .Values.l2podAnnouncements.enabled | quote }}
+  l2-pod-announcements-interface: {{ .Values.l2podAnnouncements.interface | quote }}
+{{- end }}
+
 {{- if and .Values.bgp.enabled (and (not .Values.bgp.announce.loadbalancerIP) (not .Values.bgp.announce.podCIDR)) }}
   {{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
 {{- end }}

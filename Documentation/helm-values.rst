@@ -1936,6 +1936,18 @@
      - Enable L2 announcements
      - bool
      - ``false``
+   * - l2podAnnouncements
+     - Configure L2 pod announcements
+     - object
+     - ``{"enabled":false,"interface":"eth0"}``
+   * - l2podAnnouncements.enabled
+     - Enable L2 pod announcements
+     - bool
+     - ``false``
+   * - l2podAnnouncements.interface
+     - Interface used for sending Gratuitous ARP pod announcements
+     - string
+     - ``"eth0"``
    * - l7Proxy
      - Enable Layer 7 network policy.
      - bool
