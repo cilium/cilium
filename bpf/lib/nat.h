@@ -81,13 +81,6 @@ __snat_update(const void *map, const void *otuple, const void *ostate,
 	return ret;
 }
 
-static __always_inline __maybe_unused void
-__snat_delete(const void *map, const void *otuple, const void *rtuple)
-{
-	map_delete_elem(map, otuple);
-	map_delete_elem(map, rtuple);
-}
-
 struct ipv4_nat_entry {
 	struct nat_entry common;
 	union {
@@ -189,12 +182,6 @@ static __always_inline int snat_v4_update(const struct ipv4_ct_tuple *otuple,
 			     rtuple, rstate);
 }
 
-static __always_inline void snat_v4_delete(const struct ipv4_ct_tuple *otuple,
-					   const struct ipv4_ct_tuple *rtuple)
-{
-	__snat_delete(&SNAT_MAPPING_IPV4, otuple, rtuple);
-}
-
 static __always_inline void snat_v4_swap_tuple(const struct ipv4_ct_tuple *otuple,
 					       struct ipv4_ct_tuple *rtuple)
 {
@@ -206,42 +193,6 @@ static __always_inline void snat_v4_swap_tuple(const struct ipv4_ct_tuple *otupl
 	rtuple->sport = otuple->dport;
 	rtuple->flags = otuple->flags == NAT_DIR_EGRESS ?
 			NAT_DIR_INGRESS : NAT_DIR_EGRESS;
-}
-
-static __always_inline int snat_v4_reverse_tuple(const struct ipv4_ct_tuple *otuple,
-						 struct ipv4_ct_tuple *rtuple)
-{
-	struct ipv4_nat_entry *ostate;
-
-	ostate = snat_v4_lookup(otuple);
-	if (ostate) {
-		snat_v4_swap_tuple(otuple, rtuple);
-		rtuple->daddr = ostate->to_saddr;
-		rtuple->dport = ostate->to_sport;
-	}
-
-	return ostate ? 0 : -1;
-}
-
-static __always_inline void snat_v4_ct_canonicalize(struct ipv4_ct_tuple *otuple)
-{
-	__be32 addr = otuple->saddr;
-
-	otuple->flags = NAT_DIR_EGRESS;
-	/* Workaround #5848. */
-	otuple->saddr = otuple->daddr;
-	otuple->daddr = addr;
-}
-
-static __always_inline void snat_v4_delete_tuples(struct ipv4_ct_tuple *otuple)
-{
-	struct ipv4_ct_tuple rtuple;
-
-	if (otuple->flags & TUPLE_F_IN)
-		return;
-	snat_v4_ct_canonicalize(otuple);
-	if (!snat_v4_reverse_tuple(otuple, &rtuple))
-		snat_v4_delete(otuple, &rtuple);
 }
 
 static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
@@ -1253,11 +1204,6 @@ int snat_v4_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 {
 	return CTX_ACT_OK;
 }
-
-static __always_inline __maybe_unused
-void snat_v4_delete_tuples(struct ipv4_ct_tuple *tuple __maybe_unused)
-{
-}
 #endif
 
 struct ipv6_nat_entry {
@@ -1331,12 +1277,6 @@ static __always_inline int snat_v6_update(struct ipv6_ct_tuple *otuple,
 			     rtuple, rstate);
 }
 
-static __always_inline void snat_v6_delete(const struct ipv6_ct_tuple *otuple,
-					   const struct ipv6_ct_tuple *rtuple)
-{
-	__snat_delete(&SNAT_MAPPING_IPV6, otuple, rtuple);
-}
-
 static __always_inline void snat_v6_swap_tuple(const struct ipv6_ct_tuple *otuple,
 					       struct ipv6_ct_tuple *rtuple)
 {
@@ -1348,43 +1288,6 @@ static __always_inline void snat_v6_swap_tuple(const struct ipv6_ct_tuple *otupl
 	rtuple->sport = otuple->dport;
 	rtuple->flags = otuple->flags == NAT_DIR_EGRESS ?
 			NAT_DIR_INGRESS : NAT_DIR_EGRESS;
-}
-
-static __always_inline int snat_v6_reverse_tuple(struct ipv6_ct_tuple *otuple,
-						 struct ipv6_ct_tuple *rtuple)
-{
-	struct ipv6_nat_entry *ostate;
-
-	ostate = snat_v6_lookup(otuple);
-	if (ostate) {
-		snat_v6_swap_tuple(otuple, rtuple);
-		rtuple->daddr = ostate->to_saddr;
-		rtuple->dport = ostate->to_sport;
-	}
-
-	return ostate ? 0 : -1;
-}
-
-static __always_inline void snat_v6_ct_canonicalize(struct ipv6_ct_tuple *otuple)
-{
-	union v6addr addr = {};
-
-	otuple->flags = NAT_DIR_EGRESS;
-	/* Workaround #5848. */
-	ipv6_addr_copy(&addr, &otuple->saddr);
-	ipv6_addr_copy(&otuple->saddr, &otuple->daddr);
-	ipv6_addr_copy(&otuple->daddr, &addr);
-}
-
-static __always_inline void snat_v6_delete_tuples(struct ipv6_ct_tuple *otuple)
-{
-	struct ipv6_ct_tuple rtuple;
-
-	if (otuple->flags & TUPLE_F_IN)
-		return;
-	snat_v6_ct_canonicalize(otuple);
-	if (!snat_v6_reverse_tuple(otuple, &rtuple))
-		snat_v6_delete(otuple, &rtuple);
 }
 
 static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
@@ -2051,11 +1954,6 @@ int snat_v6_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 {
 	return CTX_ACT_OK;
 }
-
-static __always_inline __maybe_unused
-void snat_v6_delete_tuples(struct ipv6_ct_tuple *tuple __maybe_unused)
-{
-}
 #endif
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
@@ -2108,29 +2006,5 @@ snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4 __maybe_unused)
 	return false;
 }
 #endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
-
-static __always_inline __maybe_unused void
-ct_delete4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx)
-{
-	int err;
-
-	err = map_delete_elem(map, tuple);
-	if (err < 0)
-		cilium_dbg(ctx, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, err);
-	else
-		snat_v4_delete_tuples(tuple);
-}
-
-static __always_inline __maybe_unused void
-ct_delete6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx)
-{
-	int err;
-
-	err = map_delete_elem(map, tuple);
-	if (err < 0)
-		cilium_dbg(ctx, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, err);
-	else
-		snat_v6_delete_tuples(tuple);
-}
 
 #endif /* __LIB_NAT__ */
