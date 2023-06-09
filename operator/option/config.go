@@ -302,6 +302,12 @@ const (
 	// Applicable values: dedicated, shared
 	IngressDefaultLoadbalancerMode = "ingress-default-lb-mode"
 
+	// IngressDefaultSecretNamespace is the default secret namespace for Ingress.
+	IngressDefaultSecretNamespace = "ingress-default-secret-namespace"
+
+	// IngressDefaultSecretName is the default secret name for Ingress.
+	IngressDefaultSecretName = "ingress-default-secret-name"
+
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	// default values: k8s-app=kube-dns
 	PodRestartSelector = "pod-restart-selector"
@@ -557,6 +563,12 @@ type OperatorConfig struct {
 	// Applicable values: dedicated, shared
 	IngressDefaultLoadbalancerMode string
 
+	// IngressDefaultLSecretNamespace is the default secret namespace for Ingress.
+	IngressDefaultSecretNamespace string
+
+	// IngressDefaultLSecretName is the default secret name for Ingress.
+	IngressDefaultSecretName string
+
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	PodRestartSelector string
 }
@@ -605,6 +617,8 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.IngressLBAnnotationPrefixes = vp.GetStringSlice(IngressLBAnnotationPrefixes)
 	c.IngressSharedLBServiceName = vp.GetString(IngressSharedLBServiceName)
 	c.IngressDefaultLoadbalancerMode = vp.GetString(IngressDefaultLoadbalancerMode)
+	c.IngressDefaultSecretNamespace = vp.GetString(IngressDefaultSecretNamespace)
+	c.IngressDefaultSecretName = vp.GetString(IngressDefaultSecretName)
 	c.PodRestartSelector = vp.GetString(PodRestartSelector)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)

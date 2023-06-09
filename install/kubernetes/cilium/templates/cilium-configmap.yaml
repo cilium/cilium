@@ -226,6 +226,10 @@ data:
   ingress-lb-annotation-prefixes: {{ .Values.ingressController.ingressLBAnnotationPrefixes | join " " | quote }}
   ingress-default-lb-mode: {{ .Values.ingressController.loadbalancerMode }}
   ingress-shared-lb-service-name: {{ .Values.ingressController.service.name }}
+  {{- if and .Values.ingressController.defaultSecretNamespace .Values.ingressController.defaultSecretName }}
+  ingress-default-secret-namespace: {{ .Values.ingressController.defaultSecretNamespace | quote }}
+  ingress-default-secret-name: {{ .Values.ingressController.defaultSecretName | quote }}
+  {{- end }}
 {{- end }}
 
 {{- if .Values.gatewayAPI.enabled }}

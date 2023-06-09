@@ -678,6 +678,8 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			ingress.WithCiliumNamespace(operatorOption.Config.CiliumK8sNamespace),
 			ingress.WithSharedLBServiceName(operatorOption.Config.IngressSharedLBServiceName),
 			ingress.WithDefaultLoadbalancerMode(operatorOption.Config.IngressDefaultLoadbalancerMode),
+			ingress.WithDefaultSecretNamespace(operatorOption.Config.IngressDefaultSecretNamespace),
+			ingress.WithDefaultSecretName(operatorOption.Config.IngressDefaultSecretName),
 			ingress.WithIdleTimeoutSeconds(operatorOption.Config.ProxyIdleTimeoutSeconds),
 		)
 		if err != nil {

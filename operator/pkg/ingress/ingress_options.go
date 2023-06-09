@@ -13,6 +13,8 @@ type Options struct {
 	SharedLBServiceName     string
 	CiliumNamespace         string
 	DefaultLoadbalancerMode string
+	DefaultSecretNamespace  string
+	DefaultSecretName       string
 	IdleTimeoutSeconds      int
 }
 
@@ -91,6 +93,22 @@ func WithCiliumNamespace(ciliumNamespace string) Option {
 func WithDefaultLoadbalancerMode(defaultLoadbalancerMode string) Option {
 	return func(o *Options) error {
 		o.DefaultLoadbalancerMode = defaultLoadbalancerMode
+		return nil
+	}
+}
+
+// WithDefaultSecretNamespace configures the default secret namespace
+func WithDefaultSecretNamespace(defaultSecretNamespace string) Option {
+	return func(o *Options) error {
+		o.DefaultSecretNamespace = defaultSecretNamespace
+		return nil
+	}
+}
+
+// WithDefaultSecretNamespace configures the default secret name
+func WithDefaultSecretName(defaultSecretName string) Option {
+	return func(o *Options) error {
+		o.DefaultSecretName = defaultSecretName
 		return nil
 	}
 }

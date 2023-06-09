@@ -676,6 +676,12 @@ ingressController:
   # from Ingress to the Load Balancer service
   ingressLBAnnotationPrefixes: ['service.beta.kubernetes.io', 'service.kubernetes.io', 'cloud.google.com']
 
+  # -- Default secret namespace for ingresses without .spec.tls[].secretName set.
+  defaultSecretNamespace:
+
+  # -- Default secret name for ingresses without .spec.tls[].secretName set.
+  defaultSecretName:
+
   # -- SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
   secretsNamespace:
     # -- Create secrets namespace for Ingress.

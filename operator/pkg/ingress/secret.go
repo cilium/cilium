@@ -78,7 +78,7 @@ func (n noOpsSecretManager) Run() {}
 func (n noOpsSecretManager) Add(event interface{}) {}
 
 // newSyncSecretsManager constructs a new secret manager instance
-func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxRetries int) (secretManager, error) {
+func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxRetries int, defaultSecretNamespace, defaultSecretName string) (secretManager, error) {
 	manager := &syncSecretManager{
 		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		namespace:        namespace,
@@ -124,6 +124,11 @@ func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxR
 		},
 		nil,
 	)
+
+	if defaultSecretNamespace != "" && defaultSecretName != "" {
+		key := getSecretKey(defaultSecretNamespace, defaultSecretName)
+		manager.watchedSecretMap[key] = getSyncedSecretKey(manager.namespace, defaultSecretNamespace, defaultSecretName)
+	}
 
 	go manager.informer.Run(wait.NeverStop)
 	if !cache.WaitForCacheSync(wait.NeverStop, manager.informer.HasSynced) {

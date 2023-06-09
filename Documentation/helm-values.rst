@@ -1732,6 +1732,14 @@
      - Set cilium ingress controller to be the default ingress controller This will let cilium ingress controller route entries without ingress class set
      - bool
      - ``false``
+   * - ingressController.defaultSecretName
+     - Default secret name for ingresses without .spec.tls[].secretName set.
+     - string
+     - ``nil``
+   * - ingressController.defaultSecretNamespace
+     - Default secret namespace for ingresses without .spec.tls[].secretName set.
+     - string
+     - ``nil``
    * - ingressController.enabled
      - Enable cilium ingress controller This will automatically set enable-envoy-config as well.
      - bool

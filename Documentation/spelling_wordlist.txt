@@ -370,6 +370,8 @@ decapsulation
 decrypt
 decrypted
 deepcopy
+defaultSecretName
+defaultSecretNamespace
 delegatedClient
 deletetopic
 demux
