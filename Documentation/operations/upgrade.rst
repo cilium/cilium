@@ -377,6 +377,14 @@ Added Metrics
 * ``cilium_operator_ipam_available_ips``
 * ``cilium_operator_ipam_used_ips``
 * ``cilium_operator_ipam_needed_ips``
+* ``kvstore_sync_queue_size``
+* ``kvstore_initial_sync_completed``
+
+You can now additionally configure the *clustermesh-apiserver* to expose a set
+of metrics about the synchronization process, kvstore operations, and the sidecar
+etcd instance. Please refer to :ref:`clustermesh_apiserver_metrics` and
+:ref:`the clustermesh-apiserver metrics reference<clustermesh_apiserver_metrics_reference>`
+for more information.
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
