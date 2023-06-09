@@ -27,7 +27,6 @@ type Input struct {
 }
 
 // GatewayAPI translates Gateway API resources into a model.
-// The current implementation only supports HTTPRoute.
 // TODO(tam): Support GatewayClass
 func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 	var resHTTP []model.HTTPListener
