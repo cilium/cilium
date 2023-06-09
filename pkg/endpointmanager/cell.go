@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -104,10 +105,6 @@ type EndpointManager interface {
 	subscriber.Node
 	EndpointResourceSynchronizer
 
-	// InitMetrics hooks the EndpointManager into the metrics subsystem. This can
-	// only be done once, globally, otherwise the metrics library will panic.
-	InitMetrics()
-
 	// Subscribe to endpoint events.
 	Subscribe(s Subscriber)
 
@@ -162,9 +159,10 @@ var (
 type endpointManagerParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
-	Config    EndpointManagerConfig
-	Clientset client.Clientset
+	Lifecycle       hive.Lifecycle
+	Config          EndpointManagerConfig
+	Clientset       client.Clientset
+	MetricsRegistry *metrics.Registry
 }
 
 type endpointManagerOut struct {
@@ -194,7 +192,7 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 		})
 	}
 
-	mgr.InitMetrics()
+	mgr.InitMetrics(p.MetricsRegistry)
 
 	return endpointManagerOut{
 		Lookup:  mgr,
