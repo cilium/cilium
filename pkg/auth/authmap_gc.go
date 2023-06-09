@@ -90,6 +90,7 @@ func (r *authMapGarbageCollector) handleCiliumIdentityEvent(_ context.Context, e
 		if err = r.cleanupMissingIdentities(); err != nil {
 			return fmt.Errorf("failed to cleanup missing identities: %w", err)
 		}
+		r.discoveredCiliumIdentities = nil
 	case resource.Delete:
 		r.logger.
 			WithField("key", e.Key).
@@ -97,7 +98,6 @@ func (r *authMapGarbageCollector) handleCiliumIdentityEvent(_ context.Context, e
 		if err = r.cleanupDeletedIdentity(e.Object); err != nil {
 			return fmt.Errorf("failed to cleanup deleted identity: %w", err)
 		}
-		r.discoveredCiliumIdentities = nil
 	}
 	return nil
 }
