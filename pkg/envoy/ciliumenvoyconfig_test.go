@@ -487,21 +487,21 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	c.Assert(resources.Routes[0].Name, Equals, "namespace/name/local_route")
 	c.Assert(resources.Routes[0].VirtualHosts, HasLen, 1)
 	vh := resources.Routes[0].VirtualHosts[0]
-	c.Assert(vh.Name, Equals, "local_service")
+	c.Assert(vh.Name, Equals, "namespace/name/local_service")
 	c.Assert(vh.Domains, HasLen, 1)
 	c.Assert(vh.Domains[0], Equals, "*")
 	c.Assert(vh.Routes, HasLen, 1)
 	c.Assert(vh.Routes[0].Match, Not(IsNil))
 	c.Assert(vh.Routes[0].Match.GetPrefix(), Equals, "/")
 	c.Assert(vh.Routes[0].GetRoute(), Not(IsNil))
-	c.Assert(vh.Routes[0].GetRoute().GetCluster(), Equals, "some_service")
+	c.Assert(vh.Routes[0].GetRoute().GetCluster(), Equals, "namespace/name/some_service")
 
 	//
 	// Check cluster resource
 	//
 	c.Assert(cec.Spec.Resources[2].TypeUrl, Equals, "type.googleapis.com/envoy.config.cluster.v3.Cluster")
 	c.Assert(resources.Clusters, HasLen, 1)
-	c.Assert(resources.Clusters[0].Name, Equals, "some_service")
+	c.Assert(resources.Clusters[0].Name, Equals, "namespace/name/some_service")
 	c.Assert(resources.Clusters[0].ConnectTimeout.Seconds, Equals, int64(0))
 	c.Assert(resources.Clusters[0].ConnectTimeout.Nanos, Equals, int32(250000000))
 	c.Assert(resources.Clusters[0].LbPolicy, Equals, envoy_config_cluster.Cluster_ROUND_ROBIN)
@@ -538,7 +538,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	//
 	c.Assert(cec.Spec.Resources[3].TypeUrl, Equals, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment")
 	c.Assert(resources.Endpoints, HasLen, 2)
-	c.Assert(resources.Endpoints[0].ClusterName, Equals, "some_service")
+	c.Assert(resources.Endpoints[0].ClusterName, Equals, "namespace/name/some_service")
 	c.Assert(resources.Endpoints[0].Endpoints, HasLen, 1)
 	c.Assert(resources.Endpoints[0].Endpoints[0].LbEndpoints, HasLen, 1)
 	addr := resources.Endpoints[0].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
@@ -552,7 +552,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	//
 	c.Assert(cec.Spec.Resources[4].TypeUrl, Equals, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment")
 	c.Assert(resources.Endpoints, HasLen, 2)
-	c.Assert(resources.Endpoints[1].ClusterName, Equals, "other_service")
+	c.Assert(resources.Endpoints[1].ClusterName, Equals, "namespace/name/other_service")
 	c.Assert(resources.Endpoints[1].Endpoints, HasLen, 1)
 	c.Assert(resources.Endpoints[1].Endpoints[0].LbEndpoints, HasLen, 1)
 	addr = resources.Endpoints[1].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
@@ -657,10 +657,10 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
 	//
 	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.config.cluster.v3.Cluster")
 	c.Assert(resources.Clusters, HasLen, 1)
-	c.Assert(resources.Clusters[0].Name, Equals, "cluster_0")
+	c.Assert(resources.Clusters[0].Name, Equals, "namespace/name/cluster_0")
 	c.Assert(resources.Clusters[0].ConnectTimeout.Seconds, Equals, int64(5))
 	c.Assert(resources.Clusters[0].ConnectTimeout.Nanos, Equals, int32(0))
-	c.Assert(resources.Clusters[0].LoadAssignment.ClusterName, Equals, "cluster_0")
+	c.Assert(resources.Clusters[0].LoadAssignment.ClusterName, Equals, "namespace/name/cluster_0")
 	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints, HasLen, 1)
 	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints, HasLen, 1)
 	addr := resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
@@ -701,7 +701,7 @@ spec:
                     string_match:
                       exact: "POST"
                 route:
-                  cluster: service_google
+                  cluster: default/service_google
                   upgrade_configs:
                   - upgrade_type: CONNECT
                     connect_config:
@@ -713,14 +713,14 @@ spec:
           http2_protocol_options:
             allow_connect: true
   - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
-    name: service_google
+    name: default/service_google
     connect_timeout: 5s
     type: LOGICAL_DNS
     # Comment out the following line to test on v6 networks
     dns_lookup_family: V4_ONLY
     lb_policy: ROUND_ROBIN
     load_assignment:
-      cluster_name: service_google
+      cluster_name: default/service_google
       endpoints:
       - lb_endpoints:
         - endpoint:
@@ -781,19 +781,22 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
 	c.Assert(hcm.HttpFilters, HasLen, 2)
 	c.Assert(hcm.HttpFilters[0].Name, Equals, "cilium.l7policy")
 	c.Assert(hcm.HttpFilters[1].Name, Equals, "envoy.filters.http.router")
+	c.Assert(hcm.GetRouteConfig().Name, Equals, "namespace/name/local_route")
+	c.Assert(hcm.GetRouteConfig().VirtualHosts[0].Name, Equals, "namespace/name/local_service")
+	c.Assert(hcm.GetRouteConfig().VirtualHosts[0].Routes[0].GetRoute().GetCluster(), Equals, "default/service_google")
 	//
 	// Check cluster resource
 	//
 	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.config.cluster.v3.Cluster")
 	c.Assert(resources.Clusters, HasLen, 1)
-	c.Assert(resources.Clusters[0].Name, Equals, "service_google")
+	c.Assert(resources.Clusters[0].Name, Equals, "default/service_google")
 	c.Assert(resources.Clusters[0].ConnectTimeout.Seconds, Equals, int64(5))
 	c.Assert(resources.Clusters[0].ConnectTimeout.Nanos, Equals, int32(0))
 	c.Assert(resources.Clusters[0].GetType(), Equals, envoy_config_cluster.Cluster_LOGICAL_DNS)
 	c.Assert(resources.Clusters[0].GetDnsLookupFamily(), Equals, envoy_config_cluster.Cluster_V4_ONLY)
 	c.Assert(resources.Clusters[0].LbPolicy, Equals, envoy_config_cluster.Cluster_ROUND_ROBIN)
 
-	c.Assert(resources.Clusters[0].LoadAssignment.ClusterName, Equals, "service_google")
+	c.Assert(resources.Clusters[0].LoadAssignment.ClusterName, Equals, "default/service_google")
 	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints, HasLen, 1)
 	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints, HasLen, 1)
 	addr := resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
