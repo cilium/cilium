@@ -562,6 +562,9 @@ data:
   {{- end }}
   {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
+    {{- if .Values.encryption.lbEncryption }}
+  encrypt-lb: {{ .Values.encryption.lbEncryption | quote }}
+    {{- end }}
   {{- end }}
 {{- end }}
 

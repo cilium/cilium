@@ -655,6 +655,7 @@ kubespray
 kvstore
 labelsContext
 latencies
+lbEncryption
 lbExternalClusterIP
 lbIPAM
 lbMapMax

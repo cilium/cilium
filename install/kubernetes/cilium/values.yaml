@@ -742,6 +742,10 @@ encryption:
   # This option is only effective when encryption.type is set to "wireguard".
   nodeEncryption: false
 
+  # -- Enable encryption for N/S traffic when an intermediate node redirects an LB traffic to a backend node.
+  # This option is only effective when encryption.type is set to "wireguard" and encryption.nodeEncryption is set true.
+  lbEncryption: false
+
   ipsec:
     # -- Name of the key file inside the Kubernetes secret configured via secretName.
     keyFile: ""

@@ -816,6 +816,10 @@
      - Deprecated in favor of encryption.ipsec.keyFile. To be removed in 1.15. Name of the key file inside the Kubernetes secret configured via secretName. This option is only effective when encryption.type is set to ipsec.
      - string
      - ``"keys"``
+   * - encryption.lbEncryption
+     - Enable encryption for N/S traffic when an intermediate node redirects an LB traffic to a backend node. This option is only effective when encryption.type is set to "wireguard" and encryption.nodeEncryption is set true.
+     - bool
+     - ``false``
    * - encryption.mountPath
      - Deprecated in favor of encryption.ipsec.mountPath. To be removed in 1.15. Path to mount the secret inside the Cilium pod. This option is only effective when encryption.type is set to ipsec.
      - string
