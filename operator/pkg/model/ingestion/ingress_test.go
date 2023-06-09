@@ -23,6 +23,9 @@ var testAnnotations = map[string]string{
 	"service.alpha.kubernetes.io/dummy-load-balancer-access-log-enabled": "true",
 }
 
+var defaultSecretNamespace = "default-secret-namespace"
+var defaultSecretName = "default-secret-name"
+
 // Add the ingress objects in
 // https://github.com/kubernetes-sigs/ingress-controller-conformance/tree/master/features
 // as test fixtures
@@ -1236,9 +1239,41 @@ func uint32p(in uint32) *uint32 {
 	return &in
 }
 
+func removeIngressTLSsecretName(ing slim_networkingv1.Ingress) slim_networkingv1.Ingress {
+	ret := slim_networkingv1.Ingress{}
+	ing.DeepCopyInto(&ret)
+	for i := range ret.Spec.TLS {
+		ret.Spec.TLS[i].SecretName = ""
+	}
+	return ret
+}
+
+func removeListenersTLSsecret(listeners []model.HTTPListener) []model.HTTPListener {
+	ret := []model.HTTPListener{}
+	for _, listener := range listeners {
+		listener.TLS = nil
+		ret = append(ret, listener)
+	}
+	return ret
+}
+
+func useDefaultListenersTLSsecret(listeners []model.HTTPListener) []model.HTTPListener {
+	ret := []model.HTTPListener{}
+	for _, listener := range listeners {
+		if listener.Port == 443 {
+			listener.TLS = []model.TLSSecret{
+				{Namespace: defaultSecretNamespace, Name: defaultSecretName},
+			}
+		}
+		ret = append(ret, listener)
+	}
+	return ret
+}
+
 type testcase struct {
-	ingress slim_networkingv1.Ingress
-	want    []model.HTTPListener
+	ingress       slim_networkingv1.Ingress
+	defaultSecret bool
+	want          []model.HTTPListener
 }
 
 func TestIngress(t *testing.T) {
@@ -1260,6 +1295,10 @@ func TestIngress(t *testing.T) {
 			ingress: hostRules,
 			want:    hostRulesListeners,
 		},
+		"conformance host rules test without SecretName": {
+			ingress: removeIngressTLSsecretName(hostRules),
+			want:    removeListenersTLSsecret(hostRulesListeners),
+		},
 		"conformance path rules test": {
 			ingress: pathRules,
 			want:    pathRulesListeners,
@@ -1268,16 +1307,80 @@ func TestIngress(t *testing.T) {
 			ingress: complexIngress,
 			want:    complexIngressListeners,
 		},
+		"cilium test ingress without SecretName": {
+			ingress: removeIngressTLSsecretName(complexIngress),
+			want:    removeListenersTLSsecret(complexIngressListeners),
+		},
 		"cilium test ingress with NodePort": {
 			ingress: complexNodePortIngress,
 			want:    complexNodePortIngressListeners,
+		},
+		"cilium test ingress with NodePort without SecretName": {
+			ingress: removeIngressTLSsecretName(complexNodePortIngress),
+			want:    removeListenersTLSsecret(complexNodePortIngressListeners),
+		},
+		"conformance default backend test with default secret": {
+			ingress:       defaultBackend,
+			defaultSecret: true,
+			want:          defaultBackendListeners,
+		},
+		"conformance default backend (legacy annotation) test with default secret": {
+			ingress:       defaultBackendLegacy,
+			defaultSecret: true,
+			want:          defaultBackendListeners,
+		},
+		"conformance default backend (legacy + new) test with default secret": {
+			ingress:       defaultBackendLegacyOverride,
+			defaultSecret: true,
+			want:          defaultBackendListeners,
+		},
+		"conformance host rules test with default secret": {
+			ingress:       hostRules,
+			defaultSecret: true,
+			want:          hostRulesListeners,
+		},
+		"conformance host rules test with default secret without SecretName": {
+			ingress:       removeIngressTLSsecretName(hostRules),
+			defaultSecret: true,
+			want:          useDefaultListenersTLSsecret(hostRulesListeners),
+		},
+		"conformance path rules test with default secret": {
+			ingress:       pathRules,
+			defaultSecret: true,
+			want:          pathRulesListeners,
+		},
+		"cilium test ingress with default secret": {
+			ingress:       complexIngress,
+			defaultSecret: true,
+			want:          complexIngressListeners,
+		},
+		"cilium test ingress with default secret without SecretName": {
+			ingress:       removeIngressTLSsecretName(complexIngress),
+			defaultSecret: true,
+			want:          useDefaultListenersTLSsecret(complexIngressListeners),
+		},
+		"cilium test ingress with NodePort with default secret": {
+			ingress:       complexNodePortIngress,
+			defaultSecret: true,
+			want:          complexNodePortIngressListeners,
+		},
+		"cilium test ingress with NodePort with default secret without SecretName": {
+			ingress:       removeIngressTLSsecretName(complexNodePortIngress),
+			defaultSecret: true,
+			want:          useDefaultListenersTLSsecret(complexNodePortIngressListeners),
 		},
 	}
 
 	for name, tc := range tests {
 
 		t.Run(name, func(t *testing.T) {
-			listeners := Ingress(tc.ingress)
+			var listeners []model.HTTPListener
+			if tc.defaultSecret {
+				listeners = Ingress(tc.ingress, defaultSecretNamespace, defaultSecretName)
+			} else {
+				listeners = Ingress(tc.ingress, "", "")
+			}
+
 			assert.Equal(t, tc.want, listeners, "Listeners did not match")
 		})
 	}
