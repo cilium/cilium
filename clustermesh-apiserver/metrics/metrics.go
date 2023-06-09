@@ -77,7 +77,7 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 		metrics.APILimiterWaitDuration,
 		metrics.APILimiterRequestsInFlight,
 		metrics.APILimiterRateLimit,
-		metrics.APILimiterAdjustmentFactor,
+		metrics.APILimiterProcessedRequests,
 	)
 
 	mux := http.NewServeMux()
