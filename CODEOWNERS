@@ -419,6 +419,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
 /pkg/health/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
+/pkg/hive/job/metrics.go @cilium/sig-foundations @cilium/metrics
 /pkg/hubble/ @cilium/sig-hubble
 /pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
 /pkg/identity @cilium/sig-policy

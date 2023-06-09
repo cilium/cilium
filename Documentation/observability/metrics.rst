@@ -506,6 +506,18 @@ Name                               Labels                           Default     
 ``fqdn_alive_zombie_connections``  ``endpoint``                     Disabled     Number of IPs associated with domains that have expired (by TTL) yet still associated with an active connection (aka zombie), per endpoint
 ================================== ================================ ============ ========================================================
 
+Jobs
+~~~~
+
+================================== ================================ ============ ========================================================
+Name                               Labels                           Default      Description
+================================== ================================ ============ ========================================================
+``jobs_errors_total``              ``job``                          Enabled      Number of jobs runs that returned an error
+``jobs_one_shot_run_seconds``      ``job``                          Enabled      Histogram of one shot job run duration
+``jobs_timer_run_seconds``         ``job``                          Enabled      Histogram of timer job run duration
+``jobs_observer_run_seconds``      ``job``                          Enabled      Histogram of observer job run duration
+================================== ================================ ============ ========================================================
+
 .. _metrics_api_rate_limiting:
 
 API Rate Limiting
