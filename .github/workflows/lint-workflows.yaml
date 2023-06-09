@@ -135,3 +135,25 @@ jobs:
             echo "Please fix the comments from .github/workflows/conformance-runtime.yaml accordingly"
             exit 1
           fi
+
+  ginkgo-schema-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@bd6b4b6205c4dbad673328db7b31b7fab9e241c0 # v4.6.1
+        with:
+          python-version: '3.10'
+      - run: pip install yamale
+      - name: Checkout code
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          persist-credentials: false
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+
+      - name: Validate schema of ginkgo action files
+        shell: bash
+        run: |
+          cd src/github.com/cilium/cilium/.github/actions/ginkgo/
+          for type in focus k8s-versions prs scheduled; do
+            yamale -s ${type}-schema.yaml *-${type}.yaml;
+          done
