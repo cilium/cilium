@@ -98,7 +98,14 @@ jobs:
         fetch-depth: 0
     - id: get-version
       run: |
-        echo "chart_version=$(./contrib/scripts/print-chart-version.sh)" | tee -a $GITHUB_OUTPUT
+        set -o pipefail
+        set -e
+        if [[ -f ./contrib/scripts/print-chart-version.sh ]]; then
+          echo "chart_version=$(./contrib/scripts/print-chart-version.sh)" | tee -a $GITHUB_OUTPUT
+        else
+          echo "./contrib/scripts/print-chart-version.sh missing. Perhaps it needs to be backported to your target branch?"
+          exit 1
+        fi
 
     - name: Push charts
       uses: cilium/reusable-workflows/.github/actions/push-helm-chart@6ae27958f2f37545bf48e44106b73df05b1f6d12 # v0.1.0
