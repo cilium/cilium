@@ -151,6 +151,9 @@ const (
 	// EncryptNode enables node IP encryption
 	EncryptNode = "encrypt-node"
 
+	// EncryptLB enables N/S LB traffic encryption when a node redirects an LB request to a backend node
+	EncryptLB = "encrypt-lb"
+
 	// EnvoyLog sets the path to a separate Envoy log file, if any
 	EnvoyLog = "envoy-log"
 
@@ -1396,6 +1399,7 @@ type DaemonConfig struct {
 	HostV6Addr          net.IP       // Host v6 address of the snooping device
 	EncryptInterface    []string     // Set of network facing interface to encrypt over
 	EncryptNode         bool         // Set to true for encrypting node IP traffic
+	EncryptLB           bool         // Set to true for encrypting LB traffic
 
 	// If set to true the daemon will detect new and deleted datapath devices
 	// at runtime and reconfigure the datapath to load programs onto the new
@@ -3008,6 +3012,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableLocalRedirectPolicy = vp.GetBool(EnableLocalRedirectPolicy)
 	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
+	c.EncryptLB = vp.GetBool(EncryptLB)
 	c.EnvoyLogPath = vp.GetString(EnvoyLog)
 	c.HTTPNormalizePath = vp.GetBool(HTTPNormalizePath)
 	c.HTTPIdleTimeout = vp.GetInt(HTTPIdleTimeout)

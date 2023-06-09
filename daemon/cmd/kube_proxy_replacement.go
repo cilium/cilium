@@ -154,6 +154,12 @@ func initKubeProxyReplacementOptions() error {
 			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
 		}
 
+		if (option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled ||
+			option.Config.NodePortMode != option.NodePortModeSNAT) &&
+			option.Config.EnableWireguard && option.Config.EncryptNode && option.Config.EncryptLB {
+			return fmt.Errorf("wireguard LB traffic encryption can't be used if either NodePortAcceleration or DSR mode, including Hybrid mode, is enabled")
+		}
+
 		if !option.Config.NodePortBindProtection {
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}

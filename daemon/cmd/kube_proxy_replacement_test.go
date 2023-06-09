@@ -36,6 +36,11 @@ type kprConfig struct {
 	tunnelProtocol string
 	nodePortMode   string
 	dispatchMode   string
+
+	nodePortAcceleration string
+	wireguard            bool
+	encryptNode          bool
+	encryptLB            bool
 }
 
 func (cfg *kprConfig) set() {
@@ -58,6 +63,14 @@ func (cfg *kprConfig) set() {
 	if cfg.nodePortMode == option.NodePortModeDSR || cfg.nodePortMode == option.NodePortModeHybrid {
 		option.Config.NodePortMode = cfg.nodePortMode
 	}
+
+	if cfg.nodePortAcceleration == option.NodePortAccelerationNative {
+		option.Config.NodePortAcceleration = cfg.nodePortAcceleration
+	}
+
+	option.Config.EnableWireguard = cfg.wireguard
+	option.Config.EncryptNode = cfg.encryptNode
+	option.Config.EncryptLB = cfg.encryptLB
 }
 
 func (cfg *kprConfig) verify(c *C) {
@@ -360,6 +373,76 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			},
 			kprConfig{
 				expectedErrorRegex:      "Node Port .+ mode cannot be used with .+ tunneling.",
+				enableSocketLB:          true,
+				enableNodePort:          true,
+				enableHostPort:          true,
+				enableExternalIPs:       true,
+				enableSessionAffinity:   true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+			},
+		},
+		// Node port acceleration native + Wireguard LB encryption: error as they're incompatible
+		{
+			"node-port-acceleration-native+wireguard-lb-encryption",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
+				cfg.routingMode = option.RoutingModeNative
+				cfg.nodePortMode = option.NodePortModeDSR
+				cfg.dispatchMode = option.DSRDispatchOption
+				cfg.nodePortAcceleration = option.NodePortAccelerationNative
+				cfg.wireguard = true
+				cfg.encryptNode = true
+				cfg.encryptLB = true
+			},
+			kprConfig{
+				expectedErrorRegex:      "wireguard LB traffic encryption can't be used .+",
+				enableSocketLB:          true,
+				enableNodePort:          true,
+				enableHostPort:          true,
+				enableExternalIPs:       true,
+				enableSessionAffinity:   true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+			},
+		},
+		// Node port DSR mode + Wireguard LB encryption: error as they're incompatible
+		{
+			"node-port-dsr-mode+wireguard-lb-encryption",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
+				cfg.routingMode = option.RoutingModeNative
+				cfg.nodePortMode = option.NodePortModeDSR
+				cfg.dispatchMode = option.DSRDispatchOption
+				cfg.wireguard = true
+				cfg.encryptNode = true
+				cfg.encryptLB = true
+			},
+			kprConfig{
+				expectedErrorRegex:      "wireguard LB traffic encryption can't be used .+",
+				enableSocketLB:          true,
+				enableNodePort:          true,
+				enableHostPort:          true,
+				enableExternalIPs:       true,
+				enableSessionAffinity:   true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
+			},
+		},
+		// Node port Hybrid mode + Wireguard LB encryption: error as they're incompatible
+		{
+			"node-port-hybrid-mode+wireguard-lb-encryption",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
+				cfg.routingMode = option.RoutingModeNative
+				cfg.nodePortMode = option.NodePortModeHybrid
+				cfg.dispatchMode = option.DSRDispatchOption
+				cfg.wireguard = true
+				cfg.encryptNode = true
+				cfg.encryptLB = true
+			},
+			kprConfig{
+				expectedErrorRegex:      "wireguard LB traffic encryption can't be used .+",
 				enableSocketLB:          true,
 				enableNodePort:          true,
 				enableHostPort:          true,

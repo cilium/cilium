@@ -232,6 +232,10 @@ const (
 	// node-to-node encryption
 	NodeEncryptionOptOutLabels = "node-role.kubernetes.io/control-plane"
 
+	// EncryptLB enables encrypting N/S LB traffic from an intermediate node
+	// when it redirects an LB request to a backend node
+	EncryptLB = false
+
 	// MonitorQueueSizePerCPU is the default value for the monitor queue
 	// size per CPU
 	MonitorQueueSizePerCPU = 1024

@@ -287,6 +287,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EncryptNode {
 			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
 		}
+
+		if option.Config.EncryptLB {
+			cDefinesMap["ENABLE_LB_ENCRYPTION"] = "1"
+		}
 	}
 
 	if option.Config.EnableL2Announcements {
