@@ -370,6 +370,13 @@ l2announcements:
   # -- The timeout between retries if renewal fails
   # leaseRetryPeriod: 2s
 
+# -- Configure L2 pod announcements
+l2podAnnouncements:
+  # -- Enable L2 pod announcements
+  enabled: false
+  # -- Interface used for sending Gratuitous ARP pod announcements
+  interface: "eth0"
+
 # -- Configure BGP
 bgp:
   # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside
