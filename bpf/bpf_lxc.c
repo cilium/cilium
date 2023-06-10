@@ -166,7 +166,7 @@ int NAME(struct __ctx_buff *ctx)						\
 										\
 	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);				\
 	if (hdrlen < 0)								\
-		return hdrlen;							\
+		return drop_for_direction(ctx, DIR, hdrlen);			\
 										\
 	l4_off = ETH_HLEN + hdrlen;						\
 										\
