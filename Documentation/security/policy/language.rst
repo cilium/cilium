@@ -305,8 +305,7 @@ Limitations
 ~~~~~~~~~~~
 
 ``toServices`` statements must not be combined with ``toPorts`` statements in the
-same rule. In the presence of a ``toPorts`` statement, ``toServices`` does nothing
-and as a result all egress traffic to port(s) specified by ``toPorts`` is allowed.
+same rule. If a rule combines both these statements, the policy is rejected.
 
 .. _Entities based:
 
