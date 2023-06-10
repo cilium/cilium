@@ -1034,20 +1034,10 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 					 const struct ct_state *ct_state __maybe_unused,
 					 bool has_l4_header)
 {
-	struct csum_offset csum_off = {};
 	__be32 old_sip, sum = 0;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
-
-	if (has_l4_header)
-		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
-
-	if (nat->port && has_l4_header) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, &csum_off);
-		if (IS_ERR(ret))
-			return ret;
-	}
 
 	if (flags & REV_NAT_F_TUPLE_SADDR) {
 		old_sip = tuple->saddr;
@@ -1094,9 +1084,22 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 
-	if (csum_off.offset &&
-	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
+	if (has_l4_header) {
+		struct csum_offset csum_off = {};
+
+		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
+		if (nat->port) {
+			ret = reverse_map_l4_port(ctx, tuple->nexthdr,
+						  nat->port, l4_off, &csum_off);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
+		if (csum_off.offset &&
+		    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+	}
 
 	return 0;
 }
