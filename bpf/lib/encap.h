@@ -212,21 +212,25 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 }
 #endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 
-static __always_inline __be16 tunnel_gen_src_port_v4(void)
+static __always_inline __be16
+tunnel_gen_src_port_v4(struct ipv4_ct_tuple *tuple __maybe_unused)
 {
 #if __ctx_is == __ctx_xdp
-	/* TODO hash, based on CT tuple */
-	return bpf_htons(TUNNEL_PORT);
+	__be32 hash = hash_from_tuple_v4(tuple);
+
+	return (hash >> 16)  ^ (__be16)hash;
 #else
 	return 0;
 #endif
 }
 
-static __always_inline __be16 tunnel_gen_src_port_v6(void)
+static __always_inline __be16
+tunnel_gen_src_port_v6(struct ipv6_ct_tuple *tuple __maybe_unused)
 {
 #if __ctx_is == __ctx_xdp
-	/* TODO hash, based on CT tuple */
-	return bpf_htons(TUNNEL_PORT);
+	__be32 hash = hash_from_tuple_v6(tuple);
+
+	return (hash >> 16)  ^ (__be16)hash;
 #else
 	return 0;
 #endif
