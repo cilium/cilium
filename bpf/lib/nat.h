@@ -678,7 +678,7 @@ snat_v4_rev_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4
  */
 static __always_inline __maybe_unused int
 snat_v4_create_dsr(const struct ipv4_ct_tuple *tuple,
-		   __be32 to_saddr, __be16 to_sport)
+		   __be32 to_saddr, __be16 to_sport, __s8 *ext_err)
 {
 	struct ipv4_ct_tuple tmp = *tuple;
 	struct ipv4_nat_entry state = {};
@@ -695,8 +695,10 @@ snat_v4_create_dsr(const struct ipv4_ct_tuple *tuple,
 	state.to_sport = to_sport;
 
 	ret = map_update_elem(&SNAT_MAPPING_IPV4, &tmp, &state, 0);
-	if (ret)
-		return ret;
+	if (ret) {
+		*ext_err = (__s8)ret;
+		return DROP_NAT_NO_MAPPING;
+	}
 
 	return CTX_ACT_OK;
 }
@@ -1659,7 +1661,7 @@ snat_v6_rev_nat_can_skip(const struct ipv6_nat_target *target, const struct ipv6
 
 static __always_inline __maybe_unused int
 snat_v6_create_dsr(const struct ipv6_ct_tuple *tuple, union v6addr *to_saddr,
-		   __be16 to_sport)
+		   __be16 to_sport, __s8 *ext_err)
 {
 	struct ipv6_ct_tuple tmp = *tuple;
 	struct ipv6_nat_entry state = {};
@@ -1676,8 +1678,10 @@ snat_v6_create_dsr(const struct ipv6_ct_tuple *tuple, union v6addr *to_saddr,
 	state.to_sport = to_sport;
 
 	ret = map_update_elem(&SNAT_MAPPING_IPV6, &tmp, &state, 0);
-	if (ret)
-		return ret;
+	if (ret) {
+		*ext_err = (__s8)ret;
+		return DROP_NAT_NO_MAPPING;
+	}
 
 	return CTX_ACT_OK;
 }
