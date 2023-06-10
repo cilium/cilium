@@ -587,6 +587,7 @@ int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	__u32 monitor = 0;
 	bool dsr = false;
+	__s8 ext_err = 0;
 	int ret, l4_off;
 	__be16 port = 0;
 
@@ -624,7 +625,7 @@ create_ct:
 		ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
 				 CT_EGRESS, &ct_state_new, false, false, false);
 		if (!IS_ERR(ret))
-			ret = snat_v6_create_dsr(&tuple, &addr, port);
+			ret = snat_v6_create_dsr(&tuple, &addr, port, &ext_err);
 
 		if (IS_ERR(ret))
 			goto drop_err;
@@ -646,7 +647,7 @@ create_ct:
 	ret = DROP_MISSED_TAIL_CALL;
 
 drop_err:
-	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
 }
 #endif /* ENABLE_DSR */
 
@@ -1892,6 +1893,7 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 	struct iphdr *ip4;
 	__u32 monitor = 0;
 	bool dsr = false;
+	__s8 ext_err = 0;
 	int ret, l4_off;
 	__be32 addr = 0;
 	__be16 port = 0;
@@ -1942,7 +1944,7 @@ create_ct:
 		ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
 				 CT_EGRESS, &ct_state_new, false, false, false);
 		if (!IS_ERR(ret))
-			ret = snat_v4_create_dsr(&tuple, addr, port);
+			ret = snat_v4_create_dsr(&tuple, addr, port, &ext_err);
 
 		if (IS_ERR(ret))
 			goto drop_err;
@@ -1974,7 +1976,8 @@ create_ct:
 	ret = DROP_MISSED_TAIL_CALL;
 
 drop_err:
-	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP,
+					  METRIC_INGRESS);
 }
 #endif /* ENABLE_DSR */
 
