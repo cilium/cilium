@@ -44,7 +44,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
 {
-	int ret, l3_off = ETH_HLEN, hdrlen;
+	int ret, l3_off = ETH_HLEN;
 	struct remote_endpoint_info *info;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
@@ -135,18 +135,11 @@ not_esp:
 	/* Lookup IPv6 address in list of local endpoints */
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep) {
-		__u8 nexthdr;
-
 		/* Let through packets to the node-ip so they are processed by
 		 * the local ip stack.
 		 */
 		if (ep->flags & ENDPOINT_F_HOST)
 			goto to_host;
-
-		nexthdr = ip6->nexthdr;
-		hdrlen = ipv6_hdrlen(ctx, &nexthdr);
-		if (hdrlen < 0)
-			return hdrlen;
 
 		return ipv6_local_delivery(ctx, l3_off, *identity, ep,
 					   METRIC_INGRESS, false, false);
