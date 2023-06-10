@@ -247,8 +247,8 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 __be16 svc_port,
 						 int *ifindex, int *ohead)
 {
-	__be16 src_port = tunnel_gen_src_port_v6();
 	struct remote_endpoint_info *info;
+	struct ipv6_ct_tuple tuple = {};
 	struct geneve_dsr_opt6 gopt;
 	union v6addr *dst;
 	bool need_opt = true;
@@ -258,8 +258,8 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	__u32 dst_sec_identity;
 	__be32 tunnel_endpoint;
 	__u16 total_len = 0;
-	__u8 nexthdr = ip6->nexthdr;
-	int hdrlen;
+	__be16 src_port;
+	int l4_off, ret;
 
 	dst = (union v6addr *)&ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
@@ -269,15 +269,17 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	tunnel_endpoint = info->tunnel_endpoint;
 	dst_sec_identity = info->sec_identity;
 
-	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
-	if (hdrlen < 0)
-		return hdrlen;
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+	if (IS_ERR(ret))
+		return ret;
+
+	src_port = tunnel_gen_src_port_v6(&tuple);
 
 	/* See encap_geneve_dsr_opt4(): */
-	if (nexthdr == IPPROTO_TCP) {
+	if (tuple.nexthdr == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
 
-		if (l4_load_tcp_flags(ctx, ETH_HLEN + hdrlen, &tcp_flags) < 0)
+		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
 		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
@@ -883,7 +885,20 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
-		__be16 src_port = tunnel_gen_src_port_v6();
+		struct ipv6_ct_tuple tuple = {};
+		__be16 src_port;
+		int l4_off;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
+		ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+		if (IS_ERR(ret))
+			goto drop_err;
+
+		src_port = tunnel_gen_src_port_v6(&tuple);
 
 		ret = __encap_with_nodeid(ctx,
 					  IPV4_DIRECT_ROUTING,
@@ -1242,7 +1257,7 @@ out:
 	return DROP_MISSED_TAIL_CALL;
 #ifdef TUNNEL_MODE
 encap_redirect:
-	src_port = tunnel_gen_src_port_v6();
+	src_port = tunnel_gen_src_port_v6(&tuple);
 
 	ret = __encap_with_nodeid(ctx, IPV4_DIRECT_ROUTING, src_port,
 				  tunnel_endpoint, SECLABEL, dst_sec_identity,
@@ -1572,7 +1587,6 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 						 __be16 svc_port, int *ifindex, __be16 *ohead)
 {
 	struct remote_endpoint_info *info __maybe_unused;
-	__be16 src_port = tunnel_gen_src_port_v4();
 	struct geneve_dsr_opt4 gopt;
 	bool need_opt = true;
 	__u16 encap_len = sizeof(struct iphdr) + sizeof(struct udphdr) +
@@ -1581,6 +1595,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 	__u32 src_sec_identity = WORLD_ID;
 	__u32 dst_sec_identity;
 	__be32 tunnel_endpoint;
+	__be16 src_port = 0;
 #if __ctx_is == __ctx_xdp
 	bool has_encap = l3_off > ETH_HLEN;
 	struct iphdr *outer_ip4 = ip4;
@@ -1592,6 +1607,15 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 			return DROP_INVALID;
 
 		encap_len = 0;
+	} else {
+		struct ipv4_ct_tuple tuple = {};
+		int l4_off, ret;
+
+		ret = lb4_extract_tuple(ctx, ip4, l3_off, &l4_off, &tuple);
+		if (IS_ERR(ret))
+			return ret;
+
+		src_port = tunnel_gen_src_port_v4(&tuple);
 	}
 #endif
 
@@ -2191,7 +2215,20 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
-		__be16 src_port = tunnel_gen_src_port_v4();
+		struct ipv4_ct_tuple tuple = {};
+		__be16 src_port;
+		int l4_off;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
+		ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+		if (IS_ERR(ret))
+			goto drop_err;
+
+		src_port = tunnel_gen_src_port_v4(&tuple);
 
 		/* The request came from outside, so we need to
 		 * set the security id in the tunnel header to WORLD_ID.
@@ -2547,10 +2584,23 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
 	__be16 src_port __maybe_unused = 0;
+	bool check_revdnat = true;
 	bool has_l4_header;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+	has_l4_header = ipv4_has_l4_header(ip4);
+
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	if (ret < 0) {
+		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
+		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+			check_revdnat = false;
+		else
+			return ret;
+	}
+
 #if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE)
 	/* If we are not using TUNNEL_MODE, the gateway node needs to manually steer
 	 * any reply traffic for a remote pod into the tunnel (to avoid iptables
@@ -2560,15 +2610,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 		goto encap_redirect;
 #endif /* ENABLE_EGRESS_GATEWAY */
 
-	has_l4_header = ipv4_has_l4_header(ip4);
-
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
-	if (ret < 0) {
-		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
-		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
-			goto out;
-		return ret;
-	}
+	if (!check_revdnat)
+		goto out;
 
 	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple, false))
 		goto out;
@@ -2609,7 +2652,7 @@ out:
 	return DROP_MISSED_TAIL_CALL;
 #if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
 encap_redirect:
-	src_port = tunnel_gen_src_port_v4();
+	src_port = tunnel_gen_src_port_v4(&tuple);
 
 	ret = __encap_with_nodeid(ctx, IPV4_DIRECT_ROUTING, src_port,
 				  tunnel_endpoint, SECLABEL, dst_sec_identity,
