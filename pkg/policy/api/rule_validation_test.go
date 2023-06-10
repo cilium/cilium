@@ -627,7 +627,7 @@ func (s *PolicyAPITestSuite) TestToServicesSanitize(c *C) {
 	}
 
 	err := toServicesL3L4.Sanitize()
-	c.Assert(err, IsNil)
+	c.Assert(err, NotNil)
 
 }
 
