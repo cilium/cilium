@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strconv"
 	"sync"
 	"unsafe"
 
@@ -129,8 +130,8 @@ type RemoteEndpointInfo struct {
 }
 
 func (v *RemoteEndpointInfo) String() string {
-	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s nodeid=%d",
-		v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.NodeID)
+	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s nodeid=0x%s",
+		v.SecurityIdentity, v.Key, v.TunnelEndpoint, strconv.FormatUint(uint64(v.NodeID), 16))
 }
 
 func (v *RemoteEndpointInfo) New() bpf.MapValue { return &RemoteEndpointInfo{} }

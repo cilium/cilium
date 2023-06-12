@@ -81,7 +81,7 @@ func printNodeIDList(nodeIDList []nodeID) {
 
 	fmt.Fprintln(w, "NODE ID\tIP ADDRESSES")
 	for _, nodeID := range nodeIDList {
-		fmt.Fprintf(w, "%d\t%s\n", nodeID.ID, nodeID.Address)
+		fmt.Fprintf(w, "0x%x\t%s\n", nodeID.ID, nodeID.Address)
 	}
 
 	w.Flush()
