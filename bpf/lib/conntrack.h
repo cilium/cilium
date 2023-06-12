@@ -705,33 +705,6 @@ ipv4_ct_reverse_tuple_daddr(const struct ipv4_ct_tuple *rtuple)
 	return rtuple->saddr;
 }
 
-static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
-						    int off,
-						    enum ct_dir dir __maybe_unused,
-						    __be16 *ports,
-						    bool *has_l4_header __maybe_unused)
-{
-#ifdef ENABLE_IPV4_FRAGMENTS
-	void *data, *data_end;
-	struct iphdr *ip4;
-
-	/* This function is called from ct_lookup4(), which is sometimes called
-	 * after data has been invalidated (see handle_ipv4_from_lxc())
-	 */
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_CT_INVALID_HDR;
-
-	return ipv4_handle_fragmentation(ctx, ip4, off, dir,
-				    (struct ipv4_frag_l4ports *)ports,
-				    has_l4_header);
-#else
-	if (l4_load_ports(ctx, off, ports) < 0)
-		return DROP_CT_INVALID_HDR;
-#endif
-
-	return CTX_ACT_OK;
-}
-
 static __always_inline int
 ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 		  struct ipv4_ct_tuple *tuple, bool *has_l4_header)
@@ -779,8 +752,8 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		err = ipv4_ct_extract_l4_ports(ctx, off, dir, &tuple->dport,
-					       has_l4_header);
+		err = ipv4_load_l4_ports(ctx, NULL, off, dir, &tuple->dport,
+					 has_l4_header);
 		if (err < 0)
 			return err;
 

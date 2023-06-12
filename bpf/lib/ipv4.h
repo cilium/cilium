@@ -7,6 +7,7 @@
 #include <linux/ip.h>
 
 #include "dbg.h"
+#include "l4.h"
 #include "metrics.h"
 
 #define IPV4_SADDR_OFF		offsetof(struct iphdr, saddr)
@@ -180,5 +181,32 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 	return 0;
 }
 #endif
+
+static __always_inline int
+ipv4_load_l4_ports(struct __ctx_buff *ctx, struct iphdr *ip4 __maybe_unused,
+		   int l4_off, enum ct_dir dir __maybe_unused,
+		   __be16 *ports, bool *has_l4_header __maybe_unused)
+{
+#ifdef ENABLE_IPV4_FRAGMENTS
+	if (!ip4) {
+		void *data, *data_end;
+
+		/* This function is called from ct_lookup4(), which is sometimes called
+		 * after data has been invalidated (see handle_ipv4_from_lxc())
+		 */
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_CT_INVALID_HDR;
+	}
+
+	return ipv4_handle_fragmentation(ctx, ip4, l4_off, dir,
+					 (struct ipv4_frag_l4ports *)ports,
+					 has_l4_header);
+#else
+	if (l4_load_ports(ctx, l4_off, ports) < 0)
+		return DROP_CT_INVALID_HDR;
+#endif
+
+	return CTX_ACT_OK;
+}
 
 #endif /* __LIB_IPV4__ */
