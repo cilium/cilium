@@ -32,7 +32,7 @@ func Test(t *testing.T) {
 type StoreSuite struct{}
 
 func (s *StoreSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 type StoreEtcdSuite struct {
@@ -42,7 +42,7 @@ type StoreEtcdSuite struct {
 var _ = Suite(&StoreEtcdSuite{})
 
 func (e *StoreEtcdSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (e *StoreEtcdSuite) SetUpTest(c *C) {
@@ -61,7 +61,7 @@ type StoreConsulSuite struct {
 var _ = Suite(&StoreConsulSuite{})
 
 func (e *StoreConsulSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (e *StoreConsulSuite) SetUpTest(c *C) {

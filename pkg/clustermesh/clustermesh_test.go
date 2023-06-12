@@ -40,7 +40,7 @@ type ClusterMeshTestSuite struct{}
 var _ = Suite(&ClusterMeshTestSuite{})
 
 func (s *ClusterMeshTestSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 var (

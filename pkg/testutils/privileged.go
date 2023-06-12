@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-
-	check "github.com/cilium/checkmate"
 )
 
 const (
@@ -39,13 +37,6 @@ func IntegrationTest(tb testing.TB) {
 
 	if os.Getenv(integrationEnv) == "" {
 		tb.Skip(fmt.Sprintf("Set %s to run this test", integrationEnv))
-	}
-}
-
-// IntegrationCheck only executes c if integration tests are requested.
-func IntegrationCheck(c *check.C) {
-	if os.Getenv(integrationEnv) == "" {
-		c.Skip(fmt.Sprintf("Set %s to run this test", integrationEnv))
 	}
 }
 

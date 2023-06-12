@@ -54,7 +54,7 @@ type ClusterMeshServicesTestSuite struct {
 var _ = Suite(&ClusterMeshServicesTestSuite{})
 
 func (s *ClusterMeshServicesTestSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {

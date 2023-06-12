@@ -63,7 +63,7 @@ var suite = EndpointSuite{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
 var _ = Suite(&suite)
 
 func (s *EndpointSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 
 	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
 	s.repo = policy.NewPolicyRepository(nil, nil, nil, nil)
