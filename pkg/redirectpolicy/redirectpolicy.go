@@ -67,6 +67,9 @@ type LRPConfig struct {
 	// backendPortsByPortName is a map indexed by port name with the value as
 	// a pointer to bePortInfo for easy lookup into backendPorts
 	backendPortsByPortName map[portName]*bePortInfo
+	// skipRedirectFromBackend is the flag that enables/disables redirection
+	// for traffic matching the policy frontend(s) from the backends selected by the policy
+	skipRedirectFromBackend bool
 }
 
 type frontend = lb.L3n4Addr
@@ -288,14 +291,15 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 	selector := api.NewESFromK8sLabelSelector("", &redirectTo.LocalEndpointSelector)
 
 	return &LRPConfig{
-		uid:                    uid,
-		serviceID:              k8sSvc,
-		frontendMappings:       feMappings,
-		backendSelector:        selector,
-		backendPorts:           bePorts,
-		backendPortsByPortName: bePortsMap,
-		lrpType:                lrpType,
-		frontendType:           frontendType,
+		uid:                     uid,
+		serviceID:               k8sSvc,
+		frontendMappings:        feMappings,
+		backendSelector:         selector,
+		backendPorts:            bePorts,
+		backendPortsByPortName:  bePortsMap,
+		lrpType:                 lrpType,
+		frontendType:            frontendType,
+		skipRedirectFromBackend: spec.SkipRedirectFromBackend,
 		id: k8s.ServiceID{
 			Name:      name,
 			Namespace: namespace,
