@@ -12,7 +12,7 @@ debug: all
 
 include Makefile.defs
 
-SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool tools/mount tools/sysctlfix
+SUBDIRS_CILIUM_CONTAINER := envoy bpf cilium daemon cilium-health bugtool tools/mount tools/sysctlfix
 SUBDIR_OPERATOR_CONTAINER := operator
 
 # Add the ability to override variables
