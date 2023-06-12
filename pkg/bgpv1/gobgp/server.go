@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	apb "google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -53,7 +54,7 @@ type GoBGPServer struct {
 }
 
 // NewGoBGPServerWithConfig returns instance of go bgp router wrapper.
-func NewGoBGPServerWithConfig(ctx context.Context, log *logrus.Entry, params types.ServerParameters) (types.Router, error) {
+func NewGoBGPServerWithConfig(ctx context.Context, log *logrus.Entry, params types.ServerParameters, _ *agent.ControlPlaneState) (types.Router, error) {
 	logger := NewServerLogger(log.Logger, LogParams{
 		AS:        params.Global.ASN,
 		Component: "gobgp.BgpServerInstance",

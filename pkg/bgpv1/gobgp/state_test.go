@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging"
@@ -255,18 +256,29 @@ func TestGetPeerState(t *testing.T) {
 			},
 		}
 		t.Run(tt.name, func(t *testing.T) {
-			testSC, err := NewGoBGPServerWithConfig(context.Background(), log, srvParams)
+			testSC, err := NewGoBGPServerWithConfig(context.Background(), log, srvParams, &agent.ControlPlaneState{})
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
 				testSC.Stop()
 			})
+			// create current vRouter config and add neighbors
+			router := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:  int64(tt.localASN),
+				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
+			}
 
 			// add neighbours
 			for _, n := range tt.neighbors {
 				n.SetDefaults()
+
+				router.Neighbors = append(router.Neighbors, v2alpha1api.CiliumBGPNeighbor{
+					PeerAddress: n.PeerAddress,
+					PeerASN:     n.PeerASN,
+				})
 				err = testSC.AddNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: n,
+					VR:       router,
 				})
 				if tt.errStr != "" {
 					require.EqualError(t, err, tt.errStr)
@@ -290,6 +302,7 @@ func TestGetPeerState(t *testing.T) {
 				n.SetDefaults()
 				err = testSC.UpdateNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: n,
+					VR:       router,
 				})
 				if tt.updateErrStr != "" {
 					require.EqualError(t, err, tt.updateErrStr)

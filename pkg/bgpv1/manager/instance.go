@@ -6,6 +6,7 @@ package manager
 import (
 	"context"
 
+	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -45,8 +46,8 @@ type ServerWithConfig struct {
 //
 // Canceling the provided context will kill the BgpServer along with calling the
 // underlying BgpServer's Stop() method.
-func NewServerWithConfig(ctx context.Context, params types.ServerParameters) (*ServerWithConfig, error) {
-	s, err := gobgp.NewGoBGPServerWithConfig(ctx, log, params)
+func NewServerWithConfig(ctx context.Context, params types.ServerParameters, cstate *agent.ControlPlaneState) (*ServerWithConfig, error) {
+	s, err := gobgp.NewGoBGPServerWithConfig(ctx, log, params, cstate)
 	if err != nil {
 		return nil, err
 	}

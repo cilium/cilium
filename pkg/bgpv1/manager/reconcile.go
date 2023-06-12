@@ -155,7 +155,7 @@ func preflightReconciler(
 	sc.Server.Stop()
 
 	// create a new one via ServerWithConfig constructor
-	s, err := NewServerWithConfig(ctx, globalConfig)
+	s, err := NewServerWithConfig(ctx, globalConfig, cstate)
 	if err != nil {
 		l.WithError(err).Errorf("Failed to start BGP server for virtual router with local ASN %v", newc.LocalASN)
 		return fmt.Errorf("failed to start BGP server for virtual router with local ASN %v: %w", newc.LocalASN, err)
@@ -300,7 +300,7 @@ func neighborReconciler(
 	// create new neighbors
 	for _, n := range toCreate {
 		l.Infof("Adding peer %v %v to local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
-		if err := sc.Server.AddNeighbor(ctx, types.NeighborRequest{Neighbor: n}); err != nil {
+		if err := sc.Server.AddNeighbor(ctx, types.NeighborRequest{Neighbor: n, VR: newc}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
 	}
@@ -308,7 +308,7 @@ func neighborReconciler(
 	// update neighbors
 	for _, n := range toUpdate {
 		l.Infof("Updating peer %v %v in local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
-		if err := sc.Server.UpdateNeighbor(ctx, types.NeighborRequest{Neighbor: n}); err != nil {
+		if err := sc.Server.UpdateNeighbor(ctx, types.NeighborRequest{Neighbor: n, VR: newc}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
 	}
@@ -316,7 +316,7 @@ func neighborReconciler(
 	// remove neighbors
 	for _, n := range toRemove {
 		l.Infof("Removing peer %v %v from local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
-		if err := sc.Server.RemoveNeighbor(ctx, types.NeighborRequest{Neighbor: n}); err != nil {
+		if err := sc.Server.RemoveNeighbor(ctx, types.NeighborRequest{Neighbor: n, VR: newc}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
 	}

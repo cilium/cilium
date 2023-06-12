@@ -105,7 +105,7 @@ func TestPreflightReconciler(t *testing.T) {
 					ListenPort: tt.localPort,
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
@@ -313,7 +313,7 @@ func TestNeighborReconciler(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
@@ -330,6 +330,7 @@ func TestNeighborReconciler(t *testing.T) {
 				oldc.Neighbors = append(oldc.Neighbors, n)
 				testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: &n,
+					VR:       oldc,
 				})
 			}
 			testSC.Config = oldc
@@ -468,7 +469,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				ExportPodCIDR: pointer.Bool(tt.enabled),
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
@@ -1055,7 +1056,7 @@ func TestLBServiceReconciler(t *testing.T) {
 				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
 				ServiceSelector: tt.oldServiceSelector,
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
@@ -1198,7 +1199,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 		},
 	}
 
-	testSC, err := NewServerWithConfig(context.Background(), srvParams)
+	testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
 	require.NoError(t, err)
 
 	originalServer := testSC.Server
