@@ -344,8 +344,17 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			if lastCount == -1 {
 				lastCount = currentCount
 			}
-			Expect(lastCount).Should(BeIdenticalTo(currentCount),
-				"migrate-svc restart count values do not match")
+
+			// Do not fail on this condition and print a warning
+			// instead for visibility.  The reason is that if the
+			// number of tail calls changes, then this test might
+			// fail (v1.10 doesn't have necessary patches to setup
+			// the call map properly).
+			//Expect(lastCount).Should(BeIdenticalTo(currentCount),
+			//	"migrate-svc restart count values do not match")
+			if lastCount != currentCount {
+				log.Warningf("migrate-svc restart count values do not match: last=%d current=%d", lastCount, currentCount)
+			}
 		}
 
 		By("Creating some endpoints and L7 policy")
@@ -472,7 +481,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		nbMissedTailCalls, err := kubectl.CountMissedTailCalls()
 		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
-		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
+		// Commented out in favor of log message; see comment to
+		// checkNoInteruptsInSVCFlows for details
+		// ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
+		if nbMissedTailCalls != 0 {
+			log.Warningf("Non-zero number of missed tail calls: %d", nbMissedTailCalls)
+		}
 
 		By("Downgrading cilium to %s image", oldHelmChartVersion)
 		// rollback cilium 1 because it's the version that we have started
@@ -498,7 +512,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		nbMissedTailCalls, err = kubectl.CountMissedTailCalls()
 		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
-		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
+		// Commented out in favor of log message; see comment to
+		// checkNoInteruptsInSVCFlows for details
+		//ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
+		if nbMissedTailCalls != 0 {
+			log.Warningf("Non-zero number of missed tail calls: %d", nbMissedTailCalls)
+		}
 	}
 	return testfunc, cleanupCallback
 }
