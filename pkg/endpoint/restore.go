@@ -406,6 +406,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		DatapathConfiguration:    e.DatapathConfiguration,
 		CiliumEndpointUID:        e.ciliumEndpointUID,
 		Properties:               e.properties,
+		NetnsCookie:              e.netNsCookie,
 	}
 }
 
@@ -514,6 +515,8 @@ type serializableEndpoint struct {
 
 	// Properties are used to store some internal property about this Endpoint.
 	Properties map[string]interface{}
+
+	NetnsCookie uint64
 }
 
 // UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
@@ -571,4 +574,5 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	} else {
 		ep.properties = map[string]interface{}{}
 	}
+	ep.netNsCookie = r.NetnsCookie
 }

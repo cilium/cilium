@@ -408,6 +408,8 @@ type Endpoint struct {
 	// Root scope for all of this endpoints reporters.
 	reporterScope       cell.Scope
 	closeHealthReporter func()
+
+	netNsCookie uint64
 }
 
 func (e *Endpoint) GetRealizedRedirects() (redirects map[string]uint16) {
@@ -945,6 +947,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 	ctx, cancel := context.WithCancel(ctx)
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
+	log.Infof("debug-aditi restored ep netns %d %v", ep.netNsCookie, ep.IPv4)
 
 	// If host label is present, it's the host endpoint.
 	ep.isHost = ep.HasLabels(labels.LabelHost)

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/netip"
 	"sort"
+	"strconv"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -92,6 +93,19 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 			return nil, err
 		}
 		ep.nodeMAC = m
+	}
+
+	if base.NetnsCookie != "" {
+		cookie64, err := strconv.ParseInt(base.NetnsCookie, 10, 64)
+		if err != nil {
+			// Don't return on error (and block the endpoint creation) as this
+			// is an unusual case where data could have been malformed. Defer error
+			// logging to individual features depending on the metadata.
+			log.Errorf("unable to parse netns cookie [%s] for ep [%d]: %v", base.NetnsCookie, base.ID, err)
+		} else {
+			log.Infof("debug-aditi new ep netns %d %v", ep.netNsCookie, ep.IPv4)
+			ep.netNsCookie = uint64(cookie64)
+		}
 	}
 
 	if base.Addressing != nil {
