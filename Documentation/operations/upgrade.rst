@@ -316,6 +316,12 @@ Annotations:
   behavior for a patch release, particularly given that version 1.11 has been in
   use for a considerable period and is expected to be stable.
 
+1.11.18+ Upgrade Notes
+----------------------
+
+* If downgrading to Cilium version <= v1.11.1 this is possible that some
+  long-term connections be interrupted due to missed tail calls.
+
 1.11.16+ Upgrade Notes
 ----------------------
 
