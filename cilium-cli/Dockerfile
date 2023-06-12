@@ -9,7 +9,7 @@ RUN apk add --no-cache git make
 COPY . .
 RUN make
 
-FROM docker.io/library/busybox:stable-glibc@sha256:bf30051c1a63538de815600e36e423e9e0fb9c5ad857751046a96cc62dc9fd5e
+FROM docker.io/library/busybox:stable-glibc@sha256:2a6835efa6f7ba15d30e1118e72e9ba180e4ae8253bfe80e97628df85f3aad8f
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /go/src/github.com/cilium/cilium-cli/cilium /usr/local/bin/cilium
 RUN ["wget", "-P", "/usr/local/bin", "https://dl.k8s.io/release/v1.23.6/bin/linux/amd64/kubectl"]
