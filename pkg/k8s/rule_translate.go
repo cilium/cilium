@@ -9,6 +9,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/slices"
@@ -228,7 +229,14 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 		}
 		for ns, ep := range cache.endpoints {
 			svc, ok := cache.services[ns]
-			if ok && svc.IsExternal() {
+			// Normally, only services without a label selector (i.e. empty services)
+			// are allowed as targets of a toServices rule.
+			// This is to minimize the chances of a pod IP being selected by this rule, which might
+			// cause conflicting entries in the ipcache.
+			//
+			// This requirement, however, is dropped for HighScale IPCache mode, because pod IPs are
+			// normally excluded from the ipcache regardless.
+			if ok && (option.Config.EnableHighScaleIPcache || svc.IsExternal()) {
 				eps := ep.GetEndpoints()
 				if eps != nil {
 					t := NewK8sTranslator(ns, Endpoints{}, *eps, false, svc.Labels)
