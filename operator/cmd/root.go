@@ -74,8 +74,6 @@ var (
 	leaderElectionCtx       context.Context
 	leaderElectionCtxCancel context.CancelFunc
 
-	operatorAddr string
-
 	// isLeader is an atomic boolean value that is true when the Operator is
 	// elected leader. Otherwise, it is false.
 	isLeader atomic.Bool
