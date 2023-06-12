@@ -76,13 +76,12 @@ func runWithIPAMModes(ipamModes []string, testFunc func(mode string)) {
 }
 
 type mockCIDRAllocator struct {
-	OnOccupy        func(cidr *net.IPNet) error
-	OnAllocateNext  func() (*net.IPNet, error)
-	OnRelease       func(cidr *net.IPNet) error
-	OnIsAllocated   func(cidr *net.IPNet) (bool, error)
-	OnIsFull        func() bool
-	OnInRange       func(cidr *net.IPNet) bool
-	OnIsClusterCIDR func(cidr *net.IPNet) bool
+	OnOccupy       func(cidr *net.IPNet) error
+	OnAllocateNext func() (*net.IPNet, error)
+	OnRelease      func(cidr *net.IPNet) error
+	OnIsAllocated  func(cidr *net.IPNet) (bool, error)
+	OnIsFull       func() bool
+	OnInRange      func(cidr *net.IPNet) bool
 }
 
 func (d *mockCIDRAllocator) String() string {
@@ -131,11 +130,8 @@ func (d *mockCIDRAllocator) InRange(cidr *net.IPNet) bool {
 	panic("d.InRange should not have been called!")
 }
 
-func (d *mockCIDRAllocator) IsClusterCIDR(cidr *net.IPNet) bool {
-	if d.OnIsClusterCIDR != nil {
-		return d.OnIsClusterCIDR(cidr)
-	}
-	panic("d.IsClusterCIDR should not have been called!")
+func (d *mockCIDRAllocator) IsClusterCIDR(cidr netip.Prefix) bool {
+	return false
 }
 
 func (d *mockCIDRAllocator) Prefix() netip.Prefix {

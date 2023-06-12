@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net"
 	"net/netip"
 	"sort"
 
@@ -123,26 +122,18 @@ func (p *PoolAllocator) addPool(poolName string, ipv4CIDRs []string, ipv4MaskSiz
 	return nil
 }
 
-func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAllocator, newCIDRs []string, maskSize int) ([]cidralloc.CIDRAllocator, error) {
+func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAllocator, newCIDRs []netip.Prefix, maskSize int) ([]cidralloc.CIDRAllocator, error) {
 	var newCIDRSets []cidralloc.CIDRAllocator
 	var alloc []string
-	var err error
 
 	// allocate new CIDR set for each CIDR not yet in the pool
 	for _, cidr := range newCIDRs {
-		prefix, parseErr := netip.ParsePrefix(cidr)
-		if parseErr != nil {
-			err = errors.Join(err, fmt.Errorf("invalid CIDR: %w", parseErr))
-			continue
+		if !hasCIDR(cidrSets, cidr) {
+			alloc = append(alloc, cidr.String())
 		}
-		if !hasCIDR(cidrSets, prefix) {
-			alloc = append(alloc, cidr)
-		}
-	}
-	if err != nil {
-		return nil, err
 	}
 	if len(alloc) > 0 {
+		var err error
 		newCIDRSets, err = cidralloc.NewCIDRSets(isV6, alloc, maskSize)
 		if err != nil {
 			return nil, err
@@ -152,12 +143,7 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 	// delete CIDR set for CIDRs not present in the new CIDRs
 	for i, oldCIDR := range cidrSets {
 		exists := false
-		for _, cidrString := range newCIDRs {
-			_, cidr, parseErr := net.ParseCIDR(cidrString)
-			if parseErr != nil {
-				err = errors.Join(err, fmt.Errorf("invalid CIDR: %w", parseErr))
-				continue
-			}
+		for _, cidr := range newCIDRs {
 			if oldCIDR.IsClusterCIDR(cidr) {
 				exists = true
 				break
@@ -194,11 +180,20 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 			}
 		}
 	}
-	if err != nil {
-		return nil, err
-	}
 	cidrSets = append(cidrSets, newCIDRSets...)
 	return cidrSets, nil
+}
+
+func parseCIDRStrings(cidrStrs []string) ([]netip.Prefix, error) {
+	prefixes := make([]netip.Prefix, 0, len(cidrStrs))
+	for _, cidrStr := range cidrStrs {
+		prefix, err := netip.ParsePrefix(cidrStr)
+		if err != nil {
+			return nil, err
+		}
+		prefixes = append(prefixes, prefix)
+	}
+	return prefixes, nil
 }
 
 func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int) error {
@@ -217,12 +212,21 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 		return fmt.Errorf("cannot change IPv6 mask size in existing pool %q", poolName)
 	}
 
-	v4, err := p.updateCIDRSets(false, pool.v4, ipv4CIDRs, ipv4MaskSize)
+	ipv4Prefixes, err := parseCIDRStrings(ipv4CIDRs)
+	if err != nil {
+		return fmt.Errorf("invalid IPv4 CIDR: %w", err)
+	}
+	ipv6Prefixes, err := parseCIDRStrings(ipv6CIDRs)
+	if err != nil {
+		return fmt.Errorf("invalid IPv6 CIDR: %w", err)
+	}
+
+	v4, err := p.updateCIDRSets(false, pool.v4, ipv4Prefixes, ipv4MaskSize)
 	if err != nil {
 		return err
 	}
 
-	v6, err := p.updateCIDRSets(true, pool.v6, ipv6CIDRs, ipv6MaskSize)
+	v6, err := p.updateCIDRSets(true, pool.v6, ipv6Prefixes, ipv6MaskSize)
 	if err != nil {
 		return err
 	}
