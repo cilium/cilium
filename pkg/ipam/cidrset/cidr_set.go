@@ -5,7 +5,6 @@
 package cidrset
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -189,11 +188,9 @@ func (s *CidrSet) InRange(cidr *net.IPNet) bool {
 }
 
 // IsClusterCIDR returns true if the given CIDR is equal to this CidrSet's cluster CIDR.
-func (s *CidrSet) IsClusterCIDR(cidr *net.IPNet) bool {
-	if len(cidr.IP) != len(s.clusterCIDR.IP) || len(cidr.Mask) != len(s.clusterCIDR.Mask) {
-		return false
-	}
-	return cidr.IP.Equal(s.clusterCIDR.IP) && bytes.Equal(cidr.Mask, s.clusterCIDR.Mask)
+func (s *CidrSet) IsClusterCIDR(cidr netip.Prefix) bool {
+	clusterPrefix, _ := netipx.FromStdIPNet(s.clusterCIDR)
+	return cidr == clusterPrefix
 }
 
 // Prefix returns the CidrSet's prefix.

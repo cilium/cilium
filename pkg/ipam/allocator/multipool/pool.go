@@ -84,9 +84,8 @@ func releaseCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) error 
 }
 
 func hasCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) bool {
-	ipnet := netipx.PrefixIPNet(cidr)
 	for _, alloc := range allocators {
-		if alloc.IsClusterCIDR(ipnet) {
+		if alloc.IsClusterCIDR(cidr) {
 			return true
 		}
 	}
