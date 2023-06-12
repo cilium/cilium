@@ -1079,7 +1079,6 @@ func neighStateOk(n netlink.Neigh) (bool, bool) {
 }
 
 func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandling(c *check.C) {
-	c.Skip("Skipping due flakiness. See https://github.com/cilium/cilium/issues/22373 for more info")
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -1898,7 +1897,6 @@ refetch11:
 }
 
 func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *check.C) {
-	c.Skip("Skipping due flakiness. See https://github.com/cilium/cilium/issues/22373 for more info")
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
