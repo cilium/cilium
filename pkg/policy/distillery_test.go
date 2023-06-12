@@ -370,12 +370,9 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
 func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (MapState, error) {
-	sp, err := d.Repository.resolvePolicyLocked(identity)
-	if err != nil {
-		return nil, err
-	}
-
-	epp := sp.DistillPolicy(DummyOwner{}, false)
+	sp := d.Repository.GetPolicyCache().insert(identity)
+	d.Repository.GetPolicyCache().UpdatePolicy(identity)
+	epp := sp.Consume(DummyOwner{})
 	if epp == nil {
 		return nil, errors.New("policy distillation failure")
 	}
