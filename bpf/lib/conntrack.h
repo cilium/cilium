@@ -430,7 +430,7 @@ ct_extract_ports6(struct __ctx_buff *ctx, int off,
 
 			case ICMPV6_ECHO_REQUEST:
 				tuple->dport = identifier;
-				/* fall through */
+				fallthrough;
 			default:
 				return ACTION_CREATE;
 			}
@@ -502,6 +502,7 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 			goto out;
 
 		/* now lookup in forward direction: */
+		fallthrough;
 	case SCOPE_FORWARD:
 		ipv6_ct_tuple_reverse(tuple);
 		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state,
@@ -706,7 +707,7 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 				break;
 			case ICMP_ECHO:
 				tuple->dport = identifier;
-				/* fall through */
+				fallthrough;
 			default:
 				return ACTION_CREATE;
 			}
@@ -780,6 +781,7 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 			goto out;
 
 		/* now lookup in forward direction: */
+		fallthrough;
 	case SCOPE_FORWARD:
 		ipv4_ct_tuple_reverse(tuple);
 		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state,

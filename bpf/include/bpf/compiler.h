@@ -119,4 +119,8 @@ static __always_inline void bpf_barrier(void)
 				   __val; })
 #endif
 
+#ifndef fallthrough
+# define fallthrough		__attribute__((fallthrough))
+#endif
+
 #endif /* __BPF_COMPILER_H_ */
