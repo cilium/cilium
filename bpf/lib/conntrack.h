@@ -205,7 +205,6 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 {
 	bool syn = seen_flags.value & TCP_FLAG_SYN;
 	struct ct_entry *entry;
-	int reopen;
 
 	relax_verifier();
 
@@ -248,9 +247,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 #endif
 		switch (action) {
 		case ACTION_CREATE:
-			reopen = entry->rx_closing | entry->tx_closing;
-			reopen |= seen_flags.value & TCP_FLAG_SYN;
-			if (unlikely(reopen == (TCP_FLAG_SYN|0x1))) {
+			if (unlikely(syn && ct_entry_closing(entry))) {
 				ct_reset_closing(entry);
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 				return CT_REOPENED;
