@@ -1497,6 +1497,9 @@ definitions:
           Disables lookup using legacy endpoint identifiers (container name,
           container id, pod name) for this endpoint
         type: boolean
+      netns-cookie:
+        description: Network namespace cookie
+        type: string
       datapath-configuration:
         "$ref": "#/definitions/EndpointDatapathConfiguration"
       properties:
