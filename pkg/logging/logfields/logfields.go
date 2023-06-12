@@ -777,4 +777,7 @@ const (
 
 	// EtcdClusterID is the ID of the etcd cluster
 	EtcdClusterID = "etcdClusterID"
+
+	// NetnsCookie is the Linux kernel netns cookie.
+	NetnsCookie = "netnsCookie"
 )
