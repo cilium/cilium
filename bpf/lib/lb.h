@@ -349,6 +349,12 @@ bool lb4_svc_is_localredirect(const struct lb4_service *svc)
 }
 
 static __always_inline
+bool lb6_svc_is_localredirect(const struct lb6_service *svc)
+{
+	return svc->flags2 & SVC_FLAG_LOCALREDIRECT;
+}
+
+static __always_inline
 bool lb4_svc_is_l7loadbalancer(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_L7_LB

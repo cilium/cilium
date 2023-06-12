@@ -12,6 +12,7 @@
 
 #include "lib/common.h"
 #include "lib/lb.h"
+#include "lib/endian.h"
 #include "lib/eps.h"
 #include "lib/identity.h"
 #include "lib/metrics.h"
@@ -20,6 +21,9 @@
 
 #define SYS_REJECT	0
 #define SYS_PROCEED	1
+
+#define CILIUM_LB4_SKIP_MAP_MAX_ENTRIES 1000
+#define CILIUM_LB6_SKIP_MAP_MAX_ENTRIES 1000
 
 #ifndef HOST_NETNS_COOKIE
 # define HOST_NETNS_COOKIE   get_netns_cookie(NULL)
@@ -131,6 +135,14 @@ struct {
 	__uint(max_entries, LB4_REVERSE_NAT_SK_MAP_SIZE);
 } LB4_REVERSE_NAT_SK_MAP __section_maps_btf;
 
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct skip_lb4_key);
+	__type(value, __u8);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB4_SKIP_MAP_MAX_ENTRIES);
+} LB4_SKIP_MAP __section_maps_btf;
+
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
 					       const struct lb4_key *orig_key,
@@ -235,6 +247,29 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 	return NULL;
 }
 
+static __always_inline bool
+sock4_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
+			       __be32 address __maybe_unused, __be16 port __maybe_unused)
+{
+#ifdef HAVE_NETNS_COOKIE
+	__net_cookie cookie = get_netns_cookie(ctx);
+    struct skip_lb4_key key;
+    __u8 *val = NULL;
+
+    memset(&key, 0, sizeof(key));
+    key.netns_cookie = cookie;
+    key.address = bpf_ntohl(address);
+    key.port = bpf_ntohs(port);
+    printk("bpf_sock-trace: netns %llu %u\n", key.netns_cookie, key.address);
+    val = map_lookup_elem(&LB4_SKIP_MAP, &key);
+	if (val)
+    	return true;
+	return false;
+#else
+	return false;
+#endif
+}
+
 /* Service translation logic for a local-redirect service can cause packets to
  * be looped back to a service node-local backend after translation. This can
  * happen when the node-local backend itself tries to connect to the service
@@ -334,6 +369,10 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	 */
 	if (sock4_skip_xlate(svc, orig_key.address))
 		return -EPERM;
+
+	if (lb4_svc_is_localredirect(svc) &&
+		sock4_skip_xlate_from_ctx_to_svc(ctx_full, orig_key.address, orig_key.dport))
+		return -ENXIO;
 
 #ifdef ENABLE_L7_LB
 	/* Do not perform service translation at socker layer for
@@ -652,6 +691,14 @@ struct {
 	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
 } LB6_REVERSE_NAT_SK_MAP __section_maps_btf;
 
+//struct {
+//        __uint(type, BPF_MAP_TYPE_LRU_HASH);
+//        __type(key, struct skip_lb6_key);
+//        __type(value, __u8);
+//        __uint(pinning, LIBBPF_PIN_BY_NAME);
+//        __uint(max_entries, CILIUM_LB4_SKIP_MAP_MAX_ENTRIES);
+//} LB6_SKIP_MAP __section_maps_btf;
+
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
 					       const struct lb6_key *orig_key,
@@ -847,6 +894,29 @@ sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 	return 0;
 }
 
+//static __always_inline bool
+//sock6_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
+//                    const union v6addr address __maybe_unused, __be16 port __maybe_unused)
+//{
+//#ifdef HAVE_NETNS_COOKIE
+//	__net_cookie cookie = get_netns_cookie(ctx);
+//    struct skip_lb6_key key;
+//    __u8 *val = NULL;
+//
+//    memset(&key, 0, sizeof(key));
+//    key.netns_cookie = cookie;
+//	ctx_get_v6_address(ctx, &key.address);
+//    key.port = port;
+//    val = map_lookup_elem(&LB6_SKIP_MAP, &key);
+//    if (val) {
+//            return true;
+//    }
+//    return false;
+//#else
+//	return false;
+//#endif
+//}
+
 static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 {
 	struct lb6_service *svc;
@@ -1008,6 +1078,10 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
+
+//	if (lb6_svc_is_localredirect(svc) &&
+//        sock6_skip_xlate_from_ctx_to_svc(ctx_full, orig_key.address, orig_key.dport))
+//		return -ENXIO;
 
 #ifdef ENABLE_L7_LB
 	/* See __sock4_xlate_fwd for commentary. */
