@@ -2942,6 +2942,10 @@ func init() {
           "description": "MAC address",
           "type": "string"
         },
+        "netns-cookie": {
+          "description": "Network namespace cookie",
+          "type": "string"
+        },
         "pid": {
           "description": "Process ID of the workload belonging to this endpoint",
           "type": "integer"
@@ -8813,6 +8817,10 @@ func init() {
         },
         "mac": {
           "description": "MAC address",
+          "type": "string"
+        },
+        "netns-cookie": {
+          "description": "Network namespace cookie",
           "type": "string"
         },
         "pid": {
