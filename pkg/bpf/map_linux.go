@@ -969,7 +969,7 @@ func (m *Map) DeleteAll() error {
 
 	err := i.Err()
 	if err != nil {
-		log.WithError(err).Warningf("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", mk)
+		scopedLog.WithError(err).Warningf("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", mk)
 	}
 
 	return err
@@ -1054,7 +1054,6 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		case OK:
 		case Insert:
 			// Call into ebpf-go's Map.Update() directly, don't go through the cache.
-
 			err := m.m.Update(e.Key, e.Value, ebpf.UpdateAny)
 			if metrics.BPFMapOps.IsEnabled() {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
@@ -1072,7 +1071,6 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 			m.addToEventsLocked(MapUpdate, *e)
 		case Delete:
 			// Holding lock, issue direct delete on map.
-
 			err := m.m.Delete(e.Key)
 			if metrics.BPFMapOps.IsEnabled() {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
