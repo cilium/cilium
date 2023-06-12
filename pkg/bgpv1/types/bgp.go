@@ -40,6 +40,7 @@ type Advertisement struct {
 // NeighborRequest contains neighbor parameters used when enabling or disabling peer
 type NeighborRequest struct {
 	Neighbor *v2alpha1api.CiliumBGPNeighbor
+	VR       *v2alpha1api.CiliumBGPVirtualRouter
 }
 
 // PathRequest contains parameters for advertising or withdrawing routes

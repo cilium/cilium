@@ -226,7 +226,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 		},
 	}
 
-	if s, err = NewServerWithConfig(ctx, globalConfig); err != nil {
+	if s, err = NewServerWithConfig(ctx, globalConfig, cstate); err != nil {
 		return fmt.Errorf("failed to start BGP server for config with local ASN %v: %w", c.LocalASN, err)
 	}
 
