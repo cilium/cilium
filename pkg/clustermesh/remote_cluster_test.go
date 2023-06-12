@@ -154,6 +154,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					Metrics:               newMetrics(),
 				},
 				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
+				usedIDs:        newClusterMeshUsedIDs(),
 			}
 			rc := cm.newRemoteCluster("foo", nil).(*remoteCluster)
 			ready := make(chan error)

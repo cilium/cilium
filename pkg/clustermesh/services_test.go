@@ -81,7 +81,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 	for i, cluster := range []string{clusterName1, clusterName2} {
 		config := cmtypes.CiliumClusterConfig{
-			ID: uint32(i),
+			ID: uint32(i + 1),
 		}
 		err := cmutils.SetClusterConfig(ctx, cluster, &config, kvstore.Client())
 		c.Assert(err, IsNil)

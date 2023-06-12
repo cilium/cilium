@@ -34,8 +34,9 @@ type remoteCluster struct {
 	// mesh is the cluster mesh this remote cluster belongs to
 	mesh *ClusterMesh
 
+	usedIDs *ClusterMeshUsedIDs
+
 	// mutex protects the following variables:
-	// - config
 	// - remoteIdentityCache
 	mutex lock.RWMutex
 
@@ -61,7 +62,13 @@ type remoteCluster struct {
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
-	if err := rc.mesh.canConnect(rc.name, config); err != nil {
+	if err := config.Validate(); err != nil {
+		ready <- err
+		close(ready)
+		return
+	}
+
+	if err := rc.onUpdateConfig(config); err != nil {
 		ready <- err
 		close(ready)
 		return
@@ -80,7 +87,6 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	}
 
 	rc.mutex.Lock()
-	rc.config = config
 	rc.remoteIdentityCache = remoteIdentityCache
 	rc.mutex.Unlock()
 
@@ -128,6 +134,10 @@ func (rc *remoteCluster) Remove() {
 
 	rc.mesh.conf.RemoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
 	rc.mesh.globalServices.onClusterDelete(rc.name)
+
+	if rc.config != nil {
+		rc.usedIDs.releaseClusterID(rc.config.ID)
+	}
 }
 
 func (rc *remoteCluster) Status() *models.RemoteCluster {
@@ -140,4 +150,23 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	status.NumSharedServices = int64(rc.remoteServices.NumEntries())
 	status.NumIdentities = int64(rc.remoteIdentityCache.NumEntries())
 	return status
+}
+
+func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) error {
+	oldConfig := rc.config
+
+	if newConfig != nil && oldConfig != nil && newConfig.ID == oldConfig.ID {
+		return nil
+	}
+	if newConfig != nil {
+		if err := rc.usedIDs.reserveClusterID(newConfig.ID); err != nil {
+			return err
+		}
+	}
+	if oldConfig != nil {
+		rc.usedIDs.releaseClusterID(oldConfig.ID)
+	}
+	rc.config = newConfig
+
+	return nil
 }
