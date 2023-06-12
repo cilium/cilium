@@ -35,7 +35,7 @@ var redirectSuite = RedirectSuite{}
 var _ = check.Suite(&redirectSuite)
 
 func (s *RedirectSuite) SetUpSuite(c *check.C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 // RedirectSuiteProxy implements EndpointProxy. It is used for testing the

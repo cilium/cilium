@@ -36,7 +36,7 @@ type IdentityCacheTestSuite struct{}
 var _ = Suite(&IdentityCacheTestSuite{})
 
 func (s *IdentityCacheTestSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {

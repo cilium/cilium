@@ -35,7 +35,7 @@ type AllocatorSuite struct {
 }
 
 func (s *AllocatorSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 type AllocatorEtcdSuite struct {
@@ -45,7 +45,7 @@ type AllocatorEtcdSuite struct {
 var _ = Suite(&AllocatorEtcdSuite{})
 
 func (e *AllocatorEtcdSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (e *AllocatorEtcdSuite) SetUpTest(c *C) {
@@ -65,7 +65,7 @@ type AllocatorConsulSuite struct {
 var _ = Suite(&AllocatorConsulSuite{})
 
 func (e *AllocatorConsulSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (e *AllocatorConsulSuite) SetUpTest(c *C) {

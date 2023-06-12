@@ -26,7 +26,7 @@ type ELFTestSuite struct{}
 var _ = Suite(&ELFTestSuite{})
 
 func (s *ELFTestSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 var baseObjPath = filepath.Join("..", "..", "test", "bpf", "elf-demo.o")

@@ -46,7 +46,7 @@ type DaemonFQDNSuite struct {
 var _ = Suite(&DaemonFQDNSuite{})
 
 func (ds *DaemonFQDNSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 
 	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 }

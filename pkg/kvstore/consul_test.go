@@ -24,7 +24,7 @@ type ConsulSuite struct {
 var _ = Suite(&ConsulSuite{})
 
 func (e *ConsulSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (e *ConsulSuite) SetUpTest(c *C) {

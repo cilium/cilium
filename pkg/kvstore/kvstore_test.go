@@ -21,7 +21,7 @@ type independentSuite struct{}
 var _ = Suite(&independentSuite{})
 
 func (s *independentSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (s *independentSuite) TestGetLockPath(c *C) {

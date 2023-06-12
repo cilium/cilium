@@ -28,7 +28,7 @@ type EtcdSuite struct {
 var _ = Suite(&EtcdSuite{})
 
 func (e *EtcdSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (e *EtcdSuite) SetUpTest(c *C) {
@@ -341,7 +341,7 @@ type EtcdLockedSuite struct {
 var _ = Suite(&EtcdLockedSuite{})
 
 func (e *EtcdLockedSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 
 	SetupDummy("etcd")
 
@@ -355,7 +355,7 @@ func (e *EtcdLockedSuite) SetUpSuite(c *C) {
 }
 
 func (e *EtcdLockedSuite) TearDownSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 
 	err := e.etcdClient.Close()
 	c.Assert(err, IsNil)
@@ -1693,7 +1693,7 @@ func (e *EtcdRateLimiterSuite) setupWithoutRateLimiter() {
 }
 
 func (e *EtcdRateLimiterSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 
 	e.maxQPS = 3
 	e.txnCount = e.maxQPS*2 + 2
@@ -1709,7 +1709,7 @@ func (e *EtcdRateLimiterSuite) SetUpSuite(c *C) {
 }
 
 func (e *EtcdRateLimiterSuite) TearDownSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 
 	err := e.etcdClient.Close()
 	c.Assert(err, IsNil)
