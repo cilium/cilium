@@ -778,3 +778,13 @@ func (mgr *endpointManager) CallbackForEndpointsAtPolicyRev(ctx context.Context,
 func (mgr *endpointManager) EndpointExists(id uint16) bool {
 	return mgr.LookupCiliumID(id) != nil
 }
+
+// GetEndpointNetnsCookieByIP returns the netns cookie for the passed endpoint with ip address if found.
+func (mgr *endpointManager) GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error) {
+	ep := mgr.LookupIP(ip)
+	if ep == nil {
+		return 0, fmt.Errorf("endpoint not found by ip %v", ip)
+	}
+
+	return ep.GetEndpointNetnsCookie(), nil
+}

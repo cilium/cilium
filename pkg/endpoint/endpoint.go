@@ -416,6 +416,9 @@ type Endpoint struct {
 	// Root scope for all of this endpoints reporters.
 	reporterScope       cell.Scope
 	closeHealthReporter func()
+
+	// NetNsCookie is the network namespace cookie of the Endpoint.
+	NetNsCookie uint64
 }
 
 func (e *Endpoint) GetRealizedRedirects() (redirects map[string]uint16) {

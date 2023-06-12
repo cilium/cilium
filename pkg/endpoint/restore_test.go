@@ -71,6 +71,7 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}
 	ep.SecurityIdentity = identity
 	ep.OpLabels = labels.NewOpLabels()
+	ep.NetNsCookie = 1234
 	return ep
 }
 
