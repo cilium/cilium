@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -24,6 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/netns"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
@@ -47,6 +51,10 @@ type svcCache interface {
 	GetServiceFrontendIP(svcID k8s.ServiceID, svcType lb.SVCType) net.IP
 }
 
+type endpointManager interface {
+	GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error)
+}
+
 // podID is pod name and namespace
 type podID = k8s.ServiceID
 
@@ -64,6 +72,10 @@ type Manager struct {
 
 	localPods agentK8s.LocalPodResource
 
+	epManager endpointManager
+
+	skipLBMap lbmap.SkipLBMap
+
 	warnOnce sync.Once
 
 	// Mutex to protect against concurrent access to the maps
@@ -80,11 +92,22 @@ type Manager struct {
 	policyPods map[podID][]policyID
 	// Stores redirect policy configs indexed by policyID
 	policyConfigs map[policyID]*LRPConfig
+
+	noNetnsCookieSupport bool
 }
 
-func NewRedirectPolicyManager(svc svcManager, lpr agentK8s.LocalPodResource) *Manager {
+func NewRedirectPolicyManager(svc svcManager, lpr agentK8s.LocalPodResource, epM endpointManager) *Manager {
+	skipLBMap, err := lbmap.NewSkipLBMap()
+	if err != nil {
+		log.Warnf("failed to init cilium_skip_lb maps: %v"+
+			"Check the local redirect policy documentation if you are using"+
+			"addressMatcher CiliumLocalRedirectPolicy where it's required to"+
+			"skip load-balancing in certain cases", err)
+	}
 	return &Manager{
 		svcManager:            svc,
+		epManager:             epM,
+		skipLBMap:             skipLBMap,
 		localPods:             lpr,
 		policyFrontendsByHash: make(map[string]policyID),
 		policyServices:        make(map[k8s.ServiceID]policyID),
@@ -110,6 +133,23 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 				"service translation. Needs kernel version >= 5.1")
 		}
 	})
+	if config.skipRedirectFromBackend {
+		rpm.warnOnce.Do(func() {
+			if _, err := netns.GetNetNSCookie(); err == unix.ENOPROTOOPT {
+				rpm.noNetnsCookieSupport = true
+			}
+		})
+		if rpm.noNetnsCookieSupport {
+			err := fmt.Errorf("policy with skipRedirectFromBackend set not applied" +
+				":SO_NETNS_COOKIE not supported. Needs kernel version >= 5.8")
+			log.WithFields(logrus.Fields{
+				logfields.LRPType:      config.lrpType,
+				logfields.K8sNamespace: config.id.Namespace,
+				logfields.LRPName:      config.id.Name,
+			}).Error(err)
+			return false, err
+		}
+	}
 
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
@@ -337,6 +377,8 @@ type podMetadata struct {
 	ips []string
 	// namedPorts stores pod port and protocol indexed by the port name
 	namedPorts serviceStore.PortConfiguration
+	// netnsCookie is the network namespace cookie
+	netnsCookie uint64
 }
 
 // Note: Following functions need to be called with the redirect policy manager lock.
@@ -530,6 +572,43 @@ func (rpm *Manager) deleteService(svcID k8s.ServiceID) {
 	}
 }
 
+func (rpm *Manager) plumbSkipLBEntries(mapping *feMapping) error {
+	if rpm.skipLBMap == nil {
+		return fmt.Errorf("")
+	}
+	for _, pb := range mapping.podBackends {
+		if pb.podNetnsCookie == 0 {
+			return fmt.Errorf("no valid pod netns cookie")
+		}
+		addr := pb.L3n4Addr.AddrCluster
+		if addr.Is4() {
+			if err := rpm.skipLBMap.AddLB4(pb.podNetnsCookie, addr.AsNetIP(), pb.Port); err != nil {
+				return fmt.Errorf("failed to add entry to skip_lb4 map: %v", err)
+			}
+		} else {
+			if err := rpm.skipLBMap.AddLB6(pb.podNetnsCookie, addr.AsNetIP(), pb.Port); err != nil {
+				return fmt.Errorf("failed to add entry to skip_lb6 map: %v", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (rpm *Manager) upsertPolicyMapping(config *LRPConfig, feMapping *feMapping) {
+	if config.skipRedirectFromBackend {
+		if err := rpm.plumbSkipLBEntries(feMapping); err != nil {
+			log.WithFields(logrus.Fields{
+				logfields.LRPType:      config.lrpType,
+				logfields.K8sNamespace: config.id.Namespace,
+				logfields.LRPName:      config.id.Name,
+			}).Errorf("LRP not applied as skipRedirectFromBackend not supported: %e", err)
+			return
+		}
+	}
+	rpm.upsertService(config, feMapping)
+}
+
 // upsertService upserts a service entry for the given policy config that's ready.
 func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping) {
 	frontendAddr := lb.L3n4AddrID{
@@ -598,6 +677,7 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) ([]*podMetadata, er
 		if !config.policyConfigSelectsPod(podData) {
 			continue
 		}
+
 		retPods = append(retPods, podData)
 	}
 
@@ -688,7 +768,7 @@ func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podM
 						Protocol: bePort.l4Addr.Protocol,
 						Port:     bePort.l4Addr.Port,
 					},
-				}, pod.id,
+				}, pod.id, pod.netnsCookie,
 			}
 			if feM.feAddr.AddrCluster.Is4() && be.AddrCluster.Is4() {
 				if option.Config.EnableIPv4 {
@@ -749,7 +829,7 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 								Port:     bePort.l4Addr.Port,
 							},
 						},
-						pod.id,
+						pod.id, pod.netnsCookie,
 					}
 					if feM.feAddr.AddrCluster.Is4() && be.AddrCluster.Is4() {
 						if option.Config.EnableIPv4 {
@@ -841,6 +921,9 @@ func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod, podIPs []string) (*podMe
 				uint16(port.ContainerPort))
 		}
 	}
+	addr, _ := netip.ParseAddr(podIPs[0])
+	cookie, err := rpm.epManager.GetEndpointNetnsCookieByIP(addr)
+	log.Infof("debug-aditi getpodMetadata %v %v", cookie, err)
 	return &podMetadata{
 		ips:        podIPs,
 		labels:     pod.GetLabels(),
@@ -849,6 +932,7 @@ func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod, podIPs []string) (*podMe
 			Name:      pod.GetName(),
 			Namespace: pod.GetNamespace(),
 		},
+		netnsCookie: cookie,
 	}, nil
 }
 
