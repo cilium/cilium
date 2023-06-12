@@ -5,6 +5,7 @@ package redirectpolicy
 
 import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/service"
 )
@@ -22,8 +23,9 @@ type lrpManagerParams struct {
 
 	Svc service.ServiceManager
 	Lpr agentK8s.LocalPodResource
+	Ep  endpointmanager.EndpointManager
 }
 
 func newLRPManager(params lrpManagerParams) *Manager {
-	return NewRedirectPolicyManager(params.Svc, params.Lpr)
+	return NewRedirectPolicyManager(params.Svc, params.Lpr, params.Ep)
 }

@@ -5,6 +5,10 @@ package redirectpolicy
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"net/netip"
+	"sync"
 	"testing"
 
 	. "github.com/cilium/checkmate"
@@ -12,6 +16,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -28,6 +34,7 @@ func Test(t *testing.T) { TestingT(t) }
 type ManagerSuite struct {
 	rpm *Manager
 	svc svcManager
+	epM endpointManager
 }
 
 var _ = Suite(&ManagerSuite{})
@@ -37,13 +44,17 @@ func (s *ManagerSuite) SetUpSuite(c *C) {
 }
 
 type fakeSvcManager struct {
+	upsertEvents chan *lb.SVC
 }
 
 func (f *fakeSvcManager) DeleteService(lb.L3n4Addr) (bool, error) {
 	return true, nil
 }
 
-func (f *fakeSvcManager) UpsertService(*lb.SVC) (bool, lb.ID, error) {
+func (f *fakeSvcManager) UpsertService(s *lb.SVC) (bool, lb.ID, error) {
+	if f.upsertEvents != nil {
+		f.upsertEvents <- s
+	}
 	return true, 1, nil
 }
 
@@ -63,6 +74,7 @@ func (fpr *fakePodResource) Store(context.Context) (resource.Store[*slimcorev1.P
 
 type fakePodStore struct {
 	OnList func() []*slimcorev1.Pod
+	Pods   map[resource.Key]*slimcorev1.Pod
 }
 
 func (ps *fakePodStore) List() []*slimcorev1.Pod {
@@ -78,6 +90,9 @@ func (ps *fakePodStore) Get(obj *slimcorev1.Pod) (item *slimcorev1.Pod, exists b
 	return nil, false, nil
 }
 func (ps *fakePodStore) GetByKey(key resource.Key) (item *slimcorev1.Pod, exists bool, err error) {
+	if len(ps.Pods) != 0 {
+		return ps.Pods[key], true, nil
+	}
 	return nil, false, nil
 }
 func (ps *fakePodStore) CacheStore() cache.Store { return nil }
@@ -87,6 +102,68 @@ func (ps *fakePodStore) ByIndex(indexName, indexedValue string) ([]*slimcorev1.P
 	return nil, nil
 }
 func (ps *fakePodStore) Release() {
+}
+
+type fakeEpManager struct {
+	cookies map[netip.Addr]uint64
+}
+
+func (ps *fakeEpManager) Subscribe(s endpointmanager.Subscriber) {
+}
+
+func (ps *fakeEpManager) GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error) {
+	c, ok := ps.cookies[ip]
+	if !ok {
+		return 0, fmt.Errorf("endpoint not found")
+	}
+	return c, nil
+}
+
+type fakeSkipLBMap struct {
+	lb4Events chan skipLBParams
+	lb6Events chan skipLBParams
+}
+
+type skipLBParams struct {
+	cookie uint64
+	ip     net.IP
+	port   uint16
+}
+
+func (f fakeSkipLBMap) AddLB4(netnsCookie uint64, ip net.IP, port uint16) error {
+	f.lb4Events <- skipLBParams{
+		cookie: netnsCookie,
+		ip:     ip,
+		port:   port,
+	}
+
+	return nil
+}
+
+func (f fakeSkipLBMap) AddLB6(netnsCookie uint64, ip net.IP, port uint16) error {
+	f.lb6Events <- skipLBParams{
+		cookie: netnsCookie,
+		ip:     ip,
+		port:   port,
+	}
+
+	return nil
+}
+
+func (f fakeSkipLBMap) DeleteLB4ByAddrPort(ip net.IP, port uint16) {
+	panic("implement me")
+}
+
+func (f fakeSkipLBMap) DeleteLB6ByAddrPort(ip net.IP, port uint16) {
+	panic("implement me")
+}
+
+func (f fakeSkipLBMap) DeleteLB4ByNetnsCookie(cookie uint64) {
+	panic("implement me")
+}
+
+func (f fakeSkipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
+	panic("implement me")
 }
 
 var (
@@ -233,7 +310,8 @@ func (m *ManagerSuite) SetUpTest(c *C) {
 	fpr := &fakePodResource{
 		fakePodStore{},
 	}
-	m.rpm = NewRedirectPolicyManager(m.svc, fpr)
+	m.epM = &fakeEpManager{}
+	m.rpm = NewRedirectPolicyManager(m.svc, fpr, m.epM)
 	configAddrType = LRPConfig{
 		id: k8s.ServiceID{
 			Name:      "test-foo",
@@ -565,4 +643,207 @@ func (m *ManagerSuite) TestManager_OnAddandUpdatePod(c *C) {
 	c.Assert(len(m.rpm.policyPods), Equals, 0)
 	_, found = m.rpm.policyPods[podID]
 	c.Assert(found, Equals, false)
+}
+
+// Tests policies with skipRedirectFromBackend flag set.
+func (m *ManagerSuite) TestManager_OnAddRedirectPolicy(c *C) {
+	// Sequence of events: Pods -> RedirectPolicy -> Endpoint
+	sMgr := &fakeSvcManager{}
+	sMgr.upsertEvents = make(chan *lb.SVC)
+	m.svc = sMgr
+	lbEvents := make(chan skipLBParams)
+	pc := configAddrType
+	pc.skipRedirectFromBackend = true
+	pods := make(map[resource.Key]*slimcorev1.Pod)
+	pk1 := resource.Key{
+		Name:      pod1.Name,
+		Namespace: pod1.Namespace,
+	}
+	pod := pod1.DeepCopy()
+	pod.Status.PodIPs = []slimcorev1.PodIP{pod1IP1}
+	pods[pk1] = pod
+	fps := &fakePodResource{
+		fakePodStore{
+			Pods: pods,
+		},
+	}
+	m.rpm.localPods = fps
+	ep := &endpoint.Endpoint{
+		K8sPodName:   pod.Name,
+		K8sNamespace: pod.Namespace,
+		NetNsCookie:  1234,
+	}
+	m.rpm = NewRedirectPolicyManager(m.svc, fps, m.epM)
+	m.rpm.skipLBMap = &fakeSkipLBMap{lb4Events: lbEvents}
+
+	added, err := m.rpm.AddRedirectPolicy(pc)
+
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	wg := sync.WaitGroup{}
+	// Asserts skipLBMap events
+	wg.Add(1)
+	go func() {
+		ev := <-lbEvents
+
+		c.Assert(ev.cookie, Equals, ep.NetNsCookie)
+		c.Assert(ev.ip.String(), Equals, fe1.AddrCluster.Addr().String())
+		c.Assert(ev.port, Equals, fe1.L4Addr.Port)
+
+		wg.Done()
+	}()
+	// Asserts UpsertService events
+	wg.Add(1)
+	go func() {
+		ev := <-sMgr.upsertEvents
+
+		c.Assert(ev.Type, Equals, lb.SVCTypeLocalRedirect)
+		c.Assert(ev.Frontend.String(), Equals, configAddrType.frontendMappings[0].feAddr.String())
+		c.Assert(len(ev.Backends), Equals, 1)
+		c.Assert(ev.Backends[0].Hash(), Equals, backend{
+			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(pod1.Status.PodIP), L4Addr: beP1.l4Addr},
+			podID:    pod1ID,
+		}.Hash())
+
+		wg.Done()
+	}()
+
+	// Add an endpoint for the policy selected pod.
+	m.rpm.EndpointCreated(ep)
+
+	// Wait for the skipLBMap and Upsert service events
+	wg.Wait()
+
+	// Sequence of events: Pod -> Endpoint -> RedirectPolicy
+	sMgr = &fakeSvcManager{}
+	sMgr.upsertEvents = make(chan *lb.SVC)
+	m.svc = sMgr
+	pod = pod1.DeepCopy()
+	pod.Status.PodIPs = []slimcorev1.PodIP{pod1IP1}
+	cookie := uint64(1235)
+	ep = &endpoint.Endpoint{
+		K8sPodName:   pod1.Name,
+		K8sNamespace: pod1.Namespace,
+		NetNsCookie:  cookie,
+	}
+	cookies := map[netip.Addr]uint64{}
+	addr, _ := netip.ParseAddr(pod.Status.PodIP)
+	cookies[addr] = cookie
+	m.epM = &fakeEpManager{cookies: cookies}
+	fps = &fakePodResource{
+		fakePodStore{
+			OnList: func() []*slimcorev1.Pod {
+				return []*slimcorev1.Pod{pod}
+			},
+		},
+	}
+	m.rpm = NewRedirectPolicyManager(m.svc, fps, m.epM)
+	lbEvents = make(chan skipLBParams)
+	m.rpm.skipLBMap = &fakeSkipLBMap{lb4Events: lbEvents}
+
+	wg = sync.WaitGroup{}
+	// Asserts skipLBMap events
+	wg.Add(1)
+	go func() {
+		ev := <-lbEvents
+
+		c.Assert(ev.cookie, Equals, cookie)
+		c.Assert(ev.ip.String(), Equals, fe1.AddrCluster.Addr().String())
+		c.Assert(ev.port, Equals, fe1.L4Addr.Port)
+
+		wg.Done()
+	}()
+	// Asserts UpsertService events
+	wg.Add(1)
+	go func() {
+		ev := <-sMgr.upsertEvents
+
+		c.Assert(ev.Type, Equals, lb.SVCTypeLocalRedirect)
+		c.Assert(ev.Frontend.String(), Equals, configAddrType.frontendMappings[0].feAddr.String())
+		c.Assert(len(ev.Backends), Equals, 1)
+		c.Assert(ev.Backends[0].Hash(), Equals, backend{
+			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(pod.Status.PodIP), L4Addr: beP1.l4Addr},
+			podID:    pod1ID,
+		}.Hash())
+
+		wg.Done()
+	}()
+
+	// Policy is added.
+	added, err = m.rpm.AddRedirectPolicy(pc)
+
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	wg.Wait()
+
+	// Sequence of events: RedirectPolicy -> Pod -> Endpoint
+	sMgr = &fakeSvcManager{}
+	sMgr.upsertEvents = make(chan *lb.SVC)
+	m.svc = sMgr
+	pod = pod1.DeepCopy()
+	pod.Status.PodIPs = []slimcorev1.PodIP{pod1IP1}
+	cookie = uint64(1235)
+	ep = &endpoint.Endpoint{
+		K8sPodName:   pod1.Name,
+		K8sNamespace: pod1.Namespace,
+		NetNsCookie:  cookie,
+	}
+	m.epM = &fakeEpManager{}
+	pods = make(map[resource.Key]*slimcorev1.Pod)
+	pk1 = resource.Key{
+		Name:      pod1.Name,
+		Namespace: pod1.Namespace,
+	}
+	pods[pk1] = pod
+	fps = &fakePodResource{
+		fakePodStore{
+			Pods: pods,
+		},
+	}
+	m.rpm = NewRedirectPolicyManager(m.svc, fps, m.epM)
+	lbEvents = make(chan skipLBParams)
+	m.rpm.skipLBMap = &fakeSkipLBMap{lb4Events: lbEvents}
+
+	wg = sync.WaitGroup{}
+	// Asserts skipLBMap events
+	wg.Add(1)
+	go func() {
+		ev := <-lbEvents
+
+		c.Assert(ev.cookie, Equals, cookie)
+		c.Assert(ev.ip.String(), Equals, fe1.AddrCluster.Addr().String())
+		c.Assert(ev.port, Equals, fe1.L4Addr.Port)
+
+		wg.Done()
+	}()
+	// Asserts UpsertService events
+	wg.Add(1)
+	go func() {
+		ev := <-sMgr.upsertEvents
+
+		c.Assert(ev.Type, Equals, lb.SVCTypeLocalRedirect)
+		c.Assert(ev.Frontend.String(), Equals, configAddrType.frontendMappings[0].feAddr.String())
+		c.Assert(len(ev.Backends), Equals, 1)
+		c.Assert(ev.Backends[0].Hash(), Equals, backend{
+			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(pod.Status.PodIP), L4Addr: beP1.l4Addr},
+			podID:    pod1ID,
+		}.Hash())
+
+		wg.Done()
+	}()
+
+	// Policy is added.
+	added, err = m.rpm.AddRedirectPolicy(pc)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	// Pod selected by the policy added.
+	m.rpm.OnAddPod(pod)
+
+	// Add an endpoint for the policy selected pod.
+	m.rpm.EndpointCreated(ep)
+
+	wg.Wait()
 }

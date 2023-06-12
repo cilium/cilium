@@ -80,7 +80,8 @@ type frontend = lb.L3n4Addr
 // a pod.
 type backend struct {
 	lb.L3n4Addr
-	podID podID
+	podID          podID
+	podNetnsCookie uint64
 }
 
 func (be *backend) GetModel() *models.LRPBackend {
