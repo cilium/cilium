@@ -25,15 +25,16 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP) *flo
 			headers = append(headers, &flowpb.HTTPHeader{Key: key, Value: value})
 		}
 	}
+	uri, _ := url.Parse(http.URL.String())
 	var urlString string
-	if http.URL != nil {
-		if http.URL.User != nil {
+	if uri != nil {
+		if uri.User != nil {
 			// Don't include the password in the flow.
-			if _, ok := http.URL.User.Password(); ok {
-				http.URL.User = url.UserPassword(http.URL.User.Username(), "HUBBLE_REDACTED")
+			if _, ok := uri.User.Password(); ok {
+				uri.User = url.UserPassword(uri.User.Username(), "HUBBLE_REDACTED")
 			}
 		}
-		urlString = http.URL.String()
+		urlString = uri.String()
 	}
 	if flowType == accesslog.TypeRequest {
 		// Set only fields that are relevant for requests.
