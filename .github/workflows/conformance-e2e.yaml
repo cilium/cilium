@@ -381,6 +381,9 @@ jobs:
           ENCRYPT=""
           if [ "${{ matrix.encryption }}" != "" ]; then
             ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
+            if [ "${{ matrix.encryption }}" == "ipsec" ]; then
+              ENCRYPT+=" --helm-set=debug.enabled=true"
+            fi
             if [ "${{ matrix.encryption-node }}" != "" ]; then
               ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ matrix.encryption-node }}"
             fi
