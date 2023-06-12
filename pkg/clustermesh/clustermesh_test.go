@@ -124,7 +124,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	// compatibility.
 	for i, name := range []string{"test2", "cluster1", "cluster2"} {
 		config := cmtypes.CiliumClusterConfig{
-			ID: uint32(i),
+			ID: uint32(i + 1),
 		}
 
 		if name == "cluster2" {
@@ -175,6 +175,38 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		return cm.NumReadyClusters() == 3
 	}, 10*time.Second), IsNil)
 
+	// Ensure that ClusterIDs are reserved correctly after connect
+	cm.usedIDs.usedClusterIDsMutex.Lock()
+	_, ok := cm.usedIDs.usedClusterIDs[2]
+	c.Assert(ok, Equals, true)
+	_, ok = cm.usedIDs.usedClusterIDs[3]
+	c.Assert(ok, Equals, true)
+	// cluster3 doesn't have config, so only 2 IDs should be reserved
+	c.Assert(cm.usedIDs.usedClusterIDs, HasLen, 2)
+	cm.usedIDs.usedClusterIDsMutex.Unlock()
+
+	// Reconnect cluster with changed ClusterID
+	config := cmtypes.CiliumClusterConfig{
+		ID: 255,
+	}
+	err = cmutils.SetClusterConfig(ctx, "cluster1", &config, kvstore.Client())
+	c.Assert(err, IsNil)
+	// Ugly hack to trigger config update
+	etcdConfigNew := append(etcdConfig, []byte("\n")...)
+	config1New := path.Join(dir, "cluster1")
+	err = os.WriteFile(config1New, etcdConfigNew, 0644)
+	c.Assert(err, IsNil)
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		// Ensure if old ClusterID for cluster1 is released
+		// and new ClusterID is reserved.
+		cm.usedIDs.usedClusterIDsMutex.Lock()
+		_, ok1 := cm.usedIDs.usedClusterIDs[2]
+		_, ok2 := cm.usedIDs.usedClusterIDs[255]
+		cm.usedIDs.usedClusterIDsMutex.Unlock()
+		return ok1 == false && ok2 == true
+	}, 10*time.Second), IsNil)
+
 	for _, cluster := range []string{"cluster1", "cluster2", "cluster3"} {
 		for _, name := range nodeNames {
 			nodesWSS.UpsertKey(ctx, &testNode{Name: name, Cluster: cluster})
@@ -199,6 +231,13 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		return cm.NumReadyClusters() == 2
 	}, 5*time.Second), IsNil)
 
+	// Make sure that ID is freed
+	cm.usedIDs.usedClusterIDsMutex.Lock()
+	_, ok = cm.usedIDs.usedClusterIDs[2]
+	c.Assert(ok, Equals, false)
+	c.Assert(cm.usedIDs.usedClusterIDs, HasLen, 1)
+	cm.usedIDs.usedClusterIDsMutex.Unlock()
+
 	// wait for the nodes of the removed cluster to disappear
 	c.Assert(testutils.WaitUntil(func() bool {
 		nodesMutex.RLock()
@@ -220,4 +259,9 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		defer nodesMutex.RUnlock()
 		return len(nodes) == 0
 	}, 10*time.Second), IsNil)
+
+	// Make sure that IDs are freed
+	cm.usedIDs.usedClusterIDsMutex.Lock()
+	c.Assert(cm.usedIDs.usedClusterIDs, HasLen, 0)
+	cm.usedIDs.usedClusterIDsMutex.Unlock()
 }

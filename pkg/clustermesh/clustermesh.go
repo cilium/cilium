@@ -5,12 +5,12 @@ package clustermesh
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/internal"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -88,12 +88,45 @@ type ClusterMesh struct {
 	// internal implements the common logic to connect to remote clusters.
 	internal internal.ClusterMesh
 
+	usedIDs *ClusterMeshUsedIDs
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
 	globalServices *globalServiceCache
 
 	// nodeName is the name of the local node. This is used for logging and metrics
 	nodeName string
+}
+
+type ClusterMeshUsedIDs struct {
+	usedClusterIDs      map[uint32]struct{}
+	usedClusterIDsMutex lock.Mutex
+}
+
+func newClusterMeshUsedIDs() *ClusterMeshUsedIDs {
+	return &ClusterMeshUsedIDs{
+		usedClusterIDs: make(map[uint32]struct{}),
+	}
+}
+
+func (cm *ClusterMeshUsedIDs) reserveClusterID(clusterID uint32) error {
+	cm.usedClusterIDsMutex.Lock()
+	defer cm.usedClusterIDsMutex.Unlock()
+
+	if _, ok := cm.usedClusterIDs[clusterID]; ok {
+		// ClusterID already used
+		return fmt.Errorf("clusterID %d is already used", clusterID)
+	}
+
+	cm.usedClusterIDs[clusterID] = struct{}{}
+
+	return nil
+}
+
+func (cm *ClusterMeshUsedIDs) releaseClusterID(clusterID uint32) {
+	cm.usedClusterIDsMutex.Lock()
+	defer cm.usedClusterIDsMutex.Unlock()
+
+	delete(cm.usedClusterIDs, clusterID)
 }
 
 // NewClusterMesh creates a new remote cluster cache based on the
@@ -106,6 +139,7 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 	nodeName := nodeTypes.GetName()
 	cm := &ClusterMesh{
 		conf:     c,
+		usedIDs:  newClusterMeshUsedIDs(),
 		nodeName: nodeName,
 		globalServices: newGlobalServiceCache(
 			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterName, nodeName),
@@ -130,10 +164,11 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 
 func (cm *ClusterMesh) newRemoteCluster(name string, status internal.StatusFunc) internal.RemoteCluster {
 	rc := &remoteCluster{
-		name:   name,
-		mesh:   cm,
-		status: status,
-		swg:    lock.NewStoppableWaitGroup(),
+		name:    name,
+		mesh:    cm,
+		usedIDs: cm.usedIDs,
+		status:  status,
+		swg:     lock.NewStoppableWaitGroup(),
 	}
 
 	rc.remoteNodes = store.NewRestartableWatchStore(
@@ -153,25 +188,6 @@ func (cm *ClusterMesh) newRemoteCluster(name string, status internal.StatusFunc)
 	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(name, cm.conf.IPCache)
 
 	return rc
-}
-
-func (cm *ClusterMesh) canConnect(name string, config *cmtypes.CiliumClusterConfig) error {
-	return cm.internal.ForEachRemoteCluster(func(rci internal.RemoteCluster) error {
-		rc := rci.(*remoteCluster)
-
-		rc.mutex.RLock()
-		defer rc.mutex.RUnlock()
-
-		if rc.name == name || rc.config == nil {
-			return nil
-		}
-
-		if err := rc.config.IsCompatible(config); err != nil {
-			return err
-		}
-
-		return nil
-	})
 }
 
 // NumReadyClusters returns the number of remote clusters to which a connection
