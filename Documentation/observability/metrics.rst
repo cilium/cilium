@@ -179,9 +179,11 @@ metrics conform to the OpenMetrics requirements.
 Cluster Mesh API Server Metrics
 ===============================
 
-Cluster Mesh API Server metrics provide insights into both the state of the
-``clustermesh-apiserver`` process and the sidecar etcd instance.
+Cluster Mesh API Server metrics provide insights into the state of the
+``clustermesh-apiserver`` process, the ``kvstoremesh`` process (if enabled),
+and the sidecar etcd instance.
 Cluster Mesh API Server metrics are exported under the ``cilium_clustermesh_apiserver_``
+Prometheus namespace. KVStoreMesh metrics are exported under the ``cilium_kvstoremesh_``
 Prometheus namespace. Etcd metrics are exported under the ``etcd_`` Prometheus namespace.
 
 
@@ -920,3 +922,59 @@ Name                                     Labels                                 
 ``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Number of elements queued for synchronization in the kvstore
 ``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Whether the initial synchronization from/to the kvstore has completed
 ======================================== ============================================ ========================================================
+
+.. _kvstoremesh_metrics_reference:
+
+kvstoremesh
+-----------
+
+Configuration
+^^^^^^^^^^^^^
+
+To expose any metrics, invoke ``kvstoremesh`` with the
+``--prometheus-serve-addr`` option. This option takes a ``IP:Port`` pair but
+passing an empty IP (e.g. ``:9964``) binds the server to all available
+interfaces (there is usually only one interface in a container).
+
+Exported Metrics
+^^^^^^^^^^^^^^^^
+
+All metrics are exported under the ``cilium_kvstoremesh_`` Prometheus namespace.
+
+Remote clusters
+~~~~~~~~~~~~~~~
+
+==================================== ======================================= =================================================================
+Name                                 Labels                                                       Description
+==================================== ======================================= =================================================================
+``remote_clusters``                  ``source_cluster``                      The total number of remote clusters meshed with the local cluster
+``remote_cluster_failures``          ``source_cluster``, ``target_cluster``  The total number of failures related to the remote cluster
+``remote_cluster_last_failure_ts``   ``source_cluster``, ``target_cluster``  The timestamp of the last failure of the remote cluster
+``remote_cluster_readiness_status``  ``source_cluster``, ``target_cluster``  The readiness status of the remote cluster
+==================================== ======================================= =================================================================
+
+KVstore
+~~~~~~~
+
+======================================== ============================================ ========================================================
+Name                                     Labels                                       Description
+======================================== ============================================ ========================================================
+``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Duration of kvstore operation
+``kvstore_events_queue_seconds``         ``action``, ``scope``                        Seconds waited before a received event was queued
+``kvstore_quorum_errors_total``          ``error``                                    Number of quorum errors
+``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Number of elements queued for synchronization in the kvstore
+``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Whether the initial synchronization from/to the kvstore has completed
+======================================== ============================================ ========================================================
+
+API Rate Limiting
+~~~~~~~~~~~~~~~~~
+
+============================================== ================================ ========================================================
+Name                                           Labels                           Description
+============================================== ================================ ========================================================
+``api_limiter_processed_requests_total``       ``api_call``, ``outcome``        Total number of API requests processed
+``api_limiter_processing_duration_seconds``    ``api_call``, ``value``          Mean and estimated processing duration in seconds
+``api_limiter_rate_limit``                     ``api_call``, ``value``          Current rate limiting configuration (limit and burst)
+``api_limiter_requests_in_flight``             ``api_call``  ``value``          Current and maximum allowed number of requests in flight
+``api_limiter_wait_duration_seconds``          ``api_call``, ``value``          Mean, min, and max wait duration
+============================================== ================================ ========================================================
