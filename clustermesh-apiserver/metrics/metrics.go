@@ -6,6 +6,7 @@ package metrics
 import (
 	"errors"
 	"net/http"
+	"regexp"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -63,7 +64,11 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 	log.Info("Registering metrics")
 
 	mm.registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	mm.registry.MustRegister(collectors.NewGoCollector())
+	mm.registry.MustRegister(collectors.NewGoCollector(
+		collectors.WithGoCollectorRuntimeMetrics(
+			collectors.GoRuntimeMetricsRule{Matcher: regexp.MustCompile(`^/sched/latencies:seconds`)},
+		),
+	))
 	// Constructing the legacy metrics and register them at the metrics global variable.
 	// This is a hack until we can unify this metrics manager with the metrics.Registry.
 	metrics.NewLegacyMetrics()
