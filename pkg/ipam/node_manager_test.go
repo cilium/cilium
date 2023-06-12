@@ -179,13 +179,13 @@ func (e *IPAMSuite) TestGetNodeNames(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	node1 := newCiliumNode("node1", 0, 0, 0)
-	mngr.Update(node1)
+	mngr.Upsert(node1)
 
 	names := mngr.GetNames()
 	c.Assert(len(names), check.Equals, 1)
 	c.Assert(names[0], check.Equals, "node1")
 
-	mngr.Update(newCiliumNode("node2", 0, 0, 0))
+	mngr.Upsert(newCiliumNode("node2", 0, 0, 0))
 
 	names = mngr.GetNames()
 	c.Assert(len(names), check.Equals, 2)
@@ -207,7 +207,7 @@ func (e *IPAMSuite) TestNodeManagerGet(c *check.C) {
 	// instances.Resync(context.TODO())
 
 	node1 := newCiliumNode("node1", 0, 0, 0)
-	mngr.Update(node1)
+	mngr.Upsert(node1)
 
 	c.Assert(mngr.Get("node1"), check.Not(check.IsNil))
 	c.Assert(mngr.Get("node2"), check.IsNil)
@@ -296,7 +296,7 @@ func (e *IPAMSuite) TestNodeManagerDefaultAllocation(c *check.C) {
 
 	// Announce node wait for IPs to become available
 	cn := newCiliumNode("node1", 8, 0, 0)
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node1")
@@ -305,7 +305,7 @@ func (e *IPAMSuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 7 out of 8 IPs
-	mngr.Update(updateCiliumNode(cn, 7))
+	mngr.Upsert(updateCiliumNode(cn, 7))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node = mngr.Get("node1")
@@ -327,7 +327,7 @@ func (e *IPAMSuite) TestNodeManagerMinAllocate20(c *check.C) {
 
 	// Announce node wait for IPs to become available
 	cn := newCiliumNode("node2", -1, 10, 0)
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node2")
@@ -336,7 +336,7 @@ func (e *IPAMSuite) TestNodeManagerMinAllocate20(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// 10 available, 8 used
-	mngr.Update(updateCiliumNode(cn, 8))
+	mngr.Upsert(updateCiliumNode(cn, 8))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
 	node = mngr.Get("node2")
@@ -345,7 +345,7 @@ func (e *IPAMSuite) TestNodeManagerMinAllocate20(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 8)
 
 	// Change MinAllocate to 20
-	mngr.Update(newCiliumNode("node2", 0, 20, 8))
+	mngr.Upsert(newCiliumNode("node2", 0, 20, 8))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
 	node = mngr.Get("node2")
@@ -367,7 +367,7 @@ func (e *IPAMSuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node2", 1, 10, 0)
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node2")
@@ -376,7 +376,7 @@ func (e *IPAMSuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 9 out of 10 IPs, no additional IPs should be allocated
-	mngr.Update(updateCiliumNode(cn, 9))
+	mngr.Upsert(updateCiliumNode(cn, 9))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
@@ -384,7 +384,7 @@ func (e *IPAMSuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 9)
 
 	// Use 10 out of 10 IPs, PreAllocate 1 must kick in and allocate an additional IP
-	mngr.Update(updateCiliumNode(cn, 10))
+	mngr.Upsert(updateCiliumNode(cn, 10))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
@@ -392,7 +392,7 @@ func (e *IPAMSuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
 
 	// Release some IPs, no additional IPs should be allocated
-	mngr.Update(updateCiliumNode(cn, 8))
+	mngr.Upsert(updateCiliumNode(cn, 8))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
@@ -417,7 +417,7 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node3", 4, 15, 0)
 	cn.Spec.IPAM.MaxAboveWatermark = 4
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 1*time.Second), check.IsNil)
 
 	node := mngr.Get("node3")
@@ -426,7 +426,7 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 11 out of 19 IPs, no additional IPs should be allocated
-	mngr.Update(updateCiliumNode(cn, 11))
+	mngr.Upsert(updateCiliumNode(cn, 11))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
@@ -434,7 +434,7 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 11)
 
 	// Use 19 out of 19 IPs, PreAllocate 4 + MaxAboveWatermark must kick in and allocate 8 additional IPs
-	mngr.Update(updateCiliumNode(cn, 19))
+	mngr.Upsert(updateCiliumNode(cn, 19))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
@@ -442,7 +442,7 @@ func (e *IPAMSuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 19)
 
 	// Free some IPs, 5 excess IPs appears but only be released at interval based resync, so expect timeout here
-	mngr.Update(updateCiliumNode(cn, 10))
+	mngr.Upsert(updateCiliumNode(cn, 10))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 2*time.Second), check.Not(check.IsNil))
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
@@ -487,7 +487,7 @@ func (e *IPAMSuite) TestNodeManagerAbortRelease(c *check.C) {
 
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node3", 1, 3, 0)
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 1*time.Second), check.IsNil)
 
 	node := mngr.Get("node3")
@@ -496,14 +496,14 @@ func (e *IPAMSuite) TestNodeManagerAbortRelease(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 3 out of 4 IPs, no additional IPs should be allocated
-	mngr.Update(updateCiliumNode(cn, 3))
+	mngr.Upsert(updateCiliumNode(cn, 3))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
 	c.Assert(node.Stats().AvailableIPs, check.Equals, 4)
 	c.Assert(node.Stats().UsedIPs, check.Equals, 3)
 
-	mngr.Update(updateCiliumNode(node.resource, 2))
+	mngr.Upsert(updateCiliumNode(node.resource, 2))
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
 	c.Assert(node.Stats().AvailableIPs, check.Equals, 4)
@@ -529,7 +529,7 @@ func (e *IPAMSuite) TestNodeManagerAbortRelease(c *check.C) {
 		testutils.FakeAcknowledgeReleaseIps(node.resource)
 
 		// Use up one more IP to make excess = 0
-		mngr.Update(updateCiliumNode(node.resource, 3))
+		mngr.Upsert(updateCiliumNode(node.resource, 3))
 		node.poolMaintainer.Trigger()
 		// Resync one more time to process acknowledgements.
 		mngr.resyncTrigger.Trigger()
@@ -577,7 +577,7 @@ func (e *IPAMSuite) TestNodeManagerManyNodes(c *check.C) {
 		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-testNodeManagerManyNodes-%d", i)}
 		s.cn = newCiliumNode(s.name, 1, minAllocate, 0)
 		state[i] = s
-		mngr.Update(s.cn)
+		mngr.Upsert(s.cn)
 	}
 
 	for _, s := range state {
@@ -622,7 +622,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-benchmarkAllocWorker-%d", i)}
 		s.cn = newCiliumNode(s.name, 1, 10, 0)
 		state[i] = s
-		mngr.Update(s.cn)
+		mngr.Upsert(s.cn)
 	}
 
 restart:

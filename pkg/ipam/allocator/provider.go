@@ -20,7 +20,7 @@ type AllocatorProvider interface {
 
 // NodeEventHandler should implement the behavior to handle CiliumNode
 type NodeEventHandler interface {
-	Upsert(resource *v2.CiliumNode) bool
+	Upsert(resource *v2.CiliumNode)
 	Delete(resource *v2.CiliumNode)
 	Resync(context.Context, time.Time)
 }

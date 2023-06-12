@@ -353,11 +353,9 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Upsert(c *C) {
 		name        string
 		fields      *fields
 		args        args
-		want        bool
 	}{
 		{
 			name: "test-1 - should allocate a v4 addr",
-			want: true,
 			testSetup: func() *fields {
 				return &fields{
 					canAllocateNodes: true,
@@ -414,7 +412,6 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Upsert(c *C) {
 		},
 		{
 			name: "test-2 - failed to allocate a v4 addr",
-			want: true,
 			testSetup: func() *fields {
 				return &fields{
 					canAllocateNodes: true,
@@ -467,7 +464,6 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Upsert(c *C) {
 		},
 		{
 			name: "test-3 - node is already allocated with the requested pod CIDRs",
-			want: true,
 			testSetup: func() *fields {
 				return &fields{
 					canAllocateNodes: true,
@@ -513,7 +509,6 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Upsert(c *C) {
 		},
 		{
 			name: "test-4 - node is requesting pod CIDRs, it's already allocated locally but the spec is not updated",
-			want: true,
 			testSetup: func() *fields {
 				return &fields{
 					canAllocateNodes: true,
@@ -577,8 +572,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Upsert(c *C) {
 				nodes:               tt.fields.nodes,
 				ciliumNodesToK8s:    tt.fields.ciliumNodesToK8s,
 			}
-			got := n.Upsert(tt.args.node)
-			c.Assert(got, checker.Equals, tt.want, Commentf("Test Name: %s", tt.name))
+			n.Upsert(tt.args.node)
 
 			if tt.testPostRun != nil {
 				tt.testPostRun(tt.fields)
