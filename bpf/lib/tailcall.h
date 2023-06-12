@@ -98,12 +98,12 @@
 	__eval(__declare_tailcall_if_, COND)(NAME)
 
 #define __invoke_tailcall_if_0(NAME, FUNC)    \
-	return FUNC(ctx)
+	FUNC(ctx)
 #define __invoke_tailcall_if_1(NAME, FUNC)    \
-	do {                                  \
+	({				      \
 		ep_tail_call(ctx, NAME);      \
-		ret = DROP_MISSED_TAIL_CALL;  \
-	} while (0)
+		DROP_MISSED_TAIL_CALL;        \
+	})
 #define invoke_tailcall_if(COND, NAME, FUNC)  \
 	__eval(__invoke_tailcall_if_, COND)(NAME, FUNC)
 
