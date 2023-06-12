@@ -322,34 +322,21 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 	return
 }
 
-// Create will re-allocate the node podCIDRs. In case the node already has
-// podCIDRs allocated, the podCIDR allocator will try to allocate those CIDRs
-// internally. In case the node does not have any podCIDR set, its allocation
-// will only happen once n.Resync has been called at least one time.
-// In case the CIDRs were able to be allocated, the CiliumNode will have its
-// podCIDRs fields set with the allocated CIDRs.
-// In case the CIDRs were unable to be allocated, this function will return
-// true and the node will have its status updated into kubernetes with the
-// error message by the NodesPodCIDRManager.
-func (n *NodesPodCIDRManager) Create(node *v2.CiliumNode) bool {
-	return n.Update(node)
-}
-
-// Update will re-allocate the node podCIDRs. In case the node already has
+// Upsert will re-allocate the node podCIDRs. In case the node already has
 // podCIDRs allocated, the podCIDR allocator will try to allocate those CIDRs.
 // In case the CIDRs were able to be allocated, the CiliumNode will have its
 // podCIDRs fields set with the allocated CIDRs.
 // In case the CIDRs were unable to be allocated, this function will return
 // true and the node will have its status updated into kubernetes with the
 // error message by the NodesPodCIDRManager.
-func (n *NodesPodCIDRManager) Update(node *v2.CiliumNode) bool {
+func (n *NodesPodCIDRManager) Upsert(node *v2.CiliumNode) bool {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
-	return n.update(node)
+	return n.upsertLocked(node)
 }
 
 // Needs n.Mutex to be held.
-func (n *NodesPodCIDRManager) update(node *v2.CiliumNode) bool {
+func (n *NodesPodCIDRManager) upsertLocked(node *v2.CiliumNode) bool {
 	var (
 		updateStatus, updateSpec bool
 		cn                       *v2.CiliumNode
@@ -436,7 +423,7 @@ func (n *NodesPodCIDRManager) Resync(context.Context, time.Time) {
 		// is called as now we are allowed to allocate podCIDRs for nodes
 		// without any podCIDR.
 		for _, cn := range n.nodesToAllocate {
-			n.update(cn)
+			n.upsertLocked(cn)
 		}
 		n.nodesToAllocate = nil
 	}

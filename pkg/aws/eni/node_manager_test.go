@@ -70,13 +70,13 @@ func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	node1 := newCiliumNode("node1")
-	mngr.Update(newCiliumNode("node1"))
+	mngr.Upsert(node1)
 
 	names := mngr.GetNames()
 	c.Assert(len(names), check.Equals, 1)
 	c.Assert(names[0], check.Equals, "node1")
 
-	mngr.Update(newCiliumNode("node2"))
+	mngr.Upsert(newCiliumNode("node2"))
 
 	names = mngr.GetNames()
 	c.Assert(len(names), check.Equals, 2)
@@ -97,7 +97,7 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	node1 := newCiliumNode("node1")
-	mngr.Update(node1)
+	mngr.Upsert(node1)
 
 	c.Assert(mngr.Get("node1"), check.Not(check.IsNil))
 	c.Assert(mngr.Get("node2"), check.IsNil)
@@ -131,7 +131,7 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 
 	// Announce node wait for IPs to become available
 	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"), withIPAMPreAllocate(8))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node1")
@@ -140,7 +140,7 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 7 out of 8 IPs
-	mngr.Update(updateCiliumNode(cn, 8, 7))
+	mngr.Upsert(updateCiliumNode(cn, 8, 7))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node = mngr.Get("node1")
@@ -173,7 +173,7 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 
 	// Announce node wait for IPs to become available
 	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5a.large"), withIPAMPreAllocate(8))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node1")
@@ -182,7 +182,7 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 12 out of 16 IPs
-	mngr.Update(updateCiliumNode(cn, 16, 12))
+	mngr.Upsert(updateCiliumNode(cn, 16, 12))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node = mngr.Get("node1")
@@ -227,7 +227,7 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	}
 	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"),
 		withSecurityGroupTags(sgTags), withIPAMPreAllocate(8))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node1")
@@ -236,7 +236,7 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 7 out of 8 IPs
-	mngr.Update(updateCiliumNode(cn, 8, 7))
+	mngr.Upsert(updateCiliumNode(cn, 8, 7))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node = mngr.Get("node1")
@@ -281,7 +281,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 
 	// Announce node wait for IPs to become available
 	cn := newCiliumNode("node2", withInstanceID(instanceID), withInstanceType("m5.4xlarge"), withIPAMPreAllocate(-1), withIPAMMinAllocate(10))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node2")
@@ -289,7 +289,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	c.Assert(node.Stats().AvailableIPs, check.Equals, 10)
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
-	mngr.Update(updateCiliumNode(cn, 10, 8))
+	mngr.Upsert(updateCiliumNode(cn, 10, 8))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
 	node = mngr.Get("node2")
@@ -301,8 +301,8 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	withIPAMPreAllocate(0)(cn)
 	withIPAMMinAllocate(20)(cn)
 
-	mngr.Update(updateCiliumNode(cn, 20, 8))
-	mngr.Update(cn)
+	mngr.Upsert(updateCiliumNode(cn, 20, 8))
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
 	node = mngr.Get("node2")
@@ -336,7 +336,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node2", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m3.large"),
 		withIPAMPreAllocate(1), withIPAMMinAllocate(10))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node2")
@@ -345,7 +345,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 9 out of 10 IPs, no additional IPs should be allocated
-	mngr.Update(updateCiliumNode(cn, 10, 9))
+	mngr.Upsert(updateCiliumNode(cn, 10, 9))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
@@ -353,7 +353,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 9)
 
 	// Use 10 out of 10 IPs, PreAllocate 1 must kick in and allocate an additional IP
-	mngr.Update(updateCiliumNode(cn, 10, 10))
+	mngr.Upsert(updateCiliumNode(cn, 10, 10))
 	syncTime := instances.Resync(context.TODO())
 	mngr.Resync(context.TODO(), syncTime)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
@@ -363,7 +363,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 10)
 
 	// Release some IPs, no additional IPs should be allocated
-	mngr.Update(updateCiliumNode(cn, 10, 8))
+	mngr.Upsert(updateCiliumNode(cn, 10, 8))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
@@ -399,7 +399,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node3", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m4.xlarge"),
 		withIPAMPreAllocate(2), withIPAMMinAllocate(10), withIPAMMaxAboveWatermark(3))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 
 	// 10 min-allocate + 3 max-above-watermark => 13 IPs must become
@@ -410,7 +410,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 11 out of 13 IPs, no additional IPs should be allocated
-	mngr.Update(updateCiliumNode(cn, 13, 11))
+	mngr.Upsert(updateCiliumNode(cn, 13, 11))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
@@ -419,7 +419,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 
 	// Use 13 out of 13 IPs, PreAllocate 2 + MaxAboveWatermark 3 must kick in
 	// and allocate 5 additional IPs
-	mngr.Update(updateCiliumNode(cn, 13, 13))
+	mngr.Upsert(updateCiliumNode(cn, 13, 13))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
@@ -428,7 +428,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 
 	// Reduce used IPs to 10, this leads to 8 excess IPs but release
 	// occurs at interval based resync, so expect timeout at first
-	mngr.Update(updateCiliumNode(cn, 18, 10))
+	mngr.Upsert(updateCiliumNode(cn, 18, 10))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 2*time.Second), check.Not(check.IsNil))
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
@@ -504,7 +504,7 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 	// Announce node wait for IPs to become available
 	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"),
 		withExcludeInterfaceTags(map[string]string{"cilium.io/no_manage": "true"}), withIPAMPreAllocate(8))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node1")
@@ -523,7 +523,7 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 	eniNode.mutex.RUnlock()
 
 	// Use 7 out of 8 IPs
-	mngr.Update(updateCiliumNode(cn, 8, 7))
+	mngr.Upsert(updateCiliumNode(cn, 8, 7))
 	mngr.Resync(context.TODO(), instances.Resync(context.TODO()))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
@@ -565,7 +565,7 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node2", withTestDefaults(), withInstanceID(instanceID), withInstanceType("t2.xlarge"),
 		withIPAMPreAllocate(8), withIPAMMinAllocate(20))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node2")
@@ -576,7 +576,7 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	// Use 40 out of 42 available IPs, we should reach 0 address needed once we
 	// assigned the remaining 3 that the t2.xlarge instance type supports
 	// (3x15 - 3 = 42 max)
-	mngr.Update(updateCiliumNode(cn, 42, 40))
+	mngr.Upsert(updateCiliumNode(cn, 42, 40))
 	syncTime := instances.Resync(context.TODO())
 	mngr.Resync(context.TODO(), syncTime)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
@@ -621,7 +621,7 @@ func (e *ENISuite) TestInterfaceCreatedInInitialSubnet(c *check.C) {
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("t2.xlarge"),
 		withIPAMPreAllocate(16), withNodeSubnetID(testSubnet.ID))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node1")
@@ -686,7 +686,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 		s.cn = newCiliumNode(s.name, withTestDefaults(), withInstanceID(s.instanceName), withInstanceType("c3.xlarge"),
 			withFirstInterfaceIndex(1), withIPAMPreAllocate(1), withIPAMMinAllocate(minAllocate))
 		state[i] = s
-		mngr.Update(s.cn)
+		mngr.Upsert(s.cn)
 	}
 
 	for _, s := range state {
@@ -751,7 +751,7 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	// Announce node, ENI attachement will fail
 	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m4.large"),
 		withFirstInterfaceIndex(1), withIPAMPreAllocate(8))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 
 	// Wait for node to be declared notRunning
 	c.Assert(testutils.WaitUntil(func() bool {
@@ -795,7 +795,7 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m4.large"), withIPAMPreAllocate(8))
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
 	node := mngr.Get("node1")
@@ -816,7 +816,7 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	// Resync instances from mocked AWS
 	instances.Resync(context.TODO())
 	// Use 2 out of 9 IPs
-	mngr.Update(updateCiliumNode(cn, 9, 2))
+	mngr.Upsert(updateCiliumNode(cn, 9, 2))
 
 	// Instance deletion detected, no allocation happened despite of the IP deficit.
 	c.Assert(node.Stats().AvailableIPs, check.Equals, 8)
@@ -852,7 +852,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 		s.cn = newCiliumNode(s.name, withTestDefaults(), withInstanceID(s.instanceName), withInstanceType("m4.large"),
 			withIPAMPreAllocate(1), withIPAMMinAllocate(10))
 		state[i] = s
-		mngr.Update(s.cn)
+		mngr.Upsert(s.cn)
 	}
 
 restart:
