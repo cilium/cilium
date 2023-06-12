@@ -153,6 +153,34 @@ func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity) error {
 	return err
 }
 
+// GetAuthType returns the AuthType required by the policy between the localID and remoteID, or
+// AuthTypeDisabled if none.
+//
+// Note that the first found AuthType is returned. This is correct as the policy should only
+// support a single auth type between a pair of identities and the datapath has the same
+// restriction.
+func (cache *PolicyCache) GetAuthType(localID, remoteID identityPkg.NumericIdentity) AuthType {
+	cache.Lock()
+	cip, ok := cache.policies[localID]
+	cache.Unlock()
+	if !ok {
+		return AuthTypeDisabled // No policy for localID (no endpoint with localID)
+	}
+
+	// SelectorPolicy is const after it has been created, so no locking needed to access it
+	selPolicy := cip.getPolicy()
+	if selPolicy.L4Policy == nil {
+		return AuthTypeDisabled // Local identity added, but policy not computed yet
+	}
+
+	for cs, authType := range selPolicy.L4Policy.AuthMap {
+		if cs.Selects(remoteID) {
+			return authType
+		}
+	}
+	return AuthTypeDisabled
+}
+
 // cachedSelectorPolicy is a wrapper around a selectorPolicy (stored in the
 // 'policy' field). It is always nested directly in the owning policyCache,
 // and is protected against concurrent writes via the policyCache mutex.
