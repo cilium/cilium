@@ -61,11 +61,14 @@ Compatibility with other features
 L7 policies
 -----------
 
-Egress gateway is currently partially incompatible with L7 policies.
+Egress gateway is partially incompatible with L7 policies.
 Specifically, when an egress gateway policy and an L7 policy both select the same
-endpoint, traffic from that endpoint will not go through egress gateway, even if
-the policy allows it. Full support will be added in an upcoming release once
-:gh-issue:`19642` is resolved.
+endpoint, traffic from that endpoint does not go through the egress gateway, even if
+the policy allows it. Full support depends on resolving :gh-issue:`19642`.
+
+Because egress gateway isn't compatible with identity allocation mode ``kvstore``,
+you must use Kubernetes as Cilium's identity store (``identityAllocationMode``
+set to ``crd``). This is the default setting for new installations.
 
 LB acceleration
 ---------------
@@ -113,7 +116,8 @@ Compatibility with cloud environments
 -------------------------------------
 
 Based on the specific configuration of the cloud provider and network interfaces
-it is possible that traffic leaves a node from the wrong interface.
+it is possible that traffic leaves a node from the wrong interface. This happens
+in particular on EKS in ENI mode.
 
 To work around this issue, Cilium can be instructed to install the necessary IP
 rules and routes to route traffic through the appropriate network-facing
