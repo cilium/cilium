@@ -221,6 +221,10 @@ func (d *Daemon) getCNIChainingStatus() *models.CNIChainingStatus {
 func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	var mode string
 	switch option.Config.KubeProxyReplacement {
+	case option.KubeProxyReplacementTrue:
+		mode = models.KubeProxyReplacementModeTrue
+	case option.KubeProxyReplacementFalse:
+		mode = models.KubeProxyReplacementModeFalse
 	case option.KubeProxyReplacementStrict:
 		mode = models.KubeProxyReplacementModeStrict
 	case option.KubeProxyReplacementPartial:
