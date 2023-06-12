@@ -40,10 +40,10 @@ func NewNodeHandler(manager *PoolAllocator, nodeUpdater ipam.CiliumNodeGetterUpd
 	}
 }
 
-func (n *NodeHandler) Upsert(resource *v2.CiliumNode) bool {
+func (n *NodeHandler) Upsert(resource *v2.CiliumNode) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	return n.upsertLocked(resource)
+	n.upsertLocked(resource)
 }
 
 func (n *NodeHandler) Delete(resource *v2.CiliumNode) {
@@ -76,14 +76,12 @@ func (n *NodeHandler) Resync(context.Context, time.Time) {
 	n.nodesPendingAllocation = nil
 }
 
-func (n *NodeHandler) upsertLocked(resource *v2.CiliumNode) bool {
+func (n *NodeHandler) upsertLocked(resource *v2.CiliumNode) {
 	if !n.restoreFinished {
 		n.nodesPendingAllocation[resource.Name] = resource
-		err := n.poolManager.AllocateToNode(resource)
-		return err == nil
+		_ = n.poolManager.AllocateToNode(resource)
 	}
 	n.createUpsertController(resource)
-	return true
 }
 
 func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
