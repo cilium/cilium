@@ -219,6 +219,9 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 // AuthType enumerates the supported authentication types in api.
 type AuthType uint8
 
+// Authmap maps remote selectors to their needed AuthType, if any
+type AuthMap map[CachedSelector]AuthType
+
 const (
 	// AuthTypeDisabled means no authentication required
 	AuthTypeDisabled AuthType = iota
@@ -835,7 +838,7 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 }
 
 // attach signifies that the L4Filter is ready and reacheable for updates
-// from SelectorCache. L4Filter is read-only after this is called,
+// from SelectorCache. L4Filter (and L4Policy) is read-only after this is called,
 // multiple goroutines will be reading the fields from that point on.
 func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 	// All rules have been added to the L4Filter at this point.
@@ -846,9 +849,18 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 
 	// Compute Envoy policies when a policy is ready to be used
 	if ctx != nil {
-		for _, l7policy := range l4.PerSelectorPolicies {
-			if l7policy != nil && len(l7policy.L7Rules.HTTP) > 0 {
-				l7policy.EnvoyHTTPRules, l7policy.CanShortCircuit = ctx.GetEnvoyHTTPRules(&l7policy.L7Rules)
+		for cs, l7policy := range l4.PerSelectorPolicies {
+			if l7policy != nil {
+				if len(l7policy.L7Rules.HTTP) > 0 {
+					l7policy.EnvoyHTTPRules, l7policy.CanShortCircuit = ctx.GetEnvoyHTTPRules(&l7policy.L7Rules)
+				}
+
+				if authType := l7policy.GetAuthType(); authType != AuthTypeDisabled {
+					if l4Policy.AuthMap == nil {
+						l4Policy.AuthMap = make(AuthMap, 1)
+					}
+					l4Policy.AuthMap[cs] = authType
+				}
 			}
 		}
 	}
@@ -1096,6 +1108,8 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 type L4Policy struct {
 	Ingress L4PolicyMap
 	Egress  L4PolicyMap
+
+	AuthMap AuthMap
 
 	// Revision is the repository revision used to generate this policy.
 	Revision uint64
