@@ -60,7 +60,7 @@ func printNodeID(w *tabwriter.Writer, nodeID *models.NodeID) {
 	first := true
 	for _, ip := range nodeID.Ips {
 		if first {
-			fmt.Fprintf(w, "%d\t%s\n", *nodeID.ID, ip)
+			fmt.Fprintf(w, "0x%x\t%s\n", *nodeID.ID, ip)
 			first = false
 		} else {
 			fmt.Fprintf(w, "\t%s\n", ip)
