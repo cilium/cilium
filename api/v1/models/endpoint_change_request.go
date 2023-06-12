@@ -73,6 +73,9 @@ type EndpointChangeRequest struct {
 	// MAC address
 	Mac string `json:"mac,omitempty"`
 
+	// Network namespace cookie
+	NetnsCookie string `json:"netns-cookie,omitempty"`
+
 	// Process ID of the workload belonging to this endpoint
 	Pid int64 `json:"pid,omitempty"`
 
