@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"unsafe"
 
@@ -141,7 +142,7 @@ type RemoteEndpointInfo struct {
 }
 
 func (v *RemoteEndpointInfo) String() string {
-	return fmt.Sprintf("%d %d %s %d", v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.NodeID)
+	return fmt.Sprintf("%d %d %s 0x%s", v.SecurityIdentity, v.Key, v.TunnelEndpoint, strconv.FormatUint(uint64(v.NodeID), 16))
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value.
