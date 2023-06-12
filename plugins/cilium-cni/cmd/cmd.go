@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"sort"
+	"strconv"
 
 	cniInvoke "github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -55,7 +56,8 @@ const (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-cni")
+	log            = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-cni")
+	getNetnsCookie = true
 )
 
 // Cmd provides methods for the CNI ADD, DEL and CHECK commands.
@@ -612,6 +614,23 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}); err != nil {
 			return fmt.Errorf("unable to configure interfaces in container namespace: %w", err)
 		}
+
+		var cookie uint64
+		if getNetnsCookie {
+			if err = netNs.Do(func(_ ns.NetNS) error {
+				cookie, err = netns.GetNetNSCookie()
+				return err
+			}); err != nil {
+				if err == unix.ENOPROTOOPT {
+					// SO_NETNS_COOKIE is only available on kernel versions 5.8 onwards.
+					getNetnsCookie = false
+				}
+				log.WithError(err).Infof("unable to get netns cookie %s", args.ContainerID)
+			}
+			log.Infof("debug-aditi2 netns cookie %v", cookie)
+		}
+		ep.NetnsCookie = strconv.FormatUint(cookie, 10)
+		logger.WithField(logfields.ContainerID, args.ContainerID).Warnf("debug-aditi %s %s", args.Netns, ep.NetnsCookie)
 
 		// Specify that endpoint must be regenerated synchronously. See GH-4409.
 		ep.SyncBuildEndpoint = true
