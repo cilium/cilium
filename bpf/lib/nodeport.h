@@ -2866,25 +2866,25 @@ static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_
 	switch (proto) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		invoke_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
-					       is_defined(ENABLE_IPV6)),
-					 __and(is_defined(ENABLE_HOST_FIREWALL),
-					       is_defined(IS_BPF_HOST)),
-					 __and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
-					       is_defined(ENABLE_INTER_CLUSTER_SNAT)),
-					 is_defined(ENABLE_EGRESS_GATEWAY)),
-				   CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
-				   handle_nat_fwd_ipv4);
+		ret = invoke_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
+						     is_defined(ENABLE_IPV6)),
+					       __and(is_defined(ENABLE_HOST_FIREWALL),
+						     is_defined(IS_BPF_HOST)),
+					       __and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
+						     is_defined(ENABLE_INTER_CLUSTER_SNAT)),
+					       is_defined(ENABLE_EGRESS_GATEWAY)),
+					 CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
+					 handle_nat_fwd_ipv4);
 		break;
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-					      is_defined(ENABLE_IPV6)),
-					__and(is_defined(ENABLE_HOST_FIREWALL),
-					      is_defined(IS_BPF_HOST))),
-				   CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
-				   handle_nat_fwd_ipv6);
+		ret = invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
+						    is_defined(ENABLE_IPV6)),
+					      __and(is_defined(ENABLE_HOST_FIREWALL),
+						    is_defined(IS_BPF_HOST))),
+					 CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
+					 handle_nat_fwd_ipv6);
 		break;
 #endif /* ENABLE_IPV6 */
 	default:

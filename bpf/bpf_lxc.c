@@ -263,7 +263,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	if (map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)	\
 		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER);	\
 										\
-	invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);			\
+	ret = invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);		\
 	return ret;								\
 }
 
@@ -304,7 +304,7 @@ int NAME(struct __ctx_buff *ctx)						\
 		return drop_for_direction(ctx, DIR,				\
 			DROP_INVALID_TC_BUFFER);				\
 										\
-	invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);			\
+	ret = invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);		\
 	return ret;								\
 }
 
@@ -2062,16 +2062,16 @@ int handle_policy(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-				   CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
-				   tail_ipv6_ct_ingress_policy_only);
+		ret = invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+					 CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
+					 tail_ipv6_ct_ingress_policy_only);
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-				   CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
-				   tail_ipv4_ct_ingress_policy_only);
+		ret = invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+					 CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
+					 tail_ipv4_ct_ingress_policy_only);
 		break;
 #endif /* ENABLE_IPV4 */
 	default:

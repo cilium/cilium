@@ -407,13 +407,13 @@ tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
 	if (ret == CTX_ACT_OK) {
 		ctx_store_meta(ctx, CB_SRC_LABEL, proxy_identity);
 		if (from_host)
-			invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
-					   CILIUM_CALL_IPV6_CONT_FROM_HOST,
-					   tail_handle_ipv6_cont_from_host);
+			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
+						 CILIUM_CALL_IPV6_CONT_FROM_HOST,
+						 tail_handle_ipv6_cont_from_host);
 		else
-			invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
-					   CILIUM_CALL_IPV6_CONT_FROM_NETDEV,
-					   tail_handle_ipv6_cont_from_netdev);
+			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
+						 CILIUM_CALL_IPV6_CONT_FROM_NETDEV,
+						 tail_handle_ipv6_cont_from_netdev);
 	}
 
 	/* Catch errors from both handle_ipv6 and invoke_tailcall_if here. */
@@ -822,13 +822,13 @@ tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 	if (ret == CTX_ACT_OK) {
 		ctx_store_meta(ctx, CB_SRC_LABEL, proxy_identity);
 		if (from_host)
-			invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
-					   CILIUM_CALL_IPV4_CONT_FROM_HOST,
-					   tail_handle_ipv4_cont_from_host);
+			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
+						 CILIUM_CALL_IPV4_CONT_FROM_HOST,
+						 tail_handle_ipv4_cont_from_host);
 		else
-			invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
-					   CILIUM_CALL_IPV4_CONT_FROM_NETDEV,
-					   tail_handle_ipv4_cont_from_netdev);
+			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
+						 CILIUM_CALL_IPV4_CONT_FROM_NETDEV,
+						 tail_handle_ipv4_cont_from_netdev);
 	}
 
 	/* Catch errors from both handle_ipv4 and invoke_tailcall_if here. */
@@ -1667,20 +1667,20 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-					      is_defined(ENABLE_IPV6)),
-					is_defined(DEBUG)),
-				   CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
-				   tail_ipv6_host_policy_ingress);
+		ret = invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
+						    is_defined(ENABLE_IPV6)),
+					      is_defined(DEBUG)),
+					 CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
+					 tail_ipv6_host_policy_ingress);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-					      is_defined(ENABLE_IPV6)),
-					is_defined(DEBUG)),
-				   CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
-				   tail_ipv4_host_policy_ingress);
+		ret = invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
+						    is_defined(ENABLE_IPV6)),
+					      is_defined(DEBUG)),
+					 CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
+					 tail_ipv4_host_policy_ingress);
 		break;
 # endif
 	default:
