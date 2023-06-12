@@ -325,6 +325,7 @@ jobs:
           cmd: |
             git config --global --add safe.directory /host
             mv /host/helm /usr/bin
+            mv /host/cilium-cli /usr/bin
 
       - name: Provision kind
         timeout-minutes: 5
@@ -428,10 +429,7 @@ jobs:
           cmd: |
             cd /host
             kubectl get pods --all-namespaces -o wide
-            ./cilium-cli status
-            mkdir -p cilium-sysdumps
             tar -zcf "test_results-${{ env.job_name }}.tar.gz" /host/test/test_results
-            ./cilium-cli sysdump --output-filename "cilium-sysdump-${{ env.job_name }}-final" || true
 
       - name: Upload artifacts
         if: ${{ !success() }}
