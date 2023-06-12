@@ -281,15 +281,9 @@ func (n *NodeManager) GetNames() (allNodeNames []string) {
 	return
 }
 
-func (n *NodeManager) Create(resource *v2.CiliumNode) bool {
-	return n.Update(resource)
-}
-
-// Update is called whenever a CiliumNode resource has been updated in the
-// Kubernetes apiserver
-//
-// This is only used for testing.
-func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
+// Upsert is called whenever a CiliumNode resource has been updated in the
+// Kubernetes apiserver. The CiliumNode will be created if it didn't exist before.
+func (n *NodeManager) Upsert(resource *v2.CiliumNode) (nodeSynced bool) {
 	nodeSynced = true
 	n.mutex.Lock()
 	node, ok := n.nodes[resource.Name]

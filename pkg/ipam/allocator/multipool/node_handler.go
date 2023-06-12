@@ -40,13 +40,7 @@ func NewNodeHandler(manager *PoolAllocator, nodeUpdater ipam.CiliumNodeGetterUpd
 	}
 }
 
-func (n *NodeHandler) Create(resource *v2.CiliumNode) bool {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-	return n.upsertLocked(resource)
-}
-
-func (n *NodeHandler) Update(resource *v2.CiliumNode) bool {
+func (n *NodeHandler) Upsert(resource *v2.CiliumNode) bool {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	return n.upsertLocked(resource)

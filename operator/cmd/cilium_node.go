@@ -144,7 +144,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 			},
 			func(node *cilium_v2.CiliumNode) {
 				// node is deep copied before it is stored in pkg/aws/eni
-				s.nodeManager.Update(node)
+				s.nodeManager.Upsert(node)
 			})
 	}
 
