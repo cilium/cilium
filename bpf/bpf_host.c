@@ -1247,20 +1247,20 @@ to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-					      is_defined(ENABLE_IPV6)),
-					is_defined(DEBUG)),
-				   CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
-				   tail_ipv6_host_policy_ingress);
+		ret = invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
+						    is_defined(ENABLE_IPV6)),
+					      is_defined(DEBUG)),
+					 CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
+					 tail_ipv6_host_policy_ingress);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-					      is_defined(ENABLE_IPV6)),
-					is_defined(DEBUG)),
-				   CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
-				   tail_ipv4_host_policy_ingress);
+		ret = invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
+						    is_defined(ENABLE_IPV6)),
+					      is_defined(DEBUG)),
+					 CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
+					 tail_ipv4_host_policy_ingress);
 		break;
 # endif
 	default:
