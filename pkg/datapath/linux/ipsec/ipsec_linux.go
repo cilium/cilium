@@ -123,7 +123,8 @@ var (
 
 	// To attempt to remove any stale XFRM configs once at startup, after
 	// we've added the catch-all default-drop policy.
-	removeStaleXFRMOnce sync.Once
+	removeStaleIPv4XFRMOnce sync.Once
+	removeStaleIPv6XFRMOnce sync.Once
 )
 
 func getIPSecKeys(ip net.IP) *ipSecKey {
@@ -439,6 +440,10 @@ func IPsecDefaultDropPolicy(ipv6 bool) error {
 	// new priorities to take precedence.
 	// This code can be removed in Cilium v1.15 to instead remove the old XFRM
 	// OUT policy and state.
+	removeStaleXFRMOnce := &removeStaleIPv4XFRMOnce
+	if ipv6 {
+		removeStaleXFRMOnce = &removeStaleIPv6XFRMOnce
+	}
 	removeStaleXFRMOnce.Do(func() {
 		deprioritizeOldOutPolicy(family)
 	})
