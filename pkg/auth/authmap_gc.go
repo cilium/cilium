@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
@@ -189,7 +190,17 @@ func (r *authMapGarbageCollector) remoteNodeIDs(node *ciliumv2.CiliumNode) []uin
 
 	for _, addr := range node.Spec.Addresses {
 		if addr.Type == addressing.NodeInternalIP {
-			remoteNodeIDs = append(remoteNodeIDs, r.ipCache.AllocateNodeID(net.ParseIP(addr.IP)))
+			nodeID, exists := r.ipCache.GetNodeID(net.ParseIP(addr.IP))
+			if !exists {
+				// This might be the case at startup, when new nodes aren't yet known to the nodehandler
+				// and therefore no node id has been assigned to them.
+				r.logger.
+					WithField(logfields.NodeName, node.Name).
+					WithField(logfields.IPAddr, addr.IP).
+					Debug("No node ID available for node IP - skipping")
+				continue
+			}
+			remoteNodeIDs = append(remoteNodeIDs, nodeID)
 		}
 	}
 
