@@ -2445,10 +2445,16 @@ definitions:
         additionalProperties:
           type: object
       GSOMaxSize:
-        description: Maximum GSO size on workload facing devices
+        description: Maximum IPv6 GSO size on workload facing devices
         type: integer
       GROMaxSize:
-        description: Maximum GRO size on workload facing devices
+        description: Maximum IPv6 GRO size on workload facing devices
+        type: integer
+      GSOIPv4MaxSize:
+        description: Maximum IPv4 GSO size on workload facing devices
+        type: integer
+      GROIPv4MaxSize:
+        description: Maximum IPv4 GRO size on workload facing devices
         type: integer
   DatapathMode:
     description: Datapath mode
