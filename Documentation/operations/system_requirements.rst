@@ -26,10 +26,8 @@ When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
 
 - `clang+LLVM`_ >= 10.0
-- iproute2_ with eBPF templating patches [#iproute2_foot]_
 
 .. _`clang+LLVM`: https://llvm.org
-.. _iproute2: https://www.kernel.org/pub/linux/utils/net/iproute2/
 
 When running Cilium without Kubernetes these additional requirements
 must be met:
@@ -42,11 +40,7 @@ Requirement              Minimum Version                In cilium container
 `Linux kernel`_          >= 4.19.57 or >= 4.18 on RHEL8 no
 Key-Value store (etcd)   >= 3.1.0                       no
 clang+LLVM               >= 10.0                        yes
-iproute2                 >= 5.9.0 [#iproute2_foot]_     yes
 ======================== ============================== ===================
-
-.. [#iproute2_foot] Requires support for eBPF templating as documented
-   :ref:`below <iproute2_requirements>`.
 
 Architecture Support
 ====================
@@ -331,24 +325,6 @@ must be compiled with the eBPF backend enabled.
 
 See https://releases.llvm.org/ for information on how to download and install
 LLVM.
-
-.. _iproute2_requirements:
-
-iproute2
-========
-
-.. note:: iproute2 is only needed if you run ``cilium-agent`` directly on the
-          host machine. iproute2 is included in the ``cilium/cilium`` container
-          image.
-
-iproute2_ is a low level tool used to configure various networking related
-subsystems of the Linux kernel. Cilium uses iproute2 to configure networking
-and ``tc``, which is part of iproute2, to load eBPF programs into the kernel.
-
-The version of iproute2 must include the eBPF templating patches. Also, it
-depends on Cilium's libbpf fork. See `Cilium iproute2 source`_ for more details.
-
-.. _`Cilium iproute2 source`: https://github.com/cilium/iproute2/
 
 .. _firewall_requirements:
 
