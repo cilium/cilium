@@ -579,6 +579,20 @@ Name                                     Labels                                 
 ``ipam_needed_ips``                      ``target_node``                                                   Enabled    Number of IPs needed to satisfy allocation on a node.
 ======================================== ================================================================= ========== ========================================================
 
+LB-IPAM
+~~~~~~~
+
+======================================== ================================================================= ========== ========================================================
+Name                                     Labels                                                            Default    Description
+======================================== ================================================================= ========== ========================================================
+``lbipam_conflicting_pools_total``                                                                         Enabled    Number of conflicting pools
+``lbipam_ips_available_total``           ``pool``                                                          Enabled    Number of available IPs per pool
+``lbipam_ips_used_total``                ``pool``                                                          Enabled    Number of used IPs per pool
+``lbipam_services_matching_total``                                                                         Enabled    Number of matching services
+``lbipam_services_unsatisfied_total``                                                                      Enabled    Number of services which did not get requested IPs
+======================================== ================================================================= ========== ========================================================
+
+
 Hubble
 ------
 
