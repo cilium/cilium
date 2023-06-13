@@ -1123,8 +1123,6 @@ for instructions.
 Deny Policies
 =============
 
-.. include:: ../beta.rst
-
 Deny policies, available and enabled by default since Cilium 1.9, allows to
 explicitly restrict certain traffic to and from a Pod.
 
