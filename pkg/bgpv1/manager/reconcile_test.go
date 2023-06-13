@@ -24,6 +24,17 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
+// We use similar local listen ports as the tests in the pkg/bgpv1/test package.
+// It is important to NOT use ports from the /proc/sys/net/ipv4/ip_local_port_range
+// (defaulted to 32768-60999 on most Linux distributions) to avoid collisions with
+// the ephemeral (source) ports. As this range is configurable, ideally, we should
+// use the IANA-assigned ports below 1024 (e.g. 179) or mock GoBGP in these tests.
+// See https://github.com/cilium/cilium/issues/26209 for more info.
+const (
+	localListenPort  = 1793
+	localListenPort2 = 1794
+)
+
 // TestPreflightReconciler ensures if a BgpServer must be recreated, due to
 // permanent configuration of the said server changing, its done so correctly.
 func TestPreflightReconciler(t *testing.T) {
@@ -50,8 +61,8 @@ func TestPreflightReconciler(t *testing.T) {
 			name:           "no change",
 			routerID:       "192.168.0.1",
 			newRouterID:    "192.168.0.1",
-			localPort:      45450,
-			newLocalPort:   45450,
+			localPort:      localListenPort,
+			newLocalPort:   localListenPort,
 			config:         &v2alpha1api.CiliumBGPVirtualRouter{},
 			shouldRecreate: false,
 			err:            nil,
@@ -60,8 +71,8 @@ func TestPreflightReconciler(t *testing.T) {
 			name:           "router-id change",
 			routerID:       "192.168.0.1",
 			newRouterID:    "192.168.0.2",
-			localPort:      45450,
-			newLocalPort:   45450,
+			localPort:      localListenPort,
+			newLocalPort:   localListenPort,
 			config:         &v2alpha1api.CiliumBGPVirtualRouter{},
 			shouldRecreate: true,
 			err:            nil,
@@ -70,8 +81,8 @@ func TestPreflightReconciler(t *testing.T) {
 			name:           "local-port change",
 			routerID:       "192.168.0.1",
 			newRouterID:    "192.168.0.1",
-			localPort:      45450,
-			newLocalPort:   45451,
+			localPort:      localListenPort,
+			newLocalPort:   localListenPort2,
 			config:         &v2alpha1api.CiliumBGPVirtualRouter{},
 			shouldRecreate: true,
 			err:            nil,
@@ -80,8 +91,8 @@ func TestPreflightReconciler(t *testing.T) {
 			name:           "local-port, router-id change",
 			routerID:       "192.168.0.1",
 			newRouterID:    "192.168.0.2",
-			localPort:      45450,
-			newLocalPort:   45451,
+			localPort:      localListenPort,
+			newLocalPort:   localListenPort2,
 			config:         &v2alpha1api.CiliumBGPVirtualRouter{},
 			shouldRecreate: true,
 			err:            nil,
@@ -1156,7 +1167,7 @@ func TestLBServiceReconciler(t *testing.T) {
 func TestReconcileAfterServerReinit(t *testing.T) {
 	var (
 		routerID        = "192.168.0.1"
-		localPort       = 45450
+		localPort       = localListenPort
 		localASN        = 64125
 		newRouterID     = "192.168.0.2"
 		diffstore       = newFakeDiffStore[*slim_corev1.Service]()
