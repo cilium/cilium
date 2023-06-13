@@ -71,6 +71,7 @@ env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -250,18 +251,11 @@ jobs:
             --helm-set=debug.enabled=true \
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
-            --azure-resource-group ${{ env.name }}-${{ matrix.location }} \
-            --wait=false \
-            --rollback=false \
-            --config monitor-aggregation=none \
-            --version="
-          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
-            --relay-version=${SHA}"
+            --helm-set=azure.resourceGroup=${{ env.name }}-${{ matrix.location }} \
+            --helm-set=bpf.monitorAggregation=none"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled \
             --hubble=false --collect-sysdump-on-failure --external-target bing.com --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
-          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
@@ -329,7 +323,7 @@ jobs:
 
       - name: Enable Relay
         run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          cilium hubble enable
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -354,7 +348,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
+          cilium uninstall
 
       - name: Create custom IPsec secret
         run: |
@@ -363,11 +357,12 @@ jobs:
       - name: Install Cilium with encryption
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --encryption=ipsec
+            --helm-set encryption.enabled=true \
+            --helm-set encryption.type=ipsec
 
       - name: Enable Relay
         run: |
-          cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
+          cilium hubble enable
 
       - name: Wait for Cilium status to be ready
         run: |
