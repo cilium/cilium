@@ -113,7 +113,6 @@ the CODEOWNERS file in the corresponding repository.
 - `@cilium/ebpf-lib-maintainers <https://github.com/orgs/cilium/teams/ebpf-lib-maintainers>`__
 - `@cilium/hubble-maintainers <https://github.com/orgs/cilium/teams/hubble-maintainers>`__
 - `@cilium/image-tools-maintainers <https://github.com/orgs/cilium/teams/image-tools-maintainers>`__
-- `@cilium/iproute2-maintainers <https://github.com/orgs/cilium/teams/iproute2-maintainers>`__
 - `@cilium/metallb-maintainers <https://github.com/orgs/cilium/teams/metallb-maintainers>`__
 - `@cilium/openshift-terraform-maintainers <https://github.com/orgs/cilium/teams/openshift-terraform-maintainers>`__
 - `@cilium/proxy-maintainers <https://github.com/orgs/cilium/teams/proxy-maintainers>`__
