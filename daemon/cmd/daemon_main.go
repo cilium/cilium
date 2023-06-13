@@ -680,8 +680,11 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPMasqAgent, false, "Enable BPF ip-masq-agent")
 	option.BindEnv(Vp, option.EnableIPMasqAgent)
 
-	flags.Bool(option.EnableIPv6BIGTCP, false, "Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits")
+	flags.Bool(option.EnableIPv6BIGTCP, false, "Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6")
 	option.BindEnv(Vp, option.EnableIPv6BIGTCP)
+
+	flags.Bool(option.EnableIPv4BIGTCP, false, "Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4")
+	option.BindEnv(Vp, option.EnableIPv4BIGTCP)
 
 	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
 	option.BindEnv(Vp, option.EnableIPv4EgressGateway)

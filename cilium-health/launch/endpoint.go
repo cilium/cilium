@@ -273,7 +273,8 @@ func LaunchAsEndpoint(baseCtx context.Context,
 
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		_, epLink, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(), bigTCPConfig.GetGROMaxSize(), bigTCPConfig.GetGSOMaxSize(), info)
+		_, epLink, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(),
+			bigTCPConfig.GetGROIPv6MaxSize(), bigTCPConfig.GetGSOIPv6MaxSize(), info)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating veth: %s", err)
 		}
