@@ -105,9 +105,11 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 
 	nodeName := nodeTypes.GetName()
 	cm := &ClusterMesh{
-		conf:           c,
-		nodeName:       nodeName,
-		globalServices: newGlobalServiceCache(c.ClusterName, nodeName),
+		conf:     c,
+		nodeName: nodeName,
+		globalServices: newGlobalServiceCache(
+			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterName, nodeName),
+		),
 	}
 
 	cm.internal = internal.NewClusterMesh(internal.Configuration{
