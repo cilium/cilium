@@ -319,8 +319,9 @@ Annotations:
 1.11.18+ Upgrade Notes
 ----------------------
 
-* If downgrading to Cilium version <= v1.11.1 this is possible that some
-  long-term connections be interrupted due to missed tail calls.
+* When downgrading from 1.11.18+ to <=1.11.1 it is possible that connections
+  are interrupted/reset.  This should be taken into consideration during
+  upgrade planning shall a rollback ever be necessary.
 
 1.11.16+ Upgrade Notes
 ----------------------
