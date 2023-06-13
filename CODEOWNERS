@@ -110,7 +110,6 @@
 # - @cilium/ebpf-lib-maintainers
 # - @cilium/hubble-maintainers
 # - @cilium/image-tools-maintainers
-# - @cilium/iproute2-maintainers
 # - @cilium/metallb-maintainers
 # - @cilium/openshift-terraform-maintainers
 # - @cilium/proxy-maintainers

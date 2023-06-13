@@ -153,8 +153,6 @@ on GH actions.
 +-------------------------------+---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
 |                               | images/bpftool/Dockerfile                   | docker.io/cilium/cilium-bpftool               |     Y     |      Y      |     GH Action     |
 |                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
-|                               | images/iproute2/Dockerfile                  | docker.io/cilium/cilium-iproute2              |     Y     |      Y      |     GH Action     |
-|                               +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
 |                               | images/llvm/Dockerfile                      | docker.io/cilium/cilium-llvm                  |     Y     |      Y      |     GH Action     |
 | github.com/cilium/image-tools +---------------------------------------------+-----------------------------------------------+-----------+-------------+-------------------+
 |                               | images/compilers/Dockerfile                 | docker.io/cilium/image-compilers              |     Y     |      Y      |     GH Action     |
@@ -174,7 +172,6 @@ Image dependency:
        depends on:
         quay.io/cilium/cilium-runtime
          depends on:
-          docker.io/cilium/cilium-iproute2
           docker.io/cilium/cilium-bpftool
           docker.io/cilium/cilium-llvm
       quay.io/cilium/cilium-envoy
@@ -185,7 +182,6 @@ Image dependency:
            depends on:
             quay.io/cilium/cilium-runtime
              depends on:
-              docker.io/cilium/cilium-iproute2
               docker.io/cilium/cilium-bpftool
               docker.io/cilium/cilium-llvm
 
