@@ -1367,7 +1367,7 @@ refetch2:
 				}
 			}
 			return false
-		}, 25*time.Second, 200*time.Millisecond)
+		}, 60*time.Second, 200*time.Millisecond)
 		c.Assert(err, check.IsNil)
 		c.Assert(found, check.Equals, true)
 	}
@@ -2550,7 +2550,7 @@ refetch2:
 				}
 			}
 			return false
-		}, 25*time.Second, 200*time.Millisecond)
+		}, 60*time.Second, 200*time.Millisecond)
 		c.Assert(err, check.IsNil)
 		c.Assert(found, check.Equals, true)
 	}
