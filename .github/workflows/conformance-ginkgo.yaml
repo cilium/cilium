@@ -169,9 +169,6 @@ jobs:
           ref: ${{ needs.check_changes.outputs.sha }}
           persist-credentials: false
 
-      - name: Set Environment Variables
-        uses: ./.github/actions/set-env-variables
-
       # Load Ginkgo build from GitHub
       - name: Load ginkgo E2E from GH cache
         uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
@@ -212,6 +209,28 @@ jobs:
             cp test/test.tgz /tmp/.ginkgo-build/
             echo "file copied"
           fi
+
+  wait-for-images:
+    needs: check_changes
+    runs-on: ubuntu-latest
+    name: Build Ginkgo E2E
+    timeout-minutes: 30
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-ginkgo' ||
+        (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
 
       - name: Wait for images to be available
         timeout-minutes: 10
@@ -275,7 +294,7 @@ jobs:
           echo "matrix=$(jq -c . < /tmp/merged.json)" >> $GITHUB_OUTPUT
 
   setup-and-test:
-    needs: [check_changes, build-ginkgo-binary, generate-matrix]
+    needs: [check_changes, build-ginkgo-binary, generate-matrix, wait-for-images]
     runs-on:
       group: ginkgo-runners
     timeout-minutes: 35
@@ -288,14 +307,20 @@ jobs:
       matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
       - name: Checkout pull request for tests
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           ref: ${{ needs.check_changes.outputs.sha }}
           persist-credentials: false
-
-      - name: Set Environment Variables
-        uses: ./.github/actions/set-env-variables
 
       - name: Install cilium-cli
         shell: bash
