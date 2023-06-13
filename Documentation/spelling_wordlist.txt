@@ -521,6 +521,7 @@ goroutines
 grafana
 graphviz
 grep
+gve
 hairpinned
 hairpinning
 hardcode
@@ -671,6 +672,7 @@ lbExternalClusterIP
 lbIPAM
 lbMapMax
 leia
+len
 libbpf
 libc
 libceph
