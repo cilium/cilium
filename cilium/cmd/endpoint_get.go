@@ -67,7 +67,7 @@ var endpointGetCmd = &cobra.Command{
 		if err != nil {
 			Fatalf(err.Error())
 		}
-		fmt.Println(string(expandedResult.Bytes()))
+		fmt.Println(expandedResult.String())
 	},
 }
 
