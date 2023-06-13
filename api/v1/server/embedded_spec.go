@@ -3147,6 +3147,16 @@ func init() {
         }
       }
     },
+    "IPV4BigTCP": {
+      "description": "Status of IPv4 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is IPv4 BIG TCP enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "IPV6BigTCP": {
       "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -4464,6 +4474,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "ipv4-big-tcp": {
+          "description": "Status of IPv4 BIG TCP",
+          "$ref": "#/definitions/IPV4BigTCP"
         },
         "ipv6-big-tcp": {
           "description": "Status of IPv6 BIG TCP",
@@ -8216,6 +8230,16 @@ func init() {
         }
       }
     },
+    "IPV4BigTCP": {
+      "description": "Status of IPv4 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is IPv4 BIG TCP enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "IPV6BigTCP": {
       "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -9938,6 +9962,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "ipv4-big-tcp": {
+          "description": "Status of IPv4 BIG TCP",
+          "$ref": "#/definitions/IPV4BigTCP"
         },
         "ipv6-big-tcp": {
           "description": "Status of IPv6 BIG TCP",
