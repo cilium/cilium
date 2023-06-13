@@ -671,7 +671,12 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		statusCheckErrors:    make(chan error, 128),
 	}
 
-	ec.leaseManager = newEtcdLeaseManager(c, option.Config.KVstoreLeaseTTL, etcdMaxKeysPerLease, ec.expiredLeaseObserver, ec.getLogger())
+	leaseTTL := option.Config.KVstoreLeaseTTL
+	if option.Config.KVstoreLeaseTTL == 0 {
+		leaseTTL = defaults.KVstoreLeaseTTL
+	}
+
+	ec.leaseManager = newEtcdLeaseManager(c, leaseTTL, etcdMaxKeysPerLease, ec.expiredLeaseObserver, ec.getLogger())
 
 	// create session in parallel as this is a blocking operation
 	go func() {
