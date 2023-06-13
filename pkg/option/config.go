@@ -3772,29 +3772,52 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 }
 
 func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
-	if c.GetIPv4NativeRoutingCIDR() == nil && c.EnableIPv4Masquerade && !c.TunnelingEnabled() &&
-		c.IPAMMode() != ipamOption.IPAMENI && c.EnableIPv4 && c.IPAMMode() != ipamOption.IPAMAlibabaCloud {
-		return fmt.Errorf(
-			"native routing cidr must be configured with option --%s "+
-				"in combination with --%s --%s=%s --%s=%s --%s=true",
-			IPv4NativeRoutingCIDR, EnableIPv4Masquerade, RoutingMode, RoutingModeNative,
-			IPAM, c.IPAMMode(), EnableIPv4Name)
+	if c.GetIPv4NativeRoutingCIDR() != nil {
+		return nil
+	}
+	if !c.EnableIPv4 || !c.EnableIPv4Masquerade {
+		return nil
+	}
+	if c.EnableIPMasqAgent {
+		return nil
+	}
+	if c.TunnelingEnabled() {
+		return nil
+	}
+	if c.IPAMMode() == ipamOption.IPAMENI || c.IPAMMode() == ipamOption.IPAMAlibabaCloud {
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf(
+		"native routing cidr must be configured with option --%s "+
+			"in combination with --%s=true --%s=true --%s=false --%s=%s --%s=%s",
+		IPv4NativeRoutingCIDR,
+		EnableIPv4Name, EnableIPv4Masquerade,
+		EnableIPMasqAgent,
+		RoutingMode, RoutingModeNative,
+		IPAM, c.IPAMMode())
 }
 
 func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
-	if c.GetIPv6NativeRoutingCIDR() == nil && c.EnableIPv6Masquerade && !c.TunnelingEnabled() &&
-		c.EnableIPv6 {
-		return fmt.Errorf(
-			"native routing cidr must be configured with option --%s "+
-				"in combination with --%s --%s=%s --%s=true",
-			IPv6NativeRoutingCIDR, EnableIPv6Masquerade, RoutingMode, RoutingModeNative,
-			EnableIPv6Name)
+	if c.GetIPv6NativeRoutingCIDR() != nil {
+		return nil
 	}
-
-	return nil
+	if !c.EnableIPv6 || !c.EnableIPv6Masquerade {
+		return nil
+	}
+	if c.EnableIPMasqAgent {
+		return nil
+	}
+	if c.TunnelingEnabled() {
+		return nil
+	}
+	return fmt.Errorf(
+		"native routing cidr must be configured with option --%s "+
+			"in combination with --%s=true --%s=true --%s=false --%s=%s",
+		IPv6NativeRoutingCIDR,
+		EnableIPv6Name, EnableIPv6Masquerade,
+		EnableIPMasqAgent,
+		RoutingMode, RoutingModeNative)
 }
 
 func (c *DaemonConfig) checkIPAMDelegatedPlugin() error {
