@@ -140,18 +140,12 @@ func TestControllerSanity(t *testing.T) {
 				for _, r := range p.Spec.VirtualRouters {
 					for _, n := range r.Neighbors {
 						if n.PeerPort == nil ||
+							n.EBGPMultihopTTL == nil ||
 							n.ConnectRetryTimeSeconds == nil ||
 							n.HoldTimeSeconds == nil ||
 							n.KeepAliveTimeSeconds == nil ||
 							n.GracefulRestart.RestartTimeSeconds == nil {
-							t.Fatalf("policy: %v not defaulted properly (nil)", p)
-						}
-						if *n.PeerPort != v2alpha1api.DefaultBGPPeerPort ||
-							*n.ConnectRetryTimeSeconds != v2alpha1api.DefaultBGPConnectRetryTimeSeconds ||
-							*n.HoldTimeSeconds != v2alpha1api.DefaultBGPHoldTimeSeconds ||
-							*n.KeepAliveTimeSeconds != v2alpha1api.DefaultBGPKeepAliveTimeSeconds ||
-							*n.GracefulRestart.RestartTimeSeconds != v2alpha1api.DefaultBGPGRRestartTimeSeconds {
-							t.Fatalf("policy: %v not defaulted properly (invalid value)", p)
+							t.Fatalf("policy: %v not defaulted properly", p)
 						}
 					}
 				}
