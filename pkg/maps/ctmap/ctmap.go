@@ -80,6 +80,10 @@ const (
 	// MaxTime specifies the last possible time for GCFilter.Time
 	MaxTime = math.MaxUint32
 
+	// The BPF CT implementation stores jiffies right-shifted by this value. Must
+	// correspond to BPF_MONO_SCALER in the datapath.
+	bpfMonoScaler = 8
+
 	metricsAlive   = "alive"
 	metricsDeleted = "deleted"
 
@@ -248,6 +252,17 @@ type GCFilter struct {
 // EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
 type EmitCTEntryCBFunc func(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
+// scaledJiffies returns the kernel's current jiffies, right-shifted by a
+// monotonic scaler value.
+func scaledJiffies() (uint64, error) {
+	j, err := probes.Jiffies()
+	if err != nil {
+		return 0, err
+	}
+
+	return j >> bpfMonoScaler, nil
+}
+
 // DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
 // ct entries in m to a string. If clockSource is not nil, it uses it to
 // compute the time difference of each entry from now and prints that too.
@@ -267,7 +282,7 @@ func DumpEntriesWithTimeDiff(m CtMap, clockSource *models.ClockSource) (string, 
 			return fmt.Sprintf("remaining: %d sec(s)", diff)
 		}
 	} else if clockSource.Mode == models.ClockSourceModeJiffies {
-		now, err := probes.Jiffies()
+		now, err := scaledJiffies()
 		if err != nil {
 			return "", err
 		}
@@ -578,7 +593,7 @@ func GC(m *Map, filter *GCFilter) int {
 			t, _ = bpf.GetMtime()
 			t = t / 1000000000
 		} else {
-			t, _ = probes.Jiffies()
+			t, _ = scaledJiffies()
 		}
 		filter.Time = uint32(t)
 	}
