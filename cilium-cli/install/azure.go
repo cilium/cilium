@@ -9,6 +9,8 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/getter"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -81,6 +83,27 @@ func (k *K8sInstaller) azureRetrieveSubscriptionID() error {
 	return nil
 }
 
+// setAzureResourceGroupFromHelmValue checks if azure.resourceGroup Helm value is set,
+// and overwrites params.Azure.ResourceGroupName if it is set.
+func (k *K8sInstaller) setAzureResourceGroupFromHelmValue() error {
+	values, err := k.params.HelmOpts.MergeValues(getter.All(cli.New()))
+	if err != nil {
+		return err
+	}
+	azure, ok := values["azure"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	resourceGroupName, ok := azure["resourceGroup"].(string)
+	if !ok {
+		return nil
+	}
+	if resourceGroupName != "" {
+		k.params.Azure.ResourceGroupName = resourceGroupName
+	}
+	return nil
+}
+
 // `az aks create` requires an existing resource group in which to create a
 // new AKS cluster, but a single resource group may hold multiple AKS clusters.
 //
@@ -110,8 +133,11 @@ func (k *K8sInstaller) azureRetrieveAKSClusterInfo() error {
 		return nil
 	}
 
+	if err := k.setAzureResourceGroupFromHelmValue(); err != nil {
+		return err
+	}
 	if k.params.Azure.ResourceGroupName == "" {
-		k.Log("❌ Azure resource group is required, please specify --azure-resource-group")
+		k.Log("❌ Azure resource group is required, please specify --azure-resource-group or azure.resourceGroup Helm value")
 		return fmt.Errorf("missing Azure resource group name")
 	}
 
