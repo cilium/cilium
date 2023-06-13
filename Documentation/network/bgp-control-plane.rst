@@ -78,12 +78,12 @@ The policy in ``yaml`` form is defined below:
        - peerAddress: 'fc00:f853:ccd:e793::50/128'
          peerASN: 64512
          eBGPMultihopTTL: 10
-         connectRetryTime: "120s"
-         holdTime: "90s"
-         keepAliveTime: "30s"
+         connectRetryTimeSeconds: 120
+         holdTimeSeconds: 90
+         keepAliveTimeSeconds: 30
          gracefulRestart:
-            enabled: true
-            restartTime: "20s"
+           enabled: true
+           restartTimeSeconds: 120
 
 Fields
 ^^^^^^
@@ -104,12 +104,12 @@ Fields
            neighbors[*].peerAddress: The address of the peer neighbor
            neighbors[*].peerPort: Optional TCP port number of the neighbor. 1-65535 are valid values and defaults to 179 when unspecified.
            neighbors[*].peerASN: The ASN of the peer
-           neighbors[*].eBGPMultihopTTL: (optional) Time To Live (TTL) value used in BGP packets. 0 if eBGP multi-hop feature is disabled.
-           neighbors[*].connectRetryTime: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8). Defaults to 120 seconds.
-           neighbors[*].holdTime: Initial value for the BGP HoldTimer (RFC 4271, Section 4.2). Defaults to 90 seconds.
-           neighbors[*].keepAliveTime: Initial value for the BGP KeepaliveTimer (RFC 4271, Section 8). Defaults to 1/3 of the HoldTime.
+           neighbors[*].eBGPMultihopTTL: Time To Live (TTL) value used in BGP packets. The value 1 implies that eBGP multi-hop feature is disabled.
+           neighbors[*].connectRetryTimeSeconds: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8). Defaults to 120 seconds.
+           neighbors[*].holdTimeSeconds: Initial value for the BGP HoldTimer (RFC 4271, Section 4.2). Defaults to 90 seconds.
+           neighbors[*].keepAliveTimeSeconds: Initial value for the BGP KeepaliveTimer (RFC 4271, Section 8). Defaults to 30 seconds.
            neighbors[*].gracefulRestart.enabled: The flag to enable graceful restart capability.
-           neighbors[*].gracefulRestart.restartTime: The restart time advertised to the peer (RFC 4724 section 4.2).
+           neighbors[*].gracefulRestart.restartTimeSeconds: The restart time advertised to the peer (RFC 4724 section 4.2).
 
 .. note::
 
