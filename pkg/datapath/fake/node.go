@@ -18,6 +18,10 @@ type FakeNodeHandler struct {
 	Nodes map[string]nodeTypes.Node
 }
 
+func (n *FakeNodeHandler) GetNodeID(_ net.IP) (uint16, bool) {
+	return 0, true
+}
+
 // NewNodeHandler returns a fake NodeHandler that stores the nodes,
 // but performs no other actions.
 func NewNodeHandler() *FakeNodeHandler {

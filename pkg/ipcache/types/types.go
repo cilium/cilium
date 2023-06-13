@@ -65,6 +65,7 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 type NodeIDHandler interface {
 	AllocateNodeID(net.IP) uint16
 	GetNodeIP(uint16) string
+	GetNodeID(nodeIP net.IP) (nodeID uint16, exists bool)
 }
 
 // TunnelPeer is the IP address of the host associated with this prefix. This is

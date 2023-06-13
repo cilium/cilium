@@ -234,6 +234,10 @@ func (a *AgentSuite) TestAgent_PeerConfig_WithEncryptNode(c *C) {
 
 type mockNodeHandler struct{}
 
+func (m *mockNodeHandler) GetNodeID(_ net.IP) (uint16, bool) {
+	return 0, true
+}
+
 func (m *mockNodeHandler) AllocateNodeID(_ net.IP) uint16 {
 	return 0
 }
