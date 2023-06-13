@@ -662,6 +662,10 @@ func (s *IPCacheTestSuite) TestIPCacheShadowing(c *C) {
 
 type mockNodeIDHandler struct{}
 
+func (m *mockNodeIDHandler) GetNodeID(_ net.IP) (nodeID uint16, exists bool) {
+	return 0, true
+}
+
 func (m *mockNodeIDHandler) AllocateNodeID(_ net.IP) uint16 {
 	return 0
 }
