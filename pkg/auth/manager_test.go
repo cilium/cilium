@@ -184,14 +184,14 @@ func (r *fakeIPCache) GetNodeIP(id uint16) string {
 	return r.nodeIdMappings[id]
 }
 
-func (r *fakeIPCache) AllocateNodeID(hostIP net.IP) uint16 {
+func (r *fakeIPCache) GetNodeID(nodeIP net.IP) (uint16, bool) {
 	for id, ip := range r.nodeIdMappings {
-		if ip == hostIP.String() {
-			return id
+		if ip == nodeIP.String() {
+			return id, true
 		}
 	}
 
-	return 9999
+	return 0, false
 }
 
 // Fake AuthHandler

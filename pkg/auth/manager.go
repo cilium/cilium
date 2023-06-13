@@ -40,7 +40,7 @@ type authManager struct {
 // ipCache is the set of interactions the auth manager performs with the IPCache
 type ipCache interface {
 	GetNodeIP(uint16) string
-	AllocateNodeID(net.IP) uint16
+	GetNodeID(nodeIP net.IP) (nodeID uint16, exists bool)
 }
 
 // authHandler is responsible to handle authentication for a specific auth type
