@@ -118,15 +118,12 @@ jobs:
 
       - name: Install cilium chart
         run: |
-          # The recent [stable] linux kernels contain a commit which increases
-          # complexity a lot. In particular, this breaks the connectivity test when
-          # hostServices.enabled=false. Temporarily set hostServices.enabled=true
           helm install cilium ./install/kubernetes/cilium \
              --wait \
              --namespace kube-system \
              --set nodeinit.enabled=true \
              --set kubeProxyReplacement=partial \
-             --set hostServices.enabled=true \
+             --set hostServices.enabled=false \
              --set externalIPs.enabled=true \
              --set nodePort.enabled=true \
              --set hostPort.enabled=true \
