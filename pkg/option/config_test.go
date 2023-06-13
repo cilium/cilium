@@ -571,6 +571,18 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "without native routing cidr and tunnel disabled, but ipmasq-agent",
+			d: &DaemonConfig{
+				EnableIPv4Masquerade: true,
+				EnableIPv6Masquerade: true,
+				RoutingMode:          RoutingModeNative,
+				IPAM:                 ipamOption.IPAMKubernetes,
+				EnableIPv4:           true,
+				EnableIPMasqAgent:    true,
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -632,6 +644,17 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 				EnableIPv6:           true,
 			},
 			wantErr: true,
+		},
+		{
+			name: "without native routing cidr and tunnel disabled, but ipmasq-agent",
+			d: &DaemonConfig{
+				EnableIPv4Masquerade: true,
+				EnableIPv6Masquerade: true,
+				RoutingMode:          RoutingModeNative,
+				EnableIPv6:           true,
+				EnableIPMasqAgent:    true,
+			},
+			wantErr: false,
 		},
 	}
 
