@@ -159,6 +159,11 @@ func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, params a
 		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumIdentity]]("auth identities gc", mapGC.handleCiliumIdentityEvent, params.CiliumIdentities))
 	}
 
+	// Add node based auth gc if k8s client is enabled
+	if params.CiliumNodes != nil {
+		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumNode]]("auth nodes gc", mapGC.handleCiliumNodeEvent, params.CiliumNodes))
+	}
+
 	jobGroup.Add(job.Timer("auth expiration gc", mapGC.CleanupExpiredEntries, params.Config.MeshAuthExpiredGCInterval))
 }
 
