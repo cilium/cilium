@@ -139,6 +139,9 @@ int NAME(struct __ctx_buff *ctx)						\
 		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER);	\
 										\
 	ret = invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);		\
+	if (IS_ERR(ret))							\
+		return drop_for_direction(ctx, DIR, ret);			\
+										\
 	return ret;								\
 }
 
@@ -180,6 +183,9 @@ int NAME(struct __ctx_buff *ctx)						\
 			DROP_INVALID_TC_BUFFER);				\
 										\
 	ret = invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);		\
+	if (IS_ERR(ret))							\
+		return drop_for_direction(ctx, DIR, ret);			\
+										\
 	return ret;								\
 }
 
