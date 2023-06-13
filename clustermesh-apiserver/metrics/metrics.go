@@ -73,6 +73,7 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 	// This is a hack until we can unify this metrics manager with the metrics.Registry.
 	metrics.NewLegacyMetrics()
 	mm.registry.MustRegister(
+		metrics.VersionMetric,
 		metrics.KVStoreOperationsDuration,
 		metrics.KVStoreEventsQueueDuration,
 		metrics.KVStoreQuorumErrors,
