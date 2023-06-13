@@ -4,6 +4,8 @@
 #ifndef __BPF_CTX_SKB_H_
 #define __BPF_CTX_SKB_H_
 
+#define __section_entry __section("tc")
+
 #define __ctx_buff		__sk_buff
 #define __ctx_is		__ctx_skb
 

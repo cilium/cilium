@@ -350,7 +350,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 	return bpf_xdp_exit(ctx, ret);
 }
 
-__section("from-netdev")
+__section_entry
 int cil_xdp_entry(struct __ctx_buff *ctx)
 {
 	return check_filters(ctx);
