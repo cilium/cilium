@@ -1352,7 +1352,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 /* Attachment/entry point is ingress for veth.
  * It corresponds to packets leaving the container.
  */
-__section("from-container")
+__section_entry
 int cil_from_container(struct __ctx_buff *ctx)
 {
 	__u16 proto;
@@ -2150,7 +2150,7 @@ out:
 /* Attached to the lxc device on the way to the container, only if endpoint
  * routes are enabled.
  */
-__section("to-container")
+__section_entry
 int cil_to_container(struct __ctx_buff *ctx)
 {
 	enum trace_point trace = TRACE_FROM_STACK;
