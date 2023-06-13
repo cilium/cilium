@@ -1905,6 +1905,9 @@ definitions:
       ipv6-big-tcp:
         description: Status of IPv6 BIG TCP
         "$ref": "#/definitions/IPV6BigTCP"
+      ipv4-big-tcp:
+        description: Status of IPv4 BIG TCP
+        "$ref": "#/definitions/IPV4BigTCP"
       bandwidth-manager:
         description: Status of bandwidth manager
         "$ref": "#/definitions/BandwidthManager"
@@ -3042,6 +3045,16 @@ definitions:
     properties:
       enabled:
         description: Is IPv6 BIG TCP enabled
+        type: boolean
+  IPV4BigTCP:
+    description: |-
+      Status of IPv4 BIG TCP
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      enabled:
+        description: Is IPv4 BIG TCP enabled
         type: boolean
   BandwidthManager:
     description: |-
