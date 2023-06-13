@@ -12,6 +12,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -309,8 +310,8 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 
 // policyConfigSelectsPod determines if the given pod is selected by the policy
 // config based on matching labels of config and pod.
-func (config *LRPConfig) policyConfigSelectsPod(podInfo *podMetadata) bool {
-	return config.backendSelector.Matches(labels.Set(podInfo.labels))
+func (config *LRPConfig) policyConfigSelectsPod(pod *slimcorev1.Pod) bool {
+	return config.backendSelector.Matches(labels.Set(pod.GetLabels()))
 }
 
 // checkNamespace returns true if config namespace matches with the given namespace.

@@ -306,36 +306,39 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 		return
 	}
 
-	podIPs := k8sUtils.ValidIPs(pod.Status)
-	if len(podIPs) == 0 {
-		return
-	}
-	var podData *podMetadata
-	var err error
-	if podData, err = rpm.getPodMetadata(pod, podIPs); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.K8sPodName:   pod.Name,
-			logfields.K8sNamespace: pod.Namespace,
-		}).Error("failed to get valid pod metadata")
-		return
+	id := podID{
+		Name:      pod.GetName(),
+		Namespace: pod.GetNamespace(),
 	}
 
 	if removeOld {
 		// Check if the pod was previously selected by any of the policies.
-		if policies, ok := rpm.policyPods[podData.id]; ok {
+		if policies, ok := rpm.policyPods[id]; ok {
 			for _, policy := range policies {
 				config := rpm.policyConfigs[policy]
-				rpm.deletePolicyBackends(config, podData.id)
+				rpm.deletePolicyBackends(config, id)
 			}
 		}
 	}
 
-	if upsertNew {
-		// Check if any of the current redirect policies select this pod.
-		for _, config := range rpm.policyConfigs {
-			if config.checkNamespace(pod.GetNamespace()) && config.policyConfigSelectsPod(podData) {
-				rpm.processConfig(config, podData)
+	if !upsertNew {
+		return
+	}
+	var podData *podMetadata
+	// Check if any of the current redirect policies select this pod.
+	for _, config := range rpm.policyConfigs {
+		if config.checkNamespace(pod.GetNamespace()) && config.policyConfigSelectsPod(pod) {
+			if podData == nil {
+				var err error
+				if podData, err = rpm.getPodMetadata(pod); err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						logfields.K8sPodName:   pod.Name,
+						logfields.K8sNamespace: pod.Namespace,
+					}).Error("failed to get valid pod metadata")
+					return
+				}
 			}
+			rpm.processConfig(config, podData)
 		}
 	}
 }
@@ -660,11 +663,10 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) ([]*podMetadata, er
 		if !config.checkNamespace(pod.GetNamespace()) {
 			continue
 		}
-		podIPs := k8sUtils.ValidIPs(pod.Status)
-		if len(podIPs) == 0 {
+		if !config.policyConfigSelectsPod(pod) {
 			continue
 		}
-		if podData, err = rpm.getPodMetadata(pod, podIPs); err != nil {
+		if podData, err = rpm.getPodMetadata(pod); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.K8sPodName:   pod.Name,
 				logfields.K8sNamespace: pod.Namespace,
@@ -672,9 +674,6 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) ([]*podMetadata, er
 			continue
 		}
 		if k8sUtils.GetLatestPodReadiness(pod.Status) != slimcorev1.ConditionTrue {
-			continue
-		}
-		if !config.policyConfigSelectsPod(podData) {
 			continue
 		}
 
@@ -903,7 +902,11 @@ func (rpm *Manager) updateFrontendMapping(config *LRPConfig, frontendMapping *fe
 
 // TODO This function along with podMetadata can potentially be removed. We
 // can directly reference the relevant pod metedata on-site.
-func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod, podIPs []string) (*podMetadata, error) {
+func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod) (*podMetadata, error) {
+	podIPs := k8sUtils.ValidIPs(pod.Status)
+	if len(podIPs) == 0 {
+		return nil, fmt.Errorf("no valid pod ips")
+	}
 	namedPorts := make(serviceStore.PortConfiguration)
 	for _, container := range pod.Spec.Containers {
 		for _, port := range container.Ports {
