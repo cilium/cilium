@@ -90,6 +90,7 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 		ipv4Enabled:  option.Config.IPv4Enabled(),
 		ipv6Enabled:  option.Config.IPv6Enabled(),
 		jobGroup:     jobGroup,
+		metrics:      params.Metrics,
 	}
 
 	jobGroup.Add(
@@ -126,6 +127,8 @@ type LBIPAM struct {
 	serviceStore serviceStore
 
 	jobGroup job.Group
+
+	metrics *ipamMetrics
 
 	// Only used during testing.
 	initDoneCallbacks []func()
@@ -1224,6 +1227,9 @@ func (ipam *LBIPAM) updateAllPoolCounts(ctx context.Context) error {
 		}
 	}
 
+	ipam.metrics.MatchingServices.Set(float64(len(ipam.serviceStore.satisfied) + len(ipam.serviceStore.unsatisfied)))
+	ipam.metrics.UnsatisfiedServices.Set(float64(len(ipam.serviceStore.unsatisfied)))
+
 	return nil
 }
 
@@ -1254,6 +1260,9 @@ func (ipam *LBIPAM) updatePoolCounts(pool *cilium_api_v2alpha1.CiliumLoadBalance
 		ipam.setPoolCondition(pool, ciliumPoolIPsUsedCondition, meta_v1.ConditionUnknown, "noreason", strconv.Itoa(totalCounts.Used)) {
 		modifiedPoolStatus = true
 	}
+
+	ipam.metrics.AvailableIPs.WithLabelValues(pool.Name).Set(float64(totalCounts.Available))
+	ipam.metrics.UsedIPs.WithLabelValues(pool.Name).Set(float64(totalCounts.Used))
 
 	return modifiedPoolStatus
 }
@@ -1358,6 +1367,9 @@ func (ipam *LBIPAM) deleteRangeAllocations(ctx context.Context, delRange *LBRang
 
 func (ipam *LBIPAM) handlePoolDeleted(ctx context.Context, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
 	delete(ipam.pools, pool.GetName())
+
+	ipam.metrics.AvailableIPs.DeleteLabelValues(pool.Name)
+	ipam.metrics.UsedIPs.DeleteLabelValues(pool.Name)
 
 	poolRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
 	for _, poolRange := range poolRanges {
@@ -1501,6 +1513,8 @@ func (ipam *LBIPAM) markPoolConflicting(
 		return nil
 	}
 
+	ipam.metrics.ConflictingPools.Inc()
+
 	ipam.logger.WithFields(logrus.Fields{
 		"pool1-name": targetPool.Name,
 		"pool1-cidr": ipNetStr(targetRange.allocRange.CIDR()),
@@ -1543,6 +1557,8 @@ func (ipam *LBIPAM) unmarkPool(ctx context.Context, targetPool *cilium_api_v2alp
 	for _, poolRange := range targetPoolRanges {
 		poolRange.internallyDisabled = false
 	}
+
+	ipam.metrics.ConflictingPools.Dec()
 
 	if ipam.setPoolCondition(targetPool, ciliumPoolConflict, meta_v1.ConditionFalse, "resolved", "") {
 		err := ipam.patchPoolStatus(ctx, targetPool)

@@ -20,7 +20,12 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
+	goleak.VerifyTestMain(
+		m,
+		// To ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go
+		// init function
+		goleak.IgnoreTopFunction("time.Sleep"),
+	)
 }
 
 // TestConflictResolution tests that, upon initialization, LB IPAM will detect conflicts between pools,
