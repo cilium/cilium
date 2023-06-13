@@ -1,5 +1,14 @@
 # Cilium BGP Control Plane
 
+BGP Control Plane provides a way for Cilium to advertise routes to connected routers by using the
+[Border Gateway Protocol][] (BGP). BGP Control Plane makes Pod networks and/or Services of type
+`LoadBalancer` reachable from outside the cluster for environments that support BGP. Because BGP
+Control Plane does not program the [datapath][], do not use it to establish reachability within
+the cluster.
+
+[Border Gateway Protocol]: https://datatracker.ietf.org/doc/html/rfc4271
+[datapath]: https://docs.cilium.io/en/latest/network/ebpf/
+
 ## Usage
 
 Currently a single flag in the `Cilium Agent` exists to turn on the `BGP Control Plane` feature set.
