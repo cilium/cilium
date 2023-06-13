@@ -293,6 +293,7 @@ Socket-level LB bypass in pod netns                    >= 5.7
 L3 devices                                             >= 5.8
 BPF-based host routing                                 >= 5.10
 IPv6 BIG TCP support                                   >= 5.19
+IPv4 BIG TCP support                                   >= 6.3
 ====================================================== ===============================
 
 .. _req_kvstore:
