@@ -15,6 +15,9 @@ include Makefile.defs
 SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool tools/mount tools/sysctlfix
 SUBDIR_OPERATOR_CONTAINER := operator
 
+# Add the ability to override variables
+-include Makefile.override
+
 SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools hubble-relay
 
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-cni
