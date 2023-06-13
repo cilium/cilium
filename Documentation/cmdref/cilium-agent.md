@@ -113,11 +113,12 @@ cilium-agent [flags]
       --enable-ipsec                                            Enable IPSec support
       --enable-ipsec-key-watcher                                Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
       --enable-ipv4                                             Enable IPv4 support (default true)
+      --enable-ipv4-big-tcp                                     Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4
       --enable-ipv4-egress-gateway                              Enable egress gateway for IPv4
       --enable-ipv4-fragment-tracking                           Enable IPv4 fragments tracking for L4-based lookups (default true)
       --enable-ipv4-masquerade                                  Masquerade IPv4 traffic from endpoints leaving the host (default true)
       --enable-ipv6                                             Enable IPv6 support (default true)
-      --enable-ipv6-big-tcp                                     Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits
+      --enable-ipv6-big-tcp                                     Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
       --enable-ipv6-masquerade                                  Masquerade IPv6 traffic from endpoints leaving the host (default true)
       --enable-ipv6-ndp                                         Enable IPv6 NDP support
       --enable-k8s                                              Enable the k8s clientset (default true)

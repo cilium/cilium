@@ -764,12 +764,16 @@
      - Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in ``helm template`` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for gke clusters in advance.
      - bool
      - ``true``
+   * - enableIPv4BIGTCP
+     - Enables IPv4 BIG TCP support which increases maximum IPv4 GSO/GRO limits for nodes and pods
+     - bool
+     - ``false``
    * - enableIPv4Masquerade
      - Enables masquerading of IPv4 traffic leaving the node from endpoints.
      - bool
      - ``true``
    * - enableIPv6BIGTCP
-     - Enables IPv6 BIG TCP support which increases maximum GSO/GRO limits for nodes and pods
+     - Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
      - bool
      - ``false``
    * - enableIPv6Masquerade
