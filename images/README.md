@@ -16,8 +16,7 @@ It adds `protoc` and plugins and the Go toolchain.
 ### [`runtime`](runtime/Dockerfile)
 
 This image is based on [`bpftool`](https://github.com/cilium/image-tools#imagesbpftool),
-[`iproute2`](https://github.com/cilium/image-tools#imagesiproute2) and
-[`llvm`](https://github.com/cilium/image-tools#imagesllvm) from `cilium/image-tools`.
+and [`llvm`](https://github.com/cilium/image-tools#imagesllvm) from `cilium/image-tools`.
 
 At present, it also includes [`gops`](https://github.com/google/gops) for
 debugging as well as Ubuntu user-space for troubleshooting.

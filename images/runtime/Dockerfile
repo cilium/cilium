@@ -7,12 +7,10 @@ ARG UBUNTU_IMAGE=docker.io/library/ubuntu:22.04@sha256:2a357c4bd54822267339e601a
 
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:a8c542efc076b62ba683e7699c0013adb6955f0f@sha256:38e8941107bd19eb30bdde6e478760a22325f38d1f2771dfd1b9af81d74235e7
 ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:d3093f6aeefef8270306011109be623a7e80ad1b@sha256:2c28c64195dee20ab596d70a59a4597a11058333c6b35a99da32c339dcd7df56
-ARG CILIUM_IPROUTE2_IMAGE=quay.io/cilium/cilium-iproute2:f882e3fd516184703eea5ee9b3b915748b5d4ee8@sha256:f22b8aaf01952cf4b2ec959f0b8f4d242b95ce279480fbd73fded606ce0c3fa4
 ARG CILIUM_IPTABLES_IMAGE=quay.io/cilium/iptables:67f517af50e18f64cd12625021f1c39246bb4f92@sha256:d075f03e89aacf51908346ec8ed5d251b8d3ad528ce30a710fcd074cdf91f11d
 
 FROM ${CILIUM_LLVM_IMAGE} as llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} as bpftool-dist
-FROM ${CILIUM_IPROUTE2_IMAGE} as iproute2-dist
 FROM ${CILIUM_IPTABLES_IMAGE} as iptables-dist
 
 FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as gops-cni-builder
@@ -50,8 +48,6 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
 
 COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
 COPY --from=bpftool-dist /usr/local /usr/local
-COPY --from=iproute2-dist /usr/lib/libbpf* /usr/lib
-COPY --from=iproute2-dist /usr/local /usr/local
 
 ARG TARGETPLATFORM
 COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/loopback /cni/loopback
@@ -61,10 +57,8 @@ FROM ${TESTER_IMAGE} as test
 COPY --from=rootfs / /
 COPY --from=llvm-dist /test /test
 COPY --from=bpftool-dist /test /test
-COPY --from=iproute2-dist /test /test
 RUN /test/bin/cst -C /test/llvm
 RUN /test/bin/cst -C /test/bpftool
-RUN /test/bin/cst -C /test/iproute2
 
 FROM scratch
 LABEL maintainer="maintainer@cilium.io"
