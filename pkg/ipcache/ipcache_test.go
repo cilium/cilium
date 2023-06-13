@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache/types/fake"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/types"
@@ -47,7 +48,7 @@ func (s *IPCacheTestSuite) SetUpTest(c *C) {
 		IdentityAllocator: allocator,
 		PolicyHandler:     &mockUpdater{},
 		DatapathHandler:   &mockTriggerer{},
-		NodeIDHandler:     &mockNodeIDHandler{},
+		NodeIDHandler:     &fake.FakeNodeIDHandler{},
 	})
 
 	s.cleanup = func() {
@@ -553,7 +554,7 @@ func benchmarkIPCacheUpsert(b *testing.B, num int) {
 			IdentityAllocator: allocator,
 			PolicyHandler:     &mockUpdater{},
 			DatapathHandler:   &mockTriggerer{},
-			NodeIDHandler:     &mockNodeIDHandler{},
+			NodeIDHandler:     &fake.FakeNodeIDHandler{},
 		})
 
 		// We only want to measure the calls to upsert.
@@ -658,18 +659,4 @@ func (s *IPCacheTestSuite) TestIPCacheShadowing(c *C) {
 	ipc.Delete(endpointIP, source.KVStore)
 	_, exists := ipc.LookupByPrefix(cidrOverlap)
 	c.Assert(exists, Equals, false)
-}
-
-type mockNodeIDHandler struct{}
-
-func (m *mockNodeIDHandler) GetNodeID(_ net.IP) (nodeID uint16, exists bool) {
-	return 0, true
-}
-
-func (m *mockNodeIDHandler) AllocateNodeID(_ net.IP) uint16 {
-	return 0
-}
-
-func (m *mockNodeIDHandler) GetNodeIP(_ uint16) string {
-	return ""
 }
