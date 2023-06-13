@@ -778,6 +778,7 @@ void pktgen__finish(const struct pktgen *builder)
 				break;
 			case PKT_LAYER_IPV6_DEST:
 				ipv6_opt_layer->nexthdr = NEXTHDR_DEST;
+				break;
 			case PKT_LAYER_TCP:
 				ipv6_opt_layer->nexthdr = IPPROTO_TCP;
 				break;
