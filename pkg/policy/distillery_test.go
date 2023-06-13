@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -228,6 +229,14 @@ var (
 			WithIngressRules([]api.IngressRule{{
 			ToPorts: allowPort80,
 		}})
+	rule__L4__AllowAuth = api.NewRule().
+				WithLabels(lbls__L4__Allow).
+				WithIngressRules([]api.IngressRule{{
+			ToPorts: allowPort80,
+			Authentication: &api.Authentication{
+				Mode: api.AuthenticationModeRequired,
+			},
+		}})
 	rule__npL4__Allow = api.NewRule().
 				WithLabels(lbls__L4__Allow).
 				WithIngressRules([]api.IngressRule{{
@@ -324,8 +333,8 @@ var (
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) MapStateEntry {
 		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, AuthTypeDisabled).WithOwners()
 	}
-	mapEntryL7Auth_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, AuthTypeAlwaysFail).WithOwners()
+	mapEntryL7Auth_ = func(at AuthType, lbls ...labels.LabelArray) MapStateEntry {
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, at).WithOwners()
 	}
 	mapEntryL7Deny_ = func(lbls ...labels.LabelArray) MapStateEntry {
 		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, true, AuthTypeDisabled).WithOwners()
@@ -406,7 +415,7 @@ func Test_MergeL3(t *testing.T) {
 	}
 	selectorCache := testNewSelectorCache(identityCache)
 
-	type authResult map[identity.NumericIdentity]AuthType
+	type authResult map[identity.NumericIdentity]AuthTypes
 	tests := []struct {
 		test   int
 		rules  api.Rules
@@ -415,11 +424,15 @@ func Test_MergeL3(t *testing.T) {
 	}{
 		{
 			0,
-			api.Rules{rule__L3AllowFoo, rule__L3AllowBarAuth},
-			MapState{mapKeyAllowFoo__: mapEntryL7None_(lbls__L3AllowFoo), mapKeyAllowBar__: mapEntryL7Auth_(lbls__L3AllowBar)},
+			api.Rules{rule__L3AllowFoo, rule__L3AllowBarAuth, rule__L4__AllowAuth},
+			MapState{
+				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
+				mapKeyAllowFoo__: mapEntryL7None_(lbls__L3AllowFoo),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lbls__L3AllowBar),
+			},
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypeAlwaysFail,
-				identity.NumericIdentity(identityFoo): AuthTypeDisabled,
+				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}, AuthTypeSpire: struct{}{}},
+				identity.NumericIdentity(identityFoo): AuthTypes{AuthTypeSpire: struct{}{}},
 			},
 		},
 		{
@@ -427,8 +440,8 @@ func Test_MergeL3(t *testing.T) {
 			api.Rules{rule__L3AllowFoo, ruleL3L4__Allow},
 			MapState{mapKeyAllowFoo__: mapEntryL7None_(lbls__L3AllowFoo), mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow)},
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypeDisabled,
-				identity.NumericIdentity(identityFoo): AuthTypeDisabled,
+				identity.NumericIdentity(identityBar): AuthTypes{},
+				identity.NumericIdentity(identityFoo): AuthTypes{},
 			},
 		},
 	}
@@ -454,10 +467,10 @@ func Test_MergeL3(t *testing.T) {
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
 			}
-			for remoteID, expectedAuthType := range tt.auths {
-				authType := repo.GetAuthType(identity.ID, remoteID)
-				if authType != expectedAuthType {
-					t.Errorf("Incorrect AuthTypes result for remote ID %d: obtained %v, expected %v", remoteID, authType, expectedAuthType)
+			for remoteID, expectedAuthTypes := range tt.auths {
+				authTypes := repo.GetAuthTypes(identity.ID, remoteID)
+				if !maps.Equal(authTypes, expectedAuthTypes) {
+					t.Errorf("Incorrect AuthTypes result for remote ID %d: obtained %v, expected %v", remoteID, authTypes, expectedAuthTypes)
 				}
 			}
 		})

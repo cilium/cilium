@@ -153,32 +153,43 @@ func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity) error {
 	return err
 }
 
-// GetAuthType returns the AuthType required by the policy between the localID and remoteID, or
-// AuthTypeDisabled if none.
-//
-// Note that the first found AuthType is returned. This is correct as the policy should only
-// support a single auth type between a pair of identities and the datapath has the same
-// restriction.
-func (cache *PolicyCache) GetAuthType(localID, remoteID identityPkg.NumericIdentity) AuthType {
+// GetAuthTypes returns the AuthTypes required by the policy between the localID and remoteID, if
+// any, otherwise returns nil.
+func (cache *PolicyCache) GetAuthTypes(localID, remoteID identityPkg.NumericIdentity) AuthTypes {
 	cache.Lock()
 	cip, ok := cache.policies[localID]
 	cache.Unlock()
 	if !ok {
-		return AuthTypeDisabled // No policy for localID (no endpoint with localID)
+		return nil // No policy for localID (no endpoint with localID)
 	}
 
 	// SelectorPolicy is const after it has been created, so no locking needed to access it
 	selPolicy := cip.getPolicy()
 	if selPolicy.L4Policy == nil {
-		return AuthTypeDisabled // Local identity added, but policy not computed yet
+		return nil // Local identity added, but policy not computed yet
 	}
 
-	for cs, authType := range selPolicy.L4Policy.AuthMap {
-		if cs.Selects(remoteID) {
-			return authType
+	var resTypes AuthTypes
+	for cs, authTypes := range selPolicy.L4Policy.AuthMap {
+		missing := false
+		for authType := range authTypes {
+			if _, exists := resTypes[authType]; !exists {
+				missing = true
+				break
+			}
+		}
+		// Only check if 'cs' selects 'remoteID' if one of the authTypes is still missing
+		// from the result
+		if missing && cs.Selects(remoteID) {
+			if resTypes == nil {
+				resTypes = make(AuthTypes, 1)
+			}
+			for authType := range authTypes {
+				resTypes[authType] = struct{}{}
+			}
 		}
 	}
-	return AuthTypeDisabled
+	return resTypes
 }
 
 // cachedSelectorPolicy is a wrapper around a selectorPolicy (stored in the

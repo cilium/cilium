@@ -144,9 +144,9 @@ func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
 }
 
-// GetAuthType returns the AuthTypes required by the policy between the localID and remoteID
-func (p *Repository) GetAuthType(localID, remoteID identity.NumericIdentity) AuthType {
-	return p.policyCache.GetAuthType(localID, remoteID)
+// GetAuthTypes returns the AuthTypes required by the policy between the localID and remoteID
+func (p *Repository) GetAuthTypes(localID, remoteID identity.NumericIdentity) AuthTypes {
+	return p.policyCache.GetAuthTypes(localID, remoteID)
 }
 
 func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)) {

@@ -219,8 +219,11 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 // AuthType enumerates the supported authentication types in api.
 type AuthType uint8
 
-// Authmap maps remote selectors to their needed AuthType, if any
-type AuthMap map[CachedSelector]AuthType
+// AuthTypes is a set of AuthTypes, usually nil if empty
+type AuthTypes map[AuthType]struct{}
+
+// Authmap maps remote selectors to their needed AuthTypes, if any
+type AuthMap map[CachedSelector]AuthTypes
 
 const (
 	// AuthTypeDisabled means no authentication required
@@ -859,7 +862,12 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 					if l4Policy.AuthMap == nil {
 						l4Policy.AuthMap = make(AuthMap, 1)
 					}
-					l4Policy.AuthMap[cs] = authType
+					authTypes := l4Policy.AuthMap[cs]
+					if authTypes == nil {
+						authTypes = make(AuthTypes, 1)
+					}
+					authTypes[authType] = struct{}{}
+					l4Policy.AuthMap[cs] = authTypes
 				}
 			}
 		}
