@@ -104,10 +104,12 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
-	int ret;
+	int ret = CTX_ACT_OK;
+	bool snat_needed;
 
-	ret = snat_v6_needed(ctx, &target) ?
-	      snat_v6_nat(ctx, &target, ext_err) : CTX_ACT_OK;
+	snat_needed = snat_v6_prepare_state(ctx, &target);
+	if (snat_needed)
+		ret = snat_v6_nat(ctx, &target, ext_err);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
