@@ -48,27 +48,43 @@ func (e *Endpoint) backupDirectoryPath() string {
 
 // moveNewFilesTo copies all files, that do not exist in newDir, from oldDir.
 func moveNewFilesTo(oldDir, newDir string) error {
-	oldFiles, err := os.ReadDir(oldDir)
+	var err error
+
+	oldDirFile, err := os.Open(oldDir)
 	if err != nil {
 		return err
 	}
-	newFiles, err := os.ReadDir(newDir)
+	defer oldDirFile.Close()
+
+	oldFiles, err := oldDirFile.Readdirnames(-1)
 	if err != nil {
 		return err
 	}
 
+	newDirFile, err := os.Open(newDir)
+	if err != nil {
+		return err
+	}
+	defer newDirFile.Close()
+
+	newFiles, err := newDirFile.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+
+	newFilesHash := make(map[string]struct{}, len(newFiles))
+	for _, f := range newFiles {
+		newFilesHash[f] = struct{}{}
+	}
+
+	var ok bool
+
 	for _, oldFile := range oldFiles {
-		exists := false
-		for _, newFile := range newFiles {
-			if oldFile.Name() == newFile.Name() {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			os.Rename(filepath.Join(oldDir, oldFile.Name()), filepath.Join(newDir, oldFile.Name()))
+		if _, ok = newFilesHash[oldFile]; !ok {
+			os.Rename(filepath.Join(oldDir, oldFile), filepath.Join(newDir, oldFile))
 		}
 	}
+
 	return nil
 }
 
