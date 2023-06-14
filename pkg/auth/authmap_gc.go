@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -78,33 +79,28 @@ func (r *authMapGarbageCollector) handleCiliumNodeEvent(_ context.Context, e res
 	return nil
 }
 
-func (r *authMapGarbageCollector) handleCiliumIdentityEvent(_ context.Context, e resource.Event[*ciliumv2.CiliumIdentity]) (err error) {
-	defer func() { e.Done(err) }()
-
+func (r *authMapGarbageCollector) handleIdentityChange(_ context.Context, e cache.IdentityChange) (err error) {
 	switch e.Kind {
-	case resource.Upsert:
+	case cache.IdentityChangeUpsert:
 		if r.discoveredCiliumIdentities != nil {
 			r.logger.
-				WithField("key", e.Key).
+				WithField(logfields.Identity, e.ID).
+				WithField(logfields.Labels, e.Labels).
 				Debug("Identity discovered")
-			var id identity.NumericIdentity
-			id, err = identity.ParseNumericIdentity(e.Object.Name)
-			if err != nil {
-				return fmt.Errorf("failed to parse identity: %w", err)
-			}
-			r.discoveredCiliumIdentities[id] = struct{}{}
+			r.discoveredCiliumIdentities[e.ID] = struct{}{}
 		}
-	case resource.Sync:
+	case cache.IdentityChangeSync:
 		r.logger.Debug("Identities synced - cleaning up missing identities")
 		if err = r.cleanupMissingIdentities(); err != nil {
 			return fmt.Errorf("failed to cleanup missing identities: %w", err)
 		}
 		r.discoveredCiliumIdentities = nil
-	case resource.Delete:
+	case cache.IdentityChangeDelete:
 		r.logger.
-			WithField("key", e.Key).
+			WithField(logfields.Identity, e.ID).
+			WithField(logfields.Labels, e.Labels).
 			Debug("Identity deleted - cleaning up")
-		if err = r.cleanupDeletedIdentity(e.Object); err != nil {
+		if err = r.cleanupDeletedIdentity(e.ID); err != nil {
 			return fmt.Errorf("failed to cleanup deleted identity: %w", err)
 		}
 	}
@@ -157,16 +153,11 @@ func (r *authMapGarbageCollector) cleanupDeletedNode(node *ciliumv2.CiliumNode) 
 	})
 }
 
-func (r *authMapGarbageCollector) cleanupDeletedIdentity(id *ciliumv2.CiliumIdentity) error {
-	idNumeric, err := identity.ParseNumericIdentity(id.Name)
-	if err != nil {
-		return fmt.Errorf("failed to parse deleted identity: %w", err)
-	}
-
+func (r *authMapGarbageCollector) cleanupDeletedIdentity(id identity.NumericIdentity) error {
 	return r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
-		if key.localIdentity == idNumeric || key.remoteIdentity == idNumeric {
+		if key.localIdentity == id || key.remoteIdentity == id {
 			r.logger.
-				WithField("identity", idNumeric).
+				WithField(logfields.Identity, id).
 				Debug("Deleting entry due to removed identity")
 			return true
 		}
