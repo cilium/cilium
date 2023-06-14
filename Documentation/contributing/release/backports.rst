@@ -247,7 +247,7 @@ Creating the Backports Branch
    target branch.
 
 #. For backporting commits that update cilium-builder and cilium-runtime images,
-   the backporter should build new images as described in :ref:`update_cilim_builder_runtime_images`.
+   the backporter builds new images as described in :ref:`update_cilium_builder_runtime_images`.
 
 #. (Optional) If there are any commits or pull requests that are tricky or
    time-consuming to backport, consider reaching out for help on Slack. If the

@@ -191,7 +191,7 @@ Image dependency:
 
 
 
-.. _update_cilim_builder_runtime_images:
+.. _update_cilium_builder_runtime_images:
 
 Update cilium-builder and cilium-runtime images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
