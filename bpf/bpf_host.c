@@ -1499,7 +1499,7 @@ out:
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
 		 */
-		ret = handle_nat_fwd(ctx, 0);
+		ret = handle_nat_fwd(ctx, 0, &trace);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret,
 						      CTX_ACT_DROP,

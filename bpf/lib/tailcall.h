@@ -111,4 +111,14 @@
 #define invoke_tailcall_if(COND, NAME, FUNC)  \
 	__eval(__invoke_tailcall_if_, COND)(NAME, FUNC)
 
+#define __invoke_tailcall_if_trace_0(NAME, FUNC, TRACE)			\
+	FUNC(ctx, TRACE)
+#define __invoke_tailcall_if_trace_1(NAME, FUNC, TRACE)			\
+	({								\
+		ep_tail_call(ctx, NAME);				\
+		DROP_MISSED_TAIL_CALL;					\
+	})
+#define invoke_tailcall_if_trace(COND, NAME, FUNC, TRACE)		\
+	__eval(__invoke_tailcall_if_trace_, COND)(NAME, FUNC, TRACE)
+
 #endif /* TAILCALL_H */

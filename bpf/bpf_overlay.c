@@ -671,6 +671,7 @@ out:
 __section("to-overlay")
 int cil_to_overlay(struct __ctx_buff *ctx)
 {
+	struct trace_ctx trace __maybe_unused;
 	int ret = TC_ACT_OK;
 	__u32 cluster_id __maybe_unused = 0;
 
@@ -703,7 +704,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 	cluster_id = ctx_get_cluster_id_mark(ctx);
 #endif
-	ret = handle_nat_fwd(ctx, cluster_id);
+	ret = handle_nat_fwd(ctx, cluster_id, &trace);
 out:
 #endif
 	if (IS_ERR(ret))
