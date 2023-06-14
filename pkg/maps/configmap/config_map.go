@@ -28,7 +28,6 @@ type Index uint32
 // Must be in sync with RUNTIME_CONFIG_ enum in bpf/lib/common.h
 const (
 	UTimeOffset Index = iota
-	UsedEntries
 	AgentLiveness
 )
 
