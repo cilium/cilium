@@ -1686,8 +1686,8 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 	tuple->flags = dir;
 }
 
-static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
-					   struct ipv6_nat_target *target)
+static __always_inline bool
+snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 {
 	union v6addr masq_addr __maybe_unused;
 	const union v6addr dr_addr = IPV6_DIRECT_ROUTING;
