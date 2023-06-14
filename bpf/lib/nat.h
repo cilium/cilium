@@ -1684,7 +1684,7 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 }
 
 static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
-					   union v6addr *addr)
+					   struct ipv6_nat_target *target)
 {
 	union v6addr masq_addr __maybe_unused;
 	const union v6addr dr_addr = IPV6_DIRECT_ROUTING;
@@ -1700,13 +1700,13 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 	/* See comment in snat_v4_prepare_state(). */
 	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
 	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
-		ipv6_addr_copy(addr, &dr_addr);
+		ipv6_addr_copy(&target->addr, &dr_addr);
 		return true;
 	}
 #ifdef ENABLE_MASQUERADE_IPV6 /* SNAT local pod to world packets */
 	BPF_V6(masq_addr, IPV6_MASQUERADE);
 	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &masq_addr)) {
-		ipv6_addr_copy(addr, &masq_addr);
+		ipv6_addr_copy(&target->addr, &masq_addr);
 		return true;
 	}
 
@@ -1784,7 +1784,7 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 
 		/* See comment in snat_v4_prepare_state(). */
 		if (!is_reply && local_ep) {
-			ipv6_addr_copy(addr, &masq_addr);
+			ipv6_addr_copy(&target->addr, &masq_addr);
 			return true;
 		}
 	}

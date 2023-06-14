@@ -106,7 +106,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	};
 	int ret;
 
-	ret = snat_v6_needed(ctx, &target.addr) ?
+	ret = snat_v6_needed(ctx, &target) ?
 	      snat_v6_nat(ctx, &target, ext_err) : CTX_ACT_OK;
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
