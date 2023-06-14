@@ -80,7 +80,6 @@ To enable IPv6 BIG TCP:
              --set routingMode=native \\
              --set bpf.masquerade=true \\
              --set ipv6.enabled=true \\
-             --set enableIPv6Masquerade=false \\
              --set enableIPv6BIGTCP=true \\
              --set kubeProxyReplacement=strict
 
