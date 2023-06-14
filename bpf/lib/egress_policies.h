@@ -372,6 +372,7 @@ srv6_create_state_entry(struct __ctx_buff *ctx)
 
 		if (map_update_elem(&SRV6_STATE_MAP6, inner_ips, outer_ips, 0) < 0)
 			return DROP_INVALID;
+		break;
 	}
 #  ifdef ENABLE_IPV4
 	case IPPROTO_IPIP: {
@@ -384,6 +385,7 @@ srv6_create_state_entry(struct __ctx_buff *ctx)
 
 		if (map_update_elem(&SRV6_STATE_MAP4, inner_ips, outer_ips, 0) < 0)
 			return DROP_INVALID;
+		break;
 	}
 #  endif /* ENABLE_IPV4 */
 	}
