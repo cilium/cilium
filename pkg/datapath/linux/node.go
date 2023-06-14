@@ -53,7 +53,7 @@ type NeighLink struct {
 }
 
 type linuxNodeHandler struct {
-	mutex                lock.Mutex
+	mutex                lock.RWMutex
 	isInitialized        bool
 	nodeConfig           datapath.LocalNodeConfiguration
 	nodeAddressing       datapath.NodeAddressing

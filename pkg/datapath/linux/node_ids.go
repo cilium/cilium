@@ -61,8 +61,8 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 }
 
 func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
 
 	// Check for local node ID explicitly as local node IPs are not in our maps!
 	if nodeID == 0 {
@@ -73,8 +73,8 @@ func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
 }
 
 func (n *linuxNodeHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
 
 	return n.getNodeIDForIP(nodeIP)
 }
