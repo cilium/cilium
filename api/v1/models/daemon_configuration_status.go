@@ -23,10 +23,16 @@ import (
 // swagger:model DaemonConfigurationStatus
 type DaemonConfigurationStatus struct {
 
-	// Maximum GRO size on workload facing devices
+	// Maximum IPv4 GRO size on workload facing devices
+	GROIPV4MaxSize int64 `json:"GROIPv4MaxSize,omitempty"`
+
+	// Maximum IPv6 GRO size on workload facing devices
 	GROMaxSize int64 `json:"GROMaxSize,omitempty"`
 
-	// Maximum GSO size on workload facing devices
+	// Maximum IPv4 GSO size on workload facing devices
+	GSOIPV4MaxSize int64 `json:"GSOIPv4MaxSize,omitempty"`
+
+	// Maximum IPv6 GSO size on workload facing devices
 	GSOMaxSize int64 `json:"GSOMaxSize,omitempty"`
 
 	// addressing

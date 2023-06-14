@@ -2254,12 +2254,20 @@ func init() {
       "description": "Response to a daemon configuration request. Contains the addressing\ninformation, k8s, node monitor and immutable and mutable configuration\nsettings.\n",
       "type": "object",
       "properties": {
+        "GROIPv4MaxSize": {
+          "description": "Maximum IPv4 GRO size on workload facing devices",
+          "type": "integer"
+        },
         "GROMaxSize": {
-          "description": "Maximum GRO size on workload facing devices",
+          "description": "Maximum IPv6 GRO size on workload facing devices",
+          "type": "integer"
+        },
+        "GSOIPv4MaxSize": {
+          "description": "Maximum IPv4 GSO size on workload facing devices",
           "type": "integer"
         },
         "GSOMaxSize": {
-          "description": "Maximum GSO size on workload facing devices",
+          "description": "Maximum IPv6 GSO size on workload facing devices",
           "type": "integer"
         },
         "addressing": {
@@ -7253,12 +7261,20 @@ func init() {
       "description": "Response to a daemon configuration request. Contains the addressing\ninformation, k8s, node monitor and immutable and mutable configuration\nsettings.\n",
       "type": "object",
       "properties": {
+        "GROIPv4MaxSize": {
+          "description": "Maximum IPv4 GRO size on workload facing devices",
+          "type": "integer"
+        },
         "GROMaxSize": {
-          "description": "Maximum GRO size on workload facing devices",
+          "description": "Maximum IPv6 GRO size on workload facing devices",
+          "type": "integer"
+        },
+        "GSOIPv4MaxSize": {
+          "description": "Maximum IPv4 GSO size on workload facing devices",
           "type": "integer"
         },
         "GSOMaxSize": {
-          "description": "Maximum GSO size on workload facing devices",
+          "description": "Maximum IPv6 GSO size on workload facing devices",
           "type": "integer"
         },
         "addressing": {
