@@ -134,7 +134,7 @@ to ``/etc/systemd/network/01-no-dhcp.network`` and then
         systemctl daemon-reload
         systemctl restart systemd-networkd
 
-Ubuntu 22.04 on Raspberry Pi 
+Ubuntu 22.04 on Raspberry Pi
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Before running Cilium on Ubuntu 22.04 on a Raspberry Pi, please make sure to install the following package:
@@ -405,7 +405,6 @@ Port Range / Protocol    Description
 9879/tcp                 cilium-agent health status API (listening on 127.0.0.1 and/or ::1)
 9890/tcp                 cilium-agent gops server (listening on 127.0.0.1)
 9891/tcp                 operator gops server (listening on 127.0.0.1)
-9892/tcp                 clustermesh-apiserver gops server (listening on 127.0.0.1)
 9893/tcp                 Hubble Relay gops server (listening on 127.0.0.1)
 9962/tcp                 cilium-agent Prometheus metrics
 9963/tcp                 cilium-operator Prometheus metrics
