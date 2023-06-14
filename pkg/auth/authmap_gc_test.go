@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -20,6 +21,8 @@ import (
 )
 
 func Test_authMapGarbageCollector_initialSync(t *testing.T) {
+	ctx := context.TODO()
+
 	authMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
 			{localIdentity: identity.NumericIdentity(1), remoteIdentity: identity.NumericIdentity(2), remoteNodeID: 10, authType: policy.AuthTypeDisabled}:  {expiration: time.Now().Add(5 * time.Minute)},
@@ -35,27 +38,27 @@ func Test_authMapGarbageCollector_initialSync(t *testing.T) {
 	assert.Len(t, am.discoveredCiliumNodeIDs, 1) // local node 0
 	assert.Empty(t, am.discoveredCiliumIdentities)
 
-	err := am.handleCiliumNodeEvent(context.Background(), ciliumNodeEvent(resource.Upsert, "172.18.0.3"))
+	err := am.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Upsert, "172.18.0.3"))
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 4) // no modification at upsert
 	assert.Len(t, am.discoveredCiliumNodeIDs, 2)
 
-	err = am.handleCiliumNodeEvent(context.Background(), ciliumNodeEvent(resource.Sync, ""))
+	err = am.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Sync, ""))
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 3) // deleted all entries where remote node id doesn't match existing (10) or local node (0)
 	assert.Nil(t, am.discoveredCiliumNodeIDs)
 
-	err = am.handleCiliumIdentityEvent(context.Background(), ciliumIdentityEvent(resource.Upsert, "11"))
+	err = am.handleIdentityChange(ctx, ciliumIdentityEvent(cache.IdentityChangeUpsert, 11))
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 3) // no modification at upsert
 	assert.Len(t, am.discoveredCiliumIdentities, 1)
 
-	err = am.handleCiliumIdentityEvent(context.Background(), ciliumIdentityEvent(resource.Upsert, "10"))
+	err = am.handleIdentityChange(ctx, ciliumIdentityEvent(cache.IdentityChangeUpsert, 10))
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 3) // no modification at upsert
 	assert.Len(t, am.discoveredCiliumIdentities, 2)
 
-	err = am.handleCiliumIdentityEvent(context.Background(), ciliumIdentityEvent(resource.Sync, ""))
+	err = am.handleIdentityChange(ctx, ciliumIdentityEvent(cache.IdentityChangeSync, 0))
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 1) // deleted all entries where local and remote identity are no longer existing
 	assert.Nil(t, am.discoveredCiliumIdentities)
@@ -115,11 +118,11 @@ func Test_authMapGarbageCollector_gc(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 2)
 
-	err = am.handleCiliumIdentityEvent(context.Background(), ciliumIdentityEvent(resource.Delete, "4"))
+	err = am.handleIdentityChange(context.Background(), ciliumIdentityEvent(cache.IdentityChangeDelete, 4))
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 1)
 
-	err = am.handleCiliumIdentityEvent(context.Background(), ciliumIdentityEvent(resource.Delete, "10"))
+	err = am.handleIdentityChange(context.Background(), ciliumIdentityEvent(cache.IdentityChangeDelete, 10))
 	assert.NoError(t, err)
 	assert.Empty(t, authMap.entries)
 }
@@ -148,14 +151,9 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 	}
 	am := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{}), nil)
 
-	event := ciliumIdentityEvent(resource.Delete, "4")
-	var eventErr error
-	event.Done = func(err error) {
-		eventErr = err
-	}
-	err := am.handleCiliumIdentityEvent(context.Background(), event)
+	event := ciliumIdentityEvent(cache.IdentityChangeDelete, 4)
+	err := am.handleIdentityChange(context.Background(), event)
 	assert.ErrorContains(t, err, "failed to cleanup deleted identity: failed to delete entry")
-	assert.ErrorContains(t, eventErr, "failed to cleanup deleted identity: failed to delete entry")
 }
 
 func ciliumNodeEvent(eventType resource.EventKind, nodeInternalIP string) resource.Event[*ciliumv2.CiliumNode] {
@@ -180,17 +178,10 @@ func ciliumNodeEvent(eventType resource.EventKind, nodeInternalIP string) resour
 	}
 }
 
-func ciliumIdentityEvent(eventType resource.EventKind, id string) resource.Event[*ciliumv2.CiliumIdentity] {
-	return resource.Event[*ciliumv2.CiliumIdentity]{
-		Kind: eventType,
-		Done: func(err error) {},
-		Object: &ciliumv2.CiliumIdentity{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "test-ns",
-				Name:      id,
-			},
-		},
-		Key: resource.Key{Namespace: "test-ns", Name: id},
+func ciliumIdentityEvent(kind cache.IdentityChangeKind, id identity.NumericIdentity) cache.IdentityChange {
+	return cache.IdentityChange{
+		Kind: kind,
+		ID:   id,
 	}
 }
 
