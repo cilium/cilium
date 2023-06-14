@@ -135,7 +135,15 @@ type ManagerTestSuite struct {
 	ipv6                        bool
 }
 
-var _ = Suite(&ManagerTestSuite{})
+var (
+	_           = Suite(&ManagerTestSuite{})
+	surrogateFE = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("0.0.0.0"), 80, lb.ScopeExternal, 0)
+	frontend1   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeExternal, 0)
+	frontend2   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.2"), 80, lb.ScopeExternal, 0)
+	frontend3   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("f00d::1"), 80, lb.ScopeExternal, 0)
+
+	backends1, backends2, backends3, backends4, backends5, backends6 []*lb.Backend
+)
 
 func (m *ManagerTestSuite) SetUpTest(c *C) {
 	serviceIDAlloc.resetLocalID()
@@ -158,25 +166,7 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	m.prevOptionExternalClusterIP = option.Config.ExternalClusterIP
 
 	m.ipv6 = option.Config.EnableIPv6
-}
-
-func (m *ManagerTestSuite) TearDownTest(c *C) {
-	serviceIDAlloc.resetLocalID()
-	backendIDAlloc.resetLocalID()
-	option.Config.EnableSessionAffinity = m.prevOptionSessionAffinity
-	option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
-	option.Config.NodePortAlg = m.prevOptionNPAlgo
-	option.Config.DatapathMode = m.prevOptionDPMode
-	option.Config.ExternalClusterIP = m.prevOptionExternalClusterIP
-	option.Config.EnableIPv6 = m.ipv6
-}
-
-var (
-	surrogateFE = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("0.0.0.0"), 80, lb.ScopeExternal, 0)
-	frontend1   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeExternal, 0)
-	frontend2   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.2"), 80, lb.ScopeExternal, 0)
-	frontend3   = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("f00d::1"), 80, lb.ScopeExternal, 0)
-	backends1   = []*lb.Backend{
+	backends1 = []*lb.Backend{
 		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080),
 		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080),
 	}
@@ -198,7 +188,18 @@ var (
 	backends6 = []*lb.Backend{
 		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.7"), 8080),
 	}
-)
+}
+
+func (m *ManagerTestSuite) TearDownTest(c *C) {
+	serviceIDAlloc.resetLocalID()
+	backendIDAlloc.resetLocalID()
+	option.Config.EnableSessionAffinity = m.prevOptionSessionAffinity
+	option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
+	option.Config.NodePortAlg = m.prevOptionNPAlgo
+	option.Config.DatapathMode = m.prevOptionDPMode
+	option.Config.ExternalClusterIP = m.prevOptionExternalClusterIP
+	option.Config.EnableIPv6 = m.ipv6
+}
 
 func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	m.testUpsertAndDeleteService(c)
@@ -796,16 +797,12 @@ func (m *ManagerTestSuite) TestHealthCheckNodePortDisabled(c *C) {
 
 func (m *ManagerTestSuite) TestGetServiceNameByAddr(c *C) {
 	fe := frontend1.DeepCopy()
-	be := make([]*lb.Backend, 0, len(backends1))
-	for _, backend := range backends1 {
-		be = append(be, backend.DeepCopy())
-	}
 	name := "svc1"
 	namespace := "ns1"
 	hcport := uint16(3)
 	p := &lb.SVC{
 		Frontend:            *fe,
-		Backends:            be,
+		Backends:            backends1,
 		Type:                lb.SVCTypeNodePort,
 		ExtTrafficPolicy:    lb.SVCTrafficPolicyCluster,
 		IntTrafficPolicy:    lb.SVCTrafficPolicyCluster,
@@ -968,11 +965,6 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 
-	// Reset state as backends are pointers to lb.Backend
-	p.Backends[0].State = lb.BackendStateActive
-	p.Backends[1].State = lb.BackendStateActive
-	p.Backends[2].State = lb.BackendStateActive
-
 	created, id1, err := m.svc.UpsertService(p)
 
 	c.Assert(err, IsNil)
@@ -1031,10 +1023,6 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOnlyTerminatingBackends(c *C) {
 		SessionAffinityTimeoutSec: 100,
 		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
-
-	// Reset state as backends are pointers to lb.Backend
-	p.Backends[0].State = lb.BackendStateActive
-	p.Backends[1].State = lb.BackendStateActive
 
 	created, id1, err := m.svc.UpsertService(p)
 
@@ -1168,11 +1156,6 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 		SessionAffinityTimeoutSec: 100,
 		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
-
-	// Reset state as backends are pointers to lb.Backend
-	p.Backends[0].State = lb.BackendStateActive
-	p.Backends[1].State = lb.BackendStateActive
-	p.Backends[2].State = lb.BackendStateActive
 
 	created, id1, err := m.svc.UpsertService(p)
 
@@ -1449,11 +1432,9 @@ func (m *ManagerTestSuite) TestRestoreServiceWithBackendStates(c *C) {
 func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	backends := append(backends1, backends4...)
-	backends[0].State = lb.BackendStateActive
 	backends[1].Weight = 0
 	backends[1].State = lb.BackendStateMaintenance
 	backends[2].Weight = 1
-	backends[2].State = lb.BackendStateActive
 
 	p := &lb.SVC{
 		Frontend:                  frontend1,
