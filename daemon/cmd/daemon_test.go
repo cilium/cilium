@@ -166,6 +166,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 		ControlPlane,
 		statedb.Cell,
 		tables.Cell,
+		metrics.RegistryCell,
+		metrics.AgentMetrics,
 		job.Cell,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p

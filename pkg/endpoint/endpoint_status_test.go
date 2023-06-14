@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -47,6 +48,7 @@ func (e endpointStatusConfiguration) EndpointStatusIsEnabled(name string) bool {
 }
 
 func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *Endpoint {
+	mpm := metrics.NewBPFMapMetrics().MapPressure
 	e, err := NewEndpointFromChangeModel(context.TODO(), s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{},
 		ID:         200,
@@ -57,7 +59,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 			"k8s:name=probe",
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-	})
+	}, mpm)
 	c.Assert(err, check.IsNil)
 
 	e.SecurityIdentity = &identity.Identity{

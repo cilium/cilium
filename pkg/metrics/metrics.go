@@ -12,12 +12,12 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	dto "github.com/prometheus/client_model/go"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -229,8 +229,6 @@ var (
 	Namespace = CiliumAgentNamespace
 
 	registryResolver, registry = promise.New[*Registry]()
-
-	BPFMapPressure = true
 
 	// BootstrapTimes is the durations of cilium-agent bootstrap sequence.
 	BootstrapTimes = NoOpObserverVec
@@ -1373,60 +1371,77 @@ func newDefaultAgentMetrics(r *Registry) {
 
 }
 
-// GaugeWithThreshold is a prometheus gauge that registers itself with
-// prometheus if over a threshold value and unregisters when under.
+var bpfMapPressureResolver, bpfMapPressure = promise.New[*MapPressure]()
+
+func WithMapPressure(cb func(mp *MapPressure)) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	mp, err := bpfMapPressure.Await(ctx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		go func() {
+			mp, err := bpfMapPressure.Await(context.Background())
+			if err != nil {
+				panic(err)
+			}
+
+			cb(mp)
+		}()
+		return
+	}
+
+	cb(mp)
+}
+
+type BPFMapMetrics struct {
+	MapPressure *MapPressure
+}
+
+func NewBPFMapMetrics() *BPFMapMetrics {
+	bmp := &BPFMapMetrics{
+		MapPressure: &MapPressure{
+			DeletableVec: metric.NewGaugeVec(metric.GaugeOpts{
+				ConfigName: Namespace + "_" + SubsystemBPF + "_map_pressure",
+				Namespace:  Namespace,
+				Subsystem:  SubsystemBPF,
+				Name:       "map_pressure",
+				Help:       "Fill percentage of map, tagged by map name",
+			}, []string{LabelMapName}),
+		},
+	}
+
+	bpfMapPressureResolver.Resolve(bmp.MapPressure)
+
+	return bmp
+}
+
+type MapPressure struct {
+	metric.DeletableVec[metric.Gauge]
+}
+
+func (mp *MapPressure) NewBPFMapPressureGauge(mapname string, threshold float64) *GaugeWithThreshold {
+	return &GaugeWithThreshold{
+		vec:       mp,
+		threshold: threshold,
+		mapname:   mapname,
+	}
+}
+
+// GaugeWithThreshold is a gauge that only exposes itself if the last set value is over a configured threshold.
 type GaugeWithThreshold struct {
-	gauge     prometheus.Gauge
+	vec       metric.DeletableVec[metric.Gauge]
+	mapname   string
 	threshold float64
-	active    bool
 }
 
 // Set the value of the GaugeWithThreshold.
 func (gwt *GaugeWithThreshold) Set(value float64) {
 	overThreshold := value > gwt.threshold
-	if gwt.active && !overThreshold {
-		gwt.active = !Unregister(gwt.gauge)
-		if gwt.active {
-			logrus.WithField("metric", gwt.gauge.Desc().String()).Warning("Failed to unregister metric")
-		}
-	} else if !gwt.active && overThreshold {
-		err := Register(gwt.gauge)
-		gwt.active = err == nil
-		if err != nil {
-			logrus.WithField("metric", gwt.gauge.Desc().String()).WithError(err).Warning("Failed to register metric")
-		}
+	if overThreshold {
+		gwt.vec.WithLabelValues(gwt.mapname).Set(value)
+	} else {
+		gwt.vec.DeleteLabelValues(gwt.mapname)
 	}
-
-	gwt.gauge.Set(value)
-}
-
-// NewGaugeWithThreshold creates a new GaugeWithThreshold.
-func NewGaugeWithThreshold(name string, subsystem string, desc string, labels map[string]string, threshold float64) *GaugeWithThreshold {
-	return &GaugeWithThreshold{
-		gauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace:   Namespace,
-			Subsystem:   subsystem,
-			Name:        name,
-			Help:        desc,
-			ConstLabels: labels,
-		}),
-		threshold: threshold,
-		active:    false,
-	}
-}
-
-// NewBPFMapPressureGauge creates a new GaugeWithThreshold for the
-// cilium_bpf_map_pressure metric with the map name as constant label.
-func NewBPFMapPressureGauge(mapname string, threshold float64) *GaugeWithThreshold {
-	return NewGaugeWithThreshold(
-		"map_pressure",
-		SubsystemBPF,
-		"Fill percentage of map, tagged by map name",
-		map[string]string{
-			LabelMapName: mapname,
-		},
-		threshold,
-	)
 }
 
 func Reinitialize() {

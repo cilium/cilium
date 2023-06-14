@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -129,7 +130,7 @@ func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 		Cache:           fqdn.NewDNSCache(0),
 		UpdateSelectors: d.updateSelectors,
 	})
-	d.endpointManager = endpointmanager.New(&dummyEpSyncher{})
+	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, metrics.NewBPFMapMetrics())
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),

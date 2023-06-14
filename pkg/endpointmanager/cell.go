@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -162,9 +163,10 @@ var (
 type endpointManagerParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
-	Config    EndpointManagerConfig
-	Clientset client.Clientset
+	Lifecycle  hive.Lifecycle
+	Config     EndpointManagerConfig
+	Clientset  client.Clientset
+	BPFMetrics *metrics.BPFMapMetrics
 }
 
 type endpointManagerOut struct {
@@ -178,7 +180,7 @@ type endpointManagerOut struct {
 func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	checker := endpoint.CheckHealth
 
-	mgr := New(&watchers.EndpointSynchronizer{Clientset: p.Clientset})
+	mgr := New(&watchers.EndpointSynchronizer{Clientset: p.Clientset}, p.BPFMetrics)
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(hive.Hook{

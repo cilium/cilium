@@ -35,6 +35,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -193,13 +194,15 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 	s.dnsServer = setupServer(c)
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
 
+	mpm := metrics.NewBPFMapMetrics().MapPressure
+
 	proxy, err := StartDNSProxy("", 0, true, 1000, // any address, any port, enable compression, max 1000 restore IPs
 		// LookupEPByIP
 		func(ip net.IP) (*endpoint.Endpoint, error) {
 			if s.restoring {
 				return nil, fmt.Errorf("No EPs available when restoring")
 			}
-			return endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady), nil
+			return endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), mpm, uint16(epID1), endpoint.StateReady), nil
 		},
 		// LookupSecIDByIP
 		func(ip netip.Addr) (ipcache.Identity, bool) {
@@ -737,6 +740,8 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	dstIP2b := net.ParseIP("127.0.0.2")
 	dstIPrandom := net.ParseIP("127.0.0.42")
 
+	mpm := metrics.NewBPFMapMetrics().MapPressure
+
 	// Before restore: all rules removed above, everything is dropped
 	// Case 1 | EPID1 | DstID1 |   53 | www.ubuntu.com | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID1, dstIP1, "www.ubuntu.com")
@@ -764,7 +769,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Restore rules
-	ep1 := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady)
+	ep1 := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), mpm, uint16(epID1), endpoint.StateReady)
 	ep1.DNSRules = restored1
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
@@ -810,7 +815,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Restore rules for epID3
-	ep3 := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID3), endpoint.StateReady)
+	ep3 := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), mpm, uint16(epID3), endpoint.StateReady)
 	ep3.DNSRules = restored3
 	s.proxy.RestoreRules(ep3)
 	_, exists = s.proxy.restored[epID3]
@@ -963,6 +968,8 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	}
 	queries := []string{name, strings.ReplaceAll(pattern, "*", "sub")}
 
+	mpm := metrics.NewBPFMapMetrics().MapPressure
+
 	c.TestName()
 	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
@@ -1011,7 +1018,7 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 
 	// restore rules, set the mock to restoring state
 	s.restoring = true
-	ep1 := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady)
+	ep1 := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), mpm, uint16(epID1), endpoint.StateReady)
 	ep1.IPv4 = netip.MustParseAddr("127.0.0.1")
 	ep1.IPv6 = netip.MustParseAddr("::1")
 	ep1.DNSRules = restored

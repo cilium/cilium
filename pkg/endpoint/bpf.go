@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -1063,7 +1062,7 @@ func (e *Endpoint) SkipStateClean() {
 }
 
 func (e *Endpoint) initPolicyMapPressureMetric() {
-	if !metrics.BPFMapPressure {
+	if e.mapPressureMetric == nil || !e.mapPressureMetric.IsEnabled() {
 		return
 	}
 
@@ -1071,7 +1070,7 @@ func (e *Endpoint) initPolicyMapPressureMetric() {
 		return
 	}
 
-	e.policyMapPressureGauge = metrics.NewBPFMapPressureGauge(e.policyMap.NonPrefixedName(), policymap.PressureMetricThreshold)
+	e.policyMapPressureGauge = e.mapPressureMetric.NewBPFMapPressureGauge(e.policyMap.NonPrefixedName(), policymap.PressureMetricThreshold)
 }
 
 func (e *Endpoint) updatePolicyMapPressureMetric() {

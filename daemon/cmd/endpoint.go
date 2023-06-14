@@ -362,7 +362,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		"sync-build":            epTemplate.SyncBuildEndpoint,
 	}).Info("Create endpoint request")
 
-	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, owner, d, d.ipcache, d.l7Proxy, d.identityAllocator, epTemplate)
+	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, owner, d, d.ipcache, d.l7Proxy, d.identityAllocator, epTemplate, d.bpfMapMetrics.MapPressure)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
@@ -633,7 +633,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d.ctx, h.d, h.d, h.d.ipcache, h.d.l7Proxy, h.d.identityAllocator, epTemplate)
+	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d.ctx, h.d, h.d, h.d.ipcache, h.d.l7Proxy, h.d.identityAllocator, epTemplate, h.d.bpfMapMetrics.MapPressure)
 	if err2 != nil {
 		r.Error(err2)
 		return api.Error(PutEndpointIDInvalidCode, err2)

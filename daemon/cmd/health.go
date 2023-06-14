@@ -76,6 +76,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
 						d.l7Proxy,
 						d.identityAllocator,
 						d.healthEndpointRouting,
+						d.bpfMapMetrics.MapPressure,
 					)
 					if launchErr != nil {
 						if err != nil {

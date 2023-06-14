@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	metricpkg "github.com/cilium/cilium/pkg/metrics/metric"
-	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -48,8 +47,6 @@ type RegistryParams struct {
 
 	AutoMetrics []metricpkg.WithMetadata `group:"hive-metrics"`
 	Config      RegistryConfig
-
-	DaemonConfig *option.DaemonConfig
 }
 
 // Registry is a cell around a prometheus registry. This registry starts an HTTP server as part of its lifecycle
@@ -126,14 +123,6 @@ func (r *Registry) Reinitialize() {
 	metricFlags := r.params.Config.Metrics
 	for _, metricFlag := range metricFlags {
 		metricFlag = strings.TrimSpace(metricFlag)
-
-		// This is a temporary hack which allows us to get rid of the centralized metric config without refactoring the
-		// dynamic map pressure registration/unregistion mechanism.
-		// Long term the map pressure metric becomes a smarter component so this is no longer needed.
-		if metricFlag[1:] == "-"+Namespace+"_"+SubsystemBPF+"_map_pressure" {
-			BPFMapPressure = false
-			continue
-		}
 
 		metric := metrics[metricFlag[1:]]
 		if metric == nil {

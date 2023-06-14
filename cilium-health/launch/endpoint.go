@@ -230,7 +230,9 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	epMgr EndpointAdder,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
-	routingConfig routingConfigurer) (*Client, error) {
+	routingConfig routingConfigurer,
+	mpm *metrics.MapPressure,
+) (*Client, error) {
 
 	var (
 		cmd  = launcher.Launcher{}
@@ -298,7 +300,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, ipcache, proxy, allocator, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, ipcache, proxy, allocator, info, mpm)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}

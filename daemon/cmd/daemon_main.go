@@ -1607,6 +1607,7 @@ type daemonParams struct {
 	MonitorAgent         monitorAgent.Agent
 	L2Announcer          *l2announcer.L2Announcer
 	LegacyMetrics        *metrics.LegacyMetrics
+	BPFMapMetrics        *metrics.BPFMapMetrics
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

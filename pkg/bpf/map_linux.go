@@ -277,7 +277,9 @@ func (m *Map) WithPressureMetricThreshold(threshold float64) *Map {
 		m.cache = map[string]*cacheEntry{}
 	}
 
-	m.pressureGauge = metrics.NewBPFMapPressureGauge(m.NonPrefixedName(), threshold)
+	metrics.WithMapPressure(func(mp *metrics.MapPressure) {
+		m.pressureGauge = mp.NewBPFMapPressureGauge(m.NonPrefixedName(), threshold)
+	})
 
 	return m
 }
@@ -293,18 +295,20 @@ func (m *Map) updatePressureMetric() {
 		return
 	}
 
-	// Do a lazy check of MetricsConfig as it is not available at map static
-	// initialization.
-	if !metrics.BPFMapPressure {
-		if !m.withValueCache {
-			m.cache = nil
+	metrics.WithMapPressure(func(mp *metrics.MapPressure) {
+		// Do a lazy check of MetricsConfig as it is not available at map static
+		// initialization.
+		if !mp.IsEnabled() {
+			if !m.withValueCache {
+				m.cache = nil
+			}
+			m.pressureGauge = nil
+			return
 		}
-		m.pressureGauge = nil
-		return
-	}
 
-	pvalue := float64(len(m.cache)) / float64(m.MaxEntries())
-	m.pressureGauge.Set(pvalue)
+		pvalue := float64(len(m.cache)) / float64(m.MaxEntries())
+		m.pressureGauge.Set(pvalue)
+	})
 }
 
 func (m *Map) FD() int {

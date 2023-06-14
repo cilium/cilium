@@ -82,6 +82,8 @@ type endpointManager struct {
 
 	// controllers associated with the endpoint manager.
 	controllers *controller.Manager
+
+	bpfMapMetrics *metrics.BPFMapMetrics
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -96,7 +98,7 @@ type EndpointResourceSynchronizer interface {
 type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
 
 // New creates a new endpointManager.
-func New(epSynchronizer EndpointResourceSynchronizer) *endpointManager {
+func New(epSynchronizer EndpointResourceSynchronizer, bmp *metrics.BPFMapMetrics) *endpointManager {
 	mgr := endpointManager{
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
@@ -104,6 +106,7 @@ func New(epSynchronizer EndpointResourceSynchronizer) *endpointManager {
 		EndpointResourceSynchronizer: epSynchronizer,
 		subscribers:                  make(map[Subscriber]struct{}),
 		controllers:                  controller.NewManager(),
+		bpfMapMetrics:                bmp,
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
 
@@ -631,7 +634,7 @@ func (mgr *endpointManager) AddHostEndpoint(
 	allocator cache.IdentityAllocator,
 	reason, nodeName string,
 ) error {
-	ep, err := endpoint.CreateHostEndpoint(owner, policyGetter, ipcache, proxy, allocator)
+	ep, err := endpoint.CreateHostEndpoint(owner, policyGetter, ipcache, proxy, allocator, mgr.bpfMapMetrics.MapPressure)
 	if err != nil {
 		return err
 	}

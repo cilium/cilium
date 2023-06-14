@@ -12,5 +12,6 @@ var RegistryCell = cell.Module("metrics-registry", "Metrics Registry",
 
 var AgentMetrics = cell.Group(
 	cell.Metric(NewLegacyMetrics),
+	cell.Metric(NewBPFMapMetrics),
 	cell.Invoke(newDefaultAgentMetrics),
 )

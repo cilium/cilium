@@ -345,6 +345,8 @@ type Endpoint struct {
 	noTrackPort uint16
 
 	ciliumEndpointUID k8sTypes.UID
+
+	mapPressureMetric *metrics.MapPressure
 }
 
 type namedPortsGetter interface {
@@ -436,8 +438,8 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state State) *Endpoint {
-	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, ID, "")
+func NewEndpointWithState(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, mpm *metrics.MapPressure, ID uint16, state State) *Endpoint {
+	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, mpm, ID, "")
 	ep.state = state
 	ep.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize)
 
@@ -448,7 +450,7 @@ func NewEndpointWithState(owner regeneration.Owner, policyGetter policyRepoGette
 	return ep
 }
 
-func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, ifName string) *Endpoint {
+func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, mpm *metrics.MapPressure, ID uint16, ifName string) *Endpoint {
 	ep := &Endpoint{
 		owner:            owner,
 		policyGetter:     policyGetter,
@@ -499,13 +501,13 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
-func CreateHostEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator) (*Endpoint, error) {
+func CreateHostEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, mpm *metrics.MapPressure) (*Endpoint, error) {
 	mac, err := link.GetHardwareAddr(defaults.HostDevice)
 	if err != nil {
 		return nil, err
 	}
 
-	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, 0, defaults.HostDevice)
+	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, mpm, 0, defaults.HostDevice)
 	ep.isHost = true
 	ep.mac = mac
 	ep.nodeMAC = mac

@@ -6,25 +6,21 @@ package metrics
 import (
 	. "github.com/cilium/checkmate"
 
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 func (s *MetricsSuite) TestGaugeWithThreshold(c *C) {
 	threshold := 1.0
 	underThreshold := threshold - 0.5
 	overThreshold := threshold + 0.5
-	gauge := NewGaugeWithThreshold(
-		"test_metric",
-		"test_subsystem",
-		"test_metric",
-		map[string]string{
-			"test_label": "test_value",
-		},
-		threshold,
-	)
+	mapname := "test_map"
+	mapMetrics := NewBPFMapMetrics()
+	gauge := mapMetrics.MapPressure.NewBPFMapPressureGauge(mapname, threshold)
 
 	reg := NewRegistry(RegistryParams{
-		DaemonConfig: &option.DaemonConfig{},
+		AutoMetrics: []metric.WithMetadata{
+			mapMetrics.MapPressure,
+		},
 	})
 
 	metrics, err := reg.inner.Gather()
@@ -35,29 +31,29 @@ func (s *MetricsSuite) TestGaugeWithThreshold(c *C) {
 	metrics, err = reg.inner.Gather()
 	c.Assert(err, IsNil)
 	c.Assert(metrics, HasLen, initMetricLen)
-	c.Assert(GetGaugeValue(gauge.gauge), Equals, underThreshold)
+	c.Assert(GetGaugeValue(gauge.vec.WithLabelValues(mapname)), Equals, float64(0))
 
 	gauge.Set(overThreshold)
 	metrics, err = reg.inner.Gather()
 	c.Assert(err, IsNil)
 	c.Assert(metrics, HasLen, initMetricLen+1)
-	c.Assert(GetGaugeValue(gauge.gauge), Equals, overThreshold)
+	c.Assert(GetGaugeValue(gauge.vec.WithLabelValues(mapname)), Equals, overThreshold)
 
 	gauge.Set(threshold)
 	metrics, err = reg.inner.Gather()
 	c.Assert(err, IsNil)
 	c.Assert(metrics, HasLen, initMetricLen)
-	c.Assert(GetGaugeValue(gauge.gauge), Equals, threshold)
+	c.Assert(GetGaugeValue(gauge.vec.WithLabelValues(mapname)), Equals, float64(0))
 
 	gauge.Set(overThreshold)
 	metrics, err = reg.inner.Gather()
 	c.Assert(err, IsNil)
 	c.Assert(metrics, HasLen, initMetricLen+1)
-	c.Assert(GetGaugeValue(gauge.gauge), Equals, overThreshold)
+	c.Assert(GetGaugeValue(gauge.vec.WithLabelValues(mapname)), Equals, overThreshold)
 
 	gauge.Set(underThreshold)
 	metrics, err = reg.inner.Gather()
 	c.Assert(err, IsNil)
 	c.Assert(metrics, HasLen, initMetricLen)
-	c.Assert(GetGaugeValue(gauge.gauge), Equals, underThreshold)
+	c.Assert(GetGaugeValue(gauge.vec.WithLabelValues(mapname)), Equals, float64(0))
 }

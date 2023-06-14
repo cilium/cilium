@@ -11,6 +11,7 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/metrics"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -25,7 +26,7 @@ func fakeCheck(ep *endpoint.Endpoint) error {
 
 func (s *EndpointManagerSuite) TestmarkAndSweep(c *C) {
 	// Open-code WithPeriodicGC() to avoid running the controller
-	mgr := New(&dummyEpSyncher{})
+	mgr := New(&dummyEpSyncher{}, metrics.NewBPFMapMetrics())
 	mgr.checkHealth = fakeCheck
 	mgr.deleteEndpoint = endpointDeleteFunc(mgr.waitEndpointRemoved)
 
@@ -36,8 +37,9 @@ func (s *EndpointManagerSuite) TestmarkAndSweep(c *C) {
 	endpointIDToDelete := uint16(2)
 	healthyEndpointIDs := []uint16{1, 3, 5, 7}
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
+	mpm := metrics.NewBPFMapMetrics().MapPressure
 	for _, id := range allEndpointIDs {
-		ep := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, endpoint.StateReady)
+		ep := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), mpm, id, endpoint.StateReady)
 		mgr.expose(ep)
 	}
 	c.Assert(len(mgr.GetEndpoints()), Equals, len(allEndpointIDs))

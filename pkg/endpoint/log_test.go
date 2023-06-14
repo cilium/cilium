@@ -11,6 +11,7 @@ import (
 	. "github.com/cilium/checkmate"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -18,8 +19,9 @@ import (
 )
 
 func (s *EndpointSuite) TestPolicyLog(c *C) {
+	mpm := metrics.NewBPFMapMetrics().MapPressure
 	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
-	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), mpm, 12345, StateReady)
 
 	// Initially nil
 	policyLogger := ep.getPolicyLogger()

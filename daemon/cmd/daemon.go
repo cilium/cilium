@@ -219,6 +219,7 @@ type Daemon struct {
 	l2announcer *l2announcer.L2Announcer
 
 	legacyMetrics *metrics.LegacyMetrics
+	bpfMapMetrics *metrics.BPFMapMetrics
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -551,6 +552,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		monitorAgent:         params.MonitorAgent,
 		l2announcer:          params.L2Announcer,
 		legacyMetrics:        params.LegacyMetrics,
+		bpfMapMetrics:        params.BPFMapMetrics,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)

@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/policy"
@@ -162,7 +163,8 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 		redirectPortUserMap: make(map[uint16][]string),
 	}
 
-	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), rsp, mgr, 12345, StateRegenerating)
+	mpm := metrics.NewBPFMapMetrics().MapPressure
+	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), rsp, mgr, mpm, 12345, StateRegenerating)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
