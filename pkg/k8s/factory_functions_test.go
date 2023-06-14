@@ -927,11 +927,33 @@ func (s *K8sSuite) Test_TransformToK8sService(c *C) {
 			expected: true,
 		},
 		{
+			name: "transformation unneeded",
+			args: args{
+				obj: &slim_corev1.Service{},
+			},
+			want:     &slim_corev1.Service{},
+			expected: true,
+		},
+		{
 			name: "delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
 					Obj: &core_v1.Service{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &slim_corev1.Service{},
+			},
+			expected: true,
+		},
+		{
+			name: "delete final state unknown transformation with slim Service",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &slim_corev1.Service{},
 				},
 			},
 			want: cache.DeletedFinalStateUnknown{
@@ -1195,6 +1217,14 @@ func (s *K8sSuite) Test_TransformToCNP(c *C) {
 			expected: true,
 		},
 		{
+			name: "transformation unneeded",
+			args: args{
+				obj: &types.SlimCNP{},
+			},
+			want:     &types.SlimCNP{},
+			expected: true,
+		},
+		{
 			name: "delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
@@ -1207,6 +1237,20 @@ func (s *K8sSuite) Test_TransformToCNP(c *C) {
 				Obj: &types.SlimCNP{
 					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
 				},
+			},
+			expected: true,
+		},
+		{
+			name: "delete final state unknown transformation with SlimCNP",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &types.SlimCNP{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.SlimCNP{},
 			},
 			expected: true,
 		},
@@ -1262,6 +1306,14 @@ func (s *K8sSuite) Test_TransformToCCNP(c *C) {
 			expected: true,
 		},
 		{
+			name: "transformation unneeded",
+			args: args{
+				obj: &types.SlimCNP{},
+			},
+			want:     &types.SlimCNP{},
+			expected: true,
+		},
+		{
 			name: "A CCNP where it doesn't contain neither a spec nor specs",
 			args: args{
 				obj: &v2.CiliumClusterwideNetworkPolicy{},
@@ -1284,6 +1336,20 @@ func (s *K8sSuite) Test_TransformToCCNP(c *C) {
 				Obj: &types.SlimCNP{
 					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
 				},
+			},
+			expected: true,
+		},
+		{
+			name: "delete final state unknown transformation with SlimCNP",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &types.SlimCNP{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.SlimCNP{},
 			},
 			expected: true,
 		},
@@ -1337,11 +1403,33 @@ func (s *K8sSuite) Test_TransformToNode(c *C) {
 			expected: true,
 		},
 		{
+			name: "transformation unneeded",
+			args: args{
+				obj: &slim_corev1.Node{},
+			},
+			want:     &slim_corev1.Node{},
+			expected: true,
+		},
+		{
 			name: "delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
 					Obj: &core_v1.Node{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &slim_corev1.Node{},
+			},
+			expected: true,
+		},
+		{
+			name: "delete final state unknown transformation with slim Node",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &slim_corev1.Node{},
 				},
 			},
 			want: cache.DeletedFinalStateUnknown{
@@ -1654,6 +1742,14 @@ func (s *K8sSuite) Test_TransformToCiliumEndpoint(c *C) {
 			expected: true,
 		},
 		{
+			name: "transformation unneeded",
+			args: args{
+				obj: &types.CiliumEndpoint{},
+			},
+			want:     &types.CiliumEndpoint{},
+			expected: true,
+		},
+		{
 			name: "delete final state unknown transformation",
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
@@ -1799,6 +1895,20 @@ func (s *K8sSuite) Test_TransformToCiliumEndpoint(c *C) {
 			},
 			want:     unknownObjErr,
 			expected: false,
+		},
+		{
+			name: "delete final state unknown transformation with a types.CiliumEndpoint",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &types.CiliumEndpoint{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.CiliumEndpoint{},
+			},
+			expected: true,
 		},
 		{
 			name: "unknown object type in transformation",
