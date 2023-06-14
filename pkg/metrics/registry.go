@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/sirupsen/logrus"
@@ -119,27 +118,12 @@ var goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
 func (r *Registry) Reinitialize() {
 	r.inner = prometheus.NewPedanticRegistry()
 
-	// Default metrics which can't be disabled.
-	r.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
-	r.MustRegister(collectors.NewGoCollector(
-		collectors.WithGoCollectorRuntimeMetrics(
-			collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
-		)))
-	r.MustRegister(newStatusCollector())
-	r.MustRegister(newbpfCollector())
-
 	metrics := make(map[string]metricpkg.WithMetadata)
 	for i, autoMetric := range r.params.AutoMetrics {
 		metrics[autoMetric.Opts().ConfigName] = r.params.AutoMetrics[i]
 	}
 
-	// This is a bodge for a very specific feature, inherited from the old `Daemon.additionalMetrics`.
-	// We should really find a more generic way to handle such cases.
 	metricFlags := r.params.Config.Metrics
-	if r.params.DaemonConfig.DNSProxyConcurrencyLimit > 0 {
-		metricFlags = append(metricFlags, "+"+Namespace+"_"+SubsystemFQDN+"_semaphore_rejected_total")
-	}
-
 	for _, metricFlag := range metricFlags {
 		metricFlag = strings.TrimSpace(metricFlag)
 

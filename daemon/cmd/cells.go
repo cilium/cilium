@@ -65,8 +65,11 @@ var (
 
 		cni.Cell,
 
-		// Provide the modular metrics registry, metric HTTP server and legacy metrics cell.
-		metrics.Cell,
+		// Provide the modular metrics registry, metric HTTP server.
+		metrics.RegistryCell,
+
+		// Provide legacy metrics cell and default agent metrics.
+		metrics.AgentMetrics,
 
 		// Provide option.Config via hive so cells can depend on the agent config.
 		cell.Provide(func() *option.DaemonConfig { return option.Config }),

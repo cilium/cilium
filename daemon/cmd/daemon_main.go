@@ -1606,6 +1606,7 @@ type daemonParams struct {
 	ClusterMesh          *clustermesh.ClusterMesh
 	MonitorAgent         monitorAgent.Agent
 	L2Announcer          *l2announcer.L2Announcer
+	LegacyMetrics        *metrics.LegacyMetrics
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

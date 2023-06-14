@@ -90,7 +90,8 @@ func startCiliumAgent(t *testing.T, clientset k8sClient.Clientset, extraCell cel
 		tables.Cell,
 		statedb.Cell,
 		job.Cell,
-		metrics.Cell,
+		metrics.RegistryCell,
+		metrics.AgentMetrics,
 		cmd.ControlPlane,
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon]) {
 			daemonPromise = p

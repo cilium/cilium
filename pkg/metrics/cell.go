@@ -5,8 +5,12 @@ package metrics
 
 import "github.com/cilium/cilium/pkg/hive/cell"
 
-var Cell = cell.Module("metrics", "Metrics",
-	cell.Invoke(NewRegistry),
-	cell.Metric(NewLegacyMetrics),
+var RegistryCell = cell.Module("metrics-registry", "Metrics Registry",
+	cell.Provide(NewRegistry),
 	cell.Config(defaultRegistryConfig),
+)
+
+var AgentMetrics = cell.Group(
+	cell.Metric(NewLegacyMetrics),
+	cell.Invoke(newDefaultAgentMetrics),
 )

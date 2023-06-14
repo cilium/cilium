@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/sirupsen/logrus"
 
@@ -1358,6 +1359,18 @@ func NewLegacyMetrics() *LegacyMetrics {
 	APILimiterProcessedRequests = lm.APILimiterProcessedRequests
 
 	return lm
+}
+
+func newDefaultAgentMetrics(r *Registry) {
+	// Default metrics which can't be disabled.
+	r.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
+	r.MustRegister(collectors.NewGoCollector(
+		collectors.WithGoCollectorRuntimeMetrics(
+			collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
+		)))
+	r.MustRegister(newStatusCollector())
+	r.MustRegister(newbpfCollector())
+
 }
 
 // GaugeWithThreshold is a prometheus gauge that registers itself with
