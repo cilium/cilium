@@ -647,6 +647,11 @@ snat_v4_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4_ct_
 		return false;
 #endif
 
+#ifdef HAVE_ENCAP
+	if (tuple->nexthdr == IPPROTO_UDP && tuple->dport == bpf_htons(TUNNEL_PORT))
+		return true;
+#endif
+
 	return (!target->from_local_endpoint && !target->src_from_world &&
 		sport < NAT_MIN_EGRESS) ||
 		icmp_echoreply;
