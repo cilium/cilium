@@ -274,7 +274,7 @@ func (e *MapStateEntry) DatapathEqual(o *MapStateEntry) bool {
 
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {
-	return fmt.Sprintf("ProxyPort=%d", e.ProxyPort)
+	return fmt.Sprintf("ProxyPort=%d,IsDeny=%t,AuthType=%s", e.ProxyPort, e.IsDeny, e.AuthType.String())
 }
 
 // DenyPreferredInsert inserts a key and entry into the map by given preference
