@@ -505,7 +505,9 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			peer      netlink.Link
 			tmpIfName string
 		)
-		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), int(conf.GROMaxSize), int(conf.GSOMaxSize), ep)
+		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU),
+			int(conf.GROMaxSize), int(conf.GSOMaxSize),
+			int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep)
 		if err != nil {
 			err = fmt.Errorf("unable to set up veth on host side: %s", err)
 			return err
