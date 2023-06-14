@@ -1690,6 +1690,7 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 	const union v6addr dr_addr = IPV6_DIRECT_ROUTING;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
 	struct endpoint_info *local_ep __maybe_unused;
+	bool is_reply __maybe_unused = false;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 
@@ -1707,6 +1708,34 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &masq_addr)) {
 		ipv6_addr_copy(addr, &masq_addr);
 		return true;
+	}
+
+	local_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
+	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+
+	/* See comment in snat_v4_prepare_state(). */
+	if (local_ep) {
+		struct ipv6_ct_tuple tuple = {};
+		int l4_off;
+
+		tuple.nexthdr = ip6->nexthdr;
+		ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
+		ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+
+		/* ipv6_hdrlen() can return an error. If it does, it makes no
+		 * sense marking this packet as a reply based on a wrong offset.
+		 *
+		 * We should probably improve this code in the future to
+		 * report the error to the caller. Same thing for errors
+		 * from ct_is_reply6() below, and ct_is_reply4() in
+		 * snat_v4_prepare_state().
+		 */
+		l4_off = ipv6_hdrlen(ctx, &tuple.nexthdr);
+		if (l4_off >= 0) {
+			l4_off += ETH_HLEN;
+			ct_is_reply6(get_ct_map6(&tuple), ctx, l4_off, &tuple,
+				     &is_reply);
+		}
 	}
 
 # ifdef IS_BPF_OVERLAY
@@ -1727,13 +1756,10 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 # endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
 
 	/* if this is a localhost endpoint, no SNAT is needed */
-	local_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return false;
 
-	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 	if (remote_ep) {
-		bool is_reply = false;
 #ifdef ENABLE_IP_MASQ_AGENT_IPV6
 		/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
 		struct lpm_v6_key pfx __align_stack_8;
@@ -1755,32 +1781,6 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 		if (identity_is_remote_node(remote_ep->sec_identity))
 			return false;
 # endif /* TUNNEL_MODE */
-
-		/* See comment in snat_v4_prepare_state(). */
-		if (local_ep) {
-			struct ipv6_ct_tuple tuple = {};
-			int l4_off;
-
-			tuple.nexthdr = ip6->nexthdr;
-			ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
-			ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
-
-			/* ipv6_hdrlen() can return an error. If it does, it
-			 * makes no sense marking this packet as a reply based
-			 * on a wrong offset.
-			 *
-			 * We should probably improve this code in the future to
-			 * report the error to the caller. Same thing for errors
-			 * from ct_is_reply6() below, and ct_is_reply4() in
-			 * snat_v4_prepare_state().
-			 */
-			l4_off = ipv6_hdrlen(ctx, &tuple.nexthdr);
-			if (l4_off >= 0) {
-				l4_off += ETH_HLEN;
-				ct_is_reply6(get_ct_map6(&tuple), ctx, l4_off,
-					     &tuple, &is_reply);
-			}
-		}
 
 		/* See comment in snat_v4_prepare_state(). */
 		if (!is_reply && local_ep) {
