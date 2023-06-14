@@ -2,26 +2,24 @@ name: Conformance AWS-CNI (ci-awscni-1.11)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  issue_comment:
-    types:
-      - created
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. Will be either the PR branch itself (default), or the PR target branch (if user has write privileges on the repository)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
   # Run once a day
   schedule:
     - cron:  '0 16 * * *'
-  ### FOR TESTING PURPOSES
-  # This workflow runs in the context of `main`, and ignores changes to
-  # workflow files in PRs. For testing changes to this workflow from a PR:
-  # - Make sure the PR uses a branch from the base repository (requires write
-  #   privileges). It will not work with a branch from a fork (missing secrets).
-  # - Uncomment the `pull_request` event below, commit separately with a `DO
-  #   NOT MERGE` message, and push to the PR. As long as the commit is present,
-  #   any push to the PR will trigger this workflow.
-  # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
-  #   will disappear from the PR checks: please provide a direct link to the
-  #   successful workflow run (can be found from Actions tab) in a comment.
-  #
-  # pull_request: {}
-  ###
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -30,7 +28,7 @@ permissions:
   contents: read
   # To allow retrieving information from the PR API
   pull-requests: read
-  # So that Sibz/github-status-action can write into the status API
+  # To be able to set commit status
   statuses: write
 
 concurrency:
@@ -39,27 +37,16 @@ concurrency:
   # - Event type
   # - A unique identifier depending on event type:
   #   - schedule: SHA
-  #   - issue_comment: PR number
-  #   - pull_request: PR number
+  #   - workflow_dispatch: PR number
   #
   # This structure ensures a unique concurrency group name is generated for each
-  # type of testing:
-  # - schedule: {name} schedule {SHA}
-  # - issue_comment: {name} issue_comment {PR number}
-  # - pull_request: {name} pull_request {PR number}
-  #
-  # Note: for `issue_comment` triggers, we additionally need to filter out based
-  # on comment content, otherwise any comment will interrupt workflow runs.
+  # type of testing, such that re-runs will cancel the previous run.
   group: |
     ${{ github.workflow }}
     ${{ github.event_name }}
     ${{
       (github.event_name == 'schedule' && github.sha) ||
-      (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-awscni-1.11' ||
-        github.event.comment.body == '/test-backport-1.11'
-      ) && github.event.issue.number) ||
-      (github.event_name == 'pull_request' && github.event.pull_request.number)
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
   cancel-in-progress: true
 
@@ -75,65 +62,25 @@ env:
   kubectl_version: v1.23.6
 
 jobs:
-  check_changes:
-    name: Deduce required tests from code changes
-    if: |
-      (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-awscni-1.11' ||
-        github.event.comment.body == '/test-backport-1.11'
-      )) ||
-      github.event_name == 'schedule' ||
-      github.event_name == 'pull_request'
+  commit-status-start:
     runs-on: ubuntu-latest
-    outputs:
-      tested: ${{ steps.tested-tree.outputs.src }}
     steps:
-      # Because we run on issue comments, we need to checkout the code for
-      # paths-filter to work.
-      - name: Checkout code
-        if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
         with:
-          persist-credentials: false
-      - name: Retrieve pull request's base and head
-        if: ${{ github.event.issue.pull_request }}
-        id: pr
-        run: |
-          curl ${{ github.event.issue.pull_request.url }} > pr.json
-          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
-          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
-      - name: Check code changes
-        if: ${{ github.event.issue.pull_request }}
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
-        id: tested-tree
-        with:
-          base: ${{ steps.pr.outputs.base }}
-          ref: ${{ steps.pr.outputs.head }}
-          filters: |
-            src:
-              - '!(test|Documentation)/**'
+          sha: ${{ inputs.SHA || github.sha }}
 
-  # This job is skipped when the workflow was triggered with the generic `/test`
-  # trigger if the only modified files were under `test/` or `Documentation/`.
   installation-and-connectivity:
     name: "Installation and Connectivity Test"
-    needs: check_changes
-    if: |
-      (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-awscni-1.11' ||
-        (github.event.comment.body == '/test-backport-1.11' && needs.check_changes.outputs.tested == 'true')
-      )) ||
-      github.event_name == 'schedule' ||
-      github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       job_name: "Installation and Connectivity Test"
     steps:
-      - name: Checkout main branch to access local actions
+      - name: Checkout context ref to access local actions
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
@@ -141,20 +88,12 @@ jobs:
       - name: Set up job variables
         id: vars
         run: |
-          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-            PR_API_JSON=$(curl \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
-          elif [ "${{ github.event_name }}" = "schedule" ]; then
-            curl https://api.github.com/repos/cilium/cilium/branches/v1.11 > branch.json
-            SHA=$(jq -r '.commit.sha' branch.json)
-            OWNER=v1-11
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+            OWNER="${{ inputs.PR-number }}"
           else
-            SHA=${{ github.sha }}
-            OWNER=${{ github.sha }}
+            SHA="${{ github.sha }}"
+            OWNER="${{ github.ref_name }}"
           fi
 
           # Set ipam.mode=cluster-pool to overwrite the ipam value set by the
@@ -195,16 +134,6 @@ jobs:
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
-
-      - name: Set commit status to pending
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Connectivity test in progress...
-          state: pending
-          target_url: ${{ env.check_url }}
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@d610d6e2774e29aef9565bad935e3b4943d541af # v0.14.5
@@ -323,35 +252,13 @@ jobs:
         with:
           junit-directory: "cilium-junits"
 
-      - name: Set commit status to success
-        if: ${{ success() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  commit-status-final:
+    if: ${{ always() }}
+    needs: installation-and-connectivity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
         with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Connectivity test successful
-          state: success
-          target_url: ${{ env.check_url }}
-
-      - name: Set commit status to failure
-        if: ${{ failure() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Connectivity test failed
-          state: failure
-          target_url: ${{ env.check_url }}
-
-      - name: Set commit status to cancelled
-        if: ${{ cancelled() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Connectivity test cancelled
-          state: error
-          target_url: ${{ env.check_url }}
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.installation-and-connectivity.result }}
