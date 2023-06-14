@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -48,9 +49,6 @@ var Cell = cell.Module(
 		// TODO: use node manager to get events of all nodes, including the ones of other clusters (ClusterMesh)
 		// https://github.com/cilium/cilium/issues/25899
 		k8s.CiliumNodeResource,
-		// TODO: add support for KVStore. K8s identity events are only provided for CRD based identity backend.
-		// https://github.com/cilium/cilium/issues/25898
-		k8s.CiliumIdentityResource,
 	),
 	cell.Config(config{
 		MeshAuthEnabled:           true,
@@ -75,16 +73,16 @@ func (r config) Flags(flags *pflag.FlagSet) {
 type authManagerParams struct {
 	cell.In
 
-	Logger           logrus.FieldLogger
-	Lifecycle        hive.Lifecycle
-	JobRegistry      job.Registry
-	Config           config
-	IPCache          *ipcache.IPCache
-	AuthHandlers     []authHandler `group:"authHandlers"`
-	AuthMap          authmap.Map
-	SignalManager    signal.SignalManager
-	CiliumIdentities resource.Resource[*ciliumv2.CiliumIdentity]
-	CiliumNodes      resource.Resource[*ciliumv2.CiliumNode]
+	Logger          logrus.FieldLogger
+	Lifecycle       hive.Lifecycle
+	JobRegistry     job.Registry
+	Config          config
+	IPCache         *ipcache.IPCache
+	AuthHandlers    []authHandler `group:"authHandlers"`
+	AuthMap         authmap.Map
+	SignalManager   signal.SignalManager
+	IdentityChanges stream.Observable[cache.IdentityChange]
+	CiliumNodes     resource.Resource[*ciliumv2.CiliumNode]
 }
 
 func newManager(params authManagerParams) error {
@@ -154,10 +152,8 @@ func registerSignalAuthenticationJob(jobGroup job.Group, mgr *authManager, sm si
 }
 
 func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, params authManagerParams) {
-	// Add identities based auth gc if k8s client is enabled
-	if params.CiliumIdentities != nil {
-		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumIdentity]]("auth identities gc", mapGC.handleCiliumIdentityEvent, params.CiliumIdentities))
-	}
+	// FIXME: errors from handleIdentityChange not retried!
+	jobGroup.Add(job.Observer("auth identities gc", mapGC.handleIdentityChange, params.IdentityChanges))
 
 	jobGroup.Add(job.Timer("auth expiration gc", mapGC.CleanupExpiredEntries, params.Config.MeshAuthExpiredGCInterval))
 }
