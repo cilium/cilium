@@ -66,6 +66,12 @@
   {{- end }}
 {{- end }}
 
+{{- if .Values.authentication.mutual.spire.enabled }}
+  {{- if not .Values.authentication.enabled }}
+    {{ fail "SPIRE integration requires .Values.authentication.enabled=true and .Values.authentication.mutual.spire.enabled=true" }}
+  {{- end }}
+{{- end }}
+
 {{- if .Values.authentication.mutual.spire.install.enabled }}
   {{- if not .Values.authentication.mutual.spire.enabled }}
     {{ fail "SPIRE installation requires .Values.authentication.mutual.enabled=true and .Values.authentication.mutual.spire.enabled=true" }}

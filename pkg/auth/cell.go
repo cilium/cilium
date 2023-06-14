@@ -53,6 +53,7 @@ var Cell = cell.Module(
 		k8s.CiliumIdentityResource,
 	),
 	cell.Config(config{
+		MeshAuthEnabled:           true,
 		MeshAuthQueueSize:         1024,
 		MeshAuthExpiredGCInterval: 15 * time.Minute,
 	}),
@@ -60,11 +61,13 @@ var Cell = cell.Module(
 )
 
 type config struct {
+	MeshAuthEnabled           bool
 	MeshAuthQueueSize         int
 	MeshAuthExpiredGCInterval time.Duration
 }
 
 func (r config) Flags(flags *pflag.FlagSet) {
+	flags.Bool("mesh-auth-enabled", r.MeshAuthEnabled, "Enable authentication processing & garbage collection")
 	flags.Int("mesh-auth-queue-size", r.MeshAuthQueueSize, "Queue size for the auth manager")
 	flags.Duration("mesh-auth-expired-gc-interval", r.MeshAuthExpiredGCInterval, "Interval in which expired auth entries are attempted to be garbage collected")
 }
@@ -85,6 +88,11 @@ type authManagerParams struct {
 }
 
 func newManager(params authManagerParams) error {
+	if !params.Config.MeshAuthEnabled {
+		params.Logger.Info("Authentication processing is disabled")
+		return nil
+	}
+
 	mapWriter := newAuthMapWriter(params.Logger, params.AuthMap)
 	mapCache := newAuthMapCache(params.Logger, mapWriter)
 
