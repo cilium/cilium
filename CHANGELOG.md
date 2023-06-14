@@ -1,5 +1,49 @@
 # Changelog
 
+## v1.11.18
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* policy: Promote Deny Policies from Beta to Stable (#25496, @nathanjsweet)
+
+**Minor Changes:**
+* Add agent flag `enable-ipsec-key-watcher` to allow users to disable the IPsec key watcher and thus require an agent restart for the key rotation to take effect. (Backport PR #26007, Upstream PR #25893, @pchaigno)
+* docs: fix wording for the upgrade guide (#26164, @aspsk)
+
+**Bugfixes:**
+* Fix a bug due to which we would leak Linux XFRM policies, potentially leading to increased CPU consumption, when IPsec is enabled with Azure or ENI IPAM. (Backport PR #26021, Upstream PR #25784, @pchaigno)
+* Fix a bug that would cause connectivity drops of type XfrmInNoStates on upgrade when IPsec is enabled with ENI or Azure IPAM mode. (Backport PR #26021, Upstream PR #25724, @pchaigno)
+* Fix a bug that would cause connectivity drops of type XfrmOutPolBlock on upgrade when IPsec is enabled. (Backport PR #26021, Upstream PR #25735, @pchaigno)
+* Fix a possible deadlock when using WireGuard transparent encryption. (Backport PR #25935, Upstream PR #25419, @bimmlerd)
+* Fix bug affecting EKS installations with IPsec encryption enabled, where Cilium wouldn't attach its IPsec BPF program to new ENI interfaces, resulting in connectivity loss between pods on remote nodes. (Backport PR #26021, Upstream PR #25744, @joamaki)
+* Fix false error log message when IPsec is enabled with IPAM modes ENI or Azure and a remote node is deleted. (Backport PR #26021, Upstream PR #26093, @pchaigno)
+* Fix incorrect hubble flow data when HTTP requests contain an `x-forwarded-for` header by adding an explicit `use_remote_address: true` config to Envoy HTTP configuration to always use the actual remote address of the incoming connection rather than the value of `x-forwarded-for` header, which may originate from an untrusted source. This change has no effect on Cilium policy enforcement where the source security identity is always resolved before HTTP headers are parsed. Previous Cilium behavior of not adding `x-forwarded-for` headers is retained via an explicit `skip_xff_append: true` config setting, except for Cilium Ingress where the source IP address is now appended to `x-forwarded-for` header. (Backport PR #25733, Upstream PR #25674, @jrajahalme)
+* Fix leak of IPsec XFRM FWD policies in IPAM modes `cluster-pool`, `kubernetes`, and `crd` when nodes are deleted. Fix incorrect catch-all default-drop XFRM OUT policy for IPsec IPv6 traffic that could lead to leaking plain-text IPv6 traffic if combined with some other bug. (Backport PR #26021, Upstream PR #25953, @pchaigno)
+* Fix three issues in the bug fix to attach IPsec BPF programs to ENI interfaces: do not fatal if loading unexpectedly fails (which may happen if the device is suddenly deleted), ignore veth device changes in order not to reinitialize when new endpoints appear and wait 1 second for further device state changes between reinitializations. (Backport PR #26021, Upstream PR #25936, @joamaki)
+
+**CI Changes:**
+* [v1.11 backport] test: Switch target FQDN (#25586, @nbusseneau)
+* Add github workflow to push development helm charts to quay.io (Backport PR #26089, Upstream PR #25205, @chancez)
+* Pick up the latest startup-script image (Backport PR #25920, Upstream PR #25774, @michi-covalent)
+* Re-enable the smoke test and the conformance-kind test for the CI. (#26153, @aspsk)
+* Temporarily disable part of the conformance-kind test. (#25983, @aspsk)
+* test: Collect sysdump as part of artifacts (Backport PR #25920, Upstream PR #25079, @pchaigno)
+
+**Misc Changes:**
+* backport (v1.11): docs: Promote Deny Policies out of Beta (#26149, @nathanjsweet)
+* chore(deps): update dependency cilium/hubble to v0.11.6 (v1.11) (#26044, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.11.6 (v1.11) (#26000, @renovate[bot])
+* install: Fail helm if kube-proxy-replacement is not valid (Backport PR #26007, Upstream PR #25907, @jrajahalme)
+* ipsec: Fix cleanup of XFRM states and policies (Backport PR #26021, Upstream PR #26072, @pchaigno)
+* Slim down Node handler interface (Backport PR #25935, Upstream PR #25450, @bimmlerd)
+
+**Other Changes:**
+* install: Update image digests for v0.11.17 (#25515, @jrajahalme)
+* Reduce complexity of bpf_lxc by splitting per-packet lb to its own tail call (#25993, @aspsk)
+* v1.11: Fix L4LB GHA (#25528, @brb)
+
 ## v1.11.17
 
 Summary of Changes
