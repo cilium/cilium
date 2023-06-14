@@ -4,51 +4,40 @@
 package garp
 
 import (
-	"context"
 	"net/netip"
 
-	"github.com/cilium/workerpool"
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-type Processor interface {
-	Start(hive.HookContext) error
-	Stop(hive.HookContext) error
-}
 
 type processorParams struct {
 	cell.In
 
-	Logger     logrus.FieldLogger
-	Lifecycle  hive.Lifecycle
-	Pods       resource.Resource[*corev1.Pod]
-	GARPSender Sender
-	Config     Config
+	Logger          logrus.FieldLogger
+	EndpointManager endpointmanager.EndpointManager
+	GARPSender      Sender
+	Config          Config
 }
 
-func newGARPProcessor(p processorParams) Processor {
+func newGARPProcessor(p processorParams) *processor {
 	if !p.Config.EnableL2PodAnnouncements {
-		return nil
-	}
-
-	if p.Pods == nil {
 		return nil
 	}
 
 	gp := &processor{
 		log:         p.Logger,
-		pods:        p.Pods,
 		garpSender:  p.GARPSender,
-		podIPsState: make(map[resource.Key]netip.Addr),
+		endpointIPs: make(map[uint16]netip.Addr),
 	}
 
-	p.Lifecycle.Append(gp)
+	if p.EndpointManager != nil {
+		p.EndpointManager.Subscribe(gp)
+	}
 
 	p.Logger.Info("initialised gratuitous arp processor")
 
@@ -56,98 +45,49 @@ func newGARPProcessor(p processorParams) Processor {
 }
 
 type processor struct {
-	wp *workerpool.WorkerPool
+	mu lock.Mutex
 
 	log        logrus.FieldLogger
-	pods       resource.Resource[*corev1.Pod]
 	garpSender Sender
 
-	podIPsState map[resource.Key]netip.Addr
+	endpointIPs map[uint16]netip.Addr
 }
 
-func (gp *processor) Start(hive.HookContext) error {
-	gp.wp = workerpool.New(1)
-	gp.wp.Submit("GARPProcessorLoop", gp.run)
-	return nil
-}
+var _ endpointmanager.Subscriber = &processor{}
 
-func (gp *processor) Stop(hive.HookContext) error {
-	gp.wp.Close()
-	return nil
-}
+// EndpointCreated implements endpointmanager.Subscriber
+func (gp *processor) EndpointCreated(ep *endpoint.Endpoint) {
+	gp.mu.Lock()
+	defer gp.mu.Unlock()
 
-func (gp *processor) run(ctx context.Context) error {
-	pods := gp.pods.Events(ctx)
-
-	for pods != nil {
-		event, ok := <-pods
-		if !ok {
-			pods = nil
-			continue
-		}
-
-		if event.Kind == resource.Upsert {
-			if err := gp.upsert(&event); err != nil {
-				event.Done(err)
-				continue
-			}
-		}
-
-		if event.Kind == resource.Delete {
-			delete(gp.podIPsState, event.Key)
-		}
-
-		event.Done(nil)
+	newIP := ep.IPv4
+	if newIP.IsUnspecified() {
+		return
 	}
 
-	return nil
-}
-
-func (gp *processor) upsert(event *resource.Event[*corev1.Pod]) error {
-	if event.Object.Status.PodIPs == nil {
-		return nil
-	}
-
-	newIP := getPodIPv4(event.Object.Status.PodIPs)
-	if !newIP.IsValid() {
-		return nil
-	}
-
-	oldIP, ok := gp.podIPsState[event.Key]
+	oldIP, ok := gp.endpointIPs[ep.ID]
 	if ok && oldIP == newIP {
-		return nil
+		return
 	}
 
-	gp.podIPsState[event.Key] = newIP
+	gp.endpointIPs[ep.ID] = newIP
+
+	log := gp.log.WithFields(logrus.Fields{
+		logfields.K8sPodName: ep.K8sPodName,
+		logfields.IPAddr:     newIP,
+	})
 
 	if err := gp.garpSender.Send(newIP); err != nil {
-		return err
+		log.WithError(err).Warn("Failed to send gratuitous arp")
+	} else {
+		log.Debug("pod upsert gratuitous arp sent")
 	}
-
-	gp.log.WithFields(logrus.Fields{
-		logfields.K8sPodName: event.Key.Name,
-		logfields.IPAddr:     newIP,
-	}).Debug("pod upsert gratuitous arp sent")
-
-	return nil
 }
 
-// getPodIPv4 returns the IPv4 address from the given Pod IPs, if
-// available.
-func getPodIPv4(podIPs []corev1.PodIP) netip.Addr {
-	for _, podIP := range podIPs {
-		ip, err := netip.ParseAddr(podIP.IP)
-		if err != nil {
-			continue
-		}
+// EndpointDeleted implements endpointmanager.Subscriber
+func (gp *processor) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
+	gp.mu.Lock()
+	defer gp.mu.Unlock()
 
-		ip = ip.Unmap()
-		if ip.Is4() {
-			// Valid v4 address found, return it.
-			return ip
-		}
-	}
-
-	// No valid v4 address found, return the zero value.
-	return netip.Addr{}
+	delete(gp.endpointIPs, ep.ID)
 }
