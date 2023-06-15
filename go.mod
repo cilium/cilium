@@ -263,6 +263,10 @@ replace (
 
 	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 
+	// Using fork of client-go.
+	// Contains fix for exponential backoff for informers.
+	k8s.io/client-go => github.com/cilium/client-go v0.27.2-fix
+
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
 	sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2
