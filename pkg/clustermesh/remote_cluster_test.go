@@ -156,6 +156,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
 			}
 			rc := cm.newRemoteCluster("foo", nil).(*remoteCluster)
+			ready := make(chan error)
 
 			remoteClient := &remoteEtcdClientWrapper{
 				BackendOperations: kvstore.Client(),
@@ -164,9 +165,11 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			wg.Add(1)
 			go func() {
-				rc.Run(ctx, remoteClient, tt.srccfg)
+				rc.Run(ctx, remoteClient, tt.srccfg, ready)
 				wg.Done()
 			}()
+
+			require.NoError(t, <-ready, "rc.Run() failed")
 
 			// Assert that we correctly watch nodes
 			require.EventuallyWithT(t, func(c *assert.CollectT) {

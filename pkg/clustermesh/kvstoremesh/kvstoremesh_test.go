@@ -202,13 +202,16 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			km := KVStoreMesh{backend: kvstore.Client()}
 			rc := km.newRemoteCluster("foo", nil)
+			ready := make(chan error)
 
 			wg.Add(1)
 			go func() {
-				rc.Run(ctx, remoteClient, tt.srccfg)
+				rc.Run(ctx, remoteClient, tt.srccfg, ready)
 				rc.Stop()
 				wg.Done()
 			}()
+
+			require.NoError(t, <-ready, "rc.Run() failed")
 
 			// Assert that the cluster config got properly propagated
 			require.EventuallyWithT(t, func(c *assert.CollectT) {

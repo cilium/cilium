@@ -60,9 +60,11 @@ type remoteCluster struct {
 	swg *lock.StoppableWaitGroup
 }
 
-func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig) error {
+func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
 	if err := rc.mesh.canConnect(rc.name, config); err != nil {
-		return err
+		ready <- err
+		close(ready)
+		return
 	}
 
 	var capabilities types.CiliumClusterConfigCapabilities
@@ -72,7 +74,9 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 
 	remoteIdentityCache, err := rc.mesh.conf.RemoteIdentityWatcher.WatchRemoteIdentities(rc.name, backend, capabilities.Cached)
 	if err != nil {
-		return err
+		ready <- err
+		close(ready)
+		return
 	}
 
 	rc.mutex.Lock()
@@ -108,8 +112,8 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		rc.remoteIdentityCache.Watch(ctx)
 	})
 
+	close(ready)
 	mgr.Run(ctx)
-	return nil
 }
 
 func (rc *remoteCluster) Stop() {}

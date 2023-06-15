@@ -35,7 +35,7 @@ type remoteCluster struct {
 	wg     sync.WaitGroup
 }
 
-func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, srccfg *types.CiliumClusterConfig) error {
+func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, srccfg *types.CiliumClusterConfig, ready chan<- error) {
 	dstcfg := types.CiliumClusterConfig{
 		Capabilities: types.CiliumClusterConfigCapabilities{
 			SyncedCanaries: true,
@@ -48,7 +48,9 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	}
 
 	if err := cmutils.SetClusterConfig(ctx, rc.name, &dstcfg, rc.localBackend); err != nil {
-		return fmt.Errorf("failed to propagate cluster configuration: %w", err)
+		ready <- fmt.Errorf("failed to propagate cluster configuration: %w", err)
+		close(ready)
+		return
 	}
 
 	var capabilities types.CiliumClusterConfigCapabilities
@@ -94,8 +96,8 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		rc.identities.watcher.Watch(ctx, backend, path.Join(adapter(identityCache.IdentitiesPath), suffix))
 	})
 
+	close(ready)
 	mgr.Run(ctx)
-	return nil
 }
 
 func (rc *remoteCluster) Stop() {
