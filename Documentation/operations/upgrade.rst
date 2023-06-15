@@ -342,6 +342,42 @@ Annotations:
   to prevent the possibility of connectivity disruptions. Note: this issue does not
   affect setups using a persistent etcd cluster instead of the ephemeral one bundled
   with the *clustermesh-apiserver*.
+* Deny policies now always take precedence over allow policies. Previously, a CIDR-based
+  allow policy would always allow traffic, even if there was an overlapping CIDR-based deny policy
+  to deny the same traffic. Now, a CIDR-based deny policy drops traffic when there is
+  an allow policy for the same traffic.
+
+  Verify that all of your CIDR-based deny and allow policies work
+  as intended. The following example shows an allow policy that would previously allow
+  all egress traffic to ``20.1.1.1`` for its selector, but that traffic will now be dropped
+  by the deny policy:
+
+  .. code-block:: yaml
+
+     apiVersion: "cilium.io/v2"
+     kind: CiliumNetworkPolicy
+     metadata:
+       name: "allow-to-external-service"
+     spec:
+       endpointSelector:
+         matchLabels:
+           app: some-specific-app
+       egress:
+         - toCIDR:
+           - 20.1.1.1/32
+
+  .. code-block:: yaml
+
+     apiVersion: "cilium.io/v2"
+     kind: CiliumNetworkPolicy
+     metadata:
+       name: "deny-all-external-egress-traffic"
+     spec:
+       endpointSelector: {}
+       egressDeny:
+       - toCIDR:
+         - 0.0.0.0/0
+             
 
 Removed Options
 ~~~~~~~~~~~~~~~
