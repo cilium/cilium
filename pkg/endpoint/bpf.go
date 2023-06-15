@@ -303,13 +303,12 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 			}
 
 			idLookup := &policyIdentitiesLabelLookup{e}
-			keysFromFilter := l4.ToMapState(e, direction, idLookup)
-			for keyFromFilter, entry := range keysFromFilter {
+			l4.ToMapState(e, direction, idLookup, e.desiredPolicy.PolicyMapState, func(keyFromFilter policy.Key, entry *policy.MapStateEntry) bool {
 				if entry.IsRedirectEntry() {
 					entry.ProxyPort = redirectPort
 				}
-				e.desiredPolicy.PolicyMapState.DenyPreferredInsertWithChanges(keyFromFilter, entry, adds, nil, old, idLookup)
-			}
+				return true
+			}, adds, nil, old)
 		}
 	}
 

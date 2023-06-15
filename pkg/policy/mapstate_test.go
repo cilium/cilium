@@ -70,7 +70,7 @@ func (m MapState) validatePortProto(c *check.C) {
 	}
 }
 
-func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithChanges(c *check.C) {
+func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.C) {
 	type args struct {
 		key   Key
 		entry MapStateEntry
@@ -962,7 +962,7 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithChanges(c *check.
 		for k, v := range tt.keys {
 			keys[k] = v
 		}
-		keys.DenyPreferredInsertWithChanges(tt.args.key, tt.args.entry, adds, deletes, old, nil)
+		keys.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, adds, deletes, old, nil)
 		keys.validatePortProto(c)
 		c.Assert(keys, checker.DeepEquals, tt.want, check.Commentf("%s: MapState mismatch", tt.name))
 		c.Assert(adds, checker.DeepEquals, tt.wantAdds, check.Commentf("%s: Adds mismatch", tt.name))
@@ -2172,7 +2172,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 	}
 }
 
-func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithSubnets(c *check.C) {
+func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithSubnets(c *check.C) {
 	identityCache := cache.IdentityCache{
 		identity.ReservedIdentityWorld: labels.LabelWorld.LabelArray(),
 		worldIPIdentity:                lblWorldIP,                  // "192.0.2.3/32"
@@ -2278,8 +2278,8 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithSubnets(c *check.
 			expectedKeys[bKeyWithBProto] = bEntryCpy
 		}
 		outcomeKeys := MapState{}
-		outcomeKeys.DenyPreferredInsert(aKey, aEntry, selectorCache)
-		outcomeKeys.DenyPreferredInsert(bKey, bEntry, selectorCache)
+		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache)
+		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache)
 		outcomeKeys.validatePortProto(c)
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf(tt.name))
 	}
@@ -2295,8 +2295,8 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithSubnets(c *check.
 		expectedKeys[aKey] = aEntry
 		expectedKeys[bKey] = bEntry
 		outcomeKeys := MapState{}
-		outcomeKeys.DenyPreferredInsert(aKey, aEntry, selectorCache)
-		outcomeKeys.DenyPreferredInsert(bKey, bEntry, selectorCache)
+		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache)
+		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache)
 		outcomeKeys.validatePortProto(c)
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf("different traffic directions %s", tt.name))
 	}
