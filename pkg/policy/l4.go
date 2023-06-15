@@ -479,18 +479,20 @@ func (l4 *L4Filter) GetListener() string {
 	return l4.Listener
 }
 
-// ToMapState converts filter into a MapState with two possible values:
+// 'mapStateEntryCallback' is a function called for each entry before adding to a MapState. If the
+// function returns 'true', the entry is added, otherwise not. The function gets a reference to the
+// entry so that it may update it's value (e.g., the proxy port).
+type mapStateEntryCallback func(key Key, value *MapStateEntry) bool
+
+// ToMapState converts a single filter into a MapState entries added to 'mapState'.
 //
-//	Entry with ProxyPort = 0: No proxy redirection is needed for this key
-//	Entry with any other port #: Proxy redirection is required for this key,
-//	                             caller must replace the ProxyPort with the actual
-//	                             listening port number.
-//
-// Note: It is possible for two selectors to select the same security ID.
-// To give priority for deny and L7 redirection (e.g., for visibility purposes), we use
-// DenyPreferredInsert() instead of directly inserting the value to the map.
+// Note: It is possible for two selectors to select the same security ID.  To give priority to deny
+// and L7 redirection (e.g., for visibility purposes), the mapstate entries are added to 'mapState'
+// using denyPreferredInsertWithChanges().
+// Keys of any added or deleted entries are added to 'adds' or 'deletes', respectively, if not nil.
 // PolicyOwner (aka Endpoint) is locked during this call.
-func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirection.TrafficDirection, identities Identities) MapState {
+func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirection.TrafficDirection, identities Identities,
+	mapState MapState, entryCb mapStateEntryCallback, adds, deletes Keys, old MapState) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
 
@@ -504,13 +506,11 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 		})
 	}
 
-	keysToAdd := MapState{}
-
 	// resolve named port
 	if port == 0 && l4Filter.PortName != "" {
 		port = policyOwner.GetNamedPort(l4Filter.Ingress, l4Filter.PortName, proto)
 		if port == 0 {
-			return keysToAdd
+			return // nothing to be done for undefined named port
 		}
 	}
 
@@ -548,14 +548,16 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], currentRule.IsRedirect(), isDenyRule, currentRule.GetAuthType())
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
-			keysToAdd.DenyPreferredInsert(keyToAdd, entry, identities)
+			if entryCb(keyToAdd, &entry) {
+				mapState.denyPreferredInsertWithChanges(keyToAdd, entry, adds, deletes, old, identities)
 
-			if port == 0 {
-				// Allow-all
-				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
-			} else {
-				// L4 allow
-				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
+				if port == 0 {
+					// Allow-all
+					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
+				} else {
+					// L4 allow
+					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
+				}
 			}
 			continue
 		}
@@ -576,11 +578,11 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 		}
 		for _, id := range idents {
 			keyToAdd.Identity = id.Uint32()
-			keysToAdd.DenyPreferredInsert(keyToAdd, entry, identities)
+			if entryCb(keyToAdd, &entry) {
+				mapState.denyPreferredInsertWithChanges(keyToAdd, entry, adds, deletes, old, identities)
+			}
 		}
 	}
-
-	return keysToAdd
 }
 
 // IdentitySelectionUpdated implements CachedSelectionUser interface
