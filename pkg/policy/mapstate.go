@@ -316,12 +316,12 @@ func (e MapStateEntry) String() string {
 	return fmt.Sprintf("ProxyPort=%d,IsDeny=%t,AuthType=%s", e.ProxyPort, e.IsDeny, e.AuthType.String())
 }
 
-// DenyPreferredInsert inserts a key and entry into the map by given preference
+// denyPreferredInsert inserts a key and entry into the map by given preference
 // to deny entries, and L3-only deny entries over L3-L4 allows.
 // This form may be used when a full policy is computed and we are not yet interested
 // in accumulating incremental changes.
-func (keys MapState) DenyPreferredInsert(newKey Key, newEntry MapStateEntry, identities Identities) {
-	keys.DenyPreferredInsertWithChanges(newKey, newEntry, nil, nil, nil, identities)
+func (keys MapState) denyPreferredInsert(newKey Key, newEntry MapStateEntry, identities Identities) {
+	keys.denyPreferredInsertWithChanges(newKey, newEntry, nil, nil, nil, identities)
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
@@ -439,7 +439,7 @@ func protocolsMatch(a, b Key) bool {
 }
 
 // RevertChanges undoes changes to 'keys' as indicated by 'adds' and 'old' collected via
-// DenyPreferredInsertWithChanges().
+// denyPreferredInsertWithChanges().
 func (keys MapState) RevertChanges(adds Keys, old MapState) {
 	for k := range adds {
 		delete(keys, k)
@@ -450,11 +450,11 @@ func (keys MapState) RevertChanges(adds Keys, old MapState) {
 	}
 }
 
-// DenyPreferredInsertWithChanges contains the most important business logic for policy insertions. It inserts
+// denyPreferredInsertWithChanges contains the most important business logic for policy insertions. It inserts
 // a key and entry into the map by giving preference to deny entries, and L3-only deny entries over L3-L4 allows.
 // Incremental changes performed are recorded in 'adds' and 'deletes', if not nil.
 // See https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw#gid=2109052536 for details
-func (keys MapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, adds, deletes Keys, old MapState, identities Identities) {
+func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, adds, deletes Keys, old MapState, identities Identities) {
 	allCpy := allKey
 	allCpy.TrafficDirection = newKey.TrafficDirection
 	// If we have a deny "all" we don't accept any kind of map entry.
@@ -793,7 +793,7 @@ func (keys MapState) DetermineAllowLocalhostIngress() {
 			},
 		}
 		es := NewMapStateEntry(nil, derivedFrom, false, false, AuthTypeDisabled)
-		keys.DenyPreferredInsert(localHostKey, es, nil)
+		keys.denyPreferredInsert(localHostKey, es, nil)
 		if !option.Config.EnableRemoteNodeIdentity {
 			var isHostDenied bool
 			v, ok := keys[localHostKey]
@@ -804,7 +804,7 @@ func (keys MapState) DetermineAllowLocalhostIngress() {
 				},
 			}
 			es := NewMapStateEntry(nil, derivedFrom, false, isHostDenied, AuthTypeDisabled)
-			keys.DenyPreferredInsert(localRemoteNodeKey, es, nil)
+			keys.denyPreferredInsert(localRemoteNodeKey, es, nil)
 		}
 	}
 }
@@ -993,7 +993,7 @@ func (mc *MapChanges) consumeMapChanges(policyMapState MapState, identities Iden
 			// insert but do not allow non-redirect entries to overwrite a redirect entry,
 			// nor allow non-deny entries to overwrite deny entries.
 			// Collect the incremental changes to the overall state in 'mc.adds' and 'mc.deletes'.
-			policyMapState.DenyPreferredInsertWithChanges(mc.changes[i].Key, mc.changes[i].Value, adds, deletes, nil, identities)
+			policyMapState.denyPreferredInsertWithChanges(mc.changes[i].Key, mc.changes[i].Value, adds, deletes, nil, identities)
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental changes
 			for cs := range mc.changes[i].Value.owners { // get the sole selector
