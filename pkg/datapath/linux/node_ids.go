@@ -34,8 +34,8 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 	}
 
 	// Don't allocate a node ID for the local node.
-	localNode := node.GetIPv4()
-	if localNode.Equal(nodeIP) {
+	localNode := node.GetCiliumEndpointNodeIP()
+	if localNode == nodeIP.String() {
 		return 0
 	}
 
@@ -77,14 +77,13 @@ func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
 	return n.nodeIPsByIDs[nodeID]
 }
 
-// getNodeIDForNode gets the node ID for the given node if one was allocated
-// for any of the node IP addresses. If none if found, 0 is returned.
+// getNodeIDForNode gets the node ID for the given node if one was allocated.
+// If none if found, 0 is returned.
 func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 	nodeID := uint16(0)
-	for _, addr := range node.IPAddresses {
-		if id, exists := n.nodeIDsByIPs[addr.IP.String()]; exists {
-			nodeID = id
-		}
+	nodeIP := n.getNodeIPForAllocation(node)
+	if id, exists := n.nodeIDsByIPs[nodeIP]; exists {
+		nodeID = id
 	}
 	return nodeID
 }
@@ -96,6 +95,7 @@ func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 	// Did we already allocate a node ID for any IP of that node?
 	nodeID := n.getNodeIDForNode(node)
+	nodeIP := n.getNodeIPForAllocation(node)
 
 	if nodeID == 0 {
 		nodeID = uint16(n.nodeIDs.AllocateID())
@@ -105,37 +105,24 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 			log.WithFields(logrus.Fields{
 				logfields.NodeID:   nodeID,
 				logfields.NodeName: node.Name,
+				logfields.IPAddr:   nodeIP,
 			}).Debug("Allocated new node ID for node")
 		}
 	}
 
-	for _, addr := range node.IPAddresses {
-		ip := addr.IP.String()
-		if _, exists := n.nodeIDsByIPs[ip]; exists {
-			continue
-		}
-		if err := n.mapNodeID(ip, nodeID); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.NodeID: nodeID,
-				logfields.IPAddr: ip,
-			}).Error("Failed to map node IP address to allocated ID")
-		}
+	if err := n.mapNodeID(nodeIP, nodeID); err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.NodeID: nodeID,
+			logfields.IPAddr: nodeIP,
+		}).Error("Failed to map node IP address to allocated ID")
 	}
 	return nodeID
 }
 
 // deallocateIDForNode deallocates the node ID for the given node, if it was allocated.
 func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
-	nodeID := n.nodeIDsByIPs[oldNode.IPAddresses[0].IP.String()]
-	for _, addr := range oldNode.IPAddresses {
-		id := n.nodeIDsByIPs[addr.IP.String()]
-		if nodeID != id {
-			log.WithFields(logrus.Fields{
-				logfields.NodeName: oldNode.Name,
-				logfields.IPAddr:   addr.IP,
-			}).Errorf("Found two node IDs (%d and %d) for the same node", id, nodeID)
-		}
-	}
+	nodeIP := n.getNodeIPForAllocation(oldNode)
+	nodeID := n.nodeIDsByIPs[nodeIP]
 
 	n.deallocateNodeIDLocked(nodeID)
 }
@@ -291,4 +278,24 @@ func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string
 			}
 		}
 	}
+}
+
+// getNodeIPForAllocation is a helper function which tries to retrieve a node IP used
+// for node ID allocations from a given Node object.
+//
+// If the IPv4 is enabled, then IPv4 addr is prefered. This is because we use
+// node IPv4 addr in CiliumEndpoint objects. The node IP addr from CiliumEndpoint
+// is used to create IPcache entries. The latter's creation might invoke the
+// node ID allocation. So, we want to ensure that we always use the same IP addr
+// for the same node when allocating IDs.
+func (n *linuxNodeHandler) getNodeIPForAllocation(node *nodeTypes.Node) string {
+	for _, addr := range node.IPAddresses {
+		ip := net.ParseIP(addr.IP.String())
+		if n.nodeConfig.EnableIPv4 && ip.To4() == nil {
+			continue
+		}
+		return addr.IP.String()
+	}
+
+	return ""
 }
