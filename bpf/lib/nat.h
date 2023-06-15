@@ -259,13 +259,15 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 }
 
 static __always_inline bool
-snat_v4_needs_ct(const struct ipv4_ct_tuple *tuple,
-		 const struct ipv4_nat_target *target)
+snat_v4_needs_ct(const struct ipv4_ct_tuple *tuple __maybe_unused,
+		 const struct ipv4_nat_target *target __maybe_unused)
 {
+#ifndef ENABLE_HOST_FIREWALL
 	if (tuple->saddr == target->addr) {
 		/* Host-local connection. */
 		return true;
 	}
+#endif
 
 #if defined(ENABLE_EGRESS_GATEWAY)
 	/* Track egress gateway connections, but only if they are related to a
@@ -1370,13 +1372,15 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 }
 
 static __always_inline bool
-snat_v6_needs_ct(struct ipv6_ct_tuple *tuple,
-		 const struct ipv6_nat_target *target)
+snat_v6_needs_ct(struct ipv6_ct_tuple *tuple __maybe_unused,
+		 const struct ipv6_nat_target *target __maybe_unused)
 {
+#ifndef ENABLE_HOST_FIREWALL
 	if (ipv6_addr_equals(&tuple->saddr, &target->addr)) {
 		/* Host-local connection. */
 		return true;
 	}
+#endif
 
 	return false;
 }
