@@ -479,6 +479,10 @@ type Parameters struct {
 	// EnableExternalWorkloads indicates whether externalWorkloads.enabled Helm value
 	// should be set to true. For Helm mode only.
 	EnableExternalWorkloads bool
+
+	// EnableKVStoreMesh indicates whether kvstoremesh should be enabled.
+	// For Helm mode only.
+	EnableKVStoreMesh bool
 }
 
 func (p Parameters) validateParams() error {
@@ -1899,6 +1903,11 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 				// run the renewal every 4 months on the 1st of the month
 				"schedule": "0 0 1 */4 *",
 			},
+		}
+
+	helmVals["clustermesh"].(map[string]interface{})["apiserver"].(map[string]interface{})["kvstoremesh"] =
+		map[string]interface{}{
+			"enabled": params.EnableKVStoreMesh,
 		}
 
 	return helmVals, nil
