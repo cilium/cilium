@@ -47,29 +47,31 @@ func (e *Endpoint) backupDirectoryPath() string {
 }
 
 // moveNewFilesTo copies all files, that do not exist in newDir, from oldDir.
+// It assumes that oldDir and newDir are an endpoint's old and new state
+// directories (see synchronizeDirectories below).
 func moveNewFilesTo(oldDir, newDir string) error {
 	var err error
 
 	oldDirFile, err := os.Open(oldDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open old endpoint state dir: %w", err)
 	}
 	defer oldDirFile.Close()
 
 	oldFiles, err := oldDirFile.Readdirnames(-1)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list old endpoint state dir: %w", err)
 	}
 
 	newDirFile, err := os.Open(newDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open new endpoint state dir: %w", err)
 	}
 	defer newDirFile.Close()
 
 	newFiles, err := newDirFile.Readdirnames(-1)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list new endpoint state dir: %w", err)
 	}
 
 	newFilesHash := make(map[string]struct{}, len(newFiles))
@@ -81,7 +83,9 @@ func moveNewFilesTo(oldDir, newDir string) error {
 
 	for _, oldFile := range oldFiles {
 		if _, ok = newFilesHash[oldFile]; !ok {
-			os.Rename(filepath.Join(oldDir, oldFile), filepath.Join(newDir, oldFile))
+			if err := os.Rename(filepath.Join(oldDir, oldFile), filepath.Join(newDir, oldFile)); err != nil {
+				return fmt.Errorf("failed to move endpoint state file: %w", err)
+			}
 		}
 	}
 
