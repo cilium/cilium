@@ -99,10 +99,11 @@ var (
 		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
 			operatorCfg *operatorOption.OperatorConfig,
+			metricConfig operatorMetrics.OperatorRegistryConfig,
 		) identitygc.SharedConfig {
 			return identitygc.SharedConfig{
 				IdentityAllocationMode: daemonCfg.IdentityAllocationMode,
-				EnableMetrics:          operatorCfg.EnableMetrics,
+				EnableMetrics:          metricConfig.EnableMetrics,
 				ClusterName:            daemonCfg.LocalClusterName(),
 				K8sNamespace:           daemonCfg.CiliumNamespaceName(),
 				ClusterID:              daemonCfg.LocalClusterID(),
@@ -113,7 +114,11 @@ var (
 			kvstoreEnabled,
 			isLeader.Load,
 		),
+
+		metrics.RegistryCell,
+		operatorMetrics.Cell,
 		api.MetricsHandlerCell,
+
 		operatorApi.SpecCell,
 		api.ServerCell,
 
@@ -255,10 +260,6 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
 
-	if operatorOption.Config.EnableMetrics {
-		operatorMetrics.Register()
-	}
-
 	if clientset.IsEnabled() {
 		capabilities := k8sversion.Capabilities()
 		if !capabilities.MinimalVersionMet {
@@ -358,7 +359,7 @@ func kvstoreEnabled() bool {
 
 var legacyCell = cell.Invoke(registerLegacyOnLeader)
 
-func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources) {
+func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, metricsRegistry *metrics.Registry) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:       ctx,
@@ -373,11 +374,12 @@ func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, re
 }
 
 type legacyOnLeader struct {
-	ctx       context.Context
-	cancel    context.CancelFunc
-	clientset k8sClient.Clientset
-	wg        sync.WaitGroup
-	resources operatorK8s.Resources
+	ctx             context.Context
+	cancel          context.CancelFunc
+	clientset       k8sClient.Clientset
+	wg              sync.WaitGroup
+	resources       operatorK8s.Resources
+	metricsRegistry *metrics.Registry
 }
 
 func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {
@@ -454,7 +456,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
 		}
 
-		if err := alloc.Init(legacy.ctx); err != nil {
+		if err := alloc.Init(legacy.ctx, legacy.metricsRegistry); err != nil {
 			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
 		}
 

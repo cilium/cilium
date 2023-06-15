@@ -21,20 +21,33 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var defaultRegistryConfig = RegistryConfig{
+var defaultAgentRegistryConfig = AgentRegistryConfig{
 	PrometheusServeAddr: ":9962",
 }
 
-type RegistryConfig struct {
+type AgentRegistryConfig struct {
 	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	PrometheusServeAddr string
 	// This is a list of metrics to be enabled or disabled, format is `+`/`-` + `{metric name}`
 	Metrics []string
 }
 
-func (rc RegistryConfig) Flags(flags *pflag.FlagSet) {
+func (rc AgentRegistryConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("prometheus-serve-addr", rc.PrometheusServeAddr, "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
 	flags.StringSlice("metrics", rc.Metrics, "Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)")
+}
+
+func (rc AgentRegistryConfig) GetMetrics() []string {
+	return rc.Metrics
+}
+
+func (rc AgentRegistryConfig) GetServeAddr() string {
+	return rc.PrometheusServeAddr
+}
+
+type RegistryConfig interface {
+	GetMetrics() []string
+	GetServeAddr() string
 }
 
 // RegistryParams are the parameters needed to construct a Registry
@@ -68,20 +81,20 @@ func NewRegistry(params RegistryParams) *Registry {
 	// Resolve the global registry variable for as long as we still have global functions
 	registryResolver.Resolve(reg)
 
-	if params.Config.PrometheusServeAddr != "" {
+	if params.Config.GetServeAddr() != "" {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.HandlerFor(reg.inner, promhttp.HandlerOpts{}))
 		srv := http.Server{
-			Addr:    params.Config.PrometheusServeAddr,
+			Addr:    params.Config.GetServeAddr(),
 			Handler: mux,
 		}
 
 		params.Lifecycle.Append(hive.Hook{
 			OnStart: func(hc hive.HookContext) error {
 				go func() {
-					params.Logger.Infof("Serving prometheus metrics on %s", params.Config.PrometheusServeAddr)
+					params.Logger.Infof("Serving prometheus metrics on %s", params.Config.GetServeAddr())
 					err := srv.ListenAndServe()
 					if err != nil && !errors.Is(err, http.ErrServerClosed) {
 						params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
@@ -120,7 +133,7 @@ func (r *Registry) Reinitialize() {
 		metrics[autoMetric.Opts().ConfigName] = r.params.AutoMetrics[i]
 	}
 
-	metricFlags := r.params.Config.Metrics
+	metricFlags := r.params.Config.GetMetrics()
 	for _, metricFlag := range metricFlags {
 		metricFlag = strings.TrimSpace(metricFlag)
 

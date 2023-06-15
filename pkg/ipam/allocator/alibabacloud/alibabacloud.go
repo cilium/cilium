@@ -22,25 +22,22 @@ import (
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-alibaba-cloud")
 
 // AllocatorAlibabaCloud is an implementation of IPAM allocator interface for AlibabaCloud ENI
 type AllocatorAlibabaCloud struct {
-	client *openapi.Client
+	client          *openapi.Client
+	metricsRegistry *metrics.Registry
 }
 
 // Init sets up ENI limits based on given options
 // Credential ref https://github.com/aliyun/alibaba-cloud-sdk-go/blob/master/docs/2-Client-EN.md
-func (a *AllocatorAlibabaCloud) Init(ctx context.Context) error {
-	var aMetrics openapi.MetricsAPI
-
-	if operatorOption.Config.EnableMetrics {
-		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "alibabacloud", operatorMetrics.Registry)
-	} else {
-		aMetrics = &apiMetrics.NoOpMetrics{}
-	}
+func (a *AllocatorAlibabaCloud) Init(ctx context.Context, metricsRegistry *metrics.Registry) error {
+	a.metricsRegistry = metricsRegistry
+	aMetrics := apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "alibabacloud", metricsRegistry)
 
 	var err error
 	vpcID := operatorOption.Config.AlibabaCloudVPCID
@@ -89,15 +86,9 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context) error {
 // APIs is done in a blocking manner. Provided this is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
 func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
-	var iMetrics ipam.MetricsAPI
-
 	log.Info("Starting AlibabaCloud ENI allocator...")
 
-	if operatorOption.Config.EnableMetrics {
-		iMetrics = ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, operatorMetrics.Registry)
-	} else {
-		iMetrics = &ipamMetrics.NoOpMetrics{}
-	}
+	iMetrics := ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, a.metricsRegistry)
 	instances := eni.NewInstancesManager(a.client)
 	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,
 		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AlibabaCloudReleaseExcessIPs, false)

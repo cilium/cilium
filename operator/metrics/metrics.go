@@ -4,94 +4,47 @@
 package metrics
 
 import (
-	"context"
-	"net/http"
-
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	dto "github.com/prometheus/client_model/go"
+	"github.com/spf13/pflag"
 	controllerRuntimeMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/cilium/cilium/api/v1/operator/models"
 	operatorOption "github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "metrics")
-)
+var defaultOperatorRegistryConfig = OperatorRegistryConfig{
+	OperatorPrometheusServeAddr: ":9963",
+}
+
+type OperatorRegistryConfig struct {
+	// OperatorPrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
+	OperatorPrometheusServeAddr string
+	EnableMetrics               bool
+	// This is a list of metrics to be enabled or disabled, format is `+`/`-` + `{metric name}`
+	Metrics []string
+}
+
+func (rc OperatorRegistryConfig) Flags(flags *pflag.FlagSet) {
+	flags.String("operator-prometheus-serve-addr", rc.OperatorPrometheusServeAddr, "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
+	flags.Bool("enable-metrics", rc.EnableMetrics, "Enable Prometheus metrics")
+	flags.StringSlice("metrics", rc.Metrics, "Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)")
+}
+
+func (rc OperatorRegistryConfig) GetMetrics() []string {
+	return rc.Metrics
+}
+
+func (rc OperatorRegistryConfig) GetServeAddr() string {
+	if !rc.EnableMetrics {
+		return ""
+	}
+
+	return rc.OperatorPrometheusServeAddr
+}
 
 // Namespace is the namespace key to use for cilium operator metrics.
 const Namespace = "cilium_operator"
-
-type RegisterGatherer interface {
-	prometheus.Registerer
-	prometheus.Gatherer
-}
-
-var (
-	// Registry is the global prometheus registry for cilium-operator metrics.
-	Registry   RegisterGatherer
-	shutdownCh chan struct{}
-)
-
-// Register registers metrics for cilium-operator.
-func Register() {
-	log.Info("Registering Operator metrics")
-
-	if operatorOption.Config.EnableGatewayAPI {
-		// Use the same Registry as controller-runtime, so that we don't need
-		// to expose multiple metrics endpoints or servers.
-		//
-		// Ideally, we should use our own Registry instance, but the metrics
-		// registration is done by init() functions, which are executed before
-		// this function is called.
-		Registry = controllerRuntimeMetrics.Registry
-	} else {
-		Registry = prometheus.NewPedanticRegistry()
-	}
-
-	registerMetrics()
-
-	m := http.NewServeMux()
-	m.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
-	srv := &http.Server{
-		Addr:    operatorOption.Config.OperatorPrometheusServeAddr,
-		Handler: m,
-	}
-
-	shutdownCh = make(chan struct{})
-	go func() {
-		go func() {
-			err := srv.ListenAndServe()
-			switch err {
-			case http.ErrServerClosed:
-				log.Info("Metrics server shutdown successfully")
-				return
-			default:
-				log.WithError(err).Fatal("Metrics server ListenAndServe failed")
-			}
-		}()
-
-		<-shutdownCh
-		log.Info("Received shutdown signal")
-		if err := srv.Shutdown(context.TODO()); err != nil {
-			log.WithError(err).Error("Shutdown operator metrics server failed")
-		}
-	}()
-}
-
-// Unregister shuts down the metrics server.
-func Unregister() {
-	log.Info("Shutting down metrics server")
-
-	if shutdownCh == nil {
-		return
-	}
-
-	shutdownCh <- struct{}{}
-}
 
 var (
 	// IdentityGCSize records the identity GC results
@@ -156,124 +109,86 @@ const (
 	LabelValueCEPRemove = "cepremoved"
 )
 
-func registerMetrics() []prometheus.Collector {
-	// Builtin process metrics
-	Registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: Namespace}))
+func registerDefaultMetrics(r *metrics.Registry, config *operatorOption.OperatorConfig) {
+	r.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: Namespace}))
 
-	// Custom metrics
-	var collectors []prometheus.Collector
-
-	IdentityGCSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: Namespace,
-		Name:      "identity_gc_entries",
-		Help:      "The number of alive and deleted identities at the end of a garbage collector run",
-	}, []string{LabelStatus})
-	collectors = append(collectors, IdentityGCSize)
-
-	IdentityGCRuns = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: Namespace,
-		Name:      "identity_gc_runs",
-		Help:      "The number of times identity garbage collector has run",
-	}, []string{LabelOutcome})
-	collectors = append(collectors, IdentityGCRuns)
-
-	EndpointGCObjects = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: Namespace,
-		Name:      "endpoint_gc_objects",
-		Help:      "The number of times endpoint objects have been garbage-collected",
-	}, []string{LabelOutcome})
-	collectors = append(collectors, EndpointGCObjects)
-
-	CiliumEndpointSliceDensity = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: Namespace,
-		Name:      "number_of_ceps_per_ces",
-		Help:      "The number of CEPs batched in a CES",
-		Buckets:   []float64{1, 10, 25, 50, 100, 200, 500, 1000},
-	})
-	collectors = append(collectors, CiliumEndpointSliceDensity)
-
-	CiliumEndpointsChangeCount = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: Namespace,
-		Name:      "number_of_cep_changes_per_ces",
-		Help:      "The number of changed CEPs in each CES update",
-	}, []string{LabelOpcode})
-	collectors = append(collectors, CiliumEndpointsChangeCount)
-
-	CiliumEndpointSliceSyncErrors = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: Namespace,
-		Name:      "ces_sync_errors_total",
-		Help:      "Number of CES sync errors",
-	})
-	collectors = append(collectors, CiliumEndpointSliceSyncErrors)
-
-	CiliumEndpointSliceSyncTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: Namespace,
-		Name:      "ces_sync_total",
-		Help:      "The number of completed CES syncs by outcome",
-	}, []string{"outcome"})
-	collectors = append(collectors, CiliumEndpointSliceSyncTotal)
-
-	CiliumEndpointSliceQueueDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: Namespace,
-		Name:      "ces_queueing_delay_seconds",
-		Help:      "CiliumEndpointSlice queueing delay in seconds",
-		Buckets:   append(prometheus.DefBuckets, 60, 300, 900, 1800, 3600),
-	})
-	collectors = append(collectors, CiliumEndpointSliceQueueDelay)
-
-	Registry.MustRegister(collectors...)
-
-	return collectors
+	if config.EnableGatewayAPI {
+		// If API gateway is enabled, add the registry used by the controller runtime to our main
+		// registry. This works because *prometheus.Registry implements prometheus.Collector
+		// which will collect all metrics registered so the output is merged.
+		r.MustRegister(controllerRuntimeMetrics.Registry.(prometheus.Collector))
+	}
 }
 
-// DumpMetrics gets the current Cilium operator metrics and dumps all into a
-// Metrics structure. If metrics cannot be retrieved, returns an error.
-func DumpMetrics() ([]*models.Metric, error) {
-	result := []*models.Metric{}
-	if Registry == nil {
-		return result, nil
+type LegacyMetrics struct {
+	IdentityGCSize                metric.Vec[metric.Gauge]
+	IdentityGCRuns                metric.Vec[metric.Gauge]
+	EndpointGCObjects             metric.Vec[metric.Counter]
+	CiliumEndpointSliceDensity    metric.Histogram
+	CiliumEndpointsChangeCount    metric.Vec[metric.Observer]
+	CiliumEndpointSliceSyncTotal  metric.Vec[metric.Counter]
+	CiliumEndpointSliceSyncErrors metric.Counter
+	CiliumEndpointSliceQueueDelay metric.Histogram
+}
+
+func NewLegacyMetrics() *LegacyMetrics {
+	return &LegacyMetrics{
+		IdentityGCSize: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_identity_gc_entries",
+			Namespace:  Namespace,
+			Name:       "identity_gc_entries",
+			Help:       "The number of alive and deleted identities at the end of a garbage collector run",
+		}, []string{LabelStatus}),
+
+		IdentityGCRuns: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_identity_gc_runs",
+			Namespace:  Namespace,
+			Name:       "identity_gc_runs",
+			Help:       "The number of times identity garbage collector has run",
+		}, []string{LabelOutcome}),
+
+		EndpointGCObjects: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: Namespace + "_endpoint_gc_objects",
+			Namespace:  Namespace,
+			Name:       "endpoint_gc_objects",
+			Help:       "The number of times endpoint objects have been garbage-collected",
+		}, []string{LabelOutcome}),
+
+		CiliumEndpointSliceDensity: metric.NewHistogram(metric.HistogramOpts{
+			ConfigName: Namespace + "_number_of_ceps_per_ces",
+			Namespace:  Namespace,
+			Name:       "number_of_ceps_per_ces",
+			Help:       "The number of CEPs batched in a CES",
+			Buckets:    []float64{1, 10, 25, 50, 100, 200, 500, 1000},
+		}),
+
+		CiliumEndpointsChangeCount: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: Namespace + "_number_of_cep_changes_per_ces",
+			Namespace:  Namespace,
+			Name:       "number_of_cep_changes_per_ces",
+			Help:       "The number of changed CEPs in each CES update",
+		}, []string{LabelOpcode}),
+
+		CiliumEndpointSliceSyncErrors: metric.NewCounter(metric.CounterOpts{
+			ConfigName: Namespace + "_ces_sync_errors_total",
+			Namespace:  Namespace,
+			Name:       "ces_sync_errors_total",
+			Help:       "Number of CES sync errors",
+		}),
+
+		CiliumEndpointSliceSyncTotal: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: Namespace + "_ces_sync_total",
+			Namespace:  Namespace,
+			Name:       "ces_sync_total",
+			Help:       "The number of completed CES syncs by outcome",
+		}, []string{"outcome"}),
+
+		CiliumEndpointSliceQueueDelay: metric.NewHistogram(metric.HistogramOpts{
+			ConfigName: Namespace + "_ces_queueing_delay_seconds",
+			Namespace:  Namespace,
+			Name:       "ces_queueing_delay_seconds",
+			Help:       "CiliumEndpointSlice queueing delay in seconds",
+			Buckets:    append(prometheus.DefBuckets, 60, 300, 900, 1800, 3600),
+		}),
 	}
-
-	currentMetrics, err := Registry.Gather()
-	if err != nil {
-		return result, err
-	}
-
-	for _, val := range currentMetrics {
-
-		metricName := val.GetName()
-		metricType := val.GetType()
-
-		for _, metricLabel := range val.Metric {
-			labels := map[string]string{}
-			for _, label := range metricLabel.GetLabel() {
-				labels[label.GetName()] = label.GetValue()
-			}
-
-			var value float64
-			switch metricType {
-			case dto.MetricType_COUNTER:
-				value = metricLabel.Counter.GetValue()
-			case dto.MetricType_GAUGE:
-				value = metricLabel.GetGauge().GetValue()
-			case dto.MetricType_UNTYPED:
-				value = metricLabel.GetUntyped().GetValue()
-			case dto.MetricType_SUMMARY:
-				value = metricLabel.GetSummary().GetSampleSum()
-			case dto.MetricType_HISTOGRAM:
-				value = metricLabel.GetHistogram().GetSampleSum()
-			default:
-				continue
-			}
-
-			metric := &models.Metric{
-				Name:   metricName,
-				Labels: labels,
-				Value:  value,
-			}
-			result = append(result, metric)
-		}
-	}
-
-	return result, nil
 }

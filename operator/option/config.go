@@ -78,9 +78,6 @@ const (
 	// operation of the status nodes updates in CNPs.
 	CNPStatusCleanupBurst = "cnp-status-cleanup-burst"
 
-	// EnableMetrics enables prometheus metrics.
-	EnableMetrics = "enable-metrics"
-
 	// EndpointGCInterval is the interval between attempts of the CEP GC
 	// controller.
 	// Note that only one node per cluster should run this, and most iterations
@@ -89,10 +86,6 @@ const (
 
 	// NodesGCInterval is the duration for which the cilium nodes are GC.
 	NodesGCInterval = "nodes-gc-interval"
-
-	// OperatorPrometheusServeAddr IP:Port on which to serve prometheus
-	// metrics (pass ":Port" to bind on all interfaces, "" is off).
-	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
@@ -334,16 +327,11 @@ type OperatorConfig struct {
 	// operation of the status nodes updates in CNPs.
 	CNPStatusCleanupBurst int
 
-	// EnableMetrics enables prometheus metrics.
-	EnableMetrics bool
-
 	// EndpointGCInterval is the interval between attempts of the CEP GC
 	// controller.
 	// Note that only one node per cluster should run this, and most iterations
 	// will simply return.
 	EndpointGCInterval time.Duration
-
-	OperatorPrometheusServeAddr string
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
@@ -569,9 +557,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.SkipCNPStatusStartupClean = vp.GetBool(SkipCNPStatusStartupClean)
 	c.CNPStatusCleanupQPS = vp.GetFloat64(CNPStatusCleanupQPS)
 	c.CNPStatusCleanupBurst = vp.GetInt(CNPStatusCleanupBurst)
-	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
-	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)

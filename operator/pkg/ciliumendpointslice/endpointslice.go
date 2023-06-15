@@ -17,7 +17,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/operator/metrics"
-	operatorOption "github.com/cilium/cilium/operator/option"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -290,12 +289,10 @@ func (c *CiliumEndpointSliceController) processNextWorkItem() bool {
 	defer c.queue.Done(cKey)
 
 	err := c.syncCES(cKey.(string))
-	if operatorOption.Config.EnableMetrics {
-		if err != nil {
-			metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-		} else {
-			metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
-		}
+	if err != nil {
+		metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+	} else {
+		metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 	}
 
 	c.handleErr(err, cKey)
@@ -310,9 +307,7 @@ func (c *CiliumEndpointSliceController) handleErr(err error, key interface{}) {
 	}
 
 	// Increment error count for sync errors
-	if operatorOption.Config.EnableMetrics {
-		metrics.CiliumEndpointSliceSyncErrors.Inc()
-	}
+	metrics.CiliumEndpointSliceSyncErrors.Inc()
 
 	if c.queue.NumRequeues(key) < maxRetries {
 		c.queue.AddRateLimited(key)
@@ -329,13 +324,12 @@ func (c *CiliumEndpointSliceController) handleErr(err error, key interface{}) {
 // syncCES reconciles the queued CES with api-server.
 func (c *CiliumEndpointSliceController) syncCES(key string) error {
 	// Update metrics
-	if operatorOption.Config.EnableMetrics {
-		metrics.CiliumEndpointSliceDensity.Observe(float64(c.Manager.getCEPCountInCES(key)))
-		cepInsert, cepRemove := c.Manager.getCESMetricCountersAndClear(key)
-		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPInsert).Observe(float64(cepInsert))
-		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(cepRemove))
-		metrics.CiliumEndpointSliceQueueDelay.Observe(c.Manager.getCESQueueDelayInSeconds(key))
-	}
+	metrics.CiliumEndpointSliceDensity.Observe(float64(c.Manager.getCEPCountInCES(key)))
+	cepInsert, cepRemove := c.Manager.getCESMetricCountersAndClear(key)
+	metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPInsert).Observe(float64(cepInsert))
+	metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(cepRemove))
+	metrics.CiliumEndpointSliceQueueDelay.Observe(c.Manager.getCESQueueDelayInSeconds(key))
+
 	// Check the CES exists is in cesStore i.e. in api-server copy of CESs, if exist update or delete the CES.
 	obj, exists, err := c.ciliumEndpointSliceStore.GetByKey(key)
 	if err == nil && exists {

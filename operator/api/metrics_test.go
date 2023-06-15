@@ -100,7 +100,7 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 			}
 		}),
 
-		cell.Invoke(func(lc hive.Lifecycle, hf http.HandlerFunc) {
+		cell.Invoke(func(lc hive.Lifecycle, hf http.HandlerFunc, lm *operatorMetrics.LegacyMetrics) {
 			lc.Append(hive.Hook{
 				OnStart: func(hive.HookContext) error {
 					// registering the metrics for the operator will start the
@@ -108,17 +108,14 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 					// let the kernel pick an available port.
 					operatorOption.Config.OperatorPrometheusServeAddr = "localhost:0"
 
-					// registers metrics for the cilium-operator
-					operatorMetrics.Register()
-
 					// set values for some operator metrics
-					operatorMetrics.IdentityGCSize.
+					lm.IdentityGCSize.
 						WithLabelValues(operatorMetrics.LabelValueOutcomeAlive).
 						Set(float64(12))
-					operatorMetrics.IdentityGCRuns.
+					lm.IdentityGCRuns.
 						WithLabelValues(operatorMetrics.LabelValueOutcomeSuccess).
 						Set(float64(15))
-					operatorMetrics.EndpointGCObjects.
+					lm.EndpointGCObjects.
 						WithLabelValues(operatorMetrics.LabelValueOutcomeSuccess).
 						Inc()
 
@@ -128,9 +125,6 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 					return nil
 				},
 				OnStop: func(ctx hive.HookContext) error {
-					// unregister metrics for cilium-operator
-					operatorMetrics.Unregister()
-
 					return nil
 				},
 			})

@@ -18,8 +18,8 @@ import (
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/trigger"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-clusterpool")
@@ -31,7 +31,7 @@ type AllocatorOperator struct {
 }
 
 // Init sets up Cilium allocator based on given options
-func (a *AllocatorOperator) Init(ctx context.Context) error {
+func (a *AllocatorOperator) Init(ctx context.Context, _ *metrics.Registry) error {
 	if option.Config.EnableIPv4 {
 		if len(operatorOption.Config.ClusterPoolIPv4CIDR) == 0 {
 			return fmt.Errorf("%s must be provided when using ClusterPool", operatorOption.ClusterPoolIPv4CIDR)
@@ -70,15 +70,7 @@ func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGe
 		logfields.IPv6CIDRs: operatorOption.Config.ClusterPoolIPv6CIDR,
 	}).Info("Starting ClusterPool IP allocator")
 
-	var (
-		iMetrics trigger.MetricsObserver
-	)
-
-	if operatorOption.Config.EnableMetrics {
-		iMetrics = ipamMetrics.NewTriggerMetrics(operatorMetrics.Namespace, "k8s_sync")
-	} else {
-		iMetrics = &ipamMetrics.NoOpMetricsObserver{}
-	}
+	iMetrics := ipamMetrics.NewTriggerMetrics(operatorMetrics.Namespace, "k8s_sync")
 
 	nodeManager := podcidr.NewNodesPodCIDRManager(a.v4CIDRSet, a.v6CIDRSet, updater, iMetrics)
 

@@ -113,9 +113,6 @@ func init() {
 	flags.Duration(operatorOption.EndpointGCInterval, operatorOption.EndpointGCIntervalDefault, "GC interval for cilium endpoints")
 	option.BindEnv(Vp, operatorOption.EndpointGCInterval)
 
-	flags.Bool(operatorOption.EnableMetrics, false, "Enable Prometheus metrics")
-	option.BindEnv(Vp, operatorOption.EnableMetrics)
-
 	// Logging flags
 	flags.StringSlice(option.LogDriver, []string{}, "Logging endpoints to use for example syslog")
 	option.BindEnv(Vp, option.LogDriver)
@@ -247,9 +244,6 @@ func init() {
 
 	flags.Duration(operatorOption.NodesGCInterval, 5*time.Minute, "GC interval for CiliumNodes")
 	option.BindEnv(Vp, operatorOption.NodesGCInterval)
-
-	flags.String(operatorOption.OperatorPrometheusServeAddr, operatorOption.PrometheusServeAddr, "Address to serve Prometheus metrics")
-	option.BindEnv(Vp, operatorOption.OperatorPrometheusServeAddr)
 
 	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(Vp, operatorOption.SyncK8sServices)

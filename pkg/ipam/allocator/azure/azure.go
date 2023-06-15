@@ -17,24 +17,24 @@ import (
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-azure")
 
 // AllocatorAzure is an implementation of IPAM allocator interface for Azure
-type AllocatorAzure struct{}
+type AllocatorAzure struct {
+	metricsRegistry *metrics.Registry
+}
 
 // Init in Azure implementation doesn't need to do anything
-func (*AllocatorAzure) Init(ctx context.Context) error { return nil }
+func (a *AllocatorAzure) Init(ctx context.Context, metricsRegistry *metrics.Registry) error {
+	a.metricsRegistry = metricsRegistry
+	return nil
+}
 
 // Start kicks of the Azure IP allocation
-func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
-
-	var (
-		azMetrics azureAPI.MetricsAPI
-		iMetrics  ipam.MetricsAPI
-	)
-
+func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
 	log.Info("Starting Azure IP allocator...")
 
 	log.Debug("Retrieving Azure cloud name via Azure IMS")
@@ -65,13 +65,8 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 		log.WithField("resourceGroupName", resourceGroupName).Debug("Detected resource group name via Azure IMS")
 	}
 
-	if operatorOption.Config.EnableMetrics {
-		azMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "azure", operatorMetrics.Registry)
-		iMetrics = ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, operatorMetrics.Registry)
-	} else {
-		azMetrics = &apiMetrics.NoOpMetrics{}
-		iMetrics = &ipamMetrics.NoOpMetrics{}
-	}
+	azMetrics := apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "azure", a.metricsRegistry)
+	iMetrics := ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, a.metricsRegistry)
 
 	azureClient, err := azureAPI.NewClient(azureCloudName, subscriptionID, resourceGroupName, operatorOption.Config.AzureUserAssignedIdentityID, azMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, operatorOption.Config.AzureUsePrimaryAddress)
 	if err != nil {

@@ -22,6 +22,7 @@ import (
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -29,8 +30,9 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-a
 
 // AllocatorAWS is an implementation of IPAM allocator interface for AWS ENI
 type AllocatorAWS struct {
-	client    *ec2shim.Client
-	eniGCTags map[string]string
+	client          *ec2shim.Client
+	eniGCTags       map[string]string
+	metricsRegistry *metrics.Registry
 }
 
 func initENIGarbageCollectionTags(ctx context.Context, cfg aws.Config) (eniTags map[string]string) {
@@ -68,9 +70,7 @@ func initENIGarbageCollectionTags(ctx context.Context, cfg aws.Config) (eniTags 
 }
 
 // Init sets up ENI limits based on given options
-func (a *AllocatorAWS) Init(ctx context.Context) error {
-	var aMetrics ec2shim.MetricsAPI
-
+func (a *AllocatorAWS) Init(ctx context.Context, metricsRegistry *metrics.Registry) error {
 	cfg, err := ec2shim.NewConfig(ctx)
 	if err != nil {
 		return err
@@ -78,11 +78,8 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 	subnetsFilters := ec2shim.NewSubnetsFilters(operatorOption.Config.IPAMSubnetsTags, operatorOption.Config.IPAMSubnetsIDs)
 	instancesFilters := ec2shim.NewTagsFilter(operatorOption.Config.IPAMInstanceTags)
 
-	if operatorOption.Config.EnableMetrics {
-		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "ec2", operatorMetrics.Registry)
-	} else {
-		aMetrics = &apiMetrics.NoOpMetrics{}
-	}
+	a.metricsRegistry = metricsRegistry
+	aMetrics := apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "ec2", metricsRegistry)
 
 	eniCreationTags := operatorOption.Config.ENITags
 	if operatorOption.Config.ENIGarbageCollectionInterval > 0 {
@@ -110,15 +107,9 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
 func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
-	var iMetrics ipam.MetricsAPI
-
 	log.Info("Starting ENI allocator...")
 
-	if operatorOption.Config.EnableMetrics {
-		iMetrics = ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, operatorMetrics.Registry)
-	} else {
-		iMetrics = &ipamMetrics.NoOpMetrics{}
-	}
+	iMetrics := ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, a.metricsRegistry)
 	instances := eni.NewInstancesManager(a.client)
 	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,
 		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs,
