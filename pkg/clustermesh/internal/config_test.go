@@ -34,8 +34,8 @@ var _ = Suite(&ClusterMeshTestSuite{})
 
 type fakeRemoteCluster struct{}
 
-func (*fakeRemoteCluster) Run(context.Context, kvstore.BackendOperations, *types.CiliumClusterConfig) error {
-	return nil
+func (*fakeRemoteCluster) Run(_ context.Context, _ kvstore.BackendOperations, _ *types.CiliumClusterConfig, ready chan<- error) {
+	close(ready)
 }
 func (*fakeRemoteCluster) Stop()   {}
 func (*fakeRemoteCluster) Remove() {}
