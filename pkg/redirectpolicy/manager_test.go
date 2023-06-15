@@ -5,6 +5,7 @@ package redirectpolicy
 
 import (
 	"context"
+	"net/netip"
 	"testing"
 
 	. "github.com/cilium/checkmate"
@@ -28,6 +29,7 @@ func Test(t *testing.T) { TestingT(t) }
 type ManagerSuite struct {
 	rpm *Manager
 	svc svcManager
+	epM endpointManager
 }
 
 var _ = Suite(&ManagerSuite{})
@@ -87,6 +89,13 @@ func (ps *fakePodStore) ByIndex(indexName, indexedValue string) ([]*slimcorev1.P
 	return nil, nil
 }
 func (ps *fakePodStore) Release() {
+}
+
+type fakeEpManager struct {
+}
+
+func (ps *fakeEpManager) GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error) {
+	return 0, nil
 }
 
 var (
@@ -233,7 +242,8 @@ func (m *ManagerSuite) SetUpTest(c *C) {
 	fpr := &fakePodResource{
 		fakePodStore{},
 	}
-	m.rpm = NewRedirectPolicyManager(m.svc, fpr, nil)
+	m.epM = &fakeEpManager{}
+	m.rpm = NewRedirectPolicyManager(m.svc, fpr, m.epM)
 	configAddrType = LRPConfig{
 		id: k8s.ServiceID{
 			Name:      "test-foo",

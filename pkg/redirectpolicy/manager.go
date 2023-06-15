@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/netip"
 	"sync"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -305,6 +306,7 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 	if len(rpm.policyConfigs) == 0 {
 		return
 	}
+	log.Infof("debug-aditi OnUpdatePodLocked %v %v %v %v", pod.GetName(), removeOld, upsertNew, rpm.policyConfigs)
 
 	id := podID{
 		Name:      pod.GetName(),
@@ -583,13 +585,13 @@ func (rpm *Manager) plumbSkipLBEntries(mapping *feMapping) error {
 		if pb.podNetnsCookie == 0 {
 			return fmt.Errorf("no valid pod netns cookie")
 		}
-		addr := pb.L3n4Addr.AddrCluster
-		if addr.Is4() {
-			if err := rpm.skipLBMap.AddLB4(pb.podNetnsCookie, addr.AsNetIP(), pb.Port); err != nil {
+		addr := mapping.feAddr
+		if addr.AddrCluster.Is4() {
+			if err := rpm.skipLBMap.AddLB4(pb.podNetnsCookie, addr.AddrCluster.AsNetIP(), addr.Port); err != nil {
 				return fmt.Errorf("failed to add entry to skip_lb4 map: %v", err)
 			}
 		} else {
-			if err := rpm.skipLBMap.AddLB6(pb.podNetnsCookie, addr.AsNetIP(), pb.Port); err != nil {
+			if err := rpm.skipLBMap.AddLB6(pb.podNetnsCookie, addr.AddrCluster.AsNetIP(), addr.Port); err != nil {
 				return fmt.Errorf("failed to add entry to skip_lb6 map: %v", err)
 			}
 		}
@@ -785,7 +787,7 @@ func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podM
 			rpm.updateFrontendMapping(config, feM, pod.id, bes6)
 		}
 	}
-	rpm.upsertService(config, feM)
+	rpm.upsertPolicyMapping(config, feM)
 }
 
 // processConfigWithNamedPorts upserts policy config frontends to the corresponding
@@ -852,7 +854,7 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 		}
 	}
 	for i := range upsertFes {
-		rpm.upsertService(config, upsertFes[i])
+		rpm.upsertPolicyMapping(config, upsertFes[i])
 	}
 }
 
@@ -925,8 +927,23 @@ func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod) (*podMetadata, error) {
 		}
 	}
 	addr, _ := netip.ParseAddr(podIPs[0])
-	cookie, err := rpm.epManager.GetEndpointNetnsCookieByIP(addr)
-	log.Infof("debug-aditi getpodMetadata %v %v", cookie, err)
+	var (
+		cookie uint64
+		err    error
+	)
+	for {
+		i := 0
+		cookie, err = rpm.epManager.GetEndpointNetnsCookieByIP(addr)
+		log.Infof("debug-aditi getpodMetadata %v %v", cookie, err)
+		if err == nil {
+			break
+		}
+		i++
+		if i == 20 {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
 	return &podMetadata{
 		ips:        podIPs,
 		labels:     pod.GetLabels(),
