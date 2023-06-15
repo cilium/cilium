@@ -80,8 +80,9 @@ func (n *linuxNodeHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
 }
 
 func (n *linuxNodeHandler) getNodeIDForIP(nodeIP net.IP) (uint16, bool) {
-	localNode := node.GetIPv4()
-	if localNode.Equal(nodeIP) {
+	localNodeV4 := node.GetIPv4()
+	localNodeV6 := node.GetIPv6()
+	if localNodeV4.Equal(nodeIP) || localNodeV6.Equal(nodeIP) {
 		return 0, true
 	}
 
