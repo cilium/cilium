@@ -367,6 +367,7 @@ func newCmdClusterMeshEnableWithHelm() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&params.EnableExternalWorkloads, "enable-external-workloads", false, "Enable support for external workloads, such as VMs")
+	cmd.Flags().BoolVar(&params.EnableKVStoreMesh, "enable-kvstoremesh", false, "Enable kvstoremesh, an extension which caches remote cluster information in the local kvstore (Cilium >=1.14 only)")
 	cmd.Flags().StringVar(&params.ServiceType, "service-type", "", "Type of Kubernetes service to expose control plane { LoadBalancer | NodePort | ClusterIP }")
 
 	return cmd
