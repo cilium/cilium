@@ -96,6 +96,7 @@ rules:
   - ciliumcidrgroups
   - ciliuml2announcementpolicies
   - ciliumpodippools
+  - ciliumflowlogs
   verbs:
   - list
   - watch

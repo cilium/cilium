@@ -56,6 +56,9 @@ const (
 	// CESCRDName is the full name of the CES CRD.
 	CESCRDName = k8sconstv2alpha1.CESKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 
+	// CFLCRDName is the full name of the CFL CRD.
+	CFLCRDName = k8sconstv2alpha1.CFLKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
 	// CCECCRDName is the full name of the CCEC CRD.
 	CCECCRDName = k8sconstv2.CCECKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
@@ -127,6 +130,10 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 		synced.CRDResourceName(k8sconstv2alpha1.CESName): {
 			Name:     CESCRDName,
 			FullName: k8sconstv2alpha1.CESName,
+		},
+		synced.CRDResourceName(k8sconstv2alpha1.CFLName): {
+			Name:     CFLCRDName,
+			FullName: k8sconstv2alpha1.CFLName,
 		},
 		synced.CRDResourceName(k8sconstv2.CCECName): {
 			Name:     CCECCRDName,
@@ -211,6 +218,9 @@ var (
 	//go:embed crds/v2alpha1/ciliumendpointslices.yaml
 	crdsv2Alpha1Ciliumendpointslices []byte
 
+	//go:embed crds/v2alpha1/ciliumflowlogs.yaml
+	crdsv2Alpha1Ciliumflowlogs []byte
+
 	//go:embed crds/v2/ciliumclusterwideenvoyconfigs.yaml
 	crdsv2Ciliumclusterwideenvoyconfigs []byte
 
@@ -267,6 +277,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv2Ciliumegressgatewaypolicies
 	case CESCRDName:
 		crdBytes = crdsv2Alpha1Ciliumendpointslices
+	case CFLCRDName:
+		crdBytes = crdsv2Alpha1Ciliumflowlogs
 	case CCECCRDName:
 		crdBytes = crdsv2Ciliumclusterwideenvoyconfigs
 	case CECCRDName:

@@ -1,0 +1,562 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.12.1
+  creationTimestamp: null
+  name: ciliumflowlogs.cilium.io
+spec:
+  group: cilium.io
+  names:
+    categories:
+    - cilium
+    kind: CiliumFlowLog
+    listKind: CiliumFlowLogList
+    plural: ciliumflowlogs
+    shortNames:
+    - cfl
+    - ciliumfl
+    singular: ciliumflowlog
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - description: Time duration since creation of Cilium flow log
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: CiliumFlowLog configures a flow log task for Cilium agents.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired specification/configuration of the
+              flow log.
+            properties:
+              excludeFilters:
+                description: "ExcludeFilters is a list of FlowFilters. If flow matches
+                  any of the filters, it won't be logged. \n All flows are logged
+                  if ExcludeFilters field is empty."
+                items:
+                  description: FlowFilter represent an individual flow filter. All
+                    fields are optional. If multiple fields are set, then all fields
+                    must match for the filter to match.
+                  properties:
+                    destination_fqdn:
+                      description: destination_fqdn filters by a list of destination
+                        fully qualified domain names
+                      items:
+                        type: string
+                      type: array
+                    destination_identity:
+                      description: destination_identity filters by the security identity
+                        of the destination endpoint.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    destination_ip:
+                      description: destination_ip filters by a list of destination
+                        ips. Each of the destination ips can be specified as an exact
+                        match (e.g. "1.1.1.1") or as a CIDR range (e.g. "1.1.1.0/24").
+                      items:
+                        type: string
+                      type: array
+                    destination_label:
+                      description: destination_label filters on a list of destination
+                        label selectors
+                      items:
+                        type: string
+                      type: array
+                    destination_pod:
+                      description: destination_pod filters by a list of destination
+                        pod names
+                      items:
+                        type: string
+                      type: array
+                    destination_port:
+                      description: destination_port filters flows by L4 destination
+                        port
+                      items:
+                        type: string
+                      type: array
+                    destination_service:
+                      description: destination_service filters on a list of destination
+                        service names
+                      items:
+                        type: string
+                      type: array
+                    destination_workload:
+                      description: destination_workload filters by a list of destination
+                        workload.
+                      items:
+                        properties:
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      type: array
+                    dns_query:
+                      description: dns_query filters L7 DNS flows by query patterns
+                        (RE2 regex), e.g. 'kube.*local'.
+                      items:
+                        type: string
+                      type: array
+                    event_type:
+                      description: event_type is the list of event types to filter
+                        on
+                      items:
+                        description: EventTypeFilter is a filter describing a particular
+                          event type
+                        properties:
+                          match_sub_type:
+                            description: match_sub_type is set to true when matching
+                              on the sub_type should be done. This flag is required
+                              as 0 is a valid sub_type.
+                            type: boolean
+                          sub_type:
+                            description: sub_type is the secondary type, e.g. - github.com/cilium/cilium/pkg/monitor/api.Trace*
+                            format: int32
+                            type: integer
+                          type:
+                            description: 'type is the primary flow type as defined
+                              by: github.com/cilium/cilium/pkg/monitor/api.MessageType*'
+                            format: int32
+                            type: integer
+                        type: object
+                      type: array
+                    http_method:
+                      description: GET, POST, PUT, etc. methods. This type of field
+                        is well suited for an enum but every single existing place
+                        is using a string already.
+                      items:
+                        type: string
+                      type: array
+                    http_path:
+                      description: http_path is a list of regular expressions to filter
+                        on the HTTP path.
+                      items:
+                        type: string
+                      type: array
+                    http_status_code:
+                      description: http_status_code is a list of string prefixes (e.g.
+                        "4+", "404", "5+") to filter on the HTTP status code
+                      items:
+                        type: string
+                      type: array
+                    ip_version:
+                      description: filter based on IP version (ipv4 or ipv6)
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    node_name:
+                      description: node_name is a list of patterns to filter on the
+                        node name, e.g. "k8s*", "test-cluster/*.domain.com", "cluster-name/"
+                        etc.
+                      items:
+                        type: string
+                      type: array
+                    protocol:
+                      description: protocol filters flows by L4 or L7 protocol, e.g.
+                        (e.g. "tcp", "http")
+                      items:
+                        type: string
+                      type: array
+                    reply:
+                      description: reply filters flows based on the direction of the
+                        flow.
+                      items:
+                        type: boolean
+                      type: array
+                    source_fqdn:
+                      description: source_fqdn filters by a list of source fully qualified
+                        domain names
+                      items:
+                        type: string
+                      type: array
+                    source_identity:
+                      description: source_identity filters by the security identity
+                        of the source endpoint.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    source_ip:
+                      description: source_ip filters by a list of source ips. Each
+                        of the source ips can be specified as an exact match (e.g.
+                        "1.1.1.1") or as a CIDR range (e.g. "1.1.1.0/24").
+                      items:
+                        type: string
+                      type: array
+                    source_label:
+                      description: source_labels filters on a list of source label
+                        selectors. Selectors support the full Kubernetes label selector
+                        syntax.
+                      items:
+                        type: string
+                      type: array
+                    source_pod:
+                      description: source_pod filters by a list of source pod name
+                        prefixes, optionally within a given namespace (e.g. "xwing",
+                        "kube-system/coredns-"). The pod name can be omitted to only
+                        filter by namespace (e.g. "kube-system/")
+                      items:
+                        type: string
+                      type: array
+                    source_port:
+                      description: source_port filters flows by L4 source port
+                      items:
+                        type: string
+                      type: array
+                    source_service:
+                      description: source_service filters on a list of source service
+                        names. This field supports the same syntax as the source_pod
+                        field.
+                      items:
+                        type: string
+                      type: array
+                    source_workload:
+                      description: source_workload filters by a list of source workload.
+                      items:
+                        properties:
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      type: array
+                    tcp_flags:
+                      description: tcp_flags filters flows based on TCP header flags
+                      items:
+                        properties:
+                          ACK:
+                            type: boolean
+                          CWR:
+                            type: boolean
+                          ECE:
+                            type: boolean
+                          FIN:
+                            type: boolean
+                          NS:
+                            type: boolean
+                          PSH:
+                            type: boolean
+                          RST:
+                            type: boolean
+                          SYN:
+                            type: boolean
+                          URG:
+                            type: boolean
+                        type: object
+                      type: array
+                    trace_id:
+                      description: trace_id filters flows by trace ID
+                      items:
+                        type: string
+                      type: array
+                    traffic_direction:
+                      description: traffic_direction filters flow by direction of
+                        the connection, e.g. ingress or egress.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    uuid:
+                      description: uuid filters by a list of flow uuids.
+                      items:
+                        type: string
+                      type: array
+                    verdict:
+                      description: only return Flows that were classified with a particular
+                        verdict.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                  type: object
+                type: array
+              expiration:
+                description: "Expiration specifies the time when log will stop. \n
+                  Empty means that flow log won't stop until this object is deleted."
+                format: date-time
+                type: string
+              fieldMask:
+                description: List of field names from flowpb.Flow that will be kept
+                  in the log output.
+                items:
+                  type: string
+                type: array
+              filters:
+                description: "Filters is a list of FlowFilters. If flow matches any
+                  of the filters, it will be logged. \n If Filters are empty, all
+                  flows will be logged."
+                items:
+                  description: FlowFilter represent an individual flow filter. All
+                    fields are optional. If multiple fields are set, then all fields
+                    must match for the filter to match.
+                  properties:
+                    destination_fqdn:
+                      description: destination_fqdn filters by a list of destination
+                        fully qualified domain names
+                      items:
+                        type: string
+                      type: array
+                    destination_identity:
+                      description: destination_identity filters by the security identity
+                        of the destination endpoint.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    destination_ip:
+                      description: destination_ip filters by a list of destination
+                        ips. Each of the destination ips can be specified as an exact
+                        match (e.g. "1.1.1.1") or as a CIDR range (e.g. "1.1.1.0/24").
+                      items:
+                        type: string
+                      type: array
+                    destination_label:
+                      description: destination_label filters on a list of destination
+                        label selectors
+                      items:
+                        type: string
+                      type: array
+                    destination_pod:
+                      description: destination_pod filters by a list of destination
+                        pod names
+                      items:
+                        type: string
+                      type: array
+                    destination_port:
+                      description: destination_port filters flows by L4 destination
+                        port
+                      items:
+                        type: string
+                      type: array
+                    destination_service:
+                      description: destination_service filters on a list of destination
+                        service names
+                      items:
+                        type: string
+                      type: array
+                    destination_workload:
+                      description: destination_workload filters by a list of destination
+                        workload.
+                      items:
+                        properties:
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      type: array
+                    dns_query:
+                      description: dns_query filters L7 DNS flows by query patterns
+                        (RE2 regex), e.g. 'kube.*local'.
+                      items:
+                        type: string
+                      type: array
+                    event_type:
+                      description: event_type is the list of event types to filter
+                        on
+                      items:
+                        description: EventTypeFilter is a filter describing a particular
+                          event type
+                        properties:
+                          match_sub_type:
+                            description: match_sub_type is set to true when matching
+                              on the sub_type should be done. This flag is required
+                              as 0 is a valid sub_type.
+                            type: boolean
+                          sub_type:
+                            description: sub_type is the secondary type, e.g. - github.com/cilium/cilium/pkg/monitor/api.Trace*
+                            format: int32
+                            type: integer
+                          type:
+                            description: 'type is the primary flow type as defined
+                              by: github.com/cilium/cilium/pkg/monitor/api.MessageType*'
+                            format: int32
+                            type: integer
+                        type: object
+                      type: array
+                    http_method:
+                      description: GET, POST, PUT, etc. methods. This type of field
+                        is well suited for an enum but every single existing place
+                        is using a string already.
+                      items:
+                        type: string
+                      type: array
+                    http_path:
+                      description: http_path is a list of regular expressions to filter
+                        on the HTTP path.
+                      items:
+                        type: string
+                      type: array
+                    http_status_code:
+                      description: http_status_code is a list of string prefixes (e.g.
+                        "4+", "404", "5+") to filter on the HTTP status code
+                      items:
+                        type: string
+                      type: array
+                    ip_version:
+                      description: filter based on IP version (ipv4 or ipv6)
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    node_name:
+                      description: node_name is a list of patterns to filter on the
+                        node name, e.g. "k8s*", "test-cluster/*.domain.com", "cluster-name/"
+                        etc.
+                      items:
+                        type: string
+                      type: array
+                    protocol:
+                      description: protocol filters flows by L4 or L7 protocol, e.g.
+                        (e.g. "tcp", "http")
+                      items:
+                        type: string
+                      type: array
+                    reply:
+                      description: reply filters flows based on the direction of the
+                        flow.
+                      items:
+                        type: boolean
+                      type: array
+                    source_fqdn:
+                      description: source_fqdn filters by a list of source fully qualified
+                        domain names
+                      items:
+                        type: string
+                      type: array
+                    source_identity:
+                      description: source_identity filters by the security identity
+                        of the source endpoint.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    source_ip:
+                      description: source_ip filters by a list of source ips. Each
+                        of the source ips can be specified as an exact match (e.g.
+                        "1.1.1.1") or as a CIDR range (e.g. "1.1.1.0/24").
+                      items:
+                        type: string
+                      type: array
+                    source_label:
+                      description: source_labels filters on a list of source label
+                        selectors. Selectors support the full Kubernetes label selector
+                        syntax.
+                      items:
+                        type: string
+                      type: array
+                    source_pod:
+                      description: source_pod filters by a list of source pod name
+                        prefixes, optionally within a given namespace (e.g. "xwing",
+                        "kube-system/coredns-"). The pod name can be omitted to only
+                        filter by namespace (e.g. "kube-system/")
+                      items:
+                        type: string
+                      type: array
+                    source_port:
+                      description: source_port filters flows by L4 source port
+                      items:
+                        type: string
+                      type: array
+                    source_service:
+                      description: source_service filters on a list of source service
+                        names. This field supports the same syntax as the source_pod
+                        field.
+                      items:
+                        type: string
+                      type: array
+                    source_workload:
+                      description: source_workload filters by a list of source workload.
+                      items:
+                        properties:
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      type: array
+                    tcp_flags:
+                      description: tcp_flags filters flows based on TCP header flags
+                      items:
+                        properties:
+                          ACK:
+                            type: boolean
+                          CWR:
+                            type: boolean
+                          ECE:
+                            type: boolean
+                          FIN:
+                            type: boolean
+                          NS:
+                            type: boolean
+                          PSH:
+                            type: boolean
+                          RST:
+                            type: boolean
+                          SYN:
+                            type: boolean
+                          URG:
+                            type: boolean
+                        type: object
+                      type: array
+                    trace_id:
+                      description: trace_id filters flows by trace ID
+                      items:
+                        type: string
+                      type: array
+                    traffic_direction:
+                      description: traffic_direction filters flow by direction of
+                        the connection, e.g. ingress or egress.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                    uuid:
+                      description: uuid filters by a list of flow uuids.
+                      items:
+                        type: string
+                      type: array
+                    verdict:
+                      description: only return Flows that were classified with a particular
+                        verdict.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                  type: object
+                type: array
+            type: object
+        required:
+        - metadata
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

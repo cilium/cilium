@@ -70,6 +70,7 @@ const (
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
 	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
 	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
+	k8sAPIGroupCiliumFlowLog                    = "cilium/v2alpha1::CiliumFlowLog"
 
 	metricKNP            = "NetworkPolicy"
 	metricNS             = "Namespace"
@@ -450,6 +451,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.CCGName):            {start, k8sAPIGroupCiliumCIDRGroupV2Alpha1},
 	synced.CRDResourceName(v2alpha1.L2AnnouncementName): {skip, ""}, // Handled by L2 announcement directly
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
+	synced.CRDResourceName(v2alpha1.CFLName):            {start, k8sAPIGroupCiliumFlowLog},
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups

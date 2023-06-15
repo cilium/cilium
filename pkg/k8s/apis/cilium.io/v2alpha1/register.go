@@ -29,6 +29,17 @@ const (
 	// CESName is the full name of Cilium Endpoint Slice
 	CESName = CESPluralName + "." + CustomResourceDefinitionGroup
 
+	// Cilium Flow Logging (CFL)
+
+	// CFLPluralName is the plural name of Ciliumt Flow Logging
+	CFLPluralName = "ciliumflowlogs"
+
+	// CFLKindDefinition is the kind name of Cilium Flow Logging
+	CFLKindDefinition = "CiliumFlowLog"
+
+	// CFLName is the full name of Cilium Flow Logging
+	CFLName = CFLPluralName + "." + CustomResourceDefinitionGroup
+
 	// Cilium BGP Peering Policy (BGPP)
 
 	// BGPPPluralName is the plural name of Cilium BGP Peering Policy
@@ -136,6 +147,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumL2AnnouncementPolicyList{},
 		&CiliumPodIPPool{},
 		&CiliumPodIPPoolList{},
+		&CiliumFlowLog{},
+		&CiliumFlowLogList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

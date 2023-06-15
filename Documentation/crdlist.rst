@@ -7,6 +7,7 @@
 - :ref:`CiliumEndpointSlice<CiliumEndpointSlice>`
 - CiliumEnvoyConfig
 - CiliumExternalWorkload
+- CiliumFlowLog
 - CiliumIdentity
 - CiliumL2AnnouncementPolicy
 - CiliumLoadBalancerIPPool
