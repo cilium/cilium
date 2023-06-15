@@ -1123,6 +1123,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		newIP6                 = newNode.GetNodeIP(true)
 		oldKey, newKey         uint8
 		isLocalNode            = false
+		oldNodeIPAddrs         []string
+		newNodeIPAddrs         []string
 	)
 
 	if oldNode != nil {
@@ -1131,12 +1133,23 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldIP4 = oldNode.GetNodeIP(false)
 		oldIP6 = oldNode.GetNodeIP(true)
 		oldKey = oldNode.EncryptionKey
+
+		// Delete the old node IP addresses from nodeID map if they are dropped by the update.
+		for _, address := range oldNode.IPAddresses {
+			oldNodeIPAddrs = append(oldNodeIPAddrs, address.IP.String())
+		}
+	}
+
+	for _, address := range newNode.IPAddresses {
+		newNodeIPAddrs = append(newNodeIPAddrs, address.IP.String())
 	}
 
 	if n.nodeConfig.EnableIPSec && !n.nodeConfig.EncryptNode {
 		n.enableIPsec(newNode)
 		newKey = newNode.EncryptionKey
 	}
+
+	n.deleteNodeIPs(oldNodeIPAddrs, newNodeIPAddrs)
 
 	if n.enableNeighDiscovery && !newNode.IsLocal() {
 		// Running insertNeighbor in a separate goroutine relies on the following
