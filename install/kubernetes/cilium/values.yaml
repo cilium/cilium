@@ -2891,7 +2891,7 @@ clustermesh:
     # clustermesh-apiserver Prometheus metrics configuration
     metrics:
       # -- Enables exporting apiserver metrics in OpenMetrics format.
-      enabled: false
+      enabled: true
       # -- Configure the port the apiserver metric server listens on.
       port: 9962
 
