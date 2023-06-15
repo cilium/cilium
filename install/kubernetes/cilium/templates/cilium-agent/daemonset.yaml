@@ -664,6 +664,7 @@ spec:
             done
         terminationMessagePolicy: FallbackToLogsOnError
       {{- end }} # wait-for-kube-proxy
+      {{- if .Values.cni.install }}
       # Install the CNI binaries in an InitContainer so we don't have a writable host mount in the agent
       - name: install-cni-binaries
         image: {{ include "cilium.image" .Values.image | quote }}
@@ -690,6 +691,7 @@ spec:
         volumeMounts:
           - name: cni-path
             mountPath: /host/opt/cni/bin
+      {{- end }} # .Values.cni.install
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.cilium.name | quote }}
