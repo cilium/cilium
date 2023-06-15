@@ -219,7 +219,7 @@ GIT_VERSION: force
 -include Makefile.docker
 
 ##@ API targets
-CRD_OPTIONS ?= "crd:crdVersions=v1"
+CRD_OPTIONS ?= "crd:crdVersions=v1,ignoreUnexportedFields=true"
 CRD_PATHS := "$(PWD)/pkg/k8s/apis/cilium.io/v2;\
               $(PWD)/pkg/k8s/apis/cilium.io/v2alpha1;"
 CRDS_CILIUM_PATHS := $(PWD)/pkg/k8s/apis/cilium.io/client/crds/v2\
@@ -235,6 +235,7 @@ CRDS_CILIUM_V2 := ciliumnetworkpolicies \
                   ciliumenvoyconfigs \
                   ciliumclusterwideenvoyconfigs
 CRDS_CILIUM_V2ALPHA1 := ciliumendpointslices \
+                        ciliumflowloggings \
                         ciliumbgppeeringpolicies \
                         ciliumloadbalancerippools \
                         ciliumnodeconfigs \

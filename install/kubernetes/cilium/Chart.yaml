@@ -83,6 +83,12 @@ annotations:
         Cilium Endpoint Slice represents the status of groups of pods or nodes
         in the cluster which are managed by Cilium, including enforcement status,
         IP addressing and whether the networking is succesfully operational.
+    - kind: CiliumFlowLogging
+      version: v2alpha1
+      name: ciliumflowloggings.cilium.io
+      displayName: Cilium Endpoint Slice
+      description: |
+        CiliumFlowLogging configures a flow logging task for Cilium agents.
     - kind: CiliumEgressGatewayPolicy
       version: v2
       name: ciliumegressgatewaypolicies.cilium.io

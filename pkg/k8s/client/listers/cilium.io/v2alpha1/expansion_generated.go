@@ -17,6 +17,10 @@ type CiliumCIDRGroupListerExpansion interface{}
 // CiliumEndpointSliceLister.
 type CiliumEndpointSliceListerExpansion interface{}
 
+// CiliumFlowLoggingListerExpansion allows custom methods to be added to
+// CiliumFlowLoggingLister.
+type CiliumFlowLoggingListerExpansion interface{}
+
 // CiliumL2AnnouncementPolicyListerExpansion allows custom methods to be added to
 // CiliumL2AnnouncementPolicyLister.
 type CiliumL2AnnouncementPolicyListerExpansion interface{}

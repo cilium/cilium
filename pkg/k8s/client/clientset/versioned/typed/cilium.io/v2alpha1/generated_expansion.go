@@ -11,6 +11,8 @@ type CiliumCIDRGroupExpansion interface{}
 
 type CiliumEndpointSliceExpansion interface{}
 
+type CiliumFlowLoggingExpansion interface{}
+
 type CiliumL2AnnouncementPolicyExpansion interface{}
 
 type CiliumLoadBalancerIPPoolExpansion interface{}

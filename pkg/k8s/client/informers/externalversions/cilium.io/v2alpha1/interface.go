@@ -17,6 +17,8 @@ type Interface interface {
 	CiliumCIDRGroups() CiliumCIDRGroupInformer
 	// CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 	CiliumEndpointSlices() CiliumEndpointSliceInformer
+	// CiliumFlowLoggings returns a CiliumFlowLoggingInformer.
+	CiliumFlowLoggings() CiliumFlowLoggingInformer
 	// CiliumL2AnnouncementPolicies returns a CiliumL2AnnouncementPolicyInformer.
 	CiliumL2AnnouncementPolicies() CiliumL2AnnouncementPolicyInformer
 	// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
@@ -51,6 +53,11 @@ func (v *version) CiliumCIDRGroups() CiliumCIDRGroupInformer {
 // CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 func (v *version) CiliumEndpointSlices() CiliumEndpointSliceInformer {
 	return &ciliumEndpointSliceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumFlowLoggings returns a CiliumFlowLoggingInformer.
+func (v *version) CiliumFlowLoggings() CiliumFlowLoggingInformer {
+	return &ciliumFlowLoggingInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumL2AnnouncementPolicies returns a CiliumL2AnnouncementPolicyInformer.
