@@ -94,7 +94,7 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 	for _, addr := range node.IPAddresses {
 		ip := addr.IP.String()
 		if _, exists := n.nodeIDsByIPs[ip]; exists {
-			continue
+			log.WithField("nodeId", nodeID).WithField("IP", ip).Warning("Overwriting existing nodeId->IP mapping")
 		}
 		if err := n.mapNodeID(ip, nodeID); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
@@ -110,6 +110,7 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
 	nodeID := n.nodeIDsByIPs[oldNode.IPAddresses[0].IP.String()]
 	for _, addr := range oldNode.IPAddresses {
+		log.Infof("At %s Remove nodeIdsByIPs %s", oldNode.Name, addr.IP.String())
 		id := n.nodeIDsByIPs[addr.IP.String()]
 		if nodeID != id {
 			log.WithFields(logrus.Fields{
