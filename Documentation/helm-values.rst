@@ -395,7 +395,7 @@
    * - clustermesh.apiserver.metrics.enabled
      - Enables exporting apiserver metrics in OpenMetrics format.
      - bool
-     - ``false``
+     - ``true``
    * - clustermesh.apiserver.metrics.etcd.enabled
      - Enables exporting etcd metrics in OpenMetrics format.
      - bool
