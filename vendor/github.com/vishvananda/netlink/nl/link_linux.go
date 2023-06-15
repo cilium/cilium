@@ -21,6 +21,11 @@ const (
 )
 
 const (
+	IFLA_GSO_IPV4_MAX_SIZE = 63
+	IFLA_GRO_IPV4_MAX_SIZE = 64
+)
+
+const (
 	IFLA_VLAN_UNSPEC = iota
 	IFLA_VLAN_ID
 	IFLA_VLAN_FLAGS
