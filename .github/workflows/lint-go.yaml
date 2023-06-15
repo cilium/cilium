@@ -50,7 +50,7 @@ jobs:
         uses: golangci/golangci-lint-action@5f1fec7010f6ae3b84ea4f7b2129beb8639b564f # v3.5.0
         with:
           # renovate: datasource=docker depName=golangci/golangci-lint
-          version: v1.53.2
+          version: v1.53.3
           skip-cache: true
           args: "--out-${NO_FUTURE}format colored-line-number --verbose --modules-download-mode=vendor"
 
