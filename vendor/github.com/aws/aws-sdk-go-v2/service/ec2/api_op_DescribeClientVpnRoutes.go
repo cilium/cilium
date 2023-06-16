@@ -37,20 +37,15 @@ type DescribeClientVpnRoutesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters. Filter names and values are case-sensitive.
-	//
-	// *
-	// destination-cidr - The CIDR of the route destination.
-	//
-	// * origin - How the route
-	// was associated with the Client VPN endpoint (associate | add-route).
-	//
-	// *
-	// target-subnet - The ID of the subnet through which traffic is routed.
+	//   - destination-cidr - The CIDR of the route destination.
+	//   - origin - How the route was associated with the Client VPN endpoint (
+	//   associate | add-route ).
+	//   - target-subnet - The ID of the subnet through which traffic is routed.
 	Filters []types.Filter
 
 	// The maximum number of results to return for the request in a single page. The
@@ -128,6 +123,9 @@ func (c *Client) addOperationDescribeClientVpnRoutesMiddlewares(stack *middlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeClientVpnRoutes(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

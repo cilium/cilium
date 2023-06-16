@@ -12,6 +12,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// Delete an Amazon Web Services Verified Access trust provider.
 func (c *Client) DeleteVerifiedAccessTrustProvider(ctx context.Context, params *DeleteVerifiedAccessTrustProviderInput, optFns ...func(*Options)) (*DeleteVerifiedAccessTrustProviderOutput, error) {
 	if params == nil {
 		params = &DeleteVerifiedAccessTrustProviderInput{}
@@ -29,17 +30,28 @@ func (c *Client) DeleteVerifiedAccessTrustProvider(ctx context.Context, params *
 
 type DeleteVerifiedAccessTrustProviderInput struct {
 
+	// The ID of the Verified Access trust provider.
+	//
 	// This member is required.
 	VerifiedAccessTrustProviderId *string
 
+	// A unique, case-sensitive token that you provide to ensure idempotency of your
+	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
 }
 
 type DeleteVerifiedAccessTrustProviderOutput struct {
+
+	// The ID of the Verified Access trust provider.
 	VerifiedAccessTrustProvider *types.VerifiedAccessTrustProvider
 
 	// Metadata pertaining to the operation's result.
@@ -100,6 +112,9 @@ func (c *Client) addOperationDeleteVerifiedAccessTrustProviderMiddlewares(stack 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteVerifiedAccessTrustProvider(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

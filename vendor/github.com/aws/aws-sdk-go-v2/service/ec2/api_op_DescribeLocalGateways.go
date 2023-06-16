@@ -33,22 +33,16 @@ type DescribeLocalGatewaysInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters.
-	//
-	// * local-gateway-id - The ID of a local gateway.
-	//
-	// *
-	// outpost-arn - The Amazon Resource Name (ARN) of the Outpost.
-	//
-	// * owner-id - The
-	// ID of the Amazon Web Services account that owns the local gateway.
-	//
-	// * state -
-	// The state of the association.
+	//   - local-gateway-id - The ID of a local gateway.
+	//   - outpost-arn - The Amazon Resource Name (ARN) of the Outpost.
+	//   - owner-id - The ID of the Amazon Web Services account that owns the local
+	//   gateway.
+	//   - state - The state of the association.
 	Filters []types.Filter
 
 	// The IDs of the local gateways.
@@ -125,6 +119,9 @@ func (c *Client) addOperationDescribeLocalGatewaysMiddlewares(stack *middleware.
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLocalGateways(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

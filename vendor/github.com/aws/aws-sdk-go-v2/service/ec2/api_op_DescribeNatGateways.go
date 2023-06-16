@@ -38,42 +38,35 @@ type DescribeNatGatewaysInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters.
-	//
-	// * nat-gateway-id - The ID of the NAT gateway.
-	//
-	// * state -
-	// The state of the NAT gateway (pending | failed | available | deleting |
-	// deleted).
-	//
-	// * subnet-id - The ID of the subnet in which the NAT gateway
-	// resides.
-	//
-	// * tag: - The key/value combination of a tag assigned to the resource.
-	// Use the tag key in the filter name and the tag value as the filter value. For
-	// example, to find all resources that have a tag with the key Owner and the value
-	// TeamA, specify tag:Owner for the filter name and TeamA for the filter value.
-	//
-	// *
-	// tag-key - The key of a tag assigned to the resource. Use this filter to find all
-	// resources assigned a tag with a specific key, regardless of the tag value.
-	//
-	// *
-	// vpc-id - The ID of the VPC in which the NAT gateway resides.
+	//   - nat-gateway-id - The ID of the NAT gateway.
+	//   - state - The state of the NAT gateway ( pending | failed | available |
+	//   deleting | deleted ).
+	//   - subnet-id - The ID of the subnet in which the NAT gateway resides.
+	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
+	//   tag key in the filter name and the tag value as the filter value. For example,
+	//   to find all resources that have a tag with the key Owner and the value TeamA ,
+	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
+	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//   - vpc-id - The ID of the VPC in which the NAT gateway resides.
 	Filter []types.Filter
 
-	// The maximum number of results to return with a single call. To retrieve the
-	// remaining results, make another call with the returned nextToken value.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	MaxResults *int32
 
 	// One or more NAT gateway IDs.
 	NatGatewayIds []string
 
-	// The token for the next page of results.
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned by the previous request.
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -84,8 +77,8 @@ type DescribeNatGatewaysOutput struct {
 	// Information about the NAT gateways.
 	NatGateways []types.NatGateway
 
-	// The token to use to retrieve the next page of results. This value is null when
-	// there are no more results to return.
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// Metadata pertaining to the operation's result.
@@ -142,6 +135,9 @@ func (c *Client) addOperationDescribeNatGatewaysMiddlewares(stack *middleware.St
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeNatGateways(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -154,8 +150,8 @@ func (c *Client) addOperationDescribeNatGatewaysMiddlewares(stack *middleware.St
 	return nil
 }
 
-// DescribeNatGatewaysAPIClient is a client that implements the DescribeNatGateways
-// operation.
+// DescribeNatGatewaysAPIClient is a client that implements the
+// DescribeNatGateways operation.
 type DescribeNatGatewaysAPIClient interface {
 	DescribeNatGateways(context.Context, *DescribeNatGatewaysInput, ...func(*Options)) (*DescribeNatGatewaysOutput, error)
 }
@@ -165,8 +161,10 @@ var _ DescribeNatGatewaysAPIClient = (*Client)(nil)
 // DescribeNatGatewaysPaginatorOptions is the paginator options for
 // DescribeNatGateways
 type DescribeNatGatewaysPaginatorOptions struct {
-	// The maximum number of results to return with a single call. To retrieve the
-	// remaining results, make another call with the returned nextToken value.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token
@@ -260,9 +258,10 @@ type NatGatewayAvailableWaiterOptions struct {
 	// that MinDelay must resolve to a value lesser than or equal to the MaxDelay.
 	MinDelay time.Duration
 
-	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
-	// to zero, NatGatewayAvailableWaiter will use default max delay of 120 seconds.
-	// Note that MaxDelay must resolve to value greater than or equal to the MinDelay.
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or
+	// set to zero, NatGatewayAvailableWaiter will use default max delay of 120
+	// seconds. Note that MaxDelay must resolve to value greater than or equal to the
+	// MinDelay.
 	MaxDelay time.Duration
 
 	// LogWaitAttempts is used to enable logging for waiter retry attempts
@@ -302,9 +301,9 @@ func NewNatGatewayAvailableWaiter(client DescribeNatGatewaysAPIClient, optFns ..
 	}
 }
 
-// Wait calls the waiter function for NatGatewayAvailable waiter. The maxWaitDur is
-// the maximum wait duration the waiter will wait. The maxWaitDur is required and
-// must be greater than zero.
+// Wait calls the waiter function for NatGatewayAvailable waiter. The maxWaitDur
+// is the maximum wait duration the waiter will wait. The maxWaitDur is required
+// and must be greater than zero.
 func (w *NatGatewayAvailableWaiter) Wait(ctx context.Context, params *DescribeNatGatewaysInput, maxWaitDur time.Duration, optFns ...func(*NatGatewayAvailableWaiterOptions)) error {
 	_, err := w.WaitForOutput(ctx, params, maxWaitDur, optFns...)
 	return err
@@ -519,9 +518,9 @@ type NatGatewayDeletedWaiterOptions struct {
 	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
 	MinDelay time.Duration
 
-	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
-	// to zero, NatGatewayDeletedWaiter will use default max delay of 120 seconds. Note
-	// that MaxDelay must resolve to value greater than or equal to the MinDelay.
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or
+	// set to zero, NatGatewayDeletedWaiter will use default max delay of 120 seconds.
+	// Note that MaxDelay must resolve to value greater than or equal to the MinDelay.
 	MaxDelay time.Duration
 
 	// LogWaitAttempts is used to enable logging for waiter retry attempts
@@ -569,10 +568,10 @@ func (w *NatGatewayDeletedWaiter) Wait(ctx context.Context, params *DescribeNatG
 	return err
 }
 
-// WaitForOutput calls the waiter function for NatGatewayDeleted waiter and returns
-// the output of the successful operation. The maxWaitDur is the maximum wait
-// duration the waiter will wait. The maxWaitDur is required and must be greater
-// than zero.
+// WaitForOutput calls the waiter function for NatGatewayDeleted waiter and
+// returns the output of the successful operation. The maxWaitDur is the maximum
+// wait duration the waiter will wait. The maxWaitDur is required and must be
+// greater than zero.
 func (w *NatGatewayDeletedWaiter) WaitForOutput(ctx context.Context, params *DescribeNatGatewaysInput, maxWaitDur time.Duration, optFns ...func(*NatGatewayDeletedWaiterOptions)) (*DescribeNatGatewaysOutput, error) {
 	if maxWaitDur <= 0 {
 		return nil, fmt.Errorf("maximum wait time for waiter must be greater than zero")

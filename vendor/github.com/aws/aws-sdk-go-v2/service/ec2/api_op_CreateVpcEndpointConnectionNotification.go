@@ -34,8 +34,8 @@ func (c *Client) CreateVpcEndpointConnectionNotification(ctx context.Context, pa
 
 type CreateVpcEndpointConnectionNotificationInput struct {
 
-	// One or more endpoint events for which to receive notifications. Valid values are
-	// Accept, Connect, Delete, and Reject.
+	// The endpoint events for which to receive notifications. Valid values are Accept
+	// , Connect , Delete , and Reject .
 	//
 	// This member is required.
 	ConnectionEvents []string
@@ -46,14 +46,14 @@ type CreateVpcEndpointConnectionNotificationInput struct {
 	ConnectionNotificationArn *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The ID of the endpoint service.
@@ -129,6 +129,9 @@ func (c *Client) addOperationCreateVpcEndpointConnectionNotificationMiddlewares(
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVpcEndpointConnectionNotification(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

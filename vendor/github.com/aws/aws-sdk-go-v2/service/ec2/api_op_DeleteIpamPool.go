@@ -13,13 +13,10 @@ import (
 
 // Delete an IPAM pool. You cannot delete an IPAM pool if there are allocations in
 // it or CIDRs provisioned to it. To release allocations, see
-// ReleaseIpamPoolAllocation
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReleaseIpamPoolAllocation.html).
-// To deprovision pool CIDRs, see DeprovisionIpamPoolCidr
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeprovisionIpamPoolCidr.html).
-// For more information, see Delete a pool
-// (https://docs.aws.amazon.com/vpc/latest/ipam/delete-pool-ipam.html) in the
-// Amazon VPC IPAM User Guide.
+// ReleaseIpamPoolAllocation (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReleaseIpamPoolAllocation.html)
+// . To deprovision pool CIDRs, see DeprovisionIpamPoolCidr (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeprovisionIpamPoolCidr.html)
+// . For more information, see Delete a pool (https://docs.aws.amazon.com/vpc/latest/ipam/delete-pool-ipam.html)
+// in the Amazon VPC IPAM User Guide.
 func (c *Client) DeleteIpamPool(ctx context.Context, params *DeleteIpamPoolInput, optFns ...func(*Options)) (*DeleteIpamPoolOutput, error) {
 	if params == nil {
 		params = &DeleteIpamPoolInput{}
@@ -44,8 +41,8 @@ type DeleteIpamPoolInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -111,6 +108,9 @@ func (c *Client) addOperationDeleteIpamPoolMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteIpamPool(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -51,29 +51,22 @@ type CreateSnapshotsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The Amazon Resource Name (ARN) of the Outpost on which to create the local
 	// snapshots.
-	//
-	// * To create snapshots from an instance in a Region, omit this
-	// parameter. The snapshots are created in the same Region as the instance.
-	//
-	// * To
-	// create snapshots from an instance on an Outpost and store the snapshots in the
-	// Region, omit this parameter. The snapshots are created in the Region for the
-	// Outpost.
-	//
-	// * To create snapshots from an instance on an Outpost and store the
-	// snapshots on an Outpost, specify the ARN of the destination Outpost. The
-	// snapshots must be created on the same Outpost as the instance.
-	//
-	// For more
-	// information, see  Create multi-volume local snapshots from instances on an
-	// Outpost
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#create-multivol-snapshot)
+	//   - To create snapshots from an instance in a Region, omit this parameter. The
+	//   snapshots are created in the same Region as the instance.
+	//   - To create snapshots from an instance on an Outpost and store the snapshots
+	//   in the Region, omit this parameter. The snapshots are created in the Region for
+	//   the Outpost.
+	//   - To create snapshots from an instance on an Outpost and store the snapshots
+	//   on an Outpost, specify the ARN of the destination Outpost. The snapshots must be
+	//   created on the same Outpost as the instance.
+	// For more information, see  Create multi-volume local snapshots from instances
+	// on an Outpost (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#create-multivol-snapshot)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	OutpostArn *string
 
@@ -143,6 +136,9 @@ func (c *Client) addOperationCreateSnapshotsMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateSnapshots(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

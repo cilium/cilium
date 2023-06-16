@@ -20,11 +20,11 @@ import (
 // ID settings. The following resource types support longer IDs: bundle |
 // conversion-task | customer-gateway | dhcp-options | elastic-ip-allocation |
 // elastic-ip-association | export-task | flow-log | image | import-task | instance
-// | internet-gateway | network-acl | network-acl-association | network-interface |
-// network-interface-attachment | prefix-list | reservation | route-table |
+// | internet-gateway | network-acl | network-acl-association | network-interface
+// | network-interface-attachment | prefix-list | reservation | route-table |
 // route-table-association | security-group | snapshot | subnet |
 // subnet-cidr-block-association | volume | vpc | vpc-cidr-block-association |
-// vpc-endpoint | vpc-peering-connection | vpn-connection | vpn-gateway.
+// vpc-endpoint | vpc-peering-connection | vpn-connection | vpn-gateway .
 func (c *Client) DescribePrincipalIdFormat(ctx context.Context, params *DescribePrincipalIdFormatInput, optFns ...func(*Options)) (*DescribePrincipalIdFormatOutput, error) {
 	if params == nil {
 		params = &DescribePrincipalIdFormatInput{}
@@ -44,8 +44,8 @@ type DescribePrincipalIdFormatInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The maximum number of results to return in a single call. To retrieve the
@@ -129,6 +129,9 @@ func (c *Client) addOperationDescribePrincipalIdFormatMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribePrincipalIdFormat(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

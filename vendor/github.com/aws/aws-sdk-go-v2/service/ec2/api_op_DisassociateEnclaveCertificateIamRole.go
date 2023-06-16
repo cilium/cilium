@@ -34,16 +34,20 @@ func (c *Client) DisassociateEnclaveCertificateIamRole(ctx context.Context, para
 type DisassociateEnclaveCertificateIamRoleInput struct {
 
 	// The ARN of the ACM certificate from which to disassociate the IAM role.
+	//
+	// This member is required.
 	CertificateArn *string
+
+	// The ARN of the IAM role to disassociate.
+	//
+	// This member is required.
+	RoleArn *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
-
-	// The ARN of the IAM role to disassociate.
-	RoleArn *string
 
 	noSmithyDocumentSerde
 }
@@ -104,7 +108,13 @@ func (c *Client) addOperationDisassociateEnclaveCertificateIamRoleMiddlewares(st
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addOpDisassociateEnclaveCertificateIamRoleValidationMiddleware(stack); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisassociateEnclaveCertificateIamRole(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

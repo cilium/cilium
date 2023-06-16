@@ -14,29 +14,21 @@ import (
 // Modifies the customer gateway or the target gateway of an Amazon Web Services
 // Site-to-Site VPN connection. To modify the target gateway, the following
 // migration options are available:
+//   - An existing virtual private gateway to a new virtual private gateway
+//   - An existing virtual private gateway to a transit gateway
+//   - An existing transit gateway to a new transit gateway
+//   - An existing transit gateway to a virtual private gateway
 //
-// * An existing virtual private gateway to a new
-// virtual private gateway
-//
-// * An existing virtual private gateway to a transit
-// gateway
-//
-// * An existing transit gateway to a new transit gateway
-//
-// * An existing
-// transit gateway to a virtual private gateway
-//
-// Before you perform the migration
-// to the new gateway, you must configure the new gateway. Use CreateVpnGateway to
-// create a virtual private gateway, or CreateTransitGateway to create a transit
-// gateway. This step is required when you migrate from a virtual private gateway
-// with static routes to a transit gateway. You must delete the static routes
-// before you migrate to the new gateway. Keep a copy of the static route before
-// you delete it. You will need to add back these routes to the transit gateway
-// after the VPN connection migration is complete. After you migrate to the new
-// gateway, you might need to modify your VPC route table. Use CreateRoute and
-// DeleteRoute to make the changes described in Update VPC route tables
-// (https://docs.aws.amazon.com/vpn/latest/s2svpn/modify-vpn-target.html#step-update-routing)
+// Before you perform the migration to the new gateway, you must configure the new
+// gateway. Use CreateVpnGateway to create a virtual private gateway, or
+// CreateTransitGateway to create a transit gateway. This step is required when you
+// migrate from a virtual private gateway with static routes to a transit gateway.
+// You must delete the static routes before you migrate to the new gateway. Keep a
+// copy of the static route before you delete it. You will need to add back these
+// routes to the transit gateway after the VPN connection migration is complete.
+// After you migrate to the new gateway, you might need to modify your VPC route
+// table. Use CreateRoute and DeleteRoute to make the changes described in Update
+// VPC route tables (https://docs.aws.amazon.com/vpn/latest/s2svpn/modify-vpn-target.html#step-update-routing)
 // in the Amazon Web Services Site-to-Site VPN User Guide. When the new gateway is
 // a transit gateway, modify the transit gateway route table to allow traffic
 // between the VPC and the Amazon Web Services Site-to-Site VPN connection. Use
@@ -73,15 +65,15 @@ type ModifyVpnConnectionInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The ID of the transit gateway.
 	TransitGatewayId *string
 
-	// The ID of the virtual private gateway at the Amazon Web Services side of the VPN
-	// connection.
+	// The ID of the virtual private gateway at the Amazon Web Services side of the
+	// VPN connection.
 	VpnGatewayId *string
 
 	noSmithyDocumentSerde
@@ -147,6 +139,9 @@ func (c *Client) addOperationModifyVpnConnectionMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyVpnConnection(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -15,11 +15,10 @@ import (
 // This API action supports only single-volume VMs. To import multi-volume VMs, use
 // ImportImage instead. This API action is not supported by the Command Line
 // Interface (CLI). For information about using the Amazon EC2 CLI, which is
-// deprecated, see Importing a VM to Amazon EC2
-// (https://awsdocs.s3.amazonaws.com/EC2/ec2-clt.pdf#UsingVirtualMachinesinAmazonEC2)
+// deprecated, see Importing a VM to Amazon EC2 (https://awsdocs.s3.amazonaws.com/EC2/ec2-clt.pdf#UsingVirtualMachinesinAmazonEC2)
 // in the Amazon EC2 CLI Reference PDF file. For information about the import
-// manifest referenced by this API action, see VM Import Manifest
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/manifest.html).
+// manifest referenced by this API action, see VM Import Manifest (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/manifest.html)
+// .
 func (c *Client) ImportInstance(ctx context.Context, params *ImportInstanceInput, optFns ...func(*Options)) (*ImportInstanceOutput, error) {
 	if params == nil {
 		params = &ImportInstanceInput{}
@@ -50,8 +49,8 @@ type ImportInstanceInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The launch specification.
@@ -120,6 +119,9 @@ func (c *Client) addOperationImportInstanceMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opImportInstance(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

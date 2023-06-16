@@ -36,12 +36,12 @@ type GetAwsNetworkPerformanceDataInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The ending time for the performance data request. The end time must be formatted
-	// as yyyy-mm-ddThh:mm:ss. For example, 2022-06-12T12:00:00.000Z.
+	// The ending time for the performance data request. The end time must be
+	// formatted as yyyy-mm-ddThh:mm:ss . For example, 2022-06-12T12:00:00.000Z .
 	EndTime *time.Time
 
 	// The maximum number of results to return with a single call. To retrieve the
@@ -52,7 +52,7 @@ type GetAwsNetworkPerformanceDataInput struct {
 	NextToken *string
 
 	// The starting time for the performance data request. The starting time must be
-	// formatted as yyyy-mm-ddThh:mm:ss. For example, 2022-06-10T12:00:00.000Z.
+	// formatted as yyyy-mm-ddThh:mm:ss . For example, 2022-06-10T12:00:00.000Z .
 	StartTime *time.Time
 
 	noSmithyDocumentSerde
@@ -119,6 +119,9 @@ func (c *Client) addOperationGetAwsNetworkPerformanceDataMiddlewares(stack *midd
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetAwsNetworkPerformanceData(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

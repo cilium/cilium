@@ -15,30 +15,20 @@ import (
 // Attaches an EBS volume to a running or stopped instance and exposes it to the
 // instance with the specified device name. Encrypted EBS volumes must be attached
 // to instances that support Amazon EBS encryption. For more information, see
-// Amazon EBS encryption
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
-// Amazon Elastic Compute Cloud User Guide. After you attach an EBS volume, you
-// must make it available. For more information, see Make an EBS volume available
-// for use
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.html). If
-// a volume has an Amazon Web Services Marketplace product code:
+// Amazon EBS encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
+// in the Amazon Elastic Compute Cloud User Guide. After you attach an EBS volume,
+// you must make it available. For more information, see Make an EBS volume
+// available for use (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.html)
+// . If a volume has an Amazon Web Services Marketplace product code:
+//   - The volume can be attached only to a stopped instance.
+//   - Amazon Web Services Marketplace product codes are copied from the volume to
+//     the instance.
+//   - You must be subscribed to the product.
+//   - The instance type and operating system of the instance must support the
+//     product. For example, you can't detach a volume from a Windows instance and
+//     attach it to a Linux instance.
 //
-// * The volume can
-// be attached only to a stopped instance.
-//
-// * Amazon Web Services Marketplace
-// product codes are copied from the volume to the instance.
-//
-// * You must be
-// subscribed to the product.
-//
-// * The instance type and operating system of the
-// instance must support the product. For example, you can't detach a volume from a
-// Windows instance and attach it to a Linux instance.
-//
-// For more information, see
-// Attach an Amazon EBS volume to an instance
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-attaching-volume.html)
+// For more information, see Attach an Amazon EBS volume to an instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-attaching-volume.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) AttachVolume(ctx context.Context, params *AttachVolumeInput, optFns ...func(*Options)) (*AttachVolumeOutput, error) {
 	if params == nil {
@@ -57,7 +47,7 @@ func (c *Client) AttachVolume(ctx context.Context, params *AttachVolumeInput, op
 
 type AttachVolumeInput struct {
 
-	// The device name (for example, /dev/sdh or xvdh).
+	// The device name (for example, /dev/sdh or xvdh ).
 	//
 	// This member is required.
 	Device *string
@@ -75,8 +65,8 @@ type AttachVolumeInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -158,6 +148,9 @@ func (c *Client) addOperationAttachVolumeMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAttachVolume(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

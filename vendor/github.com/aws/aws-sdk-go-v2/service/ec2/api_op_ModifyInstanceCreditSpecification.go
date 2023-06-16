@@ -12,9 +12,8 @@ import (
 )
 
 // Modifies the credit option for CPU usage on a running or stopped burstable
-// performance instance. The credit options are standard and unlimited. For more
-// information, see Burstable performance instances
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
+// performance instance. The credit options are standard and unlimited . For more
+// information, see Burstable performance instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
 // in the Amazon EC2 User Guide.
 func (c *Client) ModifyInstanceCreditSpecification(ctx context.Context, params *ModifyInstanceCreditSpecificationInput, optFns ...func(*Options)) (*ModifyInstanceCreditSpecificationOutput, error) {
 	if params == nil {
@@ -39,14 +38,14 @@ type ModifyInstanceCreditSpecificationInput struct {
 	InstanceCreditSpecifications []types.InstanceCreditSpecificationRequest
 
 	// A unique, case-sensitive token that you provide to ensure idempotency of your
-	// modification request. For more information, see Ensuring Idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -117,6 +116,9 @@ func (c *Client) addOperationModifyInstanceCreditSpecificationMiddlewares(stack 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyInstanceCreditSpecification(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

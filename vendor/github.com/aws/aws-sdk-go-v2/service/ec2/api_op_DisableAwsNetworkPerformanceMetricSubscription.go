@@ -30,20 +30,20 @@ func (c *Client) DisableAwsNetworkPerformanceMetricSubscription(ctx context.Cont
 type DisableAwsNetworkPerformanceMetricSubscriptionInput struct {
 
 	// The target Region or Availability Zone that the metric subscription is disabled
-	// for. For example, eu-north-1.
+	// for. For example, eu-north-1 .
 	Destination *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The metric used for the disabled subscription.
 	Metric types.MetricType
 
 	// The source Region or Availability Zone that the metric subscription is disabled
-	// for. For example, us-east-1.
+	// for. For example, us-east-1 .
 	Source *string
 
 	// The statistic used for the disabled subscription.
@@ -109,6 +109,9 @@ func (c *Client) addOperationDisableAwsNetworkPerformanceMetricSubscriptionMiddl
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisableAwsNetworkPerformanceMetricSubscription(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

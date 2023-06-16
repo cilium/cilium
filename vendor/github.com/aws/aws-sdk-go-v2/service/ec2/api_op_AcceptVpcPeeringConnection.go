@@ -12,8 +12,8 @@ import (
 )
 
 // Accept a VPC peering connection request. To accept a request, the VPC peering
-// connection must be in the pending-acceptance state, and you must be the owner of
-// the peer VPC. Use DescribeVpcPeeringConnections to view your outstanding VPC
+// connection must be in the pending-acceptance state, and you must be the owner
+// of the peer VPC. Use DescribeVpcPeeringConnections to view your outstanding VPC
 // peering connection requests. For an inter-Region VPC peering connection request,
 // you must accept the VPC peering connection in the Region of the accepter VPC.
 func (c *Client) AcceptVpcPeeringConnection(ctx context.Context, params *AcceptVpcPeeringConnectionInput, optFns ...func(*Options)) (*AcceptVpcPeeringConnectionOutput, error) {
@@ -33,15 +33,17 @@ func (c *Client) AcceptVpcPeeringConnection(ctx context.Context, params *AcceptV
 
 type AcceptVpcPeeringConnectionInput struct {
 
-	// Checks whether you have the required permissions for the action, without
-	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
-	DryRun *bool
-
 	// The ID of the VPC peering connection. You must specify this parameter in the
 	// request.
+	//
+	// This member is required.
 	VpcPeeringConnectionId *string
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
+	DryRun *bool
 
 	noSmithyDocumentSerde
 }
@@ -102,7 +104,13 @@ func (c *Client) addOperationAcceptVpcPeeringConnectionMiddlewares(stack *middle
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addOpAcceptVpcPeeringConnectionValidationMiddleware(stack); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAcceptVpcPeeringConnection(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

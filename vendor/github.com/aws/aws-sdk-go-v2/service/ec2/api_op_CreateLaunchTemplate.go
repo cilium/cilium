@@ -12,16 +12,14 @@ import (
 )
 
 // Creates a launch template. A launch template contains the parameters to launch
-// an instance. When you launch an instance using RunInstances, you can specify a
+// an instance. When you launch an instance using RunInstances , you can specify a
 // launch template instead of providing the launch parameters in the request. For
-// more information, see Launch an instance from a launch template
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html)
+// more information, see Launch an instance from a launch template (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html)
 // in the Amazon Elastic Compute Cloud User Guide. If you want to clone an existing
 // launch template as the basis for creating a new launch template, you can use the
 // Amazon EC2 console. The API, SDKs, and CLI do not support cloning a template.
 // For more information, see Create a launch template from an existing launch
-// template
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#create-launch-template-from-existing-launch-template)
+// template (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#create-launch-template-from-existing-launch-template)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CreateLaunchTemplate(ctx context.Context, params *CreateLaunchTemplateInput, optFns ...func(*Options)) (*CreateLaunchTemplateOutput, error) {
 	if params == nil {
@@ -51,22 +49,20 @@ type CreateLaunchTemplateInput struct {
 	LaunchTemplateName *string
 
 	// Unique, case-sensitive identifier you provide to ensure the idempotency of the
-	// request. For more information, see Ensuring idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
-	// Constraint: Maximum 128 ASCII characters.
+	// request. For more information, see Ensuring idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// . Constraint: Maximum 128 ASCII characters.
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The tags to apply to the launch template on creation. To tag the launch
-	// template, the resource type must be launch-template. To specify the tags for the
-	// resources that are created when an instance is launched, you must use the
-	// TagSpecifications parameter in the launch template data
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RequestLaunchTemplateData.html)
+	// template, the resource type must be launch-template . To specify the tags for
+	// the resources that are created when an instance is launched, you must use the
+	// TagSpecifications parameter in the launch template data (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RequestLaunchTemplateData.html)
 	// structure.
 	TagSpecifications []types.TagSpecification
 
@@ -141,6 +137,9 @@ func (c *Client) addOperationCreateLaunchTemplateMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateLaunchTemplate(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

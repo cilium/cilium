@@ -36,28 +36,18 @@ type DescribeVpcEndpointConnectionNotificationsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// One or more filters.
-	//
-	// * connection-notification-arn - The ARN of the SNS topic
-	// for the notification.
-	//
-	// * connection-notification-id - The ID of the
-	// notification.
-	//
-	// * connection-notification-state - The state of the notification
-	// (Enabled | Disabled).
-	//
-	// * connection-notification-type - The type of notification
-	// (Topic).
-	//
-	// * service-id - The ID of the endpoint service.
-	//
-	// * vpc-endpoint-id -
-	// The ID of the VPC endpoint.
+	// The filters.
+	//   - connection-notification-arn - The ARN of the SNS topic for the notification.
+	//   - connection-notification-id - The ID of the notification.
+	//   - connection-notification-state - The state of the notification ( Enabled |
+	//   Disabled ).
+	//   - connection-notification-type - The type of notification ( Topic ).
+	//   - service-id - The ID of the endpoint service.
+	//   - vpc-endpoint-id - The ID of the VPC endpoint.
 	Filters []types.Filter
 
 	// The maximum number of results to return in a single call. To retrieve the
@@ -72,7 +62,7 @@ type DescribeVpcEndpointConnectionNotificationsInput struct {
 
 type DescribeVpcEndpointConnectionNotificationsOutput struct {
 
-	// One or more notifications.
+	// The notifications.
 	ConnectionNotificationSet []types.ConnectionNotification
 
 	// The token to use to retrieve the next page of results. This value is null when
@@ -131,6 +121,9 @@ func (c *Client) addOperationDescribeVpcEndpointConnectionNotificationsMiddlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcEndpointConnectionNotifications(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

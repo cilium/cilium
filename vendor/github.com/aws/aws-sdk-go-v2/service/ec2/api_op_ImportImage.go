@@ -11,13 +11,16 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Import single or multi-volume disk images or EBS snapshots into an Amazon
+// To import your virtual machines (VMs) with a console-based experience, you can
+// use the Import virtual machine images to Amazon Web Services template in the
+// Migration Hub Orchestrator console (https://console.aws.amazon.com/migrationhub/orchestrator)
+// . For more information, see the Migration Hub Orchestrator User Guide  (https://docs.aws.amazon.com/migrationhub-orchestrator/latest/userguide/import-vm-images.html)
+// . Import single or multi-volume disk images or EBS snapshots into an Amazon
 // Machine Image (AMI). Amazon Web Services VM Import/Export strongly recommends
 // specifying a value for either the --license-type or --usage-operation parameter
 // when you create a new VM Import task. This ensures your operating system is
 // licensed appropriately and your billing is optimized. For more information, see
-// Importing a VM as an image using VM Import/Export
-// (https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html)
+// Importing a VM as an image using VM Import/Export (https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html)
 // in the VM Import/Export User Guide.
 func (c *Client) ImportImage(ctx context.Context, params *ImportImageInput, optFns ...func(*Options)) (*ImportImageOutput, error) {
 	if params == nil {
@@ -56,15 +59,14 @@ type ImportImageInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// Specifies whether the destination AMI of the imported image should be encrypted.
-	// The default KMS key for EBS is used unless you specify a non-default KMS key
-	// using KmsKeyId. For more information, see Amazon EBS Encryption
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
-	// Amazon Elastic Compute Cloud User Guide.
+	// Specifies whether the destination AMI of the imported image should be
+	// encrypted. The default KMS key for EBS is used unless you specify a non-default
+	// KMS key using KmsKeyId . For more information, see Amazon EBS Encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
 	Encrypted *bool
 
 	// The target hypervisor platform. Valid values: xen
@@ -75,32 +77,24 @@ type ImportImageInput struct {
 	// this parameter is not specified, the default KMS key for EBS is used. If a
 	// KmsKeyId is specified, the Encrypted flag must also be set. The KMS key
 	// identifier may be provided in any of the following formats:
-	//
-	// * Key ID
-	//
-	// * Key
-	// alias. The alias ARN contains the arn:aws:kms namespace, followed by the Region
-	// of the key, the Amazon Web Services account ID of the key owner, the alias
-	// namespace, and then the key alias. For example,
-	// arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
-	//
-	// * ARN using key ID. The
-	// ID ARN contains the arn:aws:kms namespace, followed by the Region of the key,
-	// the Amazon Web Services account ID of the key owner, the key namespace, and then
-	// the key ID. For example,
-	// arn:aws:kms:us-east-1:012345678910:key/abcd1234-a123-456a-a12b-a123b4cd56ef.
-	//
-	// *
-	// ARN using key alias. The alias ARN contains the arn:aws:kms namespace, followed
-	// by the Region of the key, the Amazon Web Services account ID of the key owner,
-	// the alias namespace, and then the key alias. For example,
-	// arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
-	//
-	// Amazon Web Services
-	// parses KmsKeyId asynchronously, meaning that the action you call may appear to
-	// complete even though you provided an invalid identifier. This action will
-	// eventually report failure. The specified KMS key must exist in the Region that
-	// the AMI is being copied to. Amazon EBS does not support asymmetric KMS keys.
+	//   - Key ID
+	//   - Key alias. The alias ARN contains the arn:aws:kms namespace, followed by the
+	//   Region of the key, the Amazon Web Services account ID of the key owner, the
+	//   alias namespace, and then the key alias. For example,
+	//   arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
+	//   - ARN using key ID. The ID ARN contains the arn:aws:kms namespace, followed by
+	//   the Region of the key, the Amazon Web Services account ID of the key owner, the
+	//   key namespace, and then the key ID. For example,
+	//   arn:aws:kms:us-east-1:012345678910:key/abcd1234-a123-456a-a12b-a123b4cd56ef.
+	//   - ARN using key alias. The alias ARN contains the arn:aws:kms namespace,
+	//   followed by the Region of the key, the Amazon Web Services account ID of the key
+	//   owner, the alias namespace, and then the key alias. For example,
+	//   arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
+	// Amazon Web Services parses KmsKeyId asynchronously, meaning that the action you
+	// call may appear to complete even though you provided an invalid identifier. This
+	// action will eventually report failure. The specified KMS key must exist in the
+	// Region that the AMI is being copied to. Amazon EBS does not support asymmetric
+	// KMS keys.
 	KmsKeyId *string
 
 	// The ARNs of the license configurations.
@@ -111,10 +105,9 @@ type ImportImageInput struct {
 	// license or BYOL to retain the source-system license. Leaving this parameter
 	// undefined is the same as choosing AWS when importing a Windows Server operating
 	// system, and the same as choosing BYOL when importing a Windows client operating
-	// system (such as Windows 10) or a Linux operating system. To use BYOL, you must
+	// system (such as Windows 10) or a Linux operating system. To use BYOL , you must
 	// have existing licenses with rights to use these licenses in a third party cloud,
-	// such as Amazon Web Services. For more information, see Prerequisites
-	// (https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html#prerequisites-image)
+	// such as Amazon Web Services. For more information, see Prerequisites (https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html#prerequisites-image)
 	// in the VM Import/Export User Guide.
 	LicenseType *string
 
@@ -127,8 +120,7 @@ type ImportImageInput struct {
 	// The tags to apply to the import image task during creation.
 	TagSpecifications []types.TagSpecification
 
-	// The usage operation value. For more information, see Licensing options
-	// (https://docs.aws.amazon.com/vm-import/latest/userguide/vmie_prereqs.html#prerequisites)
+	// The usage operation value. For more information, see Licensing options (https://docs.aws.amazon.com/vm-import/latest/userguide/vmie_prereqs.html#prerequisites)
 	// in the VM Import/Export User Guide.
 	UsageOperation *string
 
@@ -238,6 +230,9 @@ func (c *Client) addOperationImportImageMiddlewares(stack *middleware.Stack, opt
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opImportImage(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

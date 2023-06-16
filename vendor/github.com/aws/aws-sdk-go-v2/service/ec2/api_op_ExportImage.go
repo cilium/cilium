@@ -13,9 +13,8 @@ import (
 )
 
 // Exports an Amazon Machine Image (AMI) to a VM file. For more information, see
-// Exporting a VM directly from an Amazon Machine Image (AMI)
-// (https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport_image.html) in
-// the VM Import/Export User Guide.
+// Exporting a VM directly from an Amazon Machine Image (AMI) (https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport_image.html)
+// in the VM Import/Export User Guide.
 func (c *Client) ExportImage(ctx context.Context, params *ExportImageInput, optFns ...func(*Options)) (*ExportImageOutput, error) {
 	if params == nil {
 		params = &ExportImageInput{}
@@ -57,13 +56,13 @@ type ExportImageInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The name of the role that grants VM Import/Export permission to export images to
-	// your Amazon S3 bucket. If this parameter is not specified, the default role is
-	// named 'vmimport'.
+	// The name of the role that grants VM Import/Export permission to export images
+	// to your Amazon S3 bucket. If this parameter is not specified, the default role
+	// is named 'vmimport'.
 	RoleName *string
 
 	// The tags to apply to the export image task during creation.
@@ -89,15 +88,15 @@ type ExportImageOutput struct {
 	// The percent complete of the export image task.
 	Progress *string
 
-	// The name of the role that grants VM Import/Export permission to export images to
-	// your Amazon S3 bucket.
+	// The name of the role that grants VM Import/Export permission to export images
+	// to your Amazon S3 bucket.
 	RoleName *string
 
 	// Information about the destination Amazon S3 bucket.
 	S3ExportLocation *types.ExportTaskS3Location
 
-	// The status of the export image task. The possible values are active, completed,
-	// deleting, and deleted.
+	// The status of the export image task. The possible values are active , completed
+	// , deleting , and deleted .
 	Status *string
 
 	// The status message for the export image task.
@@ -164,6 +163,9 @@ func (c *Client) addOperationExportImageMiddlewares(stack *middleware.Stack, opt
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opExportImage(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -8,19 +8,20 @@ import (
 	"github.com/cilium/ebpf/internal/unix"
 )
 
+// A sigset containing only SIGPROF.
 var profSet unix.Sigset_t
 
 func init() {
-	if err := sigsetAdd(&profSet, unix.SIGPROF); err != nil {
-		panic(fmt.Errorf("creating signal set: %w", err))
-	}
+	// See sigsetAdd for details on the implementation. Open coded here so
+	// that the compiler will check the constant calculations for us.
+	profSet.Val[sigprofBit/wordBits] |= 1 << (sigprofBit % wordBits)
 }
 
 // maskProfilerSignal locks the calling goroutine to its underlying OS thread
 // and adds SIGPROF to the thread's signal mask. This prevents pprof from
 // interrupting expensive syscalls like e.g. BPF_PROG_LOAD.
 //
-// The caller must defer sys.UnmaskProfilerSignal() to reverse the operation.
+// The caller must defer unmaskProfilerSignal() to reverse the operation.
 func maskProfilerSignal() {
 	runtime.LockOSThread()
 
@@ -43,11 +44,10 @@ func unmaskProfilerSignal() {
 }
 
 const (
-	wordBytes = int(unsafe.Sizeof(unix.Sigset_t{}.Val[0]))
-	wordBits  = wordBytes * 8
-
-	setBytes = int(unsafe.Sizeof(unix.Sigset_t{}))
-	setBits  = setBytes * 8
+	// Signal is the nth bit in the bitfield.
+	sigprofBit = int(unix.SIGPROF - 1)
+	// The number of bits in one Sigset_t word.
+	wordBits = int(unsafe.Sizeof(unix.Sigset_t{}.Val[0])) * 8
 )
 
 // sigsetAdd adds signal to set.
@@ -58,9 +58,6 @@ const (
 func sigsetAdd(set *unix.Sigset_t, signal unix.Signal) error {
 	if signal < 1 {
 		return fmt.Errorf("signal %d must be larger than 0", signal)
-	}
-	if int(signal) > setBits {
-		return fmt.Errorf("signal %d does not fit within unix.Sigset_t", signal)
 	}
 
 	// For amd64, runtime.sigaddset() performs the following operation:
@@ -74,6 +71,10 @@ func sigsetAdd(set *unix.Sigset_t, signal unix.Signal) error {
 	bit := int(signal - 1)
 	// Word within the sigset the bit needs to be written to.
 	word := bit / wordBits
+
+	if word >= len(set.Val) {
+		return fmt.Errorf("signal %d does not fit within unix.Sigset_t", signal)
+	}
 
 	// Write the signal bit into its corresponding word at the corrected offset.
 	set.Val[word] |= 1 << (bit % wordBits)

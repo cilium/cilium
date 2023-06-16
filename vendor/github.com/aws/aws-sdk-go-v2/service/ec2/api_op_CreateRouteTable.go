@@ -11,11 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a route table for the specified VPC. After you create a route table, you
-// can add routes and associate the table with a subnet. For more information, see
-// Route tables
-// (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html) in the
-// Amazon Virtual Private Cloud User Guide.
+// Creates a route table for the specified VPC. After you create a route table,
+// you can add routes and associate the table with a subnet. For more information,
+// see Route tables (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html)
+// in the Amazon Virtual Private Cloud User Guide.
 func (c *Client) CreateRouteTable(ctx context.Context, params *CreateRouteTableInput, optFns ...func(*Options)) (*CreateRouteTableOutput, error) {
 	if params == nil {
 		params = &CreateRouteTableInput{}
@@ -40,8 +39,8 @@ type CreateRouteTableInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The tags to assign to the route table.
@@ -110,6 +109,9 @@ func (c *Client) addOperationCreateRouteTableMiddlewares(stack *middleware.Stack
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateRouteTable(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

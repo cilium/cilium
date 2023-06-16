@@ -41,7 +41,8 @@ type CreateClientVpnEndpointInput struct {
 	// addresses. The address range cannot overlap with the local CIDR of the VPC in
 	// which the associated subnet is located, or the routes that you add manually. The
 	// address range cannot be changed after the Client VPN endpoint has been created.
-	// The CIDR block should be /22 or greater.
+	// Client CIDR range must have a size of at least /22 and must not be greater than
+	// /12.
 	//
 	// This member is required.
 	ClientCidrBlock *string
@@ -49,23 +50,16 @@ type CreateClientVpnEndpointInput struct {
 	// Information about the client connection logging options. If you enable client
 	// connection logging, data about client connections is sent to a Cloudwatch Logs
 	// log stream. The following information is logged:
-	//
-	// * Client connection
-	// requests
-	//
-	// * Client connection results (successful and unsuccessful)
-	//
-	// * Reasons
-	// for unsuccessful client connection requests
-	//
-	// * Client connection termination
-	// time
+	//   - Client connection requests
+	//   - Client connection results (successful and unsuccessful)
+	//   - Reasons for unsuccessful client connection requests
+	//   - Client connection termination time
 	//
 	// This member is required.
 	ConnectionLogOptions *types.ConnectionLogOptions
 
 	// The ARN of the server certificate. For more information, see the Certificate
-	// Manager User Guide (https://docs.aws.amazon.com/acm/latest/userguide/).
+	// Manager User Guide (https://docs.aws.amazon.com/acm/latest/userguide/) .
 	//
 	// This member is required.
 	ServerCertificateArn *string
@@ -73,13 +67,13 @@ type CreateClientVpnEndpointInput struct {
 	// The options for managing connection authorization for new client connections.
 	ClientConnectOptions *types.ClientConnectOptions
 
-	// Options for enabling a customizable text banner that will be displayed on Amazon
-	// Web Services provided clients when a VPN session is established.
+	// Options for enabling a customizable text banner that will be displayed on
+	// Amazon Web Services provided clients when a VPN session is established.
 	ClientLoginBannerOptions *types.ClientLoginBannerOptions
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// A brief description of the Client VPN endpoint.
@@ -92,8 +86,8 @@ type CreateClientVpnEndpointInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The IDs of one or more security groups to apply to the target network. You must
@@ -110,8 +104,7 @@ type CreateClientVpnEndpointInput struct {
 
 	// Indicates whether split-tunnel is enabled on the Client VPN endpoint. By
 	// default, split-tunnel on a VPN endpoint is disabled. For information about
-	// split-tunnel VPN endpoints, see Split-tunnel Client VPN endpoint
-	// (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html)
+	// split-tunnel VPN endpoints, see Split-tunnel Client VPN endpoint (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html)
 	// in the Client VPN Administrator Guide.
 	SplitTunnel *bool
 
@@ -202,6 +195,9 @@ func (c *Client) addOperationCreateClientVpnEndpointMiddlewares(stack *middlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateClientVpnEndpoint(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

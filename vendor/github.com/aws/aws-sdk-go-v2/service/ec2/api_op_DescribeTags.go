@@ -13,9 +13,8 @@ import (
 )
 
 // Describes the specified tags for your EC2 resources. For more information about
-// tags, see Tag your Amazon EC2 resources
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// tags, see Tag your Amazon EC2 resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeTags(ctx context.Context, params *DescribeTagsInput, optFns ...func(*Options)) (*DescribeTagsOutput, error) {
 	if params == nil {
 		params = &DescribeTagsInput{}
@@ -35,38 +34,34 @@ type DescribeTagsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The filters.
-	//
-	// * key - The tag key.
-	//
-	// * resource-id - The ID of the resource.
-	//
-	// *
-	// resource-type - The resource type (customer-gateway | dedicated-host |
-	// dhcp-options | elastic-ip | fleet | fpga-image | host-reservation | image |
-	// instance | internet-gateway | key-pair | launch-template | natgateway |
-	// network-acl | network-interface | placement-group | reserved-instances |
-	// route-table | security-group | snapshot | spot-instances-request | subnet |
-	// volume | vpc | vpc-endpoint | vpc-endpoint-service | vpc-peering-connection |
-	// vpn-connection | vpn-gateway).
-	//
-	// * tag: - The key/value combination of the tag.
-	// For example, specify "tag:Owner" for the filter name and "TeamA" for the filter
-	// value to find resources with the tag "Owner=TeamA".
-	//
-	// * value - The tag value.
+	//   - key - The tag key.
+	//   - resource-id - The ID of the resource.
+	//   - resource-type - The resource type ( customer-gateway | dedicated-host |
+	//   dhcp-options | elastic-ip | fleet | fpga-image | host-reservation | image |
+	//   instance | internet-gateway | key-pair | launch-template | natgateway |
+	//   network-acl | network-interface | placement-group | reserved-instances |
+	//   route-table | security-group | snapshot | spot-instances-request | subnet |
+	//   volume | vpc | vpc-endpoint | vpc-endpoint-service | vpc-peering-connection |
+	//   vpn-connection | vpn-gateway ).
+	//   - tag : - The key/value combination of the tag. For example, specify
+	//   "tag:Owner" for the filter name and "TeamA" for the filter value to find
+	//   resources with the tag "Owner=TeamA".
+	//   - value - The tag value.
 	Filters []types.Filter
 
-	// The maximum number of results to return in a single call. This value can be
-	// between 5 and 1000. To retrieve the remaining results, make another call with
-	// the returned NextToken value.
+	// The maximum number of items to return for this request. This value can be
+	// between 5 and 1000. To get the next page of items, make another request with the
+	// token returned in the output. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	MaxResults *int32
 
-	// The token to retrieve the next page of results.
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned by the previous request.
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -74,8 +69,8 @@ type DescribeTagsInput struct {
 
 type DescribeTagsOutput struct {
 
-	// The token to use to retrieve the next page of results. This value is null when
-	// there are no more results to return.
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// The tags.
@@ -135,6 +130,9 @@ func (c *Client) addOperationDescribeTagsMiddlewares(stack *middleware.Stack, op
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTags(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -156,9 +154,10 @@ var _ DescribeTagsAPIClient = (*Client)(nil)
 
 // DescribeTagsPaginatorOptions is the paginator options for DescribeTags
 type DescribeTagsPaginatorOptions struct {
-	// The maximum number of results to return in a single call. This value can be
-	// between 5 and 1000. To retrieve the remaining results, make another call with
-	// the returned NextToken value.
+	// The maximum number of items to return for this request. This value can be
+	// between 5 and 1000. To get the next page of items, make another request with the
+	// token returned in the output. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

@@ -12,9 +12,8 @@ import (
 )
 
 // Delete the scope for an IPAM. You cannot delete the default scopes. For more
-// information, see Delete a scope
-// (https://docs.aws.amazon.com/vpc/latest/ipam/delete-scope-ipam.html) in the
-// Amazon VPC IPAM User Guide.
+// information, see Delete a scope (https://docs.aws.amazon.com/vpc/latest/ipam/delete-scope-ipam.html)
+// in the Amazon VPC IPAM User Guide.
 func (c *Client) DeleteIpamScope(ctx context.Context, params *DeleteIpamScopeInput, optFns ...func(*Options)) (*DeleteIpamScopeOutput, error) {
 	if params == nil {
 		params = &DeleteIpamScopeInput{}
@@ -39,8 +38,8 @@ type DeleteIpamScopeInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -106,6 +105,9 @@ func (c *Client) addOperationDeleteIpamScopeMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteIpamScope(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

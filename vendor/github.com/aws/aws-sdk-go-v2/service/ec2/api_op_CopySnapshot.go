@@ -13,10 +13,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Copies a point-in-time snapshot of an EBS volume and stores it in Amazon S3. You
-// can copy a snapshot within the same Region, from one Region to another, or from
-// a Region to an Outpost. You can't copy a snapshot from an Outpost to a Region,
-// from one Outpost to another, or within the same Outpost. You can use the
+// Copies a point-in-time snapshot of an EBS volume and stores it in Amazon S3.
+// You can copy a snapshot within the same Region, from one Region to another, or
+// from a Region to an Outpost. You can't copy a snapshot from an Outpost to a
+// Region, from one Outpost to another, or within the same Outpost. You can use the
 // snapshot to create EBS volumes or Amazon Machine Images (AMIs). When copying
 // snapshots to a Region, copies of encrypted EBS snapshots remain encrypted.
 // Copies of unencrypted snapshots remain unencrypted, unless you enable encryption
@@ -27,13 +27,11 @@ import (
 // snapshot. Snapshots copied to an Outpost are encrypted by default using the
 // default encryption key for the Region, or a different key that you specify in
 // the request using KmsKeyId. Outposts do not support unencrypted snapshots. For
-// more information,  Amazon EBS local snapshots on Outposts
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#ami)
+// more information, Amazon EBS local snapshots on Outposts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#ami)
 // in the Amazon Elastic Compute Cloud User Guide. Snapshots created by copying
 // another snapshot have an arbitrary volume ID that should not be used for any
-// purpose. For more information, see Copy an Amazon EBS snapshot
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-copy-snapshot.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// purpose. For more information, see Copy an Amazon EBS snapshot (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-copy-snapshot.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CopySnapshot(ctx context.Context, params *CopySnapshotInput, optFns ...func(*Options)) (*CopySnapshotOutput, error) {
 	if params == nil {
 		params = &CopySnapshotInput{}
@@ -68,62 +66,49 @@ type CopySnapshotInput struct {
 	// Only specify this parameter when copying a snapshot from an Amazon Web Services
 	// Region to an Outpost. The snapshot must be in the Region for the destination
 	// Outpost. You cannot copy a snapshot from an Outpost to a Region, from one
-	// Outpost to another, or within the same Outpost. For more information, see  Copy
-	// snapshots from an Amazon Web Services Region to an Outpost
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#copy-snapshots)
+	// Outpost to another, or within the same Outpost. For more information, see Copy
+	// snapshots from an Amazon Web Services Region to an Outpost (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html#copy-snapshots)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	DestinationOutpostArn *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// To encrypt a copy of an unencrypted snapshot if encryption by default is not
 	// enabled, enable encryption using this parameter. Otherwise, omit this parameter.
 	// Encrypted snapshots are encrypted, even if you omit this parameter and
 	// encryption by default is not enabled. You cannot set this parameter to false.
-	// For more information, see Amazon EBS encryption
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
-	// Amazon Elastic Compute Cloud User Guide.
+	// For more information, see Amazon EBS encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
 	Encrypted *bool
 
-	// The identifier of the Key Management Service (KMS) KMS key to use for Amazon EBS
-	// encryption. If this parameter is not specified, your KMS key for Amazon EBS is
-	// used. If KmsKeyId is specified, the encrypted state must be true. You can
+	// The identifier of the Key Management Service (KMS) KMS key to use for Amazon
+	// EBS encryption. If this parameter is not specified, your KMS key for Amazon EBS
+	// is used. If KmsKeyId is specified, the encrypted state must be true . You can
 	// specify the KMS key using any of the following:
-	//
-	// * Key ID. For example,
-	// 1234abcd-12ab-34cd-56ef-1234567890ab.
-	//
-	// * Key alias. For example,
-	// alias/ExampleAlias.
-	//
-	// * Key ARN. For example,
-	// arn:aws:kms:us-east-1:012345678910:key/1234abcd-12ab-34cd-56ef-1234567890ab.
-	//
-	// *
-	// Alias ARN. For example,
-	// arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
-	//
-	// Amazon Web Services
-	// authenticates the KMS key asynchronously. Therefore, if you specify an ID,
-	// alias, or ARN that is not valid, the action can appear to complete, but
-	// eventually fails.
+	//   - Key ID. For example, 1234abcd-12ab-34cd-56ef-1234567890ab.
+	//   - Key alias. For example, alias/ExampleAlias.
+	//   - Key ARN. For example,
+	//   arn:aws:kms:us-east-1:012345678910:key/1234abcd-12ab-34cd-56ef-1234567890ab.
+	//   - Alias ARN. For example,
+	//   arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
+	// Amazon Web Services authenticates the KMS key asynchronously. Therefore, if you
+	// specify an ID, alias, or ARN that is not valid, the action can appear to
+	// complete, but eventually fails.
 	KmsKeyId *string
 
 	// When you copy an encrypted source snapshot using the Amazon EC2 Query API, you
 	// must supply a pre-signed URL. This parameter is optional for unencrypted
-	// snapshots. For more information, see Query requests
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html).
-	// The PresignedUrl should use the snapshot source endpoint, the CopySnapshot
-	// action, and include the SourceRegion, SourceSnapshotId, and DestinationRegion
+	// snapshots. For more information, see Query requests (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html)
+	// . The PresignedUrl should use the snapshot source endpoint, the CopySnapshot
+	// action, and include the SourceRegion , SourceSnapshotId , and DestinationRegion
 	// parameters. The PresignedUrl must be signed using Amazon Web Services Signature
 	// Version 4. Because EBS snapshots are stored in Amazon S3, the signing algorithm
 	// for this parameter uses the same logic that is described in Authenticating
-	// Requests: Using Query Parameters (Amazon Web Services Signature Version 4)
-	// (https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html)
+	// Requests: Using Query Parameters (Amazon Web Services Signature Version 4) (https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html)
 	// in the Amazon Simple Storage Service API Reference. An invalid or improperly
 	// signed PresignedUrl will cause the copy operation to fail asynchronously, and
 	// the snapshot will move to an error state.
@@ -132,8 +117,8 @@ type CopySnapshotInput struct {
 	// The tags to apply to the new snapshot.
 	TagSpecifications []types.TagSpecification
 
-	// Used by the SDK's PresignURL autofill customization to specify the region the of
-	// the client's request.
+	// Used by the SDK's PresignURL autofill customization to specify the region the
+	// of the client's request.
 	destinationRegion *string
 
 	noSmithyDocumentSerde
@@ -205,6 +190,9 @@ func (c *Client) addOperationCopySnapshotMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCopySnapshot(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

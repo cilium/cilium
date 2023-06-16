@@ -13,15 +13,14 @@ import (
 // Deregisters the specified AMI. After you deregister an AMI, it can't be used to
 // launch new instances. If you deregister an AMI that matches a Recycle Bin
 // retention rule, the AMI is retained in the Recycle Bin for the specified
-// retention period. For more information, see Recycle Bin
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/recycle-bin.html) in the
-// Amazon Elastic Compute Cloud User Guide. When you deregister an AMI, it doesn't
-// affect any instances that you've already launched from the AMI. You'll continue
-// to incur usage costs for those instances until you terminate them. When you
-// deregister an Amazon EBS-backed AMI, it doesn't affect the snapshot that was
-// created for the root volume of the instance during the AMI creation process.
-// When you deregister an instance store-backed AMI, it doesn't affect the files
-// that you uploaded to Amazon S3 when you created the AMI.
+// retention period. For more information, see Recycle Bin (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/recycle-bin.html)
+// in the Amazon EC2 User Guide. When you deregister an AMI, it doesn't affect any
+// instances that you've already launched from the AMI. You'll continue to incur
+// usage costs for those instances until you terminate them. When you deregister an
+// Amazon EBS-backed AMI, it doesn't affect the snapshot that was created for the
+// root volume of the instance during the AMI creation process. When you deregister
+// an instance store-backed AMI, it doesn't affect the files that you uploaded to
+// Amazon S3 when you created the AMI.
 func (c *Client) DeregisterImage(ctx context.Context, params *DeregisterImageInput, optFns ...func(*Options)) (*DeregisterImageOutput, error) {
 	if params == nil {
 		params = &DeregisterImageInput{}
@@ -47,8 +46,8 @@ type DeregisterImageInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -110,6 +109,9 @@ func (c *Client) addOperationDeregisterImageMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeregisterImage(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

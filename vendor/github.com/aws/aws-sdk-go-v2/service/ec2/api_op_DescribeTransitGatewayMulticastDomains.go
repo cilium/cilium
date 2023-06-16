@@ -32,21 +32,16 @@ type DescribeTransitGatewayMulticastDomainsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters. The possible values are:
-	//
-	// * state - The state of the
-	// transit gateway multicast domain. Valid values are pending | available |
-	// deleting | deleted.
-	//
-	// * transit-gateway-id - The ID of the transit gateway.
-	//
-	// *
-	// transit-gateway-multicast-domain-id - The ID of the transit gateway multicast
-	// domain.
+	//   - state - The state of the transit gateway multicast domain. Valid values are
+	//   pending | available | deleting | deleted .
+	//   - transit-gateway-id - The ID of the transit gateway.
+	//   - transit-gateway-multicast-domain-id - The ID of the transit gateway
+	//   multicast domain.
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the
@@ -123,6 +118,9 @@ func (c *Client) addOperationDescribeTransitGatewayMulticastDomainsMiddlewares(s
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTransitGatewayMulticastDomains(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

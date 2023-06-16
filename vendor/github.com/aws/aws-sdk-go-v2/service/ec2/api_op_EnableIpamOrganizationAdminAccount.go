@@ -12,9 +12,8 @@ import (
 
 // Enable an Organizations member account as the IPAM admin account. You cannot
 // select the Organizations management account as the IPAM admin account. For more
-// information, see Enable integration with Organizations
-// (https://docs.aws.amazon.com/vpc/latest/ipam/enable-integ-ipam.html) in the
-// Amazon VPC IPAM User Guide.
+// information, see Enable integration with Organizations (https://docs.aws.amazon.com/vpc/latest/ipam/enable-integ-ipam.html)
+// in the Amazon VPC IPAM User Guide.
 func (c *Client) EnableIpamOrganizationAdminAccount(ctx context.Context, params *EnableIpamOrganizationAdminAccountInput, optFns ...func(*Options)) (*EnableIpamOrganizationAdminAccountOutput, error) {
 	if params == nil {
 		params = &EnableIpamOrganizationAdminAccountInput{}
@@ -39,8 +38,8 @@ type EnableIpamOrganizationAdminAccountInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -106,6 +105,9 @@ func (c *Client) addOperationEnableIpamOrganizationAdminAccountMiddlewares(stack
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opEnableIpamOrganizationAdminAccount(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -12,23 +12,18 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Returns a list of instance types with the specified instance attributes. You can
-// use the response to preview the instance types without launching instances. Note
-// that the response does not consider capacity. When you specify multiple
+// Returns a list of instance types with the specified instance attributes. You
+// can use the response to preview the instance types without launching instances.
+// Note that the response does not consider capacity. When you specify multiple
 // parameters, you get instance types that satisfy all of the specified parameters.
 // If you specify multiple values for a parameter, you get instance types that
 // satisfy any of the specified values. For more information, see Preview instance
-// types with specified attributes
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html#spotfleet-get-instance-types-from-instance-requirements),
-// Attribute-based instance type selection for EC2 Fleet
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html),
-// Attribute-based instance type selection for Spot Fleet
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html),
-// and Spot placement score
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html)
+// types with specified attributes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html#spotfleet-get-instance-types-from-instance-requirements)
+// , Attribute-based instance type selection for EC2 Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html)
+// , Attribute-based instance type selection for Spot Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html)
+// , and Spot placement score (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html)
 // in the Amazon EC2 User Guide, and Creating an Auto Scaling group using
-// attribute-based instance type selection
-// (https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-asg-instance-type-requirements.html)
+// attribute-based instance type selection (https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-asg-instance-type-requirements.html)
 // in the Amazon EC2 Auto Scaling User Guide.
 func (c *Client) GetInstanceTypesFromInstanceRequirements(ctx context.Context, params *GetInstanceTypesFromInstanceRequirementsInput, optFns ...func(*Options)) (*GetInstanceTypesFromInstanceRequirementsOutput, error) {
 	if params == nil {
@@ -64,16 +59,18 @@ type GetInstanceTypesFromInstanceRequirementsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The maximum number of results to return in a single call. Specify a value
-	// between 1 and  1000. The default value is 1000. To retrieve the remaining
-	// results, make another call with  the returned NextToken value.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	MaxResults *int32
 
-	// The token for the next set of results.
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned by the previous request.
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -84,7 +81,8 @@ type GetInstanceTypesFromInstanceRequirementsOutput struct {
 	// The instance types with the specified instance attributes.
 	InstanceTypes []types.InstanceTypeInfoFromInstanceRequirements
 
-	// The token for the next set of results.
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// Metadata pertaining to the operation's result.
@@ -144,6 +142,9 @@ func (c *Client) addOperationGetInstanceTypesFromInstanceRequirementsMiddlewares
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetInstanceTypesFromInstanceRequirements(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -167,9 +168,10 @@ var _ GetInstanceTypesFromInstanceRequirementsAPIClient = (*Client)(nil)
 // GetInstanceTypesFromInstanceRequirementsPaginatorOptions is the paginator
 // options for GetInstanceTypesFromInstanceRequirements
 type GetInstanceTypesFromInstanceRequirementsPaginatorOptions struct {
-	// The maximum number of results to return in a single call. Specify a value
-	// between 1 and  1000. The default value is 1000. To retrieve the remaining
-	// results, make another call with  the returned NextToken value.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

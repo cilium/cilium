@@ -14,8 +14,7 @@ import (
 )
 
 // Creates a Capacity Reservation Fleet. For more information, see Create a
-// Capacity Reservation Fleet
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/work-with-cr-fleets.html#create-crfleet)
+// Capacity Reservation Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/work-with-cr-fleets.html#create-crfleet)
 // in the Amazon EC2 User Guide.
 func (c *Client) CreateCapacityReservationFleet(ctx context.Context, params *CreateCapacityReservationFleetInput, optFns ...func(*Options)) (*CreateCapacityReservationFleetOutput, error) {
 	if params == nil {
@@ -43,8 +42,7 @@ type CreateCapacityReservationFleetInput struct {
 	// Fleet. This value, together with the instance type weights that you assign to
 	// each instance type used by the Fleet determine the number of instances for which
 	// the Fleet reserves capacity. Both values are based on units that make sense for
-	// your workload. For more information, see  Total target capacity
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/crfleet-concepts.html#target-capacity)
+	// your workload. For more information, see Total target capacity (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/crfleet-concepts.html#target-capacity)
 	// in the Amazon EC2 User Guide.
 	//
 	// This member is required.
@@ -52,28 +50,27 @@ type CreateCapacityReservationFleetInput struct {
 
 	// The strategy used by the Capacity Reservation Fleet to determine which of the
 	// specified instance types to use. Currently, only the prioritized allocation
-	// strategy is supported. For more information, see  Allocation strategy
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/crfleet-concepts.html#allocation-strategy)
+	// strategy is supported. For more information, see Allocation strategy (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/crfleet-concepts.html#allocation-strategy)
 	// in the Amazon EC2 User Guide. Valid values: prioritized
 	AllocationStrategy *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see Ensure Idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// the request. For more information, see Ensure Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The date and time at which the Capacity Reservation Fleet expires. When the
 	// Capacity Reservation Fleet expires, its state changes to expired and all of the
 	// Capacity Reservations in the Fleet expire. The Capacity Reservation Fleet
 	// expires within an hour after the specified time. For example, if you specify
-	// 5/31/2019, 13:30:55, the Capacity Reservation Fleet is guaranteed to expire
-	// between 13:30:55 and 14:30:55 on 5/31/2019.
+	// 5/31/2019 , 13:30:55 , the Capacity Reservation Fleet is guaranteed to expire
+	// between 13:30:55 and 14:30:55 on 5/31/2019 .
 	EndDate *time.Time
 
 	// Indicates the type of instance launches that the Capacity Reservation Fleet
@@ -85,21 +82,17 @@ type CreateCapacityReservationFleetInput struct {
 	// Fleet to use its reserved capacity.
 	InstanceMatchCriteria types.FleetInstanceMatchCriteria
 
-	// The tags to assign to the Capacity Reservation Fleet. The tags are automatically
-	// assigned to the Capacity Reservations in the Fleet.
+	// The tags to assign to the Capacity Reservation Fleet. The tags are
+	// automatically assigned to the Capacity Reservations in the Fleet.
 	TagSpecifications []types.TagSpecification
 
 	// Indicates the tenancy of the Capacity Reservation Fleet. All Capacity
 	// Reservations in the Fleet inherit this tenancy. The Capacity Reservation Fleet
 	// can have one of the following tenancy settings:
-	//
-	// * default - The Capacity
-	// Reservation Fleet is created on hardware that is shared with other Amazon Web
-	// Services accounts.
-	//
-	// * dedicated - The Capacity Reservations are created on
-	// single-tenant hardware that is dedicated to a single Amazon Web Services
-	// account.
+	//   - default - The Capacity Reservation Fleet is created on hardware that is
+	//   shared with other Amazon Web Services accounts.
+	//   - dedicated - The Capacity Reservations are created on single-tenant hardware
+	//   that is dedicated to a single Amazon Web Services account.
 	Tenancy types.FleetCapacityReservationTenancy
 
 	noSmithyDocumentSerde
@@ -200,6 +193,9 @@ func (c *Client) addOperationCreateCapacityReservationFleetMiddlewares(stack *mi
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateCapacityReservationFleet(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -12,6 +12,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// An Amazon Web Services Verified Access endpoint is where you define your
+// application along with an optional endpoint-level access policy.
 func (c *Client) CreateVerifiedAccessEndpoint(ctx context.Context, params *CreateVerifiedAccessEndpointInput, optFns ...func(*Options)) (*CreateVerifiedAccessEndpointOutput, error) {
 	if params == nil {
 		params = &CreateVerifiedAccessEndpointInput{}
@@ -29,44 +31,76 @@ func (c *Client) CreateVerifiedAccessEndpoint(ctx context.Context, params *Creat
 
 type CreateVerifiedAccessEndpointInput struct {
 
+	// The DNS name for users to reach your application.
+	//
 	// This member is required.
 	ApplicationDomain *string
 
+	// The type of attachment.
+	//
 	// This member is required.
 	AttachmentType types.VerifiedAccessEndpointAttachmentType
 
+	// The ARN of the public TLS/SSL certificate in Amazon Web Services Certificate
+	// Manager to associate with the endpoint. The CN in the certificate must match the
+	// DNS name your end users will use to reach your application.
+	//
 	// This member is required.
 	DomainCertificateArn *string
 
+	// A custom identifier that is prepended to the DNS name that is generated for the
+	// endpoint.
+	//
 	// This member is required.
 	EndpointDomainPrefix *string
 
+	// The type of Verified Access endpoint to create.
+	//
 	// This member is required.
 	EndpointType types.VerifiedAccessEndpointType
 
+	// The ID of the Verified Access group to associate the endpoint with.
+	//
 	// This member is required.
 	VerifiedAccessGroupId *string
 
+	// A unique, case-sensitive token that you provide to ensure idempotency of your
+	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
+	// A description for the Verified Access endpoint.
 	Description *string
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The load balancer details. This parameter is required if the endpoint type is
+	// load-balancer .
 	LoadBalancerOptions *types.CreateVerifiedAccessEndpointLoadBalancerOptions
 
+	// The network interface details. This parameter is required if the endpoint type
+	// is network-interface .
 	NetworkInterfaceOptions *types.CreateVerifiedAccessEndpointEniOptions
 
+	// The Verified Access policy document.
 	PolicyDocument *string
 
+	// The IDs of the security groups to associate with the Verified Access endpoint.
 	SecurityGroupIds []string
 
+	// The tags to assign to the Verified Access endpoint.
 	TagSpecifications []types.TagSpecification
 
 	noSmithyDocumentSerde
 }
 
 type CreateVerifiedAccessEndpointOutput struct {
+
+	// The ID of the Verified Access endpoint.
 	VerifiedAccessEndpoint *types.VerifiedAccessEndpoint
 
 	// Metadata pertaining to the operation's result.
@@ -127,6 +161,9 @@ func (c *Client) addOperationCreateVerifiedAccessEndpointMiddlewares(stack *midd
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVerifiedAccessEndpoint(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

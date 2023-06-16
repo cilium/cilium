@@ -12,14 +12,13 @@ import (
 )
 
 // Imports the public key from an RSA or ED25519 key pair that you created with a
-// third-party tool. Compare this with CreateKeyPair, in which Amazon Web Services
+// third-party tool. Compare this with CreateKeyPair , in which Amazon Web Services
 // creates the key pair and gives the keys to you (Amazon Web Services keeps a copy
 // of the public key). With ImportKeyPair, you create the key pair and give Amazon
 // Web Services just the public key. The private key is never transferred between
 // you and Amazon Web Services. For more information about key pairs, see Amazon
-// EC2 key pairs
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// EC2 key pairs (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) ImportKeyPair(ctx context.Context, params *ImportKeyPairInput, optFns ...func(*Options)) (*ImportKeyPairOutput, error) {
 	if params == nil {
 		params = &ImportKeyPairInput{}
@@ -42,16 +41,16 @@ type ImportKeyPairInput struct {
 	// This member is required.
 	KeyName *string
 
-	// The public key. For API calls, the text must be base64-encoded. For command line
-	// tools, base64 encoding is performed for you.
+	// The public key. For API calls, the text must be base64-encoded. For command
+	// line tools, base64 encoding is performed for you.
 	//
 	// This member is required.
 	PublicKeyMaterial []byte
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The tags to apply to the imported key pair.
@@ -62,12 +61,11 @@ type ImportKeyPairInput struct {
 
 type ImportKeyPairOutput struct {
 
-	// * For RSA key pairs, the key fingerprint is the MD5 public key fingerprint as
-	// specified in section 4 of RFC 4716.
-	//
-	// * For ED25519 key pairs, the key
-	// fingerprint is the base64-encoded SHA-256 digest, which is the default for
-	// OpenSSH, starting with OpenSSH 6.8 (http://www.openssh.com/txt/release-6.8).
+	//   - For RSA key pairs, the key fingerprint is the MD5 public key fingerprint as
+	//   specified in section 4 of RFC 4716.
+	//   - For ED25519 key pairs, the key fingerprint is the base64-encoded SHA-256
+	//   digest, which is the default for OpenSSH, starting with OpenSSH 6.8 (http://www.openssh.com/txt/release-6.8)
+	//   .
 	KeyFingerprint *string
 
 	// The key pair name that you provided.
@@ -134,6 +132,9 @@ func (c *Client) addOperationImportKeyPairMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opImportKeyPair(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
