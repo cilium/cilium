@@ -47,6 +47,7 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 	}
 
 	nodeID := uint16(n.nodeIDs.AllocateID())
+	log.WithField("newIP", nodeIP).WithField("nodeId", nodeID).Warning("AllocateNodeId")
 	if nodeID == uint16(idpool.NoID) {
 		log.Error("No more IDs available for nodes")
 		return nodeID

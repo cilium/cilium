@@ -1126,6 +1126,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldNodeIPAddrs         []string
 		newNodeIPAddrs         []string
 	)
+	oldName := ""
 
 	if oldNode != nil {
 		oldIP4Cidr = oldNode.IPv4AllocCIDR
@@ -1133,6 +1134,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldIP4 = oldNode.GetNodeIP(false)
 		oldIP6 = oldNode.GetNodeIP(true)
 		oldKey = oldNode.EncryptionKey
+		oldName = oldNode.Name
 
 		// Delete the old node IP addresses from nodeID map if they are dropped by the update.
 		for _, address := range oldNode.IPAddresses {
@@ -1143,6 +1145,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	for _, address := range newNode.IPAddresses {
 		newNodeIPAddrs = append(newNodeIPAddrs, address.IP.String())
 	}
+
+	log.WithField("newName", newNode.Name).WithField("newIPs", newNodeIPAddrs).WithField("oldName", oldName).WithField("oldIPs", oldNodeIPAddrs).Warning("Node Update in progress")
 
 	if n.nodeConfig.EnableIPSec && !n.nodeConfig.EncryptNode {
 		n.enableIPsec(newNode)
@@ -1237,6 +1241,13 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 		return nil
 	}
 
+	var oldIPs []string
+
+	for _, address := range oldNode.IPAddresses {
+		oldIPs = append(oldIPs, address.IP.String())
+	}
+
+	log.WithField("oldName", oldNode.Name).WithField("oldIPs", oldIPs).Warning("Node Delete in progress")
 	oldIP4 := oldNode.GetNodeIP(false)
 	oldIP6 := oldNode.GetNodeIP(true)
 
