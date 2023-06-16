@@ -326,7 +326,9 @@ func (c *controller) recordError(err error) {
 	c.consecutiveErrors++
 
 	metrics.ControllerRuns.WithLabelValues(failure).Inc()
-	metrics.ControllerGroupRuns.WithLabelValues(c.group, failure).Inc()
+	if c.group != "" {
+		metrics.ControllerGroupRuns.WithLabelValues(c.group, failure).Inc()
+	}
 	metrics.ControllerRunsDuration.WithLabelValues(failure).Observe(c.lastDuration.Seconds())
 }
 
@@ -339,6 +341,8 @@ func (c *controller) recordSuccess() {
 	c.consecutiveErrors = 0
 
 	metrics.ControllerRuns.WithLabelValues(success).Inc()
-	metrics.ControllerGroupRuns.WithLabelValues(c.group, success).Inc()
+	if c.group != "" {
+		metrics.ControllerGroupRuns.WithLabelValues(c.group, success).Inc()
+	}
 	metrics.ControllerRunsDuration.WithLabelValues(success).Observe(c.lastDuration.Seconds())
 }
