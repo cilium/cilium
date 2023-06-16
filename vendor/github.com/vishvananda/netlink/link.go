@@ -45,6 +45,8 @@ type LinkAttrs struct {
 	NetNsID        int
 	NumTxQueues    int
 	NumRxQueues    int
+	TSOMaxSegs     uint32
+	TSOMaxSize     uint32
 	GSOMaxSegs     uint32
 	GSOMaxSize     uint32
 	GROMaxSize     uint32
