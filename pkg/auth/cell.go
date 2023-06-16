@@ -52,23 +52,23 @@ var Cell = cell.Module(
 		k8s.CiliumNodeResource,
 	),
 	cell.Config(config{
-		MeshAuthEnabled:           true,
-		MeshAuthQueueSize:         1024,
-		MeshAuthExpiredGCInterval: 15 * time.Minute,
+		MeshAuthEnabled:    true,
+		MeshAuthQueueSize:  1024,
+		MeshAuthGCInterval: 15 * time.Minute,
 	}),
 	cell.Config(MutualAuthConfig{}),
 )
 
 type config struct {
-	MeshAuthEnabled           bool
-	MeshAuthQueueSize         int
-	MeshAuthExpiredGCInterval time.Duration
+	MeshAuthEnabled    bool
+	MeshAuthQueueSize  int
+	MeshAuthGCInterval time.Duration
 }
 
 func (r config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("mesh-auth-enabled", r.MeshAuthEnabled, "Enable authentication processing & garbage collection")
 	flags.Int("mesh-auth-queue-size", r.MeshAuthQueueSize, "Queue size for the auth manager")
-	flags.Duration("mesh-auth-expired-gc-interval", r.MeshAuthExpiredGCInterval, "Interval in which expired auth entries are attempted to be garbage collected")
+	flags.Duration("mesh-auth-gc-interval", r.MeshAuthGCInterval, "Interval in which auth entries are attempted to be garbage collected")
 }
 
 type authManagerParams struct {
@@ -162,9 +162,9 @@ func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, params a
 		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumNode]]("auth nodes gc", mapGC.handleCiliumNodeEvent, params.CiliumNodes))
 	}
 
-	jobGroup.Add(job.Timer("auth policies gc", mapGC.cleanupEntriesWithoutAuthPolicy, params.Config.MeshAuthExpiredGCInterval))
+	jobGroup.Add(job.Timer("auth policies gc", mapGC.cleanupEntriesWithoutAuthPolicy, params.Config.MeshAuthGCInterval))
 
-	jobGroup.Add(job.Timer("auth expiration gc", mapGC.cleanupExpiredEntries, params.Config.MeshAuthExpiredGCInterval))
+	jobGroup.Add(job.Timer("auth expiration gc", mapGC.cleanupExpiredEntries, params.Config.MeshAuthGCInterval))
 }
 
 type authHandlerResult struct {
