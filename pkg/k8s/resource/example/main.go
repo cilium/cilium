@@ -62,14 +62,14 @@ var resourcesCell = cell.Module(
 				return nil
 			}
 			lw := utils.ListerWatcherFromTyped[*corev1.PodList](c.CoreV1().Pods(""))
-			return resource.New[*corev1.Pod](lc, lw)
+			return resource.New[*corev1.Pod](lc, lw, resource.WithMetric("Pod"))
 		},
 		func(lc hive.Lifecycle, c client.Clientset) resource.Resource[*corev1.Service] {
 			if !c.IsEnabled() {
 				return nil
 			}
 			lw := utils.ListerWatcherFromTyped[*corev1.ServiceList](c.CoreV1().Services(""))
-			return resource.New[*corev1.Service](lc, lw)
+			return resource.New[*corev1.Service](lc, lw, resource.WithMetric("Service"))
 		},
 	),
 )
