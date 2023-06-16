@@ -740,7 +740,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		if err != nil {
 			return nil, err
 		}
-		calculatedPolicy.L4Policy.Ingress = newL4IngressPolicy
+		calculatedPolicy.L4Policy.Ingress.PortRules = newL4IngressPolicy
 	}
 
 	if egressEnabled {
@@ -748,7 +748,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		if err != nil {
 			return nil, err
 		}
-		calculatedPolicy.L4Policy.Egress = newL4EgressPolicy
+		calculatedPolicy.L4Policy.Egress.PortRules = newL4EgressPolicy
 	}
 
 	// Make the calculated policy ready for incremental updates
