@@ -90,10 +90,10 @@ create_file(){
   release_version="${1}"
   dst_file="${2}"
   git fetch --tags
-  echo   "+-----------------+----------------+" > "${dst_file}"
-  echo   "| Cilium          | CNP and CCNP   |" >> "${dst_file}"
-  echo   "| Version         | Schema Version |" >> "${dst_file}"
-  echo   "+-----------------+----------------+" >> "${dst_file}"
+  echo   "+--------------------+----------------+" > "${dst_file}"
+  echo   "| Cilium             | CNP and CCNP   |" >> "${dst_file}"
+  echo   "| Version            | Schema Version |" >> "${dst_file}"
+  echo   "+--------------------+----------------+" >> "${dst_file}"
   stable_branches=$(get_stable_branches)
   if [[ ${stable_branches} != *"${release_version}"* ]]; then
       stable_branches="$(filter_out_oldest ${stable_branches} ${release_version})"
@@ -104,21 +104,21 @@ create_file(){
       stable_tags=$(get_stable_tags_for_minor "${stable_branch}")
       for tag in ${rc_tags} ${stable_tags}; do
           schema_version=$(get_schema_of_tag "${tag}")
-          printf "| %-15s | %-14s |\n" ${tag} ${schema_version} >> "${dst_file}"
-          echo   "+-----------------+----------------+" >> "${dst_file}"
+          printf "| %-18s | %-14s |\n" ${tag} ${schema_version} >> "${dst_file}"
+          echo   "+--------------------+----------------+" >> "${dst_file}"
       done
       branch=$(branch_or_main "${stable_branch}")
       branch_version=$(target_version "${stable_branch}" "${branch}")
       schema_version=$(get_schema_of_branch "${branch}")
       >&2 echo "${schema_version}"
-      printf "| %-15s | %-14s |\n" ${branch_version} ${schema_version} >> "${dst_file}"
-      echo   "+-----------------+----------------+" >> "${dst_file}"
+      printf "| %-18s | %-14s |\n" ${branch_version} ${schema_version} >> "${dst_file}"
+      echo   "+--------------------+----------------+" >> "${dst_file}"
   done
 
   schema_version=$(get_schema_of_branch "main")
   >&2 echo "Checking latest branch schema version... ${schema_version}"
-  printf "| %-15s | %-14s |\n" "latest / main" ${schema_version} >> "${dst_file}"
-  echo   "+-----------------+----------------+" >> "${dst_file}"
+  printf "| %-18s | %-14s |\n" "latest / main" ${schema_version} >> "${dst_file}"
+  echo   "+--------------------+----------------+" >> "${dst_file}"
 }
 
 # From https://github.com/cloudflare/semver_bash/blob/master/semver.sh
