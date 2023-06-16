@@ -254,18 +254,7 @@ int egressgw_snat1_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_snat1")
 int egressgw_snat1_setup(struct __ctx_buff *ctx)
 {
-	struct egress_gw_policy_key in_key = {
-		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
-		.saddr   = CLIENT_IP,
-		.daddr   = EXTERNAL_SVC_IP & 0Xffffff,
-	};
-
-	struct egress_gw_policy_entry in_val = {
-		.egress_ip  = EGRESS_IP,
-		.gateway_ip = NODE_IP,
-	};
-
-	map_update_elem(&EGRESS_POLICY_MAP, &in_key, &in_val, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, NODE_IP, EGRESS_IP);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, TO_NETDEV);
@@ -334,14 +323,7 @@ int egressgw_snat2_check(struct __ctx_buff *ctx)
 {
 	int ret = egressgw_snat_check(ctx, TEST_SNAT2, false, 1, 0, CTX_ACT_OK);
 
-	struct egress_gw_policy_key in_key = {
-		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
-		.saddr   = CLIENT_IP,
-		.daddr   = EXTERNAL_SVC_IP & 0Xffffff,
-	};
-
-	/* Remove the policy to eliminate interference with other tests. */
-	map_delete_elem(&EGRESS_POLICY_MAP, &in_key);
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0Xffffff, 24);
 
 	return ret;
 }
