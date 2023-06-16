@@ -875,7 +875,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 	src_id = resolve_srcid_ipv4(ctx, ip4, src_id, &ipcache_srcid, true);
 
 	/* We need to pass the srcid from ipcache to host firewall. See
-	 * comment in ipv4_host_policy_egress() for details.
+	 * comment in ipv4_allow_snated_egress_connections() for details.
 	 */
 	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, ip4, trace, ext_err);
 }
@@ -1151,7 +1151,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 # if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4)
 			/* If we don't rely on BPF-based masquerading, we need
 			 * to pass the srcid from ipcache to host firewall. See
-			 * comment in ipv4_host_policy_egress() for details.
+			 * comment in ipv4_allow_snated_egress_connections()
+			 * for details.
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
@@ -1736,7 +1737,7 @@ from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 
 		/* The third parameter, ipcache_srcid, is only required when
 		 * the src_id is not HOST_ID. For details, see
-		 * whitelist_snated_egress_connections.
+		 * ipv4_allow_snated_egress_connections.
 		 * We only arrive here from bpf_lxc if we know the
 		 * src_id is HOST_ID. Therefore, we don't need to pass a value
 		 * for the last parameter. That avoids an ipcache lookup.

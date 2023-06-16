@@ -254,8 +254,9 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 # ifdef ENABLE_IPV4
 #  ifndef ENABLE_MASQUERADE_IPV4
 static __always_inline int
-whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-				    enum ct_status ct_ret, __s8 *ext_err)
+ipv4_allow_snated_egress_connections(struct __ctx_buff *ctx,
+				     struct ipv4_ct_tuple *tuple,
+				     enum ct_status ct_ret, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {};
 
@@ -331,8 +332,9 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 #  ifndef ENABLE_MASQUERADE_IPV4
 	if (!is_host_id)
 		/* Checked in ipv4_host_policy_egress_lookup: ipcache_srcid == HOST_ID. */
-		return whitelist_snated_egress_connections(ctx, tuple, (enum ct_status)ret,
-							   ext_err);
+		return ipv4_allow_snated_egress_connections(ctx, tuple,
+							    (enum ct_status)ret,
+							    ext_err);
 #  endif /* ENABLE_MASQUERADE_IPV4 */
 
 	/* Retrieve destination identity. */
