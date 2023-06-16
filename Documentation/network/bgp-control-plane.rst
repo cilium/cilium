@@ -46,7 +46,7 @@ instantiated and will begin listening for ``CiliumBGPPeeringPolicy``
 events.
 
 Currently, the ``BGP Control Plane`` will only work when IPAM mode is set to
-"cluster-pool", "cluster-pool-v2beta", and "kubernetes"
+"cluster-pool" or "kubernetes".
 
 CiliumBGPPeeringPolicy CRD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
