@@ -390,6 +390,14 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 	}
 
+	if sr.IPV4BigTCP != nil {
+		status := "Enabled"
+		if !sr.IPV4BigTCP.Enabled {
+			status = "Disabled"
+		}
+		fmt.Fprintf(w, "IPv4 BIG TCP:\t%s\n", status)
+	}
+
 	if sr.IPV6BigTCP != nil {
 		status := "Enabled"
 		if !sr.IPV6BigTCP.Enabled {

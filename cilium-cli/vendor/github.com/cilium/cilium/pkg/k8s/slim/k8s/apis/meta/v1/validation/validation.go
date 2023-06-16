@@ -24,6 +24,8 @@ func ValidateLabelSelector(ps *slim_metav1.LabelSelector, fldPath *field.Path) f
 	return allErrs
 }
 
+// ValidateLabelSelectorRequirement validate the requirement according to the opts and returns any validation errors.
+// opts.AllowInvalidLabelValueInSelector is only expected to be set to true when required for backwards compatibility with existing invalid data.
 func ValidateLabelSelectorRequirement(sr slim_metav1.LabelSelectorRequirement, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	switch sr.Operator {

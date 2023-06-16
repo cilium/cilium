@@ -78,6 +78,9 @@ type StatusResponse struct {
 	// Status of IP address management
 	Ipam *IPAMStatus `json:"ipam,omitempty"`
 
+	// Status of IPv4 BIG TCP
+	IPV4BigTCP *IPV4BigTCP `json:"ipv4-big-tcp,omitempty"`
+
 	// Status of IPv6 BIG TCP
 	IPV6BigTCP *IPV6BigTCP `json:"ipv6-big-tcp,omitempty"`
 
@@ -168,6 +171,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateIpam(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateIPV4BigTCP(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -511,6 +518,25 @@ func (m *StatusResponse) validateIpam(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *StatusResponse) validateIPV4BigTCP(formats strfmt.Registry) error {
+	if swag.IsZero(m.IPV4BigTCP) { // not required
+		return nil
+	}
+
+	if m.IPV4BigTCP != nil {
+		if err := m.IPV4BigTCP.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipv4-big-tcp")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipv4-big-tcp")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *StatusResponse) validateIPV6BigTCP(formats strfmt.Registry) error {
 	if swag.IsZero(m.IPV6BigTCP) { // not required
 		return nil
@@ -725,6 +751,10 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 	}
 
 	if err := m.contextValidateIpam(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateIPV4BigTCP(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -1008,6 +1038,22 @@ func (m *StatusResponse) contextValidateIpam(ctx context.Context, formats strfmt
 				return ve.ValidateName("ipam")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("ipam")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateIPV4BigTCP(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.IPV4BigTCP != nil {
+		if err := m.IPV4BigTCP.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipv4-big-tcp")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipv4-big-tcp")
 			}
 			return err
 		}
