@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 CILIUM_DOCKER_PLUGIN_IMAGE=${CILIUM_DOCKER_PLUGIN_IMAGE:-cilium/docker-plugin:latest}
 
