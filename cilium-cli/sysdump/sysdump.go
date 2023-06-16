@@ -644,7 +644,7 @@ func (c *Collector) Run() error {
 			Description: "Collecting Cilium LoadBalancer IP Pools",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPPeeringPolicies(ctx, metav1.ListOptions{})
+				v, err := c.Client.ListCiliumLoadBalancerIPPools(ctx, metav1.ListOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium LoadBalancer IP Pools: %w", err)
 				}
