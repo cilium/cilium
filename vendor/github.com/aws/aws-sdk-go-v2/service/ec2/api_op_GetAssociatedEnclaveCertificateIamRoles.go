@@ -35,12 +35,14 @@ type GetAssociatedEnclaveCertificateIamRolesInput struct {
 
 	// The ARN of the ACM certificate for which to view the associated IAM roles,
 	// encryption keys, and Amazon S3 object information.
+	//
+	// This member is required.
 	CertificateArn *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -102,7 +104,13 @@ func (c *Client) addOperationGetAssociatedEnclaveCertificateIamRolesMiddlewares(
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addOpGetAssociatedEnclaveCertificateIamRolesValidationMiddleware(stack); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetAssociatedEnclaveCertificateIamRoles(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

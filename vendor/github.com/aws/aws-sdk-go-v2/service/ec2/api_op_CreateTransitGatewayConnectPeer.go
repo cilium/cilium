@@ -14,8 +14,7 @@ import (
 // Creates a Connect peer for a specified transit gateway Connect attachment
 // between a transit gateway and an appliance. The peer address and transit gateway
 // address must be the same IP address family (IPv4 or IPv6). For more information,
-// see Connect peers
-// (https://docs.aws.amazon.com/vpc/latest/tgw/tgw-connect.html#tgw-connect-peer)
+// see Connect peers (https://docs.aws.amazon.com/vpc/latest/tgw/tgw-connect.html#tgw-connect-peer)
 // in the Transit Gateways Guide.
 func (c *Client) CreateTransitGatewayConnectPeer(ctx context.Context, params *CreateTransitGatewayConnectPeerInput, optFns ...func(*Options)) (*CreateTransitGatewayConnectPeerOutput, error) {
 	if params == nil {
@@ -34,10 +33,11 @@ func (c *Client) CreateTransitGatewayConnectPeer(ctx context.Context, params *Cr
 
 type CreateTransitGatewayConnectPeerInput struct {
 
-	// The range of inside IP addresses that are used for BGP peering. You must specify
-	// a size /29 IPv4 CIDR block from the 169.254.0.0/16 range. The first address from
-	// the range must be configured on the appliance as the BGP IP address. You can
-	// also optionally specify a size /125 IPv6 CIDR block from the fd00::/8 range.
+	// The range of inside IP addresses that are used for BGP peering. You must
+	// specify a size /29 IPv4 CIDR block from the 169.254.0.0/16 range. The first
+	// address from the range must be configured on the appliance as the BGP IP
+	// address. You can also optionally specify a size /125 IPv6 CIDR block from the
+	// fd00::/8 range.
 	//
 	// This member is required.
 	InsideCidrBlocks []string
@@ -58,8 +58,8 @@ type CreateTransitGatewayConnectPeerInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The tags to apply to the Connect peer.
@@ -134,6 +134,9 @@ func (c *Client) addOperationCreateTransitGatewayConnectPeerMiddlewares(stack *m
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateTransitGatewayConnectPeer(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

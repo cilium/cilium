@@ -13,11 +13,8 @@ import (
 
 // Creates a static route for the specified local gateway route table. You must
 // specify one of the following targets:
-//
-// * LocalGatewayVirtualInterfaceGroupId
-//
-// *
-// NetworkInterfaceId
+//   - LocalGatewayVirtualInterfaceGroupId
+//   - NetworkInterfaceId
 func (c *Client) CreateLocalGatewayRoute(ctx context.Context, params *CreateLocalGatewayRouteInput, optFns ...func(*Options)) (*CreateLocalGatewayRouteOutput, error) {
 	if params == nil {
 		params = &CreateLocalGatewayRouteInput{}
@@ -35,21 +32,24 @@ func (c *Client) CreateLocalGatewayRoute(ctx context.Context, params *CreateLoca
 
 type CreateLocalGatewayRouteInput struct {
 
-	// The CIDR range used for destination matches. Routing decisions are based on the
-	// most specific match.
-	//
-	// This member is required.
-	DestinationCidrBlock *string
-
 	// The ID of the local gateway route table.
 	//
 	// This member is required.
 	LocalGatewayRouteTableId *string
 
+	// The CIDR range used for destination matches. Routing decisions are based on the
+	// most specific match.
+	DestinationCidrBlock *string
+
+	// The ID of the prefix list. Use a prefix list in place of DestinationCidrBlock .
+	// You cannot use DestinationPrefixListId and DestinationCidrBlock in the same
+	// request.
+	DestinationPrefixListId *string
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The ID of the virtual interface group.
@@ -121,6 +121,9 @@ func (c *Client) addOperationCreateLocalGatewayRouteMiddlewares(stack *middlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateLocalGatewayRoute(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -14,12 +14,10 @@ import (
 
 // Creates a network interface in the specified subnet. The number of IP addresses
 // you can assign to a network interface varies by instance type. For more
-// information, see IP Addresses Per ENI Per Instance Type
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#AvailableIpPerENI)
+// information, see IP Addresses Per ENI Per Instance Type (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#AvailableIpPerENI)
 // in the Amazon Virtual Private Cloud User Guide. For more information about
-// network interfaces, see Elastic network interfaces
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// network interfaces, see Elastic network interfaces (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CreateNetworkInterface(ctx context.Context, params *CreateNetworkInterfaceInput, optFns ...func(*Options)) (*CreateNetworkInterfaceOutput, error) {
 	if params == nil {
 		params = &CreateNetworkInterfaceInput{}
@@ -43,8 +41,8 @@ type CreateNetworkInterfaceInput struct {
 	SubnetId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring Idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// A description for the network interface.
@@ -52,15 +50,15 @@ type CreateNetworkInterfaceInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The IDs of one or more security groups.
 	Groups []string
 
-	// The type of network interface. The default is interface. The only supported
-	// values are efa and trunk.
+	// The type of network interface. The default is interface . The only supported
+	// values are interface , efa , and trunk .
 	InterfaceType types.NetworkInterfaceCreationType
 
 	// The number of IPv4 prefixes that Amazon Web Services automatically assigns to
@@ -78,8 +76,8 @@ type CreateNetworkInterfaceInput struct {
 	// automatically selects the IPv6 addresses from the subnet range. You can't
 	// specify a count of IPv6 addresses using this parameter if you've specified one
 	// of the following: specific IPv6 addresses, specific IPv6 prefixes, or a count of
-	// IPv6 prefixes. If your subnet has the AssignIpv6AddressOnCreation attribute set,
-	// you can override that setting by specifying 0 as the IPv6 address count.
+	// IPv6 prefixes. If your subnet has the AssignIpv6AddressOnCreation attribute
+	// set, you can override that setting by specifying 0 as the IPv6 address count.
 	Ipv6AddressCount *int32
 
 	// The IPv6 addresses from the IPv6 CIDR block range of your subnet. You can't
@@ -111,13 +109,13 @@ type CreateNetworkInterfaceInput struct {
 	// prefixes, or a count of IPv4 prefixes.
 	PrivateIpAddresses []types.PrivateIpAddressSpecification
 
-	// The number of secondary private IPv4 addresses to assign to a network interface.
-	// When you specify a number of secondary IPv4 addresses, Amazon EC2 selects these
-	// IP addresses within the subnet's IPv4 CIDR range. You can't specify this option
-	// and specify more than one private IP address using privateIpAddresses. You can't
-	// specify a count of private IPv4 addresses if you've specified one of the
-	// following: specific private IPv4 addresses, specific IPv4 prefixes, or a count
-	// of IPv4 prefixes.
+	// The number of secondary private IPv4 addresses to assign to a network
+	// interface. When you specify a number of secondary IPv4 addresses, Amazon EC2
+	// selects these IP addresses within the subnet's IPv4 CIDR range. You can't
+	// specify this option and specify more than one private IP address using
+	// privateIpAddresses . You can't specify a count of private IPv4 addresses if
+	// you've specified one of the following: specific private IPv4 addresses, specific
+	// IPv4 prefixes, or a count of IPv4 prefixes.
 	SecondaryPrivateIpAddressCount *int32
 
 	// The tags to apply to the new network interface.
@@ -193,6 +191,9 @@ func (c *Client) addOperationCreateNetworkInterfaceMiddlewares(stack *middleware
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateNetworkInterface(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

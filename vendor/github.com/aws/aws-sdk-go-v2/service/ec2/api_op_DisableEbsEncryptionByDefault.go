@@ -10,13 +10,12 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Disables EBS encryption by default for your account in the current Region. After
-// you disable encryption by default, you can still create encrypted volumes by
-// enabling encryption when you create each volume. Disabling encryption by default
-// does not change the encryption status of your existing volumes. For more
-// information, see Amazon EBS encryption
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// Disables EBS encryption by default for your account in the current Region.
+// After you disable encryption by default, you can still create encrypted volumes
+// by enabling encryption when you create each volume. Disabling encryption by
+// default does not change the encryption status of your existing volumes. For more
+// information, see Amazon EBS encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DisableEbsEncryptionByDefault(ctx context.Context, params *DisableEbsEncryptionByDefaultInput, optFns ...func(*Options)) (*DisableEbsEncryptionByDefaultOutput, error) {
 	if params == nil {
 		params = &DisableEbsEncryptionByDefaultInput{}
@@ -36,8 +35,8 @@ type DisableEbsEncryptionByDefaultInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -100,6 +99,9 @@ func (c *Client) addOperationDisableEbsEncryptionByDefaultMiddlewares(stack *mid
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisableEbsEncryptionByDefault(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

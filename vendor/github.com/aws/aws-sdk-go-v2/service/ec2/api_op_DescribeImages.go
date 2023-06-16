@@ -19,10 +19,10 @@ import (
 	"time"
 )
 
-// Describes the specified images (AMIs, AKIs, and ARIs) available to you or all of
-// the images available to you. The images available to you include public images,
-// private images that you own, and private images owned by other Amazon Web
-// Services accounts for which you have explicit launch permissions. Recently
+// Describes the specified images (AMIs, AKIs, and ARIs) available to you or all
+// of the images available to you. The images available to you include public
+// images, private images that you own, and private images owned by other Amazon
+// Web Services accounts for which you have explicit launch permissions. Recently
 // deregistered images appear in the returned results for a short interval and then
 // return empty results. After all instances that reference a deregistered AMI are
 // terminated, specifying the ID of the image will eventually return an error
@@ -46,133 +46,77 @@ type DescribeImagesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// Scopes the images by users with explicit launch permissions. Specify an Amazon
 	// Web Services account ID, self (the sender of the request), or all (public
 	// AMIs).
-	//
-	// * If you specify an Amazon Web Services account ID that is not your own,
-	// only AMIs shared with that specific Amazon Web Services account ID are returned.
-	// However, AMIs that are shared with the account’s organization or organizational
-	// unit (OU) are not returned.
-	//
-	// * If you specify self or your own Amazon Web
-	// Services account ID, AMIs shared with your account are returned. In addition,
-	// AMIs that are shared with the organization or OU of which you are member are
-	// also returned.
-	//
-	// * If you specify all, all public AMIs are returned.
+	//   - If you specify an Amazon Web Services account ID that is not your own, only
+	//   AMIs shared with that specific Amazon Web Services account ID are returned.
+	//   However, AMIs that are shared with the account’s organization or organizational
+	//   unit (OU) are not returned.
+	//   - If you specify self or your own Amazon Web Services account ID, AMIs shared
+	//   with your account are returned. In addition, AMIs that are shared with the
+	//   organization or OU of which you are member are also returned.
+	//   - If you specify all , all public AMIs are returned.
 	ExecutableUsers []string
 
 	// The filters.
-	//
-	// * architecture - The image architecture (i386 | x86_64 |
-	// arm64).
-	//
-	// * block-device-mapping.delete-on-termination - A Boolean value that
-	// indicates whether the Amazon EBS volume is deleted on instance termination.
-	//
-	// *
-	// block-device-mapping.device-name - The device name specified in the block device
-	// mapping (for example, /dev/sdh or xvdh).
-	//
-	// * block-device-mapping.snapshot-id -
-	// The ID of the snapshot used for the Amazon EBS volume.
-	//
-	// *
-	// block-device-mapping.volume-size - The volume size of the Amazon EBS volume, in
-	// GiB.
-	//
-	// * block-device-mapping.volume-type - The volume type of the Amazon EBS
-	// volume (io1 | io2 | gp2 | gp3 | sc1 | st1 | standard).
-	//
-	// *
-	// block-device-mapping.encrypted - A Boolean that indicates whether the Amazon EBS
-	// volume is encrypted.
-	//
-	// * creation-date - The time when the image was created, in
-	// the ISO 8601 format in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), for
-	// example, 2021-09-29T11:04:43.305Z. You can use a wildcard (*), for example,
-	// 2021-09-29T*, which matches an entire day.
-	//
-	// * description - The description of
-	// the image (provided during image creation).
-	//
-	// * ena-support - A Boolean that
-	// indicates whether enhanced networking with ENA is enabled.
-	//
-	// * hypervisor - The
-	// hypervisor type (ovm | xen).
-	//
-	// * image-id - The ID of the image.
-	//
-	// * image-type -
-	// The image type (machine | kernel | ramdisk).
-	//
-	// * is-public - A Boolean that
-	// indicates whether the image is public.
-	//
-	// * kernel-id - The kernel ID.
-	//
-	// *
-	// manifest-location - The location of the image manifest.
-	//
-	// * name - The name of
-	// the AMI (provided during image creation).
-	//
-	// * owner-alias - The owner alias
-	// (amazon | aws-marketplace). The valid aliases are defined in an
-	// Amazon-maintained list. This is not the Amazon Web Services account alias that
-	// can be set using the IAM console. We recommend that you use the Owner request
-	// parameter instead of this filter.
-	//
-	// * owner-id - The Amazon Web Services account
-	// ID of the owner. We recommend that you use the Owner request parameter instead
-	// of this filter.
-	//
-	// * platform - The platform. The only supported value is
-	// windows.
-	//
-	// * product-code - The product code.
-	//
-	// * product-code.type - The type of
-	// the product code (marketplace).
-	//
-	// * ramdisk-id - The RAM disk ID.
-	//
-	// *
-	// root-device-name - The device name of the root device volume (for example,
-	// /dev/sda1).
-	//
-	// * root-device-type - The type of the root device volume (ebs |
-	// instance-store).
-	//
-	// * state - The state of the image (available | pending |
-	// failed).
-	//
-	// * state-reason-code - The reason code for the state change.
-	//
-	// *
-	// state-reason-message - The message for the state change.
-	//
-	// * sriov-net-support -
-	// A value of simple indicates that enhanced networking with the Intel 82599 VF
-	// interface is enabled.
-	//
-	// * tag: - The key/value combination of a tag assigned to
-	// the resource. Use the tag key in the filter name and the tag value as the filter
-	// value. For example, to find all resources that have a tag with the key Owner and
-	// the value TeamA, specify tag:Owner for the filter name and TeamA for the filter
-	// value.
-	//
-	// * tag-key - The key of a tag assigned to the resource. Use this filter
-	// to find all resources assigned a tag with a specific key, regardless of the tag
-	// value.
-	//
-	// * virtualization-type - The virtualization type (paravirtual | hvm).
+	//   - architecture - The image architecture ( i386 | x86_64 | arm64 ).
+	//   - block-device-mapping.delete-on-termination - A Boolean value that indicates
+	//   whether the Amazon EBS volume is deleted on instance termination.
+	//   - block-device-mapping.device-name - The device name specified in the block
+	//   device mapping (for example, /dev/sdh or xvdh ).
+	//   - block-device-mapping.snapshot-id - The ID of the snapshot used for the
+	//   Amazon EBS volume.
+	//   - block-device-mapping.volume-size - The volume size of the Amazon EBS volume,
+	//   in GiB.
+	//   - block-device-mapping.volume-type - The volume type of the Amazon EBS volume (
+	//   io1 | io2 | gp2 | gp3 | sc1 | st1 | standard ).
+	//   - block-device-mapping.encrypted - A Boolean that indicates whether the Amazon
+	//   EBS volume is encrypted.
+	//   - creation-date - The time when the image was created, in the ISO 8601 format
+	//   in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), for example,
+	//   2021-09-29T11:04:43.305Z . You can use a wildcard ( * ), for example,
+	//   2021-09-29T* , which matches an entire day.
+	//   - description - The description of the image (provided during image creation).
+	//   - ena-support - A Boolean that indicates whether enhanced networking with ENA
+	//   is enabled.
+	//   - hypervisor - The hypervisor type ( ovm | xen ).
+	//   - image-id - The ID of the image.
+	//   - image-type - The image type ( machine | kernel | ramdisk ).
+	//   - is-public - A Boolean that indicates whether the image is public.
+	//   - kernel-id - The kernel ID.
+	//   - manifest-location - The location of the image manifest.
+	//   - name - The name of the AMI (provided during image creation).
+	//   - owner-alias - The owner alias ( amazon | aws-marketplace ). The valid
+	//   aliases are defined in an Amazon-maintained list. This is not the Amazon Web
+	//   Services account alias that can be set using the IAM console. We recommend that
+	//   you use the Owner request parameter instead of this filter.
+	//   - owner-id - The Amazon Web Services account ID of the owner. We recommend
+	//   that you use the Owner request parameter instead of this filter.
+	//   - platform - The platform. The only supported value is windows .
+	//   - product-code - The product code.
+	//   - product-code.type - The type of the product code ( marketplace ).
+	//   - ramdisk-id - The RAM disk ID.
+	//   - root-device-name - The device name of the root device volume (for example,
+	//   /dev/sda1 ).
+	//   - root-device-type - The type of the root device volume ( ebs | instance-store
+	//   ).
+	//   - state - The state of the image ( available | pending | failed ).
+	//   - state-reason-code - The reason code for the state change.
+	//   - state-reason-message - The message for the state change.
+	//   - sriov-net-support - A value of simple indicates that enhanced networking
+	//   with the Intel 82599 VF interface is enabled.
+	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
+	//   tag key in the filter name and the tag value as the filter value. For example,
+	//   to find all resources that have a tag with the key Owner and the value TeamA ,
+	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
+	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//   - virtualization-type - The virtualization type ( paravirtual | hvm ).
 	Filters []types.Filter
 
 	// The image IDs. Default: Describes all images available to you.
@@ -183,9 +127,19 @@ type DescribeImagesInput struct {
 	// in the response regardless of what you specify for this parameter.
 	IncludeDeprecated *bool
 
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
+	MaxResults *int32
+
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned by the previous request.
+	NextToken *string
+
 	// Scopes the results to images with the specified owners. You can specify a
-	// combination of Amazon Web Services account IDs, self, amazon, and
-	// aws-marketplace. If you omit this parameter, the results include all images for
+	// combination of Amazon Web Services account IDs, self , amazon , and
+	// aws-marketplace . If you omit this parameter, the results include all images for
 	// which you have launch permissions, regardless of ownership.
 	Owners []string
 
@@ -196,6 +150,10 @@ type DescribeImagesOutput struct {
 
 	// Information about the images.
 	Images []types.Image
+
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
+	NextToken *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -251,6 +209,9 @@ func (c *Client) addOperationDescribeImagesMiddlewares(stack *middleware.Stack, 
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeImages(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -271,6 +232,91 @@ type DescribeImagesAPIClient interface {
 
 var _ DescribeImagesAPIClient = (*Client)(nil)
 
+// DescribeImagesPaginatorOptions is the paginator options for DescribeImages
+type DescribeImagesPaginatorOptions struct {
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// DescribeImagesPaginator is a paginator for DescribeImages
+type DescribeImagesPaginator struct {
+	options   DescribeImagesPaginatorOptions
+	client    DescribeImagesAPIClient
+	params    *DescribeImagesInput
+	nextToken *string
+	firstPage bool
+}
+
+// NewDescribeImagesPaginator returns a new DescribeImagesPaginator
+func NewDescribeImagesPaginator(client DescribeImagesAPIClient, params *DescribeImagesInput, optFns ...func(*DescribeImagesPaginatorOptions)) *DescribeImagesPaginator {
+	if params == nil {
+		params = &DescribeImagesInput{}
+	}
+
+	options := DescribeImagesPaginatorOptions{}
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	return &DescribeImagesPaginator{
+		options:   options,
+		client:    client,
+		params:    params,
+		firstPage: true,
+		nextToken: params.NextToken,
+	}
+}
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *DescribeImagesPaginator) HasMorePages() bool {
+	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
+}
+
+// NextPage retrieves the next DescribeImages page.
+func (p *DescribeImagesPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeImagesOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.NextToken = p.nextToken
+
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
+
+	result, err := p.client.DescribeImages(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextToken
+	p.nextToken = result.NextToken
+
+	if p.options.StopOnDuplicateToken &&
+		prevToken != nil &&
+		p.nextToken != nil &&
+		*prevToken == *p.nextToken {
+		p.nextToken = nil
+	}
+
+	return result, nil
+}
+
 // ImageAvailableWaiterOptions are waiter options for ImageAvailableWaiter
 type ImageAvailableWaiterOptions struct {
 
@@ -284,9 +330,9 @@ type ImageAvailableWaiterOptions struct {
 	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
 	MinDelay time.Duration
 
-	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
-	// to zero, ImageAvailableWaiter will use default max delay of 120 seconds. Note
-	// that MaxDelay must resolve to value greater than or equal to the MinDelay.
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or
+	// set to zero, ImageAvailableWaiter will use default max delay of 120 seconds.
+	// Note that MaxDelay must resolve to value greater than or equal to the MinDelay.
 	MaxDelay time.Duration
 
 	// LogWaitAttempts is used to enable logging for waiter retry attempts
@@ -483,9 +529,9 @@ type ImageExistsWaiterOptions struct {
 	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
 	MinDelay time.Duration
 
-	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
-	// to zero, ImageExistsWaiter will use default max delay of 120 seconds. Note that
-	// MaxDelay must resolve to value greater than or equal to the MinDelay.
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or
+	// set to zero, ImageExistsWaiter will use default max delay of 120 seconds. Note
+	// that MaxDelay must resolve to value greater than or equal to the MinDelay.
 	MaxDelay time.Duration
 
 	// LogWaitAttempts is used to enable logging for waiter retry attempts

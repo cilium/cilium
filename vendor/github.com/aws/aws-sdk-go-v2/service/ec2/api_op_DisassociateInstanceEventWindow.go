@@ -12,9 +12,8 @@ import (
 )
 
 // Disassociates one or more targets from an event window. For more information,
-// see Define event windows for scheduled events
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/event-windows.html) in the
-// Amazon EC2 User Guide.
+// see Define event windows for scheduled events (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/event-windows.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) DisassociateInstanceEventWindow(ctx context.Context, params *DisassociateInstanceEventWindowInput, optFns ...func(*Options)) (*DisassociateInstanceEventWindowOutput, error) {
 	if params == nil {
 		params = &DisassociateInstanceEventWindowInput{}
@@ -44,8 +43,8 @@ type DisassociateInstanceEventWindowInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -111,6 +110,9 @@ func (c *Client) addOperationDisassociateInstanceEventWindowMiddlewares(stack *m
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisassociateInstanceEventWindow(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

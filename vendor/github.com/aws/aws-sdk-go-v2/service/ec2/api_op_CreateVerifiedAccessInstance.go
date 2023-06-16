@@ -12,6 +12,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// An Amazon Web Services Verified Access instance is a regional entity that
+// evaluates application requests and grants access only when your security
+// requirements are met.
 func (c *Client) CreateVerifiedAccessInstance(ctx context.Context, params *CreateVerifiedAccessInstanceInput, optFns ...func(*Options)) (*CreateVerifiedAccessInstanceOutput, error) {
 	if params == nil {
 		params = &CreateVerifiedAccessInstanceInput{}
@@ -28,18 +31,30 @@ func (c *Client) CreateVerifiedAccessInstance(ctx context.Context, params *Creat
 }
 
 type CreateVerifiedAccessInstanceInput struct {
+
+	// A unique, case-sensitive token that you provide to ensure idempotency of your
+	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
+	// A description for the Verified Access instance.
 	Description *string
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The tags to assign to the Verified Access instance.
 	TagSpecifications []types.TagSpecification
 
 	noSmithyDocumentSerde
 }
 
 type CreateVerifiedAccessInstanceOutput struct {
+
+	// The ID of the Verified Access instance.
 	VerifiedAccessInstance *types.VerifiedAccessInstance
 
 	// Metadata pertaining to the operation's result.
@@ -97,6 +112,9 @@ func (c *Client) addOperationCreateVerifiedAccessInstanceMiddlewares(stack *midd
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVerifiedAccessInstance(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

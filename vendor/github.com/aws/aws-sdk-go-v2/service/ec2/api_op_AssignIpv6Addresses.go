@@ -15,15 +15,13 @@ import (
 // IPv6 addresses to be automatically assigned from within the subnet's IPv6 CIDR
 // block range. You can assign as many IPv6 addresses to a network interface as you
 // can assign private IPv4 addresses, and the limit varies per instance type. For
-// information, see IP Addresses Per Network Interface Per Instance Type
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#AvailableIpPerENI)
+// information, see IP Addresses Per Network Interface Per Instance Type (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#AvailableIpPerENI)
 // in the Amazon Elastic Compute Cloud User Guide. You must specify either the IPv6
 // addresses or the IPv6 address count in the request. You can optionally use
 // Prefix Delegation on the network interface. You must specify either the IPV6
 // Prefix Delegation prefixes, or the IPv6 Prefix Delegation count. For
-// information, see  Assigning prefixes to Amazon EC2 network interfaces
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// information, see Assigning prefixes to Amazon EC2 network interfaces (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) AssignIpv6Addresses(ctx context.Context, params *AssignIpv6AddressesInput, optFns ...func(*Options)) (*AssignIpv6AddressesOutput, error) {
 	if params == nil {
 		params = &AssignIpv6AddressesInput{}
@@ -62,8 +60,8 @@ type AssignIpv6AddressesInput struct {
 	// option.
 	Ipv6PrefixCount *int32
 
-	// One or more IPv6 prefixes assigned to the network interface. You cannot use this
-	// option if you use the Ipv6PrefixCount option.
+	// One or more IPv6 prefixes assigned to the network interface. You cannot use
+	// this option if you use the Ipv6PrefixCount option.
 	Ipv6Prefixes []string
 
 	noSmithyDocumentSerde
@@ -137,6 +135,9 @@ func (c *Client) addOperationAssignIpv6AddressesMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAssignIpv6Addresses(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

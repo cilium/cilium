@@ -11,6 +11,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// Modifies the specified Amazon Web Services Verified Access group policy.
 func (c *Client) ModifyVerifiedAccessGroupPolicy(ctx context.Context, params *ModifyVerifiedAccessGroupPolicyInput, optFns ...func(*Options)) (*ModifyVerifiedAccessGroupPolicyOutput, error) {
 	if params == nil {
 		params = &ModifyVerifiedAccessGroupPolicyInput{}
@@ -28,24 +29,39 @@ func (c *Client) ModifyVerifiedAccessGroupPolicy(ctx context.Context, params *Mo
 
 type ModifyVerifiedAccessGroupPolicyInput struct {
 
+	// The status of the Verified Access policy.
+	//
 	// This member is required.
 	PolicyEnabled *bool
 
+	// The ID of the Verified Access group.
+	//
 	// This member is required.
 	VerifiedAccessGroupId *string
 
+	// A unique, case-sensitive token that you provide to ensure idempotency of your
+	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The Verified Access policy document.
 	PolicyDocument *string
 
 	noSmithyDocumentSerde
 }
 
 type ModifyVerifiedAccessGroupPolicyOutput struct {
+
+	// The Verified Access policy document.
 	PolicyDocument *string
 
+	// The status of the Verified Access policy.
 	PolicyEnabled *bool
 
 	// Metadata pertaining to the operation's result.
@@ -106,6 +122,9 @@ func (c *Client) addOperationModifyVerifiedAccessGroupPolicyMiddlewares(stack *m
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyVerifiedAccessGroupPolicy(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

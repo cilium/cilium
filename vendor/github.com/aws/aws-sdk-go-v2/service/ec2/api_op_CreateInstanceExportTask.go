@@ -14,9 +14,8 @@ import (
 // Exports a running or stopped instance to an Amazon S3 bucket. For information
 // about the supported operating systems, image formats, and known limitations for
 // the types of instances you can export, see Exporting an instance as a VM Using
-// VM Import/Export
-// (https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport.html) in the VM
-// Import/Export User Guide.
+// VM Import/Export (https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport.html)
+// in the VM Import/Export User Guide.
 func (c *Client) CreateInstanceExportTask(ctx context.Context, params *CreateInstanceExportTaskInput, optFns ...func(*Options)) (*CreateInstanceExportTaskOutput, error) {
 	if params == nil {
 		params = &CreateInstanceExportTaskInput{}
@@ -119,6 +118,9 @@ func (c *Client) addOperationCreateInstanceExportTaskMiddlewares(stack *middlewa
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateInstanceExportTask(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

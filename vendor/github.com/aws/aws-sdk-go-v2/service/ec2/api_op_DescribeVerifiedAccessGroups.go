@@ -12,6 +12,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// Describes the specified Verified Access groups.
 func (c *Client) DescribeVerifiedAccessGroups(ctx context.Context, params *DescribeVerifiedAccessGroupsInput, optFns ...func(*Options)) (*DescribeVerifiedAccessGroupsOutput, error) {
 	if params == nil {
 		params = &DescribeVerifiedAccessGroupsInput{}
@@ -28,24 +29,39 @@ func (c *Client) DescribeVerifiedAccessGroups(ctx context.Context, params *Descr
 }
 
 type DescribeVerifiedAccessGroupsInput struct {
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
+	// One or more filters. Filter names and values are case-sensitive.
 	Filters []types.Filter
 
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
 	MaxResults *int32
 
+	// The token for the next page of results.
 	NextToken *string
 
+	// The ID of the Verified Access groups.
 	VerifiedAccessGroupIds []string
 
+	// The ID of the Verified Access instance.
 	VerifiedAccessInstanceId *string
 
 	noSmithyDocumentSerde
 }
 
 type DescribeVerifiedAccessGroupsOutput struct {
+
+	// The token to use to retrieve the next page of results. This value is null when
+	// there are no more results to return.
 	NextToken *string
 
+	// The ID of the Verified Access group.
 	VerifiedAccessGroups []types.VerifiedAccessGroup
 
 	// Metadata pertaining to the operation's result.
@@ -102,6 +118,9 @@ func (c *Client) addOperationDescribeVerifiedAccessGroupsMiddlewares(stack *midd
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVerifiedAccessGroups(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -125,6 +144,8 @@ var _ DescribeVerifiedAccessGroupsAPIClient = (*Client)(nil)
 // DescribeVerifiedAccessGroupsPaginatorOptions is the paginator options for
 // DescribeVerifiedAccessGroups
 type DescribeVerifiedAccessGroupsPaginatorOptions struct {
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

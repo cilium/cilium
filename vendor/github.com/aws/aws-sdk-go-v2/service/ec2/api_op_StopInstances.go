@@ -12,25 +12,20 @@ import (
 )
 
 // Stops an Amazon EBS-backed instance. For more information, see Stop and start
-// your instance
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html) in the
-// Amazon EC2 User Guide. You can use the Stop action to hibernate an instance if
-// the instance is enabled for hibernation
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#enabling-hibernation)
-// and it meets the hibernation prerequisites
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
-// For more information, see Hibernate your instance
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html) in the
-// Amazon EC2 User Guide. We don't charge usage for a stopped instance, or data
-// transfer fees; however, your root partition Amazon EBS volume remains and
+// your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html)
+// in the Amazon EC2 User Guide. You can use the Stop action to hibernate an
+// instance if the instance is enabled for hibernation (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#enabling-hibernation)
+// and it meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites)
+// . For more information, see Hibernate your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+// in the Amazon EC2 User Guide. We don't charge usage for a stopped instance, or
+// data transfer fees; however, your root partition Amazon EBS volume remains and
 // continues to persist your data, and you are charged for Amazon EBS volume usage.
 // Every time you start your instance, Amazon EC2 charges a one-minute minimum for
 // instance usage, and thereafter charges per second for instance usage. You can't
 // stop or hibernate instance store-backed instances. You can't use the Stop action
 // to hibernate Spot Instances, but you can specify that Amazon EC2 should
 // hibernate Spot Instances when they are interrupted. For more information, see
-// Hibernating interrupted Spot Instances
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html#hibernate-spot-instances)
+// Hibernating interrupted Spot Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html#hibernate-spot-instances)
 // in the Amazon EC2 User Guide. When you stop or hibernate an instance, we shut it
 // down. You can restart your instance at any time. Before stopping or hibernating
 // an instance, make sure it is in a state from which it can be restarted. Stopping
@@ -42,13 +37,11 @@ import (
 // persist. When you terminate an instance, the root device and any other devices
 // attached during the instance launch are automatically deleted. For more
 // information about the differences between rebooting, stopping, hibernating, and
-// terminating instances, see Instance lifecycle
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html)
+// terminating instances, see Instance lifecycle (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html)
 // in the Amazon EC2 User Guide. When you stop an instance, we attempt to shut it
 // down forcibly after a short while. If your instance appears stuck in the
 // stopping state after a period of time, there may be an issue with the underlying
-// host computer. For more information, see Troubleshoot stopping your instance
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesStopping.html)
+// host computer. For more information, see Troubleshoot stopping your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesStopping.html)
 // in the Amazon EC2 User Guide.
 func (c *Client) StopInstances(ctx context.Context, params *StopInstancesInput, optFns ...func(*Options)) (*StopInstancesOutput, error) {
 	if params == nil {
@@ -74,8 +67,8 @@ type StopInstancesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// Forces the instances to stop. The instances do not have an opportunity to flush
@@ -86,9 +79,8 @@ type StopInstancesInput struct {
 
 	// Hibernates the instance if the instance was enabled for hibernation at launch.
 	// If the instance cannot hibernate successfully, a normal shutdown occurs. For
-	// more information, see Hibernate your instance
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html) in the
-	// Amazon EC2 User Guide. Default: false
+	// more information, see Hibernate your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+	// in the Amazon EC2 User Guide. Default: false
 	Hibernate *bool
 
 	noSmithyDocumentSerde
@@ -154,6 +146,9 @@ func (c *Client) addOperationStopInstancesMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opStopInstances(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

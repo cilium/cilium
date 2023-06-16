@@ -36,26 +36,20 @@ type DetachNetworkInterfaceInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// Specifies whether to force a detachment.
-	//
-	// * Use the Force parameter only as a
-	// last resort to detach a network interface from a failed instance.
-	//
-	// * If you use
-	// the Force parameter to detach a network interface, you might not be able to
-	// attach a different network interface to the same index on the instance without
-	// first stopping and starting the instance.
-	//
-	// * If you force the detachment of a
-	// network interface, the instance metadata
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html)
-	// might not get updated. This means that the attributes associated with the
-	// detached network interface might still be visible. The instance metadata will
-	// get updated when you stop and start the instance.
+	//   - Use the Force parameter only as a last resort to detach a network interface
+	//   from a failed instance.
+	//   - If you use the Force parameter to detach a network interface, you might not
+	//   be able to attach a different network interface to the same index on the
+	//   instance without first stopping and starting the instance.
+	//   - If you force the detachment of a network interface, the instance metadata (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html)
+	//   might not get updated. This means that the attributes associated with the
+	//   detached network interface might still be visible. The instance metadata will
+	//   get updated when you stop and start the instance.
 	Force *bool
 
 	noSmithyDocumentSerde
@@ -117,6 +111,9 @@ func (c *Client) addOperationDetachNetworkInterfaceMiddlewares(stack *middleware
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDetachNetworkInterface(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

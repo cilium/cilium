@@ -11,8 +11,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Accepts one or more interface VPC endpoint connection requests to your VPC
-// endpoint service.
+// Accepts connection requests to your VPC endpoint service.
 func (c *Client) AcceptVpcEndpointConnections(ctx context.Context, params *AcceptVpcEndpointConnectionsInput, optFns ...func(*Options)) (*AcceptVpcEndpointConnectionsOutput, error) {
 	if params == nil {
 		params = &AcceptVpcEndpointConnectionsInput{}
@@ -35,15 +34,15 @@ type AcceptVpcEndpointConnectionsInput struct {
 	// This member is required.
 	ServiceId *string
 
-	// The IDs of one or more interface VPC endpoints.
+	// The IDs of the interface VPC endpoints.
 	//
 	// This member is required.
 	VpcEndpointIds []string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -109,6 +108,9 @@ func (c *Client) addOperationAcceptVpcEndpointConnectionsMiddlewares(stack *midd
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAcceptVpcEndpointConnections(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

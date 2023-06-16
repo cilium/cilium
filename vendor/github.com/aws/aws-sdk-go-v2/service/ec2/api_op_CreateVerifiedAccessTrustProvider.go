@@ -12,6 +12,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// A trust provider is a third-party entity that creates, maintains, and manages
+// identity information for users and devices. When an application request is made,
+// the identity information sent by the trust provider is evaluated by Verified
+// Access before allowing or denying the application request.
 func (c *Client) CreateVerifiedAccessTrustProvider(ctx context.Context, params *CreateVerifiedAccessTrustProviderInput, optFns ...func(*Options)) (*CreateVerifiedAccessTrustProviderOutput, error) {
 	if params == nil {
 		params = &CreateVerifiedAccessTrustProviderInput{}
@@ -29,32 +33,55 @@ func (c *Client) CreateVerifiedAccessTrustProvider(ctx context.Context, params *
 
 type CreateVerifiedAccessTrustProviderInput struct {
 
+	// The identifier to be used when working with policy rules.
+	//
 	// This member is required.
 	PolicyReferenceName *string
 
+	// The type of trust provider.
+	//
 	// This member is required.
 	TrustProviderType types.TrustProviderType
 
+	// A unique, case-sensitive token that you provide to ensure idempotency of your
+	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
+	// A description for the Verified Access trust provider.
 	Description *string
 
+	// The options for a device-based trust provider. This parameter is required when
+	// the provider type is device .
 	DeviceOptions *types.CreateVerifiedAccessTrustProviderDeviceOptions
 
+	// The type of device-based trust provider. This parameter is required when the
+	// provider type is device .
 	DeviceTrustProviderType types.DeviceTrustProviderType
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The options for a OpenID Connect-compatible user-identity trust provider. This
+	// parameter is required when the provider type is user .
 	OidcOptions *types.CreateVerifiedAccessTrustProviderOidcOptions
 
+	// The tags to assign to the Verified Access trust provider.
 	TagSpecifications []types.TagSpecification
 
+	// The type of user-based trust provider. This parameter is required when the
+	// provider type is user .
 	UserTrustProviderType types.UserTrustProviderType
 
 	noSmithyDocumentSerde
 }
 
 type CreateVerifiedAccessTrustProviderOutput struct {
+
+	// The ID of the Verified Access trust provider.
 	VerifiedAccessTrustProvider *types.VerifiedAccessTrustProvider
 
 	// Metadata pertaining to the operation's result.
@@ -115,6 +142,9 @@ func (c *Client) addOperationCreateVerifiedAccessTrustProviderMiddlewares(stack 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVerifiedAccessTrustProvider(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

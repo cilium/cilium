@@ -12,10 +12,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes your Elastic IP addresses that are being moved to the EC2-VPC
-// platform, or that are being restored to the EC2-Classic platform. This request
-// does not return information about any other Elastic IP addresses in your
-// account.
+// This action is deprecated. Describes your Elastic IP addresses that are being
+// moved from or being restored to the EC2-Classic platform. This request does not
+// return information about any other Elastic IP addresses in your account.
 func (c *Client) DescribeMovingAddresses(ctx context.Context, params *DescribeMovingAddressesInput, optFns ...func(*Options)) (*DescribeMovingAddressesOutput, error) {
 	if params == nil {
 		params = &DescribeMovingAddressesInput{}
@@ -35,14 +34,13 @@ type DescribeMovingAddressesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters.
-	//
-	// * moving-status - The status of the Elastic IP address
-	// (MovingToVpc | RestoringToClassic).
+	//   - moving-status - The status of the Elastic IP address ( MovingToVpc |
+	//   RestoringToClassic ).
 	Filters []types.Filter
 
 	// The maximum number of results to return for the request in a single page. The
@@ -122,6 +120,9 @@ func (c *Client) addOperationDescribeMovingAddressesMiddlewares(stack *middlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeMovingAddresses(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

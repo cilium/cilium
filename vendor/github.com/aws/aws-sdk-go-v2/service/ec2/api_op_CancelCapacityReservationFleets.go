@@ -13,16 +13,11 @@ import (
 
 // Cancels one or more Capacity Reservation Fleets. When you cancel a Capacity
 // Reservation Fleet, the following happens:
-//
-// * The Capacity Reservation Fleet's
-// status changes to cancelled.
-//
-// * The individual Capacity Reservations in the
-// Fleet are cancelled. Instances running in the Capacity Reservations at the time
-// of cancelling the Fleet continue to run in shared capacity.
-//
-// * The Fleet stops
-// creating new Capacity Reservations.
+//   - The Capacity Reservation Fleet's status changes to cancelled .
+//   - The individual Capacity Reservations in the Fleet are cancelled. Instances
+//     running in the Capacity Reservations at the time of cancelling the Fleet
+//     continue to run in shared capacity.
+//   - The Fleet stops creating new Capacity Reservations.
 func (c *Client) CancelCapacityReservationFleets(ctx context.Context, params *CancelCapacityReservationFleetsInput, optFns ...func(*Options)) (*CancelCapacityReservationFleetsOutput, error) {
 	if params == nil {
 		params = &CancelCapacityReservationFleetsInput{}
@@ -47,8 +42,8 @@ type CancelCapacityReservationFleetsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -118,6 +113,9 @@ func (c *Client) addOperationCancelCapacityReservationFleetsMiddlewares(stack *m
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCancelCapacityReservationFleets(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

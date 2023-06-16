@@ -1,3 +1,155 @@
+# v1.100.1 (2023-06-15)
+
+* No change notes available for this release.
+
+# v1.100.0 (2023-06-13)
+
+* **Feature**: This release introduces a new feature, EC2 Instance Connect Endpoint, that enables you to connect to a resource over TCP, without requiring the resource to have a public IPv4 address.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.99.0 (2023-06-05)
+
+* **Feature**: Making InstanceTagAttribute as the required parameter for the DeregisterInstanceEventNotificationAttributes and RegisterInstanceEventNotificationAttributes APIs.
+
+# v1.98.0 (2023-05-18)
+
+* **Feature**: Add support for i4g.large, i4g.xlarge, i4g.2xlarge, i4g.4xlarge, i4g.8xlarge and i4g.16xlarge instances powered by AWS Graviton2 processors that deliver up to 15% better compute performance than our other storage-optimized instances.
+
+# v1.97.0 (2023-05-05)
+
+* **Feature**: This release adds support the inf2 and trn1n instances. inf2 instances are purpose built for deep learning inference while trn1n instances are powered by AWS Trainium accelerators and they build on the capabilities of Trainium-powered trn1 instances.
+
+# v1.96.1 (2023-05-04)
+
+* No change notes available for this release.
+
+# v1.96.0 (2023-05-03)
+
+* **Feature**: Adds an SDK paginator for GetNetworkInsightsAccessScopeAnalysisFindings
+
+# v1.95.0 (2023-04-27)
+
+* **Feature**: This release adds support for AMD SEV-SNP on EC2 instances.
+
+# v1.94.0 (2023-04-24)
+
+* **Feature**: API changes to AWS Verified Access related to identity providers' information.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.93.2 (2023-04-10)
+
+* No change notes available for this release.
+
+# v1.93.1 (2023-04-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.93.0 (2023-04-04)
+
+* **Feature**: C6in, M6in, M6idn, R6in and R6idn bare metal instances are powered by 3rd Generation Intel Xeon Scalable processors and offer up to 200 Gbps of network bandwidth.
+
+# v1.92.1 (2023-03-31)
+
+* **Documentation**: Documentation updates for EC2 On Demand Capacity Reservations
+
+# v1.92.0 (2023-03-30)
+
+* **Feature**: This release adds support for Tunnel Endpoint Lifecycle control, a new feature that provides Site-to-Site VPN customers with better visibility and control of their VPN tunnel maintenance updates.
+
+# v1.91.0 (2023-03-21)
+
+* **Feature**: This release adds support for AWS Network Firewall, AWS PrivateLink, and Gateway Load Balancers to Amazon VPC Reachability Analyzer, and it makes the path destination optional as long as a destination address in the filter at source is provided.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.90.0 (2023-03-14)
+
+* **Feature**: This release adds a new DnsOptions key (PrivateDnsOnlyForInboundResolverEndpoint) to CreateVpcEndpoint and ModifyVpcEndpoint APIs.
+
+# v1.89.1 (2023-03-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.89.0 (2023-03-08)
+
+* **Feature**: Introducing Amazon EC2 C7g, M7g and R7g instances, powered by the latest generation AWS Graviton3 processors and deliver up to 25% better performance over Graviton2-based instances.
+
+# v1.88.0 (2023-03-03)
+
+* **Feature**: This release adds support for a new boot mode for EC2 instances called 'UEFI Preferred'.
+
+# v1.87.0 (2023-02-28)
+
+* **Feature**: This release allows IMDS support to be set to v2-only on an existing AMI, so that all future instances launched from that AMI will use IMDSv2 by default.
+
+# v1.86.1 (2023-02-20)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.86.0 (2023-02-14)
+
+* **Feature**: With this release customers can turn host maintenance on or off when allocating or modifying a supported dedicated host. Host maintenance is turned on by default for supported hosts.
+
+# v1.85.0 (2023-02-10)
+
+* **Feature**: Adds support for waiters that automatically poll for an imported snapshot until it reaches the completed state.
+
+# v1.84.1 (2023-02-03)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade smithy to 1.27.2 and correct empty query list serialization.
+
+# v1.84.0 (2023-02-02)
+
+* **Feature**: Documentation updates for EC2.
+
+# v1.83.0 (2023-01-31)
+
+* **Feature**: This launch allows customers to associate up to 8 IP addresses to their NAT Gateways to increase the limit on concurrent connections to a single destination by eight times from 55K to 440K.
+
+# v1.82.0 (2023-01-30)
+
+* **Feature**: We add Prefix Lists as a new route destination option for LocalGatewayRoutes. This will allow customers to create routes to Prefix Lists. Prefix List routes will allow customers to group individual CIDR routes with the same target into a single route.
+
+# v1.81.0 (2023-01-25)
+
+* **Feature**: This release adds new functionality that allows customers to provision IPv6 CIDR blocks through Amazon VPC IP Address Manager (IPAM) as well as allowing customers to utilize IPAM Resource Discovery APIs.
+
+# v1.80.1 (2023-01-23)
+
+* No change notes available for this release.
+
+# v1.80.0 (2023-01-20)
+
+* **Feature**: C6in, M6in, M6idn, R6in and R6idn instances are powered by 3rd Generation Intel Xeon Scalable processors (code named Ice Lake) with an all-core turbo frequency of 3.5 GHz.
+
+# v1.79.0 (2023-01-19)
+
+* **Feature**: Adds SSM Parameter Resource Aliasing support to EC2 Launch Templates. Launch Templates can now store parameter aliases in place of AMI Resource IDs. CreateLaunchTemplateVersion and DescribeLaunchTemplateVersions now support a convenience flag, ResolveAlias, to return the resolved parameter value.
+
+# v1.78.0 (2023-01-13)
+
+* **Feature**: Documentation updates for EC2.
+
+# v1.77.0 (2022-12-20)
+
+* **Feature**: Adds support for pagination in the EC2 DescribeImages API.
+
+# v1.76.1 (2022-12-15)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.76.0 (2022-12-12)
+
+* **Feature**: This release updates DescribeFpgaImages to show supported instance types of AFIs in its response.
+
+# v1.75.0 (2022-12-05)
+
+* **Feature**: Documentation updates for EC2.
+
+# v1.74.1 (2022-12-02)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.74.0 (2022-11-29.2)
 
 * **Feature**: This release adds support for AWS Verified Access and the Hpc6id Amazon EC2 compute optimized instance type, which features 3rd generation Intel Xeon Scalable processors.

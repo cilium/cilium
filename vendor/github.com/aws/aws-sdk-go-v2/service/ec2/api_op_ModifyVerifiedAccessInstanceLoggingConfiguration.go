@@ -12,6 +12,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// Modifies the logging configuration for the specified Amazon Web Services
+// Verified Access instance.
 func (c *Client) ModifyVerifiedAccessInstanceLoggingConfiguration(ctx context.Context, params *ModifyVerifiedAccessInstanceLoggingConfigurationInput, optFns ...func(*Options)) (*ModifyVerifiedAccessInstanceLoggingConfigurationOutput, error) {
 	if params == nil {
 		params = &ModifyVerifiedAccessInstanceLoggingConfigurationInput{}
@@ -29,20 +31,33 @@ func (c *Client) ModifyVerifiedAccessInstanceLoggingConfiguration(ctx context.Co
 
 type ModifyVerifiedAccessInstanceLoggingConfigurationInput struct {
 
+	// The configuration options for Verified Access instances.
+	//
 	// This member is required.
 	AccessLogs *types.VerifiedAccessLogOptions
 
+	// The ID of the Verified Access instance.
+	//
 	// This member is required.
 	VerifiedAccessInstanceId *string
 
+	// A unique, case-sensitive token that you provide to ensure idempotency of your
+	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
 }
 
 type ModifyVerifiedAccessInstanceLoggingConfigurationOutput struct {
+
+	// The logging configuration for the Verified Access instance.
 	LoggingConfiguration *types.VerifiedAccessInstanceLoggingConfiguration
 
 	// Metadata pertaining to the operation's result.
@@ -103,6 +118,9 @@ func (c *Client) addOperationModifyVerifiedAccessInstanceLoggingConfigurationMid
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyVerifiedAccessInstanceLoggingConfiguration(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

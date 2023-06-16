@@ -13,24 +13,14 @@ import (
 
 // Modifies a subnet attribute. You can only modify one attribute at a time. Use
 // this action to modify subnets on Amazon Web Services Outposts.
+//   - To modify a subnet on an Outpost rack, set both MapCustomerOwnedIpOnLaunch
+//     and CustomerOwnedIpv4Pool . These two parameters act as a single attribute.
+//   - To modify a subnet on an Outpost server, set either EnableLniAtDeviceIndex
+//     or DisableLniAtDeviceIndex .
 //
-// * To modify a
-// subnet on an Outpost rack, set both MapCustomerOwnedIpOnLaunch and
-// CustomerOwnedIpv4Pool. These two parameters act as a single attribute.
-//
-// * To
-// modify a subnet on an Outpost server, set either EnableLniAtDeviceIndex or
-// DisableLniAtDeviceIndex.
-//
-// For more information about Amazon Web Services
-// Outposts, see the following:
-//
-// * Outpost servers
-// (https://docs.aws.amazon.com/outposts/latest/userguide/how-servers-work.html)
-//
-// *
-// Outpost racks
-// (https://docs.aws.amazon.com/outposts/latest/userguide/how-racks-work.html)
+// For more information about Amazon Web Services Outposts, see the following:
+//   - Outpost servers (https://docs.aws.amazon.com/outposts/latest/userguide/how-servers-work.html)
+//   - Outpost racks (https://docs.aws.amazon.com/outposts/latest/userguide/how-racks-work.html)
 func (c *Client) ModifySubnetAttribute(ctx context.Context, params *ModifySubnetAttributeInput, optFns ...func(*Options)) (*ModifySubnetAttributeOutput, error) {
 	if params == nil {
 		params = &ModifySubnetAttributeInput{}
@@ -53,16 +43,16 @@ type ModifySubnetAttributeInput struct {
 	// This member is required.
 	SubnetId *string
 
-	// Specify true to indicate that network interfaces created in the specified subnet
-	// should be assigned an IPv6 address. This includes a network interface that's
-	// created when launching an instance into the subnet (the instance therefore
-	// receives an IPv6 address). If you enable the IPv6 addressing feature for your
-	// subnet, your network interface or instance only receives an IPv6 address if it's
-	// created using version 2016-11-15 or later of the Amazon EC2 API.
+	// Specify true to indicate that network interfaces created in the specified
+	// subnet should be assigned an IPv6 address. This includes a network interface
+	// that's created when launching an instance into the subnet (the instance
+	// therefore receives an IPv6 address). If you enable the IPv6 addressing feature
+	// for your subnet, your network interface or instance only receives an IPv6
+	// address if it's created using version 2016-11-15 or later of the Amazon EC2 API.
 	AssignIpv6AddressOnCreation *types.AttributeBooleanValue
 
 	// The customer-owned IPv4 address pool associated with the subnet. You must set
-	// this value when you specify true for MapCustomerOwnedIpOnLaunch.
+	// this value when you specify true for MapCustomerOwnedIpOnLaunch .
 	CustomerOwnedIpv4Pool *string
 
 	// Specify true to indicate that local network interfaces at the current position
@@ -79,8 +69,8 @@ type ModifySubnetAttributeInput struct {
 	// network interface (eth0).
 	EnableLniAtDeviceIndex *int32
 
-	// Indicates whether to respond to DNS queries for instance hostnames with DNS AAAA
-	// records.
+	// Indicates whether to respond to DNS queries for instance hostnames with DNS
+	// AAAA records.
 	EnableResourceNameDnsAAAARecordOnLaunch *types.AttributeBooleanValue
 
 	// Indicates whether to respond to DNS queries for instance hostnames with DNS A
@@ -89,8 +79,8 @@ type ModifySubnetAttributeInput struct {
 
 	// Specify true to indicate that network interfaces attached to instances created
 	// in the specified subnet should be assigned a customer-owned IPv4 address. When
-	// this value is true, you must specify the customer-owned IP pool using
-	// CustomerOwnedIpv4Pool.
+	// this value is true , you must specify the customer-owned IP pool using
+	// CustomerOwnedIpv4Pool .
 	MapCustomerOwnedIpOnLaunch *types.AttributeBooleanValue
 
 	// Specify true to indicate that network interfaces attached to instances created
@@ -163,6 +153,9 @@ func (c *Client) addOperationModifySubnetAttributeMiddlewares(stack *middleware.
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifySubnetAttribute(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

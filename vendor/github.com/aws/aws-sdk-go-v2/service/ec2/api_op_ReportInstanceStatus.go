@@ -14,10 +14,10 @@ import (
 
 // Submits feedback about the status of an instance. The instance must be in the
 // running state. If your experience with the instance differs from the instance
-// status returned by DescribeInstanceStatus, use ReportInstanceStatus to report
+// status returned by DescribeInstanceStatus , use ReportInstanceStatus to report
 // your experience with the instance. Amazon EC2 collects this information to
 // improve the accuracy of status checks. Use of this action does not change the
-// value returned by DescribeInstanceStatus.
+// value returned by DescribeInstanceStatus .
 func (c *Client) ReportInstanceStatus(ctx context.Context, params *ReportInstanceStatusInput, optFns ...func(*Options)) (*ReportInstanceStatusOutput, error) {
 	if params == nil {
 		params = &ReportInstanceStatusInput{}
@@ -41,34 +41,18 @@ type ReportInstanceStatusInput struct {
 	Instances []string
 
 	// The reason codes that describe the health state of your instance.
-	//
-	// *
-	// instance-stuck-in-state: My instance is stuck in a state.
-	//
-	// * unresponsive: My
-	// instance is unresponsive.
-	//
-	// * not-accepting-credentials: My instance is not
-	// accepting my credentials.
-	//
-	// * password-not-available: A password is not available
-	// for my instance.
-	//
-	// * performance-network: My instance is experiencing performance
-	// problems that I believe are network related.
-	//
-	// * performance-instance-store: My
-	// instance is experiencing performance problems that I believe are related to the
-	// instance stores.
-	//
-	// * performance-ebs-volume: My instance is experiencing
-	// performance problems that I believe are related to an EBS volume.
-	//
-	// *
-	// performance-other: My instance is experiencing performance problems.
-	//
-	// * other:
-	// [explain using the description parameter]
+	//   - instance-stuck-in-state : My instance is stuck in a state.
+	//   - unresponsive : My instance is unresponsive.
+	//   - not-accepting-credentials : My instance is not accepting my credentials.
+	//   - password-not-available : A password is not available for my instance.
+	//   - performance-network : My instance is experiencing performance problems that
+	//   I believe are network related.
+	//   - performance-instance-store : My instance is experiencing performance
+	//   problems that I believe are related to the instance stores.
+	//   - performance-ebs-volume : My instance is experiencing performance problems
+	//   that I believe are related to an EBS volume.
+	//   - performance-other : My instance is experiencing performance problems.
+	//   - other : [explain using the description parameter]
 	//
 	// This member is required.
 	ReasonCodes []types.ReportInstanceReasonCodes
@@ -83,8 +67,8 @@ type ReportInstanceStatusInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The time at which the reported instance health state ended.
@@ -152,6 +136,9 @@ func (c *Client) addOperationReportInstanceStatusMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opReportInstanceStatus(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

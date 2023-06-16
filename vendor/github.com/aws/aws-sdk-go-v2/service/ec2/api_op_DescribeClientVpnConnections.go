@@ -38,18 +38,14 @@ type DescribeClientVpnConnectionsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters. Filter names and values are case-sensitive.
-	//
-	// *
-	// connection-id - The ID of the connection.
-	//
-	// * username - For Active Directory
-	// client authentication, the user name of the client who established the client
-	// connection.
+	//   - connection-id - The ID of the connection.
+	//   - username - For Active Directory client authentication, the user name of the
+	//   client who established the client connection.
 	Filters []types.Filter
 
 	// The maximum number of results to return for the request in a single page. The
@@ -127,6 +123,9 @@ func (c *Client) addOperationDescribeClientVpnConnectionsMiddlewares(stack *midd
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeClientVpnConnections(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

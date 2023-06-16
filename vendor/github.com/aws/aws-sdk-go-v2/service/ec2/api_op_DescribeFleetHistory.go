@@ -16,9 +16,8 @@ import (
 // Fleet events are delayed by up to 30 seconds before they can be described. This
 // ensures that you can query by the last evaluated time and not miss a recorded
 // event. EC2 Fleet events are available for 48 hours. For more information, see
-// Monitor fleet events using Amazon EventBridge
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/fleet-monitor.html) in the
-// Amazon EC2 User Guide.
+// Monitor fleet events using Amazon EventBridge (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/fleet-monitor.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) DescribeFleetHistory(ctx context.Context, params *DescribeFleetHistoryInput, optFns ...func(*Options)) (*DescribeFleetHistoryOutput, error) {
 	if params == nil {
 		params = &DescribeFleetHistoryInput{}
@@ -49,19 +48,21 @@ type DescribeFleetHistoryInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The type of events to describe. By default, all events are described.
 	EventType types.FleetEventType
 
-	// The maximum number of results to return in a single call. Specify a value
-	// between 1 and 1000. The default value is 1000. To retrieve the remaining
-	// results, make another call with the returned NextToken value.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	MaxResults *int32
 
-	// The token for the next set of results.
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned by the previous request.
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -77,10 +78,11 @@ type DescribeFleetHistoryOutput struct {
 
 	// The last date and time for the events, in UTC format (for example,
 	// YYYY-MM-DDTHH:MM:SSZ). All records up to this time were retrieved. If nextToken
-	// indicates that there are more results, this value is not present.
+	// indicates that there are more items, this value is not present.
 	LastEvaluatedTime *time.Time
 
-	// The token for the next set of results.
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// The start date and time for the events, in UTC format (for example,
@@ -142,6 +144,9 @@ func (c *Client) addOperationDescribeFleetHistoryMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeFleetHistory(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

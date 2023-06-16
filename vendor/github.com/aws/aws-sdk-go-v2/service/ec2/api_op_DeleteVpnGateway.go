@@ -10,10 +10,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes the specified virtual private gateway. You must first detach the virtual
-// private gateway from the VPC. Note that you don't need to delete the virtual
-// private gateway if you plan to delete and recreate the VPN connection between
-// your VPC and your network.
+// Deletes the specified virtual private gateway. You must first detach the
+// virtual private gateway from the VPC. Note that you don't need to delete the
+// virtual private gateway if you plan to delete and recreate the VPN connection
+// between your VPC and your network.
 func (c *Client) DeleteVpnGateway(ctx context.Context, params *DeleteVpnGatewayInput, optFns ...func(*Options)) (*DeleteVpnGatewayOutput, error) {
 	if params == nil {
 		params = &DeleteVpnGatewayInput{}
@@ -39,8 +39,8 @@ type DeleteVpnGatewayInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -102,6 +102,9 @@ func (c *Client) addOperationDeleteVpnGatewayMiddlewares(stack *middleware.Stack
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteVpnGateway(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

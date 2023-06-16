@@ -20,13 +20,9 @@ import (
 
 // Describes the specified EBS volumes or all of your EBS volumes. If you are
 // describing a long list of volumes, we recommend that you paginate the output to
-// make the list more manageable. The MaxResults parameter sets the maximum number
-// of results returned in a single page. If the list of results exceeds your
-// MaxResults value, then that number of results is returned along with a NextToken
-// value that can be passed to a subsequent DescribeVolumes request to retrieve the
-// remaining results. For more information about EBS volumes, see Amazon EBS
-// volumes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// make the list more manageable. For more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+// . For more information about EBS volumes, see Amazon EBS volumes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeVolumes(ctx context.Context, params *DescribeVolumesInput, optFns ...func(*Options)) (*DescribeVolumesOutput, error) {
 	if params == nil {
 		params = &DescribeVolumesInput{}
@@ -46,82 +42,51 @@ type DescribeVolumesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The filters.
-	//
-	// * attachment.attach-time - The time stamp when the attachment
-	// initiated.
-	//
-	// * attachment.delete-on-termination - Whether the volume is deleted
-	// on instance termination.
-	//
-	// * attachment.device - The device name specified in the
-	// block device mapping (for example, /dev/sda1).
-	//
-	// * attachment.instance-id - The
-	// ID of the instance the volume is attached to.
-	//
-	// * attachment.status - The
-	// attachment state (attaching | attached | detaching).
-	//
-	// * availability-zone - The
-	// Availability Zone in which the volume was created.
-	//
-	// * create-time - The time
-	// stamp when the volume was created.
-	//
-	// * encrypted - Indicates whether the volume
-	// is encrypted (true | false)
-	//
-	// * multi-attach-enabled - Indicates whether the
-	// volume is enabled for Multi-Attach (true | false)
-	//
-	// * fast-restored - Indicates
-	// whether the volume was created from a snapshot that is enabled for fast snapshot
-	// restore (true | false).
-	//
-	// * size - The size of the volume, in GiB.
-	//
-	// * snapshot-id
-	// - The snapshot from which the volume was created.
-	//
-	// * status - The state of the
-	// volume (creating | available | in-use | deleting | deleted | error).
-	//
-	// * tag: -
-	// The key/value combination of a tag assigned to the resource. Use the tag key in
-	// the filter name and the tag value as the filter value. For example, to find all
-	// resources that have a tag with the key Owner and the value TeamA, specify
-	// tag:Owner for the filter name and TeamA for the filter value.
-	//
-	// * tag-key - The
-	// key of a tag assigned to the resource. Use this filter to find all resources
-	// assigned a tag with a specific key, regardless of the tag value.
-	//
-	// * volume-id -
-	// The volume ID.
-	//
-	// * volume-type - The Amazon EBS volume type (gp2 | gp3 | io1 |
-	// io2 | st1 | sc1| standard)
+	//   - attachment.attach-time - The time stamp when the attachment initiated.
+	//   - attachment.delete-on-termination - Whether the volume is deleted on instance
+	//   termination.
+	//   - attachment.device - The device name specified in the block device mapping
+	//   (for example, /dev/sda1 ).
+	//   - attachment.instance-id - The ID of the instance the volume is attached to.
+	//   - attachment.status - The attachment state ( attaching | attached | detaching
+	//   ).
+	//   - availability-zone - The Availability Zone in which the volume was created.
+	//   - create-time - The time stamp when the volume was created.
+	//   - encrypted - Indicates whether the volume is encrypted ( true | false )
+	//   - multi-attach-enabled - Indicates whether the volume is enabled for
+	//   Multi-Attach ( true | false )
+	//   - fast-restored - Indicates whether the volume was created from a snapshot
+	//   that is enabled for fast snapshot restore ( true | false ).
+	//   - size - The size of the volume, in GiB.
+	//   - snapshot-id - The snapshot from which the volume was created.
+	//   - status - The state of the volume ( creating | available | in-use | deleting
+	//   | deleted | error ).
+	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
+	//   tag key in the filter name and the tag value as the filter value. For example,
+	//   to find all resources that have a tag with the key Owner and the value TeamA ,
+	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
+	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//   - volume-id - The volume ID.
+	//   - volume-type - The Amazon EBS volume type ( gp2 | gp3 | io1 | io2 | st1 | sc1
+	//   | standard )
 	Filters []types.Filter
 
-	// The maximum number of volume results returned by DescribeVolumes in paginated
-	// output. When this parameter is used, DescribeVolumes only returns MaxResults
-	// results in a single page along with a NextToken response element. The remaining
-	// results of the initial request can be seen by sending another DescribeVolumes
-	// request with the returned NextToken value. This value can be between 5 and 500;
-	// if MaxResults is given a value larger than 500, only 500 results are returned.
-	// If this parameter is not used, then DescribeVolumes returns all results. You
-	// cannot specify this parameter and the volume IDs parameter in the same request.
+	// The maximum number of volumes to return for this request. This value can be
+	// between 5 and 500; if you specify a value larger than 500, only 500 items are
+	// returned. If this parameter is not used, then all items are returned. You cannot
+	// specify this parameter and the volume IDs parameter in the same request. For
+	// more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	MaxResults *int32
 
-	// The NextToken value returned from a previous paginated DescribeVolumes request
-	// where MaxResults was used and the results exceeded the value of that parameter.
-	// Pagination continues from the end of the previous results that returned the
-	// NextToken value. This value is null when there are no more results to return.
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned from the previous request.
 	NextToken *string
 
 	// The volume IDs.
@@ -132,10 +97,8 @@ type DescribeVolumesInput struct {
 
 type DescribeVolumesOutput struct {
 
-	// The NextToken value to include in a future DescribeVolumes request. When the
-	// results of a DescribeVolumes request exceed MaxResults, this value can be used
-	// to retrieve the next page of results. This value is null when there are no more
-	// results to return.
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// Information about the volumes.
@@ -195,6 +158,9 @@ func (c *Client) addOperationDescribeVolumesMiddlewares(stack *middleware.Stack,
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVolumes(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -217,14 +183,12 @@ var _ DescribeVolumesAPIClient = (*Client)(nil)
 
 // DescribeVolumesPaginatorOptions is the paginator options for DescribeVolumes
 type DescribeVolumesPaginatorOptions struct {
-	// The maximum number of volume results returned by DescribeVolumes in paginated
-	// output. When this parameter is used, DescribeVolumes only returns MaxResults
-	// results in a single page along with a NextToken response element. The remaining
-	// results of the initial request can be seen by sending another DescribeVolumes
-	// request with the returned NextToken value. This value can be between 5 and 500;
-	// if MaxResults is given a value larger than 500, only 500 results are returned.
-	// If this parameter is not used, then DescribeVolumes returns all results. You
-	// cannot specify this parameter and the volume IDs parameter in the same request.
+	// The maximum number of volumes to return for this request. This value can be
+	// between 5 and 500; if you specify a value larger than 500, only 500 items are
+	// returned. If this parameter is not used, then all items are returned. You cannot
+	// specify this parameter and the volume IDs parameter in the same request. For
+	// more information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token
@@ -317,9 +281,9 @@ type VolumeAvailableWaiterOptions struct {
 	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
 	MinDelay time.Duration
 
-	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
-	// to zero, VolumeAvailableWaiter will use default max delay of 120 seconds. Note
-	// that MaxDelay must resolve to value greater than or equal to the MinDelay.
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or
+	// set to zero, VolumeAvailableWaiter will use default max delay of 120 seconds.
+	// Note that MaxDelay must resolve to value greater than or equal to the MinDelay.
 	MaxDelay time.Duration
 
 	// LogWaitAttempts is used to enable logging for waiter retry attempts
@@ -359,9 +323,9 @@ func NewVolumeAvailableWaiter(client DescribeVolumesAPIClient, optFns ...func(*V
 	}
 }
 
-// Wait calls the waiter function for VolumeAvailable waiter. The maxWaitDur is the
-// maximum wait duration the waiter will wait. The maxWaitDur is required and must
-// be greater than zero.
+// Wait calls the waiter function for VolumeAvailable waiter. The maxWaitDur is
+// the maximum wait duration the waiter will wait. The maxWaitDur is required and
+// must be greater than zero.
 func (w *VolumeAvailableWaiter) Wait(ctx context.Context, params *DescribeVolumesInput, maxWaitDur time.Duration, optFns ...func(*VolumeAvailableWaiterOptions)) error {
 	_, err := w.WaitForOutput(ctx, params, maxWaitDur, optFns...)
 	return err
@@ -516,8 +480,8 @@ type VolumeDeletedWaiterOptions struct {
 	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
 	MinDelay time.Duration
 
-	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
-	// to zero, VolumeDeletedWaiter will use default max delay of 120 seconds. Note
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or
+	// set to zero, VolumeDeletedWaiter will use default max delay of 120 seconds. Note
 	// that MaxDelay must resolve to value greater than or equal to the MinDelay.
 	MaxDelay time.Duration
 
@@ -566,9 +530,10 @@ func (w *VolumeDeletedWaiter) Wait(ctx context.Context, params *DescribeVolumesI
 	return err
 }
 
-// WaitForOutput calls the waiter function for VolumeDeleted waiter and returns the
-// output of the successful operation. The maxWaitDur is the maximum wait duration
-// the waiter will wait. The maxWaitDur is required and must be greater than zero.
+// WaitForOutput calls the waiter function for VolumeDeleted waiter and returns
+// the output of the successful operation. The maxWaitDur is the maximum wait
+// duration the waiter will wait. The maxWaitDur is required and must be greater
+// than zero.
 func (w *VolumeDeletedWaiter) WaitForOutput(ctx context.Context, params *DescribeVolumesInput, maxWaitDur time.Duration, optFns ...func(*VolumeDeletedWaiterOptions)) (*DescribeVolumesOutput, error) {
 	if maxWaitDur <= 0 {
 		return nil, fmt.Errorf("maximum wait time for waiter must be greater than zero")
@@ -702,9 +667,9 @@ type VolumeInUseWaiterOptions struct {
 	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
 	MinDelay time.Duration
 
-	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
-	// to zero, VolumeInUseWaiter will use default max delay of 120 seconds. Note that
-	// MaxDelay must resolve to value greater than or equal to the MinDelay.
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or
+	// set to zero, VolumeInUseWaiter will use default max delay of 120 seconds. Note
+	// that MaxDelay must resolve to value greater than or equal to the MinDelay.
 	MaxDelay time.Duration
 
 	// LogWaitAttempts is used to enable logging for waiter retry attempts

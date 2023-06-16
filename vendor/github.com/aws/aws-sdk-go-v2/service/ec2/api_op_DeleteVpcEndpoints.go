@@ -11,29 +11,12 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes one or more specified VPC endpoints. You can delete any of the following
-// types of VPC endpoints.
-//
-// * Gateway endpoint,
-//
-// * Gateway Load Balancer
-// endpoint,
-//
-// * Interface endpoint
-//
-// The following rules apply when you delete a VPC
-// endpoint:
-//
-// * When you delete a gateway endpoint, we delete the endpoint routes
-// in the route tables that are associated with the endpoint.
-//
-// * When you delete a
-// Gateway Load Balancer endpoint, we delete the endpoint network interfaces. You
+// Deletes the specified VPC endpoints. When you delete a gateway endpoint, we
+// delete the endpoint routes in the route tables for the endpoint. When you delete
+// a Gateway Load Balancer endpoint, we delete its endpoint network interfaces. You
 // can only delete Gateway Load Balancer endpoints when the routes that are
-// associated with the endpoint are deleted.
-//
-// * When you delete an interface
-// endpoint, we delete the endpoint network interfaces.
+// associated with the endpoint are deleted. When you delete an interface endpoint,
+// we delete its endpoint network interfaces.
 func (c *Client) DeleteVpcEndpoints(ctx context.Context, params *DeleteVpcEndpointsInput, optFns ...func(*Options)) (*DeleteVpcEndpointsOutput, error) {
 	if params == nil {
 		params = &DeleteVpcEndpointsInput{}
@@ -49,24 +32,22 @@ func (c *Client) DeleteVpcEndpoints(ctx context.Context, params *DeleteVpcEndpoi
 	return out, nil
 }
 
-// Contains the parameters for DeleteVpcEndpoints.
 type DeleteVpcEndpointsInput struct {
 
-	// One or more VPC endpoint IDs.
+	// The IDs of the VPC endpoints.
 	//
 	// This member is required.
 	VpcEndpointIds []string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
 }
 
-// Contains the output of DeleteVpcEndpoints.
 type DeleteVpcEndpointsOutput struct {
 
 	// Information about the VPC endpoints that were not successfully deleted.
@@ -127,6 +108,9 @@ func (c *Client) addOperationDeleteVpcEndpointsMiddlewares(stack *middleware.Sta
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteVpcEndpoints(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

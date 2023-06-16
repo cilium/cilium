@@ -32,33 +32,21 @@ type DescribeLocalGatewayVirtualInterfacesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters.
-	//
-	// * local-address - The local address.
-	//
-	// * local-bgp-asn -
-	// The Border Gateway Protocol (BGP) Autonomous System Number (ASN) of the local
-	// gateway.
-	//
-	// * local-gateway-id - The ID of the local gateway.
-	//
-	// *
-	// local-gateway-virtual-interface-id - The ID of the virtual interface.
-	//
-	// *
-	// owner-id - The ID of the Amazon Web Services account that owns the local gateway
-	// virtual interface.
-	//
-	// * peer-address - The peer address.
-	//
-	// * peer-bgp-asn - The
-	// peer BGP ASN.
-	//
-	// * vlan - The ID of the VLAN.
+	//   - local-address - The local address.
+	//   - local-bgp-asn - The Border Gateway Protocol (BGP) Autonomous System Number
+	//   (ASN) of the local gateway.
+	//   - local-gateway-id - The ID of the local gateway.
+	//   - local-gateway-virtual-interface-id - The ID of the virtual interface.
+	//   - owner-id - The ID of the Amazon Web Services account that owns the local
+	//   gateway virtual interface.
+	//   - peer-address - The peer address.
+	//   - peer-bgp-asn - The peer BGP ASN.
+	//   - vlan - The ID of the VLAN.
 	Filters []types.Filter
 
 	// The IDs of the virtual interfaces.
@@ -135,6 +123,9 @@ func (c *Client) addOperationDescribeLocalGatewayVirtualInterfacesMiddlewares(st
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLocalGatewayVirtualInterfaces(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

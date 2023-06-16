@@ -12,11 +12,12 @@ import (
 )
 
 // Modifies the specified attribute of the specified AMI. You can specify only one
-// attribute at a time. You can use the Attribute parameter to specify the
-// attribute or one of the following parameters: Description or LaunchPermission.
-// Images with an Amazon Web Services Marketplace product code cannot be made
-// public. To enable the SriovNetSupport enhanced networking attribute of an image,
-// enable SriovNetSupport on an instance and create an AMI from the instance.
+// attribute at a time. To specify the attribute, you can use the Attribute
+// parameter, or one of the following parameters: Description , ImdsSupport , or
+// LaunchPermission . Images with an Amazon Web Services Marketplace product code
+// cannot be made public. To enable the SriovNetSupport enhanced networking
+// attribute of an image, enable SriovNetSupport on an instance and create an AMI
+// from the instance.
 func (c *Client) ModifyImageAttribute(ctx context.Context, params *ModifyImageAttributeInput, optFns ...func(*Options)) (*ModifyImageAttributeOutput, error) {
 	if params == nil {
 		params = &ModifyImageAttributeInput{}
@@ -40,7 +41,7 @@ type ModifyImageAttributeInput struct {
 	// This member is required.
 	ImageId *string
 
-	// The name of the attribute to modify. Valid values: description |
+	// The name of the attribute to modify. Valid values: description | imdsSupport |
 	// launchPermission
 	Attribute *string
 
@@ -49,38 +50,48 @@ type ModifyImageAttributeInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
+
+	// Set to v2.0 to indicate that IMDSv2 is specified in the AMI. Instances launched
+	// from this AMI will have HttpTokens automatically set to required so that, by
+	// default, the instance requires that IMDSv2 is used when requesting instance
+	// metadata. In addition, HttpPutResponseHopLimit is set to 2 . For more
+	// information, see Configure the AMI (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-IMDS-new-instances.html#configure-IMDS-new-instances-ami-configuration)
+	// in the Amazon EC2 User Guide. Do not use this parameter unless your AMI software
+	// supports IMDSv2. After you set the value to v2.0 , you can't undo it. The only
+	// way to “reset” your AMI is to create a new AMI from the underlying snapshot.
+	ImdsSupport *types.AttributeValue
 
 	// A new launch permission for the AMI.
 	LaunchPermission *types.LaunchPermissionModifications
 
-	// The operation type. This parameter can be used only when the Attribute parameter
-	// is launchPermission.
+	// The operation type. This parameter can be used only when the Attribute
+	// parameter is launchPermission .
 	OperationType types.OperationType
 
 	// The Amazon Resource Name (ARN) of an organization. This parameter can be used
-	// only when the Attribute parameter is launchPermission.
+	// only when the Attribute parameter is launchPermission .
 	OrganizationArns []string
 
 	// The Amazon Resource Name (ARN) of an organizational unit (OU). This parameter
-	// can be used only when the Attribute parameter is launchPermission.
+	// can be used only when the Attribute parameter is launchPermission .
 	OrganizationalUnitArns []string
 
 	// Not supported.
 	ProductCodes []string
 
-	// The user groups. This parameter can be used only when the Attribute parameter is
-	// launchPermission.
+	// The user groups. This parameter can be used only when the Attribute parameter
+	// is launchPermission .
 	UserGroups []string
 
 	// The Amazon Web Services account IDs. This parameter can be used only when the
-	// Attribute parameter is launchPermission.
+	// Attribute parameter is launchPermission .
 	UserIds []string
 
 	// The value of the attribute being modified. This parameter can be used only when
-	// the Attribute parameter is description.
+	// the Attribute parameter is description or imdsSupport .
 	Value *string
 
 	noSmithyDocumentSerde
@@ -142,6 +153,9 @@ func (c *Client) addOperationModifyImageAttributeMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyImageAttribute(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

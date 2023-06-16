@@ -12,9 +12,8 @@ import (
 )
 
 // Describes the specified placement groups or all of your placement groups. For
-// more information, see Placement groups
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html) in
-// the Amazon EC2 User Guide.
+// more information, see Placement groups (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) DescribePlacementGroups(ctx context.Context, params *DescribePlacementGroupsInput, optFns ...func(*Options)) (*DescribePlacementGroupsOutput, error) {
 	if params == nil {
 		params = &DescribePlacementGroupsInput{}
@@ -34,42 +33,31 @@ type DescribePlacementGroupsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The filters.
-	//
-	// * group-name - The name of the placement group.
-	//
-	// * group-arn - The
-	// Amazon Resource Name (ARN) of the placement group.
-	//
-	// * spread-level - The spread
-	// level for the placement group (host | rack).
-	//
-	// * state - The state of the
-	// placement group (pending | available | deleting | deleted).
-	//
-	// * strategy - The
-	// strategy of the placement group (cluster | spread | partition).
-	//
-	// * tag: - The
-	// key/value combination of a tag assigned to the resource. Use the tag key in the
-	// filter name and the tag value as the filter value. For example, to find all
-	// resources that have a tag with the key Owner and the value TeamA, specify
-	// tag:Owner for the filter name and TeamA for the filter value.
-	//
-	// * tag-key - The
-	// key of a tag assigned to the resource. Use this filter to find all resources
-	// that have a tag with a specific key, regardless of the tag value.
+	//   - group-name - The name of the placement group.
+	//   - group-arn - The Amazon Resource Name (ARN) of the placement group.
+	//   - spread-level - The spread level for the placement group ( host | rack ).
+	//   - state - The state of the placement group ( pending | available | deleting |
+	//   deleted ).
+	//   - strategy - The strategy of the placement group ( cluster | spread |
+	//   partition ).
+	//   - tag: - The key/value combination of a tag assigned to the resource. Use the
+	//   tag key in the filter name and the tag value as the filter value. For example,
+	//   to find all resources that have a tag with the key Owner and the value TeamA ,
+	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
+	//   all resources that have a tag with a specific key, regardless of the tag value.
 	Filters []types.Filter
 
 	// The IDs of the placement groups.
 	GroupIds []string
 
-	// The names of the placement groups. Default: Describes all your placement groups,
-	// or only those otherwise specified.
+	// The names of the placement groups. Default: Describes all your placement
+	// groups, or only those otherwise specified.
 	GroupNames []string
 
 	noSmithyDocumentSerde
@@ -132,6 +120,9 @@ func (c *Client) addOperationDescribePlacementGroupsMiddlewares(stack *middlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribePlacementGroups(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

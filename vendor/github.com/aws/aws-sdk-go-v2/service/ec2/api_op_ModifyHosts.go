@@ -45,9 +45,13 @@ type ModifyHostsInput struct {
 	// Specify whether to enable or disable auto-placement.
 	AutoPlacement types.AutoPlacement
 
-	// Indicates whether to enable or disable host recovery for the Dedicated Host. For
-	// more information, see  Host recovery
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-recovery.html)
+	// Indicates whether to enable or disable host maintenance for the Dedicated Host.
+	// For more information, see Host maintenance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-maintenance.html)
+	// in the Amazon EC2 User Guide.
+	HostMaintenance types.HostMaintenance
+
+	// Indicates whether to enable or disable host recovery for the Dedicated Host.
+	// For more information, see Host recovery (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-recovery.html)
 	// in the Amazon EC2 User Guide.
 	HostRecovery types.HostRecovery
 
@@ -133,6 +137,9 @@ func (c *Client) addOperationModifyHostsMiddlewares(stack *middleware.Stack, opt
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyHosts(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -13,9 +13,8 @@ import (
 // Disables ClassicLink for a VPC. You cannot disable ClassicLink for a VPC that
 // has EC2-Classic instances linked to it. We are retiring EC2-Classic. We
 // recommend that you migrate from EC2-Classic to a VPC. For more information, see
-// Migrate from EC2-Classic to a VPC
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// Migrate from EC2-Classic to a VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DisableVpcClassicLink(ctx context.Context, params *DisableVpcClassicLinkInput, optFns ...func(*Options)) (*DisableVpcClassicLinkOutput, error) {
 	if params == nil {
 		params = &DisableVpcClassicLinkInput{}
@@ -40,8 +39,8 @@ type DisableVpcClassicLinkInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -107,6 +106,9 @@ func (c *Client) addOperationDisableVpcClassicLinkMiddlewares(stack *middleware.
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisableVpcClassicLink(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

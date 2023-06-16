@@ -21,14 +21,13 @@ import (
 // | network-acl-association | network-interface | network-interface-attachment |
 // prefix-list | route-table | route-table-association | security-group | subnet |
 // subnet-cidr-block-association | vpc | vpc-cidr-block-association | vpc-endpoint
-// | vpc-peering-connection | vpn-connection | vpn-gateway. For more information,
-// see Resource IDs
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/resource-ids.html) in the
-// Amazon Elastic Compute Cloud User Guide. This setting applies to the principal
-// specified in the request; it does not apply to the principal that makes the
-// request. Resources created with longer IDs are visible to all IAM roles and
-// users, regardless of these settings and provided that they have permission to
-// use the relevant Describe command for the resource type.
+// | vpc-peering-connection | vpn-connection | vpn-gateway . For more information,
+// see Resource IDs (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/resource-ids.html)
+// in the Amazon Elastic Compute Cloud User Guide. This setting applies to the
+// principal specified in the request; it does not apply to the principal that
+// makes the request. Resources created with longer IDs are visible to all IAM
+// roles and users, regardless of these settings and provided that they have
+// permission to use the relevant Describe command for the resource type.
 func (c *Client) ModifyIdentityIdFormat(ctx context.Context, params *ModifyIdentityIdFormatInput, optFns ...func(*Options)) (*ModifyIdentityIdFormatOutput, error) {
 	if params == nil {
 		params = &ModifyIdentityIdFormatInput{}
@@ -55,11 +54,11 @@ type ModifyIdentityIdFormatInput struct {
 
 	// The type of resource: bundle | conversion-task | customer-gateway | dhcp-options
 	// | elastic-ip-allocation | elastic-ip-association | export-task | flow-log |
-	// image | import-task | internet-gateway | network-acl | network-acl-association |
-	// network-interface | network-interface-attachment | prefix-list | route-table |
-	// route-table-association | security-group | subnet |
+	// image | import-task | internet-gateway | network-acl | network-acl-association
+	// | network-interface | network-interface-attachment | prefix-list | route-table
+	// | route-table-association | security-group | subnet |
 	// subnet-cidr-block-association | vpc | vpc-cidr-block-association | vpc-endpoint
-	// | vpc-peering-connection | vpn-connection | vpn-gateway. Alternatively, use the
+	// | vpc-peering-connection | vpn-connection | vpn-gateway . Alternatively, use the
 	// all-current option to include all resource types that are currently within their
 	// opt-in period for longer IDs.
 	//
@@ -130,6 +129,9 @@ func (c *Client) addOperationModifyIdentityIdFormatMiddlewares(stack *middleware
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyIdentityIdFormat(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -38,20 +38,15 @@ type GetTransitGatewayRouteTablePropagationsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters. The possible values are:
-	//
-	// * resource-id - The ID of the
-	// resource.
-	//
-	// * resource-type - The resource type. Valid values are vpc | vpn |
-	// direct-connect-gateway | peering | connect.
-	//
-	// * transit-gateway-attachment-id -
-	// The ID of the attachment.
+	//   - resource-id - The ID of the resource.
+	//   - resource-type - The resource type. Valid values are vpc | vpn |
+	//   direct-connect-gateway | peering | connect .
+	//   - transit-gateway-attachment-id - The ID of the attachment.
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the
@@ -130,6 +125,9 @@ func (c *Client) addOperationGetTransitGatewayRouteTablePropagationsMiddlewares(
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetTransitGatewayRouteTablePropagations(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -142,16 +140,16 @@ func (c *Client) addOperationGetTransitGatewayRouteTablePropagationsMiddlewares(
 	return nil
 }
 
-// GetTransitGatewayRouteTablePropagationsAPIClient is a client that implements the
-// GetTransitGatewayRouteTablePropagations operation.
+// GetTransitGatewayRouteTablePropagationsAPIClient is a client that implements
+// the GetTransitGatewayRouteTablePropagations operation.
 type GetTransitGatewayRouteTablePropagationsAPIClient interface {
 	GetTransitGatewayRouteTablePropagations(context.Context, *GetTransitGatewayRouteTablePropagationsInput, ...func(*Options)) (*GetTransitGatewayRouteTablePropagationsOutput, error)
 }
 
 var _ GetTransitGatewayRouteTablePropagationsAPIClient = (*Client)(nil)
 
-// GetTransitGatewayRouteTablePropagationsPaginatorOptions is the paginator options
-// for GetTransitGatewayRouteTablePropagations
+// GetTransitGatewayRouteTablePropagationsPaginatorOptions is the paginator
+// options for GetTransitGatewayRouteTablePropagations
 type GetTransitGatewayRouteTablePropagationsPaginatorOptions struct {
 	// The maximum number of results to return with a single call. To retrieve the
 	// remaining results, make another call with the returned nextToken value.

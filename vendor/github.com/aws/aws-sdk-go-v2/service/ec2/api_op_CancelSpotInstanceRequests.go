@@ -31,15 +31,15 @@ func (c *Client) CancelSpotInstanceRequests(ctx context.Context, params *CancelS
 // Contains the parameters for CancelSpotInstanceRequests.
 type CancelSpotInstanceRequestsInput struct {
 
-	// One or more Spot Instance request IDs.
+	// The IDs of the Spot Instance requests.
 	//
 	// This member is required.
 	SpotInstanceRequestIds []string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -48,7 +48,7 @@ type CancelSpotInstanceRequestsInput struct {
 // Contains the output of CancelSpotInstanceRequests.
 type CancelSpotInstanceRequestsOutput struct {
 
-	// One or more Spot Instance requests.
+	// The Spot Instance requests.
 	CancelledSpotInstanceRequests []types.CancelledSpotInstanceRequest
 
 	// Metadata pertaining to the operation's result.
@@ -106,6 +106,9 @@ func (c *Client) addOperationCancelSpotInstanceRequestsMiddlewares(stack *middle
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCancelSpotInstanceRequests(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

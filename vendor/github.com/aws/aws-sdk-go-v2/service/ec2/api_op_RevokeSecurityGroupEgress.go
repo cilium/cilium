@@ -53,15 +53,15 @@ type RevokeSecurityGroupEgressInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// Not supported. Use a set of IP permissions to specify the port.
 	FromPort *int32
 
-	// The sets of IP permissions. You can't specify a destination security group and a
-	// CIDR IP address range in the same set of permissions.
+	// The sets of IP permissions. You can't specify a destination security group and
+	// a CIDR IP address range in the same set of permissions.
 	IpPermissions []types.IpPermission
 
 	// Not supported. Use a set of IP permissions to specify the protocol name or
@@ -91,8 +91,7 @@ type RevokeSecurityGroupEgressOutput struct {
 	Return *bool
 
 	// The outbound rules that were unknown to the service. In some cases,
-	// unknownIpPermissionSet might be in a different format from the request
-	// parameter.
+	// unknownIpPermissionSet might be in a different format from the request parameter.
 	UnknownIpPermissions []types.IpPermission
 
 	// Metadata pertaining to the operation's result.
@@ -150,6 +149,9 @@ func (c *Client) addOperationRevokeSecurityGroupEgressMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opRevokeSecurityGroupEgress(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

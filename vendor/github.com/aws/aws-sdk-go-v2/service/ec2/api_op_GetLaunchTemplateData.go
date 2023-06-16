@@ -14,10 +14,10 @@ import (
 // Retrieves the configuration data of the specified instance. You can use this
 // data to create a launch template. This action calls on other describe actions to
 // get instance information. Depending on your instance configuration, you may need
-// to allow the following actions in your IAM policy: DescribeSpotInstanceRequests,
-// DescribeInstanceCreditSpecifications, DescribeVolumes,
-// DescribeInstanceAttribute, and DescribeElasticGpus. Or, you can allow describe*
-// depending on your instance requirements.
+// to allow the following actions in your IAM policy: DescribeSpotInstanceRequests
+// , DescribeInstanceCreditSpecifications , DescribeVolumes ,
+// DescribeInstanceAttribute , and DescribeElasticGpus . Or, you can allow
+// describe* depending on your instance requirements.
 func (c *Client) GetLaunchTemplateData(ctx context.Context, params *GetLaunchTemplateDataInput, optFns ...func(*Options)) (*GetLaunchTemplateDataOutput, error) {
 	if params == nil {
 		params = &GetLaunchTemplateDataInput{}
@@ -42,8 +42,8 @@ type GetLaunchTemplateDataInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -109,6 +109,9 @@ func (c *Client) addOperationGetLaunchTemplateDataMiddlewares(stack *middleware.
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetLaunchTemplateData(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

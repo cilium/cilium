@@ -11,9 +11,8 @@ import (
 )
 
 // Describes whether EBS encryption by default is enabled for your account in the
-// current Region. For more information, see Amazon EBS encryption
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// current Region. For more information, see Amazon EBS encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) GetEbsEncryptionByDefault(ctx context.Context, params *GetEbsEncryptionByDefaultInput, optFns ...func(*Options)) (*GetEbsEncryptionByDefaultOutput, error) {
 	if params == nil {
 		params = &GetEbsEncryptionByDefaultInput{}
@@ -33,8 +32,8 @@ type GetEbsEncryptionByDefaultInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -97,6 +96,9 @@ func (c *Client) addOperationGetEbsEncryptionByDefaultMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetEbsEncryptionByDefault(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
