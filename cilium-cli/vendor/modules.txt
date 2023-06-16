@@ -52,7 +52,7 @@ github.com/chai2010/gettext-go/po
 # github.com/cilium/charts v0.0.0-20230601164911-0a270e4bf15f
 ## explicit; go 1.17
 github.com/cilium/charts
-# github.com/cilium/cilium v1.14.0-snapshot.3.0.20230606122222-31f6ab1ff5fb
+# github.com/cilium/cilium v1.14.0-snapshot.4
 ## explicit; go 1.20
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/bgp
@@ -185,7 +185,7 @@ github.com/cloudflare/cfssl/signer
 github.com/cloudflare/cfssl/signer/local
 github.com/cloudflare/cfssl/signer/remote
 github.com/cloudflare/cfssl/signer/universal
-# github.com/cncf/xds/go v0.0.0-20230310173818-32f1caf87195
+# github.com/cncf/xds/go v0.0.0-20230607035331-e9ce68804cb4
 ## explicit; go 1.11
 github.com/cncf/xds/go/udpa/annotations
 github.com/cncf/xds/go/xds/annotations/v3
@@ -242,7 +242,7 @@ github.com/docker/distribution/registry/client/auth/challenge
 github.com/docker/distribution/registry/client/transport
 github.com/docker/distribution/registry/storage/cache
 github.com/docker/distribution/registry/storage/cache/memory
-# github.com/docker/docker v23.0.3+incompatible
+# github.com/docker/docker v24.0.2+incompatible => github.com/docker/docker v23.0.3+incompatible
 ## explicit
 github.com/docker/docker/api/types
 github.com/docker/docker/api/types/blkiodev
@@ -288,7 +288,7 @@ github.com/dsnet/compress/internal/prefix
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
-# github.com/envoyproxy/protoc-gen-validate v0.10.0
+# github.com/envoyproxy/protoc-gen-validate v0.10.1
 ## explicit; go 1.19
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v5.6.0+incompatible
@@ -635,7 +635,7 @@ github.com/pmezard/go-difflib/difflib
 # github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b
 ## explicit; go 1.14
 github.com/power-devops/perfstat
-# github.com/prometheus/client_golang v1.15.1
+# github.com/prometheus/client_golang v1.16.0
 ## explicit; go 1.17
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/collectors
@@ -827,7 +827,7 @@ go.uber.org/dig/internal/graph
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
-# golang.org/x/crypto v0.9.0
+# golang.org/x/crypto v0.10.0
 ## explicit; go 1.17
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
@@ -852,10 +852,10 @@ golang.org/x/crypto/scrypt
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
 golang.org/x/exp/slices
-# golang.org/x/mod v0.10.0
+# golang.org/x/mod v0.11.0
 ## explicit; go 1.17
 golang.org/x/mod/semver
-# golang.org/x/net v0.10.0
+# golang.org/x/net v0.11.0
 ## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -871,21 +871,21 @@ golang.org/x/net/trace
 ## explicit; go 1.17
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.2.0
-## explicit
+# golang.org/x/sync v0.3.0
+## explicit; go 1.17
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.8.0
+# golang.org/x/sys v0.9.0
 ## explicit; go 1.17
 golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.8.0
+# golang.org/x/term v0.9.0
 ## explicit; go 1.17
 golang.org/x/term
-# golang.org/x/text v0.9.0
+# golang.org/x/text v0.10.0
 ## explicit; go 1.17
 golang.org/x/text/encoding
 golang.org/x/text/encoding/internal
@@ -915,7 +915,7 @@ google.golang.org/genproto/googleapis/api/expr/v1alpha1
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.55.0
+# google.golang.org/grpc v1.56.0
 ## explicit; go 1.17
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -1390,7 +1390,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# oras.land/oras-go v1.2.3-0.20230313045143-cb5625556a37
+# oras.land/oras-go v1.2.3
 ## explicit; go 1.18
 oras.land/oras-go/pkg/artifact
 oras.land/oras-go/pkg/auth
@@ -1504,3 +1504,4 @@ sigs.k8s.io/yaml
 # github.com/miekg/dns => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2
+# github.com/docker/docker => github.com/docker/docker v23.0.3+incompatible
