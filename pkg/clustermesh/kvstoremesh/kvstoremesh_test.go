@@ -189,7 +189,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				cancel()
 				wg.Wait()
 
-				require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), "cilium/"))
+				require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
 			remoteClient := &remoteEtcdClientWrapper{

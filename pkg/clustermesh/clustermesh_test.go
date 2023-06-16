@@ -102,9 +102,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 
 	kvstore.SetupDummy("etcd")
 	defer func() {
-		kvstore.Client().DeletePrefix(context.TODO(), kvstore.ClusterConfigPrefix)
-		kvstore.Client().DeletePrefix(context.TODO(), kvstore.SyncedPrefix)
-		kvstore.Client().DeletePrefix(context.TODO(), nodeStore.NodeStorePrefix)
+		kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
 		kvstore.Client().Close(ctx)
 	}()
 

@@ -136,7 +136,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				wg.Wait()
 
 				allocator.Close()
-				require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), "cilium/"))
+				require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
 			// Populate the kvstore with the appropriate KV pairs

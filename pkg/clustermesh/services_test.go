@@ -121,7 +121,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
 	os.RemoveAll(s.testDir)
-	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
+	kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
 	kvstore.Client().Close(context.TODO())
 }
 
