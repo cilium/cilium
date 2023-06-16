@@ -9,6 +9,7 @@ import (
 
 const (
 	HttpUrlQuery = "http-url-query"
+	KafkaApiKey  = "kafka-api-key"
 )
 
 // Option is used to configure parsers
@@ -16,8 +17,9 @@ type Option func(*Options)
 
 // Options contains all parser options
 type Options struct {
-	CacheSize       int
-	RedactHTTPQuery bool
+	CacheSize         int
+	RedactHTTPQuery   bool
+	RedactKafkaAPIKey bool
 }
 
 // CacheSize configures the amount of L7 requests cached for latency calculation
@@ -35,6 +37,8 @@ func Redact(logger logrus.FieldLogger, hubbleRedactOptions []string) Option {
 			switch option {
 			case HttpUrlQuery:
 				opt.RedactHTTPQuery = true
+			case KafkaApiKey:
+				opt.RedactKafkaAPIKey = true
 			default:
 				if logger != nil {
 					logger.WithField("option", option).Warn("ignoring unknown Hubble redact option")

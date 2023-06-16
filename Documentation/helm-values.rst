@@ -1401,7 +1401,7 @@
      - bool
      - ``false``
    * - hubble.redact
-     - Configures the list of redact options for Hubble. Example:    redact:   - http-url-query  You can specify the list of options from the helm CLI:    --set hubble.redact="{http-url-query}"
+     - Configures the list of redact options for Hubble. Example:    redact:   - http-url-query   - kafka-api-key  You can specify the list of options from the helm CLI:    --set hubble.redact="{http-url-query,kafka-api-key}"
      - string
      - ``nil``
    * - hubble.relay.affinity
