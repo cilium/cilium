@@ -64,9 +64,10 @@ func (db *stateDB) WriteJSON(w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		buf.WriteString("\"" + table + "\": [\n")
+		buf.WriteString("  \"" + table + "\": [\n")
 		obj := iter.Next()
 		for obj != nil {
+			buf.WriteString("    ")
 			bs, err := json.Marshal(obj)
 			if err != nil {
 				return err
@@ -74,12 +75,14 @@ func (db *stateDB) WriteJSON(w io.Writer) error {
 			buf.Write(bs)
 			obj = iter.Next()
 			if obj != nil {
-				buf.WriteByte(',')
+				buf.WriteString(",\n")
+			} else {
+				buf.WriteByte('\n')
 			}
 		}
-		buf.WriteString("]\n")
+		buf.WriteString("  ]")
 	}
-	buf.WriteString("}\n")
+	buf.WriteString("\n}\n")
 	return buf.Flush()
 }
 
