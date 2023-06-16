@@ -131,7 +131,7 @@ func haveIPv6MaxSize() bool {
 	if err != nil {
 		return false
 	}
-	if link.Attrs().GROMaxSize > 0 && link.Attrs().GSOMaxSize > 0 {
+	if link.Attrs().TSOMaxSize > 0 {
 		return true
 	}
 	return false
