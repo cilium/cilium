@@ -26,6 +26,7 @@ const (
 	Observer_GetAgentEvents_FullMethodName = "/observer.Observer/GetAgentEvents"
 	Observer_GetDebugEvents_FullMethodName = "/observer.Observer/GetDebugEvents"
 	Observer_GetNodes_FullMethodName       = "/observer.Observer/GetNodes"
+	Observer_GetNamespaces_FullMethodName  = "/observer.Observer/GetNamespaces"
 	Observer_ServerStatus_FullMethodName   = "/observer.Observer/ServerStatus"
 )
 
@@ -41,6 +42,11 @@ type ObserverClient interface {
 	GetDebugEvents(ctx context.Context, in *GetDebugEventsRequest, opts ...grpc.CallOption) (Observer_GetDebugEventsClient, error)
 	// GetNodes returns information about nodes in a cluster.
 	GetNodes(ctx context.Context, in *GetNodesRequest, opts ...grpc.CallOption) (*GetNodesResponse, error)
+	// GetNamespaces returns information about namespaces in a cluster.
+	// The namespaces returned are namespaces which have had network flows in
+	// the last hour. The namespaces are returned sorted by cluster name and
+	// namespace in ascending order.
+	GetNamespaces(ctx context.Context, in *GetNamespacesRequest, opts ...grpc.CallOption) (*GetNamespacesResponse, error)
 	// ServerStatus returns some details about the running hubble server.
 	ServerStatus(ctx context.Context, in *ServerStatusRequest, opts ...grpc.CallOption) (*ServerStatusResponse, error)
 }
@@ -158,6 +164,15 @@ func (c *observerClient) GetNodes(ctx context.Context, in *GetNodesRequest, opts
 	return out, nil
 }
 
+func (c *observerClient) GetNamespaces(ctx context.Context, in *GetNamespacesRequest, opts ...grpc.CallOption) (*GetNamespacesResponse, error) {
+	out := new(GetNamespacesResponse)
+	err := c.cc.Invoke(ctx, Observer_GetNamespaces_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *observerClient) ServerStatus(ctx context.Context, in *ServerStatusRequest, opts ...grpc.CallOption) (*ServerStatusResponse, error) {
 	out := new(ServerStatusResponse)
 	err := c.cc.Invoke(ctx, Observer_ServerStatus_FullMethodName, in, out, opts...)
@@ -179,6 +194,11 @@ type ObserverServer interface {
 	GetDebugEvents(*GetDebugEventsRequest, Observer_GetDebugEventsServer) error
 	// GetNodes returns information about nodes in a cluster.
 	GetNodes(context.Context, *GetNodesRequest) (*GetNodesResponse, error)
+	// GetNamespaces returns information about namespaces in a cluster.
+	// The namespaces returned are namespaces which have had network flows in
+	// the last hour. The namespaces are returned sorted by cluster name and
+	// namespace in ascending order.
+	GetNamespaces(context.Context, *GetNamespacesRequest) (*GetNamespacesResponse, error)
 	// ServerStatus returns some details about the running hubble server.
 	ServerStatus(context.Context, *ServerStatusRequest) (*ServerStatusResponse, error)
 }
@@ -198,6 +218,9 @@ func (UnimplementedObserverServer) GetDebugEvents(*GetDebugEventsRequest, Observ
 }
 func (UnimplementedObserverServer) GetNodes(context.Context, *GetNodesRequest) (*GetNodesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNodes not implemented")
+}
+func (UnimplementedObserverServer) GetNamespaces(context.Context, *GetNamespacesRequest) (*GetNamespacesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNamespaces not implemented")
 }
 func (UnimplementedObserverServer) ServerStatus(context.Context, *ServerStatusRequest) (*ServerStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ServerStatus not implemented")
@@ -295,6 +318,24 @@ func _Observer_GetNodes_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Observer_GetNamespaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNamespacesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ObserverServer).GetNamespaces(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Observer_GetNamespaces_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ObserverServer).GetNamespaces(ctx, req.(*GetNamespacesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Observer_ServerStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ServerStatusRequest)
 	if err := dec(in); err != nil {
@@ -323,6 +364,10 @@ var Observer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetNodes",
 			Handler:    _Observer_GetNodes_Handler,
+		},
+		{
+			MethodName: "GetNamespaces",
+			Handler:    _Observer_GetNamespaces_Handler,
 		},
 		{
 			MethodName: "ServerStatus",

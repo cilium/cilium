@@ -121,6 +121,9 @@ const (
 	// NextHop is an IPV4 or IPv6 address for the next hop
 	NextHop = "nextHop"
 
+	// Address is an IPV4, IPv6 or FQDN address
+	Address = "address"
+
 	// IPAddr is an IPV4 or IPv6 address
 	IPAddr = "ipAddr"
 

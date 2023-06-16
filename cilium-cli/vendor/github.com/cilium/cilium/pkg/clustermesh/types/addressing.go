@@ -328,6 +328,10 @@ func (pc PrefixCluster) AddrCluster() AddrCluster {
 	return AddrClusterFrom(pc.prefix.Addr(), pc.clusterID)
 }
 
+func (pc PrefixCluster) ClusterID() uint32 {
+	return pc.clusterID
+}
+
 func (pc PrefixCluster) String() string {
 	if pc.clusterID == 0 {
 		return pc.prefix.String()
