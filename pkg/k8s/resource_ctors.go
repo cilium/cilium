@@ -38,7 +38,7 @@ func ServiceResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav
 		utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services("")),
 		append(opts, optsModifier)...,
 	)
-	return resource.New[*slim_corev1.Service](lc, lw), nil
+	return resource.New[*slim_corev1.Service](lc, lw, resource.WithMetric("Service")), nil
 }
 
 func NodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Node], error) {
@@ -49,7 +49,7 @@ func NodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.L
 		utils.ListerWatcherFromTyped[*slim_corev1.NodeList](cs.Slim().CoreV1().Nodes()),
 		opts...,
 	)
-	return resource.New[*slim_corev1.Node](lc, lw), nil
+	return resource.New[*slim_corev1.Node](lc, lw, resource.WithMetric("Node")), nil
 }
 
 func CiliumNodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
@@ -60,7 +60,7 @@ func CiliumNodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*me
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](cs.CiliumV2().CiliumNodes()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumNode](lc, lw), nil
+	return resource.New[*cilium_api_v2.CiliumNode](lc, lw, resource.WithMetric("CiliumNode")), nil
 }
 
 func PodResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {
@@ -71,7 +71,7 @@ func PodResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.Li
 		utils.ListerWatcherFromTyped[*slim_corev1.PodList](cs.Slim().CoreV1().Pods("")),
 		opts...,
 	)
-	return resource.New[*slim_corev1.Pod](lc, lw), nil
+	return resource.New[*slim_corev1.Pod](lc, lw, resource.WithMetric("Pod")), nil
 }
 
 func NamespaceResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Namespace], error) {
@@ -82,7 +82,7 @@ func NamespaceResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*met
 		utils.ListerWatcherFromTyped[*slim_corev1.NamespaceList](cs.Slim().CoreV1().Namespaces()),
 		opts...,
 	)
-	return resource.New[*slim_corev1.Namespace](lc, lw), nil
+	return resource.New[*slim_corev1.Namespace](lc, lw, resource.WithMetric("Namespace")), nil
 }
 
 func LBIPPoolsResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool], error) {
@@ -93,7 +93,7 @@ func LBIPPoolsResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*met
 		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumLoadBalancerIPPoolList](cs.CiliumV2alpha1().CiliumLoadBalancerIPPools()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool](lc, lw), nil
+	return resource.New[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool](lc, lw, resource.WithMetric("CiliumLoadBalancerIPPool")), nil
 }
 
 func CiliumIdentityResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumIdentity], error) {
@@ -104,7 +104,7 @@ func CiliumIdentityResource(lc hive.Lifecycle, cs client.Clientset, opts ...func
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumIdentityList](cs.CiliumV2().CiliumIdentities()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumIdentity](lc, lw), nil
+	return resource.New[*cilium_api_v2.CiliumIdentity](lc, lw, resource.WithMetric("CiliumIdentityList")), nil
 }
 
 func CiliumNetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {
@@ -115,7 +115,7 @@ func CiliumNetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset, opts ..
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNetworkPolicyList](cs.CiliumV2().CiliumNetworkPolicies("")),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumNetworkPolicy](lc, lw), nil
+	return resource.New[*cilium_api_v2.CiliumNetworkPolicy](lc, lw, resource.WithMetric("CiliumNetworkPolicy")), nil
 }
 
 func CiliumClusterwideNetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy], error) {
@@ -126,7 +126,7 @@ func CiliumClusterwideNetworkPolicyResource(lc hive.Lifecycle, cs client.Clients
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumClusterwideNetworkPolicyList](cs.CiliumV2().CiliumClusterwideNetworkPolicies()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumClusterwideNetworkPolicy](lc, lw), nil
+	return resource.New[*cilium_api_v2.CiliumClusterwideNetworkPolicy](lc, lw, resource.WithMetric("CiliumClusterwideNetworkPolicy")), nil
 }
 
 func CiliumCIDRGroupResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup], error) {
@@ -137,7 +137,7 @@ func CiliumCIDRGroupResource(lc hive.Lifecycle, cs client.Clientset, opts ...fun
 		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumCIDRGroupList](cs.CiliumV2alpha1().CiliumCIDRGroups()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumCIDRGroup](lc, lw), nil
+	return resource.New[*cilium_api_v2alpha1.CiliumCIDRGroup](lc, lw, resource.WithMetric("CiliumCIDRGroup")), nil
 }
 
 func CiliumPodIPPoolResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool], error) {
@@ -148,7 +148,7 @@ func CiliumPodIPPoolResource(lc hive.Lifecycle, cs client.Clientset, opts ...fun
 		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumPodIPPoolList](cs.CiliumV2alpha1().CiliumPodIPPools()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumPodIPPool](lc, lw), nil
+	return resource.New[*cilium_api_v2alpha1.CiliumPodIPPool](lc, lw, resource.WithMetric("CiliumPodIPPool")), nil
 }
 
 func EndpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*Endpoints], error) {
@@ -165,6 +165,7 @@ func EndpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 		lc,
 		lw,
 		resource.WithLazyTransform(lw.getSourceObj, transformEndpoint),
+		resource.WithMetric("Endpoint"),
 	), nil
 }
 
