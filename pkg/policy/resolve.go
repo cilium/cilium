@@ -165,8 +165,8 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Egress, trafficdirection.Egress)
 }
 
-func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapState, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
-	for _, filter := range l4PolicyMap {
+func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapState, l4 L4DirectionPolicy, direction trafficdirection.TrafficDirection) {
+	for _, filter := range l4.PortRules {
 		lookupDone := false
 		proxyport := uint16(0)
 		filter.ToMapState(p.PolicyOwner, direction, p.SelectorCache, policyMapState, func(keyFromFilter Key, entry *MapStateEntry) bool {

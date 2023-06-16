@@ -1992,7 +1992,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	c.Assert(cachedSelectorApp2, Not(IsNil))
 
 	expected := NewL4Policy(repo.GetRevision())
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected.Ingress.PortRules["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
@@ -2007,7 +2007,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorApp2: {nil}},
 	}
 
-	if equal, err := checker.DeepEqual(l4IngressPolicy, expected.Ingress); !equal {
+	if equal, err := checker.DeepEqual(l4IngressPolicy, expected.Ingress.PortRules); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -2019,7 +2019,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	l4IngressPolicy, err = repo.ResolveL4IngressPolicy(fromApp3)
 	c.Assert(err, IsNil)
 	c.Assert(len(l4IngressPolicy), Equals, 0)
-	c.Assert(l4IngressPolicy, checker.Equals, expected.Ingress)
+	c.Assert(l4IngressPolicy, checker.Equals, expected.Ingress.PortRules)
 	l4IngressPolicy.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 }
