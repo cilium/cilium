@@ -138,18 +138,7 @@ SETUP("xdp", "xdp_egressgw_reply")
 int egressgw_reply_setup(struct __ctx_buff *ctx)
 {
 	/* install EgressGW policy for the connection: */
-	struct egress_gw_policy_key egressgw_key = {
-		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
-		.saddr   = CLIENT_IP,
-		.daddr   = EXTERNAL_SVC_IP & 0Xffffff,
-	};
-
-	struct egress_gw_policy_entry egressgw_value = {
-		.egress_ip  = 0, /* not needed */
-		.gateway_ip = GATEWAY_NODE_IP,
-	};
-
-	map_update_elem(&EGRESS_POLICY_MAP, &egressgw_key, &egressgw_value, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
 
 	/* install RevSNAT entry */
 	struct ipv4_ct_tuple snat_tuple = {
@@ -273,6 +262,8 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	if (inner_l4->dest != client_port(TEST_XDP_REPLY))
 		test_fatal("innerDstPort hasn't been revNATed to client port");
+
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
 
 	test_finish();
 }

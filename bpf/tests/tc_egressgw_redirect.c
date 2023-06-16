@@ -99,18 +99,7 @@ int egressgw_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_redirect")
 int egressgw_redirect_setup(struct __ctx_buff *ctx)
 {
-	struct egress_gw_policy_key in_key = {
-		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
-		.saddr   = CLIENT_IP,
-		.daddr   = EXTERNAL_SVC_IP & 0Xffffff,
-	};
-
-	struct egress_gw_policy_entry in_val = {
-		.egress_ip  = 0,
-		.gateway_ip = NODE_IP,
-	};
-
-	map_update_elem(&EGRESS_POLICY_MAP, &in_key, &in_val, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, NODE_IP, 0);
 
 	struct policy_key policy_key = {
 		.egress = 1,
@@ -144,6 +133,8 @@ int egressgw_redirect_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 	assert(*status_code == CTX_ACT_REDIRECT);
+
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
 
 	test_finish();
 }
@@ -199,31 +190,8 @@ int egressgw_skip_excluded_cidr_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 {
-	struct egress_gw_policy_key in_key = {
-		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
-		.saddr   = CLIENT_IP,
-		.daddr   = EXTERNAL_SVC_IP & 0Xffffff,
-	};
-
-	struct egress_gw_policy_entry in_val = {
-		.egress_ip  = 0,
-		.gateway_ip = NODE_IP,
-	};
-
-	map_update_elem(&EGRESS_POLICY_MAP, &in_key, &in_val, 0);
-
-	struct egress_gw_policy_key in_key_excluded_cidr = {
-		.lpm_key = { EGRESS_PREFIX_LEN(32), {} },
-		.saddr   = CLIENT_IP,
-		.daddr   = EXTERNAL_SVC_IP,
-	};
-
-	struct egress_gw_policy_entry in_val_excluded_cidr = {
-		.egress_ip  = 0,
-		.gateway_ip = EGRESS_GATEWAY_EXCLUDED_CIDR,
-	};
-
-	map_update_elem(&EGRESS_POLICY_MAP, &in_key_excluded_cidr, &in_val_excluded_cidr, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, NODE_IP, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR, 0);
 
 	struct policy_key policy_key = {
 		.egress = 1,
@@ -258,16 +226,8 @@ int egressgw_skip_excluded_cidr_redirect_check(const struct __ctx_buff *ctx)
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
 
-	/* Delete the excluded CIDR entry otherwise other tests may fail as this
-	 * entry will persist across the different tests.
-	 */
-	struct egress_gw_policy_key in_key_excluded_cidr = {
-		.lpm_key = { EGRESS_PREFIX_LEN(32), {} },
-		.saddr   = CLIENT_IP,
-		.daddr   = EXTERNAL_SVC_IP,
-	};
-
-	map_delete_elem(&EGRESS_POLICY_MAP, &in_key_excluded_cidr);
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
 
 	test_finish();
 }
@@ -323,18 +283,7 @@ int egressgw_skip_no_gateway_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_skip_no_gateway_redirect")
 int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 {
-	struct egress_gw_policy_key in_key_no_gateway = {
-		.lpm_key = { EGRESS_PREFIX_LEN(32), {} },
-		.saddr   = CLIENT_IP,
-		.daddr   = EXTERNAL_SVC_IP,
-	};
-
-	struct egress_gw_policy_entry in_val_no_gateway = {
-		.egress_ip  = 0,
-		.gateway_ip = EGRESS_GATEWAY_NO_GATEWAY,
-	};
-
-	map_update_elem(&EGRESS_POLICY_MAP, &in_key_no_gateway, &in_val_no_gateway, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_NO_GATEWAY, 0);
 
 	struct policy_key policy_key = {
 		.egress = 1,
@@ -379,16 +328,7 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 		test_fatal("metrics entry not found");
 	assert(entry->count == 1);
 
-	/* Delete the no gateway entry otherwise other tests may fail as this
-	 * entry will persist across the different tests.
-	 */
-	struct egress_gw_policy_key in_key_no_gateway = {
-		.lpm_key = { EGRESS_PREFIX_LEN(32), {} },
-		.saddr   = CLIENT_IP,
-		.daddr   = EXTERNAL_SVC_IP,
-	};
-
-	map_delete_elem(&EGRESS_POLICY_MAP, &in_key_no_gateway);
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
 
 	test_finish();
 }
