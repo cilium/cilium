@@ -162,7 +162,8 @@ enum pkt_layer {
 
 #define IPV6_DEFAULT_HOPLIMIT 64
 
-#define PKT_BUILDER_LAYERS 6
+/* 3 outer headers + {VXLAN, GENEVE} + 3 inner headers. */
+#define PKT_BUILDER_LAYERS 7
 
 #define MAX_PACKET_OFF 0xffff
 
