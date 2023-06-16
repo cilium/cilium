@@ -1022,6 +1022,10 @@ const (
 
 func svcAndMetaLabels(svc *slim_corev1.Service) labels.Set {
 	labels := maps.Clone(svc.GetLabels())
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
 	labels[serviceNamespaceLabel] = svc.Namespace
 	labels[serviceNameLabel] = svc.Name
 	return labels
