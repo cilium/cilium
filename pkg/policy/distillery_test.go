@@ -38,6 +38,10 @@ var (
 	ep2 = testutils.NewTestEndpoint()
 )
 
+func localIdentity(n uint32) identity.NumericIdentity {
+	return identity.NumericIdentity(n) | identity.LocalIdentityFlag
+
+}
 func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 	repo := NewPolicyRepository(nil, nil, nil)
 	cache := repo.policyCache
@@ -1196,7 +1200,7 @@ var (
 		owners:           map[MapStateOwner]struct{}{},
 	}
 
-	worldIPIdentity    = identity.NumericIdentity(16324)
+	worldIPIdentity    = localIdentity(16324)
 	worldCIDR          = api.CIDR("192.0.2.3/32")
 	lblWorldIP         = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldCIDR))
 	ruleL3AllowWorldIP = api.NewRule().WithIngressRules([]api.IngressRule{{
@@ -1209,7 +1213,7 @@ var (
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
-	worldSubnetIdentity = identity.NumericIdentity(16325)
+	worldSubnetIdentity = localIdentity(16325)
 	worldSubnet         = api.CIDR("192.0.2.0/24")
 	worldSubnetRule     = api.CIDRRule{
 		Cidr: worldSubnet,
