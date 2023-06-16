@@ -356,6 +356,7 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 		ctrlName := cnp.GetControllerName()
 		k8sCM.UpdateController(ctrlName,
 			controller.ControllerParams{
+				Group: "sync-cnp-policy-status",
 				DoFunc: func(ctx context.Context) error {
 					return updateContext.UpdateStatus(ctx, cnp, rev, policyImportErr)
 				},
@@ -491,6 +492,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient c
 
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
+			Group: "sync-cnp-policy-status",
 			DoFunc: func(ctx context.Context) error {
 				return updateContext.UpdateStatus(ctx, cnp, meta.revision, meta.policyImportError)
 			},

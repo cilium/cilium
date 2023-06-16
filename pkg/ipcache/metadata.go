@@ -561,6 +561,7 @@ func (ipc *IPCache) TriggerLabelInjection() {
 	ipc.UpdateController(
 		LabelInjectorName,
 		controller.ControllerParams{
+			Group:   LabelInjectorName,
 			Context: ipc.Configuration.Context,
 			DoFunc: func(ctx context.Context) error {
 				var err error

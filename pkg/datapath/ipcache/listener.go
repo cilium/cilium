@@ -252,6 +252,7 @@ func (l *BPFListener) OnIPIdentityCacheGC() {
 	// consistent state.
 	l.ipcache.UpdateController("ipcache-bpf-garbage-collection",
 		controller.ControllerParams{
+			Group: "ipcache-bpf-garbage-collection",
 			DoFunc: func(ctx context.Context) error {
 				wg, err := l.garbageCollect(ctx)
 				if err != nil {

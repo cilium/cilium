@@ -85,6 +85,7 @@ func AnnotateNode(cs kubernetes.Interface, nodeName string, nd nodeTypes.Node, e
 	annotation := prepareNodeAnnotation(nd, encryptKey)
 	controller.NewManager().UpdateController("update-k8s-node-annotations",
 		controller.ControllerParams{
+			Group: "update-k8s-node-annotations",
 			DoFunc: func(_ context.Context) error {
 				err := updateNodeAnnotation(cs, nodeName, annotation)
 				if err != nil {

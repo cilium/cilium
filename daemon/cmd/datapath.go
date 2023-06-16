@@ -424,6 +424,7 @@ func (d *Daemon) initMaps() error {
 	// the prometheus server.
 	controller.NewManager().UpdateController("metricsmap-bpf-prom-sync",
 		controller.ControllerParams{
+			Group:       "metricsmap-bpf-prom-sync",
 			DoFunc:      metricsmap.SyncMetricsMap,
 			RunInterval: 5 * time.Second,
 			Context:     d.ctx,

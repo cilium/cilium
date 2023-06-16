@@ -45,6 +45,7 @@ func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientse
 
 	mgr.UpdateController("restart-unmanaged-pods",
 		controller.ControllerParams{
+			Group:       "restart-unmanaged-pods",
 			RunInterval: time.Duration(operatorOption.Config.UnmanagedPodWatcherInterval) * time.Second,
 			DoFunc: func(ctx context.Context) error {
 				for podName, lastRestart := range lastPodRestart {

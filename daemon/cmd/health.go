@@ -53,6 +53,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
 
 	controller.NewManager().UpdateController(defaults.HealthEPName,
 		controller.ControllerParams{
+			Group: defaults.HealthEPName,
 			DoFunc: func(ctx context.Context) error {
 				var err error
 

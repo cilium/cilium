@@ -32,6 +32,7 @@ func (igc *GC) startCRDModeGC(ctx context.Context) error {
 	igc.mgr = controller.NewManager()
 	igc.mgr.UpdateController("crd-identity-gc",
 		controller.ControllerParams{
+			Group:        "crd-identity-gc",
 			RunInterval:  igc.gcInterval,
 			DoFunc:       igc.gc,
 			NoErrorRetry: true,

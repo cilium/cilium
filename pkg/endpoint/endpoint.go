@@ -1597,6 +1597,7 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 
 	e.controllers.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group: controllerPrefix,
 			DoFunc: func(ctx context.Context) error {
 				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
 				pod, cp, identityLabels, info, _, err := resolveMetadata(ns, podName)
@@ -1817,6 +1818,7 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 	ctrlName := fmt.Sprintf("resolve-identity-%d", e.ID)
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
+			Group: "resolve-identity",
 			DoFunc: func(ctx context.Context) error {
 				_, err := e.identityLabelsChanged(ctx, myChangeRev)
 				switch err {

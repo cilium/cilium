@@ -206,6 +206,7 @@ func NewNodesPodCIDRManager(
 			// keep retrying the sync against k8s in case of failure.
 			n.k8sReSyncController.UpdateController("update-cilium-nodes-pod-cidr",
 				controller.ControllerParams{
+					Group: "update-cilium-nodes-pod-cidr",
 					DoFunc: func(context.Context) error {
 						n.Mutex.Lock()
 						defer n.Mutex.Unlock()

@@ -140,6 +140,7 @@ func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfigur
 	oc.Update(nodeCfg)
 	controller.NewManager().UpdateController("template-dir-watcher",
 		controller.ControllerParams{
+			Group:  "template-dir-watcher",
 			DoFunc: oc.watchTemplatesDirectory,
 			// No run interval but needs to re-run on errors.
 		})

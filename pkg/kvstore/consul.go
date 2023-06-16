@@ -241,6 +241,7 @@ func newConsulClient(ctx context.Context, config *consulAPI.Config, opts *ExtraO
 
 	client.controllers.UpdateController(fmt.Sprintf("consul-lease-keepalive-%p", c),
 		controller.ControllerParams{
+			Group: "consul-lease-keepalive",
 			DoFunc: func(ctx context.Context) error {
 				wo := &consulAPI.WriteOptions{}
 				_, _, err := c.Session().Renew(lease, wo.WithContext(ctx))

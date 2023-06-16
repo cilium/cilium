@@ -69,6 +69,7 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 	// create the controller to perform mark and sweep operation for cilium nodes
 	ctrlMgr.UpdateController("cilium-node-gc",
 		controller.ControllerParams{
+			Group:   "cilium-node-gc",
 			Context: ctx,
 			DoFunc: func(ctx context.Context) error {
 				return performCiliumNodeGC(ctx, clientset.CiliumV2().CiliumNodes(), ciliumNodeStore,

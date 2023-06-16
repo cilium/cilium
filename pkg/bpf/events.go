@@ -92,6 +92,7 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 		mapControllers.UpdateController(
 			fmt.Sprintf("bpf-event-buffer-gc-%s", m.name),
 			controller.ControllerParams{
+				Group: "bpf-event-buffer-gc",
 				DoFunc: func(_ context.Context) error {
 					m.scopedLogger().Debugf("clearing bpf map events older than %s", b.eventTTL)
 					b.buffer.Compact(func(e interface{}) bool {

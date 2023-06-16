@@ -85,6 +85,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	// NOTE: The controller functions do NOT hold the endpoint locks
 	e.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group:       "sync-to-k8s-ciliumendpoint",
 			RunInterval: 10 * time.Second,
 			DoFunc: func(ctx context.Context) (err error) {
 				// Update logger as scopeLog might not have the podName when it
@@ -401,6 +402,7 @@ func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endp
 	// NOTE: The controller functions do NOT hold the endpoint locks
 	e.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group: "sync-to-k8s-ciliumendpoint",
 			StopFunc: func(ctx context.Context) error {
 				return deleteCEP(ctx, scopedLog, ciliumClient, e)
 			},

@@ -293,6 +293,7 @@ func (n *NodeDiscovery) updateLocalNode() {
 			<-n.Registered
 			controller.NewManager().UpdateController("propagating local node change to kv-store",
 				controller.ControllerParams{
+					Group: "local-node-to-kv-store",
 					DoFunc: func(ctx context.Context) error {
 						n.localNodeLock.Lock()
 						localNode := n.localNode.DeepCopy()

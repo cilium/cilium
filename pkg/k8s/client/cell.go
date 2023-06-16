@@ -263,6 +263,7 @@ func (c *compositeClientset) startHeartbeat() {
 
 	c.controller.UpdateController("k8s-heartbeat",
 		controller.ControllerParams{
+			Group: "k8d-heartbeat",
 			DoFunc: func(context.Context) error {
 				runHeartbeat(
 					c.log,

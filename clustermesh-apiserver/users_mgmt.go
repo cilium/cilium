@@ -97,6 +97,7 @@ func (us *usersManager) Start(hive.HookContext) error {
 	}
 
 	us.manager.UpdateController(usersMgmtCtrl, controller.ControllerParams{
+		Group:   usersMgmtCtrl,
 		Context: context.Background(),
 		DoFunc:  us.sync,
 	})

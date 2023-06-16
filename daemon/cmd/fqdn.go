@@ -193,6 +193,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	dnsGCJobName := "dns-garbage-collector-job"
 	dnsGCJobInterval := 1 * time.Minute
 	controller.NewManager().UpdateController(dnsGCJobName, controller.ControllerParams{
+		Group:       dnsGCJobName,
 		RunInterval: dnsGCJobInterval,
 		DoFunc: func(ctx context.Context) error {
 			var (

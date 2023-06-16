@@ -32,6 +32,7 @@ func StartENIGarbageCollector(ctx context.Context, api EC2API, params GarbageCol
 
 	var enisMarkedForDeletion []string
 	controllerManager.UpdateController(gcENIControllerName, controller.ControllerParams{
+		Group: gcENIControllerName,
 		DoFunc: func(ctx context.Context) error {
 			// Unfortunately, the EC2 API does not allow us to determine the age of
 			// a network interface. To mitigate a race where Cilium just created a new

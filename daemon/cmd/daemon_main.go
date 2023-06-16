@@ -1523,6 +1523,7 @@ func (d *Daemon) initKVStore() {
 
 	controller.NewManager().UpdateController("kvstore-locks-gc",
 		controller.ControllerParams{
+			Group: "kvstore-locks-gc",
 			DoFunc: func(ctx context.Context) error {
 				kvstore.RunLockGC()
 				return nil

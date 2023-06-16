@@ -470,6 +470,7 @@ func markNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string
 
 	ctrlMgr.UpdateController(ctrlName,
 		controller.ControllerParams{
+			Group: "mark-k8s-node-taints-conditions",
 			DoFunc: func(ctx context.Context) error {
 				if running && options.RemoveNodeTaint {
 					err := removeNodeTaint(ctx, c, nodeGetter, nodeName)

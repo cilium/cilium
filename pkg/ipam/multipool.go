@@ -314,6 +314,7 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 		// This enables the upstream sync controller. It requires m.node to be populated.
 		// Note: The controller will only run after m.mutex is unlocked
 		m.controller.UpdateController(multiPoolControllerName, controller.ControllerParams{
+			Group:  multiPoolControllerName,
 			DoFunc: m.updateCiliumNode,
 		})
 	}

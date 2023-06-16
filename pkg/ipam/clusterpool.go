@@ -306,6 +306,7 @@ func (c *crdWatcher) restoreFinished() {
 
 	// creating a new controller will execute DoFunc immediately
 	c.controller.UpdateController(clusterPoolStatusControllerName, controller.ControllerParams{
+		Group:  clusterPoolStatusControllerName,
 		DoFunc: c.updateCiliumNodeStatus,
 	})
 	c.finishedRestore = true

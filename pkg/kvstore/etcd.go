@@ -752,6 +752,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 
 	ec.controllers.UpdateController(makeSessionName(etcdLockSessionRenewNamePrefix, opts),
 		controller.ControllerParams{
+			Group: etcdLockSessionRenewNamePrefix,
 			// Stop controller function when etcd client is terminating
 			Context: ec.client.Ctx(),
 			DoFunc: func(ctx context.Context) error {

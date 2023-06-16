@@ -231,6 +231,7 @@ func (e *Endpoint) restoreIdentity() error {
 	)
 	e.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group: "restoring-ep-identity",
 			DoFunc: func(ctx context.Context) (err error) {
 				allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
 				defer cancel()
@@ -264,6 +265,7 @@ func (e *Endpoint) restoreIdentity() error {
 		var gotInitialGlobalIdentities = make(chan struct{})
 		e.UpdateController(controllerName,
 			controller.ControllerParams{
+				Group: "waiting-initial-global-identities-ep",
 				DoFunc: func(ctx context.Context) (err error) {
 					identityCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
 					defer cancel()

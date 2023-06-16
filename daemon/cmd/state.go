@@ -471,6 +471,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 				// not be cleaned up by the daemon until it restarts.
 				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
 					controller.ControllerParams{
+						Group: "sync-lb-maps-with-k8s-services",
 						DoFunc: func(ctx context.Context) error {
 							return d.svc.SyncWithK8sFinished()
 						},

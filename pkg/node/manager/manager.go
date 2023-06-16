@@ -678,6 +678,7 @@ func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 	ctx, cancel := context.WithCancel(context.Background())
 	controller.NewManager().UpdateController("neighbor-table-refresh",
 		controller.ControllerParams{
+			Group: "neighbor-table-refresh",
 			DoFunc: func(controllerCtx context.Context) error {
 				// Cancel previous goroutines from previous controller run
 				cancel()

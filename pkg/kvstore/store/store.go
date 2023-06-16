@@ -226,6 +226,7 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 
 	controllers.UpdateController(s.controllerName,
 		controller.ControllerParams{
+			Group: "kvstore-sync",
 			DoFunc: func(ctx context.Context) error {
 				return s.syncLocalKeys(ctx, true)
 			},

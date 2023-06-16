@@ -179,6 +179,7 @@ func (c *cniConfigManager) Start(hive.HookContext) error {
 	// Install the CNI file controller
 	c.controller.UpdateController(cniControllerName,
 		controller.ControllerParams{
+			Group: cniControllerName,
 			DoFunc: func(ctx context.Context) error {
 				err := c.setupCNIConfFile()
 				if err != nil {

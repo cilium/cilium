@@ -410,6 +410,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ctx context.Context, wg *
 
 	mgr.UpdateController(name,
 		controller.ControllerParams{
+			Group:       name,
 			RunInterval: operatorOption.Config.CNPNodeStatusGCInterval,
 			StopFunc: func(context.Context) error {
 				close(removeNodeFromCNP)

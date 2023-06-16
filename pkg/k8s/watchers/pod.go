@@ -419,6 +419,7 @@ func updateCiliumEndpointLabels(clientset client.Clientset, ep *endpoint.Endpoin
 	// This is to make sure that the controller is also deleted once the endpoint is gone.
 	ep.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group: "sync-pod-labels-with-cilium-endpoint",
 			DoFunc: func(ctx context.Context) (err error) {
 				pod := ep.GetPod()
 				if pod == nil {

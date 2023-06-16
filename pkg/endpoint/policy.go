@@ -649,6 +649,7 @@ var reasonRegenRetry = "retrying regeneration"
 // fails inside of the controller,
 func (e *Endpoint) startRegenerationFailureHandler() {
 	e.controllers.UpdateController(fmt.Sprintf("endpoint-%s-regeneration-recovery", e.StringID()), controller.ControllerParams{
+		Group: "endpoint-regeneration-recovery",
 		DoFunc: func(ctx context.Context) error {
 			select {
 			case <-e.regenFailedChan:
@@ -714,6 +715,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 
 	e.controllers.UpdateController(fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
 		controller.ControllerParams{
+			Group: "sync-address-identity-mapping",
 			DoFunc: func(ctx context.Context) error {
 				if err := e.rlockAlive(); err != nil {
 					return controller.NewExitReason("Endpoint disappeared")

@@ -71,6 +71,7 @@ func enableCiliumEndpointSyncGC(ctx context.Context, wg *sync.WaitGroup, clients
 
 	mgr.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group:       controllerName,
 			RunInterval: gcInterval,
 			DoFunc: func(ctx context.Context) error {
 				return doCiliumEndpointSyncGC(ctx, clientset, cns, once, cancel, scopedLog)

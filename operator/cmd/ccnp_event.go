@@ -128,6 +128,7 @@ func enableCCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sCli
 
 	mgr.UpdateController("ccnp-to-groups",
 		controller.ControllerParams{
+			Group: "ccnp-to-groups",
 			DoFunc: func(ctx context.Context) error {
 				groups.UpdateCNPInformation(clientset)
 				return nil

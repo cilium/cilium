@@ -77,6 +77,7 @@ func NewLinkCache() *LinkCache {
 		linkCache = LinkCache{}
 		controller.NewManager().UpdateController("link-cache",
 			controller.ControllerParams{
+				Group:       "link-cache",
 				RunInterval: 15 * time.Second,
 				DoFunc: func(ctx context.Context) error {
 					return linkCache.syncCache()

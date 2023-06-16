@@ -38,6 +38,7 @@ func initUtimeSync(lifecycle hive.Lifecycle, configMap configmap.Map) {
 			// between monotonic and boottime clocks.
 			controllerManager.UpdateController(syncControllerName,
 				controller.ControllerParams{
+					Group: syncControllerName,
 					DoFunc: func(ctx context.Context) error {
 						return ctrl.sync()
 					},

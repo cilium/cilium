@@ -116,6 +116,7 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 	mgr.checkHealth = checkHealth
 	mgr.controllers.UpdateController("endpoint-gc",
 		controller.ControllerParams{
+			Group:       "endpoint-gc",
 			DoFunc:      mgr.markAndSweep,
 			RunInterval: interval,
 			Context:     ctx,
