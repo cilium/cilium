@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -152,7 +153,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					RemoteIdentityWatcher: allocator,
 					Metrics:               newMetrics(),
 				},
-				globalServices: newGlobalServiceCache("cluster", "node"),
+				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
 			}
 			rc := cm.newRemoteCluster("foo", nil).(*remoteCluster)
 
