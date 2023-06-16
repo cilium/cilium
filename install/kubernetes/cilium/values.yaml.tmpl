@@ -3072,7 +3072,7 @@ authentication:
   # -- Buffer size of the channel Cilium uses to receive certificate expiration events from auth handlers.
   rotatedIdentitiesQueueSize: 1024
     # -- Interval for garbage collection of auth map entries.
-  gcInterval: "15m0s"
+  gcInterval: "5m0s"
   # Configuration for Cilium's service-to-service mutual authentication using TLS handshakes.
   # Note that this is not full mTLS support without also enabling encryption of some form.
   # Current encryption options are Wireguard or IPSec, configured in encryption block above.

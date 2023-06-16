@@ -54,7 +54,7 @@ var Cell = cell.Module(
 	cell.Config(config{
 		MeshAuthEnabled:    true,
 		MeshAuthQueueSize:  1024,
-		MeshAuthGCInterval: 15 * time.Minute,
+		MeshAuthGCInterval: 5 * time.Minute,
 	}),
 	cell.Config(MutualAuthConfig{}),
 )

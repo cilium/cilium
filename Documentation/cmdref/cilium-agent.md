@@ -248,7 +248,7 @@ cilium-agent [flags]
       --log-opt map                                             Log driver options for cilium-agent, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}
       --log-system-load                                         Enable periodic logging of system load
       --mesh-auth-enabled                                       Enable authentication processing & garbage collection (default true)
-      --mesh-auth-gc-interval duration                          Interval in which auth entries are attempted to be garbage collected (default 15m0s)
+      --mesh-auth-gc-interval duration                          Interval in which auth entries are attempted to be garbage collected (default 5m0s)
       --mesh-auth-mutual-listener-port int                      Port on which the Cilium Agent will perform mutual authentication handshakes between other Agents
       --mesh-auth-queue-size int                                Queue size for the auth manager (default 1024)
       --mesh-auth-rotated-identities-queue-size int             The size of the queue for signaling rotated identities. (default 1024)
