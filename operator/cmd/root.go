@@ -26,6 +26,7 @@ import (
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
+	endpointgc "github.com/cilium/cilium/operator/endpoint/gc"
 	"github.com/cilium/cilium/operator/identitygc"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
@@ -142,6 +143,8 @@ var (
 			lbipam.Cell,
 			auth.Cell,
 			legacyCell,
+
+			endpointgc.Cell,
 
 			// When running in kvstore mode, the start hook of the identity GC
 			// cell blocks until the kvstore client has been initialized, which
@@ -654,24 +657,26 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		nodeManager.Resync(legacy.ctx, time.Time{})
 	}
 
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
-		if !legacy.clientset.IsEnabled() {
-			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
-		}
-		if operatorOption.Config.EndpointGCInterval == 0 {
-			log.Fatal("Cilium Identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
-		}
-	}
+	// FIXME
+	// if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
+	// if !legacy.clientset.IsEnabled() {
+	// 	log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
+	// }
+	// if operatorOption.Config.EndpointGCInterval == 0 {
+	// 	log.Fatal("Cilium Identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
+	// }
+	// }
 
 	if legacy.clientset.IsEnabled() {
-		if operatorOption.Config.EndpointGCInterval != 0 {
-			enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, false)
-		} else {
-			// Even if the EndpointGC is disabled we still want it to run at least
-			// once. This is to prevent leftover CEPs from populating ipcache with
-			// stale entries.
-			enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, true)
-		}
+		// FIXME
+		// if operatorOption.Config.EndpointGCInterval != 0 {
+		// 	enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, false)
+		// } else {
+		// 	// Even if the EndpointGC is disabled we still want it to run at least
+		// 	// once. This is to prevent leftover CEPs from populating ipcache with
+		// 	// stale entries.
+		// 	enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, true)
+		// }
 
 		err = enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 		if err != nil {

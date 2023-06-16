@@ -46,7 +46,9 @@ func enableCiliumEndpointSyncGC(ctx context.Context, wg *sync.WaitGroup, clients
 		gcInterval = 0
 	} else {
 		log.Info("Starting to garbage collect stale CiliumEndpoint custom resources")
-		gcInterval = operatorOption.Config.EndpointGCInterval
+		// FIXME
+		// gcInterval = operatorOption.Config.EndpointGCInterval
+		gcInterval = 5 * time.Minute
 	}
 
 	// This functions will block until the resources are synced with k8s.

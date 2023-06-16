@@ -20,9 +20,6 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
 var IngressLBAnnotationsDefault = []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"}
 
 const (
-	// EndpointGCIntervalDefault is the default time for the CEP GC
-	EndpointGCIntervalDefault = 5 * time.Minute
-
 	// PrometheusServeAddr is the default server address for operator metrics
 	PrometheusServeAddr = ":9963"
 
@@ -94,12 +91,6 @@ const (
 
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics = "enable-metrics"
-
-	// EndpointGCInterval is the interval between attempts of the CEP GC
-	// controller.
-	// Note that only one node per cluster should run this, and most iterations
-	// will simply return.
-	EndpointGCInterval = "cilium-endpoint-gc-interval"
 
 	// NodesGCInterval is the duration for which the cilium nodes are GC.
 	NodesGCInterval = "nodes-gc-interval"
@@ -367,12 +358,6 @@ type OperatorConfig struct {
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
 
-	// EndpointGCInterval is the interval between attempts of the CEP GC
-	// controller.
-	// Note that only one node per cluster should run this, and most iterations
-	// will simply return.
-	EndpointGCInterval time.Duration
-
 	OperatorPrometheusServeAddr string
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
@@ -616,7 +601,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.CNPStatusCleanupQPS = vp.GetFloat64(CNPStatusCleanupQPS)
 	c.CNPStatusCleanupBurst = vp.GetInt(CNPStatusCleanupBurst)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
-	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)

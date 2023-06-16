@@ -286,6 +286,9 @@ func (n *Node) GetNeededAddresses() int {
 
 // getPendingPodCount computes the number of pods in pending state on a given node. watchers.PodStore is assumed to be
 // initialized before this function is called.
+
+// FIXME: we MUST initialize watchers.PodStore if we remove the call to watchers.PodsInit in k8s_cep_gc.go
+
 func getPendingPodCount(nodeName string) (int, error) {
 	pendingPods := 0
 	if watchers.PodStore == nil {

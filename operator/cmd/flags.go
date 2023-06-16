@@ -109,9 +109,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableSRv6)
 	option.BindEnv(vp, option.EnableSRv6)
 
-	flags.Duration(operatorOption.EndpointGCInterval, operatorOption.EndpointGCIntervalDefault, "GC interval for cilium endpoints")
-	option.BindEnv(vp, operatorOption.EndpointGCInterval)
-
 	flags.Bool(operatorOption.EnableMetrics, false, "Enable Prometheus metrics")
 	option.BindEnv(vp, operatorOption.EnableMetrics)
 
