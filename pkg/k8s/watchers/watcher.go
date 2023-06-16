@@ -603,13 +603,15 @@ func (k *K8sWatcher) k8sServiceHandler() {
 			logfields.K8sNamespace: event.ID.Namespace,
 		})
 
-		scopedLog.WithFields(logrus.Fields{
-			"action":        event.Action.String(),
-			"service":       event.Service.String(),
-			"old-service":   event.OldService.String(),
-			"endpoints":     event.Endpoints.String(),
-			"old-endpoints": event.OldEndpoints.String(),
-		}).Debug("Kubernetes service definition changed")
+		if logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel) {
+			scopedLog.WithFields(logrus.Fields{
+				"action":        event.Action.String(),
+				"service":       event.Service.String(),
+				"old-service":   event.OldService.String(),
+				"endpoints":     event.Endpoints.String(),
+				"old-endpoints": event.OldEndpoints.String(),
+			}).Debug("Kubernetes service definition changed")
+		}
 
 		switch event.Action {
 		case k8s.UpdateService:

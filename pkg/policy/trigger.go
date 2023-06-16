@@ -38,7 +38,7 @@ func NewUpdater(r *Repository, regen regenerator) (*Updater, error) {
 		// changes in agent configuration, changes in endpoint labels, and
 		// change of security identities.
 		TriggerFunc: func(reasons []string) {
-			log.Debugf("Regenerating all endpoints")
+			log.Debug("Regenerating all endpoints")
 			reason := strings.Join(reasons, ", ")
 
 			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
