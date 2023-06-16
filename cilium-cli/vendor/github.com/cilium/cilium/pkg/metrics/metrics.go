@@ -75,6 +75,10 @@ const (
 	// Cilium Cluster Mesh API Server
 	CiliumClusterMeshAPIServerNamespace = "cilium_clustermesh_apiserver"
 
+	// CiliumClusterMeshAPIServerNamespace is used to scope metrics from
+	// Cilium KVStoreMesh
+	CiliumKVStoreMeshNamespace = "cilium_kvstoremesh"
+
 	// LabelError indicates the type of error (string)
 	LabelError = "error"
 

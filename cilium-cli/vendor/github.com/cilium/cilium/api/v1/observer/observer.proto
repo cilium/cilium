@@ -28,6 +28,12 @@ service Observer {
     // GetNodes returns information about nodes in a cluster.
     rpc GetNodes(GetNodesRequest) returns (GetNodesResponse) {}
 
+    // GetNamespaces returns information about namespaces in a cluster.
+    // The namespaces returned are namespaces which have had network flows in
+    // the last hour. The namespaces are returned sorted by cluster name and
+    // namespace in ascending order.
+    rpc GetNamespaces(GetNamespacesRequest) returns (GetNamespacesResponse) {}
+
     // ServerStatus returns some details about the running hubble server.
     rpc ServerStatus(ServerStatusRequest) returns (ServerStatusResponse) {}
 }
@@ -245,6 +251,19 @@ message TLS {
     // ServerName is the TLS server name that can be used as part of the TLS
     // cert validation process.
     string server_name = 2;
+}
+
+message GetNamespacesRequest {}
+
+// GetNamespacesResponse contains the list of namespaces.
+message GetNamespacesResponse {
+    // Namespaces is a list of namespaces with flows
+    repeated Namespace namespaces = 1;
+}
+
+message Namespace {
+  string cluster = 1;
+  string namespace = 2;
 }
 
 // ExportEvent contains an event to be exported. Not to be used outside of the
