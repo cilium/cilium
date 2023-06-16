@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
@@ -22,7 +21,6 @@ import (
 	slim_discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -253,17 +251,24 @@ func transformEndpoint(obj any) (any, error) {
 	}
 }
 
-func CiliumSlimEndpointResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*types.CiliumEndpoint], error) {
+func CiliumEndpointResource[T k8sRuntime.Object](
+	lc hive.Lifecycle, cs client.Clientset,
+	sourceObj func() k8sRuntime.Object,
+	transform cache.TransformFunc,
+	indexers cache.Indexers,
+	opts ...func(*metav1.ListOptions),
+) (resource.Resource[T], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEndpointList](cs.CiliumV2().CiliumEndpoints(slim_corev1.NamespaceAll)),
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEndpointList](cs.CiliumV2().CiliumEndpoints("")),
 		opts...,
 	)
-	return resource.New[*types.CiliumEndpoint](lc, lw,
-		resource.WithLazyTransform(func() runtime.Object {
-			return &cilium_api_v2.CiliumEndpoint{}
-		}, TransformToCiliumEndpoint),
-	), nil
+	storeOpts := []resource.ResourceOption{
+		resource.WithLazyTransform(sourceObj, transform),
+		resource.WithIndexers(indexers),
+		resource.WithMetric("CiliumEndpoint"),
+	}
+	return resource.New[T](lc, lw, storeOpts...), nil
 }

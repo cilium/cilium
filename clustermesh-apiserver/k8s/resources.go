@@ -4,9 +4,14 @@
 package k8s
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -27,7 +32,18 @@ var (
 			k8s.EndpointsResource,
 			k8s.CiliumNodeResource,
 			k8s.CiliumIdentityResource,
-			k8s.CiliumSlimEndpointResource,
+
+			func(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*types.CiliumEndpoint], error) {
+				return k8s.CiliumEndpointResource[*types.CiliumEndpoint](
+					lc, cs,
+					func() runtime.Object {
+						return &types.CiliumEndpoint{}
+					},
+					k8s.TransformToCiliumEndpoint,
+					nil,
+					opts...,
+				)
+			},
 		),
 	)
 )
