@@ -131,6 +131,7 @@
         "github.com/cilium/dns",
         "sigs.k8s.io/controller-tools",
         "github.com/cilium/controller-tools",
+        "github.com/cilium/client-go",
         // We update this dependency manually together with envoy proxy updates
         "github.com/cilium/proxy",
       ],
