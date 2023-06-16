@@ -77,6 +77,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 		ctrl = &managedController{
 			controller: controller{
 				name:       name,
+				group:      params.Group,
 				uuid:       uuid.New().String(),
 				stop:       make(chan struct{}),
 				update:     make(chan ControllerParams, 1),
