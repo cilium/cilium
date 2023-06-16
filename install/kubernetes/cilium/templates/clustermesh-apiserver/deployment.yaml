@@ -342,6 +342,7 @@ spec:
           sources:
           - secret:
               name: cilium-kvstoremesh
+              optional: true
               # note: items are not explicitly listed here, since the entries of this secret
               # depend on the peers configured, and that would cause a restart of this pod
               # at every addition/removal. Leaving the field empty makes each secret entry
