@@ -244,6 +244,7 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n *v2alpha1api.CiliumBG
 	if n.GracefulRestart != nil && n.GracefulRestart.Enabled {
 		peer.GracefulRestart.Enabled = true
 		peer.GracefulRestart.RestartTime = uint32(*n.GracefulRestart.RestartTimeSeconds)
+		peer.GracefulRestart.NotificationEnabled = true
 	}
 	for _, afiConf := range peer.AfiSafis {
 		if afiConf.MpGracefulRestart == nil {
