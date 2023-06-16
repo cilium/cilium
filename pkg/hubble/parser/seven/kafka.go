@@ -7,15 +7,26 @@ import (
 	"fmt"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/defaults"
+	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
-func decodeKafka(flowType accesslog.FlowType, kafka *accesslog.LogRecordKafka) *flowpb.Layer7_Kafka {
+func decodeKafka(flowType accesslog.FlowType, kafka *accesslog.LogRecordKafka, opts *options.Options) *flowpb.Layer7_Kafka {
+	// Conditionally exclude the API key from the flow.
+	var apiKey string
+	if opts.RedactKafkaAPIKey {
+		apiKey = defaults.SensitiveValueRedacted
+	} else {
+		apiKey = kafka.APIKey
+	}
+
 	if flowType == accesslog.TypeRequest {
+		// Set only fields that are relevant for requests.
 		return &flowpb.Layer7_Kafka{
 			Kafka: &flowpb.Kafka{
 				ApiVersion:    int32(kafka.APIVersion),
-				ApiKey:        kafka.APIKey,
+				ApiKey:        apiKey,
 				CorrelationId: kafka.CorrelationID,
 				Topic:         kafka.Topic.Topic,
 			},
@@ -25,7 +36,7 @@ func decodeKafka(flowType accesslog.FlowType, kafka *accesslog.LogRecordKafka) *
 		Kafka: &flowpb.Kafka{
 			ErrorCode:     int32(kafka.ErrorCode),
 			ApiVersion:    int32(kafka.APIVersion),
-			ApiKey:        kafka.APIKey,
+			ApiKey:        apiKey,
 			CorrelationId: kafka.CorrelationID,
 			Topic:         kafka.Topic.Topic,
 		},
