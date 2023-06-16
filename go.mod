@@ -272,4 +272,4 @@ replace (
 	sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2
 )
 
-replace github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20230615174352-7b1c17bf5e9e
+replace github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20211029134139-e692b68616ee

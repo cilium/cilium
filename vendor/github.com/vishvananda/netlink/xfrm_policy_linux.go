@@ -75,7 +75,6 @@ func (h *Handle) xfrmPolicyAddOrUpdate(policy *XfrmPolicy, nlProto int) error {
 		userTmpl := nl.DeserializeXfrmUserTmpl(tmplData[start : start+nl.SizeofXfrmUserTmpl])
 		userTmpl.XfrmId.Daddr.FromIP(tmpl.Dst)
 		userTmpl.Saddr.FromIP(tmpl.Src)
-		userTmpl.Family = uint16(nl.GetIPFamily(tmpl.Dst))
 		userTmpl.XfrmId.Proto = uint8(tmpl.Proto)
 		userTmpl.XfrmId.Spi = nl.Swap32(uint32(tmpl.Spi))
 		userTmpl.Mode = uint8(tmpl.Mode)
@@ -94,10 +93,8 @@ func (h *Handle) xfrmPolicyAddOrUpdate(policy *XfrmPolicy, nlProto int) error {
 		req.AddData(out)
 	}
 
-	if policy.Ifid != 0 {
-		ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(policy.Ifid)))
-		req.AddData(ifId)
-	}
+	ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(policy.Ifid)))
+	req.AddData(ifId)
 
 	_, err := req.Execute(unix.NETLINK_XFRM, 0)
 	return err
@@ -192,10 +189,8 @@ func (h *Handle) xfrmPolicyGetOrDelete(policy *XfrmPolicy, nlProto int) (*XfrmPo
 		req.AddData(out)
 	}
 
-	if policy.Ifid != 0 {
-		ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(policy.Ifid)))
-		req.AddData(ifId)
-	}
+	ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(policy.Ifid)))
+	req.AddData(ifId)
 
 	resType := nl.XFRM_MSG_NEWPOLICY
 	if nlProto == nl.XFRM_MSG_DELPOLICY {
@@ -224,8 +219,8 @@ func parseXfrmPolicy(m []byte, family int) (*XfrmPolicy, error) {
 
 	var policy XfrmPolicy
 
-	policy.Dst = msg.Sel.Daddr.ToIPNet(msg.Sel.PrefixlenD, uint16(family))
-	policy.Src = msg.Sel.Saddr.ToIPNet(msg.Sel.PrefixlenS, uint16(family))
+	policy.Dst = msg.Sel.Daddr.ToIPNet(msg.Sel.PrefixlenD)
+	policy.Src = msg.Sel.Saddr.ToIPNet(msg.Sel.PrefixlenS)
 	policy.Proto = Proto(msg.Sel.Proto)
 	policy.DstPort = int(nl.Swap16(msg.Sel.Dport))
 	policy.SrcPort = int(nl.Swap16(msg.Sel.Sport))

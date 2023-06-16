@@ -77,14 +77,6 @@ func writeReplayEsn(replayWindow int) []byte {
 	return replayEsn.Serialize()
 }
 
-func writeReplay(r *XfrmReplayState) []byte {
-	return (&nl.XfrmReplayState{
-		OSeq:   r.OSeq,
-		Seq:    r.Seq,
-		BitMap: r.BitMap,
-	}).Serialize()
-}
-
 // XfrmStateAdd will add an xfrm state to the system.
 // Equivalent to: `ip xfrm state add $state`
 func XfrmStateAdd(state *XfrmState) error {
@@ -174,26 +166,9 @@ func (h *Handle) xfrmStateAddOrUpdate(state *XfrmState, nlProto int) error {
 			req.AddData(out)
 		}
 	}
-	if state.OSeqMayWrap || state.DontEncapDSCP {
-		var flags uint32
-		if state.DontEncapDSCP {
-			flags |= nl.XFRM_SA_XFLAG_DONT_ENCAP_DSCP
-		}
-		if state.OSeqMayWrap {
-			flags |= nl.XFRM_SA_XFLAG_OSEQ_MAY_WRAP
-		}
-		out := nl.NewRtAttr(nl.XFRMA_SA_EXTRA_FLAGS, nl.Uint32Attr(flags))
-		req.AddData(out)
-	}
-	if state.Replay != nil {
-		out := nl.NewRtAttr(nl.XFRMA_REPLAY_VAL, writeReplay(state.Replay))
-		req.AddData(out)
-	}
 
-	if state.Ifid != 0 {
-		ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(state.Ifid)))
-		req.AddData(ifId)
-	}
+	ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(state.Ifid)))
+	req.AddData(ifId)
 
 	_, err := req.Execute(unix.NETLINK_XFRM, 0)
 	return err
@@ -209,6 +184,7 @@ func (h *Handle) xfrmStateAllocSpi(state *XfrmState) (*XfrmState, error) {
 	msg.Min = 0x100
 	msg.Max = 0xffffffff
 	req.AddData(msg)
+
 	if state.Mark != nil {
 		out := nl.NewRtAttr(nl.XFRMA_MARK, writeMark(state.Mark))
 		req.AddData(out)
@@ -305,10 +281,8 @@ func (h *Handle) xfrmStateGetOrDelete(state *XfrmState, nlProto int) (*XfrmState
 		req.AddData(out)
 	}
 
-	if state.Ifid != 0 {
-		ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(state.Ifid)))
-		req.AddData(ifId)
-	}
+	ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(state.Ifid)))
+	req.AddData(ifId)
 
 	resType := nl.XFRM_MSG_NEWSA
 	if nlProto == nl.XFRM_MSG_DELSA {
@@ -336,6 +310,7 @@ var familyError = fmt.Errorf("family error")
 
 func xfrmStateFromXfrmUsersaInfo(msg *nl.XfrmUsersaInfo) *XfrmState {
 	var state XfrmState
+
 	state.Dst = msg.Id.Daddr.ToIP()
 	state.Src = msg.Saddr.ToIP()
 	state.Proto = Proto(msg.Id.Proto)
@@ -345,25 +320,20 @@ func xfrmStateFromXfrmUsersaInfo(msg *nl.XfrmUsersaInfo) *XfrmState {
 	state.ReplayWindow = int(msg.ReplayWindow)
 	lftToLimits(&msg.Lft, &state.Limits)
 	curToStats(&msg.Curlft, &msg.Stats, &state.Statistics)
-	state.Selector = &XfrmPolicy{
-		Dst:     msg.Sel.Daddr.ToIPNet(msg.Sel.PrefixlenD, msg.Sel.Family),
-		Src:     msg.Sel.Saddr.ToIPNet(msg.Sel.PrefixlenS, msg.Sel.Family),
-		Proto:   Proto(msg.Sel.Proto),
-		DstPort: int(nl.Swap16(msg.Sel.Dport)),
-		SrcPort: int(nl.Swap16(msg.Sel.Sport)),
-		Ifindex: int(msg.Sel.Ifindex),
-	}
 
 	return &state
 }
 
 func parseXfrmState(m []byte, family int) (*XfrmState, error) {
 	msg := nl.DeserializeXfrmUsersaInfo(m)
+
 	// This is mainly for the state dump
 	if family != FAMILY_ALL && family != int(msg.Family) {
 		return nil, familyError
 	}
+
 	state := xfrmStateFromXfrmUsersaInfo(msg)
+
 	attrs, err := nl.ParseRouteAttr(m[nl.SizeofXfrmUsersaInfo:])
 	if err != nil {
 		return nil, err
@@ -411,14 +381,6 @@ func parseXfrmState(m []byte, family int) (*XfrmState, error) {
 			state.Mark = new(XfrmMark)
 			state.Mark.Value = mark.Value
 			state.Mark.Mask = mark.Mask
-		case nl.XFRMA_SA_EXTRA_FLAGS:
-			flags := native.Uint32(attr.Value)
-			if (flags & nl.XFRM_SA_XFLAG_DONT_ENCAP_DSCP) != 0 {
-				state.DontEncapDSCP = true
-			}
-			if (flags & nl.XFRM_SA_XFLAG_OSEQ_MAY_WRAP) != 0 {
-				state.OSeqMayWrap = true
-			}
 		case nl.XFRMA_SET_MARK:
 			if state.OutputMark == nil {
 				state.OutputMark = new(XfrmMark)
@@ -434,14 +396,6 @@ func parseXfrmState(m []byte, family int) (*XfrmState, error) {
 			}
 		case nl.XFRMA_IF_ID:
 			state.Ifid = int(native.Uint32(attr.Value))
-		case nl.XFRMA_REPLAY_VAL:
-			if state.Replay == nil {
-				state.Replay = new(XfrmReplayState)
-			}
-			replay := nl.DeserializeXfrmReplayState(attr.Value[:])
-			state.Replay.OSeq = replay.OSeq
-			state.Replay.Seq = replay.Seq
-			state.Replay.BitMap = replay.BitMap
 		}
 	}
 
@@ -518,9 +472,6 @@ func xfrmUsersaInfoFromXfrmState(state *XfrmState) *nl.XfrmUsersaInfo {
 	msg.Id.Spi = nl.Swap32(uint32(state.Spi))
 	msg.Reqid = uint32(state.Reqid)
 	msg.ReplayWindow = uint8(state.ReplayWindow)
-	msg.Sel = nl.XfrmSelector{}
-	if state.Selector != nil {
-		selFromPolicy(&msg.Sel, state.Selector)
-	}
+
 	return msg
 }

@@ -124,22 +124,6 @@ func LinkSetTxQLen(link Link, qlen int) error {
 	return ErrNotImplemented
 }
 
-func LinkSetGSOMaxSize(link Link, maxSize int) error {
-	return ErrNotImplemented
-}
-
-func LinkSetGROMaxSize(link Link, maxSize int) error {
-	return ErrNotImplemented
-}
-
-func LinkSetGSOIPv4MaxSize(link Link, maxSize int) error {
-	return ErrNotImplemented
-}
-
-func LinkSetGROIPv4MaxSize(link Link, maxSize int) error {
-	return ErrNotImplemented
-}
-
 func LinkAdd(link Link) error {
 	return ErrNotImplemented
 }
@@ -229,10 +213,6 @@ func XfrmPolicyDel(policy *XfrmPolicy) error {
 }
 
 func XfrmPolicyList(family int) ([]XfrmPolicy, error) {
-	return nil, ErrNotImplemented
-}
-
-func XfrmPolicyGet(policy *XfrmPolicy) (*XfrmPolicy, error) {
 	return nil, ErrNotImplemented
 }
 

@@ -176,7 +176,7 @@ func AddrList(link Link, family int) ([]Addr, error) {
 // The list can be filtered by link and ip family.
 func (h *Handle) AddrList(link Link, family int) ([]Addr, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETADDR, unix.NLM_F_DUMP)
-	msg := nl.NewIfAddrmsg(family)
+	msg := nl.NewIfInfomsg(family)
 	req.AddData(msg)
 
 	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWADDR)
@@ -296,13 +296,13 @@ type AddrUpdate struct {
 // AddrSubscribe takes a chan down which notifications will be sent
 // when addresses change.  Close the 'done' chan to stop subscription.
 func AddrSubscribe(ch chan<- AddrUpdate, done <-chan struct{}) error {
-	return addrSubscribeAt(netns.None(), netns.None(), ch, done, nil, false, 0, nil)
+	return addrSubscribeAt(netns.None(), netns.None(), ch, done, nil, false, 0)
 }
 
 // AddrSubscribeAt works like AddrSubscribe plus it allows the caller
 // to choose the network namespace in which to subscribe (ns).
 func AddrSubscribeAt(ns netns.NsHandle, ch chan<- AddrUpdate, done <-chan struct{}) error {
-	return addrSubscribeAt(ns, netns.None(), ch, done, nil, false, 0, nil)
+	return addrSubscribeAt(ns, netns.None(), ch, done, nil, false, 0)
 }
 
 // AddrSubscribeOptions contains a set of options to use with
@@ -312,7 +312,6 @@ type AddrSubscribeOptions struct {
 	ErrorCallback     func(error)
 	ListExisting      bool
 	ReceiveBufferSize int
-	ReceiveTimeout    *unix.Timeval
 }
 
 // AddrSubscribeWithOptions work like AddrSubscribe but enable to
@@ -323,20 +322,14 @@ func AddrSubscribeWithOptions(ch chan<- AddrUpdate, done <-chan struct{}, option
 		none := netns.None()
 		options.Namespace = &none
 	}
-	return addrSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting, options.ReceiveBufferSize, options.ReceiveTimeout)
+	return addrSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting, options.ReceiveBufferSize)
 }
 
-func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-chan struct{}, cberr func(error), listExisting bool, rcvbuf int, rcvTimeout *unix.Timeval) error {
+func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-chan struct{}, cberr func(error), listExisting bool, rcvbuf int) error {
 	s, err := nl.SubscribeAt(newNs, curNs, unix.NETLINK_ROUTE, unix.RTNLGRP_IPV4_IFADDR, unix.RTNLGRP_IPV6_IFADDR)
 	if err != nil {
 		return err
 	}
-	if rcvTimeout != nil {
-		if err := s.SetReceiveTimeout(rcvTimeout); err != nil {
-			return err
-		}
-	}
-
 	if done != nil {
 		go func() {
 			<-done
