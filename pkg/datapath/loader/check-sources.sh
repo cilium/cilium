@@ -1,4 +1,6 @@
-#! /bin/bash -efu
+#!/usr/bin/env bash
+
+set -efu
 
 #
 # This simple awk command extracts file names from the definition of the
