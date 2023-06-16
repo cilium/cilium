@@ -15,16 +15,38 @@
 #include "trace.h"
 
 # ifdef ENABLE_IPV6
+#  ifndef ENABLE_MASQUERADE_IPV6
+static __always_inline int
+ipv6_allow_snated_egress_connections(struct __ctx_buff *ctx,
+				     struct ipv6_ct_tuple *tuple,
+				     enum ct_status ct_ret, __s8 *ext_err)
+{
+	struct ct_state ct_state_new = {};
+
+	/* See comment in ipv4_allow_snated_egress_connections. */
+	if (ct_ret == CT_NEW) {
+		int ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6,
+				     tuple, ctx, CT_EGRESS, &ct_state_new,
+				     false, false, ext_err);
+		if (unlikely(ret < 0))
+			return ret;
+	}
+
+	return CTX_ACT_OK;
+}
+#  endif /* ENABLE_MASQUERADE_IPV6 */
+
 static __always_inline bool
 ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
-			       struct ipv6hdr *ip6,
+			       __u32 ipcache_srcid, struct ipv6hdr *ip6,
 			       struct ct_buffer6 *ct_buffer)
 {
 	int l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 
-	/* Only enforce host policies for packets from host IPs. */
-	if (src_sec_identity != HOST_ID)
+	/* See comment in ipv4_host_policy_egress_lookup. */
+	if (src_sec_identity != HOST_ID &&
+	    (is_defined(ENABLE_MASQUERADE_IPV6) || ipcache_srcid != HOST_ID))
 		return false;
 
 	/* Lookup connection in conntrack map. */
@@ -43,8 +65,8 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 }
 
 static __always_inline int
-__ipv6_host_policy_egress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-			  struct ct_buffer6 *ct_buffer,
+__ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused,
+			  struct ipv6hdr *ip6, struct ct_buffer6 *ct_buffer,
 			  struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {};
@@ -61,6 +83,14 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 
 	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
+
+#  ifndef ENABLE_MASQUERADE_IPV6
+	if (!is_host_id)
+		/* See comment in __ipv4_host_policy_egress. */
+		return ipv6_allow_snated_egress_connections(ctx, tuple,
+							    (enum ct_status)ret,
+							    ext_err);
+#  endif /* ENABLE_MASQUERADE_IPV6 */
 
 	/* Retrieve destination identity. */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
@@ -110,17 +140,17 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 
 static __always_inline int
 ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
-			struct ipv6hdr *ip6, struct trace_ctx *trace,
-			__s8 *ext_err)
+			__u32 ipcache_srcid, struct ipv6hdr *ip6,
+			struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ct_buffer6 ct_buffer = {};
 
-	if (!ipv6_host_policy_egress_lookup(ctx, src_id, ip6, &ct_buffer))
+	if (!ipv6_host_policy_egress_lookup(ctx, src_id, ipcache_srcid, ip6, &ct_buffer))
 		return CTX_ACT_OK;
 	if (ct_buffer.ret < 0)
 		return ct_buffer.ret;
 
-	return __ipv6_host_policy_egress(ctx, ip6, &ct_buffer, trace, ext_err);
+	return __ipv6_host_policy_egress(ctx, src_id == HOST_ID, ip6, &ct_buffer, trace, ext_err);
 }
 
 static __always_inline bool
