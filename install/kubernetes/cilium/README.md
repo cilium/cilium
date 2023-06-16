@@ -61,7 +61,7 @@ contributors across the globe, there is almost always someone available to help.
 | alibabacloud.enabled | bool | `false` | Enable AlibabaCloud ENI integration |
 | annotateK8sNode | bool | `false` | Annotate k8s node upon initialization with Cilium's metadata. |
 | authentication.enabled | bool | `true` | Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed. |
-| authentication.gcInterval | string | `"15m0s"` | Interval for garbage collection of auth map entries. |
+| authentication.gcInterval | string | `"5m0s"` | Interval for garbage collection of auth map entries. |
 | authentication.mutual.port | int | `4250` | Port on the agent where mutual authentication handshakes between agents will be performed |
 | authentication.mutual.spire.adminSocketPath | string | `"/run/spire/sockets/admin.sock"` | SPIRE socket path where the SPIRE delegated api agent is listening |
 | authentication.mutual.spire.agentSocketPath | string | `"/run/spire/sockets/agent/agent.sock"` | SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator |

@@ -47,7 +47,7 @@
    * - authentication.gcInterval
      - Interval for garbage collection of auth map entries.
      - string
-     - ``"15m0s"``
+     - ``"5m0s"``
    * - authentication.mutual.port
      - Port on the agent where mutual authentication handshakes between agents will be performed
      - int
