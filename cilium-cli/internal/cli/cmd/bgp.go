@@ -31,8 +31,8 @@ func newCmdBgpPeers() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "peers",
-		Short: "Gets BGP peering status",
-		Long:  "Gets BGP peering status from all nodes in the cluster",
+		Short: "Lists BGP peering state",
+		Long:  "This command lists the BGP state from all nodes in the cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.CiliumNamespace = namespace
 
