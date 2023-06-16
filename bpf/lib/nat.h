@@ -1221,6 +1221,7 @@ struct ipv6_nat_target {
 	const __u16 min_port; /* host endianness */
 	const __u16 max_port; /* host endianness */
 	bool src_from_world;
+	bool from_local_endpoint;
 };
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
@@ -1636,7 +1637,9 @@ snat_v6_nat_can_skip(const struct ipv6_nat_target *target, const struct ipv6_ct_
 {
 	__u16 sport = bpf_ntohs(tuple->sport);
 
-	return (!target->src_from_world && sport < NAT_MIN_EGRESS) || icmp_echoreply;
+	return (!target->from_local_endpoint && !target->src_from_world &&
+		sport < NAT_MIN_EGRESS) ||
+		icmp_echoreply;
 }
 
 static __always_inline bool
@@ -1721,6 +1724,8 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 		tuple.nexthdr = ip6->nexthdr;
 		ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
 		ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+
+		target->from_local_endpoint = true;
 
 		/* ipv6_hdrlen() can return an error. If it does, it makes no
 		 * sense marking this packet as a reply based on a wrong offset.
