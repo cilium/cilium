@@ -275,14 +275,14 @@ int egressgw_snat1_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the from-netdev program
  * gets correctly revSNATed and connection tracked.
  */
-PKTGEN("tc", "tc_egressgw_snat2_reply")
-int egressgw_snat2_reply_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "tc_egressgw_snat1_2_reply")
+int egressgw_snat1_2_reply_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_snat_pktgen(ctx, true);
 }
 
-SETUP("tc", "tc_egressgw_snat2_reply")
-int egressgw_snat2_reply_setup(struct __ctx_buff *ctx)
+SETUP("tc", "tc_egressgw_snat1_2_reply")
+int egressgw_snat1_2_reply_setup(struct __ctx_buff *ctx)
 {
 	/* install ipcache entry for the CLIENT_IP: */
 	struct ipcache_key cache_key = {
@@ -301,20 +301,20 @@ int egressgw_snat2_reply_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "tc_egressgw_snat2_reply")
-int egressgw_snat2_reply_check(const struct __ctx_buff *ctx)
+CHECK("tc", "tc_egressgw_snat1_2_reply")
+int egressgw_snat1_2_reply_check(const struct __ctx_buff *ctx)
 {
 	return egressgw_snat_check(ctx, true, 1, 1);
 }
 
-PKTGEN("tc", "tc_egressgw_snat3")
-int egressgw_snat3_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "tc_egressgw_snat2")
+int egressgw_snat2_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_snat_pktgen(ctx, false);
 }
 
-SETUP("tc", "tc_egressgw_snat3")
-int egressgw_snat3_setup(struct __ctx_buff *ctx)
+SETUP("tc", "tc_egressgw_snat2")
+int egressgw_snat2_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, TO_NETDEV);
@@ -322,8 +322,8 @@ int egressgw_snat3_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "tc_egressgw_snat3")
-int egressgw_snat3_check(struct __ctx_buff *ctx)
+CHECK("tc", "tc_egressgw_snat2")
+int egressgw_snat2_check(struct __ctx_buff *ctx)
 {
 	int ret = egressgw_snat_check(ctx, false, 2, 1);
 
