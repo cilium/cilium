@@ -249,6 +249,10 @@ func run(fset *token.FileSet, cfg *Config, analyzers []*analysis.Analyzer) ([]re
 	// In VetxOnly mode, analyzers are only for their facts,
 	// so we can skip any analysis that neither produces facts
 	// nor depends on any analysis that produces facts.
+	//
+	// TODO(adonovan): fix: the command (and logic!) here are backwards.
+	// It should say "...nor is required by any...". (Issue 443099)
+	//
 	// Also build a map to hold working state and result.
 	type action struct {
 		once        sync.Once
@@ -340,6 +344,7 @@ func run(fset *token.FileSet, cfg *Config, analyzers []*analysis.Analyzer) ([]re
 				Pkg:               pkg,
 				TypesInfo:         info,
 				TypesSizes:        tc.Sizes,
+				TypeErrors:        nil, // unitchecker doesn't RunDespiteErrors
 				ResultOf:          inputs,
 				Report:            func(d analysis.Diagnostic) { act.diagnostics = append(act.diagnostics, d) },
 				ImportObjectFact:  facts.ImportObjectFact,
