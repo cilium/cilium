@@ -360,6 +360,9 @@ const (
 	// EnableIPv6BIGTCP enables IPv6 BIG TCP (larger GSO/GRO limits) for the node including pods.
 	EnableIPv6BIGTCP = "enable-ipv6-big-tcp"
 
+	// EnableIPv4BIGTCP enables IPv4 BIG TCP (larger GSO/GRO limits) for the node including pods.
+	EnableIPv4BIGTCP = "enable-ipv4-big-tcp"
+
 	// EnableBPFClockProbe selects a more efficient source clock (jiffies vs ktime)
 	EnableBPFClockProbe = "enable-bpf-clock-probe"
 
@@ -1003,6 +1006,10 @@ const (
 	// By default, Hubble observes all monitor events.
 	HubbleMonitorEvents = "hubble-monitor-events"
 
+	// HubbleRedact controls which values Hubble will redact in network flows.
+	// By default, Hubble does not redact any values.
+	HubbleRedact = "hubble-redact"
+
 	// DisableIptablesFeederRules specifies which chains will be excluded
 	// when installing the feeder rules
 	DisableIptablesFeederRules = "disable-iptables-feeder-rules"
@@ -1135,7 +1142,10 @@ const (
 	// Flag to enable BGP control plane features
 	EnableBGPControlPlane = "enable-bgp-control-plane"
 
-	// IngressSecretsNamespace is the namespace having tls secrets used by CEC.
+	// EnvoySecretsNamespace is the namespace having secrets used by CEC.
+	EnvoySecretsNamespace = "envoy-secrets-namespace"
+
+	// IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller.
 	IngressSecretsNamespace = "ingress-secrets-namespace"
 
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API.
@@ -1649,6 +1659,9 @@ type DaemonConfig struct {
 
 	// EnableIPv6BIGTCP enables IPv6 BIG TCP (larger GSO/GRO limits) for the node including pods.
 	EnableIPv6BIGTCP bool
+
+	// EnableIPv4BIGTCP enables IPv4 BIG TCP (larger GSO/GRO limits) for the node including pods.
+	EnableIPv4BIGTCP bool
 
 	// EnableSRv6 is true when SRv6 encapsulation support is enabled
 	EnableSRv6 bool
@@ -2200,6 +2213,10 @@ type DaemonConfig struct {
 	// HubbleMonitorEvents specifies Cilium monitor events for Hubble to observe.
 	// By default, Hubble observes all monitor events.
 	HubbleMonitorEvents []string
+
+	// HubbleRedact controls which values Hubble will redact in network flows.
+	// By default, Hubble does not redact any values.
+	HubbleRedact []string
 
 	// EndpointStatus enables population of information in the
 	// CiliumEndpoint.Status resource
@@ -2956,6 +2973,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPv6 = vp.GetBool(EnableIPv6Name)
 	c.EnableIPv6NDP = vp.GetBool(EnableIPv6NDPName)
 	c.EnableIPv6BIGTCP = vp.GetBool(EnableIPv6BIGTCP)
+	c.EnableIPv4BIGTCP = vp.GetBool(EnableIPv4BIGTCP)
 	c.EnableSRv6 = vp.GetBool(EnableSRv6)
 	c.SRv6EncapMode = vp.GetString(SRv6EncapModeName)
 	c.EnableSCTP = vp.GetBool(EnableSCTPName)
@@ -3348,15 +3366,20 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
 	}
 
+	// Ensure CiliumEndpointSlice is enabled only if CiliumEndpointCRD is enabled too.
+	c.EnableCiliumEndpointSlice = vp.GetBool(EnableCiliumEndpointSlice)
+	if c.EnableCiliumEndpointSlice && c.DisableCiliumEndpointCRD {
+		log.Fatalf("Running Cilium with %s=%t requires %s set to false to enable CiliumEndpoint CRDs.",
+			EnableCiliumEndpointSlice, c.EnableCiliumEndpointSlice, DisableCiliumEndpointCRDName)
+	}
+
 	c.IdentityAllocationMode = vp.GetString(IdentityAllocationMode)
 	switch c.IdentityAllocationMode {
 	// This is here for tests. Some call Populate without the normal init
 	case "":
 		c.IdentityAllocationMode = IdentityAllocationModeKVstore
-
 	case IdentityAllocationModeKVstore, IdentityAllocationModeCRD:
 		// c.IdentityAllocationMode is set above
-
 	default:
 		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD)
 	}
@@ -3419,9 +3442,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.HubbleRecorderSinkQueueSize = vp.GetInt(HubbleRecorderSinkQueueSize)
 	c.HubbleSkipUnknownCGroupIDs = vp.GetBool(HubbleSkipUnknownCGroupIDs)
 	c.HubbleMonitorEvents = vp.GetStringSlice(HubbleMonitorEvents)
+	c.HubbleRedact = vp.GetStringSlice(HubbleRedact)
 
 	c.DisableIptablesFeederRules = vp.GetStringSlice(DisableIptablesFeederRules)
-	c.EnableCiliumEndpointSlice = vp.GetBool(EnableCiliumEndpointSlice)
 
 	// Hidden options
 	c.CompilerFlags = vp.GetStringSlice(CompilerFlags)
@@ -3452,7 +3475,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
 
 	// Envoy secrets namespaces to watch
-	params := []string{IngressSecretsNamespace, GatewayAPISecretsNamespace}
+	params := []string{EnvoySecretsNamespace, IngressSecretsNamespace, GatewayAPISecretsNamespace}
 	var nsList = make([]string, 0, len(params))
 	for _, param := range params {
 		ns := vp.GetString(param)

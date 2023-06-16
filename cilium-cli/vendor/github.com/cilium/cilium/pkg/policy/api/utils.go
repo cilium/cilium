@@ -124,20 +124,49 @@ func ParseL4Proto(proto string) (L4Proto, error) {
 // prepending CEC namespace and CEC name to the resource name and using
 // '/' as a separator.
 //
-// In case of an empty CEC namespace or an empty CEC name, leading separators
-// are stripped away.
-func ResourceQualifiedName(namespace, name, resource string) string {
+// If resourceName already has a slash, it must be of the form 'namespace/name', where namespace
+// usually is equal to 'namespace'. This also applies for clusterwide resources for which
+// 'namespace' is empty.
+//
+// If 'resourceName' has no slash, it will be prepended with 'namespace/cecName' so that the
+// full name passed to Envoy is 'namespace/cecName/resourceName'. This makes non-qualified resource
+// names and resource name references local to the given namespace and CiliumEnvoyConfig CRD.
+//
+// if 'forceNamespace' is 'true' then resourceName is always prepended with "namespace/cecName/",
+// even it it already has backslashes, unless the first component of the name is equal to
+// 'namespace'.
+//
+// As a special case pass through an empty resourceName without qualification so that unnamed
+// resources do not become named. This is important to not transform an invalid Envoy configuration
+// to a valid one with a fake name.
+
+type Option int
+
+const (
+	ForceNamespace Option = iota
+)
+
+func ResourceQualifiedName(namespace, cecName, resourceName string, options ...Option) string {
+	forceNamespace := false
+	for _, option := range options {
+		switch option {
+		case ForceNamespace:
+			forceNamespace = true
+		}
+	}
+
+	idx := strings.IndexRune(resourceName, '/')
+	if resourceName == "" || idx >= 0 && (!forceNamespace || (idx == len(namespace) && strings.HasPrefix(resourceName, namespace))) {
+		return resourceName
+	}
+
 	var sb strings.Builder
 
-	if namespace != "" {
-		sb.WriteString(namespace)
-		sb.WriteRune('/')
-	}
-	if name != "" {
-		sb.WriteString(name)
-		sb.WriteRune('/')
-	}
-	sb.WriteString(resource)
+	sb.WriteString(namespace)
+	sb.WriteRune('/')
+	sb.WriteString(cecName)
+	sb.WriteRune('/')
+	sb.WriteString(resourceName)
 
 	return sb.String()
 }

@@ -37,14 +37,14 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&PodList{},
 		&Service{},
 		&ServiceList{},
-		&Secret{},
-		&SecretList{},
 		&Endpoints{},
 		&EndpointsList{},
 		&Node{},
 		&NodeList{},
 		&Namespace{},
 		&NamespaceList{},
+		&Secret{},
+		&SecretList{},
 	)
 
 	// Add common types
