@@ -408,8 +408,17 @@ func (ipc *IPCache) upsertLocked(
 		}
 	}
 
-	if hostIP != nil {
-		hostID = NodeHandler.AllocateNodeID(hostIP)
+	if oldHostIP.Equal(hostIP) {
+		if hostIP != nil {
+			hostID = NodeHandler.GetNodeID(hostIP)
+		}
+	} else {
+		if hostIP != nil {
+			hostID = NodeHandler.AllocateNodeID(hostIP)
+		}
+		if oldHostIP != nil {
+			NodeHandler.DeallocateNodeID(oldHostIP)
+		}
 	}
 
 	if callbackListeners && !newIdentity.shadowed {
@@ -440,7 +449,10 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 		}
 		nodeID := uint16(0)
 		if hostIP != nil {
-			nodeID = NodeHandler.AllocateNodeID(hostIP)
+			nodeID = NodeHandler.GetNodeID(hostIP)
+			if nodeID == 0 {
+				nodeID = NodeHandler.AllocateNodeID(hostIP)
+			}
 		}
 		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity, encryptKey, nodeID, k8sMeta)
 	}
@@ -536,8 +548,22 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		namedPortsChanged = ipc.updateNamedPorts()
 	}
 
-	if newHostIP != nil {
-		nodeID = NodeHandler.AllocateNodeID(newHostIP)
+	// If this is a straight delete this is simple, deallocate the nodeID. If its a
+	// Upsert then the deleted IP was shadowing another CIDR so we will restore
+	// that mapping. But, from NodeID side we already did an allocate for that and
+	// we don't want to bump the refcnt here so simply Get() the ID. Remember to
+	// delete the old IP through the Upsert path though.
+	if cacheModification == Delete {
+		NodeHandler.DeallocateNodeID(oldHostIP)
+	} else if cacheModification == Upsert {
+		if oldHostIP.Equal(newHostIP) {
+			nodeID = NodeHandler.GetNodeID(oldHostIP)
+		} else {
+			if newHostIP != nil {
+				nodeID = NodeHandler.GetNodeID(newHostIP)
+			}
+			NodeHandler.DeallocateNodeID(oldHostIP)
+		}
 	}
 
 	if callbackListeners {
