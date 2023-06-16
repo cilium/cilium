@@ -35,7 +35,7 @@ cilium-agent hive [flags]
       --k8s-kubeconfig-path string                       Absolute path of the kubernetes kubeconfig file
       --l2-pod-announcements-interface string            Interface used for sending gratuitous arp messages
       --mesh-auth-enabled                                Enable authentication processing & garbage collection (default true)
-      --mesh-auth-expired-gc-interval duration           Interval in which expired auth entries are attempted to be garbage collected (default 15m0s)
+      --mesh-auth-gc-interval duration                   Interval in which auth entries are attempted to be garbage collected (default 15m0s)
       --mesh-auth-mutual-listener-port int               Port on which the Cilium Agent will perform mutual authentication handshakes between other Agents
       --mesh-auth-queue-size int                         Queue size for the auth manager (default 1024)
       --mesh-auth-rotated-identities-queue-size int      The size of the queue for signaling rotated identities. (default 1024)

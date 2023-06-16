@@ -1118,7 +1118,7 @@ data:
   mesh-auth-enabled: {{ .Values.authentication.enabled | quote }}
   mesh-auth-queue-size: {{ .Values.authentication.queueSize | quote }}
   mesh-auth-rotated-identities-queue-size: {{ .Values.authentication.rotatedIdentitiesQueueSize | quote }}
-  mesh-auth-expired-gc-interval: {{ include "validateDuration" .Values.authentication.expiredGCInterval | quote }}
+  mesh-auth-gc-interval: {{ include "validateDuration" .Values.authentication.gcInterval | quote }}
 
 {{- if .Values.authentication.mutual.spire.enabled }}
   mesh-auth-mutual-enabled: "true"

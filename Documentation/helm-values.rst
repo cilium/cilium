@@ -44,8 +44,8 @@
      - Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
      - bool
      - ``true``
-   * - authentication.expiredGCInterval
-     - Interval for garbage collection of expired auth map entries.
+   * - authentication.gcInterval
+     - Interval for garbage collection of auth map entries.
      - string
      - ``"15m0s"``
    * - authentication.mutual.port
