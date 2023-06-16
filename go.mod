@@ -265,7 +265,7 @@ replace (
 
 	// Using fork of client-go.
 	// Contains fix for exponential backoff for informers.
-	k8s.io/client-go => github.com/cilium/client-go v0.27.2-fix
+	k8s.io/client-go => github.com/cilium/client-go v1.5.1
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
