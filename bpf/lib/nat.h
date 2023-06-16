@@ -1689,29 +1689,38 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 static __always_inline bool
 snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 {
-	union v6addr masq_addr __maybe_unused;
-	const union v6addr dr_addr = IPV6_DIRECT_ROUTING;
-	struct remote_endpoint_info *remote_ep __maybe_unused;
-	struct endpoint_info *local_ep __maybe_unused;
-	bool is_reply __maybe_unused = false;
+	union v6addr masq_addr __maybe_unused, router_ip __maybe_unused;
+	const union v6addr dr_addr __maybe_unused = IPV6_DIRECT_ROUTING;
+	struct remote_endpoint_info *remote_ep;
+	struct endpoint_info *local_ep;
+	bool is_reply = false;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return false;
 
+#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
+	BPF_V6(router_ip, ROUTER_IP);
+	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &router_ip)) {
+		ipv6_addr_copy(&target->addr, &router_ip);
+		return true;
+	}
+#else
 	/* See comment in snat_v4_prepare_state(). */
 	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
 	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
 		ipv6_addr_copy(&target->addr, &dr_addr);
 		return true;
 	}
-#ifdef ENABLE_MASQUERADE_IPV6 /* SNAT local pod to world packets */
+# ifdef ENABLE_MASQUERADE_IPV6 /* SNAT local pod to world packets */
 	BPF_V6(masq_addr, IPV6_MASQUERADE);
 	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &masq_addr)) {
 		ipv6_addr_copy(&target->addr, &masq_addr);
 		return true;
 	}
+# endif /* ENABLE_MASQUERADE_IPV6 */
+#endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
 
 	local_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
 	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
@@ -1743,6 +1752,7 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 		}
 	}
 
+#ifdef ENABLE_MASQUERADE_IPV6
 # ifdef IS_BPF_OVERLAY
 	/* See comment in snat_v4_prepare_state(). */
 	return false;
