@@ -5,7 +5,7 @@ package egressmap
 
 import (
 	"errors"
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
@@ -25,44 +25,44 @@ func TestPolicyMap(t *testing.T) {
 
 	egressPolicyMap := createPolicyMap(hivetest.Lifecycle(t), DefaultPolicyConfig, ebpf.PinNone)
 
-	sourceIP1 := net.ParseIP("1.1.1.1")
-	sourceIP2 := net.ParseIP("1.1.1.2")
+	sourceIP1, _ := netip.ParseAddr("1.1.1.1")
+	sourceIP2, _ := netip.ParseAddr("1.1.1.2")
 
-	_, destCIDR1, err := net.ParseCIDR("2.2.1.0/24")
+	destCIDR1, err := netip.ParsePrefix("2.2.1.0/24")
 	assert.Nil(t, err)
-	_, destCIDR2, err := net.ParseCIDR("2.2.2.0/24")
-	assert.Nil(t, err)
-
-	egressIP1 := net.ParseIP("3.3.3.1")
-	egressIP2 := net.ParseIP("3.3.3.2")
-
-	err = egressPolicyMap.Update(sourceIP1, *destCIDR1, egressIP1, egressIP1)
+	destCIDR2, err := netip.ParsePrefix("2.2.2.0/24")
 	assert.Nil(t, err)
 
-	err = egressPolicyMap.Update(sourceIP2, *destCIDR2, egressIP2, egressIP2)
+	egressIP1, _ := netip.ParseAddr("3.3.3.1")
+	egressIP2, _ := netip.ParseAddr("3.3.3.2")
+
+	err = egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, egressIP1)
 	assert.Nil(t, err)
 
-	val, err := egressPolicyMap.Lookup(sourceIP1, *destCIDR1)
+	err = egressPolicyMap.Update(sourceIP2, destCIDR2, egressIP2, egressIP2)
 	assert.Nil(t, err)
 
-	assert.True(t, val.EgressIP.IP().Equal(egressIP1))
-	assert.True(t, val.GatewayIP.IP().Equal(egressIP1))
-
-	val, err = egressPolicyMap.Lookup(sourceIP2, *destCIDR2)
+	val, err := egressPolicyMap.Lookup(sourceIP1, destCIDR1)
 	assert.Nil(t, err)
 
-	assert.True(t, val.EgressIP.IP().Equal(egressIP2))
-	assert.True(t, val.GatewayIP.IP().Equal(egressIP2))
+	assert.True(t, val.EgressIP.Addr().Compare(egressIP1) == 0)
+	assert.True(t, val.GatewayIP.Addr().Compare(egressIP1) == 0)
 
-	err = egressPolicyMap.Delete(sourceIP2, *destCIDR2)
+	val, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
 	assert.Nil(t, err)
 
-	val, err = egressPolicyMap.Lookup(sourceIP1, *destCIDR1)
+	assert.True(t, val.EgressIP.Addr().Compare(egressIP2) == 0)
+	assert.True(t, val.GatewayIP.Addr().Compare(egressIP2) == 0)
+
+	err = egressPolicyMap.Delete(sourceIP2, destCIDR2)
 	assert.Nil(t, err)
 
-	assert.True(t, val.EgressIP.IP().Equal(egressIP1))
-	assert.True(t, val.GatewayIP.IP().Equal(egressIP1))
+	val, err = egressPolicyMap.Lookup(sourceIP1, destCIDR1)
+	assert.Nil(t, err)
 
-	_, err = egressPolicyMap.Lookup(sourceIP2, *destCIDR2)
+	assert.True(t, val.EgressIP.Addr().Compare(egressIP1) == 0)
+	assert.True(t, val.GatewayIP.Addr().Compare(egressIP1) == 0)
+
+	_, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
 	assert.True(t, errors.Is(err, ebpf.ErrKeyNotExist))
 }
