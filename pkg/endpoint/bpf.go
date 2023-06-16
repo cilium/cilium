@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -631,11 +632,14 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilationExecuted bool, err error) {
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
+	debugEnabled := logging.CanLogAt(e.getLogger().Logger, logrus.DebugLevel)
 
-	e.getLogger().WithField(fieldRegenLevel, datapathRegenCtxt.regenerationLevel).Debug("Preparing to compile BPF")
+	if debugEnabled {
+		e.getLogger().WithFields(logrus.Fields{fieldRegenLevel: datapathRegenCtxt.regenerationLevel}).Debug("Preparing to compile BPF")
+	}
 
 	if datapathRegenCtxt.regenerationLevel > regeneration.RegenerateWithoutDatapath {
-		if e.Options.IsEnabled(option.Debug) {
+		if debugEnabled {
 			debugFunc := log.WithFields(logrus.Fields{logfields.EndpointID: e.StringID()}).Debugf
 			ctx, cancel := context.WithCancel(regenContext.parentContext)
 			defer cancel()
@@ -668,7 +672,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 			return compilationExecuted, err
 		}
 		e.bpfHeaderfileHash = datapathRegenCtxt.bpfHeaderfilesHash
-	} else {
+	} else if debugEnabled {
 		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 	}
@@ -755,7 +759,9 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 			return false, fmt.Errorf("Unable to write header file: %s", err)
 		}
 
-		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
+		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+			log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
+		}
 		return false, nil
 	}
 
@@ -855,8 +861,10 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		headerfileChanged = true
 	} else {
 		headerfileChanged = (datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash)
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
-			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
+		if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
+			logger.WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
+				Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
+		}
 	}
 
 	if headerfileChanged {

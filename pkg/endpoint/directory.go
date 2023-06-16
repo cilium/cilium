@@ -10,6 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -100,6 +101,8 @@ func moveNewFilesTo(oldDir, newDir string) error {
 // Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool) error {
 	scopedLog := e.getLogger()
+	debugLogEnabled := logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel)
+
 	scopedLog.Debug("synchronizing directories")
 
 	tmpDir := e.NextDirectoryPath()
@@ -121,10 +124,13 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 		e.removeDirectory(backupDir)
 
 		// Move the current endpoint directory to a backup location
-		scopedLog.WithFields(logrus.Fields{
-			"originalDirectory": origDir,
-			"backupDirectory":   backupDir,
-		}).Debug("moving current directory to backup location")
+		if debugLogEnabled {
+			scopedLog.WithFields(logrus.Fields{
+				"originalDirectory": origDir,
+				"backupDirectory":   backupDir,
+			}).Debug("moving current directory to backup location")
+		}
+
 		if err := os.Rename(origDir, backupDir); err != nil {
 			return fmt.Errorf("unable to rename current endpoint directory: %s", err)
 		}
@@ -162,10 +168,13 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 	// simple move
 	default:
 		// Make temporary directory the new endpoint directory
-		scopedLog.WithFields(logrus.Fields{
-			"temporaryDirectory": tmpDir,
-			"originalDirectory":  origDir,
-		}).Debug("attempting to make temporary directory new directory for endpoint programs")
+		if debugLogEnabled {
+			scopedLog.WithFields(logrus.Fields{
+				"temporaryDirectory": tmpDir,
+				"originalDirectory":  origDir,
+			}).Debug("attempting to make temporary directory new directory for endpoint programs")
+		}
+
 		if err := os.Rename(tmpDir, origDir); err != nil {
 			return fmt.Errorf("atomic endpoint directory move failed: %s", err)
 		}
@@ -179,7 +188,9 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 }
 
 func (e *Endpoint) removeDirectory(path string) error {
-	e.getLogger().WithField("directory", path).Debug("removing directory")
+	if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
+		logger.WithField("directory", path).Debug("removing directory")
+	}
 	return os.RemoveAll(path)
 }
 

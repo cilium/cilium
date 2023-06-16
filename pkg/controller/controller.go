@@ -132,8 +132,9 @@ func NoopFunc(ctx context.Context) error {
 //     check for the destruction throughout the run.
 type controller struct {
 	// Constant after creation, safe to access without locking
-	name string
-	uuid string
+	name   string
+	uuid   string
+	logger *logrus.Entry
 
 	// Channels written to and/or closed by the manager
 	stop    chan struct{}
@@ -304,10 +305,14 @@ shutdown:
 
 // logger returns a logrus object with controllerName and UUID fields.
 func (c *controller) getLogger() *logrus.Entry {
-	return log.WithFields(logrus.Fields{
-		fieldControllerName: c.name,
-		fieldUUID:           c.uuid,
-	})
+	if c.logger == nil {
+		c.logger = log.WithFields(logrus.Fields{
+			fieldControllerName: c.name,
+			fieldUUID:           c.uuid,
+		})
+	}
+
+	return c.logger
 }
 
 // recordError updates all statistic collection variables on error
