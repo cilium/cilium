@@ -312,6 +312,7 @@ restart:
 				// and the endpoint-runIPIdentitySync where it bounded to a
 				// lease and a controller which is stopped/removed when the
 				// endpoint is gone.
+				log.WithField("hostIP", ipIDPair.HostIP).WithField("ip", ip).Warning("kvstore Upsert")
 				IPIdentityCache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, Identity{
 					ID:     peerIdentity,
 					Source: source.KVStore,
@@ -347,6 +348,7 @@ restart:
 					// The key no longer exists in the
 					// local cache, it is safe to remove
 					// from the datapath ipcache.
+					log.WithField("IP", ip).Warning("kvstore Delete")
 					IPIdentityCache.Delete(ip, source.KVStore)
 				}
 			}

@@ -705,6 +705,7 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 					}
 				}
 				if !found {
+					log.WithField("oldPodIP", oldPodIP).Warning("k8s pod watch delete")
 					npc := ipcache.IPIdentityCache.Delete(oldPodIP, source.Kubernetes)
 					if npc {
 						namedPortsChanged = true
@@ -776,6 +777,7 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 		// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 		// later updated once the allocator has determined the real identity.
 		// If the endpoint remains unmanaged, the identity remains untouched.
+		log.WithField("hostIP", hostIP).WithField("podIp", podIP).Warning("k8s pod watch upsert")
 		npc, err := ipcache.IPIdentityCache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
 			ID:     identity.ReservedIdentityUnmanaged,
 			Source: source.Kubernetes,

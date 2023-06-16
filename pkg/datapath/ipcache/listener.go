@@ -116,6 +116,8 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
 	encryptKey uint8, nodeID uint16, k8sMeta *ipcache.K8sMetadata) {
 
+	log.WithField("ModType", modType).WithField("cidr", cidr).WithField("oldHostIP", oldHostIP).WithField("newHostIP", newHostIP).WithField("nodeID", nodeID).Warning("OnIPIdentityCacheChange")
+
 	scopedLog := log
 	if option.Config.Debug {
 		scopedLog = log.WithFields(logrus.Fields{

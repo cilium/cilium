@@ -49,6 +49,20 @@ type NeighLink struct {
 	Name string `json:"link-name"`
 }
 
+type nodeIDSource uint16
+
+const (
+	NewNodeCreatedID = iota
+	DatapathRestoreCreatedID
+	IPCacheCreatedID
+)
+
+type nodeID struct {
+	id     uint16
+	refcnt uint32
+	source nodeIDSource
+}
+
 type linuxNodeHandler struct {
 	mutex                lock.Mutex
 	isInitialized        bool
@@ -69,7 +83,7 @@ type linuxNodeHandler struct {
 	// Pool of available IDs for nodes.
 	nodeIDs idpool.IDPool
 	// Node-scoped unique IDs for the nodes.
-	nodeIDsByIPs map[string]uint16
+	nodeIDsByIPs map[string]nodeID
 
 	ipsecMetricCollector prometheus.Collector
 }
@@ -93,7 +107,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 		neighByNextHop:         map[string]*netlink.Neigh{},
 		neighLastPingByNextHop: map[string]time.Time{},
 		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
-		nodeIDsByIPs:           map[string]uint16{},
+		nodeIDsByIPs:           map[string]nodeID{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 	}
 }
@@ -458,6 +472,8 @@ func (n *linuxNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
 
 	if n.isInitialized {
 		return n.nodeUpdate(nil, &newNode, true)
+	} else {
+		log.WithField("newNode", newNode).Warning("skipped nodeUpdate note initialized")
 	}
 
 	return nil
@@ -471,6 +487,8 @@ func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 
 	if n.isInitialized {
 		return n.nodeUpdate(&oldNode, &newNode, false)
+	} else {
+		log.WithField("newNode", newNode).WithField("oldNode", oldNode).Warning("skipped nodeUpdate !initialized")
 	}
 
 	return nil
@@ -1226,6 +1244,8 @@ func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
 
 		if n.isInitialized {
 			return n.nodeDelete(oldCachedNode)
+		} else {
+			log.WithField("oldNode", oldNode).Warning("skipped nodeDelete note initialized")
 		}
 	}
 

@@ -189,6 +189,7 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 	for _, pair := range endpoint.Networking.Addressing {
 		if pair.IPV4 != "" {
 			ipsAdded = append(ipsAdded, pair.IPV4)
+			log.WithField("hostIP", nodeIP).WithField("ip", pair.IPV4).Warning("cilium endpoint upsert ipv4")
 			portsChanged, _ := ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
 				ipcache.Identity{ID: id, Source: source.CustomResource})
 			if portsChanged {

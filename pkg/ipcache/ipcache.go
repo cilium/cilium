@@ -408,8 +408,19 @@ func (ipc *IPCache) upsertLocked(
 		}
 	}
 
-	if hostIP != nil {
-		hostID = NodeHandler.AllocateNodeID(hostIP)
+	if oldHostIP.Equal(hostIP) {
+		if hostIP != nil {
+			hostID = NodeHandler.GetNodeID(hostIP)
+		}
+	} else {
+		if hostIP != nil {
+			log.WithField("hostIP", hostIP).WithField("oldHostIP", oldHostIP).WithField("cidr", cidr).Warning("Upsert allocates hostIP")
+			hostID = NodeHandler.AllocateNodeID(hostIP)
+		}
+		if oldHostIP != nil {
+			log.WithField("hostIP", hostIP).WithField("oldHostIP", oldHostIP).WithField("cidr", cidr).Warning("Upsert deletes oldHostIP")
+			NodeHandler.DeallocateNodeID(oldHostIP)
+		}
 	}
 
 	if callbackListeners && !newIdentity.shadowed {
@@ -440,7 +451,8 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 		}
 		nodeID := uint16(0)
 		if hostIP != nil {
-			nodeID = NodeHandler.AllocateNodeID(hostIP)
+			log.WithField("hostIP", hostIP).Warning("Dump hostIP")
+			nodeID = NodeHandler.GetNodeID(hostIP)
 		}
 		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity, encryptKey, nodeID, k8sMeta)
 	}
@@ -530,14 +542,33 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	delete(ipc.ipToHostIPCache, ip)
 	delete(ipc.ipToK8sMetadata, ip)
 
+	log.WithField("ip", ip).WithField("newHostIP", newHostIP).WithField("oldHostIP", oldHostIP).Warning("Delete ipcache entry")
+
 	// Update named ports
 	namedPortsChanged = false
 	if oldK8sMeta != nil && len(oldK8sMeta.NamedPorts) > 0 {
 		namedPortsChanged = ipc.updateNamedPorts()
 	}
 
-	if newHostIP != nil {
-		nodeID = NodeHandler.AllocateNodeID(newHostIP)
+	// If this is a straight delete this is simple, deallocate the nodeID. If its a
+	// Upsert then the deleted IP was shadowing another CIDR so we will restore
+	// that mapping. But, from NodeID side we already did an allocate for that and
+	// we don't want to bump the refcnt here so simply Get() the ID. Remember to
+	// delete the old IP through the Upsert path though.
+	if cacheModification == Delete {
+		log.WithField("newHostIP", newHostIP).WithField("oldHostIP", oldHostIP).WithField("cidr", cidr).Warning("Deallocate nodeIP from Delete hostIP (delete)")
+		NodeHandler.DeallocateNodeID(oldHostIP)
+	} else if cacheModification == Upsert {
+		if oldHostIP.Equal(newHostIP) {
+			nodeID = NodeHandler.GetNodeID(oldHostIP)
+		} else {
+			if newHostIP != nil {
+				log.WithField("newHostIP", newHostIP).WithField("oldHostIP", oldHostIP).WithField("cidr", cidr).Warning("Allocate nodeIP from Delete hostIP (upsert)")
+				nodeID = NodeHandler.GetNodeID(newHostIP)
+			}
+			log.WithField("newHostIP", newHostIP).WithField("oldHostIP", oldHostIP).WithField("cidr", cidr).Warning("Deallocate nodeIP from Delete hostIP (upsert)")
+			NodeHandler.DeallocateNodeID(oldHostIP)
+		}
 	}
 
 	if callbackListeners {

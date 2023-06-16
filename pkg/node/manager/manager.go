@@ -463,6 +463,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			continue
 		}
 		addrStr := address.String()
+		log.WithField("hostIP", nodeIP).WithField("cidr", addrStr).Warning("manager node update upsert")
 		_, err := m.ipcache.Upsert(addrStr, nodeIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
@@ -496,6 +497,8 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			m.Iter(func(nh datapath.NodeHandler) {
 				nh.NodeUpdate(oldNode, entry.node)
 			})
+		} else {
+			log.WithField("oldNode", oldNode).Warning("manager oldNodeExists dpUpdate skiped")
 		}
 		// Delete the old node IP addresses if they have changed in this node.
 		var oldNodeIPAddrs []net.IP
@@ -523,7 +526,10 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			m.Iter(func(nh datapath.NodeHandler) {
 				nh.NodeAdd(entry.node)
 			})
+		} else {
+			log.WithField("Node", entry.node).Warning("manager new Node dpUpdate skiped")
 		}
+
 		entry.mutex.Unlock()
 	}
 
