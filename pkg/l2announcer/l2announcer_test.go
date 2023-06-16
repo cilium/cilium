@@ -115,6 +115,12 @@ func (fs *fakeStore[T]) GetByKey(key resource.Key) (item T, exists bool, err err
 	var def T
 	return def, false, nil
 }
+func (fs *fakeStore[T]) IndexKeys(indexName, indexedValue string) ([]string, error) {
+	return nil, nil
+}
+func (fs *fakeStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
+	return nil, nil
+}
 func (fs *fakeStore[T]) CacheStore() cache.Store { return nil }
 
 var _ resource.Resource[runtime.Object] = (*fakeResource[runtime.Object])(nil)

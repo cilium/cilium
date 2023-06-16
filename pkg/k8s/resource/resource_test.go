@@ -21,6 +21,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -363,6 +364,217 @@ func TestResource_WithTransform(t *testing.T) {
 		t.Fatalf("unexpected event still in channel: %v", event)
 	}
 
+}
+
+func TestResource_WithoutIndexers(t *testing.T) {
+	var (
+		node = &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "test-node-1",
+				ResourceVersion: "0",
+			},
+		}
+		nodeResource   resource.Resource[*corev1.Node]
+		fakeClient, cs = k8sClient.NewFakeClientset()
+	)
+
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		node.DeepCopy(), "")
+
+	hive := hive.New(
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		cell.Provide(
+			func(lc hive.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
+				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
+				return resource.New[*corev1.Node](lc, lw)
+			},
+		),
+
+		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
+			nodeResource = r
+		}),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	events := nodeResource.Events(ctx)
+
+	// wait for the upsert event
+	ev, ok := <-events
+	require.True(t, ok)
+	require.Equal(t, resource.Upsert, ev.Kind)
+	ev.Done(nil)
+
+	// wait for the sync event
+	ev, ok = <-events
+	require.True(t, ok)
+	assert.Equal(t, resource.Sync, ev.Kind)
+	ev.Done(nil)
+
+	// get a reference to the store
+	store, err := nodeResource.Store(ctx)
+	if err != nil {
+		t.Fatalf("unexpected non-nil error from Store(), got: %q", err)
+	}
+
+	indexName, indexValue := "index-name", "index-value"
+
+	// ByIndex should not find any objects
+	_, err = store.ByIndex(indexName, indexValue)
+	if err == nil {
+		t.Fatalf("expected non-nil error from store.ByIndex(%q, %q), got nil", indexName, indexValue)
+	}
+
+	// IndexKeys should not find any keys
+	_, err = store.IndexKeys(indexName, indexValue)
+	if err == nil {
+		t.Fatalf("unexpected non-nil error from store.IndexKeys(%q, %q), got nil", indexName, indexValue)
+	}
+
+	// Stop the hive to stop the resource.
+	if err := hive.Stop(ctx); err != nil {
+		t.Fatalf("hive.Stop failed: %s", err)
+	}
+
+	// No more events should be observed.
+	ev, ok = <-events
+	if ok {
+		t.Fatalf("unexpected event still in channel: %v", ev)
+	}
+}
+
+func TestResource_WithIndexers(t *testing.T) {
+	var (
+		nodes = [...]*corev1.Node{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-node-1",
+					Labels: map[string]string{
+						"key": "node-1",
+					},
+					ResourceVersion: "0",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-node-2",
+					Labels: map[string]string{
+						"key": "node-2",
+					},
+					ResourceVersion: "0",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-node-3",
+					Labels: map[string]string{
+						"key": "node-3",
+					},
+					ResourceVersion: "0",
+				},
+			},
+		}
+		nodeResource   resource.Resource[*corev1.Node]
+		fakeClient, cs = k8sClient.NewFakeClientset()
+
+		indexName = "node-index-key"
+		indexFunc = func(obj interface{}) ([]string, error) {
+			switch t := obj.(type) {
+			case *corev1.Node:
+				return []string{t.Name}, nil
+			}
+			return nil, errors.New("object is not a *corev1.Node")
+		}
+	)
+
+	for _, node := range nodes {
+		fakeClient.KubernetesFakeClientset.Tracker().Create(
+			corev1.SchemeGroupVersion.WithResource("nodes"),
+			node.DeepCopy(), "")
+	}
+
+	hive := hive.New(
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		cell.Provide(
+			func(lc hive.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
+				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
+				return resource.New[*corev1.Node](
+					lc, lw,
+					resource.WithIndexers(cache.Indexers{indexName: indexFunc}),
+				)
+			},
+		),
+
+		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
+			nodeResource = r
+		}),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	events := nodeResource.Events(ctx)
+
+	// wait for the upsert events
+	for i := 0; i < len(nodes); i++ {
+		ev, ok := <-events
+		require.True(t, ok)
+		require.Equal(t, resource.Upsert, ev.Kind)
+		ev.Done(nil)
+	}
+
+	// wait for the sync event
+	ev, ok := <-events
+	require.True(t, ok)
+	assert.Equal(t, resource.Sync, ev.Kind)
+	ev.Done(nil)
+
+	// get a reference to the store
+	store, err := nodeResource.Store(ctx)
+	if err != nil {
+		t.Fatalf("unexpected non-nil error from Store(), got: %q", err)
+	}
+
+	indexValue := "test-node-2"
+
+	// retrieve a specific node by its value for the indexer key
+	found, err := store.ByIndex(indexName, indexValue)
+	if err != nil {
+		t.Fatalf("unexpected non-nil error from store.ByIndex(%q, %q), got: %q", indexName, indexValue, err)
+	}
+	require.Len(t, found, 1)
+	require.Equal(t, found[0].Name, indexValue)
+	require.Len(t, found[0].Labels, 1)
+	require.Equal(t, found[0].Labels["key"], "node-2")
+
+	// retrieve the keys of the stored objects whose set of indexed values includes a specific value
+	keys, err := store.IndexKeys(indexName, indexValue)
+	if err != nil {
+		t.Fatalf("unexpected non-nil error from store.IndexKeys(%q, %q), got: %q", indexName, indexValue, err)
+	}
+	require.Len(t, keys, 1)
+	require.Equal(t, []string{indexValue}, keys)
+
+	// Stop the hive to stop the resource.
+	if err := hive.Stop(ctx); err != nil {
+		t.Fatalf("hive.Stop failed: %s", err)
+	}
+
+	// No more events should be observed.
+	ev, ok = <-events
+	if ok {
+		t.Fatalf("unexpected event still in channel: %v", ev)
+	}
 }
 
 var RetryFiveTimes resource.ErrorHandler = func(key resource.Key, numRetries int, err error) resource.ErrorAction {
