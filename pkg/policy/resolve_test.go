@@ -297,7 +297,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: &L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4PolicyMap{
+				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -316,8 +316,8 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 						},
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 					},
-				},
-				Egress:        L4PolicyMap{},
+				}},
+				Egress:        newL4DirectionPolicy(),
 				redirectTypes: redirectTypeEnvoy,
 			},
 			IngressPolicyEnabled: true,
@@ -393,7 +393,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: &L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4PolicyMap{
+				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -413,8 +413,8 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 						},
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 					},
-				},
-				Egress:        L4PolicyMap{},
+				}},
+				Egress:        newL4DirectionPolicy(),
 				redirectTypes: redirectTypeEnvoy,
 			},
 			IngressPolicyEnabled: true,
@@ -485,7 +485,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: &L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4PolicyMap{
+				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -498,8 +498,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 						},
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {ruleLabel}},
 					},
-				},
-				Egress: L4PolicyMap{},
+				}},
+				Egress: newL4DirectionPolicy(),
 			},
 			IngressPolicyEnabled: true,
 			EgressPolicyEnabled:  false,
@@ -627,7 +627,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: &L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4PolicyMap{
+				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -648,8 +648,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 							cachedSelectorTest:  {ruleLabel},
 						},
 					},
-				},
-				Egress: L4PolicyMap{},
+				}},
+				Egress: newL4DirectionPolicy(),
 			},
 			IngressPolicyEnabled: true,
 			EgressPolicyEnabled:  false,

@@ -1541,8 +1541,8 @@ func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy,
 			visIngress = vis.Ingress
 			visEgress = vis.Egress
 		}
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced, visIngress, "ingress")
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced, visEgress, "egress")
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress.PortRules, ingressPolicyEnforced, visIngress, "ingress")
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress.PortRules, egressPolicyEnforced, visEgress, "egress")
 	}
 	return p
 }

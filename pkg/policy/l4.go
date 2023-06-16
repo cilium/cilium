@@ -1021,9 +1021,24 @@ func addL4Filter(policyCtx PolicyContext,
 // key format: "port/proto"
 type L4PolicyMap map[string]*L4Filter
 
+type L4DirectionPolicy struct {
+	PortRules L4PolicyMap
+}
+
+func newL4DirectionPolicy() L4DirectionPolicy {
+	return L4DirectionPolicy{
+		PortRules: L4PolicyMap{},
+	}
+}
+
 // Detach removes the cached selectors held by L4PolicyMap from the
 // selectorCache, allowing the map to be garbage collected when there
 // are no more references to it.
+func (l4 L4DirectionPolicy) Detach(selectorCache *SelectorCache) {
+	l4.PortRules.Detach(selectorCache)
+}
+
+// detach is used directly from tracing and testing functions
 func (l4 L4PolicyMap) Detach(selectorCache *SelectorCache) {
 	for _, f := range l4 {
 		f.detach(selectorCache)
@@ -1033,9 +1048,9 @@ func (l4 L4PolicyMap) Detach(selectorCache *SelectorCache) {
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4PolicyMap is exposed to concurrent access.
 // Returns the bitmask of all redirect types for this policymap.
-func (l4 L4PolicyMap) attach(ctx PolicyContext, l4Policy *L4Policy) redirectTypes {
+func (l4 L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redirectTypes {
 	var redirectTypes redirectTypes
-	for _, f := range l4 {
+	for _, f := range l4.PortRules {
 		f.attach(ctx, l4Policy)
 		redirectTypes |= f.redirectType()
 	}
@@ -1116,8 +1131,8 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 }
 
 type L4Policy struct {
-	Ingress L4PolicyMap
-	Egress  L4PolicyMap
+	Ingress L4DirectionPolicy
+	Egress  L4DirectionPolicy
 
 	AuthMap AuthMap
 
@@ -1140,8 +1155,8 @@ type L4Policy struct {
 // NewL4Policy creates a new L4Policy
 func NewL4Policy(revision uint64) *L4Policy {
 	return &L4Policy{
-		Ingress:  L4PolicyMap{},
-		Egress:   L4PolicyMap{},
+		Ingress:  newL4DirectionPolicy(),
+		Egress:   newL4DirectionPolicy(),
 		Revision: revision,
 		users:    make(map[*EndpointPolicy]struct{}),
 	}
@@ -1272,7 +1287,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	}
 
 	ingress := []*models.PolicyRule{}
-	for _, v := range l4.Ingress {
+	for _, v := range l4.Ingress.PortRules {
 		rulesBySelector := map[string][][]string{}
 		derivedFrom := labels.LabelArrayList{}
 		for sel, rules := range v.RuleOrigin {
@@ -1287,7 +1302,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	}
 
 	egress := []*models.PolicyRule{}
-	for _, v := range l4.Egress {
+	for _, v := range l4.Egress.PortRules {
 		derivedFrom := labels.LabelArrayList{}
 		for _, rules := range v.RuleOrigin {
 			derivedFrom.Merge(rules...)
