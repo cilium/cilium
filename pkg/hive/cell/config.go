@@ -136,7 +136,8 @@ func (c *config[Cfg]) Apply(cont container) error {
 	return cont.Provide(c.provideConfig, dig.Export(true))
 }
 
-func (c *config[Cfg]) Info(cont container) (info Info) {
+func (c *config[Cfg]) Info(cont container, s *Stats) (info Info) {
+	s.Configs++
 	cont.Invoke(func(cfg Cfg) {
 		info = &InfoStruct{cfg}
 	})

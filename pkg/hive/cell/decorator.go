@@ -53,10 +53,10 @@ func (d *decorator) Apply(c container) error {
 	return nil
 }
 
-func (d *decorator) Info(c container) Info {
+func (d *decorator) Info(c container, s *Stats) Info {
 	n := NewInfoNode(fmt.Sprintf("🔀 %s: %s", internal.FuncNameAndLocation(d.decorator), internal.PrettyType(d.decorator)))
 	for _, cell := range d.cells {
-		n.Add(cell.Info(c))
+		n.Add(cell.Info(c, s))
 	}
 	return n
 }

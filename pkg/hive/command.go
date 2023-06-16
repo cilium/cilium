@@ -33,7 +33,15 @@ func (h *Hive) Command() *cobra.Command {
 				h.PrintDotGraph()
 			},
 			TraverseChildren: false,
-		})
+		},
+		&cobra.Command{
+			Use:   "stats",
+			Short: "Output statistics about the hive",
+			Run: func(cmd *cobra.Command, args []string) {
+				h.PrintStats()
+			},
+		},
+	)
 
 	return cmd
 }

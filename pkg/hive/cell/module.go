@@ -81,10 +81,11 @@ func (m *module) Apply(c container) error {
 	return nil
 }
 
-func (m *module) Info(c container) Info {
+func (m *module) Info(c container, s *Stats) Info {
 	n := NewInfoNode("Ⓜ️ " + m.id + " (" + m.title + ")")
+	s.Modules++
 	for _, cell := range m.cells {
-		n.Add(cell.Info(c))
+		n.Add(cell.Info(c, s))
 	}
 	return n
 }

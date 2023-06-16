@@ -30,7 +30,7 @@ func (p *provider) Apply(c container) error {
 	return nil
 }
 
-func (p *provider) Info(container) Info {
+func (p *provider) Info(c container, s *Stats) Info {
 	n := &InfoNode{}
 	for i, ctor := range p.ctors {
 		info := p.infos[i]
@@ -57,6 +57,7 @@ func (p *provider) Info(container) Info {
 		ctorNode.AddLeaf("⇦ %s", strings.Join(outs, ", "))
 		n.Add(ctorNode)
 	}
+	s.Providers += len(p.ctors)
 	return n
 }
 

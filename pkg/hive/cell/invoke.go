@@ -52,11 +52,12 @@ func (i *invoker) Apply(c container) error {
 	})
 }
 
-func (i *invoker) Info(container) Info {
+func (i *invoker) Info(c container, s *Stats) Info {
 	n := NewInfoNode("")
 	for _, namedFunc := range i.funcs {
 		n.AddLeaf("🛠️ %s: %s", namedFunc.name, internal.PrettyType(namedFunc.fn))
 	}
+	s.Invokes += len(i.funcs)
 	return n
 }
 

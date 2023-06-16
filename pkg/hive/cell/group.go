@@ -20,10 +20,10 @@ func (g group) Apply(c container) error {
 	return nil
 }
 
-func (g group) Info(c container) Info {
+func (g group) Info(c container, s *Stats) Info {
 	n := NewInfoNode("")
 	for _, cell := range g {
-		n.Add(cell.Info(c))
+		n.Add(cell.Info(c, s))
 	}
 	return n
 }

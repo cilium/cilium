@@ -43,6 +43,8 @@ type Info interface {
 
 type InfoLeaf string
 
+func (l InfoLeaf) FillStats(*Stats) {}
+
 func (l InfoLeaf) Print(indent int, w *InfoPrinter) {
 	buf := bufio.NewWriter(w)
 	indentString := strings.Repeat(" ", indent)
@@ -77,8 +79,7 @@ type InfoNode struct {
 	// not indented.
 	header    string
 	condensed bool
-
-	children []Info
+	children  []Info
 }
 
 func NewInfoNode(header string) *InfoNode {
@@ -121,4 +122,27 @@ func (n *InfoStruct) Print(indent int, w *InfoPrinter) {
 			fmt.Fprintf(w, "%s%s\n", indentString, line)
 		}
 	}
+}
+
+type Stats struct {
+	Modules   int
+	Providers int
+	Invokes   int
+	Metrics   int
+	Configs   int
+}
+
+func (s *Stats) String() string {
+	return fmt.Sprintf(
+		"Modules: %d\n"+
+			"Providers: %d\n"+
+			"Invokes: %d\n"+
+			"Metrics: %d\n"+
+			"Configs: %d\n",
+		s.Modules,
+		s.Providers,
+		s.Invokes,
+		s.Metrics,
+		s.Configs,
+	)
 }

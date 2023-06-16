@@ -346,8 +346,9 @@ func (h *Hive) PrintObjects() {
 
 	fmt.Printf("Cells:\n\n")
 	ip := cell.NewInfoPrinter()
+	s := cell.Stats{}
 	for _, c := range h.cells {
-		c.Info(h.container).Print(2, ip)
+		c.Info(h.container, &s).Print(2, ip)
 		fmt.Println()
 	}
 	h.lifecycle.PrintHooks()
@@ -361,6 +362,18 @@ func (h *Hive) PrintDotGraph() {
 	if err := dig.Visualize(h.container, os.Stdout); err != nil {
 		log.WithError(err).Fatal("Failed to Visualize()")
 	}
+}
+
+func (h *Hive) PrintStats() {
+	if err := h.Populate(); err != nil {
+		log.WithError(err).Fatal("Failed to populate object graph")
+	}
+
+	stats := cell.Stats{}
+	for _, c := range h.cells {
+		c.Info(h.container, &stats)
+	}
+	fmt.Print(stats.String())
 }
 
 // getEnvName returns the environment variable to be used for the given option name.

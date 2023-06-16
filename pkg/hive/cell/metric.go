@@ -119,10 +119,10 @@ func (m *metric[S]) provideMetrics(metricSet S) metricOut {
 	}
 }
 
-func (m *metric[S]) Info(container) Info {
+func (m *metric[S]) Info(c container, s *Stats) Info {
 	n := NewInfoNode(fmt.Sprintf("📈 %s", internal.FuncNameAndLocation(m.ctor)))
 	n.condensed = true
-
+	s.Metrics++
 	return n
 }
 
