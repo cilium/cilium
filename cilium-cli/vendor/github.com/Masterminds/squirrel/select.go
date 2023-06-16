@@ -262,6 +262,13 @@ func (b SelectBuilder) Columns(columns ...string) SelectBuilder {
 	return builder.Extend(b, "Columns", parts).(SelectBuilder)
 }
 
+// RemoveColumns remove all columns from query.
+// Must add a new column with Column or Columns methods, otherwise
+// return a error.
+func (b SelectBuilder) RemoveColumns() SelectBuilder {
+	return builder.Delete(b, "Columns").(SelectBuilder)
+}
+
 // Column adds a result column to the query.
 // Unlike Columns, Column accepts args which will be bound to placeholders in
 // the columns string, for example:
