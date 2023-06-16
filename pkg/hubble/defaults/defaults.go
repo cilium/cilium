@@ -17,4 +17,8 @@ const (
 	// DomainName specifies the domain name to use when constructing the server
 	// name for peer change notifications.
 	DomainName = "cilium.io"
+
+	// SensitiveValueRedacted is the string constant that is used to redact
+	// sensitive information.
+	SensitiveValueRedacted = "HUBBLE_REDACTED"
 )
