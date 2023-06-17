@@ -23,6 +23,13 @@ if ip link show cbr0; then
 fi
 {{- end }}
 
+{{- if .Values.nodeinit.removeAWSCNI }}
+echo "Removing stale AWS iptables rules..."
+sudo iptables -L
+{{- end }}
+
+
+
 {{- if .Values.nodeinit.reconfigureKubelet }}
 # Check if we're running on a GKE containerd flavor as indicated by the presence
 # of the '--container-runtime-endpoint' flag in '/etc/default/kubelet'.

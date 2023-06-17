@@ -66,6 +66,7 @@ serviceAccounts:
     name: cilium-nodeinit
     automount: true
     annotations: {}
+    removeAWSCNI: false
   envoy:
     create: true
     name: cilium-envoy
