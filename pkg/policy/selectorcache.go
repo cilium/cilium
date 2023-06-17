@@ -1093,7 +1093,8 @@ func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelect
 	sc.releaseIdentityMappings(identitiesToRelease)
 }
 
-func (sc *SelectorCache) GetLabels(id identity.NumericIdentity) labels.LabelArray {
+// GetLabels must be called while holding sc.mutex!
+func (sc *SelectorCache) GetLabelsLocked(id identity.NumericIdentity) labels.LabelArray {
 	ident, ok := sc.idCache[id]
 	if !ok {
 		return labels.LabelArray{}
