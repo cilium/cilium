@@ -138,7 +138,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
 	p.SelectorCache.mutex.RLock()
-	calculatedPolicy.computeDesiredL4PolicyMapEntries()
+	calculatedPolicy.toMapState()
 	if !isHost {
 		calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress()
 	}
@@ -156,40 +156,87 @@ func (p *EndpointPolicy) Detach() {
 
 // computeDesiredL4PolicyMapEntries transforms the EndpointPolicy.L4Policy into
 // the datapath-friendly format inside EndpointPolicy.PolicyMapState.
-func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
-
+// Called with selectorcache locked for reading
+func (p *EndpointPolicy) toMapState() {
 	if p.L4Policy == nil {
 		return
 	}
-	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Ingress, trafficdirection.Ingress)
-	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Egress, trafficdirection.Egress)
+	p.L4Policy.Ingress.toMapState(p)
+	p.L4Policy.Egress.toMapState(p)
 }
 
-func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapState, l4 L4DirectionPolicy, direction trafficdirection.TrafficDirection) {
-	for _, filter := range l4.PortRules {
+// Called with selectorcache locked for reading
+func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
+	for _, l4 := range l4policy.PortRules {
 		lookupDone := false
 		proxyport := uint16(0)
-		filter.ToMapState(p.PolicyOwner, direction, p.SelectorCache, policyMapState, func(keyFromFilter Key, entry *MapStateEntry) bool {
+		l4.toMapState(p, p.SelectorCache, func(keyFromFilter Key, entry *MapStateEntry) bool {
 			// Fix up the proxy port for entries that need proxy redirection
 			if entry.IsRedirectEntry() {
 				if !lookupDone {
 					// only lookup once for each filter
 					// Use 'destPort' from the key as it is already resolved
 					// from a named port if needed.
-					proxyport = p.PolicyOwner.LookupRedirectPortLocked(filter.Ingress, string(filter.Protocol), keyFromFilter.DestPort)
+					proxyport = p.PolicyOwner.LookupRedirectPortLocked(l4.Ingress, string(l4.Protocol), keyFromFilter.DestPort)
 					lookupDone = true
 				}
 				entry.ProxyPort = proxyport
 				// If the currently allocated proxy port is 0, this is a new
 				// redirect, for which no port has been allocated yet. Ignore
 				// it for now. This will be configured by
-				// e.addNewRedirectsFromDesiredPolicy() once the port has been allocated.
+				// UpdateRedirects() once the port has been allocated.
 				if !entry.IsRedirectEntry() {
 					return false
 				}
 			}
 			return true
 		}, nil, nil, nil)
+	}
+}
+
+type getProxyPortFunc func(*L4Filter) (proxyPort uint16, ok bool)
+
+// UpdateRedirects updates redirects in the EndpointPolicy's PolicyMapState by using the provided
+// function to obtain a proxy port number to use. Changes to 'p.PolicyMapState' are collected in
+// 'adds' and 'updated' so that they can be reverted when needed.
+func (p *EndpointPolicy) UpdateRedirects(ingress bool, identities Identities, getProxyPort getProxyPortFunc, adds Keys, updated MapState) {
+	// Nothing to do if L4Policy does not exist
+	if p.L4Policy == nil {
+		return
+	}
+
+	l4policy := &p.L4Policy.Ingress
+	if ingress {
+		l4policy = &p.L4Policy.Egress
+	}
+
+	// Selectorcache needs to be locked for toMapState (GetLabels()) call
+	p.SelectorCache.mutex.RLock()
+	l4policy.updateRedirects(p, identities, getProxyPort, adds, updated)
+	p.SelectorCache.mutex.RUnlock()
+}
+
+func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, identities Identities, getProxyPort getProxyPortFunc, adds Keys, updated MapState) {
+	for _, l4 := range l4policy.PortRules {
+		if l4.IsRedirect() {
+			// Check if we are denying this specific L4 first regardless the L3
+			if p.PolicyMapState.deniesL4(p.PolicyOwner, l4) {
+				continue
+			}
+
+			redirectPort, ok := getProxyPort(l4)
+			if !ok {
+				continue
+			}
+
+			// Set the proxy port in the policy map.
+			l4.toMapState(p, identities, func(_ Key, entry *MapStateEntry) bool {
+				if entry.IsRedirectEntry() {
+					entry.ProxyPort = redirectPort
+				}
+				return true
+			}, adds, nil, updated)
+		}
 	}
 }
 
