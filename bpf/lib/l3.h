@@ -134,8 +134,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel,
 					       const struct endpoint_info *ep,
-					       __u8 direction, bool from_host,
-					       bool hairpin_flow)
+					       __u8 direction, bool from_host)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -147,7 +146,7 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, hairpin_flow,
+	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, false,
 				 false, 0);
 }
 #endif /* ENABLE_IPV6 */
