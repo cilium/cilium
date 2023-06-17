@@ -36,7 +36,7 @@ static __always_inline __maybe_unused bool is_v6_loopback(const union v6addr *da
 	/* Check for ::1/128, RFC4291. */
 	union v6addr loopback = { .addr[15] = 1, };
 
-	return ipv6_addrcmp(&loopback, daddr) == 0;
+	return ipv6_addr_equals(&loopback, daddr);
 }
 
 /* Hack due to missing narrow ctx access. */

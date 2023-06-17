@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -52,6 +53,8 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 							UpgradeConfigs: []*http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
 								{UpgradeType: "websocket"},
 							},
+							UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+							SkipXffAppend:    false,
 							HttpFilters: []*http_connection_manager_v3.HttpFilter{
 								{
 									Name: "envoy.filters.http.router",
@@ -2907,6 +2910,9 @@ func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Clust
 		Name: fmt.Sprintf("%s/%s:%s", namespace, name, port),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_upstreams_http_v3.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{Seconds: int64(60)},
+				},
 				UpstreamProtocolOptions: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamProtocolConfig{
 					UseDownstreamProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamHttpConfig{
 						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},

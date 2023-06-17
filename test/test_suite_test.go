@@ -34,7 +34,7 @@ import (
 var (
 	log             = logging.DefaultLogger
 	DefaultSettings = map[string]string{
-		"K8S_VERSION": "1.26",
+		"K8S_VERSION": "1.27",
 	}
 	k8sNodesEnv         = "K8S_NODES"
 	commandsLogFileName = "cmds.log"
@@ -325,7 +325,7 @@ var _ = AfterEach(func() {
 		zipFilePath := filepath.Join(helpers.TestResultsPath, zipFileName)
 
 		_, err := exec.Command(
-			"/bin/bash", "-c",
+			"/usr/bin/env", "bash", "-c",
 			fmt.Sprintf("zip -qr \"%s\" \"%s\"", zipFilePath, path)).CombinedOutput()
 		if err != nil {
 			log.WithError(err).Errorf("cannot create zip file '%s'", zipFilePath)

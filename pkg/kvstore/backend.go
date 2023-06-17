@@ -23,6 +23,8 @@ type backendOption struct {
 
 type backendOptions map[string]*backendOption
 
+type ClusterSizeDependantIntervalFunc func(baseInterval time.Duration) time.Duration
+
 // ExtraOptions represents any options that can not be represented in a textual
 // format and need to be set programmatically.
 type ExtraOptions struct {
@@ -30,7 +32,7 @@ type ExtraOptions struct {
 
 	// ClusterSizeDependantInterval defines the function to calculate
 	// intervals based on cluster size
-	ClusterSizeDependantInterval func(baseInterval time.Duration) time.Duration
+	ClusterSizeDependantInterval ClusterSizeDependantIntervalFunc
 
 	// NoLockQuorumCheck disables the lock acquisition quorum check
 	NoLockQuorumCheck bool
@@ -215,6 +217,11 @@ type BackendOperations interface {
 	// created with the specified sizes. Upon every change observed, a
 	// KeyValueEvent will be sent to the Events channel
 	ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher
+
+	// RegisterLeaseExpiredObserver registers a function which is executed when
+	// the lease associated with a key having the given prefix is detected as expired.
+	// If the function is nil, the previous observer (if any) is unregistered.
+	RegisterLeaseExpiredObserver(prefix string, fn func(key string))
 
 	BackendOperationsUserMgmt
 }

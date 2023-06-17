@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
@@ -185,7 +185,7 @@ func (e *IPAMSuite) TestIpamPreAllocate8(c *check.C) {
 
 	cn := newCiliumNode("node1", "vm1", preAllocate, minAllocate)
 	statusRevision := k8sapi.statusRevision()
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 	// Wait for k8s status to be updated
 	c.Assert(testutils.WaitUntil(func() bool { return statusRevision < k8sapi.statusRevision() }, 5*time.Second), check.IsNil)
@@ -197,7 +197,7 @@ func (e *IPAMSuite) TestIpamPreAllocate8(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 7 out of 8 IPs
-	mngr.Update(updateCiliumNode(k8sapi.getLatestNode("node1"), toUse))
+	mngr.Upsert(updateCiliumNode(k8sapi.getLatestNode("node1"), toUse))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 	// Wait for k8s status to be updated
 	c.Assert(testutils.WaitUntil(func() bool { return statusRevision < k8sapi.statusRevision() }, 5*time.Second), check.IsNil)
@@ -247,7 +247,7 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 
 	cn := newCiliumNode("node1", "vm1", preAllocate, minAllocate)
 	statusRevision := k8sapi.statusRevision()
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 	// Wait for k8s status to be updated
 	c.Assert(testutils.WaitUntil(func() bool { return statusRevision < k8sapi.statusRevision() }, 5*time.Second), check.IsNil)
@@ -259,7 +259,7 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
 
 	// Use 7 out of 10 IPs
-	mngr.Update(updateCiliumNode(k8sapi.getLatestNode("node1"), toUse))
+	mngr.Upsert(updateCiliumNode(k8sapi.getLatestNode("node1"), toUse))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 	// Wait for k8s status to be updated
 	c.Assert(testutils.WaitUntil(func() bool { return statusRevision < k8sapi.statusRevision() }, 5*time.Second), check.IsNil)
@@ -319,7 +319,7 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 	for i := range state {
 		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("vm%d", i)}
 		state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, minAllocate)
-		mngr.Update(state[i].cn)
+		mngr.Upsert(state[i].cn)
 	}
 
 	for _, s := range state {
@@ -395,7 +395,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	for i := range state {
 		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("vm%d", i)}
 		state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, 10)
-		mngr.Update(state[i].cn)
+		mngr.Upsert(state[i].cn)
 	}
 
 restart:

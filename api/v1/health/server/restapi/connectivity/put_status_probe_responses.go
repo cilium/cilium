@@ -61,6 +61,31 @@ func (o *PutStatusProbeOK) WriteResponse(rw http.ResponseWriter, producer runtim
 	}
 }
 
+// PutStatusProbeForbiddenCode is the HTTP code returned for type PutStatusProbeForbidden
+const PutStatusProbeForbiddenCode int = 403
+
+/*
+PutStatusProbeForbidden Forbidden
+
+swagger:response putStatusProbeForbidden
+*/
+type PutStatusProbeForbidden struct {
+}
+
+// NewPutStatusProbeForbidden creates PutStatusProbeForbidden with default headers values
+func NewPutStatusProbeForbidden() *PutStatusProbeForbidden {
+
+	return &PutStatusProbeForbidden{}
+}
+
+// WriteResponse to the client
+func (o *PutStatusProbeForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // PutStatusProbeFailedCode is the HTTP code returned for type PutStatusProbeFailed
 const PutStatusProbeFailedCode int = 500
 

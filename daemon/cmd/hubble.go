@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
+	parserOptions "github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
 	"github.com/cilium/cilium/pkg/hubble/recorder"
@@ -97,6 +98,7 @@ func (d *Daemon) launchHubble() {
 	var (
 		observerOpts []observeroption.Option
 		localSrvOpts []serveroption.Option
+		parserOpts   []parserOptions.Option
 	)
 
 	if len(option.Config.HubbleMonitorEvents) > 0 {
@@ -137,8 +139,12 @@ func (d *Daemon) launchHubble() {
 		)
 	}
 
+	if len(option.Config.HubbleRedact) > 0 {
+		parserOpts = append(parserOpts, parserOptions.Redact(logger, option.Config.HubbleRedact))
+	}
+
 	d.linkCache = link.NewLinkCache()
-	payloadParser, err := parser.New(logger, d, d, d, d, d, d.linkCache, d.cgroupManager)
+	payloadParser, err := parser.New(logger, d, d, d, d, d, d.linkCache, d.cgroupManager, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
@@ -171,8 +177,13 @@ func (d *Daemon) launchHubble() {
 			observerOpts = append(observerOpts, opt)
 		}
 	}
+	namespaceManager := observer.NewNamespaceManager()
+	go namespaceManager.Run(d.ctx)
 
-	d.hubbleObserver, err = observer.NewLocalServer(payloadParser, logger,
+	d.hubbleObserver, err = observer.NewLocalServer(
+		payloadParser,
+		namespaceManager,
+		logger,
 		observerOpts...,
 	)
 	if err != nil {

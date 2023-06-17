@@ -6,7 +6,8 @@ package kvstore
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -21,7 +22,7 @@ type independentSuite struct{}
 var _ = Suite(&independentSuite{})
 
 func (s *independentSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (s *independentSuite) TestGetLockPath(c *C) {
@@ -41,5 +42,35 @@ func (s *independentSuite) TestValidateScopesFromKey(c *C) {
 
 	for key, val := range mockData {
 		c.Assert(GetScopeFromKey(key), Equals, val)
+	}
+}
+
+func TestStateToCachePrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "a prefix starting with cilium/state",
+			input:    "cilium/state/foo/bar",
+			expected: "cilium/cache/foo/bar",
+		},
+		{
+			name:     "a prefix not starting with cilium/state",
+			input:    "cilium/foo/bar",
+			expected: "cilium/foo/bar",
+		},
+		{
+			name:     "a prefix containing but not starting with cilium/state",
+			input:    "cilium/foo/bar/cilium/state/qux",
+			expected: "cilium/foo/bar/cilium/state/qux",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, StateToCachePrefix(tt.input))
+		})
 	}
 }

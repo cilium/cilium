@@ -11,9 +11,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/fake"
+	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/tools/cache"
 
@@ -28,7 +32,10 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
-var log *logrus.Logger
+var (
+	log       *logrus.Logger
+	nsManager = NewNamespaceManager()
+)
 
 func init() {
 	log = logrus.New()
@@ -52,7 +59,7 @@ func noopParser(t *testing.T) *parser.Parser {
 
 func TestNewLocalServer(t *testing.T) {
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log)
+	s, err := NewLocalServer(pp, nsManager, log)
 	require.NoError(t, err)
 	assert.NotNil(t, s.GetStopped())
 	assert.NotNil(t, s.GetPayloadParser())
@@ -63,7 +70,7 @@ func TestNewLocalServer(t *testing.T) {
 
 func TestLocalObserverServer_ServerStatus(t *testing.T) {
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log, observeroption.WithMaxFlows(container.Capacity1))
+	s, err := NewLocalServer(pp, nsManager, log, observeroption.WithMaxFlows(container.Capacity1))
 	require.NoError(t, err)
 	res, err := s.ServerStatus(context.Background(), &observerpb.ServerStatusRequest{})
 	require.NoError(t, err)
@@ -82,7 +89,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
 			assert.Equal(t, response.GetNodeName(), response.GetFlow().GetNodeName())
-			output = append(output, response.GetFlow())
+			output = append(output, proto.Clone(response.GetFlow()).(*flowpb.Flow))
 			i++
 			return nil
 		},
@@ -94,7 +101,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
@@ -106,7 +113,15 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
-		data := testutils.MustCreateL3L4Payload(tn)
+		macOnly := func(mac string) net.HardwareAddr {
+			m, _ := net.ParseMAC(mac)
+			return m
+		}
+		data := testutils.MustCreateL3L4Payload(tn, &layers.Ethernet{
+			SrcMAC: macOnly(fake.MAC()),
+			DstMAC: macOnly(fake.MAC()),
+		})
+
 		event := &observerTypes.MonitorEvent{
 			Timestamp: time.Unix(int64(i), 0),
 			NodeName:  fmt.Sprintf("node #%03d", i),
@@ -133,7 +148,9 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	// 1, because the last event is inaccessible due to how the ring buffer
 	// works.
 	last10Input := input[numFlows-11 : numFlows-1]
-	assert.Equal(t, last10Input, output)
+	for i := range output {
+		assert.True(t, proto.Equal(last10Input[i], output[i]))
+	}
 
 	// Clear out the output slice, as we're making another request
 	output = nil
@@ -145,7 +162,46 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	assert.Equal(t, req.Number, uint64(i))
 
 	first10Input := input[0:10]
-	assert.Equal(t, first10Input, output)
+	for i := range output {
+		assert.True(t, proto.Equal(first10Input[i], output[i]))
+	}
+
+	// Clear out the output slice, as we're making another request
+	output = nil
+	i = 0
+	// testing getting subset of fields with field mask
+	req = &observerpb.GetFlowsRequest{
+		Number: uint64(10),
+		Experimental: &observerpb.GetFlowsRequest_Experimental{
+			FieldMask: &fieldmaskpb.FieldMask{Paths: []string{"trace_observation_point", "ethernet.source"}},
+		},
+	}
+	err = s.GetFlows(req, fakeServer)
+	assert.NoError(t, err)
+	assert.Equal(t, req.Number, uint64(i))
+
+	for i, out := range output {
+		assert.Equal(t, last10Input[i].TraceObservationPoint, out.TraceObservationPoint)
+		assert.Equal(t, last10Input[i].Ethernet.Source, out.Ethernet.Source)
+		assert.Empty(t, out.Ethernet.Destination)
+		assert.Empty(t, out.Verdict)
+		assert.Empty(t, out.Summary)
+		// Keeps original as is
+		assert.NotEmpty(t, last10Input[i].Summary)
+	}
+
+	// Clear out the output slice, as we're making another request
+	output = nil
+	i = 0
+	// testing getting all fields with field mask
+	req = &observerpb.GetFlowsRequest{
+		Number: uint64(10),
+		Experimental: &observerpb.GetFlowsRequest_Experimental{
+			FieldMask: &fieldmaskpb.FieldMask{Paths: []string{""}},
+		},
+	}
+	err = s.GetFlows(req, fakeServer)
+	assert.EqualError(t, err, "invalid fieldmask")
 }
 
 func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
@@ -187,7 +243,7 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMonitorBuffer(queueSize),
 	)
 	require.NoError(t, err)
@@ -238,7 +294,7 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
@@ -352,7 +408,7 @@ func TestHooks(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity15),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithCiliumDaemon(ciliumDaemon),
@@ -411,7 +467,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnFlowDeliveryFunc(onFlowDelivery),
@@ -474,7 +530,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, log,
+	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity127),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnFlowDeliveryFunc(onFlowDelivery),
@@ -504,4 +560,40 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	// This should be assert.Equals(t, flowsReceived, numFlows)
 	// A bug in the ring buffer prevents this from succeeding
 	assert.Greater(t, flowsReceived, 0)
+}
+
+func TestLocalObserverServer_GetNamespaces(t *testing.T) {
+	pp := noopParser(t)
+	nsManager := NewNamespaceManager()
+	nsManager.AddNamespace(&observerpb.Namespace{
+		Namespace: "zzz",
+	})
+	nsManager.AddNamespace(&observerpb.Namespace{
+		Namespace: "bbb",
+		Cluster:   "some-cluster",
+	})
+	nsManager.AddNamespace(&observerpb.Namespace{
+		Namespace: "aaa",
+		Cluster:   "some-cluster",
+	})
+	s, err := NewLocalServer(pp, nsManager, log, observeroption.WithMaxFlows(container.Capacity1))
+	require.NoError(t, err)
+	res, err := s.GetNamespaces(context.Background(), &observerpb.GetNamespacesRequest{})
+	require.NoError(t, err)
+	expected := &observerpb.GetNamespacesResponse{
+		Namespaces: []*observerpb.Namespace{
+			{
+				Namespace: "zzz",
+			},
+			{
+				Namespace: "aaa",
+				Cluster:   "some-cluster",
+			},
+			{
+				Namespace: "bbb",
+				Cluster:   "some-cluster",
+			},
+		},
+	}
+	assert.Equal(t, expected, res)
 }

@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"unsafe"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -35,22 +35,15 @@ const (
 // Key implements the bpf.MapKey interface.
 //
 // Must be in sync with struct vtep_key in <bpf/lib/common.h>
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key struct {
 	IP types.IPv4 `align:"vtep_ip"`
 }
 
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value
-func (k Key) NewValue() bpf.MapValue { return &VtepEndpointInfo{} }
-
 func (k Key) String() string {
 	return k.IP.String()
 }
+
+func (k *Key) New() bpf.MapKey { return &Key{} }
 
 // NewKey returns an Key based on the provided IP address and mask.
 func NewKey(ip net.IP) Key {
@@ -66,8 +59,6 @@ func NewKey(ip net.IP) Key {
 
 // VtepEndpointInfo implements the bpf.MapValue interface. It contains the
 // VTEP endpoint MAC and IP.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type VtepEndpointInfo struct {
 	VtepMAC        mac.Uint64MAC `align:"vtep_mac"`
 	TunnelEndpoint types.IPv4    `align:"tunnel_endpoint"`
@@ -78,8 +69,7 @@ func (v *VtepEndpointInfo) String() string {
 		v.VtepMAC, v.TunnelEndpoint)
 }
 
-// GetValuePtr returns the unsafe pointer to the BPF value.
-func (v *VtepEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+func (v *VtepEndpointInfo) New() bpf.MapValue { return &VtepEndpointInfo{} }
 
 // Map represents an VTEP BPF map.
 type Map struct {
@@ -91,15 +81,12 @@ func NewMap(name string) *Map {
 	return &Map{
 		Map: *bpf.NewMap(
 			name,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&Key{},
-			int(unsafe.Sizeof(Key{})),
 			&VtepEndpointInfo{},
-			int(unsafe.Sizeof(VtepEndpointInfo{})),
 			MaxEntries,
-			0, 0,
-			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric().WithNonPersistent().
+			0,
+		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(name)),
 	}
 }

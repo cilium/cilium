@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -70,7 +71,7 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 				k.K8sEventProcessed(metricCEC, resources.MetricDelete, err == nil)
 			},
 		},
-		k8s.ConvertToCiliumEnvoyConfig,
+		k8s.TransformToCiliumEnvoyConfig,
 	)
 
 	k.blockWaitGroupToSyncResources(
@@ -163,10 +164,15 @@ func getServiceName(resourceName loadbalancer.ServiceName, name, namespace strin
 func (k *K8sWatcher) addK8sServiceRedirects(resourceName loadbalancer.ServiceName, spec *cilium_v2.CiliumEnvoyConfigSpec, resources envoy.Resources) error {
 	// Redirect k8s services to an Envoy listener
 	for _, svc := range spec.Services {
+		svcListener := ""
+		if svc.Listener != "" {
+			// Listener names are qualified after parsing, so qualify the listener reference as well for it to match
+			svcListener = api.ResourceQualifiedName(resourceName.Namespace, resourceName.Name, svc.Listener, api.ForceNamespace)
+		}
 		// Find the listener the service is to be redirected to
 		var proxyPort uint16
 		for _, l := range resources.Listeners {
-			if svc.Listener == "" || l.Name == svc.Listener {
+			if svc.Listener == "" || l.Name == svcListener {
 				if addr := l.GetAddress(); addr != nil {
 					if sa := addr.GetSocketAddress(); sa != nil {
 						proxyPort = uint16(sa.GetPortValue())

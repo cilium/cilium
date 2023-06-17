@@ -117,6 +117,9 @@ type LinkID uint32
 // BTFID uniquely identifies a BTF blob loaded into the kernel.
 type BTFID uint32
 
+// TypeID identifies a type in a BTF blob.
+type TypeID uint32
+
 // MapFlags control map behaviour.
 type MapFlags uint32
 

@@ -173,7 +173,7 @@ type temporaryError interface {
 	Temporary() bool
 }
 
-// waitWait unblocks Wait if it's epoll_wait.
+// wakeWait unblocks Wait if it's epoll_wait.
 func (p *Poller) wakeWait() error {
 	p.eventMu.Lock()
 	defer p.eventMu.Unlock()

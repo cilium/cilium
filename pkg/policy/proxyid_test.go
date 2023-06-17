@@ -4,7 +4,7 @@
 package policy
 
 import (
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func (s *PolicyTestSuite) TestProxyID(c *C) {

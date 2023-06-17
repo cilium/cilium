@@ -6,12 +6,11 @@ package endpoint
 import (
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/cilium/cilium/api/v1/models"
 	loaderMetrics "github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -25,7 +24,7 @@ type statistics interface {
 	GetMap() map[string]*spanstat.SpanStat
 }
 
-func sendMetrics(stats statistics, metric prometheus.ObserverVec) {
+func sendMetrics(stats statistics, metric metric.Vec[metric.Observer]) {
 	for scope, stat := range stats.GetMap() {
 		// Skip scopes that have not been hit (zero duration), so the count in
 		// the histogram accurately reflects the number of times each scope is

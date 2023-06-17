@@ -800,7 +800,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	}
 
 	if e.policyMap == nil {
-		e.policyMap, _, err = policymap.OpenOrCreate(e.policyMapPath())
+		e.policyMap, err = policymap.OpenOrCreate(e.policyMapPath())
 		if err != nil {
 			return false, err
 		}
@@ -951,8 +951,7 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 
 // InitMap creates the policy map in the kernel.
 func (e *Endpoint) InitMap() error {
-	_, err := policymap.Create(e.policyMapPath())
-	return err
+	return policymap.Create(e.policyMapPath())
 }
 
 // deleteMaps releases references to all BPF maps associated with this
@@ -1064,7 +1063,7 @@ func (e *Endpoint) SkipStateClean() {
 }
 
 func (e *Endpoint) initPolicyMapPressureMetric() {
-	if !option.Config.MetricsConfig.BPFMapPressure {
+	if !metrics.BPFMapPressure {
 		return
 	}
 
@@ -1080,7 +1079,7 @@ func (e *Endpoint) updatePolicyMapPressureMetric() {
 		return
 	}
 
-	value := float64(len(e.realizedPolicy.PolicyMapState)) / float64(e.policyMap.MapInfo.MaxEntries)
+	value := float64(len(e.realizedPolicy.PolicyMapState)) / float64(e.policyMap.MaxEntries())
 	e.policyMapPressureGauge.Set(value)
 }
 
@@ -1338,6 +1337,7 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 		policyEntry := policy.MapStateEntry{
 			ProxyPort: policymapEntry.GetProxyPort(),
 			IsDeny:    policymapEntry.IsDeny(),
+			AuthType:  policy.AuthType(policymapEntry.AuthType),
 		}
 		currentMap[policyKey] = policyEntry
 	}
@@ -1382,7 +1382,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
 		}
 
-		e.policyMap, _, err = policymap.OpenOrCreate(e.policyMapPath())
+		e.policyMap, err = policymap.OpenOrCreate(e.policyMapPath())
 		if err != nil {
 			return fmt.Errorf("unable to open PolicyMap for endpoint: %s", err)
 		}

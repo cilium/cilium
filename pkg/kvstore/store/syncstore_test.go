@@ -15,15 +15,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-type KVPair struct{ Key, Value string }
-
-func NewKVPair(key, value string) *KVPair      { return &KVPair{Key: key, Value: value} }
-func (kv *KVPair) GetKeyName() string          { return kv.Key }
-func (kv *KVPair) Marshal() ([]byte, error)    { return []byte(kv.Value), nil }
-func (kv *KVPair) Unmarshal(data []byte) error { return nil /* not used */ }
+// Configure a generous timeout to prevent flakes when running in a noisy CI environment.
+var (
+	tick    = 10 * time.Millisecond
+	timeout = 5 * time.Second
+)
 
 type fakeBackend struct {
 	t           *testing.T
@@ -34,6 +34,8 @@ type fakeBackend struct {
 
 	errorsOnUpdate map[string]uint
 	errorsOnDelete map[string]uint
+
+	leaseExpiredObserver func(key string)
 }
 
 func NewFakeBackend(t *testing.T, expectLease bool) *fakeBackend {
@@ -84,6 +86,10 @@ func (fb *fakeBackend) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+func (fb *fakeBackend) RegisterLeaseExpiredObserver(prefix string, fn func(key string)) {
+	fb.leaseExpiredObserver = fn
+}
+
 type fakeRateLimiter struct{ whenCalled, forgetCalled chan *KVPair }
 
 func NewFakeRateLimiter() *fakeRateLimiter {
@@ -99,7 +105,7 @@ func (frl *fakeRateLimiter) Forget(item interface{}) {
 }
 func (frl *fakeRateLimiter) NumRequeues(item interface{}) int { return 0 }
 
-func eventually(in <-chan *KVPair, timeout time.Duration) *KVPair {
+func eventually(in <-chan *KVPair) *KVPair {
 	select {
 	case kv := <-in:
 		return kv
@@ -111,7 +117,7 @@ func eventually(in <-chan *KVPair, timeout time.Duration) *KVPair {
 func TestWorkqueueSyncStore(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
-	store := NewWorkqueueSyncStore(backend, "/foo/bar")
+	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar")
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -128,43 +134,47 @@ func TestWorkqueueSyncStore(t *testing.T) {
 	// Upserts should trigger the corresponding backend operation.
 	store.UpsertKey(ctx, NewKVPair("key1", "value1"))
 	store.UpsertKey(ctx, NewKVPair("key2", "value2"))
-	require.Equal(t, NewKVPair("/foo/bar/key1", "value1"), eventually(backend.updated, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("/foo/bar/key2", "value2"), eventually(backend.updated, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("/foo/bar/key1", "value1"), eventually(backend.updated))
+	require.Equal(t, NewKVPair("/foo/bar/key2", "value2"), eventually(backend.updated))
 
 	// Unless the pair is already part of the known state.
 	store.UpsertKey(ctx, NewKVPair("key1", "value1"))
 	store.UpsertKey(ctx, NewKVPair("key3", "value3"))
-	require.Equal(t, NewKVPair("/foo/bar/key3", "value3"), eventually(backend.updated, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("/foo/bar/key3", "value3"), eventually(backend.updated))
 
 	// Upserts for the same key should be coalescenced. In this case, it is guaranteed
 	// to happen since the first upsert blocks until we read from the channel.
 	store.UpsertKey(ctx, NewKVPair("key4", "value4"))
 	store.UpsertKey(ctx, NewKVPair("key1", "valueA"))
 	store.UpsertKey(ctx, NewKVPair("key1", "valueB"))
-	require.Equal(t, NewKVPair("/foo/bar/key4", "value4"), eventually(backend.updated, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("/foo/bar/key1", "valueB"), eventually(backend.updated, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("/foo/bar/key4", "value4"), eventually(backend.updated))
+	require.Equal(t, NewKVPair("/foo/bar/key1", "valueB"), eventually(backend.updated))
 
 	// Deletions should trigger the corresponding backend operation, only if known to exist.
 	store.DeleteKey(ctx, NewKVPair("key5", ""))
 	store.DeleteKey(ctx, NewKVPair("key4", ""))
-	require.Equal(t, NewKVPair("/foo/bar/key4", ""), eventually(backend.deleted, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("/foo/bar/key4", ""), eventually(backend.deleted))
 
 	// Both upserts and deletes should be retried in case an error is returned by the client
 	backend.errorsOnUpdate["/foo/bar/key1"] = 1
 	store.UpsertKey(ctx, NewKVPair("key1", "valueC"))
-	require.Equal(t, NewKVPair("/foo/bar/key1", "valueC"), eventually(backend.updated, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("/foo/bar/key1", "valueC"), eventually(backend.updated, 250*time.Millisecond))
+	require.Equal(t, NewKVPair("/foo/bar/key1", "valueC"), eventually(backend.updated))
+	require.Equal(t, NewKVPair("/foo/bar/key1", "valueC"), eventually(backend.updated))
 
 	backend.errorsOnDelete["/foo/bar/key2"] = 1
 	store.DeleteKey(ctx, NewKVPair("key2", ""))
-	require.Equal(t, NewKVPair("/foo/bar/key2", ""), eventually(backend.deleted, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("/foo/bar/key2", ""), eventually(backend.deleted, 250*time.Millisecond))
+	require.Equal(t, NewKVPair("/foo/bar/key2", ""), eventually(backend.deleted))
+	require.Equal(t, NewKVPair("/foo/bar/key2", ""), eventually(backend.deleted))
+
+	// Executing the lease expired observer should trigger a new update for the given key.
+	backend.leaseExpiredObserver("/foo/bar/key1")
+	require.Equal(t, NewKVPair("/foo/bar/key1", "valueC"), eventually(backend.updated))
 }
 
 func TestWorkqueueSyncStoreWithoutLease(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, false)
-	store := NewWorkqueueSyncStore(backend, "/foo/bar", WSSWithoutLease())
+	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar", WSSWithoutLease())
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -181,14 +191,14 @@ func TestWorkqueueSyncStoreWithoutLease(t *testing.T) {
 	// The fake backend checks whether the lease setting corresponds to the expected
 	// value, and emits a KVPair with the error message in case it does not match
 	store.UpsertKey(ctx, NewKVPair("key1", "value1"))
-	require.Equal(t, NewKVPair("/foo/bar/key1", "value1"), eventually(backend.updated, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("/foo/bar/key1", "value1"), eventually(backend.updated))
 }
 
 func TestWorkqueueSyncStoreWithRateLimiter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
 	limiter := NewFakeRateLimiter()
-	store := NewWorkqueueSyncStore(backend, "/foo/bar", WSSWithRateLimiter(limiter))
+	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar", WSSWithRateLimiter(limiter))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -206,16 +216,16 @@ func TestWorkqueueSyncStoreWithRateLimiter(t *testing.T) {
 
 	// Assert that the custom rate limiter has been correctly called
 	store.UpsertKey(ctx, NewKVPair("key1", "value1"))
-	require.Equal(t, NewKVPair("/foo/bar/key1", "value1"), eventually(backend.updated, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("key1", ""), eventually(limiter.whenCalled, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("/foo/bar/key1", "value1"), eventually(backend.updated, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("key1", ""), eventually(limiter.forgetCalled, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("/foo/bar/key1", "value1"), eventually(backend.updated))
+	require.Equal(t, NewKVPair("key1", ""), eventually(limiter.whenCalled))
+	require.Equal(t, NewKVPair("/foo/bar/key1", "value1"), eventually(backend.updated))
+	require.Equal(t, NewKVPair("key1", ""), eventually(limiter.forgetCalled))
 }
 
 func TestWorkqueueSyncStoreWithWorkers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
-	store := NewWorkqueueSyncStore(backend, "/foo/bar", WSSWithWorkers(2))
+	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar", WSSWithWorkers(2))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -230,31 +240,143 @@ func TestWorkqueueSyncStoreWithWorkers(t *testing.T) {
 	}()
 
 	store.UpsertKey(ctx, NewKVPair("key1", "value1"))
-	require.Equal(t, NewKVPair("/foo/bar/key1", "value1"), eventually(backend.updated, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("/foo/bar/key1", "value1"), eventually(backend.updated))
 
 	// Since the Update() and Delete() functions implemented by the fake backend
 	// block until we read from the correposponding channel, reading in reversed
 	// order the elements from the two channels requires at least two workers
 	store.DeleteKey(ctx, NewKVPair("key1", "value1"))
 	store.UpsertKey(ctx, NewKVPair("key2", "value2"))
-	require.Equal(t, NewKVPair("/foo/bar/key2", "value2"), eventually(backend.updated, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("/foo/bar/key1", ""), eventually(backend.deleted, 100*time.Millisecond))
+	require.Equal(t, NewKVPair("/foo/bar/key2", "value2"), eventually(backend.updated))
+	require.Equal(t, NewKVPair("/foo/bar/key1", ""), eventually(backend.deleted))
+}
+
+func TestWorkqueueSyncStoreSynced(t *testing.T) {
+	runnable := func(body func(*testing.T, context.Context, *fakeBackend, SyncStore), opts ...WSSOpt) func(t *testing.T) {
+		return func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			backend := NewFakeBackend(t, true)
+			store := NewWorkqueueSyncStore("qux", backend, "foo/bar", opts...)
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				store.Run(ctx)
+			}()
+
+			defer func() {
+				cancel()
+				wg.Wait()
+			}()
+
+			body(t, ctx, backend, store)
+		}
+	}
+
+	t.Run("standard", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		callback := func(ctx context.Context) {
+			backend.Update(ctx, "callback/executed", []byte{}, true)
+		}
+
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.UpsertKey(ctx, NewKVPair("key2", "value2"))
+		store.Synced(ctx, callback, callback)
+		store.UpsertKey(ctx, NewKVPair("key3", "value3"))
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
+		require.Equal(t, NewKVPair("foo/bar/key2", "value2"), eventually(backend.updated))
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
+		require.Equal(t, NewKVPair("callback/executed", ""), eventually(backend.updated))
+		require.Equal(t, NewKVPair("callback/executed", ""), eventually(backend.updated))
+		require.Equal(t, NewKVPair("foo/bar/key3", "value3"), eventually(backend.updated))
+	}))
+
+	t.Run("key-override", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.UpsertKey(ctx, NewKVPair("key2", "value2"))
+		store.Synced(ctx)
+		store.UpsertKey(ctx, NewKVPair("key3", "value3"))
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
+		require.Equal(t, NewKVPair("foo/bar/key2", "value2"), eventually(backend.updated))
+		require.Equal(t, "cilium/synced/qux/override", eventually(backend.updated).Key)
+		require.Equal(t, NewKVPair("foo/bar/key3", "value3"), eventually(backend.updated))
+	}, WSSWithSyncedKeyOverride("override")))
+
+	t.Run("key-upsertion-failure", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		backend.errorsOnUpdate["foo/bar/key1"] = 1
+
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.UpsertKey(ctx, NewKVPair("key2", "value2"))
+		store.Synced(ctx)
+		store.UpsertKey(ctx, NewKVPair("key3", "value3"))
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
+		require.Equal(t, NewKVPair("foo/bar/key2", "value2"), eventually(backend.updated))
+		require.Equal(t, NewKVPair("foo/bar/key3", "value3"), eventually(backend.updated))
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
+		// The synced key shall be created only once key1 has been successfully upserted.
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
+	}))
+
+	t.Run("synced-upsertion-failure", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		backend.errorsOnUpdate["cilium/synced/qux/foo/bar"] = 1
+
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.UpsertKey(ctx, NewKVPair("key2", "value2"))
+		store.Synced(ctx)
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
+		require.Equal(t, NewKVPair("foo/bar/key2", "value2"), eventually(backend.updated))
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
+	}))
+
+	// Assert that the synced key is created only after key1 has been successfully upserted also in case there are multiple workers
+	t.Run("multiple-workers", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		backend.errorsOnUpdate["foo/bar/key1"] = 2
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.Synced(ctx)
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
+	}, WSSWithWorkers(10)))
+
+	// Assert that the synced key gets recreated if the corresponding lease expired
+	t.Run("lease-expiration", runnable(func(t *testing.T, ctx context.Context, backend *fakeBackend, store SyncStore) {
+		callback := func(ctx context.Context) {
+			backend.Update(ctx, "callback/executed", []byte{}, true)
+		}
+
+		store.UpsertKey(ctx, NewKVPair("key1", "value1"))
+		store.Synced(ctx, callback)
+
+		require.Equal(t, NewKVPair("foo/bar/key1", "value1"), eventually(backend.updated))
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
+		require.Equal(t, NewKVPair("callback/executed", ""), eventually(backend.updated))
+		backend.leaseExpiredObserver("cilium/synced/qux/foo/bar")
+		require.Equal(t, "cilium/synced/qux/foo/bar", eventually(backend.updated).Key)
+		// The callback shall not be executed a second time
+	}))
 }
 
 func TestWorkqueueSyncStoreMetrics(t *testing.T) {
-	defer func(name string, metric metrics.GaugeVec) {
+	defer func(name string, queue, sync metric.Vec[metric.Gauge]) {
 		option.Config.ClusterName = name
-		metrics.KVStoreSyncQueueSize = metric
-	}(option.Config.ClusterName, metrics.KVStoreSyncQueueSize)
+		metrics.KVStoreSyncQueueSize = queue
+		metrics.KVStoreInitialSyncCompleted = sync
+	}(option.Config.ClusterName, metrics.KVStoreSyncQueueSize, metrics.KVStoreInitialSyncCompleted)
 
-	option.Config.ClusterName = "foo"
-	cfg, collectors := metrics.CreateConfiguration([]string{"cilium_kvstore_sync_queue_size"})
-	require.True(t, cfg.KVStoreSyncQueueSizeEnabled)
-	require.Len(t, collectors, 1)
+	legacyMetrics := metrics.NewLegacyMetrics()
+	require.True(t, legacyMetrics.KVStoreSyncQueueSize.IsEnabled())
+	require.True(t, legacyMetrics.KVStoreInitialSyncCompleted.IsEnabled())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
-	store := NewWorkqueueSyncStore(backend, "cilium/state/nodes/v1")
+	store := NewWorkqueueSyncStore("foo", backend, "cilium/state/nodes/v1")
 
 	// The queue size should be initially zero.
 	require.Equal(t, float64(0), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
@@ -283,28 +405,41 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 	defer func() {
 		cancel()
 		wg.Wait()
+
+		// The store should no longer be synced, since it is stopped.
+		require.Equal(t, metrics.BoolToFloat64(false),
+			testutil.ToFloat64(metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
 	}()
 
 	// The metric should reflect the updated queue size (one in this case, since one element has been processed, and
-	// another is being processed --- stuck performing Update()).
-	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key1", "valueA"), eventually(backend.updated, 100*time.Millisecond))
-	require.Equal(t, float64(1), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+	// another is being processed --- stuck performing Update()). We need to assert this "eventually", because we have
+	// no guarantee that the processing of the second element has already started.
+	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key1", "valueA"), eventually(backend.updated))
+	require.Eventually(t, func() bool {
+		return testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")) == 1
+	}, timeout, tick, "Incorrect metric value (expected: 1)")
 
 	// Deleting one element, the queue size should grow by one (the worker is still stuck in the Update() call).
 	store.DeleteKey(ctx, NewKVPair("key1", ""))
 	require.Equal(t, float64(2), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
 
 	backend.errorsOnUpdate["cilium/state/nodes/v1/key3"] = 1
-	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key2", "value2"), eventually(backend.updated, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key3", "value3"), eventually(backend.updated, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key1", ""), eventually(backend.deleted, 100*time.Millisecond))
-	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key3", "value3"), eventually(backend.updated, 250*time.Millisecond))
+	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key2", "value2"), eventually(backend.updated))
+	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key3", "value3"), eventually(backend.updated))
+	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key1", ""), eventually(backend.deleted))
+	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key3", "value3"), eventually(backend.updated))
+
+	store.Synced(ctx, func(ctx context.Context) {
+		// When the callback is executed, the store should be synced
+		require.Equal(t, metrics.BoolToFloat64(true),
+			testutil.ToFloat64(metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
+	})
+
+	// The store should not yet be synced, as the synced entry has not yet been written to the kvstore.
+	require.Equal(t, metrics.BoolToFloat64(false),
+		testutil.ToFloat64(metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
+	require.Equal(t, "cilium/synced/foo/cilium/state/nodes/v1", eventually(backend.updated).Key)
 
 	// Once all elements have been processed, the metric should be zero.
 	require.Equal(t, float64(0), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
-
-	// The metric should reflect the specified cluster name if overwritten.
-	storeWithClusterName := NewWorkqueueSyncStore(backend, "cilium/state/nodes/v1", WSSWithSourceClusterName("bar"))
-	storeWithClusterName.UpsertKey(ctx, NewKVPair("key2", "value2"))
-	require.Equal(t, float64(1), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "bar")))
 }

@@ -148,6 +148,9 @@ type Allocator struct {
 	// disableGC disables the garbage collector
 	disableGC bool
 
+	// disableAutostart prevents starting the allocator when it is initialized
+	disableAutostart bool
+
 	// backend is the upstream, shared, backend to which we syncronize local
 	// information
 	backend Backend
@@ -316,6 +319,14 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 
 	a.idPool = idpool.NewIDPool(a.min, a.max)
 
+	if !a.disableAutostart {
+		a.start()
+	}
+
+	return a, nil
+}
+
+func (a *Allocator) start() {
 	a.initialListDone = a.mainCache.start()
 	if !a.disableGC {
 		go func() {
@@ -327,8 +338,6 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 			a.startLocalKeySync()
 		}()
 	}
-
-	return a, nil
 }
 
 // WithBackend sets this allocator to use backend. It is expected to be used at
@@ -376,6 +385,11 @@ func WithMasterKeyProtection() AllocatorOption {
 // WithoutGC disables the use of the garbage collector
 func WithoutGC() AllocatorOption {
 	return func(a *Allocator) { a.disableGC = true }
+}
+
+// WithoutAutostart prevents starting the allocator when it is initialized
+func WithoutAutostart() AllocatorOption {
+	return func(a *Allocator) { a.disableAutostart = true }
 }
 
 // GetEvents returns the events channel given to the allocator when
@@ -887,7 +901,22 @@ type AllocatorEvent struct {
 // identities. The contents are not directly accessible but will be merged into
 // the ForeachCache() function.
 type RemoteCache struct {
-	cache *cache
+	name string
+
+	allocator *Allocator
+	cache     *cache
+
+	watchFunc func(ctx context.Context, remote *RemoteCache)
+}
+
+func (a *Allocator) NewRemoteCache(remoteName string, remoteAlloc *Allocator) *RemoteCache {
+	return &RemoteCache{
+		name:      remoteName,
+		allocator: remoteAlloc,
+		cache:     &remoteAlloc.mainCache,
+
+		watchFunc: a.WatchRemoteKVStore,
+	}
 }
 
 // WatchRemoteKVStore starts watching an allocator base prefix the kvstore
@@ -895,23 +924,86 @@ type RemoteCache struct {
 // kvstore will be maintained in the RemoteCache structure returned and will
 // start being reported in the identities returned by the ForeachCache()
 // function. RemoteName should be unique per logical "remote".
-func (a *Allocator) WatchRemoteKVStore(remoteName string, remoteAlloc *Allocator) *RemoteCache {
-	rc := &RemoteCache{
-		cache: &remoteAlloc.mainCache,
+func (a *Allocator) WatchRemoteKVStore(ctx context.Context, rc *RemoteCache) {
+	scopedLog := log.WithField(logfields.ClusterName, rc.name)
+	scopedLog.Info("Starting remote kvstore watcher")
+
+	rc.allocator.start()
+
+	select {
+	case <-ctx.Done():
+		scopedLog.Debug("Context canceled before remote kvstore watcher synchronization completed: stale identities will now be drained")
+		rc.close()
+
+		a.remoteCachesMutex.RLock()
+		old := a.remoteCaches[rc.name]
+		a.remoteCachesMutex.RUnlock()
+
+		if old != nil {
+			old.cache.mutex.RLock()
+			defer old.cache.mutex.RUnlock()
+		}
+
+		// Drain all entries that might have been received until now, and that
+		// are not present in the current cache (if any). This ensures we do not
+		// leak any stale identity, and at the same time we do not invalidate the
+		// current state.
+		rc.cache.drainIf(func(id idpool.ID) bool {
+			if old == nil {
+				return true
+			}
+
+			_, ok := old.cache.nextCache[id]
+			return !ok
+		})
+		return
+
+	case <-rc.cache.listDone:
+		scopedLog.Info("Remote kvstore watcher successfully synchronized and registered")
 	}
 
 	a.remoteCachesMutex.Lock()
-	a.remoteCaches[remoteName] = rc
+	old := a.remoteCaches[rc.name]
+	a.remoteCaches[rc.name] = rc
 	a.remoteCachesMutex.Unlock()
 
-	return rc
+	if old != nil {
+		// In case of reconnection, let's emit a deletion event for all stale identities
+		// that are no longer present in the kvstore. We take the lock of the new cache
+		// to ensure that we observe a stable state during this process (i.e., no keys
+		// are added/removed in the meanwhile).
+		scopedLog.Debug("Another kvstore watcher was already registered: deleting stale identities")
+		rc.cache.mutex.RLock()
+		old.cache.drainIf(func(id idpool.ID) bool {
+			_, ok := rc.cache.nextCache[id]
+			return !ok
+		})
+		rc.cache.mutex.RUnlock()
+	}
+
+	<-ctx.Done()
+	rc.close()
+	scopedLog.Info("Stopped remote kvstore watcher")
 }
 
-// RemoveRemoteKVStore removes any reference to a remote allocator / kvstore.
+// RemoveRemoteKVStore removes any reference to a remote allocator / kvstore, emitting
+// a deletion event for all previously known identities.
 func (a *Allocator) RemoveRemoteKVStore(remoteName string) {
 	a.remoteCachesMutex.Lock()
+	old := a.remoteCaches[remoteName]
 	delete(a.remoteCaches, remoteName)
 	a.remoteCachesMutex.Unlock()
+
+	if old != nil {
+		old.cache.drain()
+		log.WithField(logfields.ClusterName, remoteName).Info("Remote kvstore watcher unregistered")
+	}
+}
+
+// Watch starts watching the remote kvstore and synchronize the identities in
+// the local cache. It blocks until the context is closed.
+func (rc *RemoteCache) Watch(ctx context.Context) {
+	rc.watchFunc(ctx, rc)
 }
 
 // NumEntries returns the number of entries in the remote cache
@@ -923,8 +1015,8 @@ func (rc *RemoteCache) NumEntries() int {
 	return rc.cache.numEntries()
 }
 
-// Close stops watching for identities in the kvstore associated with the
+// close stops watching for identities in the kvstore associated with the
 // remote cache.
-func (rc *RemoteCache) Close() {
+func (rc *RemoteCache) close() {
 	rc.cache.allocator.Delete()
 }

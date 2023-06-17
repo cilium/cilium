@@ -11,7 +11,6 @@ import (
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -22,9 +21,9 @@ type FakeCiliumBGPPeeringPolicies struct {
 	Fake *FakeCiliumV2alpha1
 }
 
-var ciliumbgppeeringpoliciesResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumbgppeeringpolicies"}
+var ciliumbgppeeringpoliciesResource = v2alpha1.SchemeGroupVersion.WithResource("ciliumbgppeeringpolicies")
 
-var ciliumbgppeeringpoliciesKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2alpha1", Kind: "CiliumBGPPeeringPolicy"}
+var ciliumbgppeeringpoliciesKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPPeeringPolicy")
 
 // Get takes name of the ciliumBGPPeeringPolicy, and returns the corresponding ciliumBGPPeeringPolicy object, and an error if there is any.
 func (c *FakeCiliumBGPPeeringPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumBGPPeeringPolicy, err error) {

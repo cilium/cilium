@@ -6,7 +6,7 @@ package api
 import (
 	"fmt"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"

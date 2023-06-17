@@ -26,9 +26,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		appPods map[string]string
 
 		// The IPs are updated in BeforeAll
-		worldTarget          = "http://vagrant-cache.ci.cilium.io"
+		worldTarget          = "vagrant-cache.ci.cilium.io"
 		worldTargetIP        = "147.75.38.95"
-		worldInvalidTarget   = "http://jenkins.cilium.io"
+		worldInvalidTarget   = "cilium.io"
 		worldInvalidTargetIP = "104.198.14.52"
 	)
 
@@ -36,26 +36,26 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		// In case the IPs changed from above, update them here
 		var lookupErr error
 		err := helpers.WithTimeout(func() bool {
-			addrs, err2 := net.LookupHost("vagrant-cache.ci.cilium.io")
+			addrs, err2 := net.LookupHost(worldTarget)
 			if err2 != nil {
-				lookupErr = fmt.Errorf("error looking up vagrant-cache.ci.cilium.io: %s", err2)
+				lookupErr = fmt.Errorf("error looking up target domain: %s", err2)
 				return false
 			}
 			worldTargetIP = addrs[0]
 			return true
-		}, "Could not get vagrant-cache.ci.cilium.io IP", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+		}, fmt.Sprintf("Could not get %s IP", worldTarget), &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
 		Expect(err).Should(BeNil(), "Error obtaining IP for test: %s", lookupErr)
 
 		lookupErr = nil
 		err = helpers.WithTimeout(func() bool {
-			addrs, err2 := net.LookupHost("jenkins.cilium.io")
+			addrs, err2 := net.LookupHost(worldInvalidTarget)
 			if err2 != nil {
-				lookupErr = fmt.Errorf("error looking up jenkins.cilium.io: %s", err2)
+				lookupErr = fmt.Errorf("error looking up target domain: %s", err2)
 				return false
 			}
 			worldInvalidTargetIP = addrs[0]
 			return true
-		}, "Could not get jenkins.cilium.io IP", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+		}, fmt.Sprintf("Could not get %s IP", worldInvalidTarget), &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
 		Expect(err).Should(BeNil(), "Error obtaining IP for test: %s", lookupErr)
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)

@@ -17,17 +17,11 @@ import (
 // Use DescribeReservedInstancesOfferings to get a list of Reserved Instance
 // offerings that match your specifications. After you've purchased a Reserved
 // Instance, you can check for your new Reserved Instance with
-// DescribeReservedInstances. To queue a purchase for a future date and time,
+// DescribeReservedInstances . To queue a purchase for a future date and time,
 // specify a purchase time. If you do not specify a purchase time, the default is
-// the current time. For more information, see Reserved Instances
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-on-demand-reserved-instances.html)
-// and Reserved Instance Marketplace
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html) in
-// the Amazon EC2 User Guide. We are retiring EC2-Classic. We recommend that you
-// migrate from EC2-Classic to a VPC. For more information, see Migrate from
-// EC2-Classic to a VPC
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// the current time. For more information, see Reserved Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-on-demand-reserved-instances.html)
+// and Reserved Instance Marketplace (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) PurchaseReservedInstancesOffering(ctx context.Context, params *PurchaseReservedInstancesOfferingInput, optFns ...func(*Options)) (*PurchaseReservedInstancesOfferingOutput, error) {
 	if params == nil {
 		params = &PurchaseReservedInstancesOfferingInput{}
@@ -58,16 +52,16 @@ type PurchaseReservedInstancesOfferingInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// Specified for Reserved Instance Marketplace offerings to limit the total order
 	// and ensure that the Reserved Instances are not purchased at unexpected prices.
 	LimitPrice *types.ReservedInstanceLimitPrice
 
-	// The time at which to purchase the Reserved Instance, in UTC format (for example,
-	// YYYY-MM-DDTHH:MM:SSZ).
+	// The time at which to purchase the Reserved Instance, in UTC format (for
+	// example, YYYY-MM-DDTHH:MM:SSZ).
 	PurchaseTime *time.Time
 
 	noSmithyDocumentSerde
@@ -78,8 +72,7 @@ type PurchaseReservedInstancesOfferingOutput struct {
 
 	// The IDs of the purchased Reserved Instances. If your purchase crosses into a
 	// discounted pricing tier, the final Reserved Instances IDs might change. For more
-	// information, see Crossing pricing tiers
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-reserved-instances-application.html#crossing-pricing-tiers)
+	// information, see Crossing pricing tiers (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-reserved-instances-application.html#crossing-pricing-tiers)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	ReservedInstancesId *string
 
@@ -138,6 +131,9 @@ func (c *Client) addOperationPurchaseReservedInstancesOfferingMiddlewares(stack 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opPurchaseReservedInstancesOffering(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

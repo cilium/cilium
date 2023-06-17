@@ -5,16 +5,14 @@ package nat
 
 import (
 	"fmt"
-	"unsafe"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 )
 
 // NatEntry4 represents an IPv4 entry in the NAT table.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type NatEntry4 struct {
 	Created uint64     `align:"created"`
 	NeedsCT uint64     `align:"needs_ct"`
@@ -22,13 +20,8 @@ type NatEntry4 struct {
 	Pad2    uint64     `align:"pad2"`
 	Addr    types.IPv4 `align:"to_saddr"`
 	Port    uint16     `align:"to_sport"`
+	_       uint16
 }
-
-// SizeofNatEntry4 is the size of the NatEntry4 type in bytes.
-const SizeofNatEntry4 = int(unsafe.Sizeof(NatEntry4{}))
-
-// GetValuePtr returns the unsafe.Pointer for n.
-func (n *NatEntry4) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(n) }
 
 // String returns the readable format.
 func (n *NatEntry4) String() string {
@@ -62,3 +55,5 @@ func (n *NatEntry4) ToHost() NatEntry {
 	x.Port = byteorder.NetworkToHost16(n.Port)
 	return &x
 }
+
+func (n *NatEntry4) New() bpf.MapValue { return &NatEntry4{} }

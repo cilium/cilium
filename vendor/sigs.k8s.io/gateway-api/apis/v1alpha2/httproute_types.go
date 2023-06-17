@@ -111,12 +111,8 @@ type HeaderMatchType = v1beta1.HeaderMatchType
 //     headers are not currently supported by this type.
 //
 // * "/invalid" - "/" is an invalid character
-//
-// +kubebuilder:validation:MinLength=1
-// +kubebuilder:validation:MaxLength=256
-// +kubebuilder:validation:Pattern=`^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$`
 // +k8s:deepcopy-gen=false
-type HTTPHeaderName = v1beta1.HTTPHeaderName
+type HTTPHeaderName = v1beta1.HeaderName
 
 // HTTPHeaderMatch describes how to select a HTTP route by matching HTTP request
 // headers.

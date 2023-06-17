@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
-export K8S_VERSION=${K8S_VERSION:-1.26}
+export K8S_VERSION=${K8S_VERSION:-1.27}
 export K8S_NODES=${K8S_NODES:-2}
 
 echo "destroying vms"

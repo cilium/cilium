@@ -8,16 +8,24 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/agentliveness"
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/datapath/l2responder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/maps"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
+	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -35,17 +43,38 @@ var Cell = cell.Module(
 	// Utime synchronizes utime from userspace to datapath via configmap.Map.
 	utime.Cell,
 
+	// The cilium events map, used by the monitor agent.
+	eventsmap.Cell,
+
+	// The monitor agent, which multicasts cilium and agent events to its subscribers.
+	monitorAgent.Cell,
+
 	cell.Provide(
 		newWireguardAgent,
 		newDatapath,
 	),
 
-	cell.Provide(func(dp types.Datapath) ipcache.NodeHandler {
-		return dp.Node()
+	// This cell periodically updates the agent liveness value in configmap.Map to inform
+	// the datapath of the liveness of the agent.
+	agentliveness.Cell,
+
+	// The responder reconciler takes desired state about L3->L2 address translation responses and reconciles
+	// it to the BPF L2 responder map.
+	l2responder.Cell,
+
+	// This cell defines StateDB tables and their schemas for tables which are used to transfer information
+	// between datapath components and more high-level components.
+	tables.Cell,
+
+	// Gratuitous ARP event processor emits GARP packets on k8s pod creation events.
+	garp.Cell,
+
+	cell.Provide(func(dp types.Datapath) ipcache.NodeIDHandler {
+		return dp.NodeIDs()
 	}),
 )
 
-func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
+func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *wg.Agent {
 	var wgAgent *wg.Agent
 	if option.Config.EnableWireguard {
 		if option.Config.EnableIPSec {
@@ -55,7 +84,7 @@ func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
 
 		var err error
 		privateKeyPath := filepath.Join(option.Config.StateDir, wgTypes.PrivKeyFilename)
-		wgAgent, err = wg.NewAgent(privateKeyPath)
+		wgAgent, err = wg.NewAgent(privateKeyPath, localNodeStore)
 		if err != nil {
 			log.Fatalf("failed to initialize wireguard: %s", err)
 		}
@@ -92,7 +121,16 @@ func newDatapath(params datapathParams) types.Datapath {
 			return nil
 		}})
 
-	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent)
+	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent, params.NodeMap)
+
+	params.LC.Append(hive.Hook{
+		OnStart: func(hive.HookContext) error {
+			datapath.NodeIDs().RestoreNodeIDs()
+			return nil
+		},
+	})
+
+	return datapath
 }
 
 type datapathParams struct {
@@ -104,4 +142,6 @@ type datapathParams struct {
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
+
+	NodeMap nodemap.Map
 }

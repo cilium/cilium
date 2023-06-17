@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
@@ -30,5 +30,7 @@ done
 
 do_check="${CHECK:-false}"
 if [ "${do_check}" = "true" ] ; then
-    git diff --exit-code "${used_by[@]}"
+  git diff --exit-code "${used_by[@]}" || (echo "Runtime images out of date, " \
+    "see https://docs.cilium.io/en/latest/contributing/development/images/#update-cilium-builder-runtime-images." && \
+    exit 1)
 fi

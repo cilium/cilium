@@ -9,6 +9,8 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -98,10 +100,10 @@ func (pe *PolicyEntry) String() string {
 	return fmt.Sprintf("%d %d %d", pe.GetProxyPort(), pe.Packets, pe.Bytes)
 }
 
+func (pe *PolicyEntry) New() bpf.MapValue { return &PolicyEntry{} }
+
 // PolicyKey represents a key in the BPF policy map for an endpoint. It must
 // match the layout of policy_key in bpf/lib/common.h.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type PolicyKey struct {
 	Prefixlen        uint32 `align:"lpm_key"`
 	Identity         uint32 `align:"sec_label"`
@@ -130,8 +132,6 @@ const (
 
 // PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
 // match the layout of policy_entry in bpf/lib/common.h.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type PolicyEntry struct {
 	ProxyPortNetwork uint16           `align:"proxy_port"` // In network byte-order
 	Flags            policyEntryFlags `align:"deny"`
@@ -170,41 +170,23 @@ func getPolicyEntryFlags(p policyEntryFlagParams) policyEntryFlags {
 	return flags
 }
 
-// sizeofPolicyEntry is the size of type PolicyEntry.
-const sizeofPolicyEntry = int(unsafe.Sizeof(PolicyEntry{}))
-
 // CallKey is the index into the prog array map.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type CallKey struct {
 	index uint32
 }
 
 // CallValue is the program ID in the prog array map.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type CallValue struct {
 	progID uint32
 }
 
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *CallKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *CallValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-
 // String converts the key into a human readable string format.
-func (k *CallKey) String() string { return strconv.FormatUint(uint64(k.index), 10) }
+func (k *CallKey) String() string  { return strconv.FormatUint(uint64(k.index), 10) }
+func (k *CallKey) New() bpf.MapKey { return &CallKey{} }
 
 // String converts the value into a human readable string format.
-func (v *CallValue) String() string { return strconv.FormatUint(uint64(v.progID), 10) }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k CallKey) NewValue() bpf.MapValue { return &CallValue{} }
-
-func (pe *PolicyEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(pe) }
-func (pe *PolicyEntry) NewValue() bpf.MapValue      { return &PolicyEntry{} }
+func (v *CallValue) String() string    { return strconv.FormatUint(uint64(v.progID), 10) }
+func (v *CallValue) New() bpf.MapValue { return &CallValue{} }
 
 func (pe *PolicyEntry) Add(oPe PolicyEntry) {
 	pe.Packets += oPe.Packets
@@ -248,9 +230,6 @@ func (p PolicyEntriesDump) Less(i, j int) bool {
 		p[i].Key.Identity < p[j].Key.Identity
 }
 
-func (key *PolicyKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(key) }
-func (key *PolicyKey) NewValue() bpf.MapValue    { return &PolicyEntry{} }
-
 func (key *PolicyKey) PortProtoString() string {
 	dport := key.GetDestPort()
 	protoStr := u8proto.U8proto(key.Nexthdr).String()
@@ -277,6 +256,8 @@ func (key *PolicyKey) String() string {
 	portProtoStr := key.PortProtoString()
 	return fmt.Sprintf("%s: %d %s", trafficDirectionString, key.Identity, portProtoStr)
 }
+
+func (key *PolicyKey) New() bpf.MapKey { return &PolicyKey{} }
 
 // NewKey returns a PolicyKey representing the specified parameters in network
 // byte-order.
@@ -420,8 +401,8 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		eDump := PolicyEntryDump{
-			Key:         *key.DeepCopyMapKey().(*PolicyKey),
-			PolicyEntry: *value.DeepCopyMapValue().(*PolicyEntry),
+			Key:         *key.(*PolicyKey),
+			PolicyEntry: *value.(*PolicyEntry),
 		}
 		entries = append(entries, eDump)
 	}
@@ -431,19 +412,16 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 }
 
 func newMap(path string) *PolicyMap {
-	mapType := bpf.MapTypeLPMTrie
+	mapType := ebpf.LPMTrie
 	flags := bpf.GetPreAllocateMapFlags(mapType)
 	return &PolicyMap{
 		Map: bpf.NewMap(
 			path,
 			mapType,
 			&PolicyKey{},
-			sizeofPolicyKey,
 			&PolicyEntry{},
-			sizeofPolicyEntry,
 			MaxEntries,
-			flags, 0,
-			bpf.ConvertKeyValue,
+			flags,
 		),
 	}
 }
@@ -451,14 +429,14 @@ func newMap(path string) *PolicyMap {
 // OpenOrCreate opens (or creates) a policy map at the specified path, which
 // is used to govern which peer identities can communicate with the endpoint
 // protected by this map.
-func OpenOrCreate(path string) (*PolicyMap, bool, error) {
+func OpenOrCreate(path string) (*PolicyMap, error) {
 	m := newMap(path)
-	isNewMap, err := m.OpenOrCreate()
-	return m, isNewMap, err
+	err := m.OpenOrCreate()
+	return m, err
 }
 
 // Create creates a policy map at the specified path.
-func Create(path string) (bool, error) {
+func Create(path string) error {
 	m := newMap(path)
 	return m.Create()
 }
@@ -480,32 +458,24 @@ func InitMapInfo(maxEntries int) {
 // InitCallMap creates the policy call maps in the kernel.
 func InitCallMaps(haveEgressCallMap bool) error {
 	policyCallMap := bpf.NewMap(PolicyCallMapName,
-		bpf.MapTypeProgArray,
+		ebpf.ProgramArray,
 		&CallKey{},
-		int(unsafe.Sizeof(CallKey{})),
 		&CallValue{},
-		int(unsafe.Sizeof(CallValue{})),
 		int(PolicyCallMaxEntries),
 		0,
-		0,
-		bpf.ConvertKeyValue,
 	)
-	_, err := policyCallMap.Create()
+	err := policyCallMap.Create()
 
 	if err == nil && haveEgressCallMap {
 		policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
-			bpf.MapTypeProgArray,
+			ebpf.ProgramArray,
 			&CallKey{},
-			int(unsafe.Sizeof(CallKey{})),
 			&CallValue{},
-			int(unsafe.Sizeof(CallValue{})),
 			int(PolicyCallMaxEntries),
 			0,
-			0,
-			bpf.ConvertKeyValue,
 		)
 
-		_, err = policyEgressCallMap.Create()
+		err = policyEgressCallMap.Create()
 	}
 	return err
 }

@@ -53,8 +53,8 @@ func WaitForConsistentTLSResponse(t *testing.T, r roundtripper.RoundTripper, req
 			return false
 		}
 
-		if err := http.CompareRequest(&req, cReq, cRes, expected); err != nil {
-			t.Logf("Response expectation failed for request: %v  not ready yet: %v (after %v)", req, err, elapsed)
+		if err := http.CompareRequest(t, &req, cReq, cRes, expected); err != nil {
+			t.Logf("Response expectation failed for request: %+v  not ready yet: %v (after %v)", req, err, elapsed)
 			return false
 		}
 

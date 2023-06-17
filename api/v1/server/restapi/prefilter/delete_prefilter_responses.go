@@ -61,6 +61,31 @@ func (o *DeletePrefilterOK) WriteResponse(rw http.ResponseWriter, producer runti
 	}
 }
 
+// DeletePrefilterForbiddenCode is the HTTP code returned for type DeletePrefilterForbidden
+const DeletePrefilterForbiddenCode int = 403
+
+/*
+DeletePrefilterForbidden Forbidden
+
+swagger:response deletePrefilterForbidden
+*/
+type DeletePrefilterForbidden struct {
+}
+
+// NewDeletePrefilterForbidden creates DeletePrefilterForbidden with default headers values
+func NewDeletePrefilterForbidden() *DeletePrefilterForbidden {
+
+	return &DeletePrefilterForbidden{}
+}
+
+// WriteResponse to the client
+func (o *DeletePrefilterForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // DeletePrefilterInvalidCIDRCode is the HTTP code returned for type DeletePrefilterInvalidCIDR
 const DeletePrefilterInvalidCIDRCode int = 461
 

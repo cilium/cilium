@@ -189,7 +189,7 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 // do not exist in the in-memory ipcache.
 //
 // Must be called while holding l.ipcache.Lock for reading.
-func (l *BPFListener) updateStaleEntriesFunction(keysToRemove map[string]*ipcacheMap.Key) bpf.DumpCallback {
+func (l *BPFListener) updateStaleEntriesFunction(keysToRemove map[string]ipcacheMap.Key) bpf.DumpCallback {
 	return func(key bpf.MapKey, _ bpf.MapValue) {
 		k := key.(*ipcacheMap.Key)
 		keyToIP := k.String()
@@ -200,7 +200,7 @@ func (l *BPFListener) updateStaleEntriesFunction(keysToRemove map[string]*ipcach
 			case source.KVStore, source.Local:
 				// Cannot delete from map during callback because DumpWithCallback
 				// RLocks the map.
-				keysToRemove[keyToIP] = k.DeepCopy()
+				keysToRemove[keyToIP] = *k
 			}
 		}
 	}
@@ -222,7 +222,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 	l.ipcache.RLock()
 	defer l.ipcache.RUnlock()
 
-	keysToRemove := map[string]*ipcacheMap.Key{}
+	keysToRemove := map[string]ipcacheMap.Key{}
 	if err := l.bpfMap.DumpWithCallback(l.updateStaleEntriesFunction(keysToRemove)); err != nil {
 		return nil, fmt.Errorf("error dumping ipcache BPF map: %s", err)
 	}
@@ -232,7 +232,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 	for _, k := range keysToRemove {
 		log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
 			Debug("deleting from ipcache BPF map")
-		if err := l.bpfMap.Delete(k); err != nil {
+		if err := l.bpfMap.Delete(&k); err != nil {
 			return nil, fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
 		}
 	}

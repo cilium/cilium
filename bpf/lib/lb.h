@@ -428,8 +428,6 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 {
 	struct csum_offset csum_off = {};
 	union v6addr old_saddr;
-	union v6addr tmp;
-	__u8 *new_saddr;
 	__be32 sum;
 	int ret;
 
@@ -446,20 +444,16 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (flags & REV_NAT_F_TUPLE_SADDR) {
 		ipv6_addr_copy(&old_saddr, &tuple->saddr);
 		ipv6_addr_copy(&tuple->saddr, &nat->address);
-		new_saddr = tuple->saddr.addr;
 	} else {
 		if (ipv6_load_saddr(ctx, ETH_HLEN, &old_saddr) < 0)
 			return DROP_INVALID;
-
-		ipv6_addr_copy(&tmp, &nat->address);
-		new_saddr = tmp.addr;
 	}
 
-	ret = ipv6_store_saddr(ctx, new_saddr, ETH_HLEN);
+	ret = ipv6_store_saddr(ctx, nat->address.addr, ETH_HLEN);
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(old_saddr.addr, 16, new_saddr, 16, 0);
+	sum = csum_diff(old_saddr.addr, 16, nat->address.addr, 16, 0);
 	if (csum_off.offset &&
 	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
@@ -520,7 +514,7 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 
-	ret = ipv6_hdrlen(ctx, &tuple->nexthdr);
+	ret = ipv6_hdrlen_offset(ctx, &tuple->nexthdr, l3_off);
 	if (ret < 0)
 		return ret;
 
@@ -854,7 +848,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		return DROP_NO_SERVICE;
 
 	/* See lb4_local comments re svc endpoint lookup process */
-	ret = ct_lazy_lookup6(map, tuple, ctx, l4_off, ACTION_CREATE, CT_SERVICE, state, &monitor);
+	ret = ct_lazy_lookup6(map, tuple, ctx, l4_off, ACTION_CREATE, CT_SERVICE,
+			      SCOPE_REVERSE, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 #ifdef ENABLE_SESSION_AFFINITY
@@ -922,7 +917,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			 */
 			if (backend && !state->syn)
 				break;
-			key->backend_slot = 0;
+
 			svc = lb6_lookup_service(key, false, true);
 			if (!svc)
 				goto drop_no_service;
@@ -1036,34 +1031,24 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
 					 const struct lb4_reverse_nat *nat,
-					 const struct ct_state *ct_state, bool has_l4_header)
+					 const struct ct_state *ct_state __maybe_unused,
+					 bool has_l4_header)
 {
-	struct csum_offset csum_off = {};
-	__be32 old_sip, new_sip, sum = 0;
+	__be32 old_sip, sum = 0;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
 
-	if (has_l4_header)
-		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
-
-	if (nat->port && has_l4_header) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, &csum_off);
-		if (IS_ERR(ret))
-			return ret;
-	}
-
 	if (flags & REV_NAT_F_TUPLE_SADDR) {
 		old_sip = tuple->saddr;
-		tuple->saddr = new_sip = nat->address;
+		tuple->saddr = nat->address;
 	} else {
 		ret = ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
 		if (IS_ERR(ret))
 			return ret;
-
-		new_sip = nat->address;
 	}
 
+#ifndef DISABLE_LOOPBACK_LB
 	if (ct_state->loopback) {
 		/* The packet was looped back to the sending endpoint on the
 		 * forward service translation. This implies that the original
@@ -1088,19 +1073,33 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		/* Update the tuple address which is representing the destination address */
 		tuple->saddr = old_sip;
 	}
+#endif
 
 	ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, saddr),
-			      &new_sip, 4, 0);
+			      &nat->address, 4, 0);
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(&old_sip, 4, &new_sip, 4, sum);
+	sum = csum_diff(&old_sip, 4, &nat->address, 4, sum);
 	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 
-	if (csum_off.offset &&
-	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
+	if (has_l4_header) {
+		struct csum_offset csum_off = {};
+
+		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
+		if (nat->port) {
+			ret = reverse_map_l4_port(ctx, tuple->nexthdr,
+						  nat->port, l4_off, &csum_off);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
+		if (csum_off.offset &&
+		    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+	}
 
 	return 0;
 }
@@ -1528,7 +1527,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		return DROP_NO_SERVICE;
 
 	ret = ct_lazy_lookup4(map, tuple, ctx, l4_off, has_l4_header, ACTION_CREATE,
-			      CT_SERVICE, state, &monitor);
+			      CT_SERVICE, SCOPE_REVERSE, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 #ifdef ENABLE_SESSION_AFFINITY
@@ -1608,7 +1607,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			 */
 			if (backend && !state->syn)
 				break;
-			key->backend_slot = 0;
+
 			svc = lb4_lookup_service(key, false, true);
 			if (!svc)
 				goto drop_no_service;
@@ -1635,7 +1634,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
 	tuple->flags = flags;
-	state->addr = backend->address;
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
@@ -1651,7 +1649,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (saddr == backend->address) {
 		new_saddr = IPV4_LOOPBACK;
 		state->loopback = 1;
-		state->addr = new_saddr;
 		state->svc_addr = saddr;
 	}
 
@@ -1689,7 +1686,11 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+#ifndef DISABLE_LOOPBACK_LB
 		       state->loopback);
+#else
+		       0);
+#endif
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
 }
 

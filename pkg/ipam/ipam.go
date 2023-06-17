@@ -102,6 +102,10 @@ type MtuConfiguration interface {
 	GetDeviceMTU() int
 }
 
+type Metadata interface {
+	GetIPPoolForPod(owner string) (pool string, err error)
+}
+
 // NewIPAM returns a new IP address manager
 func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
 	ipam := &IPAM{
@@ -127,7 +131,9 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
 		}
 	case ipamOption.IPAMClusterPoolV2:
-		log.Info("Initializing ClusterPool v2 IPAM")
+		log.
+			WithField(logfields.Hint, "IPAM mode cluster-pool-v2beta is deprecated. Please use multi-pool IPAM instead.").
+			Info("Initializing ClusterPool v2 IPAM")
 
 		if c.IPv6Enabled() {
 			ipam.IPv6Allocator = newClusterPoolAllocator(IPv6, c, owner, k8sEventReg, clientset)
@@ -167,6 +173,12 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 	}
 
 	return ipam
+}
+
+// WithMetadata sets an optional Metadata provider, which IPAM will use to
+// determine what IPAM pool an IP owner should allocate its IP from
+func (ipam *IPAM) WithMetadata(m Metadata) {
+	ipam.metadata = m
 }
 
 // getIPOwner returns the owner for an IP in a particular pool or the empty

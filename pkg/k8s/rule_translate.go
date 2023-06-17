@@ -9,8 +9,10 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 var _ policy.Translator = RuleTranslator{}
@@ -19,11 +21,10 @@ var _ policy.Translator = RuleTranslator{}
 // Translate populates/depopulates given rule with ToCIDR rules
 // Based on provided service/endpoint
 type RuleTranslator struct {
-	Service          ServiceID
-	Endpoint         Endpoints
-	ServiceLabels    map[string]string
-	Revert           bool
-	AllocatePrefixes bool
+	Service                  ServiceID
+	OldEndpoint, NewEndpoint Endpoints
+	ServiceLabels            map[string]string
+	Revert                   bool
 }
 
 // Translate calls TranslateEgress on all r.Egress rules
@@ -40,7 +41,6 @@ func (k RuleTranslator) Translate(r *api.Rule, result *policy.TranslationResult)
 // TranslateEgress populates/depopulates egress rules with ToCIDR entries based
 // on toService entries
 func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
-
 	defer r.SetAggregatedSelectors()
 	err := k.depopulateEgress(r, result)
 	if err != nil {
@@ -52,13 +52,19 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.Transl
 			return err
 		}
 	}
+	if len(result.PrefixesToAdd) > 0 || len(result.PrefixesToRelease) > 0 {
+		release := slices.Diff(result.PrefixesToRelease, result.PrefixesToAdd)
+		add := slices.Diff(result.PrefixesToAdd, result.PrefixesToRelease)
+		result.PrefixesToRelease = release
+		result.PrefixesToAdd = add
+	}
 	return nil
 }
 
 func (k RuleTranslator) populateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
 	for _, service := range r.ToServices {
 		if k.serviceMatches(service) {
-			if backendPrefixes, err := k.generateToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
+			if backendPrefixes, err := k.generateToCidrFromEndpoint(r, k.NewEndpoint); err != nil {
 				return err
 			} else {
 				result.PrefixesToAdd = append(result.PrefixesToAdd, backendPrefixes...)
@@ -75,7 +81,7 @@ func (k RuleTranslator) depopulateEgress(r *api.EgressRule, result *policy.Trans
 		// counting rules twice
 		result.NumToServicesRules++
 		if k.serviceMatches(service) {
-			if prefixesToRelease, err := k.deleteToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
+			if prefixesToRelease, err := k.deleteToCidrFromEndpoint(r, k.OldEndpoint); err != nil {
 				return err
 			} else {
 				result.PrefixesToRelease = append(result.PrefixesToRelease, prefixesToRelease...)
@@ -107,21 +113,12 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 // ToCIDR rules based on provided endpoint object
 func (k RuleTranslator) generateToCidrFromEndpoint(
 	egress *api.EgressRule,
-	endpoint Endpoints,
-	allocatePrefixes bool) ([]netip.Prefix, error) {
-
-	var prefixes []netip.Prefix
-
-	// allocatePrefixes if true here implies that this translation is
-	// occurring after policy import. This means that the CIDRs were not
-	// known at that time, so the IPCache hasn't been informed about them.
-	// In this case, it's the job of this Translator to notify the IPCache.
-	if allocatePrefixes {
-		prefixes = endpoint.Prefixes()
-	}
+	endpoints Endpoints,
+) ([]netip.Prefix, error) {
+	prefixes := endpoints.Prefixes()
 
 	// This will generate one-address CIDRs consisting of endpoint backend ip
-	for addrCluster := range endpoint.Backends {
+	for addrCluster := range endpoints.Backends {
 		epIP := addrCluster.Addr()
 
 		found := false
@@ -158,13 +155,13 @@ func (k RuleTranslator) generateToCidrFromEndpoint(
 // identity release functions.
 func (k RuleTranslator) deleteToCidrFromEndpoint(
 	egress *api.EgressRule,
-	endpoint Endpoints,
-	releasePrefixes bool) ([]netip.Prefix, error) {
+	endpoints Endpoints,
+) ([]netip.Prefix, error) {
 
 	var toReleasePrefixes []netip.Prefix
 	delCIDRRules := make(map[int]*api.CIDRRule, len(egress.ToCIDRSet))
 
-	for addrCluster := range endpoint.Backends {
+	for addrCluster := range endpoints.Backends {
 		ipStr := addrCluster.Addr().String()
 
 		epIP := net.ParseIP(ipStr)
@@ -198,13 +195,11 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 		return toReleasePrefixes, nil
 	}
 
-	if releasePrefixes {
-		delSlice := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
-		for _, delCIDRRule := range delCIDRRules {
-			delSlice = append(delSlice, *delCIDRRule)
-		}
-		toReleasePrefixes = policy.GetPrefixesFromCIDRSet(delSlice)
+	delSlice := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
+	for _, delCIDRRule := range delCIDRRules {
+		delSlice = append(delSlice, *delCIDRRule)
 	}
+	toReleasePrefixes = policy.GetPrefixesFromCIDRSet(delSlice)
 
 	// if endpoint is not in CIDR or it's not generated it's ok to retain it
 	newCIDRRules := make([]api.CIDRRule, 0, len(egress.ToCIDRSet)-len(delCIDRRules))
@@ -221,7 +216,7 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 	return toReleasePrefixes, nil
 }
 
-// PreprocessRules translates rules that apply to headless services
+// PreprocessRules translates egress rules that apply to external services (ToServices)
 func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 
 	cache.mutex.Lock()
@@ -234,10 +229,17 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 		}
 		for ns, ep := range cache.endpoints {
 			svc, ok := cache.services[ns]
-			if ok && svc.IsExternal() {
+			// Normally, only services without a label selector (i.e. empty services)
+			// are allowed as targets of a toServices rule.
+			// This is to minimize the chances of a pod IP being selected by this rule, which might
+			// cause conflicting entries in the ipcache.
+			//
+			// This requirement, however, is dropped for HighScale IPCache mode, because pod IPs are
+			// normally excluded from the ipcache regardless.
+			if ok && (option.Config.EnableHighScaleIPcache || svc.IsExternal()) {
 				eps := ep.GetEndpoints()
 				if eps != nil {
-					t := NewK8sTranslator(ns, *eps, false, svc.Labels, false)
+					t := NewK8sTranslator(ns, Endpoints{}, *eps, false, svc.Labels)
 					// We don't need to check the translation result here because the k8s
 					// RuleTranslator above sets allocatePrefixes to be false.
 					err := t.Translate(rule, &policy.TranslationResult{})
@@ -256,15 +258,15 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 // prefixes that need to be allocated or deallocated.
 func NewK8sTranslator(
 	serviceInfo ServiceID,
-	endpoint Endpoints,
+	oldEPs, newEPs Endpoints,
 	revert bool,
 	labels map[string]string,
-	allocatePrefixes bool) RuleTranslator {
+) RuleTranslator {
 	return RuleTranslator{
-		Service:          serviceInfo,
-		Endpoint:         endpoint,
-		ServiceLabels:    labels,
-		Revert:           revert,
-		AllocatePrefixes: allocatePrefixes,
+		Service:       serviceInfo,
+		OldEndpoint:   oldEPs,
+		NewEndpoint:   newEPs,
+		ServiceLabels: labels,
+		Revert:        revert,
 	}
 }

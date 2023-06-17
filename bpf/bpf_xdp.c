@@ -101,17 +101,101 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb4(ctx, 0, &ext_err);
+		int l3_off = ETH_HLEN;
+		void *data, *data_end;
+		struct iphdr *ip4;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
+
+#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+		{
+			int l4_off, inner_l2_off;
+			struct genevehdr geneve;
+			__sum16	udp_csum;
+			__be16 dport;
+			__u16 proto;
+
+			if (ip4->protocol != IPPROTO_UDP)
+				goto no_encap;
+
+			/* Punt packets with IP options to TC */
+			if (ipv4_hdrlen(ip4) != sizeof(*ip4))
+				goto no_encap;
+
+			l4_off = l3_off + sizeof(*ip4);
+
+			if (l4_load_port(ctx, l4_off + UDP_DPORT_OFF, &dport) < 0) {
+				ret = DROP_INVALID;
+				goto out;
+			}
+
+			if (dport != bpf_htons(TUNNEL_PORT))
+				goto no_encap;
+
+			/* Cilium uses BPF_F_ZERO_CSUM_TX for its tunnel traffic.
+			 *
+			 * Adding LB support for checksummed packets would require
+			 * that we adjust udp->check
+			 * 1.	after DNAT of the inner packet,
+			 * 2.	after re-writing the outer headers and inserting
+			 *	the DSR option
+			 */
+			if (ctx_load_bytes(ctx, l4_off + offsetof(struct udphdr, check),
+					   &udp_csum, sizeof(udp_csum)) < 0) {
+				ret = DROP_INVALID;
+				goto out;
+			}
+
+			if (udp_csum != 0)
+				goto no_encap;
+
+			if (ctx_load_bytes(ctx, l4_off + sizeof(struct udphdr), &geneve,
+					   sizeof(geneve)) < 0) {
+				ret = DROP_INVALID;
+				goto out;
+			}
+
+			if (geneve.protocol_type != bpf_htons(ETH_P_TEB))
+				goto no_encap;
+
+			/* Punt packets with GENEVE options to TC */
+			if (geneve.opt_len)
+				goto no_encap;
+
+			inner_l2_off = l4_off + sizeof(struct udphdr) + sizeof(struct genevehdr);
+
+			/* point at the inner L3 header: */
+			if (!validate_ethertype_l2_off(ctx, inner_l2_off, &proto))
+				goto no_encap;
+
+			if (proto != bpf_htons(ETH_P_IP))
+				goto no_encap;
+
+			l3_off = inner_l2_off + ETH_HLEN;
+
+			if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip4, l3_off)) {
+				ret = DROP_INVALID;
+				goto out;
+			}
+		}
+no_encap:
+#endif /* ENABLE_DSR && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
+
+		ret = nodeport_lb4(ctx, ip4, l3_off, 0, &ext_err);
 		if (ret == NAT_46X64_RECIRC) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 			return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
-						      CTX_ACT_DROP,
-						      METRIC_INGRESS);
-		} else if (IS_ERR(ret)) {
-			return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
-							  CTX_ACT_DROP, METRIC_INGRESS);
+						      CTX_ACT_DROP, METRIC_INGRESS);
 		}
 	}
+
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 
 	return bpf_xdp_exit(ctx, ret);
 }
@@ -171,13 +255,24 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb6(ctx, 0, &ext_err);
+		void *data, *data_end;
+		struct ipv6hdr *ip6;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
+		ret = nodeport_lb6(ctx, ip6, 0, &ext_err);
 		if (IS_ERR(ret))
-			return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
-							  CTX_ACT_DROP, METRIC_INGRESS);
+			goto drop_err;
 	}
 
 	return bpf_xdp_exit(ctx, ret);
+
+drop_err:
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+					  CTX_ACT_DROP, METRIC_INGRESS);
 }
 
 static __always_inline int check_v6_lb(struct __ctx_buff *ctx)

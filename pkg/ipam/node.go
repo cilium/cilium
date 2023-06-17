@@ -51,10 +51,6 @@ func (n *Node) SetPoolMaintainer(maintainer PoolMaintainer) {
 	n.poolMaintainer = maintainer
 }
 
-func (n *Node) Update(resource *v2.CiliumNode) bool {
-	return n.manager.Update(resource)
-}
-
 type PoolMaintainer interface {
 	Trigger()
 	Shutdown()

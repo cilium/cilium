@@ -18,14 +18,6 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /status-code-301
-    filters:
-    - type: RequestRedirect
-      requestRedirect:
-        statusCode: 301
-  - matches:
-    - path:
-        type: PathPrefix
         value: /host-and-status
     filters:
     - type: RequestRedirect

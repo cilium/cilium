@@ -8,7 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/checker"

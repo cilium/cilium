@@ -149,6 +149,9 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
           ``minikube ssh -- sudo mount bpffs -t bpf /sys/fs/bpf`` in order to mount the BPF filesystem
           ``bpffs`` to ``/sys/fs/bpf``.
 
+          It might be necessary to add ``--host-dns-resolver=false`` if using the Virtualbox provider,
+          otherwise DNS resolution may not work after Cilium installation.
+
     .. group-tab:: Rancher Desktop
 
        Install Rancher Desktop >= v1.1.0 as per Rancher Desktop documentation:

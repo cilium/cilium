@@ -125,7 +125,9 @@ type NodeHandler interface {
 	// NodeConfigurationChanged is called when the local node configuration
 	// has changed
 	NodeConfigurationChanged(config LocalNodeConfiguration) error
+}
 
+type NodeNeighbors interface {
 	// NodeNeighDiscoveryEnabled returns whether node neighbor discovery is enabled
 	NodeNeighDiscoveryEnabled() bool
 
@@ -135,10 +137,18 @@ type NodeHandler interface {
 	// NodeCleanNeighbors cleans all neighbor entries for the direct routing device
 	// and the encrypt interface.
 	NodeCleanNeighbors(migrateOnly bool)
+}
 
+type NodeIDHandler interface {
 	// AllocateNodeID allocates a new ID for the given node (by IP) if one wasn't
 	// already assigned.
 	AllocateNodeID(net.IP) uint16
+
+	// GetNodeIP returns the string node IP that was previously registered as the given node ID.
+	GetNodeIP(uint16) string
+
+	// GetNodeID gets the node ID for the given node IP. If none is found, exists is false.
+	GetNodeID(nodeIP net.IP) (nodeID uint16, exists bool)
 
 	// DumpNodeIDs returns all node IDs and their associated IP addresses.
 	DumpNodeIDs() []*models.NodeID

@@ -8,8 +8,8 @@ import (
 	"fmt"
 	stdlog "log"
 
+	. "github.com/cilium/checkmate"
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -1143,7 +1143,7 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 				isRedirect:      true,
 			},
 		},
-		Listener: "shared-cec/test",
+		Listener: "/shared-cec/test",
 		Ingress:  false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
 			cachedSelectorA: {nil},
@@ -1308,7 +1308,7 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 				isRedirect:      true,
 			},
 		},
-		Listener: "shared-cec/test",
+		Listener: "/shared-cec/test",
 		Ingress:  false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
 			cachedSelectorA: {nil},

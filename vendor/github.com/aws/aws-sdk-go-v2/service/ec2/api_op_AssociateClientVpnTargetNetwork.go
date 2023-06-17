@@ -19,7 +19,7 @@ import (
 // Availability Zone redundancy. If you specified a VPC when you created the Client
 // VPN endpoint or if you have previous subnet associations, the specified subnet
 // must be in the same VPC. To specify a subnet that's in a different VPC, you must
-// first modify the Client VPN endpoint (ModifyClientVpnEndpoint) and change the
+// first modify the Client VPN endpoint ( ModifyClientVpnEndpoint ) and change the
 // VPC that's associated with it.
 func (c *Client) AssociateClientVpnTargetNetwork(ctx context.Context, params *AssociateClientVpnTargetNetworkInput, optFns ...func(*Options)) (*AssociateClientVpnTargetNetworkOutput, error) {
 	if params == nil {
@@ -49,14 +49,14 @@ type AssociateClientVpnTargetNetworkInput struct {
 	SubnetId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -128,6 +128,9 @@ func (c *Client) addOperationAssociateClientVpnTargetNetworkMiddlewares(stack *m
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAssociateClientVpnTargetNetwork(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

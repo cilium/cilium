@@ -34,7 +34,7 @@ var (
 
 // LocalASNMap maps local ASNs to their associated BgpServers and server
 // configuration info.
-type LocalASNMap map[int]*ServerWithConfig
+type LocalASNMap map[int64]*ServerWithConfig
 
 type bgpRouterManagerParams struct {
 	cell.In
@@ -42,7 +42,7 @@ type bgpRouterManagerParams struct {
 	Reconcilers []ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
-// BGPRouterManager implements the pkg.bgpv1.manager.BGPRouterManager interface.
+// BGPRouterManager implements the pkg.bgpv1.agent.BGPRouterManager interface.
 //
 // Logically, this manager views each CiliumBGPVirtualRouter within a
 // CiliumBGPPeeringPolicy as a BGP router instantiated on its host.
@@ -79,7 +79,7 @@ type BGPRouterManager struct {
 
 // NewBGPRouterManager constructs a GoBGP-backed BGPRouterManager.
 //
-// See NewBGPRouterManager for details.
+// See BGPRouterManager for details.
 func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 	for i := len(params.Reconcilers) - 1; i >= 0; i-- {
 		if params.Reconcilers[i] == nil {
@@ -361,4 +361,16 @@ func (m *BGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, err
 		res = append(res, getPeerResp.Peers...)
 	}
 	return res, nil
+}
+
+// Stop cleans up all servers, should be called at shutdown
+func (m *BGPRouterManager) Stop() {
+	m.Lock()
+	defer m.Unlock()
+
+	for _, s := range m.Servers {
+		s.Server.Stop()
+	}
+
+	m.Servers = make(LocalASNMap)
 }

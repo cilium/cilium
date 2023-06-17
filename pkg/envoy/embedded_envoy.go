@@ -286,10 +286,12 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 	connectTimeout := int64(option.Config.ProxyConnectTimeout) // in seconds
 	maxRequestsPerConnection := uint32(option.Config.ProxyMaxRequestsPerConnection)
 	maxConnectionDuration := option.Config.ProxyMaxConnectionDuration * time.Second
+	idleTimeout := option.Config.ProxyIdleTimeout * time.Second
 
 	useDownstreamProtocol := map[string]*anypb.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
+				IdleTimeout:              durationpb.New(idleTimeout),
 				MaxRequestsPerConnection: wrapperspb.UInt32(maxRequestsPerConnection),
 				MaxConnectionDuration:    durationpb.New(maxConnectionDuration),
 			},
@@ -307,6 +309,7 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 				//	downstream to upstream.
 			},
 			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
+				IdleTimeout:              durationpb.New(idleTimeout),
 				MaxRequestsPerConnection: wrapperspb.UInt32(maxRequestsPerConnection),
 				MaxConnectionDuration:    durationpb.New(maxConnectionDuration),
 			},

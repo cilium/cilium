@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -28,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mcastmanager"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -192,7 +192,7 @@ func (mgr *endpointManager) InitMetrics() {
 		// would result in negative counts.
 		// It must be thread-safe.
 
-		metrics.Endpoint = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		metrics.Endpoint = metric.NewGaugeFunc(metric.GaugeOpts{
 			Namespace: metrics.Namespace,
 			Name:      "endpoint",
 			Help:      "Number of endpoints managed by this agent",

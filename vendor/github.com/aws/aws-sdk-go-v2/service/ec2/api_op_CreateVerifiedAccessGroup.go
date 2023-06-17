@@ -12,6 +12,12 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// An Amazon Web Services Verified Access group is a collection of Amazon Web
+// Services Verified Access endpoints who's associated applications have similar
+// security requirements. Each instance within a Verified Access group shares an
+// Verified Access policy. For example, you can group all Verified Access instances
+// associated with "sales" applications together and use one common Verified Access
+// policy.
 func (c *Client) CreateVerifiedAccessGroup(ctx context.Context, params *CreateVerifiedAccessGroupInput, optFns ...func(*Options)) (*CreateVerifiedAccessGroupOutput, error) {
 	if params == nil {
 		params = &CreateVerifiedAccessGroupInput{}
@@ -29,23 +35,37 @@ func (c *Client) CreateVerifiedAccessGroup(ctx context.Context, params *CreateVe
 
 type CreateVerifiedAccessGroupInput struct {
 
+	// The ID of the Verified Access instance.
+	//
 	// This member is required.
 	VerifiedAccessInstanceId *string
 
+	// A unique, case-sensitive token that you provide to ensure idempotency of your
+	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
+	// A description for the Verified Access group.
 	Description *string
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The Verified Access policy document.
 	PolicyDocument *string
 
+	// The tags to assign to the Verified Access group.
 	TagSpecifications []types.TagSpecification
 
 	noSmithyDocumentSerde
 }
 
 type CreateVerifiedAccessGroupOutput struct {
+
+	// The ID of the Verified Access group.
 	VerifiedAccessGroup *types.VerifiedAccessGroup
 
 	// Metadata pertaining to the operation's result.
@@ -106,6 +126,9 @@ func (c *Client) addOperationCreateVerifiedAccessGroupMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVerifiedAccessGroup(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

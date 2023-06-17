@@ -6,7 +6,7 @@ package store
 import (
 	"testing"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -32,7 +32,7 @@ func (s *ServiceGenericSuite) TestClusterService(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	unmarshal := ClusterService{}
-	err = unmarshal.Unmarshal(b)
+	err = unmarshal.Unmarshal("", b)
 	c.Assert(err, check.IsNil)
 	c.Assert(svc, checker.DeepEquals, unmarshal)
 

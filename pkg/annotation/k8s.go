@@ -24,6 +24,9 @@ const (
 	// ServicePrefix is the common prefix for service related annotations.
 	ServicePrefix = "service.cilium.io"
 
+	// IPAMPrefix is the common prefix for IPAM related annotations.
+	IPAMPrefix = "ipam.cilium.io"
+
 	// PolicyName / PolicyNameAlias is an optional annotation to the NetworkPolicy
 	// resource which specifies the name of the policy node to which all
 	// rules should be applied to.
@@ -119,6 +122,10 @@ const (
 	// BGPVRouterAnnoPrefix is the prefix used for all Virtual Router annotations
 	// Its just a prefix, because the ASN of the Router is part of the annotation itself
 	BGPVRouterAnnoPrefix = "cilium.io/bgp-virtual-router."
+
+	// IPAMPoolKey is the annotation name used to store the IPAM pool name from
+	// which workloads should allocate their IP from
+	IPAMPoolKey = IPAMPrefix + "/ip-pool"
 )
 
 // Get returns the annotation value associated with the given key, or any of

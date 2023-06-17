@@ -12,33 +12,273 @@ End-To-End Testing Framework
 Introduction
 ~~~~~~~~~~~~
 
-Cilium uses `Ginkgo`_ as a testing framework for
-writing end-to-end tests which test Cilium all the way from the API level (e.g.
-importing policies, CLI) to the datapath (i.e, whether policy that is imported
-is enforced accordingly in the datapath).  The tests in the ``test`` directory
-are built on top of Ginkgo. Ginkgo provides a rich framework for developing
-tests alongside the benefits of Golang (compilation-time checks, types, etc.).
-To get accustomed to the basics of Ginkgo, we recommend reading the `Ginkgo
-Getting-Started Guide
-<https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_ , as
-well as running `example tests
+This section provides an overview of the two modes available for running
+Cilium's end-to-end tests locally: Vagrant and similar to GitHub Actions (GHA).
+It offers instructions on setting up and running tests in these modes.
+
+Before proceeding, it is recommended to familiarize yourself with Ginkgo by
+reading the `Ginkgo Getting-Started Guide
+<https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_. You
+can also run the `example tests
 <https://github.com/onsi/composition-ginkgo-example>`_ to get a feel for the
 Ginkgo workflow.
 
-These test scripts will invoke ``vagrant`` to create virtual machine(s) to
-run the tests. The tests make heavy use of the Ginkgo `focus`_ concept to
-determine which VMs are necessary to run particular tests. All test names
-*must* begin with one of the following prefixes:
+The tests in the ``test`` directory are built on top of Ginkgo and utilize the
+Ginkgo ``focus`` concept to determine which virtual machines (VMs), in ``vagrant``
+mode are necessary to run specific tests. All test names must begin with one of
+the following prefixes:
 
-* ``Runtime``: Test cilium in a runtime environment running on a single node.
-* ``K8s``: Create a small multi-node kubernetes environment for testing
-  features beyond a single host, and for testing kubernetes-specific features.
+- ``Runtime``: Tests Cilium in a runtime environment running on a single node.
+- ``K8s``: Sets up a small multi-node Kubernetes environment for testing features
+  beyond a single host and Kubernetes-specific functionalities.
 
-.. _Ginkgo: https://onsi.github.io/ginkgo/
-.. _focus: `Focused Specs`_
+
+Running Tests with GitHub Actions (GHA)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+GitHub Actions provide an alternative mode for running Cilium's end-to-end tests.
+The configuration is set up to closely match the environment used in GHA. Refer
+to the relevant documentation for instructions on running tests using GHA.
+
+Running Tests with Vagrant
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To run tests locally using Vagrant, the test scripts invoke ``vagrant`` to create
+virtual machine(s). These tests utilize the Ginkgo testing framework, leveraging
+its rich capabilities and the benefits of Go's compilation-time checks and
+strong typing.
 
 Running End-To-End Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~
+
+Running Locally Ginkgo Tests based on Ginkgo's GitHub Workflow
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Although it is not possible to run ``conformance-ginkgo.yaml`` or
+``conformance-runtime.yaml`` locally, it is possible to setup an environment
+similar to the one used on GitHub.
+
+The following example will provide the steps to run one of the tests of the
+focus ``f09-datapath-misc-2`` on Kubernetes ``1.27`` with the kernel ``net-next``
+for the commit SHA ``7b368923823e63c9824ea2b5ee4dc026bc4d5cd8``.
+
+#. Download dependencies locally (``helm``, ``ginkgo``).
+
+   For ``helm``, the instructions can be found `here <https://helm.sh/docs/intro/install/>`_
+
+   .. code-block:: shell-session
+
+      $ HELM_VERSION=3.7.0
+      $ wget "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+      $ tar -xf "helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+      $ mv linux-amd64/helm ./helm
+
+   Store these dependencies under a specific directory that will be used to run
+   Qemu in the next steps.
+
+   For ``ginkgo``, we will be using the same version used on GitHub action:
+
+   .. code-block:: shell-session
+
+      $ cd ~/
+      $ go install github.com/onsi/ginkgo/ginkgo@v1.16.5
+      $ ${GOPATH}/bin/ginkgo version
+      Ginkgo Version 1.16.5
+
+#. Build the Ginkgo tests locally. This will create a binary named ``test.test``
+   which we can use later on to run our tests.
+
+   .. code-block:: shell-session
+
+      $ cd github.com/cilium/cilium/test
+      $ ${GOPATH}/bin/ginkgo build
+
+#. Provision VMs using Qemu:
+
+   * Retrieve the image tag for the k8s and kernel versions that will be used for
+     testing by checking the file ``.github/actions/ginkgo/main-k8s-versions.yaml``.
+
+     For example:
+
+        - kernel: ``bpf-next-20230526.105339@sha256:4133d4e09b1e86ac175df8d899873180281bb4220dc43e2566c47b0241637411``
+        - k8s: ``kindest/node:v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b``
+
+   * Store the compressed VM image under a directory (``/tmp/_images``).
+
+   .. code-block:: shell-session
+
+      $ mkdir -p /tmp/_images
+      $ kernel_tag="bpf-next-20230526.105339@sha256:4133d4e09b1e86ac175df8d899873180281bb4220dc43e2566c47b0241637411"
+      $ docker run -v /tmp/_images:/mnt/images \
+         "quay.io/lvh-images/kind:${kernel_tag}" \
+         cp -r /data/images/. /mnt/images/
+
+   * Uncompress the VM image into a directory.
+
+   .. code-block:: shell-session
+
+      $ zstd -d /tmp/_images/kind_*.qcow2.zst -o /tmp/_images/datapath-conformance.qcow2
+
+   * Provision the VM. **Qemu will use the current terminal to provision the VM
+     and will mount the current directory into the VM under** ``/host``.
+
+   .. code-block:: shell-session
+
+      $ qemu-system-x86_64 \
+          -nodefaults \
+          -no-reboot \
+          -smp 4 \
+          -m 12G \
+          -enable-kvm \
+          -cpu host \
+          -hda /tmp/_images/datapath-conformance.qcow2 \
+          -netdev user,id=user.0,hostfwd=tcp::2222-:22 \
+          -device virtio-net-pci,netdev=user.0 \
+          -fsdev local,id=host_id,path=./,security_model=none \
+          -device virtio-9p-pci,fsdev=host_id,mount_tag=host_mount \
+          -serial mon:stdio
+
+#. Installing dependencies in the VM (``helm``).
+
+   .. code-block:: shell-session
+
+      $ ssh -p 2222 -o "StrictHostKeyChecking=no" root@localhost
+      # cd /host
+      # echo "nameserver 8.8.8.8" > /etc/resolv.conf
+      # git config --global --add safe.directory /host
+      # cp ./helm /usr/bin
+
+   .. _install_kind:
+
+#. The VM is ready to be used for tests. Similarly to the GitHub Action, Kind
+   will also be used to run the CI. The provisioning of Kind is different
+   depending on the kernel version that is used, i.e., ginkgo tests are meant
+   to run on differently when running on bpf-next.
+
+   .. code-block:: shell-session
+
+      $ ssh -p 2222 -o "StrictHostKeyChecking=no" root@localhost
+      # cd /host/
+      # kernel_tag="bpf-next-20230526.105339@sha256:4133d4e09b1e86ac175df8d899873180281bb4220dc43e2566c47b0241637411"
+      # kubernetes_image="kindest/node:v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b"
+      # ip_family="dual" # replace with "ipv4" if k8s 1.19
+      #
+      # if [[ "${kernel_tag}" == bpf-next-* ]]; then
+      #  ./contrib/scripts/kind.sh "" 2 "" "${kubernetes_image}" "none" "${ip_family}"
+      #  kubectl label node kind-worker2 cilium.io/ci-node=kind-worker2
+      #  # Avoid re-labeling this node by setting "node-role.kubernetes.io/controlplane"
+      #  kubectl label node kind-worker2 node-role.kubernetes.io/controlplane=
+      # else
+      #   ./contrib/scripts/kind.sh "" 1 "" "${kubernetes_image}" "iptables" "${ip_family}"
+      # fi
+      ## Some tests using demo-customcalls.yaml are mounting this directoy
+      # mkdir -p /home/vagrant/go/src/github.com/cilium
+      # ln -s /host /home/vagrant/go/src/github.com/cilium/cilium
+      # git config --add safe.directory /cilium
+
+   Verify that kind is running inside the VM:
+
+   .. code-block:: shell-session
+
+      $ ssh -p 2222 -o "StrictHostKeyChecking=no" root@localhost
+      # kubectl get pods -A
+      NAMESPACE            NAME                                         READY   STATUS    RESTARTS   AGE
+      kube-system          coredns-787d4945fb-hqzpb                     0/1     Pending   0          42s
+      kube-system          coredns-787d4945fb-tkq86                     0/1     Pending   0          42s
+      kube-system          etcd-kind-control-plane                      1/1     Running   0          57s
+      kube-system          kube-apiserver-kind-control-plane            1/1     Running   0          57s
+      kube-system          kube-controller-manager-kind-control-plane   1/1     Running   0          56s
+      kube-system          kube-scheduler-kind-control-plane            1/1     Running   0          56s
+      local-path-storage   local-path-provisioner-6bd6454576-648bk      0/1     Pending   0          42s
+
+#. Now that Kind is provisioned, the tests can be executed inside the VM.
+   Let us first retrieve the focus regex, under ``cliFocus``, of
+   ``f09-datapath-misc-2`` from ``.github/actions/ginkgo/main-focus.yaml``.
+
+   * ``cliFocus="K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig Transparent"``
+
+   Run the binary ``test.test`` that was compiled in the previous step. The
+   following code block is exactly the same as used on the GitHub workflow with
+   one exception: the flag ``-cilium.holdEnvironment=true``. This flag
+   will hold the testing environment in case the test fails to allow for further
+   diagnosis of the current cluster.
+
+   .. code-block:: shell-session
+
+      $ ssh -p 2222 -o "StrictHostKeyChecking=no" root@localhost
+      # cd /host/test
+      # kernel_tag="bpf-next-20230526.105339@sha256:4133d4e09b1e86ac175df8d899873180281bb4220dc43e2566c47b0241637411"
+      # k8s_version="1.27"
+      #
+      # export K8S_NODES=2
+      # export NETNEXT=0
+      # export K8S_VERSION="${k8s_version}"
+      # export CNI_INTEGRATION=kind
+      # export INTEGRATION_TESTS=true
+      #
+      # if [[ "${kernel_tag}" == bpf-next-* ]]; then
+      #    export KERNEL=net-next
+          export NETNEXT=1
+      #    export KUBEPROXY=0
+      #    export K8S_NODES=3
+      #    export NO_CILIUM_ON_NODES=kind-worker2
+      # elif [[ "${kernel_tag}" == 4.19-* ]]; then
+      #    export KERNEL=419
+      # elif [[ "${kernel_tag}" == 5.4-* ]]; then
+      #    export KERNEL=54
+      # fi
+      #
+      # # GitHub actions do not support IPv6 connectivity to outside
+      # # world. If the infrastructure environment supports it, then
+      # # this line can be removed
+      # export CILIUM_NO_IPV6_OUTSIDE=true
+      #
+      # commit_sha="7b368923823e63c9824ea2b5ee4dc026bc4d5cd8"
+      # cliFocus="K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig Transparent"
+      # quay_org="cilium"
+      #
+      # ./test.test \
+        --ginkgo.focus="${cliFocus}" \
+        --ginkgo.skip="" \
+        --ginkgo.seed=1679952881 \
+        --ginkgo.v -- \
+        -cilium.provision=false \
+        -cilium.image=quay.io/${quay_org}/cilium-ci \
+        -cilium.tag=${commit_sha}  \
+        -cilium.operator-image=quay.io/${quay_org}/operator \
+        -cilium.operator-tag=${commit_sha} \
+        -cilium.hubble-relay-image=quay.io/${quay_org}/hubble-relay-ci \
+        -cilium.hubble-relay-tag=${commit_sha} \
+        -cilium.kubeconfig=/root/.kube/config \
+        -cilium.provision-k8s=false \
+        -cilium.operator-suffix=-ci \
+        -cilium.holdEnvironment=true
+      Using CNI_INTEGRATION="kind"
+      Running Suite: Suite-k8s-1.27
+      =============================
+      Random Seed: 1679952881
+      Will run 7 of 132 specs
+
+#. Wait until the test execution completes.
+
+   .. code-block:: shell-session
+
+      Ran 7 of 132 Specs in 721.007 seconds
+      SUCCESS! -- 7 Passed | 0 Failed | 0 Pending | 125 Skipped
+
+#. Clean up.
+
+   Once tests are performed, qemu can be terminated by checking the PID and
+   terminate the process.
+
+   .. code-block:: shell-session
+
+      $ pkill qemu-system-x86
+
+   The VM state is kept in ``/tmp/_images/datapath-conformance.qcow2`` and the
+   dependencies are installed. Thus steps up to and excluding step
+   :ref:`installing kind <install_kind>` can be skipped next time and the VM
+   state can be re-used from step :ref:`installing kind <install_kind>` onwards.
 
 Running All Ginkgo Tests
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -140,6 +380,7 @@ The Kubernetes tests support the following Kubernetes versions:
 * 1.24
 * 1.25
 * 1.26
+* 1.27
 
 By default, the Vagrant VMs are provisioned with Kubernetes 1.23. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
@@ -225,9 +466,9 @@ framework in the ``test/`` directory and interact with ginkgo directly:
     Test Suite Failed
 
 For more information about other built-in options to Ginkgo, consult the
-`Ginkgo documentation`_.
+`ginkgo-documentation`_.
 
-.. _Ginkgo documentation: Ginkgo_
+.. _ginkgo-documentation:
 
 Running Specific Tests Within a Test Suite
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

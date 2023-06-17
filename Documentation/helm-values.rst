@@ -40,110 +40,134 @@
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
      - ``false``
-   * - auth.mTLS.port
-     - Port on the agent where mTLS handshakes between agents will be performed
+   * - authentication.enabled
+     - Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
+     - bool
+     - ``true``
+   * - authentication.expiredGCInterval
+     - Interval for garbage collection of expired auth map entries.
+     - string
+     - ``"15m0s"``
+   * - authentication.mutual.port
+     - Port on the agent where mutual authentication handshakes between agents will be performed
      - int
      - ``4250``
-   * - auth.mTLS.spire.adminSocketPath
+   * - authentication.mutual.spire.adminSocketPath
      - SPIRE socket path where the SPIRE delegated api agent is listening
      - string
      - ``"/run/spire/sockets/admin.sock"``
-   * - auth.mTLS.spire.agentSocketPath
+   * - authentication.mutual.spire.agentSocketPath
      - SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator
      - string
      - ``"/run/spire/sockets/agent/agent.sock"``
-   * - auth.mTLS.spire.connectionTimeout
+   * - authentication.mutual.spire.connectionTimeout
      - SPIRE connection timeout
      - string
      - ``"30s"``
-   * - auth.mTLS.spire.enabled
+   * - authentication.mutual.spire.enabled
      - Enable SPIRE integration
      - bool
      - ``false``
-   * - auth.mTLS.spire.install
-     - Settings to control the SPIRE installation and configuration
-     - object
-     - ``{"agent":{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true},"enabled":false,"namespace":"cilium-spire","server":{"annotations":{},"ca":{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}},"dataStorage":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null},"image":"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f","initContainers":[],"labels":{},"service":{"annotations":{},"labels":{},"type":"ClusterIP"},"serviceAccount":{"create":true,"name":"spire-server"}}}``
-   * - auth.mTLS.spire.install.agent
-     - SPIRE agent configuration
-     - object
-     - ``{"annotations":{},"image":"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823","labels":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true}``
-   * - auth.mTLS.spire.install.agent.annotations
+   * - authentication.mutual.spire.install.agent.annotations
      - SPIRE agent annotations
      - object
      - ``{}``
-   * - auth.mTLS.spire.install.agent.image
+   * - authentication.mutual.spire.install.agent.image
      - SPIRE agent image
      - string
      - ``"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823"``
-   * - auth.mTLS.spire.install.agent.labels
+   * - authentication.mutual.spire.install.agent.labels
      - SPIRE agent labels
      - object
      - ``{}``
-   * - auth.mTLS.spire.install.agent.serviceAccount
+   * - authentication.mutual.spire.install.agent.serviceAccount
      - SPIRE agent service account
      - object
      - ``{"create":true,"name":"spire-agent"}``
-   * - auth.mTLS.spire.install.agent.skipKubeletVerification
+   * - authentication.mutual.spire.install.agent.skipKubeletVerification
      - SPIRE Workload Attestor kubelet verification.
      - bool
      - ``true``
-   * - auth.mTLS.spire.install.enabled
-     - Enable SPIRE installation. This will only take effect only if auth.mTLS.spire.enabled is true
+   * - authentication.mutual.spire.install.enabled
+     - Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true
      - bool
      - ``false``
-   * - auth.mTLS.spire.install.namespace
+   * - authentication.mutual.spire.install.namespace
      - SPIRE namespace to install into
      - string
      - ``"cilium-spire"``
-   * - auth.mTLS.spire.install.server.annotations
+   * - authentication.mutual.spire.install.server.annotations
      - SPIRE server annotations
      - object
      - ``{}``
-   * - auth.mTLS.spire.install.server.ca
-     - SPIRE CA configuration
-     - object
-     - ``{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}}``
-   * - auth.mTLS.spire.install.server.ca.keyType
+   * - authentication.mutual.spire.install.server.ca.keyType
      - SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported
      - string
      - ``"rsa-4096"``
-   * - auth.mTLS.spire.install.server.ca.subject
+   * - authentication.mutual.spire.install.server.ca.subject
      - SPIRE CA Subject
      - object
      - ``{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}``
-   * - auth.mTLS.spire.install.server.dataStorage
-     - SPIRE server datastorage configuration
-     - object
-     - ``{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null}``
-   * - auth.mTLS.spire.install.server.image
+   * - authentication.mutual.spire.install.server.dataStorage.accessMode
+     - Access mode of the SPIRE server data storage
+     - string
+     - ``"ReadWriteOnce"``
+   * - authentication.mutual.spire.install.server.dataStorage.enabled
+     - Enable SPIRE server data storage
+     - bool
+     - ``true``
+   * - authentication.mutual.spire.install.server.dataStorage.size
+     - Size of the SPIRE server data storage
+     - string
+     - ``"1Gi"``
+   * - authentication.mutual.spire.install.server.dataStorage.storageClass
+     - StorageClass of the SPIRE server data storage
+     - string
+     - ``nil``
+   * - authentication.mutual.spire.install.server.image
      - SPIRE server image
      - string
      - ``"ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f"``
-   * - auth.mTLS.spire.install.server.initContainers
+   * - authentication.mutual.spire.install.server.initContainers
      - SPIRE server init containers
      - list
      - ``[]``
-   * - auth.mTLS.spire.install.server.labels
+   * - authentication.mutual.spire.install.server.labels
      - SPIRE server labels
      - object
      - ``{}``
-   * - auth.mTLS.spire.install.server.service
-     - SPIRE server service configuration
+   * - authentication.mutual.spire.install.server.service.annotations
+     - Annotations to be added to the SPIRE server service
      - object
-     - ``{"annotations":{},"labels":{},"type":"ClusterIP"}``
-   * - auth.mTLS.spire.install.server.serviceAccount
+     - ``{}``
+   * - authentication.mutual.spire.install.server.service.labels
+     - Labels to be added to the SPIRE server service
+     - object
+     - ``{}``
+   * - authentication.mutual.spire.install.server.service.type
+     - Service type for the SPIRE server service
+     - string
+     - ``"ClusterIP"``
+   * - authentication.mutual.spire.install.server.serviceAccount
      - SPIRE server service account
      - object
      - ``{"create":true,"name":"spire-server"}``
-   * - auth.mTLS.spire.serverAddress
-     - SPIRE server address
+   * - authentication.mutual.spire.serverAddress
+     - SPIRE server address used by Cilium Operator  If k8s Service DNS along with port number is used (e.g. :raw-html-m2r:`<service-name>`.\ :raw-html-m2r:`<namespace>`.svc(.*):\ :raw-html-m2r:`<port-number>` format), Cilium Operator will resolve its address by looking up the clusterIP from Service resource.  Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
      - string
-     - ``"spire-server.cilium-spire.svc.cluster.local:8081"``
-   * - auth.mTLS.spire.trustDomain
+     - ``nil``
+   * - authentication.mutual.spire.trustDomain
      - SPIFFE trust domain to use for fetching certificates
      - string
      - ``"spiffe.cilium"``
+   * - authentication.queueSize
+     - Buffer size of the channel Cilium uses to receive authentication events from the signal map.
+     - int
+     - ``1024``
+   * - authentication.rotatedIdentitiesQueueSize
+     - Buffer size of the channel Cilium uses to receive certificate expiration events from auth handlers.
+     - int
+     - ``1024``
    * - autoDirectNodeRoutes
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
@@ -325,7 +349,7 @@
      - int
      - ``0``
    * - cluster.name
-     - Name of the cluster. Only required for Cluster Mesh and mTLS auth with SPIRE.
+     - Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
      - string
      - ``"default"``
    * - clustermesh.apiserver.affinity
@@ -348,6 +372,10 @@
      - Security context to be added to clustermesh-apiserver etcd containers
      - object
      - ``{}``
+   * - clustermesh.apiserver.extraArgs
+     - Additional clustermesh-apiserver arguments.
+     - list
+     - ``[]``
    * - clustermesh.apiserver.extraEnv
      - Additional clustermesh-apiserver environment variables.
      - list
@@ -364,6 +392,110 @@
      - Clustermesh API server image.
      - object
      - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/clustermesh-apiserver-ci","tag":"latest","useDigest":false}``
+   * - clustermesh.apiserver.kvstoremesh.enabled
+     - Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance.
+     - bool
+     - ``false``
+   * - clustermesh.apiserver.kvstoremesh.extraArgs
+     - Additional KVStoreMesh arguments.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.kvstoremesh.extraEnv
+     - Additional KVStoreMesh environment variables.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.kvstoremesh.extraVolumeMounts
+     - Additional KVStoreMesh volumeMounts.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.kvstoremesh.image
+     - KVStoreMesh image.
+     - object
+     - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/kvstoremesh-ci","tag":"latest","useDigest":false}``
+   * - clustermesh.apiserver.kvstoremesh.resources
+     - Resource requests and limits for the KVStoreMesh container
+     - object
+     - ``{}``
+   * - clustermesh.apiserver.kvstoremesh.securityContext
+     - KVStoreMesh Security context
+     - object
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
+   * - clustermesh.apiserver.metrics.enabled
+     - Enables exporting apiserver metrics in OpenMetrics format.
+     - bool
+     - ``true``
+   * - clustermesh.apiserver.metrics.etcd.enabled
+     - Enables exporting etcd metrics in OpenMetrics format.
+     - bool
+     - ``false``
+   * - clustermesh.apiserver.metrics.etcd.mode
+     - Set level of detail for etcd metrics; specify 'extensive' to include server side gRPC histogram metrics.
+     - string
+     - ``"basic"``
+   * - clustermesh.apiserver.metrics.etcd.port
+     - Configure the port the etcd metric server listens on.
+     - int
+     - ``9963``
+   * - clustermesh.apiserver.metrics.kvstoremesh.enabled
+     - Enables exporting KVStoreMesh metrics in OpenMetrics format.
+     - bool
+     - ``true``
+   * - clustermesh.apiserver.metrics.kvstoremesh.port
+     - Configure the port the KVStoreMesh metric server listens on.
+     - int
+     - ``9964``
+   * - clustermesh.apiserver.metrics.port
+     - Configure the port the apiserver metric server listens on.
+     - int
+     - ``9962``
+   * - clustermesh.apiserver.metrics.serviceMonitor.annotations
+     - Annotations to add to ServiceMonitor clustermesh-apiserver
+     - object
+     - ``{}``
+   * - clustermesh.apiserver.metrics.serviceMonitor.enabled
+     - Enable service monitor. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+     - bool
+     - ``false``
+   * - clustermesh.apiserver.metrics.serviceMonitor.etcd.interval
+     - Interval for scrape metrics (etcd metrics)
+     - string
+     - ``"10s"``
+   * - clustermesh.apiserver.metrics.serviceMonitor.etcd.metricRelabelings
+     - Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.metrics.serviceMonitor.etcd.relabelings
+     - Relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.metrics.serviceMonitor.interval
+     - Interval for scrape metrics (apiserver metrics)
+     - string
+     - ``"10s"``
+   * - clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.interval
+     - Interval for scrape metrics (KVStoreMesh metrics)
+     - string
+     - ``"10s"``
+   * - clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.metricRelabelings
+     - Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.relabelings
+     - Relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.metrics.serviceMonitor.labels
+     - Labels to add to ServiceMonitor clustermesh-apiserver
+     - object
+     - ``{}``
+   * - clustermesh.apiserver.metrics.serviceMonitor.metricRelabelings
+     - Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.metrics.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
+     - string
+     - ``nil``
    * - clustermesh.apiserver.nodeSelector
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -618,8 +750,8 @@
      - ``nil``
    * - disableEndpointCRD
      - Disable the usage of CiliumEndpoint CRD.
-     - string
-     - ``"false"``
+     - bool
+     - ``false``
    * - dnsPolicy
      - DNS policy for Cilium agent pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
      - string
@@ -680,12 +812,16 @@
      - Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in ``helm template`` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for gke clusters in advance.
      - bool
      - ``true``
+   * - enableIPv4BIGTCP
+     - Enables IPv4 BIG TCP support which increases maximum IPv4 GSO/GRO limits for nodes and pods
+     - bool
+     - ``false``
    * - enableIPv4Masquerade
      - Enables masquerading of IPv4 traffic leaving the node from endpoints.
      - bool
      - ``true``
    * - enableIPv6BIGTCP
-     - Enables IPv6 BIG TCP support which increases maximum GSO/GRO limits for nodes and pods
+     - Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
      - bool
      - ``false``
    * - enableIPv6Masquerade
@@ -724,6 +860,14 @@
      - Name of the key file inside the Kubernetes secret configured via secretName.
      - string
      - ``""``
+   * - encryption.ipsec.keyRotationDuration
+     - Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.
+     - string
+     - ``"5m"``
+   * - encryption.ipsec.keyWatcher
+     - Enable the key watcher. If disabled, a restart of the agent will be necessary on key rotations.
+     - bool
+     - ``true``
    * - encryption.ipsec.mountPath
      - Path to mount the secret inside the Cilium pod.
      - string
@@ -741,7 +885,7 @@
      - string
      - ``"/etc/ipsec"``
    * - encryption.nodeEncryption
-     - Enable encryption for pure node to node traffic. This option is only effective when encryption.type is set to ipsec.
+     - Enable encryption for pure node to node traffic. This option is only effective when encryption.type is set to "wireguard".
      - bool
      - ``false``
    * - encryption.secretName
@@ -816,18 +960,22 @@
      - Update ENI Adapter limits from the EC2 API
      - bool
      - ``true``
-   * - envoy
-     - Configure Cilium Envoy options.
-     - object
-     - ``{"affinity":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}},"connectTimeoutSeconds":2,"dnsPolicy":null,"enabled":false,"extraArgs":[],"extraContainers":[],"extraEnv":[],"extraHostPathMounts":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":9878,"image":{"digest":"sha256:5d03695af25448768062fa42bffec7dbaa970f0d2b320d39e60b0a12f45027e8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.6-4350471813b173839df78f7a1ea5d77b5cdf714b","useDigest":true},"livenessProbe":{"failureThreshold":10,"periodSeconds":30},"log":{"format":"[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v","path":""},"maxConnectionDurationSeconds":0,"maxRequestsPerConnection":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"podSecurityContext":{},"priorityClassName":null,"prometheus":{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}},"readinessProbe":{"failureThreshold":3,"periodSeconds":30},"resources":{},"rollOutPods":false,"securityContext":{"capabilities":{"envoy":["NET_ADMIN","SYS_ADMIN"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}},"startupProbe":{"failureThreshold":105,"periodSeconds":2},"terminationGracePeriodSeconds":1,"tolerations":[{"operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}}``
    * - envoy.affinity
      - Affinity for cilium-envoy.
      - object
      - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - envoy.connectTimeoutSeconds
+     - Time in seconds after which a TCP connection attempt times out
+     - int
+     - ``2``
    * - envoy.dnsPolicy
      - DNS policy for Cilium envoy pods. Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
      - string
      - ``nil``
+   * - envoy.enabled
+     - Enable Envoy Proxy in standalone DaemonSet.
+     - bool
+     - ``false``
    * - envoy.extraArgs
      - Additional envoy container arguments.
      - list
@@ -856,10 +1004,14 @@
      - TCP port for the health API.
      - int
      - ``9878``
+   * - envoy.idleTimeoutDurationSeconds
+     - Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s
+     - int
+     - ``60``
    * - envoy.image
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:5d03695af25448768062fa42bffec7dbaa970f0d2b320d39e60b0a12f45027e8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.6-4350471813b173839df78f7a1ea5d77b5cdf714b","useDigest":true}``
+     - ``{"digest":"sha256:f165787c05050a4d57c5940dcd59de03cafecff9c02965a1d076c2b2935505d8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.7-384b5008dce426eba89af8ef17f52e4fb066ff40","useDigest":true}``
    * - envoy.livenessProbe.failureThreshold
      - failure threshold of liveness probe
      - int
@@ -868,6 +1020,22 @@
      - interval between checks of the liveness probe
      - int
      - ``30``
+   * - envoy.log.format
+     - The format string to use for laying out the log message metadata of Envoy.
+     - string
+     - ``"[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"``
+   * - envoy.log.path
+     - Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
+     - string
+     - ``""``
+   * - envoy.maxConnectionDurationSeconds
+     - Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
+     - int
+     - ``0``
+   * - envoy.maxRequestsPerConnection
+     - ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
+     - int
+     - ``0``
    * - envoy.nodeSelector
      - Node selector for cilium-envoy.
      - object
@@ -888,6 +1056,14 @@
      - The priority class to use for cilium-envoy.
      - string
      - ``nil``
+   * - envoy.prometheus.enabled
+     - Enable prometheus metrics for cilium-envoy
+     - bool
+     - ``true``
+   * - envoy.prometheus.port
+     - Serve prometheus metrics for cilium-envoy on the configured port
+     - string
+     - ``"9964"``
    * - envoy.prometheus.serviceMonitor.annotations
      - Annotations to add to ServiceMonitor cilium-envoy
      - object
@@ -956,6 +1132,26 @@
      - Node tolerations for envoy scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
      - ``[{"operator":"Exists"}]``
+   * - envoy.updateStrategy
+     - cilium-envoy update strategy ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/#updating-a-daemonset
+     - object
+     - ``{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}``
+   * - envoyConfig.enabled
+     - Enable CiliumEnvoyConfig CRD CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
+     - bool
+     - ``false``
+   * - envoyConfig.secretsNamespace
+     - SecretsNamespace is the namespace in which envoy SDS will retrieve secrets from.
+     - object
+     - ``{"create":true,"name":"cilium-secrets"}``
+   * - envoyConfig.secretsNamespace.create
+     - Create secrets namespace for CiliumEnvoyConfig CRDs.
+     - bool
+     - ``true``
+   * - envoyConfig.secretsNamespace.name
+     - The name of the secret namespace to which Cilium agents are given read access.
+     - string
+     - ``"cilium-secrets"``
    * - etcd.clusterDomain
      - Cluster domain for cilium-etcd-operator.
      - string
@@ -1157,7 +1353,7 @@
      - bool
      - ``false``
    * - hubble.metrics.enabled
-     - Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:    enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http  You can specify the list of metrics from the helm CLI:    --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
+     - Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:    enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http  You can specify the list of metrics from the helm CLI:    --set hubble.metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
      - string
      - ``nil``
    * - hubble.metrics.port
@@ -1204,6 +1400,10 @@
      - Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available.
      - bool
      - ``false``
+   * - hubble.redact
+     - Configures the list of redact options for Hubble. Example:    redact:   - http-url-query  You can specify the list of options from the helm CLI:    --set hubble.redact="{http-url-query}"
+     - string
+     - ``nil``
    * - hubble.relay.affinity
      - Affinity for hubble-replay
      - object
@@ -1608,6 +1808,14 @@
      - Set cilium ingress controller to be the default ingress controller This will let cilium ingress controller route entries without ingress class set
      - bool
      - ``false``
+   * - ingressController.defaultSecretName
+     - Default secret name for ingresses without .spec.tls[].secretName set.
+     - string
+     - ``nil``
+   * - ingressController.defaultSecretNamespace
+     - Default secret namespace for ingresses without .spec.tls[].secretName set.
+     - string
+     - ``nil``
    * - ingressController.enabled
      - Enable cilium ingress controller This will automatically set enable-envoy-config as well.
      - bool
@@ -1692,6 +1900,10 @@
      - Configure IP Address Management mode. ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
      - string
      - ``"cluster-pool"``
+   * - ipam.operator.autoCreateCiliumPodIPPools
+     - IP pools to auto-create in multi-pool IPAM mode.
+     - object
+     - ``{}``
    * - ipam.operator.clusterPoolIPv4MaskSize
      - IPv4 CIDR mask size to delegate to individual nodes for IPAM.
      - int
@@ -1716,10 +1928,6 @@
      - The maximum queries per second when rate limiting access to external APIs. Also known as the bucket refill rate, which is used to refill the bucket up to the burst size capacity.
      - string
      - ``4.0``
-   * - ipam.operator.multiPoolMap
-     - IP pools defined for the multi-pool IPAM mode.
-     - object
-     - ``{}``
    * - ipv4.enabled
      - Enable IPv4 support.
      - bool
@@ -1776,6 +1984,26 @@
      - Override the agent's default neighbor resolution refresh period.
      - string
      - ``"30s"``
+   * - l2announcements
+     - Configure L2 announcements
+     - object
+     - ``{"enabled":false}``
+   * - l2announcements.enabled
+     - Enable L2 announcements
+     - bool
+     - ``false``
+   * - l2podAnnouncements
+     - Configure L2 pod announcements
+     - object
+     - ``{"enabled":false,"interface":"eth0"}``
+   * - l2podAnnouncements.enabled
+     - Enable L2 pod announcements
+     - bool
+     - ``false``
+   * - l2podAnnouncements.interface
+     - Interface used for sending Gratuitous ARP pod announcements
+     - string
+     - ``"eth0"``
    * - l7Proxy
      - Enable Layer 7 network policy.
      - bool
@@ -1801,7 +2029,7 @@
      - string
      - ``"round_robin"``
    * - loadBalancer.l7.backend
-     - Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. service.cilium.io/lb-l7, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration.  Applicable values:   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.   - disabled: Disable L7 load balancing.
+     - Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. service.cilium.io/lb-l7, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration.  Applicable values:   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.   - disabled: Disable L7 load balancing by way of service annotation.
      - string
      - ``"disabled"``
    * - loadBalancer.l7.ports
@@ -1891,7 +2119,7 @@
    * - nodeinit.image
      - node-init image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"d69851597ea019af980891a4628fb36b7880ec26"}``
+     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"62093c5c233ea914bfa26a10ba41f8780d9b737f"}``
    * - nodeinit.nodeSelector
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -2239,7 +2467,7 @@
    * - prometheus
      - Configure prometheus metrics on the configured port at /metrics
      - object
-     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}}``
+     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"trustCRDsExist":false}}``
    * - prometheus.metrics
      - Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). ref: https://docs.cilium.io/en/stable/observability/metrics/
      - string
@@ -2268,6 +2496,10 @@
      - Relabeling configs for the ServiceMonitor cilium-agent
      - list
      - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
+   * - prometheus.serviceMonitor.trustCRDsExist
+     - Set to ``true`` and helm will not check for monitoring.coreos.com/v1 CRDs before deploying
+     - bool
+     - ``false``
    * - proxy
      - Configure Istio proxy options.
      - object
@@ -2361,7 +2593,7 @@
      - object
      - ``{"annotations":{},"automount":true,"create":true,"name":"hubble-generate-certs"}``
    * - serviceAccounts.nodeinit.enabled
-     - Enabled is temporary until https://github.com/cilium/cilium-cli/issues/1396 is implemented. Cilium CLI doesn't create the SAs for node-init, thus the workaround. Helm is not affected by this issue. Name and automount can be configured, if enabled is set to true.  Otherwise, they are ignored. Enabled can be removed once the issue is fixed. Cilium-nodeinit DS must also be fixed.
+     - Enabled is temporary until https://github.com/cilium/cilium-cli/issues/1396 is implemented. Cilium CLI doesn't create the SAs for node-init, thus the workaround. Helm is not affected by this issue. Name and automount can be configured, if enabled is set to true. Otherwise, they are ignored. Enabled can be removed once the issue is fixed. Cilium-nodeinit DS must also be fixed.
      - bool
      - ``false``
    * - sleepAfterInit

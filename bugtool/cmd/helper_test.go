@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func Test(t *testing.T) {

@@ -9,9 +9,9 @@ import (
 	"runtime"
 	"testing"
 
+	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -31,7 +31,7 @@ type LinuxRoutingSuite struct{}
 var _ = Suite(&LinuxRoutingSuite{})
 
 func (s *LinuxRoutingSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (e *LinuxRoutingSuite) TestConfigure(c *C) {

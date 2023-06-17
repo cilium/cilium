@@ -5,11 +5,11 @@ package cmd
 
 import (
 	"context"
-	"net"
+	"net/netip"
 	"runtime"
 	"time"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/api/v1/models"
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -96,7 +96,9 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
 	// Check that the endpoint has the reserved:init label.
-	ep, err := ds.d.endpointManager.Lookup(endpointid.NewIPPrefixID(net.ParseIP(epTemplate.Addressing.IPV4)))
+	v4ip, err := netip.ParseAddr(epTemplate.Addressing.IPV4)
+	c.Assert(err, IsNil)
+	ep, err := ds.d.endpointManager.Lookup(endpointid.NewIPPrefixID(v4ip))
 	c.Assert(err, IsNil)
 	c.Assert(ep.OpLabels.IdentityLabels(), checker.DeepEquals, expectedLabels)
 

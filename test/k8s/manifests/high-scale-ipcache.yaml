@@ -81,3 +81,30 @@ spec:
     protocol: TCP
   selector:
     type: server
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: egress-dns
+spec:
+  endpointSelector:
+    matchLabels:
+      type: client
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: kube-dns
+        io.kubernetes.pod.namespace: kube-system
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: egress-l3
+spec:
+  endpointSelector:
+    matchLabels:
+      type: client
+  egress:
+  - toServices:
+    - k8sService:
+        serviceName: http

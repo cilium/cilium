@@ -6,11 +6,16 @@ package hive_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -52,8 +57,8 @@ func TestHiveGoodConfig(t *testing.T) {
 	err = hive.Stop(context.TODO())
 	assert.NoError(t, err, "expected Stop to succeed")
 
-	assert.Equal(t, cfg.Foo, "test", "Config.Foo not set correctly")
-	assert.Equal(t, cfg.Bar, 13, "Config.Bar not set correctly")
+	assert.Equal(t, "test", cfg.Foo, "Config.Foo not set correctly")
+	assert.Equal(t, 13, cfg.Bar, "Config.Bar not set correctly")
 }
 
 // BadConfig has a field that matches no flags, and Flags
@@ -81,6 +86,91 @@ func TestHiveBadConfig(t *testing.T) {
 	assert.ErrorContains(t, err, "has unset fields: Bar", "expected 'unset fields' error")
 }
 
+type MapConfig struct {
+	Foo map[string]string
+}
+
+func (MapConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringToString("foo", nil, "foo")
+}
+
+func TestHiveStringMapConfig(t *testing.T) {
+	runnable := func(setter func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper), expected map[string]string) func(t *testing.T) {
+		return func(t *testing.T) {
+			defer os.Unsetenv("CILIUM_FOO")
+
+			var cfg MapConfig
+			testCell := cell.Module(
+				"test",
+				"Test Module",
+				cell.Config(MapConfig{}),
+				cell.Invoke(func(c MapConfig) {
+					cfg = c
+				}),
+			)
+
+			hive := hive.New(testCell)
+
+			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+			hive.RegisterFlags(flags)
+
+			setter(t, flags, hive.Viper())
+
+			err := hive.Start(context.TODO())
+			require.NoError(t, err, "expected Start to succeed")
+
+			err = hive.Stop(context.TODO())
+			require.NoError(t, err, "expected Stop to succeed")
+
+			require.Equal(t, expected, cfg.Foo, "Config.Foo not set correctly")
+		}
+	}
+
+	t.Run("unset", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+	}, map[string]string{}))
+
+	t.Run("flag-kv", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, flags.Set("foo", "foo=bar,baz=qux"))
+		require.NoError(t, flags.Set("foo", "fred=thud"))
+	}, map[string]string{"foo": "bar", "baz": "qux", "fred": "thud"}))
+
+	t.Run("env-kv", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, os.Setenv("CILIUM_FOO", "foo=bar,baz=qux"))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("env-json", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, os.Setenv("CILIUM_FOO", `{"foo":"bar","baz":"qux"}`))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("config-yaml", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		vp.SetConfigType("yaml")
+		reader := strings.NewReader("foo:\n  foo: bar\n  baz: qux")
+		require.NoError(t, vp.ReadConfig(reader), "Failed reading config file")
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("config-json", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		vp.SetConfigType("json")
+		reader := strings.NewReader(`{"foo": {"foo":"bar","baz":"qux"}}`)
+		require.NoError(t, vp.ReadConfig(reader), "Failed reading config file")
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("cm-json", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, vp.MergeConfigMap(map[string]interface{}{"foo": `{"foo":"bar","baz":"qux"}`}))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("cm-kv", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, vp.MergeConfigMap(map[string]interface{}{"foo": "foo=bar,baz=qux"}))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("cm-json", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, vp.MergeConfigMap(map[string]interface{}{"foo": `{"foo":"bar","baz":"qux"}`}))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+
+	t.Run("cm-map", runnable(func(t *testing.T, flags *pflag.FlagSet, vp *viper.Viper) {
+		require.NoError(t, vp.MergeConfigMap(map[string]interface{}{"foo": map[string]string{"foo": "bar", "baz": "qux"}}))
+	}, map[string]string{"foo": "bar", "baz": "qux"}))
+}
+
 func TestHiveConfigOverride(t *testing.T) {
 	var cfg Config
 	h := hive.New(
@@ -104,7 +194,7 @@ func TestHiveConfigOverride(t *testing.T) {
 	err = h.Stop(context.TODO())
 	assert.NoError(t, err, "expected Stop to succeed")
 
-	assert.Equal(t, cfg.Foo, "override", "Config.Foo not set correctly")
+	assert.Equal(t, "override", cfg.Foo, "Config.Foo not set correctly")
 }
 
 type SomeObject struct {
@@ -132,6 +222,62 @@ func TestProvideInvoke(t *testing.T) {
 	assert.NoError(t, err, "expected Run to succeed")
 
 	assert.True(t, invoked, "expected invoke to be called, but it was not")
+}
+
+func TestProvideHealthReporter(t *testing.T) {
+	// Module provided health reporter should be injected and be scoped to the
+	// module ID.
+	// As well, should contain state about last update and whether modules where
+	// stopped.
+	testCell := cell.Module(
+		"test",
+		"Test Module",
+		cell.Invoke(func(hr cell.HealthReporter) {
+			hr.OK("all good")
+			hr.Stopped("done!")
+		}),
+	)
+	testCell2 := cell.Module(
+		"test2",
+		"Test Module 2",
+		cell.Invoke(func(hr cell.HealthReporter) {
+			hr.Degraded("woops", fmt.Errorf("someerr"))
+		}),
+	)
+	unknown := cell.Module(
+		"unknown",
+		"Reports no status",
+		cell.Invoke(func(cell.HealthReporter) {}),
+	)
+
+	var s1, s2, s3 *cell.Status
+	var all []cell.Status
+	h := hive.New(
+		testCell,
+		testCell2,
+		unknown,
+		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner, hr cell.Health) {
+			lc.Append(hive.Hook{
+				OnStop: func(hive.HookContext) error {
+					all = hr.All()
+					s1 = hr.Get("test")
+					s2 = hr.Get("test2")
+					s3 = hr.Get("unknown")
+					return nil
+				}})
+		}),
+		shutdownOnStartCell,
+	)
+	assert.NoError(t, h.Run(), "expected Run to succeed")
+	assert.Len(t, all, 3, "expected two health reports")
+	assert.Equal(t, s1.Level, cell.StatusOK)
+	assert.Equal(t, s1.ModuleID, "test")
+	assert.Equal(t, s1.Err, nil)
+	assert.True(t, s1.Stopped)
+	assert.Equal(t, s2.Level, cell.StatusDegraded)
+	assert.Equal(t, s2.ModuleID, "test2")
+	assert.Equal(t, s2.Err, fmt.Errorf("someerr"))
+	assert.Equal(t, s3.Level, cell.StatusUnknown)
 }
 
 func TestGroup(t *testing.T) {
@@ -302,15 +448,15 @@ func TestRunRollback(t *testing.T) {
 			})
 		}),
 	)
-	h.SetTimeouts(time.Millisecond, time.Millisecond)
+	h.SetTimeouts(time.Millisecond, time.Minute)
 
 	err := h.Run()
 	assert.ErrorIs(t, err, context.DeadlineExceeded, "expected Run() to fail with timeout")
 
 	// We should see 2 start hooks invoked, and then 1 stop hook as first
 	// one is rolled back.
-	assert.Equal(t, started, 2)
-	assert.Equal(t, stopped, 1)
+	assert.Equal(t, 2, started)
+	assert.Equal(t, 1, stopped)
 }
 
 var shutdownOnStartCell = cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {

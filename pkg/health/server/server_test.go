@@ -6,11 +6,14 @@ package server
 import (
 	"strings"
 
+	. "github.com/cilium/checkmate"
+
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	. "gopkg.in/check.v1"
 
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 type ServerTestSuite struct{}
@@ -260,7 +263,7 @@ func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
 		name           string
 		localStatus    *healthModels.SelfStatus
 		connectivity   *healthReport
-		metricName     string
+		metric         func() metric.WithMetadata
 		expectedMetric string
 		expectedCount  int
 	}{
@@ -270,7 +273,7 @@ func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
 				Name: "kind-worker",
 			},
 			connectivity:   sampleSingleClusterConnectivity,
-			metricName:     "cilium_node_connectivity_status",
+			metric:         func() metric.WithMetadata { return metrics.NodeConnectivityStatus },
 			expectedCount:  2,
 			expectedMetric: expectedSingleClusterMetric["cilium_node_connectivity_status"],
 		},
@@ -280,7 +283,7 @@ func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
 				Name: "kind-worker",
 			},
 			connectivity:   sampleSingleClusterConnectivity,
-			metricName:     "cilium_node_connectivity_latency_seconds",
+			metric:         func() metric.WithMetadata { return metrics.NodeConnectivityLatency },
 			expectedCount:  8,
 			expectedMetric: expectedSingleClusterMetric["cilium_node_connectivity_latency_seconds"],
 		},
@@ -290,7 +293,7 @@ func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
 				Name: "kind-cilium-mesh-1/kind-cilium-mesh-1-worker",
 			},
 			connectivity:   sampleClustermeshConnectivity,
-			metricName:     "cilium_node_connectivity_status",
+			metric:         func() metric.WithMetadata { return metrics.NodeConnectivityStatus },
 			expectedCount:  4,
 			expectedMetric: expectedClustermeshMetric["cilium_node_connectivity_status"],
 		},
@@ -300,7 +303,7 @@ func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
 				Name: "kind-cilium-mesh-1/kind-cilium-mesh-1-worker",
 			},
 			connectivity:   sampleClustermeshConnectivity,
-			metricName:     "cilium_node_connectivity_latency_seconds",
+			metric:         func() metric.WithMetadata { return metrics.NodeConnectivityLatency },
 			expectedCount:  16,
 			expectedMetric: expectedClustermeshMetric["cilium_node_connectivity_latency_seconds"],
 		},
@@ -309,7 +312,9 @@ func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
 	for _, tt := range tests {
 		c.Log("Test :", tt.name)
 
-		_, collectors := metrics.CreateConfiguration([]string{tt.metricName})
+		metrics.NewLegacyMetrics()
+		tt.metric().SetEnabled(true)
+		collector := tt.metric().(prometheus.Collector)
 		s := &Server{
 			connectivity: tt.connectivity,
 			localStatus:  tt.localStatus,
@@ -317,16 +322,16 @@ func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
 		s.collectNodeConnectivityMetrics()
 
 		// perform static checks such as prometheus naming convention, number of labels matching, etc
-		lintProblems, err := testutil.CollectAndLint(collectors[0])
+		lintProblems, err := testutil.CollectAndLint(collector)
 		c.Assert(err, IsNil)
 		c.Assert(lintProblems, HasLen, 0)
 
 		// check the number of metrics
-		count := testutil.CollectAndCount(collectors[0])
+		count := testutil.CollectAndCount(collector)
 		c.Assert(count, Equals, tt.expectedCount)
 
 		// compare the metric output
-		err = testutil.CollectAndCompare(collectors[0], strings.NewReader(tt.expectedMetric))
+		err = testutil.CollectAndCompare(collector, strings.NewReader(tt.expectedMetric))
 		c.Assert(err, IsNil)
 	}
 

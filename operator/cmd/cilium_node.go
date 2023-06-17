@@ -78,7 +78,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 		connectedToKVStore     = make(chan struct{})
 
 		resourceEventHandler   = cache.ResourceEventHandlerFuncs{}
-		ciliumNodeConvertFunc  = k8s.ConvertToCiliumNode
+		ciliumNodeConvertFunc  = k8s.TransformToCiliumNode
 		ciliumNodeManagerQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 		kvStoreQueue           = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	)
@@ -144,7 +144,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 			},
 			func(node *cilium_v2.CiliumNode) {
 				// node is deep copied before it is stored in pkg/aws/eni
-				s.nodeManager.Update(node)
+				s.nodeManager.Upsert(node)
 			})
 	}
 

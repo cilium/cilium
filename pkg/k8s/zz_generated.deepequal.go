@@ -90,6 +90,18 @@ func (in *Endpoints) deepEqual(other *Endpoints) bool {
 		return false
 	}
 
+	if in.UnserializableObject != other.UnserializableObject {
+		return false
+	}
+
+	if !in.ObjectMeta.DeepEqual(&other.ObjectMeta) {
+		return false
+	}
+
+	if in.EndpointSliceID != other.EndpointSliceID {
+		return false
+	}
+
 	if ((in.Backends != nil) && (other.Backends != nil)) || ((in.Backends == nil) != (other.Backends == nil)) {
 		in, other := &in.Backends, &other.Backends
 		if other == nil {

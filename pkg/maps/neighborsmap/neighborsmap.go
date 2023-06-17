@@ -8,6 +8,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
@@ -29,41 +31,29 @@ var (
 func neighMapsGet() (*bpf.Map, *bpf.Map) {
 	once.Do(func() {
 		neigh4Map = bpf.NewMap(Map4Name,
-			bpf.MapTypeLRUHash,
+			ebpf.LRUHash,
 			&Key4{},
-			int(unsafe.Sizeof(Key4{})),
 			&Value{},
-			int(unsafe.Sizeof(Value{})),
 			option.Config.NeighMapEntriesGlobal,
 			0,
-			0,
-			bpf.ConvertKeyValue,
 		)
 		neigh6Map = bpf.NewMap(Map6Name,
-			bpf.MapTypeLRUHash,
+			ebpf.LRUHash,
 			&Key6{},
-			int(unsafe.Sizeof(Key6{})),
 			&Value{},
-			int(unsafe.Sizeof(Value{})),
 			option.Config.NeighMapEntriesGlobal,
 			0,
-			0,
-			bpf.ConvertKeyValue,
 		)
 	})
 	return neigh4Map, neigh6Map
 }
 
 // Key4 is the IPv4 for the IP-to-MAC address mappings.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key4 struct {
 	ipv4 types.IPv4
 }
 
 // Key6 is the IPv6 for the IP-to-MAC address mappings.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key6 struct {
 	ipv6 types.IPv6
 }
@@ -72,52 +62,36 @@ type Key6 struct {
 const SizeofNeighKey6 = int(unsafe.Sizeof(Key6{}))
 
 // Value is the MAC address for the IP-to-MAC address mappings.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Value struct {
 	macaddr types.MACAddr
-	pad     uint16
+	_       uint16
 }
 
 // SizeOfNeighValue is the size of type NeighValue.
 const SizeOfNeighValue = int(unsafe.Sizeof(Value{}))
 
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *Key4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *Key6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+// String converts the key into a human readable string format.
+func (k *Key4) String() string  { return k.ipv4.String() }
+func (k *Key4) New() bpf.MapKey { return &Key4{} }
 
 // String converts the key into a human readable string format.
-func (k *Key4) String() string { return k.ipv4.String() }
-
-// String converts the key into a human readable string format.
-func (k *Key6) String() string { return k.ipv6.String() }
+func (k *Key6) String() string  { return k.ipv6.String() }
+func (k *Key6) New() bpf.MapKey { return &Key6{} }
 
 // String converts the value into a human readable string format.
-func (v *Value) String() string { return v.macaddr.String() }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k Key4) NewValue() bpf.MapValue { return &Value{} }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value.
-func (k Key6) NewValue() bpf.MapValue { return &Value{} }
+func (v *Value) String() string    { return v.macaddr.String() }
+func (k *Value) New() bpf.MapValue { return &Value{} }
 
 // InitMaps creates the nodeport neighbors maps in the kernel.
 func InitMaps(ipv4, ipv6 bool) error {
 	neigh4Map, neigh6Map := neighMapsGet()
 	if ipv4 {
-		if _, err := neigh4Map.Create(); err != nil {
+		if err := neigh4Map.Create(); err != nil {
 			return err
 		}
 	}
 	if ipv6 {
-		if _, err := neigh6Map.Create(); err != nil {
+		if err := neigh6Map.Create(); err != nil {
 			return err
 		}
 	}

@@ -6,6 +6,7 @@ package cidralloc
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
@@ -20,6 +21,8 @@ type CIDRAllocator interface {
 	IsAllocated(cidr *net.IPNet) (bool, error)
 	IsFull() bool
 	InRange(cidr *net.IPNet) bool
+	IsClusterCIDR(prefix netip.Prefix) bool
+	Prefix() netip.Prefix
 }
 
 type ErrCIDRCollision struct {

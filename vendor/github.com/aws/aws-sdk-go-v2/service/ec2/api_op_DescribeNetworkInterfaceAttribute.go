@@ -11,8 +11,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes a network interface attribute. You can specify only one attribute at a
-// time.
+// Describes a network interface attribute. You can specify only one attribute at
+// a time.
 func (c *Client) DescribeNetworkInterfaceAttribute(ctx context.Context, params *DescribeNetworkInterfaceAttributeInput, optFns ...func(*Options)) (*DescribeNetworkInterfaceAttributeOutput, error) {
 	if params == nil {
 		params = &DescribeNetworkInterfaceAttributeInput{}
@@ -41,8 +41,8 @@ type DescribeNetworkInterfaceAttributeInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -121,6 +121,9 @@ func (c *Client) addOperationDescribeNetworkInterfaceAttributeMiddlewares(stack 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeNetworkInterfaceAttribute(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

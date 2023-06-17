@@ -19,9 +19,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -30,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/sysctl"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -94,7 +91,8 @@ func initKubeProxyReplacementOptions() error {
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP &&
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve ||
 			option.Config.NodePortMode == option.NodePortModeHybrid &&
-				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption {
+				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
+				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
 			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
 		}
 
@@ -198,7 +196,7 @@ func initKubeProxyReplacementOptions() error {
 				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, option.Config.TunnelProtocol)
 		}
 
-		if option.Config.NodePortMode == option.NodePortModeDSR &&
+		if option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve &&
 			option.Config.TunnelingEnabled() && option.Config.TunnelProtocol != option.TunnelGeneve {
 			return fmt.Errorf("Node Port %q mode with %s dispatch requires %s tunneling.",
@@ -212,6 +210,14 @@ func initKubeProxyReplacementOptions() error {
 			}
 			if option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
 				return fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
+			}
+		}
+
+		if option.Config.EnableHighScaleIPcache {
+			if option.Config.NodePortMode != option.NodePortModeDSR ||
+				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+				return fmt.Errorf("The high-scale IPcache mode requires Node Port mode %q with %s dispatch",
+					option.NodePortModeDSR, option.DSRDispatchGeneve)
 			}
 		}
 
@@ -273,9 +279,13 @@ func probeKubeProxyReplacementOptions() error {
 	}
 
 	if option.Config.EnableSocketLB {
+		if err := probes.HaveAttachCgroup(); err != nil {
+			return fmt.Errorf("socketlb enabled, but kernel does not support attaching bpf programs to cgroups: %w", err)
+		}
+
 		// Try to auto-load IPv6 module if it hasn't been done yet as there can
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
-		probe.HaveIPv6Support()
+		probes.HaveIPv6Support()
 
 		if option.Config.EnableMKE {
 			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
@@ -286,39 +296,29 @@ func probeKubeProxyReplacementOptions() error {
 
 		option.Config.EnableSocketLBPeer = true
 		if option.Config.EnableIPv4 {
-			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_GETPEERNAME); err != nil {
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCgroupInet4GetPeername); err != nil {
 				option.Config.EnableSocketLBPeer = false
 			}
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupInet4Connect); err != nil {
+				return fmt.Errorf("BPF host-reachable services for TCP needs kernel 4.17.0 or newer: %w", err)
+			}
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupUDP4Recvmsg); err != nil {
+				return fmt.Errorf("BPF host-reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer: %w", err)
+			}
 		}
+
 		if option.Config.EnableIPv6 {
-			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_GETPEERNAME); err != nil {
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCgroupInet6GetPeername); err != nil {
 				option.Config.EnableSocketLBPeer = false
 			}
-		}
-		if option.Config.EnableIPv4 {
-			err := probeCgroupSupportTCP(true)
-			if err != nil {
-				return err
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupInet6Connect); err != nil {
+				return fmt.Errorf("BPF host-reachable services for TCP needs kernel 4.17.0 or newer: %w", err)
+			}
+			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupUDP6Recvmsg); err != nil {
+				return fmt.Errorf("BPF host-reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer: %w", err)
 			}
 		}
-		if option.Config.EnableIPv6 {
-			err := probeCgroupSupportTCP(false)
-			if err != nil {
-				return err
-			}
-		}
-		if option.Config.EnableIPv4 {
-			err := probeCgroupSupportUDP(true)
-			if err != nil {
-				return err
-			}
-		}
-		if option.Config.EnableIPv6 {
-			err := probeCgroupSupportUDP(false)
-			if err != nil {
-				return err
-			}
-		}
+
 		if !option.Config.EnableSocketLB {
 			option.Config.EnableSocketLBTracing = false
 		}
@@ -339,12 +339,6 @@ func probeKubeProxyReplacementOptions() error {
 		}
 	}
 
-	if option.Config.EnableSVCSourceRangeCheck && !probe.HaveFullLPM() {
-		msg := fmt.Sprintf("--%s requires kernel 4.16 or newer.",
-			option.EnableSVCSourceRangeCheck)
-		return fmt.Errorf(msg)
-	}
-
 	if option.Config.BPFSocketLBHostnsOnly {
 		if !option.Config.EnableSocketLB {
 			option.Config.BPFSocketLBHostnsOnly = false
@@ -358,60 +352,6 @@ func probeKubeProxyReplacementOptions() error {
 		}
 	}
 
-	return nil
-}
-
-func probeManagedNeighborSupport() {
-	if option.Config.DryMode {
-		return
-	}
-
-	// Probes for kernel commit:
-	//   856c02dbce4f ("bpf: Introduce helper bpf_get_branch_snapshot")
-	// This is a bit of a workaround given feature probing for netlink
-	// neighboring subsystem is cumbersome. The commit was added in the
-	// same release as managed neighbors, that is, 5.16+.
-	if probes.HaveProgramHelper(ebpf.Kprobe, asm.FnGetBranchSnapshot) == nil {
-		log.Info("Using Managed Neighbor Kernel support")
-		option.Config.ARPPingKernelManaged = true
-	}
-}
-
-func probeCgroupSupportTCP(ipv4 bool) error {
-	var err error
-
-	if ipv4 {
-		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT)
-	} else {
-		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT)
-	}
-	if err != nil {
-		msg := "BPF host reachable services for TCP needs kernel 4.17.0 or newer."
-		if errors.Is(err, unix.EPERM) {
-			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
-		}
-
-		return fmt.Errorf(msg)
-	}
-	return nil
-}
-
-func probeCgroupSupportUDP(ipv4 bool) error {
-	var err error
-
-	if ipv4 {
-		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG)
-	} else {
-		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG)
-	}
-	if err != nil {
-		msg := "BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer"
-		if errors.Is(err, unix.EPERM) {
-			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
-		}
-
-		return fmt.Errorf(msg)
-	}
 	return nil
 }
 
@@ -463,6 +403,9 @@ func finishKubeProxyReplacementInit() error {
 		// Non-BPF masquerade requires netfilter and hence CT.
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		// KPR=strict is needed or we might rely on netfilter.
+		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict:
+			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
 		// All cases below still need to be implemented ...
 		case option.Config.EnableEndpointRoutes && option.Config.EnableIPv6:
 			msg = fmt.Sprintf("BPF host routing is currently not supported with %s when IPv6 is enabled.", option.EnableEndpointRoutes)

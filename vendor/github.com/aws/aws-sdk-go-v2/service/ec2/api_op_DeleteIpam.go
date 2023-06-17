@@ -41,29 +41,20 @@ type DeleteIpamInput struct {
 	// and any allocations in the pools in private scopes. You cannot delete the IPAM
 	// with this option if there is a pool in your public scope. If you use this
 	// option, IPAM does the following:
-	//
-	// * Deallocates any CIDRs allocated to VPC
-	// resources (such as VPCs) in pools in private scopes. No VPC resources are
-	// deleted as a result of enabling this option. The CIDR associated with the
-	// resource will no longer be allocated from an IPAM pool, but the CIDR itself will
-	// remain unchanged.
-	//
-	// * Deprovisions all IPv4 CIDRs provisioned to IPAM pools in
-	// private scopes.
-	//
-	// * Deletes all IPAM pools in private scopes.
-	//
-	// * Deletes all
-	// non-default private scopes in the IPAM.
-	//
-	// * Deletes the default public and
-	// private scopes and the IPAM.
+	//   - Deallocates any CIDRs allocated to VPC resources (such as VPCs) in pools in
+	//   private scopes. No VPC resources are deleted as a result of enabling this
+	//   option. The CIDR associated with the resource will no longer be allocated from
+	//   an IPAM pool, but the CIDR itself will remain unchanged.
+	//   - Deprovisions all IPv4 CIDRs provisioned to IPAM pools in private scopes.
+	//   - Deletes all IPAM pools in private scopes.
+	//   - Deletes all non-default private scopes in the IPAM.
+	//   - Deletes the default public and private scopes and the IPAM.
 	Cascade *bool
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -129,6 +120,9 @@ func (c *Client) addOperationDeleteIpamMiddlewares(stack *middleware.Stack, opti
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteIpam(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

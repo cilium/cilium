@@ -90,15 +90,12 @@ static __always_inline void ipv6_addr_copy(union v6addr *dst,
 	dst->d2 = src->d2;
 }
 
-static __always_inline __u64 ipv6_addrcmp(const union v6addr *a,
-					  const union v6addr *b)
+static __always_inline bool ipv6_addr_equals(const union v6addr *a,
+					     const union v6addr *b)
 {
-	__u64 tmp;
-
-	tmp = a->d1 - b->d1;
-	if (!tmp)
-		tmp = a->d2 - b->d2;
-	return tmp;
+	if (a->d1 != b->d1)
+		return false;
+	return a->d2 == b->d2;
 }
 
 /* Only works with contiguous masks. */

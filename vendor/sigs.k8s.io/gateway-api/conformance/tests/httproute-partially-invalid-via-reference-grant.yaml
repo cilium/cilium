@@ -20,17 +20,17 @@ metadata:
   namespace: gateway-conformance-infra
 spec:
   parentRefs:
-  - name: same-namespace
+    - name: same-namespace
   rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: "/v2"
-    backendRefs:
-    - name: app-backend-v2
-      namespace: gateway-conformance-app-backend
-      port: 8080
-  - backendRefs:
-    - name: app-backend-v1
-      namespace: gateway-conformance-app-backend
-      port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/v2"
+      backendRefs:
+        - name: app-backend-v2
+          namespace: gateway-conformance-app-backend
+          port: 8080
+    - backendRefs:
+        - name: app-backend-v1
+          namespace: gateway-conformance-app-backend
+          port: 8080

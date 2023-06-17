@@ -21,4 +21,5 @@ type SupplyInfo struct {
 	SupplyStatus    string `json:"SupplyStatus" xml:"SupplyStatus"`
 	SupplyStartTime string `json:"SupplyStartTime" xml:"SupplyStartTime"`
 	SupplyEndTime   string `json:"SupplyEndTime" xml:"SupplyEndTime"`
+	PrivatePoolId   string `json:"PrivatePoolId" xml:"PrivatePoolId"`
 }

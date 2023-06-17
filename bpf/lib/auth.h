@@ -7,9 +7,11 @@
 #include "common.h"
 #include "maps.h"
 #include "utime.h"
+#include "signal.h"
 
 static __always_inline int
-auth_lookup(__u32 local_id, __u32 remote_id, __u16 remote_node_id, __u8 auth_type)
+auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u16 remote_node_id,
+	    __u8 auth_type)
 {
 	struct auth_info *auth;
 	struct auth_key key = {
@@ -28,6 +30,7 @@ auth_lookup(__u32 local_id, __u32 remote_id, __u16 remote_node_id, __u8 auth_typ
 			return CTX_ACT_OK;
 	}
 
+	send_signal_auth_required(ctx, &key);
 	return DROP_POLICY_AUTH_REQUIRED;
 }
 #endif

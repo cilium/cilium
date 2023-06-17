@@ -19,6 +19,20 @@ Currently a single flag in the ``Cilium Agent`` exists to turn on the
 
    --enable-bgp-control-plane=true
 
+If using Helm charts instead, the relevant values are the following:
+
+.. code-block:: yaml
+
+   bgpControlPlane:
+     enabled: true
+
+.. note::
+
+   The BGP Control Plane feature is mutually exclusive with the MetalLB-based :ref:`bgp`
+   feature. To use the Control Plane, the older BGP feature has to be disabled.
+   In other words, this feature does _not_ switch the BGP implementation
+   from MetalLB to GoBGP.
+
 When set to ``true`` the ``BGP Control Plane`` ``Controllers`` will be
 instantiated and will begin listening for ``CiliumBGPPeeringPolicy``
 events.
@@ -63,6 +77,13 @@ The policy in ``yaml`` form is defined below:
       neighbors: # []CiliumBGPNeighbor
        - peerAddress: 'fc00:f853:ccd:e793::50/128'
          peerASN: 64512
+         eBGPMultihopTTL: 10
+         connectRetryTimeSeconds: 120
+         holdTimeSeconds: 90
+         keepAliveTimeSeconds: 30
+         gracefulRestart:
+           enabled: true
+           restartTimeSeconds: 120
 
 Fields
 ^^^^^^
@@ -81,13 +102,20 @@ Fields
 
        virtualRouters[*].neighbors: A list of neighbors to peer with
            neighbors[*].peerAddress: The address of the peer neighbor
+           neighbors[*].peerPort: Optional TCP port number of the neighbor. 1-65535 are valid values and defaults to 179 when unspecified.
            neighbors[*].peerASN: The ASN of the peer
+           neighbors[*].eBGPMultihopTTL: Time To Live (TTL) value used in BGP packets. The value 1 implies that eBGP multi-hop feature is disabled.
+           neighbors[*].connectRetryTimeSeconds: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8). Defaults to 120 seconds.
+           neighbors[*].holdTimeSeconds: Initial value for the BGP HoldTimer (RFC 4271, Section 4.2). Defaults to 90 seconds.
+           neighbors[*].keepAliveTimeSeconds: Initial value for the BGP KeepaliveTimer (RFC 4271, Section 8). Defaults to 30 seconds.
+           neighbors[*].gracefulRestart.enabled: The flag to enable graceful restart capability.
+           neighbors[*].gracefulRestart.restartTimeSeconds: The restart time advertised to the peer (RFC 4724 section 4.2).
 
 .. note::
 
    Setting unique configuration details of a particular
    instantiated virtual router on a particular Cilium node is explained
-   in `Virtual Router Attributes <#Virtual%20Router%20Attributes>`__
+   in `Virtual Router Attributes`_
 
 Creating a BGP Topology
 -----------------------
@@ -126,8 +154,7 @@ apply to a node.
       generate a unique 32 bit BGP router ID, as it defines no unique
       IPv4 addresses for the node. The administrator must define these
       IDs manually or an error applying the policy will occur.
-   -  This is explained further in `Virtual Router
-      Attributes <#Virtual%20Router%20Attributes>`__
+   -  This is explained further in `Virtual Router Attributes`_
 
 Defining Topology
 ~~~~~~~~~~~~~~~~~
@@ -241,6 +268,21 @@ If this is desired the following annotation can be provided
 
    cilium.io/bgp-virtual-router.{asn}="local-port=45450"
 
+Neighbors
+^^^^^^^^^
+
+Each ``CiliumBGPVirtualRouter`` can contain multiple ``CiliumBGPNeighbor`` sections,
+each specifying configuration for a neighboring BGP peer of the Virtual Router.
+Each neighbor is uniquely identified by the address and the ASN of the peer, and can
+contain additional configuration specific for the given BGP peering, such as BGP timer
+values, graceful restart configuration and others.
+
+.. warning::
+
+   Change of an existing neighbor configuration can cause reset of the existing BGP
+   peering connection, which results in route flaps and transient packet loss while
+   the session reestablishes and peers exchange their routes.
+
 Service announcements
 ---------------------
 
@@ -273,6 +315,70 @@ io.kubernetes.service.namespace ``.meta.namespace``
 io.kubernetes.service.name      ``.meta.name``
 =============================== ===================
 
+Semantics of the externalTrafficPolicy: Local
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When the service has ``externalTrafficPolicy: Local``, ``BGP Control Plane`` keeps track
+of the endpoints for the service on the local node and stops advertisement when there's
+no local endpoint.
+
+CLI
+---
+
+There are two CLIs available to view cilium BGP peering state. One CLI is present
+inside Cilium Agent. The second CLI is the cluster-wide `Cilium CLI <https://github.com/cilium/cilium-cli>`_.
+
+.. warning::
+
+   The Cilium CLI is experimental. Consider carefully before using it in production environments!
+
+Cilium Agent CLI
+~~~~~~~~~~~~~~~~
+
+The following command shows peering status:
+
+.. code-block:: shell-session
+
+   cilium# cilium bgp peers -h
+   List state of all peers defined in CiliumBGPPeeringPolicy
+
+   Usage:
+     cilium bgp peers [flags]
+
+   Flags:
+     -h, --help            help for peers
+     -o, --output string   json| yaml| jsonpath='{}'
+
+   Global Flags:
+         --config string   Config file (default is $HOME/.cilium.yaml)
+     -D, --debug           Enable debug messages
+     -H, --host string     URI to server-side API
+
+
+Cilium-CLI
+~~~~~~~~~~
+
+Cilium CLI displays the BGP peering status of all nodes.
+
+.. code-block:: shell-session
+
+   # cilium-cli bgp peers -h
+   Gets BGP peering status from all nodes in the cluster
+
+   Usage:
+     cilium bgp peers [flags]
+
+   Flags:
+         --agent-pod-selector string   Label on cilium-agent pods to select with (default "k8s-app=cilium")
+     -h, --help                        help for peers
+         --node string                 Node from which BGP status will be fetched, omit to select all nodes
+     -o, --output string               Output format. One of: json, summary (default "summary")
+         --wait-duration duration      Maximum time to wait for result, default 1 minute (default 1m0s)
+
+   Global Flags:
+         --context string     Kubernetes configuration context
+     -n, --namespace string   Namespace Cilium is running in (default "kube-system")
+
 Architecture
 ------------
 
@@ -289,37 +395,43 @@ a BGP control plane.
 Agent-Side Architecture
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Controller
-^^^^^^^^^^
+At a high level, the ``Agent-Side Control Plane`` is divided into the following
+sub-modules:
 
-The ``Agent-Side Control Plane`` implements a controller located in
-``pkg/bgpv1/agent/controller.go``.
+- Agent
+- Manager
+- Router
 
-The controller listens for ``CiliumBGPPeeringPolicy``, determines if a
-policy applies to its current host and if it does, captures some
-information about Cilium's current state then calls down to the
-implemented ``BGPRouterManager``.
 
-BGPRouterManager
-^^^^^^^^^^^^^^^^
+Agent
+^^^^^
 
-The ``BGPRouterManager`` is an interface used to define a declarative
-API between the ``Controller`` and instantiated BGP routers.
+The ``Agent`` implements a controller located in ``pkg/bgpv1/agent/controller.go``.
+
+The controller listens for ``CiliumBGPPeeringPolicy`` changes and 
+determines if the policy applies to its current host. 
+It will then capture some information about Cilium's current state 
+and pass down the desired state to ``Manager``.
+
+Manager
+^^^^^^^
+
+The ``Manager`` implements the interface ``BGPRouterManager``, which
+defines a declarative API between the ``Controller`` and instances of 
+BGP routers.
 
 The interface defines a single declarative method whose argument is the
 desired ``CiliumBGPPeeringPolicy`` (among a few others).
 
-The ``BGPRouterManager`` is in charge of pushing the
-``BGP Control Plane`` to the desired ``CiliumBGPPeeringPolicy`` or
-returning an error if it is not possible.
+The ``Manager`` is in charge of pushing the ``BGP Control Plane``
+to the desired ``CiliumBGPPeeringPolicy`` or returning an error if it 
+is not possible.
 
-GoBGP Implementation
-''''''''''''''''''''
+Implementation Details
+''''''''''''''''''''''
 
-The first implementation of ``BGPRouterManager`` utilizes the ``gobgp``
-package. You can find this implementation in ``pkg/bgpv1/gobgp``.
-
-This implementation will:
+``Manager`` implementation will take desired ``CiliumBGPPeeringPolicy``
+and translate into imperative router API calls :
 
 -  evaluate the desired ``CiliumBGPPeeringPolicy``
 -  create/remove the desired BGP routers
@@ -327,31 +439,39 @@ This implementation will:
 -  enable/disable any BGP server specific features
 -  inform the caller if the policy cannot be applied
 
-The GoBGP implementation is capable of evaluating each ``CiliumBGPVirtualRouter`` in isolation. This
-means when applying a ``CiliumBGPPeeringPolicy`` the GoBGP ``BGPRouterManager`` will attempt to
-create each ``CiliumBGPVirtualRouter``. If a particular ``CiliumBGPVirtualRouter`` fails to
-instantiate the error is logged and the ``BGPRouterManager`` will continue to the next
-``CiliumBGPVirtualRouter``, utilizing the aforementioned logic.
+The ``Manager`` evaluates each ``CiliumBGPVirtualRouter`` in isolation.
+While applying a ``CiliumBGPPeeringPolicy``, it will attempt to create each 
+``CiliumBGPVirtualRouter``.
 
-GoBGP BGPRouterManager Architecture
-***********************************
+If a particular ``CiliumBGPVirtualRouter`` fails to instantiate, the error 
+message is logged, and the ``Manager`` will continue to the next
+``CiliumBGPVirtualRouter``.
 
-It's worth expanding on how the ``gobgp`` implementation of the
-``BGPRouterManager`` works internally. This ``BGPRouterManager`` views each
-``CiliumBGPVirtualRouter`` as a BGP router instance. Each ``CiliumBGPVirtualRouter`` defines a local
-ASN, a router ID and a list of ``CiliumBGPNeighbors`` to peer with. This is enough for the
-``BGPRouterManager`` to create a ``BgpServer`` instance, which is the nomenclature defining a BGP
-speaker in ``gobgp``-package-parlance. This ``BGPRouterManager`` groups ``BgpServer`` instances by
-their local ASNs. This leads to the following rule: A ``CiliumBGPPeeringPolicy`` applying to node
-``A`` must not have two or more ``CiliumBGPVirtualRouters`` with the same ``localASN`` fields.
+It is worth expanding on how the ``Manager`` works internally.
+``Manager`` views each ``CiliumBGPVirtualRouter`` as a BGP router instance.
+Each ``CiliumBGPVirtualRouter`` is defined by a local ASN, a router ID and a 
+list of ``CiliumBGPNeighbors`` with whom it will establish peering.
 
-The ``gobgp`` ``BGPRouterManager`` employs a set of ``ConfigReconcilerFunc``\ (s) which perform the
-order-dependent reconciliation actions for each ``BgpServer`` it must reconcile. A
-``ConfigReconcilerFunc`` is simply a function with a typed signature.
+This is enough for the ``Manager`` to create a ``Router`` instance. 
+``Manager`` groups ``Router`` instances by their local ASNs. 
 
-.. code-block:: go
+.. note::
 
-   type ConfigReconcilerFunc func(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error
+   A ``CiliumBGPPeeringPolicy`` applying to a node must not have two or more
+   ``CiliumBGPVirtualRouters`` with the same ``localASN`` fields.
 
-See the source code at ``pkg/bgpv1/gobgp/reconcile.go`` for a more in
-depth explanation of how each ``ConfigReconcilerFunc`` is called.
+The ``Manager`` employs a set of ``Reconcilers`` which perform an
+order-dependent reconciliation action for each ``Router``.
+
+
+See the source code at ``pkg/bgpv1/manager/reconcile.go`` for a more in
+depth explanation on how each ``Reconcilers`` works.
+
+Router
+^^^^^^
+
+``BGP Control Plane`` utilizes ``GoBGP`` as the underlying routing agent.
+
+GoBGP client-side implementation is located in ``pkg/bgpv1/gobgp``.
+Implementation API adheres to the ``Router`` interface defined in ``pkg/bgpv1/types/bgp.go``.
+

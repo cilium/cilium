@@ -18,8 +18,6 @@ package metrics
 
 import (
 	"context"
-	"net/url"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	clientmetrics "k8s.io/client-go/tools/metrics"
@@ -29,44 +27,16 @@ import (
 // that client-go registers metrics.  We copy the names and formats
 // from Kubernetes so that we match the core controllers.
 
-// Metrics subsystem and all of the keys used by the rest client.
-const (
-	RestClientSubsystem = "rest_client"
-	LatencyKey          = "request_latency_seconds"
-	ResultKey           = "requests_total"
-)
-
 var (
 	// client metrics.
 
-	// RequestLatency reports the request latency in seconds per verb/URL.
-	// Deprecated: This metric is deprecated for removal in a future release: using the URL as a
-	// dimension results in cardinality explosion for some consumers. It was deprecated upstream
-	// in k8s v1.14 and hidden in v1.17 via https://github.com/kubernetes/kubernetes/pull/83836.
-	// It is not registered by default. To register:
-	//	import (
-	//		clientmetrics "k8s.io/client-go/tools/metrics"
-	//		clmetrics "sigs.k8s.io/controller-runtime/metrics"
-	//	)
-	//
-	//	func init() {
-	//		clmetrics.Registry.MustRegister(clmetrics.RequestLatency)
-	//		clientmetrics.Register(clientmetrics.RegisterOpts{
-	//			RequestLatency: clmetrics.LatencyAdapter
-	//		})
-	//	}
-	RequestLatency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Subsystem: RestClientSubsystem,
-		Name:      LatencyKey,
-		Help:      "Request latency in seconds. Broken down by verb and URL.",
-		Buckets:   prometheus.ExponentialBuckets(0.001, 2, 10),
-	}, []string{"verb", "url"})
-
-	requestResult = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Subsystem: RestClientSubsystem,
-		Name:      ResultKey,
-		Help:      "Number of HTTP requests, partitioned by status code, method, and host.",
-	}, []string{"code", "method", "host"})
+	requestResult = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "rest_client_requests_total",
+			Help: "Number of HTTP requests, partitioned by status code, method, and host.",
+		},
+		[]string{"code", "method", "host"},
+	)
 )
 
 func init() {
@@ -91,16 +61,6 @@ func registerClientMetrics() {
 // Client metrics adapters (method #1 for client-go metrics),
 // copied (more-or-less directly) from k8s.io/kubernetes setup code
 // (which isn't anywhere in an easily-importable place).
-
-// LatencyAdapter implements LatencyMetric.
-type LatencyAdapter struct {
-	metric *prometheus.HistogramVec
-}
-
-// Observe increments the request latency metric for the given verb/URL.
-func (l *LatencyAdapter) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
-	l.metric.WithLabelValues(verb, u.String()).Observe(latency.Seconds())
-}
 
 type resultAdapter struct {
 	metric *prometheus.CounterVec

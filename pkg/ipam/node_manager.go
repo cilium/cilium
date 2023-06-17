@@ -281,24 +281,11 @@ func (n *NodeManager) GetNames() (allNodeNames []string) {
 	return
 }
 
-func (n *NodeManager) Create(resource *v2.CiliumNode) bool {
-	return n.Update(resource)
-}
-
-// Update is called whenever a CiliumNode resource has been updated in the
-// Kubernetes apiserver
-//
-// This is only used for testing.
-func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
-	nodeSynced = true
+// Upsert is called whenever a CiliumNode resource has been updated in the
+// Kubernetes apiserver. The CiliumNode will be created if it didn't exist before.
+func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 	n.mutex.Lock()
 	node, ok := n.nodes[resource.Name]
-	defer func() {
-		n.mutex.Unlock()
-		if nodeSynced {
-			nodeSynced = node.UpdatedResource(resource)
-		}
-	}()
 	if !ok {
 		node = &Node{
 			name:                resource.Name,
@@ -342,7 +329,8 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 		})
 		if err != nil {
 			node.logger().WithError(err).Error("Unable to create pool-maintainer trigger")
-			return false
+			n.mutex.Unlock()
+			return
 		}
 
 		retry, err := trigger.NewTrigger(trigger.Parameters{
@@ -352,7 +340,8 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 		})
 		if err != nil {
 			node.logger().WithError(err).Error("Unable to create pool-maintainer-retry trigger")
-			return false
+			n.mutex.Unlock()
+			return
 		}
 		node.retry = retry
 
@@ -367,7 +356,8 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 		if err != nil {
 			poolMaintainer.Shutdown()
 			node.logger().WithError(err).Error("Unable to create k8s-sync trigger")
-			return false
+			n.mutex.Unlock()
+			return
 		}
 
 		node.poolMaintainer = poolMaintainer
@@ -375,8 +365,8 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 		n.nodes[node.name] = node
 		log.WithField(fieldName, resource.Name).Info("Discovered new CiliumNode custom resource")
 	}
-
-	return
+	n.mutex.Unlock()
+	node.UpdatedResource(resource)
 }
 
 // Delete is called after a CiliumNode resource has been deleted via the

@@ -40,6 +40,17 @@ func httpRouteAcceptedCondition(hr *gatewayv1beta1.HTTPRoute, accepted bool, msg
 	}
 }
 
+func httpRouteResolvedRefsOkayCondition(hr *gatewayv1beta1.HTTPRoute, msg string) metav1.Condition {
+	return metav1.Condition{
+		Type:               string(gatewayv1beta1.RouteConditionResolvedRefs),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(gatewayv1beta1.RouteReasonResolvedRefs),
+		Message:            msg,
+		ObservedGeneration: hr.GetGeneration(),
+		LastTransitionTime: metav1.NewTime(time.Now()),
+	}
+}
+
 func httpBackendNotFoundRouteCondition(hr *gatewayv1beta1.HTTPRoute, msg string) metav1.Condition {
 	return metav1.Condition{
 		Type:               string(gatewayv1beta1.RouteConditionResolvedRefs),
@@ -51,7 +62,7 @@ func httpBackendNotFoundRouteCondition(hr *gatewayv1beta1.HTTPRoute, msg string)
 	}
 }
 
-func httpNoMatchingListenerPortCondition(hr *gatewayv1beta1.HTTPRoute, msg string) metav1.Condition {
+func httpNoMatchingParentCondition(hr *gatewayv1beta1.HTTPRoute, msg string) metav1.Condition {
 	return metav1.Condition{
 		Type:               string(gatewayv1beta1.RouteConditionAccepted),
 		Status:             metav1.ConditionFalse,

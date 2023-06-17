@@ -12,15 +12,12 @@ import (
 )
 
 // Starts a task that restores an AMI from an Amazon S3 object that was previously
-// created by using CreateStoreImageTask
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateStoreImageTask.html).
-// To use this API, you must have the required permissions. For more information,
-// see Permissions for storing and restoring AMIs using Amazon S3
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html#ami-s3-permissions)
-// in the Amazon Elastic Compute Cloud User Guide. For more information, see Store
-// and restore an AMI using Amazon S3
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// created by using CreateStoreImageTask (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateStoreImageTask.html)
+// . To use this API, you must have the required permissions. For more information,
+// see Permissions for storing and restoring AMIs using Amazon S3 (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html#ami-s3-permissions)
+// in the Amazon EC2 User Guide. For more information, see Store and restore an
+// AMI using Amazon S3 (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-store-restore.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) CreateRestoreImageTask(ctx context.Context, params *CreateRestoreImageTaskInput, optFns ...func(*Options)) (*CreateRestoreImageTaskOutput, error) {
 	if params == nil {
 		params = &CreateRestoreImageTaskInput{}
@@ -50,8 +47,8 @@ type CreateRestoreImageTaskInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The name for the restored AMI. The name must be unique for AMIs in the Region
@@ -61,12 +58,9 @@ type CreateRestoreImageTaskInput struct {
 
 	// The tags to apply to the AMI and snapshots on restoration. You can tag the AMI,
 	// the snapshots, or both.
-	//
-	// * To tag the AMI, the value for ResourceType must be
-	// image.
-	//
-	// * To tag the snapshots, the value for ResourceType must be snapshot. The
-	// same tag is applied to all of the snapshots that are created.
+	//   - To tag the AMI, the value for ResourceType must be image .
+	//   - To tag the snapshots, the value for ResourceType must be snapshot . The same
+	//   tag is applied to all of the snapshots that are created.
 	TagSpecifications []types.TagSpecification
 
 	noSmithyDocumentSerde
@@ -132,6 +126,9 @@ func (c *Client) addOperationCreateRestoreImageTaskMiddlewares(stack *middleware
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateRestoreImageTask(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

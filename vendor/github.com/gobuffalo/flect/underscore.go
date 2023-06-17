@@ -6,17 +6,17 @@ import (
 )
 
 // Underscore a string
-//	bob dylan = bob_dylan
-//	Nice to see you! = nice_to_see_you
-//	widgetID = widget_id
+//	bob dylan --> bob_dylan
+//	Nice to see you! --> nice_to_see_you
+//	widgetID --> widget_id
 func Underscore(s string) string {
 	return New(s).Underscore().String()
 }
 
 // Underscore a string
-//	bob dylan = bob_dylan
-//	Nice to see you! = nice_to_see_you
-//	widgetID = widget_id
+//	bob dylan --> bob_dylan
+//	Nice to see you! --> nice_to_see_you
+//	widgetID --> widget_id
 func (i Ident) Underscore() Ident {
 	out := make([]string, 0, len(i.Parts))
 	for _, part := range i.Parts {

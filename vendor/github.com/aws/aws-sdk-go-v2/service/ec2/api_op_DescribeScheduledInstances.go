@@ -33,22 +33,14 @@ type DescribeScheduledInstancesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The filters.
-	//
-	// * availability-zone - The Availability Zone (for example,
-	// us-west-2a).
-	//
-	// * instance-type - The instance type (for example, c4.large).
-	//
-	// *
-	// network-platform - The network platform (EC2-Classic or EC2-VPC).
-	//
-	// * platform -
-	// The platform (Linux/UNIX or Windows).
+	//   - availability-zone - The Availability Zone (for example, us-west-2a ).
+	//   - instance-type - The instance type (for example, c4.large ).
+	//   - platform - The platform ( Linux/UNIX or Windows ).
 	Filters []types.Filter
 
 	// The maximum number of results to return in a single call. This value can be
@@ -130,6 +122,9 @@ func (c *Client) addOperationDescribeScheduledInstancesMiddlewares(stack *middle
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeScheduledInstances(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

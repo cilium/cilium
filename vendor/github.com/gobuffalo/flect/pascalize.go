@@ -1,7 +1,7 @@
 package flect
 
 import (
-	"unicode"
+	"strings"
 )
 
 // Pascalize returns a string with each segment capitalized
@@ -21,5 +21,12 @@ func (i Ident) Pascalize() Ident {
 	if len(c.String()) == 0 {
 		return c
 	}
-	return New(string(unicode.ToUpper(rune(c.Original[0]))) + c.Original[1:])
+	if len(i.Parts) == 0 {
+		return i
+	}
+	capLen := 1
+	if _, ok := baseAcronyms[strings.ToUpper(i.Parts[0])]; ok {
+		capLen = len(i.Parts[0])
+	}
+	return New(string(strings.ToUpper(c.Original[0:capLen])) + c.Original[capLen:])
 }

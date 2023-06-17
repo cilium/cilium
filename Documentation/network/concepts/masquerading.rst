@@ -18,9 +18,6 @@ the network.
 .. image:: masquerade.png
     :align: center
 
-For IPv6 addresses masquerading is performed only when using iptables
-implementation mode.
-
 This behavior can be disabled with the option ``enable-ipv4-masquerade: false``
 for IPv4 and ``enable-ipv6-masquerade: false`` for IPv6 traffic leaving the host.
 
@@ -68,7 +65,7 @@ to determine which devices the program is running on:
 From the output above, the program is running on the ``eth0`` and ``eth1`` devices.
 
 
-The eBPF-based masquerading can masquerade packets of the following IPv4 L4 protocols:
+The eBPF-based masquerading can masquerade packets of the following L4 protocols:
 
 - TCP
 - UDP
@@ -82,8 +79,9 @@ The eBPF-based masquerading can masquerade packets of the following IPv4 L4 prot
 
 By default, all packets from a pod destined to an IP address outside of the
 ``ipv4-native-routing-cidr`` range are masqueraded, except for packets destined
-to other cluster nodes. The exclusion CIDR is shown in the above output of
-``cilium status`` (``10.0.0.0/16``).
+to other cluster nodes (as with ``ipv6-native-routing-cidr`` for IPv6). The
+preceding output shows the exclusion CIDR of ``cilium status``
+(``10.0.0.0/16``).
 
 .. note::
 
@@ -96,8 +94,8 @@ To allow more fine-grained control, Cilium implements `ip-masq-agent
 <https://github.com/kubernetes-sigs/ip-masq-agent>`_ in eBPF which can be
 enabled with the ``ipMasqAgent.enabled=true`` helm option.
 
-The eBPF-based ip-masq-agent supports the ``nonMasqueradeCIDRs`` and
-``masqLinkLocal`` options set in a configuration file. A packet sent from a pod to
+The eBPF-based ip-masq-agent supports the ``nonMasqueradeCIDRs``, ``masqLinkLocal``, and
+``masqLinkLocalIPv6`` options set in a configuration file. A packet sent from a pod to
 a destination which belongs to any CIDR from the ``nonMasqueradeCIDRs`` is not
 going to be masqueraded. If the configuration file is empty, the agent will provision
 the following non-masquerade CIDRs:
@@ -115,7 +113,9 @@ the following non-masquerade CIDRs:
 - ``240.0.0.0/4``
 
 In addition, if the ``masqLinkLocal`` is not set or set to false, then
-``169.254.0.0/16`` is appended to the non-masquerade CIDRs list.
+``169.254.0.0/16`` is appended to the non-masquerade CIDRs list. For IPv6, if
+``masqLinkLocalIPv6`` is not set or set to false, ``fe80::/10`` is appended.
+
 
 The agent uses Fsnotify to track updates to the configuration file, so the original
 ``resyncInterval`` option is unnecessary.
@@ -137,12 +137,13 @@ The example below shows how to configure the agent via :term:`ConfigMap` and to 
     192.168.0.0/16
 
 Alternatively, you can pass ``--set ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}'``
-and ``--set ipMasqAgent.config.masqLinkLocal=false`` when installing Cilium via Helm to
+and ``--set ipMasqAgent.config.masqLinkLocal=false`` (or with the corresponding
+option, for IPv6) when installing Cilium via Helm to
 configure the ``ip-masq-agent`` as above.
 
 .. note::
 
-    eBPF based masquerading is currently not supported for IPv6 traffic.
+    eBPF-based masquerading for IPv6 is not compatible with the host firewall.
 
 iptables-based
 **************

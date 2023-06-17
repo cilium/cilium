@@ -4,7 +4,7 @@
 package api
 
 import (
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 // TestRulesDeepEqual tests that individual rules (via Rule.DeepEqual()) and

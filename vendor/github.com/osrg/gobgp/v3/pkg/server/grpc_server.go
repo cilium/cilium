@@ -697,6 +697,7 @@ func newNeighborFromAPIStruct(a *api.Peer) (*config.Neighbor, error) {
 			pconf.Timers.Config.HoldTime = float64(a.Timers.Config.HoldTime)
 			pconf.Timers.Config.KeepaliveInterval = float64(a.Timers.Config.KeepaliveInterval)
 			pconf.Timers.Config.MinimumAdvertisementInterval = float64(a.Timers.Config.MinimumAdvertisementInterval)
+			pconf.Timers.Config.IdleHoldTimeAfterReset = float64(a.Timers.Config.IdleHoldTimeAfterReset)
 		}
 		if a.Timers.State != nil {
 			pconf.Timers.State.KeepaliveInterval = float64(a.Timers.State.KeepaliveInterval)
@@ -806,6 +807,7 @@ func newPeerGroupFromAPIStruct(a *api.PeerGroup) (*config.PeerGroup, error) {
 			pconf.Timers.Config.HoldTime = float64(a.Timers.Config.HoldTime)
 			pconf.Timers.Config.KeepaliveInterval = float64(a.Timers.Config.KeepaliveInterval)
 			pconf.Timers.Config.MinimumAdvertisementInterval = float64(a.Timers.Config.MinimumAdvertisementInterval)
+			pconf.Timers.Config.IdleHoldTimeAfterReset = float64(a.Timers.Config.IdleHoldTimeAfterReset)
 		}
 		if a.Timers.State != nil {
 			pconf.Timers.State.KeepaliveInterval = float64(a.Timers.State.KeepaliveInterval)

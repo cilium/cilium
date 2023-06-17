@@ -11,6 +11,9 @@ import (
 	"math/big"
 	"math/bits"
 	"net"
+	"net/netip"
+
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -184,6 +187,18 @@ func (s *CidrSet) InRange(cidr *net.IPNet) bool {
 	return s.clusterCIDR.Contains(cidr.IP.Mask(s.clusterCIDR.Mask)) || cidr.Contains(s.clusterCIDR.IP.Mask(cidr.Mask))
 }
 
+// IsClusterCIDR returns true if the given CIDR is equal to this CidrSet's cluster CIDR.
+func (s *CidrSet) IsClusterCIDR(cidr netip.Prefix) bool {
+	clusterPrefix, _ := netipx.FromStdIPNet(s.clusterCIDR)
+	return cidr == clusterPrefix
+}
+
+// Prefix returns the CidrSet's prefix.
+func (s *CidrSet) Prefix() netip.Prefix {
+	prefix, _ := netipx.FromStdIPNet(s.clusterCIDR)
+	return prefix
+}
+
 func (s *CidrSet) getBeginningAndEndIndices(cidr *net.IPNet) (begin, end int, err error) {
 	if cidr == nil {
 		return -1, -1, fmt.Errorf("error getting indices for cluster cidr %v, cidr is nil", s.clusterCIDR)
@@ -203,10 +218,7 @@ func (s *CidrSet) getBeginningAndEndIndices(cidr *net.IPNet) (begin, end int, er
 		if cidr.IP.To4() == nil {
 			ipSize = net.IPv6len
 		}
-		begin, err = s.getIndexForCIDR(&net.IPNet{
-			IP:   cidr.IP.Mask(s.nodeMask),
-			Mask: s.nodeMask,
-		})
+		begin, err = s.getIndexForIP(cidr.IP.Mask(s.nodeMask))
 		if err != nil {
 			return -1, -1, err
 		}
@@ -222,10 +234,7 @@ func (s *CidrSet) getBeginningAndEndIndices(cidr *net.IPNet) (begin, end int, er
 			binary.BigEndian.PutUint64(ip[:net.IPv6len/2], ipIntLeft)
 			binary.BigEndian.PutUint64(ip[net.IPv6len/2:], ipIntRight)
 		}
-		end, err = s.getIndexForCIDR(&net.IPNet{
-			IP:   net.IP(ip).Mask(s.nodeMask),
-			Mask: s.nodeMask,
-		})
+		end, err = s.getIndexForIP(net.IP(ip).Mask(s.nodeMask))
 		if err != nil {
 			return -1, -1, err
 		}
@@ -287,10 +296,6 @@ func (s *CidrSet) Occupy(cidr *net.IPNet) (err error) {
 	}
 
 	return nil
-}
-
-func (s *CidrSet) getIndexForCIDR(cidr *net.IPNet) (int, error) {
-	return s.getIndexForIP(cidr.IP)
 }
 
 func (s *CidrSet) getIndexForIP(ip net.IP) (int, error) {

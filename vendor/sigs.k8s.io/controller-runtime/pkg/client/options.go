@@ -154,6 +154,21 @@ func (f FieldOwner) ApplyToUpdate(opts *UpdateOptions) {
 	opts.FieldManager = string(f)
 }
 
+// ApplyToSubResourcePatch applies this configuration to the given patch options.
+func (f FieldOwner) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
+	opts.FieldManager = string(f)
+}
+
+// ApplyToSubResourceCreate applies this configuration to the given create options.
+func (f FieldOwner) ApplyToSubResourceCreate(opts *SubResourceCreateOptions) {
+	opts.FieldManager = string(f)
+}
+
+// ApplyToSubResourceUpdate applies this configuration to the given update options.
+func (f FieldOwner) ApplyToSubResourceUpdate(opts *SubResourceUpdateOptions) {
+	opts.FieldManager = string(f)
+}
+
 // }}}
 
 // {{{ Create Options
@@ -591,6 +606,11 @@ func (n InNamespace) ApplyToDeleteAllOf(opts *DeleteAllOfOptions) {
 	n.ApplyToList(&opts.ListOptions)
 }
 
+// AsSelector returns a selector that matches objects in the given namespace.
+func (n InNamespace) AsSelector() fields.Selector {
+	return fields.SelectorFromSet(fields.Set{"metadata.namespace": string(n)})
+}
+
 // Limit specifies the maximum number of results to return from the server.
 // Limit does not implement DeleteAllOfOption interface because the server
 // does not support setting it for deletecollection operations.
@@ -769,6 +789,11 @@ var ForceOwnership = forceOwnership{}
 type forceOwnership struct{}
 
 func (forceOwnership) ApplyToPatch(opts *PatchOptions) {
+	definitelyTrue := true
+	opts.Force = &definitelyTrue
+}
+
+func (forceOwnership) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
 	definitelyTrue := true
 	opts.Force = &definitelyTrue
 }

@@ -20,7 +20,9 @@ limitations under the License.
 package apiutil
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"sync"
 
@@ -30,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -59,9 +62,13 @@ func AddToProtobufScheme(addToScheme func(*runtime.Scheme) error) error {
 
 // NewDiscoveryRESTMapper constructs a new RESTMapper based on discovery
 // information fetched by a new client with the given config.
-func NewDiscoveryRESTMapper(c *rest.Config) (meta.RESTMapper, error) {
+func NewDiscoveryRESTMapper(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
+	if httpClient == nil {
+		return nil, fmt.Errorf("httpClient must not be nil, consider using rest.HTTPClientFor(c) to create a client")
+	}
+
 	// Get a mapper
-	dc, err := discovery.NewDiscoveryClientForConfig(c)
+	dc, err := discovery.NewDiscoveryClientForConfigAndClient(c, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +77,36 @@ func NewDiscoveryRESTMapper(c *rest.Config) (meta.RESTMapper, error) {
 		return nil, err
 	}
 	return restmapper.NewDiscoveryRESTMapper(gr), nil
+}
+
+// IsObjectNamespaced returns true if the object is namespace scoped.
+// For unstructured objects the gvk is found from the object itself.
+func IsObjectNamespaced(obj runtime.Object, scheme *runtime.Scheme, restmapper meta.RESTMapper) (bool, error) {
+	gvk, err := GVKForObject(obj, scheme)
+	if err != nil {
+		return false, err
+	}
+
+	return IsGVKNamespaced(gvk, restmapper)
+}
+
+// IsGVKNamespaced returns true if the object having the provided
+// GVK is namespace scoped.
+func IsGVKNamespaced(gvk schema.GroupVersionKind, restmapper meta.RESTMapper) (bool, error) {
+	restmapping, err := restmapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind})
+	if err != nil {
+		return false, fmt.Errorf("failed to get restmapping: %w", err)
+	}
+
+	scope := restmapping.Scope.Name()
+	if scope == "" {
+		return false, errors.New("scope cannot be identified, empty scope returned")
+	}
+
+	if scope != meta.RESTScopeNameRoot {
+		return true, nil
+	}
+	return false, nil
 }
 
 // GVKForObject finds the GroupVersionKind associated with the given object, if there is only a single such GVK.
@@ -95,6 +132,7 @@ func GVKForObject(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupVersi
 		return gvk, nil
 	}
 
+	// Use the given scheme to retrieve all the GVKs for the object.
 	gvks, isUnversioned, err := scheme.ObjectKinds(obj)
 	if err != nil {
 		return schema.GroupVersionKind{}, err
@@ -103,36 +141,49 @@ func GVKForObject(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupVersi
 		return schema.GroupVersionKind{}, fmt.Errorf("cannot create group-version-kind for unversioned type %T", obj)
 	}
 
-	if len(gvks) < 1 {
-		return schema.GroupVersionKind{}, fmt.Errorf("no group-version-kinds associated with type %T", obj)
-	}
-	if len(gvks) > 1 {
-		// this should only trigger for things like metav1.XYZ --
-		// normal versioned types should be fine
+	switch {
+	case len(gvks) < 1:
+		// If the object has no GVK, the object might not have been registered with the scheme.
+		// or it's not a valid object.
+		return schema.GroupVersionKind{}, fmt.Errorf("no GroupVersionKind associated with Go type %T, was the type registered with the Scheme?", obj)
+	case len(gvks) > 1:
+		err := fmt.Errorf("multiple GroupVersionKinds associated with Go type %T within the Scheme, this can happen when a type is registered for multiple GVKs at the same time", obj)
+
+		// We've found multiple GVKs for the object.
+		currentGVK := obj.GetObjectKind().GroupVersionKind()
+		if !currentGVK.Empty() {
+			// If the base object has a GVK, check if it's in the list of GVKs before using it.
+			for _, gvk := range gvks {
+				if gvk == currentGVK {
+					return gvk, nil
+				}
+			}
+
+			return schema.GroupVersionKind{}, fmt.Errorf(
+				"%w: the object's supplied GroupVersionKind %q was not found in the Scheme's list; refusing to guess at one: %q", err, currentGVK, gvks)
+		}
+
+		// This should only trigger for things like metav1.XYZ --
+		// normal versioned types should be fine.
+		//
+		// See https://github.com/kubernetes-sigs/controller-runtime/issues/362
+		// for more information.
 		return schema.GroupVersionKind{}, fmt.Errorf(
-			"multiple group-version-kinds associated with type %T, refusing to guess at one", obj)
+			"%w: callers can either fix their type registration to only register it once, or specify the GroupVersionKind to use for object passed in; refusing to guess at one: %q", err, gvks)
+	default:
+		// In any other case, we've found a single GVK for the object.
+		return gvks[0], nil
 	}
-	return gvks[0], nil
 }
 
 // RESTClientForGVK constructs a new rest.Interface capable of accessing the resource associated
 // with the given GroupVersionKind. The REST client will be configured to use the negotiated serializer from
 // baseConfig, if set, otherwise a default serializer will be set.
-func RESTClientForGVK(gvk schema.GroupVersionKind, isUnstructured bool, baseConfig *rest.Config, codecs serializer.CodecFactory) (rest.Interface, error) {
-	return rest.RESTClientFor(createRestConfig(gvk, isUnstructured, baseConfig, codecs))
-}
-
-// serializerWithDecodedGVK is a CodecFactory that overrides the DecoderToVersion of a WithoutConversionCodecFactory
-// in order to avoid clearing the GVK from the decoded object.
-//
-// See https://github.com/kubernetes/kubernetes/issues/80609.
-type serializerWithDecodedGVK struct {
-	serializer.WithoutConversionCodecFactory
-}
-
-// DecoderToVersion returns an decoder that does not do conversion.
-func (f serializerWithDecodedGVK) DecoderToVersion(serializer runtime.Decoder, _ runtime.GroupVersioner) runtime.Decoder {
-	return serializer
+func RESTClientForGVK(gvk schema.GroupVersionKind, isUnstructured bool, baseConfig *rest.Config, codecs serializer.CodecFactory, httpClient *http.Client) (rest.Interface, error) {
+	if httpClient == nil {
+		return nil, fmt.Errorf("httpClient must not be nil, consider using rest.HTTPClientFor(c) to create a client")
+	}
+	return rest.RESTClientForConfigAndClient(createRestConfig(gvk, isUnstructured, baseConfig, codecs), httpClient)
 }
 
 // createRestConfig copies the base config and updates needed fields for a new rest config.
@@ -159,9 +210,8 @@ func createRestConfig(gvk schema.GroupVersionKind, isUnstructured bool, baseConf
 	}
 
 	if isUnstructured {
-		// If the object is unstructured, we need to preserve the GVK information.
-		// Use our own custom serializer.
-		cfg.NegotiatedSerializer = serializerWithDecodedGVK{serializer.WithoutConversionCodecFactory{CodecFactory: codecs}}
+		// If the object is unstructured, we use the client-go dynamic serializer.
+		cfg = dynamic.ConfigFor(cfg)
 	} else {
 		cfg.NegotiatedSerializer = serializerWithTargetZeroingDecode{NegotiatedSerializer: serializer.WithoutConversionCodecFactory{CodecFactory: codecs}}
 	}

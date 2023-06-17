@@ -158,11 +158,11 @@ func TestPodCIDRPool(t *testing.T) {
 			Expect(usedIPs).To(Equal(1))
 			Expect(availableIPs).To(Equal(tc.capacity - 1))
 			Expect(numPodCIDRs).To(Equal(1))
-			Expect(p.release(tc.inRangeIP)).To(Succeed())
+			p.release(tc.inRangeIP)
 
 			// Test allocating an out-of-range IP.
 			Expect(p.allocate(tc.outOfRangeIP)).ShouldNot(Succeed())
-			Expect(p.release(tc.outOfRangeIP)).To(Succeed())
+			p.release(tc.outOfRangeIP)
 
 			// Test allocation of all IPs.
 			ips := allocateNextN(p, tc.capacity, nil)
@@ -180,7 +180,7 @@ func TestPodCIDRPool(t *testing.T) {
 
 			// Test release of all IPs.
 			for i, ip := range ips {
-				Expect(p.release(ip)).To(Succeed())
+				p.release(ip)
 				Expect(p.hasAvailableIPs()).To(BeTrue())
 				expectedStatus := types.PodCIDRStatusInUse
 				if i+1 < defaults.IPAMPodCIDRAllocationThreshold {
@@ -250,7 +250,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ip).ToNot(BeNil())
 			Expect(podCIDR1.Contains(ip)).To(BeTrue())
-			Expect(p.release(ip)).To(Succeed())
+			p.release(ip)
 
 			// Test fully allocating the first pod CIDR.
 			ips1 := allocateNextN(p, tc.capacity1, podCIDR1)
@@ -284,8 +284,8 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Test that IP addresses are allocated from the first pod CIDR by
 			// preference.
-			Expect(p.release(ips1[0])).To(Succeed())
-			Expect(p.release(ips2[0])).To(Succeed())
+			p.release(ips1[0])
+			p.release(ips2[0])
 			ip, err = p.allocateNext()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ip).To(Equal(ips1[0]))
@@ -306,7 +306,7 @@ func TestPodCIDRPoolTwoPools(t *testing.T) {
 
 			// Test fully releasing the first pod CIDR.
 			for i, ip := range ips1 {
-				Expect(p.release(ip)).To(Succeed())
+				p.release(ip)
 
 				ipToOwner, usedIPs, availableIPs, numPodCIDRs, err := p.dump()
 				Expect(err).ToNot(HaveOccurred())
@@ -477,7 +477,7 @@ func TestPodCIDRPoolRemoveInUseWithRelease(t *testing.T) {
 	}))
 
 	// Remove an IP from the second pod CIDR.
-	Expect(p.release(ip2s[0])).To(Succeed())
+	p.release(ip2s[0])
 
 	// Test that new IPs are not allocated from the second pod CIDR.
 	ip, err := p.allocateNext()
@@ -856,6 +856,6 @@ func mustParseCIDR(s string) *net.IPNet {
 // releaseAll releases ips from the pool. It expects that all releases succeed.
 func releaseAll(p *podCIDRPool, ips []net.IP) {
 	for _, ip := range ips {
-		Expect(p.release(ip)).To(Succeed())
+		p.release(ip)
 	}
 }

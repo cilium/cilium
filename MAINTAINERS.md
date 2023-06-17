@@ -18,6 +18,7 @@ Everybody listed is a committer as per governance definition.
  * [Daniel Borkmann] (Isovalent)
  * [Dan Wendlandt] (Isovalent)
  * [Deepesh Pathak]
+ * [Dylan Reimerink] (Isovalent)
  * [Eloy Coto] (Red Hat)
  * [Gilberto Bertin] (Isovalent)
  * [Glib Smaga] (Isovalent)
@@ -38,6 +39,7 @@ Everybody listed is a committer as per governance definition.
  * [Michi Mutsuzaki] (Isovalent)
  * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
+ * [Nick Young] (Isovalent)
  * [Nicolas Busseneau] (Isovalent)
  * [Nirmoy Das] (AMD)
  * [Paul Chaignon] (Isovalent)
@@ -78,6 +80,7 @@ project.
 [Daniel Borkmann]: https://github.com/borkmann
 [Dan Wendlandt]: https://github.com/danwent
 [Deepesh Pathak]: https://github.com/fristonio
+[Dylan Reimerink]: https://github.com/dylandreimerink
 [Eloy Coto]: https://github.com/eloycoto
 [Gilberto Bertin]: https://github.com/jibi
 [Glib Smaga]: https://github.com/glibsm
@@ -99,6 +102,7 @@ project.
 [Michi Mutsuzaki]: https://github.com/michi-covalent
 [Natália Réka Ivánkó]: https://github.com/sharlns
 [Nathan Sweet]: https://github.com/nathanjsweet
+[Nick Young]: https://github.com/youngnick
 [Nicolas Busseneau]: https://github.com/nbusseneau
 [Nirmoy Das]: https://github.com/nirmoy
 [Paul Chaignon]: https://github.com/pchaigno

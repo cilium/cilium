@@ -4,6 +4,8 @@
 package types
 
 import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"github.com/cilium/cilium/api/v1/models"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -49,3 +51,18 @@ func (in *CiliumEndpoint) DeepEqual(other *CiliumEndpoint) bool {
 
 // +deepequal-gen=true
 type IPSlice []string
+
+// UnserializableObject is a skeleton embeddable k8s object that implements
+// GetObjectKind() of runtime.Object. Useful with Resource[T]'s
+// WithTransform option when deriving from real objects.
+// The struct into which this is embedded will also need to implement
+// DeepCopyObject. This can be generated including the deepcopy-gen comment
+// below in the parent object and running "make generate-k8s-api".
+//
+// +k8s:deepcopy-gen=false
+type UnserializableObject struct{}
+
+func (UnserializableObject) GetObjectKind() schema.ObjectKind {
+	// Not serializable, so return the empty kind.
+	return schema.EmptyObjectKind
+}

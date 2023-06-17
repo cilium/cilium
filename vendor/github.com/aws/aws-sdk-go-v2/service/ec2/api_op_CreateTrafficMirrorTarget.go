@@ -12,14 +12,14 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a target for your Traffic Mirror session. A Traffic Mirror target is the
-// destination for mirrored traffic. The Traffic Mirror source and the Traffic
+// Creates a target for your Traffic Mirror session. A Traffic Mirror target is
+// the destination for mirrored traffic. The Traffic Mirror source and the Traffic
 // Mirror target (monitoring appliances) can be in the same VPC, or in different
 // VPCs connected via VPC peering or a transit gateway. A Traffic Mirror target can
 // be a network interface, a Network Load Balancer, or a Gateway Load Balancer
 // endpoint. To use the target in a Traffic Mirror session, use
-// CreateTrafficMirrorSession
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorSession.htm).
+// CreateTrafficMirrorSession (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorSession.htm)
+// .
 func (c *Client) CreateTrafficMirrorTarget(ctx context.Context, params *CreateTrafficMirrorTargetInput, optFns ...func(*Options)) (*CreateTrafficMirrorTargetOutput, error) {
 	if params == nil {
 		params = &CreateTrafficMirrorTargetInput{}
@@ -38,8 +38,8 @@ func (c *Client) CreateTrafficMirrorTarget(ctx context.Context, params *CreateTr
 type CreateTrafficMirrorTargetInput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// The description of the Traffic Mirror target.
@@ -47,8 +47,8 @@ type CreateTrafficMirrorTargetInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The ID of the Gateway Load Balancer endpoint.
@@ -70,8 +70,8 @@ type CreateTrafficMirrorTargetInput struct {
 type CreateTrafficMirrorTargetOutput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// Information about the Traffic Mirror target.
@@ -132,6 +132,9 @@ func (c *Client) addOperationCreateTrafficMirrorTargetMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateTrafficMirrorTarget(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

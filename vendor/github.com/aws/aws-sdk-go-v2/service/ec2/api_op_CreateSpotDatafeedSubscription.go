@@ -11,11 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a data feed for Spot Instances, enabling you to view Spot Instance usage
-// logs. You can create one data feed per Amazon Web Services account. For more
-// information, see Spot Instance data feed
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html) in
-// the Amazon EC2 User Guide for Linux Instances.
+// Creates a data feed for Spot Instances, enabling you to view Spot Instance
+// usage logs. You can create one data feed per Amazon Web Services account. For
+// more information, see Spot Instance data feed (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html)
+// in the Amazon EC2 User Guide for Linux Instances.
 func (c *Client) CreateSpotDatafeedSubscription(ctx context.Context, params *CreateSpotDatafeedSubscriptionInput, optFns ...func(*Options)) (*CreateSpotDatafeedSubscriptionOutput, error) {
 	if params == nil {
 		params = &CreateSpotDatafeedSubscriptionInput{}
@@ -35,8 +34,7 @@ func (c *Client) CreateSpotDatafeedSubscription(ctx context.Context, params *Cre
 type CreateSpotDatafeedSubscriptionInput struct {
 
 	// The name of the Amazon S3 bucket in which to store the Spot Instance data feed.
-	// For more information about bucket names, see Rules for bucket naming
-	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html#bucketnamingrules)
+	// For more information about bucket names, see Rules for bucket naming (https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html#bucketnamingrules)
 	// in the Amazon S3 Developer Guide.
 	//
 	// This member is required.
@@ -44,8 +42,8 @@ type CreateSpotDatafeedSubscriptionInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The prefix for the data feed file names.
@@ -115,6 +113,9 @@ func (c *Client) addOperationCreateSpotDatafeedSubscriptionMiddlewares(stack *mi
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateSpotDatafeedSubscription(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

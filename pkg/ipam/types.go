@@ -19,6 +19,9 @@ type AllocationResult struct {
 	// IP is the allocated IP
 	IP net.IP
 
+	// IPPoolName is the IPAM pool from which the above IP was allocated from
+	IPPoolName Pool
+
 	// CIDRs is a list of all CIDRs to which the IP has direct access to.
 	// This is primarily useful if the IP has been allocated out of a VPC
 	// subnet range and the VPC provides routing to a set of CIDRs in which
@@ -82,6 +85,10 @@ type IPAM struct {
 
 	IPv6Allocator Allocator
 	IPv4Allocator Allocator
+
+	// metadata provides information about a particular IP owner.
+	// May be nil.
+	metadata Metadata
 
 	// owner maps an IP to the owner per pool.
 	owner map[Pool]map[string]string

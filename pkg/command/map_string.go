@@ -32,10 +32,17 @@ func GetStringMapString(vp *viper.Viper, key string) map[string]string {
 
 // GetStringMapStringE is same as GetStringMapString, but with error
 func GetStringMapStringE(vp *viper.Viper, key string) (map[string]string, error) {
-	data := vp.Get(key)
+	return ToStringMapStringE(vp.Get(key))
+}
+
+// ToStringMapStringE casts an interface to a map[string]string type. The underlying
+// interface type might be a map or string. In the latter case, it is attempted to be
+// json decoded, falling back to the k1=v2,k2=v2 format in case it doesn't look like json.
+func ToStringMapStringE(data interface{}) (map[string]string, error) {
 	if data == nil {
 		return map[string]string{}, nil
 	}
+
 	v, err := cast.ToStringMapStringE(data)
 	if err != nil {
 		var syntaxErr *json.SyntaxError

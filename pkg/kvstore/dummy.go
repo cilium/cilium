@@ -7,12 +7,12 @@ import "context"
 
 // SetupDummy sets up kvstore for tests
 func SetupDummy(dummyBackend string) {
-	setupDummyWithConfigOpts(dummyBackend, nil)
+	SetupDummyWithConfigOpts(dummyBackend, nil)
 }
 
-// setupDummyWithConfigOpts sets up the dummy kvstore for tests but also
+// SetupDummyWithConfigOpts sets up the dummy kvstore for tests but also
 // configures the module with the provided opts.
-func setupDummyWithConfigOpts(dummyBackend string, opts map[string]string) {
+func SetupDummyWithConfigOpts(dummyBackend string, opts map[string]string) {
 	module := getBackend(dummyBackend)
 	if module == nil {
 		log.Panicf("Unknown dummy kvstore backend %s", dummyBackend)

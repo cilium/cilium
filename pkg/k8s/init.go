@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -30,7 +28,7 @@ const (
 )
 
 type k8sGetter interface {
-	GetK8sNode(ctx context.Context, nodeName string) (*corev1.Node, error)
+	GetK8sNode(ctx context.Context, nodeName string) (*slim_corev1.Node, error)
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
 }
 
@@ -94,17 +92,9 @@ func retrieveNodeInformation(ctx context.Context, nodeGetter k8sGetter, nodeName
 
 		}
 
-		nodeInterface := ConvertToNode(k8sNode)
-		if nodeInterface == nil {
-			// This will never happen and the GetNode on line 63 will be soon
-			// make a request from the local store instead.
-			return nil, fmt.Errorf("invalid k8s node: %s", k8sNode)
-		}
-		typesNode := nodeInterface.(*slim_corev1.Node)
-
 		// The source is left unspecified as this node resource should never be
 		// used to update state
-		n = ParseNode(typesNode, source.Unspec)
+		n = ParseNode(k8sNode, source.Unspec)
 		log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes node")
 	}
 
@@ -151,7 +141,6 @@ func WaitForNodeInformation(ctx context.Context, k8sGetter k8sGetter) error {
 	if n := waitForNodeInformation(ctx, k8sGetter, nodeName); n != nil {
 		nodeIP4 := n.GetNodeIP(false)
 		nodeIP6 := n.GetNodeIP(true)
-
 		k8sNodeIP := n.GetK8sNodeIP()
 
 		log.WithFields(logrus.Fields{
@@ -165,35 +154,6 @@ func WaitForNodeInformation(ctx context.Context, k8sGetter k8sGetter) error {
 		}).Info("Received own node information from API server")
 
 		useNodeCIDR(n)
-
-		// Note: Node IPs are derived regardless of
-		// option.Config.EnableIPv4 and
-		// option.Config.EnableIPv6. This is done to enable
-		// underlay addressing to be different from overlay
-		// addressing, e.g. an IPv6 only PodCIDR running over
-		// IPv4 encapsulation.
-		if nodeIP4 != nil {
-			node.SetIPv4(nodeIP4)
-		}
-
-		if nodeIP6 != nil {
-			node.SetIPv6(nodeIP6)
-		}
-
-		node.SetLabels(n.Labels)
-
-		if option.Config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(n.Labels)) {
-			log.WithField(logfields.Selector, option.Config.NodeEncryptionOptOutLabels).
-				Infof("Opting out from node-to-node encryption on this node as per '%s' label selector",
-					option.NodeEncryptionOptOutLabels)
-			node.SetOptOutNodeEncryption(true)
-		}
-
-		node.SetK8sExternalIPv4(n.GetExternalIP(false))
-		// Avoid removing the IPv4 if there is no IPv6.
-		if extIP6 := n.GetExternalIP(true); extIP6 != nil {
-			node.SetK8sExternalIPv6(extIP6)
-		}
 
 		restoreRouterHostIPs(n)
 	} else {

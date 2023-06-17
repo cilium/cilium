@@ -86,6 +86,7 @@ get started and experiment with Cilium.
    network/istio
    network/vtep
    network/lb-ipam
+   network/l2-announcements
 
 .. toctree::
    :maxdepth: 2

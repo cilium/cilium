@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,26 +126,31 @@ func TestResource_WithFakeClient(t *testing.T) {
 	}
 
 	// First event should be the node (initial set)
-	ev := <-events
-	assert.Equal(t, resource.Upsert, ev.Kind)
-	assert.Equal(t, ev.Key.Name, nodeName)
-	assert.Equal(t, ev.Object.GetName(), node.Name)
-	assert.Equal(t, ev.Object.Status.Phase, node.Status.Phase)
+	ev, ok := <-events
+	require.True(t, ok)
+	require.Equal(t, resource.Upsert, ev.Kind)
+	require.Equal(t, ev.Key.Name, nodeName)
+	require.Equal(t, ev.Object.GetName(), node.Name)
+	require.Equal(t, ev.Object.Status.Phase, node.Status.Phase)
 	ev.Done(nil)
 
 	// Second should be a sync.
 	//
 	// We work around the rare race condition in which we see the same
-	// upsert event twice due to it being inserted into store but our
+	// upsert event twice due to it being inserted into store while Resource's
 	// Add handler finishes after the initial listing has been processed (#23079).
 	// Proper fix is to make sure updates to store happen synchronously with queueing
-	// and subscribing.
-	ev = <-events
+	// and subscribing which requires locking around updates to the store (e.g. fork
+	// of informer in style of pkg/k8s/informer).
+	ev, ok = <-events
+	require.True(t, ok, "events channel closed unexpectedly")
 	if ev.Kind == resource.Upsert {
+		t.Logf("Ignored duplicate upsert event")
+		ev.Done(nil)
 		ev = <-events
 	}
-	assert.Equal(t, resource.Sync, ev.Kind)
-	assert.Nil(t, ev.Object)
+	require.Equal(t, resource.Sync, ev.Kind)
+	require.Nil(t, ev.Object)
 	ev.Done(nil)
 
 	// After sync event we can also use Store() without it blocking.
@@ -161,10 +167,11 @@ func TestResource_WithFakeClient(t *testing.T) {
 		corev1.SchemeGroupVersion.WithResource("nodes"),
 		node.DeepCopy(), "")
 
-	ev = <-events
-	assert.Equal(t, resource.Upsert, ev.Kind)
-	assert.Equal(t, ev.Key.Name, nodeName)
-	assert.Equal(t, ev.Object.Status.Phase, corev1.NodePhase("update1"))
+	ev, ok = <-events
+	require.True(t, ok, "events channel closed unexpectedly")
+	require.Equal(t, resource.Upsert, ev.Kind)
+	require.Equal(t, ev.Key.Name, nodeName)
+	require.Equal(t, ev.Object.Status.Phase, corev1.NodePhase("update1"))
 	ev.Done(nil)
 
 	// Test that multiple events for the same key are coalesced.
@@ -176,12 +183,14 @@ func TestResource_WithFakeClient(t *testing.T) {
 		ctx2, cancel2 := context.WithCancel(ctx)
 		events2 := nodes.Events(ctx2)
 
-		ev2 := <-events2
-		assert.Equal(t, resource.Upsert, ev2.Kind)
+		ev2, ok := <-events2
+		require.True(t, ok, "events channel closed unexpectedly")
+		require.Equal(t, resource.Upsert, ev2.Kind)
 		ev2.Done(nil)
 
-		ev2 = <-events2
-		assert.Equal(t, resource.Sync, ev2.Kind)
+		ev2, ok = <-events2
+		require.True(t, ok, "events channel closed unexpectedly")
+		require.Equal(t, resource.Sync, ev2.Kind)
 		ev2.Done(nil)
 
 		for i := 2; i <= 10; i++ {
@@ -191,9 +200,10 @@ func TestResource_WithFakeClient(t *testing.T) {
 			fakeClient.KubernetesFakeClientset.Tracker().Update(
 				corev1.SchemeGroupVersion.WithResource("nodes"),
 				node.DeepCopy(), "")
-			ev2 := <-events2
-			assert.Equal(t, resource.Upsert, ev2.Kind)
-			assert.Equal(t, version, ev2.Object.ResourceVersion)
+			ev2, ok := <-events2
+			require.True(t, ok, "events channel closed unexpectedly")
+			require.Equal(t, resource.Upsert, ev2.Kind)
+			require.Equal(t, version, ev2.Object.ResourceVersion)
 			ev2.Done(nil)
 		}
 		cancel2()
@@ -203,15 +213,17 @@ func TestResource_WithFakeClient(t *testing.T) {
 
 	// We should now see either just the last change, or one intermediate change
 	// and the last change.
-	ev = <-events
-	assert.Equal(t, resource.Upsert, ev.Kind)
-	assert.Equal(t, nodeName, ev.Key.Name)
+	ev, ok = <-events
+	require.True(t, ok, "events channel closed unexpectedly")
+	require.Equal(t, resource.Upsert, ev.Kind)
+	require.Equal(t, nodeName, ev.Key.Name)
 	ev.Done(nil)
 	if ev.Object.ResourceVersion != node.ObjectMeta.ResourceVersion {
-		ev = <-events
-		assert.Equal(t, resource.Upsert, ev.Kind)
-		assert.Equal(t, nodeName, ev.Key.Name)
-		assert.Equal(t, node.ObjectMeta.ResourceVersion, ev.Object.ResourceVersion)
+		ev, ok = <-events
+		require.True(t, ok, "events channel closed unexpectedly")
+		require.Equal(t, resource.Upsert, ev.Kind)
+		require.Equal(t, nodeName, ev.Key.Name)
+		require.Equal(t, node.ObjectMeta.ResourceVersion, ev.Object.ResourceVersion)
 		ev.Done(nil)
 	}
 
@@ -220,17 +232,18 @@ func TestResource_WithFakeClient(t *testing.T) {
 		corev1.SchemeGroupVersion.WithResource("nodes"),
 		"", "some-node")
 
-	ev = <-events
-	assert.Equal(t, resource.Delete, ev.Kind)
-	assert.Equal(t, nodeName, ev.Key.Name)
-	assert.Equal(t, node.ObjectMeta.ResourceVersion, ev.Object.ResourceVersion)
+	ev, ok = <-events
+	require.True(t, ok, "events channel closed unexpectedly")
+	require.Equal(t, resource.Delete, ev.Kind)
+	require.Equal(t, nodeName, ev.Key.Name)
+	require.Equal(t, node.ObjectMeta.ResourceVersion, ev.Object.ResourceVersion)
 	ev.Done(nil)
 
 	// Cancel the subscriber context and verify that the stream gets completed.
 	cancel()
 
 	// No more events should be observed.
-	ev, ok := <-events
+	ev, ok = <-events
 	if ok {
 		t.Fatalf("unexpected event still in stream: %v", ev)
 	}
@@ -285,6 +298,71 @@ func TestResource_CompletionOnStop(t *testing.T) {
 	if ok {
 		t.Fatalf("unexpected event still in channel: %v", ev)
 	}
+}
+
+func TestResource_WithTransform(t *testing.T) {
+	type StrippedNode = metav1.PartialObjectMetadata
+	var strippedNodes resource.Resource[*StrippedNode]
+	var fakeClient, cs = k8sClient.NewFakeClientset()
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "node",
+			ResourceVersion: "0",
+		},
+		Status: corev1.NodeStatus{
+			Phase: "init",
+		},
+	}
+
+	strip := func(obj *corev1.Node) (*StrippedNode, error) {
+		return &StrippedNode{TypeMeta: node.TypeMeta, ObjectMeta: node.ObjectMeta}, nil
+	}
+
+	hive := hive.New(
+		cell.Provide(
+			func() k8sClient.Clientset { return cs },
+			func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*StrippedNode] {
+				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
+				return resource.New[*StrippedNode](lc, lw, resource.WithTransform(strip))
+			}),
+
+		cell.Invoke(func(r resource.Resource[*StrippedNode]) {
+			strippedNodes = r
+		}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		node.DeepCopy(), "")
+
+	events := strippedNodes.Events(ctx)
+
+	event := <-events
+	assert.Equal(t, resource.Upsert, event.Kind)
+	event.Done(nil)
+
+	event = <-events
+	assert.Equal(t, resource.Sync, event.Kind)
+	event.Done(nil)
+
+	// Stop the hive to stop the resource.
+	if err := hive.Stop(ctx); err != nil {
+		t.Fatalf("hive.Stop failed: %s", err)
+	}
+
+	// No more events should be observed.
+	event, ok := <-events
+	if ok {
+		t.Fatalf("unexpected event still in channel: %v", event)
+	}
+
 }
 
 var RetryFiveTimes resource.ErrorHandler = func(key resource.Key, numRetries int, err error) resource.ErrorAction {
@@ -421,6 +499,64 @@ func TestResource_Retries(t *testing.T) {
 
 	err = hive.Stop(ctx)
 	assert.NoError(t, err)
+}
+
+func TestResource_Observe(t *testing.T) {
+	var (
+		nodeName = "some-node"
+		node     = &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            nodeName,
+				ResourceVersion: "0",
+			},
+			Status: corev1.NodeStatus{
+				Phase: "init",
+			},
+		}
+		fakeClient, cs = k8sClient.NewFakeClientset()
+		nodes          resource.Resource[*corev1.Node]
+	)
+
+	// Create the initial version of the node. Do this before anything
+	// starts watching the resources to avoid a race.
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		node.DeepCopy(), "")
+
+	hive := hive.New(
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		nodesResource,
+		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
+			nodes = r
+		}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	eventWg := sync.WaitGroup{}
+	completeWg := sync.WaitGroup{}
+
+	eventWg.Add(2)    // upsert & sync
+	completeWg.Add(1) // complete
+
+	nodes.Observe(ctx, func(e resource.Event[*corev1.Node]) {
+		e.Done(nil)
+		eventWg.Done()
+	}, func(err error) {
+		completeWg.Done()
+	})
+
+	eventWg.Wait()
+
+	// Stop the hive to stop the resource and trigger completion.
+	if err := hive.Stop(ctx); err != nil {
+		t.Fatalf("hive.Stop failed: %s", err)
+	}
+	completeWg.Wait()
 }
 
 //

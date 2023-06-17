@@ -10,6 +10,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// Get the Verified Access policy associated with the endpoint.
 func (c *Client) GetVerifiedAccessEndpointPolicy(ctx context.Context, params *GetVerifiedAccessEndpointPolicyInput, optFns ...func(*Options)) (*GetVerifiedAccessEndpointPolicyOutput, error) {
 	if params == nil {
 		params = &GetVerifiedAccessEndpointPolicyInput{}
@@ -27,17 +28,26 @@ func (c *Client) GetVerifiedAccessEndpointPolicy(ctx context.Context, params *Ge
 
 type GetVerifiedAccessEndpointPolicyInput struct {
 
+	// The ID of the Verified Access endpoint.
+	//
 	// This member is required.
 	VerifiedAccessEndpointId *string
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
 }
 
 type GetVerifiedAccessEndpointPolicyOutput struct {
+
+	// The Verified Access policy document.
 	PolicyDocument *string
 
+	// The status of the Verified Access policy.
 	PolicyEnabled *bool
 
 	// Metadata pertaining to the operation's result.
@@ -95,6 +105,9 @@ func (c *Client) addOperationGetVerifiedAccessEndpointPolicyMiddlewares(stack *m
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetVerifiedAccessEndpointPolicy(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

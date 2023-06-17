@@ -39,13 +39,7 @@ For Windows
 Preview Documentation Locally
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Navigate to the root of the folder where you cloned the project.
-
-.. code-block:: shell-session
-    
-    $ cd "${GOPATH}/src/github.com/cilium/cilium"
-
-Run the code below in your terminal:
+Navigate to the root of the folder where you cloned the project, then run the code below in your terminal:
 
 .. code-block:: shell-session
 

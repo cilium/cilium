@@ -15,19 +15,12 @@ import (
 // integration of VPC flow logs with Amazon Athena. This make it easier for you to
 // query and gain insights from VPC flow logs data. Based on the information that
 // you provide, we configure resources in the template to do the following:
-//
-// *
-// Create a table in Athena that maps fields to a custom log format
-//
-// * Create a
-// Lambda function that updates the table with new partitions on a daily, weekly,
-// or monthly basis
-//
-// * Create a table partitioned between two timestamps in the
-// past
-//
-// * Create a set of named queries in Athena that you can use to get started
-// quickly
+//   - Create a table in Athena that maps fields to a custom log format
+//   - Create a Lambda function that updates the table with new partitions on a
+//     daily, weekly, or monthly basis
+//   - Create a table partitioned between two timestamps in the past
+//   - Create a set of named queries in Athena that you can use to get started
+//     quickly
 func (c *Client) GetFlowLogsIntegrationTemplate(ctx context.Context, params *GetFlowLogsIntegrationTemplateInput, optFns ...func(*Options)) (*GetFlowLogsIntegrationTemplateOutput, error) {
 	if params == nil {
 		params = &GetFlowLogsIntegrationTemplateInput{}
@@ -63,8 +56,8 @@ type GetFlowLogsIntegrationTemplateInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -130,6 +123,9 @@ func (c *Client) addOperationGetFlowLogsIntegrationTemplateMiddlewares(stack *mi
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetFlowLogsIntegrationTemplate(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

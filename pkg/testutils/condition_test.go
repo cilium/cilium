@@ -4,14 +4,15 @@
 package testutils
 
 import (
+	"testing"
 	"time"
 
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/require"
 )
 
-func (s *TestUtilsSuite) TestCondition(c *C) {
-	c.Assert(WaitUntil(func() bool { return false }, 50*time.Millisecond), Not(IsNil))
-	c.Assert(WaitUntil(func() bool { return true }, 50*time.Millisecond), IsNil)
+func TestWaitUntil(t *testing.T) {
+	require.Error(t, WaitUntil(func() bool { return false }, 50*time.Millisecond))
+	require.NoError(t, WaitUntil(func() bool { return true }, 50*time.Millisecond))
 
 	counter := 0
 	countTo5 := func() bool {
@@ -22,8 +23,8 @@ func (s *TestUtilsSuite) TestCondition(c *C) {
 		return false
 	}
 
-	c.Assert(WaitUntil(countTo5, 1*time.Millisecond), Not(IsNil))
+	require.Error(t, WaitUntil(countTo5, 1*time.Millisecond))
 
 	counter = 0
-	c.Assert(WaitUntil(countTo5, time.Second), IsNil)
+	require.NoError(t, WaitUntil(countTo5, time.Second))
 }

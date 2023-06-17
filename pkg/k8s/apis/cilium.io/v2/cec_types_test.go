@@ -8,9 +8,9 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	. "github.com/cilium/checkmate"
 	_ "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
-	. "gopkg.in/check.v1"
 )
 
 var (
@@ -38,6 +38,8 @@ var (
               route:
                 cluster: "envoy-admin"
                 prefix_rewrite: "/stats/prometheus"
+        use_remote_address: true
+        skip_xff_append: true
         http_filters:
         - name: envoy.filters.http.router
 `)

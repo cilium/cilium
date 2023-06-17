@@ -17,16 +17,17 @@ limitations under the License.
 package handler
 
 import (
+	"context"
+
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 )
 
 // MapFunc is the signature required for enqueueing requests from a generic function.
 // This type is usually used with EnqueueRequestsFromMapFunc when registering an event handler.
-type MapFunc func(client.Object) []reconcile.Request
+type MapFunc func(context.Context, client.Object) []reconcile.Request
 
 // EnqueueRequestsFromMapFunc enqueues Requests by running a transformation function that outputs a collection
 // of reconcile.Requests on each Event.  The reconcile.Requests may be for an arbitrary set of objects
@@ -52,46 +53,36 @@ type enqueueRequestsFromMapFunc struct {
 }
 
 // Create implements EventHandler.
-func (e *enqueueRequestsFromMapFunc) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestsFromMapFunc) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]empty{}
-	e.mapAndEnqueue(q, evt.Object, reqs)
+	e.mapAndEnqueue(ctx, q, evt.Object, reqs)
 }
 
 // Update implements EventHandler.
-func (e *enqueueRequestsFromMapFunc) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestsFromMapFunc) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]empty{}
-	e.mapAndEnqueue(q, evt.ObjectOld, reqs)
-	e.mapAndEnqueue(q, evt.ObjectNew, reqs)
+	e.mapAndEnqueue(ctx, q, evt.ObjectOld, reqs)
+	e.mapAndEnqueue(ctx, q, evt.ObjectNew, reqs)
 }
 
 // Delete implements EventHandler.
-func (e *enqueueRequestsFromMapFunc) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestsFromMapFunc) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]empty{}
-	e.mapAndEnqueue(q, evt.Object, reqs)
+	e.mapAndEnqueue(ctx, q, evt.Object, reqs)
 }
 
 // Generic implements EventHandler.
-func (e *enqueueRequestsFromMapFunc) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestsFromMapFunc) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 	reqs := map[reconcile.Request]empty{}
-	e.mapAndEnqueue(q, evt.Object, reqs)
+	e.mapAndEnqueue(ctx, q, evt.Object, reqs)
 }
 
-func (e *enqueueRequestsFromMapFunc) mapAndEnqueue(q workqueue.RateLimitingInterface, object client.Object, reqs map[reconcile.Request]empty) {
-	for _, req := range e.toRequests(object) {
+func (e *enqueueRequestsFromMapFunc) mapAndEnqueue(ctx context.Context, q workqueue.RateLimitingInterface, object client.Object, reqs map[reconcile.Request]empty) {
+	for _, req := range e.toRequests(ctx, object) {
 		_, ok := reqs[req]
 		if !ok {
 			q.Add(req)
 			reqs[req] = empty{}
 		}
 	}
-}
-
-// EnqueueRequestsFromMapFunc can inject fields into the mapper.
-
-// InjectFunc implements inject.Injector.
-func (e *enqueueRequestsFromMapFunc) InjectFunc(f inject.Func) error {
-	if f == nil {
-		return nil
-	}
-	return f(e.toRequests)
 }

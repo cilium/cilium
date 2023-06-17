@@ -11,13 +11,12 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
-
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -30,10 +29,19 @@ import (
 // protocols. The name of the backend ports must match the names of the
 // frontend ports of the corresponding service.
 //
+// The Endpoints object is parsed from either an EndpointSlice (preferred) or Endpoint
+// Kubernetes objects depending on the Kubernetes version.
+//
 // +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
 type Endpoints struct {
+	types.UnserializableObject
+	slim_metav1.ObjectMeta
+
+	EndpointSliceID
+
 	// Backends is a map containing all backend IPs and ports. The key to
 	// the map is the backend IP in string form. The value defines the list
 	// of ports for that backend IP, plus an additional optional node name.
@@ -129,17 +137,21 @@ func (e *Endpoints) Prefixes() []netip.Prefix {
 	return prefixes
 }
 
-// ParseEndpointsID parses a Kubernetes endpoints and returns the ServiceID
-func ParseEndpointsID(svc *slim_corev1.Endpoints) ServiceID {
-	return ServiceID{
-		Name:      svc.ObjectMeta.Name,
-		Namespace: svc.ObjectMeta.Namespace,
+// ParseEndpointsID parses a Kubernetes endpoints and returns the EndpointSliceID
+func ParseEndpointsID(ep *slim_corev1.Endpoints) EndpointSliceID {
+	return EndpointSliceID{
+		ServiceID: ServiceID{
+			Name:      ep.ObjectMeta.Name,
+			Namespace: ep.ObjectMeta.Namespace,
+		},
+		EndpointSliceName: ep.ObjectMeta.Name,
 	}
 }
 
 // ParseEndpoints parses a Kubernetes Endpoints resource
-func ParseEndpoints(ep *slim_corev1.Endpoints) (ServiceID, *Endpoints) {
+func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
 	endpoints := newEndpoints()
+	endpoints.ObjectMeta = ep.ObjectMeta
 
 	for _, sub := range ep.Subsets {
 		for _, addr := range sub.Addresses {
@@ -165,7 +177,8 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) (ServiceID, *Endpoints) {
 		}
 	}
 
-	return ParseEndpointsID(ep), endpoints
+	endpoints.EndpointSliceID = ParseEndpointsID(ep)
+	return endpoints
 }
 
 type endpointSlice interface {
@@ -189,13 +202,15 @@ func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 // ParseEndpointSliceV1Beta1 parses a Kubernetes EndpointsSlice v1beta1 resource
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
-func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (EndpointSliceID, *Endpoints) {
+func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoints {
 	endpoints := newEndpoints()
+	endpoints.ObjectMeta = ep.ObjectMeta
+	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
 
 	// Validate AddressType before parsing. Currently, we only support IPv4 and IPv6.
 	if ep.AddressType != slim_discovery_v1beta1.AddressTypeIPv4 &&
 		ep.AddressType != slim_discovery_v1beta1.AddressTypeIPv6 {
-		return ParseEndpointSliceID(ep), endpoints
+		return endpoints
 	}
 
 	for _, sub := range ep.Endpoints {
@@ -250,8 +265,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (Endpoi
 			}
 		}
 	}
-
-	return ParseEndpointSliceID(ep), endpoints
+	return endpoints
 }
 
 // parseEndpointPortV1Beta1 returns the port name and the port parsed as a
@@ -284,13 +298,15 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string,
 // ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
-func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID, *Endpoints) {
+func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 	endpoints := newEndpoints()
+	endpoints.ObjectMeta = ep.ObjectMeta
+	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
 
 	// Validate AddressType before parsing. Currently, we only support IPv4 and IPv6.
 	if ep.AddressType != slim_discovery_v1.AddressTypeIPv4 &&
 		ep.AddressType != slim_discovery_v1.AddressTypeIPv6 {
-		return ParseEndpointSliceID(ep), endpoints
+		return endpoints
 	}
 
 	log.Debugf("Processing %d endpoints for EndpointSlice %s", len(ep.Endpoints), ep.Name)
@@ -372,7 +388,7 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 	}
 
 	log.Debugf("EndpointSlice %s has %d backends", ep.Name, len(endpoints.Backends))
-	return ParseEndpointSliceID(ep), endpoints
+	return endpoints
 }
 
 // parseEndpointPortV1 returns the port name and the port parsed as a L4Addr from
@@ -492,32 +508,4 @@ func SupportsEndpointSlice() bool {
 // watch and process endpoint slices V1.
 func SupportsEndpointSliceV1() bool {
 	return SupportsEndpointSlice() && version.Capabilities().EndpointSliceV1
-}
-
-// HasEndpointSlice returns true if the hasEndpointSlices is closed before the
-// controller has been synchronized with k8s.
-func HasEndpointSlice(hasEndpointSlices chan struct{}, controller cache.Controller) bool {
-	endpointSliceSynced := make(chan struct{})
-	go func() {
-		cache.WaitForCacheSync(wait.NeverStop, controller.HasSynced)
-		close(endpointSliceSynced)
-	}()
-
-	// Check if K8s has a single endpointslice endpoint. By default, k8s has
-	// always the kubernetes-apiserver endpoint. If the endpointSlice are synced
-	// but we haven't received any endpoint slice then it means k8s is not
-	// running with k8s endpoint slice enabled.
-	select {
-	case <-endpointSliceSynced:
-		select {
-		// In case both select cases are ready to be selected we will recheck if
-		// hasEndpointSlices was closed.
-		case <-hasEndpointSlices:
-			return true
-		default:
-		}
-	case <-hasEndpointSlices:
-		return true
-	}
-	return false
 }

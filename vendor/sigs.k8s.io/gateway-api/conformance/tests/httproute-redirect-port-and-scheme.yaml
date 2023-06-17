@@ -1,0 +1,166 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-route-for-listener-on-port-80
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-nil
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-80
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        port: 80
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-8080
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        port: 8080
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-https-and-port-nil
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: "https"
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-https-and-port-443
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: "https"
+        port: 443
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-https-and-port-8443
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: "https"
+        port: 8443
+        hostname: example.org
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-route-for-listener-on-port-8080
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace-with-http-listener-on-8080
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-nil
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-80
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        port: 80
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-https-and-port-nil
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: "https"
+        hostname: example.org
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-route-for-listener-on-port-443
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace-with-https-listener
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-nil
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-443
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        port: 443
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-8443
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        port: 8443
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-http-and-port-nil
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: "http"
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-http-and-port-80
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: "http"
+        port: 80
+        hostname: example.org
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-http-and-port-8080
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: "http"
+        port: 8080
+        hostname: example.org
+---

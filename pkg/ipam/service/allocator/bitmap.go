@@ -105,17 +105,16 @@ func (r *AllocationBitmap) AllocateNext() (int, bool, error) {
 // Release releases the item back to the pool. Releasing an
 // unallocated item or an item out of the range is a no-op and
 // returns no error.
-func (r *AllocationBitmap) Release(offset int) error {
+func (r *AllocationBitmap) Release(offset int) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
 	if r.allocated.Bit(offset) == 0 {
-		return nil
+		return
 	}
 
 	r.allocated = r.allocated.SetBit(r.allocated, offset, 0)
 	r.count--
-	return nil
 }
 
 const (

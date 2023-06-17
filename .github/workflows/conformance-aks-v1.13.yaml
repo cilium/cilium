@@ -71,7 +71,7 @@ env:
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
   k8s_version: 1.24
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.2
+  cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -93,7 +93,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -117,6 +117,7 @@ jobs:
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`.
   installation-and-connectivity:
+    name: "Installation and Connectivity Test"
     needs: check_changes
     if: |
       (github.event_name == 'issue_comment' && (
@@ -127,9 +128,11 @@ jobs:
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      job_name: "Installation and Connectivity Test"
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -197,7 +200,7 @@ jobs:
           target_url: ${{ env.check_url }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@207512ce9e729d9b3cc1a59e92af5c8d50ce37c4 # v0.14.2
+        uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
@@ -250,7 +253,7 @@ jobs:
 
       # Checkout source code to install Cilium using local Helm chart.
       - name: Checkout code
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -263,15 +266,24 @@ jobs:
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
 
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
       - name: Port forward Relay
         run: |
           cilium hubble port-forward&
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
       - name: Run connectivity test
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --junit-file "cilium-junits/${{ env.job_name }} - 1.xml" --junit-property github_job_step="Run connectivity test"
 
       - name: Clean up Cilium
         run: |
@@ -291,15 +303,20 @@ jobs:
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
 
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
       - name: Port forward Relay
         run: |
           cilium hubble port-forward&
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
-      - name: Run connectivity test
+      - name: Run connectivity test with IPSec
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
+          --junit-file "cilium-junits/${{ env.job_name }} - 2.xml" --junit-property github_job_step="Run connectivity test with IPSec"
 
       - name: Post-test information gathering
         if: ${{ !success() }}
@@ -322,6 +339,20 @@ jobs:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
           retention-days: 5
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+          retention-days: 2
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
 
       - name: Set commit status to success
         if: ${{ success() }}

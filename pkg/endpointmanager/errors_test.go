@@ -4,7 +4,7 @@
 package endpointmanager
 
 import (
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func (s *EndpointManagerSuite) TestErrInvalidPrefix_Error(c *C) {

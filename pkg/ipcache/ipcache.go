@@ -85,7 +85,7 @@ type Configuration struct {
 	cache.IdentityAllocator
 	ipcacheTypes.PolicyHandler
 	ipcacheTypes.DatapathHandler
-	ipcacheTypes.NodeHandler
+	ipcacheTypes.NodeIDHandler
 	k8s.CacheStatus
 }
 
@@ -117,8 +117,6 @@ type IPCache struct {
 	// Therefore, all updates must be made atomically, which is guaranteed by the
 	// interface.
 	namedPorts namedPortMultiMapUpdater
-
-	cacheStatus k8s.CacheStatus
 
 	// Configuration provides pointers towards other agent components that
 	// the IPCache relies upon at runtime.
@@ -217,12 +215,10 @@ func endpointIPToCIDR(ip net.IP) *net.IPNet {
 	}
 }
 
-// GetHostIP returns the host IP for the given IP address.
-func (ipc *IPCache) GetHostIP(ip string) net.IP {
+func (ipc *IPCache) GetHostIPCache(ip string) (net.IP, uint8) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
-	hostIP, _ := ipc.getHostIPCache(ip)
-	return hostIP
+	return ipc.getHostIPCache(ip)
 }
 
 func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {

@@ -8,9 +8,11 @@ import (
 	"net"
 	"net/netip"
 	"sync"
-	"unsafe"
+
+	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -34,14 +36,11 @@ var (
 func LXCMap() *bpf.Map {
 	lxcMapOnce.Do(func() {
 		lxcMap = bpf.NewMap(MapName,
-			bpf.MapTypeHash,
+			ebpf.Hash,
 			&EndpointKey{},
-			int(unsafe.Sizeof(EndpointKey{})),
 			&EndpointInfo{},
-			int(unsafe.Sizeof(EndpointInfo{})),
 			MaxEntries,
-			0, 0,
-			bpf.ConvertKeyValue,
+			0,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(MapName))
 	})
@@ -62,6 +61,7 @@ type EndpointFrontend interface {
 	GetID() uint64
 	IPv4Address() netip.Addr
 	IPv6Address() netip.Addr
+	GetIdentity() identity.NumericIdentity
 }
 
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
@@ -101,25 +101,18 @@ func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 		LxcID:   uint16(e.GetID()),
 		MAC:     mac,
 		NodeMAC: nodeMAC,
+		SecID:   e.GetIdentity().Uint32(),
 	}
 
 	return info, nil
 
 }
 
-type pad4uint32 [4]uint32
-
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *pad4uint32) DeepCopyInto(out *pad4uint32) {
-	copy(out[:], in[:])
-	return
-}
+type pad3uint32 [3]uint32
 
 // EndpointInfo represents the value of the endpoints BPF map.
 //
 // Must be in sync with struct endpoint_info in <bpf/lib/common.h>
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type EndpointInfo struct {
 	IfIndex uint32 `align:"ifindex"`
 	Unused  uint16 `align:"unused"`
@@ -129,21 +122,13 @@ type EndpointInfo struct {
 	_       uint32
 	MAC     mac.Uint64MAC `align:"mac"`
 	NodeMAC mac.Uint64MAC `align:"node_mac"`
-	Pad     pad4uint32    `align:"pad"`
+	SecID   uint32        `align:"sec_id"`
+	Pad     pad3uint32    `align:"pad"`
 }
 
-// GetValuePtr returns the unsafe pointer to the BPF value
-func (v *EndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type EndpointKey struct {
 	bpf.EndpointKey
 }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value
-func (k EndpointKey) NewValue() bpf.MapValue { return &EndpointInfo{} }
 
 // NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected
@@ -152,6 +137,8 @@ func NewEndpointKey(ip net.IP) *EndpointKey {
 		EndpointKey: bpf.NewEndpointKey(ip, 0),
 	}
 }
+
+func (k *EndpointKey) New() bpf.MapKey { return &EndpointKey{} }
 
 // IsHost returns true if the EndpointInfo represents a host IP
 func (v *EndpointInfo) IsHost() bool {
@@ -164,14 +151,17 @@ func (v *EndpointInfo) String() string {
 		return "(localhost)"
 	}
 
-	return fmt.Sprintf("id=%-5d flags=0x%04X ifindex=%-3d mac=%s nodemac=%s",
+	return fmt.Sprintf("id=%-5d sec_id=%-5d flags=0x%04X ifindex=%-3d mac=%s nodemac=%s",
 		v.LxcID,
+		v.SecID,
 		v.Flags,
 		v.IfIndex,
 		v.MAC,
 		v.NodeMAC,
 	)
 }
+
+func (v *EndpointInfo) New() bpf.MapValue { return &EndpointInfo{} }
 
 // WriteEndpoint updates the BPF map with the endpoint information and links
 // the endpoint information to all keys provided.
@@ -231,12 +221,12 @@ func DeleteElement(f EndpointFrontend) []error {
 }
 
 // DumpToMap dumps the contents of the lxcmap into a map and returns it
-func DumpToMap() (map[string]*EndpointInfo, error) {
-	m := map[string]*EndpointInfo{}
+func DumpToMap() (map[string]EndpointInfo, error) {
+	m := map[string]EndpointInfo{}
 	callback := func(key bpf.MapKey, value bpf.MapValue) {
-		if info, ok := value.DeepCopyMapValue().(*EndpointInfo); ok {
+		if info, ok := value.(*EndpointInfo); ok {
 			if endpointKey, ok := key.(*EndpointKey); ok {
-				m[endpointKey.ToIP().String()] = info
+				m[endpointKey.ToIP().String()] = *info
 			}
 		}
 	}

@@ -42,11 +42,11 @@ Listed below are the actively maintained release branches along with their lates
 patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-04-17 | ``quay.io/cilium/cilium:v1.13.2``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.2>`__  |
+| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-06-14 | ``quay.io/cilium/cilium:v1.13.4``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.4>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-04-18 | ``quay.io/cilium/cilium:v1.12.9``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.9>`__  |
+| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-06-14 | ``quay.io/cilium/cilium:v1.12.11`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.11>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-04-18 | ``quay.io/cilium/cilium:v1.11.16`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.16>`__ |
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-06-14 | ``quay.io/cilium/cilium:v1.11.18`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.18>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 
 Architectures
@@ -81,7 +81,7 @@ corresponding image pull tags and their release notes where applicable:
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
 | `main <https://github.com/cilium/cilium/commits/main>`__                             | daily      | ``quay.io/cilium/cilium-ci:latest``          | N/A                                                                                   |
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
-| `v1.14.0-snapshot.2 <https://github.com/cilium/cilium/commits/v1.14.0-snapshot.2>`__ | 2023-04-28 | ``quay.io/cilium/cilium:v1.14.0-snapshot.2`` | `Snapshot Notes <https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.2>`__ |
+| `v1.14.0-snapshot.4 <https://github.com/cilium/cilium/commits/v1.14.0-snapshot.4>`__ | 2023-06-16 | ``quay.io/cilium/cilium:v1.14.0-snapshot.4`` | `Snapshot Notes <https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.4>`__ |
 +--------------------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
 
 Functionality Overview
@@ -288,14 +288,14 @@ Special Interest Groups (SIG)
 See `Special Interest groups
 <https://docs.cilium.io/en/stable/community/community/#special-interest-groups>`_ for a list of all SIGs and their meeting times.
 
-Weekly Developer meeting
-------------------------
-* The developer community is hanging out on zoom on a weekly basis to chat.
-  Everybody is welcome.
+Developer meetings
+------------------
+The Cilium developer community hangs out on Zoom to chat. Everybody is welcome.
+
 * Weekly, Wednesday,
   5:00 pm `Europe/Zurich time <https://time.is/Canton_of_Zurich>`__ (CET/CEST),
-  usually equivalent to 8:00 am PT, or 11:00 am ET.
-* `Join zoom <https://zoom.us/j/596609673>`_
+  usually equivalent to 8:00 am PT, or 11:00 am ET. `Join zoom <https://zoom.us/j/596609673>`_
+* Third Wednesday of each month, 9:00 am `Japan time <https://time.is/Tokyo>`__ (JST). `Join zoom <https://zoom.us/j/596609673>`_
 
 eBPF & Cilium Office Hours livestream
 -------------------------------------

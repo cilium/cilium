@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func init() {
@@ -75,6 +76,10 @@ func LoadInflections(r io.Reader) error {
 	defer singularMoot.Unlock()
 
 	for s, p := range m {
+		if strings.Contains(s, " ") || strings.Contains(p, " ") {
+			// flect works with parts, so multi-words should not be allowed
+			return fmt.Errorf("inflection elements should be a single word")
+		}
 		singleToPlural[s] = p
 		pluralToSingle[p] = s
 	}

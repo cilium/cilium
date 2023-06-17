@@ -22,14 +22,14 @@ metadata:
 spec:
   gatewayClassName: "{GATEWAY_CLASS_NAME}"
   listeners:
-    - name: https
-      port: 443
-      protocol: TLS
-      hostname: "*.example.com"
-      allowedRoutes:
-        namespaces:
-          from: Same
-        kinds:
-        - kind: TLSRoute
-      tls:
-        mode: Passthrough
+  - name: https
+    port: 443
+    protocol: TLS
+    hostname: "*.example.com"
+    allowedRoutes:
+      namespaces:
+        from: Same
+      kinds:
+      - kind: TLSRoute
+    tls:
+      mode: Passthrough

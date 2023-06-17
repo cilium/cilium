@@ -13,9 +13,8 @@ import (
 // Replaces an existing route within a route table in a VPC. You must specify
 // either a destination CIDR block or a prefix list ID. You must also specify
 // exactly one of the resources from the parameter list, or reset the local route
-// to its default target. For more information, see Route tables
-// (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html) in the
-// Amazon Virtual Private Cloud User Guide.
+// to its default target. For more information, see Route tables (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html)
+// in the Amazon Virtual Private Cloud User Guide.
 func (c *Client) ReplaceRoute(ctx context.Context, params *ReplaceRouteInput, optFns ...func(*Options)) (*ReplaceRouteOutput, error) {
 	if params == nil {
 		params = &ReplaceRouteInput{}
@@ -57,8 +56,8 @@ type ReplaceRouteInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// [IPv6 traffic only] The ID of an egress-only internet gateway.
@@ -73,7 +72,7 @@ type ReplaceRouteInput struct {
 	// The ID of the local gateway.
 	LocalGatewayId *string
 
-	// Specifies whether to reset the local route to its default target (local).
+	// Specifies whether to reset the local route to its default target ( local ).
 	LocalTarget *bool
 
 	// [IPv4 traffic only] The ID of a NAT gateway.
@@ -150,6 +149,9 @@ func (c *Client) addOperationReplaceRouteMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opReplaceRoute(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

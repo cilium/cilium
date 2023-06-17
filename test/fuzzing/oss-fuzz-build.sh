@@ -1,4 +1,6 @@
-#/bin/bash -eu
+#!/usr/bin/env bash
+
+set -eu
 
 # The oss-fuzz-build.sh is meant to only be run inside the OSS-Fuzz build environment.
 # In that environment, the fuzzers are built with go build which does not include _test.go files

@@ -27,12 +27,20 @@ func (c *FakeCiliumV2alpha1) CiliumEndpointSlices() v2alpha1.CiliumEndpointSlice
 	return &FakeCiliumEndpointSlices{c}
 }
 
+func (c *FakeCiliumV2alpha1) CiliumL2AnnouncementPolicies() v2alpha1.CiliumL2AnnouncementPolicyInterface {
+	return &FakeCiliumL2AnnouncementPolicies{c}
+}
+
 func (c *FakeCiliumV2alpha1) CiliumLoadBalancerIPPools() v2alpha1.CiliumLoadBalancerIPPoolInterface {
 	return &FakeCiliumLoadBalancerIPPools{c}
 }
 
 func (c *FakeCiliumV2alpha1) CiliumNodeConfigs(namespace string) v2alpha1.CiliumNodeConfigInterface {
 	return &FakeCiliumNodeConfigs{c, namespace}
+}
+
+func (c *FakeCiliumV2alpha1) CiliumPodIPPools() v2alpha1.CiliumPodIPPoolInterface {
+	return &FakeCiliumPodIPPools{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

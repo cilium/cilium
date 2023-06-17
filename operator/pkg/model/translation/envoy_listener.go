@@ -256,24 +256,6 @@ func newTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) (*e
 	for k := range tlsMap {
 		tlsSdsConfig = append(tlsSdsConfig, &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
 			Name: k,
-			SdsConfig: &envoy_config_core_v3.ConfigSource{
-				ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_ApiConfigSource{
-					ApiConfigSource: &envoy_config_core_v3.ApiConfigSource{
-						ApiType:             envoy_config_core_v3.ApiConfigSource_GRPC,
-						TransportApiVersion: envoy_config_core_v3.ApiVersion_V3,
-						GrpcServices: []*envoy_config_core_v3.GrpcService{
-							{
-								TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-									EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
-										ClusterName: envoy.CiliumXDSClusterName,
-									},
-								},
-							},
-						},
-					},
-				},
-				ResourceApiVersion: envoy_config_core_v3.ApiVersion_V3,
-			},
 		})
 	}
 

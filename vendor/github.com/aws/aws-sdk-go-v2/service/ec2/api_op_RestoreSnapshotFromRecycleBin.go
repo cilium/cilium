@@ -13,8 +13,7 @@ import (
 )
 
 // Restores a snapshot from the Recycle Bin. For more information, see Restore
-// snapshots from the Recycle Bin
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/recycle-bin-working-with-snaps.html#recycle-bin-restore-snaps)
+// snapshots from the Recycle Bin (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/recycle-bin-working-with-snaps.html#recycle-bin-restore-snaps)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) RestoreSnapshotFromRecycleBin(ctx context.Context, params *RestoreSnapshotFromRecycleBinInput, optFns ...func(*Options)) (*RestoreSnapshotFromRecycleBinOutput, error) {
 	if params == nil {
@@ -40,8 +39,8 @@ type RestoreSnapshotFromRecycleBinInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -56,9 +55,8 @@ type RestoreSnapshotFromRecycleBinOutput struct {
 	Encrypted *bool
 
 	// The ARN of the Outpost on which the snapshot is stored. For more information,
-	// see Amazon EBS local snapshots on Outposts
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html) in
-	// the Amazon Elastic Compute Cloud User Guide.
+	// see Amazon EBS local snapshots on Outposts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshots-outposts.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
 	OutpostArn *string
 
 	// The ID of the Amazon Web Services account that owns the EBS snapshot.
@@ -137,6 +135,9 @@ func (c *Client) addOperationRestoreSnapshotFromRecycleBinMiddlewares(stack *mid
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opRestoreSnapshotFromRecycleBin(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

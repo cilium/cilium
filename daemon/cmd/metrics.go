@@ -12,7 +12,6 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -36,17 +35,6 @@ func (h *getMetrics) Handle(params restapi.GetMetricsParams) middleware.Responde
 	return restapi.NewGetMetricsOK().WithPayload(metrics)
 }
 
-func initMetrics() <-chan error {
-	var errs <-chan error
-
-	if option.Config.PrometheusServeAddr != "" {
-		log.Infof("Serving prometheus metrics on %s", option.Config.PrometheusServeAddr)
-		errs = metrics.Enable(option.Config.PrometheusServeAddr)
-	}
-
-	return errs
-}
-
 type bootstrapStatistics struct {
 	overall         spanstat.SpanStat
 	earlyInit       spanstat.SpanStat
@@ -63,7 +51,6 @@ type bootstrapStatistics struct {
 	daemonInit      spanstat.SpanStat
 	mapsInit        spanstat.SpanStat
 	workloadsInit   spanstat.SpanStat
-	proxyStart      spanstat.SpanStat
 	fqdn            spanstat.SpanStat
 	enableConntrack spanstat.SpanStat
 	kvstore         spanstat.SpanStat
@@ -71,7 +58,7 @@ type bootstrapStatistics struct {
 }
 
 func (b *bootstrapStatistics) updateMetrics() {
-	if !option.Config.MetricsConfig.BootstrapTimesEnabled {
+	if !metrics.BootstrapTimes.IsEnabled() {
 		return
 	}
 
@@ -102,7 +89,6 @@ func (b *bootstrapStatistics) getMap() map[string]*spanstat.SpanStat {
 		"daemonInit":      &b.daemonInit,
 		"mapsInit":        &b.mapsInit,
 		"workloadsInit":   &b.workloadsInit,
-		"proxyStart":      &b.proxyStart,
 		"fqdn":            &b.fqdn,
 		"enableConntrack": &b.enableConntrack,
 		"kvstore":         &b.kvstore,

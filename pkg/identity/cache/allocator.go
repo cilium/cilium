@@ -11,7 +11,6 @@ import (
 	"path"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
@@ -135,14 +134,13 @@ type IdentityAllocator interface {
 // invocation of this function will have an effect. The Caller must have
 // initialized well known identities before calling this (by calling
 // identity.InitWellKnownIdentities()).
-// client and identityStore are only used by the CRD identity allocator,
-// currently, and identityStore may be nil.
+// The client is only used by the CRD identity allocator currently.
 // Returns a channel which is closed when initialization of the allocator is
 // completed.
 // TODO: identity backends are initialized directly in this function, pulling
 // in dependencies on kvstore and k8s. It would be better to decouple this,
 // since the backends are an interface.
-func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interface, identityStore cache.Store) <-chan struct{} {
+func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interface) <-chan struct{} {
 	m.setupMutex.Lock()
 	defer m.setupMutex.Unlock()
 
@@ -189,10 +187,6 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 		case option.IdentityAllocationModeCRD:
 			log.Debug("Identity allocation backed by CRD")
-			if identityStore != nil {
-				// ListAndWatch overwrites the store.
-				log.Warnf("Ignoring provided identityStore")
-			}
 			backend, err = identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
 				Store:   nil,
 				Client:  client,
@@ -456,23 +450,31 @@ func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, identities 
 	return err
 }
 
-// WatchRemoteIdentities starts watching for identities in another kvstore and
-// syncs all identities to the local identity cache. remoteName must be unique,
-// unless replacing the kvstore for an existing remote.
-func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations) (*allocator.RemoteCache, error) {
+// WatchRemoteIdentities returns a RemoteCache instance which can be later
+// started to watch identities in another kvstore and sync them to the local
+// identity cache. remoteName should be unique unless replacing an existing
+// remote's backend. When cachedPrefix is set, identities are assumed to be
+// stored under the "cilium/cache" prefix, and the watcher is adapted accordingly.
+func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations, cachedPrefix bool) (*allocator.RemoteCache, error) {
 	<-m.globalIdentityAllocatorInitialized
 
-	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(m.identitiesPath, m.owner.GetNodeSuffix(), &key.GlobalIdentity{}, backend)
+	prefix := m.identitiesPath
+	if cachedPrefix {
+		prefix = path.Join(kvstore.StateToCachePrefix(prefix), remoteName)
+	}
+
+	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(prefix, m.owner.GetNodeSuffix(), &key.GlobalIdentity{}, backend)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up remote allocator backend: %s", err)
 	}
 
-	remoteAlloc, err := allocator.NewAllocator(&key.GlobalIdentity{}, remoteAllocatorBackend, allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC())
+	remoteAlloc, err := allocator.NewAllocator(&key.GlobalIdentity{}, remoteAllocatorBackend,
+		allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC(), allocator.WithoutAutostart())
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize remote Identity Allocator: %s", err)
 	}
 
-	return m.IdentityAllocator.WatchRemoteKVStore(remoteName, remoteAlloc), nil
+	return m.IdentityAllocator.NewRemoteCache(remoteName, remoteAlloc), nil
 }
 
 func (m *CachingIdentityAllocator) RemoveRemoteIdentities(name string) {

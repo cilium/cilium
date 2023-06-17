@@ -61,7 +61,7 @@ CiliumNetworkPolicy
 ===================
 
 The `CiliumNetworkPolicy` is very similar to the standard `NetworkPolicy`. The
-purpose is provide the functionality which is not yet supported in
+purpose is to provide the functionality which is not yet supported in
 `NetworkPolicy`. Ideally all of the functionality will be merged into the
 standard resource format and this CRD will no longer be required.
 
@@ -93,16 +93,16 @@ Metadata
 
     * Name of the policy, unique within a namespace
     * Namespace of where the policy has been injected into
-    * Set of labels to identify resource in Kubernetes
+    * Set of labels to identify a resource in Kubernetes
 
 Spec
-  Field which contains a :ref:`policy_rule`
+  Field which contains a :ref:`policy_rule`.
 Specs
   Field which contains a list of :ref:`policy_rule`. This field is useful if
   multiple rules must be removed or added automatically.
 
 Status
-  Provides visibility into whether the policy has been successfully applied
+  Provides visibility into whether the policy has been successfully applied.
 
 Examples
 ========
@@ -117,12 +117,12 @@ CiliumClusterwideNetworkPolicy
 ==============================
 
 `CiliumClusterwideNetworkPolicy` is similar to `CiliumNetworkPolicy`, except
-(1) policies defined by `CiliumClusterwideNetworkPolicy` are non-namespaced and
+(1) policies defined by `CiliumClusterwideNetworkPolicy` are non-namespaced and are
 cluster-scoped, and (2) it enables the use of :ref:`NodeSelector`. Internally
 the policy is identical to `CiliumNetworkPolicy` and thus the effects of this
 policy specification are also same.
 
-The raw specification of the resource in go looks like this:
+The raw specification of the resource in Go looks like this:
 
 .. code-block:: go
 

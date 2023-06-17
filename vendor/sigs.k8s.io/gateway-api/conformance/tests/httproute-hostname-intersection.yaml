@@ -40,7 +40,7 @@ spec:
   hostnames:
   - non.matching.com
   - "*.nonmatchingwildcard.io"
-  - very.specific.com # matches listener-1's specific host
+  - very.specific.com  #  matches listener-1's specific host
   rules:
   - matches:
     - path:
@@ -62,9 +62,9 @@ spec:
   hostnames:
   - non.matching.com
   - wildcard.io
-  - foo.wildcard.io # matches listener-2's wildcard host
-  - bar.wildcard.io # matches listener-2's wildcard host
-  - foo.bar.wildcard.io # matches listener-2's wildcard host
+  - foo.wildcard.io  #  matches listener-2's wildcard host
+  - bar.wildcard.io  #  matches listener-2's wildcard host
+  - foo.bar.wildcard.io  #  matches listener-2's wildcard host
   rules:
   - matches:
     - path:

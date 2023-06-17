@@ -4,27 +4,43 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
+// signalAuthKey used in the signalmap. Must reflect struct auth_key in the datapath
+type signalAuthKey authmap.AuthKey
+
+// low-cardinality stringer for metrics
+func (key signalAuthKey) String() string {
+	return policy.AuthType(key.AuthType).String()
+}
+
 type authManager struct {
-	ipCache               ipCache
-	authHandlers          map[policy.AuthType]authHandler
-	datapathAuthenticator datapathAuthenticator
+	logger       logrus.FieldLogger
+	ipCache      ipCache
+	authHandlers map[policy.AuthType]authHandler
+	authmap      authMap
+
+	mutex                    lock.Mutex
+	pending                  map[authKey]struct{}
+	handleAuthenticationFunc func(a *authManager, k authKey, reAuth bool)
 }
 
 // ipCache is the set of interactions the auth manager performs with the IPCache
 type ipCache interface {
-	GetHostIP(ip string) net.IP
-	AllocateNodeID(net.IP) uint16
+	GetNodeIP(uint16) string
+	GetNodeID(nodeIP net.IP) (nodeID uint16, exists bool)
 }
 
 // authHandler is responsible to handle authentication for a specific auth type
@@ -37,30 +53,14 @@ type authHandler interface {
 type authRequest struct {
 	localIdentity  identity.NumericIdentity
 	remoteIdentity identity.NumericIdentity
-	remoteHostIP   net.IP
+	remoteNodeIP   string
 }
 
 type authResponse struct {
 	expirationTime time.Time
 }
 
-// datapathAuthenticator is responsible to write auth information back to a BPF map
-type datapathAuthenticator interface {
-	markAuthenticated(result *authResult) error
-}
-
-// authResult contains all relevant information which are necessary to write the info back to data path after a successful authentication.
-type authResult struct {
-	dn             *monitor.DropNotify
-	ci             *monitor.ConnectionInfo
-	localIdentity  identity.NumericIdentity
-	remoteIdentity identity.NumericIdentity
-	remoteNodeID   uint16
-	authType       policy.AuthType
-	expirationTime time.Time
-}
-
-func newAuthManager(authHandlers []authHandler, dpAuthenticator datapathAuthenticator, ipCache ipCache) (*authManager, error) {
+func newAuthManager(logger logrus.FieldLogger, authHandlers []authHandler, authmap authMap, ipCache ipCache) (*authManager, error) {
 	ahs := map[policy.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if ah == nil {
@@ -73,122 +73,152 @@ func newAuthManager(authHandlers []authHandler, dpAuthenticator datapathAuthenti
 	}
 
 	return &authManager{
-		authHandlers:          ahs,
-		datapathAuthenticator: dpAuthenticator,
-		ipCache:               ipCache,
+		logger:                   logger,
+		authHandlers:             ahs,
+		authmap:                  authmap,
+		ipCache:                  ipCache,
+		pending:                  make(map[authKey]struct{}),
+		handleAuthenticationFunc: handleAuthentication,
 	}, nil
 }
 
-func (a *authManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) {
-	if err := a.authRequired(dn, ci); err != nil {
-		log.WithError(err).Warning("auth: Failed to authenticate request")
-		return
+// handleAuthRequest receives auth required signals and spawns a new go routine for each authentication request.
+func (a *authManager) handleAuthRequest(_ context.Context, key signalAuthKey) error {
+	k := authKey{
+		localIdentity:  identity.NumericIdentity(key.LocalIdentity),
+		remoteIdentity: identity.NumericIdentity(key.RemoteIdentity),
+		remoteNodeID:   key.RemoteNodeID,
+		authType:       policy.AuthType(key.AuthType),
+	}
+
+	a.logger.
+		WithField("key", k).
+		Debug("Handle authentication request")
+
+	a.handleAuthenticationFunc(a, k, false)
+
+	return nil
+}
+
+func (a *authManager) handleCertificateRotationEvent(_ context.Context, event certs.CertificateRotationEvent) error {
+	a.logger.
+		WithField("identity", event.Identity).
+		Debug("Handle certificate rotation event")
+
+	all, err := a.authmap.All()
+	if err != nil {
+		return fmt.Errorf("failed to get all auth map entries: %w", err)
+	}
+
+	for k := range all {
+		if k.localIdentity == event.Identity || k.remoteIdentity == event.Identity {
+			a.handleAuthenticationFunc(a, k, true)
+		}
+	}
+
+	return nil
+}
+
+func handleAuthentication(a *authManager, k authKey, reAuth bool) {
+	if a.markPendingAuth(k) {
+		go func(key authKey) {
+			defer a.clearPendingAuth(key)
+
+			if !reAuth {
+				// Check if the auth is actually required, as we might have
+				// updated the authmap since the datapath issued the auth
+				// required signal.
+				if i, err := a.authmap.Get(key); err == nil && i.expiration.After(time.Now()) {
+					a.logger.
+						WithField("key", key).
+						Debug("Already authenticated, skipping authentication")
+					return
+				}
+			}
+
+			if err := a.authenticate(key); err != nil {
+				a.logger.
+					WithError(err).
+					WithField("key", key).
+					Warning("Failed to authenticate request")
+			}
+		}(k)
 	}
 }
 
-func (a *authManager) authRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) error {
-	authType := getAuthType(dn)
-	policyType := getRequestDirection(dn)
+// markPendingAuth checks if there is a pending authentication for the given key.
+// If an auth is already pending returns false, otherwise marks the key as pending
+// and returns true.
+func (a *authManager) markPendingAuth(key authKey) bool {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 
-	log.Debugf("auth: %s policy is requiring authentication type %s for identity %d->%d, endpoint %s->%s",
-		policyType, authType, dn.SrcLabel, dn.DstLabel, ci.SrcIP, ci.DstIP)
+	if _, exists := a.pending[key]; exists {
+		// Auth for this key is already pending
+		return false
+	}
+	a.pending[key] = struct{}{}
+	return true
+}
+
+// clearPendingAuth marks the pending authentication as finished.
+func (a *authManager) clearPendingAuth(key authKey) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	delete(a.pending, key)
+}
+
+func (a *authManager) authenticate(key authKey) error {
+	a.logger.
+		WithField("auth_type", key.authType).
+		WithField("local_identity", key.localIdentity).
+		WithField("remote_identity", key.remoteIdentity).
+		Debug("Policy is requiring authentication")
 
 	// Authenticate according to the requested auth type
-	h, ok := a.authHandlers[authType]
+	h, ok := a.authHandlers[key.authType]
 	if !ok {
-		return fmt.Errorf("unknown requested auth type: %s", authType)
+		return fmt.Errorf("unknown requested auth type: %s", key.authType)
 	}
 
-	authReq, err := a.buildAuthRequest(dn, ci)
-	if err != nil {
-		return fmt.Errorf("failed to gather auth request information: %w", err)
+	nodeIP := a.ipCache.GetNodeIP(key.remoteNodeID)
+	if nodeIP == "" {
+		return fmt.Errorf("remote node IP not available for node ID %d", key.remoteNodeID)
+	}
+
+	authReq := &authRequest{
+		localIdentity:  key.localIdentity,
+		remoteIdentity: key.remoteIdentity,
+		remoteNodeIP:   nodeIP,
 	}
 
 	authResp, err := h.authenticate(authReq)
 	if err != nil {
-		return fmt.Errorf("failed to authenticate with auth type %s: %w", authType, err)
+		return fmt.Errorf("failed to authenticate with auth type %s: %w", key.authType, err)
 	}
 
-	result := &authResult{
-		dn:             dn,
-		ci:             ci,
-		localIdentity:  authReq.localIdentity,
-		remoteIdentity: authReq.remoteIdentity,
-		remoteNodeID:   a.ipCache.AllocateNodeID(authReq.remoteHostIP),
-		authType:       authType,
-		expirationTime: authResp.expirationTime,
+	if err = a.updateAuthMap(key, authResp.expirationTime); err != nil {
+		return fmt.Errorf("failed to update BPF map in datapath: %w", err)
 	}
 
-	if err := a.datapathAuthenticator.markAuthenticated(result); err != nil {
+	a.logger.
+		WithField("auth_type", key.authType).
+		WithField("local_identity", key.localIdentity).
+		WithField("remote_identity", key.remoteIdentity).
+		WithField("remote_node_ip", nodeIP).
+		Debug("Successfully authenticated")
+
+	return nil
+}
+
+func (a *authManager) updateAuthMap(key authKey, expirationTime time.Time) error {
+	val := authInfo{
+		expiration: expirationTime,
+	}
+
+	if err := a.authmap.Update(key, val); err != nil {
 		return fmt.Errorf("failed to write auth information to BPF map: %w", err)
 	}
 
-	log.Debugf("auth: Successfully authenticated %s request for identity %s->%s, endpoint %s->%s, remote host %s",
-		getRequestDirection(dn), dn.SrcLabel, dn.DstLabel, ci.SrcIP, ci.DstIP, authReq.remoteHostIP)
-
 	return nil
-}
-
-func (a *authManager) buildAuthRequest(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) (*authRequest, error) {
-
-	var localIdentity identity.NumericIdentity
-	var remoteIdentity identity.NumericIdentity
-	var remoteHostIP net.IP
-
-	if isIngress(dn) {
-		localIdentity = dn.DstLabel
-		remoteIdentity = dn.SrcLabel
-		remoteHostIP = a.hostIPForConnIP(ci.SrcIP)
-		if remoteHostIP == nil {
-			return nil, fmt.Errorf("failed to get host IP of connection source IP %s", ci.SrcIP)
-		}
-	} else {
-		localIdentity = dn.SrcLabel
-		remoteIdentity = dn.DstLabel
-		remoteHostIP = a.hostIPForConnIP(ci.DstIP)
-		if remoteHostIP == nil {
-			return nil, fmt.Errorf("failed to get host IP of connection destination IP %s", ci.DstIP)
-		}
-	}
-
-	return &authRequest{
-		localIdentity:  localIdentity,
-		remoteIdentity: remoteIdentity,
-		remoteHostIP:   remoteHostIP,
-	}, nil
-}
-
-func (a *authManager) hostIPForConnIP(connIP net.IP) net.IP {
-	hostIP := a.ipCache.GetHostIP(connIP.String())
-	if hostIP != nil {
-		return hostIP
-	}
-
-	// Checking for Cilium's internal IP (cilium_host).
-	// This might be the case when checking ingress auth after egress L7 policies are applied and therefore traffic
-	// gets rerouted via Cilium's envoy proxy.
-	if ip.IsIPv4(connIP) {
-		return a.ipCache.GetHostIP(fmt.Sprintf("%s/32", connIP))
-	} else if ip.IsIPv6(connIP) {
-		return a.ipCache.GetHostIP(fmt.Sprintf("%s/128", connIP))
-	}
-
-	return nil
-}
-
-func isIngress(dn *monitor.DropNotify) bool {
-	// DropNotify.DstID is 0 for egress, non-zero for Ingress
-	return dn.DstID != 0
-}
-
-func getAuthType(dn *monitor.DropNotify) policy.AuthType {
-	// Requested authentication type is in DropNotify.ExtError field
-	return policy.AuthType(dn.ExtError)
-}
-
-func getRequestDirection(dn *monitor.DropNotify) string {
-	if isIngress(dn) {
-		return "ingress"
-	}
-	return "egress"
 }

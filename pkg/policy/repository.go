@@ -144,6 +144,11 @@ func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
 }
 
+// GetAuthTypes returns the AuthTypes required by the policy between the localID and remoteID
+func (p *Repository) GetAuthTypes(localID, remoteID identity.NumericIdentity) AuthTypes {
+	return p.policyCache.GetAuthTypes(localID, remoteID)
+}
+
 func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)) {
 	p.getEnvoyHTTPRules = f
 }
@@ -253,7 +258,7 @@ func (p *Repository) Start() {
 //
 // Caller must release resources by calling Detach() on the returned map!
 //
-// Note: Only used for policy tracing
+// NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
 	policyCtx := policyContext{
 		repo: p,
@@ -295,6 +300,8 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, err
 // context and returns the verdict for ingress. If no matching policy allows for
 // the  connection, the request will be denied. The policy repository mutex must
 // be held.
+//
+// NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 	// Lack of DPorts in the SearchContext means L3-only search
 	if len(ctx.DPorts) == 0 {

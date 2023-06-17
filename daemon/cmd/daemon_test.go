@@ -11,14 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	. "gopkg.in/check.v1"
-
 	"github.com/cilium/cilium/api/v1/models"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -26,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -33,14 +32,20 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/signalmap"
+	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/metrics"
+	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/types"
+
+	. "github.com/cilium/checkmate"
 )
 
 type DaemonSuite struct {
@@ -61,9 +66,6 @@ type DaemonSuite struct {
 	OnGetCompilationLock   func() *lock.RWMutex
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
 	OnGetCIDRPrefixLengths func() ([]int, []int)
-
-	// Metrics
-	collectors []prometheus.Collector
 }
 
 func setupTestDirectories() {
@@ -134,18 +136,7 @@ func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) 
 }
 
 func (ds *DaemonSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
-
-	// Register metrics once before running the suite
-	_, ds.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})
-	metrics.MustRegister(ds.collectors...)
-}
-
-func (ds *DaemonSuite) TearDownSuite(c *C) {
-	// Unregister the metrics after the suite has finished
-	for _, c := range ds.collectors {
-		metrics.Unregister(c)
-	}
+	testutils.IntegrationTest(c)
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
@@ -167,10 +158,15 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
+			func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 			func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
 			func() egressmap.PolicyMap { return nil },
 		),
+		monitorAgent.Cell,
 		ControlPlane,
+		statedb.Cell,
+		tables.Cell,
+		job.Cell,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p
 		}),
@@ -233,7 +229,7 @@ type DaemonEtcdSuite struct {
 var _ = Suite(&DaemonEtcdSuite{})
 
 func (e *DaemonEtcdSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 
 	kvstore.SetupDummy("etcd")
 	e.DaemonSuite.kvstoreInit = true
@@ -254,7 +250,7 @@ type DaemonConsulSuite struct {
 var _ = Suite(&DaemonConsulSuite{})
 
 func (e *DaemonConsulSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 
 	kvstore.SetupDummy("consul")
 	e.DaemonSuite.kvstoreInit = true

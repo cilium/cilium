@@ -40,16 +40,18 @@ type DescribeStaleSecurityGroupsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The maximum number of items to return for this request. The request returns a
-	// token that you can specify in a subsequent call to get the next set of results.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	MaxResults *int32
 
-	// The token for the next set of items to return. (You received this token from a
-	// prior call.)
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned by the previous request.
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -57,8 +59,8 @@ type DescribeStaleSecurityGroupsInput struct {
 
 type DescribeStaleSecurityGroupsOutput struct {
 
-	// The token to use when requesting the next set of items. If there are no
-	// additional items to return, the string is empty.
+	// The token to include in another request to get the next page of items. If there
+	// are no additional items to return, the string is empty.
 	NextToken *string
 
 	// Information about the stale security groups.
@@ -121,6 +123,9 @@ func (c *Client) addOperationDescribeStaleSecurityGroupsMiddlewares(stack *middl
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeStaleSecurityGroups(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -144,8 +149,10 @@ var _ DescribeStaleSecurityGroupsAPIClient = (*Client)(nil)
 // DescribeStaleSecurityGroupsPaginatorOptions is the paginator options for
 // DescribeStaleSecurityGroups
 type DescribeStaleSecurityGroupsPaginatorOptions struct {
-	// The maximum number of items to return for this request. The request returns a
-	// token that you can specify in a subsequent call to get the next set of results.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

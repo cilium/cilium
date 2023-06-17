@@ -12,10 +12,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a path to analyze for reachability. Reachability Analyzer enables you to
-// analyze and debug network reachability between two resources in your virtual
-// private cloud (VPC). For more information, see What is Reachability Analyzer
-// (https://docs.aws.amazon.com/vpc/latest/reachability/).
+// Creates a path to analyze for reachability. Reachability Analyzer enables you
+// to analyze and debug network reachability between two resources in your virtual
+// private cloud (VPC). For more information, see the Reachability Analyzer Guide (https://docs.aws.amazon.com/vpc/latest/reachability/)
+// .
 func (c *Client) CreateNetworkInsightsPath(ctx context.Context, params *CreateNetworkInsightsPathInput, optFns ...func(*Options)) (*CreateNetworkInsightsPathOutput, error) {
 	if params == nil {
 		params = &CreateNetworkInsightsPathInput{}
@@ -34,29 +34,28 @@ func (c *Client) CreateNetworkInsightsPath(ctx context.Context, params *CreateNe
 type CreateNetworkInsightsPathInput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	//
 	// This member is required.
 	ClientToken *string
-
-	// The Amazon Web Services resource that is the destination of the path.
-	//
-	// This member is required.
-	Destination *string
 
 	// The protocol.
 	//
 	// This member is required.
 	Protocol types.Protocol
 
-	// The Amazon Web Services resource that is the source of the path.
+	// The ID or ARN of the source. If the resource is in another account, you must
+	// specify an ARN.
 	//
 	// This member is required.
 	Source *string
 
-	// The IP address of the Amazon Web Services resource that is the destination of
-	// the path.
+	// The ID or ARN of the destination. If the resource is in another account, you
+	// must specify an ARN.
+	Destination *string
+
+	// The IP address of the destination.
 	DestinationIp *string
 
 	// The destination port.
@@ -64,12 +63,21 @@ type CreateNetworkInsightsPathInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The IP address of the Amazon Web Services resource that is the source of the
-	// path.
+	// Scopes the analysis to network paths that match specific filters at the
+	// destination. If you specify this parameter, you can't specify the parameter for
+	// the destination IP address.
+	FilterAtDestination *types.PathRequestFilter
+
+	// Scopes the analysis to network paths that match specific filters at the source.
+	// If you specify this parameter, you can't specify the parameters for the source
+	// IP address or the destination port.
+	FilterAtSource *types.PathRequestFilter
+
+	// The IP address of the source.
 	SourceIp *string
 
 	// The tags to add to the path.
@@ -141,6 +149,9 @@ func (c *Client) addOperationCreateNetworkInsightsPathMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateNetworkInsightsPath(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

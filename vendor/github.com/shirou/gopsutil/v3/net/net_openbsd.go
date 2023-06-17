@@ -164,7 +164,7 @@ func ConntrackStatsWithContext(ctx context.Context, percpu bool) ([]ConntrackSta
 	return nil, common.ErrNotImplementedError
 }
 
-// NetProtoCounters returns network statistics for the entire system
+// ProtoCounters returns network statistics for the entire system
 // If protocols is empty then all protocols are returned, otherwise
 // just the protocols in the list are returned.
 // Not Implemented for OpenBSD

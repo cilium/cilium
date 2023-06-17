@@ -19,8 +19,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/node"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 type JSONSuite struct{}
@@ -75,6 +76,14 @@ func (m *MockPortAllocator) ReleaseProxyPort(name string) error {
 
 var _ = Suite(&JSONSuite{})
 
+func (*JSONSuite) SetUpTest(*C) {
+	node.SetTestLocalNodeStore()
+}
+
+func (*JSONSuite) TearDownTest(*C) {
+	node.UnsetTestLocalNodeStore()
+}
+
 var xds1 = `version_info: "0"
 resources:
 - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
@@ -100,6 +109,8 @@ resources:
               route:
                 cluster: "envoy-admin"
                 prefix_rewrite: "/stats/prometheus"
+        use_remote_address: true
+        skip_xff_append: true
         http_filters:
         - name: envoy.filters.http.router
 `
@@ -138,6 +149,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
       transport_socket:
@@ -149,7 +162,12 @@ spec:
             tls_certificate_sds_secret_configs:
             - name: cilium-secrets/server-mtls
             validation_context_sds_secret_config:
-              name: cilium-secrets/server-mtls
+              name: validation_context
+  - "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret
+    name: validation_context
+    validation_context:
+      trusted_ca:
+        filename: /etc/ssl/certs/ca-certificates.crt
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
@@ -160,8 +178,9 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
 	c.Assert(cec.Spec.Resources, Not(IsNil))
-	c.Assert(cec.Spec.Resources, HasLen, 1)
+	c.Assert(cec.Spec.Resources, HasLen, 2)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret")
 
 	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator, false, false)
 	c.Assert(err, IsNil)
@@ -186,10 +205,14 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(tlsContext, Not(IsNil))
 	for _, sc := range tlsContext.TlsCertificateSdsSecretConfigs {
 		checkCiliumXDS(c, sc.SdsConfig)
+		// Check that the already qualified secret name was not changed
+		c.Assert(sc.Name, Equals, "cilium-secrets/server-mtls")
 	}
 	sdsConfig := tlsContext.GetValidationContextSdsSecretConfig()
 	c.Assert(sdsConfig, Not(IsNil))
 	checkCiliumXDS(c, sdsConfig.SdsConfig)
+	// Check that secret name was qualified
+	c.Assert(sdsConfig.Name, Equals, "namespace/name/validation_context")
 
 	c.Assert(chain.Filters, HasLen, 1)
 	c.Assert(chain.Filters[0].Name, Equals, "envoy.filters.network.http_connection_manager")
@@ -213,6 +236,11 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	//
 	c.Assert(hcm.HttpFilters, HasLen, 1)
 	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
+
+	//
+	// Check that secret name was qualified
+	//
+	c.Assert(resources.Secrets[0].Name, Equals, "namespace/name/validation_context")
 }
 
 var ciliumEnvoyConfigInvalid = `apiVersion: cilium.io/v2
@@ -236,6 +264,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
 `
@@ -306,6 +336,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
 `
@@ -378,6 +410,8 @@ spec:
           codec_type: AUTO
           rds:
             route_config_name: local_route
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
   - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
@@ -468,21 +502,21 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	c.Assert(resources.Routes[0].Name, Equals, "namespace/name/local_route")
 	c.Assert(resources.Routes[0].VirtualHosts, HasLen, 1)
 	vh := resources.Routes[0].VirtualHosts[0]
-	c.Assert(vh.Name, Equals, "local_service")
+	c.Assert(vh.Name, Equals, "namespace/name/local_service")
 	c.Assert(vh.Domains, HasLen, 1)
 	c.Assert(vh.Domains[0], Equals, "*")
 	c.Assert(vh.Routes, HasLen, 1)
 	c.Assert(vh.Routes[0].Match, Not(IsNil))
 	c.Assert(vh.Routes[0].Match.GetPrefix(), Equals, "/")
 	c.Assert(vh.Routes[0].GetRoute(), Not(IsNil))
-	c.Assert(vh.Routes[0].GetRoute().GetCluster(), Equals, "some_service")
+	c.Assert(vh.Routes[0].GetRoute().GetCluster(), Equals, "namespace/name/some_service")
 
 	//
 	// Check cluster resource
 	//
 	c.Assert(cec.Spec.Resources[2].TypeUrl, Equals, "type.googleapis.com/envoy.config.cluster.v3.Cluster")
 	c.Assert(resources.Clusters, HasLen, 1)
-	c.Assert(resources.Clusters[0].Name, Equals, "some_service")
+	c.Assert(resources.Clusters[0].Name, Equals, "namespace/name/some_service")
 	c.Assert(resources.Clusters[0].ConnectTimeout.Seconds, Equals, int64(0))
 	c.Assert(resources.Clusters[0].ConnectTimeout.Nanos, Equals, int32(250000000))
 	c.Assert(resources.Clusters[0].LbPolicy, Equals, envoy_config_cluster.Cluster_ROUND_ROBIN)
@@ -519,7 +553,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	//
 	c.Assert(cec.Spec.Resources[3].TypeUrl, Equals, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment")
 	c.Assert(resources.Endpoints, HasLen, 2)
-	c.Assert(resources.Endpoints[0].ClusterName, Equals, "some_service")
+	c.Assert(resources.Endpoints[0].ClusterName, Equals, "namespace/name/some_service")
 	c.Assert(resources.Endpoints[0].Endpoints, HasLen, 1)
 	c.Assert(resources.Endpoints[0].Endpoints[0].LbEndpoints, HasLen, 1)
 	addr := resources.Endpoints[0].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
@@ -533,7 +567,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	//
 	c.Assert(cec.Spec.Resources[4].TypeUrl, Equals, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment")
 	c.Assert(resources.Endpoints, HasLen, 2)
-	c.Assert(resources.Endpoints[1].ClusterName, Equals, "other_service")
+	c.Assert(resources.Endpoints[1].ClusterName, Equals, "namespace/name/other_service")
 	c.Assert(resources.Endpoints[1].Endpoints, HasLen, 1)
 	c.Assert(resources.Endpoints[1].Endpoints[0].LbEndpoints, HasLen, 1)
 	addr = resources.Endpoints[1].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
@@ -638,10 +672,10 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxy(c *C) {
 	//
 	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.config.cluster.v3.Cluster")
 	c.Assert(resources.Clusters, HasLen, 1)
-	c.Assert(resources.Clusters[0].Name, Equals, "cluster_0")
+	c.Assert(resources.Clusters[0].Name, Equals, "namespace/name/cluster_0")
 	c.Assert(resources.Clusters[0].ConnectTimeout.Seconds, Equals, int64(5))
 	c.Assert(resources.Clusters[0].ConnectTimeout.Nanos, Equals, int32(0))
-	c.Assert(resources.Clusters[0].LoadAssignment.ClusterName, Equals, "cluster_0")
+	c.Assert(resources.Clusters[0].LoadAssignment.ClusterName, Equals, "namespace/name/cluster_0")
 	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints, HasLen, 1)
 	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints, HasLen, 1)
 	addr := resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
@@ -682,24 +716,26 @@ spec:
                     string_match:
                       exact: "POST"
                 route:
-                  cluster: service_google
+                  cluster: default/service_google
                   upgrade_configs:
                   - upgrade_type: CONNECT
                     connect_config:
                       allow_post: true
+          use_remote_address: true
+          skip_xff_append: true
           http_filters:
           - name: envoy.filters.http.router
           http2_protocol_options:
             allow_connect: true
   - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
-    name: service_google
+    name: default/service_google
     connect_timeout: 5s
     type: LOGICAL_DNS
     # Comment out the following line to test on v6 networks
     dns_lookup_family: V4_ONLY
     lb_policy: ROUND_ROBIN
     load_assignment:
-      cluster_name: service_google
+      cluster_name: default/service_google
       endpoints:
       - lb_endpoints:
         - endpoint:
@@ -760,19 +796,22 @@ func (s *JSONSuite) TestCiliumEnvoyConfigTCPProxyTermination(c *C) {
 	c.Assert(hcm.HttpFilters, HasLen, 2)
 	c.Assert(hcm.HttpFilters[0].Name, Equals, "cilium.l7policy")
 	c.Assert(hcm.HttpFilters[1].Name, Equals, "envoy.filters.http.router")
+	c.Assert(hcm.GetRouteConfig().Name, Equals, "namespace/name/local_route")
+	c.Assert(hcm.GetRouteConfig().VirtualHosts[0].Name, Equals, "namespace/name/local_service")
+	c.Assert(hcm.GetRouteConfig().VirtualHosts[0].Routes[0].GetRoute().GetCluster(), Equals, "default/service_google")
 	//
 	// Check cluster resource
 	//
 	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.config.cluster.v3.Cluster")
 	c.Assert(resources.Clusters, HasLen, 1)
-	c.Assert(resources.Clusters[0].Name, Equals, "service_google")
+	c.Assert(resources.Clusters[0].Name, Equals, "default/service_google")
 	c.Assert(resources.Clusters[0].ConnectTimeout.Seconds, Equals, int64(5))
 	c.Assert(resources.Clusters[0].ConnectTimeout.Nanos, Equals, int32(0))
 	c.Assert(resources.Clusters[0].GetType(), Equals, envoy_config_cluster.Cluster_LOGICAL_DNS)
 	c.Assert(resources.Clusters[0].GetDnsLookupFamily(), Equals, envoy_config_cluster.Cluster_V4_ONLY)
 	c.Assert(resources.Clusters[0].LbPolicy, Equals, envoy_config_cluster.Cluster_ROUND_ROBIN)
 
-	c.Assert(resources.Clusters[0].LoadAssignment.ClusterName, Equals, "service_google")
+	c.Assert(resources.Clusters[0].LoadAssignment.ClusterName, Equals, "default/service_google")
 	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints, HasLen, 1)
 	c.Assert(resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints, HasLen, 1)
 	addr := resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address

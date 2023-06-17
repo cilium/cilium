@@ -7,7 +7,7 @@ import (
 	"net"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/ebpf/rlimit"
 
@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 }
 
 func (s *TunnelMapTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 }
@@ -33,9 +33,8 @@ func (s *TunnelMapTestSuite) TestClusterAwareAddressing(c *C) {
 	m := NewTunnelMap("test_cilium_tunnel_map")
 	defer m.Unpin()
 
-	created, err := m.OpenOrCreate()
+	err := m.OpenOrCreate()
 	c.Assert(err, IsNil)
-	c.Assert(created, Equals, true)
 
 	prefix0 := cmtypes.MustParseAddrCluster("10.0.0.1")
 	prefix1 := cmtypes.MustParseAddrCluster("10.0.0.1@1")

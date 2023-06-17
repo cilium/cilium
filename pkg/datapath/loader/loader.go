@@ -17,12 +17,14 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -66,6 +68,8 @@ type Loader struct {
 
 	// templateCache is the cache of pre-compiled datapaths.
 	templateCache *objectCache
+
+	ipsecMu lock.Mutex // guards reinitializeIPSec
 }
 
 // NewLoader returns a new loader.
@@ -92,6 +96,7 @@ func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 		Prefix: ip,
 		Device: ep.InterfaceName(),
 		Scope:  netlink.SCOPE_LINK,
+		Proto:  linux_defaults.RTProto,
 	}
 
 	return route.Upsert(endpointRoute)
@@ -133,7 +138,7 @@ func nullifyStringSubstitutions(strings map[string]string) map[string]string {
 // Since the two object files should only differ by the values of their
 // NODE_MAC symbols, we can avoid a full compilation.
 func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string,
-	bpfMasqIPv4Addrs map[string]net.IP) error {
+	bpfMasqIPv4Addrs, bpfMasqIPv6Addrs map[string]net.IP) error {
 
 	hostObj, err := elf.Open(objPath)
 	if err != nil {
@@ -170,10 +175,15 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	if option.Config.EnableNodePort {
 		opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
 	}
-	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade && bpfMasqIPv4Addrs != nil {
-		if option.Config.EnableIPv4 {
+	if option.Config.EnableBPFMasquerade {
+		if option.Config.EnableIPv4Masquerade && bpfMasqIPv4Addrs != nil {
 			ipv4 := bpfMasqIPv4Addrs[ifName]
 			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4))
+		}
+		if option.Config.EnableIPv6Masquerade && bpfMasqIPv6Addrs != nil {
+			ipv6 := bpfMasqIPv6Addrs[ifName]
+			opts["IPV6_MASQUERADE_1"] = sliceToBe64(ipv6[0:8])
+			opts["IPV6_MASQUERADE_2"] = sliceToBe64(ipv6[8:16])
 		}
 	}
 
@@ -217,13 +227,14 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		symbols = append(symbols, symbolToHostEp)
 		directions = append(directions, dirIngress)
 		secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+defaults.SecondHostDevice+".o")
-		if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil); err != nil {
+		if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil, nil); err != nil {
 			return err
 		}
 		objPaths = append(objPaths, secondDevObjPath)
 	}
 
 	bpfMasqIPv4Addrs := node.GetMasqIPv4AddrsWithDevices()
+	bpfMasqIPv6Addrs := node.GetMasqIPv6AddrsWithDevices()
 
 	for _, device := range option.Config.GetDevices() {
 		if _, err := netlink.LinkByName(device); err != nil {
@@ -232,7 +243,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		}
 
 		netdevObjPath := path.Join(ep.StateDir(), hostEndpointNetdevPrefix+device+".o")
-		if err := patchHostNetdevDatapath(ep, objPath, netdevObjPath, device, bpfMasqIPv4Addrs); err != nil {
+		if err := patchHostNetdevDatapath(ep, objPath, netdevObjPath, device, bpfMasqIPv4Addrs, bpfMasqIPv6Addrs); err != nil {
 			return err
 		}
 		objPaths = append(objPaths, netdevObjPath)
@@ -341,20 +352,21 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	return nil
 }
 
-func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) error {
-	if err := compileNetwork(ctx); err != nil {
-		log.WithError(err).Fatal("failed to compile encryption programs")
-	}
+func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string) (err error) {
 	progs := []progDefinition{{progName: symbolFromNetwork, direction: dirIngress}}
 	for _, iface := range option.Config.EncryptInterface {
-		finalize, err := replaceDatapath(ctx, iface, networkObj, progs, "")
-		if err != nil {
-			log.WithField(logfields.Interface, iface).WithError(err).Fatal("Load encryption network failed")
+		finalize, replaceErr := replaceDatapath(ctx, iface, networkObj, progs, "")
+		if replaceErr != nil {
+			log.WithField(logfields.Interface, iface).WithError(replaceErr).Error("Load encryption network failed")
+			// Return the error to the caller, but keep trying replacing other interfaces.
+			err = replaceErr
+		} else {
+			log.WithField(logfields.Interface, iface).Info("Encryption network program (re)loaded")
+			// Defer map removal until all interfaces' progs have been replaced.
+			defer finalize()
 		}
-		// Defer map removal until all interfaces' progs have been replaced.
-		defer finalize()
 	}
-	return nil
+	return
 }
 
 func (l *Loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, iface string) error {

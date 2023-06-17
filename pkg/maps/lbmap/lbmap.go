@@ -65,6 +65,7 @@ func New() *LBBPFMap {
 
 func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, ipv6 bool) error {
 	var svcKey ServiceKey
+	var svcVal ServiceValue
 
 	// Backends should be added to the backend maps for the case when:
 	// - Plain IPv6 (to IPv6) or IPv4 (to IPv4) service.
@@ -76,12 +77,13 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 
 	if ipv6 {
 		svcKey = NewService6Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0)
+		svcVal = &Service6Value{}
 	} else {
 		svcKey = NewService4Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0)
+		svcVal = &Service4Value{}
 	}
 
 	slot := 1
-	svcVal := svcKey.NewValue().(ServiceValue)
 
 	// start off with #backends = 0 for updateMasterService()
 	backends := make(map[string]*loadbalancer.Backend)
@@ -118,7 +120,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		}
 	}
 
-	zeroValue := svcKey.NewValue().(ServiceValue)
+	zeroValue := svcVal.New().(ServiceValue)
 	zeroValue.SetRevNat(int(p.ID)) // TODO change to uint16
 	revNATKey := zeroValue.RevNatKey()
 	revNATValue := svcKey.RevNatValue()
@@ -126,7 +128,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
+	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
 		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
@@ -334,7 +336,7 @@ func (*LBBPFMap) DumpAffinityMatches() (datapathTypes.BackendIDByServiceIDSet, e
 	matches := datapathTypes.BackendIDByServiceIDSet{}
 
 	parse := func(key bpf.MapKey, value bpf.MapValue) {
-		matchKey := key.DeepCopyMapKey().(*AffinityMatchKey).ToHost()
+		matchKey := key.(*AffinityMatchKey).ToHost()
 		svcID := matchKey.RevNATID
 		backendID := matchKey.BackendID
 
@@ -378,7 +380,7 @@ func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 	if key.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
-	if _, err := key.Map().OpenOrCreate(); err != nil {
+	if err := key.Map().OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -438,13 +440,13 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(BackendKey)
-		backendValue := value.DeepCopyMapValue().(BackendValue).ToHost()
+		backendValue := value.(BackendValue).ToHost()
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		svcKey := key.DeepCopyMapKey().(ServiceKey).ToHost()
-		svcValue := value.DeepCopyMapValue().(ServiceValue).ToHost()
+		svcKey := key.(ServiceKey).ToHost()
+		svcValue := value.(ServiceValue).ToHost()
 
 		fe := svcFrontend(svcKey, svcValue)
 
@@ -522,7 +524,7 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 		// No need to deep copy the key because we are using the ID which
 		// is a value.
 		backendKey := key.(BackendKey)
-		backendValue := value.DeepCopyMapValue().(BackendValue).ToHost()
+		backendValue := value.(BackendValue).ToHost()
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
@@ -562,7 +564,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcType loadbalancer.SVCType,
+func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends int, revNATID int, svcType loadbalancer.SVCType,
 	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
 
@@ -571,9 +573,8 @@ func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcTyp
 		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
 
 	fe.SetBackendSlot(0)
-	zeroValue := fe.NewValue().(ServiceValue)
-	zeroValue.SetCount(activeBackends)
-	zeroValue.SetRevNat(revNATID)
+	v.SetCount(activeBackends)
+	v.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcExtLocal:      svcExtLocal,
@@ -585,15 +586,15 @@ func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcTyp
 		L7LoadBalancer:   l7lbProxyPort != 0,
 		LoopbackHostport: loopbackHostport,
 	})
-	zeroValue.SetFlags(flag.UInt16())
+	v.SetFlags(flag.UInt16())
 	if sessionAffinity {
-		zeroValue.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec)
+		v.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec)
 	}
 	if l7lbProxyPort != 0 {
-		zeroValue.SetL7LBProxyPort(l7lbProxyPort)
+		v.SetL7LBProxyPort(l7lbProxyPort)
 	}
 
-	return updateServiceEndpoint(fe, zeroValue)
+	return updateServiceEndpoint(fe, v)
 }
 
 func deleteServiceLocked(key ServiceKey) error {
@@ -626,7 +627,7 @@ func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 }
 
 func updateBackend(backend Backend) error {
-	if _, err := backend.Map().OpenOrCreate(); err != nil {
+	if err := backend.Map().OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -642,7 +643,7 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 	if key.GetBackendSlot() != 0 && value.RevNatKey().GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
 	}
-	if _, err := key.Map().OpenOrCreate(); err != nil {
+	if err := key.Map().OpenOrCreate(); err != nil {
 		return err
 	}
 

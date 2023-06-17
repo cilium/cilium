@@ -104,6 +104,31 @@ func (o *PutPolicyInvalidPolicy) WriteResponse(rw http.ResponseWriter, producer 
 	}
 }
 
+// PutPolicyForbiddenCode is the HTTP code returned for type PutPolicyForbidden
+const PutPolicyForbiddenCode int = 403
+
+/*
+PutPolicyForbidden Forbidden
+
+swagger:response putPolicyForbidden
+*/
+type PutPolicyForbidden struct {
+}
+
+// NewPutPolicyForbidden creates PutPolicyForbidden with default headers values
+func NewPutPolicyForbidden() *PutPolicyForbidden {
+
+	return &PutPolicyForbidden{}
+}
+
+// WriteResponse to the client
+func (o *PutPolicyForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // PutPolicyInvalidPathCode is the HTTP code returned for type PutPolicyInvalidPath
 const PutPolicyInvalidPathCode int = 460
 

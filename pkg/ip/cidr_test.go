@@ -11,18 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPrefixToIPNet(t *testing.T) {
-	_, v4IPNet, err := net.ParseCIDR("1.1.1.1/32")
-	assert.NoError(t, err)
-	_, v6IPNet, err := net.ParseCIDR("::ff/128")
-	assert.NoError(t, err)
-	assert.Equal(t, v4IPNet, PrefixToIPNet(netip.MustParsePrefix("1.1.1.1/32")))
-	assert.Equal(t, v6IPNet, PrefixToIPNet(netip.MustParsePrefix("::ff/128")))
-
-	var nilNet *net.IPNet
-	assert.Equal(t, nilNet, PrefixToIPNet(netip.Prefix{}))
-}
-
 func TestAddrToIPNet(t *testing.T) {
 	_, v4IPNet, err := net.ParseCIDR("1.1.1.1/32")
 	assert.NoError(t, err)

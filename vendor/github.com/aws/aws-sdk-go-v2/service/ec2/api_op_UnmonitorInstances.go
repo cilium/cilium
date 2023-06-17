@@ -12,9 +12,8 @@ import (
 )
 
 // Disables detailed monitoring for a running instance. For more information, see
-// Monitoring your instances and volumes
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html) in
-// the Amazon EC2 User Guide.
+// Monitoring your instances and volumes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) UnmonitorInstances(ctx context.Context, params *UnmonitorInstancesInput, optFns ...func(*Options)) (*UnmonitorInstancesOutput, error) {
 	if params == nil {
 		params = &UnmonitorInstancesInput{}
@@ -39,8 +38,8 @@ type UnmonitorInstancesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -106,6 +105,9 @@ func (c *Client) addOperationUnmonitorInstancesMiddlewares(stack *middleware.Sta
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opUnmonitorInstances(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

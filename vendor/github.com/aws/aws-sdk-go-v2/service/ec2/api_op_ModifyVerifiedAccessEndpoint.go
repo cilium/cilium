@@ -12,6 +12,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// Modifies the configuration of the specified Amazon Web Services Verified Access
+// endpoint.
 func (c *Client) ModifyVerifiedAccessEndpoint(ctx context.Context, params *ModifyVerifiedAccessEndpointInput, optFns ...func(*Options)) (*ModifyVerifiedAccessEndpointOutput, error) {
 	if params == nil {
 		params = &ModifyVerifiedAccessEndpointInput{}
@@ -29,25 +31,41 @@ func (c *Client) ModifyVerifiedAccessEndpoint(ctx context.Context, params *Modif
 
 type ModifyVerifiedAccessEndpointInput struct {
 
+	// The ID of the Verified Access endpoint.
+	//
 	// This member is required.
 	VerifiedAccessEndpointId *string
 
+	// A unique, case-sensitive token that you provide to ensure idempotency of your
+	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
+	// A description for the Verified Access endpoint.
 	Description *string
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The load balancer details if creating the Verified Access endpoint as
+	// load-balancer type.
 	LoadBalancerOptions *types.ModifyVerifiedAccessEndpointLoadBalancerOptions
 
+	// The network interface options.
 	NetworkInterfaceOptions *types.ModifyVerifiedAccessEndpointEniOptions
 
+	// The ID of the Verified Access group.
 	VerifiedAccessGroupId *string
 
 	noSmithyDocumentSerde
 }
 
 type ModifyVerifiedAccessEndpointOutput struct {
+
+	// The Verified Access endpoint details.
 	VerifiedAccessEndpoint *types.VerifiedAccessEndpoint
 
 	// Metadata pertaining to the operation's result.
@@ -108,6 +126,9 @@ func (c *Client) addOperationModifyVerifiedAccessEndpointMiddlewares(stack *midd
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyVerifiedAccessEndpoint(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

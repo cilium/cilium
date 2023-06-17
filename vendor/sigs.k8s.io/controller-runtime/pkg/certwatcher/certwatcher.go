@@ -19,9 +19,14 @@ package certwatcher
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher/metrics"
 	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 )
@@ -39,6 +44,9 @@ type CertWatcher struct {
 
 	certPath string
 	keyPath  string
+
+	// callback is a function to be invoked when the certificate changes.
+	callback func(tls.Certificate)
 }
 
 // New returns a new CertWatcher watching the given certificate and key.
@@ -63,6 +71,17 @@ func New(certPath, keyPath string) (*CertWatcher, error) {
 	return cw, nil
 }
 
+// RegisterCallback registers a callback to be invoked when the certificate changes.
+func (cw *CertWatcher) RegisterCallback(callback func(tls.Certificate)) {
+	cw.Lock()
+	defer cw.Unlock()
+	// If the current certificate is not nil, invoke the callback immediately.
+	if cw.currentCert != nil {
+		callback(*cw.currentCert)
+	}
+	cw.callback = callback
+}
+
 // GetCertificate fetches the currently loaded certificate, which may be nil.
 func (cw *CertWatcher) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	cw.RLock()
@@ -72,11 +91,22 @@ func (cw *CertWatcher) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate,
 
 // Start starts the watch on the certificate and key files.
 func (cw *CertWatcher) Start(ctx context.Context) error {
-	files := []string{cw.certPath, cw.keyPath}
+	files := sets.New(cw.certPath, cw.keyPath)
 
-	for _, f := range files {
-		if err := cw.watcher.Add(f); err != nil {
-			return err
+	{
+		var watchErr error
+		if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
+			for _, f := range files.UnsortedList() {
+				if err := cw.watcher.Add(f); err != nil {
+					watchErr = err
+					return false, nil //nolint:nilerr // We want to keep trying.
+				}
+				// We've added the watch, remove it from the set.
+				files.Delete(f)
+			}
+			return true, nil
+		}); err != nil {
+			return fmt.Errorf("failed to add watches: %w", kerrors.NewAggregate([]error{err, watchErr}))
 		}
 	}
 
@@ -130,6 +160,14 @@ func (cw *CertWatcher) ReadCertificate() error {
 
 	log.Info("Updated current TLS certificate")
 
+	// If a callback is registered, invoke it with the new certificate.
+	cw.RLock()
+	defer cw.RUnlock()
+	if cw.callback != nil {
+		go func() {
+			cw.callback(cert)
+		}()
+	}
 	return nil
 }
 
@@ -154,13 +192,13 @@ func (cw *CertWatcher) handleEvent(event fsnotify.Event) {
 }
 
 func isWrite(event fsnotify.Event) bool {
-	return event.Op&fsnotify.Write == fsnotify.Write
+	return event.Op.Has(fsnotify.Write)
 }
 
 func isCreate(event fsnotify.Event) bool {
-	return event.Op&fsnotify.Create == fsnotify.Create
+	return event.Op.Has(fsnotify.Create)
 }
 
 func isRemove(event fsnotify.Event) bool {
-	return event.Op&fsnotify.Remove == fsnotify.Remove
+	return event.Op.Has(fsnotify.Remove)
 }

@@ -10,10 +10,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes the specified set of DHCP options. You must disassociate the set of DHCP
-// options before you can delete it. You can disassociate the set of DHCP options
-// by associating either a new set of options or the default set of options with
-// the VPC.
+// Deletes the specified set of DHCP options. You must disassociate the set of
+// DHCP options before you can delete it. You can disassociate the set of DHCP
+// options by associating either a new set of options or the default set of options
+// with the VPC.
 func (c *Client) DeleteDhcpOptions(ctx context.Context, params *DeleteDhcpOptionsInput, optFns ...func(*Options)) (*DeleteDhcpOptionsOutput, error) {
 	if params == nil {
 		params = &DeleteDhcpOptionsInput{}
@@ -38,8 +38,8 @@ type DeleteDhcpOptionsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -101,6 +101,9 @@ func (c *Client) addOperationDeleteDhcpOptionsMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteDhcpOptions(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

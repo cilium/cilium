@@ -32,6 +32,12 @@ func (o *PutStatusProbeReader) ReadResponse(response runtime.ClientResponse, con
 			return nil, err
 		}
 		return result, nil
+	case 403:
+		result := NewPutStatusProbeForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPutStatusProbeFailed()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -102,6 +108,57 @@ func (o *PutStatusProbeOK) readResponse(response runtime.ClientResponse, consume
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
 		return err
 	}
+
+	return nil
+}
+
+// NewPutStatusProbeForbidden creates a PutStatusProbeForbidden with default headers values
+func NewPutStatusProbeForbidden() *PutStatusProbeForbidden {
+	return &PutStatusProbeForbidden{}
+}
+
+/*
+PutStatusProbeForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PutStatusProbeForbidden struct {
+}
+
+// IsSuccess returns true when this put status probe forbidden response has a 2xx status code
+func (o *PutStatusProbeForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put status probe forbidden response has a 3xx status code
+func (o *PutStatusProbeForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put status probe forbidden response has a 4xx status code
+func (o *PutStatusProbeForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put status probe forbidden response has a 5xx status code
+func (o *PutStatusProbeForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put status probe forbidden response a status code equal to that given
+func (o *PutStatusProbeForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+func (o *PutStatusProbeForbidden) Error() string {
+	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeForbidden ", 403)
+}
+
+func (o *PutStatusProbeForbidden) String() string {
+	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeForbidden ", 403)
+}
+
+func (o *PutStatusProbeForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

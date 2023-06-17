@@ -8,7 +8,7 @@ package m1cpu
 // #include <IOKit/IOKitLib.h>
 // #include <sys/sysctl.h>
 //
-// #ifndef MAC_OS_VERSION_12_0
+// #if !defined(MAC_OS_VERSION_12_0) || MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_VERSION_12_0
 // #define kIOMainPortDefault kIOMasterPortDefault
 // #endif
 //

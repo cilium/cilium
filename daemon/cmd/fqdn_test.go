@@ -11,9 +11,8 @@ import (
 	"sync"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	miekgdns "github.com/miekg/dns"
-	. "gopkg.in/check.v1"
-	k8sCache "k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/checker"
@@ -47,7 +46,7 @@ type DaemonFQDNSuite struct {
 var _ = Suite(&DaemonFQDNSuite{})
 
 func (ds *DaemonFQDNSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 
 	re.InitRegexCompileLRU(defaults.FQDNRegexCompileLRUSize)
 }
@@ -111,10 +110,10 @@ func (f *FakeRefcountingIdentityAllocator) IdentityReferenceCounter() counter.In
 
 func (f *FakeRefcountingIdentityAllocator) Close() {
 }
-func (f *FakeRefcountingIdentityAllocator) InitIdentityAllocator(versioned.Interface, k8sCache.Store) <-chan struct{} {
+func (f *FakeRefcountingIdentityAllocator) InitIdentityAllocator(versioned.Interface) <-chan struct{} {
 	return nil
 }
-func (f *FakeRefcountingIdentityAllocator) WatchRemoteIdentities(string, kvstore.BackendOperations) (*allocator.RemoteCache, error) {
+func (f *FakeRefcountingIdentityAllocator) WatchRemoteIdentities(string, kvstore.BackendOperations, bool) (*allocator.RemoteCache, error) {
 	return nil, nil
 }
 

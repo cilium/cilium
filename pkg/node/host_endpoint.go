@@ -13,7 +13,7 @@ var (
 
 // GetLabels returns the labels of this node.
 func GetLabels() map[string]string {
-	return localNode.Get().Labels
+	return getLocalNode().Labels
 }
 
 // SetLabels sets the labels of this node.

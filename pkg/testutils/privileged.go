@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-
-	"gopkg.in/check.v1"
 )
 
 const (
@@ -22,12 +20,6 @@ func PrivilegedTest(tb testing.TB) {
 
 	if os.Getenv(privilegedEnv) == "" {
 		tb.Skip(fmt.Sprintf("Set %s to run this test", privilegedEnv))
-	}
-}
-
-func PrivilegedCheck(c *check.C) {
-	if os.Getenv(privilegedEnv) == "" {
-		c.Skip(fmt.Sprintf("Set %s to run this test", privilegedEnv))
 	}
 }
 
@@ -45,13 +37,6 @@ func IntegrationTest(tb testing.TB) {
 
 	if os.Getenv(integrationEnv) == "" {
 		tb.Skip(fmt.Sprintf("Set %s to run this test", integrationEnv))
-	}
-}
-
-// IntegrationCheck only executes c if integration tests are requested.
-func IntegrationCheck(c *check.C) {
-	if os.Getenv(integrationEnv) == "" {
-		c.Skip(fmt.Sprintf("Set %s to run this test", integrationEnv))
 	}
 }
 

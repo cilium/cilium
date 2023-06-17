@@ -1,7 +1,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 
 # define a function replacing spaces with commas in a list
@@ -82,20 +82,20 @@ GO_TAGS_FLAGS = osusergo
 GOTEST_COVER_OPTS =
 
 # By default, just print go test output immediately to the terminal. If tparse
-# is installed, use it to format the output. This is either silent silent (V=0)
-# or gives some signal about ongoing progress by teeing to the terminal (V=1).
+# is installed, use it to format the output. Use -progress instead of -follow,
+# as the latter is too verbose for most of the test suite.
 GOTEST_FORMATTER ?= cat
 ifneq ($(shell command -v tparse),)
 	GOTEST_COVER_OPTS += -json
 	GOTEST_FORMATTER = tparse
 ifneq ($(V),0)
-	GOTEST_FORMATTER += -follow
+	GOTEST_FORMATTER += -progress
 endif
 endif
 
 # renovate: datasource=docker depName=golangci/golangci-lint
-GOLANGCILINT_WANT_VERSION = v1.52.2
-GOLANGCILINT_IMAGE_SHA = sha256:3d2f4240905054c7efa7f4e98ba145c12a16995bbc3e605300e21400a1665cb6
+GOLANGCILINT_WANT_VERSION = v1.53.3
+GOLANGCILINT_IMAGE_SHA = sha256:1e0e2867b387bf68762427db499a963e43582b06819992db205fc31daa75ceea
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)

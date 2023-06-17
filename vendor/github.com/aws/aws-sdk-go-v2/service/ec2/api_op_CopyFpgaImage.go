@@ -39,8 +39,8 @@ type CopyFpgaImageInput struct {
 	SourceRegion *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html).
+	// the request. For more information, see Ensuring idempotency (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// The description for the new AFI.
@@ -48,8 +48,8 @@ type CopyFpgaImageInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The name for the new AFI. The default is the name of the source AFI.
@@ -118,6 +118,9 @@ func (c *Client) addOperationCopyFpgaImageMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCopyFpgaImage(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

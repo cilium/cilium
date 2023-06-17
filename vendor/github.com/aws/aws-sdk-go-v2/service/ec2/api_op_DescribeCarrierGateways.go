@@ -35,33 +35,23 @@ type DescribeCarrierGatewaysInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters.
-	//
-	// * carrier-gateway-id - The ID of the carrier gateway.
-	//
-	// *
-	// state - The state of the carrier gateway (pending | failed | available |
-	// deleting | deleted).
-	//
-	// * owner-id - The Amazon Web Services account ID of the
-	// owner of the carrier gateway.
-	//
-	// * tag: - The key/value combination of a tag
-	// assigned to the resource. Use the tag key in the filter name and the tag value
-	// as the filter value. For example, to find all resources that have a tag with the
-	// key Owner and the value TeamA, specify tag:Owner for the filter name and TeamA
-	// for the filter value.
-	//
-	// * tag-key - The key of a tag assigned to the resource.
-	// Use this filter to find all resources assigned a tag with a specific key,
-	// regardless of the tag value.
-	//
-	// * vpc-id - The ID of the VPC associated with the
-	// carrier gateway.
+	//   - carrier-gateway-id - The ID of the carrier gateway.
+	//   - state - The state of the carrier gateway ( pending | failed | available |
+	//   deleting | deleted ).
+	//   - owner-id - The Amazon Web Services account ID of the owner of the carrier
+	//   gateway.
+	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
+	//   tag key in the filter name and the tag value as the filter value. For example,
+	//   to find all resources that have a tag with the key Owner and the value TeamA ,
+	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
+	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//   - vpc-id - The ID of the VPC associated with the carrier gateway.
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the
@@ -135,6 +125,9 @@ func (c *Client) addOperationDescribeCarrierGatewaysMiddlewares(stack *middlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeCarrierGateways(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

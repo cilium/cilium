@@ -15,10 +15,8 @@ import (
 // between scopes and ignore resource CIDRs that you do not want to manage. If set
 // to false, the resource will not be tracked for overlap, it cannot be
 // auto-imported into a pool, and it will be removed from any pool it has an
-// allocation in. For more information, see Move resource CIDRs between scopes
-// (https://docs.aws.amazon.com/vpc/latest/ipam/move-resource-ipam.html) and Change
-// the monitoring state of resource CIDRs
-// (https://docs.aws.amazon.com/vpc/latest/ipam/change-monitoring-state-ipam.html)
+// allocation in. For more information, see Move resource CIDRs between scopes (https://docs.aws.amazon.com/vpc/latest/ipam/move-resource-ipam.html)
+// and Change the monitoring state of resource CIDRs (https://docs.aws.amazon.com/vpc/latest/ipam/change-monitoring-state-ipam.html)
 // in the Amazon VPC IPAM User Guide.
 func (c *Client) ModifyIpamResourceCidr(ctx context.Context, params *ModifyIpamResourceCidrInput, optFns ...func(*Options)) (*ModifyIpamResourceCidrOutput, error) {
 	if params == nil {
@@ -42,8 +40,8 @@ type ModifyIpamResourceCidrInput struct {
 	// This member is required.
 	CurrentIpamScopeId *string
 
-	// Determines if the resource is monitored by IPAM. If a resource is monitored, the
-	// resource is discovered by IPAM and you can view details about the resource’s
+	// Determines if the resource is monitored by IPAM. If a resource is monitored,
+	// the resource is discovered by IPAM and you can view details about the resource’s
 	// CIDR.
 	//
 	// This member is required.
@@ -69,8 +67,8 @@ type ModifyIpamResourceCidrInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -136,6 +134,9 @@ func (c *Client) addOperationModifyIpamResourceCidrMiddlewares(stack *middleware
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyIpamResourceCidr(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
