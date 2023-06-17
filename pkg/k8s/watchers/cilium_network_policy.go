@@ -333,7 +333,6 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 	}
 
 	if policyImportErr != nil {
-		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
 		scopedLog.WithError(policyImportErr).Warn("Unable to add CiliumNetworkPolicy")
 	} else {
 		scopedLog.Info("Imported CiliumNetworkPolicy")
@@ -405,12 +404,10 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 		// update to the new policy will be skipped.
 		switch {
 		case ns != "" && !errors.Is(err, cilium_v2.ErrEmptyCNP):
-			metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
 			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 				Warn("Error parsing old CiliumNetworkPolicy rule")
 			return err
 		case ns == "" && !errors.Is(err, cilium_v2.ErrEmptyCCNP):
-			metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
 			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 				Warn("Error parsing old CiliumClusterwideNetworkPolicy rule")
 			return err
@@ -419,7 +416,6 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 
 	_, err = newRuleCpy.Parse()
 	if err != nil {
-		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
 		return err
