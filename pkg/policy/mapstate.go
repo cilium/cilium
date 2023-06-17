@@ -48,7 +48,7 @@ const (
 type MapState map[Key]MapStateEntry
 
 type Identities interface {
-	GetLabels(identity.NumericIdentity) labels.LabelArray
+	GetLabelsLocked(identity.NumericIdentity) labels.LabelArray
 }
 
 // Key is the userspace representation of a policy key in BPF. It is
@@ -202,7 +202,7 @@ func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNe
 	if !id.HasLocalScope() || identities == nil {
 		return nil
 	}
-	lbls := identities.GetLabels(id)
+	lbls := identities.GetLabelsLocked(id)
 	var (
 		maskSize         int
 		mostSpecificCidr *net.IPNet
@@ -843,7 +843,7 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 	}
 }
 
-func (keys MapState) DeniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
+func (keys MapState) deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 
